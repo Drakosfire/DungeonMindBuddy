@@ -38,7 +38,7 @@ export function PreparedBuildImage({record,bridge,active}: {record:PreparedImage
       const expected=start.record.reservation.basis;
       if (capture.basis.world_id!==expected.world_id || capture.basis.document_id!==expected.document_id
         || capture.basis.registry_revision!==expected.registry_revision || capture.basis.content_sha256!==expected.content_sha256) throw new Error('Open the page used for this image direction, or ask for a new image here.');
-      const fresh=await mediaRequest('preparations/'+start.record.action_id) as PreparedImage;
+      const fresh=await mediaRequest('preparations/'+start.record.action_id+'?world_id='+encodeURIComponent(expected.world_id)) as PreparedImage;
       if (!mounted.current || current.current.record.action_id!==start.record.action_id || !current.current.active || current.current.bridge!==start.bridge) return;
       if (fresh.reservation.conversation_id!==start.record.reservation.conversation_id || fresh.prompt!==start.record.prompt || fresh.alt!==start.record.alt || (fresh.purpose??null)!==(start.record.purpose??null)) throw new Error('The prepared direction changed. Reopen it.');
       captured.current=capture;setPrepared(fresh);setOpen(true);
@@ -62,7 +62,7 @@ export function PreparedBuildImage({record,bridge,active}: {record:PreparedImage
       if(capture.basis.world_id!==expected.world_id || capture.basis.document_id!==expected.document_id || capture.basis.registry_revision!==expected.registry_revision || capture.basis.content_sha256!==expected.content_sha256) throw new Error('Place this image on the page used for its image direction.');
       const asset=await mediaRequest(image.asset_id+'/metadata',undefined,placement.signal);
       if(asset.asset_id!==image.asset_id || !['staged','ready'].includes(asset.state)) throw new Error('The retained image is unavailable. Reopen it before placing it.');
-      const selected=await mediaRequest('preparations/'+prepared.action_id+'/asset',{asset_id:image.asset_id,expected_revision:prepared.revision},placement.signal) as PreparedImage;
+      const selected=await mediaRequest('preparations/'+prepared.action_id+'/asset?world_id='+encodeURIComponent(prepared.reservation.basis.world_id),{asset_id:image.asset_id,expected_revision:prepared.revision},placement.signal) as PreparedImage;
       setPrepared(selected);
       placement.signal.throwIfAborted();
       if(!mounted.current || studioEpoch.current!==epoch || !current.current.active || current.current.record.action_id!==start.record.action_id || current.current.bridge!==start.bridge) throw new Error('The page changed. Place the image again.');

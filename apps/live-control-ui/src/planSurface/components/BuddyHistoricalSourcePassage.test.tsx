@@ -93,3 +93,13 @@ describe('historical source memory inspection',()=>{
    expect(await screen.findByRole('alert')).toHaveTextContent('unavailable');
    expect(screen.queryByText(text)).not.toBeInTheDocument();
  });
+
+it('rejects an exact capture from a different replay Graph revision', async () => {
+  const load = vi.fn().mockResolvedValue(response())
+  render(<BuddyHistoricalSourcePassage reference={reference} graphRevision="different-revision"
+    label="Open replay source" load={load} />)
+  expect(load).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByText('Open replay source'))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Captured passage is unavailable.')
+  expect(screen.queryByText(text)).not.toBeInTheDocument()
+})

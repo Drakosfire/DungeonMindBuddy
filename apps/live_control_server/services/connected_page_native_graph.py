@@ -128,7 +128,7 @@ def _committed(repo, intent, bound):
     return get_prospective_publication(bound['native_world_id'], publication_id(intent), repository=repo)
 
 
-def prepare(root, state, intent, principal, declarations, persist):
+def prepare(root, state, intent, principal, declarations, persist, *, authorize=None):
     require_native_graph_gm(principal)
     repo = native.repository()
     bound = native.binding(intent.world_id)
@@ -148,8 +148,13 @@ def prepare(root, state, intent, principal, declarations, persist):
     validate_identities(intent, principal, repository=repo)
     snapshot = _source(root, state)
     if packet is None:
+        def authorize_source(world):
+            require(world == intent.world_id, "Source World changed")
+            authorize()
+
+        guard = {"authorize_world": authorize_source} if authorize is not None else {}
         admitted = admit_native_world_source(root, state['page_id'],
-            expected_revision=snapshot.loaded_revision, expected_body_sha256=snapshot.content_sha256)
+            expected_revision=snapshot.loaded_revision, expected_body_sha256=snapshot.content_sha256, **guard)
         require(admitted.state == 'admitted' and admitted.world_id == intent.world_id
                 and admitted.space_id == bound['native_world_id'] and admitted.document_id == state['page_id'],
                 'The exact initial page source is not admitted to this native World')
@@ -186,6 +191,8 @@ def prepare(root, state, intent, principal, declarations, persist):
             packet['extension_request'] = extension.model_dump(mode='json')
             persist(state)
         domain, profile = native.descriptors(repo, bound['native_world_id'], extension.expected_parent_revision_id)
+        if authorize is not None:
+            authorize()
         receipt = publish_native_source_evidence_extension(repository=repo, request=extension,
             domain_contract=domain, semantic_profile=profile, audience_labels=(GM_LABEL, PLAYER_LABEL))
         packet['extension_receipt'] = receipt.model_dump(mode='json')
@@ -207,7 +214,7 @@ def prepare(root, state, intent, principal, declarations, persist):
                 + [{'summary': f'{intent.person.label} {p} {intent.place.label}'} for p in intent.relationships]}
 
 
-def confirm(root, state, intent, principal):
+def confirm(root, state, intent, principal, *, authorize=None):
     require_native_graph_gm(principal)
     review, packet = state['prepared'], state['graph_request']
     signed = decode_publication_intent(review['confirm_token'], allow_expired_recovery=True)
@@ -239,8 +246,11 @@ def confirm(root, state, intent, principal):
         require(repo.open_native_source_view(bound['native_world_id']).epoch == context['source_epoch'],
                 'Source authority changed during confirmation; retry the original request')
     domain, profile = native.descriptors(repo, bound['native_world_id'], prepared.expected_parent_revision_id)
-    result = transport.runtime(repo, domain, profile, now=prepared.prepared_at,
-                               operation_id=publication_id(intent)).commit_prepared_change(prepared, confirmed_by=principal.subject)
+    runtime = transport.runtime(repo, domain, profile, now=prepared.prepared_at,
+                                operation_id=publication_id(intent))
+    if authorize is not None:
+        authorize()
+    result = runtime.commit_prepared_change(prepared, confirmed_by=principal.subject)
     return {'committed': True, 'created_node_ids': {o.client_op_id:o.durable_object_id for o in result.object_results},
             'native_world_id': bound['native_world_id'], 'published_revision_id': result.child_revision_id,
             'publication_id': result.dungeonmind_publication_id, 'verified_result': jsonable_encoder(result)}

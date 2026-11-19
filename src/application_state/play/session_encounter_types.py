@@ -51,3 +51,9 @@ class MaterializeSceneEncounterRequest(BaseModel):
 class WorldSessionCreationResult(BaseModel):
     aggregate: WorldPlayRunAggregate
     receipt: dict
+
+class MaterializeManualSceneEncounterRequest(MaterializeSceneEncounterRequest):
+    schema_version: Literal["dmb_scene_encounter_materialize_v2"]
+    initialization_policy: Literal["dmb_preserve_manual_preparation_v2"]
+
+AnyMaterializeSceneEncounterRequest = MaterializeSceneEncounterRequest | MaterializeManualSceneEncounterRequest

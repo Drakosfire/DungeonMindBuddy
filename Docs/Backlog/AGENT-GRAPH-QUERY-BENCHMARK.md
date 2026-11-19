@@ -2,8 +2,12 @@
 
 **Captured:** 2026-09-14  
 **Revised:** 2026-09-15 after accepted-World dogfood STOP  
-**Status:** active evaluation authority; sequencing follows `Docs/Design/ACCEPTANCE-dogfood-readiness.md` and the CON-READY steward anchor  
+**Status:** historical September 2026 evaluation design; not a current sequencing or dispatch authority.  
 **Origin:** review of the current Agent surface against `evals/graph_benchmark_gold/qa/longmont-c1/sessions-01-10-v1.md`
+
+## What to carry forward
+
+Keep the separation between ordinary product loadability, exact source-backed retrieval, and answer synthesis. For new retrieval comparisons, use the [ordinary Buddy benchmark](../../evals/buddy_benchmark/) at the context-ready boundary, with the writer off. Reopen exact passages through the selected World and revision. Use the old questions and observations below as retained diagnostics, not as a fresh holdout or evidence about the current serving build.
 
 ## Forcing question
 

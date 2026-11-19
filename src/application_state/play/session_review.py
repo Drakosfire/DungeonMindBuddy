@@ -1,4 +1,5 @@
 """Session review is an append-only companion to the Play aggregate, never Plan truth."""
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Literal
 import hashlib
@@ -48,7 +49,8 @@ def read_review(*, run_id: str, world_id: str):
                 "source_changed": bool(head and (head["checkpoint"]["run_revision"] != state[0].run_revision or head["checkpoint"]["content"]["content_sha256"] != content.content_sha256))}
 
 
-def commit_review(*, run_id: str, world_id: str, command_id: str, request: ReviewCommand):
+def commit_review(*, run_id: str, world_id: str, command_id: str, request: ReviewCommand,
+                  authorize_world: Callable[[], None] | None = None):
     from application_state.play.service import _as_uuid
     run_id, world_id = _coordinates(run_id, world_id)
     command_id = _as_uuid(command_id, field_name="command_id")
@@ -68,6 +70,8 @@ def commit_review(*, run_id: str, world_id: str, command_id: str, request: Revie
             cur.execute("SELECT request_sha256,payload FROM play.session_review_revision WHERE run_id=%s AND command_id=%s", (run_id, command_id))
             prior = cur.fetchone()
         if prior:
+            if authorize_world is not None:
+                authorize_world()
             if prior["request_sha256"] != digest:
                 raise ApplicationStateConflictError("Review command identity already has different bytes")
             return prior["payload"]
@@ -99,6 +103,8 @@ def commit_review(*, run_id: str, world_id: str, command_id: str, request: Revie
         payload = {"schema_version": "dmb_session_review_v1", "world_id": world_id, "run_id": str(run_id),
                    "revision": request.expected_revision + 1, "status": status, "updated_at": now,
                    "checkpoint": checkpoint, "final_thoughts": thoughts, "draft_markdown": draft}
+        if authorize_world is not None:
+            authorize_world()
         conn.execute("INSERT INTO play.session_review_revision(run_id,revision_n,command_id,request_sha256,payload) VALUES (%s,%s,%s,%s,%s)",
                      (run_id, payload["revision"], command_id, digest, Jsonb(payload)))
         return payload

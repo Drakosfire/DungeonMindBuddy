@@ -63,3 +63,34 @@ def row_inventory(dsn, *, readonly, keys=ROW_KEYS):
                 })
             result[name] = sorted(inventory, key=lambda row: row["sha256"])
     return result
+
+
+def _checkpoint_digest(value) -> str:
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return sha256(payload.encode()).hexdigest()
+
+
+def action_checkpoint(directory: Path, *, stage: str, binding: dict, observe):
+    """Reuse an exact observation or collect it once in a serial benchmark lane.
+
+    The binding includes fixture and environment pins, stage inputs, and the
+    preceding checkpoint digest. A changed predecessor selects a new record.
+    The callback observes or replays an isolated stage. Product action
+    idempotency and unknown-outcome handling remain with the action owner.
+    """
+    if not stage.isascii() or not stage.replace("-", "").isalnum():
+        raise ValueError("Invalid action benchmark stage")
+    key = _checkpoint_digest({"stage": stage, "binding": binding})
+    name = f"{stage}-{key}"
+    path = directory / (name + ".json")
+    if path.exists():
+        record = json.loads(path.read_text())
+        expected = {"stage": stage, "binding": binding, "evidence": record["evidence"]}
+        if record != {**expected, "digest": _checkpoint_digest(expected)}:
+            raise ValueError("Invalid action benchmark checkpoint: " + name)
+        return record, True
+
+    record = {"stage": stage, "binding": binding, "evidence": observe()}
+    record["digest"] = _checkpoint_digest(record)
+    immutable_save(directory, name, record)
+    return record, False

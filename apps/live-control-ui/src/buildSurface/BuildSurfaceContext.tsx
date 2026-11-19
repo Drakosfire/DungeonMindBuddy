@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import {useTourNavigationOwner,useTourNavigationGuard} from '../guidedTour/Navigation';
 import { useOptionalAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { BUILD_FIND_EXISTING_TOOL_ID } from "./reference/buildReferenceIds";
@@ -23,13 +24,11 @@ import {
   SurfaceContextBadge,
   SurfaceContextModule,
   SurfaceContextStatus,
-  SurfaceContextValue,
   useSurfaceContextContribution,
 } from "../surfaceInteraction/contextHost";
 import { BuildConnectedPageControl } from "./BuildConnectedPageControl";
 import { BuildDocumentCreateControl } from "./BuildDocumentCreateControl";
 import { BuildDocumentRenameControl } from "./BuildDocumentRenameControl";
-import { LoadedWorldGraphExplorer } from "../graphLens/LoadedWorldGraphExplorer";
 import { BuildDocumentSelector } from "./BuildDocumentSelector";
 import { buildSavedAt, buildSaveStateFor } from "./useBuildAutosave";
 import type { BuildWorkspaceDocumentController } from "./useBuildWorkspaceDocumentController";
@@ -58,7 +57,7 @@ export type BuildSurfaceContextProps = Pick<
   | "destinationOptions"
   | "suggestedDestinationValue"
   | "suggestedCreateCampaignId"
-> & { extractionTargetRef?: Ref<HTMLDivElement> };
+> & { primaryActionsHost?: HTMLDivElement | null; extractionTargetRef?: Ref<HTMLDivElement> };
 
 export function BuildSurfaceContext({
   activeRecord,
@@ -83,6 +82,7 @@ export function BuildSurfaceContext({
   destinationOptions,
   suggestedDestinationValue,
   suggestedCreateCampaignId,
+  primaryActionsHost,
   extractionTargetRef,
 }: BuildSurfaceContextProps) {
   const session = useOptionalMarkdownCanvasSession();
@@ -91,6 +91,7 @@ export function BuildSurfaceContext({
   const openReferenceTool = agentInteraction?.openTool;
   const linkAvailable = agentInteraction?.surfaceInteractionPublication?.tools.some(tool => tool.id === BUILD_FIND_EXISTING_TOOL_ID && tool.availability.status === "enabled") ?? false;
   const selectedWorld = useSelectedWorld();
+  const documentWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const trashWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const tourSelection=useRef<symbol|null>(null);
   useTourNavigationGuard(trashWorldId?{worldId:trashWorldId,reason:(_impact,reservation)=>creating?'Finish creating or importing the current source first.':switching&&reservation!==tourSelection.current?'Wait for source selection to finish.':null}:null);
@@ -111,7 +112,7 @@ export function BuildSurfaceContext({
   useEffect(() => {
     const open = (event: Event) => {
       if ((event as CustomEvent<BuildStudioAction>).detail === "open") {
-        document.querySelector<HTMLSelectElement>(".build-document-selector--context select")?.focus();
+        document.querySelector<HTMLButtonElement>("[data-testid=build-document-select]")?.focus();
       }
     };
     window.addEventListener(BUILD_STUDIO_ACTION, open);
@@ -154,16 +155,23 @@ export function BuildSurfaceContext({
               <span data-testid="build-canvas-title" hidden>
                 {displayTitle}
               </span>
-              <BuildDocumentSelector
+              {placePrimaryAction(<BuildDocumentSelector
+                worldId={documentWorldId}
                 documents={documents}
                 listStatus={listStatus}
                 activeDocumentId={activeDocumentId}
                 activeRecord={liveRecord}
                 preferredCampaignId={campaignId}
                 switching={documentMutationBusy}
+                loadMorePages={hasMoreDocuments ? loadMoreDocuments : undefined}
+                activePageTrashBlocked={!session || session.dirty || buildSaveStateFor(session) !== "saved"}
+                onPageTrashed={id => {
+                  if (id === activeDocumentId && documentWorldId) {
+                    window.location.assign(`/build?world=${encodeURIComponent(documentWorldId)}`);
+                  } else void refreshDocuments();
+                }}
                 onSelect={selectDocument}
-              />
-              <LoadedWorldGraphExplorer entry="recaps" />
+              />, primaryActionsHost)}
               {authoringStatusLabel ? (
                 <>
                   <SurfaceContextStatus
@@ -192,25 +200,26 @@ export function BuildSurfaceContext({
             </>
           ) : (
             <>
-              <SurfaceContextValue>No source loaded</SurfaceContextValue>
-              <BuildDocumentSelector
+              {placePrimaryAction(<BuildDocumentSelector
+                worldId={documentWorldId}
                 documents={documents}
                 listStatus={listStatus}
                 activeDocumentId={null}
                 activeRecord={null}
                 preferredCampaignId={suggestedCreateCampaignId}
                 switching={switching || creating}
+                loadMorePages={hasMoreDocuments ? loadMoreDocuments : undefined}
+                activePageTrashBlocked={!session || session.dirty || buildSaveStateFor(session) !== "saved"}
+                onPageTrashed={id => {
+                  if (id === activeDocumentId && documentWorldId) {
+                    window.location.assign(`/build?world=${encodeURIComponent(documentWorldId)}`);
+                  } else void refreshDocuments();
+                }}
                 onSelect={selectDocument}
-              />
-              <LoadedWorldGraphExplorer entry="recaps" />
+              />, primaryActionsHost)}
             </>
           )}
-          {hasMoreDocuments ? (
-            <button type="button" onClick={loadMoreDocuments} disabled={listStatus !== "ready" || documentMutationBusy}>
-              Load more sources
-            </button>
-          ) : null}
-          <details className="build-source-actions">
+          {(session || campaignBadge || documentClass) && <details className="build-source-actions">
             <summary>Source actions</summary>
             <div className="build-source-actions__menu">
               <div ref={setRelationshipsHost}/>
@@ -233,7 +242,7 @@ export function BuildSurfaceContext({
                 />
               ) : null}
             </div>
-          </details>
+          </details>}
           {activeDocumentId ? <>
             <SurfaceContextAction className="build-navbar-tool" aria-label="Link existing node" title="Link an existing graph node" disabled={!linkAvailable || !renameAdmitted || documentMutationBusy}
               onClick={() => { if (linkAvailable) openReferenceTool?.(BUILD_FIND_EXISTING_TOOL_ID); }}>Link node</SurfaceContextAction>
@@ -247,7 +256,7 @@ export function BuildSurfaceContext({
           {activeDocumentId && extractionTargetRef ? (
             <div className="build-extraction-slot" ref={extractionTargetRef} data-testid="build-extraction-slot" />
           ) : null}
-          <BuildDocumentCreateControl
+          {placePrimaryAction(<BuildDocumentCreateControl
             destinationOptions={destinationOptions}
             suggestedDestinationValue={suggestedDestinationValue}
             creating={creating}
@@ -260,7 +269,7 @@ export function BuildSurfaceContext({
             onRetryOpen={activationError ? retryCreatedDocument : undefined}
             onRetryImport={importError ? retryImportSource : undefined}
             disabled={documentMutationBusy}
-          />
+          />, primaryActionsHost)}
         </div>
         {listStatus === "error" ? (
           <SurfaceContextStatus tone="error">
@@ -284,11 +293,13 @@ export function BuildSurfaceContext({
       authoringStatusLabel,
       campaignBadge,
       campaignId,
+      documentWorldId,
       createDocument,
       createError,
       creating,
       destinationOptions,
       displayTitle,
+      primaryActionsHost,
       extractionTargetRef,
       documentClass,
       documentMutationBusy,
@@ -325,4 +336,9 @@ export function BuildSurfaceContext({
   });
 
   return <BuildConnectedPageControl selectDocument={selectDocument} refreshDocuments={refreshDocuments} relationshipsHost={relationshipsHost}/>;
+}
+
+
+function placePrimaryAction(picker: React.ReactElement, host: HTMLDivElement | null | undefined) {
+  return host === undefined ? picker : host ? createPortal(picker, host) : null;
 }

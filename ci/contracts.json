@@ -1,6 +1,27 @@
 {
   "version": 1,
   "contracts": {
+    "combat-manual-persistence": {
+      "cwd": ".",
+      "argv": [
+        "{python}", "-m", "pytest", "-q", "--tb=short", "--show-capture=no",
+        "tests/application_state/test_manual_combat_postgres.py",
+        "tests/application_state/test_combat_encounters_postgres.py",
+        "tests/application_state/test_combat_scene_templates_postgres.py",
+        "tests/application_state/test_run_scene_encounters_postgres.py",
+        "tests/test_live_combat_encounters.py",
+        "tests/test_combat_scene_templates.py",
+        "tests/test_run_scene_encounters.py"
+      ]
+    },
+    "combat-profile-validation": {
+      "cwd": ".",
+      "argv": [
+        "{python}", "-m", "pytest", "-q", "--tb=short", "--show-capture=no",
+        "tests/test_combat_manual_profiles.py",
+        "tests/test_combat_manual_encounters.py"
+      ]
+    },
     "world-and-content": {
       "cwd": ".",
       "argv": [
@@ -125,6 +146,7 @@
         "tests/test_agent_context_assembler.py",
         "tests/test_agent_turn_trace.py",
         "tests/test_buddy_benchmark_workflow.py",
+        "tests/test_aw_action_assessment.py",
         "tests/test_graph_retrieval_interaction.py",
         "tests/test_hermes_graph_agent.py",
         "tests/test_live_query_hermes_graph.py",

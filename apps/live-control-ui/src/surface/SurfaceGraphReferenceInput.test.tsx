@@ -9,12 +9,12 @@ const pin={managed_world_id:'quarry',native_world_id:'native',binding_version:3,
 const ids=['first-box','second-box','fellinor'];
 const catalog:NativeGraphCatalog={schema:'dmb_native_graph_catalog_v1',scope:pin,catalogue:{identity:{space_id:'native',revision_id:'rev-a'},entities:ids.map(entity_id=>({entity_id})),admitted_assertion_ids:ids,completeness:{status:'complete',reason:null},request_sha256:'hash',result_digest:'digest'},assertions:ids.map((id,i)=>({assertion_id:id,subject_entity_id:id,predicate:'dnd5e:name',value:{kind:'literal',value:i===2?'Fellinor':'Cedar box'},metadata:{scope:[],visibility:{kind:'public'},epistemic_basis:'direct',claim_mode:'fact',standing:'admitted',evidence_ref_ids:[],temporal_scope:null,domain_metadata:[]}}))};
 const reference:AuthoredGraphReferenceV1={schema:'dmb_authored_graph_reference_v1',managed_world_id:'quarry',native_world_id:'native',binding_version:3,graph_revision:'rev-a',node_id:'first-box',label:'Cedar box'};
-beforeEach(()=>{vi.resetAllMocks();vi.mocked(listWorldMechanicsAssociations).mockResolvedValue([]);vi.mocked(getNativeGraphCatalog).mockResolvedValue(catalog);vi.mocked(inspectNativeGraph).mockResolvedValue({schema:'dmb_native_graph_entity_v1',scope:pin,entity:{found:true,assertions:[],evidence:[],completeness:{status:'complete',reason:null}}});});
+beforeEach(()=>{vi.resetAllMocks();vi.mocked(listWorldMechanicsAssociations).mockResolvedValue([]);vi.mocked(getNativeGraphCatalog).mockResolvedValue(catalog);vi.mocked(getNativeSourceCatalog).mockResolvedValue({schema:"dmb_native_source_catalog_v1",scope:pin,catalogue:{space_id:"native",revision_id:"rev-a",source_authority_epoch:1,sources:[],complete:true},navigation_complete:true});vi.mocked(inspectNativeGraph).mockResolvedValue({schema:'dmb_native_graph_entity_v1',scope:pin,entity:{found:true,assertions:[],evidence:[],completeness:{status:'complete',reason:null}}});});
 afterEach(cleanup);
 async function open(){fireEvent.click(screen.getByRole('button',{name:'@ Reference'}));return screen.findByRole('searchbox',{name:'Find an object'});}
 it('finds Fellinor without a projection provider and selects the exact native revision without reading',async()=>{
  const change=vi.fn();render(<SurfaceGraphReferenceInput worldId="quarry" value={[]} onChange={change}/>);
- expect(getNativeGraphCatalog).not.toHaveBeenCalled();fireEvent.change(await open(),{target:{value:'FELLINOR'}});
+ expect(getNativeGraphCatalog).toHaveBeenCalledTimes(1);fireEvent.change(await open(),{target:{value:'FELLINOR'}});
  fireEvent.click(screen.getByRole('button',{name:'Use Fellinor as context'}));
  expect(change).toHaveBeenCalledWith([{...reference,node_id:'fellinor',label:'Fellinor'}]);expect(inspectNativeGraph).not.toHaveBeenCalled();expect(screen.queryByRole('searchbox')).toBeNull();
  expect(getNativeGraphCatalog).toHaveBeenCalledWith({managed_world_id:'quarry',scope_mode:'world',campaign_id:null},expect.any(AbortSignal));
@@ -80,7 +80,7 @@ it('uses the toolbar trigger with the existing picker and retains selected chips
  const host=document.createElement('span');document.body.append(host);const change=vi.fn();
  const view=render(<SurfaceGraphReferenceInput worldId="quarry" label="Composer references" value={[]} onChange={change} triggerHost={host}/>);
  const trigger=within(host).getByRole('button',{name:'@ Reference'});expect(trigger).toHaveTextContent('@');
- expect(screen.queryByRole('region',{name:'Composer references'})).toBeNull();expect(getNativeGraphCatalog).not.toHaveBeenCalled();
+ expect(screen.queryByRole('region',{name:'Composer references'})).toBeNull();expect(getNativeGraphCatalog).toHaveBeenCalledTimes(1);
  fireEvent.click(trigger);expect(await screen.findByRole('searchbox',{name:'Find an object'})).toBeVisible();
  expect(document.getElementById(trigger.getAttribute('aria-controls')!)).toContainElement(screen.getByRole('searchbox',{name:'Find an object'}));
  fireEvent.click(screen.getByRole('button',{name:'Use Fellinor as context'}));expect(change).toHaveBeenCalledWith([{...reference,node_id:'fellinor',label:'Fellinor'}]);

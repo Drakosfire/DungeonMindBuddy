@@ -16,7 +16,7 @@ from tests.test_surface_native_execution import component, controller, decision_
 from tests.test_surface_native_writer import work_submission, with_work_selection
 
 
-def staged(surface, *, requested='discuss', rules=False, current_plan=False):
+def staged(surface, *, requested='discuss', rules=False, current_plan=False, dialogue=()):
     if surface == 'plan_current':
         surface, current_plan = 'plan', True
     context, record = component(surface, unavailable=True)
@@ -58,7 +58,7 @@ def staged(surface, *, requested='discuss', rules=False, current_plan=False):
                 _broker_execution=lambda: record)
     rule_owner = N(frame=lambda: N(ruleset='dnd_2024_srd_5_2_1', supports=(),
                                   lookups=(N(lookup=0, status='no_evidence'),) if rules else ()))
-    return PlanJevWriter(adapter, work['work_proof'], rule_owner), record
+    return PlanJevWriter(adapter, work['work_proof'], rule_owner, dialogue=dialogue), record
 
 
 @pytest.mark.parametrize('surface', ['plan', 'plan_current', 'build', 'play'])
@@ -126,6 +126,18 @@ def test_build_dispatch_operation_alone_does_not_grant_ordinary_prompt(requested
     # Use the actual closed event type; the work owner validates its resolution.
     record = record.model_copy(update={'events': (selection,)})
     assert _conversation_response_task(record) == ('answer' if requested == 'discuss' else 'explain_capability')
+
+
+def test_variant_approval_uses_its_own_workflow_guidance():
+    _, record = component('build', unavailable=True)
+    first = controller('build', record.policy)
+    selection = build_resolution(record.policy, first, 3, requested='review_variant_approval')
+    record = record.model_copy(update={'events': (selection,)})
+
+    task = _conversation_response_task(record)
+    assert task == 'variant_approval'
+    assert 'Open in Combat' in compose_response_prompt(task=task).instructions
+    assert 'Open in Combat' not in compose_response_prompt().instructions
 
 
 def test_frame_like_objects_cannot_select_a_product_response_contract():
@@ -211,3 +223,28 @@ def test_native_response_schema_does_not_advertise_image_preparation(surface):
     candidate['answer_segments'][0]['label'] = 'image_prompt'
     with pytest.raises(ValidationError):
         Draft202012Validator(schema).validate(candidate)
+
+def test_build_writer_keeps_prior_gm_decisions_in_provider_messages():
+    dialogue = (
+        {"role": "user", "content": '{"ruleset":"x","lookups":[],"supports":[]}'},
+        {"role": "assistant", "content": "We could negotiate a truce."},
+        {"role": "user", "content": "Use the truce. Show them standing down first."},
+    )
+    writer, _ = staged("build", dialogue=dialogue)
+    baseline, _ = staged("build")
+    assert [
+        {"role": message["role"], "content": json.loads(message["content"])["conversation"]}
+        for message in writer.messages[:3]
+    ] == list(dialogue)
+    assert writer.messages[3:] == baseline.messages
+    assert all(set(message) == {"role", "content"} for message in writer.messages[:3])
+    assert dialogue[0]["content"] not in json.dumps(writer.output_format)
+    from apps.live_control_server.services.plan_jev_writer import PlanWriterProvider
+
+    call = N(model=writer.model, user_prompt=json.dumps(writer.messages),
+             system_prompt=writer.instructions, temperature=None,
+             max_output_tokens=None, reasoning_effort=None, json_object=False,
+             json_schema=writer.output_format["schema"],
+             schema_name=writer.output_format["name"])
+    provider = object.__new__(PlanWriterProvider)
+    assert provider._request_kwargs(call)["input"] == writer.messages

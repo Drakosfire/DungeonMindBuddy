@@ -1,3 +1,4 @@
+import { useSelectedWorld } from '../selectedWorld/SelectedWorldContext';
 import {useTourNavigationGuard} from '../guidedTour/Navigation';
 import {useTourImage} from '../guidedTour/ImageObservations';
 import { useEffect, useRef, useState } from 'react';
@@ -16,9 +17,9 @@ export type ImageGenerationInput = { prompt: string; model: string; width: numbe
 type CatalogModel = { endpoint_id: string; metadata: Record<string, unknown>; executable_model: string | null; selectable: boolean };
 type CatalogPage = { models: CatalogModel[]; next_cursor: string | null; has_more: boolean; fetched_at: string };
 export type ImageGenerationPort = {
-  capabilities: () => Promise<{ configured: boolean; library_ready: boolean; storage_configured: boolean; models: Model[]; default_model_id?: string; map_framing?: string }>;
-  catalog?: (cursor?: string) => Promise<CatalogPage>;
-  list: (cursor?: string) => Promise<{ items: MediaRecord[] }>;
+  capabilities: (worldId?: string) => Promise<{ configured: boolean; library_ready: boolean; storage_configured: boolean; models: Model[]; default_model_id?: string; map_framing?: string }>;
+  catalog?: (cursor?: string, worldId?: string) => Promise<CatalogPage>;
+  list: (cursor?: string, worldId?: string) => Promise<{ items: MediaRecord[] }>;
   get: (assetId: string) => Promise<MediaRecord>;
   save: (assetId: string) => Promise<MediaRecord>;
   generate: (input: ImageGenerationInput) => Promise<ImageGenerationResult>;
@@ -30,8 +31,17 @@ async function request(path: string, input?: ImageGenerationInput | Record<strin
   return body;
 }
 const livePort: ImageGenerationPort = {
-  capabilities: () => request('capabilities'), catalog: cursor => request('catalog' + (cursor ? `?cursor=${encodeURIComponent(cursor)}` : '')), generate: input => request('generate', input),
-  list: (cursor = '') => request('library' + cursor), get: id => request(id), save: id => request(id + '/save', {}),
+  capabilities: worldId => request('capabilities' + (worldId ? '?' + new URLSearchParams({world_id: worldId}) : '')), catalog: (cursor, worldId) => {
+    const query = new URLSearchParams();
+    if (cursor) query.set('cursor', cursor);
+    if (worldId) query.set('world_id', worldId);
+    return request('catalog' + (query.size ? '?' + query : ''));
+  }, generate: input => request('generate', input),
+  list: (cursor = '', worldId) => {
+    const query = new URLSearchParams(cursor);
+    if (worldId) query.set('world_id', worldId);
+    return request('library' + (query.size ? '?' + query : ''));
+  }, get: id => request(id), save: id => request(id + '/save', {}),
 };
 
 /** Lazy owner-authenticated previews; library reads never run generation or upload. */
@@ -59,10 +69,18 @@ function LibraryThumbnail({ record, port }: { record: MediaRecord; port: ImageGe
   return <span ref={holder} className="media-image-wizard__thumbnail">{source && !failed ? <img src={source} alt="" loading="lazy" onError={() => setFailed(true)} /> : <span>{failed ? 'Preview unavailable' : 'Loading preview…'}</span>}</span>;
 }
 
-/** Surface-independent generator. The host owns placement and any eventual document write. */
-export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initialPurpose = 'illustration', preparationId, chooseLabel = 'Insert into page', placeAfterBlock = false, selectionOnly = false, requireSaved = false, port = livePort }: {
+type MediaImageWizardProps = {
   initialPrompt?: string; initialPurpose?: 'illustration' | 'map'; preparationId?: string; chooseLabel?: string; placeAfterBlock?: boolean; selectionOnly?: boolean; requireSaved?: boolean; onClose: () => void; onChoose?: (image: GeneratedMediaImage, result: ImageGenerationResult, placement: { mode: 'click' | 'drag'; signal: AbortSignal }) => void | Promise<void>; port?: ImageGenerationPort;
-}) {
+};
+
+/** Surface-independent generator. The host owns placement and any eventual document write. */
+export function MediaImageWizard(props: MediaImageWizardProps) {
+  const world = useSelectedWorld();
+  const worldId = world.kind === "managed" ? world.worldId : undefined;
+  return <WorldImageWizard key={worldId} worldId={worldId} {...props} />;
+}
+
+function WorldImageWizard({ worldId, onClose, onChoose, initialPrompt = '', initialPurpose = 'illustration', preparationId, chooseLabel = 'Insert into page', placeAfterBlock = false, selectionOnly = false, requireSaved = false, port = livePort }: MediaImageWizardProps & { worldId?: string }) {
   const imageObservation=useTourImage(),tourImage=selectionOnly?null:imageObservation;
   const [collapsed, setCollapsed] = useState(false);
   const [placing, setPlacing] = useState(false);
@@ -84,6 +102,8 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
   const [completion, setCompletion] = useState<GeneratedMediaImage | null>(null);
   const libraryOpenRef = useRef(false);
   const browseSequence = useRef(0);
+  const currentWorld = useRef(worldId);
+  currentWorld.current = worldId;
   const [prompt, setPrompt] = useState(initialPrompt);
   const [modelId, setModelId] = useState('');
   const [shape, setShape] = useState('1024x1024');
@@ -99,6 +119,7 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
   const [catalogBusy, setCatalogBusy] = useState(false);
   const [catalogError, setCatalogError] = useState('');
   const catalogInFlight = useRef(false);
+  useEffect(() => () => { browseSequence.current += 1; }, []);
   const model = models.find(item => item.id === modelId);
   const currentResult = useRef(result); currentResult.current = result;
   const mounted = useRef(true);
@@ -106,9 +127,9 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
   useEffect(() => {
     let active = true;
     setCapabilityState('loading');
-    port.capabilities().then(data => { if (active) { setCapabilityState('loaded'); setMapFraming(data.map_framing ?? ''); setModels(data.models); setModelId(current => data.models.some(item => item.id === current) ? current : data.default_model_id ?? data.models[0]?.id ?? ''); setConfigured(data.configured); setStorageConfigured(data.storage_configured); setLibraryReady(data.library_ready); } }).catch(error => { if (active) { setCapabilityState('failed'); setError(error.message); } });
+    port.capabilities(worldId).then(data => { if (active) { setCapabilityState('loaded'); setMapFraming(data.map_framing ?? ''); setModels(data.models); setModelId(current => data.models.some(item => item.id === current) ? current : data.default_model_id ?? data.models[0]?.id ?? ''); setConfigured(data.configured); setStorageConfigured(data.storage_configured); setLibraryReady(data.library_ready); } }).catch(error => { if (active) { setCapabilityState('failed'); setError(error.message); } });
     return () => { active = false; };
-  }, [port]);
+  }, [port, worldId]);
   const imageInspection=capabilityState==='failed'||error?{status:'failed' as const,reason:error||'Image Studio capabilities could not be read.'}
     :capabilityState==='loading'?{status:'pending' as const,reason:'Checking Image Studio capabilities…'}
     :!configured||!libraryReady||!model?{status:'unavailable' as const,reason:!configured?'Connect the server’s fal credential to generate images.':!libraryReady?'The private image library is not ready.':'Choose an available image model.'}
@@ -119,7 +140,8 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
     if (!port.catalog || catalogInFlight.current) return;
     catalogInFlight.current = true; setCatalogBusy(true); setCatalogError('');
     try {
-      const page = await port.catalog(more ? catalog?.next_cursor ?? undefined : undefined);
+      const cursor = more ? catalog?.next_cursor ?? undefined : undefined;
+      const page = worldId ? await port.catalog(cursor, worldId) : await port.catalog(cursor);
       setCatalog(old => more && old ? { ...page, models: [...new Map([...old.models, ...page.models].map(item => [item.endpoint_id, item])).values()] } : page);
     } catch (error) { setCatalogError(error instanceof Error ? error.message : 'The model catalog is unavailable.'); }
     finally { catalogInFlight.current = false; setCatalogBusy(false); }
@@ -134,17 +156,26 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
     if (model.controls.includes('background')) options.background = background;
     if (model.controls.includes('seed') && seed !== '') options.seed = Number(seed);
     const tourScope=tourImage?.captureScope()??null;
+    const generation = getNativeGraphAccessGeneration();
+    const scopeIsCurrent = () => mounted.current && currentWorld.current === worldId && generation === getNativeGraphAccessGeneration();
     try {
-      const generated = await port.generate({ prompt, purpose, model: modelId, width, height, options, ...(preparationId ? { preparation_id: preparationId } : {}) });
+      const input = { prompt, purpose, model: modelId, width, height, options, ...(preparationId ? { preparation_id: preparationId } : {}) };
+      const generated: ImageGenerationResult = worldId && port === livePort
+        ? await request(`generate?world_id=${encodeURIComponent(worldId)}`, input)
+        : await port.generate(input);
+      if (!scopeIsCurrent()) return;
       tourImage?.generated(generated.images.map(image=>image.asset_id),generated.model,tourScope);
       setCompletion(generated.images[0] ?? null);
       if (libraryOpenRef.current) {
-        void port.list().then(page => setLibrary(page.items)).catch(() => { /* Completion still opens the acknowledged asset. */ });
+        const sequence = browseSequence.current;
+        void (worldId ? port.list(undefined, worldId) : port.list()).then(page => {
+          if (scopeIsCurrent() && sequence === browseSequence.current) setLibrary(page.items);
+        }).catch(() => { /* Completion still opens the acknowledged asset. */ });
       }
       // Keep the reader's library selection visible; completion is always reachable in chrome.
       if (!libraryOpenRef.current) { setResult(generated); setView('preview'); }
     }
-    catch (error) { setError(error instanceof Error ? error.message : 'Image generation did not complete.'); }
+    catch (error) { if (scopeIsCurrent()) setError(error instanceof Error ? error.message : 'Image generation did not complete.'); }
     finally { inFlight.current = false; setPending(false); }
   };
   const openLibrary = async (more = false) => {
@@ -154,7 +185,7 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
     try {
       const last = more ? library[library.length - 1] : null;
       const cursor = last ? `?before_time=${encodeURIComponent(last.created_at)}&before_id=${encodeURIComponent(last.asset_id)}` : '';
-      const page = await port.list(cursor);
+      const page = worldId ? await port.list(cursor, worldId) : await port.list(cursor);
       if (sequence === browseSequence.current) setLibrary(old => more ? [...new Map([...old, ...page.items].map(item => [item.asset_id, item])).values()] : page.items);
     } catch (error) { if (sequence === browseSequence.current) setError(error instanceof Error ? error.message : 'The image library could not be opened.'); }
     finally { if (sequence === browseSequence.current) setLibraryBusy(false); }

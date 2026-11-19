@@ -2809,7 +2809,7 @@ def _neighborhood_result_view(
         partial=bool(coverage.missing_seed_node_ids or coverage.missing_evidence_ref_ids),
         has_content=has_content,
     )
-    return WorldGraphRetrievalResult(
+    view = WorldGraphRetrievalResult(
         operation="neighborhood",
         outcome=outcome,
         snapshot=_retrieval_snapshot_view(
@@ -2829,6 +2829,13 @@ def _neighborhood_result_view(
         trust_boundary=_retrieval_trust_boundary(),
         diagnostics=_coverage_diagnostics(coverage),
     )
+    view._discovery_relationship_ids = result.discovery_relationship_ids
+    view._discovery_hops = tuple(
+        (hop.relationship_id, hop.from_object_id, hop.to_object_id) for hop in result.discovery_hops
+    )
+    view._object_limit_pruned_ids = result.object_limit_pruned_ids
+    view._object_limit_pruned_count = result.object_limit_pruned_count
+    return view
 
 
 _EVIDENCE_TARGET_KIND_MAP = {

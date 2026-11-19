@@ -1,4 +1,4 @@
-import {useEffect} from 'react';
+import {useEffect,useState} from 'react';
 import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {afterEach,beforeEach,describe,it,expect,vi} from 'vitest';
@@ -6,10 +6,12 @@ import {webcrypto} from 'node:crypto';
 import * as api from './sceneTemplatesApi';
 import * as liveApi from '../api/liveApi';
 import {PlanSceneEncounter} from './PlanSceneEncounter';
+import manualCreate from '../../../../tests/fixtures/combat/manual-scene-create-v2.json';
+import {manualCombatRecord} from './ManualCombat.testSupport';
 import type {TourOwnerReading} from '../guidedTour/GuidedTour';
 const tourReadings=vi.hoisted(()=>new Map<string,TourOwnerReading>());
 vi.mock('../guidedTour/GuidedTour',()=>({useGuidedTour:()=>({captureScope:()=>null}),useTourOwnerReading:(reading:TourOwnerReading)=>tourReadings.set(reading.step,reading)}));
-vi.mock('../surface/modules/CombatRosterModule',()=>({CombatRosterModule:({scope}:any)=>{useEffect(()=>scope.onPreparedState?.({record:scope.initialRecord,blocked:false,error:null,acknowledged:null}),[scope.initialRecord,scope.onPreparedState]);return <div data-testid="scoped-combat">{scope.encounterId}</div>}}));
+vi.mock('../surface/modules/CombatRosterModule',()=>({CombatRosterModule:({scope}:any)=>{const [owned,setOwned]=useState(scope.initialRecord);useEffect(()=>scope.onPreparedState?.({record:owned,blocked:false,error:null,acknowledged:null}),[owned,scope.onPreparedState]);return <div data-testid="scoped-combat">{scope.encounterId}{owned.ruleset?.schema==='dmb_combat_profile_v2'&&<button onClick={()=>setOwned({...owned,revision:owned.revision+1,draft:{...owned.draft,title:'Updated manual preparation'}})}>Simulate manual Save</button>}</div>}}));
 const context:api.PlanEncounterContext={worldId:'elderwyld',documentId:'11111111-1111-4111-8111-111111111111',sceneId:'scene:gate',sceneTitle:'Gate',canCreate:true,objectRevision:2,contentSha256:'a'.repeat(64),verifiedPlan:{revisionN:1,workRevisionId:'22222222-2222-4222-8222-222222222222',contentSha256:'a'.repeat(64)}};
 const pin={document_id:context.documentId,scene_id:context.sceneId,revision_n:1,work_revision_id:'22222222-2222-4222-8222-222222222222',content_sha256:'a'.repeat(64)};
 const committed={schema_version:'dmb_workspace_committed_revision_v2',scope_mode:'world',world_id:'elderwyld',document_id:context.documentId,kind:'plan',status:'active',has_divergent_working_copy:false,object_revision:2,revision_n:1,work_revision_id:pin.work_revision_id,content_sha256:pin.content_sha256};
@@ -18,6 +20,33 @@ function deferred<T>(){let resolve!:(value:T)=>void;const promise=new Promise<T>
 beforeEach(()=>{tourReadings.clear();sessionStorage.clear();Object.defineProperty(globalThis,'crypto',{configurable:true,value:webcrypto});vi.spyOn(api,'getSceneTemplate').mockResolvedValue(null);vi.spyOn(liveApi,'getWorldOwnedPlanCommittedRevision').mockResolvedValue(committed as any);});
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 describe('Plan scene encounter preparation',()=>{
+ it('matches the owning Python manual scene creation digest rather than hashing transport aliases',async()=>{
+  expect(await api.sceneCreationDigest(manualCreate.world_id,manualCreate.intent as api.SceneTemplateIntent)).toBe(manualCreate.digest);
+ });
+ it('refreshes prepared history after a manual committed record without an AC/HP tour acknowledgement',async()=>{
+  const base=await result({schema_version:'dmb_scene_template_create_v1',operation_id:'operation',pin,encounter:{title:'Crossing'}});
+  base.encounter={...manualCombatRecord(),world_id:'elderwyld',encounter_id:base.binding.encounter_id};
+  const next={...base,encounter:{...base.encounter,revision:2,draft:{...base.encounter.draft,title:'Updated manual preparation'}},versions:[{revision:2,digest:'sha256:'+'b'.repeat(64),saved_at:base.encounter.updated_at},...base.versions]};
+  const get=vi.spyOn(api,'getSceneTemplate').mockResolvedValueOnce(base).mockResolvedValue(next);
+  render(<PlanSceneEncounter context={context}/>);
+  await userEvent.click(await screen.findByRole('button',{name:'Simulate manual Save'}));
+  await waitFor(()=>expect(get).toHaveBeenCalledTimes(2));
+  await userEvent.click(screen.getByText('Prepared versions'));
+  expect(await screen.findByRole('button',{name:'Inspect version 2'})).toBeTruthy();
+ });
+ it('does not mistake a newer history refresh for a manual Save from the older open editor',async()=>{
+  const base=await result({schema_version:'dmb_scene_template_create_v1',operation_id:'operation',pin,encounter:{title:'Crossing'}});
+  base.encounter={...manualCombatRecord(),world_id:'elderwyld',encounter_id:base.binding.encounter_id,revision:2};
+  base.versions=[{revision:2,digest:'sha256:'+'b'.repeat(64),saved_at:base.encounter.updated_at}];
+  const newer={...base,encounter:{...base.encounter,revision:3},versions:[{revision:3,digest:'sha256:'+'c'.repeat(64),saved_at:base.encounter.updated_at},...base.versions]};
+  const get=vi.spyOn(api,'getSceneTemplate').mockResolvedValueOnce(base).mockResolvedValue(newer);
+  render(<PlanSceneEncounter context={context}/>);await screen.findByTestId('scoped-combat');
+  await userEvent.click(screen.getByText('Prepared versions'));
+  await userEvent.click(screen.getByRole('button',{name:'Refresh prepared versions'}));
+  await screen.findByRole('button',{name:'Inspect version 3'});
+  expect(get).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole('alert')).toBeNull();
+ });
  it('creates from a verified exact saved Plan then opens shared Combat directly',async()=>{
   const create=vi.spyOn(api,'createSceneTemplate').mockImplementation(async(_world,intent)=>result(intent));
   render(<PlanSceneEncounter context={context}/>);

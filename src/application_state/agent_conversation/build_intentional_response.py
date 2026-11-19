@@ -35,7 +35,7 @@ def digest(value):
 
 POLICY = "build_intentional_response_v2"
 OPERATIONS = ("answer_from_sources", "propose_build_insertion", "prepare_build_image")
-REVIEWS = ("questions", "plan", "connected_page", "relationship")
+REVIEWS = ("questions", "plan", "connected_page", "relationship", "lore_page")
 _PREVIOUS_GUIDANCE = """Identify what the user requests now, independently of the executable operations.
 The labels describe user intentions, not permission to execute them. Determine Discuss versus
 Create from that requested work. A runnable encounter or mechanics version is not page prose.
@@ -65,13 +65,20 @@ _DESTINATION_GUIDANCE = _PREVIOUS_GUIDANCE.replace(
 )
 
 
-GUIDANCE = _DESTINATION_GUIDANCE + """
+_IMAGE_DESTINATION_GUIDANCE = _DESTINATION_GUIDANCE + """
 Classify the deliverable requested now, separately from its later use. A written design,
 layout, specification or description intended to support a later image or map is writing,
 not a request to prepare that image. Use prepare_image for an image/map or image-prompt
 review requested now. If the current deliverable remains ambiguous after reading the
 conversation, choose clarification rather than guessing its destination or format."""
 
+
+GUIDANCE = _IMAGE_DESTINATION_GUIDANCE + """
+When the user explicitly requests a written draft in conversation for review, classify
+it as discuss, including a Markdown statblock or mechanics design. Use change_mechanics
+for creating or revising a persistent mechanics version or running a mechanics action
+requested now. A later save or use in combat does not change the current draft request.
+"""
 
 @dataclass(frozen=True)
 class Work:
@@ -184,23 +191,50 @@ class Capabilities:
             raise ValueError("Invalid captured Surface/manual capability")
 
 
-def question(*, guidance=GUIDANCE):
+def question(*, guidance=None, work_options=None):
+    guidance = GUIDANCE if guidance is None else guidance
+    work_options = WORK if work_options is None else work_options
     return {
         "type": "choice",
         "instructions": guidance,
         "criteria": {
-            name: f"{work.family}: {work.meaning}" for name, work in WORK.items()
+            name: f"{work.family}: {work.meaning}" for name, work in work_options.items()
         },
     }
 
 
-def selected(response):
-    answer = response["answers"]["requested_work"]
+SOURCE_NEED_OPTIONS = ("anchored", "source_lookup", "uncertain")
+SOURCE_NEED_GUIDANCE = (
+    "Does answering this turn require looking beyond the current page, explicitly referenced or "
+    "carried material, and dialogue? Choose anchored for creative feedback on a supplied premise "
+    "or brainstorming where the GM asks for no new world fact. Choose source_lookup for a factual "
+    "lookup, citation, search in another source, or an explicit new reference that must be located. "
+    "Choose uncertain if the request cannot safely be answered from the anchored material alone."
+)
+
+
+def source_need(request, response):
+    question = request["questions"].get("source_need")
+    if question is None:
+        return None
+    expected = {"type": "choice", "instructions": SOURCE_NEED_GUIDANCE,
+                "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)}
+    if question != expected:
+        raise ValueError("Build source scope differs from its offered decision")
+    return _selected_choice(response["answers"]["source_need"], SOURCE_NEED_OPTIONS)
+
+
+def selected(response, *, menu=None):
+    options = WORK if menu is None else _menu_work(menu)
+    return _selected_choice(response["answers"]["requested_work"], options)
+
+
+def _selected_choice(answer, options):
     label, probabilities = answer["selected"], answer["probabilities"]
     if (
-        label not in WORK
+        label not in options
         or not isinstance(probabilities, dict)
-        or set(probabilities) != set(WORK)
+        or set(probabilities) != set(options)
         or any(
             isinstance(x, bool)
             or not isinstance(x, (int, float))
@@ -216,8 +250,9 @@ def selected(response):
     return label
 
 
-def resolve(label, capabilities):
-    work = WORK[label]
+def resolve(label, capabilities, *, work_options=None):
+    work_options = WORK if work_options is None else work_options
+    work = work_options[label]
     barrier = None
     if label in UNAVAILABLE:
         barrier = "requested_executor_not_offered"
@@ -263,6 +298,7 @@ def resolve(label, capabilities):
             descriptions = {
                 "questions": "Prepare clarifying questions as an inline conversation object.",
                 "plan": "Prepare an editable plan/checklist on the Surface; selected steps require explicit continuation.",
+                "lore_page": "Prepare a standalone lore-page draft for review in conversation.",
                 "connected_page": "Prepare connected-page review; the author explicitly confirms page creation.",
                 "relationship": "Prepare a saved-page relationship review; the author edits and explicitly confirms publication in the existing review flow.",
             }
@@ -304,6 +340,7 @@ def resolve(label, capabilities):
         },
         "prepare_image": {"discuss_request", "prepare_image_prompt"},
         "review_connected_page": {"discuss_request", "review_connected_page"},
+        "review_lore_page": {"discuss_request", "review_lore_page"},
         "review_relationship": {"discuss_request", "review_relationship"},
         "publish_relationships": {"discuss_request", "review_relationship"},
         "save_page": {"discuss_request", "author_save_current_page"},
@@ -311,6 +348,16 @@ def resolve(label, capabilities):
     if barrier == "current_page_target_absent":
         relevant = relevant - {"author_save_current_page"}
     followups = [item for item in followups if item["id"] in relevant]
+    if label == "review_variant_approval":
+        followups = [{
+            "id": "find_reviewed_variant",
+            "description": (
+                "Point the user to Find reviewed statblock on this reply. The control checks "
+                "the current draft and opens its review for explicit confirmation when it matches. "
+                "Acknowledge the request briefly. Do not claim a save, page edit, Combat action, "
+                "or missing source evidence for these actions."
+            ),
+        }]
     detail = {
         "current_page_target_absent": "No current-page writing destination was captured. This is a placement limit, not missing inventory or evidence.",
         "image_capability_absent": "No image-preparation capability is offered in this captured request.",
@@ -345,7 +392,7 @@ def resolve(label, capabilities):
         "contract_sha256": digest(
             {
                 "policy": POLICY,
-                "work": {k: asdict(v) for k, v in WORK.items()},
+                "work": {k: asdict(v) for k, v in work_options.items()},
                 "capabilities": asdict(capabilities),
             }
         ),
@@ -396,24 +443,87 @@ into a compulsory form or invent a task. Preserve temporary/conditional meaning 
 
 FORMAT = "build_intentional_response_answer_v1"
 COMPLETION = "dmb_build_intentional_response_completion_v1"
-MENU_DIGEST = digest(question())
-# Persisted decisions retain their exact producing instructions. Only the
-# current menu is emitted; the previous digest remains an immutable reader.
-_PREVIOUS_MENU_DIGEST = digest(question(guidance=_PREVIOUS_GUIDANCE))
-_DESTINATION_MENU_DIGEST = digest(question(guidance=_DESTINATION_GUIDANCE))
-_MENU_GUIDANCE = MappingProxyType({
-    MENU_DIGEST: GUIDANCE,
-    _PREVIOUS_MENU_DIGEST: _PREVIOUS_GUIDANCE,
-    _DESTINATION_MENU_DIGEST: _DESTINATION_GUIDANCE,
+_RETAINED_WORK = WORK
+_RETAINED_GUIDANCE = GUIDANCE
+WORK = MappingProxyType({
+    **_RETAINED_WORK,
+    "draft_in_conversation": Work(
+        "discuss", "Write an explicitly requested editable draft for review in chat.",
+    ),
 })
-RESOLVER_DIGEST = digest(
-    {
+GUIDANCE = _RETAINED_GUIDANCE + """
+Choose draft_in_conversation for an explicit request to produce a written draft for
+review in chat now. Choose discuss for brainstorming or acknowledging a premise.
+"""
+
+
+_PRE_APPROVAL_WORK = WORK
+_PRE_APPROVAL_GUIDANCE = GUIDANCE
+WORK = MappingProxyType({
+    **_PRE_APPROVAL_WORK,
+    "review_variant_approval": Work(
+        "create", "Open confirmation for a statblock variant already drafted for review in this conversation.",
+    ),
+})
+GUIDANCE = _PRE_APPROVAL_GUIDANCE + """
+Use review_variant_approval only when the user explicitly approves or asks to save
+an existing conversation statblock draft. Use change_mechanics for a new creation,
+a revision request, or an action on a different mechanics object.
+"""
+
+
+
+_PRE_LORE_PAGE_WORK = WORK
+_PRE_LORE_PAGE_GUIDANCE = GUIDANCE
+WORK = MappingProxyType({
+    **_PRE_LORE_PAGE_WORK,
+    "review_lore_page": Work(
+        "create",
+        "Review a new standalone authored page, initially blank or populated, or continue its review.",
+        review="lore_page",
+    ),
+})
+GUIDANCE = _PRE_LORE_PAGE_GUIDANCE + """
+Choose review_lore_page when the author explicitly asks for a new standalone page
+or follows up on that request. Use the latest explicit subject and requested
+contents in the author's turns to resolve references such as 'the page'.
+A page mentioned as context or suggested during brainstorming is not the
+destination. Choose review_connected_page when the author explicitly requests
+a new place with a connection to a source page, location, or person.
+"""
+
+
+def _resolver_digest(work_options):
+    return digest({
         "policy": POLICY,
-        "work": {k: asdict(v) for k, v in WORK.items()},
+        "work": {key: asdict(value) for key, value in work_options.items()},
         "unavailable": sorted(UNAVAILABLE),
         "resolver_version": 1,
-    }
-)
+    })
+
+
+MENU_DIGEST = digest(question(guidance=GUIDANCE))
+RESOLVER_DIGEST = _resolver_digest(WORK)
+_MENU_CONTRACTS = MappingProxyType({
+    MENU_DIGEST: (GUIDANCE, WORK, RESOLVER_DIGEST),
+    digest(question(guidance=_PRE_LORE_PAGE_GUIDANCE, work_options=_PRE_LORE_PAGE_WORK)):
+        (_PRE_LORE_PAGE_GUIDANCE, _PRE_LORE_PAGE_WORK, _resolver_digest(_PRE_LORE_PAGE_WORK)),
+    digest(question(guidance=_PRE_APPROVAL_GUIDANCE, work_options=_PRE_APPROVAL_WORK)):
+        (_PRE_APPROVAL_GUIDANCE, _PRE_APPROVAL_WORK, _resolver_digest(_PRE_APPROVAL_WORK)),
+    **{
+        digest(question(guidance=guidance, work_options=_RETAINED_WORK)):
+            (guidance, _RETAINED_WORK, _resolver_digest(_RETAINED_WORK))
+        for guidance in (_RETAINED_GUIDANCE, _IMAGE_DESTINATION_GUIDANCE, _PREVIOUS_GUIDANCE, _DESTINATION_GUIDANCE)
+    },
+})
+
+
+def _menu_work(menu):
+    return _MENU_CONTRACTS[menu][1]
+
+
+def known_semantics(menu, resolver):
+    return menu in _MENU_CONTRACTS and resolver == _MENU_CONTRACTS[menu][2]
 
 
 def enabled(policy):
@@ -457,16 +567,21 @@ def _captured_semantics(policy):
     return caps,policy.action_capability_sha256,policy.requested_work_menu_sha256,policy.response_resolver_sha256
 
 
-def resolution_for(policy, label):
+def resolution_for(policy, label, *, source_scope=None):
     caps,_,menu,resolver=_captured_semantics(policy)
-    if menu not in _MENU_GUIDANCE or resolver != RESOLVER_DIGEST:
+    if not known_semantics(menu, resolver) or label not in _menu_work(menu):
         raise ValueError("Unknown semantic menu or resolver")
-    return json.loads(canonical(resolve(label,caps)))
+    resolution = json.loads(canonical(resolve(label, caps, work_options=_menu_work(menu))))
+    if source_scope is not None:
+        if source_scope not in SOURCE_NEED_OPTIONS:
+            raise ValueError("Invalid Build source scope")
+        resolution["source_scope"] = source_scope
+    return resolution
 
 
 def validate_resolution_metadata(event, policy):
     caps,capability,menu,resolver=_captured_semantics(policy)
-    expected=resolution_for(policy,event.requested_work)
+    expected=resolution_for(policy,event.requested_work,source_scope=event.resolution.get("source_scope"))
     if (event.resolution != expected or event.intent_family != expected['intent_family']
             or event.operation != expected['operation'] or event.operation not in caps.operations
             or event.capability_sha256 != capability
@@ -493,6 +608,21 @@ def validate_turn_arguments(execution, *, user_text, turn_id, attempt):
             raise ValueError('Retained semantic action differs from its exact turn arguments')
 
 
+def is_anchored_discussion(selection):
+    from .types import BuildRequestedWorkResolutionV1
+
+    return (isinstance(selection, BuildRequestedWorkResolutionV1)
+            and selection.requested_work == "discuss"
+            and selection.resolution.get("source_scope") == "anchored")
+
+
+def is_variant_approval(selection):
+    from .types import BuildRequestedWorkResolutionV1
+
+    return (isinstance(selection, BuildRequestedWorkResolutionV1)
+            and selection.requested_work == "review_variant_approval")
+
+
 def selected_action(execution):
     from .types import BuildRequestedWorkResolutionV1, BuildReviewedActionSelectionV1
     choices=[e for e in execution.events if isinstance(e,(BuildRequestedWorkResolutionV1,BuildReviewedActionSelectionV1))]
@@ -507,7 +637,7 @@ def selected_contract(execution):
     if isinstance(choice,BuildReviewedActionSelectionV1):
         return None
     validate_resolution_metadata(choice,execution.policy)
-    return choice.resolution
+    return {key: value for key, value in choice.resolution.items() if key != "source_scope"}
 
 
 def validate_native_action_events(execution):
@@ -563,9 +693,9 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
         raise ValueError("Semantic selection requires its exact producing proof")
     request = strict_json(proof["request_json"])
     raw_response = strict_json(proof["response_json"])
-    label = selected(raw_response)
+    label = selected(raw_response, menu=menu)
     response = DecisionResult.model_validate(raw_response)
-    resolution = resolution_for(policy, label)
+    resolution = resolution_for(policy, label, source_scope=source_need(request, raw_response))
     prior = [
         e
         for e in execution.events
@@ -583,7 +713,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     wire_question = {
         "type": "choice",
         "instructions": decision_instructions(menu),
-        "criteria": {name: None for name in WORK},
+        "criteria": {name: None for name in _menu_work(menu)},
     }
     state = request.get("state", {})
     decision = state.get("decision", {})
@@ -650,18 +780,18 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
 
 
 def known_menu(menu_digest):
-    return menu_digest in _MENU_GUIDANCE
+    return menu_digest in _MENU_CONTRACTS
 
 
 def decision_instructions(menu_digest=MENU_DIGEST):
     try:
-        guidance = _MENU_GUIDANCE[menu_digest]
+        guidance = _MENU_CONTRACTS[menu_digest][0]
     except KeyError as exc:
         raise ValueError("Unknown frozen Build semantic menu") from exc
     return (
         guidance
         + "\n"
-        + "\n".join(f"{name}: {w.family}: {w.meaning}" for name, w in WORK.items())
+        + "\n".join(f"{name}: {w.family}: {w.meaning}" for name, w in _menu_work(menu_digest).items())
     )
 
 
@@ -795,6 +925,7 @@ def native_review_schema(frame, *, local=False):
     """Existing typed review model with only the actual producing selectors."""
     from .collaboration import ProposedQuestions, ProposedPlanV3, ProposedConnectedPage
     from .relationship_review import ProposedRelationship
+    from .lore_page_review import ProposedLorePage
     from .plan_objective import selection_packet
     from .build_draft_context import resolve_body_aliases
     frame=resolve_body_aliases(frame)
@@ -808,7 +939,8 @@ def native_review_schema(frame, *, local=False):
     contract=frame['response_contract']
     kind=WORK[contract['requested_work']].review if not contract['barrier'] else None
     model={'questions':ProposedQuestions,'plan':ProposedPlanV3,
-        'connected_page':ProposedConnectedPage,'relationship':ProposedRelationship}.get(kind)
+        'connected_page':ProposedConnectedPage,'relationship':ProposedRelationship,
+        'lore_page':ProposedLorePage}.get(kind)
     if model is None:
         return {'type':'null'},{}
     if kind=='plan' and not selection_packet(frame):
@@ -826,13 +958,14 @@ def native_review_schema(frame, *, local=False):
     return ({'anyOf':[schema,{'type':'null'}]} if kind not in {'questions','plan'} else schema),definitions
 
 
-def normalize_native_review(candidate, segments, frame):
+def normalize_native_review(candidate, segments, frame, *, author_text):
     from pydantic import TypeAdapter
     from .relationship_review import RelationshipCollaborationV3
     from .build_draft_context import resolve_body_aliases
     from .collaboration import ProposedPlanV3
     from .plan_objective import selection_packet
-    review=TypeAdapter(RelationshipCollaborationV3 | None).validate_python(candidate)
+    from .lore_page_review import ProposedLorePage
+    review=TypeAdapter(RelationshipCollaborationV3 | ProposedLorePage | None).validate_python(candidate)
     frame=resolve_body_aliases(frame)
     from .reviewed_action import SCOPE_KEY,ReviewedDiscussionScopeV1
     if SCOPE_KEY in frame:
@@ -843,6 +976,8 @@ def normalize_native_review(candidate, segments, frame):
         return review
     validate_collaboration(review,segments,frame['response_contract'],
         primary_rows=frame['artifact_under_edit']['sections'],origin_rows=native_origin_rows(frame))
+    if isinstance(review, ProposedLorePage):
+        review.destination.bind(author_text, has_body=bool(segments))
     if isinstance(review,ProposedPlanV3) and not selection_packet(frame):
         raise ValueError('Plan review lacks its pre-writer selection contract')
     return review
@@ -1108,6 +1243,11 @@ def semantic_collaboration(card):
     if card is None:
         return None
     kind = card.get("kind")
+    if kind == "lore_page":
+        from .lore_page_review import ProposedLorePage
+
+        draft = ProposedLorePage.model_validate(card)
+        return {"kind": kind, "title": draft.destination.title}
     fields = {
         "plan": {"kind", "objective", "steps"},
         "questions": {"kind", "questions"},

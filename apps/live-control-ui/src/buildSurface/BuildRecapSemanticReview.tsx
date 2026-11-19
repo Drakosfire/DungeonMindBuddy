@@ -20,7 +20,7 @@ export function BuildRecapSemanticReview(props:Props){
     return <SemanticReview key={scope} {...props} basis={basis} scope={scope}/>;
   }catch(reason){return <p role="alert">{message(reason)}</p>;}
 }
-function SemanticReview({run,scope,basis,onBusy,isCurrent,onDecided}:Props&{scope:string;basis:ReturnType<typeof recapQuoteReviewBasis>}){
+function SemanticReview({run,worldId,scope,basis,onBusy,isCurrent,onDecided}:Props&{scope:string;basis:ReturnType<typeof recapQuoteReviewBasis>}){
   const key='dmb.buildRecapSemanticReview.v1:'+scope;
   function read():Pending|null{
     const raw=localStorage.getItem(key);if(raw===null)return null;
@@ -60,7 +60,7 @@ function SemanticReview({run,scope,basis,onBusy,isCurrent,onDecided}:Props&{scop
       });
       if(!alive.current||!isCurrent())return;
       setPending(value);
-      const receipt=await decideRecapSemantics(run.run_id,value.request,basis.basisSha256);
+      const receipt=await decideRecapSemantics(run.run_id,value.request,basis.basisSha256,worldId);
       if(!alive.current||!isCurrent())return;
       // Stage current-run proof; commit and recovery cleanup share one synchronous
       // storage lock callback, so remount cannot observe a half-adopted decision.

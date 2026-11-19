@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import hashlib
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from application_state.errors import ApplicationStateError
 
@@ -101,6 +101,8 @@ def run_recap_production_extraction(
     ingest_context: Any | None = None,
     supplemental_evidence: dict | None = None,
     reserved_run: Any | None = None,
+    name_review_record: dict | None = None,
+    authorize: Callable[[], None] | None = None,
 ) -> ProductionExtractionResult:
     profile_id, profile_version = resolve_legacy_graph_extraction_profile(profile)
     from graph_memory.extraction.extraction_profile import get_extraction_profile
@@ -224,6 +226,8 @@ def run_recap_production_extraction(
         if not isinstance(category_client, BoundedRecapPassClient):
             raise ValueError("Session supplements require the owned bounded recap client")
         category_client.supplemental_context=supplement_context
+    if authorize is not None:
+        authorize()
     return run_production_extraction(
         ProductionExtractionRequest(
             repo_root=repo_root,
@@ -237,7 +241,8 @@ def run_recap_production_extraction(
             enable_node_vocabulary_packet=enable_node_vocabulary_packet,
             enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
             initial_lineage={**(reserved_run.lineage if reserved_run is not None else {}),
-                "world_campaign_ingest_context": frozen_context,**supplement_lineage},
+                "world_campaign_ingest_context": frozen_context, **supplement_lineage,
+                **({"name_review": name_review_record} if name_review_record is not None else {})},
             reserved_run=reserved_run,
         )
     )

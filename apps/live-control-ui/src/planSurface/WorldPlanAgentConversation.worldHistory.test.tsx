@@ -1669,7 +1669,7 @@ describe("World Plan conversation consumer", () => {
     expect(await within(clarification as HTMLElement).findByText("Mira owns the observatory.")).toBeInTheDocument();
     expect(readSource).toHaveBeenCalledWith(expect.objectContaining({
       worldId: "native-test", revisionPin: "graph-r1", anchorId: "anchor:owner",
-    }));
+    }), { worldId, actionId: clarificationId, claimId: "claim:owner" });
     mounted.unmount();
     mounted = await mountComponent(7, bridge, null, false, {
       editorSelectionActive: true, draftGeneration: 0, selectionGeneration: 0,
@@ -2847,13 +2847,15 @@ describe("World Plan conversation consumer", () => {
     const citation = await screen.findByRole("button",{name:"Open source 1"});
     expect(citation).toHaveAttribute("title","Session 29 recap");
     expect(read).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('tab',{name:'The Prompt'}));
     fireEvent.click(citation);
     const passage=await screen.findByLabelText("Evidence passage");
     expect(passage).toHaveTextContent("Exact inline source passage");expect(passage).toBeVisible();
     expect(document.getElementById("buddy-details-inline-source-turn")).toHaveAttribute("open");
     expect(read).toHaveBeenCalledOnce();
-    expect(read).toHaveBeenCalledWith(expect.objectContaining({anchorId:"anchor-test",revisionPin:"graph-revision-test"}));
+    expect(read).toHaveBeenCalledWith(
+      expect.objectContaining({anchorId: "anchor-test", revisionPin: "graph-revision-test"}),
+      {worldId, turnId: "inline-source-turn", claimId: "claim-internal-test"},
+    );
     expect(screen.getAllByText("Session 29 recap").length).toBeGreaterThan(0);
     expect(screen.queryByText("source-revision-test")).not.toBeInTheDocument();
     expect(screen.queryByText("artifact-test")).not.toBeInTheDocument();
@@ -2907,32 +2909,32 @@ describe("World Plan conversation consumer", () => {
     expect(evidenceRead).toHaveBeenCalledWith(expect.objectContaining({
       worldId: "native-world-internal-test", scopeMode: "world", campaignId: "",
       revisionPin: "graph-revision-test", anchorId: "anchor-test", admissibility: "gm",
-    }));
+    }), expect.objectContaining({ worldId, claimId: expect.any(String), turnId: expect.any(String) }));
     fireEvent.click(screen.getByRole("button", { name: "Open related recap context" }));
     expect(await screen.findByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage");
     expect(screen.getByText("Partial passage. More source text may be available.")).toBeInTheDocument();
     expect(recapRead).toHaveBeenCalledWith(expect.objectContaining({
       revisionPin: "graph-revision-test", contextAnchorId: "dm-context-anchor:v2:test",
-    }));
+    }), expect.objectContaining({ worldId, turnId: expect.any(String) }));
     const firstPage = await recapRead.mock.results[0]!.value;
     recapRead.mockResolvedValue({ ...firstPage, outcome: "enough", content: " — final Ω beat", offsetChars: [...firstPage.content!].length,
       truncated: false, nextContinuation: null });
     fireEvent.click(screen.getByRole("button", { name: "Load more context" }));
     await waitFor(() => expect(screen.getByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage — final Ω beat"));
-    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: firstPage.nextContinuation, maxChars: 12000}));
+    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: firstPage.nextContinuation, maxChars: 12000}), expect.objectContaining({ worldId }));
     expect(screen.queryByRole("button", {name: "Load more context"})).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close passage" }));
     expect(screen.queryByLabelText("Related recap context passage")).not.toBeInTheDocument();
     recapRead.mockResolvedValue(firstPage);
     fireEvent.click(screen.getByRole("button", {name: "Open related recap context"}));
     expect(await screen.findByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage");
-    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: null}));
+    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: null}), expect.objectContaining({ worldId }));
     mounted.unmount();
     render(conversationElement());
     await expandAnswerEvidence();
     fireEvent.click(await screen.findByRole("button", {name: "Open related recap context"}));
     expect(await screen.findByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage");
-    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: null}));
+    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: null}), expect.objectContaining({ worldId }));
     expect(ask).not.toHaveBeenCalled();
   });
 
@@ -3370,7 +3372,10 @@ describe("World Plan conversation consumer", () => {
     expect(pendingAskKeys()).toEqual([]);
     expect(screen.queryByRole("region", { name: "Pending Ask recovery" })).not.toBeInTheDocument();
     expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
-    expect(fetchSpy.mock.calls.map(([url, init]) => [String(url), init?.method ?? "GET"])).toEqual([
+    const dispatchCalls = fetchSpy.mock.calls
+      .map(([url, init]) => [String(url), init?.method ?? "GET"])
+      .filter(([url]) => url === "/api/live/agent/turn" || url === "/api/live/agent/readiness?surface=plan&world_graph=true");
+    expect(dispatchCalls).toEqual([
       ["/api/live/agent/readiness?surface=plan&world_graph=true", "GET"],
       ["/api/live/agent/turn", "POST"],
     ]);
@@ -3552,7 +3557,10 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByText(/server confirmed provider dispatch did not begin/)).not.toBeInTheDocument();
     expect(pendingAskKeys()).toHaveLength(1);
     expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
-    expect(fetchSpy.mock.calls.map(([url, init]) => [String(url), init?.method ?? "GET"])).toEqual([
+    const dispatchCalls = fetchSpy.mock.calls
+      .map(([url, init]) => [String(url), init?.method ?? "GET"])
+      .filter(([url]) => url === "/api/live/agent/turn" || url === "/api/live/agent/readiness?surface=plan&world_graph=true");
+    expect(dispatchCalls).toEqual([
       ["/api/live/agent/readiness?surface=plan&world_graph=true", "GET"],
       ["/api/live/agent/turn", "POST"],
     ]);
@@ -4937,7 +4945,7 @@ describe("World Plan conversation consumer", () => {
       target:{schema:'dmb_agent_source_passage_open_target_v1',kind:'source_passage',world_id:worldId,turn_id:turnId,citation_index:0},citation,content:passage});
     await mountComponent(); await screen.findByText('What does the source say?');
     if(mixed) expect(screen.getByText('A proposed outing.').closest('blockquote')).not.toBeNull();
-    expect(screen.getByText('Sources')).toBeInTheDocument();expect(open).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Answer sources')).toHaveTextContent(/^Sources$/);expect(open).not.toHaveBeenCalled();
     openLatestTurnDetails();
     fireEvent.click((mixed ? within(screen.getByLabelText('Source-supported statement')) : within(screen.getByText('Details',{selector:'summary'}).closest('details')!)).getByRole('button',{name:'Read Reedbridge notes · lines 5–5'}));
     await screen.findByRole('region',{name:'Opened source passage'});expect(open).toHaveBeenCalledWith(worldId,turnId,0);
@@ -5133,7 +5141,8 @@ describe("World Plan conversation consumer", () => {
       if(context.receipt.native_query.schema!=='dmb_native_plan_query_unavailable_v1')context.receipt.native_query.question=request.message;
       const row=policyHistoryTurn(1,turnId,request.message,answer,context,'completed',request);await seal(row);
       api.setCurrent(await historyV3('conversation-a',1,[withPersistedCorrelation(row,await expectedHistoryCorrelationKey(worldId,request.turn_id),turnId)]));
-      return {...await policyResponse(request,'conversation-a',answer),plan_context:context};
+      const response = await policyResponse(request,'conversation-a',answer);
+      return {...response,answer:{...response.answer,saved_statblocks:[]},plan_context:context};
     });
     const open=vi.spyOn(liveApi,'getAgentNativeAssertionSource').mockResolvedValue({...fixture.source,world_id:worldId,turn_id:turnId,citation});
     if(delayed){
@@ -5162,14 +5171,8 @@ describe("World Plan conversation consumer", () => {
     }
     if(change==='unavailable'){await screen.findByText(answer);expect(open).not.toHaveBeenCalled();return;}
     await screen.findByText(answer);
-    const recordDetails=await screen.findByRole('region',{name:'Graph record details'});
-    const details=screen.getByText('Details',{selector:'summary'}).closest('details')!;
-    expect(details).toContainElement(recordDetails);
     expect(screen.getAllByText('Details',{selector:'summary'})).toHaveLength(1);
-    expect(screen.queryByText('Graph record details',{selector:'summary'})).toBeNull();
-    const nativeClaim=context.completion!.answer_segments.find(segment=>segment.kind==='native_assertion_claim')!;
-    expect(recordDetails.querySelector('pre')?.textContent).toBe(JSON.stringify(nativeClaim.qualifications,null,2));
-    expect(screen.getByText(answer).closest('.world-plan-agent-conversation__message--assistant')).not.toContainElement(recordDetails);
+    expect(screen.queryByText('Graph record details')).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button',{name:'Read Graph assertion source'}));
     await screen.findByRole('region',{name:'Opened source section'});
     expect(open).toHaveBeenCalledWith(worldId,turnId,0);
@@ -5241,13 +5244,13 @@ describe("World Plan conversation consumer", () => {
         kind: "source_passage", world_id: worldId, turn_id: turnId, citation_index: 0}, citation, content: passage});
     await mountComponent();
     expect(await screen.findByText("What does the lore say?")).toBeInTheDocument();
-    expect(screen.getByText("Sources")).toBeInTheDocument();
+    expect(screen.getByLabelText("Answer sources")).toHaveTextContent(/^Sources$/);
     expect(open).not.toHaveBeenCalled();
     openLatestTurnDetails();
     fireEvent.click(within(screen.getByText("Details", {selector: "summary"}).closest("details")!).getByRole("button", {name: named ? "Read River Watch — synthetic source · lines 1–1" : "Read passage 1"}));
     await screen.findByRole("region", {name: "Opened source passage"});
     expect(open).toHaveBeenCalledWith(worldId, turnId, 0);
-    expect(screen.getByRole("tab", {name: "The Prompt"})).toBeInTheDocument();
+    expect(screen.queryByRole("tab", {name: "The Prompt"})).not.toBeInTheDocument();
   });
 
   it("renders retained Build suggestion content in Plan without exposing page-write controls", async () => {
@@ -5310,9 +5313,8 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByLabelText("Answer sources")).toHaveAttribute("title", "Authored page suggestion; review and placement are managed on the page.");
     expect(turn.assistant_text).toBe(passage);
     expect(knowledge.completion.answer_segments[0].text).toBe(passage);
-    expect(screen.getByText("Page proposal")).toBeInTheDocument();
+    expect(screen.getByLabelText("Answer sources")).toHaveTextContent(/^Page proposal$/);
     expect(screen.queryByText("World + Source")).not.toBeInTheDocument();
-    expect(screen.queryByText("Sources")).not.toBeInTheDocument();
   });
 
   it("loads the latest page, merges older turns by durable ID, and preserves server ordering", async () => {
@@ -5492,10 +5494,10 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByText(/Provider-reported usage: 42 input · 7 output/)).toBeInTheDocument();
     expect(loadTrace).toHaveBeenCalledWith(worldId, "turn-trace", expect.any(AbortSignal));
     openLatestTurnDetails();
-    fireEvent.click(screen.getByRole("tab", { name: "The Prompt" }));
+    fireEvent.click(screen.getByText("Diagnostics", { selector: "summary" }));
+    fireEvent.click(screen.getByText("The Prompt", { selector: "summary" }));
     await screen.findByText(/No complete request was captured for this call/);
     expect(loadTrace).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("tab", { name: "Evidence Trail" }));
     fireEvent.click(screen.getByText("Details"));
     fireEvent.click(screen.getByText("Details"));
     expect(loadTrace).toHaveBeenCalledTimes(1);
@@ -6584,4 +6586,28 @@ it.each(['failed','interrupted'] as const)('retains the lightweight %s reply not
  expect(screen.queryByText('Waiting for this reply…')).not.toBeInTheDocument();
  expect(document.querySelector('[data-turn-id="terminal-empty"] .world-plan-agent-conversation__message--assistant')).not.toBeNull();
  expect(screen.getByRole('button',{name:'Retry question'})).toBeInTheDocument();
+});
+
+it.each([true, false])('uses the reviewed statblock entry point on lightweight reopen (%s)', async reviewed => {
+  const turn = makeTurn(1, '33333333-3333-4333-8333-333333333331',
+    'Draft a variant for review', 'Writer statblock copy', 'build');
+  const page = history('conversation-a', 4, [turn]);
+  const api = setupApi(page, false);
+  api.getMessages.mockImplementation(async () => {
+    const light = api.messages(page);
+    return {
+      ...light,
+      messages: light.messages.map(row => ({
+        ...row, conversation_draft_available: true as const,
+        ...(reviewed ? { variant_draft_reviewed: true as const } : {}),
+      })),
+    };
+  });
+  render(conversationElement());
+  await screen.findByRole('button', { name: 'Open draft' });
+  const displayed = reviewed ? 'Open the statblock draft to review the mechanics.' : 'Writer statblock copy';
+  const suppressed = reviewed ? 'Writer statblock copy' : 'Open the statblock draft to review the mechanics.';
+  expect(screen.getByText(displayed)).toBeInTheDocument();
+  expect(screen.queryByText(suppressed)).not.toBeInTheDocument();
+  expect(api.getHistory).not.toHaveBeenCalled();
 });

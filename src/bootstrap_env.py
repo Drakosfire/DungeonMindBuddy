@@ -69,7 +69,7 @@ def read_local_graph_profile(path_text: str) -> dict[str, str]:
 
 def load_dungeonmindbuddy_dotenv(*, override: bool = True) -> None:
     """
-    Load the first existing file from this list (later files override earlier when ``override``).
+    Load each existing file in order. When ``override`` is true, later files override earlier values.
 
     Order matches ``src/cli.py`` expectations, with ``.env`` first for common local setups:
 

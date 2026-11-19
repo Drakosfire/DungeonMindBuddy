@@ -387,6 +387,67 @@ def test_capture_uses_fresh_cas_question_only_and_durable_identity(tmp_path):
     assert json.loads((tmp_path / "history-after.json").read_text())["body"]["turns"][0]["turn_id"] == client.turn
 
 
+def test_build_capture_preserves_page_thread_and_repeated_turns(tmp_path):
+    request_template = template() | {
+        "surface": {"surface_id": "build", "instance_id": "saved-page"},
+        "primary_work": {"kind": "build", "object_id": "saved-page",
+                         "expected_revision": 1, "expected_content_sha256": "a" * 64},
+        "graph_request": {"mode": "world", "world_id": "world"},
+        "client_work_state": "saved_clean",
+        "build_authored_references": {"references": ["fixture"]},
+    }
+
+    class BuildClient(Client):
+        conversation = "prev"
+        turns = ()
+        trace_status = 200
+
+        def post(self, route, *, json):
+            response = super().post(route, json=json)
+            if route.endswith("/new"):
+                self.conversation = "build-rehearsal"
+                return self.response({"active_conversation_id": self.conversation})
+            else:
+                self.turn = str(uuid4())
+                from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
+
+                self.turns += ({"turn_id": self.turn, "user_text": json["message"],
+                                "idempotency_key": str(_turn_idempotency_key("world", json["turn_id"])),
+                                "lifecycle_status": "completed", "assistant_text": "Reply"},)
+                return self.response({"turn_id": json["turn_id"],
+                                      "client_thread_id": json["client_thread_id"],
+                                      "answer": {"text": "Reply"}})
+            return response
+
+        def get(self, route, **kwargs):
+            if "context-trace" in route:
+                return self.response({"turn_id": self.turn, "world_id": "world"}, self.trace_status)
+            return self.response({"pointer_revision": 3, "active_conversation_id": self.conversation,
+                                  "turns": list(self.turns)})
+
+    client = BuildClient("A repeated question")
+    case = {"question": client.question, "gold_answer": "DO NOT SEND"}
+    w.capture_case(client, "world", request_template, case, tmp_path / "first", build_thread_id="thread")
+    w.capture_case(client, "world", request_template, case, tmp_path / "second",
+                   build_thread_id="thread", expected_conversation_id=client.conversation)
+    _, first, second = [body for _, body in client.posts]
+    assert first["client_thread_id"] == second["client_thread_id"] == "thread"
+    assert first["surface"] == second["surface"] == request_template["surface"]
+    assert "build_authored_references" in first and "build_authored_references" not in second
+    assert first["turn_id"] != second["turn_id"]
+    assert "DO NOT SEND" not in json.dumps(client.posts)
+    with pytest.raises(ValueError, match="conversation changed"):
+        w.capture_case(client, "world", request_template, case, tmp_path / "drift",
+                       build_thread_id="thread", expected_conversation_id="wrong")
+    assert len(client.posts) == 3
+    client.trace_status = 503
+    with pytest.raises(ValueError, match="delivery or trace"):
+        w.capture_case(client, "world", request_template, case, tmp_path / "trace-failure",
+                       build_thread_id="thread", expected_conversation_id=client.conversation)
+    assert json.loads((tmp_path / "trace-failure" / "context-trace.json").read_text())["http_status"] == 503
+
+
+
 def test_failed_cas_never_dispatches_question(tmp_path):
     client = Client("Explain the route.", fail_cas=True)
     with pytest.raises(ValueError, match="CAS failed"):
@@ -605,6 +666,29 @@ def test_relative_capture_output_qualifies_absolute_owned_paths(tmp_path, monkey
     assert report["cases"][0]["capture_status"] == "not_started"
 
 
+def test_capture_rejects_changed_editor_snapshot_before_startup(tmp_path, monkeypatch):
+    monkeypatch.delenv("DMB_AGENT_GRAPH_LOCAL_PROFILE", raising=False)
+    monkeypatch.setattr(w, "verify_runtime", lambda *args: None)
+    snapshot = tmp_path / "editor.json"
+    pin = put(snapshot, {"draft_markdown": "Saved text"})
+    put(snapshot, {"draft_markdown": "Changed text"})
+    manifest = tmp_path / "capture.json"
+    put(manifest, {"schema": "dmb_ordinary_benchmark_v1", "world": "world",
+        "cases": [{"id": "first", "question": "Discuss."}], "pins": [put(tmp_path / "runtime.json", {})],
+        "runtime": {}, "conversation_mode": "build_sequence", "build_editor_snapshot": pin,
+        "request_template": template() | {
+            "surface": {"surface_id": "build", "instance_id": "page"},
+            "primary_work": {"kind": "build", "object_id": "page",
+                             "expected_revision": 1, "expected_content_sha256": "a" * 64},
+            "graph_request": {"mode": "world", "world_id": "world"},
+            "client_work_state": "saved_clean",
+        }})
+    output = tmp_path / "output"
+    with pytest.raises(ValueError, match="(?i)pin|digest|sha256"):
+        w.capture(manifest, output)
+    assert not output.exists()
+
+
 @pytest.fixture
 def writer_replay(retained,monkeypatch):
     from application_state.agent_conversation.types import canonical_sha256
@@ -642,6 +726,39 @@ def writer_replay(retained,monkeypatch):
     monkeypatch.setenv('OPENAI_API_KEY','test-key-not-real')
     return SimpleNamespace(root=root,spec=spec,document=spec_doc,packet=packet,ledger=ledger,
         ledger_path=ledger_path,trace=trace,identity=identity,source=source,case=case)
+
+
+@pytest.mark.parametrize("matching_authorization", [True, False])
+def test_writer_replay_accepts_only_matching_build_authorization(writer_replay, matching_authorization):
+    replay = writer_replay
+    request_path = replay.root / "request.json"
+    request = json.loads(request_path.read_text())
+    request["surface"]["surface_id"] = "build"
+    put(request_path, request)
+    for name in ("history-after", "answer-http"):
+        path = replay.root / (name + ".json")
+        wrapped = json.loads(path.read_text())
+        owner = wrapped["body"]["turns"][0] if name == "history-after" else wrapped["body"]
+        if name == "history-after":
+            from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
+
+            owner["idempotency_key"] = str(_turn_idempotency_key(
+                wrapped["body"]["world_id"], request["turn_id"]))
+        owner["knowledge_context"] = owner.pop("plan_context")
+        put(path, wrapped)
+    ledger = deepcopy(replay.ledger)
+    if matching_authorization:
+        ledger["graph_context_execution"]["events"][0]["kind"] = "native_build_writer_authorized_v2"
+    case = replay.document["cases"][0] | {"ledger": put(replay.ledger_path, ledger)}
+    summary = w.report_case(replay.case, replay.root)
+    assert summary["delivery"]["status"] == "pass"
+    if matching_authorization:
+        packet, _, binding = w._writer_replay_request(case, replay.case, replay.root, summary, case_base=replay.root)
+        assert packet == replay.packet
+        assert binding["writer_attempt_id"] == replay.identity
+    else:
+        with pytest.raises(ValueError, match="different surface"):
+            w._writer_replay_request(case, replay.case, replay.root, summary, case_base=replay.root)
 
 
 def _writer_response(request,*,status='completed',text='{"answer":"Supported."}',refusal=False):

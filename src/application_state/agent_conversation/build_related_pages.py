@@ -107,6 +107,15 @@ def records(execution):
     return [e for e in execution.events if isinstance(e, RelatedPageRead)]
 
 
+def is_anchored_conversation_draft(execution, selection):
+    from .types import BuildDraftContextCapturedV1, BuildRequestedWorkResolutionV1
+
+    return (isinstance(selection, BuildRequestedWorkResolutionV1)
+            and selection.requested_work == "draft_in_conversation"
+            and selection.resolution.get("source_scope") == "anchored"
+            and any(isinstance(event, BuildDraftContextCapturedV1) for event in execution.events))
+
+
 def project(execution):
     if catalog(execution.policy) is None:
         return None
@@ -123,6 +132,20 @@ def project(execution):
             "pages": [{"read_id": str(e.read_id), "page": e.page.model_dump(mode="json"),
                 "markdown": e.markdown} for e in records(execution)]}
     choices = [e for e in execution.events if isinstance(e, RelatedPagesSelection)]
+    from .build_intentional_response import is_anchored_discussion
+    if any(is_anchored_discussion(event) for event in execution.events):
+        if choices or records(execution):
+            raise ValueError("Anchored discussion cannot acquire optional related pages")
+        return None
+    from .build_intentional_response import is_variant_approval
+
+    if not choices and any(
+        is_variant_approval(event) or is_anchored_conversation_draft(execution, event)
+        for event in execution.events
+    ):
+        if records(execution):
+            raise ValueError("Scoped authoring without a related-page selection cannot acquire related pages")
+        return None
     from .types import BuildReviewedActionSelectionV1
     empty_reviewed = not catalog(execution.policy) and not choices and any(isinstance(e, BuildReviewedActionSelectionV1) for e in execution.events)
     if not empty_reviewed and (len(choices) != 1 or set(choices[0].document_ids) != {

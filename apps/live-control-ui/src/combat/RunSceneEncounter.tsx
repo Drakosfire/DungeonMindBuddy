@@ -24,7 +24,7 @@ export function RunSceneEncounter({context}:{context:RunEncounterContext}){
   if(result.state==='applied'&&(result.encounter.world_id!==worldId||result.receipt.encounter_id!==result.encounter.encounter_id))throw new Error('Encounter belongs to another scene');
  }
  useEffect(()=>{const generation=++epoch.current;setBusy(true);
-  try{const raw=localStorage.getItem(key);if(raw){const request=JSON.parse(raw) as MaterializeRequest;if(request.schema_version!=='dmb_scene_encounter_materialize_v1'||!request.operation_id||!request.template)throw new Error('Stored encounter intent is invalid. It has been preserved.');setPending(request);setMessage('A creation is retained. Check, retry or cancel its exact request.');setBusy(false);return()=>{epoch.current++;};}}
+  try{const raw=localStorage.getItem(key);if(raw){const request=JSON.parse(raw) as MaterializeRequest;if(!['dmb_scene_encounter_materialize_v1','dmb_scene_encounter_materialize_v2'].includes(request.schema_version)||!request.operation_id||!request.template)throw new Error('Stored encounter intent is invalid. It has been preserved.');setPending(request);setMessage('A creation is retained. Check, retry or cancel its exact request.');setBusy(false);return()=>{epoch.current++;};}}
   catch(error){setFatal(true);setMessage(String(error));setBusy(false);return()=>{epoch.current++;};}
   readRunEncounter(worldId,context).then(async result=>{if(epoch.current!==generation)return;
    if(result){if(result.encounter.world_id!==worldId||result.receipt.encounter_id!==result.encounter.encounter_id||result.receipt.intent.world_id!==worldId||result.receipt.intent.run_id!==runId||result.receipt.intent.scene_id!==sceneId)throw new Error('Saved encounter belongs to another session scene');setCurrent(result);return;}
@@ -45,7 +45,10 @@ export function RunSceneEncounter({context}:{context:RunEncounterContext}){
   finally{if(epoch.current===generation)setBusy(false);}
  }
  async function start(){if(!preview)return;const generation=epoch.current;try{
-  const request:MaterializeRequest={schema_version:'dmb_scene_encounter_materialize_v1',operation_id:crypto.randomUUID(),expected_preparation_digest:preview.preparation_digest,template:preview.template,initialization_policy:preview.initialization_policy,preview_digest:preview.preview_digest};
+  const common={operation_id:crypto.randomUUID(),expected_preparation_digest:preview.preparation_digest,template:preview.template,preview_digest:preview.preview_digest};
+  const request:MaterializeRequest=preview.initialization_policy==='dmb_preserve_manual_preparation_v2'
+    ?{...common,schema_version:'dmb_scene_encounter_materialize_v2',initialization_policy:preview.initialization_policy}
+    :{...common,schema_version:'dmb_scene_encounter_materialize_v1',initialization_policy:preview.initialization_policy};
   await withIntentLock(key,()=>{if(epoch.current!==generation)throw new Error('Scene changed before encounter creation');if(localStorage.getItem(key))throw new Error('Resolve the retained scene creation first');localStorage.setItem(key,JSON.stringify(request));});
   if(epoch.current!==generation)return;setPending(request);void submit(request);
  }catch(error){if(epoch.current===generation)setMessage(String(error));}}
@@ -54,8 +57,8 @@ export function RunSceneEncounter({context}:{context:RunEncounterContext}){
  return <section aria-label="Scene encounter"><h3>{context.sceneTitle}</h3>{message&&<p role="status">{message}</p>}{busy&&<p>Loading encounter…</p>}
  {pending?<><button disabled={busy||fatal} onClick={()=>void submit(pending,'/inspect')}>Check creation</button><button disabled={busy||fatal||context.readOnly} onClick={()=>void submit(pending)}>Retry creation</button><button disabled={busy||fatal} onClick={()=>void submit(pending,'/cancel')}>Cancel creation</button></>:preview&&<>
  <h4>{preview.title}</h4><p>This starts a separate encounter from the preparation captured when this session began.</p>
- <ul>{preview.actors.map(actor=><li key={actor.actor_id}><strong>{actor.name}</strong> · HP {String(actor.hp_before??'unset')} → {String(actor.hp_after??'unset')}{!actor.typed_maximum?' (no numeric maximum; current HP kept)':''} · temporary HP {actor.temp_hp_before} → 0 · conditions {actor.conditions_before.join(', ') || 'none'} → none · undefeated</li>)}</ul>
- <p>Start at round 1 with no active turn. Names, initiative, notes, groups and saved mechanics are kept.</p>
+ {preview.initialization_policy==='dmb_preserve_manual_preparation_v2'?<><ul>{preview.actors.map(actor=><li key={actor.actor_id}>{actor.name} · {actor.participation==='in_action'?'In action':'Out of action'} · {actor.statuses.join(', ')||'No statuses'}</li>)}</ul><p>Prepared stats, resource values and bounds, notes, statuses and participation are kept. Turn selection resets, and rounds restart only when this profile counts them.</p></>:<><ul>{preview.actors.map(actor=><li key={actor.actor_id}><strong>{actor.name}</strong> · HP {String(actor.hp_before??'unset')} → {String(actor.hp_after??'unset')}{!actor.typed_maximum?' (no numeric maximum; current HP kept)':''} · temporary HP {actor.temp_hp_before} → 0 · conditions {actor.conditions_before.join(', ') || 'none'} → none · undefeated</li>)}</ul>
+ <p>Start at round 1 with no active turn. Names, initiative, notes, groups and saved mechanics are kept.</p></>}
  <button disabled={busy||fatal||context.readOnly} onClick={start}>Start this encounter</button>{context.readOnly&&<p>Reopen the session to start its encounter.</p>}</>}
  </section>;
 }

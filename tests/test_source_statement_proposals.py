@@ -172,6 +172,8 @@ def client(monkeypatch, wire):
     app = FastAPI()
     app.include_router(routes.router)
     app.dependency_overrides[native_graph_gm_dependency] = lambda: GM
+    from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency
+    app.dependency_overrides[native_graph_explorer_dependency] = lambda: GM
     return TestClient(app)
 
 
@@ -404,6 +406,63 @@ def test_owner_source_and_operation_conflicts(lane, application_state_dsn, monke
                 req.operation_id, req.managed_world_id, replace(GM, role="player")
             )
         assert record["reviews"] == []
+
+
+def test_review_authorization_loss_before_persistence_keeps_operation_unchanged(
+    lane, application_state_dsn, monkeypatch
+):
+    from fastapi import HTTPException
+
+    from application_state.unit_of_work import unit_of_work
+    from apps.live_control_server.services import hosted_native_graph_access as access
+
+    def stored_row(operation_id):
+        with unit_of_work(application_state_dsn) as connection:
+            return connection.execute(
+                "SELECT to_jsonb(operation) FROM ingest.statement_proposal_operation "
+                "AS operation WHERE operation_id=%s",
+                (operation_id,),
+            ).fetchone()[0]
+
+    def native_authority():
+        # This owning fixture uses the real in-memory Core adapter. Include all
+        # revision/receipt/event state, so an unchanged head alone cannot hide a write.
+        return deepcopy((lane.repo._heads, lane.repo._revisions,
+                         lane.repo._events, lane.repo._receipts))
+
+    with client(monkeypatch, Wire()) as c:
+        req, record = produce(c, lane)
+        assert record["state"] == "completed" and record["reviews"] == []
+        before = stored_row(req.operation_id)
+        native_before = native_authority()
+        body = review_body(lane, record)
+        allowed = access.require_explorer_access
+        checks = []
+
+        def revoked(principal, world):
+            assert principal == GM and world == req.managed_world_id
+            checks.append((principal.subject, world))
+            raise HTTPException(403, detail={"code": "world_access_revoked"})
+
+        # Routes retain their initially admitted guard; review imports this exact
+        # function for the real store's transaction-bound authorization callback.
+        monkeypatch.setattr(access, "require_explorer_access", revoked)
+        denied = c.post(review_url(req), json=body)
+        assert denied.status_code == 403, denied.text
+        assert denied.json()["detail"]["code"] == "world_access_revoked"
+        assert checks == [(GM.subject, req.managed_world_id)]
+        assert stored_row(req.operation_id) == before
+        assert service.store.read(req.operation_id, GM.subject, req.managed_world_id) == before["payload"]
+        assert native_authority() == native_before
+
+        monkeypatch.setattr(access, "require_explorer_access", allowed)
+        accepted = c.post(review_url(req), json=body)
+        assert accepted.status_code == 200, accepted.text
+        after = stored_row(req.operation_id)
+        assert after["payload"]["revision"] == record["revision"] + 1
+        assert after["payload"]["reviews"] == [accepted.json()]
+        assert accepted.json()["decision_id"] == body["decision_id"]
+        assert native_authority() == native_before
 
 
 def test_reviews_cas_does_not_return_losing_packet(
@@ -1404,7 +1463,7 @@ def test_original_review_identity_omits_absent_extension_field(lane, application
 
 
 @pytest.fixture
-def sibling_span_lane(tmp_path, monkeypatch):
+def sibling_span_lane(application_state_dsn, tmp_path, monkeypatch):
     from tests.test_source_statements import make_lane
     return make_lane(tmp_path, monkeypatch, multiple=True)
 

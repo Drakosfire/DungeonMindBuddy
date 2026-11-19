@@ -16,7 +16,7 @@
 | Wiki targets (`list_wiki_targets` after `FactStore.load()`) | **142** (not 138; threshold + projection yields 142 rows on this snapshot) |
 
 
-**Manifest:** `Docs/Plans/entity_audit_manifest.tsv` (all rows, sorted by connectivity descending).
+**Manifest:** [entity_audit_manifest.tsv](entity_audit_manifest.tsv) (all rows, sorted by connectivity descending).
 
 **Note for automation:** `FactStore` does not call `load()` in `__init_`_; scripts must invoke `store.load()` before `list_wiki_targets`, or the cohort export will show 0 entities.
 

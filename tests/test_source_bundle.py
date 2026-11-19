@@ -74,3 +74,59 @@ def test_source_session_index_matches_bundle(monkeypatch) -> None:
             unit["fields"]["sessionNumber"] for unit in bundle.json()["units"]
             if unit["fields"].get("sessionNumber") is not None
         }, reverse=True)
+
+
+def test_bundle_preserves_full_library_projection_without_auxiliary_scans(monkeypatch) -> None:
+    from live_play import ingested_corpus_library as library_module
+    from live_play import source_bundle as bundle_module
+
+    monkeypatch.setattr(library_module, "_utc_now_z", lambda: "2026-11-19T00:00:00Z")
+    full_library = library_module.build_library(root=ROOT)
+    with monkeypatch.context() as baseline:
+        baseline.setattr(bundle_module, "build_library", lambda **_: full_library)
+        expected = bundle_module.build_ingestion_source_bundle(root=ROOT).model_dump(mode="json")
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("bundle construction must not scan an unused auxiliary view")
+
+    for name in ("_scan_elderwyld", "_scan_live_workspaces", "_scan_eval_ingest_artifacts"):
+        monkeypatch.setattr(library_module, name, forbidden)
+    actual = bundle_module.build_ingestion_source_bundle(root=ROOT).model_dump(mode="json")
+    assert actual == expected
+    assert actual["artifacts"]
+
+
+def test_bundle_still_observes_source_and_manifest_changes(tmp_path) -> None:
+    import json
+
+    from live_play.ingested_corpus_library import C2S23_MANIFEST
+
+    recaps = tmp_path / "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized"
+    recaps.mkdir(parents=True)
+    first = recaps / "Session 1 - Recap.md"
+    first.write_text("first", encoding="utf-8")
+
+    def recaps_by_session():
+        bundle = build_ingestion_source_bundle(root=tmp_path, campaign_id="longmont-c2")
+        return {a.sessionNumber: a for a in bundle.artifacts if a.kind != "reference_index"}
+
+    initial = recaps_by_session()
+    assert set(initial) == {1}
+    assert initial[1].metadata["sizeBytes"] == 5
+    assert initial[1].metadata["activatedInC2S23Slim"] is False
+    first.write_text("a longer recap", encoding="utf-8")
+    second = recaps / "Session 2 - Recap.md"
+    second.write_text("second", encoding="utf-8")
+    manifest = tmp_path / C2S23_MANIFEST
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(json.dumps({"source_sessions": [1], "entries": [{"route": first.relative_to(tmp_path).as_posix()}]}))
+    updated = recaps_by_session()
+    assert set(updated) == {1, 2}
+    assert updated[1].metadata["sizeBytes"] == len("a longer recap")
+    assert updated[1].metadata["activatedInC2S23Slim"] is True
+    first.unlink()
+    manifest.unlink()
+    final = recaps_by_session()
+    assert set(final) == {2}
+    assert final[2].metadata["activatedInC2S23Slim"] is False
+    assert all(a.kind != "reference_index" for a in build_ingestion_source_bundle(root=tmp_path).artifacts)

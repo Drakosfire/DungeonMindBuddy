@@ -1,0 +1,64 @@
+.build-document-picker {
+  width: min(44rem, calc(100vw - 2rem));
+  padding: 0;
+  color: #e7edf7;
+  background: #192231;
+  border: 1px solid #394760;
+  border-radius: 12px;
+}
+
+.build-document-picker::backdrop { background: rgb(8 12 18 / 72%); }
+
+.build-document-picker__toolbar {
+  display: flex;
+  gap: .75rem;
+  padding: .85rem;
+  border-bottom: 1px solid #394760;
+}
+
+.build-document-picker__toolbar input {
+  flex: 1;
+  min-width: 0;
+  padding: .6rem .75rem;
+  color: inherit;
+  background: #101722;
+  border: 1px solid #51617b;
+  border-radius: 6px;
+}
+
+.build-document-picker__body {
+  display: grid;
+  grid-template-columns: minmax(7rem, 25%) minmax(0, 1fr);
+  height: min(25rem, calc(75dvh - 4rem));
+}
+
+.build-document-picker__body nav,
+.build-document-picker__results {
+  overflow: auto;
+  padding: .5rem;
+}
+
+.build-document-picker__body nav { border-right: 1px solid #394760; }
+.build-document-picker__results ul { list-style: none; padding: 0; margin: 0; }
+.build-document-picker button {
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.build-document-picker__toolbar button { min-width: 2.125rem; border-color: #51617b; }
+.build-document-picker__body button { width: 100%; padding: .55rem .65rem; text-align: left; overflow-wrap: anywhere; }
+.build-document-picker button:hover { background: #263449; }
+.build-document-picker button[aria-pressed="true"],
+.build-document-picker button[aria-current] { background: #25364d; border-color: #506684; }
+.build-document-picker__results small { display: block; color: #aebdd1; }
+.build-document-picker__results p { margin: .65rem; }
+
+.build-document-picker__results li { display: flex; align-items: center; gap: .25rem; }
+.build-document-picker__results li > button:first-child { flex: 1; min-width: 0; }
+.build-document-picker__results li > .workspace-trash-delete { width: auto; flex: 0 0 auto; }
+.build-document-selector > button { display: inline-flex; align-items: center; justify-content: center; }
+
+.build-document-picker__confirmation { padding: 1rem; }
+.build-document-picker__confirmation button { border-color: #51617b; padding: .45rem .7rem; margin-right: .5rem; }

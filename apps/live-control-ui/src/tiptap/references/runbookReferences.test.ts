@@ -325,3 +325,11 @@ describe("versioned persisted TipTap reference label migration", () => {
     expect(tiptapJsonToSemanticMarkdown(restored!.tiptap_json)).toBe(exported);
   });
 });
+
+it("round-trips a saved PDF citation through the Plan Markdown editor", () => {
+  const source = "[PDF page 13](#dmb-ref:citation:pdf_00000000-0000-4000-8000-000000000001_0)";
+  const {doc,diagnostics} = markdownToTiptapDoc(source);
+  expect(diagnostics).toEqual([]);
+  expect(tiptapJsonToSemanticMarkdown(doc)).toContain(source);
+  expect(JSON.stringify(doc)).toContain('"refType":"citation"');
+});

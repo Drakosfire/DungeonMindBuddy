@@ -88,8 +88,11 @@ def verify_origin_capture(origin) -> str:
 def _validate_state(state, operation_id):
     try:
         intent = parse_connected_page_intent(state['intent'])
-        if (set(state) != {'schema', 'intent', 'intent_sha256', 'page_id', 'phase', 'initial_markdown',
+        if (set(state) - {'hosted_owner'} != {'schema', 'intent', 'intent_sha256', 'page_id', 'phase', 'initial_markdown',
                           'working_text_sha256', 'saved_source', 'graph_request', 'prepared', 'receipt'}
+                or ('hosted_owner' in state and (
+                    not isinstance(state['hosted_owner'], str) or not state['hosted_owner'].startswith('hosted_dms:')
+                ))
                 or state['schema'] not in (legacy_operation_schema(intent), native_graph.SCHEMA)
                 or (isinstance(intent, SavedConnectedPageIntent) and state['working_text_sha256'] != intent.origin.content_sha256)
                 or state['intent_sha256'] != _sha(_json(intent.model_dump(mode='json')))
@@ -218,7 +221,9 @@ def _initial_markdown(intent, source):
         f'## Origin\n\n[From {_escape(source.title)}]({source_url}) · {origin_label}\n\n{quote}\n')
 
 
-def _save_initial(root, state, intent):
+def _save_initial(root, state, intent, *, authorize=None):
+    if authorize is not None:
+        authorize()
     page = create_workspace_document(root, title=intent.title, campaign_id=intent.world_id,
         kind='worldbuilding_source', world_id=intent.world_id, source_domain='worldbuilding',
         document_class='lore', authority_state='draft', visibility_state='internal',
@@ -233,9 +238,15 @@ def _save_initial(root, state, intent):
         prepared = prepare_tiptap_markdown_write(root=root, request=TiptapMarkdownWritePrepareRequest(
             document_id=page.document_id, expected_revision=page.revision,
             markdown=state['initial_markdown'], write_mode='source_import'))
+        def authorize_page(world_id):
+            if world_id != intent.world_id:
+                raise ConnectedPageError("The reserved page belongs to a different World")
+            authorize()
+
+        guard = {"authorize_world": authorize_page} if authorize is not None else {}
         commit_tiptap_markdown_write(root=root, request=TiptapMarkdownWriteCommitRequest(
             document_id=page.document_id, expected_revision=page.revision, markdown=state['initial_markdown'],
-            write_mode='source_import', writer_confirm_token=prepared.writer_confirm_token))
+            write_mode='source_import', writer_confirm_token=prepared.writer_confirm_token), **guard)
         snapshot = get_committed_page_snapshot(root, page.document_id)
     selector = GraphDocumentSource(documentId=page.document_id, revision=snapshot.loaded_revision,
         contentSha256=snapshot.content_sha256)
@@ -311,13 +322,24 @@ def _response(root, state):
             'relationships': intent.relationships} if receipt else None}
 
 
-def prepare_connected_page(root: Path, intent: ConnectedPageRequest, *, principal):
+def _require_operation_owner(state, principal):
+    owner = state.get('hosted_owner')
+    if getattr(principal, 'auth_method', None) == 'hosted_owner':
+        if owner != principal.subject:
+            raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
+    elif owner is not None:
+        raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
+
+
+def prepare_connected_page(root: Path, intent: ConnectedPageRequest, *, principal, authorize=None):
     root = artifact_data_root(root)
     native_graph.require_native_graph_gm(principal)
     working_hash = None if isinstance(intent,SavedConnectedPageIntent) else verify_origin_capture(intent.origin)
     with locked_operation(intent.operation_id) as journal:
         state = _read(journal)
         digest = _sha(_json(intent.model_dump(mode='json')))
+        if state is not None:
+            _require_operation_owner(state, principal)
         if state and state['intent_sha256'] != digest:
             raise ConnectedPageError('This operation already belongs to a different page request')
         if state and state['schema'] != native_graph.SCHEMA and state['phase'] != 'complete':
@@ -333,8 +355,14 @@ def prepare_connected_page(root: Path, intent: ConnectedPageRequest, *, principa
                 'intent_sha256': digest, 'page_id': str(uuid.uuid4()), 'phase': 'reserved',
                 'initial_markdown': _initial_markdown(intent, source), 'working_text_sha256': working_hash,
                 'saved_source': None, 'graph_request': None, 'prepared': None, 'receipt': None}
+            if getattr(principal, 'auth_method', None) == 'hosted_owner':
+                state['hosted_owner'] = principal.subject
+            if authorize is not None:
+                authorize()
             journal.save(state)
         if state['phase'] == 'reserved':
+            if authorize is not None:
+                authorize()
             create_workspace_document(root, title=intent.title, campaign_id=intent.world_id,
                 kind='worldbuilding_source', world_id=intent.world_id, source_domain='worldbuilding',
                 document_class='lore', authority_state='draft', visibility_state='internal',
@@ -342,20 +370,25 @@ def prepare_connected_page(root: Path, intent: ConnectedPageRequest, *, principa
             state['phase'] = 'created'
             journal.save(state)
         if state['phase'] == 'created':
-            state['saved_source'] = _save_initial(root, state, intent)
+            state['saved_source'] = _save_initial(root, state, intent, authorize=authorize)
             state['phase'] = 'saved'
             journal.save(state)
         if state['phase'] != 'complete':
             if state['schema'] != native_graph.SCHEMA:
                 raise ConnectedPageError('This historical page is retained; its retired Graph writer cannot resume')
             state['prepared'] = native_graph.prepare(root, state, intent, principal,
-                [_escape(sentence) for sentence in _declarations(intent)], journal.save)
+                [_escape(sentence) for sentence in _declarations(intent)], journal.save, authorize=authorize)
             state['phase'] = 'prepared'
+            if authorize is not None:
+                authorize()
             journal.save(state)
-        return _response(root, state)
+        response = _response(root, state)
+        if authorize is not None:
+            authorize()
+        return response
 
 
-def get_connected_page(root: Path, operation_id, world_id: str):
+def get_connected_page(root: Path, operation_id, world_id: str, *, principal=None, authorize=None):
     root = artifact_data_root(root)
     with locked_operation(operation_id) as journal:
         state = _read(journal)
@@ -366,11 +399,16 @@ def get_connected_page(root: Path, operation_id, world_id: str):
             raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
         if state['intent']['world_id'] != world_id:
             raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
+        if state.get('hosted_owner') is not None:
+            _require_operation_owner(state, principal)
         _ownership(root, parse_connected_page_intent(state['intent']))
-        return _response(root, state)
+        response = _response(root, state)
+        if authorize is not None:
+            authorize()
+        return response
 
 
-def confirm_connected_page(root: Path, operation_id, world_id: str, confirm_token: str, *, principal):
+def confirm_connected_page(root: Path, operation_id, world_id: str, confirm_token: str, *, principal, authorize=None):
     native_graph.require_native_graph_gm(principal)
     root = artifact_data_root(root)
     with locked_operation(operation_id) as journal:
@@ -382,6 +420,7 @@ def confirm_connected_page(root: Path, operation_id, world_id: str, confirm_toke
             raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
         if state['intent']['world_id'] != world_id:
             raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
+        _require_operation_owner(state, principal)
         _ownership(root, parse_connected_page_intent(state['intent']))
         _response(root, state)
         if not state['prepared'] or state['prepared']['confirm_token'] != confirm_token:
@@ -389,7 +428,10 @@ def confirm_connected_page(root: Path, operation_id, world_id: str, confirm_toke
         if state['receipt'] is None:
             if state['schema'] != native_graph.SCHEMA:
                 raise ConnectedPageError('This historical page is retained; its retired Graph writer cannot resume')
-            state['receipt'] = native_graph.confirm(root, state, parse_connected_page_intent(state['intent']), principal)
+            state['receipt'] = native_graph.confirm(root, state, parse_connected_page_intent(state['intent']), principal, authorize=authorize)
             state['phase'] = 'complete'
             journal.save(state)
-        return _response(root, state)
+        response = _response(root, state)
+        if authorize is not None:
+            authorize()
+        return response

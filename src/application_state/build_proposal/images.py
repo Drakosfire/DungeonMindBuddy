@@ -1,5 +1,6 @@
 """Durable, owner-bound Harness image preparations; no provider calls."""
 
+from collections.abc import Callable
 from datetime import datetime, timezone
 from uuid import UUID
 from psycopg.types.json import Jsonb
@@ -108,9 +109,10 @@ class BuildImageService:
         return [BuildImagePreparation.model_validate(row[0]) for row in rows]
 
     def associate(
-        self, action_id: UUID, asset_id: UUID, owner: str, expected_revision: int
+        self, action_id: UUID, asset_id: UUID, owner: str, expected_revision: int,
+        *, asset_owner: str | None = None, authorize_world: Callable[[str], None] | None = None,
     ) -> BuildImagePreparation:
-        asset = media.get_asset(asset_id, owner)
+        asset = media.get_asset(asset_id, owner if asset_owner is None else asset_owner)
         if asset["state"] not in {"staged", "ready"}:
             raise ApplicationStateConflictError("The retained image is unavailable for placement")
         basis = self.get(action_id, owner)
@@ -130,6 +132,8 @@ class BuildImageService:
                 raise ApplicationStateConflictError(
                     "The conversation changed; reopen the current page"
                 )
+            if authorize_world is not None:
+                authorize_world(previous.reservation.basis.world_id)
             if previous.asset_id == asset_id:
                 return previous
             if previous.revision != expected_revision:

@@ -1,0 +1,235 @@
+{
+  "captured_base_sha": "3fcc020bd12eeb60a081728e2a52c3aa2252eee7",
+  "api": {
+    "encounter_id": "11111111-1111-4111-8111-111111111111",
+    "world_id": "legacy-world",
+    "campaign_id": null,
+    "session": null,
+    "revision": 3,
+    "ruleset": {
+      "schema": "dmb_combat_ruleset_v1",
+      "config_id": "generic.manual-tracking",
+      "system_id": "generic",
+      "edition_id": "manual",
+      "revision": "1",
+      "mode": "manual_tracking",
+      "fields": [
+        {
+          "key": "initiative",
+          "label": "Initiative",
+          "enabled": true
+        },
+        {
+          "key": "armor_class",
+          "label": "AC",
+          "enabled": true
+        },
+        {
+          "key": "hit_points",
+          "label": "HP",
+          "enabled": true
+        },
+        {
+          "key": "temp_hit_points",
+          "label": "Temp HP",
+          "enabled": true
+        },
+        {
+          "key": "conditions",
+          "label": "Conditions",
+          "enabled": true
+        },
+        {
+          "key": "notes",
+          "label": "Notes",
+          "enabled": true
+        }
+      ],
+      "manual_defaults": {
+        "round": 1,
+        "team": "enemy",
+        "queue_model": "circular_barrel_v1"
+      }
+    },
+    "ruleset_digest": "f29b0d0a1990fd5d37c07c254de45e1a3f957bfb6fb88a1194a3763ae2efaedb",
+    "draft": {
+      "schema": "dmb_combat_encounter_draft_v1",
+      "title": "Retained legacy encounter",
+      "round": 1,
+      "active_turn_entity_id": "guard-a",
+      "round_start_entity_id": "guard-a",
+      "queue_model": "circular_barrel_v1",
+      "entities": [
+        {
+          "id": "guard-a",
+          "name": "Guard A",
+          "team": "neutral",
+          "order": 1,
+          "init": null,
+          "ac": "Shielded",
+          "hp": 8,
+          "max_hp": 12,
+          "temp_hp": 2,
+          "defeated": false,
+          "notes": "Ready",
+          "conditions": [
+            "Marked"
+          ],
+          "tags": [],
+          "statblock_path": null,
+          "statblock_artifact_id": null,
+          "statblock_title": null,
+          "corpus_fingerprint": null,
+          "source": "manual",
+          "world_identity": null,
+          "mechanics_snapshot": null,
+          "provenance": []
+        }
+      ],
+      "groups": [],
+      "provenance": []
+    },
+    "created_at": "2026-11-18T00:00:00Z",
+    "updated_at": "2026-11-18T01:00:00Z"
+  },
+  "template": {
+    "encounter_id": "11111111-1111-4111-8111-111111111111",
+    "world_id": "legacy-world",
+    "campaign_id": null,
+    "session": null,
+    "revision": 3,
+    "ruleset": {
+      "schema_": "dmb_combat_ruleset_v1",
+      "config_id": "generic.manual-tracking",
+      "system_id": "generic",
+      "edition_id": "manual",
+      "revision": "1",
+      "mode": "manual_tracking",
+      "fields": [
+        {
+          "key": "initiative",
+          "label": "Initiative",
+          "enabled": true
+        },
+        {
+          "key": "armor_class",
+          "label": "AC",
+          "enabled": true
+        },
+        {
+          "key": "hit_points",
+          "label": "HP",
+          "enabled": true
+        },
+        {
+          "key": "temp_hit_points",
+          "label": "Temp HP",
+          "enabled": true
+        },
+        {
+          "key": "conditions",
+          "label": "Conditions",
+          "enabled": true
+        },
+        {
+          "key": "notes",
+          "label": "Notes",
+          "enabled": true
+        }
+      ],
+      "manual_defaults": {
+        "round": 1,
+        "team": "enemy",
+        "queue_model": "circular_barrel_v1"
+      }
+    },
+    "ruleset_digest": "f29b0d0a1990fd5d37c07c254de45e1a3f957bfb6fb88a1194a3763ae2efaedb",
+    "draft": {
+      "schema_": "dmb_combat_encounter_draft_v1",
+      "title": "Retained legacy encounter",
+      "round": 1,
+      "active_turn_entity_id": "guard-a",
+      "round_start_entity_id": "guard-a",
+      "queue_model": "circular_barrel_v1",
+      "entities": [
+        {
+          "id": "guard-a",
+          "name": "Guard A",
+          "team": "neutral",
+          "order": 1,
+          "init": null,
+          "ac": "Shielded",
+          "hp": 8,
+          "max_hp": 12,
+          "temp_hp": 2,
+          "defeated": false,
+          "notes": "Ready",
+          "conditions": [
+            "Marked"
+          ],
+          "tags": [],
+          "statblock_path": null,
+          "statblock_artifact_id": null,
+          "statblock_title": null,
+          "corpus_fingerprint": null,
+          "source": "manual",
+          "world_identity": null,
+          "mechanics_snapshot": null,
+          "provenance": []
+        }
+      ],
+      "groups": [],
+      "provenance": []
+    },
+    "created_at": "2026-11-18T00:00:00Z",
+    "updated_at": "2026-11-18T01:00:00Z"
+  },
+  "api_digest": "sha256:95375242758489187ba1959055e49397c3381506a20034cb8d1c981d7a7687bb",
+  "template_digest": "sha256:a275e3deaa826487b4620250c44c8f941d66b17f9227ed9817c44e22b9ff16f9",
+  "create_request": {
+    "title": "Retained legacy encounter",
+    "campaign_id": null,
+    "session": null,
+    "ruleset_id": "generic.manual-tracking"
+  },
+  "pending_save": {
+    "expected_revision": 3,
+    "draft": {
+      "schema": "dmb_combat_encounter_draft_v1",
+      "title": "Retained legacy encounter",
+      "round": 1,
+      "active_turn_entity_id": "guard-a",
+      "round_start_entity_id": "guard-a",
+      "queue_model": "circular_barrel_v1",
+      "entities": [
+        {
+          "id": "guard-a",
+          "name": "Guard A",
+          "team": "neutral",
+          "order": 1,
+          "init": null,
+          "ac": "Shielded",
+          "hp": 8,
+          "max_hp": 12,
+          "temp_hp": 2,
+          "defeated": false,
+          "notes": "Ready",
+          "conditions": [
+            "Marked"
+          ],
+          "tags": [],
+          "statblock_path": null,
+          "statblock_artifact_id": null,
+          "statblock_title": null,
+          "corpus_fingerprint": null,
+          "source": "manual",
+          "world_identity": null,
+          "mechanics_snapshot": null,
+          "provenance": []
+        }
+      ],
+      "groups": [],
+      "provenance": []
+    }
+  }
+}

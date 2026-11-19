@@ -1,3 +1,4 @@
+import {readSavedConversationVariantTarget,savedConversationVariantHref,type SavedConversationVariantTarget} from "../statblocks/savedStatblockLocation";
 import {workPlanFence,workPlanBelongsTo,parseWorkPlanFence,workPlanIdentity,type WorkPlanReference} from '../surface/workPlans/workPlanReference';
 import { pickMediaInsertion,pickDocumentInsertion } from '../documentEditing/pickMediaInsertion';
 import type { Editor } from '@tiptap/core';
@@ -43,6 +44,7 @@ export interface BuildComposeBridge {
   capture: () => Promise<CapturedBuildInsertion>;
   pickInsertion?: (options: { signal: AbortSignal; mode: 'click' | 'drag'; assetId: string }) => Promise<CapturedBuildInsertion>;
   insert: (captured: CapturedBuildInsertion, markdown: string) => void;
+  placeSavedVariantLink?: (captured: CapturedBuildInsertion, variant: SavedConversationVariantTarget) => Promise<PreparedBuildProposal>;
   prepareProposal: (captured: CapturedBuildInsertion, markdown: string) => Promise<PreparedBuildProposal>;
   applyPrepared: (prepared: PreparedBuildProposal) => void;
   saveProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string, savedProjection?:SavedProposalProjection) => Promise<void>;
@@ -166,6 +168,40 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
         }
       }catch{/* Unsupported objects remain editable through their owning controls. */}
       return captured;
+    },
+    async placeSavedVariantLink(captured, variant) {
+      assertSame(captured, true);
+      if (captured.basis.selection || captured.basis.visibility !== "internal" ||
+          captured.basis.world_id !== variant.worldId) {
+        throw new Error("Choose an insertion point on the original GM page.");
+      }
+      const href = savedConversationVariantHref(variant);
+      const text = "Open saved statblock variant";
+      const content = [{ type: "paragraph", content: [
+        { type: "text", text, marks: [{ type: "link", attrs: { href } }] },
+      ] }];
+      let present = false;
+      captured.editor.state.doc.descendants(node => {
+        for (const mark of node.marks) {
+          const candidate = mark.attrs.href;
+          if (mark.type.name !== "link" || typeof candidate !== "string" || !candidate.startsWith("/statblock?")) continue;
+          const target = readSavedConversationVariantTarget(candidate);
+          if (target && savedConversationVariantHref(target) === href) present = true;
+        }
+      });
+      const after = present ? captured.editor.getJSON() :
+        prepareReviewedMarkdownAtAnchor(captured.editor, captured.basis.caret, content, captured.editorJson);
+      const prepared = {
+        captured, markdown: `[${text}](${href})`,
+        afterEditorSha256: await sha256(JSON.stringify(after)),
+        afterDraftSha256: await sha256(tiptapJsonToSemanticMarkdown(after)),
+      };
+      assertSame(captured, true);
+      if (!present) {
+        insertReviewedMarkdownAtAnchor(captured.editor, captured.basis.caret, content, captured.editorJson);
+        changed(captured.editor);
+      }
+      return prepared;
     },
     async prepareProposal(captured, markdown) {
       const admitted = admitMarkdownInsertion(markdown);

@@ -15,6 +15,8 @@ from uuid import UUID
 
 from pydantic import Field
 
+from apps.live_control_server.integrations.dungeonmind_statblocks.generated import ValidationReceiptV1
+
 from .rules_authority_events import (
     RulesBuildProviderAuthorizedV1,
     RulesBuildProviderIncludedV1,
@@ -52,7 +54,6 @@ if TYPE_CHECKING:
 
 MAX_NATIVE_OUTPUT_BYTES = 262144
 
-
 class NativeRulesOutputProofV1(ClosedRulesModel):
     """Transient proof input. ``raw_output_json`` is never written to history."""
 
@@ -70,6 +71,7 @@ class NativeRulesOutputProofV1(ClosedRulesModel):
     raw_output_utf8_bytes: int = Field(ge=1, le=MAX_NATIVE_OUTPUT_BYTES)
 
     graph_packets: dict[UUID, str] = Field(default_factory=dict, max_length=64)
+    variant_validation: ValidationReceiptV1 | None = None
 
     @classmethod
     def from_capture(
@@ -377,6 +379,7 @@ class NativeRulesNormalizedOutputV1:
     composition: AnswerCompositionV1 | None
     assistant_text: str
     graph_used: bool
+    conversation_variant: object | None = None
 
     def __post_init__(self):
         if self.composition is None:
@@ -504,7 +507,7 @@ def normalize_shared_native_output(receipt, graph_execution, rules_execution, pr
     The locked consumer must supply its actual submission identity and persist
     the accepted composition atomically. This component does neither operation.
     """
-    from .native_completion import normalize_candidate
+    from .native_completion import normalize_candidate, normalize_statblock_variant
     evidence,frame=verify_shared_native_producer(receipt,graph_execution,rules_execution,proof,capture,
         trace=trace,idempotency_key=idempotency_key,submitted_intent_fingerprint=submitted_intent_fingerprint,
         world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,
@@ -514,16 +517,24 @@ def normalize_shared_native_output(receipt, graph_execution, rules_execution, pr
     included = next(e for e in rules_execution.events if type(e) is RulesProviderIncludedV1
         and e.provider_attempt_id == proof.producing_provider_attempt_id)
     base, segments = None, ()
+    variant = None
     if frame.lookups:
-        from .rules_authority_output import parse_producing_answer
-        answer = parse_producing_answer(proof.raw_output_json, proof.prepared_request_json, included.support_refs)
+        from .rules_authority_output import parse_answer_against_frame
+        answer = parse_answer_against_frame(proof.raw_output_json, frame, included.support_refs)
         if answer.base_output is not None:
             base = normalize_candidate(answer.base_output,receipt,graph_execution,auth,evidence)
             segments = tuple(segment.text for segment in base.answer_segments)
         composition = answer.composition(supplied_refs=included.support_refs,base_segments=segments,
             base_completion=base,base_disposition='approved' if segments else 'unclaimed')
     else:
-        base = normalize_candidate(strict_json(proof.raw_output_json),receipt,graph_execution,auth,evidence)
+        candidate = strict_json(proof.raw_output_json)
+        base = normalize_candidate(candidate,receipt,graph_execution,auth,evidence)
+        if evidence.variant_format:
+            variant = normalize_statblock_variant(candidate, evidence.work_frame, variant_edits=evidence.variant_edits,
+                variant_witnesses=evidence.variant_witnesses,
+                variant_carried_condition=evidence.variant_carried_condition,
+                variant_passage_review=evidence.variant_passage_review,
+                variant_trigger_retention=evidence.variant_trigger_retention)
         segments = tuple(segment.text for segment in base.answer_segments)
         if segments:
             composition = AnswerCompositionV1(schema='dmb_answer_composition_v1',base_disposition='approved',
@@ -534,7 +545,8 @@ def normalize_shared_native_output(receipt, graph_execution, rules_execution, pr
             require_object_only_completion(base)
             composition = None
     return NativeRulesNormalizedOutputV1(base_completion=base,claim_graph_event_ids={},composition=composition,
-        assistant_text=composition.render(segments) if composition is not None else '',graph_used=base is not None
+        assistant_text=composition.render(segments) if composition is not None else '',
+        conversation_variant=variant, graph_used=base is not None
             and any(segment.kind == 'native_assertion_claim' for segment in base.answer_segments))
 
 
@@ -612,7 +624,7 @@ def sealed_native_producer(turn, rules_execution, proof):
     return capture, graph_support
 
 
-def normalize_unused_native_output(turn, rules_execution, proof, *, work_proof=None, trace=None):
+def normalize_unused_native_output(turn, rules_execution, proof, *, work_proof=None, trace=None, include_variant=False):
     """Prove an ordinary native answer whose Rules capability was never used."""
     from .native_answer_output import parse_native_answer
 
@@ -630,12 +642,15 @@ def normalize_unused_native_output(turn, rules_execution, proof, *, work_proof=N
             submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,
             world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
             provenance=turn.provenance,work_proof=work_proof,play_context_receipt=turn.play_context_receipt)
-        return output.base_completion,output.claim_graph_event_ids,output.assistant_text
+        result = (output.base_completion, output.claim_graph_event_ids, output.assistant_text)
+        return (*result, output.conversation_variant) if include_variant else result
     verify_native_reply(turn.graph_context_execution, rules_execution, proof, capture, plan_turn=turn)
     if turn.graph_context_execution is None:
-        return None, None, proof.raw_output_json
-    return parse_native_answer(proof.raw_output_json, turn,
+        result = (None, None, proof.raw_output_json)
+        return (*result, None) if include_variant else result
+    result = parse_native_answer(proof.raw_output_json, turn,
         proof.producing_provider_attempt_id, support=support)
+    return (*result, None) if include_variant else result
 
 
 def _require_rules_only_owner(turn, execution):

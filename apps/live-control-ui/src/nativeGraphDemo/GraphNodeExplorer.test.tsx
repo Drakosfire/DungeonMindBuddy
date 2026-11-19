@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NativeGraphNodeExplorer as GraphNodeExplorer } from "./GraphNodeExplorer";
 import type { NativeGraphEntity } from "../api/nativeGraphInspection";
@@ -48,9 +48,10 @@ describe("GraphNodeExplorer", () => {
   it("loads exact supporting evidence only on request and rejects a newer revision", async () => {
     inspect.mockResolvedValue({ schema: "dmb_native_graph_source_v1", scope: { ...detail.scope, revision_id: "newer" }, source: { text: "Wrong newer text" } });
     render(<GraphNodeExplorer detail={detail} node={{ id: "lysandra", name: "Lysandra", kind: "person" }} revision="rev" onFocus={vi.fn()} onClose={vi.fn()} labels={new Map([["stafl", "Stafl"]])} onExplore={vi.fn()} />);
-    fireEvent.click(screen.getByText(/Affiliation and command/));
-    fireEvent.click(screen.getByText("Evidence and qualifications"));
-    fireEvent.click(screen.getByRole("button", { name: "Read supporting source" }));
+    const overview = within(screen.getByRole("region", { name: "Overview" }));
+    expect(overview.getByText(/Lysandra commands Stafl/)).toBeInTheDocument();
+    expect(inspect).not.toHaveBeenCalled();
+    fireEvent.click(overview.getByRole("button", { name: "Read supporting source" }));
     expect(await screen.findByText(/exact cited passage is unavailable/)).toBeInTheDocument();
     expect(screen.queryByText("Wrong newer text")).not.toBeInTheDocument();
     expect(inspect).toHaveBeenCalledWith(detail.scope, { kind: "source", assertion_id: "a", evidence_ref_id: "e" });
@@ -71,7 +72,9 @@ describe("GraphNodeExplorer", () => {
     fireEvent.click(screen.getByText(/Family/));
     fireEvent.click(screen.getByText("Evidence and qualifications · 2 records"));
     expect(screen.getByText("1 supporting source · 2 records")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Read supporting source" })).toHaveLength(1);
+    for (const name of ["Overview", "Connections"]) {
+      expect(within(screen.getByRole("region", { name })).getAllByRole("button", { name: "Read supporting source" })).toHaveLength(1);
+    }
   });
   it("shows mixed speculative status without opening evidence", () => {
     const uncertain = { ...detail.entity.assertions[0]!, assertion_id: "b", metadata: { ...detail.entity.assertions[0]!.metadata, standing: "disputed", epistemic_basis: "speculative" } };

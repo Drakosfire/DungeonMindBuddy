@@ -468,7 +468,8 @@ def test_native_field_review_of_actual_correction_keeps_whole_run_disposition(
     monkeypatch.setattr(native_review.native, "binding", lambda _: dict(native_world_id=SPACE_ID, binding_version=3))
     monkeypatch.setattr(native_review.native, "repository", lambda: repo)
     monkeypatch.setattr(native_review.admission, "inspect", lambda *_: admitted)
-    for key, value in dict(DMB_AGENT_GRAPH_AUTH_MODE="local_operator",
+    for key, value in dict(DMB_DEPLOYMENT_ENVIRONMENT="local", DMB_AUTH_MODE="local_operator",
+        DMB_AGENT_GRAPH_AUTH_MODE="local_operator",
         DMB_AGENT_GRAPH_AUTH_ENVIRONMENT="local", DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN="synthetic-native-correction-operator-credential",
         DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY="synthetic-native-correction-review-binding-key").items():
         monkeypatch.setenv(key, value)

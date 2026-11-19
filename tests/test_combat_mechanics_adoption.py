@@ -13,10 +13,6 @@ from apps.live_control_server.services import combat_mechanics as mechanics
 @pytest.fixture
 def adoption_case(revision_case,monkeypatch):
     p=revision_case
-    from fastapi.testclient import TestClient
-    # Current local authentication requires an actual loopback peer, even when
-    # the Graph principal is supplied by the isolated fixture.
-    p.client=TestClient(p.app,client=('127.0.0.1',50000))
     from apps.live_control_server.routes import combat_encounters as routes
     monkeypatch.setattr(routes,'resolve_managed_world_binding',lambda world,**kw:SimpleNamespace(managed_world_id=world))
     monkeypatch.setattr(mechanics,'build_statblock_v1_client',lambda:p.manual)
@@ -249,12 +245,17 @@ def test_corrupted_producer_result_never_applies(adoption_case,damage):
     assert p.client.get(p.encounter_url).json()==p.before
 
 
-def test_adoption_routes_require_native_gm(adoption_case):
-    from apps.live_control_server.services.agent_graph_auth import authenticate_native_graph_principal,NativeGraphPrincipal
-    p=adoption_case;p.app.dependency_overrides.clear()
-    p.app.dependency_overrides[authenticate_native_graph_principal]=lambda:NativeGraphPrincipal('player-test','player','local_session')
-    assert apply(p).status_code==403
-    assert p.client.post(p.cancel_url,json=p.intent).status_code==403
+def test_adoption_routes_require_native_gm(adoption_case, monkeypatch):
+    from apps.live_control_server.services import agent_graph_auth
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+
+    p = adoption_case
+    monkeypatch.setattr(
+        agent_graph_auth, "authenticate_native_graph_principal",
+        lambda _request: NativeGraphPrincipal("player-test", "player", "local_session"),
+    )
+    assert apply(p).status_code == 403
+    assert p.client.post(p.cancel_url, json=p.intent).status_code == 403
 
 
 def test_multi_actor_adoption_reads_exact_source_once_and_replay_reads_none(adoption_case,monkeypatch):
@@ -264,3 +265,35 @@ def test_multi_actor_adoption_reads_exact_source_once_and_replay_reads_none(adop
     result=apply(p);assert result.status_code==200,result.text
     assert len(result.json()['receipt']['transitions'])==2 and len(calls)==1
     assert apply(p).status_code==200 and len(calls)==1
+
+
+def test_local_selected_saved_revision_can_preview(adoption_case):
+    p = adoption_case
+    path = '/api/live/combat/encounters/saved-mechanics/preview?world_id=elderwyld'
+    response = p.client.post(path, json={'draft_id': p.draft.draft_id, 'locator': p.locator})
+    assert response.status_code == 200, response.text
+    assert response.json()['snapshot']['locator'] == p.locator
+    assert response.json()['hit_points'] == 28
+
+
+@pytest.mark.parametrize("prepared", ["unspecified-source"], indirect=True)
+def test_combat_adopts_saved_version_with_unspecified_source_fields(adoption_case):
+    p = adoption_case
+    locator = p.locator
+    preview = p.client.post(
+        "/api/live/combat/encounters/saved-mechanics/preview?world_id=elderwyld",
+        json={"draft_id": p.draft.draft_id, "locator": locator},
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["armor_class"] == 20
+    assert preview.json()["hit_points"] == 28
+    applied = apply(p, {**p.intent, "locator": locator})
+    assert applied.status_code == 200, applied.text
+    reopened = p.client.get(p.encounter_url).json()
+    assert reopened == applied.json()["encounter"]
+    snapshot = reopened["draft"]["entities"][0]["mechanics_snapshot"]
+    assert snapshot["locator"] == locator
+    saved_definition = snapshot["resource"]["definition"]
+    assert saved_definition["ruleset"] is None
+    assert saved_definition["movement"] is None
+    assert saved_definition["challenge"]["proficiency_bonus"] is None

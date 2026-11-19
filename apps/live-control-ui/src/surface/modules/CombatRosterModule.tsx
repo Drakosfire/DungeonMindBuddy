@@ -1,3 +1,4 @@
+import type {SavedConversationVariantTarget} from '../../statblocks/savedStatblockLocation';
 import {useTourNavigationGuard} from '../../guidedTour/Navigation';
 import {useTourEncounter,type TourEncounterScope} from '../../guidedTour/EncounterScope';
 import type {TourDispatchScope} from '../../guidedTour/GuidedTour';
@@ -8,22 +9,22 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
   createWorldCombatEncounter,
-  getWorldCombatEncounter,
-  listWorldCombatEncounters,
+  createManualCombatEncounter,
+  getAnyWorldCombatEncounter,
+  listAnyWorldCombatEncounters,
   saveWorldCombatEncounter,
 } from "../../combat/combatApi";
+import {ManualCombatEditor} from "../../combat/ManualCombatEditor";
+import {ManualCombatProfileForm} from "../../combat/ManualCombatProfileForm";
+import {isManualCombatRecord,type AnyCombatRecord,type ManualCombatRecord} from "../../combat/ManualCombatTypes";
 import type { CombatEncounterDraft, CombatEncounterRecord, CombatEntity } from "../../combat/combatTypes";
 import { CombatMechanicsInspection } from "../../combat/CombatMechanicsInspection";
 import { CombatMechanicsAdoption } from '../../combat/CombatMechanicsAdoption';
 import { CombatEncounterAssembly } from "../../combat/CombatEncounterAssembly";
+import {CombatRosterWorkspace, type CombatProjectionControl} from '../../combat/CombatRosterWorkspace';
 import "../../combat/combatRoster.css";
 import {CombatRecoverySession, combatDraftEqual, combatSelectionKey, type CombatRecovery} from "../../combat/combatRecovery";
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
-
-function valueText(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
-  return String(value);
-}
 
 function asInput(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -35,6 +36,12 @@ function numericValue(value: number | string | null): number | null {
   if (typeof value !== "string" || value.trim() === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function manualStatValue(value: string): number | string | null {
+  if (value.trim() === "") return null;
+  const numeric = Number(value);
+  return Number.isSafeInteger(numeric) ? numeric : value;
 }
 
 function activeActor(draft: CombatEncounterDraft | null): CombatEntity | null {
@@ -55,17 +62,27 @@ function nextActor(draft: CombatEncounterDraft | null): CombatEntity | null {
 function RosterRow({
   entity,
   active,
+  hidden,
   disabled,
   onChange,
   onSetActive,
   onRemove,
+  projection,
+  onMove,
+  canMoveEarlier,
+  canMoveLater,
 }: {
   entity: CombatEntity;
   active: boolean;
+  hidden: boolean;
   disabled: boolean;
   onChange: (entity: CombatEntity) => void;
   onSetActive: () => void;
   onRemove: () => void;
+  projection: CombatProjectionControl;
+  onMove: (direction: 'earlier' | 'later') => void;
+  canMoveEarlier: boolean;
+  canMoveLater: boolean;
 }) {
   const [damage, setDamage] = useState("1");
   const [heal, setHeal] = useState("1");
@@ -84,7 +101,8 @@ function RosterRow({
 
   function applyDelta(action: "damage" | "heal", amount: number) {
     const hp = numericValue(entity.hp);
-    const maxHp = numericValue(entity.max_hp);
+    const maximum = numericValue(entity.max_hp);
+    const maxHp = maximum !== null && Number.isSafeInteger(maximum) ? maximum : null;
     if (hp === null) {
       setError("Enter numeric HP before applying damage or healing.");
       return;
@@ -95,27 +113,35 @@ function RosterRow({
       update({ temp_hp: entity.temp_hp - absorbed, hp: Math.max(0, hp - remaining) });
       return;
     }
-    update({ hp: maxHp === null ? hp + amount : Math.min(maxHp, hp + amount) });
+    update({ hp: maxHp === null ? hp + amount : Math.max(hp, Math.min(maxHp, hp + amount)) });
   }
 
   const damageAmount = Number.parseInt(damage, 10);
   const healAmount = Number.parseInt(heal, 10);
 
   return (
-    <tr className={active ? "combat-roster-active-row" : undefined}>
+    <tr hidden={hidden} className={active ? "combat-roster-active-row" : entity.defeated ? "combat-roster-defeated-row" : undefined}>
       <td>
-        <button type="button" onClick={onSetActive} disabled={disabled || entity.defeated}>
+        <button type="button" aria-label={`Set ${entity.name} as current actor`} onClick={onSetActive} disabled={disabled || entity.defeated}>
           {active ? "▶" : "Set"}
         </button>
+        <div className="combat-roster-order-controls">
+          <button type="button" aria-label={`Move ${entity.name} earlier`} disabled={disabled || !canMoveEarlier}
+            onClick={() => onMove('earlier')}>↑</button>
+          <button type="button" aria-label={`Move ${entity.name} later`} disabled={disabled || !canMoveLater}
+            onClick={() => onMove('later')}>↓</button>
+        </div>
       </td>
-      <td>
+      <td className="combat-roster-participant">
         <strong>{entity.name}</strong>
         <div className="module-muted">
           {entity.world_identity ? `World: ${entity.world_identity.label} · Manual stats` : entity.statblock_title ?? entity.statblock_artifact_id ?? entity.source}
         </div>
-        {entity.mechanics_snapshot && <CombatMechanicsInspection snapshot={entity.mechanics_snapshot} />}
-      </td>
-      <td>
+        {entity.mechanics_snapshot && <CombatMechanicsInspection snapshot={entity.mechanics_snapshot} presentation="dialog" />}
+        {entity.mechanics_snapshot && <button type="button" aria-label={`Keep statblock open for ${entity.name}`}
+          aria-pressed={projection.selected} aria-controls={projection.selected ? projection.regionId : undefined}
+          onClick={event => projection.open(event.currentTarget)}>Keep statblock open</button>}
+        <div className="combat-roster-team">
         <select
           aria-label={`Team for ${entity.name}`}
           value={entity.team}
@@ -127,6 +153,7 @@ function RosterRow({
           <option value="enemy">Enemy</option>
           <option value="neutral">Neutral</option>
         </select>
+        </div>
       </td>
       <td>
         <input
@@ -137,8 +164,12 @@ function RosterRow({
           onChange={(event) => update({ init: numberOrNull(event.target.value) })}
         />
       </td>
-      <td>{valueText(entity.ac)}</td>
       <td>
+        <input aria-label={`AC for ${entity.name}`} className="combat-roster-short-input"
+          value={asInput(entity.ac)} maxLength={64} disabled={disabled}
+          onChange={event => update({ac: manualStatValue(event.target.value)})}/>
+      </td>
+      <td className="combat-roster-health">
         <input
           aria-label={`HP for ${entity.name}`}
           className="combat-roster-short-input"
@@ -148,9 +179,11 @@ function RosterRow({
             const parsed = numberOrNull(event.target.value);
             update({ hp: parsed === null && event.target.value.trim() !== "" ? event.target.value : parsed });
           }}
-        />{" "}/ {valueText(entity.max_hp)}
-      </td>
-      <td>
+        />{" "}/ <input aria-label={`Maximum HP for ${entity.name}`} className="combat-roster-short-input"
+          title="Whole numbers cap healing. Text values are tracked manually."
+          value={asInput(entity.max_hp)} maxLength={64} disabled={disabled}
+          onChange={event => update({max_hp: manualStatValue(event.target.value)})}/>
+        <label className="combat-roster-temp"><span>Temp</span>
         <input
           aria-label={`Temp HP for ${entity.name}`}
           className="combat-roster-short-input"
@@ -158,6 +191,7 @@ function RosterRow({
           disabled={disabled}
           onChange={(event) => update({ temp_hp: Math.max(0, numberOrNull(event.target.value) ?? 0) })}
         />
+        </label>
       </td>
       <td>
         <div className="combat-roster-delta-controls">
@@ -193,7 +227,8 @@ function RosterRow({
           </button>
         </div>
       </td>
-      <td>
+      <td className="combat-roster-notes">
+        <span className="eyebrow">Conditions</span>
         <input
           aria-label={`Conditions for ${entity.name}`}
           value={entity.conditions.join(", ")}
@@ -202,8 +237,7 @@ function RosterRow({
             conditions: event.target.value.split(",").map((item) => item.trim()).filter(Boolean),
           })}
         />
-      </td>
-      <td>
+        <span className="eyebrow">Notes</span>
         <textarea
           aria-label={`Notes for ${entity.name}`}
           value={entity.notes}
@@ -234,9 +268,11 @@ function cloneDraft(draft: CombatEncounterDraft): CombatEncounterDraft {
   return JSON.parse(JSON.stringify(draft)) as CombatEncounterDraft;
 }
 
-export interface PreparedCombatOwnerReading {record:CombatEncounterRecord|null;blocked:boolean;error:string|null;acknowledged:{dispatchScope:TourDispatchScope|null;scope:TourEncounterScope;before:CombatEncounterRecord;saved:CombatEncounterRecord}|null}
-export type CombatHostScope = {worldId:string;encounterId:string;label:string;initialRecord?:CombatEncounterRecord;onPreparedState?:(reading:PreparedCombatOwnerReading|null)=>void;runScope?:import("../../combat/runEncountersApi").RunEncounterScope};
-export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
+export interface PreparedCombatOwnerReading {record:AnyCombatRecord|null;blocked:boolean;error:string|null;acknowledged:{dispatchScope:TourDispatchScope|null;scope:TourEncounterScope;before:CombatEncounterRecord;saved:CombatEncounterRecord}|null}
+export type CombatHostScope = {worldId:string;encounterId:string;label:string;initialRecord?:AnyCombatRecord;onPreparedState?:(reading:PreparedCombatOwnerReading|null)=>void;runScope?:import("../../combat/runEncountersApi").RunEncounterScope};
+export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;variant?:SavedConversationVariantTarget} = {}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const turnRailRef = useRef<HTMLElement>(null);
   const tourRun=useTourRun(),tour=useGuidedTour(),tourEncounter=useTourEncounter();
   const [preparedAcknowledged,setPreparedAcknowledged]=useState<PreparedCombatOwnerReading["acknowledged"]>(null);
   const [tourAcknowledged,setTourAcknowledged]=useState<AcknowledgedCombatSave|null>(null);
@@ -249,16 +285,18 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
   const pendingSave = useRef<CombatRecovery['pending']>(null);
   const [availableRecovery, setAvailableRecovery] = useState<CombatRecovery | null>(null);
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
-  const [encounters, setEncounters] = useState<CombatEncounterRecord[]>([]);
+  const [encounters, setEncounters] = useState<AnyCombatRecord[]>([]);
   const [loadedWorldId, setLoadedWorldId] = useState<string | null>(null);
   const [selectedEncounterId, setSelectedEncounterId] = useState("");
   const [record, setRecord] = useState<CombatEncounterRecord | null>(null);
+  const [manualRecord,setManualRecord]=useState<ManualCombatRecord|null>(null);
+  const [manualBlocked,setManualBlocked]=useState(false);
   const [draft, setDraft] = useState<CombatEncounterDraft | null>(null);
   const [newTitle, setNewTitle] = useState("New encounter");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [adoptionBlocked,setAdoptionBlocked]=useState(false);
-  const operationsBlocked=busy!==null||adoptionBlocked;
+  const operationsBlocked=busy!==null||adoptionBlocked||manualBlocked;
   const replacingDraft = adoptionBlocked || busy === "create" || busy === "open" || busy === "reload" || availableRecovery !== null;
   const [error, setError] = useState<string | null>(null);
 
@@ -273,6 +311,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
   useEffect(() => {
     let alive = true;
     const generation = worldRequestGeneration.current;
+    setManualRecord(null);setManualBlocked(false);
     setRecord(null); recordRef.current = null;
     setDraft(null); draftRef.current = null; pendingSave.current = null;
     setAvailableRecovery(null); setRecoveryMessage(null);
@@ -287,7 +326,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
     }
     setLoading(true);
     if (scope) {
-      const opening=scope.initialRecord ? Promise.resolve(scope.initialRecord) : getWorldCombatEncounter(worldId, scope.encounterId,...(scope.runScope?[scope.runScope] as const:[] as const));
+      const opening=scope.initialRecord ? Promise.resolve(scope.initialRecord) : getAnyWorldCombatEncounter(worldId, scope.encounterId,...(scope.runScope?[scope.runScope] as const:[] as const));
       void opening.then(async opened => {
         if (!alive || generation !== worldRequestGeneration.current) return;
         await adoptRecord(opened,worldId,scope.encounterId,generation);
@@ -296,7 +335,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
         .finally(()=>{if(alive && generation===worldRequestGeneration.current)setLoading(false);});
       return ()=>{alive=false;};
     }
-    void listWorldCombatEncounters(worldId)
+    void listAnyWorldCombatEncounters(worldId)
       .then((items) => {
         if (alive && generation === worldRequestGeneration.current) {
           setEncounters(items);
@@ -319,6 +358,16 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
 
   const visibleRecord = record?.world_id === worldId ? record : null;
   const visibleDraft = visibleRecord ? draft : null;
+  const livingOrder = visibleDraft?.entities.filter(entity => !entity.defeated).map(entity => entity.id) ?? [];
+  useLayoutEffect(() => {
+    const rail = turnRailRef.current, panel = panelRef.current;
+    if (!rail || !panel) return;
+    const measure = () => panel.style.setProperty('--combat-turn-rail-height', `${rail.getBoundingClientRect().height}px`);
+    measure();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(rail);
+    return () => {observer?.disconnect(); panel.style.removeProperty('--combat-turn-rail-height');};
+  }, [visibleRecord?.encounter_id, worldId]);
   const visibleEncounters = encounters.filter((item) => item.world_id === worldId);
   const worldListLoading = worldId !== null && (loading || loadedWorldId !== worldId);
   const dirty = Boolean(visibleRecord && visibleDraft && JSON.stringify(visibleRecord.draft) !== JSON.stringify(visibleDraft));
@@ -338,9 +387,14 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
     } catch (caught) {setError(String(caught)); return false;}
   }
 
-  async function adoptRecord(opened: CombatEncounterRecord, requestedWorld: string, requestedId: string | null, generation: number) {
+  async function adoptRecord(opened: AnyCombatRecord, requestedWorld: string, requestedId: string | null, generation: number) {
     if (opened.world_id !== requestedWorld || (requestedId && opened.encounter_id !== requestedId)) throw new Error('Combat response belongs to a different encounter.');
     setRecord(null); recordRef.current = null; setDraft(null); draftRef.current = null;
+    if(isManualCombatRecord(opened)) {
+      recoverySession.current.close();setAvailableRecovery(null);setRecoveryMessage(null);
+      setManualRecord(opened);setManualBlocked(true);return;
+    }
+    setManualRecord(null);setManualBlocked(false);
     const recovery = await recoverySession.current.open(opened, () => generation === worldRequestGeneration.current,!scope);
     if (generation !== worldRequestGeneration.current) return;
     recordRef.current = opened; draftRef.current = cloneDraft(opened.draft); pendingSave.current = null;
@@ -370,10 +424,16 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
   }
 
   function updateEntity(entityId: string, replacement: CombatEntity) {
-    updateDraft((current) => ({
-      ...current,
-      entities: current.entities.map((entity) => entity.id === entityId ? replacement : entity),
-    }));
+    updateDraft((current) => {
+      const entities = current.entities.map((entity) => entity.id === entityId ? replacement : entity);
+      const index = entities.findIndex(entity => entity.id === entityId);
+      const successor = [...entities.slice(index + 1), ...entities.slice(0, index)]
+        .find(entity => !entity.defeated)?.id ?? null;
+      return {...current, entities,
+        active_turn_entity_id: replacement.defeated && current.active_turn_entity_id === entityId
+          ? successor : current.active_turn_entity_id,
+      };
+    });
   }
 
   async function createEncounter() {
@@ -403,7 +463,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
     setBusy("open");
     setError(null);
     try {
-      const opened = await getWorldCombatEncounter(requestedWorldId, requestedEncounterId,...(scope?.runScope?[scope.runScope] as const:[] as const));
+      const opened = await getAnyWorldCombatEncounter(requestedWorldId, requestedEncounterId,...(scope?.runScope?[scope.runScope] as const:[] as const));
       if (generation !== worldRequestGeneration.current) return;
       await adoptRecord(opened, requestedWorldId, requestedEncounterId, generation);
     } catch (caught) {
@@ -455,10 +515,11 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
     setBusy("reload");
     setError(null);
     try {
-      const opened = await getWorldCombatEncounter(requestedWorldId, requestedEncounterId,...(scope?.runScope?[scope.runScope] as const:[] as const));
+      const opened = await getAnyWorldCombatEncounter(requestedWorldId, requestedEncounterId,...(scope?.runScope?[scope.runScope] as const:[] as const));
       if (generation !== worldRequestGeneration.current) return;
       // Explicit reload discards only this owned local recovery after a verified read.
       if (opened.world_id !== requestedWorldId || opened.encounter_id !== requestedEncounterId) throw new Error('Combat response belongs to a different encounter.');
+      if (isManualCombatRecord(opened)) throw new Error('Encounter version changed; reopen it before editing.');
       recoverySession.current.clear(); pendingSave.current = null; setAvailableRecovery(null);
       recordRef.current = opened; draftRef.current = cloneDraft(opened.draft);
       setRecord(opened); setDraft(draftRef.current); setRecoveryMessage(null);
@@ -489,6 +550,20 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
     });
   }
 
+  function moveEntity(entityId: string, direction: 'earlier' | 'later') {
+    updateDraft(current => {
+      const participating = current.entities.filter(entity => !entity.defeated);
+      const index = participating.findIndex(entity => entity.id === entityId);
+      const neighbor = participating[index + (direction === 'earlier' ? -1 : 1)];
+      if (index < 0 || !neighbor) return current;
+      const entities = [...current.entities];
+      const from = entities.findIndex(entity => entity.id === entityId);
+      const to = entities.findIndex(entity => entity.id === neighbor.id);
+      [entities[from], entities[to]] = [entities[to], entities[from]];
+      return {...current, entities: entities.map((entity, order) => ({...entity, order: order + 1}))};
+    });
+  }
+
   function setActive(entityId: string) {
     updateDraft((current) => current.entities.some((entity) => entity.id === entityId && !entity.defeated)
       ? { ...current, active_turn_entity_id: entityId, round_start_entity_id: current.round_start_entity_id ?? entityId }
@@ -509,7 +584,11 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
       }
       const from = activeIndex;
       const nextIndex = (from + (direction === "next" ? 1 : living.length - 1)) % living.length;
-      const wrapped = direction === "next" ? nextIndex <= from : nextIndex >= from;
+      const anchorIndex = current.entities.findIndex(entity => entity.id === current.round_start_entity_id);
+      const anchoredOrder = anchorIndex < 0 ? current.entities
+        : [...current.entities.slice(anchorIndex), ...current.entities.slice(0, anchorIndex)];
+      const roundStart = anchoredOrder.find(entity => !entity.defeated)?.id;
+      const wrapped = direction === "next" ? living[nextIndex]?.id === roundStart : living[from]?.id === roundStart;
       return {
         ...current,
         active_turn_entity_id: living[nextIndex]?.id ?? null,
@@ -534,10 +613,11 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
     }));
   }
 
-  const preparedBlocked=busy!==null||dirty||availableRecovery!==null||!!pendingSave.current||adoptionBlocked;
+  const preparedBlocked=busy!==null||dirty||availableRecovery!==null||!!pendingSave.current||adoptionBlocked||manualBlocked;
   useTourNavigationGuard(worldId?{worldId,reason:()=>preparedBlocked?'Save or recover the encounter work before leaving these controls.':null}:null);
   const preparedListener=scope?.onPreparedState;
-  useEffect(()=>{preparedListener?.({record:visibleRecord,blocked:preparedBlocked,error,acknowledged:preparedAcknowledged});},[preparedListener,visibleRecord,preparedBlocked,error,preparedAcknowledged]);
+  const preparedRecord=visibleRecord??(manualRecord?.world_id===worldId?manualRecord:null);
+  useEffect(()=>{preparedListener?.({record:preparedRecord,blocked:preparedBlocked,error,acknowledged:preparedAcknowledged});},[preparedListener,preparedRecord,preparedBlocked,error,preparedAcknowledged]);
   useEffect(()=>()=>preparedListener?.(null),[preparedListener]);
 
   const worldMessage = scope && selectedWorld.kind === "managed" && scope.worldId !== selectedWorld.worldId
@@ -551,7 +631,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
         : null;
 
   return (
-    <div className="module-panel combat-roster" data-module-id="combat_roster">
+    <div ref={panelRef} className="module-panel combat-roster" data-module-id="combat_roster">
       <CombatTourObservation record={visibleRecord} runScope={scope?.runScope??null} acknowledged={tourAcknowledged} blocked={busy!==null||dirty||availableRecovery!==null||!!pendingSave.current||adoptionBlocked} error={error}/>
       <h2 className="module-title" data-guided-control="combat" data-guided-control-group="true" tabIndex={-1}>Combat</h2>
       {worldMessage ? <p className="module-muted">{worldMessage}</p> : null}
@@ -576,7 +656,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
                 ))}
               </select>
             </label>
-            <button type="button" disabled={operationsBlocked || !visibleEncounters.some((item) => item.encounter_id === selectedEncounterId) || dirty} onClick={() => void openEncounter()}>
+            <button type="button" disabled={operationsBlocked || manualRecord?.encounter_id===selectedEncounterId || !visibleEncounters.some((item) => item.encounter_id === selectedEncounterId) || dirty} onClick={() => void openEncounter()}>
               Open
             </button>
             <label>
@@ -587,14 +667,26 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
               Create
             </button>
             </>}
-            <button type="button" disabled={operationsBlocked || (!dirty && !pendingSave.current)} onClick={() => void saveEncounter()}>
+            {!manualRecord&&<><button type="button" disabled={operationsBlocked || (!dirty && !pendingSave.current)} onClick={() => void saveEncounter()}>
               {busy === "save" ? "Saving…" : "Save"}
             </button>
             <button type="button" disabled={busy !== null || (!dirty && !pendingSave.current)} onClick={revertDraft}>
               Revert
             </button>
             {pendingSave.current ? <span className="module-muted">{busy === 'save' ? 'Saving exact request…' : 'Save outcome unconfirmed · exact request retained'}</span> : dirty ? <span className="module-muted">Unsaved changes</span> : visibleRecord ? <span className="module-muted">Saved · rev {visibleRecord.revision}</span> : null}
+            </>}
           </section>
+          {!scope&&<ManualCombatProfileForm disabled={operationsBlocked||dirty||availableRecovery!==null} onCreate={async(title,profile)=>{
+            const generation=worldRequestGeneration.current;
+            setBusy('create');
+            try {
+              const created=await createManualCombatEncounter(worldId,title,profile);
+              if(generation!==worldRequestGeneration.current)return;
+              setEncounters(items=>[created,...items]);setSelectedEncounterId(created.encounter_id);
+              await adoptRecord(created,worldId,created.encounter_id,generation);
+            } finally {if(generation===worldRequestGeneration.current)setBusy(null);}
+          }}/>}
+          {manualRecord?.world_id===worldId&&<ManualCombatEditor key={JSON.stringify([manualRecord.world_id,manualRecord.encounter_id,scope?.runScope])} record={manualRecord} externallyDisabled={busy==='open'||busy==='create'||busy==='reload'} scope={scope?.runScope} onBlocked={setManualBlocked} onSaved={saved=>{setManualRecord(saved);setEncounters(items=>items.map(item=>item.encounter_id===saved.encounter_id?saved:item));}}/>}
           {availableRecovery && <section aria-label="Combat draft recovery">
             <p>Local Combat draft available from revision {availableRecovery.base.revision}. Current committed revision: {visibleRecord?.revision}. Recover explicitly; newer server state is never overwritten automatically.</p>
             <button type="button" disabled={busy !== null} onClick={recoverDraft}>Recover local Combat draft</button>
@@ -602,15 +694,15 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
           </section>}
           {recoveryMessage && <p role="status">{recoveryMessage}</p>}
           {worldListLoading ? <p className="module-muted">Loading World encounters…</p> : null}
-          {!worldListLoading && visibleEncounters.length === 0 && !visibleRecord ? (
+          {!worldListLoading && visibleEncounters.length === 0 && !visibleRecord && !manualRecord ? (
             <p className="module-muted">No encounters yet. Create a named encounter to begin; it won’t replace another fight.</p>
           ) : null}
-          {!visibleRecord ? (
+          {!visibleRecord && !manualRecord ? (
             <p className="module-muted">Choose an encounter and open it, or create a new one.</p>
           ) : null}
           {visibleRecord && visibleDraft ? (
             <>
-              <section className="combat-roster-turn-rail" aria-label="Combat turn controls">
+              <section ref={turnRailRef} className="combat-roster-turn-rail" aria-label="Combat turn controls">
                 <div><span className="eyebrow">Round</span><strong>{visibleDraft.round}</strong></div>
                 <div><span className="eyebrow">Active</span><strong>{active?.name ?? "No active actor"}</strong></div>
                 <div><span className="eyebrow">Next</span><strong>{next?.name ?? "—"}</strong></div>
@@ -625,6 +717,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
                 </label>
                 <span className="module-muted">{visibleRecord.ruleset.system_id} · {visibleRecord.ruleset.edition_id} · config rev {visibleRecord.ruleset.revision} · pinned {visibleRecord.ruleset_digest.slice(0, 12)}</span>
               </header>
+              <details className="combat-roster-setup" open={adoptionBlocked ? true : undefined}><summary>Encounter setup · saved mechanics</summary>
               <CombatMechanicsAdoption key={`adoption:${worldId}:${visibleRecord.encounter_id}`}
                 scope={scope?.runScope} record={visibleRecord} disabled={busy!==null||dirty||availableRecovery!==null||!!pendingSave.current}
                 onLockChange={setAdoptionBlocked} onReconciled={current=>{
@@ -637,8 +730,9 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
                   setRecord(current);setDraft(draftRef.current);setAvailableRecovery(null);setRecoveryMessage(null);
                   setEncounters(items=>[current,...items.filter(item=>item.encounter_id!==current.encounter_id)]);
                 }}/>
+              </details>
               <CombatEncounterAssembly key={`${worldId}:${worldRequestGeneration.current}:${visibleRecord.encounter_id}`}
-                worldId={worldId} disabled={operationsBlocked || availableRecovery !== null} remainingSlots={100 - visibleDraft.entities.length}
+                worldId={worldId} variant={variant} disabled={operationsBlocked || availableRecovery !== null} remainingSlots={100 - visibleDraft.entities.length}
                 onAdd={(entities, group) => {
                   const proposed = {...visibleDraft,
                     entities: [...visibleDraft.entities, ...entities].map((entity, index) => ({...entity, order: index + 1})),
@@ -653,24 +747,27 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
               {visibleDraft.entities.length === 0 ? (
                 <p className="module-muted">Add combatants to assemble this encounter.</p>
               ) : (
-                <div className="combat-roster-table-wrap">
-                  <table className="combat-roster-table">
-                    <thead><tr><th>Turn</th><th>Name</th><th>Team</th><th>Init</th><th>AC</th><th>HP</th><th>Temp</th><th>Delta</th><th>Conditions</th><th>Notes</th><th>Status</th></tr></thead>
-                    <tbody>
-                      {visibleDraft.entities.map((entity) => (
+                <CombatRosterWorkspace key={JSON.stringify([worldId, visibleRecord.encounter_id, scope?.runScope?.runId, scope?.runScope?.sceneId])}
+                  draft={visibleDraft} disabled={replacingDraft}
+                  onToggleGroup={key => updateDraft(current => ({...current,
+                    groups: current.groups.map(group => group.group_key === key ? {...group, collapsed: !group.collapsed} : group),
+                  }))}
+                  renderRow={(entity, hidden, projection) => (
                         <RosterRow
                           key={entity.id}
                           entity={entity}
                           active={entity.id === visibleDraft.active_turn_entity_id}
+                          hidden={hidden}
+                          projection={projection}
+                          onMove={direction => moveEntity(entity.id, direction)}
+                          canMoveEarlier={livingOrder.indexOf(entity.id) > 0}
+                          canMoveLater={!entity.defeated && livingOrder.indexOf(entity.id) < livingOrder.length - 1}
                           disabled={replacingDraft}
                           onChange={(updated) => updateEntity(entity.id, updated)}
                           onSetActive={() => setActive(entity.id)}
                           onRemove={() => removeEntity(entity.id)}
                         />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      )}/>
               )}
               {error?.includes("changed since it was opened") ? (
                 <button type="button" disabled={operationsBlocked} onClick={() => void reloadEncounter()}>Reload latest revision</button>

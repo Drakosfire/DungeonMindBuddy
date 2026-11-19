@@ -1,34 +1,46 @@
 # Local managed-World storage
 
-Selecting a World in Buddy does not switch database connections. One Buddy
-deployment uses its configured DungeonMind and APP-STATE URLs for every managed
-World. DungeonMind partitions graph heads by `world_id`; Buddy workspace
-documents and Play Runs use that same value as their managed `campaign_id`.
+A managed World is not a database connection selected by the UI. Buddy uses
+its configured application-state and DungeonMind connections and selects a
+World within those authorities. The Buddy
+[World catalog service](../../src/application_state/world_catalog/service.py)
+stores managed World metadata in application state; the
+[World container service](../../apps/live_control_server/services/world_container_registry.py)
+provides Buddy's metadata and product access policy over that catalog.
+DungeonMind owns native World identity, graph revisions, source/provenance
+admission and governed publication. See the
+[World architecture](../Design/ARCHITECTURE-campaign-supergraph.md) for the
+ownership boundary.
 
-The database pair is not the whole deployment. The Buddy runtime checkout also
-owns the World-container/source registry and the corpus roots referenced by its
-source records. Pointing a different checkout at the same two URLs does not
-recreate those file-backed sources or the same list of available Worlds. Keep
-the registry and source files with the deployment, and back them up together
-with both databases before moving or restoring a local World.
+Buddy's [producer source input service](../../apps/live_control_server/services/source_artifact_registry.py)
+stores immutable producer source inputs through application state; that storage
+is not itself DungeonMind provenance admission or graph publication. Some
+stored `repo://` artifacts and other referenced source files still depend on
+files in the selected artifact or source roots. The
+[artifact root configuration](../../apps/live_control_server/config.py) requires
+an existing readable directory when explicitly configured, and exact files can
+be required for component reads. Do not assume that restoring databases alone
+restores every file-backed dependency, or that a checkout-local legacy registry
+is the current World catalog.
 
-The World selector uses the server's container list and verifies a URL selection
-before any managed surface mounts. A missing graph head does not prevent source
-or Plan authoring; graph reads and Ask must instead report unavailable. Legacy
-Longmont C1/C2 still map to Eldyrwild and are not separate managed Worlds.
+## Backup and recovery
 
-## Restoring registered World roots
+Keep the application-state database, DungeonMind World data, and the file-backed
+artifacts and source roots used by the deployment in a consistent, verified
+recovery set. Record the selected roots and check the files referenced by the
+restored records. Do not substitute placeholders, silently remap a source
+identity, or reingest content as a shortcut for recovering the original
+artifacts.
 
-Treat the World-container/source registry and every exact canonical root path
-recorded by its source entries as runtime artifacts. Restore or attach the
-registry and those roots together from the same deployment backup before
-enabling Graph reads for the corresponding Worlds.
+Use the [application-state recovery runbook](../Runbooks/RUNBOOK-application-state-authority-recovery.md)
+for database backup, restore and explicit legacy metadata adoption. The
+[production deployment runbook](../Runbooks/RUNBOOK-buddy-production-deployment.md)
+describes verifying the WorldGraph database and associated managed World,
+artifact, session and WorldGraph files as a recovery set. For local Play,
+follow the [local Play runbook](../Runbooks/RUNBOOK-local-play-dogfood.md)
+and use a separate Buddy application-state database.
 
-For each source entry, verify read-only that its recorded root exists at that
-exact path and is readable. Do not infer a different spelling or path, remap
-the source identity, create a placeholder for a missing registered root, write
-Graph data, or reingest sources as a substitute for restoring the artifacts.
-If a root is missing or does not match its registry entry, keep Graph reads
-unavailable for that World until the exact root is restored. This affects that
-World's Graph readiness; Plan editing, history, API capabilities, and other
-Worlds remain available according to their own state.
+Tests for the [World catalog and container boundary](../../tests/test_world_container_registry.py)
+and [HTTP container behavior](../../tests/test_live_world_containers.py) include
+cases where a registered World exists without its source directory. These tests
+are focused evidence for that boundary, not a complete restore rehearsal.

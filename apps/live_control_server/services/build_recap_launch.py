@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from uuid import UUID, uuid5
 
 from apps.live_control_server.models.build_recap_launch import BuildRecapLaunchRequest
@@ -32,7 +32,8 @@ def recover_build_recap_launch(root: Path, *, request_id: UUID, document_id: UUI
     return run
 
 
-def launch_build_recap(root: Path, body: BuildRecapLaunchRequest, *, category_client: Any | None = None):
+def launch_build_recap(root: Path, body: BuildRecapLaunchRequest, *, category_client: Any | None = None,
+    authorize: Callable[[], None] | None = None):
     request = body.model_dump(mode="json")
     fingerprint = hashlib.sha256(json.dumps(request,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()).hexdigest()
     run_id = _identity(body.request_id)
@@ -57,7 +58,7 @@ def launch_build_recap(root: Path, body: BuildRecapLaunchRequest, *, category_cl
         from apps.live_control_server.services.session_evidence import resolve_evidence_refs
         supplement = resolve_evidence_refs(body.managed_world_id,[ref.model_dump() for ref in body.session_evidence])
     artifact = register_build_recap_source(root,document_id=str(body.document_id),expected_revision=body.expected_revision,
-        expected_content_sha256=body.expected_content_sha256,session_id=f"session-{body.session}",ingest_context=context)
+        expected_content_sha256=body.expected_content_sha256,session_id=f"session-{body.session}",ingest_context=context,authorize=authorize)
     profile_id,profile_version = resolve_legacy_graph_extraction_profile("category_baseline")
     frozen = frozen_build_recap_configuration(root,source_artifact_id=artifact.source_artifact_id,campaign_id=body.campaign_id,
         session_id=f"session-{body.session}",context=context.model_dump(),profile_id=profile_id,profile_version=profile_version,supplemental_evidence=supplement)
@@ -66,6 +67,8 @@ def launch_build_recap(root: Path, body: BuildRecapLaunchRequest, *, category_cl
             "server_configuration":{"profile_id":profile_id,"profile_version":profile_version,
                 "provider":"openrouter","model":DEEPSEEK_MODEL,"route":"ordinary_recap_generation_engine_v1",
                 "enable_node_vocabulary_packet":False,"enable_edge_vocabulary_packet":False}}}
+    if authorize is not None:
+        authorize()
     try:
         reserved = create_extraction_run(root,run_id=run_id,source_artifact_id=artifact.source_artifact_id,source_domain="recap",
             campaign_id=body.campaign_id,session_id=f"session-{body.session}",profile_id=f"{profile_id}@{profile_version}",lineage=lineage)
@@ -80,5 +83,5 @@ def launch_build_recap(root: Path, body: BuildRecapLaunchRequest, *, category_cl
     # A crashed/unknown attempt is recovered as-is, never silently re-executed.
     result = run_recap_production_extraction(repo_root=root,campaign_id=body.campaign_id,session_id=f"session-{body.session}",
         source_artifact_id=artifact.source_artifact_id,profile="category_baseline",allow_llm=True,model_id=DEEPSEEK_MODEL,category_client=category_client,
-        ingest_context=context,supplemental_evidence=supplement,reserved_run=reserved)
+        ingest_context=context,supplemental_evidence=supplement,reserved_run=reserved,authorize=authorize)
     return result.run

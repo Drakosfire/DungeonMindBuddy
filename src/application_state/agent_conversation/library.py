@@ -255,10 +255,20 @@ _SAVED_STATBLOCK_PREVIEW_SELECT = """CASE WHEN surface_id='build' AND status='co
         ) END AS saved_statblocks"""
 
 
+_VARIANT_APPROVAL_PREVIEW_SELECT = """(
+    t.status = 'completed' AND t.surface_id = 'build' AND
+    jsonb_path_exists(t.graph_context_execution, '$.events[*] ? (
+        @.kind == "build_requested_work_resolved_v1" &&
+        @.requested_work == "review_variant_approval"
+    )')
+) AS variant_approval_requested"""
+
+
 def _message_page(conn, world, conversation, limit, before_sequence, *, metadata=False):
     """Bounded message display; never load execution or a full context receipt."""
     from . import repository as repo
     from .authored_reference_preview import SELECT as reference_select, project as reference_preview
+    from .conversation_drafts import CANONICAL_REVIEWED_DRAFT
 
     presentation = (""",failure_code,completion,
         CASE WHEN jsonb_typeof(completion->'saved_source_citations')='array'
@@ -266,6 +276,12 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
             THEN graph_context_receipt->'work_context'->'source_basis'
             ELSE NULL END AS citation_source_basis,
         """ + _SAVED_STATBLOCK_PREVIEW_SELECT + """,
+        EXISTS (SELECT 1 FROM agent.conversation_draft_revision d
+            WHERE d.turn_id=t.turn_id AND d.world_id=t.world_id
+                AND d.conversation_id=t.conversation_id AND d.revision=1) AS draft_available,
+        """ + _VARIANT_APPROVAL_PREVIEW_SELECT + """,
+        (t.status='completed' AND t.surface_id='build' AND
+        """ + CANONICAL_REVIEWED_DRAFT + """) AS variant_draft_reviewed,
         t.answer_composition_kind, """ + reference_select + ", " + repo._rules_summary_select("t")) if metadata else ""
     rows = conn.execute(
         f"""SELECT turn_id,sequence,status,user_text,assistant_text,idempotency_key,
@@ -288,6 +304,12 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
             from .saved_citation_preview import project
             from .retry import author_interaction
             provenance=repo.turn_provenance(row,references[row["turn_id"]])
+            if row["draft_available"]:
+                message["conversation_draft_available"] = True
+            if row["variant_draft_reviewed"]:
+                message["variant_draft_reviewed"] = True
+            if row["variant_approval_requested"]:
+                message["variant_approval_requested"] = True
             if row["saved_statblocks"]:
                 message["saved_statblocks"] = row["saved_statblocks"]
             message.update(

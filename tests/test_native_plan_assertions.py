@@ -349,7 +349,7 @@ def test_support_materialization_does_not_authorize_a_later_changed_assertion(la
 
 
 def _ordinary_native_case(
-        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None, prospective=False, opening_accounting_probe=False):
+        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None, prospective=False, opening_accounting_probe=False, pdf_region=None):
     import httpx2
     from hashlib import sha256
     from fastapi import FastAPI
@@ -540,6 +540,14 @@ def _ordinary_native_case(
                         assert json.dumps(ref.node_id) not in req.content.decode()
             if authored:
                 native=set()  # Explicit human inclusion cannot depend on a model relevance vote.
+            if authored_source == 'full_document' and 'operation' in body['questions']:
+                already_read = any(
+                    row['kind'].startswith('Acquired exact source text') and 'Episode' in row['label']
+                    for row in body['state'].get('examined_subjects', ())
+                )
+                if not already_read:
+                    native.update(i for i, row in enumerate(candidates)
+                        if row['kind'] in {'Exact source section', 'Select passage from inspected source'} and 'Episode' in row['label'])
             if authored_source and 'operation' in body['questions']:
                 examined = body['state']['examined_subjects']
                 assert any(c['kind'].startswith('Acquired user-selected source text; mandatory writer input')
@@ -555,12 +563,20 @@ def _ordinary_native_case(
             return httpx2.Response(200,request=req,json={'model':'jev-1.14.0','answers':answers,'usage':{'input_tokens':37,'output_tokens':9}})
     class Writer(WriterWire):
         async def handle_async_request(self, req):
-            frames=[json.loads(item['content']) for item in json.loads(req.content)['input']
-                    if item['content'] != 'Return JSON.']
-            frame=next(item for item in frames if set(item)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
-            assert len(frames)==3
-            assert frames[0 if authoring else -1] == frame
             body = json.loads(req.content)
+            messages = [item['content'] for item in body['input'] if item['content'] != 'Return JSON.']
+            prose = messages[-1] if messages[-1].startswith('# Plan evidence\n\n') else None
+            if prose is None:
+                frames = [json.loads(message) for message in messages]
+                frame = next(item for item in frames if set(item) == {
+                    'input_status', 'user_question', 'native_body_evidence', 'native_statements', 'native_assertions',
+                })
+                assert len(frames) == 3
+                assert frames[0 if authoring else -1] == frame
+            else:
+                assert not authoring
+                assert len(messages) == (2 if mixed else 1)
+                assert all(message.startswith('# Rules evidence\n\n') for message in messages[:-1])
             output_format = body['text']['format']
             assert output_format['type'] == 'json_schema' and output_format['strict'] is True
             output_schema = output_format['schema']
@@ -570,50 +586,85 @@ def _ordinary_native_case(
                 assert NATIVE_ANSWER_POLICY not in body['instructions']
             assert 'dmb_surface_evidence_answer_v6' not in json.loads(req.content)['instructions']
             assert BODY not in req.content.decode() and 'span.text' not in req.content.decode()
-            rows=frame['native_assertions']['assertions'] if frame['native_assertions'] else []
-            if authored:
-                from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
-                work_frame=next(item for item in frames if is_semantic_frame(item))
-                expected=[]
-                for i,ref in enumerate(selected_references.references):
-                    source=hasattr(ref,'selection_kind')
-                    expected.append(dict(reference=f'reference{i}',label=ref.label,
-                        kind='source' if source else 'object',
-                        read_status='partial' if unavailable and not source else 'complete',
-                        **({'extent':ref.selection_kind} if source else {})))
-                assert work_frame['selected_references']==expected
-                assert 'authored_references' not in work_frame
-            if authored_source=='source_only':
-                assert not rows
-                segments=[]
-                limitations=[]
-            elif unavailable:
-                assert not rows and frame['native_assertions']['status']=='partial'
-                segments=[]
-                limitations=['partial_retrieval','missing_requested_details']
+            if prose is not None:
+                import re
+
+                summary = re.search(r'^\[(assertion\d+)\] .+ · summary · .+$', prose, re.MULTILINE)
+                segments = []
+                limitations = []
+                if authored_source == 'source_only' or unavailable:
+                    assert summary is None
+                    if unavailable:
+                        assert 'Some evidence was unavailable.' in prose
+                        limitations = ['partial_retrieval', 'missing_requested_details']
+                else:
+                    assert summary is not None
+                    mode = 'belief' if qualified else 'fact'
+                    assert f'claim mode: dungeonbuddy.claim:{mode}' in prose
+                    segments.append(dict(kind='native_assertion_claim', text='A reports that B fled; uncertain.',
+                        assertion_handles=[summary[1]]))
+                if authored:
+                    assert '## Selected references' in prose
+                    for ref in selected_references.references:
+                        assert ref.label in prose
+                if authored_source:
+                    excerpt = re.search(r'^\[(body\d+)\] [^\n]+$', prose, re.MULTILINE)
+                    assert excerpt is not None
+                    assert 'source-local episode' in prose
+                    assert 'DISPLAY ONLY Plan source' not in excerpt[0]
+                    segments.append(dict(kind='native_body_claim', text='The source describes a source-local episode.',
+                        excerpt_handles=[excerpt[1]]))
+                if related_page:
+                    assert f'## Saved reference · [page0] Saved Edge page\n{related_body}' in prose
+                    assert str(saved.page.work_object_id) not in prose
+                    if not connected_review:
+                        segments.append(dict(kind='related_page_claim',text='The saved Edge page places the bath house by the east gate.',
+                            read_id='page0',supporting_quotes=['The old bath house stands by the east gate. 🌿']))
             else:
-                row=next(r for r in rows if r['assertion']['predicate']=='dnd5e:summary')
-                metadata=frame['native_assertions']['qualifications'][row['assertion']['qualification']]
-                assert metadata['claim_mode']==('dungeonbuddy.claim:belief' if qualified else 'dungeonbuddy.claim:fact')
-                assert all('evidence' not in r and 'supporting_sources' not in r for r in rows)
-                segments=[{'kind':'native_assertion_claim','text':'A reports that B fled; uncertain.',
-                    'assertion_handles':[row['assertion_handle']]}]
-                limitations=[]
-            if authored_source:
-                exposed=frame['native_body_evidence']['excerpts']
-                assert len(exposed)==1 and 'source-local episode' in exposed[0]['text']
-                assert 'DISPLAY ONLY Plan source' not in json.dumps(frame)  # Display selection is not evidence.
-                segments.append({'kind':'native_body_claim','text':'The source describes a source-local episode.',
-                    'excerpt_handles':[exposed[0]['excerpt_handle']]})
-            if related_page:
-                from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
-                work_frame=next(item for item in frames if is_semantic_frame(item))
-                assert work_frame['related_authored_pages']['pages']==[
-                    dict(read_id='page0',title='Saved Edge page',markdown=related_body)]
-                assert str(saved.page.work_object_id) not in json.dumps(work_frame)
-                if not connected_review:
-                    segments.append(dict(kind='related_page_claim',text='The saved Edge page places the bath house by the east gate.',
-                        read_id='page0',supporting_quotes=['The old bath house stands by the east gate. 🌿']))
+                rows=frame['native_assertions']['assertions'] if frame['native_assertions'] else []
+                if authored:
+                    from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
+                    work_frame=next(item for item in frames if is_semantic_frame(item))
+                    expected=[]
+                    for i,ref in enumerate(selected_references.references):
+                        source=hasattr(ref,'selection_kind')
+                        expected.append(dict(reference=f'reference{i}',label=ref.label,
+                            kind='source' if source else 'object',
+                            read_status='partial' if unavailable and not source else 'complete',
+                            **({'extent':ref.selection_kind} if source else {})))
+                    assert work_frame['selected_references']==expected
+                    assert 'authored_references' not in work_frame
+                if authored_source=='source_only':
+                    assert not rows
+                    segments=[]
+                    limitations=[]
+                elif unavailable:
+                    assert not rows and frame['native_assertions']['status']=='partial'
+                    segments=[]
+                    limitations=['partial_retrieval','missing_requested_details']
+                else:
+                    row=next(r for r in rows if r['assertion']['predicate']=='dnd5e:summary')
+                    metadata=frame['native_assertions']['qualifications'][row['assertion']['qualification']]
+                    assert metadata['claim_mode']==('dungeonbuddy.claim:belief' if qualified else 'dungeonbuddy.claim:fact')
+                    assert all('evidence' not in r and 'supporting_sources' not in r for r in rows)
+                    segments=[{'kind':'native_assertion_claim','text':'A reports that B fled; uncertain.',
+                        'assertion_handles':[row['assertion_handle']]}]
+                    limitations=[]
+                if authored_source:
+                    exposed=frame['native_body_evidence']['excerpts']
+                    assert len(exposed)==1 and 'source-local episode' in exposed[0]['text']
+                    assert 'DISPLAY ONLY Plan source' not in json.dumps(frame)  # Display selection is not evidence.
+                    segments.append({'kind':'native_body_claim','text':'The source describes a source-local episode.',
+                        'excerpt_handles':[exposed[0]['excerpt_handle']]})
+                if related_page:
+                    from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
+                    work_frame=next(item for item in frames if is_semantic_frame(item))
+                    assert work_frame['related_authored_pages']['pages']==[
+                        dict(read_id='page0',title='Saved Edge page',markdown=related_body)]
+                    assert str(saved.page.work_object_id) not in json.dumps(work_frame)
+                    if not connected_review:
+                        segments.append(dict(kind='related_page_claim',text='The saved Edge page places the bath house by the east gate.',
+                            read_id='page0',supporting_quotes=['The old bath house stands by the east gate. 🌿']))
             candidate={'schema':NATIVE_ANSWER_POLICY,'answer_segments':segments,
                 'limitations':limitations,'requested_detail_gaps':[]}
             if connected_review:
@@ -945,7 +996,10 @@ def _ordinary_native_case(
         assert ('A proposed note.' in reads[0].excerpt.text)==(authored_source=='full_document')
         opened=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-body-excerpts/0')
         assert opened.status_code==200,opened.text
-        assert opened.json()['content']==reads[0].excerpt.text
+        expected_excerpt = reads[0].excerpt.text
+        if authored_source == 'full_document':
+            expected_excerpt = human_text[sections[1].char_start:sections[1].char_end]
+        assert opened.json()['content'] == expected_excerpt
         replay=client.post('/api/live/agent/turn',json=request.model_dump(mode='json',by_alias=True))
         assert replay.status_code==200 and len(wire.calls)==1
         assert AgentConversationService().inspect_turn(world_id=world,turn_id=turn.turn_id)==retained
@@ -954,7 +1008,14 @@ def _ordinary_native_case(
         from application_state.content.service import snapshot_content
         proposal=data['plan_proposal']
         assert proposal['capture']==capture.model_dump(mode='json',by_alias=True)
-        assert proposal['replacement_markdown']==turn.completion.answer_segments[0].text+('\n\nNo additional applicable rule is established.' if mixed else '')
+        expected_markdown = turn.completion.answer_segments[0].text
+        if pdf_region is not None:
+            expected_markdown += f" [PDF page {pdf_region.page}](#dmb-ref:citation:pdf_{turn.turn_id}_0)"
+        assert proposal['replacement_markdown'] == expected_markdown + ('\n\nNo additional applicable rule is established.' if mixed else '')
+        if pdf_region is not None:
+            assert f"#dmb-ref:citation:pdf_{turn.turn_id}_0" in proposal["replacement_markdown"], (
+                "Apply would save the reviewed prose without its verified PDF citation"
+            )
         writer=next(e for e in turn.graph_context_execution.events if type(e) is NativeWriterAuthorizedV1)
         assert proposal['origin']['evidence_event_ids']==[str(identity) for identity in writer.native_read_event_ids]
         assert snapshot_content(capture.document_id).markdown==markdown
@@ -988,7 +1049,32 @@ def _ordinary_native_case(
             original_head=lane.repo.get_head(world)  # Only this explicit admission advances it.
         opened=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-assertion-sources/0')
         assert opened.status_code==200,opened.text
-        assert opened.json()['content']==(BODY if advancement=='extension' else BODY.splitlines(keepends=True)[0])
+        if pdf_region is None:
+            assert opened.json()['content']==(BODY if advancement=='extension' else BODY.splitlines(keepends=True)[0])
+        else:
+            assert opened.json()['schema'] == 'dmb_native_assertion_pdf_source_read_v1'
+            assert opened.json()['citation']['region'] == pdf_region.model_dump(mode='json')
+            assert opened.json()['png_base64'].startswith('iVBORw0KGgo')
+            import re
+
+            from application_state.content.service import create_world_plan, commit_plan, snapshot_content
+
+            plan = create_world_plan(world_id=world, title="Reviewed PDF citation")
+            plan_id = str(plan.work_object_id)
+            link = f"[PDF page {pdf_region.page}](#dmb-ref:citation:pdf_{turn.turn_id}_0)"
+            scene = f"### First scene\n\n{proposal['replacement_markdown'] if authoring else link}\n"
+            other = "### Second scene\n\nContinue the adventure.\n"
+            plan, _ = commit_plan(plan_id, "# Plan\n\n" + scene + "\n" + other,
+                expected_revision=plan.object_revision, expected_world_id=world)
+            reordered = "# Plan\n\n" + other + "\n" + scene
+            commit_plan(plan_id, reordered, expected_revision=plan.object_revision, expected_world_id=world)
+            saved = snapshot_content(plan_id).markdown
+            assert saved == reordered and saved.count(link) == 1
+            saved_turn, saved_index = re.search(r"#dmb-ref:citation:pdf_([0-9a-f-]+)_([0-9]+)", saved).groups()
+            reopened = client.get(f"/api/live/agent/worlds/{world}/conversation/turns/{saved_turn}/native-assertion-sources/{saved_index}")
+            assert reopened.status_code == 200, reopened.text
+            assert reopened.json() == opened.json()
+
         assert opened.json()['citation']==completion['native_assertion_citations'][0]
         denied=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-assertion-sources/0?assertion=foreign')
         assert denied.status_code==422
@@ -1017,7 +1103,7 @@ def _ordinary_native_case(
         substituted=execution.model_copy(update={'events':[foreign if e.event_id==grants[0].event_id else e for e in execution.events]})
         with pytest.raises(ValueError,match='frozen context' if authored else 'current controller/query grant'):
             validate_execution(turn.graph_context_receipt,substituted)
-        for field,value in [('provider_attempt_id',uuid4()),('read_revision_id','rev:foreign'),('span_sha256','0'*64)]:
+        for field,value in [('provider_attempt_id',uuid4()),('read_revision_id','rev:foreign'),('span_sha256','0'*64) if pdf_region is None else ('region',pdf_region.model_copy(update={'right':.9}))]:
             bad=turn.completion.native_assertion_citations[0].model_copy(update={field:value})
             changed_completion=turn.completion.model_copy(update={'native_assertion_citations':[bad]})
             with pytest.raises(ValueError,match='original source support'):
@@ -1421,3 +1507,39 @@ def test_interrupted_actual_opening_retains_unknown_attempt_without_provider_rep
         lane, tmp_path, monkeypatch, native_read_admission_probes):
     _ordinary_native_case(lane, tmp_path, monkeypatch, False, False,
         None, 'opening_timeout', False, native_read_admission_probes)
+
+
+def test_citation_closure_counts_distinct_evidence_across_reads(monkeypatch):
+    from types import SimpleNamespace
+    from application_state.agent_conversation import native_plan_assertions as owner
+    from application_state.agent_conversation.types import NativeAssertionClaimV1
+
+    metadata = {"standing": "provisional"}
+    first_span = SimpleNamespace(evidence_ref_id="pdf-region-1")
+    second_span = SimpleNamespace(evidence_ref_id="pdf-region-2")
+    assertion = SimpleNamespace(assertion_id="assertion-A", metadata=metadata)
+    first = SimpleNamespace(event_id="authored-read")
+    repeat = SimpleNamespace(event_id="search-read")
+    read = SimpleNamespace(assertion=assertion, spans=(first_span,))
+    reads = {(first.event_id, assertion.assertion_id): (first, read),
+             (repeat.event_id, assertion.assertion_id): (repeat, read)}
+    claim = NativeAssertionClaimV1.model_construct(
+        text="A cited Plan card", assertion_ids=[assertion.assertion_id], qualifications=[metadata])
+
+    def citation(receipt, authorization, event, selected, span, *, index):
+        return SimpleNamespace(segment_index=index, read_event_id=event.event_id,
+            assertion_id=selected.assertion.assertion_id, evidence_ref_id=span.evidence_ref_id)
+
+    monkeypatch.setattr(owner, "citation", citation)
+    completion = SimpleNamespace(answer_segments=[claim],
+        native_assertion_citations=[citation(None, None, first, read, first_span, index=0)])
+    owner.validate_citation_records(completion, None, None, reads)
+
+    reads[(repeat.event_id, assertion.assertion_id)] = (
+        repeat, SimpleNamespace(assertion=assertion, spans=(first_span, second_span)))
+    with pytest.raises(ValueError, match="omitted a supporting span"):
+        owner.validate_citation_records(completion, None, None, reads)
+
+    completion.native_assertion_citations[0].read_event_id = "unadmitted-read"
+    with pytest.raises(ValueError, match="lacks exact included support"):
+        owner.validate_citation_records(completion, None, None, reads)

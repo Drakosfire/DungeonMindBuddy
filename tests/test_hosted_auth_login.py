@@ -187,3 +187,12 @@ def test_local_operator_session_status_keeps_local_app_usable(
 
     assert response.status_code == 200
     assert response.json() == {"status": "local_operator"}
+
+
+def test_hosted_request_timing_omits_query_values(monkeypatch, caplog):
+    client = _hosted_app(monkeypatch)
+    with caplog.at_level("INFO", logger="uvicorn.error"):
+        response = client.get(LOGIN_PATH, params={"return_to": "/build?documentId=private-document"})
+    assert response.status_code == 302
+    assert "buddy_request method=GET route=/api/auth/login status=302 response_start_ms=" in caplog.text
+    assert "private-document" not in caplog.text

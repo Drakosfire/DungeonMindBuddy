@@ -69,12 +69,31 @@ def graph_operation_observation(
         else:
             observed.update(operation="support", target_node_id=request.target.id)
     expected_operation = "evidence" if observed["operation"] == "support" else observed["operation"]
+    discovery_ids = (list(result._discovery_relationship_ids)
+                     if isinstance(request, WorldGraphNeighborhoodRequest) else [])
+    if discovery_ids != execution_event.discovery_relationship_ids:
+        raise ValueError("trace discovery edges differ from the broker read")
     if result.operation != expected_operation:
         raise ValueError("trace result operation differs from its effective request")
     all_nodes = [{"node_id": item.node_id, "label": item.label, "kind": item.kind}
                  for item in result.nodes]
     projected = {"nodes": all_nodes[:64], "relationships": relationships[:128],
                  "claims": assertions[:128], "evidence_refs": evidence[:128]}
+    retained_relationship_ids = set(projected["relationships"])
+    endpoints = {
+        item.edge_id: {"relationship_id": item.edge_id, "source_node_id": item.source_node_id,
+                       "target_node_id": item.target_node_id}
+        for item in result.relationships if item.edge_id in retained_relationship_ids
+    }
+    node_ids = {node["node_id"] for node in projected["nodes"]}
+    discovery = [identity for identity in execution_event.discovery_relationship_ids
+                 if identity in endpoints and endpoints[identity]["source_node_id"] in node_ids
+                 and endpoints[identity]["target_node_id"] in node_ids]
+    neighborhood = execution_event.neighborhood_replay
+    if neighborhood is not None:
+        neighborhood = neighborhood.model_copy(update={
+            "hops": [hop for hop in neighborhood.hops if hop.relationship_id in discovery],
+        })
     totals = {"nodes": len(all_nodes), "relationships": len(relationships),
               "claims": len(assertions), "evidence_refs": len(evidence)}
     returned = {key: len(value) for key, value in projected.items()}
@@ -92,6 +111,9 @@ def graph_operation_observation(
             "coverage_status": execution_event.coverage_status,
             "projection_status": "limited" if omissions else "complete",
             "nodes": projected["nodes"], "relationship_ids": projected["relationships"],
+            "relationships": [endpoints[identity] for identity in projected["relationships"]],
+            "discovery_relationship_ids": discovery,
+            "neighborhood_replay": neighborhood.model_dump(mode="json") if neighborhood is not None else None,
             "claim_ids": projected["claims"], "evidence_ref_ids": projected["evidence_refs"],
             "returned_counts": returned, "total_counts": totals, "omission_codes": omissions,
         },

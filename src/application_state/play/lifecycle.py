@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -79,6 +80,7 @@ def set_world_play_session_trash(
     expected_revision: int,
     expected_content_revision: int,
     restore: bool,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> dict:
     world = _world_id(world_id)
     expected_run = _positive(expected_revision, "expected_revision")
@@ -110,6 +112,8 @@ def set_world_play_session_trash(
             )
         if run[2] != ("trashed" if restore else "active"):
             raise ApplicationStateConflictError("Play session lifecycle changed")
+        if authorize_world is not None:
+            authorize_world(world)
         updated_at = datetime.now(UTC)
         updated = conn.execute(
             """
@@ -124,8 +128,8 @@ def set_world_play_session_trash(
             raise ApplicationStateConflictError("Play session lifecycle changed")
         if not restore:
             conn.execute(
-                "DELETE FROM play.active_run WHERE scope_key='local' AND run_id=%s",
-                (run_id,),
+                "DELETE FROM play.active_run WHERE scope_key=%s AND run_id=%s",
+                (f"world:{world}", run_id),
             )
         return {
             "kind": "session",

@@ -292,6 +292,8 @@ code {
   overflow: visible;
 }
 
+.workspace-navigation-fallback:empty { display: none; }
+
 .app-site-nav {
   display: flex;
   flex-wrap: wrap;
@@ -307,6 +309,7 @@ code {
 }
 
 .app-site-nav:has(.app-world-selector__menu),
+.app-site-nav:has(.surface-context-popover__panel),
 .app-site-nav:has(.app-world-graph-status__trigger[aria-expanded="true"]) {
   position: relative;
   z-index: 1;

@@ -80,6 +80,14 @@ def model_rules_frame(frame: PlanRulesEvidenceFrameV1) -> ModelRulesFrame:
             enumerate(sorted(frame.supports, key=lambda item: str(item.support_id)))))
 
 
+def render_plan_rules(frame: ModelRulesFrame) -> str:
+    parts = ["# Rules evidence"]
+    parts.extend(f"Lookup {row.lookup + 1}: {row.status.replace('_', ' ')}" for row in frame.lookups)
+    for row in frame.supports:
+        parts.append(f"[{row.support_id}] {row.source_title} · {row.section}\n{row.excerpt_text}")
+    return "\n\n".join(parts)
+
+
 def _decode_frame(value):
     # The actual producing shape selects a closed historical or current reader.
     codec = PlanRulesEvidenceFrameV1 if isinstance(value, dict) and "schema" in value else ModelRulesFrame
@@ -133,7 +141,7 @@ def build_plan_rules_frame(execution: RulesExecutionV1, call_ids: tuple[str, ...
         lookups=tuple(lookups), supports=tuple(supports[key] for key in sorted(supports, key=str)))
 
 
-def _frame_in_actual_request(body, *, allow_build=False) -> PlanRulesEvidenceFrameV1 | ModelRulesFrame:
+def _frame_in_actual_request(body, *, allow_build=False, prose_rules=None) -> PlanRulesEvidenceFrameV1 | ModelRulesFrame:
     from .build_proposal_input import proposal_packet_text
     build_text = proposal_packet_text(body) if allow_build and isinstance(body, dict) else None
     if build_text is not None:
@@ -150,6 +158,7 @@ def _frame_in_actual_request(body, *, allow_build=False) -> PlanRulesEvidenceFra
             or body.get("tools", []) != [] or body.get("tool_choice") not in (None, "none")):
         raise ValueError("Plan Rules packet proof requires a tool-free Responses request")
     frames = []
+    rules_texts = []
     for item in body["input"]:
         # This new text-writer contract accepts messages only, not any of the
         # function/custom/MCP/computer/search tool transcript item families.
@@ -171,6 +180,8 @@ def _frame_in_actual_request(body, *, allow_build=False) -> PlanRulesEvidenceFra
         if item["role"] != "user":
             continue
         for text in texts:
+            if text.startswith("# Rules evidence\n\n"):
+                rules_texts.append(text)
             try:
                 candidate = json.loads(text, object_pairs_hook=_unique_object)
             except json.JSONDecodeError:
@@ -178,6 +189,11 @@ def _frame_in_actual_request(body, *, allow_build=False) -> PlanRulesEvidenceFra
             if isinstance(candidate, dict) and (candidate.get("schema") == "dmb_plan_rules_evidence_v1"
                     or set(candidate) == {"ruleset", "lookups", "supports"}):
                 frames.append(_decode_frame(candidate))
+    if prose_rules is not None:
+        expected = [render_plan_rules(prose_rules)] if prose_rules.lookups else []
+        if frames or rules_texts != expected:
+            raise ValueError("Plan Rules prose differs from sealed outputs")
+        return prose_rules
     if len(frames) != 1:
         raise ValueError("Plan writer requires one exact Rules packet frame")
     return frames[0]
@@ -189,8 +205,14 @@ def packet_input_records(execution, prepared_request_json, *, expected_envelope_
         raise ValueError("Plan Rules envelope differs from the actual request")
     body = json.loads(prepared_request_json, object_pairs_hook=_unique_object,
         parse_constant=lambda _value: (_ for _ in ()).throw(ValueError("Nonfinite Plan request")))
-    frame = _frame_in_actual_request(body,allow_build=allow_build)
     observed_calls = [event.call_id for event in execution.events if isinstance(event, RulesQueryObservedV1)]
+    from .native_evidence_view import PLAN_EVIDENCE_HEADING
+    messages = body.get("input")
+    last = messages[-1] if isinstance(messages, list) and messages else None
+    is_plan_prose = (not allow_build and isinstance(last, dict) and last.get("role") == "user"
+        and isinstance(last.get("content"), str) and last["content"].startswith(PLAN_EVIDENCE_HEADING))
+    prose_rules = model_rules_frame(build_plan_rules_frame(execution, tuple(observed_calls))) if is_plan_prose else None
+    frame = _frame_in_actual_request(body, allow_build=allow_build, prose_rules=prose_rules)
     if any(item.lookup >= len(observed_calls) for item in frame.lookups):
         raise ValueError("Plan Rules frame names an unread lookup")
     call_ids = tuple(observed_calls[item.lookup] for item in frame.lookups)
@@ -319,8 +341,37 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
         # Historical grammar is read-only: fresh admission never opts into it.
         retained = (allow_retained_format and body.get('text', {}).get('format', {}).get('name')
             == 'surface_native_evidence_selectors_v1')
+        from .native_build_work_view import VARIANT_CARRIED_CONDITION_FORMAT, VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_WRITER_FORMAT, VARIANT_PASSAGE_REVIEW_FORMAT, VARIANT_TRIGGER_RETENTION_FORMAT, variant_output_version, variant_sources
+
+        actual_format = body.get("text", {}).get("format", {}).get("name")
+        needs_variant_format = evidence.build_local and not frame.lookups and variant_sources(evidence.work_frame)
+        version = 1 if retained else 2
+        if needs_variant_format:
+            if not allow_retained_format:
+                version = variant_output_version(evidence.work_frame)
+            elif actual_format == VARIANT_TRIGGER_RETENTION_FORMAT:
+                version = 10
+            elif actual_format == VARIANT_PASSAGE_REVIEW_FORMAT:
+                version = 9
+            elif actual_format == VARIANT_CARRIED_CONDITION_FORMAT:
+                version = 8
+            elif actual_format == VARIANT_WITNESS_FORMAT:
+                version = 6
+            elif actual_format == VARIANT_VISIBLE_REPLY_FORMAT:
+                version = 5
+            elif actual_format == VARIANT_EDITS_FORMAT:
+                version = 4
+            elif actual_format == VARIANT_WRITER_FORMAT:
+                version = 3
+        elif evidence.build_local and not frame.lookups:
+            from .build_intentional_response import is_anchored_discussion
+
+            if (not allow_retained_format or actual_format == "surface_native_evidence_selectors_v7") and any(
+                is_anchored_discussion(event) for event in graph_execution.events
+            ):
+                version = 7
         output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame,
-            build_local=evidence.build_local,format_version=1 if retained else 2)
+            build_local=evidence.build_local,format_version=version)
     if (auth.request_envelope_sha256 != expected_envelope_sha256
             or included.request_envelope_sha256 != expected_envelope_sha256
             or auth.matched_outputs != outputs or included.matched_outputs != outputs

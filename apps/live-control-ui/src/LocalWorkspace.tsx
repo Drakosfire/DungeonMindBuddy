@@ -2,7 +2,10 @@ import {SavedStatblockProvider} from './statblocks/SavedStatblockSession';
 import {WorldGuidedTour} from './guidedTour/WorldGuidedTour';
 import { DocumentReferenceSurfaceHost } from './documentReference/DocumentReferenceSurfaceHost';
 import type { ReactNode } from "react";
+import { WarmWorldGraphProvider } from "./appEntryShared";
+import { useHostedAuthStatus } from "./auth/HostedAuthGate";
 import type { AppRouteKey } from "./chrome/appChromeConfig";
+import { WorkspacePrimaryNavigation } from "./chrome/WorkspacePrimaryNavigation";
 import { useSelectedWorld } from "./selectedWorld/SelectedWorldContext";
 import { AgentInteractionProvider } from "./agentInteraction/AgentInteractionProvider";
 import { WorldAgentConversation, WorldAgentConversationProvider } from "./agentInteraction/WorldAgentConversation";
@@ -24,6 +27,11 @@ export function LocalWorkspace({ route, pageAdmitted, children }: {
   children: ReactNode;
 }) {
   const selectedWorld = useSelectedWorld();
+  const auth = useHostedAuthStatus();
+  const worldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const graphOwner = auth.status === "authenticated" ? auth.subject : auth.status;
+  const graphWorldId = auth.status === "local_operator" || (auth.status === "authenticated" && auth.subject)
+    ? worldId : null;
   return (
     <AgentInteractionProvider>
       <AskPluginSlotProvider>
@@ -41,7 +49,9 @@ export function LocalWorkspace({ route, pageAdmitted, children }: {
               <SurfaceContextProvider>
                 <PeekRegionProvider key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}>
                   <DocumentReferenceSurfaceHost worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null} surface={pageAdmitted ? route : "pending"}>
-                  {children}
+                  <WarmWorldGraphProvider key={JSON.stringify([graphOwner, worldId])} worldId={graphWorldId}>
+                    <WorkspacePrimaryNavigation route={route}>{children}</WorkspacePrimaryNavigation>
+                  </WarmWorldGraphProvider>
                   {pageAdmitted ? <>
                     <ToolHost />
                     <LegacyProjectionHostAdapter />

@@ -350,3 +350,96 @@ def test_current_page_navigation_refresh_preserves_identity_without_capability()
     assert first["capability_sha256"] is second["capability_sha256"] is None
     adapter.work=S(build_source=S(document_id="third",title="Newly created workshop"))
     assert freeze_interaction(adapter)["current_page"]=={"document_id":"third","title":"Newly created workshop"}
+
+
+def test_retained_selection_keeps_exact_probability_inventory():
+    retained_menu = c.digest(c.question(guidance=c._RETAINED_GUIDANCE, work_options=c._RETAINED_WORK))
+    probabilities = {name: float(name == "discuss") for name in c._RETAINED_WORK}
+    response = {"answers": {"requested_work": {"selected": "discuss", "probabilities": probabilities}}}
+    assert c.known_semantics(retained_menu, c._resolver_digest(c._RETAINED_WORK))
+    assert c.selected(response, menu=retained_menu) == "discuss"
+    with pytest.raises(ValueError, match="Invalid actual semantic selection"):
+        c.selected(response, menu=c.MENU_DIGEST)
+    probabilities["draft_in_conversation"] = 0.0
+    with pytest.raises(ValueError, match="Invalid actual semantic selection"):
+        c.selected(response, menu=retained_menu)
+
+
+def test_variant_approval_requires_the_explicit_choice_in_the_new_menu():
+    previous = c.digest(c.question(guidance=c._PRE_APPROVAL_GUIDANCE, work_options=c._PRE_APPROVAL_WORK))
+    assert c.known_semantics(previous, c._resolver_digest(c._PRE_APPROVAL_WORK))
+    assert "review_variant_approval" not in c.decision_instructions(previous)
+    assert "review_variant_approval" in c.decision_instructions()
+
+    label = "review_variant_approval"
+    response = {"answers": {"requested_work": {
+        "selected": label,
+        "probabilities": {key: float(key == label) for key in c.WORK},
+    }}}
+    assert c.selected(response, menu=c.MENU_DIGEST) == label
+    with pytest.raises(ValueError):
+        c.selected(response, menu=previous)
+
+
+def test_retained_resolution_uses_the_frozen_work_inventory():
+    from dataclasses import asdict
+    from types import SimpleNamespace
+
+    operations = ("answer_from_sources",)
+    caps = c.Capabilities(operations, ("questions",), False)
+    retained_menu = c.digest(c.question(
+        guidance=c._RETAINED_GUIDANCE, work_options=c._RETAINED_WORK
+    ))
+    policy = SimpleNamespace(
+        intentional_response_policy=c.POLICY,
+        allowed_surface_operations=operations,
+        plan_surface_available=False,
+        action_capability_sha256=None,
+        response_capabilities_sha256=c.digest(asdict(caps)),
+        requested_work_menu_sha256=retained_menu,
+        response_resolver_sha256=c._resolver_digest(c._RETAINED_WORK),
+    )
+    digest = c.digest({
+        "policy": c.POLICY,
+        "work": {label: asdict(work) for label, work in c._RETAINED_WORK.items()},
+        "capabilities": asdict(caps),
+    })
+    saved_resolution = json.loads(c.canonical(c.resolve("discuss", caps)))
+    saved_resolution["contract_sha256"] = digest
+    event = SimpleNamespace(
+        requested_work="discuss",
+        intent_family=saved_resolution["intent_family"],
+        operation="answer_from_sources",
+        capability_sha256=None,
+        response_capabilities_sha256=policy.response_capabilities_sha256,
+        menu_sha256=retained_menu,
+        resolver_sha256=c._resolver_digest(c._RETAINED_WORK),
+        resolution=saved_resolution,
+    )
+
+    c.validate_resolution_metadata(event, policy)
+    assert c.resolve("discuss", caps)["contract_sha256"] != digest
+    event.resolution = {**saved_resolution, "contract_sha256": "0" * 64}
+    with pytest.raises(ValueError, match="differs from its frozen response contract"):
+        c.validate_resolution_metadata(event, policy)
+
+
+def test_lore_page_request_cannot_fall_through_to_connected_location_review():
+    caps = c.Capabilities(("answer_from_sources",), ("connected_page",), False)
+    route = c.resolve("review_lore_page", caps)
+    assert route["requested_work"] == "review_lore_page"
+    assert route["purpose"] == "explain_capability"
+    assert route["barrier"] == "requested_review_not_offered"
+    assert all(item["id"] != "review_connected_page" for item in route["available_followups"])
+    assert c.resolve("review_connected_page", caps)["barrier"] is None
+
+    prior = c.digest(c.question(guidance=c._PRE_LORE_PAGE_GUIDANCE,
+                                work_options=c._PRE_LORE_PAGE_WORK))
+    assert c.known_semantics(prior, c._resolver_digest(c._PRE_LORE_PAGE_WORK))
+    response = {"answers": {"requested_work": {
+        "selected": "review_connected_page",
+        "probabilities": {key: float(key == "review_connected_page") for key in c._PRE_LORE_PAGE_WORK},
+    }}}
+    assert c.selected(response, menu=prior) == "review_connected_page"
+    with pytest.raises(ValueError, match="Invalid actual semantic selection"):
+        c.selected(response, menu=c.MENU_DIGEST)

@@ -7,6 +7,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from fastapi.encoders import jsonable_encoder
+from pydantic_core import to_jsonable_python
 from dungeonmind.contracts.vnext.domain import Assertion
 
 from dungeonmind.application.vnext import open_native_text_source_access_context
@@ -68,13 +69,13 @@ def access_context(repo, space_id):
     return context, access
 
 
-def read_repository():
+def read_repository(*, verification_cache=None):
     """Every inspection connection is read-only, including Core source reads."""
     dsn = config.world_graph_authority_database_url()
     options = conninfo_to_dict(dsn).get("options", "")
     return PostgresNativeSourceEvidenceRepository(PostgresDatabase(
         make_conninfo(dsn, options=(options + " -c default_transaction_read_only=on").strip())
-    ))
+    ), verification_cache=verification_cache)
 
 
 def read_context(repo, space, revision, campaign, role="gm", *, scope_mode="campaign", parsed_cache=None):
@@ -109,7 +110,11 @@ def read_context(repo, space, revision, campaign, role="gm", *, scope_mode="camp
 
 def assertion_contract(parsed):
     """Project an admitted immutable record into Core's public wire contract."""
-    payload = jsonable_encoder(parsed, sqlalchemy_safe=False)
+    # Use the native serializer for parsed dataclasses. Core's immutable
+    # JSON mappings still need FastAPI's generic mapping conversion.
+    payload = to_jsonable_python(
+        parsed, fallback=lambda value: jsonable_encoder(value, sqlalchemy_safe=False)
+    )
     # Parsed literal records cache their canonical text; it is not a wire field.
     payload["value"].pop("canonical_json_text", None)
     return Assertion.model_validate(payload)

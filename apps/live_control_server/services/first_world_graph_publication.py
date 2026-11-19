@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+from collections.abc import Callable
 
 from apps.live_control_server import config as live_config
 from apps.live_control_server.models.extract_promote import (
@@ -207,6 +208,7 @@ def _assert_materialized_evidence_matches_review(materialized, review):
 
 def prepare_first_world(
     request: FirstWorldGraphPrepareRequest,
+    *, authorize_world: Callable[[str], None] | None = None,
 ) -> FirstWorldGraphPlan:
     """Seal an inert first-world initialization plan (no production graph mutation)."""
     try:
@@ -216,6 +218,8 @@ def prepare_first_world(
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
 
+    if authorize_world is not None:
+        authorize_world(resolved.world_id or "")
     publication_input = _load_worldbuilding_publication_input(
         resolved, allow_gazetteer=False
     )
@@ -460,6 +464,7 @@ def _first_world_confirm_receipt(
 
 def confirm_first_world(
     request: FirstWorldGraphConfirmRequest,
+    *, authorize_world: Callable[[str], None] | None = None,
 ) -> FirstWorldGraphConfirmReceipt:
     """Verify a sealed first-world plan and atomically initialize W."""
     plan = request.plan
@@ -497,6 +502,8 @@ def confirm_first_world(
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
 
+    if authorize_world is not None:
+        authorize_world(resolved.world_id or "")
     publication_input = _load_worldbuilding_publication_input(
         resolved, allow_gazetteer=False
     )
@@ -740,6 +747,9 @@ def confirm_first_world(
                 diagnostics=[_diagnostic("first_world_preflight_inexpressible", str(exc))],
                 failure_payload=proof.model_dump(mode="json", by_alias=True),
             ) from exc
+    if authorize_world is not None:
+        authorize_world(resolved_world)
+
     # Anything after this point may have reached initialization. No exception from
     # initialize can be converted into a nonapplication proof.
     try:

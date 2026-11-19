@@ -5,12 +5,12 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import type { CombatMechanicsSnapshot } from "../../combat/combatTypes";
-import type { ManagedWorldGraphProjectionResponse } from "../../api/types";
 import type { WorldMechanicsAssociation } from "../../api/worldMechanicsTypes";
 import * as combatApi from "../../combat/combatApi";
 import type { CombatEncounterRecord } from "../../combat/combatTypes";
 import * as selectedWorld from "../../selectedWorld/SelectedWorldContext";
 import { CombatRosterModule } from "./CombatRosterModule";
+import {manualCombatRecord} from '../../combat/ManualCombat.testSupport';
 import {TourRunProvider} from "../../guidedTour/RunScope";
 import type {TourOwnerReading} from "../../guidedTour/GuidedTour";
 import type {WorldPlayRunRecordV2} from "../../api/types";
@@ -106,9 +106,27 @@ describe("CombatRosterModule", () => {
     };
   }
 
+  it('freezes a manual editor throughout a pending replacement Open',async()=>{
+    const manual={...manualCombatRecord(),world_id:'elderwyld'},other=record();
+    const opening=deferred<CombatEncounterRecord>();
+    vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([manual,other]);
+    const get=vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValueOnce(manual).mockReturnValueOnce(opening.promise);
+    mount();await screen.findByRole('option',{name:'Crossing · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),manual.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open',exact:true}));
+    await waitFor(()=>expect(screen.getByLabelText('Position for Crew')).toBeEnabled());
+    await waitFor(()=>expect(screen.getByRole('combobox',{name:'Encounter'})).toBeEnabled());
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),other.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open',exact:true}));
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText('Position for Crew')).toBeDisabled();
+    expect(screen.getByLabelText('Participant name')).toBeDisabled();
+    opening.resolve(other);await screen.findByLabelText('HP for Geomantic Drake');
+  });
+
   it("requires an explicit open instead of guessing which encounter to load", async () => {
-    vi.spyOn(combatApi, "listWorldCombatEncounters").mockResolvedValue([record()]);
-    const getSpy = vi.spyOn(combatApi, "getWorldCombatEncounter").mockResolvedValue(record());
+    vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockResolvedValue([record()]);
+    const getSpy = vi.spyOn(combatApi, "getAnyWorldCombatEncounter").mockResolvedValue(record());
 
     mount();
 
@@ -124,6 +142,79 @@ describe("CombatRosterModule", () => {
     expect(screen.getByText(/generic · manual · config rev 1/i)).toBeInTheDocument();
   });
 
+  it('saves defense and maximum overrides without healing, changing source mechanics or touching a sibling',async()=>{
+    const resource=(await import('../../../../../tests/fixtures/statblocks/v1/exact-revision-response.json')).default;
+    const snapshot={origin:'world_accepted_mechanics_v1',managed_world_id:'elderwyld',draft_id:'22222222-2222-4222-8222-222222222222',draft_version:3,
+      acceptance_operation_id:'accept-one',acceptance_request_digest:'sha256:'+'a'.repeat(64),accepted_from_draft_version:1,accepted_from_candidate_id:null,
+      locator:{provider:'dungeonmind',statblock_id:resource.statblock_id,revision_id:resource.revision_id,contract:resource.contract,contract_version:resource.contract_version,definition_digest:resource.definition_digest},
+      resource,snapshot_digest:'sha256:'+'b'.repeat(64)} as CombatMechanicsSnapshot;
+    const sibling={...entity,id:'watch',name:'Watch guard',order:2};
+    const initial=record({draft:{...record().draft,entities:[{...entity,mechanics_snapshot:snapshot},sibling]}});
+    const sourceBefore=JSON.stringify(snapshot);
+    vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
+    const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_world,_id,revision,draft)=>({...initial,revision:revision+1,draft}));
+    mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    await userEvent.click(await screen.findByRole('button',{name:'Keep statblock open for Geomantic Drake'}));
+    const projection=screen.getByRole('complementary',{name:'Projected statblock for Geomantic Drake'});
+    expect(await within(projection).findByRole('heading',{name:'Ironhide Brute'})).toBeInTheDocument();
+    fireEvent.change(await screen.findByLabelText('AC for Geomantic Drake'),{target:{value:'21'}});
+    fireEvent.change(screen.getByLabelText('Maximum HP for Geomantic Drake'),{target:{value:'30'}});
+    expect(screen.getByLabelText('HP for Geomantic Drake')).toHaveValue('76');
+    await userEvent.click(within(screen.getByRole('row',{name:/Geomantic Drake/})).getByRole('button',{name:'Heal',exact:true}));
+    expect(screen.getByLabelText('HP for Geomantic Drake')).toHaveValue('76');
+    await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+    await screen.findByText('Saved · rev 2');
+    expect(save.mock.calls[0][3]).toEqual({...initial.draft,entities:[{...initial.draft.entities[0],ac:21,max_hp:30},sibling]});
+    expect(JSON.stringify(snapshot)).toBe(sourceBefore);
+    expect(projection).toBeInTheDocument();
+    expect(within(projection).getByText('68 (8d10+24)')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('AC for Geomantic Drake'),{target:{value:'10'}});
+    await userEvent.click(screen.getByRole('button',{name:'Revert',exact:true}));
+    expect(screen.getByLabelText('AC for Geomantic Drake')).toHaveValue('21');
+    expect(screen.getByLabelText('Maximum HP for Geomantic Drake')).toHaveValue('30');
+  });
+
+  it('keeps a descriptive fractional maximum out of integer healing arithmetic',async()=>{
+    const initial=record({draft:{...record().draft,entities:[{...entity,hp:10}]}});
+    vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
+    const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_world,_id,revision,draft)=>({...initial,revision:revision+1,draft}));
+    mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    fireEvent.change(await screen.findByLabelText('Maximum HP for Geomantic Drake'),{target:{value:'10.5'}});
+    await userEvent.click(within(screen.getByRole('row',{name:/Geomantic Drake/})).getByRole('button',{name:'Heal',exact:true}));
+    expect(screen.getByLabelText('HP for Geomantic Drake')).toHaveValue('11');
+    expect(screen.getByLabelText('Maximum HP for Geomantic Drake')).toHaveValue('10.5');
+    expect(screen.queryByRole('alert')).toBeNull();
+    await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+    await screen.findByText('Saved · rev 2');
+    expect(save.mock.calls[0][3].entities[0]).toMatchObject({hp:11,max_hp:'10.5'});
+  });
+
+  it('preserves descriptive defenses and maxima, and saves blank fields as unset rather than zero',async()=>{
+    const initial=record();
+    vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
+    const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_world,_id,revision,draft)=>({...initial,revision:revision+1,draft}));
+    mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    fireEvent.change(await screen.findByLabelText('AC for Geomantic Drake'),{target:{value:'Shielded'}});
+    fireEvent.change(screen.getByLabelText('Maximum HP for Geomantic Drake'),{target:{value:'Variable'}});
+    await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+    await screen.findByText('Saved · rev 2');
+    expect(save.mock.calls[0][3].entities[0]).toMatchObject({ac:'Shielded',max_hp:'Variable',hp:76});
+    await userEvent.clear(screen.getByLabelText('AC for Geomantic Drake'));
+    await userEvent.clear(screen.getByLabelText('Maximum HP for Geomantic Drake'));
+    await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+    await screen.findByText('Saved · rev 3');
+    expect(save.mock.calls[1][3].entities[0]).toMatchObject({ac:null,max_hp:null,hp:76});
+  });
+
   it("locks encounter edits while opening a replacement draft", async () => {
     const current = record();
     const target = record({
@@ -131,8 +222,8 @@ describe("CombatRosterModule", () => {
       draft: { ...record().draft, title: "Second encounter" },
     });
     const pendingOpen = deferred<CombatEncounterRecord>();
-    vi.spyOn(combatApi, "listWorldCombatEncounters").mockResolvedValue([current, target]);
-    vi.spyOn(combatApi, "getWorldCombatEncounter")
+    vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockResolvedValue([current, target]);
+    vi.spyOn(combatApi, "getAnyWorldCombatEncounter")
       .mockResolvedValueOnce(current)
       .mockReturnValueOnce(pendingOpen.promise);
 
@@ -147,6 +238,8 @@ describe("CombatRosterModule", () => {
 
     expect(title).toBeDisabled();
     expect(screen.getByRole("textbox", { name: "Notes for Geomantic Drake" })).toBeDisabled();
+    expect(screen.getByLabelText('AC for Geomantic Drake')).toBeDisabled();
+    expect(screen.getByLabelText('Maximum HP for Geomantic Drake')).toBeDisabled();
     await userEvent.type(title, "Edit during open");
     expect(title).toHaveValue("Mireward Gate");
 
@@ -162,8 +255,8 @@ describe("CombatRosterModule", () => {
       draft: { ...record().draft, title: "New encounter", entities: [] },
     });
     const pendingCreate = deferred<CombatEncounterRecord>();
-    vi.spyOn(combatApi, "listWorldCombatEncounters").mockResolvedValue([current]);
-    vi.spyOn(combatApi, "getWorldCombatEncounter").mockResolvedValue(current);
+    vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockResolvedValue([current]);
+    vi.spyOn(combatApi, "getAnyWorldCombatEncounter").mockResolvedValue(current);
     vi.spyOn(combatApi, "createWorldCombatEncounter").mockReturnValue(pendingCreate.promise);
 
     mount();
@@ -188,7 +281,7 @@ describe("CombatRosterModule", () => {
 
   it("creates a durable encounter, keeps edits local, then explicitly saves against its revision", async () => {
     const created = record({ draft: { ...record().draft, title: "New encounter", entities: [] } });
-    vi.spyOn(combatApi, "listWorldCombatEncounters").mockResolvedValue([]);
+    vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockResolvedValue([]);
     const createSpy = vi.spyOn(combatApi, "createWorldCombatEncounter").mockResolvedValue(created);
     const saveSpy = vi.spyOn(combatApi, "saveWorldCombatEncounter").mockResolvedValue(record({
       revision: 2,
@@ -223,7 +316,7 @@ describe("CombatRosterModule", () => {
   it("ignores an earlier World A create response after an A→B→A switch without clearing the newer request", async () => {
     const staleCreate = deferred<CombatEncounterRecord>();
     const currentCreate = deferred<CombatEncounterRecord>();
-    vi.spyOn(combatApi, "listWorldCombatEncounters").mockResolvedValue([]);
+    vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockResolvedValue([]);
     const createSpy = vi.spyOn(combatApi, "createWorldCombatEncounter")
       .mockImplementationOnce(() => staleCreate.promise)
       .mockImplementationOnce(() => currentCreate.promise);
@@ -259,9 +352,9 @@ describe("CombatRosterModule", () => {
       encounter_id: "d94ebf8a-7f0e-4ff2-a1b8-69916f6a79d1",
       draft: { ...record().draft, title: "Conks encounter" },
     });
-    vi.spyOn(combatApi, "listWorldCombatEncounters").mockImplementation(async (worldId) =>
+    vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockImplementation(async (worldId) =>
       worldId === "elderwyld" ? [worldARecord] : [worldBRecord]);
-    const openSpy = vi.spyOn(combatApi, "getWorldCombatEncounter")
+    const openSpy = vi.spyOn(combatApi, "getAnyWorldCombatEncounter")
       .mockImplementationOnce(() => staleOpen.promise)
       .mockImplementationOnce(() => currentOpen.promise);
     const view = mount();
@@ -289,8 +382,8 @@ describe("CombatRosterModule", () => {
   it("keeps edits made while a save is pending after the submitted snapshot commits", async () => {
     const initial = record();
     const pendingSave = deferred<CombatEncounterRecord>();
-    vi.spyOn(combatApi, "listWorldCombatEncounters").mockResolvedValue([initial]);
-    vi.spyOn(combatApi, "getWorldCombatEncounter").mockResolvedValue(initial);
+    vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockResolvedValue([initial]);
+    vi.spyOn(combatApi, "getAnyWorldCombatEncounter").mockResolvedValue(initial);
     const saveSpy = vi.spyOn(combatApi, "saveWorldCombatEncounter").mockReturnValue(pendingSave.promise);
     mount();
 
@@ -325,9 +418,9 @@ describe("CombatRosterModule", () => {
       encounter_id: "d94ebf8a-7f0e-4ff2-a1b8-69916f6a79d1",
       draft: { ...record().draft, title: "Conks encounter" },
     });
-    vi.spyOn(combatApi, "listWorldCombatEncounters").mockImplementation(async (worldId) =>
+    vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockImplementation(async (worldId) =>
       worldId === "elderwyld" ? [initial] : [worldBRecord]);
-    vi.spyOn(combatApi, "getWorldCombatEncounter")
+    vi.spyOn(combatApi, "getAnyWorldCombatEncounter")
       .mockResolvedValueOnce(initial)
       .mockReturnValueOnce(staleReload.promise)
       .mockResolvedValueOnce(record({ draft: { ...initial.draft, title: "Current World A" } }));
@@ -359,8 +452,8 @@ describe("CombatRosterModule", () => {
   });
 
   it("preserves a stale-write conflict and offers explicit reload", async () => {
-    vi.spyOn(combatApi, "listWorldCombatEncounters").mockResolvedValue([record()]);
-    vi.spyOn(combatApi, "getWorldCombatEncounter").mockResolvedValue(record());
+    vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockResolvedValue([record()]);
+    vi.spyOn(combatApi, "getAnyWorldCombatEncounter").mockResolvedValue(record());
     vi.spyOn(combatApi, "saveWorldCombatEncounter").mockRejectedValue(new Error("Combat encounter changed since it was opened; reload before saving"));
 
     mount();
@@ -380,8 +473,8 @@ describe("CombatRosterModule", () => {
   it("locks encounter edits while reloading the latest revision", async () => {
     const initial = record();
     const pendingReload = deferred<CombatEncounterRecord>();
-    vi.spyOn(combatApi, "listWorldCombatEncounters").mockResolvedValue([initial]);
-    vi.spyOn(combatApi, "getWorldCombatEncounter")
+    vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockResolvedValue([initial]);
+    vi.spyOn(combatApi, "getAnyWorldCombatEncounter")
       .mockResolvedValueOnce(initial)
       .mockReturnValueOnce(pendingReload.promise);
     vi.spyOn(combatApi, "saveWorldCombatEncounter").mockRejectedValue(
@@ -423,8 +516,8 @@ describe("CombatRosterModule", () => {
       round_start_entity_id: null,
       entities: [entity, guard, fallen],
     } });
-    vi.spyOn(combatApi, "listWorldCombatEncounters").mockResolvedValue([initial]);
-    vi.spyOn(combatApi, "getWorldCombatEncounter").mockResolvedValue(initial);
+    vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockResolvedValue([initial]);
+    vi.spyOn(combatApi, "getAnyWorldCombatEncounter").mockResolvedValue(initial);
     const saveSpy = vi.spyOn(combatApi, "saveWorldCombatEncounter").mockResolvedValue({
       ...initial,
       revision: 2,
@@ -451,7 +544,7 @@ describe("CombatRosterModule", () => {
     await userEvent.click(screen.getByRole("button", { name: "Next turn" }));
     expect(drakeRow).toHaveClass("combat-roster-active-row");
     expect(roundValue()).toHaveTextContent("2");
-    expect(within(fallenRow).getByRole("button", { name: "Set" })).toBeDisabled();
+    expect(within(fallenRow).getByRole("button", { name: "Set Fallen Guard as current actor" })).toBeDisabled();
 
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(saveSpy).toHaveBeenCalledWith(
@@ -468,8 +561,8 @@ describe("CombatRosterModule", () => {
   it("refuses a 101st actor while preserving other draft edits and a valid Save", async () => {
     const initial = record({draft:{...record().draft, active_turn_entity_id:"guard-0",round_start_entity_id:"guard-0",
       entities:Array.from({length:100},(_,index)=>({...entity,id:`guard-${index}`,name:`Guard ${index}`,order:index+1}))}});
-    vi.spyOn(combatApi,"listWorldCombatEncounters").mockResolvedValue([initial]);
-    vi.spyOn(combatApi,"getWorldCombatEncounter").mockResolvedValue(initial);
+    vi.spyOn(combatApi,"listAnyWorldCombatEncounters").mockResolvedValue([initial]);
+    vi.spyOn(combatApi,"getAnyWorldCombatEncounter").mockResolvedValue(initial);
     const save=vi.spyOn(combatApi,"saveWorldCombatEncounter").mockImplementation(async (_world,_id,_revision,draft)=>({...initial,draft,revision:2}));
     mount();await screen.findByRole("option",{name:"Mireward Gate · rev 1"});
     await userEvent.selectOptions(screen.getByRole("combobox",{name:"Encounter"}),initial.encounter_id);
@@ -486,11 +579,11 @@ describe("CombatRosterModule", () => {
 
   it("refuses oversized snapshot copies before append and preserves edits and assembly inputs", async () => {
     const initial = record();
-    vi.spyOn(combatApi,"listWorldCombatEncounters").mockResolvedValue([initial]);
-    vi.spyOn(combatApi,"getWorldCombatEncounter").mockResolvedValue(initial);
-    const target={managed_world_id:'elderwyld',native_world_id:'native-world',binding_version:1,graph_revision_id:'head',node_id:'keeper',label:'Keeper',kind:'npc',role:'npc',campaign_scope:null};
-    vi.spyOn(liveApi,"postManagedWorldGraphProjection").mockResolvedValue({managedWorldId:'elderwyld',nativeWorldId:'native-world',bindingVersion:1,
-      projection:{snapshot:{worldId:'native-world',revisionId:'head',scopeMode:'world'},nodes:[{nodeId:'keeper',label:'Keeper',kind:'npc',role:'npc',aliases:[]}]}} as unknown as ManagedWorldGraphProjectionResponse);
+    vi.spyOn(combatApi,"listAnyWorldCombatEncounters").mockResolvedValue([initial]);
+    vi.spyOn(combatApi,"getAnyWorldCombatEncounter").mockResolvedValue(initial);
+    const target={managed_world_id:'elderwyld',native_world_id:'native-world',binding_version:1,graph_revision_id:'head',node_id:'keeper',label:'Keeper',kind:'npc',role:'',campaign_scope:null};
+    vi.spyOn(liveApi,"listWorldCreatures").mockResolvedValue({schema:'dmb_native_world_creatures_v1',managed_world_id:'elderwyld',native_world_id:'native-world',binding_version:1,
+      revision_id:'head',completeness:'complete',targets:[target]});
     vi.spyOn(liveApi,"listWorldMechanicsAssociations").mockResolvedValue([{association_id:'one',version:1,request:{target}} as WorldMechanicsAssociation]);
     const snapshot={association_id:'one',association_version:1,target,resource:{definition:{identity:{name:'Keeper'}},provenance:{description:'x'.repeat(40000)}}} as unknown as CombatMechanicsSnapshot;
     vi.spyOn(combatApi,"previewWorldCombatMechanics").mockResolvedValue(snapshot);
@@ -521,26 +614,33 @@ describe("CombatRosterModule", () => {
   });
 
   it("keeps unsaved edits through tool unmount and explicitly recovers the same encounter",async()=>{
-    const initial=record();vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);
-    vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    const initial=record();vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
     const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_world,_id,_revision,draft)=>({...initial,revision:2,draft}));
     const first=mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
     await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
     await userEvent.click(screen.getByRole('button',{name:'Open'}));
     const notes=await screen.findByLabelText('Notes for Geomantic Drake');await userEvent.clear(notes);await userEvent.type(notes,'Retained local notes');
+    fireEvent.change(screen.getByLabelText('AC for Geomantic Drake'),{target:{value:'19'}});
+    fireEvent.change(screen.getByLabelText('Maximum HP for Geomantic Drake'),{target:{value:'120'}});
     first.unmount();mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
     expect(screen.getByRole('combobox',{name:'Encounter'})).toHaveValue(initial.encounter_id);
     await userEvent.click(screen.getByRole('button',{name:'Open'}));
     const recover=await screen.findByRole('button',{name:'Recover local Combat draft'});
     expect(screen.getByLabelText('Notes for Geomantic Drake')).toHaveValue('Guards the pass');expect(save).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('AC for Geomantic Drake')).toHaveValue('15');
+    expect(screen.getByLabelText('Maximum HP for Geomantic Drake')).toHaveValue('76');
     await userEvent.click(recover);expect(screen.getByLabelText('Notes for Geomantic Drake')).toHaveValue('Retained local notes');
+    expect(screen.getByLabelText('AC for Geomantic Drake')).toHaveValue('19');
+    expect(screen.getByLabelText('Maximum HP for Geomantic Drake')).toHaveValue('120');
     await userEvent.click(screen.getByRole('button',{name:'Save'}));await screen.findByText('Saved · rev 2');
     expect(save.mock.calls[0][3].entities[0].notes).toBe('Retained local notes');
+    expect(save.mock.calls[0][3].entities[0]).toMatchObject({ac:19,max_hp:120,hp:76});
   });
   it("reconciles a lost Save acknowledgement without reposting or dropping later edits",async()=>{
     const initial=record();const pending=deferred<CombatEncounterRecord>();
-    vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);
-    const get=vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);
+    const get=vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
     const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockReturnValueOnce(pending.promise)
       .mockImplementation(async(_world,_id,revision,draft)=>({...initial,revision:revision+1,draft}));
     const first=mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
@@ -558,7 +658,7 @@ describe("CombatRosterModule", () => {
     expect(save.mock.calls[1][2]).toBe(2);expect(save.mock.calls[1][3].title).toBe('Later edits');
   });
   it("refuses local changes when browser recovery storage fails",async()=>{
-    const initial=record();vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    const initial=record();vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
     mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);await userEvent.click(screen.getByRole('button',{name:'Open'}));
     const title=await screen.findByLabelText('Encounter title');vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('Storage quota exceeded');});
     await userEvent.type(title,'x');expect(await screen.findByRole('alert')).toHaveTextContent('Storage quota exceeded');expect(title).toHaveValue('Mireward Gate');
@@ -567,7 +667,7 @@ describe("CombatRosterModule", () => {
 
   it("refuses a second local editor and recovers only after the first view closes",async()=>{
     const initial=record();vi.spyOn(selectedWorld,'useSelectedWorld').mockReturnValue({kind:'managed',worldId:'elderwyld',name:'Elderwyld',documentId:null});
-    vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
     const first=render(<CombatRosterModule/>),second=render(<CombatRosterModule/>);
     const a=within(first.container),b=within(second.container);
     await a.findByRole('option',{name:'Mireward Gate · rev 1'});await b.findByRole('option',{name:'Mireward Gate · rev 1'});
@@ -582,7 +682,7 @@ describe("CombatRosterModule", () => {
 
   it("keeps an unconfirmed Save retryable when later local edits equal the original base",async()=>{
     const initial=record(),pending=deferred<CombatEncounterRecord>();
-    vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
     const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockReturnValueOnce(pending.promise)
       .mockImplementation(async(_world,_id,_revision,draft)=>({...initial,revision:2,draft}));
     mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);await userEvent.click(screen.getByRole('button',{name:'Open'}));
@@ -603,8 +703,8 @@ describe("CombatRosterModule", () => {
     const initial=record({draft:{...record().draft,round:7,entities:[entity,fallen,guard],
       groups:[{group_key:'patrol',label:'Patrol',statblock_path:null,member_ids:[entity.id,fallen.id],collapsed:false},
         {group_key:'watch',label:'Watch',statblock_path:null,member_ids:[guard.id],collapsed:true}]}});
-    vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);
-    vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
     const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_world,_id,revision,draft)=>({...initial,revision:revision+1,draft}));
     mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
     await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
@@ -630,8 +730,8 @@ describe("CombatRosterModule", () => {
   it("recovers a removed inactive actor's draft and Revert restores the saved roster", async () => {
     const guard={...entity,id:'guard',name:'Living guard',order:2};
     const initial=record({draft:{...record().draft,entities:[entity,guard]}});
-    vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);
-    vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
     const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_world,_id,revision,draft)=>({...initial,revision:revision+1,draft}));
     const first=mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
     await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
@@ -652,8 +752,8 @@ describe("CombatRosterModule", () => {
 
   it.each(['storage','pending'] as const)("refuses removal when %s protection prevents a recoverable edit", async (mode) => {
     const initial=record();
-    vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);
-    vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
     vi.spyOn(combatApi,'saveWorldCombatEncounter').mockRejectedValue(new Error('Connection lost'));
     mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
     await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
@@ -672,8 +772,8 @@ describe("CombatRosterModule", () => {
 
   it("reopens its already-open clean encounter without a false other-view refusal", async () => {
     const initial=record();
-    vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);
-    const get=vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);
+    const get=vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
     mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
     await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
     await userEvent.click(screen.getByRole('button',{name:'Open'}));
@@ -693,11 +793,12 @@ describe("CombatRosterModule", () => {
       const snapshot={origin:'world_accepted_mechanics_v1',managed_world_id:'elderwyld',draft_id:'22222222-2222-4222-8222-222222222222',draft_version:3,
         acceptance_operation_id:'accept-one',acceptance_request_digest:'sha256:'+'a'.repeat(64),accepted_from_draft_version:1,accepted_from_candidate_id:null,
         locator,resource,snapshot_digest:'sha256:'+'b'.repeat(64)} as CombatMechanicsSnapshot;
-      const initial=record();initial.draft.entities=[{...entity,mechanics_snapshot:snapshot}];
+      const sibling={...entity,id:'watch',name:'Watch guard',order:2};
+      const initial=record();initial.draft.entities=[{...entity,mechanics_snapshot:snapshot},sibling];
       const override={origin:'buddy_saved_mechanics_override_v1' as const,managed_world_id:'elderwyld',draft_id:'22222222-2222-4222-8222-222222222222',
         origin_acceptance_operation_id:'accept-one',revision_operation_id:null,locator,resource,snapshot_digest:'sha256:'+'c'.repeat(64)};
-      const committed={...initial,revision:2,draft:{...initial.draft,entities:[{...initial.draft.entities[0],mechanics_snapshot:override}]}};
-      vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+      const committed={...initial,revision:2,draft:{...initial.draft,entities:[{...initial.draft.entities[0],mechanics_snapshot:override},sibling]}};
+      vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
       vi.spyOn(combatApi,'listAcceptedCombatMechanics').mockResolvedValue({choices:[{name:'Drake source',draft_id:override.draft_id,draft_version:3}],nextOffset:null});
       vi.spyOn(liveApi,'listSavedMechanicsVersions').mockResolvedValue({world_id:'elderwyld',draft_id:override.draft_id,name:'Drake',original:locator,operations:[],pending:null,next_offset:null});
       vi.spyOn(combatApi,'previewSavedCombatMechanics').mockResolvedValue({snapshot:override,armor_class:15,hit_points:68});
@@ -705,17 +806,23 @@ describe("CombatRosterModule", () => {
       const adopt=vi.spyOn(combatApi,'adoptCombatMechanics').mockReturnValue(pending.promise);
       mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
       await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);await userEvent.click(screen.getByRole('button',{name:'Open'}));
+      await userEvent.click(screen.getByText('Encounter setup · saved mechanics'));
       await userEvent.click(await screen.findByRole('button',{name:'Find saved creatures'}));await userEvent.click(await screen.findByRole('button',{name:'Drake source'}));
       await userEvent.click(await screen.findByRole('button',{name:'Preview exact version'}));await userEvent.click(await screen.findByLabelText('Select Geomantic Drake (1)'));
       await userEvent.click(screen.getByRole('button',{name:'Use version for selected actors'}));
       await waitFor(()=>expect(screen.getByLabelText('HP for Geomantic Drake')).toBeDisabled());expect(screen.getByRole('button',{name:'Next turn'})).toBeDisabled();
+      expect(screen.getByRole('button',{name:'Move Geomantic Drake later'})).toBeDisabled();
       const body=adopt.mock.calls[0][2],{adoptionRequestDigest}=await import('../../combat/CombatMechanicsAdoptionRecovery');
       pending.resolve({receipt:{schema:'dmb_combat_mechanics_adoption_receipt_v1',operation_id:body.operation_id,world_id:'elderwyld',encounter_id:initial.encounter_id,
         request_digest:await adoptionRequestDigest({schema:'dmb_pending_combat_adoption_v1',worldId:'elderwyld',encounterId:initial.encounter_id,request:body,afterDigest:override.snapshot_digest}),
         state:'applied',source:locator,expected_revision:1,committed_revision:2,created_at:'2026-10-22T00:00:00Z',transitions:[{actor_id:entity.id,before_snapshot_digest:snapshot.snapshot_digest,
           after_snapshot_digest:override.snapshot_digest,ac_policy:'keep',hp_policy:'keep',before_ac:15,after_ac:15,before_hp:76,after_hp:76,before_max_hp:76,after_max_hp:76}]},encounter:committed,advanced_since_apply:false});
       await screen.findByText('Selected actors now use this exact version. Other actors and World associations are unchanged.');
-      expect(screen.getByLabelText('HP for Geomantic Drake')).not.toBeDisabled();expect(screen.getByLabelText('HP for Geomantic Drake')).toHaveValue('76');
+      await waitFor(()=>{
+        expect(screen.getByLabelText('HP for Geomantic Drake')).toBeEnabled();
+        expect(screen.getByRole('button',{name:'Move Geomantic Drake later'})).toBeEnabled();
+      });
+      expect(screen.getByLabelText('HP for Geomantic Drake')).toHaveValue('76');
       const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_w,_id,_rev,draft)=>({...committed,revision:3,draft}));
       fireEvent.change(screen.getByLabelText('HP for Geomantic Drake'),{target:{value:'55'}});await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
       await waitFor(()=>expect(save).toHaveBeenCalled());expect(save.mock.calls[0][2]).toBe(2);
@@ -725,8 +832,8 @@ describe("CombatRosterModule", () => {
 
   it('opens scoped scene encounter directly and never uses the World selection fallback',async()=>{
     vi.spyOn(selectedWorld,'useSelectedWorld').mockReturnValue({kind:'managed',worldId:'elderwyld',name:'Elderwyld',documentId:null});
-    const list=vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([]);
-    const get=vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(record());
+    const list=vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([]);
+    const get=vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(record());
     localStorage.setItem(combatSelectionKeyForTest(),'unrelated-fight');
     const view=render(<CombatRosterModule scope={{worldId:'elderwyld',encounterId:record().encounter_id,label:'Gate · prepared encounter'}}/>);
     await screen.findByLabelText('HP for Geomantic Drake');
@@ -742,10 +849,122 @@ describe("CombatRosterModule", () => {
   });
   it('does not open a scoped encounter under a different selected World',async()=>{
     vi.spyOn(selectedWorld,'useSelectedWorld').mockReturnValue({kind:'managed',worldId:'other-world',name:'Other',documentId:null});
-    const get=vi.spyOn(combatApi,'getWorldCombatEncounter');const list=vi.spyOn(combatApi,'listWorldCombatEncounters');
+    const get=vi.spyOn(combatApi,'getAnyWorldCombatEncounter');const list=vi.spyOn(combatApi,'listAnyWorldCombatEncounters');
     render(<CombatRosterModule scope={{worldId:'elderwyld',encounterId:record().encounter_id,label:'Wrong World'}}/>);
     await waitFor(()=>expect(get).not.toHaveBeenCalled());expect(list).not.toHaveBeenCalled();
     expect(screen.queryByLabelText('HP for Geomantic Drake')).not.toBeInTheDocument();
+  });
+
+  it('keeps the round boundary on its pinned actor when initiative order changes',async()=>{
+    const guard={...entity,id:'guard',name:'Watch guard',order:2,init:25};
+    const initial=record({draft:{...record().draft,round:4,entities:[entity,guard]}});
+    vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
+    mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    await userEvent.click(await screen.findByRole('button',{name:'Sort initiative'}));
+    const round=()=>screen.getByText('Round').parentElement;
+    await userEvent.click(screen.getByRole('button',{name:'Next turn'}));
+    expect(screen.getByRole('row',{name:/Watch guard/})).toHaveClass('combat-roster-active-row');
+    expect(round()).toHaveTextContent('4');
+    await userEvent.click(screen.getByRole('button',{name:'Next turn'}));
+    expect(round()).toHaveTextContent('5');
+    await userEvent.click(screen.getByRole('button',{name:'Previous turn'}));
+    expect(round()).toHaveTextContent('4');
+  });
+
+  it('moves actors without initiative while preserving source, groups, staged inputs and round identity',async()=>{
+    const resource=(await import('../../../../../tests/fixtures/statblocks/v1/exact-revision-response.json')).default;
+    const snapshot={origin:'world_accepted_mechanics_v1',managed_world_id:'elderwyld',draft_id:'22222222-2222-4222-8222-222222222222',draft_version:3,
+      acceptance_operation_id:'accept-one',acceptance_request_digest:'sha256:'+'a'.repeat(64),accepted_from_draft_version:1,accepted_from_candidate_id:null,
+      locator:{provider:'dungeonmind',statblock_id:resource.statblock_id,revision_id:resource.revision_id,contract:resource.contract,contract_version:resource.contract_version,definition_digest:resource.definition_digest},resource,snapshot_digest:'sha256:'+'b'.repeat(64)} as CombatMechanicsSnapshot;
+    const first={...entity,init:null,mechanics_snapshot:snapshot};
+    const fallen={...entity,id:'fallen',name:'Fallen guard',order:2,defeated:true,hp:0};
+    const guard={...entity,id:'guard',name:'Watch guard',order:3,init:null,hp:12,notes:'Retained guard note'};
+    const initial=record({draft:{...record().draft,round:4,active_turn_entity_id:'guard',entities:[first,fallen,guard],
+      groups:[{group_key:'patrol',label:'Patrol',statblock_path:null,member_ids:[first.id,guard.id],collapsed:false}]}});
+    vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
+    const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_w,_i,revision,draft)=>({...initial,revision:revision+1,draft}));
+    mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    const damage=await screen.findByLabelText('Damage for Geomantic Drake');fireEvent.change(damage,{target:{value:'7'}});
+    await userEvent.click(screen.getByRole('button',{name:'Keep statblock open for Geomantic Drake'}));
+    expect(await screen.findByRole('heading',{name:'Ironhide Brute'})).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Move Geomantic Drake earlier'})).toBeDisabled();
+    expect(screen.getByRole('button',{name:'Move Watch guard later'})).toBeDisabled();
+    expect(screen.getByRole('button',{name:'Move Fallen guard earlier'})).toBeDisabled();
+    expect(screen.getByRole('button',{name:'Move Fallen guard later'})).toBeDisabled();
+    const move=screen.getByRole('button',{name:'Move Geomantic Drake later'});move.focus();await userEvent.keyboard('{Enter}');
+    expect(screen.getByLabelText('Damage for Geomantic Drake')).toBe(damage);expect(damage).toHaveValue(7);
+    expect(screen.getByRole('complementary',{name:'Projected statblock for Geomantic Drake'})).toBeInTheDocument();
+    expect(screen.getByRole('row',{name:/Watch guard/})).toHaveClass('combat-roster-active-row');
+    expect(screen.getByText('Round').parentElement).toHaveTextContent('4');
+    await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await screen.findByText('Saved · rev 2');
+    const moved=save.mock.calls[0][3];
+    expect(moved.entities).toEqual([{...guard,order:1},fallen,{...first,order:3}]);
+    expect(moved.groups).toEqual(initial.draft.groups);
+    expect(moved).toMatchObject({active_turn_entity_id:'guard',round_start_entity_id:first.id,round:4});
+    await userEvent.click(screen.getByRole('button',{name:'Move Geomantic Drake earlier'}));
+    await userEvent.click(screen.getByRole('button',{name:'Revert',exact:true}));
+    expect(screen.getByRole('button',{name:'Move Geomantic Drake later'})).toBeDisabled();
+    await userEvent.click(screen.getByRole('button',{name:'Next turn'}));
+    expect(screen.getByRole('row',{name:/Geomantic Drake/})).toHaveClass('combat-roster-active-row');
+    expect(screen.getByText('Round').parentElement).toHaveTextContent('5');
+  });
+
+  it('requires explicit recovery for a manual move and saves the recovered order',async()=>{
+    const guard={...entity,id:'guard',name:'Watch guard',order:2};
+    const initial=record({draft:{...record().draft,entities:[entity,guard]}});
+    vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
+    const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_w,_i,revision,draft)=>({...initial,revision:revision+1,draft}));
+    const first=mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    await userEvent.click(await screen.findByRole('button',{name:'Move Geomantic Drake later'}));first.unmount();
+    mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    const recover=await screen.findByRole('button',{name:'Recover local Combat draft'});
+    expect(screen.getByRole('button',{name:'Move Geomantic Drake later'})).toBeDisabled();
+    await userEvent.click(recover);
+    expect(screen.getByRole('button',{name:'Move Geomantic Drake later'})).toBeDisabled();
+    expect(screen.getByRole('button',{name:'Move Geomantic Drake earlier'})).toBeEnabled();
+    await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await screen.findByText('Saved · rev 2');
+    expect(save.mock.calls[0][3].entities.map(actor=>actor.id)).toEqual(['guard',entity.id]);
+  });
+
+  it('retains defeated units and their notes, advances participation, and restores without healing',async()=>{
+    const guard={...entity,id:'guard',name:'Watch guard',order:2,hp:12,max_hp:20};
+    const initial=record({draft:{...record().draft,round:4,entities:[entity,guard]}});
+    vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValue(initial);
+    const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_world,_id,revision,draft)=>({...initial,revision:revision+1,draft}));
+    mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    const row=await screen.findByRole('row',{name:/Geomantic Drake/});
+    const drakeDamage=screen.getByLabelText('Damage for Geomantic Drake');
+    fireEvent.change(drakeDamage,{target:{value:'8'}});
+    const guardDamage=screen.getByLabelText('Damage for Watch guard');
+    fireEvent.change(guardDamage,{target:{value:'9'}});
+    await userEvent.click(within(row).getByRole('checkbox',{name:'Defeated'}));
+    expect(screen.getByLabelText('Damage for Watch guard')).toBe(guardDamage);
+    expect(guardDamage).toHaveValue(9);
+    expect(screen.getByRole('row',{name:/Watch guard/})).toHaveClass('combat-roster-active-row');
+    expect(screen.getByText('Round').parentElement).toHaveTextContent('4');
+    const fallen=screen.getByRole('row',{name:/Geomantic Drake/});
+    expect(screen.getByLabelText('Damage for Geomantic Drake')).toBe(drakeDamage);
+    expect(drakeDamage).toHaveValue(8);
+    expect(within(fallen).getByLabelText('Notes for Geomantic Drake')).toHaveValue('Guards the pass');
+    expect(within(fallen).getByLabelText('HP for Geomantic Drake')).toHaveValue('76');
+    await userEvent.click(within(fallen).getByRole('checkbox',{name:'Defeated'}));
+    await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+    await waitFor(()=>expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0][3]).toMatchObject({round:4,active_turn_entity_id:'guard',entities:[entity,guard]});
   });
 
   it('recognizes a verified manual tracker Save only in its admitted Run scene',async()=>{

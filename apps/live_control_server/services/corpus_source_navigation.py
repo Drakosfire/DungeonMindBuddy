@@ -351,9 +351,11 @@ class NativeBodyNavigation:
         turn = self.adapter.fence.turn
         if type(turn.graph_context_receipt) is not t.SurfaceNativeContextReceiptV1:
             return tuple(rows)
-        from .native_source_candidate_scope import preferred_source_pairs
+        from .native_source_candidate_scope import post_cutoff_source_pairs, preferred_source_pairs
         self._source_choices()
-        from application_state.agent_conversation.native_corpus import NativeAuthoredSourceReadV1
+        from application_state.agent_conversation.native_corpus import (
+            NativeAuthoredSourceReadV1, request_source_discovery_enabled,
+        )
         references = set()
         if search is None:
             references = {(read.catalog.source.artifact.source_artifact_id, read.catalog.source.revision.source_revision_id)
@@ -362,9 +364,11 @@ class NativeBodyNavigation:
         keywords = self._selected_keywords() if search is not None else set()
         # An unfiltered catalogue is presentation, not an acknowledged action.
         # Require execution ownership only when a hint can actually affect it.
-        if pairs is None and not keywords:
-            return tuple(rows)
-        if self._expanded():
+        rank_opening = (search is not None and pairs is None and not keywords
+                        and request_source_discovery_enabled(
+                            turn.graph_context_receipt, turn.graph_context_execution))
+        excluded = post_cutoff_source_pairs(turn.user_text, self._source_display)
+        if pairs is None and not keywords and not rank_opening and not excluded:
             return tuple(rows)
         addresses = {handle: pair for handle, (pair, _, _) in self._direct_sources.items()}
         if search is not None:
@@ -374,21 +378,88 @@ class NativeBodyNavigation:
                 addresses[native_full_document_handle(catalog.catalog_sha256)] = pair
                 addresses.update((native_body_handle(catalog.catalog_sha256, section.section_id), pair)
                     for section in catalog.sections)
+        if excluded:
+            rows = [row for row in rows if addresses.get(row.handle) not in excluded]
+        if self._expanded():
+            return tuple(rows)
         known = set(self._source_display)
         narrowed = [row for row in rows if pairs is None or row.handle not in addresses or
             addresses[row.handle] not in known or addresses[row.handle] in pairs]
         if search is not None:
             from application_state.agent_conversation.native_corpus import native_body_handle
+            from .native_source_candidate_scope import as_of_passage_handles
             hits = {native_body_handle(hit.catalog_sha256, hit.section_id): set(hit.matched_terms)
                 for hit in search.matches}
+            if not keywords:
+                as_of = as_of_passage_handles(turn.user_text, hits, addresses, self._source_display)
+                if as_of:
+                    narrowed = [row for row in rows if row.handle in as_of or row.handle not in addresses]
+                    rank_opening = False
             # A positive hit can prioritize known sections. Unknown metadata and
             # all full-document/Graph/Rules choices remain reachable. No literal
             # match is not semantic absence, so retain the current view then.
             if keywords and any(keywords & hits.get(row.handle, set()) for row in narrowed):
                 narrowed = [row for row in narrowed if row.handle not in hits or keywords & hits[row.handle]]
+        if rank_opening:
+            sections = [row for row in narrowed if row.kind == 'Exact source section']
+            strongest = max((len(hits[row.handle]) for row in sections), default=0)
+            if strongest:
+                frequency = Counter(term for terms in hits.values() for term in terms)
+                leaders = [hits[row.handle] for row in sections
+                           if len(hits[row.handle]) == strongest]
+                anchors = []
+                for terms in leaders:
+                    if len(terms) >= 2:
+                        cutoff = sorted(frequency[term] for term in terms)[1]
+                        anchors.append({term for term in terms if frequency[term] <= cutoff})
+                section_handles = {row.handle for row in sections
+                                   if len(hits[row.handle]) == strongest
+                                   or any(anchor <= hits[row.handle] for anchor in anchors)}
+                # A locally distinctive query pair can identify another episode
+                # that is diluted in the full-question overlap score.
+                import re
+                words = re.findall(r"[^\W\d_]+", turn.user_text.casefold())
+                pair_matches = []
+                for first, second in zip(words, words[1:]):
+                    if min(len(first), len(second)) < 4 or first == second:
+                        continue
+                    matches = [row.handle for row in sections
+                               if {first, second} <= hits[row.handle]]
+                    if matches:
+                        best = max(len(hits[handle]) for handle in matches)
+                        pair_matches.append(((len(matches), -best),
+                                             {handle for handle in matches
+                                              if len(hits[handle]) == best}))
+                if pair_matches:
+                    best_score = min(score for score, _ in pair_matches)
+                    section_handles.update(handle for score, handles in pair_matches
+                                           if score == best_score for handle in handles)
+                from .native_source_candidate_scope import (
+                    chronological_passage_handles, preceding_recap_passage_handles, rare_named_section_handles,
+                )
+                chronology = chronological_passage_handles(
+                    turn.user_text, {row.handle: hits[row.handle] for row in sections},
+                    addresses, self._source_display)
+                if chronology:
+                    section_handles = chronology
+                elif len(section_handles) <= 3:
+                    section_handles.update(
+                        native_body_handle(match.catalog_sha256, match.section_id)
+                        for match in search.matches
+                        if match.distinctiveness_rank in (1, 2)
+                    )
+                if not chronology:
+                    section_handles.update(rare_named_section_handles(
+                        turn.user_text, {row.handle: hits[row.handle] for row in sections}))
+                section_handles.update(preceding_recap_passage_handles(
+                    turn.user_text, section_handles,
+                    {row.handle: hits[row.handle] for row in sections}, addresses, self._source_display))
+                # The existing expansion action still exposes full-document navigation.
+                narrowed = [row for row in narrowed
+                            if row.handle in section_handles or row.handle not in addresses]
         if len(narrowed) != len(rows):
             narrowed.append(RetrievalCandidate(handle=self.expansion_handle(),
-                label='Search beyond the selected-reference, campaign/session and keyword hints in this request',
+                label='Expand source search if the currently offered passages cannot establish the requested details',
                 kind='Expand to all other admitted native sources and matching sections; no source text is read by this choice'))
         return tuple(narrowed)
 
@@ -492,17 +563,38 @@ class NativeBodyNavigation:
                 rows.append(RetrievalCandidate(handle=handle,
                     label='Read full document: ' + source_display_name(display, 'Admitted source'),
                     kind='Explicit admitted full-source read; metadata choice, not evidence'))
+        from application_state.agent_conversation.native_execution import NativePlanActionV2
+        from application_state.agent_conversation.native_retrieval import native_selection_types
+        execution = turn.graph_context_execution
+        reviewed = {handle for selection in execution.events if isinstance(selection, native_selection_types())
+                    for handle in selection.selected_handles}
+        if type(getattr(getattr(execution, "policy", None), "action", None)) is NativePlanActionV2:
+            for read, catalog in acquired:
+                if read.excerpt.selector_policy != "native_full_document_v1":
+                    continue
+                for section in catalog.sections:
+                    handle = native_body_handle(catalog.catalog_sha256, section.section_id)
+                    if handle in reviewed or section.byte_end - section.byte_start == catalog.body_bytes:
+                        continue
+                    rows.append(RetrievalCandidate(handle=handle,
+                        label=self._source_name(catalog) + f" · {section.label} · lines {section.line_start}–{section.line_end}",
+                        kind="Select passage from inspected source"))
+                    attempted.add(handle)
         if grant is None:
             rows.append(RetrievalCandidate(handle=native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest()),
                 label="Search admitted native source sections for the current question",
                 kind="Source lexical navigation; not evidence or semantic completeness"))
             rows.extend(self._keyword_offers())
             return self._scoped_offers(rows, search)
-        def opened(catalog, start, end):
+        plan = getattr(getattr(turn.graph_context_receipt, "work_context", None), "surface_id", None) == "plan"
+
+        def opened(catalog, start, end, *, section_vote=False):
             return any((known.source.artifact.source_artifact_id, known.source.revision.source_revision_id,
                             known.source.revision.content_sha256) == (catalog.source.artifact.source_artifact_id,
                             catalog.source.revision.source_revision_id, catalog.source.revision.content_sha256)
                 and read.excerpt.section.byte_start <= start and read.excerpt.section.byte_end >= end
+                and not (section_vote and plan
+                         and read.excerpt.selector_policy == 'native_full_document_v1')
                 for read, known in acquired)
         hits = {(row.catalog_sha256, row.section_id): row.matched_terms for row in search.matches}
         direct_pairs = {pair for pair, _, _ in direct.values()}
@@ -515,9 +607,12 @@ class NativeBodyNavigation:
                 if section.byte_start == 0 and section.byte_end == catalog.body_bytes:
                     continue
                 handle = native_body_handle(catalog.catalog_sha256, section.section_id)
-                if handle not in attempted and not opened(catalog, section.byte_start, section.byte_end):
+                if handle not in attempted and not opened(catalog, section.byte_start, section.byte_end, section_vote=True):
+                    label = section.label
+                    if plan:
+                        label += f" · lines {section.line_start}–{section.line_end}"
                     rows.append(RetrievalCandidate(handle=handle,
-                        label=name + " · " + section.label + " · matched terms: " + ", ".join(hits[(catalog.catalog_sha256, section.section_id)]),
+                        label=name + " · " + label + " · matched terms: " + ", ".join(hits[(catalog.catalog_sha256, section.section_id)]),
                         kind="Exact source section"))
             handle = native_full_document_handle(catalog.catalog_sha256)
             pair = (catalog.source.artifact.source_artifact_id, catalog.source.revision.source_revision_id)
@@ -528,6 +623,57 @@ class NativeBodyNavigation:
                     label="Read full document: " + name + " · matched terms: " + ", ".join(terms),
                     kind="Explicit full-document read"))
         return self._scoped_offers(rows, search)
+
+    def continuation_offers(self):
+        """Existing unread section choices in the best opened recap's next session."""
+        import math
+        import re
+        from application_state.agent_conversation.corpus_source_search import terms
+        from application_state.agent_conversation.native_corpus import native_body_handle
+
+        turn = self.adapter.fence.turn
+        _, search, _, _ = self._events()
+        if search is None:
+            return ()
+        query = set(terms(turn.user_text))
+        acquired = self._acquired_extents()
+        opened = {(c.source.registered_campaign_id, c.source.session_scope) for _, c in acquired}
+        offered = {c.handle: c for c in self.offered() if c.kind == "Exact source section"}
+        by_session = {}
+        for catalog in search.catalogs:
+            member = catalog.source
+            key = (member.registered_campaign_id, member.session_scope)
+            if key in opened:
+                continue
+            for section in catalog.sections:
+                handle = native_body_handle(catalog.catalog_sha256, section.section_id)
+                if handle in offered:
+                    by_session.setdefault(key, []).append(offered[handle])
+
+        scores = {}
+        for read, catalog in acquired:
+            member = catalog.source
+            if not member.registered_campaign_id or not isinstance(member.session_scope, int):
+                continue
+            excerpt = read.excerpt
+            if excerpt.selector_policy != "markdown_sections_v1" or excerpt.planning_ranges is None:
+                continue
+            key = (member.registered_campaign_id, member.session_scope + 1)
+            if key not in by_session:
+                continue
+            planning = excerpt.planning_ranges.lines
+            words = Counter(re.findall(r"\w+", "\n".join(
+                line for i, line in enumerate(excerpt.text.splitlines(), excerpt.section.line_start)
+                if not any(start <= i <= end for start, end in planning)).casefold()))
+            if len(query & words.keys()) < 2:
+                continue
+            score = sum(math.log1p(words[word]) for word in query) / math.sqrt(words.total())
+            scores[key] = max(score, scores.get(key, 0))
+        if not scores:
+            return ()
+        best = max(scores.values())
+        winners = [key for key, score in scores.items() if score == best]
+        return tuple(by_session[winners[0]]) if len(winners) == 1 else ()
 
     def examined(self):
         from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1, native_corpus_search_handle
@@ -553,7 +699,12 @@ class NativeBodyNavigation:
             full = excerpt.section.byte_start == 0 and excerpt.section.byte_end == catalog.body_bytes
             handle = (native_full_document_handle(catalog.catalog_sha256) if full
                 else native_body_handle(catalog.catalog_sha256, excerpt.section.section_id))
+            from application_state.agent_conversation.native_corpus import request_source_discovery_enabled
+            review_passage = (not full and not isinstance(read, NativeAuthoredSourceReadV1)
+                              and request_source_discovery_enabled(
+                                  turn.graph_context_receipt, turn.graph_context_execution))
             rows.append(RetrievalCandidate(handle=handle,
+                reviewed_passage=excerpt.text if review_passage else None,
                 label=self._source_name(catalog) + " · " + excerpt.section.label
                     + f" · lines {excerpt.section.line_start}–{excerpt.section.line_end}",
                 kind=("Acquired user-selected source text; mandatory writer input" if isinstance(read, NativeAuthoredSourceReadV1)
@@ -599,7 +750,12 @@ class NativeBodyNavigation:
         from application_state.agent_conversation.plan_jev_decision import current_selection
         from application_state.agent_conversation.native_corpus import selected_batch_covering_reads
         turn = self.adapter.fence.turn
-        return bool(selected_batch_covering_reads(turn.graph_context_execution, current_selection(turn), handle))
+        from application_state.agent_conversation.native_execution import NativePlanActionV2
+        execution = turn.graph_context_execution
+        return bool(selected_batch_covering_reads(
+            execution, current_selection(turn), handle,
+            require_passage=type(execution.policy.action) is NativePlanActionV2,
+        ))
 
     def select(self, handles):
         from application_state.agent_conversation.native_corpus import native_corpus_search_handle

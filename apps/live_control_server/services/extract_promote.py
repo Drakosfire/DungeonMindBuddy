@@ -7,6 +7,7 @@ from graph_memory.extraction.worldbuilding_profile_catalog import SOURCE_OBSERVA
 
 
 import hashlib
+from collections.abc import Callable
 import json
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -868,6 +869,7 @@ def decide_recap_semantic_disposition(
     request: RecapSemanticDecisionRequest,
     *,
     reviewer_id: str,
+    authorize_write: Callable[[], None] | None = None,
 ) -> RecapSemanticDecisionResponse:
     """Record an explicit operator decision without altering evidence or World."""
     from application_state.errors import ApplicationStateError
@@ -994,6 +996,8 @@ def decide_recap_semantic_disposition(
             review_decision_ref=request.review_decision_ref,
             reviewer_id=reviewer_id,
         )
+        if authorize_write is not None:
+            authorize_write()
         decided = record_recap_semantic_disposition(
             run_id, expected_revision=request.expected_revision,
             basis=basis, decision=decision,
@@ -1662,6 +1666,7 @@ def _load_worldbuilding_publication_input(resolved, *, allow_gazetteer=True) -> 
 
 def confirm_worldbuilding(
     request: WorldbuildingWritePlanConfirmRequest,
+    *, authorize_write: Callable[[], None] | None = None,
 ) -> WorldbuildingWritePlanConfirmReceipt:
     """Verify one sealed worldbuilding write plan and commit its rebuilt effect."""
     from apps.live_control_server.services.worldbuilding_graph_publication import (
@@ -1669,7 +1674,7 @@ def confirm_worldbuilding(
     )
 
 
-    return _confirm(request)
+    return _confirm(request, authorize_write=authorize_write) if authorize_write is not None else _confirm(request)
 
 
 def _project_assertion_fields(
@@ -1958,6 +1963,7 @@ def confirm(
 
 def prepare_first_world(
     request: FirstWorldGraphPrepareRequest,
+    *, authorize_world: Callable[[str], None] | None = None,
 ) -> FirstWorldGraphPlan:
     """Seal an inert first-world initialization plan (no production graph mutation)."""
     from apps.live_control_server.services.first_world_graph_publication import (
@@ -1965,11 +1971,12 @@ def prepare_first_world(
     )
 
 
-    return _prepare(request)
+    return _prepare(request, authorize_world=authorize_world)
 
 
 def confirm_first_world(
     request: FirstWorldGraphConfirmRequest,
+    *, authorize_world: Callable[[str], None] | None = None,
 ) -> FirstWorldGraphConfirmReceipt:
     """Verify a sealed first-world plan and atomically initialize W."""
     from apps.live_control_server.services.first_world_graph_publication import (
@@ -1977,7 +1984,7 @@ def confirm_first_world(
     )
 
 
-    return _confirm(request)
+    return _confirm(request, authorize_world=authorize_world)
 
 
 __all__ = [

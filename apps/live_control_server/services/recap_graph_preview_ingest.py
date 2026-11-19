@@ -35,16 +35,18 @@ def extract_recap(
     graph_model_id: str | None = None,
     ingest_context: Any,
     supplemental_evidence: dict[str, Any] | None = None,
+    name_review: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run or reuse extraction; return the exact saved result without repackaging."""
-    root = artifact_data_root(repo_root)
-    from apps.live_control_server.services.source_artifact_registry import (
-        _normalize_source_text,
-    )
+    from apps.live_control_server.services.recap_name_review import reviewed_source
 
-    text = _normalize_source_text(recap_text)
+    root = artifact_data_root(repo_root)
+    original, text, _, review_record = reviewed_source(
+        recap_text, ingest_context, name_review, session_id=f"session-{session}"
+    )
     digest = "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
     context = SourceScope.model_validate(ingest_context.model_dump()).model_dump()
+    review_lineage = review_record if review_record["decisions"] else None
     if not force_graph_run:
         profile_id, version = resolve_legacy_graph_extraction_profile(None)
         reused = reusable_recap_extraction(
@@ -56,6 +58,7 @@ def extract_recap(
             profile_id=f"{profile_id}@{version}",
             model_id=graph_model_id or DEEPSEEK_MODEL,
             supplemental_evidence=supplemental_evidence,
+            name_review_record=review_lineage,
         )
         if reused is not None:
             return reused
@@ -67,6 +70,16 @@ def extract_recap(
         recap_text=text,
         expected_content_sha256=digest,
     )
+    if review_record["decisions"]:
+        original_artifact = artifact if original == text else create_recap_source_artifact(
+            root,
+            world_id=context["native_world_id"],
+            campaign_id=campaign_id,
+            session_id=f"session-{session}",
+            recap_text=original,
+        )
+        review_record["original_source_artifact_id"] = original_artifact.source_artifact_id
+        review_record["original_source_sha256"] = original_artifact.content_sha256
     production = run_recap_production_extraction(
         repo_root=root,
         campaign_id=campaign_id,
@@ -76,6 +89,7 @@ def extract_recap(
         allow_llm=True,
         ingest_context=ingest_context,
         supplemental_evidence=supplemental_evidence,
+        name_review_record=review_lineage,
     )
     status = project_recap_extraction_run(
         root=root,

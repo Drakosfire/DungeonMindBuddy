@@ -85,7 +85,7 @@ def claim(key, owner, intent, input_packet):
         return record, True
 
 
-def change(record, *, state=None, wire=None, raw_output=None, result=None, failure=None, review=None, event=None):
+def change(record, *, state=None, wire=None, raw_output=None, result=None, failure=None, review=None, event=None, authorize=None):
     """Exact CAS; an unsaved packet or output is never acknowledged."""
     with unit_of_work(_dsn()) as conn:
         current = _owned(_read(conn, record["operation_id"], True), record["owner"], record["intent"]["managed_world_id"])
@@ -115,5 +115,7 @@ def change(record, *, state=None, wire=None, raw_output=None, result=None, failu
             raise ApplicationStateConflictError("Invalid proposal transition")
         updated["revision"] += 1
         _load((updated,))
+        if authorize is not None:
+            authorize()
         conn.execute("UPDATE ingest.statement_proposal_operation SET payload=%s WHERE operation_id=%s", (Jsonb(updated), record["operation_id"]))
         return updated

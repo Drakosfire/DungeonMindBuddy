@@ -1,5 +1,11 @@
 import { SelectedWorldProvider } from "../selectedWorld/SelectedWorldContext";
-vi.mock("./BuildPdfPreview", () => ({ BuildPdfPreview: ({initialFile}: {initialFile?: File}) => initialFile?.name ?? null }));
+import { pdfRegionKey, retainedPdfKey, type RetainedPdf } from "../api/retainedPdfRegions";
+import type { ReactNode } from "react";
+vi.mock("./BuildPdfPreview", () => ({
+  BuildPdfPreview: ({ initialFile, initialRetained, toolbarControls }: {
+    initialFile?: File; initialRetained?: RetainedPdf; toolbarControls?: ReactNode;
+  }) => <>{initialFile?.name ?? initialRetained?.name}{toolbarControls}</>,
+}));
 import { fireEvent } from "@testing-library/react";
 import { StrictMode, useState } from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
@@ -223,6 +229,28 @@ describe("BuildSurfacePage", () => {
       schema_version: "dmb_workspace_document_registry_v1",
       records: [],
     });
+  });
+
+  it("opens a retained PDF directly in Build from its saved document URL", async () => {
+    const locator = { source_revision_id: "saved-pdf", content_sha256: "digest",
+      page: 1, left: 0, top: 0, right: 1, bottom: 1 };
+    const key = retainedPdfKey("elderwyld") + pdfRegionKey(locator);
+    localStorage.setItem(key, JSON.stringify({ name: "MeatMindNode.pdf", locator }));
+    window.history.replaceState({}, "", "/build?world=elderwyld&pdf=saved-pdf");
+    vi.mocked(liveApi.listWorldContainers).mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{ schema_version: "dmb_world_container_record_v1", world_id: "elderwyld",
+        name: "Elderwyld", source_root_relpath: "", created_at: "" }],
+    });
+    try {
+      renderBuildPage({ managedWorld: true });
+      expect(await screen.findByRole("region", { name: "PDF workspace" }))
+        .toHaveTextContent("MeatMindNode.pdf");
+      expect(within(screen.getByRole("navigation", { name: "Command board navigation" }))
+        .getByRole("button", { name: "Open document" })).toBeInTheDocument();
+    } finally {
+      localStorage.removeItem(key);
+    }
   });
 
   it("opens the PDF import viewer on a canvas file drop", async () => {
@@ -600,12 +628,16 @@ describe("BuildSurfacePage", () => {
       expect(screen.getByTestId("build-document-status")).toHaveTextContent(/Unsaved|dirty|local/i);
     });
 
-    await user.selectOptions(screen.getByTestId("build-document-select"), DOC_B);
+    await user.click(screen.getByTestId("build-document-select"));
+    await user.click(screen.getByRole("button", { name: "Pages", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Source B", exact: true }));
     await waitFor(() => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Source B");
     });
 
-    await user.selectOptions(screen.getByTestId("build-document-select"), DOC_ID);
+    await user.click(screen.getByTestId("build-document-select"));
+    await user.click(screen.getByRole("button", { name: "Pages", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Source A", exact: true }));
     await waitFor(() => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Source A");
     });
@@ -1311,8 +1343,9 @@ describe("BuildSurfacePage", () => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Ironveil Manufactory Grounds");
     });
     // Stale list still held — selector must already show Canvas title.
+    fireEvent.click(screen.getByTestId("build-document-select"));
     expect(
-      within(screen.getByTestId("build-document-select")).getByRole("option", {
+      within(screen.getByRole("dialog", { name: "Open document" })).getByRole("button", {
         name: "Ironveil Manufactory Grounds",
       }),
     ).toBeInTheDocument();

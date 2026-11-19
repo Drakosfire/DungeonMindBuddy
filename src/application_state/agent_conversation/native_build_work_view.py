@@ -1,5 +1,6 @@
 """Provider-only Build work. Existing captured work records retain all authority."""
 from copy import deepcopy
+import re
 from uuid import UUID
 
 _OPTIONAL = frozenset({'working_draft_context', 'response_contract', 'captured_editor',
@@ -49,7 +50,34 @@ def is_semantic_frame(value):
         and {'source_class', 'saved_sections'} <= set(value['build_work']))
 
 
-def semantic_frame(host, execution):
+VARIANT_WRITER_FORMAT = "surface_native_evidence_selectors_v3"
+VARIANT_EDITS_FORMAT = "surface_native_evidence_selectors_v4"
+VARIANT_VISIBLE_REPLY_FORMAT = "surface_native_evidence_selectors_v5"
+VARIANT_WITNESS_FORMAT = "surface_native_evidence_selectors_v6"
+VARIANT_CARRIED_CONDITION_FORMAT = "surface_native_evidence_selectors_v8"
+
+
+VARIANT_PASSAGE_REVIEW_FORMAT = "surface_native_evidence_selectors_v9"
+VARIANT_TRIGGER_RETENTION_FORMAT = "surface_native_evidence_selectors_v10"
+VARIANT_PASSAGE_FORMATS = frozenset({VARIANT_PASSAGE_REVIEW_FORMAT, VARIANT_TRIGGER_RETENTION_FORMAT})
+
+
+def variant_draft_passages(work_frame):
+    """Offer ordered local handles over the exact authored draft text."""
+    markdown = work_frame.get("working_draft_context", {}).get("draft_markdown", "")
+    passages = (
+        passage for passage in re.split(r"\r?\n[ \t]*\r?\n(?:[ \t]*\r?\n)*", markdown)
+        if passage.strip()
+    )
+    return {f"p{index}": passage for index, passage in enumerate(passages, 1)}
+
+
+def variant_output_version(work_frame):
+    return 10 if variant_draft_passages(work_frame) else 8
+
+
+def semantic_frame(host, execution, *, include_variant=False, variant_edits=False,
+                   variant_passage_review=False):
     from .build_primary_context import NATIVE_WORK_SCHEMA
     if (host.get('schema') != NATIVE_WORK_SCHEMA
             or set(host) - ({'schema', 'source_basis', 'artifact_under_edit'} | _OPTIONAL)):
@@ -72,7 +100,8 @@ def semantic_frame(host, execution):
     if 'working_draft_context' in host:
         draft = host['working_draft_context']
         work['current_draft'] = {'selection': aliases[draft['record_id']],
-            'markdown': draft['draft_markdown']}
+            **({'passages': variant_draft_passages(host)} if variant_passage_review
+               else {'markdown': draft['draft_markdown']})}
     if 'response_contract' in host:
         contract = host['response_contract']
         allowed = {'policy', 'requested_work', 'intent_family', 'operation', 'purpose',
@@ -126,9 +155,30 @@ def semantic_frame(host, execution):
             'resources', 'rule_elements', 'senses', 'vitality',
         )
         work['saved_statblocks'] = []
+        sources = variant_sources(host) if include_variant else {}
+        if sources:
+            work["statblock_variant_guidance"] = (
+                "For a requested statblock variant, choose its variant_source and return the complete "
+                "definition in statblock_variant. Preserve inherited mechanics except where the GM "
+                "asked for a change. Include the agreed traits and mechanics in the definition itself. "
+                "Keep the conversation draft consistent with that definition. Use null when the "
+                "requested draft is unrelated to a statblock."
+            )
+        if sources and variant_edits:
+            work["statblock_variant_guidance"] = (
+                "Choose the verified variant_source. Return new rule elements in add_rules. "
+                "Use replace_rules only for explicitly requested changes to existing rules, "
+                "and keep each replaced rule's key. Buddy carries forward all other mechanics. "
+                "Use null when a statblock variant was not requested."
+            )
         for statblock_index, row in enumerate(host['saved_statblocks']):
             statblock = {'mechanics': {key: deepcopy(row['definition'][key])
                                       for key in mechanics_fields if key in row['definition']}}
+            alias = f"statblock{statblock_index}"
+            if alias in sources:
+                statblock["variant_source"] = alias
+                if "ruleset" in row["definition"]:
+                    statblock["mechanics"]["ruleset"] = deepcopy(row["definition"]["ruleset"])
             excerpts = [excerpt for index, excerpt in statblock_pdf_excerpts(host)
                         if index == statblock_index]
             if excerpts:
@@ -164,6 +214,21 @@ def frame_in_request(body):
     if len(frames) > 1 or frames and historical:
         raise ValueError('Ambiguous Build work carriers')
     return frames[0] if frames else None
+
+
+def variant_sources(work_frame):
+    """Return local aliases only for an admitted conversation-draft task."""
+    contract = work_frame.get("response_contract", {})
+    if (
+        contract.get("requested_work") != "draft_in_conversation"
+        or contract.get("operation") != "answer_from_sources"
+        or contract.get("barrier") is not None
+    ):
+        return {}
+    return {
+        f"statblock{index}": row
+        for index, row in enumerate(work_frame.get("saved_statblocks", ()))
+    }
 
 
 def statblock_pdf_excerpts(work_frame):

@@ -798,3 +798,29 @@ uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_
 - Default `--write` and `--check` now run the promoted equivalence lane (`--mode with-equivalence`).
 - Legacy baseline remains available for diagnostics with `--mode baseline`.
 - Delta and question-delta diagnostics continue to compare legacy baseline vs promoted equivalence using `--mode both`.
+
+## Replay the historical Lysandra hub timeline
+
+From the Buddy repository root, use the original May 2 records file at the
+relative path below. The script records that relative path in its output,
+so it is required for a byte-for-byte comparison. Recap evaluation tracks
+the durable input locator in [#3575](https://github.com/Drakosfire/DungeonMindBuddy/issues/3575).
+
+```sh
+records=evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-02/breadcrumb_query_natural_llm_semantic_expanded_report.records_meta.jsonl
+printf '%s  %s\n' 5390c84f815c52ea65e23fb03f3d93dca0fe6775ec28bc99b62a4f1f48918299 "$records" |
+  sha256sum -c - &&
+(
+  set -e
+  replay_dir=$(mktemp -d)
+  trap 'rm -f "$replay_dir/rebuild.py" "$replay_dir/timeline.md"; rmdir "$replay_dir"' EXIT
+  git show 466db2b6628bb9472e765761256604eb48d927eb:scripts/rebuild_hub_timeline_from_records.py > "$replay_dir/rebuild.py"
+  python3 "$replay_dir/rebuild.py" --records-jsonl "$records" \
+    --hub-route-substring NPCs/captain_lysandra_ironveil \
+    --timeline-md "$replay_dir/timeline.md"
+  cmp "$replay_dir/timeline.md" \
+    "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md"
+)
+```
+
+The verified replay printed a row count of 19 and `cmp` exited successfully.

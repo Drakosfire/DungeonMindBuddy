@@ -577,9 +577,15 @@ def confirm(request, principal):
     )
     if logical != clause["logical_source"] or quote != payload["quote"]:
         _refuse("statement_source_invalid", "Reviewed clause changed")
-    transport.runtime(
+    from apps.live_control_server.services.hosted_native_graph_access import require_explorer_access
+
+    runtime = transport.runtime(
         repo, domain, profile, now=prepared.prepared_at, operation_id=operation
-    ).commit_prepared_change(prepared, confirmed_by=principal.subject)
+    )
+    if native.binding(bound["managed_world_id"]) != bound:
+        _refuse("statement_binding_changed", "Reviewed World binding changed before commit")
+    require_explorer_access(principal, bound["managed_world_id"])
+    runtime.commit_prepared_change(prepared, confirmed_by=principal.subject)
     result = _recover(repo, space, payload)
     if result is None:
         raise StatementError(
@@ -651,12 +657,17 @@ def extend_source_evidence(request, principal):
     space = bound["native_world_id"]
     repo = native.repository()
     domain, profile = native.descriptors(repo, space, request.expected_parent_revision_id)
+    from apps.live_control_server.services.hosted_native_graph_access import require_explorer_access
+
+    extension = NativeSourceEvidenceExtensionV1(
+        space_id=space, **request.model_dump(exclude={"managed_world_id"}),
+    )
+    if native.binding(request.managed_world_id) != bound:
+        _refuse("statement_binding_changed", "World binding changed during evidence extension")
+    require_explorer_access(principal, request.managed_world_id)
     receipt = publish_native_source_evidence_extension(
         repository=repo,
-        request=NativeSourceEvidenceExtensionV1(
-            space_id=space,
-            **request.model_dump(exclude={"managed_world_id"}),
-        ),
+        request=extension,
         domain_contract=domain,
         semantic_profile=profile,
         audience_labels=(GM_LABEL, PLAYER_LABEL),

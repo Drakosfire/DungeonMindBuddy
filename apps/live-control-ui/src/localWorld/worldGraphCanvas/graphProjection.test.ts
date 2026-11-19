@@ -57,6 +57,21 @@ async function graphRecord(): Promise<LocalWorldRecord> {
 }
 
 describe("projectLocalWorldGraph", () => {
+  it("reserves a focused slot for a filtered sidebar preview", async () => {
+    const record = await graphRecord();
+    const [anchor, neighbor, , event] = record.snapshot.objects;
+    const result = projectLocalWorldGraph(record, {
+      focusObjectId: anchor.id,
+      maxNodes: 2,
+      hiddenKinds: new Set(["event"]),
+      retainedSelectionId: anchor.id,
+      previewObjectId: event.id,
+    });
+
+    expect(result.nodes.map(node => node.id)).toEqual([anchor.id, event.id]);
+    expect(result.nodes.some(node => node.id === neighbor.id)).toBe(false);
+  });
+
   it("projects two People, a Location and an Event with identity-preserving connected assertions and no root node", async () => {
     const record = await graphRecord();
     const graph = projectLocalWorldGraph(record);

@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any,Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from apps.live_control_server.routes.statblock_storage import statblock_data_root
 from apps.live_control_server.config import repo_root
@@ -147,7 +147,7 @@ from apps.live_control_server.services import statblock_saved_revision as saved_
 from application_state.errors import ApplicationStateError,ApplicationStateConflictError,ApplicationStateIntegrityError
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import StatblockIntegrationError
 from fastapi import Query,Depends
-from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal,native_graph_gm_dependency
+from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm,native_graph_gm_dependency
 
 
 def _revision_call(callback,**kwargs):
@@ -159,36 +159,95 @@ def _revision_call(callback,**kwargs):
     except StatblockIntegrationError as exc:raise HTTPException(status_code=503,detail="Saved mechanics provider is unavailable") from exc
 
 
-@router.get("/saved-statblocks/lookup", dependencies=[Depends(native_graph_gm_dependency)])
+@router.get("/saved-statblocks/lookup")
 def lookup_saved_statblock(
+    request: Request,
     world_id: Annotated[str, Query(pattern=r"^[a-z][a-z0-9_-]{0,62}$")],
     name: Annotated[str, Query(min_length=1)],
 ):
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+    else:
+        require_hosted_plan_world_context(request, world_id)
     if not name.strip():
         raise HTTPException(status_code=422, detail="Statblock name is required")
-    return _revision_call(saved_versions.find_saved_version, world_id=world_id, name=name)
+    result = _revision_call(saved_versions.find_saved_version, world_id=world_id, name=name)
+    if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+        require_hosted_plan_world_context(request, world_id)
+    return result
 
 
-@router.get('/threat-drafts/{draft_id}/mechanics-revisions',dependencies=[Depends(native_graph_gm_dependency)])
-def list_saved_revisions(draft_id:str,world_id:str,limit:int=Query(50,ge=1,le=100),offset:int=Query(0,ge=0)):
+@router.get('/threat-drafts/{draft_id}/mechanics-revisions')
+def list_saved_revisions(
+    draft_id: str, world_id: str, request: Request,
+    limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
+):
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
     return _revision_call(saved_versions.list_versions,world_id=world_id,draft_id=draft_id,limit=limit,offset=offset)
 
 
-@router.get('/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}',dependencies=[Depends(native_graph_gm_dependency)])
-def open_saved_revision(draft_id:str,revision_id:str,world_id:str):
-    return _revision_call(saved_versions.open_version,world_id=world_id,draft_id=draft_id,revision_id=revision_id)
+@router.get('/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}')
+def open_saved_revision(draft_id: str, revision_id: str, world_id: str, request: Request):
+    from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
+    from apps.live_control_server.routes.agent import get_pdf_statblock_review
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
+    packet = _revision_call(saved_versions.open_version, world_id=world_id, draft_id=draft_id, revision_id=revision_id)
+    resource = packet["resource"]
+    accepted_through = (resource.get("provenance") or {}).get("accepted_through") or {}
+    source = accepted_through.get(PDF_REVIEW_PROVENANCE)
+    if not isinstance(source, dict) or source.get("world_id") != world_id:
+        return packet
+    try:
+        review_id = UUID(source["review_id"])
+    except (KeyError, TypeError, ValueError):
+        return packet
+    try:
+        review = get_pdf_statblock_review(world_id, review_id, request)
+    except HTTPException as exc:
+        if exc.status_code not in {403, 404, 410, 503}:
+            raise
+        return packet
+    if review["regions"] == source.get("regions") and review.get("artwork"):
+        packet["pdf_portrait"] = review["artwork"]["jpeg_base64"]
+    return packet
 
 
-@router.post('/threat-drafts/{draft_id}/mechanics-revisions')
-def save_manual_revision(draft_id:str,body:SaveMechanicsRevisionRequest,principal:Annotated[NativeGraphPrincipal,Depends(native_graph_gm_dependency)]):
-    return _revision_call(saved_versions.save,draft_id=draft_id,request=body,media_owner=principal.subject)
+@router.post("/threat-drafts/{draft_id}/mechanics-revisions")
+def save_manual_revision(draft_id: UUID, body: SaveMechanicsRevisionRequest, request: Request):
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        hosted_world_media_owner, require_build_pdf_access,
+    )
+
+    authorize = None
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        authorize = lambda: require_build_pdf_access(request, body.world_id)
+        authorize()
+        owner = hosted_world_media_owner(body.world_id)
+    else:
+        owner = enforce_native_graph_gm(request).subject
+    return _revision_call(saved_versions.save, draft_id=str(draft_id), request=body, media_owner=owner, authorize=authorize)
 
 
-@router.post('/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}:recover',dependencies=[Depends(native_graph_gm_dependency)])
-def recover_manual_revision(draft_id:UUID,operation_id:UUID,world_id:Annotated[str,Query(pattern=r'^[a-z][a-z0-9_-]{0,62}$')]):
-    return _revision_call(saved_versions.recover,world_id=world_id,draft_id=draft_id,operation_id=operation_id)
+@router.post("/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}:recover")
+def recover_manual_revision(draft_id: UUID, operation_id: UUID, world_id: Annotated[str, Query(pattern=r"^[a-z][a-z0-9_-]{0,62}$")], request: Request):
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
+    return _revision_call(saved_versions.recover, world_id=world_id, draft_id=draft_id, operation_id=operation_id,
+                          authorize=lambda: require_build_pdf_access(request, world_id))
 
 
-@router.get('/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}',dependencies=[Depends(native_graph_gm_dependency)])
-def inspect_manual_revision(draft_id:UUID,operation_id:UUID,world_id:Annotated[str,Query(pattern=r'^[a-z][a-z0-9_-]{0,62}$')]):
-    return _revision_call(saved_versions.inspect_operation,world_id=world_id,draft_id=draft_id,operation_id=operation_id)
+@router.get("/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}")
+def inspect_manual_revision(draft_id: UUID, operation_id: UUID, world_id: Annotated[str, Query(pattern=r"^[a-z][a-z0-9_-]{0,62}$")], request: Request):
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
+    return _revision_call(saved_versions.inspect_operation, world_id=world_id, draft_id=draft_id, operation_id=operation_id)

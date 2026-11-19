@@ -516,8 +516,17 @@ def reusable_recap_extraction(
     profile_id: str,
     model_id: str,
     supplemental_evidence: dict | None,
+    name_review_record: dict | None = None,
 ) -> dict[str, Any] | None:
+    def review_identity(record: dict | None):
+        if record is None:
+            return None
+        return record.get("review"), sorted(record.get("decisions", ()), key=lambda item: item["id"])
+
+    expected_review = review_identity(name_review_record)
     for run in _scoped_recap_runs(campaign_id, session_id, context):
+        if review_identity(run.lineage.get("name_review")) != expected_review:
+            continue
         status = project_recap_extraction_run(
             root=root,
             run=run,

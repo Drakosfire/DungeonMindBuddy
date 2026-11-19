@@ -370,10 +370,8 @@ def test_route_rejects_ambiguous_selectors_before_resolution(monkeypatch, query)
 ], ids=["current-source", "retired-native-name", "retired-binding", "irrelevant-generation"])
 def test_real_http_auth_and_read_only_exact_run(produced, monkeypatch, generation):
     from apps.live_control_server.routes import graph_preview
-    from apps.live_control_server.services.agent_graph_auth import (
-        authenticate_native_graph_principal,
-        NativeGraphPrincipal,
-    )
+    from apps.live_control_server.services import agent_graph_auth
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
 
     root, _, run = produced
     if generation is not None:
@@ -406,8 +404,9 @@ def test_real_http_auth_and_read_only_exact_run(produced, monkeypatch, generatio
             assert response.json()["nativeWorldId"] == binding.native_world_id
             assert response.json()["sourceMarkdown"] == fixture.SOURCE
             assert "runWorldBindingStatus" not in response.json()
-            app.dependency_overrides[authenticate_native_graph_principal] = lambda: (
-                NativeGraphPrincipal("player", "player", "local_operator")
+            monkeypatch.setattr(
+                agent_graph_auth, "authenticate_native_graph_principal",
+                lambda _request: NativeGraphPrincipal("player", "player", "local_operator"),
             )
             assert (await client.get(url)).status_code == 403
 

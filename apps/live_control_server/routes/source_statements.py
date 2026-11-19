@@ -5,7 +5,9 @@ from uuid import UUID
 
 from dungeonmind.application.vnext.errors import KnowledgePublicationOutcomeUnknownError
 from dungeonmind.domain.errors import DungeonMindError
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from apps.live_control_server.services import hosted_auth
+from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency, require_explorer_access
 from worldkeeper.application.commit import (
     CommitAuthorityIntegrityFailure,
     CommittedChangeOutcomeUnknown,
@@ -75,16 +77,24 @@ def _call(fn, *args, **kwargs):
 
 def prepare(
     body: StatementSelection,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    principal: NativeGraphPrincipal = Depends(native_graph_explorer_dependency),
 ):
-    return _call(service.prepare, body, principal)
+    require_explorer_access(principal, body.managed_world_id)
+    result = _call(service.prepare, body, principal)
+    require_explorer_access(principal, body.managed_world_id)
+    return result
 
 
 def confirm(
     body: ConfirmStatement,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    principal: NativeGraphPrincipal = Depends(native_graph_explorer_dependency),
 ):
-    return _call(service.confirm, body, principal)
+    binding = body.envelope.get("binding")
+    world_id = binding.get("managed_world_id") if isinstance(binding, dict) else None
+    require_explorer_access(principal, world_id if isinstance(world_id, str) else "")
+    result = _call(service.confirm, body, principal)
+    require_explorer_access(principal, world_id if isinstance(world_id, str) else "")
+    return result
 
 
 router.add_api_route(
@@ -95,15 +105,22 @@ router.add_api_route(
 )
 
 
+async def source_statement_subject_principal(request: Request) -> NativeGraphPrincipal:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return authenticate_native_graph_principal(request)
+    return await native_graph_explorer_dependency(request)
+
+
 @router.get("/{managed_world_id}/subjects/{entity_id}")
 def read_subject(
     managed_world_id: str,
     entity_id: str,
     campaign_id: str,
     revision_id: str,
-    principal: NativeGraphPrincipal = Depends(authenticate_native_graph_principal),
+    principal: NativeGraphPrincipal = Depends(source_statement_subject_principal),
 ):
-    return _call(
+    require_explorer_access(principal, managed_world_id)
+    result = _call(
         service.read_subject,
         managed_world_id=managed_world_id,
         entity_id=entity_id,
@@ -111,6 +128,8 @@ def read_subject(
         revision_id=revision_id,
         principal=principal,
     )
+    require_explorer_access(principal, managed_world_id)
+    return result
 
 
 # Static proposal routes precede no conflicting dynamic POST paths.
@@ -133,13 +152,19 @@ async def produce_proposals(body: ProposalRequest, principal=Depends(native_grap
 
 
 @router.get("/proposals/{operation_id}")
-def read_proposals(operation_id: UUID, managed_world_id: str, principal=Depends(native_graph_gm_dependency)):
-    return _proposal_call(proposals.get, operation_id, managed_world_id, principal)
+def read_proposals(operation_id: UUID, managed_world_id: str, principal=Depends(native_graph_explorer_dependency)):
+    require_explorer_access(principal, managed_world_id)
+    result = _proposal_call(proposals.get, operation_id, managed_world_id, principal)
+    require_explorer_access(principal, managed_world_id)
+    return result
 
 
 def review_proposal(operation_id: UUID, managed_world_id: str, body: ProposalReview,
-                    principal=Depends(native_graph_gm_dependency)):
-    return _proposal_call(proposals.review, operation_id, managed_world_id, body, principal)
+                    principal=Depends(native_graph_explorer_dependency)):
+    require_explorer_access(principal, managed_world_id)
+    result = _proposal_call(proposals.review, operation_id, managed_world_id, body, principal)
+    require_explorer_access(principal, managed_world_id)
+    return result
 
 router.add_api_route("/proposals", produce_proposals, methods=["POST"], route_class_override=StrictJSONRoute)
 router.add_api_route("/proposals/{operation_id}/review", review_proposal, methods=["POST"], route_class_override=StrictJSONRoute)
@@ -147,9 +172,12 @@ router.add_api_route("/proposals/{operation_id}/review", review_proposal, method
 
 def extend_source_evidence(
     body: ExtendSourceEvidence,
-    principal: Annotated[NativeGraphPrincipal, Depends(native_graph_gm_dependency)],
+    principal: Annotated[NativeGraphPrincipal, Depends(native_graph_explorer_dependency)],
 ):
-    return _call(service.extend_source_evidence, body, principal)
+    require_explorer_access(principal, body.managed_world_id)
+    result = _call(service.extend_source_evidence, body, principal)
+    require_explorer_access(principal, body.managed_world_id)
+    return result
 
 
 router.add_api_route(

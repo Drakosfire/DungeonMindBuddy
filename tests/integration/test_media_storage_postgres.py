@@ -1,11 +1,13 @@
 """Real APP persistence with synthetic Cloudflare transport; no paid generation."""
 import asyncio
 import io
+import os
 from uuid import uuid4
 
 import httpx
 import psycopg
 import pytest
+from fastapi import HTTPException
 from PIL import Image
 from psycopg import sql
 
@@ -22,7 +24,7 @@ def anyio_backend():
 
 @pytest.fixture(scope='module')
 def database():
-    admin = 'postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/postgres'
+    admin = os.environ.get('DMB_APPLICATION_STATE_TEST_DATABASE_URL', 'postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/postgres')
     name = 'buddy_media_storage_' + uuid4().hex[:12]
     dsn = admin.rsplit('/', 1)[0] + '/' + name
     with psycopg.connect(admin, autocommit=True) as conn:
@@ -48,6 +50,31 @@ def asset(database, monkeypatch):
 def provider_result(row):
     return {'success': True, 'result': {'id': 'buddy-' + row['asset_id'].hex, 'meta': media_storage._metadata(row), 'requireSignedURLs': False,
                                       'variants': ['https://imagedelivery.net/synthetic/buddy-' + row['asset_id'].hex + '/public']}}
+
+
+@pytest.mark.anyio
+async def test_revocation_during_cdn_lookup_releases_claim_without_upload(database, asset):
+    calls = []
+    revoked = False
+
+    def transport(request):
+        nonlocal revoked
+        calls.append(request.method)
+        revoked = True
+        return httpx.Response(404)
+
+    def authorize_write():
+        if revoked:
+            raise HTTPException(403)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as client:
+        with pytest.raises(HTTPException) as denied:
+            await media_storage.save_asset(
+                asset["asset_id"], "owner-a", dsn=database, client=client, authorize_write=authorize_write,
+            )
+    assert denied.value.status_code == 403
+    assert calls == ["GET"]
+    assert media.get_asset(asset["asset_id"], "owner-a", dsn=database)["state"] == "staged"
 
 
 @pytest.mark.anyio

@@ -111,17 +111,19 @@ it('never retains the previous private owner for an unknown requested World',asy
 });
 
 it('boots native Combat through the actual App with a verified World and no automatic write',async()=>{
- const list=vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([]);
+ const list=vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([]);
  const create=vi.spyOn(combatApi,'createWorldCombatEncounter');const save=vi.spyOn(combatApi,'saveWorldCombatEncounter');
+ const manualCreate=vi.spyOn(combatApi,'createManualCombatEncounter');const manualSave=vi.spyOn(combatApi,'saveManualCombatEncounter');
  window.history.replaceState({},'','/combat?world=A');render(<App/>);
  expect(await screen.findByRole('main',{name:'Combat encounters'})).toBeInTheDocument();
  expect(await screen.findByText(/No encounters yet/)).toBeInTheDocument();
  expect(list).toHaveBeenCalledExactlyOnceWith('A');expect(create).not.toHaveBeenCalled();expect(save).not.toHaveBeenCalled();
+ expect(manualCreate).not.toHaveBeenCalled();expect(manualSave).not.toHaveBeenCalled();
  expect(screen.getByTestId('tools')).toHaveAttribute('data-surface','combat');
  expect(screen.queryByRole('heading',{name:'Command Board'})).not.toBeInTheDocument();
 });
 it('retains World dialogue across Plan→native Combat→Plan while suspending its Plan edit bridge',async()=>{
- vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([]);
+ vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([]);
  await start();const controller=screen.getByTestId('world-controller');
  fireEvent.change(screen.getByRole('textbox',{name:'Unsent World draft'}),{target:{value:'Unsent planning thought'}});
  navigate('/combat?world=A');await screen.findByRole('main',{name:'Combat encounters'});

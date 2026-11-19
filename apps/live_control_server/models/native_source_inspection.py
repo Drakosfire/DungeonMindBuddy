@@ -18,3 +18,10 @@ class PublishedRecapRead(Closed):
     managed_world_id: Text
     campaign_id: Text
     session_id: Text
+
+
+class PublishedRecapObjectsRead(PublishedRecapRead):
+    scope: InspectionPin
+    source_artifact_id: Text
+    source_revision_id: Text
+    entity_id: Text | None = None

@@ -7,6 +7,7 @@ execution validation remain in force.
 """
 from __future__ import annotations
 
+from contextlib import nullcontext
 from copy import deepcopy
 from datetime import timedelta
 from enum import Enum
@@ -77,7 +78,8 @@ class _SessionAdmission(AgentConversationService):
     def _lock_execution_append_turn(self, conn, world_id, turn_id):
         if self._owner._pending is not None:
             raise ApplicationStateConflictError('Session command cannot reenter before publication')
-        self._owner._guard_locked(conn)
+        with self._owner._measure("plan_append_storage_guard"):
+            self._owner._guard_locked(conn)
         turn = self._owner._committed
         if (world_id, turn_id) != (turn.world_id, turn.turn_id):
             raise ApplicationStateIntegrityError('Session append crossed its claimed Turn')
@@ -110,14 +112,16 @@ class _SessionAdmission(AgentConversationService):
         # actual complete prefix, including source, role and record invariants.
         candidate = execution.model_copy(update={'events': [*prior.events,
             *(_owned_event(event) for event in execution.events[count:])]})
-        return _validate_owned_context_binding(context, candidate)
+        with self._owner._measure("plan_append_binding"):
+            return _validate_owned_context_binding(context, candidate)
 
     def _persist_execution_append(self, conn, *, world_id, turn_id, expected_revision, execution):
         owner = self._owner
         if expected_revision != owner._committed.revision:
             raise ApplicationStateConflictError('Session append has a stale revision')
-        image = repo._update_plan_session_execution(conn, world_id=world_id,
-            turn_id=turn_id, before=owner._image, execution=execution)
+        with owner._measure("plan_append_storage_write_ack"):
+            image = repo._update_plan_session_execution(conn, world_id=world_id,
+                turn_id=turn_id, before=owner._image, execution=execution)
         if image is None:
             return None
         root = dict(image[0])
@@ -137,7 +141,8 @@ class _SessionAdmission(AgentConversationService):
 class NativePlanSession:
     """One nonescaping materialization, serialized with the runtime claim fence."""
 
-    def __init__(self, expected):
+    def __init__(self, expected, *, measure=None):
+        self._measure = measure if measure is not None else lambda _: nullcontext()
         self._lock = RLock()
         self._committed = self._image = self._pending = None
         self._sealed = False

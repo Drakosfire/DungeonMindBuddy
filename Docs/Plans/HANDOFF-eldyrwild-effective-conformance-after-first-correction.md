@@ -1,5 +1,11 @@
 # HANDOFF — Eldyrwild effective conformance after first governed correction
 
+Historical payload recovery: the correction paths below refer to the
+[exact package tree at `30008dc4`](https://github.com/Drakosfire/DungeonMindBuddy/tree/30008dc473bd80144a46c035d09b56ad1deb2928/graph_data/approved_graph_corrections).
+Their duplicate checkout copies are retired; use the
+[checksum-verified recovery procedure](../../graph_data/README.md#historical-correction-packages).
+This note preserves historical contracts and grants no new dispatch authority.
+
 **Created:** 2026-08-10
 **Status:** IMPLEMENTATION COMPLETE — PR #542; R_current = Q_live = rev:b90646fb5b135988bd7842cde858c96e
 **Canonical handoff path:** `Docs/Plans/HANDOFF-eldyrwild-effective-conformance-after-first-correction.md`

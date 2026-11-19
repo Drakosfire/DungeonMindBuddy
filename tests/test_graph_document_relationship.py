@@ -1,3 +1,4 @@
+from tests.test_hosted_native_graph_access import hosted, recap_lane  # noqa: F401
 """Saved selection adapter through the real governed HTTP boundary; isolated native port."""
 from tests.test_graph_document_source import case as case
 from tests.page_fixtures import page_text, save_page
@@ -122,11 +123,14 @@ def test_ambiguous_or_cross_block_quote_cannot_be_previewed(case,graph,body,quot
 def test_new_adapter_denies_before_source_graph_or_freeze_io(case,graph,monkeypatch,mode,status):
     from fastapi.testclient import TestClient
     from unittest.mock import Mock
-    from apps.live_control_server.services.agent_graph_auth import authenticate_native_graph_principal,NativeGraphPrincipal
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
     protected=Mock(side_effect=AssertionError('Denied request must not reach protected source/native IO'))
     monkeypatch.setattr('apps.live_control_server.routes.graph_authoring.relationship_request',protected)
     if mode=='player':
-        case.client.app.dependency_overrides[authenticate_native_graph_principal]=lambda:NativeGraphPrincipal('player','player','local_operator')
+        monkeypatch.setattr(
+            'apps.live_control_server.services.agent_graph_auth.authenticate_native_graph_principal',
+            lambda request: NativeGraphPrincipal('player', 'player', 'local_operator'),
+        )
     headers={} if mode=='missing' else {'Authorization':'Bearer wrong' if mode=='wrong' else 'Bearer synthetic-relationship-local-token-with-adequate-length'}
     client=TestClient(case.client.app,client=('203.0.113.1' if mode=='remote' else '127.0.0.1',50000))
     response=client.post('/api/live/graph-authoring/document-relationship/request',json=intent(case),headers=headers)
@@ -227,7 +231,22 @@ def test_native_relationship_intent_retains_reviewed_passage_and_text(case):
     }
 
 
-def test_signed_native_review_publishes_once(case, graph, monkeypatch):
+@pytest.mark.parametrize("hosted_mode", [False, True], ids=["local", "hosted"])
+def test_signed_native_review_publishes_once(case, graph, monkeypatch, hosted_mode, request):
+    post = case.client.post
+    if hosted_mode:
+        import json
+
+        from tests.test_hosted_native_graph_access import HOSTED_WORLD_ACCESS_ENV, OWNER, _record
+
+        hosted = request.getfixturevalue("hosted")
+        world = case.record.world_id
+        hosted.records[world] = _record(world, OWNER, case.binding.native_world_id)
+        monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({world: [OWNER]}))
+        post = lambda path, **kwargs: hosted.client.request("POST", path, **kwargs)
+        kinds = hosted.client.request("GET", f"/api/live/graph-authoring/object-kinds?world_id={world}")
+        assert kinds.status_code == 200, kinds.text
+        assert kinds.json()["objectKinds"]
     from datetime import UTC, datetime
 
     from dungeonmind.application.vnext import (
@@ -285,7 +304,12 @@ def test_signed_native_review_publishes_once(case, graph, monkeypatch):
     epoch = repo.open_native_source_view(space).epoch
     prefix = '/api/live/graph-authoring/document-relationship'
     operation = str(uuid4())
-    preview = case.client.post(f'{prefix}/native-prepare', json={'review': review, 'operation_id': operation})
+    if hosted_mode:
+        forbidden = hosted.client.request(
+            "POST", f"{prefix}/native-prepare", json={"review": review, "operation_id": operation}, origin=None,
+        )
+        assert forbidden.status_code == 403
+    preview = post(f'{prefix}/native-prepare', json={'review': review, 'operation_id': operation})
     assert preview.status_code == 200, preview.text
     assert repo.get_head(space) == head
     assert repo.open_native_source_view(space).epoch == epoch
@@ -295,18 +319,59 @@ def test_signed_native_review_publishes_once(case, graph, monkeypatch):
 
     tampered = deepcopy(confirmed)
     tampered['prepared']['extension']['spans'][0]['start_byte'] += 1
-    rejected = case.client.post(f'{prefix}/native-confirm', json=tampered)
+    rejected = post(f'{prefix}/native-confirm', json=tampered)
     assert rejected.status_code == 409, rejected.text
     assert rejected.json()['detail']['code'] == 'confirmation_invalid'
     assert repo.get_head(space) == head
     assert repo.open_native_source_view(space).epoch == epoch
 
-    receipt = case.client.post(f'{prefix}/native-confirm', json=confirmed)
+    if hosted_mode:
+        from tests.test_hosted_native_graph_access import OTHER_OWNER
+
+        original_owner = hosted.records[world]
+        read_passage = reader.resolve_reviewed_passage
+
+        def transfer_after_passage_read(*args, **kwargs):
+            result = read_passage(*args, **kwargs)
+            hosted.records[world] = original_owner.model_copy(update={"owner_subject": OTHER_OWNER})
+            return result
+
+        with monkeypatch.context() as patch:
+            patch.setattr(reader, "resolve_reviewed_passage", transfer_after_passage_read)
+            denied = post(f"{prefix}/native-confirm", json=confirmed)
+        assert hosted.records[world].owner_subject == OTHER_OWNER
+        assert denied.status_code == 403, denied.text
+        assert repo.get_head(space) == head
+        assert repo.open_native_source_view(space).epoch == epoch
+        hosted.records[world] = original_owner
+
+        read_binding = native.binding
+        binding_reads = 0
+
+        def transfer_on_final_binding(world_id):
+            nonlocal binding_reads
+            binding_reads += 1
+            result = read_binding(world_id)
+            if binding_reads == 2:
+                hosted.records[world] = original_owner.model_copy(update={"owner_subject": OTHER_OWNER})
+            return result
+
+        with monkeypatch.context() as patch:
+            patch.setattr(native, "binding", transfer_on_final_binding)
+            denied = post(f"{prefix}/native-confirm", json=confirmed)
+        assert binding_reads == 2
+        assert hosted.records[world].owner_subject == OTHER_OWNER
+        assert denied.status_code == 403, denied.text
+        assert repo.get_head(space) == head
+        assert repo.open_native_source_view(space).epoch == epoch
+        hosted.records[world] = original_owner
+
+    receipt = post(f'{prefix}/native-confirm', json=confirmed)
     assert receipt.status_code == 200, receipt.text
     child = repo.get_revision(space, receipt.json()['child_revision_id'])
     assert child.revision.parent_revision_id == head.head_revision_id
     assert repo.open_native_source_view(space).epoch == epoch + 1
-    retry = case.client.post(f'{prefix}/native-confirm', json=confirmed)
+    retry = post(f'{prefix}/native-confirm', json=confirmed)
     assert retry.status_code == 200, retry.text
     assert retry.json() == receipt.json()
     assert repo.get_head(space).head_revision_id == child.revision.revision_id

@@ -250,7 +250,7 @@ def test_invalid_mechanics_is_a_correction_request_not_a_provider_outage(revisio
 
 
 
-def stage_portrait(owner='gm-test'):
+def stage_portrait(owner='local_operator'):
     import io
     from PIL import Image
     from application_state import media
@@ -323,12 +323,12 @@ def test_unsaved_portrait_never_claims_or_appends_a_revision(revision_case,state
     from application_state import media
     p=revision_case;row=stage_portrait()
     if state!='staged':
-        fence=media.claim_upload(row['asset_id'],'gm-test')
-        if state=='unknown':media.mark_upload_unknown(row['asset_id'],'gm-test',fence)
+        fence=media.claim_upload(row['asset_id'],'local_operator')
+        if state=='unknown':media.mark_upload_unknown(row['asset_id'],'local_operator',fence)
     response=p.client.post(p.url,json=p.request|dict(portrait_asset_id=str(row['asset_id'])))
     assert response.status_code==409 and 'Save the selected image' in response.json()['detail']
     assert p.manual.appends==0 and service.operations.read(world_id='elderwyld',draft_id=p.draft.draft_id,operation_id=p.request['operation_id']) is None
-    assert media.get_asset(row['asset_id'],'gm-test')['state']==state
+    assert media.get_asset(row['asset_id'],'local_operator')['state']==state
 
 
 @pytest.mark.parametrize('foreign',[False,True])
@@ -343,11 +343,11 @@ def test_portrait_uuid_does_not_grant_foreign_or_missing_media_access(revision_c
 def test_ready_media_requires_supported_public_native_delivery(revision_case,monkeypatch,change):
     from application_state import media
     p=revision_case;ready=save_portrait(stage_portrait(),monkeypatch);row=stage_portrait()
-    fence=media.claim_upload(row['asset_id'],'gm-test')
+    fence=media.claim_upload(row['asset_id'],'local_operator')
     receipt=ready['receipt']|dict(asset_id=str(row['asset_id']),original_sha256=row['content_sha256'],
         provenance_sha256=row['provenance_sha256'],object_id='buddy-'+row['asset_id'].hex,
         delivery_url='https://imagedelivery.net/synthetic/buddy-'+row['asset_id'].hex+'/public')|change
-    media.complete_upload(row['asset_id'],'gm-test',fence,receipt)
+    media.complete_upload(row['asset_id'],'local_operator',fence,receipt)
     response=p.client.post(p.url,json=p.request|dict(portrait_asset_id=str(row['asset_id'])))
     assert response.status_code==409,response.text
     assert p.manual.appends==0

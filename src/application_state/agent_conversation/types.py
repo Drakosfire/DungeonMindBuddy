@@ -18,6 +18,8 @@ from enum import Enum
 from typing import Annotated, ClassVar, Literal, NoReturn, Protocol, Union
 from uuid import UUID, uuid4
 
+from .neighborhood_replay import NeighborhoodReplay, RetrievalExclusionReplay
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
 
 from .rules_authority_types import ClosedRulesModel, Digest, canonical_bytes, canonical_sha256
@@ -1444,7 +1446,7 @@ from .native_plan_statements import (
 
 
 from .native_plan_assertions import (
-    NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1, NativeAssertionCitationV1,
+    NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1, NativeAssertionCitationV1, NativeAssertionCitation,
 )
 
 
@@ -2468,7 +2470,7 @@ SurfaceEvidenceSegmentV4 = Annotated[SurfaceEvidenceSegmentV3 | NativeAssertionC
 class SurfaceEvidenceCompletionV7(SurfaceEvidenceCompletionV6):
     schema_: Literal['dmb_surface_evidence_completion_v7'] = Field(default='dmb_surface_evidence_completion_v7', alias='schema')
     answer_segments: list[SurfaceEvidenceSegmentV4] = Field(min_length=1, max_length=128)
-    native_assertion_citations: list[NativeAssertionCitationV1]
+    native_assertion_citations: list[NativeAssertionCitation]
 
 
 GraphTurnCompletion = Union[SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1, "SurfaceNativeCompletionV1"]
@@ -2649,7 +2651,7 @@ class PlanEvidenceHistoryAttributionV6(PlanEvidenceHistoryAttributionV5):
 class PlanEvidenceHistoryAttributionV7(PlanEvidenceHistoryAttributionV6):
     schema_: Literal['dmb_plan_evidence_history_attribution_v7'] = Field(default='dmb_plan_evidence_history_attribution_v7', alias='schema')
     answer_segments: list[SurfaceEvidenceSegmentV4]
-    native_assertion_citations: list[NativeAssertionCitationV1]
+    native_assertion_citations: list[NativeAssertionCitation]
 
     @model_validator(mode='after')
     def mixed_history_shape(self):
@@ -3448,6 +3450,8 @@ class ValidatedGraphOperationEventV1(GraphExecutionEventBaseV1):
     result_packet_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     assertion_ids: list[str] = Field(max_length=512)
     relationship_ids: list[str] = Field(max_length=512)
+    discovery_relationship_ids: list[str] = Field(default_factory=list, max_length=512, exclude_if=lambda value: not value)
+    neighborhood_replay: NeighborhoodReplay | None = Field(default=None, exclude_if=lambda value: value is None)
     evidence_ref_ids: list[str] = Field(max_length=1024)
     evidence_sufficiency_status: Literal["sufficient", "insufficient"]
     coverage_status: Literal["complete", "incomplete"]
@@ -3460,6 +3464,14 @@ class ValidatedGraphOperationEventV1(GraphExecutionEventBaseV1):
             values = getattr(self, name)
             if any(not value.strip() for value in values) or values != sorted(set(values)):
                 raise ValueError(f"{name} must be nonblank, sorted, and unique")
+        discovery = self.discovery_relationship_ids
+        if len(set(discovery)) != len(discovery) or not set(discovery).issubset(self.relationship_ids):
+            raise ValueError("discovery edges must be unique returned relationships")
+        if self.neighborhood_replay is not None and (
+            [hop.relationship_id for hop in self.neighborhood_replay.hops] != discovery
+            or (self.neighborhood_replay.object_limit_pruned_count > 0 and not self.truncated)
+        ):
+            raise ValueError("neighborhood provenance differs from operation bounds")
         return self
 
 
@@ -4627,6 +4639,7 @@ class PlanJevRetrievalSelectionV1(GraphExecutionEventBaseV1):
     parent_request_sha256: Digest
     operation: Literal["select_candidates", "discover_more", "finish_retrieval"]
     selected_handles: list[str]
+    exclusion_replay: RetrievalExclusionReplay | None = Field(default=None, exclude_if=lambda value: value is None)
     actual_input_tokens: int | None = Field(default=None, strict=True, ge=0)
     actual_output_tokens: int | None = Field(default=None, strict=True, ge=0)
 
@@ -4653,7 +4666,7 @@ class BuildJevActionSelectionV1(GraphExecutionEventBaseV1):
 class BuildRequestedWorkResolutionV1(BuildJevActionSelectionV1):
     kind: Literal['build_requested_work_resolved_v1']
     controller_response_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
-    requested_work: Literal['discuss', 'clarify_request', 'plan', 'write_current_page', 'prepare_image', 'review_connected_page', 'review_relationship', 'change_mechanics', 'build_encounter', 'place_map_coordinates', 'save_page', 'publish_relationships', 'other_creation', 'clarify_creation']
+    requested_work: Literal['discuss', 'draft_in_conversation', 'clarify_request', 'plan', 'write_current_page', 'prepare_image', 'review_connected_page', 'review_relationship', 'review_variant_approval', 'review_lore_page', 'change_mechanics', 'build_encounter', 'place_map_coordinates', 'save_page', 'publish_relationships', 'other_creation', 'clarify_creation']
     intent_family: Literal['discuss', 'create']
     menu_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
     resolver_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')

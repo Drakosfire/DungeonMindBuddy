@@ -170,7 +170,7 @@ export function isNativeGraphQuery(v:unknown,worldId:string):v is import('../api
     return isNativePlanQuery(v,worldId)&&v.schema!=='dmb_native_plan_query_v1';
   const q=v as Record<string,unknown>;
   const objectUnits=q.schema==='dmb_native_graph_query_v4';
-  if(!isNativeQueryBase(q,worldId,String(q.schema),['assertion_matches','authored_targets',...(objectUnits?['object_matches']:[])])
+  if(!isNativeQueryBase(q,worldId,String(q.schema),['assertion_matches','authored_targets',...(objectUnits?['object_matches',...(Object.hasOwn(q,'discovery_hops')?['discovery_hops']:[])]:[])])
     ||!Array.isArray(q.discovered_entity_ids)||!assertionMatches(q.assertion_matches,q.discovered_entity_ids)
     ||!Array.isArray(q.authored_targets)||typeof q.authority!=='object'||q.authority===null
     ||!('scope_mode' in q.authority)||q.authority.scope_mode!=='world'
@@ -182,6 +182,25 @@ export function isNativeGraphQuery(v:unknown,worldId:string):v is import('../api
       if(!exact(m,['entity_id','label'])||!text(m.entity_id)||!text(m.label)||objects.has(m.entity_id)
         ||!q.discovered_entity_ids.includes(m.entity_id))return false;
       objects.add(m.entity_id);
+    }
+  }
+  if (objectUnits && Object.hasOwn(q, 'discovery_hops')) {
+    if (!Array.isArray(q.discovery_hops) || q.discovery_hops.length > 32) return false;
+    const statements = new Map((q.matches as import('../api/types').NativeGraphQueryV4['matches']).map(match => [match.statement_id, match]));
+    const assertions = new Map((q.assertion_matches as import('../api/types').NativeGraphQueryV4['assertion_matches']).map(match => [match.assertion_id, match]));
+    const targets = new Set(q.discovered_entity_ids);
+    for (const hop of q.discovery_hops) {
+      if (!exact(hop, ['relationship_id', 'from_node_id', 'to_node_id'])
+        || !text(hop.relationship_id) || !text(hop.from_node_id) || !text(hop.to_node_id)
+        || [hop.relationship_id, hop.from_node_id, hop.to_node_id].some(id => Array.from(id).length > 256)
+        || targets.has(hop.to_node_id)) return false;
+      const statement = statements.get(hop.to_node_id);
+      const assertion = assertions.get(hop.relationship_id);
+      if (!(statement?.discovered_entity_ids.includes(hop.from_node_id)
+          && statement.discovery_assertion_ids.includes(hop.relationship_id))
+        && !(assertion?.subject_entity_id === hop.to_node_id
+          && assertion.discovered_entity_ids.includes(hop.from_node_id))) return false;
+      targets.add(hop.to_node_id);
     }
   }
   const seen=new Set<string>();

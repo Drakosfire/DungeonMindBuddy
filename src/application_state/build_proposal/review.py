@@ -217,7 +217,7 @@ class BuildProposalReviewService:
                 raise ApplicationStateNotFoundError("Proposal review unavailable")
             return BuildProposalReview.model_validate(row[0])
 
-    def execute(self, world_id, action_id, command):
+    def execute(self, world_id, action_id, command, *, authorize_world=None):
         with unit_of_work(_ready_dsn()) as conn:
             pointer = _lock_pointer(conn, world_id)
             row = conn.execute(
@@ -239,6 +239,8 @@ class BuildProposalReviewService:
                     or previous.page_end_target != expected_end
                     or (expected_body is not None or expected_end is not None) and previous.placement_caret != proposal.reservation.basis.caret):
                 raise ApplicationStateConflictError("Review differs from immutable target")
+            if authorize_world is not None:
+                authorize_world()
             if command.operation == "open" and previous:
                 return previous
             if (
@@ -266,6 +268,8 @@ class BuildProposalReviewService:
                     markdown_sha256=digest(proposal.proposal.replacement_markdown),
                     updated_at=now,
                 )
+                if authorize_world is not None:
+                    authorize_world()
                 conn.execute(
                     "INSERT INTO agent.build_proposal_review(action_id,world_id,revision,payload) VALUES(%s,%s,1,%s)",
                     (action_id, world_id, Jsonb(result.model_dump(mode="json"))),
@@ -391,6 +395,8 @@ class BuildProposalReviewService:
                 ):
                     raise ApplicationStateConflictError("The insertion receipt differs")
                 update["state"] = "applied"
+                if authorize_world is not None:
+                    authorize_world()
                 _save(
                     conn,
                     proposal,
@@ -406,6 +412,8 @@ class BuildProposalReviewService:
             result = BuildProposalReview.model_validate(
                 {**previous.model_dump(mode="python"), **update}
             )
+            if authorize_world is not None:
+                authorize_world()
             changed = conn.execute(
                 "UPDATE agent.build_proposal_review SET revision=%s,payload=%s WHERE world_id=%s AND action_id=%s AND revision=%s",
                 (

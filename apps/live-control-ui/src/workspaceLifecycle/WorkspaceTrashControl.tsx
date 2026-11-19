@@ -5,12 +5,13 @@ import { changeWorkspaceTrash, listWorkspaceTrash, changeCampaignPlanTrash, list
 import "./workspaceTrash.css";
 
 /** Lifecycle controls share a view; each owning writer still controls whether deletion is safe. */
-export function WorkspaceTrashControl({ worldId, campaignId, current, blocked = false, showTrash = true, onTrashed, onRestored }: {
+export function WorkspaceTrashControl({ worldId, campaignId, current, blocked = false, showTrash = true, deleteLabel = "Delete", onTrashed, onRestored }: {
   worldId?: string;
   campaignId?: string;
   current: WorkspaceTrashTarget | null;
   blocked?: boolean;
   showTrash?: boolean;
+  deleteLabel?: string;
   onTrashed: () => void;
   onRestored?: () => void;
 }) {
@@ -71,7 +72,7 @@ export function WorkspaceTrashControl({ worldId, campaignId, current, blocked = 
     } finally { if (mounted.current && sequence.current === stamp) setPending(false); }
   };
   return <>
-    {current ? <button type="button" className="workspace-trash-delete" aria-label="Delete" disabled={!scopeValid || blocked || pending}
+    {current ? <button type="button" className="workspace-trash-delete" aria-label={deleteLabel} disabled={!scopeValid || blocked || pending}
       title={blocked ? "Finish saving changes before deleting." : "Move to Trash"}
       onClick={() => { void open("delete"); }}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

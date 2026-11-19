@@ -44,11 +44,17 @@ export function edgeCaption(path: string, predicate: string, fraction = .5, scal
 }
 
 /** Rectangle/circle intersection in caption-local coordinates avoids treating round bubbles as square obstacles. */
-export function captionTouchesCircle(caption: NonNullable<ReturnType<typeof edgeCaption>>, circle: { x: number; y: number; radius: number }) {
-  const dx = circle.x - caption.x, dy = circle.y - caption.y;
-  const x = Math.cos(caption.radians) * dx + Math.sin(caption.radians) * dy;
-  const y = -Math.sin(caption.radians) * dx + Math.cos(caption.radians) * dy;
-  const outsideX = Math.max(0, Math.abs(x) - caption.width / 2);
-  const outsideY = Math.max(0, Math.abs(y) - caption.height / 2);
-  return outsideX ** 2 + outsideY ** 2 < (circle.radius + 2) ** 2;
+export function intersectsCaption(caption: NonNullable<ReturnType<typeof edgeCaption>>) {
+  const cosine = Math.cos(caption.radians);
+  const sine = Math.sin(caption.radians);
+  const halfWidth = caption.width / 2;
+  const halfHeight = caption.height / 2;
+  return (circle: { x: number; y: number; radius: number }) => {
+    const dx = circle.x - caption.x, dy = circle.y - caption.y;
+    const x = cosine * dx + sine * dy;
+    const y = -sine * dx + cosine * dy;
+    const outsideX = Math.max(0, Math.abs(x) - halfWidth);
+    const outsideY = Math.max(0, Math.abs(y) - halfHeight);
+    return outsideX ** 2 + outsideY ** 2 < (circle.radius + 2) ** 2;
+  };
 }

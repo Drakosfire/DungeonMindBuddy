@@ -128,8 +128,16 @@ def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, se
         if body is None:
             raise ValueError('Historical native body is unavailable')
         section = read.excerpt.section
+        expected_text = read.excerpt.text
+        if citation.section_id != section.section_id:
+            from application_state.agent_conversation.native_corpus import bounded_body_section
+            section, expected_text = bounded_body_section(
+                catalog, read.excerpt, line_start=citation.line_start, line_end=citation.line_end,
+            )
         text = body[section.char_start:section.char_end]
-        if (text != read.excerpt.text or sha256(text.encode()).hexdigest() != citation.excerpt_sha256
+        if (citation.section_id != section.section_id
+                or (citation.line_start, citation.line_end) != (section.line_start, section.line_end)
+                or text != expected_text or sha256(text.encode()).hexdigest() != citation.excerpt_sha256
                 or body.encode()[section.byte_start:section.byte_end] != text.encode()):
             raise ValueError('Historical native body extent changed')
     except Exception as exc:

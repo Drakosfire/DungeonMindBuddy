@@ -1,13 +1,14 @@
-import {isCombatRecoveryRecord,isCombatRecoveryDraft} from './validateCombatRecovery';
-import type {CombatEncounterDraft, CombatEncounterRecord} from './combatTypes';
+import {isCombatRecoveryRecord,isCombatRecoveryDraft,validManualDraft} from './validateCombatRecovery';
+import type {CombatEncounterRecord} from './combatTypes';
+import {isManualCombatRecord,type AnyCombatRecord,type ManualCombatDraft} from './ManualCombatTypes';
 
 export const combatSelectionKey = (worldId: string) => `dmb.combat.selected:${worldId}`;
 export const combatRecoveryKey = (worldId: string, id: string) => `dmb.combat.recovery:${worldId}:${id}`;
-export interface CombatRecovery {
+export interface CombatRecovery<R extends AnyCombatRecord = CombatEncounterRecord> {
   schema: 'dmb_combat_recovery_v1';
-  base: CombatEncounterRecord;
-  draft: CombatEncounterDraft;
-  pending: {expected_revision: number; draft: CombatEncounterDraft} | null;
+  base: R;
+  draft: R['draft'];
+  pending: {expected_revision: number; draft: R['draft']} | null;
 }
 function ordered(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(ordered);
@@ -16,23 +17,27 @@ function ordered(value: unknown): unknown {
 }
 export const combatDraftEqual = (a: unknown, b: unknown) => JSON.stringify(ordered(a)) === JSON.stringify(ordered(b));
 
-function parse(raw: string | null, current: CombatEncounterRecord): CombatRecovery | null {
+function parse<R extends AnyCombatRecord>(raw: string | null, current: R): CombatRecovery<R> | null {
   if (raw === null) return null;
-  const saved = JSON.parse(raw) as CombatRecovery;
+  const saved = JSON.parse(raw) as CombatRecovery<R>;
   if (!saved || saved.schema !== 'dmb_combat_recovery_v1' || !saved.base
       || saved.base.world_id !== current.world_id || saved.base.encounter_id !== current.encounter_id
       || !Number.isInteger(saved.base.revision) || saved.base.revision < 1
       || !isCombatRecoveryRecord(saved.base) || !isCombatRecoveryDraft(saved.draft)
-      || !saved.base.ruleset || !Array.isArray(saved.base.ruleset.fields)
+      || saved.draft.schema!==current.draft.schema
+      || !saved.base.ruleset || saved.base.ruleset.schema !== current.ruleset.schema
+      || !combatDraftEqual(saved.base.ruleset,current.ruleset) || saved.base.ruleset_digest!==current.ruleset_digest
       || (saved.pending !== null && (!saved.pending || saved.pending.expected_revision !== saved.base.revision
-        || !isCombatRecoveryDraft(saved.pending.draft)))) {
+        || !isCombatRecoveryDraft(saved.pending.draft) || saved.pending.draft.schema!==current.draft.schema))
+      || (isManualCombatRecord(current) && (!validManualDraft(current,saved.draft as ManualCombatDraft)
+        || (saved.pending!==null && !validManualDraft(current,saved.pending.draft as ManualCombatDraft))))) {
     throw new Error('Stored Combat recovery is invalid or belongs to a different encounter. It has been preserved.');
   }
   return saved;
 }
 
 /** Same-origin recovery coordination only. APP expected-revision CAS owns commits. */
-export class CombatRecoverySession {
+export class CombatRecoverySession<R extends AnyCombatRecord = CombatEncounterRecord> {
   private release: (() => void) | null = null;
   private key: string | null = null;
   private expectedRaw: string | null = null;
@@ -40,7 +45,7 @@ export class CombatRecoverySession {
   private settled: Promise<void> = Promise.resolve();
   close() { this.generation++; this.release?.(); this.release = null; this.key = null; }
 
-  async open(record: CombatEncounterRecord, isCurrent: () => boolean, rememberWorldSelection=true): Promise<{recovery: CombatRecovery | null; committedMatch: boolean}> {
+  async open(record: R, isCurrent: () => boolean, rememberWorldSelection=true): Promise<{recovery: CombatRecovery<R> | null; committedMatch: boolean}> {
     this.close();
     const generation = this.generation;
     // Resolving the callback is not the browser's release acknowledgement.
@@ -79,10 +84,10 @@ export class CombatRecoverySession {
     if (localStorage.getItem(this.key) !== this.expectedRaw) throw new Error('Stored Combat draft changed. Reopen before editing; recovery is preserved.');
     return this.key;
   }
-  write(base: CombatEncounterRecord, draft: CombatEncounterDraft, pending: CombatRecovery['pending'] = null) {
+  write(base: R, draft: R['draft'], pending: CombatRecovery<R>['pending'] = null) {
     const key = this.assertOwned();
     if (key !== combatRecoveryKey(base.world_id, base.encounter_id)) throw new Error('Combat recovery scope changed.');
-    const raw = JSON.stringify({schema:'dmb_combat_recovery_v1', base, draft, pending} satisfies CombatRecovery);
+    const raw = JSON.stringify({schema:'dmb_combat_recovery_v1', base, draft, pending} satisfies CombatRecovery<R>);
     localStorage.setItem(key, raw);
     this.expectedRaw = raw;
     if (localStorage.getItem(key) !== raw) throw new Error('Combat draft storage could not be verified.');

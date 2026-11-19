@@ -7,7 +7,7 @@ from graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_
 import copy
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from uuid import NAMESPACE_URL, uuid5
 
 from apps.live_control_server.config import artifact_data_root, repo_root
@@ -1844,6 +1844,7 @@ def verify_inherited_pc_native_basis(candidate: dict, proof: dict, context: obje
 
 def correct_recap_candidate(
     request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7 | RecapCandidateCorrectionRequestV8 | RecapCandidateCorrectionRequestV9 | RecapCandidateCorrectionRequestV10 | RecapCandidateCorrectionRequestV11,
+    *, authorize_write: Callable[[], None] | None = None,
 ) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2 | RecapCandidateCorrectionResponseV3 | RecapCandidateCorrectionResponseV4 | RecapCandidateCorrectionResponseV5 | RecapCandidateCorrectionResponseV6 | RecapCandidateCorrectionResponseV7 | RecapCandidateCorrectionResponseV8 | RecapCandidateCorrectionResponseV9 | RecapCandidateCorrectionResponseV10 | RecapCandidateCorrectionResponseV11:
     """Create one held reviewable child without altering parent or WorldGraph."""
     from application_state.ingest.service import (
@@ -2327,6 +2328,8 @@ def correct_recap_candidate(
                     )
         else:
             try:
+                if authorize_write is not None:
+                    authorize_write()
                 child = create_extraction_run(
                     root, run_id=child_id, source_artifact_id=parent.source_artifact_id,
                     source_domain="recap", campaign_id=parent.campaign_id,
@@ -2357,6 +2360,8 @@ def correct_recap_candidate(
         from application_state.ingest.components import persist_component_payload
 
         for kind, payload in (("candidate_graph", child_bytes), ("source_span_index", span_bytes)):
+            if authorize_write is not None:
+                authorize_write()
             persist_component_payload(run_id=child_id, expected_revision=child.revision,
                                       kind=kind, payload=payload)
         for _ in range(8):
@@ -2364,6 +2369,8 @@ def correct_recap_candidate(
                 break
             next_status = _LIFECYCLE[_LIFECYCLE.index(child.status) + 1]
             try:
+                if authorize_write is not None:
+                    authorize_write()
                 child = update_extraction_run_status(
                     root, child_id, status=next_status, expected_revision=child.revision,
                 )

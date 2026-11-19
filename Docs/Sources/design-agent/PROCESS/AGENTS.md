@@ -29,9 +29,7 @@ These rules are intentionally shared across active DungeonMind ecosystem reposit
 
 ## Handoff and lane authority
 
-The designing steward authors or adopts the bounded handoff before dispatch.
-An implementation worker consumes that authority; it may redesign or activate
-it only when explicitly assigned design/stewardship work.
+The designer or owner named in the bounded assignment authors or adopts its handoff before dispatch. Responsibilities derive from that assignment, not a standing Steward role. This wording grants no additional merge, runtime, provider, or model authority. An implementation worker consumes the pinned authority; it may redesign or activate it only when explicitly assigned that design work.
 
 - `BLOCKED` records a concrete design with unresolved gates. It grants no write
   lease and does not allocate an implementation lane.
@@ -55,7 +53,7 @@ it only when explicitly assigned design/stewardship work.
 - Inspect open PRs and active leases before dispatch. Shared routing, registries,
   lockfiles, root configuration, schemas and sequencing documents are collision
   hotspots. Split, serialize or explicitly transfer overlapping ownership.
-- If required paths or contracts exceed the lease, return to the steward before
+- If required paths or contracts exceed the lease, return to the named owner before
   editing. Git conflicts are not an ownership protocol.
 
 Use **serial** unless explicitly choosing another topology. Record the exact
@@ -69,7 +67,7 @@ parent/order for stacked work or the concurrent lanes checked for parallel work:
 
 Opening the assigned PR is already part of authorized work. A newly discovered
 capability does not authorize another PR. Fix an in-scope defect in the current
-PR; otherwise the steward decides whether to amend the slice, split it or change
+PR; otherwise the named owner decides whether to amend the slice, split it or change
 its topology. Preserve useful work and evidence when superseding a lane.
 
 ## Git and checkout safety
@@ -136,6 +134,13 @@ reviewed SHA with the verifier's validate subcommand. Dirty-runner results are
 working-tree diagnostics, not qualifying evidence. Never reuse a different SHA,
 modified report, stale inventory or failed/incomplete run as a passing check.
 
+For ad hoc browser, build, or database verification that needs substantial
+scratch space, verify the same Projects filesystem before allocating a task
+directory. Use `mktemp -d "$HOME/Projects/.codex/buddy-check.XXXXXX"` and
+place that task's temporary files and dependency caches inside it. Remove
+disposable outputs when the check finishes and retain evidence referenced
+by the handoff.
+
 For frontend changes also run the full default-discovered diagnostic (`--suite
 discovered`) at a meaningful integrated checkpoint, avoiding duplicate heavy runs.
 Keep known legacy failures visibly red with exact IDs/source/environment/results;
@@ -174,12 +179,12 @@ an unfinished successor is done.
 
 Facts learned after merge normally travel with the next dependent implementation.
 If no suitable successor exists or delay would leave authority materially
-misleading, perform a guarded steward sync after re-anchoring. Keep the whole sync
+misleading, the owner named in the assignment performs a guarded state sync after re-anchoring. Keep the whole sync
 coherent before dependent dispatch. Stable architecture/reference documents
 change only when their claims change.
 
 Routine status bookkeeping does not need a separate PR. Explicitly requested
-policy changes and steward-designated design/architecture artifacts may have
+policy changes and design/architecture artifacts explicitly requested in the assignment may have
 focused review PRs. `DOCUMENTS` is retired as a generic standalone flow.
 Handoffs use `HANDOFF-<FLOW>-<short-slug>.md`; PR titles use `<FLOW>: <capability>`.
 FLOW names the owning workstream, not a fixed enum. PR numbers are transport
@@ -188,9 +193,9 @@ metadata, not naming authority. Git history is the default archive.
 ## Efficient investigation
 
 Use focused symbol/route search and small context packs when available; otherwise
-use `rg` and targeted reads. Use RTK when available for noisy output. Missing
-optional navigation tools do not block ordinary investigation. Preserve useful
-failure output and avoid dumping whole logs, dependency trees or historical docs.
+use `rg` and targeted reads. Keep Git, search, test, and log output focused.
+Preserve failures, stack traces, compiler and migration errors, and
+destructive-command risks.
 Fetch and compare exact remote refs when state matters. Obtain explicit approval
 for destructive actions unless already authorized by the user.
 

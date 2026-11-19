@@ -114,11 +114,13 @@ def root(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def client(root: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
     monkeypatch.setattr(
         "apps.live_control_server.routes.play_runs.repo_root",
         lambda: root,
     )
-    return TestClient(create_app())
+    return TestClient(create_app(), client=("127.0.0.1", 50000))
 
 
 def _commit_record(

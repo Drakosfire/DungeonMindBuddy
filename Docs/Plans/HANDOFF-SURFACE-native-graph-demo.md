@@ -1,6 +1,6 @@
 # SURFACE: demonstrate the native DungeonMind graph
 
-Status: ACTIVE for the Buddy index integration below. The standalone runner is retained verification scaffolding, not the product path. Earlier topology/runtime sections are historical where superseded by the index integration amendment. No live cutover, migration, merge or deployment is authorized.
+Status: HISTORICAL RECORD. The earlier assignments, ACTIVE language and stacked topology below do not grant a current write lease. Product Graph service/storage remain maintained; the isolated runner and HTTP transport are now lab-only. See [the historical demo guide](../../evals/native_graph_demo/README.md) for exact pins, current-lock incompatibility, source recovery and verification limits. Earlier evidence and unresolved historical acceptance claims below are preserved as recorded.
 
 ## Authority and topology
 

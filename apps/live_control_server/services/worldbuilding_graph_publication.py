@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+from collections.abc import Callable
 import hmac
 import json
 import os
@@ -870,6 +871,7 @@ def prepare_worldbuilding(
 
 def confirm_worldbuilding(
     request: WorldbuildingWritePlanConfirmRequest,
+    *, authorize_write: Callable[[], None] | None = None,
 ) -> WorldbuildingWritePlanConfirmReceipt:
     """Rebuild-verify a v2 plan and publish or recover one DungeonMind child."""
     plan = request.plan
@@ -1042,6 +1044,8 @@ def confirm_worldbuilding(
     if _registered_publication_binding(resolved) != publication_binding:
         raise ExtractPromoteError("World/source binding changed before publication",
                                  code="worldbuilding_source_binding_changed", status_code=409)
+    if authorize_write is not None:
+        authorize_write()
     try:
         receipt = authority.publish(publish_request)
     except WorldGraphAuthorityError as exc:

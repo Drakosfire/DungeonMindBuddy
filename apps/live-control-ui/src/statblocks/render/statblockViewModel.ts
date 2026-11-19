@@ -95,7 +95,7 @@ export type FormattedRuleElement = {
 };
 
 export type StatblockViewModel = {
-  recordKind: "candidate" | "revision";
+  recordKind: "candidate" | "revision" | "draft";
   candidateId: string;
   contract: string;
   contractVersion: string;
@@ -407,7 +407,7 @@ function buildViewModelFromDefinition(
   definition: StatblockDefinitionV1_Output,
   metadata: {
     recordId: string;
-    recordKind: "candidate" | "revision";
+    recordKind: "candidate" | "revision" | "draft";
     contract: string;
     contractVersion: string;
     createdAt: string;
@@ -504,6 +504,19 @@ function buildViewModelFromDefinition(
       : null,
     generation: metadata.generation,
   };
+}
+
+export function buildDraftStatblockViewModel(definition: Parameters<typeof buildViewModelFromDefinition>[0]) {
+  return buildViewModelFromDefinition(definition, {
+    recordId: "",
+    recordKind: "draft",
+    contract: "",
+    contractVersion: "",
+    createdAt: "",
+    expiresAt: "",
+    validationReceipt: null,
+    generation: null,
+  });
 }
 
 export function buildStatblockViewModel(

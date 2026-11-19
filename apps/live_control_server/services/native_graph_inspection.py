@@ -1,6 +1,8 @@
 """Faithful native inspection; Core owns admission, identity and source access."""
 
 from base64 import b64encode
+from collections import OrderedDict
+from threading import Lock
 
 from dungeonmind.application.vnext import (
     EntityReadService,
@@ -9,6 +11,8 @@ from dungeonmind.application.vnext import (
     open_admitted_native_text,
     open_native_text_source_access_context,
 )
+from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
+from dungeonmind.infrastructure.postgres.vnext_knowledge import VerifiedKnowledgeRevisionCache
 from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import _repository
 from fastapi.encoders import jsonable_encoder
 from apps.live_control_server.services.native_pdf_evidence import open_admitted_pdf_evidence, render_admitted_pdf_evidence
@@ -16,8 +20,7 @@ from apps.live_control_server.services.build_pdf_region_render import read_regio
 from apps.live_control_server.integrations.dungeonmind import (
     native_registry_source as native,
 )
-from apps.live_control_server.models.native_graph_inspection import Closed, InspectionPin
-from apps.live_control_server.models.world_graph_object_projection import WorldGraphObjectProjectionRequest
+from apps.live_control_server.models.native_graph_inspection import InspectionPin, NativeCompleteObjectRead
 from apps.live_control_server.integrations.dungeonmind.vnext_complete_object import (
     DungeonBuddyVNextReadIdentity,
     VNextCompleteObjectProjectionError,
@@ -33,13 +36,15 @@ class InspectionUnavailable(ValueError):
         super().__init__(code)
 
 
-from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
 
 
-def _pinned(scope, principal, *, parsed_cache=None):
+def _pinned(scope, principal, *, parsed_cache=None, verification_cache=None):
     require_native_graph_gm(principal)
     bound = native.binding(scope.managed_world_id)
-    repo = native.read_repository()
+    if verification_cache is None:
+        repo = native.read_repository()
+    else:
+        repo = native.read_repository(verification_cache=verification_cache)
     space = bound["native_world_id"]
     if isinstance(scope, InspectionPin):
         if (scope.native_world_id, scope.binding_version) != (
@@ -85,17 +90,50 @@ def catalog(scope, principal):
 
 
 def catalog_with_profile(scope, principal):
-    bound, read, access, pin, profile = _pinned(scope, principal)
+    return _catalog_with_profile(
+        scope, principal, _wire_assertion, schema="dmb_native_graph_catalog_v1"
+    )
+
+
+def presentation_catalog(scope, principal):
+    return _catalog_with_profile(scope, principal, _presentation_assertion)
+
+
+def _wire_assertion(record):
+    return native.assertion_contract(record).model_dump(mode="json")
+
+
+def _presentation_assertion(record):
+    value = record.value
+    payload = {"kind": value.kind}
+    if value.kind == "literal":
+        payload["value"] = value.value
+    elif value.kind == "term_ref":
+        payload["term"] = value.term
+    elif value.kind == "entity_ref":
+        payload["entity_id"] = value.entity_id
+    return {
+        "assertion_id": record.assertion_id,
+        "subject_entity_id": record.subject_entity_id,
+        "predicate": record.predicate,
+        "value": payload,
+    }
+
+
+def _catalog_with_profile(scope, principal, project_assertion, **metadata):
+    bound, read, access, pin, profile = _pinned(
+        scope, principal, parsed_cache=_shared_parsed_cache
+    )
     listing = EntityReadService().list_entities(read)
-    # Only Core's admitted IDs from this same immutable context are serialized.
+    # Project only Core's admitted IDs from this same immutable context.
     assertions = [
-        native.assertion_contract(access.parsed.get_assertion(identity)).model_dump(mode="json")
+        project_assertion(access.parsed.get_assertion(identity))
         for identity in listing.admitted_assertion_ids
     ]
     response = _response(
         bound,
         pin,
-        schema="dmb_native_graph_catalog_v1",
+        **metadata,
         catalogue=jsonable_encoder(listing),
         assertions=assertions,
     )
@@ -174,8 +212,27 @@ def related_recaps(scope, principal, assertion_id):
     return _response(bound, pin, schema="dmb_native_related_recaps_v1", targets=targets)
 
 
-def inspect(request, principal, *, include_source_span=False, source_classification=None):
-    bound, read, access, pin, _ = _pinned(request.scope, principal)
+def read_assertion(pin: InspectionPin, principal, assertion_id: str):
+    bound, read, _, checked_pin, _ = _pinned(pin, principal)
+    result = EvidenceReadService().get_assertion_evidence(read, assertion_id)
+    if (
+        not result.available or result.completeness.status != "complete"
+        or result.assertion is None or result.assertion.assertion_id != assertion_id
+        or (result.identity.space_id, result.identity.revision_id)
+        != (pin.native_world_id, pin.revision_id)
+    ):
+        raise InspectionUnavailable("native_inspection_assertion_unavailable")
+    return _response(bound, checked_pin, assertion=_wire_assertion(result.assertion))
+
+
+def inspect(
+    request, principal, *, include_source_span=False, source_classification=None,
+    _parsed_cache=None, _verification_cache=None,
+):
+    bound, read, access, pin, _ = _pinned(
+        request.scope, principal, parsed_cache=_parsed_cache,
+        verification_cache=_verification_cache,
+    )
     selection = request.selection
     if selection.kind == "neighborhood":
         from graph_memory.retrieval.models import WorldGraphRetrievalBounds
@@ -193,7 +250,7 @@ def inspect(request, principal, *, include_source_span=False, source_classificat
         return _response(
             bound, pin, schema="dmb_native_graph_neighborhood_v1",
             node_ids=bounded.node_ids,
-            nodes=[node.model_dump(mode="json", by_alias=True) for node in map_nodes(read, bounded)],
+            nodes=[node.model_dump(mode="json", by_alias=True) for node in map_nodes(read, bounded, allow_multiple=True)],
             missing_seed_node_ids=result.missing_seed_entity_ids,
             relationships=[edge.model_dump(mode="json", by_alias=True)
                            for edge in map_relationships(read, result, bounded)],
@@ -281,7 +338,7 @@ def inspect(request, principal, *, include_source_span=False, source_classificat
     return _response(bound, pin, schema="dmb_native_graph_source_v1", source=span)
 
 
-def statblock_pdf_support(reference, regions, principal):
+def statblock_pdf_support(reference, regions, principal, *, expected_source_epoch=None):
     """Resolve reviewed crops through the referenced creature's admitted assertions."""
     scope = InspectionPin(
         managed_world_id=reference.managed_world_id,
@@ -290,10 +347,16 @@ def statblock_pdf_support(reference, regions, principal):
         revision_id=reference.graph_revision,
     )
     bound, read, access, pin, _ = _pinned(scope, principal)
+    if expected_source_epoch is not None and access.source_view.epoch != expected_source_epoch:
+        raise InspectionUnavailable("statblock_pdf_source_epoch_changed")
     entity = EntityReadService().get_complete_entity(read, reference.node_id)
     if not entity.found or entity.completeness.status != "complete":
+        if expected_source_epoch is not None:
+            raise InspectionUnavailable("statblock_pdf_review_incomplete")
         return _response(bound, pin, support=[])
     support = {}
+    matched_regions = []
+    repository = _repository()
     for assertion in entity.assertions:
         if assertion.subject_entity_id != reference.node_id:
             continue
@@ -309,22 +372,23 @@ def statblock_pdf_support(reference, regions, principal):
                 continue
             try:
                 region, pdf = open_admitted_pdf_evidence(
-                    evidence, space_id=pin.native_world_id, load=_repository().get_native_pdf_source,
+                    evidence, space_id=pin.native_world_id, load=repository.get_native_pdf_source,
                 )
             except ValueError:
                 continue
             if region in regions:
+                matched_regions.append(region)
                 support[ref_id] = {
                     "assertion_id": assertion.assertion_id,
                     "evidence_ref_id": ref_id,
                     "text": read_region_text(pdf, region),
                 }
+    if expected_source_epoch is not None:
+        if repository.open_native_source_view(pin.native_world_id).epoch != expected_source_epoch:
+            raise InspectionUnavailable("statblock_pdf_source_epoch_changed")
+        if any(region not in matched_regions for region in regions):
+            raise InspectionUnavailable("statblock_pdf_review_incomplete")
     return _response(bound, pin, support=list(support.values()))
-
-
-class NativeCompleteObjectRead(Closed):
-    scope: InspectionPin | None = None
-    request: WorldGraphObjectProjectionRequest
 
 
 def complete_object(body: NativeCompleteObjectRead, principal):
@@ -365,11 +429,13 @@ def complete_object(body: NativeCompleteObjectRead, principal):
     access = open_native_text_source_access_context(
         repository=repo, space_id=pin.native_world_id, revision_id=pin.revision_id,
         domain_contract=resolve_domain, audience_labels=(native.GM_LABEL, native.PLAYER_LABEL),
+        parsed_cache=_shared_parsed_cache,
     )
     result = project_complete_world_object_vnext(
         parsed_revision=access.parsed,
         source_reader=access.source_view,
         request=request.model_copy(update={"world_id": pin.native_world_id}),
+        allow_multiple_display_values=True,
         read_identity=DungeonBuddyVNextReadIdentity(
             space_id=pin.native_world_id,
             revision_id=pin.revision_id,
@@ -456,10 +522,18 @@ def open_neighborhood_anchor(request, principal, *, include_receipt=False, autho
         scope_mode=request.scope_mode,
         campaign_id=request.campaign_id if request.scope_mode == "campaign" else None,
     )
-    packet = inspect(InspectionRead(
-        scope=pin,
-        selection={"kind": "source", "assertion_id": assertion_id, "evidence_ref_id": evidence_ref_id},
-    ), principal, include_source_span=include_receipt)
+    from dungeonmind.application.vnext.errors import KnowledgeReadContextIntegrityError
+
+    try:
+        packet = inspect(InspectionRead(
+            scope=pin,
+            selection={"kind": "source", "assertion_id": assertion_id, "evidence_ref_id": evidence_ref_id},
+        ), principal, include_source_span=include_receipt, _parsed_cache=_shared_parsed_cache,
+            _verification_cache=_shared_verification_caches.for_pin(pin))
+    except KnowledgeReadContextIntegrityError:
+        if native.read_repository().get_revision(pin.native_world_id, pin.revision_id) is None:
+            return empty
+        raise
     source = packet.get("source")
     if source is None or native.binding(managed_world_id) != bound:
         return empty
@@ -493,7 +567,39 @@ def open_neighborhood_anchor(request, principal, *, include_receipt=False, autho
     )
 
 
-_shared_neighborhood_parsed_cache = NativeParsedRevisionCache()
+class _SourceVerificationProofPool:
+    """Explicit per-worker retention; pin identity selects a slot, never authority.
+
+    Two Core proof objects each enforce a32MiB content cap. Core still fetches and
+    compares the complete current source on every use. Detached in-flight slots
+    are request-owned until completion and are not counted as retained pool RSS.
+    """
+    max_bytes = 64 * 1024 * 1024
+
+    def __init__(self):
+        self._lock = Lock()
+        self._entries = OrderedDict()
+
+    def for_pin(self, pin):
+        key = (pin.native_world_id, pin.revision_id)
+        with self._lock:
+            if key in self._entries:
+                self._entries.move_to_end(key)
+                return self._entries[key]
+            cache = VerifiedKnowledgeRevisionCache(max_bytes=self.max_bytes // 2)
+            self._entries[key] = cache
+            if len(self._entries) > 2:
+                self._entries.popitem(last=False)
+            return cache
+
+    @property
+    def retained_bytes(self):
+        with self._lock:
+            return sum(cache.retained_bytes for cache in self._entries.values())
+
+
+_shared_parsed_cache = NativeParsedRevisionCache()
+_shared_verification_caches = _SourceVerificationProofPool()
 
 
 def _shared_retrieval_pin(request, principal):
@@ -529,7 +635,10 @@ def shared_exact_object(request, principal):
 
 def shared_neighborhood(request, principal, *, object_id=None):
     bound, head, pin = _shared_retrieval_pin(request, principal)
-    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    _, read, _, _, _ = _pinned(
+        pin, principal, parsed_cache=_shared_parsed_cache,
+        verification_cache=_shared_verification_caches.for_pin(pin),
+    )
     return _shared_retrieval_projection(request, bound, head, pin, read, object_id=object_id)
 
 
@@ -589,12 +698,14 @@ def _shared_retrieval_projection(request, bound, head, pin, read, *, object_id=N
             relationships_truncated=len(relationships) > cap,
         )
         selected = EntityReadService().get_entity(read, object_id) if result.found else None
-        nodes = [map_entity_result(selected, object_id, attributes=attributes)] if selected else []
+        nodes = [map_entity_result(
+            selected, object_id, attributes=attributes, allow_multiple=True,
+        )] if selected else []
         if selected is not None:
             selected_entities[object_id] = selected
     else:
         result, bounded = read_neighborhood(read, request.seed_node_ids, request.max_depth, request.bounds)
-        nodes = map_nodes(read, bounded, attributes=attributes)
+        nodes = map_nodes(read, bounded, attributes=attributes, allow_multiple=True)
     edges = map_relationships(read, result, bounded)
     evidence = {row.evidence_ref_id: row for row in result.evidence}
     artifacts = {row.source_artifact_id: row for row in result.source_artifacts}
@@ -719,7 +830,7 @@ def shared_evidence(request, principal):
     )
 
     bound, head, pin = _shared_retrieval_pin(request, principal)
-    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_parsed_cache)
     target = request.target
     nodes, relationships, attributes = [], [], []
     supporters = {}
@@ -869,7 +980,7 @@ def shared_search(request, principal, *, include_source_pins=False,
         pin.native_world_id != expected_native_world_id or pin.binding_version != expected_binding_version
     ):
         raise InspectionUnavailable("native_inspection_binding_changed")
-    read_binding, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    read_binding, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_parsed_cache)
     if read_binding != bound:
         raise InspectionUnavailable("native_inspection_binding_changed")
     search = SearchReadService().search_entities(read, request.query_text, limit=20)
@@ -960,7 +1071,7 @@ def plan_subject_search(request, principal):
     if request.revision_pin is None or request.seed_node_ids:
         raise ValueError("Plan subject search requires a pinned query without seeds")
     bound, head, pin = _shared_retrieval_pin(request, principal)
-    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_parsed_cache)
     search = SearchReadService().search_entities(read, request.query_text, limit=20)
     reader = EntityReadService()
     hits = [hit for hit in search.hits if hit.admitted_match_assertions]

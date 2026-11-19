@@ -605,3 +605,130 @@ def test_subject_offer_excludes_failed_packets_and_duplicate_query_labels(plan_a
     events[events.index(event)]=event.model_copy(update={"result_packet_sha256":canonical_sha256(canonical)})
     a.operation_payloads[identity]=json.dumps(packet)
     assert not any(c.handle.startswith('mentions:') for c in driver.offered())
+
+
+def test_resolved_variant_approval_offers_no_optional_retrieval():
+    from types import SimpleNamespace
+    from application_state.agent_conversation import types
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+
+    selection = types.BuildRequestedWorkResolutionV1.model_construct(
+        requested_work="review_variant_approval",
+        resolution={"source_scope": "source_lookup"},
+    )
+    execution = SimpleNamespace(events=(selection,))
+    driver = PlanJevDriver.__new__(PlanJevDriver)
+    driver.adapter = SimpleNamespace(
+        request=SimpleNamespace(surface=SimpleNamespace(surface_id="build")),
+        _broker_execution=lambda: execution,
+    )
+    driver.finished = False
+    driver.dialogue = ()
+    assert driver.offered() == ()
+    assert driver.decision_arguments() == {
+        "candidates": (),
+        "dialogue": (),
+        "examined_candidates": (),
+        "allowed_operations": ("select_candidates", "finish_retrieval"),
+    }
+
+
+def test_native_approval_terminal_requires_the_current_acknowledged_decision(monkeypatch):
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from application_state.agent_conversation import types, writer_evidence_selection
+
+    monkeypatch.setattr(writer_evidence_selection, "native_build", lambda turn: True)
+    attempt = uuid4()
+    approval = types.BuildRequestedWorkResolutionV1.model_construct(
+        requested_work="review_variant_approval", controller_attempt_id=attempt,
+    )
+    auth = types.ProviderAttemptAuthorizedEventV3.model_construct(provider_attempt_id=attempt)
+    acknowledged = types.ProviderOutcomeEventV1.model_construct(
+        provider_attempt_id=attempt, outcome="response_received",
+    )
+    execution = SimpleNamespace(events=(auth, acknowledged, approval))
+    turn = SimpleNamespace(graph_context_execution=execution)
+    assert writer_evidence_selection.native_terminal(turn) == {
+        "status": "ready", "reason": "native_variant_approval_requires_no_retrieval",
+    }
+    execution.events = (auth, approval)
+    assert writer_evidence_selection.native_approval_terminal(turn) is None
+    later = types.ProviderAttemptAuthorizedEventV3.model_construct(provider_attempt_id=uuid4())
+    execution.events = (auth, acknowledged, approval, later)
+    assert writer_evidence_selection.native_approval_terminal(turn) is None
+
+
+@pytest.mark.parametrize(("scope", "include_draft", "bound", "matches"), [
+    ("anchored", True, True, True),
+    ("source_lookup", True, True, False),
+    ("uncertain", True, True, False),
+    ("anchored", False, True, False),
+    ("anchored", True, False, False),
+])
+def test_anchored_variant_scope_requires_current_draft_and_bound_base(scope, include_draft, bound, matches):
+    from types import SimpleNamespace
+    from application_state.agent_conversation import types
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+
+    selection = types.BuildRequestedWorkResolutionV1.model_construct(
+        requested_work="draft_in_conversation", resolution={"source_scope": scope},
+    )
+    events = [selection]
+    if include_draft:
+        events.append(types.BuildDraftContextCapturedV1.model_construct())
+    driver = PlanJevDriver.__new__(PlanJevDriver)
+    driver.adapter = SimpleNamespace(
+        request=SimpleNamespace(surface=SimpleNamespace(surface_id="build")),
+        _broker_execution=lambda: SimpleNamespace(events=events),
+    )
+    driver.finished = False
+    driver.attempted_statblocks = set()
+    base = ("Saved base", object(), object())
+    driver.saved_statblocks = {"saved-statblock:0": base + ((object(),) if bound else ())}
+    assert driver._anchored_variant_draft() is matches
+    if matches:
+        assert [offer.handle for offer in driver.offered()] == ["saved-statblock:0"]
+
+
+@pytest.mark.parametrize("drift", [None, "epoch", "conversation", "status", "support", "legacy", "association", "node"])
+def test_saved_statblock_continuity_requires_verified_prior_read(drift):
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from application_state.agent_conversation.build_saved_statblock import (
+        BuildSavedStatblockReadV1, SavedStatblockAssociationAnchor, validate_prior_read,
+    )
+    from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
+
+    authority = NativeCorpusAuthorityV1.model_construct(acquisition_epoch=194)
+    receipt = SimpleNamespace(source_authority=authority, work_context=SimpleNamespace(source_basis="page"))
+    current = SimpleNamespace(world_id="world", conversation_id=uuid4(), sequence=2, graph_context_receipt=receipt)
+    old = BuildSavedStatblockReadV1.model_construct(world_id=current.world_id, draft_id=uuid4(),
+        locator="exact", definition={"identity": {"name": "Creature"}}, pdf_support=None,
+        association_anchor=SavedStatblockAssociationAnchor(association_id=uuid4(), node_id="ent:fixture"),
+        continuity_verified=drift != "legacy")
+    previous = SimpleNamespace(turn_id=uuid4(), world_id=current.world_id, conversation_id=current.conversation_id,
+        sequence=1, status="completed", graph_context_receipt=receipt,
+        graph_context_execution=SimpleNamespace(events=(old,)))
+    event = old.model_copy(update={"continuity_verified": True, "reused_from_turn_id": previous.turn_id})
+    if drift == "epoch":
+        previous.graph_context_receipt = SimpleNamespace(
+            source_authority=authority.model_copy(update={"acquisition_epoch": 193}), work_context=receipt.work_context,
+        )
+    elif drift == "conversation":
+        previous.conversation_id = uuid4()
+    elif drift == "status":
+        previous.status = "failed"
+    elif drift == "support":
+        event = event.model_copy(update={"pdf_support": "different"})
+    elif drift in {"association", "node"}:
+        changed = {"association_id": uuid4()} if drift == "association" else {"node_id": "ent:other"}
+        event = event.model_copy(update={
+            "association_anchor": event.association_anchor.model_copy(update=changed),
+        })
+    if drift is None:
+        validate_prior_read(event, current, previous)
+    else:
+        with pytest.raises(ValueError, match="Saved statblock reuse"):
+            validate_prior_read(event, current, previous)

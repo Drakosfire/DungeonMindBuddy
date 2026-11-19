@@ -289,6 +289,10 @@ def verify_selection(turn, event, proof, trace):
         )
     result = DecisionResult.model_validate(strict_json(raw))
     selected = decode_selection(parent, result)
+    if event.exclusion_replay is not None:
+        from .jev_retrieval_contract import retrieval_exclusions_for_replay
+        if event.exclusion_replay != retrieval_exclusions_for_replay(parent, result):
+            raise ValueError("Replay exclusions differ from the exact native controller votes")
     pins = source_pins(receipt)
     validate_source_selection(
         parent,

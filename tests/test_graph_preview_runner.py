@@ -319,11 +319,11 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
     from graph_memory.extraction.bounded_recap_execution import (
         BoundedRecapPassClient,
         DEEPSEEK_MODEL,
+        RecapExecutionLimits,
     )
     from graph_memory.extraction.worldbuilding_gazetteer_scenario_scope import (
         GAZETTEER_PREPARED_SCENARIO_PROFILE,
     )
-    from types import SimpleNamespace
 
     source_text = "\n\n".join([
         "#### Fantastic Livestock for the Exampleland",
@@ -380,11 +380,10 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
     }
     class BoundedFixtureClient(BoundedRecapPassClient):
         def __init__(self):
-            self.limits = SimpleNamespace(
+            super().__init__(RecapExecutionLimits(
                 provider="openrouter", model=DEEPSEEK_MODEL, max_calls=8,
-            )
+            ))
             self.fixture = FixtureCategoryGraphPassClient(outputs)
-            self.calls = []
 
         def run_pass(self, pass_name, **kwargs):
             result = self.fixture.run_pass(pass_name, **kwargs)
@@ -709,6 +708,7 @@ def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None
     reopened = get_reviewable_extraction_run(tmp_path, loaded.run_id)
     assert reopened.components["source_artifact"].sha256 == loaded.components["source_artifact"].sha256
     assert load_run_source_input(tmp_path, reopened)[1] == frozen_bytes
+    import os
     import subprocess
     import sys
     script = """import sys
@@ -718,8 +718,15 @@ review=load_reviewable_extraction_data(Path(sys.argv[1]),sys.argv[2])
 assert review.run.run_id==sys.argv[2] and review.source_bytes and review.candidate_bytes and review.span_bytes
 print('fresh-process registered components verified')
 """
-    proof = subprocess.run([sys.executable, "-c", script, str(tmp_path), loaded.run_id],
-                           check=True, capture_output=True, text=True)
+    checkout = Path(__file__).resolve().parents[1]
+    proof = subprocess.run(
+        [sys.executable, "-c", script, str(tmp_path), loaded.run_id],
+        cwd=checkout,
+        env={**os.environ, "PYTHONPATH": os.pathsep.join(map(str, (checkout / "src", checkout)))},
+        capture_output=True,
+        text=True,
+    )
+    assert proof.returncode == 0, proof.stderr
     assert "registered components verified" in proof.stdout
     from apps.live_control_server.services.graph_run_registry import (
         assert_run_reviewable_evidence,

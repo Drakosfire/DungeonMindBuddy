@@ -119,6 +119,7 @@ export type NativeGraphDecodedResponse = { status: number; ok: boolean; body: un
 export type NativeGraphDemoTransport = (path: string, init: RequestInit) => Promise<Response | NativeGraphDecodedResponse>;
 
 export interface NativeGraphDemoApi {
+  readInitialGraph?(): Promise<NativeGraph>;
   readGraph(signal?: AbortSignal): Promise<NativeGraph>;
   /** Read native records from this exact returned graph snapshot, when supported. */
   readChronology?(graph: NativeGraph, signal: AbortSignal): Promise<NativeGraphChronology>;

@@ -6,10 +6,10 @@ const id='ac6c15cc-8c68-4732-8ae2-d9f3f051393a';
 const fixture=vi.hoisted(()=>({calls:[] as string[],selected:{} as Record<string,unknown>}));
 vi.mock('../api/liveApi',async importOriginal=>({...await importOriginal<typeof import('../api/liveApi')>(),authenticatedApiFetch:vi.fn(async(path:string,init?:RequestInit)=>{
  fixture.calls.push((init?.method??'GET')+' '+path);
- if(path.includes('/preparations/')&&path.endsWith('/asset'))return{response:new Response(JSON.stringify({...fixture.selected,asset_id:id,revision:2}))};
+ if(path.includes('/preparations/')&&path.split('?', 1)[0].endsWith('/asset'))return{response:new Response(JSON.stringify({...fixture.selected,asset_id:id,revision:2}))};
  if(path.includes('/preparations/'))return{response:new Response(JSON.stringify(fixture.selected))};
  if(path.endsWith('/capabilities'))return{response:new Response(JSON.stringify({configured:true,library_ready:true,storage_configured:true,map_framing:'Overhead map',models:[{id:'flux-2-pro',label:'FLUX',formats:['png'],controls:[]}]}))};
- if(path.endsWith('/generate'))return{response:new Response(JSON.stringify({prompt:'Prepared Edge',model:'flux-2-pro',images:[{asset_id:id,state:'staged',data_url:'data:image/png;base64,AA==',media_type:'image/png'}]}))};
+ if(path.split('?', 1)[0].endsWith('/generate'))return{response:new Response(JSON.stringify({prompt:'Prepared Edge',model:'flux-2-pro',images:[{asset_id:id,state:'staged',data_url:'data:image/png;base64,AA==',media_type:'image/png'}]}))};
  return{response:new Response(JSON.stringify({asset_id:id,state:'staged',delivery_url:'https://imagedelivery.net/test/buddy-'+id.replaceAll('-','')+'/public'}))};
 })}));
 function setup(){

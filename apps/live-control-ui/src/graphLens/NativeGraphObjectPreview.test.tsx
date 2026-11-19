@@ -33,3 +33,13 @@ it('uses the selected object label for its own records without a whole catalogue
  vi.mocked(inspectNativeGraph).mockResolvedValueOnce({schema:'dmb_native_graph_entity_v1',scope:pin,entity:{found:true,assertions:[{assertion_id:'name',subject_entity_id:'ooze',predicate:'dnd5e:name',value:{kind:'literal',value:'Ooze'},metadata:{scope:[],visibility:{kind:'public'},epistemic_basis:'asserted',claim_mode:'fact',standing:'provisional',evidence_ref_ids:[],temporal_scope:null,domain_metadata:[]}}],evidence:[],completeness:{status:'complete',reason:null}}});
  render(<SurfaceGraphReferenceInput worldId="world" value={[ref]} onChange={vi.fn()} readOnly/>);fireEvent.click(screen.getByRole('button',{name:'Inspect Ooze'}));expect(await screen.findByText('Ooze · name: Ooze')).toBeInTheDocument();
 });
+
+it('ignores a queued close event when the preview is already open again', async () => {
+ render(<SurfaceGraphReferenceInput worldId="world" value={[ref]} onChange={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Inspect Ooze'}));
+ const dialog = screen.getByRole('dialog',{name:'Object · Ooze'});
+ fireEvent(dialog,new Event('close'));
+ expect(dialog).toBeVisible();
+ fireEvent.click(within(dialog).getByRole('button',{name:'Close object preview'}));
+ expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});

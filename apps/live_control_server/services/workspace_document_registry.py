@@ -6,8 +6,11 @@ continuity tools. Live Page/Plan/Runbook reads and writes use Content only.
 
 from __future__ import annotations
 
+from application_state.content.page_presentation import PagePresentation
+
 import re
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from uuid import UUID
 from pathlib import Path
@@ -253,6 +256,8 @@ class WorkspaceDocumentSnapshot(BaseModel):
         "dmb_workspace_document_snapshot_v1"
     )
     record: WorkspaceDocumentRecord
+    page_presentation: PagePresentation | None = None
+    page_presentation_sha256: str | None = None
     committed_markdown: str | None = None
     committed_content_sha256: str | None = None
     markdown: str
@@ -399,14 +404,18 @@ def list_workspace_documents(
         )
     paged = limit is not None or before is not None
     if paged and kind != "worldbuilding_source":
-        raise WorkspaceDocumentRegistryError("Only authored-page inventory supports paging", status_code=422)
+        raise WorkspaceDocumentRegistryError(
+            "Only authored-page inventory supports paging", status_code=422
+        )
     records = []
     try:
         if kind in (None, "worldbuilding_source"):
             records.extend(
                 _record_from_page(state)
                 for state in pages.page_inventory(
-                    world_id=world_id, campaign_id=campaign_id, status=status,
+                    world_id=world_id,
+                    campaign_id=campaign_id,
+                    status=status,
                     **({"limit": limit, "before": before} if paged else {}),
                 )
             )
@@ -662,8 +671,12 @@ def create_world_owned_plan_v2(
 
 
 def list_world_owned_plans_v2(
-    root: Path, *, world_id: str, status: str | None = "active",
-    limit: int | None = None, before: tuple[datetime, UUID] | None = None,
+    root: Path,
+    *,
+    world_id: str,
+    status: str | None = "active",
+    limit: int | None = None,
+    before: tuple[datetime, UUID] | None = None,
 ) -> WorldOwnedPlansResponseV2:
     cleaned_world = _validate_world_id(world_id)
     from apps.live_control_server.services.world_container_registry import (
@@ -682,7 +695,9 @@ def list_world_owned_plans_v2(
             )
         records = [
             _record_from_work_object(obj)
-            for obj in list_plans(world_id=cleaned_world, status=status, limit=limit, before=before)
+            for obj in list_plans(
+                world_id=cleaned_world, status=status, limit=limit, before=before
+            )
         ]
     except WorldContainerRegistryError as exc:
         raise WorkspaceDocumentRegistryError(
@@ -699,7 +714,8 @@ def list_world_owned_plans_v2(
 
 
 def create_world_owned_runbook_v2(
-    root: Path, *, world_id: str, title: str
+    root: Path, *, world_id: str, title: str,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorldOwnedRunbookRecordV2:
     cleaned_world = _validate_world_id(world_id)
     cleaned_title = _validate_title(title)
@@ -717,7 +733,9 @@ def create_world_owned_runbook_v2(
                 "selected World identity does not match the managed World record",
                 status_code=409,
             )
-        obj = create_world_runbook(title=cleaned_title, world_id=cleaned_world)
+        obj = create_world_runbook(
+            title=cleaned_title, world_id=cleaned_world, authorize_world=authorize_world,
+        )
     except WorldContainerRegistryError as exc:
         raise WorkspaceDocumentRegistryError(
             str(exc), status_code=exc.status_code
@@ -861,6 +879,10 @@ def get_workspace_document_snapshot(
         return WorkspaceDocumentSnapshot(
             record=_record_from_page(snap, from_working_copy=snap.from_working_copy),
             markdown=snap.markdown,
+            page_presentation=snap.presentation,
+            page_presentation_sha256=snap.presentation.fingerprint()
+            if snap.presentation
+            else None,
             content_sha256=snap.content_sha256,
             committed_markdown=snap.committed_revision.markdown
             if snap.committed_revision
@@ -1156,6 +1178,7 @@ def discard_workspace_document(
     document_id: str,
     *,
     expected_revision: int | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkspaceDocumentRecord:
     from application_state.content import pages
     from application_state.errors import ApplicationStateError
@@ -1173,6 +1196,7 @@ def discard_workspace_document(
                 expected_revision=expected_revision
                 if expected_revision is not None
                 else state.page.object_revision,
+                authorize_world=authorize_world,
                 **kwargs,
             )
         except ApplicationStateError as exc:
@@ -1202,6 +1226,7 @@ def discard_workspace_document(
             document_id,
             status="discarded",
             expected_revision=expected_revision,
+            authorize_world=authorize_world,
         )
     except ApplicationStateError as exc:
         raise _map_application_state_error(exc) from exc
@@ -1213,6 +1238,7 @@ def restore_workspace_document(
     document_id: str,
     *,
     expected_revision: int | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkspaceDocumentRecord:
     from application_state.content import pages
     from application_state.errors import ApplicationStateError
@@ -1230,6 +1256,7 @@ def restore_workspace_document(
                 expected_revision=expected_revision
                 if expected_revision is not None
                 else state.page.object_revision,
+                authorize_world=authorize_world,
                 **kwargs,
             )
         except ApplicationStateError as exc:
@@ -1259,6 +1286,7 @@ def restore_workspace_document(
             document_id,
             status="active",
             expected_revision=expected_revision,
+            authorize_world=authorize_world,
         )
     except ApplicationStateError as exc:
         raise _map_application_state_error(exc) from exc
@@ -1305,6 +1333,10 @@ def get_committed_page_snapshot(
         revision = snap.revision
         return WorkspaceDocumentSnapshot(
             record=_record_from_page(snap),
+            page_presentation=snap.presentation,
+            page_presentation_sha256=snap.presentation.fingerprint()
+            if snap.presentation
+            else None,
             markdown=revision.markdown if revision else "",
             content_sha256=revision.content_sha256 if revision else sha256_utf8(""),
             committed_markdown=revision.markdown if revision else None,

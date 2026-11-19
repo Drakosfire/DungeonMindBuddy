@@ -238,21 +238,25 @@ def test_actual_authenticated_http_composes_native_context(context, recap_admiss
     import httpx
     from fastapi import FastAPI
     from apps.live_control_server.routes.extract_promote import router
-    from apps.live_control_server.services.agent_graph_auth import (
-        NativeGraphPrincipal, native_graph_gm_dependency,
-    )
+    token = "synthetic-native-ingest-review-operator-token"
+    for key, value in {
+        "DMB_DEPLOYMENT_ENVIRONMENT": "local",
+        "DMB_AUTH_MODE": "local_operator",
+        "DMB_AGENT_GRAPH_AUTH_MODE": "local_operator",
+        "DMB_AGENT_GRAPH_AUTH_ENVIRONMENT": "local",
+        "DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN": token,
+    }.items():
+        monkeypatch.setenv(key, value)
 
     monkeypatch.setattr(source_tests.service, "resolve_native_review_context", native.resolve_native_review_context)
     app = FastAPI()
     app.include_router(router)
-    app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(
-        subject="operator:integration", role="gm", auth_method="local_operator",
-    )
 
     async def exercise():
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
             url = "/api/live/extract-promote/runs/test-run/selection-context"
-            result = await client.post(url, json={**context.body, "inspect_source_support": True})
+            result = await client.post(url, json={**context.body, "inspect_source_support": True},
+                headers={"Authorization": "Bearer " + token})
             assert result.status_code == 200, result.text
             packet = result.json()
             assert packet["schema"] == "dmb_ingest_native_review_context_v2"
@@ -262,9 +266,8 @@ def test_actual_authenticated_http_composes_native_context(context, recap_admiss
             assert {item["evidence_role"] for item in packet["native_context"]["source_evidence"]} == {"support"}
             sha = packet.pop("context_sha256")
             assert sha == source_tests.service._record_hash(packet)
-            app.dependency_overrides.clear()
             monkeypatch.setattr(native, "_repository", lambda: pytest.fail("unauthorized native read"))
-            assert (await client.post(url, json=context.body)).status_code in (401, 503)
+            assert (await client.post(url, json=context.body)).status_code == 401
 
     asyncio.run(exercise())
 

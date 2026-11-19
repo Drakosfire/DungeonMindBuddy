@@ -1,5 +1,11 @@
 # HANDOFF — CUTOVER classify identity lifecycle shadow state after PR #571
 
+Historical payload recovery: the correction paths below refer to the
+[exact package tree at `30008dc4`](https://github.com/Drakosfire/DungeonMindBuddy/tree/30008dc473bd80144a46c035d09b56ad1deb2928/graph_data/approved_graph_corrections).
+Their duplicate checkout copies are retired; use the
+[checksum-verified recovery procedure](../../graph_data/README.md#historical-correction-packages).
+This note preserves historical contracts and grants no new dispatch authority.
+
 **Created:** 2026-08-12  
 **Status:** DONE — merged as PR #575 at `d32c244e8505b2d35d1aa536f6ef6cc097d735ce`; cumulative review cycles = 3  
 **Workstream:** CUTOVER  
@@ -7,6 +13,43 @@
 **Direction:** DESIGN → CODE  
 **Suggested PR title:** `CONFORMANCE: classify identity lifecycle state as migration history`  
 **Suggested branch:** `cutover/classify-identity-lifecycle-history-after-571`
+
+## Historical replay after runtime retirement
+
+Cleanup stewardship retains the sealed #575 fixture as historical evidence and
+retires the checkout wrapper whose service was removed with Buddy's old graph
+engine. This DONE handoff does not activate a current migration capability.
+The [original CLI](https://github.com/Drakosfire/DungeonMindBuddy/blob/d32c244e8505b2d35d1aa536f6ef6cc097d735ce/scripts/build_cutover_identity_lifecycle_history_after_571.py),
+[service](https://github.com/Drakosfire/DungeonMindBuddy/blob/d32c244e8505b2d35d1aa536f6ef6cc097d735ce/apps/live_control_server/services/cutover_identity_lifecycle_history_after_571.py),
+and [replay tests](https://github.com/Drakosfire/DungeonMindBuddy/blob/d32c244e8505b2d35d1aa536f6ef6cc097d735ce/tests/test_cutover_identity_lifecycle_history_after_571.py)
+remain in Git at Buddy `d32c244e8505b2d35d1aa536f6ef6cc097d735ce`, with
+DungeonMind pinned to `be76acc997c5fbcb8ceaa090969ec051afa6051d`.
+
+Keep `tests/fixtures/dungeonmind_kernel/eldyrwild_cutover_identity_lifecycle_history_after_571_v1.json`
+unchanged: its 116,497 bytes still have SHA-256
+`1a2cd8f9c47b223d4623fccbe1c988dd8d3eb1c8796078a32a32720f51ef000b`.
+The later reconstruction passed 21 tests before the locked fixture comparison
+failed: differences were confined to `mutation_proof`, and its before/after
+pairs still matched within the reconstructed World. That is not byte-identical
+recapture. The original World tree has not been recovered; its recorded head
+file checksum is `4c29049bca7e9ebec877293673713b60455ff05f4ef1b8ff61e301c7f1e91f48`.
+Matching that file alone does not establish the remaining tree digests.
+
+If the original inputs are recovered, replay only against a disposable copy in
+an isolated checkout with the historical locked Python 3.13 environment:
+
+```bash
+(
+set -e
+test "$(git rev-parse HEAD)" = d32c244e8505b2d35d1aa536f6ef6cc097d735ce
+: "${RECOVERED_575_WORLD_COPY:?Set this to the recovered disposable World copy}"
+uv run --frozen python scripts/build_cutover_identity_lifecycle_history_after_571.py \
+  verify --root "$RECOVERED_575_WORLD_COPY" --repo "$PWD"
+)
+```
+
+Do not replace the sealed fixture's digests with reconstructed values or treat
+this historical replay as qualification of current DungeonMind authority.
 
 ---
 

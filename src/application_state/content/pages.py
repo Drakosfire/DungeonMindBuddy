@@ -6,6 +6,7 @@ automatic adoption or native source/publication authority is provided here.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from typing import Literal
 from uuid import UUID, uuid4
@@ -18,6 +19,8 @@ from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
 from application_state.content import repository as repo
 from application_state.content import service as content
+from application_state.content import page_presentation as presentation
+from application_state.content.page_presentation import PagePresentation
 from application_state.content.types import (
     AuthoredPageObject,
     WorkRevision,
@@ -48,11 +51,13 @@ class PageState(BaseModel):
 
 
 class CommittedPageSnapshot(PageState):
+    presentation: PagePresentation | None = None
     revision: WorkRevision | None
     working_copy_revision: int | None
 
 
 class PageSnapshot(PageState):
+    presentation: PagePresentation | None = None
     committed_revision: WorkRevision | None
     markdown: str
     content_sha256: str
@@ -110,31 +115,9 @@ def create_page(
         raise ApplicationStateValidationError(
             "connected-page reservation requires its allocated document ID"
         )
-    now = repo.now_utc()
-    page = AuthoredPageObject(
-        work_object_id=ident,
-        world_id=world_id,
-        campaign_id=campaign_id,
-        title=content._require_title(title),
-        object_revision=1,
-        created_at=now,
-        updated_at=now,
-    )
     try:
         with unit_of_work(_dsn()) as conn:
-            repo.insert_work_object(conn, page)
-            conn.execute(
-                """INSERT INTO content.page_metadata
-                (work_object_id,document_class,authority_state,visibility_state,connected_page_operation_id)
-                VALUES (%s,%s,%s,%s,%s)""",
-                (
-                    ident,
-                    metadata.document_class,
-                    metadata.authority_state,
-                    metadata.visibility_state,
-                    metadata.connected_page_operation_id,
-                ),
-            )
+            _insert_page(conn, ident, world_id, title, campaign_id, metadata)
             return _state(conn, str(ident), world_id)
     except psycopg.IntegrityError:
         # Only return the original active allocation. Never rewrite a retried
@@ -155,6 +138,44 @@ def create_page(
         raise ApplicationStateConflictError(
             "authored page identity or reservation is already allocated"
         ) from None
+
+
+
+def _insert_page(conn, ident, world_id, title, campaign_id, metadata):
+    now = repo.now_utc()
+    page = AuthoredPageObject(
+        work_object_id=ident,
+        world_id=world_id,
+        campaign_id=campaign_id,
+        title=content._require_title(title),
+        object_revision=1,
+        created_at=now,
+        updated_at=now,
+    )
+    repo.insert_work_object(conn, page)
+    conn.execute(
+        """INSERT INTO content.page_metadata
+        (work_object_id,document_class,authority_state,visibility_state,connected_page_operation_id)
+        VALUES (%s,%s,%s,%s,%s)""",
+        (
+            ident,
+            metadata.document_class,
+            metadata.authority_state,
+            metadata.visibility_state,
+            metadata.connected_page_operation_id,
+        ),
+    )
+
+
+def create_committed_lore_page(conn, *, world_id: str, title: str, markdown: str):
+    """Create a reviewed page and its first revision inside the caller transaction."""
+    ident = uuid4()
+    metadata = PageMetadata(document_class="lore", authority_state="reviewed")
+    _insert_page(conn, ident, world_id, title, None, metadata)
+    _page, revision = content._commit_in_connection(
+        conn, str(ident), markdown, kind="worldbuilding_source", expected_revision=1,
+    )
+    return _state(conn, str(ident), world_id), revision
 
 
 def list_pages(
@@ -187,6 +208,7 @@ def _editor_snapshot(conn, state: PageState) -> PageSnapshot:
         from_working_copy=working,
         working_copy_revision=copy.working_copy_revision if copy else None,
         committed_revision=committed,
+        presentation=presentation.read(conn, committed),
     )
 
 
@@ -236,6 +258,18 @@ def save_draft(
 ) -> PageState:
     with unit_of_work(_dsn()) as conn:
         state = _state(conn, document_id, world_id, lock=True)
+        if (
+            presentation.read(
+                conn,
+                repo.get_work_revision(conn, state.page.current_revision_id)
+                if state.page.current_revision_id
+                else None,
+            )
+            is not None
+        ):
+            raise ApplicationStateValidationError(
+                "composed Page cannot use Markdown-only working-copy save"
+            )
         _basis(conn, state.page, expected_revision, expected_working_copy_revision)
         content._autosave_in_connection(
             conn,
@@ -254,15 +288,28 @@ def commit_page(
     world_id: str,
     expected_revision: int,
     expected_working_copy_revision: int | None,
+    page_presentation=presentation.UNSET,
+    authorize_world=None,
 ) -> tuple[PageState, WorkRevision]:
     _basis_values(expected_revision, expected_working_copy_revision)
     with unit_of_work(_dsn()) as conn:
         state = _state(conn, document_id, world_id, lock=True)
+        current_revision = (
+            repo.get_work_revision(conn, state.page.current_revision_id)
+            if state.page.current_revision_id
+            else None
+        )
+        current_presentation = presentation.read(conn, current_revision)
+        proposed = presentation.candidate(
+            page_presentation, normalize_markdown(markdown), current_presentation
+        )
+        changed = current_presentation != proposed
         copy = repo.get_working_copy(conn, state.page.work_object_id)
         # An identical immediate retry may recover the shared committed result;
         # any intervening draft/metadata change invalidates this basis.
         replay = (
-            type(expected_revision) is int
+            not changed
+            and type(expected_revision) is int
             and state.page.object_revision == expected_revision + 1
             and copy is not None
             and copy.working_copy_revision == (expected_working_copy_revision or 0) + 1
@@ -271,13 +318,21 @@ def commit_page(
         )
         if not replay:
             _basis(conn, state.page, expected_revision, expected_working_copy_revision)
+        if authorize_world is not None:
+            authorize_world(state.page.world_id)
         _page, revision = content._commit_in_connection(
             conn,
             document_id,
             markdown,
             kind="worldbuilding_source",
             expected_revision=expected_revision,
+            page_presentation_changed=changed,
         )
+        if (
+            current_revision is None
+            or current_revision.work_revision_id != revision.work_revision_id
+        ):
+            presentation.insert(conn, revision, proposed)
         copy = repo.get_working_copy(conn, state.page.work_object_id)
         if copy is not None and copy.content_sha256 != revision.content_sha256:
             # Saving the already committed text explicitly discards a divergent
@@ -300,6 +355,7 @@ def update_page(
     title: str | None = None,
     metadata: PageMetadata | None = None,
     status: Literal["active", "discarded"] | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> PageState:
     with unit_of_work(_dsn()) as conn:
         state = _state(conn, document_id, world_id, lock=True)
@@ -308,6 +364,8 @@ def update_page(
             or state.page.object_revision != expected_revision
         ):
             raise ApplicationStateConflictError("authored page changed")
+        if authorize_world is not None:
+            authorize_world(state.page.world_id)
         updated_meta = (
             state.metadata
             if metadata is None
@@ -386,9 +444,12 @@ def find_page(document_id: str) -> PageState | None:
 
 
 def page_inventory(
-    *, world_id: str | None = None, campaign_id: str | None = None,
+    *,
+    world_id: str | None = None,
+    campaign_id: str | None = None,
     status: str | None = "active",
-    limit: int | None = None, before: tuple[datetime, UUID] | None = None,
+    limit: int | None = None,
+    before: tuple[datetime, UUID] | None = None,
 ) -> list[PageState]:
     """Workspace inventory over the same Page owner; campaign is only a tag."""
     if status not in {None, "active", "discarded"}:
@@ -446,7 +507,11 @@ def page_inventory_campaign_tags(
         raise ApplicationStateValidationError("invalid page status")
     clauses = ["kind = 'worldbuilding_source'", "campaign_id IS NOT NULL"]
     params = []
-    for column, value in (("world_id", world_id), ("campaign_id", campaign_id), ("status", status)):
+    for column, value in (
+        ("world_id", world_id),
+        ("campaign_id", campaign_id),
+        ("status", status),
+    ):
         if value is not None:
             clauses.append(f"{column} = %s")
             params.append(value)
@@ -471,6 +536,7 @@ def _committed_snapshot(conn, state: PageState) -> CommittedPageSnapshot:
     return CommittedPageSnapshot(
         **state.model_dump(),
         revision=revision,
+        presentation=presentation.read(conn, revision),
         working_copy_revision=copy.working_copy_revision if copy else None,
     )
 

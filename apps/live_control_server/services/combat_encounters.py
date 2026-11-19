@@ -20,6 +20,7 @@ from application_state.combat_encounters.types import (
     CreateCombatEncounterRequest,
     SaveCombatEncounterRequest,
 )
+from application_state.combat_encounters.manual_encounters import (AnyCombatRecord, AnyCreateEncounterRequest, AnySaveEncounterRequest, ManualEncounterRecord)
 from application_state.errors import (
     ApplicationStateConflictError,
     ApplicationStateValidationError,
@@ -31,25 +32,25 @@ from apps.live_control_server.services.statblock_view import (
 )
 
 
-def list_world_combat_encounters(*, world_id: str) -> list[CombatEncounterRecord]:
+def list_world_combat_encounters(*, world_id: str) -> list[AnyCombatRecord]:
     return encounter_state.list_encounters(world_id=world_id)
 
 
 def create_world_combat_encounter(
-    *, world_id: str, request: CreateCombatEncounterRequest
-) -> CombatEncounterRecord:
+    *, world_id: str, request: AnyCreateEncounterRequest
+) -> AnyCombatRecord:
     return encounter_state.create_encounter(world_id=world_id, request=request)
 
 
 def get_world_combat_encounter(
     *, world_id: str, encounter_id: str, scope=None
-) -> CombatEncounterRecord:
+) -> AnyCombatRecord:
     return encounter_state.get_encounter(world_id=world_id, encounter_id=encounter_id, scope=scope)
 
 
 def save_world_combat_encounter(
-    *, world_id: str, encounter_id: str, request: SaveCombatEncounterRequest, scope=None
-) -> CombatEncounterRecord:
+    *, world_id: str, encounter_id: str, request: AnySaveEncounterRequest, scope=None, authorize=None
+) -> AnyCombatRecord:
     before = get_world_combat_encounter(world_id=world_id, encounter_id=encounter_id, scope=scope)
     if before.revision != request.expected_revision:
         raise ApplicationStateConflictError("Combat encounter changed since it was opened; reload before saving")
@@ -61,6 +62,7 @@ def save_world_combat_encounter(
     association_records = None
     from application_state.combat_encounters.types import (
         AcceptedCombatMechanicsSelection, AcceptedCombatMechanicsSnapshot, CombatMechanicsSnapshot,
+        ConversationVariantCombatSelection, ConversationVariantCombatSnapshot,
     )
     from apps.live_control_server.services import combat_mechanics
     # Read each distinct exact source once, before the final store lock. The
@@ -72,6 +74,7 @@ def save_world_combat_encounter(
         world_id=world_id, selection=AcceptedCombatMechanicsSelection(draft_id=key[0], draft_version=key[1]))
         for key in sorted(direct_selections)}
     direct_snapshots = {key: result[1] for key, result in prepared.items()}
+    variant_snapshots = {}
     for entity in request.draft.entities:
         identity = entity.world_identity
         if entity.id in prior_ids:
@@ -81,6 +84,19 @@ def save_world_combat_encounter(
             expected = direct_snapshots[(str(snapshot.draft_id), snapshot.draft_version)]
             if snapshot != expected:
                 raise ApplicationStateValidationError("Combat mechanics snapshot differs from verified accepted resource")
+            verified_snapshots[entity.id] = expected
+        if isinstance(entity.mechanics_snapshot, ConversationVariantCombatSnapshot):
+            snapshot = entity.mechanics_snapshot
+            selection = ConversationVariantCombatSelection(
+                conversation_id=snapshot.conversation_id, turn_id=snapshot.turn_id, review_id=snapshot.review_id,
+            )
+            if selection not in variant_snapshots:
+                variant_snapshots[selection] = combat_mechanics.preview_conversation_variant(
+                    world_id=world_id, selection=selection,
+                )
+            expected = variant_snapshots[selection]
+            if snapshot != expected:
+                raise ApplicationStateValidationError("Combat variant differs from its exact saved revision")
             verified_snapshots[entity.id] = expected
         if identity is None:
             continue
@@ -118,8 +134,9 @@ def save_world_combat_encounter(
     with combat_mechanics.accepted_drafts_guard([result[0] for result in prepared.values()]):
         return encounter_state.save_encounter(
             world_id=world_id, encounter_id=encounter_id,
-            request=SaveCombatEncounterRequest(expected_revision=request.expected_revision, draft=verified_draft),
+            request=type(request)(expected_revision=request.expected_revision, draft=verified_draft),
             verified_world_identities=verified, verified_mechanics_snapshots=verified_snapshots, scope=scope,
+            **({"authorize": authorize} if authorize is not None else {}),
         )
 
 
@@ -131,6 +148,8 @@ def add_generated_statblock_to_world_combat_encounter(
     request: AddGeneratedStatblockRequest,
 ) -> AddGeneratedStatblockResponse:
     encounter = get_world_combat_encounter(world_id=world_id, encounter_id=encounter_id)
+    if isinstance(encounter, ManualEncounterRecord):
+        raise ApplicationStateValidationError("Generated AC/HP import is unavailable for manual profiles; attach exact source instead")
     if encounter.revision != request.expected_revision:
         raise ApplicationStateConflictError(
             "Combat encounter changed since it was selected; reload before adding a statblock"

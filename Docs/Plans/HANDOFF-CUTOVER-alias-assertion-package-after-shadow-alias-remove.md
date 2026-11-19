@@ -28,6 +28,8 @@ pr_body_template: |
 
 # HANDOFF — seal Captain and Thrin alias assertion package
 
+> Run the [historical builder](https://github.com/Drakosfire/DungeonMindBuddy/blob/cc5dc6ddba0750924a46cf13843498c124937e5f/scripts/build_cutover_alias_assertion_package_after_shadow_alias_remove.py) from its pinned checkout. [Replay inputs and verification](https://github.com/Drakosfire/DungeonMindBuddy/issues/3554).
+
 **Created:** 2026-08-14
 **Status:** DONE / HISTORICAL — implemented by PR #587. Do not redispatch.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-alias-assertion-package-after-shadow-alias-remove.md`

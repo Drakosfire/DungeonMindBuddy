@@ -1,0 +1,11 @@
+# BUILD · Skip optional saved-page acquisition for anchored conversation drafts
+
+Pending a bounded stacked slice after #3973 at a7c0e941d. The target is the first Build acquisition wave only. The pinned rehearsal shows that both optional page reads preceded the first native retrieval authorization. A later driver restriction could not prevent either read. The controller had already classified the turn as an anchored conversation draft and the current draft was durably captured.
+
+Apply the admitted anchored scope and captured current draft at the initial related-page choice writer, its acquisition caller, and the application-state projection together. Avoid recording optional related-page votes if the anchored draft excludes them, matching the existing anchored discussion ownership. Avoid adding a second decision ledger. A request that asks to look up sources, one with uncertain scope, or one without a current draft must continue to handle the existing page-selection proof. Preserve retained completed turns that have an admitted page selection and its exact reads. Keep the separate, exact saved statblock acquisition and citation checks.
+
+Validate through the ordinary native Build route with an injected positive related-page vote and no opener call for anchored drafting. Control cases must still read and cite the exact page for source lookup and keep draft-less behavior. Verify retained prior projections that include admitted reads. Then compare ordinary Turn 5 source coverage, typed draft and read counts against this rehearsal. Use Project-local artifacts and disposable clones. Keep the writer frozen for this change, including its schema and deadline.
+
+A second, separate retrieval boundary owns repeated exact mechanics and PDF materialization. The current driver already carries the verified locator. Any reuse of the actual definition or PDF support must prove the live managed World/binding, current Graph pin, current association, complete exact crop authority, and content identity before it can replace an open. Carry the two completed byte-identical rereads as evidence for that work.
+
+Active write set: this handoff, build_related_pages.py in application_state, BuildJevDriver and BuildJevHarness, and the ordinary Build route fixture. This work is stacked above #3973, which settles first.

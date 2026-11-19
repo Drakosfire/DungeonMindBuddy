@@ -563,7 +563,8 @@ describe("NativeGraphDemo", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Exit focus" })).not.toBeInTheDocument());
     expect(scene.getAttribute("transform")).toBe(overviewBeforeFocus);
 
-    await user.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(screen.queryByRole("button", { name: "Zoom in" })).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("group", { name: /world graph/i }), { key: "+" });
     const cameraBeforeSecondFocus = scene.getAttribute("transform");
     await user.click(screen.getByRole("button", { name: /Mara, npc/i }));
     expect(screen.getByRole("heading", { name: "Connections in this loaded snapshot" })).toBeInTheDocument();
@@ -612,7 +613,7 @@ describe("NativeGraphDemo", () => {
     expect(navbar.getByText("Partial native read")).toBeInTheDocument();
     expect(navbar.getByText("2/3 objects shown · 1 relationships")).toBeInTheDocument();
     expect(document.querySelector(".native-demo-graph-meta")).toBeNull();
-    expect(document.querySelector(".native-demo-completeness")).toBeNull();
+    expect(document.querySelector(".native-demo-completeness")).toBeInTheDocument();
     await user.click(navbar.getByRole("button", { name: "Partial native read" }));
     expect(screen.getByText(/2 entities omitted, 0 unexamined; 1 assertions omitted, 0 unexamined/)).toBeInTheDocument();
     expect(screen.getAllByText("Some entities have no usable name").length).toBeGreaterThan(0);
@@ -798,7 +799,79 @@ describe("NativeGraphDemo", () => {
     await waitFor(() => expect(JSON.parse(sessionStorage.getItem(keyFor("managed:world-a")) ?? "null").pending.operation_id).toBe(operationA));
   });
 
-  it("reveals the committed Event while the overview hides Events", async () => {
+  it("scopes sidebar chronology to the selected node and follows selection changes", async () => {
+    const linked = { id: "entity:arrival", name: "Mara arrives", kind: "event" };
+    const unrelated = { id: "entity:departure", name: "Tomas departs", kind: "event" };
+    const isolated = { id: "entity:unplaced", name: "Unlinked Event", kind: "event" };
+    const player = { id: "entity:player", name: "Iona", kind: "pc" };
+    const snapshot = {
+      ...graph,
+      nodes: [...graph.nodes, linked, unrelated, isolated, player],
+      edges: [...graph.edges,
+        { id: "player-arrival", source_id: player.id, target_id: linked.id, predicate: "participates_in" },
+        { id: "arrival", source_id: "entity:mara", target_id: linked.id, predicate: "participates_in" },
+        { id: "departure", source_id: "entity:tomas", target_id: unrelated.id, predicate: "participates_in" }],
+    };
+    const user = userEvent.setup();
+    const readGraph = vi.fn().mockResolvedValue(snapshot);
+    const readChronology = vi.fn().mockResolvedValue({ assertions: [], completeness: { status: "complete" } });
+    renderEmbeddedDemo({ mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:chronology", api: makeApi({
+      readGraph, readChronology,
+    }) });
+    const switcher = await screen.findByRole("navigation", { name: "Graph sidebar" });
+    await user.click(within(switcher).getByRole("button", { name: "Chronology" }));
+    const chronology = within(screen.getByRole("complementary", { name: "Chronology" }));
+    expect(chronology.getByRole("heading", { name: "World chronology · Elderwyld" })).toBeInTheDocument();
+    expect(await chronology.findByRole("button", { name: unrelated.name })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Mara, npc" }));
+    expect(chronology.getByRole("heading", { name: "Chronology · Mara" })).toBeInTheDocument();
+    expect(chronology.getByRole("button", { name: linked.name })).toBeInTheDocument();
+    expect(chronology.queryByRole("button", { name: unrelated.name })).not.toBeInTheDocument();
+
+    const canvas = screen.getByRole("group", { name: "DungeonMind native graph world graph" });
+    const layouts = within(screen.getByRole("group", { name: "Graph layout" }));
+    for (const name of ["Line", "Spiral", "Graph"]) {
+      const button = layouts.getByRole("button", { name });
+      await user.click(button);
+      expect(button).toHaveAttribute("aria-pressed", "true");
+      if (name !== "Graph") {
+        expect(within(canvas).getByRole("button", { name: "Unlinked Event, event" })).toBeInTheDocument();
+      }
+      expect(screen.getByRole("group", { name: "DungeonMind native graph world graph" })).toBe(canvas);
+      expect(chronology.getByRole("heading", { name: "Chronology · Mara" })).toBeInTheDocument();
+    }
+    expect(readGraph).toHaveBeenCalledTimes(1);
+    expect(readChronology).toHaveBeenCalledTimes(1);
+
+    await user.click(layouts.getByRole("button", { name: "Spiral" }));
+    const scene = within(canvas).getByTestId("graph-scene");
+    const previousCamera = scene.getAttribute("transform");
+    await user.click(chronology.getByRole("button", { name: linked.name }));
+    expect(scene.getAttribute("transform")).not.toBe(previousCamera);
+    expect(chronology.getByRole("heading", { name: "Chronology · Mara" })).toBeInTheDocument();
+    expect(within(canvas).getByRole("button", { name: "Mara, npc" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Object types" }));
+    const types = within(screen.getByRole("group", { name: "Visible object types" }));
+    await user.click(types.getByRole("checkbox", { name: "pc" }));
+    await user.click(types.getByRole("checkbox", { name: "npc" }));
+    expect(within(canvas).getByRole("button", { name: "Mara, npc" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(canvas).queryByRole("button", { name: "Tomas, npc" })).not.toBeInTheDocument();
+    expect(within(canvas).queryByRole("button", { name: "Iona, pc" })).not.toBeInTheDocument();
+    await user.click(types.getByRole("checkbox", { name: "pc" }));
+    expect(within(canvas).getByRole("button", { name: "Iona, pc" })).toBeInTheDocument();
+    expect(within(canvas).queryByRole("button", { name: "Tomas, npc" })).not.toBeInTheDocument();
+    await user.click(types.getByRole("checkbox", { name: "npc" }));
+    await user.keyboard("{Escape}");
+    expect(readGraph).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole("button", { name: "Tomas, npc" }));
+    expect(chronology.getByRole("heading", { name: "Chronology · Tomas" })).toBeInTheDocument();
+    expect(chronology.getByRole("button", { name: unrelated.name })).toBeInTheDocument();
+    expect(chronology.queryByRole("button", { name: linked.name })).not.toBeInTheDocument();
+  });
+
+  it("reveals the committed Event in the overview", async () => {
     const user = userEvent.setup();
     const initial: NativeGraph = {
       ...graph,
@@ -814,7 +887,8 @@ describe("NativeGraphDemo", () => {
         graph: { ...initial, revision_id: "revision-002", nodes: [...initial.nodes, event] },
       }),
     }) });
-    await user.click(await screen.findByRole("button", { name: /Hide Events in overview/ }));
+    await screen.findByRole("navigation", { name: "Graph sidebar" });
+    expect(screen.queryByRole("button", { name: /Hide Events in overview/ })).not.toBeInTheDocument();
     await user.click(graphAction("Place node"));
     await user.click(within(screen.getByTestId("node-palette")).getByRole("button", { name: "Event" }));
     await user.type(screen.getByLabelText("Name"), event.name);

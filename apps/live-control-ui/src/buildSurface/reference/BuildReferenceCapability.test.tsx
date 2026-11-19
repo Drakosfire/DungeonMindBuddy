@@ -1,15 +1,14 @@
+import { PAGE_COMPOSER_EXTENSIONS } from '../../tiptap/pageComposer/PageRow';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Editor } from '@tiptap/core';
 import { EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
+import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../../tiptap/MarkdownEditorCore';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { AgentInteractionProvider, useAgentInteraction } from '../../agentInteraction/AgentInteractionProvider';
 import * as api from '../../api/liveApi';
 import type { NativeGraphCatalog } from '../../api/nativeGraphInspection';
 import type { MarkdownCanvasSessionValue } from '../../markdownCanvas/MarkdownCanvasSession';
 import type { SurfaceInteractionPublication } from '../../surfaceInteraction/types';
-import { RunbookReferenceNode } from '../../tiptap/extensions/RunbookReferenceNode';
-import { GraphNodeReferenceNode } from '../../tiptap/extensions/GraphNodeReferenceNode';
 import { exportMarkdownWithAdapter, importMarkdownWithAdapter } from '../../tiptap/MarkdownDocumentAdapter';
 import { useGraphNodeChipRuntime, __resetGraphNodeChipRuntimeForTests } from '../../graphReference/GraphNodeChipRuntime';
 import { BuildReferenceCapability } from './BuildReferenceCapability';
@@ -32,7 +31,7 @@ vi.mock('../../api/liveApi', async (original) => ({ ...await original<typeof imp
 const pin = { managed_world_id: 'w', native_world_id: 'native-w', binding_version: 3, revision_id: 'rev-native', scope_mode: 'world' as const, campaign_id: null };
 const catalog: NativeGraphCatalog = { schema: 'dmb_native_graph_catalog_v1', scope: pin, catalogue: { identity: { space_id: 'native-w', revision_id: 'rev-native' }, entities: [{ entity_id: 'ent:fellinor' }], admitted_assertion_ids: [], completeness: { status: 'complete', reason: null }, request_sha256: 'request', result_digest: 'digest' }, assertions: [] };
 function makeEditor(content: unknown = { type: 'doc', content: [{ type: 'paragraph' }] }) {
-    const editor = new Editor({ extensions: [StarterKit, RunbookReferenceNode, GraphNodeReferenceNode], content: content as never });
+    const editor = new Editor({ extensions: [...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, ...PAGE_COMPOSER_EXTENSIONS], content: content as never });
     editors.push(editor);
     return editor;
 }
@@ -153,4 +152,56 @@ it('opens existing dmb-node links without changing their persisted identity', as
     fireEvent.click(await screen.findByRole('button', { name: 'Fellinor', exact: true }));
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
     expect(exportMarkdownWithAdapter(current.editor!.getJSON())).toContain('dmb-node:ent:fellinor');
+});
+
+function layoutCommand(id = 'row-2') { return publication!.editCommands.find(command => command.id === `build-layout-${id}`)!; }
+function layoutSession() {
+    const content = { type: 'doc', content: ['First', 'Second', 'Third'].map(text => ({ type: 'paragraph', content: [{ type: 'text', text }] })) };
+    return { ...session('doc-a', null, makeEditor(content)), pageComposerEnabled: true };
+}
+it('publishes layout discovery through shared Edit without requiring a managed World', async () => {
+    current = layoutSession(); render(<Harness />);
+    expect(layoutCommand().availability.status).toBe('enabled');
+    await act(async () => { await layoutCommand().invoke(); });
+    expect(current.editor!.state.doc.firstChild?.type.name).toBe('pageRow');
+    expect(layoutCommand().availability.status).toBe('disabled');
+    act(() => { current.editor!.commands.undo(); });
+    expect(current.editor!.state.doc.firstChild?.type.name).toBe('paragraph');
+});
+it('rejects retained layout callbacks after editor replacement, conflict, read-only and unmount', async () => {
+    current = layoutSession(); const view = render(<Harness />);
+    const oldEditor = current.editor!, retained = layoutCommand().invoke;
+    current = layoutSession(); view.rerender(<Harness />);
+    await act(async () => { await retained(); });
+    expect(oldEditor.state.doc.firstChild?.type.name).toBe('paragraph');
+    const next = layoutCommand().invoke;
+    current = { ...current, phase: 'conflict' }; view.rerender(<Harness />);
+    await act(async () => { await next(); });
+    expect(current.editor!.state.doc.firstChild?.type.name).toBe('paragraph');
+    current = { ...current, phase: 'ready_clean' }; view.rerender(<Harness />);
+    const readonly = layoutCommand().invoke;
+    act(() => current.editor!.setEditable(false));
+    await act(async () => { await readonly(); });
+    expect(current.editor!.state.doc.firstChild?.type.name).toBe('paragraph');
+    act(() => current.editor!.setEditable(true));
+    const unmounted = layoutCommand().invoke; view.unmount();
+    await act(async () => { await unmounted(); });
+    expect(current.editor!.state.doc.firstChild?.type.name).toBe('paragraph');
+});
+it('rechecks the current block instead of acting on a stale eligible selection', async () => {
+    current = layoutSession(); render(<Harness />); const retained = layoutCommand().invoke;
+    act(() => current.editor!.commands.setTextSelection(current.editor!.state.doc.content.size - 1));
+    await act(async () => { await retained(); });
+    expect(current.editor!.state.doc.firstChild?.type.name).toBe('paragraph');
+});
+
+it('updates shared Edit availability across silent editability changes without document writes', () => {
+    current = layoutSession(); current.editor!.setEditable(false, false); render(<Harness />);
+    const before = current.editor!.getJSON(), transaction = vi.fn(); current.editor!.on('transaction', transaction);
+    expect(layoutCommand().availability.status).toBe('disabled');
+    act(() => current.editor!.setEditable(true, false));
+    expect(layoutCommand().availability.status).toBe('enabled');
+    act(() => current.editor!.setEditable(false, false));
+    expect(layoutCommand().availability.status).toBe('disabled');
+    expect(transaction).not.toHaveBeenCalled(); expect(current.editor!.getJSON()).toEqual(before);
 });

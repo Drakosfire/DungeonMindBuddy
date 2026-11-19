@@ -41,6 +41,7 @@ export interface BuildSurfaceInteractionPublicationInput {
   acceptedDocument: { documentId: string; worldId: string | null } | null;
   referenceContext: BuildReferenceContextBinding | null;
   documentSave?: BuildDocumentSavePublication | null;
+  layoutActions?: readonly { id: string; label: string; enabled: boolean; invoke: () => void }[];
 }
 
 function buildBuildIdentity(documentId: string | null) {
@@ -100,7 +101,7 @@ function buildDocumentSaveCommand(
 export function buildBuildSurfaceInteractionPublication(
   input: BuildSurfaceInteractionPublicationInput,
 ): SurfaceInteractionPublication {
-  const { documentId, acceptedDocument, referenceContext, documentSave = null } = input;
+  const { documentId, acceptedDocument, referenceContext, documentSave = null, layoutActions = [] } = input;
 
   if (!isAcceptedDocument(documentId, acceptedDocument)) {
     return buildDocumentIndependentPublication(documentId);
@@ -111,6 +112,12 @@ export function buildBuildSurfaceInteractionPublication(
     ? [buildDocumentSaveCommand(admittedDocumentId, documentSave)]
     : [];
 
+  editCommands.push(...layoutActions.map((action, itemOrder): SurfaceInteractionEditCommandContribution => ({
+    id: `build-layout-${action.id}`, label: action.label, eyebrow: 'Layout',
+    placement: { groupId: 'build-layout', groupLabel: 'Page layout', groupOrder: 10, itemOrder },
+    availability: action.enabled ? { status: 'enabled' } : { status: 'disabled', disabledReason: 'Select an eligible block in an editable document.' },
+    target: { kind: 'document', id: admittedDocumentId }, invoke: action.invoke,
+  })));
   return {
     surfaceId: BUILD_SURFACE_ID,
     label: BUILD_SURFACE_LABEL,

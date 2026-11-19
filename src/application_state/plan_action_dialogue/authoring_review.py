@@ -299,7 +299,7 @@ def _persist_review(conn, action, review, *, expected_revision):
     )
 
 
-def execute_review_command(world_id, action_id, command):
+def execute_review_command(world_id, action_id, command, *, authorize_world=None):
     """One explicit review command, action-locked and fenced by revision/identity.
 
     Prepare seals the complete after-copy before editor mutation. Confirm saves
@@ -320,6 +320,8 @@ def execute_review_command(world_id, action_id, command):
         if review is not None and review.last_command_id == command.command_id:
             if review.last_command_sha256 != command_sha:
                 raise ApplicationStateConflictError("The Plan review command identity was reused")
+            if authorize_world is not None:
+                authorize_world()
             return review
         revision = review.revision if review is not None else 0
         if command.expected_revision != revision:
@@ -351,6 +353,8 @@ def execute_review_command(world_id, action_id, command):
                 if (current.work_revision_id != application.base_work_revision_id
                     or current.revision_n != application.base_revision_n):
                     raise ApplicationStateConflictError("The Plan application base changed")
+                if authorize_world is not None:
+                    authorize_world()
                 saved, saved_revision = commit_plan_in_connection(
                     conn, application.capture.document_id, application.after_markdown,
                     expected_revision=application.capture.base_revision,
@@ -437,4 +441,6 @@ def execute_review_command(world_id, action_id, command):
             candidate = PlanAuthoringReviewV1.model_validate(
                 review.model_dump(mode="python", by_alias=True) | updates
             )
+        if authorize_world is not None:
+            authorize_world()
         return _persist_review(conn, action, candidate, expected_revision=revision)

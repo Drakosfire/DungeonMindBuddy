@@ -66,7 +66,7 @@ def list_current(*, world_id: str) -> list[WorldMechanicsAssociation]:
 
 
 def append_verified(*, request: AssociateWorldMechanicsRequest, proof: SavedMechanicsProof,
-                    actor: str) -> AssociateWorldMechanicsResponse:
+                    actor: str, authorize=None) -> AssociateWorldMechanicsResponse:
     if not isinstance(request, AssociateWorldMechanicsRequest) or not isinstance(proof, SavedMechanicsProof):
         raise ApplicationStateIntegrityError("Only explicitly selected saved revisions can be associated")
     world = request.target.managed_world_id
@@ -77,6 +77,8 @@ def append_verified(*, request: AssociateWorldMechanicsRequest, proof: SavedMech
             conn.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))", (key,))
         existing = _replay(conn, world, request)
         if existing is not None:
+            if authorize is not None:
+                authorize()
             return AssociateWorldMechanicsResponse(association=existing, replayed=True)
         previous = _load(conn.execute(
             "SELECT payload FROM world_mechanics.association WHERE world_id=%s AND node_id=%s "
@@ -90,6 +92,8 @@ def append_verified(*, request: AssociateWorldMechanicsRequest, proof: SavedMech
             previous_association_id=previous.association_id if previous else None,
             proof=proof, actor=actor, created_at=datetime.now(UTC),
         )
+        if authorize is not None:
+            authorize()
         conn.execute(
             "INSERT INTO world_mechanics.association "
             "(association_id,world_id,node_id,version,request_id,previous_association_id,payload) "

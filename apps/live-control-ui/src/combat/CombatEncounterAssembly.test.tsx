@@ -197,3 +197,23 @@ it('ignores the old World read when a host changes its World without unmounting'
   expect(screen.queryByRole('list',{name:'World creatures'})).toBeNull();
   expect(screen.getByRole('button',{name:'Find World creatures'})).toBeEnabled();
 });
+
+it('loads the linked variant only on request and adds its exact snapshot', async () => {
+  const variant = {worldId:'elderwyld', conversationId:'conversation', turnId:'turn', reviewId:'review'};
+  const selection = {conversation_id:'conversation', turn_id:'turn', review_id:'review'};
+  const snapshot = {
+    origin:'conversation_variant_mechanics_v1', managed_world_id:'elderwyld', ...selection,
+    resource:{definition:{identity:{name:'Saved variant'}}},
+  } as unknown as import('./combatTypes').ConversationVariantCombatSnapshot;
+  const preview = vi.spyOn(mechanicsApi, 'previewConversationVariantMechanics').mockResolvedValue(snapshot);
+  const onAdd = vi.fn();
+  render(<CombatEncounterAssembly worldId="elderwyld" variant={variant}
+    disabled={false} remainingSlots={10} onAdd={onAdd}/>);
+  expect(preview).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText('Add combatants'));
+  await userEvent.click(screen.getByRole('button', {name:'Load saved statblock variant'}));
+  await screen.findByDisplayValue('Saved variant');
+  await userEvent.click(screen.getByRole('button', {name:'Add to encounter draft'}));
+  expect(preview).toHaveBeenCalledExactlyOnceWith('elderwyld', selection);
+  expect(onAdd.mock.calls[0][0][0]).toMatchObject({world_identity:null, mechanics_snapshot:snapshot});
+});

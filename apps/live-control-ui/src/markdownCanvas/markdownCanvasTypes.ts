@@ -113,6 +113,8 @@ export interface MarkdownCanvasSessionValue extends CanvasDocumentState {
   documentKey: string;
   /** True while Save requires re-import/discard of a sealed source projection. */
   exportedMarkdownAuthoritative: boolean;
+  pageComposerEnabled?: boolean;
+  pageComposerDisabledReason?: string | null;
   saveDisabled: boolean;
   saveDisabledReason: string | null;
   conflictRecovery?: WorkspaceConflictRecovery;

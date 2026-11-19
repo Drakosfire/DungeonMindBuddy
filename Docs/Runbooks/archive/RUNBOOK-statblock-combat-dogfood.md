@@ -4,6 +4,10 @@
 > [local Play runbook](../RUNBOOK-local-play-dogfood.md). For World-owned encounter
 > checks, use the [Combat Tracker smoke](../../../apps/live-control-ui/README.md#combat-tracker).
 > The reset steps describe the old session-file workflow.
+> Checker commands below refer to the retired
+> [historical checker](https://github.com/Drakosfire/DungeonMindBuddy/blob/7437655daa637def7948226af76169faed76d82b/scripts/live_dogfood_check.py).
+> The [procedure at that snapshot](https://github.com/Drakosfire/DungeonMindBuddy/blob/7437655daa637def7948226af76169faed76d82b/Docs/Runbooks/archive/RUNBOOK-statblock-combat-dogfood.md)
+> preserves the original command context; it is not current setup guidance.
 
 ## Purpose
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -47,7 +48,8 @@ def _fingerprint(request: dict, receipt: PlayRunTurnContextReceiptV2) -> str:
 
 class PlaySceneEditProposalService:
     def reserve(self, *, world_id: str, run_id: UUID, proposal_id: UUID, request: dict,
-                context_receipt: PlayRunTurnContextReceiptV2) -> tuple[SceneEditProposalRecord, bool]:
+                context_receipt: PlayRunTurnContextReceiptV2,
+                authorize_world: Callable[[], object] | None = None) -> tuple[SceneEditProposalRecord, bool]:
         world = _world(world_id)
         if context_receipt.world_id != world or context_receipt.run_id != str(run_id):
             raise ApplicationStateValidationError("context receipt World/Run does not match reservation")
@@ -104,6 +106,8 @@ class PlaySceneEditProposalService:
                 )
             if not matches_edition:
                 raise ApplicationStateConflictError("saved Play edition changed before proposal reservation")
+            if authorize_world is not None:
+                authorize_world()
             conn.execute("INSERT INTO play.scene_edit_proposal(world_id,run_id,proposal_id,request_sha256,request,context_receipt,status,result,failure_code,created_at,updated_at) VALUES(%s,%s,%s,%s,%s,%s,'pending',NULL,NULL,%s,%s)",
                 (world, run_id, proposal_id, fingerprint, Jsonb(request), Jsonb(context_receipt.model_dump(mode="json", by_alias=True)), now, now))
             return candidate, True

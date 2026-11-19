@@ -2,9 +2,10 @@ import { nativeRetrievalActivity } from './nativeRetrievalActivity'
 import './BuddyEvidence.css'
 import './BuddyContextTrace.css'
 import { useState } from 'react'
-import { CapturedPrompt } from './BuddyPromptInspector'
+import { BuddyPromptInspector, CapturedPrompt } from './BuddyPromptInspector'
 import { traceCostEstimate } from './traceCostEstimate'
 import { authoredTraceLabel, buddyTraceText, traceSnapshotLabel } from './buddyTraceText'
+import { BuddyRetrievalReplay, replaySteps } from './BuddyRetrievalReplay'
 import { BuddyHistoricalSourcePassage } from './BuddyHistoricalSourcePassage'
 import type { BuddyTraceMaterial, BuddyTraceObservation, BuddyTraceSourcePassage, BuddyTracePromptReference, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 export type { BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
@@ -184,7 +185,19 @@ function CopyTrace({ trace }: { trace: BuddyTurnContextTrace }) {
     <span role="status">{status === 'copied' ? 'Trace copied.' : status === 'failed' ? 'Couldn’t copy the trace. Try again or allow clipboard access.' : ''}</span></div>
 }
 
-export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnContextTrace | null; ownerActive: boolean }) {
+function RetrievalReplayDetails({ trace, initialOpen }: { trace: BuddyTurnContextTrace; initialOpen: boolean }) {
+  const steps = replaySteps(trace)
+  const [replayOpen, setReplayOpen] = useState(initialOpen)
+  if (!steps.length) return null
+  return <details open={replayOpen} onToggle={event => setReplayOpen(event.currentTarget.open)}>
+    <summary>Replay retrieval</summary>
+    {replayOpen && <BuddyRetrievalReplay key={`${trace.trace_id}:${trace.attempt}`}
+      trace={trace} steps={steps} />}
+  </details>
+}
+
+export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: { trace: BuddyTurnContextTrace | null; ownerActive: boolean; replyDetails?: boolean }) {
+  const [promptOpen, setPromptOpen] = useState(false)
   if (!trace) return <p className="buddy-context-trace__muted">No execution trace was captured for this turn.</p>
   const failed = trace.terminal_status === 'failed' || trace.terminal_status === 'interrupted'
   const failures = trace.observations.filter((event): event is Extract<BuddyTraceObservation, {kind: 'failure'}> => event.kind === 'failure' && event.phase !== 'trace_capture')
@@ -192,10 +205,23 @@ export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnCont
   const rows = traceRows(trace.observations)
   const last = trace.observations.at(-1)
   const passages = trace.observations.filter((event): event is BuddyTraceSourcePassage => event.kind === 'source_passage' || event.kind === 'source_passage_reuse')
-  return <section className="buddy-context-trace" aria-label="Buddy context trace">
-    <header><div><h4>{failed ? 'Reply error report' : 'How Buddy built this reply'}</h4><p>Observable execution · attempt {trace.attempt}</p></div>
-      <CopyTrace key={`${trace.trace_id}:${trace.attempt}:${trace.observations.length}:${trace.closed_at}`} trace={trace} />
+  const copy = <CopyTrace key={`${trace.trace_id}:${trace.attempt}:${trace.observations.length}:${trace.closed_at}`} trace={trace} />
+  const diagnostics = <details onToggle={event => setPromptOpen(event.currentTarget.open)}>
+    <summary>The Prompt</summary>
+    {promptOpen && <BuddyPromptInspector trace={trace} />}
+  </details>
+  const timeline = <details open={!replyDetails}><summary>Execution timeline</summary><ol>{rows.map(({ event, observations }) => <li key={event.sequence}>
+      <span className="buddy-context-trace__time">{(event.elapsed_ms / 1000).toFixed(1)}s</span>
+      <div><Event event={event} passages={passages} trace={trace} />
+        {observations.length > 1 && <><p className="buddy-context-trace__muted">Same provider call · usage updated at {(observations.at(-1)!.elapsed_ms / 1000).toFixed(1)}s</p>
+          <JsonDetails label="Call lifecycle and usage updates" value={observations} /></>}
+      </div></li>)}</ol></details>
+  const traceHeader = <header><div><h4>{failed ? 'Reply error report' : 'How Buddy built this reply'}</h4><p>Observable execution · attempt {trace.attempt}</p></div>
+      {!replyDetails && copy}
       <span>{trace.capture_status === 'incomplete' || (!ownerActive && !trace.closed_at) ? 'Incomplete capture' : trace.closed_at ? 'Captured' : 'In progress'}{last ? ` · Trace window ${(last.elapsed_ms / 1000).toFixed(1)}s` : ''}</span></header>
+  return <section className="buddy-context-trace" aria-label="Buddy context trace">
+    {replyDetails && <RetrievalReplayDetails trace={trace} initialOpen />}
+    {!replyDetails && traceHeader}
     {failed && <section role="alert" className="buddy-context-trace__error-report" aria-label="Reply failure">
       <h5>This attempt stopped before completing a reply.</h5>
       {failure ? <><p>{failure.code === 'build_source_name_missing' ? 'A retrieved passage has no verified source name. Buddy stopped while assembling source context.' : 'Recorded failure:'} <code>{failure.code}</code></p><p>Stage: {failure.stage ?? failure.phase}</p>
@@ -206,11 +232,7 @@ export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnCont
       <p>Trace capture status is separate from whether the reply succeeded.</p>
     </section>}
     {trace.capture_status === 'incomplete' && <p role="alert" className="buddy-context-trace__failure">Some execution evidence is missing. {trace.capture_failure_code}</p>}
-    <details open><summary>Execution timeline</summary><ol>{rows.map(({ event, observations }) => <li key={event.sequence}>
-      <span className="buddy-context-trace__time">{(event.elapsed_ms / 1000).toFixed(1)}s</span>
-      <div><Event event={event} passages={passages} trace={trace} />
-        {observations.length > 1 && <><p className="buddy-context-trace__muted">Same provider call · usage updated at {(observations.at(-1)!.elapsed_ms / 1000).toFixed(1)}s</p>
-          <JsonDetails label="Call lifecycle and usage updates" value={observations} /></>}
-      </div></li>)}</ol></details>
+    {!replyDetails && <RetrievalReplayDetails trace={trace} initialOpen={false} />}
+    {replyDetails ? <details><summary>Diagnostics</summary>{traceHeader}{copy}{diagnostics}{timeline}</details> : timeline}
   </section>
 }

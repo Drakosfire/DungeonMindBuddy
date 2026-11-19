@@ -91,7 +91,7 @@ export function StartPdfStatblockReview({
   if (!regions.length && !prepareRegions && !prepareWholePdf && !pending && !saved && !conflict && !error) return null;
 
   return <section aria-label="Statblock review source regions">
-    <h4>Selected statblock regions</h4>
+    {regions.length > 0 && <h4>Selected statblock regions</h4>}
     <ul>
       {regions.map(region => <li key={pdfRegionKey(region)}>
         Page {region.page}
@@ -105,6 +105,8 @@ export function StartPdfStatblockReview({
         {conflict ? "Open existing statblock review" : "Open statblock review"}
       </a>
     </> : <>
+      <details>
+        <summary>Extraction options</summary>
       <label>D&D edition (optional)
         <select value={edition} onChange={event => setEdition(event.target.value)} disabled={pending}>
           <option value="">Use source edition</option>
@@ -115,6 +117,7 @@ export function StartPdfStatblockReview({
       <label>Guidance for Buddy (optional)
         <textarea rows={2} value={instruction} onChange={event => setInstruction(event.target.value)} disabled={pending} />
       </label>
+      </details>
       {prepareWholePdf && <button type="button" disabled={pending} onClick={() => void start(prepareWholePdf, true)}>
         Extract whole PDF
       </button>}

@@ -26,11 +26,15 @@ export function nativeGraphPresentation(node: NativeGraphNode): {
   const visibleNames = recordedNames.filter((name) => name.trim().length > 0);
   const displayName = visibleNames.length === 0 ? node.name
     : visibleNames.slice(0, 2).join(" / ") + (visibleNames.length > 2 ? ` (+${visibleNames.length - 2} more)` : "");
-  const displayKind = !node.presentation ? node.kind
-    : classificationTerms.length > 1 ? "object (mixed classifications)"
-      : classificationTerms.length === 0 ? "object (classification unspecified)"
-        : Object.hasOwn(DISPLAY_KINDS, classificationTerms[0]!)
-          ? DISPLAY_KINDS[classificationTerms[0]!]!
-          : "object (unsupported classification)";
+  const displayKind = node.presentation ? displayClassification(classificationTerms) : node.kind;
   return { displayName, displayKind, recordedNames, classificationTerms };
+}
+
+
+export function displayClassification(terms: readonly string[]): string {
+  const unique = [...new Set(terms)];
+  if (unique.length > 1) return "object (mixed classifications)";
+  if (unique.length === 0) return "object (classification unspecified)";
+  const term = unique[0]!;
+  return Object.hasOwn(DISPLAY_KINDS, term) ? DISPLAY_KINDS[term]! : "object (unsupported classification)";
 }

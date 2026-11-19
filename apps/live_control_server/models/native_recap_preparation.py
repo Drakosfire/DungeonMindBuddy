@@ -124,6 +124,7 @@ class _CandidatePrepareRequest(Closed):
 class NativeRecapPrepareRequest(_CandidatePrepareRequest):
     campaign_id: Text
     source_admission_run_id: Text
+    cohort_edge_review: dict[str, JsonValue] | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class NativeWorldbuildingContextRequest(Closed):

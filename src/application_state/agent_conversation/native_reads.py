@@ -272,19 +272,39 @@ def observe_body_search_locked(turn, *, event_id, authorization_event_id, captur
     captured = capture()
     if captured.authority != receipt.source_authority:
         raise ValueError("Native source capture differs from its frozen authority")
-    catalogs, matches = [], []
+    from collections import Counter
+    from math import log1p
+    import re
+
+    catalogs, candidates = [], []
     query = set(terms(turn.user_text))
+    frequency = Counter()
+    eligible_count = 0
     for member in captured.members:
         key = (member.artifact.source_artifact_id, member.revision.source_revision_id)
-        catalog = build_native_body_catalog(receipt.source_authority, member, captured.bodies[key])
+        body = captured.bodies[key]
+        catalog = build_native_body_catalog(receipt.source_authority, member, body)
         catalogs.append(catalog)
         for section in catalog.sections:
-            # Keep every literal match, even when a term occurs in all sections.
-            # Relevance and sufficiency remain separate controller/writer choices.
-            matched = tuple(sorted(query & set(terms(captured.bodies[key][section.char_start:section.char_end]))))
+            words = Counter(re.findall(r"\w+", body[section.char_start:section.char_end].casefold()))
+            matched = tuple(sorted(query & words.keys()))
+            eligible = section.byte_start != 0 or section.byte_end != catalog.body_bytes
+            if eligible:
+                eligible_count += 1
+                frequency.update(matched)
             if matched:
-                matches.append(NativeBodySectionMatchV1(catalog_sha256=catalog.catalog_sha256,
-                    section_id=section.section_id, matched_terms=matched))
+                candidates.append((catalog.catalog_sha256, section.section_id, matched, words, eligible))
+
+    def score(candidate):
+        _, _, matched, words, _ = candidate
+        return sum(log1p(eligible_count / (1 + frequency[term])) * log1p(words[term])
+                   for term in matched) / words.total() ** 0.30
+
+    scored = sorted((c for c in candidates if c[-1]), key=lambda c: (-score(c), c[0], c[1]))
+    ranks = {(catalog, section): i for i, (catalog, section, *_) in enumerate(scored, 1)}
+    matches = [NativeBodySectionMatchV1(catalog_sha256=catalog, section_id=section,
+        matched_terms=matched, distinctiveness_rank=ranks.get((catalog, section)))
+        for catalog, section, matched, _, _ in candidates]
     return NativeBodySearchObservedV1(event_id=event_id, sequence=len(execution.events),
         authorization_event_id=grant.event_id, catalogs=tuple(catalogs), matches=tuple(matches),
         unavailable_source_count=captured.unavailable_source_count)

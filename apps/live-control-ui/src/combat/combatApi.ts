@@ -1,6 +1,8 @@
 import {encounterPath,type RunEncounterScope} from './runEncountersApi';
 import { authenticatedApiFetch } from "../api/liveApi";
 import {verifyHistoricalAdoptionReceipt} from './CombatMechanicsAdoptionRecovery';
+import {isManualCombatRecord,type AnyCombatRecord,type ManualCombatRecord,type ManualCombatProfile,type ManualCombatDraft} from './ManualCombatTypes';
+import {isCombatRecoveryRecord} from './validateCombatRecovery';
 import type {
   AddGeneratedStatblockRequest,
   AddGeneratedStatblockResponse,
@@ -34,6 +36,35 @@ function scopedPath(worldId: string, path = "", scope?:RunEncounterScope): strin
   if(scope)return encounterPath(worldId,scope,`/encounters${path}`);
   const query = new URLSearchParams({ world_id: worldId });
   return `/api/live/combat/encounters${path}?${query.toString()}`;
+}
+
+function checkedRecord(value:unknown,worldId:string,encounterId?:string):AnyCombatRecord {
+  if(!isCombatRecoveryRecord(value))throw new Error('Combat response has an unsupported or invalid record.');
+  const record=value as AnyCombatRecord;
+  if(record.world_id!==worldId || encounterId!==undefined&&record.encounter_id!==encounterId)throw new Error('Combat response belongs to a different encounter.');
+  return record;
+}
+export async function listAnyWorldCombatEncounters(worldId:string):Promise<AnyCombatRecord[]> {
+  const records=await readJson<unknown>(await fetchCombat(scopedPath(worldId)));
+  if(!Array.isArray(records))throw new Error('Combat inventory is invalid.');
+  return records.map(record=>checkedRecord(record,worldId));
+}
+export async function getAnyWorldCombatEncounter(worldId:string,encounterId:string,scope?:RunEncounterScope):Promise<AnyCombatRecord> {
+  return checkedRecord(await readJson(await fetchCombat(scopedPath(worldId,`/${encodeURIComponent(encounterId)}`,scope))),worldId,encounterId);
+}
+export async function createManualCombatEncounter(worldId:string,title:string,profile:ManualCombatProfile):Promise<ManualCombatRecord> {
+  const record=checkedRecord(await readJson(await fetchCombat(scopedPath(worldId),{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({schema_version:'dmb_manual_combat_create_v2',title,profile}),
+  })),worldId);
+  if(!isManualCombatRecord(record))throw new Error('Combat creation returned a different profile version.');
+  return record;
+}
+export async function saveManualCombatEncounter(worldId:string,encounterId:string,expectedRevision:number,draft:ManualCombatDraft,scope?:RunEncounterScope):Promise<ManualCombatRecord> {
+  const record=checkedRecord(await readJson(await fetchCombat(scopedPath(worldId,`/${encodeURIComponent(encounterId)}`,scope),{
+    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({expected_revision:expectedRevision,draft}),
+  })),worldId,encounterId);
+  if(!isManualCombatRecord(record))throw new Error('Combat Save returned a different profile version.');
+  return record;
 }
 
 export async function listWorldCombatEncounters(worldId: string): Promise<CombatEncounterRecord[]> {
@@ -137,4 +168,12 @@ export async function listCombatMechanicsAdoptions(worldId:string,encounterId:st
 }
 export async function inspectCombatMechanicsAdoption(worldId:string,encounterId:string,operationId:string,scope?:RunEncounterScope):Promise<import('./combatTypes').MechanicsAdoptionOutcome|null> {
   return readJson(await fetchCombat(scopedPath(worldId,`/${encodeURIComponent(encounterId)}/mechanics-adoptions/${encodeURIComponent(operationId)}`,scope)));
+}
+
+export async function previewConversationVariantMechanics(
+  worldId: string, selection: import('./combatTypes').ConversationVariantCombatSelection,
+): Promise<import('./combatTypes').ConversationVariantCombatSnapshot> {
+  return readJson(await fetchCombat(scopedPath(worldId, '/conversation-variant/preview'), {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(selection),
+  }));
 }

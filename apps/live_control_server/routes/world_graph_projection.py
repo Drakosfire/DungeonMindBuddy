@@ -18,7 +18,9 @@ from apps.live_control_server.services.managed_world_graph_projection import (
     ManagedWorldGraphProjectionResponse,
     project_managed_world_graph,
 )
+from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency, require_explorer_access
 from apps.live_control_server.services.agent_graph_auth import (
+    NativeGraphPrincipal,
     native_graph_gm_dependency,
 )
 from apps.live_control_server.services.world_graph_recap_projection import (
@@ -71,7 +73,6 @@ router = APIRouter(
     prefix="/api/live/world-graph",
     tags=["world-graph-projection"],
     route_class=_ProjectionAPIRoute,
-    dependencies=[Depends(native_graph_gm_dependency)],
 )
 
 
@@ -98,7 +99,7 @@ def _reject_query_params(request: Request) -> None:
         )
 
 
-@router.post("/projection", response_model=WorldGraphProjection)
+@router.post("/projection", response_model=WorldGraphProjection, dependencies=[Depends(native_graph_gm_dependency)])
 def post_world_graph_projection(
     request_context: Request,
     request: WorldGraphProjectionRequest,
@@ -126,8 +127,10 @@ def post_world_graph_projection(
 def post_managed_world_graph_projection(
     request_context: Request,
     request: ManagedWorldGraphProjectionRequest,
+    principal: NativeGraphPrincipal = Depends(native_graph_explorer_dependency),
 ) -> dict[str, Any] | JSONResponse:
     """Read a managed World through Buddy's private native Graph binding."""
+    require_explorer_access(principal, request.managed_world_id)
     try:
         _reject_query_params(request_context)
         response = project_managed_world_graph(request)
@@ -141,10 +144,12 @@ def post_managed_world_graph_projection(
                 status_code=500,
             )
         )
-    return response.model_dump(mode="json", by_alias=True)
+    result = response.model_dump(mode="json", by_alias=True)
+    require_explorer_access(principal, response.managed_world_id)
+    return result
 
 
-@router.post("/recap-projection", response_model=WorldGraphRecapProjection)
+@router.post("/recap-projection", response_model=WorldGraphRecapProjection, dependencies=[Depends(native_graph_gm_dependency)])
 def post_world_graph_recap_projection(
     request_context: Request,
     request: WorldGraphProjectionRequest,

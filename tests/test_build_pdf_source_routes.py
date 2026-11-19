@@ -9,22 +9,44 @@ from dungeonmind.application.vnext.native_source_admission import build_native_p
 
 
 def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
+    from dungeonmind.application.vnext import native_source_admission
+
     records = {}
 
+    def validate(body):
+        if body != b"%PDF-1.7\n":
+            raise ValueError("Invalid structure")
+
+    monkeypatch.setattr(native_source_admission, "validate_native_pdf_body", validate)
+
     class Repository:
+        def get_head(self, space):
+            return object()
+
         def retain_native_pdf_source(self, command, body):
             artifact, revision = build_native_pdf_source_records(command, body)
             records[command.space_id, revision.source_revision_id] = (artifact, revision, 1, body)
             return revision
 
+        def list_public_native_pdf_revisions(self, space, *, after_revision_id):
+            return [record[1] for (owning_space, revision), record in records.items()
+                    if owning_space == space and revision > after_revision_id]
+
         def get_native_pdf_source(self, space, revision):
             return records.get((space, revision))
+
+        def withdraw_native_source(self, *, space_id, source_artifact_id, source_revision_id):
+            record = records[space_id, source_revision_id]
+            assert record[0].source_artifact_id == source_artifact_id
+            del records[space_id, source_revision_id]
 
     def authorize(request):
         if request.headers.get("authorization") != "Bearer fixture":
             raise HTTPException(status_code=401)
 
     monkeypatch.setattr(agent, "enforce_native_graph_gm", authorize)
+    from apps.live_control_server.services import hosted_native_graph_access
+    monkeypatch.setattr(hosted_native_graph_access, "require_build_pdf_access", lambda request, *args, **kwargs: authorize(request))
     monkeypatch.setattr(agent, "_verified_world_id", lambda world_id: world_id)
     monkeypatch.setattr(native_world_source_admission, "_repository", Repository)
     monkeypatch.setattr(
@@ -39,10 +61,20 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
     auth = {"Authorization": "Bearer fixture"}
     with TestClient(app) as client:
         assert client.post(upload, content=body).status_code == 401
+        rejected = client.post(upload, content=body + b"invalid", headers={
+            **auth, "Content-Type": "application/pdf", "X-Pdf-Created-At": "2026-11-11T00:00:00Z",
+        })
+        assert rejected.status_code == 422
+        assert records == {}
         admitted = client.post(upload, content=body, headers={
             **auth, "Content-Type": "application/pdf", "X-Pdf-Created-At": "2026-11-11T00:00:00Z",
         })
         assert admitted.status_code == 200, admitted.text
+        assert client.get(path).status_code == 401
+        listed = client.get(path, headers=auth).json()
+        assert listed["next"] is None
+        assert listed["documents"] == [admitted.json() | {"created_at": "2026-11-11T00:00:00+00:00"}]
+        assert client.get(path.replace("world-a", "world-b"), headers=auth).json()["documents"] == []
         locator = admitted.json() | {"page": 1, "left": 0, "top": 0, "right": 1, "bottom": 1}
         assert client.post(path + "/open", json=locator).status_code == 401
         assert client.post(path.replace("world-a", "world-b") + "/open", json=locator,
@@ -203,7 +235,14 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
         assert receipt.json()["revision"] == 1
         assert receipt.json()["regions"] == saved.json()["regions"]
         assert validated[0].model_dump(mode="json", by_alias=True) == saved.json()["definition"]
-        records.clear()
+
+        withdraw_path = path.replace("build-pdf-sources", "build-source-withdrawals")
+        target = {"kind": "pdf", "revision_id": locator["source_revision_id"]}
+        assert client.post(withdraw_path, json=target).status_code == 401
+        assert client.post(withdraw_path.replace("world-a", "world-b"), json=target, headers=auth).status_code == 404
+        assert client.post(withdraw_path, json=target, headers=auth).status_code == 204
+        assert client.post(path + "/open", json=locator, headers=auth).status_code == 404
+        assert client.get(path, headers=auth).json()["documents"] == []
         assert client.get(review_route, headers=auth).status_code == 404
 
 
@@ -216,6 +255,8 @@ def test_saved_pdf_review_creature_draft_replays_at_exact_revision(monkeypatch, 
             raise HTTPException(status_code=401)
 
     monkeypatch.setattr(agent, "enforce_native_graph_gm", authorize)
+    from apps.live_control_server.services import hosted_native_graph_access
+    monkeypatch.setattr(hosted_native_graph_access, "require_build_pdf_access", lambda request, *args, **kwargs: authorize(request))
     monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
     monkeypatch.setattr(statblock_storage, "statblock_data_root", lambda _: tmp_path)
     review = {"revision": 2, "regions": [], "definition": {

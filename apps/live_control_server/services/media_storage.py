@@ -5,10 +5,12 @@ import hashlib
 import json
 import os
 import re
+from collections.abc import Callable
 from urllib.parse import urlsplit
 from uuid import UUID
 
 import httpx
+from fastapi import HTTPException
 
 from application_state import media
 from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError, ApplicationStateUnavailableError
@@ -70,15 +72,22 @@ def _verified_receipt(response: httpx.Response, row: dict, account: str) -> dict
             'owner_id': row['owner_id'], 'asset_id': str(row['asset_id']), 'visibility': 'public', 'delivery_url': delivery}
 
 
-async def save_asset(asset_id: str | UUID, owner: str, *, dsn: str | None = None, client: httpx.AsyncClient | None = None) -> dict:
+async def save_asset(
+    asset_id: str | UUID, owner: str, *, dsn: str | None = None,
+    client: httpx.AsyncClient | None = None, authorize_write: Callable[[], None] | None = None,
+) -> dict:
     row = media.get_asset(asset_id, owner, dsn=dsn)
     if row['state'] == 'ready':
+        if authorize_write is not None:
+            authorize_write()
         return row
     account, token = _configuration()
     content = media.read_staged_bytes(asset_id, owner, dsn=dsn)
     if client is None:
         async with httpx.AsyncClient(timeout=60, follow_redirects=False) as owned:
-            return await save_asset(asset_id, owner, dsn=dsn, client=owned)
+            return await save_asset(asset_id, owner, dsn=dsn, client=owned, authorize_write=authorize_write)
+    if authorize_write is not None:
+        authorize_write()
     started = row['state'] == 'staged'
     fence = media.claim_upload(asset_id, owner, dsn=dsn) if started else row['fence']
     # A provider I/O operation never runs inside an APP transaction.
@@ -92,6 +101,8 @@ async def save_asset(asset_id: str | UUID, owner: str, *, dsn: str | None = None
         if found.status_code == 404:
             if not started:
                 raise ApplicationStateConflictError('Upload is pending or its outcome is unknown. Check Save status again; this will not regenerate the image.')
+            if authorize_write is not None:
+                authorize_write()
             post_started = True
             extension = {'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp'}[row['mime_type']]
             uploaded = await client.post(endpoint, headers=headers,
@@ -105,7 +116,9 @@ async def save_asset(asset_id: str | UUID, owner: str, *, dsn: str | None = None
             # A returned POST alone is not a durable Save receipt.
             found = await client.get(object_url, headers=headers)
         verified = _verified_receipt(found, row, account)
-        return media.complete_upload(asset_id, owner, fence, verified, dsn=dsn)
+        if authorize_write is not None:
+            authorize_write()
+        saved = media.complete_upload(asset_id, owner, fence, verified, dsn=dsn)
     except ApplicationStateConflictError:
         raise
     except Exception as error:
@@ -114,6 +127,9 @@ async def save_asset(asset_id: str | UUID, owner: str, *, dsn: str | None = None
                 media.mark_upload_unknown(asset_id, owner, fence, dsn=dsn)
             else:
                 media.mark_upload_rejected(asset_id, owner, fence, dsn=dsn)
-        if isinstance(error, (ApplicationStateIntegrityError, MediaStorageUnavailable)):
+        if isinstance(error, (ApplicationStateIntegrityError, MediaStorageUnavailable, HTTPException)):
             raise
         raise MediaStorageUnavailable('The CDN save could not be confirmed. Your original image is retained; check Save status before trying again.') from error
+    if authorize_write is not None:
+        authorize_write()
+    return saved

@@ -1,3 +1,4 @@
+import * as hostedAuth from "../auth/HostedAuthGate";
 import {act,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import * as liveApi from "../api/liveApi";
@@ -10,7 +11,7 @@ import {session23WorldGraphRecapFixture} from "../test/worldGraphRecapFixture";
 import {IngestionModule} from "./IngestionModule";
 const selected=vi.hoisted(()=>({value:{kind:"managed",worldId:"elderwyld",name:"Elderwyld",documentId:null} as any}));
 vi.mock("../selectedWorld/SelectedWorldContext",()=>({useSelectedWorld:()=>selected.value}));
-vi.mock("../chrome/NativeGraphAccessControl",()=>({NativeGraphAccessControl:()=>null}));
+vi.mock("../chrome/NativeGraphAccessControl",()=>({NativeGraphAccessControl:()=> <span data-testid="local-graph-access" />}));
 vi.mock("../playSurface/review/SessionEvidencePicker",()=>({SessionEvidencePicker:({onChange}:{onChange:(refs:unknown[])=>void})=><button onClick={()=>onChange([{run_id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",review_revision:54,sha256:"a".repeat(64)}])}>Attach saved session evidence</button>}));
 function deferred<T>(){let resolve!:(v:T)=>void;let reject!:(e:Error)=>void;const promise=new Promise<T>((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};}
 function result(session=22,overrides:Partial<RecapIngestStatus>={}):RecapIngestStatus{return {schema:"dmb_raw_recap_ingest_status_v1",campaign_id:"longmont-c2",session,status:"candidate_validation_ready",states:["immutable_app_source_prepared","graph_candidate_ready"],paths:{},authority:{source:"immutable_app_recap_v1"},warnings:[],errors:[],next_actions:[],ingest_report:{graph_preview:{status:"candidate_validation_ready",extraction_run_id:`run-session-${session}`,source_artifact_id:`artifact:recap:longmont-c2:session-${session}`}},entity_spelling_audit:[],...overrides};}
@@ -23,6 +24,7 @@ beforeEach(()=>{
  vi.spyOn(savedApi,"getSavedRecapSource").mockRejectedValue(new Error("No exact source offered"));
  vi.spyOn(liveApi,"getRecapArtifacts").mockRejectedValue(new Error("File discovery forbidden"));
  vi.spyOn(candidateApi,"getExactRunCandidateProjection").mockImplementation(async id=>candidateRecapProjectionForRun(id));
+ vi.spyOn(rawApi,"postRecapNameReview").mockResolvedValue({schema:"dmb_recap_name_review_v1",scope:{managed_world_id:"elderwyld",native_world_id:"world:elderwyld",binding_version:3,campaign_id:"longmont-c2"},source_sha256:"a".repeat(64),catalog_sha256:"b".repeat(64),review_id:"c".repeat(64),exact_mention_count:0,suggestions:[]});
  vi.spyOn(rawApi,"postRecapIngest").mockImplementation(async body=>{offerSavedRun(`run-session-${body.session}`,body.session);return result(body.session);});
 });
 afterEach(()=>vi.restoreAllMocks());
@@ -123,7 +125,7 @@ it("restores only local draft state, without title guesses or file inspections",
 it("does not require a filename title and sends the submitted text unchanged",async()=>{
  mount();await input("# Session 22 Recap\n\nMireward.");await process();
  await waitFor(()=>expect(rawApi.postRecapIngest).toHaveBeenCalledOnce());
- expect(rawApi.postRecapIngest).toHaveBeenCalledWith({operation:"generate_recap_memory",campaign_id:"longmont-c2",managed_world_id:"elderwyld",session:22,raw_text:"# Session 22 Recap\n\nMireward.",include_graph_extraction:true,graph_model_id:"deepseek/deepseek-v4.1-flash-1017",force_graph_run:undefined});
+ expect(rawApi.postRecapIngest).toHaveBeenCalledWith({operation:"generate_recap_memory",campaign_id:"longmont-c2",managed_world_id:"elderwyld",session:22,raw_text:"# Session 22 Recap\n\nMireward.",include_graph_extraction:true,graph_model_id:"deepseek/deepseek-v4.1-flash-1017",force_graph_run:undefined,name_review:{review_id:"c".repeat(64),decisions:[]}});
 });
 it.each([undefined,"conflicting"])("refuses Process without a matching selected World: %s",async world=>{
  selected.value=world?{kind:"managed",worldId:"other",name:"Other",documentId:null}:{kind:"legacy"};
@@ -195,4 +197,23 @@ it("drops a late Process result across World A to B to A without deleting the dr
  const back=screen.queryByRole("button",{name:"Return to draft"});if(back)fireEvent.click(back);
  expect(await screen.findByRole("textbox",{name:/Write or paste a recap/})).toHaveValue("A retained World draft.");
  expect(rawApi.postRecapIngest).toHaveBeenCalledOnce();
+});
+
+it("stops before extraction for name review and sends only explicit decisions",async()=>{
+ vi.mocked(rawApi.postRecapNameReview).mockResolvedValue({schema:"dmb_recap_name_review_v1",scope:{managed_world_id:"elderwyld",native_world_id:"world:elderwyld",binding_version:3,campaign_id:"longmont-c2"},source_sha256:"a".repeat(64),catalog_sha256:"b".repeat(64),review_id:"c".repeat(64),exact_mention_count:0,suggestions:[{id:"d".repeat(64),start:0,end:7,surface:"Marlena",options:["Marlene"],context_before:"They saw ",context_after:" waiting.",source_line:3}]});
+ mount();await input("Marlena waits.");await process();await screen.findByRole("region",{name:"Review character names"});
+ expect(rawApi.postRecapIngest).not.toHaveBeenCalled();
+ fireEvent.change(screen.getByRole("combobox",{name:"Correction for Marlena (1)"}),{target:{value:"apply:Marlene"}});
+ fireEvent.click(screen.getByRole("button",{name:"Apply decisions and extract"}));
+ await waitFor(()=>expect(rawApi.postRecapIngest).toHaveBeenCalledWith(expect.objectContaining({raw_text:"Marlena waits.",name_review:{review_id:"c".repeat(64),decisions:[{id:"d".repeat(64),replacement:"Marlene"}]}})));
+});
+
+
+it("loads the hosted Ingest catalog without mounting local Graph access", async () => {
+  vi.spyOn(hostedAuth, "useHostedAuthStatus").mockReturnValue({
+    status: "authenticated", refreshWarning: false, subject: "owner", displayName: "Owner",
+  });
+  mount();
+  await waitFor(() => expect(savedApi.getSavedRecapRuns).toHaveBeenCalled());
+  expect(screen.queryByTestId("local-graph-access")).not.toBeInTheDocument();
 });

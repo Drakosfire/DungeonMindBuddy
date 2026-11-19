@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from datetime import datetime
 from typing import Literal
 from uuid import UUID, uuid4
@@ -82,6 +83,7 @@ def create_work_object(
     target_session: int | None = None,
     target_relpath: str | None = None,
     document_id: str | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkObject:
     cleaned_world = world_id.strip() if world_id is not None else None
     cleaned_campaign = campaign_id.strip() if campaign_id is not None else None
@@ -117,6 +119,8 @@ def create_work_object(
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        if authorize_world is not None:
+            authorize_world(obj.world_id)
         return repo.insert_work_object(conn, obj)
 
 
@@ -163,6 +167,7 @@ def create_world_runbook(
     world_id: str,
     target_relpath: str | None = None,
     document_id: str | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkObject:
     return create_work_object(
         kind="runbook",
@@ -172,6 +177,7 @@ def create_world_runbook(
         target_session=None,
         target_relpath=target_relpath,
         document_id=document_id,
+        authorize_world=authorize_world,
     )
 
 
@@ -347,6 +353,7 @@ def _update_metadata(
     expected_revision: int | None = None,
     status: str | None = None,
     target_session_set: bool = False,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkObject:
     work_object_id = _require_uuid(document_id)
     dsn = load_runtime_dsn()
@@ -362,6 +369,8 @@ def _update_metadata(
             raise ApplicationStateConflictError(
                 f"revision mismatch: expected {expected_revision}, current {obj.object_revision}"
             )
+        if authorize_world is not None:
+            authorize_world(obj.world_id)
         expected = obj.object_revision
         updates: dict = {"updated_at": repo.now_utc(), "object_revision": expected + 1}
         if title is not None:
@@ -391,6 +400,7 @@ def update_plan_metadata(
     expected_revision: int | None = None,
     status: str | None = None,
     target_session_set: bool = False,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkObject:
     return _update_metadata(
         document_id,
@@ -400,6 +410,7 @@ def update_plan_metadata(
         expected_revision=expected_revision,
         status=status,
         target_session_set=target_session_set,
+        authorize_world=authorize_world,
     )
 
 
@@ -502,8 +513,12 @@ def _commit_in_connection(
     expected_revision: int | None = None,
     expected_world_id: str | None = None,
     title: str | None = None,
+    page_presentation_changed: bool = False,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> tuple[_StoredContentObject, WorkRevision]:
     """Use the caller's transaction; never commit or allocate another connection."""
+    if page_presentation_changed and kind != "worldbuilding_source":
+        raise ApplicationStateValidationError("presentation revisions are Page-only")
     canonical_title = _require_title(title) if title is not None else None
     if canonical_title is not None and (kind != "plan" or expected_world_id is None):
         raise ApplicationStateValidationError(
@@ -518,6 +533,8 @@ def _commit_in_connection(
             f"workspace document not found: {document_id}"
         )
     _require_kind_for_mutation(obj, kind)
+    if authorize_world is not None:
+        authorize_world(obj.world_id)
     _require_world_plan_scope(obj, expected_world_id)
     if obj.status == "discarded":
         raise ApplicationStateConflictError(
@@ -544,7 +561,7 @@ def _commit_in_connection(
         current = repo.get_work_revision(conn, obj.current_revision_id)
         if current is not None:
             _require_revision_owner(obj, current)
-        if current is not None and current.content_sha256 == digest:
+        if current is not None and current.content_sha256 == digest and not page_presentation_changed:
             if canonical_title is not None and obj.title != canonical_title:
                 updated = obj.model_copy(
                     update={
@@ -573,6 +590,8 @@ def _commit_in_connection(
         content_sha256=digest,
         created_at=repo.now_utc(),
     )
+    if authorize_world is not None:
+        authorize_world(obj.world_id)
     repo.insert_work_revision(conn, revision)
     expected = obj.object_revision
     updated = obj.model_copy(
@@ -617,6 +636,7 @@ def _commit(
     expected_revision: int | None = None,
     expected_world_id: str | None = None,
     title: str | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
@@ -625,6 +645,7 @@ def _commit(
             conn, document_id, markdown, kind=kind,
             expected_revision=expected_revision,
             expected_world_id=expected_world_id, title=title,
+            authorize_world=authorize_world,
         )
 
 
@@ -893,9 +914,11 @@ def commit_runbook(
     markdown: str,
     *,
     expected_revision: int | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
     return _commit(
-        document_id, markdown, kind="runbook", expected_revision=expected_revision
+        document_id, markdown, kind="runbook", expected_revision=expected_revision,
+        authorize_world=authorize_world,
     )
 
 
@@ -907,6 +930,7 @@ def update_runbook_metadata(
     expected_revision: int | None = None,
     status: str | None = None,
     target_session_set: bool = False,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkObject:
     return _update_metadata(
         document_id,
@@ -916,4 +940,5 @@ def update_runbook_metadata(
         expected_revision=expected_revision,
         status=status,
         target_session_set=target_session_set,
+        authorize_world=authorize_world,
     )

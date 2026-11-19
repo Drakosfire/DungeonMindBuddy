@@ -78,6 +78,8 @@ def commit_graph_object_authoring_write(
     request: GraphObjectAuthoringCommitRequest,
     *,
     corpus_root: Path | None = None,
+    authenticated_actor: str | None = None,
+    authorize_world=None,
     repo_root_override: Path | None = None,
     authority: Any | None = None,
     resolved_source: Any | None = None,
@@ -135,7 +137,7 @@ def commit_graph_object_authoring_write(
         )
 
     world_id = authored_world_id(request)
-    actor = graph_review_actor(request.campaign_id)
+    actor = authenticated_actor or graph_review_actor(request.campaign_id)
     assertions_digest = proposed_assertions_digest(assertions)
     if str(intent.get("campaign_id") or "") != request.campaign_id:
         raise GraphObjectAuthoringError(
@@ -315,6 +317,8 @@ def commit_graph_object_authoring_write(
             contribution=contribution,
             operation_namespace="worldbuilding",
         )
+        if authorize_world is not None:
+            authorize_world()
         try:
             receipt = mounted.publish(publish_request)
         except WorldGraphAuthorityError as exc:

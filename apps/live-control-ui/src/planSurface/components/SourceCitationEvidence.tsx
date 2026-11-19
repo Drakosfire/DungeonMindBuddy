@@ -2,16 +2,17 @@ import {useId,useLayoutEffect,useRef,useState} from 'react';
 import {SourceCitation} from './SourceCitation';
 import {WorldPlanAgentAnswer} from './WorldPlanAgentAnswer';
 
-export type CitationChoice={key:string;number:number;buttonText?:string;segmentIndex?:number;title:string;label:string;kind:'passage'|'section';load:()=>Promise<string|{content:string;title:string}|{pngBase64:string;title:string}>};
+export type CitationChoice={key:string;number:number;buttonText?:string;savedReferenceMarkdown?:string;segmentIndex?:number;title:string;label:string;kind:'passage'|'section';load:()=>Promise<string|{content:string;title:string}|{pngBase64:string;title:string}>};
 /** One disclosure owner; transport adapters must verify the exact cited bytes. */
-export function SourceCitationEvidence({identity,statements,answer,displaySegments,allowedInternalLinks=[]}:{identity:string;statements:{text?:string;choices:CitationChoice[]}[];answer?:string;displaySegments?:readonly string[];allowedInternalLinks?:readonly string[]}) {
+export function SourceCitationEvidence({identity,statements,answer,displaySegments,allowedInternalLinks=[],inlineProse=false}:{identity:string;statements:{text?:string;choices:CitationChoice[]}[];answer?:string;displaySegments?:readonly string[];allowedInternalLinks?:readonly string[];inlineProse?:boolean}) {
   const panel=useId(),epoch=useRef(0);
   const [opened,setOpened]=useState<{choice:CitationChoice;status:'loading'|'ready'|'unavailable';content?:string;title?:string;pngBase64?:string}|null>(null);
-  useLayoutEffect(()=>{epoch.current++;setOpened(null);return()=>{epoch.current++;};},[identity]);
-  function close(){epoch.current++;setOpened(null);}
+  const [copyStatus,setCopyStatus]=useState<string|null>(null);
+  useLayoutEffect(()=>{epoch.current++;setOpened(null);setCopyStatus(null);return()=>{epoch.current++;};},[identity]);
+  function close(){epoch.current++;setOpened(null);setCopyStatus(null);}
   async function open(choice:CitationChoice) {
     if(opened?.choice.key===choice.key){close();return;}
-    const current=++epoch.current;setOpened({choice,status:'loading'});
+    const current=++epoch.current;setCopyStatus(null);setOpened({choice,status:'loading'});
     try {const result=await choice.load();if(current===epoch.current)setOpened({choice,status:'ready',...(typeof result==='string' ? {content:result} : result)});}
     catch {if(current===epoch.current)setOpened({choice,status:'unavailable'});}
   }
@@ -26,7 +27,9 @@ export function SourceCitationEvidence({identity,statements,answer,displaySegmen
         expanded:opened?.choice.key===c.key,controls:opened?.choice.key===c.key ? panel : undefined,onOpen:()=>{void open(c);},
       })) : []}/>
       {!aligned&&choices.length>0 ? <span aria-label="Sources for this reply">{markers(choices)}</span> : null}
-    </> : statements.map(({text,choices},i)=>text!==undefined
+    </> : inlineProse ? <p>{statements.map(({text, choices}, i) =>
+      <span key={i}>{i > 0 ? " " : ""}{text}{markers(choices)}</span>
+    )}</p> : statements.map(({text,choices},i)=>text!==undefined
       ? <WorldPlanAgentAnswer key={i} answer={text} displaySegments={[text]} inlineCitations={choices.map(c=>({
           segmentIndex:0,label:String(c.number),title:c.title,ariaLabel:c.label,
           expanded:opened?.choice.key===c.key,controls:opened?.choice.key===c.key ? panel : undefined,
@@ -41,6 +44,16 @@ export function SourceCitationEvidence({identity,statements,answer,displaySegmen
           controls={opened?.choice.key===c.key ? panel : undefined} onOpen={()=>{void open(c);}}/>)}</span>)}
     {opened ? <section id={panel} className="source-citation-evidence__panel" aria-label={`Opened source ${opened.choice.kind}`} aria-live="polite">
       <header><strong>{opened.title ?? opened.choice.title}</strong><button type="button" onClick={close}>Close {opened.choice.kind}</button></header>
+      {opened.status==='ready' && opened.choice.savedReferenceMarkdown ? <button type="button" onClick={async()=>{
+        const current=epoch.current;
+        try {
+          await navigator.clipboard.writeText(opened.choice.savedReferenceMarkdown!);
+          if(epoch.current===current)setCopyStatus('Citation copied');
+        } catch {
+          if(epoch.current===current)setCopyStatus('Could not copy citation');
+        }
+      }}>Copy Plan citation</button> : null}
+      {copyStatus ? <span role="status">{copyStatus}</span> : null}
       {opened.status==='loading' ? <p>Opening {opened.choice.kind}…</p> : opened.status==='unavailable'
         ? <p>The exact cited {opened.choice.kind} is unavailable. No newer text has been substituted.</p>
         : opened.pngBase64 ? <img src={`data:image/png;base64,${opened.pngBase64}`} alt={opened.title}/>

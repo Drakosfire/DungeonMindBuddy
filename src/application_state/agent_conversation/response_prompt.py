@@ -58,6 +58,14 @@ Do not mark answered dimensions as missing or fill gaps with unrelated excerpts.
 
 TASKS = {
     'answer': None,
+    'build_discussion': ResponsePromptComponent('build_discussion_task', '4',
+        'For a brainstorm opener, briefly mirror the aim and name the current page and attachments '
+        'that are present in the supplied context. Confirm readiness only for material you have. '
+        'If a requested attachment is unavailable, say so briefly. Stop there unless the GM asked '
+        'for ideas. When the GM extends a speculative premise, use references silently to check compatibility and '
+        'give one concrete hypothetical play moment in discussion. Leave open questions '
+        'unresolved. When the GM explicitly asks what evidence establishes, answer with '
+        'offered supporting selectors. Provide multiple ideas when requested.'),
     'clarify': ResponsePromptComponent('clarification_task', '1',
         'Ask focused questions needed to resolve the current request. Keep the clarification '
         'in conversation or its offered questions object; do not draft or carry out follow-up work.'),
@@ -70,13 +78,30 @@ TASKS = {
         'Explain the selected request limit using the supplied barrier detail and available follow-ups. '
         'Do not turn an unavailable executor into a product-wide claim, invent another workflow '
         'or substitute unrequested writing or mechanics. Explain what can actually happen next.'),
+    'variant_approval': ResponsePromptComponent('variant_approval_task', '1',
+        'This is approval of an existing conversation statblock draft. Give the next steps briefly '
+        'in a discussion segment. Use Find reviewed statblock on this reply, then Confirm and save '
+        'as new statblock when the displayed review matches. On the original Build page, use '
+        'Insert at cursor and save page. Open the saved variant and choose Open in Combat. '
+        'Describe these steps as available after their prerequisites, never as already performed. '
+        'The requested actions are not factual evidence questions. Leave limitations and '
+        'requested_detail_gaps empty.'),
     'different_destination': ResponsePromptComponent('destination_task', '1',
         'Explain the requested destination and what is needed to continue there. '
         'Do not draft into the current page or imply that another page was created or changed.'),
 }
 
 
-def compose_response_prompt(*, task='answer', rules_instructions=None, related_page_instructions=None):
+VARIANT_BASE = ResponsePromptComponent(
+    "variant_base", "1",
+    "When the user asks to adapt the original combat profile and Build offers one verified "
+    "variant_source, use that statblock as the base. Treat other creature or persona profiles "
+    "as supporting context unless the user explicitly requests one as the draft subject. "
+    "Return the agreed rule edits in statblock_variant when they concern that base.",
+)
+
+
+def compose_response_prompt(*, task='answer', rules_instructions=None, related_page_instructions=None, single_variant_base=False):
     """One assembly for an ordinary response; no retrieval/edit/image capability."""
     components = (VOICE, EVIDENCE, CITATIONS, OUTPUT)
     if task not in TASKS:
@@ -88,4 +113,6 @@ def compose_response_prompt(*, task='answer', rules_instructions=None, related_p
             if not isinstance(text, str) or not text.strip():
                 raise ValueError("Active response instructions must be nonblank")
             components += (ResponsePromptComponent(name, "1", text),)
+    if single_variant_base:
+        components += (VARIANT_BASE,)
     return ResponsePrompt(components)

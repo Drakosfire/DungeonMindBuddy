@@ -63,7 +63,10 @@ uv run python scripts/bootstrap_local_play.py check
 ```
 
 Do not run bootstrap on every server restart. Re-run `apply` after application-state
-schema changes, or when `check` reports `NEEDS BOOTSTRAP`.
+schema changes, or when `check` reports `NEEDS BOOTSTRAP`. Both commands return
+exit code 2 when Play is not `READY`. A freshly migrated application-state
+schema with no committed Runbook reports application state `READY` and Play
+`NOT READY`; that result does not mean the schema migration failed.
 
 ## Normal runtime
 
@@ -111,8 +114,12 @@ the first Playable document in Play; do not ask bootstrap to invent one.
 
 - Do not start FastAPI hoping it will create the database or migrate.
 - Do not reuse the World Graph DSN.
-- Do not run `scripts/live_dogfood_check.py` for this path. That script is the
-  statblock/combat session-dir checker.
+
+Use `scripts/bootstrap_local_play.py check` for current Play readiness. The
+retired statblock/combat session-file preflight remains available as
+[historical source](https://github.com/Drakosfire/DungeonMindBuddy/blob/7437655daa637def7948226af76169faed76d82b/scripts/live_dogfood_check.py).
+The separate `scripts/live_dogfood_reset.py` tool remains available for its
+documented disposable-session workflows.
 
 ## Related
 

@@ -21,9 +21,9 @@ from apps.live_control_server.services.agent_graph_auth import (
 from apps.live_control_server.routes.native_graph_inspection import (
     complete_object as native_complete_object,
 )
+from apps.live_control_server.models.native_graph_inspection import NativeCompleteObjectRead
 from apps.live_control_server.services.native_graph_inspection import (
     InspectionUnavailable,
-    NativeCompleteObjectRead,
     open_neighborhood_anchor,
     shared_exact_object,
     shared_evidence,

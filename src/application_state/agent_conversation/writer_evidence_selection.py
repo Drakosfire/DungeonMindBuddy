@@ -319,6 +319,28 @@ def selection_history(turn, auth):
     return value
 
 
+def native_approval_terminal(turn):
+    """Bind retrieval-free approval to the current acknowledged work decision."""
+    from . import types as t
+    from .build_intentional_response import is_variant_approval
+
+    if not native_build(turn):
+        return None
+    events = turn.graph_context_execution.events
+    approvals = [event for event in events if is_variant_approval(event)]
+    if len(approvals) != 1:
+        return None
+    approval = approvals[0]
+    providers = [event for event in events if isinstance(event, t.ProviderAttemptAuthorizedEventV3)]
+    if not providers or providers[-1].provider_attempt_id != approval.controller_attempt_id:
+        return None
+    outcomes = [event.outcome for event in events if isinstance(event, t.ProviderOutcomeEventV1)
+                and event.provider_attempt_id == approval.controller_attempt_id]
+    if outcomes[-1:] != ["response_received"]:
+        return None
+    return {"status": "ready", "reason": "native_variant_approval_requires_no_retrieval"}
+
+
 def native_terminal(turn, *, before_sequence=None):
     from .native_retrieval import current_selection
     if not native_build(turn):
@@ -326,6 +348,9 @@ def native_terminal(turn, *, before_sequence=None):
     if before_sequence is not None:
         turn = turn.model_copy(update={'graph_context_execution': turn.graph_context_execution.model_copy(
             update={'events':turn.graph_context_execution.events[:before_sequence]})})
+    approval_terminal = native_approval_terminal(turn)
+    if approval_terminal is not None:
+        return approval_terminal
     if current_selection(turn).operation != 'finish_retrieval':
         raise ValueError('Semantic selection requires acknowledged finished retrieval')
     return dict(status='ready', reason='native_retrieval_finished')
@@ -394,6 +419,11 @@ def validate_selection_proof(turn, selection, trace, proof):
     if selection.mode == "empty_catalog":
         if catalog or proof:
             raise ValueError("Empty catalog settlement cannot manufacture a provider response")
+        if native_build(turn) and (
+            selection.terminal_disposition.get("reason") == "native_variant_approval_requires_no_retrieval"
+            or native_approval_terminal(turn) is not None
+        ) and selection.terminal_disposition != native_approval_terminal(turn):
+            raise ValueError("Empty approval catalog must bind to the acknowledged work decision")
         judgments, historical, semantic = {}, {}, False
     else:
         if not catalog or not isinstance(proof, dict) or set(proof) != {"request_json", "response_json"}:

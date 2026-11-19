@@ -173,9 +173,49 @@ def test_update_comparison_preserves_row_and_reports_cost(
     # This historical experiment qualifies migration139, not later owners.
     command.upgrade(cli.alembic_config(), '20261108_0139')
     with monkeypatch.context() as patch:
-        patch.setenv(APPLICATION_STATE_DSN_ENV, predecessor_database)
-        patch.setattr(cli, '_alembic_head', lambda: '20261108_0139')
+        patch.setenv(APPLICATION_STATE_DSN_ENV, application_state_dsn)
         _fresh_case(lane, tmp_path, patch, None, True, False, False)
+    # Build through the current application, then let historical constraints
+    # validate the unchanged payloads in columns represented by schema 0139.
+    with psycopg.connect(application_state_dsn) as source:
+        turn = source.execute(
+            'SELECT to_jsonb(t) FROM agent.turn t WHERE world_id=%s '
+            'ORDER BY accepted_at DESC LIMIT 1', (lane.world.world_id,),
+        ).fetchone()[0]
+        parents = []
+        for table, identity in (('conversation', 'conversation_id'), ('world_state', 'world_id')):
+            row = source.execute(sql.SQL(
+                'SELECT to_jsonb(r) FROM agent.{table} r WHERE {identity}=%s',
+            ).format(table=sql.Identifier(table), identity=sql.Identifier(identity)),
+                (turn[identity],),
+            ).fetchone()[0]
+            parents.append((table, row, identity))
+    with psycopg.connect(predecessor_database) as destination:
+        assert destination.execute(
+            'SELECT version_num FROM application_state.schema_migrations',
+        ).fetchone() == ('20261108_0139',)
+        assert destination.execute(
+            "SELECT to_regclass('content.page_presentation')",
+        ).fetchone() == (None,)
+        for table, row, identity in [*parents, ('turn', turn, 'turn_id')]:
+            columns = [record[0] for record in destination.execute(
+                'SELECT column_name FROM information_schema.columns '
+                "WHERE table_schema='agent' AND table_name=%s "
+                'ORDER BY ordinal_position', (table,),
+            ).fetchall()]
+            represented = {column: row[column] for column in columns}
+            destination.execute(sql.SQL(
+                'INSERT INTO agent.{table} ({columns}) '
+                'SELECT {columns} FROM jsonb_populate_record(NULL::agent.{table}, %s)',
+            ).format(table=sql.Identifier(table),
+                columns=sql.SQL(',').join(map(sql.Identifier, columns))),
+                (Jsonb(represented),),
+            )
+            assert destination.execute(sql.SQL(
+                'SELECT to_jsonb(r) FROM agent.{table} r WHERE {identity}=%s',
+            ).format(table=sql.Identifier(table), identity=sql.Identifier(identity)),
+                (row[identity],),
+            ).fetchone()[0] == represented
     measurements = []
     with psycopg.connect(predecessor_database) as conn:
         current = _definitions(conn)

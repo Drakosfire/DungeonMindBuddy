@@ -51,6 +51,8 @@ def _root():
 
 
 def _raise(exc: Exception) -> None:
+    if isinstance(exc, HTTPException):
+        raise exc
     if isinstance(exc, WorkspaceDocumentRegistryError):
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     if isinstance(exc, WorldContainerRegistryError):
@@ -60,13 +62,26 @@ def _raise(exc: Exception) -> None:
     ) from exc
 
 
+def _authorize_workspace_world(request: Request, world_id: str) -> None:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
+
+
 @router.get("/trash")
 def get_world_trash(request: Request, world_id: str = Query(min_length=1)) -> dict:
-    enforce_native_graph_gm(request)
+    _authorize_workspace_world(request, world_id)
     try:
-        return list_world_workspace_trash(_root(), world_id=world_id)
+        inventory = list_world_workspace_trash(_root(), world_id=world_id)
     except Exception as exc:
         _raise(exc)
+    _authorize_workspace_world(request, world_id)
+    return inventory
 
 
 @router.post("/documents/{document_id}/{action}")
@@ -77,17 +92,26 @@ def mutate_world_document_trash(
     request: Request,
     world_id: str = Query(min_length=1),
 ) -> dict:
-    enforce_native_graph_gm(request)
+    _authorize_workspace_world(request, world_id)
+
+    def authorize_locked_world(locked_world: str | None) -> None:
+        if locked_world != world_id:
+            raise HTTPException(status_code=404, detail="Item not found in this World")
+        _authorize_workspace_world(request, world_id)
+
     try:
-        return set_world_document_trash(
+        result = set_world_document_trash(
             _root(),
             world_id=world_id,
             document_id=document_id,
             expected_revision=payload.expected_revision,
             restore=action == "restore",
+            authorize_world=authorize_locked_world,
         )
     except Exception as exc:
         _raise(exc)
+    _authorize_workspace_world(request, world_id)
+    return result
 
 
 @router.post("/sessions/{run_id}/{action}")
@@ -98,7 +122,13 @@ def mutate_world_session_trash(
     request: Request,
     world_id: str = Query(min_length=1),
 ) -> dict:
-    enforce_native_graph_gm(request)
+    _authorize_workspace_world(request, world_id)
+
+    def authorize_locked_world(locked_world: str | None) -> None:
+        if locked_world != world_id:
+            raise HTTPException(status_code=404, detail="Item not found in this World")
+        _authorize_workspace_world(request, world_id)
+
     try:
         root = _root()
         world = get_world_container(world_id)
@@ -106,12 +136,15 @@ def mutate_world_session_trash(
             raise WorkspaceDocumentRegistryError(
                 "World identity mismatch", status_code=404
             )
-        return set_world_session_trash(
+        result = set_world_session_trash(
             world_id=world_id,
             run_id=str(run_id),
             expected_revision=payload.expected_revision,
             expected_content_revision=payload.expected_content_revision,
             restore=action == "restore",
+            authorize_world=authorize_locked_world,
         )
     except Exception as exc:
         _raise(exc)
+    _authorize_workspace_world(request, world_id)
+    return result

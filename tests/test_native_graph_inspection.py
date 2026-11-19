@@ -34,7 +34,7 @@ def inspection(request, monkeypatch):
         return copy.deepcopy(bound)
 
     monkeypatch.setattr(service.native, "binding", binding)
-    monkeypatch.setattr(service.native, "read_repository", lambda: lane.repo)
+    monkeypatch.setattr(service.native, "read_repository", lambda **_kwargs: lane.repo)
     meta = wk.AssertionMetadata(
         scope=(wk.ScopeBinding(CAMPAIGN_SCOPE_AXIS, lane.run.campaign_id),),
         visibility=wk.Visibility("labels_any", ("dungeonbuddy.visibility:gm",)),
@@ -154,7 +154,12 @@ def test_actual_catalogue_and_selected_details_preserve_native_records_without_b
 
 def test_catalog_and_selected_entity_preserve_nested_temporal_metadata(inspection):
     x = inspection
-    payload = {"episode": "session-29", "qualified": True, "nested": [None, {"order": 2, "_sample": {"_saved": True}}]}
+    payload = {
+        "episode": "session-29",
+        "qualified": True,
+        "nested": [None, {"order": 2, "_sample": {"_saved": True}}],
+        "_sa_literal_key": {"values": [False, 0, "text"]},
+    }
     meta = replace(
         x.meta,
         temporal_scope=wk.TemporalScope(
@@ -448,6 +453,19 @@ def test_native_complete_object_binding_opens_exact_pinned_citation(inspection):
     assert binding["excerpt"].encode() == expected
     assert result["node"]["adjacency"][0]["sourceExcerpt"].encode() == expected
     assert result["relatedNodes"][0]["adjacency"][0]["sourceExcerpt"].encode() == expected
+    assert x.client.post(route, json=payload).json() == result
+    space = scope["native_world_id"]
+    repo = x.lane.repo
+    head = repo.get_head(space)
+    repo.withdraw_native_source(
+        space_id=space,
+        source_artifact_id=source["source_artifact_id"],
+        source_revision_id=source["source_revision_id"],
+    )
+    after = x.client.post(route, json=payload)
+    assert after.status_code == 409, after.text
+    assert "sourceBindings" not in after.json()
+    assert repo.get_head(space) == head
     # Classic presentation trims the paragraph delimiter. Native citation keeps it.
     from apps.live_control_server.models.world_graph_object_projection import (
         WorldGraphObjectProjectionSourceBinding,
@@ -875,6 +893,20 @@ def test_shared_neighborhood_anchor_reopens_exact_citation(inspection, monkeypat
     anchor = next(row for row in packet["sourceAnchors"] if row["evidenceRefId"] == x.lane.support_ids["first"])
     assert set(anchor["supportingAssertionIds"]) == {x.assertions["relationship"], multi_edge}
     assert len(packet["sourceAnchors"]) == 2
+    capped = x.client.post(
+        "/api/live/world-graph/retrieval/neighborhood",
+        json={
+            "schema": "dmb_world_graph_neighborhood_request_v1",
+            "worldId": "managed",
+            "campaignId": x.lane.run.campaign_id,
+            "revisionPin": pin["revision_id"],
+            "seedNodeIds": [x.objects["object:0"]],
+            "bounds": {"maxSourceAnchors": 1},
+        },
+    )
+    assert capped.status_code == 200, capped.text
+    assert capped.json()["sourceAnchors"] == packet["sourceAnchors"][:1]
+    assert "source_anchors" in capped.json()["coverage"]["truncatedFields"]
     assert anchor["revisionId"] == pin["revision_id"]
     response = x.client.post(
         "/api/live/world-graph/retrieval/source-anchor/read",
@@ -887,6 +919,16 @@ def test_shared_neighborhood_anchor_reopens_exact_citation(inspection, monkeypat
         x.lane.support_ids["first"]: x.lane.text.splitlines(keepends=True)[0],
         second_id: body,
     }
+    selected_capped = capped.json()["sourceAnchors"][0]
+    reopened_capped = x.client.post(
+        "/api/live/world-graph/retrieval/source-anchor/read",
+        json={
+            **request.model_dump(mode="json", by_alias=True),
+            "anchorId": selected_capped["anchorId"],
+        },
+    )
+    assert reopened_capped.status_code == 200, reopened_capped.text
+    assert reopened_capped.json()["content"] == exact_sources[selected_capped["evidenceRefId"]]
     multi_anchors = [
         row for row in packet["sourceAnchors"] if multi_edge in row["supportingAssertionIds"]
     ]
@@ -899,7 +941,7 @@ def test_shared_neighborhood_anchor_reopens_exact_citation(inspection, monkeypat
         )
         assert opened.status_code == 200, opened.text
         assert opened.json()["content"] == exact_sources[row["evidenceRefId"]]
-    for change in ({"campaignId": "foreign"}, {"revisionPin": None}):
+    for change in ({"campaignId": "foreign"}, {"revisionPin": None}, {"revisionPin": "rev:" + "0" * 32}):
         refused = x.client.post(
             "/api/live/world-graph/retrieval/source-anchor/read",
             json={**request.model_dump(mode="json", by_alias=True), **change},
@@ -1248,3 +1290,376 @@ def test_native_recap_pages_reauthorize_exact_span_after_withdrawal(inspection):
         "scope": request.scope.model_dump(mode="json"),
         "assertion_id": request.selection.assertion_id,
     }).status_code == 401
+
+
+def _shared_anchor_reuse_fixture(x, monkeypatch):
+    from dungeonmind.application.vnext import native_source_access
+    from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
+    from apps.live_control_server.routes.world_graph_retrieval import router
+
+    monkeypatch.setenv("DMB_NATIVE_NEIGHBORHOOD_WORLD", "managed")
+    x.app.include_router(router)
+    monkeypatch.setattr(service, "_shared_parsed_cache", NativeParsedRevisionCache())
+    counts = {"parse": 0, "revision": 0, "source": 0}
+    parse = native_source_access._parse_revision
+    revision = x.lane.repo.get_revision
+    source = x.lane.repo.open_native_source_view
+
+    def counted_parse(stored):
+        counts["parse"] += 1
+        return parse(stored)
+
+    def counted_revision(*args, **kwargs):
+        counts["revision"] += 1
+        return revision(*args, **kwargs)
+
+    def counted_source(*args, **kwargs):
+        counts["source"] += 1
+        return source(*args, **kwargs)
+
+    monkeypatch.setattr(native_source_access, "_parse_revision", counted_parse)
+    monkeypatch.setattr(x.lane.repo, "get_revision", counted_revision)
+    monkeypatch.setattr(x.lane.repo, "open_native_source_view", counted_source)
+    space = x.lane.bound["native_world_id"]
+    query = {
+        "schema": "dmb_world_graph_neighborhood_request_v1",
+        "worldId": "managed", "campaignId": x.lane.run.campaign_id,
+        "revisionPin": x.lane.repo.get_head(space).head_revision_id,
+        "seedNodeIds": [x.objects["object:0"]], "maxDepth": 2,
+    }
+    return query, counts
+
+
+def _open_shared_anchor(x, query, packet, **changes):
+    anchor, = packet["sourceAnchors"]
+    return x.client.post("/api/live/world-graph/retrieval/source-anchor/read", json={
+        "schema": "dmb_world_graph_source_anchor_read_request_v1",
+        **{key: query[key] for key in ("worldId", "campaignId", "revisionPin")},
+        "anchorId": anchor["anchorId"], **changes,
+    })
+
+
+def test_neighborhood_anchor_reuses_parse_but_verifies_revision_and_source_each_time(
+    inspection, monkeypatch,
+):
+    x = inspection
+    query, counts = _shared_anchor_reuse_fixture(x, monkeypatch)
+    result = x.client.post("/api/live/world-graph/retrieval/neighborhood", json=query)
+    assert result.status_code == 200, result.text
+    assert counts == {"parse": 1, "revision": 1, "source": 1}
+    for calls in (2, 3):
+        opened = _open_shared_anchor(x, query, result.json())
+        assert opened.status_code == 200, opened.text
+        assert opened.json()["content"] == x.lane.text.splitlines(keepends=True)[0]
+        assert counts == {"parse": 1, "revision": calls, "source": calls}
+
+
+def test_cached_neighborhood_anchor_withholds_withdrawn_source_at_fixed_graph_pin(
+    inspection, monkeypatch,
+):
+    x = inspection
+    query, counts = _shared_anchor_reuse_fixture(x, monkeypatch)
+    result = x.client.post("/api/live/world-graph/retrieval/neighborhood", json=query)
+    assert result.status_code == 200
+    before = _open_shared_anchor(x, query, result.json())
+    assert before.status_code == 200 and before.json()["outcome"] == "enough"
+    repo = x.lane.repo
+    space = x.lane.bound["native_world_id"]
+    head, events = repo.get_head(space), repo.head_events(space)
+    receipt = x.lane.receipt
+    repo.withdraw_native_source(
+        space_id=space, source_artifact_id=receipt.source_artifact_id,
+        source_revision_id=receipt.source_revision_id,
+    )
+    after = _open_shared_anchor(x, query, result.json())
+    assert after.status_code == 200, after.text
+    assert after.json()["outcome"] == "empty" and after.json()["content"] is None
+    assert counts == {"parse": 1, "revision": 3, "source": 3}
+    assert repo.get_head(space) == head and repo.head_events(space) == events
+
+
+@pytest.mark.parametrize("change", [{"campaignId": "foreign"}, {"admissibility": "player"}])
+def test_cached_neighborhood_anchor_rechecks_scope(inspection, monkeypatch, change):
+    x = inspection
+    query, counts = _shared_anchor_reuse_fixture(x, monkeypatch)
+    result = x.client.post("/api/live/world-graph/retrieval/neighborhood", json=query)
+    assert result.status_code == 200
+    assert _open_shared_anchor(x, query, result.json()).json()["outcome"] == "enough"
+    refused = _open_shared_anchor(x, query, result.json(), **change)
+    assert refused.status_code == 200, refused.text
+    assert refused.json()["outcome"] == "empty" and refused.json()["content"] is None
+    assert counts["parse"] == 1
+
+
+def test_standalone_inspection_keeps_its_default_preparation_behavior(inspection, monkeypatch):
+    x = inspection
+    query, counts = _shared_anchor_reuse_fixture(x, monkeypatch)
+    result = x.client.post("/api/live/world-graph/retrieval/neighborhood", json=query)
+    assert result.status_code == 200
+    pin = {
+        "managed_world_id": "managed", **x.lane.bound,
+        "revision_id": query["revisionPin"], "scope_mode": "campaign",
+        "campaign_id": x.lane.run.campaign_id,
+    }
+    for _ in range(2):
+        response = read(x, pin, {
+            "kind": "source", "assertion_id": x.assertions["relationship"],
+            "evidence_ref_id": x.lane.support_ids["first"],
+        })
+        assert response.status_code == 200, response.text
+    assert counts == {"parse": 3, "revision": 3, "source": 3}
+
+
+def test_cached_anchor_follows_visible_revision_and_restores_historical_content(
+    inspection, monkeypatch,
+):
+    from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
+
+    x = inspection
+    old_query, counts = _shared_anchor_reuse_fixture(x, monkeypatch)
+    route = "/api/live/world-graph/retrieval/neighborhood"
+    first = x.client.post(route, json=old_query)
+    assert first.status_code == 200
+    assert _open_shared_anchor(x, old_query, first.json()).json()["outcome"] == "enough"
+    space = x.lane.bound["native_world_id"]
+    runtime = transport.runtime(
+        x.lane.repo, x.lane.domain, x.lane.profile,
+        now=datetime.now(UTC), operation_id="cache-visible-change",
+    )
+    runtime.commit_prepared_change(runtime.prepare_change(wk.WorldChangeIntent(
+        space, "cache-visible-change", (
+            wk.CreateObject("reachable", (
+                wk.CreateFact("new-kind", "dnd5e:classification", wk.TermRefFactValue("dnd5e:location"), x.meta),
+                wk.CreateFact("new-name", "dnd5e:name", wk.LiteralFactValue("New reachable location"), x.meta),
+            )),
+            wk.CreateRelationship("new-edge", wk.DurableObjectRef(x.objects["endpoint"]),
+                                  "dnd5e:located_in", wk.ResultOf("reachable"), x.meta),
+        ),
+    )), confirmed_by="local_operator")
+    new_query = {**old_query, "revisionPin": x.lane.repo.get_head(space).head_revision_id}
+    assert new_query["revisionPin"] != old_query["revisionPin"]
+    with monkeypatch.context() as oracle:
+        oracle.setattr(service, "_shared_parsed_cache", NativeParsedRevisionCache())
+        old_expected = x.client.post(route, json=old_query).json()
+        new_expected = x.client.post(route, json=new_query).json()
+    assert "New reachable location" not in [row["label"] for row in old_expected["nodes"]]
+    assert "New reachable location" in [row["label"] for row in new_expected["nodes"]]
+    before = counts["parse"]
+    for query, expected in ((new_query, new_expected), (old_query, old_expected)):
+        response = x.client.post(route, json=query)
+        assert response.status_code == 200 and response.json() == expected
+        opened = _open_shared_anchor(x, query, expected)
+        assert opened.status_code == 200, opened.text
+        assert opened.json()["content"] == x.lane.text.splitlines(keepends=True)[0]
+    assert counts["parse"] == before + 2
+
+
+def test_selected_neighborhood_and_anchor_share_explicit_source_proof_owner(inspection, monkeypatch):
+    x = inspection
+    query, counts = _shared_anchor_reuse_fixture(x, monkeypatch)
+    pool = service._SourceVerificationProofPool()
+    monkeypatch.setattr(service, "_shared_verification_caches", pool)
+    factories = []
+    def factory(**kwargs):
+        factories.append(kwargs)
+        return x.lane.repo
+    monkeypatch.setattr(service.native, "read_repository", factory)
+    result = x.client.post("/api/live/world-graph/retrieval/neighborhood", json=query)
+    assert result.status_code == 200, result.text
+    for _ in range(2):
+        opened = _open_shared_anchor(x, query, result.json())
+        assert opened.status_code == 200, opened.text
+        assert opened.json()["content"] == x.lane.text.splitlines(keepends=True)[0]
+    owners = [kwargs["verification_cache"] for kwargs in factories if "verification_cache" in kwargs]
+    assert len(owners) == 3 and all(owner is owners[0] for owner in owners)
+    assert owners[0].max_bytes == 33_554_432 and pool.max_bytes == 67_108_864
+    assert counts == {"parse": 1, "revision": 3, "source": 3}
+
+
+def test_standalone_inspection_does_not_inject_source_verification_cache(inspection, monkeypatch):
+    x = inspection
+    factories = []
+    def factory(**kwargs):
+        factories.append(kwargs)
+        return x.lane.repo
+    monkeypatch.setattr(service.native, "read_repository", factory)
+    pin = catalog(x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id)["scope"]
+    for _ in range(2):
+        response = read(x, pin, {
+            "kind": "source", "assertion_id": x.assertions["relationship"],
+            "evidence_ref_id": x.lane.support_ids["first"],
+        })
+        assert response.status_code == 200, response.text
+    assert factories and all(not kwargs for kwargs in factories)
+
+
+def test_read_only_repository_factory_forwards_optional_proof_cache_without_opening_db(monkeypatch):
+    from psycopg.conninfo import conninfo_to_dict
+    from dungeonmind.infrastructure.postgres import PostgresDatabase
+    from dungeonmind.infrastructure.postgres.vnext_knowledge import VerifiedKnowledgeRevisionCache
+
+    native = service.native
+    monkeypatch.setattr(native.config, "world_graph_authority_database_url",
+        lambda: "postgresql://test@127.0.0.1:54330/proof?options=-c%20statement_timeout%3D20")
+    monkeypatch.setattr(PostgresDatabase, "connect", lambda *_: pytest.fail("eager DB connection"))
+    cache = VerifiedKnowledgeRevisionCache(max_bytes=64 * 1024 * 1024)
+    default = native.read_repository()
+    owned = native.read_repository(verification_cache=cache)
+    assert default._verification_cache is None
+    assert owned._verification_cache is cache
+    options = conninfo_to_dict(owned._database._database_url)["options"]
+    assert "statement_timeout=20" in options and "default_transaction_read_only=on" in options
+    assert cache.retained_bytes == 0
+
+
+
+def test_source_proof_pool_retains_two_pins_with_a_fixed_total_budget():
+    pool = service._SourceVerificationProofPool()
+    def pin(world, revision):
+        return SimpleNamespace(native_world_id=world, revision_id=revision)
+    old = pool.for_pin(pin("space:a", "rev:old"))
+    new = pool.for_pin(pin("space:a", "rev:new"))
+    assert pool.for_pin(pin("space:a", "rev:old")) is old
+    assert pool.for_pin(pin("space:a", "rev:new")) is new
+    assert old.max_bytes == new.max_bytes == pool.max_bytes // 2
+    assert old.max_bytes + new.max_bytes == 67_108_864
+    other = pool.for_pin(pin("space:b", "rev:new"))
+    assert other is not new and len(pool._entries) == 2
+    assert pool.for_pin(pin("space:a", "rev:new")) is new
+    assert pool.for_pin(pin("space:a", "rev:old")) is not old
+    assert len(pool._entries) == 2 and pool.retained_bytes == 0
+
+
+def test_source_proof_pool_concurrent_pin_selection_has_one_owner_per_pin():
+    from concurrent.futures import ThreadPoolExecutor
+
+    pool = service._SourceVerificationProofPool()
+    pins = [SimpleNamespace(native_world_id="space:a", revision_id=f"rev:{i}") for i in range(2)]
+    owners = [pool.for_pin(pin) for pin in pins]
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        values = list(executor.map(lambda i: pool.for_pin(pins[i % 2]), range(32)))
+    assert all(value is owners[i % 2] for i, value in enumerate(values))
+    assert len(pool._entries) == 2
+
+
+@pytest.mark.parametrize("operation", ["neighborhood", "object", "complete-object"])
+@pytest.mark.parametrize("seed_is_target", [False, True])
+def test_shared_routes_display_admitted_alternatives_without_losing_evidence(
+    inspection, monkeypatch, operation, seed_is_target,
+):
+    from apps.live_control_server.routes.world_graph_retrieval import router as product_router
+
+    x = inspection
+    space = x.lane.bound["native_world_id"]
+    operations = []
+    for key in ["object:0", "endpoint"]:
+        facts = []
+        for index, (predicate, value) in enumerate([
+            ("dnd5e:name", wk.LiteralFactValue("Alpha")),
+            ("dnd5e:name", wk.LiteralFactValue("Zulu")),
+            ("dnd5e:name", wk.LiteralFactValue("Zulu")),
+            ("dnd5e:classification", wk.TermRefFactValue("dnd5e:npc")),
+            ("dnd5e:classification", wk.TermRefFactValue("dnd5e:location")),
+        ]):
+            facts.append(wk.CreateFact(f"display:{key}:{index}", predicate, value, x.meta))
+        operations.append(wk.UseExisting(x.objects[key], tuple(facts)))
+    runtime = transport.runtime(x.lane.repo, x.lane.domain, x.lane.profile,
+        now=datetime.now(UTC), operation_id="display-alternatives")
+    committed = runtime.commit_prepared_change(
+        runtime.prepare_change(wk.WorldChangeIntent(space, "display alternatives", tuple(operations))),
+        confirmed_by="local_operator",
+    )
+    added_ids = {row.durable_assertion_id for row in committed.assertion_results}
+    x.app.include_router(product_router)
+    selector = {"neighborhood": "NEIGHBORHOOD", "object": "EXACT_OBJECT", "complete-object": "COMPLETE_OBJECT"}[operation]
+    monkeypatch.setenv("DMB_NATIVE_" + selector + "_WORLD", "managed")
+    selected = "endpoint" if seed_is_target else "object:0"
+    selected_id = x.objects[selected]
+    head = x.lane.repo.get_head(space).head_revision_id
+    body = {"worldId": "managed", "campaignId": x.lane.run.campaign_id, "revisionPin": head}
+    if operation == "neighborhood":
+        body.update(schema="dmb_world_graph_neighborhood_request_v1", seedNodeIds=[selected_id], maxDepth=1)
+    else:
+        body.update(schema="dmb_world_graph_object_projection_request_v1" if operation == "complete-object" else "dmb_world_graph_object_request_v1", nodeId=selected_id)
+    response = x.client.post("/api/live/world-graph/retrieval/" + operation, json=body)
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    labels = {x.objects["object:0"]: "Alpha / Object 0 / Zulu", x.objects["endpoint"]: "Alpha / Zulu"}
+    if operation == "complete-object":
+        assert payload["node"]["label"] == labels[selected_id]
+        assert payload["node"]["kind"] == "entity"
+        related, = payload["relatedNodes"]
+        assert related["label"] == labels[related["nodeId"]]
+        assert payload["node"]["adjacency"][0]["label"] == related["label"]
+        assert related["adjacency"][0]["label"] == labels[selected_id]
+        selected_ids = {row["assertionId"] for row in payload["assertions"]}
+        expected_selected = {row.durable_assertion_id for row in committed.assertion_results if row.client_op_id.startswith("display:" + selected + ":")}
+        assert expected_selected <= selected_ids
+        assert payload["sourceBindings"]
+    else:
+        assert {node["nodeId"]: node["label"] for node in payload["nodes"]} == (labels if operation == "neighborhood" else {selected_id: labels[selected_id]})
+        assert all(node["kind"] == "entity" for node in payload["nodes"])
+        assert payload["sourceAnchors"]
+        for anchor in payload["sourceAnchors"]:
+            opened = x.client.post("/api/live/world-graph/retrieval/source-anchor/read", json={
+                "schema": "dmb_world_graph_source_anchor_read_request_v1", "worldId": "managed",
+                "campaignId": x.lane.run.campaign_id, "revisionPin": head, "anchorId": anchor["anchorId"],
+            })
+            assert opened.status_code == 200, opened.text
+            assert opened.json()["content"] in x.lane.text
+    stored = x.lane.repo.get_revision(space, head)
+    assert added_ids <= {row["assertion_id"] for row in stored.graph_payload["assertions"]}
+
+
+@pytest.mark.parametrize("selected", ["object:0", "endpoint"])
+def test_native_inspection_routes_preserve_admitted_display_alternatives(inspection, selected):
+    x = inspection
+    space = x.lane.bound["native_world_id"]
+    operations = []
+    for key in ["object:0", "endpoint"]:
+        facts = tuple(wk.CreateFact(f"inspect-display:{key}:{i}", predicate, value, x.meta)
+            for i, (predicate, value) in enumerate([
+                ("dnd5e:name", wk.LiteralFactValue("Zulu")),
+                ("dnd5e:name", wk.LiteralFactValue("Alpha")),
+                ("dnd5e:name", wk.LiteralFactValue("Zulu")),
+                ("dnd5e:classification", wk.TermRefFactValue("dnd5e:npc")),
+                ("dnd5e:classification", wk.TermRefFactValue("dnd5e:location")),
+            ]))
+        # Neither a foreign campaign nor retracted alternative changes GM display.
+        facts += (
+            wk.CreateFact(f"foreign:{key}", "dnd5e:name", wk.LiteralFactValue("Foreign secret"),
+                replace(x.meta, scope=(wk.ScopeBinding(CAMPAIGN_SCOPE_AXIS, "elsewhere"),))),
+            wk.CreateFact(f"retracted:{key}", "dnd5e:name", wk.LiteralFactValue("Retracted secret"),
+                replace(x.meta, standing="retracted")),
+        )
+        operations.append(wk.UseExisting(x.objects[key], facts))
+    runtime = transport.runtime(x.lane.repo, x.lane.domain, x.lane.profile,
+        now=datetime.now(UTC), operation_id="inspection-display-alternatives")
+    committed = runtime.commit_prepared_change(runtime.prepare_change(
+        wk.WorldChangeIntent(space, "inspection alternatives", tuple(operations))),
+        confirmed_by="local_operator")
+    pin = catalog(x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id)["scope"]
+    identity = x.objects[selected]
+    response = read(x, pin, {"kind": "neighborhood", "seed_node_ids": [identity], "max_depth": 1})
+    assert response.status_code == 200, response.text
+    packet = response.json()
+    labels = {x.objects["object:0"]: "Alpha / Object 0 / Zulu", x.objects["endpoint"]: "Alpha / Zulu"}
+    assert {n["nodeId"]: n["label"] for n in packet["nodes"]} == labels
+    assert all(n["kind"] == "entity" for n in packet["nodes"])
+    assert len(packet["relationships"]) == 1
+    assert "Foreign secret" not in response.text and "Retracted secret" not in response.text
+    entity = read(x, pin, {"kind": "entity", "entity_id": identity})
+    assert entity.status_code == 200, entity.text
+    expected = {r.durable_assertion_id for r in committed.assertion_results
+        if r.client_op_id.startswith("inspect-display:" + selected + ":")}
+    assert expected <= {a["assertion_id"] for a in entity.json()["entity"]["assertions"]}
+    complete = x.client.post("/api/live/native-graph-inspection/complete-object", json={
+        "scope": pin, "request": {"schema": "dmb_world_graph_object_projection_request_v1",
+            "worldId": "managed", "scopeMode": "campaign", "campaignId": pin["campaign_id"],
+            "revisionPin": pin["revision_id"], "nodeId": identity}})
+    assert complete.status_code == 200, complete.text
+    result = complete.json()
+    assert result["node"]["label"] == labels[identity]
+    assert expected <= {a["assertionId"] for a in result["assertions"]}
+    assert result["sourceBindings"]
+    assert "Foreign secret" not in complete.text and "Retracted secret" not in complete.text

@@ -5,6 +5,8 @@ import re
 from pathlib import Path
 from typing import Literal
 
+from application_state.content import page_presentation as presentation
+
 import blake3
 from markdown_it import MarkdownIt
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -307,6 +309,7 @@ def _commit_blocking_lossy(
 
 
 class TiptapMarkdownWritePrepareRequest(BaseModel):
+    page_presentation: presentation.PagePresentation | None = None
     title: str | None = None
     document_id: str = Field(min_length=1)
     markdown: str = Field(min_length=1)
@@ -338,6 +341,7 @@ class TiptapMarkdownWritePrepareRequest(BaseModel):
 
 
 class TiptapMarkdownWritePrepareResponse(BaseModel):
+    page_presentation_sha256: str | None = None
     schema_version: str = "dmb_tiptap_markdown_write_prepare_v1"
     scope_mode: Literal["world"] | None = None
     world_id: str | None = None
@@ -358,6 +362,7 @@ class TiptapMarkdownWritePrepareResponse(BaseModel):
 
 
 class TiptapMarkdownWriteCommitRequest(BaseModel):
+    page_presentation: presentation.PagePresentation | None = None
     title: str | None = None
     document_id: str = Field(min_length=1)
     markdown: str = Field(min_length=1)
@@ -397,6 +402,7 @@ class TiptapMarkdownWriteCommitResponse(BaseModel):
     durable commit succeeded.
     """
 
+    page_presentation_sha256: str | None = None
     schema_version: str = "dmb_tiptap_markdown_write_commit_v1"
     scope_mode: Literal["world"] | None = None
     world_id: str | None = None
@@ -442,7 +448,9 @@ def _source_import_content(markdown: str) -> str:
         or any(ord(char) < 32 and char not in "\t\n\r" for char in markdown)
         or "\x7f" in markdown
     ):
-        raise TiptapMarkdownWriteError("Expected Markdown text, not a PDF or binary file")
+        raise TiptapMarkdownWriteError(
+            "Expected Markdown text, not a PDF or binary file"
+        )
     return markdown
 
 
@@ -651,6 +659,7 @@ def _commit_plan_postgres(
     *,
     request: TiptapMarkdownWriteCommitRequest,
     write_mode: WriteMode,
+    authorize_runbook_world=None,
 ) -> TiptapMarkdownWriteCommitResponse | None:
     from application_state.content.service import (
         commit_plan,
@@ -678,6 +687,8 @@ def _commit_plan_postgres(
         return None
     if obj.kind not in ("plan", "runbook"):
         return None
+    if authorize_runbook_world is not None and obj.kind != "runbook":
+        raise TiptapMarkdownWriteConflictError("The authorized Runbook is no longer available")
     _require_requested_world_scope(obj, request.world_id)
     if write_mode == "source_import":
         raise TiptapMarkdownWriteError(
@@ -720,6 +731,8 @@ def _commit_plan_postgres(
         if obj.kind == "plan":
             commit_kwargs["expected_world_id"] = request.world_id
             commit_kwargs["title"] = request.title
+        elif authorize_runbook_world is not None:
+            commit_kwargs["authorize_world"] = authorize_runbook_world
         committed, revision = commit(request.document_id, content, **commit_kwargs)
     except ApplicationStateError as exc:
         raise _map_registry_error(
@@ -757,12 +770,12 @@ def _commit_plan_postgres(
 
 
 def prepare_tiptap_markdown_write(
-    *, root: Path, request: TiptapMarkdownWritePrepareRequest
+    *, root: Path, request: TiptapMarkdownWritePrepareRequest, media_owner: str = "local_operator"
 ) -> TiptapMarkdownWritePrepareResponse:
     write_mode = _normalize_write_mode(request.write_mode)
     if write_mode == "source_import":
         _source_import_content(request.markdown)
-    validate_saved_media_references(request.markdown)
+    validate_saved_media_references(request.markdown, media_owner)
     from application_state.content import pages
     from application_state.errors import ApplicationStateError
 
@@ -774,6 +787,10 @@ def prepare_tiptap_markdown_write(
         raise _map_registry_error(
             WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
         ) from exc
+    if "page_presentation" in request.model_fields_set:
+        raise TiptapMarkdownWriteError(
+            "presentation is only supported for authored Pages"
+        )
     result = _prepare_plan_postgres(root=root, request=request, write_mode=write_mode)
     if result is None:
         error = TiptapMarkdownWriteError("workspace document not found")
@@ -783,24 +800,35 @@ def prepare_tiptap_markdown_write(
 
 
 def commit_tiptap_markdown_write(
-    *, root: Path, request: TiptapMarkdownWriteCommitRequest
+    *, root: Path, request: TiptapMarkdownWriteCommitRequest, authorize_world=None,
+    authorize_runbook_world=None, media_owner: str = "local_operator"
 ) -> TiptapMarkdownWriteCommitResponse:
     write_mode = _normalize_write_mode(request.write_mode)
     if write_mode == "source_import":
         _source_import_content(request.markdown)
-    validate_saved_media_references(request.markdown)
+    validate_saved_media_references(request.markdown, media_owner)
     from application_state.content import pages
     from application_state.errors import ApplicationStateError
 
     try:
         state = pages.find_page(request.document_id)
         if state is not None:
-            return _commit_page(request, write_mode, state)
+            if authorize_runbook_world is not None:
+                raise TiptapMarkdownWriteConflictError("The authorized Runbook is no longer available")
+            return _commit_page(request, write_mode, state, authorize_world=authorize_world)
     except ApplicationStateError as exc:
         raise _map_registry_error(
             WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
         ) from exc
-    result = _commit_plan_postgres(request=request, write_mode=write_mode)
+    if authorize_world is not None:
+        raise TiptapMarkdownWriteConflictError("The authorized Page is no longer available")
+    if "page_presentation" in request.model_fields_set:
+        raise TiptapMarkdownWriteError(
+            "presentation is only supported for authored Pages"
+        )
+    result = _commit_plan_postgres(
+        request=request, write_mode=write_mode, authorize_runbook_world=authorize_runbook_world,
+    )
     if result is None:
         error = TiptapMarkdownWriteError("workspace document not found")
         error.status_code = 404
@@ -821,13 +849,14 @@ def _page_write_basis(request, state):
     return saved
 
 
-def _page_token(saved, revision, copy_revision, content, mode):
+def _page_token(saved, revision, copy_revision, content, mode, layout=None):
     return _confirm_token(
         str(saved.page.work_object_id),
         revision,
         _content_receipt_locator(saved.page),
         content,
-        f"page-copy:{copy_revision or 0}",
+        f"page-copy:{copy_revision or 0}"
+        + (f":presentation:{layout.fingerprint()}" if layout is not None else ""),
         mode,
         world_id=saved.page.world_id,
     )
@@ -842,6 +871,10 @@ def _page_import_eligible(saved):
 
 def _prepare_page(request, mode, state):
     saved = _page_write_basis(request, state)
+    if mode == "source_import" and request.page_presentation is not None:
+        raise TiptapMarkdownWriteError(
+            "import source bytes first; compose only admitted authoring content"
+        )
     if (
         request.expected_revision is not None
         and request.expected_revision != saved.page.object_revision
@@ -852,6 +885,13 @@ def _prepare_page(request, mode, state):
     from application_state.content.types import normalize_markdown
 
     content = normalize_markdown(_content_for_write_mode(request.markdown, mode))
+    layout = presentation.candidate(
+        request.page_presentation
+        if "page_presentation" in request.model_fields_set
+        else presentation.UNSET,
+        content,
+        saved.presentation,
+    )
     original = saved.revision.markdown if saved.revision else ""
     blocking = (
         []
@@ -860,6 +900,7 @@ def _prepare_page(request, mode, state):
     )
     locator = _content_receipt_locator(saved.page)
     return TiptapMarkdownWritePrepareResponse(
+        page_presentation_sha256=layout.fingerprint() if layout else None,
         document_id=request.document_id,
         title=saved.page.title,
         target_relpath=locator,
@@ -876,6 +917,7 @@ def _prepare_page(request, mode, state):
             saved.working_copy_revision,
             content,
             mode,
+            layout,
         ),
         writer_diff="".join(
             difflib.unified_diff(
@@ -894,21 +936,32 @@ def _prepare_page(request, mode, state):
     )
 
 
-def _commit_page(request, mode, state):
+def _commit_page(request, mode, state, *, authorize_world=None):
     from application_state.content import pages
     from apps.live_control_server.services.workspace_document_registry import (
         _record_from_page,
     )
 
     saved = _page_write_basis(request, state)
+    if mode == "source_import" and request.page_presentation is not None:
+        raise TiptapMarkdownWriteError(
+            "import source bytes first; compose only admitted authoring content"
+        )
     from application_state.content.types import normalize_markdown
 
     content = normalize_markdown(_content_for_write_mode(request.markdown, mode))
+    layout = presentation.candidate(
+        request.page_presentation
+        if "page_presentation" in request.model_fields_set
+        else presentation.UNSET,
+        content,
+        saved.presentation,
+    )
     revision = saved.page.object_revision
     copy_revision = saved.working_copy_revision
     replay = False
     if request.writer_confirm_token != _page_token(
-        saved, revision, copy_revision, content, mode
+        saved, revision, copy_revision, content, mode, layout
     ):
         prior_revision = revision - 1
         prior_copy = (copy_revision or 0) - 1
@@ -916,7 +969,9 @@ def _commit_page(request, mode, state):
             prior_revision < 1
             or prior_copy < 0
             or request.writer_confirm_token
-            != _page_token(saved, prior_revision, prior_copy or None, content, mode)
+            != _page_token(
+                saved, prior_revision, prior_copy or None, content, mode, layout
+            )
         ):
             raise TiptapMarkdownWriteConflictError(
                 "stale writer confirm token; prepare Save again"
@@ -940,10 +995,13 @@ def _commit_page(request, mode, state):
         world_id=saved.page.world_id,
         expected_revision=revision,
         expected_working_copy_revision=copy_revision,
+        page_presentation=layout,
+        **({"authorize_world": authorize_world} if authorize_world is not None else {}),
     )
     record = _record_from_page(committed)
     locator = _content_receipt_locator(committed.page)
     return TiptapMarkdownWriteCommitResponse(
+        page_presentation_sha256=layout.fingerprint() if layout else None,
         document_id=record.document_id,
         title=record.title,
         target_relpath=locator,

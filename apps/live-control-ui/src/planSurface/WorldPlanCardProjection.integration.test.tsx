@@ -619,3 +619,37 @@ it("opens Cards directly at the first remaining scene when the selected marker d
   expect(screen.queryByRole("button", { name: "Scene outline", exact: true })).toBeNull();
   expect(apis.commit).not.toHaveBeenCalled();
 });
+
+it("opens the recorded PDF citation from a freshly mounted Plan card", async () => {
+  const turnId = "00000000-0000-4000-8000-000000000001";
+  const reference = `[PDF page 13](#dmb-ref:citation:pdf_${turnId}_0)`;
+  const markdown = initialMarkdown.replace("Scene overview.", `Scene overview. ${reference}`);
+  const hash = "a".repeat(64);
+  const citation = {
+    segment_index: 0, assertion_id: "assertion:rescue", read_event_id: "read",
+    provider_attempt_id: "attempt", envelope_sha256: hash, context_receipt_sha256: hash,
+    managed_world_id: worldId, native_world_id: "native", read_revision_id: "graph:original",
+    assertion_sha256: hash, evidence_ref_id: "pdf-region:test",
+    source_artifact_id: "pdf:source", source_revision_id: "pdf:revision",
+    region: { schema_version: "dm_native_pdf_region_v1", source_revision_id: "pdf:revision",
+      content_sha256: hash, page: 13, left: .5, top: .05, right: .95, bottom: .48 },
+  };
+  const read = vi.spyOn(liveApi, "getAgentNativeAssertionSource").mockResolvedValue({
+    schema: "dmb_native_assertion_pdf_source_read_v1", world_id: worldId, turn_id: turnId,
+    citation_index: 0, citation, png_base64: "iVBORw0KGgo=",
+  });
+  try {
+    const opened = renderReadonly(markdown, "scene:arrival");
+    fireEvent.click(await screen.findByRole("button", {name: "PDF page 13"}));
+    await screen.findByRole("img", {name: /page 13/i});
+    opened.unmount();
+    renderReadonly(markdown, "scene:arrival", {basis: {
+      status: "verified", revision: 5, contentSha256: committedDigest,
+    }});
+    fireEvent.click(await screen.findByRole("button", {name: "PDF page 13"}));
+    await screen.findByRole("img", {name: /page 13/i});
+    expect(read.mock.calls).toEqual([[worldId, turnId, 0], [worldId, turnId, 0]]);
+  } finally {
+    read.mockRestore();
+  }
+});

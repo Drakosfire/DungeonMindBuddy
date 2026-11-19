@@ -322,10 +322,10 @@ describe("App inspector integration", () => {
   it("links the landing page to core product surfaces and opens Graph", async () => {
     render(<App />);
 
-    const nav = screen.getByRole("navigation", { name: "Command board navigation" });
+    const nav = await screen.findByRole("navigation", { name: "Command board navigation" });
     fireEvent.click(within(nav).getByRole("button", { name: "Open navigation" }));
     const links = within(nav).getAllByRole("link");
-    expect(screen.getByRole("heading", { name: "DungeonMind Buddy" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Your world, ready for the table." })).toBeInTheDocument();
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "/",
       "/graph",
@@ -338,7 +338,7 @@ describe("App inspector integration", () => {
     expect(within(nav).queryByRole("link", { name: "Live Control" })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("link", { name: "Live play" })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("link", { name: "Tiptap Spike" })).not.toBeInTheDocument();
-    fireEvent.click(within(screen.getByRole("main")).getByRole("link", { name: "Graph" }));
+    fireEvent.click(within(nav).getByRole("link", { name: "Graph" }));
     expect(window.location.pathname).toBe("/graph");
     expect(await screen.findByRole("heading", { name: /buddy graph playground/i })).toBeInTheDocument();
   });

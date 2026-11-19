@@ -13,7 +13,7 @@ from pydantic import ConfigDict, Discriminator, Tag, Field, ValidationInfo, fiel
 
 from application_state.build_proposal.types import BuildWriteCapability
 from . import types as t
-from .build_intentional_response import Capabilities, RESOLVER_DIGEST, known_menu
+from .build_intentional_response import Capabilities, known_semantics
 from .build_related_pages import PagePointer
 from .build_saved_statblock import BuildSavedStatblockReadV1, validate_read as validate_saved_statblock_read
 from .native_context import (
@@ -61,8 +61,7 @@ class NativeBuildActionV1(Strict):
 
     @model_validator(mode="after")
     def captured_work(self):
-        if (not known_menu(self.requested_work_menu_sha256)
-                or self.response_resolver_sha256 != RESOLVER_DIGEST):
+        if not known_semantics(self.requested_work_menu_sha256, self.response_resolver_sha256):
             raise ValueError("Unknown frozen Build semantic menu or resolver")
         cap = self.write_capability
         # Match the existing owner hash recipe, including its default field names.

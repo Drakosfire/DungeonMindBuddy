@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 
-import { getExtractionRun, getPlayRun, getWorkspaceDocumentAny, listWorldContainers } from "../api/liveApi";
+import { getExtractionRun, getHostedWorldContainer, getPlayRun, getWorkspaceDocumentAny, listWorldContainers } from "../api/liveApi";
+import { useHostedAuthStatus } from "../auth/HostedAuthGate";
 import type { WorkspaceDocumentRecord, WorldContainerRecord, WorldOwnedPlanRecordV2 } from "../api/types";
 
 type WorkspaceDocumentRecordAny = WorkspaceDocumentRecord | WorldOwnedPlanRecordV2;
@@ -98,6 +99,8 @@ export function SelectedWorldProvider({
   locationSnapshot: string;
   children: ReactNode;
 }) {
+  const auth = useHostedAuthStatus();
+  const hosted = auth.status === "authenticated";
   const selection = requestedWorldSelection(locationSnapshot);
   const selectionKey = selectionIdentity(selection);
   const [retryGeneration, setRetryGeneration] = useState(0);
@@ -186,12 +189,14 @@ export function SelectedWorldProvider({
           if (!cancelled) setLoaded({ scope: selectionScope, value: { kind: "legacy" } });
           return;
         }
-        const worldResponse = await listWorldContainers(catalogRequest.signal);
+        const worlds = hosted && selection.worldId
+          ? [await getHostedWorldContainer(selection.worldId, catalogRequest.signal)]
+          : (await listWorldContainers(catalogRequest.signal)).records;
         if (!cancelled) {
           const verified = verifyManagedWorldSelection({
             requestedWorldId: selection.worldId ?? run?.campaign_id ?? extractionCampaignId,
             document,
-            worlds: worldResponse.records,
+            worlds,
           });
           setLoaded({
             scope: selectionScope,
@@ -221,7 +226,7 @@ export function SelectedWorldProvider({
       }
     })();
     return () => { cancelled = true; catalogRequest.abort(); };
-  }, [selectionScope, continuedWorldOnly]);
+  }, [selectionScope, continuedWorldOnly, hosted]);
 
   return (
     <SelectedWorldRetryContext.Provider value={retry}>

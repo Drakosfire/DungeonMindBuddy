@@ -32,7 +32,7 @@ class NativeStatementClauseReadV1(Strict):
     content: str
 
 
-from application_state.agent_conversation.native_plan_assertions import NativeAssertionCitationV1
+from application_state.agent_conversation.native_plan_assertions import NativeAssertionCitationV1, NativeAssertionPdfCitationV1
 
 
 class NativeAssertionSourceReadV1(Strict):
@@ -42,3 +42,15 @@ class NativeAssertionSourceReadV1(Strict):
     citation_index: int
     citation: NativeAssertionCitationV1
     content: str
+
+
+
+class NativeAssertionPdfSourceReadV1(Strict):
+    schema_: Literal['dmb_native_assertion_pdf_source_read_v1'] = Field(
+        default='dmb_native_assertion_pdf_source_read_v1', alias='schema',
+    )
+    world_id: str
+    turn_id: str
+    citation_index: int
+    citation: NativeAssertionPdfCitationV1
+    png_base64: str

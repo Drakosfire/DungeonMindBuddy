@@ -102,21 +102,6 @@
   min-height: 0;
 }
 
-.plan-conversation-dock .plan-conversation-dock__launcher .plan-agent-bar button {
-  display: grid;
-  place-items: center;
-  inline-size: 2.75rem;
-  block-size: 2.75rem;
-  min-inline-size: var(--conversation-dock-control-hit-size);
-  min-block-size: var(--conversation-dock-control-hit-size);
-  padding: 0;
-}
-
-.plan-conversation-dock .plan-conversation-dock__launcher .plan-agent-bar button img {
-  inline-size: 2.1rem;
-  block-size: 2.1rem;
-}
-
 .conversation-dock__menu {
   position: relative;
 }

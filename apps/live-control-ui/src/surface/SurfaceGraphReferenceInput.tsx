@@ -31,9 +31,10 @@ export function SurfaceGraphReferenceInput({worldId,value,onChange,disabled=fals
   {preview&&previewSelected&&<NativeGraphObjectPreview key={JSON.stringify(preview)} reference={preview} onClose={()=>setPreview(null)} inlineHost={readOnly?inlineHost??undefined:undefined}/>}
   {readOnly&&<SavedStatblockInlineHost worldId={worldId} onHost={setInlineHost}/>}
   {error&&<p role="alert">{error}</p>}
-  {open&&!readOnly&&<div id={pickerId} className="surface-graph-reference-input__picker">
+  {!readOnly&&<div id={pickerId} hidden={!open} className="surface-graph-reference-input__picker">
    <div role="group" aria-label="Reference type">{!sourceOnly&&<button type="button" aria-pressed={kind==='objects'} onClick={()=>setKind('objects')}>Objects</button>}<button type="button" aria-pressed={kind==='sources'} onClick={()=>setKind('sources')}>Sources</button></div>
-   {kind==='objects'?<NativeGraphInspection key={worldId} worldId={worldId} onChoose={choose} disabled={disabled}/>:<NativeSourceInspection key={worldId} worldId={worldId} disabled={disabled} onChoose={ref=>{if(disabled||readOnly||ref.managed_world_id!==worldId)return;try{onChange(mergeAuthoredReferences(value,[ref]));setError(null);setOpen(false);}catch(e){setError(String(e));}}}/>}
+   {!sourceOnly&&<div hidden={kind!=='objects'}><NativeGraphInspection key={worldId} worldId={worldId} onChoose={choose} disabled={disabled}/></div>}
+   <div hidden={kind!=='sources'}><NativeSourceInspection key={worldId} worldId={worldId} disabled={disabled} onChoose={ref=>{if(disabled||readOnly||ref.managed_world_id!==worldId)return;try{onChange(mergeAuthoredReferences(value,[ref]));setError(null);setOpen(false);}catch(e){setError(String(e));}}}/></div>
   </div>}
  </section>;
 }

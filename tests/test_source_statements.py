@@ -340,7 +340,7 @@ def test_incomplete_discovered_bundle_is_partial_not_flattened(lane, monkeypatch
 
 
 def test_authenticated_routes_and_strict_selection(lane):
-    from apps.live_control_server.routes.source_statements import router
+    from apps.live_control_server.routes.source_statements import router, source_statement_subject_principal
     from apps.live_control_server.services.agent_graph_auth import (
         authenticate_native_graph_principal,
         native_graph_gm_dependency,
@@ -348,8 +348,11 @@ def test_authenticated_routes_and_strict_selection(lane):
 
     app = FastAPI()
     app.include_router(router)
+    from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency
+    app.dependency_overrides[native_graph_explorer_dependency] = lambda: GM
     app.dependency_overrides[native_graph_gm_dependency] = lambda: GM
     app.dependency_overrides[authenticate_native_graph_principal] = lambda: GM
+    app.dependency_overrides[source_statement_subject_principal] = lambda: GM
     with TestClient(app) as client:
         bad = lane.selection.model_dump()
         bad["embedded_content_factive"] = True
@@ -537,7 +540,7 @@ def test_actual_cross_scope_dependency_is_partial(lane, hidden_component):
 
 
 @pytest.fixture
-def extension_lane(tmp_path, monkeypatch, request):
+def extension_lane(application_state_dsn, tmp_path, monkeypatch, request):
     repo = None
     if getattr(request, "param", "memory") == "postgres":
         from urllib.parse import urlsplit
@@ -675,7 +678,7 @@ def test_extension_proof_tamper_refuses_before_publication(extension_lane, monke
 
 
 def extension_client(principal=GM):
-    from apps.live_control_server.routes.source_statements import router
+    from apps.live_control_server.routes.source_statements import router, source_statement_subject_principal
     from apps.live_control_server.services.agent_graph_auth import (
         authenticate_native_graph_principal,
     )
@@ -683,6 +686,9 @@ def extension_client(principal=GM):
     app.include_router(router)
     if principal is not None:
         app.dependency_overrides[authenticate_native_graph_principal] = lambda: principal
+        from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency
+        app.dependency_overrides[native_graph_explorer_dependency] = lambda: principal
+        app.dependency_overrides[source_statement_subject_principal] = lambda: principal
     return TestClient(app, client=("127.0.0.1", 50000))
 
 
@@ -718,6 +724,8 @@ def test_http_extension_authority_refusal_before_core_io(extension_lane, monkeyp
     from fastapi import HTTPException
     lane = extension_lane
     request = extension_request(lane)
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", "x" * 40)

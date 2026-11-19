@@ -551,13 +551,16 @@ export function BuildDocumentCreateControl({
           />
         }
       >
-        {pdfWorkspaceOpen && <button type="button" onClick={closeImport}>Close PDF import</button>}
-        {worldFields}
+        {!pdfWorkspaceOpen && worldFields}
         <BuildPdfPreview
           key={pdfPreviewKey}
           worldId={pdfWorldId}
           initialFile={droppedPdf?.file}
           onPdfOpen={() => setOpenPdfPreviewKey(pdfPreviewKey)}
+          toolbarControls={pdfWorkspaceOpen ? <>
+            <button type="button" onClick={closeImport}>Close PDF import</button>
+            {worldFields}
+          </> : undefined}
         />
         {!pdfWorkspaceOpen && importForm}
       </SurfaceContextPopover>

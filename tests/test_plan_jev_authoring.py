@@ -1276,22 +1276,33 @@ def _shared_plan_authoring_case(
     class Proposed(WriterWire):
         async def handle_async_request(self, request):
             rows = json.loads(request.content)["input"]
-            frames = [json.loads(row["content"]) for row in rows
-                      if row["content"] != "Return JSON."]
-            native = next(row for row in frames if set(row) == {
-                "input_status", "user_question", "native_body_evidence",
-                "native_statements", "native_assertions",
-            })
-            from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
-            work = next(row for row in frames if is_semantic_frame(row))
-            assert 'schema' not in work
-            assert 'run_id' not in json.dumps(work)
-            assert len(frames) == 3
-            assert frames[-1 if routing in {"discuss", "clarify"} else 0] == native
-            assert work["current_page_draft"]["markdown"] == capture.draft_markdown
-            assert work["focused_edit_target"]["kind"] == (
-                "insert_at_caret" if placement == "captured" else "insert_at_boundary"
-            )
+            if routing in {"discuss", "clarify"}:
+                [packet] = rows
+                prose = packet["content"]
+                assert prose.startswith("# Plan evidence\n\n")
+                assert capture.draft_markdown in prose
+                assert "## Current page draft" in prose
+                assert "## Focused edit target" in prose
+                expected_placement = "insert_at_caret" if placement == "captured" else "insert_at_boundary"
+                assert expected_placement in prose
+                assert "run_id" not in prose
+            else:
+                frames = [json.loads(row["content"]) for row in rows
+                          if row["content"] != "Return JSON."]
+                native = next(row for row in frames if set(row) == {
+                    "input_status", "user_question", "native_body_evidence",
+                    "native_statements", "native_assertions",
+                })
+                from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
+                work = next(row for row in frames if is_semantic_frame(row))
+                assert 'schema' not in work
+                assert 'run_id' not in json.dumps(work)
+                assert len(frames) == 3
+                assert frames[-1 if routing in {"discuss", "clarify"} else 0] == native
+                assert work["current_page_draft"]["markdown"] == capture.draft_markdown
+                assert work["focused_edit_target"]["kind"] == (
+                    "insert_at_caret" if placement == "captured" else "insert_at_boundary"
+                )
             self.adapter = wire.adapter
             if failure == "writer_timeout":
                 import httpx
@@ -1365,7 +1376,11 @@ def _shared_plan_authoring_case(
             assert not writer.calls and len(decisions.calls) == 1
             response = None
         else:
+            from time import perf_counter
+
+            started = perf_counter()
             response = execute_agent_turn(plan_adapter.request, **kwargs)
+            capture_ms = (perf_counter() - started) * 1000
             assert response.answer.status == "ok" and response.plan_proposal is None
             assert "plan_proposal" not in response.model_dump(mode="json")
             assert len(writer.calls) == 1 and len(decisions.calls) == 1
@@ -1378,11 +1393,56 @@ def _shared_plan_authoring_case(
         assert len(selected) == 1
         assert selected[0].requested_work == ("write_current_page" if routing == "write_without_capture" else routing)
         assert selected[0].original_capture_sha256 == (None if routing == "write_without_capture" else capture.sha256)
-        assert PlanActionDialogueService().get_by_key(capture.world_id, capture.idempotency_key) is None
+        action = PlanActionDialogueService().get_by_key(
+            capture.world_id, capture.idempotency_key
+        )
         with psycopg.connect(dsn) as conn:
-            assert get_authoring_for_turn(conn, world_id=turn.world_id,
-                turn_id=turn.turn_id, attempt=turn.attempt) is None
-        assert snapshot_content(capture.document_id).markdown == plan_adapter.work.plan_markdown
+            reservation = get_authoring_for_turn(
+                conn, world_id=turn.world_id, turn_id=turn.turn_id, attempt=turn.attempt
+            )
+        before = (capture.base_revision, plan_adapter.work.plan_markdown)
+        snapshot = snapshot_content(capture.document_id)
+        after = (snapshot.work_object.object_revision, snapshot.markdown)
+        if response is None:
+            assert action is None and reservation is None and before == after
+        else:
+            from hashlib import sha256
+            from evals.buddy_benchmark.artifacts import immutable_save
+            from evals.buddy_benchmark.workflow import action_report
+
+            effects = []
+            if reservation is not None or action is not None:
+                effects.append("write_reserved")
+            if response.plan_proposal is not None:
+                effects.append("proposal_created")
+            report_dir = tmp_path / "aw-report"
+            immutable_save(report_dir, "observation", {
+                "events": effects,
+                "journal_complete": False,
+                "before": list(before),
+                "after": list(after),
+                "fulfilled": response.answer.status == "ok",
+            })
+            observation = report_dir / "observation.json"
+            immutable_save(report_dir, "manifest", {
+                "schema": "dmb_aw_assessment_v1",
+                "cases": [{
+                    "id": str(turn.turn_id),
+                    "observation": {
+                        "path": observation.name,
+                        "sha256": sha256(observation.read_bytes()).hexdigest(),
+                    },
+                }],
+            })
+            started = perf_counter()
+            assessment = action_report(report_dir / "manifest.json")["cases"][0]
+            report_ms = (perf_counter() - started) * 1000
+            immutable_save(report_dir, "timing", {
+                "ordinary_dispatch_ms": capture_ms,
+                "offline_assessment_ms": report_ms,
+                "provider_mode": "mock_transport",
+            })
+            assert assessment["status"] == "unproven", assessment
         calls = len(decisions.calls), len(writer.calls)
         if response is None:
             assert turn.failure_code == refused[routing] and turn.completion is None

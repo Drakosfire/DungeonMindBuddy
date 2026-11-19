@@ -1,6 +1,10 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { CompactAppNavigation } from "./CompactAppNavigation";
+import { WorkspacePrimaryNavigation } from "./WorkspacePrimaryNavigation";
+import { AppChrome } from "./AppChrome";
+import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
 import userEvent from '@testing-library/user-event';
 import {GuidedTourProvider,useGuidedTour} from '../guidedTour/GuidedTour';
 import {createWalkthrough} from '../guidedTour/protocol';
@@ -47,6 +51,31 @@ describe("compact command-board navigation", () => {
     expect(screen.getByRole("button", { name: "Open navigation" })).toHaveAttribute("aria-expanded", "false");
     history.mockRestore();
   });
+  it("retains the primary nav and shared control order when the surface shell is replaced", () => {
+    const view = render(
+      <AgentInteractionProvider><PeekRegionProvider>
+        <WorkspacePrimaryNavigation route="build">
+          <AppChrome key="build" activeRoute="build">Build workspace</AppChrome>
+        </WorkspacePrimaryNavigation>
+      </PeekRegionProvider></AgentInteractionProvider>,
+    );
+    const nav = screen.getByRole("navigation", { name: "Command board navigation" });
+    const header = screen.getByTestId("app-chrome-header");
+    expect(header).toContainElement(nav);
+    const controls = within(nav).getAllByRole("button");
+    view.rerender(
+      <AgentInteractionProvider><PeekRegionProvider>
+        <WorkspacePrimaryNavigation route="plan">
+          <AppChrome key="plan" activeRoute="plan">Plan workspace</AppChrome>
+        </WorkspacePrimaryNavigation>
+      </PeekRegionProvider></AgentInteractionProvider>,
+    );
+    expect(screen.getByTestId("app-chrome-header")).not.toBe(header);
+    expect(screen.getByTestId("app-chrome-header")).toContainElement(nav);
+    expect(within(nav).getAllByRole("button")).toEqual(controls);
+    expect(nav).toHaveTextContent("Plan");
+  });
+
   it("collapses on a surface change without remounting the workspace", () => {
     const view = render(<CompactAppNavigation activeRoute="plan" />);
     fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));

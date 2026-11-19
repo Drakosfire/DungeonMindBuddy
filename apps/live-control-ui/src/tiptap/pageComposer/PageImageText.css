@@ -1,0 +1,17 @@
+.page-image-text { position: relative; min-width: 0; margin-block: .8rem; }
+.page-image-text__content { position: relative; min-width: 0; }
+.page-image-text__content > :first-child { margin-top: 0; }
+.page-image-text__content > :nth-child(2) { box-sizing: border-box; margin: .5rem 0 0; max-width: 100%; line-height: 1.35; overflow-wrap: anywhere; }
+.page-image-text[data-overlay=true] .page-image-text__content > :nth-child(2) { position: absolute; z-index: 2; left: var(--image-text-x); top: var(--image-text-y); width: var(--image-text-width); margin: 0; text-align: var(--image-text-align, center); }
+.page-image-text[data-overlay=true][data-backing=contrast] .page-image-text__content > :nth-child(2) { color: var(--md-fg, var(--fg, #f4f1e9)); background: var(--md-surface, var(--bg-input, #202735)); border-radius: .3rem; }
+.page-image-text[data-overlay=false] .page-image-text__content > :nth-child(2) { position: static; width: min(100%, var(--image-text-width, 100%)); }
+.page-image-text-tools { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; margin-block: .4rem; }
+.page-image-text-tools button, .page-image-text-tools select { font: inherit; font-size: .85rem; padding: .25rem .5rem; color: var(--fg, #e8eaef); background: var(--panel, #202735); border: 1px solid var(--border, #444b59); }
+.page-image-text-tools label { font-size: .85rem; }
+.page-image-text-tools button:disabled, .page-image-text-tools select:disabled { opacity: .5; }
+.page-image-text-tools button:focus-visible, .page-image-text-tools select:focus-visible { outline: 2px solid var(--accent, #b59a58); outline-offset: 2px; }
+
+/* Keep measured text box dimensions identical in overlay and fallback modes. */
+.page-image-text[data-backing=contrast] .page-image-text__content > :nth-child(2) { padding: .35rem .55rem; }
+/* The existing image resize control remains reachable above a bottom title. */
+.page-image-text .document-media-image__resize { z-index: 3; }

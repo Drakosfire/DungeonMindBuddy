@@ -301,6 +301,11 @@ class PlanJevDispatch:
                 selected_fields.update(operation=first_batch.operation if first_batch is not None else None,
                     selected_handles=list(first_batch.selected_handles) if first_batch is not None else [],
                     post_read_plan=first_batch.post_read_plan if first_batch is not None else None)
+            if opening or not semantic:
+                from application_state.agent_conversation.jev_retrieval_contract import retrieval_exclusions_for_replay
+                selected_fields["exclusion_replay"] = retrieval_exclusions_for_replay(
+                    self.parent, result, requested_work=selected_fields.get("requested_work") if opening else None,
+                )
             current_work = isinstance(self.parent, PlanRequestedWorkInputV8)
             event_type = NativePlanOpeningSelectedV1 if opening else NativePlanRequestedWorkSelectedV3 if current_work else t.PlanRequestedWorkSelectedV2 if placement else t.PlanRequestedWorkSelectedV1 if semantic else NativeRetrievalSelectedV2 if planned else NativeRetrievalSelectedV1 if native else t.PlanJevRetrievalSelectionV1
             event = event_type(kind='native_plan_opening_selected_v1' if opening else 'plan_requested_work_selected_v3' if current_work else 'plan_requested_work_selected_v2' if placement else 'plan_requested_work_selected_v1' if semantic else 'native_retrieval_selected_v2' if planned else 'native_retrieval_selected_v1' if native else 'plan_jev_retrieval_selected_v1', event_id=uuid4(),

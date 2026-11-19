@@ -64,10 +64,19 @@ def test_prepared_image_association_and_actual_source_save_reopen(
     image = saved_image("local_operator")
     if state == "ready":
         ready(image)
+    def revoked(world_id):
+        assert world_id == record.reservation.basis.world_id
+        raise PermissionError("World ownership revoked")
+
+    with pytest.raises(PermissionError, match="World ownership revoked"):
+        store.associate(action, image["asset_id"], "local_operator", record.revision, authorize_world=revoked)
+    assert store.get(action, "local_operator") == record
     updated = store.associate(
         action, image["asset_id"], "local_operator", record.revision
     )
     assert updated.asset_id == image["asset_id"]
+    with pytest.raises(PermissionError, match="World ownership revoked"):
+        store.associate(action, image["asset_id"], "local_operator", record.revision, authorize_world=revoked)
     assert media.get_asset(image["asset_id"], "local_operator")["state"] == state
     assert (
         store.associate(action, image["asset_id"], "local_operator", record.revision)

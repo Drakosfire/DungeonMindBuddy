@@ -1,4 +1,5 @@
 import type {
+  LocalObjectId,
   LocalWorldObject,
   LocalWorldRecord,
   LocalWorldRelationship,
@@ -53,6 +54,9 @@ export interface GraphProjectionOptions {
   readonly maxEdges?: number;
   readonly focusObjectId?: LocalWorldObject["id"] | null;
   readonly neighborhoodDepth?: number;
+  readonly hiddenKinds?: ReadonlySet<string>;
+  readonly retainedSelectionId?: LocalObjectId;
+  readonly previewObjectId?: LocalObjectId;
 }
 
 function boundedLimit(value: number | undefined, ceiling: number): number {
@@ -179,10 +183,9 @@ export function createGraphFallbackPositions(
   groups.sort((a, b) => b.length - a.length || rank(a[0], b[0]));
   const result = new Map<Id, Point>();
   const buckets = new Map<number, Bubble[]>();
-  // One neighboring cell covers two maximum radii (~304) plus the 4-unit gap.
-  const cell = 320;
-  // Include the one-cell halo on both sides of the coordinate domain.
-  const bucketStride = Math.floor(MAX_GRAPH_COORDINATE / cell) + 3;
+  const cell = 128;
+  const maximumRadius = graphBubbleRadius(Infinity);
+  const bucketStride = Math.floor(MAX_GRAPH_COORDINATE / cell) + 1;
   const key = (x: number, y: number) => x * bucketStride + y;
   function occupy(id: Id, point: Point) {
     result.set(id, point);
@@ -193,9 +196,14 @@ export function createGraphFallbackPositions(
   }
   function available(point: Point, r: number): boolean {
     if (point.x < 0 || point.y < 0 || point.x > MAX_GRAPH_COORDINATE || point.y > MAX_GRAPH_COORDINATE) return false;
-    const bx = Math.floor(point.x / cell), by = Math.floor(point.y / cell);
-    for (let x = bx - 1; x <= bx + 1; x += 1) {
-      for (let y = by - 1; y <= by + 1; y += 1) {
+    // Only buckets reachable by the two radii and their separation gap can collide.
+    const reach = r + maximumRadius + 4;
+    const minX = Math.floor(Math.max(0, point.x - reach) / cell);
+    const maxX = Math.floor(Math.min(MAX_GRAPH_COORDINATE, point.x + reach) / cell);
+    const minY = Math.floor(Math.max(0, point.y - reach) / cell);
+    const maxY = Math.floor(Math.min(MAX_GRAPH_COORDINATE, point.y + reach) / cell);
+    for (let x = minX; x <= maxX; x += 1) {
+      for (let y = minY; y <= maxY; y += 1) {
         const nearby = buckets.get(key(x, y));
         if (!nearby) continue;
         for (const other of nearby) {
@@ -219,16 +227,25 @@ export function createGraphFallbackPositions(
   }
   let rootCursor = 0;
   const origin = { x: 640, y: 640 };
+  const maximumRootDistance = Math.hypot(
+    Math.max(origin.x, MAX_GRAPH_COORDINATE - origin.x),
+    Math.max(origin.y, MAX_GRAPH_COORDINATE - origin.y),
+  );
   function placeRoot(r: number): Point {
     for (let attempt = 0; attempt < 2048; attempt += 1) {
       const slot = rootCursor++;
       const distance = 70 * Math.sqrt(slot);
+      // Beyond the furthest corner, every subsequent point is outside the domain.
+      // Leave one coordinate unit for floating-point rounding.
+      if (distance > maximumRootDistance + 1) break;
       const angle = slot * 2.399963229728653;
       const point = { x: origin.x + distance * Math.cos(angle), y: origin.y + distance * Math.sin(angle) };
       if (available(point, r)) return point;
     }
     return emergency();
   }
+  const cosine = new Float64Array(48);
+  const sine = new Float64Array(48);
   for (const group of groups) {
     const rootId = group[0];
     if (!result.has(rootId)) occupy(rootId, placeRoot(radius(rootId)));
@@ -247,8 +264,12 @@ export function createGraphFallbackPositions(
         const distance = r + anchorRadius + 4.1 + shell * 12;
         let best = Infinity;
         for (let step = 0; step < 48; step += 1) {
-          const angle = outward + step * 2 * Math.PI / 48;
-          const point = { x: anchor.x + distance * Math.cos(angle), y: anchor.y + distance * Math.sin(angle) };
+          if (shell === 0) {
+            const angle = outward + step * 2 * Math.PI / 48;
+            cosine[step] = Math.cos(angle);
+            sine[step] = Math.sin(angle);
+          }
+          const point = { x: anchor.x + distance * cosine[step], y: anchor.y + distance * sine[step] };
           if (!available(point, r)) continue;
           // All admitted neighbors contribute, with bounded work for dense hubs.
           let score = 0;
@@ -323,7 +344,9 @@ export function projectLocalWorldGraph(
   const maxEdges = options.maxEdges === undefined ? DEFAULT_GRAPH_LIMITS.edges : boundedLimit(options.maxEdges, MAX_GRAPH_LIMITS.edges);
   // Reject an accidentally retained index from an older World/revision.
   const index = suppliedIndex?.snapshot === record.snapshot ? suppliedIndex : indexLocalWorldGraph(record.snapshot);
-  const objects = record.snapshot.objects;
+  const isVisibleKind = (object: LocalWorldObject) =>
+    object.id === options.retainedSelectionId || object.id === options.previewObjectId || !options.hiddenKinds?.has(object.kind);
+  const objects = options.hiddenKinds?.size ? record.snapshot.objects.filter(isVisibleKind) : record.snapshot.objects;
   const focused = Boolean(options.focusObjectId && index.objects.has(options.focusObjectId));
   const compactOverview = options.compactOverview && !focused;
   const fullOverview = options.fullCorpus && !focused && !compactOverview;
@@ -343,7 +366,8 @@ export function projectLocalWorldGraph(
     const depthLimit = boundedLimit(options.neighborhoodDepth ?? 1, objects.length);
     const queue = [{ id: focusId, depth: 0 }];
     const visited = new Set([focusId]);
-    for (let cursor = 0; cursor < queue.length && queue.length < maxNodes; cursor += 1) {
+    let visibleCount = Number(isVisibleKind(index.objects.get(focusId)!));
+    for (let cursor = 0; cursor < queue.length && visibleCount < maxNodes; cursor += 1) {
       const { id, depth } = queue[cursor];
       if (depth >= depthLimit) continue;
       const neighbors = index.neighbors.get(id);
@@ -352,10 +376,11 @@ export function projectLocalWorldGraph(
         if (visited.has(neighbor)) continue;
         visited.add(neighbor);
         queue.push({ id: neighbor, depth: depth + 1 });
-        if (queue.length >= maxNodes) break;
+        if (isVisibleKind(index.objects.get(neighbor)!)) visibleCount += 1;
+        if (visibleCount >= maxNodes) break;
       }
     }
-    visibleObjects = queue.map(({ id }) => index.objects.get(id)!);
+    visibleObjects = queue.map(({ id }) => index.objects.get(id)!).filter(isVisibleKind);
   } else {
     const eligibleObjects = options.showUnconnected === false ? objects.filter(isEligible) : objects;
     eligibleCount = eligibleObjects.length;
@@ -381,6 +406,22 @@ export function projectLocalWorldGraph(
     } else {
       visibleObjects = fullOverview ? eligibleObjects : eligibleObjects.slice(0, maxNodes);
     }
+  }
+  const retainedIds = new Set([options.retainedSelectionId, options.previewObjectId]);
+  const visibleObjectIds = new Set(visibleObjects.map(object => object.id));
+  const missing = [...retainedIds].flatMap(id => {
+    const object = id && index.objects.get(id);
+    return object && !visibleObjectIds.has(object.id) ? [object] : [];
+  });
+  if (missing.length) {
+    const limit = fullOverview ? objects.length : compactOverview ? Math.min(64, maxNodes) : maxNodes;
+    const kept = [...visibleObjects, ...missing];
+    // Make room for the explicit preview and selection within the view budget.
+    for (let i = visibleObjects.length - 1; i >= 0 && kept.length > limit; i--) {
+      const { id } = kept[i];
+      if (id !== focusId && !retainedIds.has(id)) kept.splice(i, 1);
+    }
+    visibleObjects = kept.slice(0, limit);
   }
   const visibleIds = new Set(visibleObjects.map((object) => object.id));
   const compactPositions = compactOverview ? createGraphFallbackPositions({

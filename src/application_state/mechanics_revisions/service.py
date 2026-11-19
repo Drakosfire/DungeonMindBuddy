@@ -48,7 +48,7 @@ def list_operations(*,world_id,draft_id,limit=50,offset=0):
             (world_id,draft_id,limit,offset)).fetchall()]
 
 
-def claim(record: RevisionOperation):
+def claim(record: RevisionOperation, *, authorize=None):
     if record.state!='prepared':raise ValueError('Only a new intent may be claimed')
     record=RevisionOperation.model_validate(record.model_dump(mode='json',by_alias=True))
     with unit_of_work(_dsn()) as conn:
@@ -63,6 +63,7 @@ def claim(record: RevisionOperation):
             return old,False
         if conn.execute("SELECT 1 FROM mechanics_revision.operation WHERE statblock_id=%s AND state IN ('prepared','outcome_unknown') LIMIT 1",(record.base.statblock_id,)).fetchone():
             raise ApplicationStateConflictError('An unresolved Save must be recovered before a new revision')
+        if authorize is not None:authorize()
         conn.execute('INSERT INTO mechanics_revision.operation(operation_id,world_id,draft_id,statblock_id,state,created_at,payload) '
             'VALUES(%s,%s,%s,%s,%s,%s,%s)',(record.operation_id,record.world_id,record.draft_id,record.base.statblock_id,
             record.state,record.created_at,Jsonb(record.model_dump(mode='json',by_alias=True))))
@@ -104,7 +105,7 @@ def unresolved(*,world_id,draft_id):
 
 
 
-def cancel_if_absent(*,world_id,draft_id,operation_id):
+def cancel_if_absent(*,world_id,draft_id,operation_id,authorize=None):
     """A missing read alone cannot fence a still-running preflight/claim."""
     with unit_of_work(_dsn()) as conn:
         conn.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s,0))',('mechanics-revision-key:'+str(operation_id),))
@@ -116,6 +117,7 @@ def cancel_if_absent(*,world_id,draft_id,operation_id):
         previous=conn.execute('SELECT world_id,draft_id FROM mechanics_revision.cancellation WHERE operation_id=%s',(operation_id,)).fetchone()
         if previous and previous!=(world_id,UUID(str(draft_id))):
             raise ApplicationStateConflictError('Canceled Save belongs to another work item')
+        if authorize is not None:authorize()
         conn.execute('INSERT INTO mechanics_revision.cancellation(operation_id,world_id,draft_id) VALUES(%s,%s,%s) '
             'ON CONFLICT(operation_id) DO NOTHING',(operation_id,world_id,draft_id))
         return None

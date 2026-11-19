@@ -1,6 +1,16 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MediaImageWizard, type ImageGenerationPort } from './MediaImageWizard';
+const selectedWorld = vi.hoisted(() => ({ worldId: undefined as string | undefined }));
+vi.mock('../selectedWorld/SelectedWorldContext', async importOriginal => {
+  const actual = await importOriginal<typeof import('../selectedWorld/SelectedWorldContext')>();
+  return {
+    ...actual,
+    useSelectedWorld: () => selectedWorld.worldId
+      ? { kind: 'managed', worldId: selectedWorld.worldId }
+      : actual.useSelectedWorld(),
+  };
+});
 const tourImage=vi.hoisted(()=>({inspect:vi.fn(),generated:vi.fn(),placed:vi.fn(),captureScope:()=>null}));
 vi.mock('../guidedTour/ImageObservations',()=>({useTourImage:()=>tourImage}));
 const createUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
@@ -11,6 +21,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  selectedWorld.worldId = undefined;
   for (const [key, descriptor] of [['createObjectURL', createUrlDescriptor], ['revokeObjectURL', revokeUrlDescriptor]] as const) {
     if (descriptor) Object.defineProperty(URL, key, descriptor); else Reflect.deleteProperty(URL, key);
   }
@@ -363,4 +374,32 @@ it('escapes a clipping conversation host and keeps technical copy collapsed', as
   expect(screen.getByRole('button',{name:'Image library'}).querySelector('svg')).not.toBeNull();
   mounted.unmount();expect(document.querySelector('.media-image-wizard-overlay')).toBeNull();
  } finally {host.remove();}
+});
+
+
+it('clears private saved artwork and its generation settings on a World switch', async () => {
+  selectedWorld.worldId = 'first';
+  const api = createPort();
+  const saved = {
+    asset_id: 'private', state: 'ready', mime_type: 'image/png', created_at: '',
+    delivery_url: 'https://imagedelivery.net/test/private/public',
+    provenance: { prompt: 'Private map', settings: { purpose: 'map' } },
+  };
+  vi.mocked(api.list).mockResolvedValue({ items: [saved] });
+  vi.mocked(api.get).mockResolvedValue(saved);
+  const { rerender } = render(<MediaImageWizard onClose={() => {}} port={api} />);
+  await screen.findByRole('option', { name: 'FLUX 2 Pro' });
+  fireEvent.click(screen.getByRole('button', { name: 'Image library' }));
+  const card = await screen.findByRole('button', { name: 'Private map · Saved' });
+  expect(card.querySelector('img')).toHaveAttribute('src', saved.delivery_url);
+  fireEvent.click(card);
+  await screen.findByAltText('Private map');
+
+  selectedWorld.worldId = 'second';
+  rerender(<MediaImageWizard onClose={() => {}} port={api} />);
+  expect(screen.queryByAltText('Private map')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Private map · Saved' })).not.toBeInTheDocument();
+  expect(screen.getByRole('textbox', { name: /What would you like/ })).toHaveValue('');
+  expect(screen.getByLabelText('Image purpose')).toHaveValue('illustration');
+  await waitFor(() => expect(api.capabilities).toHaveBeenCalledWith('second'));
 });

@@ -6,7 +6,7 @@ from apps.live_control_server.services.native_recap_source_admission import publ
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from uuid import UUID
 from apps.live_control_server.models.build_recap_launch import BuildRecapLaunchRequest
 from apps.live_control_server.models.saved_recap_runs import SavedRecapRunsResponse, SavedRecapSourceResponse
@@ -19,7 +19,7 @@ from apps.live_control_server.models.exact_run_candidate_projection import (
 from apps.live_control_server.models.historical_recap_projection import (
     HistoricalRecapWorldProjectionResponse,
 )
-from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
+from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm, native_graph_gm_dependency
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GraphIngestLatestRunResponse,
     GraphIngestRunRegistryError,
@@ -155,12 +155,18 @@ def get_graph_ingest_runs(
 
 
 @router.get("/extraction-runs/{run_id}")
-def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
+def get_extraction_run_by_id(run_id: str, request: Request = None) -> dict[str, Any]:
     """Exact ExtractionRun reload. Source-domain neutral; never substitutes latest.
 
     Works for recap and worldbuilding runs. Build-specific workspace lineage lives
     on ``GET /extraction-runs/{run_id}/build-context``.
     """
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import read_hosted_exact_extraction
+
+    if request is not None and hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+        return read_hosted_exact_extraction(request, run_id)
+
     from apps.live_control_server.services.graph_run_registry import (
         GraphRunRegistryError,
         get_extraction_run,
@@ -200,12 +206,11 @@ def get_saved_recap_runs(
     request: Request,
     managed_world_id: Annotated[str, Query(min_length=1)],
     campaign_id: Annotated[str | None, Query(min_length=1)] = None,
-    _principal=Depends(native_graph_gm_dependency),
 ):
-    from apps.live_control_server.services.ingest_run_catalog import (
-        list_saved_recap_runs,
-    )
+    from apps.live_control_server.services.ingest_run_catalog import list_saved_recap_runs
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
 
+    require_saved_recap_access(request, managed_world_id)
     _saved_run_query(request, {"managed_world_id"}, {"campaign_id"})
     return _saved_run_response(
         lambda: list_saved_recap_runs(
@@ -249,12 +254,11 @@ def get_extraction_run_recap_inspection(
     managed_world_id: Annotated[str, Query(min_length=1)],
     expected_run_revision: Annotated[int, Query(gt=0)],
     source_revision_id: Annotated[UUID, Query()],
-    _principal=Depends(native_graph_gm_dependency),
 ):
-    from apps.live_control_server.services.ingest_run_catalog import (
-        read_saved_recap_source,
-    )
+    from apps.live_control_server.services.ingest_run_catalog import read_saved_recap_source
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
 
+    require_saved_recap_access(request, managed_world_id)
     _saved_run_query(
         request, {"managed_world_id", "expected_run_revision", "source_revision_id"}
     )
@@ -276,9 +280,10 @@ def get_extraction_run_recap_inspection(
 def get_extraction_run_candidate_projection(
     run_id: str,
     request: Request,
-    _principal=Depends(native_graph_gm_dependency),
 ):
     """Read exact frozen candidate prose; never admit or publish domain data."""
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
+    require_saved_recap_access(request, request.query_params.get("managed_world_id", ""))
     if set(request.query_params) != {"managed_world_id"} or len(
         request.query_params.getlist("managed_world_id")
     ) != 1:
@@ -316,6 +321,7 @@ def get_extraction_run_candidate_projection(
 def get_extraction_run_recap_projection(
     run_id: str,
     request: Request,
+    response_context: Response,
 ) -> dict[str, Any]:
     """Project exact durable recap text onto the current governed World.
 
@@ -342,6 +348,12 @@ def get_extraction_run_recap_projection(
         build_historical_recap_world_projection,
     )
 
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_saved_recap_access(request, managed_world_id or "")
     try:
         response = build_historical_recap_world_projection(
             repo_root(),
@@ -357,10 +369,25 @@ def get_extraction_run_recap_projection(
                 "diagnostics": [item.model_dump(mode="json") for item in exc.diagnostics],
             },
         ) from exc
-    return response.model_dump(mode="json", by_alias=True)
+    result = response.model_dump(mode="json", by_alias=True)
+    if hosted:
+        require_saved_recap_access(request, response.managed_world_id or "")
+        response_context.headers["Cache-Control"] = "no-store"
+    return result
 
 
 @router.get("/extraction-runs/{run_id}/build-context")
+async def read_extraction_run_build_context(run_id: str, request: Request) -> dict[str, Any]:
+    from starlette.concurrency import run_in_threadpool
+
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import read_hosted_extraction_build_context
+
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return await run_in_threadpool(get_extraction_run_build_context, run_id)
+    return await read_hosted_extraction_build_context(request, run_id, _build_extraction_context)
+
+
 def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
     """Build-only exact-run envelope with server-resolved workspace lineage.
 
@@ -377,7 +404,6 @@ def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
         get_source_artifact,
     )
 
-    root = repo_root()
     try:
         run = get_extraction_run(run_id)
     except GraphRunRegistryError as exc:
@@ -388,6 +414,10 @@ def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
     except SourceArtifactRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
+    return _build_extraction_context(run, artifact)
+
+
+def _build_extraction_context(run, artifact) -> dict[str, Any]:
     document_id = artifact.workspace_document_id
     document_revision = artifact.workspace_document_revision
     content_sha256 = artifact.content_sha256
@@ -516,8 +546,6 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
             status_code=409,
             detail=f"revision mismatch: expected {expected_revision}, current {record.revision}",
         )
-    if not record.target_relpath:
-        raise HTTPException(status_code=422, detail="workspace document has no target_relpath")
 
     try:
         artifact = create_source_artifact_from_workspace_document(
@@ -752,32 +780,66 @@ def get_recap_graph_presentation(
     return response.model_dump(mode="json")
 
 
-@router.post("/build-recap-launches", dependencies=[Depends(native_graph_gm_dependency)])
-def post_build_recap_launch(body: BuildRecapLaunchRequest) -> dict[str, Any]:
+@router.post("/build-recap-launches")
+def post_build_recap_launch(request: Request, body: BuildRecapLaunchRequest) -> dict[str, Any]:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
     from apps.live_control_server.services.build_recap_launch import launch_build_recap
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_native_source
+
+    hosted = hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS
+    if hosted:
+        if request.query_params:
+            raise HTTPException(status_code=403, detail="Unexpected recap launch query")
+        require_hosted_build_native_source(request, body.managed_world_id)
+    else:
+        enforce_native_graph_gm(request)
+    def authorize() -> None:
+        require_hosted_build_native_source(request, body.managed_world_id)
+
     try:
-        run = launch_build_recap(repo_root(), body)
+        run = launch_build_recap(repo_root(), body, authorize=authorize if hosted else None)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=getattr(exc,"status_code",503),detail=str(exc)) from exc
-    return get_extraction_run_build_context(run.run_id)
+    context = get_extraction_run_build_context(run.run_id)
+    if hosted:
+        require_hosted_build_native_source(request, body.managed_world_id)
+    return context
 
 
-@router.get("/build-recap-launches/{request_id}", dependencies=[Depends(native_graph_gm_dependency)])
-def get_build_recap_launch(request_id: UUID, document_id: UUID, managed_world_id: str) -> dict[str, Any]:
+@router.get("/build-recap-launches/{request_id}")
+def get_build_recap_launch(request: Request, request_id: UUID, document_id: UUID, managed_world_id: str) -> dict[str, Any]:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_native_source
     from apps.live_control_server.services.build_recap_launch import recover_build_recap_launch
+
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+    else:
+        require_hosted_build_native_source(request, managed_world_id)
     try:
         run = recover_build_recap_launch(repo_root(),request_id=request_id,document_id=document_id,managed_world_id=managed_world_id)
     except Exception as exc:
         raise HTTPException(status_code=getattr(exc,"status_code",503),detail=str(exc)) from exc
-    return get_extraction_run_build_context(run.run_id)
+    context = get_extraction_run_build_context(run.run_id)
+    if context["document_id"] != str(document_id):
+        raise HTTPException(status_code=409, detail="Saved recap launch does not match this document")
+    require_hosted_build_native_source(request, managed_world_id)
+    return context
 
 
 @router.get("/extraction-runs/{run_id}/usage")
 def get_extraction_usage(run_id: str, request: Request,
     managed_world_id: Annotated[str, Query(min_length=1)],
-    expected_run_revision: Annotated[int, Query(gt=0)],
-    _principal=Depends(native_graph_gm_dependency)):
+    expected_run_revision: Annotated[int, Query(gt=0)]):
     from apps.live_control_server.services.extraction_usage import read_extraction_usage
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
+
+    require_saved_recap_access(request, managed_world_id)
     _saved_run_query(request, {"managed_world_id", "expected_run_revision"})
-    return _saved_run_response(lambda: read_extraction_usage(root=repo_root(),run_id=run_id,
+    response = _saved_run_response(lambda: read_extraction_usage(root=repo_root(),run_id=run_id,
         managed_world_id=managed_world_id,expected_run_revision=expected_run_revision))
+    require_saved_recap_access(request, managed_world_id)
+    return response

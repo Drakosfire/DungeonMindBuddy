@@ -15,7 +15,11 @@ def client_for(p,monkeypatch):
     monkeypatch.setattr(play_runs,'_verified_world',lambda world_id:world_id)
     monkeypatch.setattr(combat_run_encounters,'_verified_world',lambda world_id:world_id)
     monkeypatch.setattr(combat_encounters,'_verified_world',lambda world_id:world_id)
-    return TestClient(app),app
+    token = "synthetic-run-encounter-local-operator-token"
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", token)
+    return TestClient(app, client=("127.0.0.1", 50000), headers={"Authorization": f"Bearer {token}"}),app
 
 
 def test_versioned_create_receipt_and_old_body_refusal(scene_case,monkeypatch):
@@ -31,6 +35,11 @@ def test_versioned_create_receipt_and_old_body_refusal(scene_case,monkeypatch):
     old={key:value for key,value in request.model_dump(mode='json').items() if key in ('playable_artifact_id','expected_playable_revision','expected_playable_content_sha256')}
     assert client.put(f'/api/live/world-play-runs/v2/{uuid4()}?world_id=elderwyld',json=old).status_code==422
     app.dependency_overrides[authenticate_native_graph_principal]=lambda:NativeGraphPrincipal('player','player','local_session')
+    from apps.live_control_server.services import agent_graph_auth
+    monkeypatch.setattr(
+        agent_graph_auth, "authenticate_native_graph_principal",
+        lambda _request: NativeGraphPrincipal("player", "player", "local_session"),
+    )
     assert client.put(path,json=request.model_dump(mode='json')).status_code==403
     assert client.get(f'/api/live/world-play-runs/v2/{run_id}/creation?world_id=elderwyld').status_code==403
 

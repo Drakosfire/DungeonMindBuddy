@@ -11,6 +11,7 @@ from application_state.mechanics_revisions.types import RevisionOperation,digest
 from application_state.world_mechanics.types import WorldMechanicsAssociation
 from . import repository as repo
 from .service import _require_integrity
+from .manual_encounters import ManualEncounterRecord
 from .types import CombatEncounterDraft,CombatMechanicsSnapshot,AcceptedCombatMechanicsSnapshot,SavedCombatMechanicsSnapshot
 from .adoption_types import AdoptMechanicsRequest,AdoptionReceipt,AdoptionOutcome,AdoptionTransition,AdoptionHistoryPage
 
@@ -26,7 +27,10 @@ def intent_digest(world_id,encounter_id,request):
 def _encounter(conn,world_id,encounter_id):
     record=repo.get_encounter(conn,world_id=world_id,encounter_id=UUID(str(encounter_id)))
     if record is None:raise ApplicationStateNotFoundError('Encounter not found in this World')
-    _require_integrity(record);return record
+    _require_integrity(record)
+    if isinstance(record, ManualEncounterRecord):
+        raise ApplicationStateValidationError("AC/HP adoption is unavailable for manual profiles")
+    return record
 
 
 def _validated_receipt(row):
@@ -97,7 +101,7 @@ def _insert(conn,receipt):
         (receipt.operation_id,receipt.world_id,receipt.encounter_id,receipt.created_at,Jsonb(receipt.model_dump(mode='json',by_alias=True))))
 
 
-def cancel(*,world_id,encounter_id,request:AdoptMechanicsRequest,scope=None):
+def cancel(*,world_id,encounter_id,request:AdoptMechanicsRequest,scope=None,authorize=None):
     with unit_of_work(_dsn()) as conn:
         from application_state.combat_encounters.access import guard
         guard(conn, world_id=world_id, encounter_id=encounter_id, scope=scope)
@@ -109,6 +113,8 @@ def cancel(*,world_id,encounter_id,request:AdoptMechanicsRequest,scope=None):
         receipt=AdoptionReceipt(operation_id=request.operation_id,world_id=world_id,encounter_id=encounter_id,
             request_digest=intent_digest(world_id,encounter_id,request),state='canceled',source=request.locator,
             expected_revision=request.expected_revision,committed_revision=None,transitions=[],created_at=datetime.now(UTC))
+        if authorize is not None:
+            authorize()
         _insert(conn,receipt);return _outcome(conn,receipt)
 
 
@@ -206,7 +212,7 @@ def _replace(conn,world_id,record,request,snapshot,origin):
     return updated,transitions
 
 
-def apply_verified(*,world_id,encounter_id,request,snapshot,origin,scope=None):
+def apply_verified(*,world_id,encounter_id,request,snapshot,origin,scope=None,authorize=None):
     with unit_of_work(_dsn()) as conn:
         from application_state.combat_encounters.access import guard
         owned_run=guard(conn, world_id=world_id, encounter_id=encounter_id, scope=scope)
@@ -222,6 +228,8 @@ def apply_verified(*,world_id,encounter_id,request,snapshot,origin,scope=None):
         if request.draft_id!=snapshot.draft_id or request.locator!=snapshot.locator:
             raise ApplicationStateIntegrityError('Verified mechanics differ from the selected version')
         draft,transitions=_replace(conn,world_id,before,request,snapshot,origin)
+        if authorize is not None:
+            authorize()
         saved=repo.cas_replace_draft(conn,world_id=world_id,encounter_id=before.encounter_id,expected_revision=request.expected_revision,
             draft=draft.model_dump(mode='json',by_alias=True),updated_at=datetime.now(UTC))
         if saved is None:raise ApplicationStateConflictError('Encounter changed; reload and preview adoption again')

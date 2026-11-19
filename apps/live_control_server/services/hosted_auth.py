@@ -369,12 +369,19 @@ async def _read_bounded_request_body(request: Request) -> bytes:
     return result
 
 
-async def request_world_ids(request: Request) -> frozenset[str]:
-    found = {
+BUILD_PDF_SOURCES_PATH = "/api/live/agent/worlds/{world_id}/build-pdf-sources"
+
+
+def _query_world_ids(request: Request) -> frozenset[str]:
+    return frozenset(
         _validated_world_selector(value)
         for key in ("world_id", "worldId", "managed_world_id", "managedWorldId")
         for value in request.query_params.getlist(key)
-    }
+    )
+
+
+async def request_world_ids(request: Request, *, collect_body_worlds: bool = True) -> frozenset[str]:
+    found = set(_query_world_ids(request))
     body = await _read_bounded_request_body(request)
     if not body:
         return frozenset(found)
@@ -409,7 +416,8 @@ async def request_world_ids(request: Request) -> frozenset[str]:
         raise _invalid_world_request_body() from exc
     if not isinstance(payload, (Mapping, list)):
         raise _invalid_world_request_body()
-    found.update(_collect_world_ids(payload))
+    if collect_body_worlds:
+        found.update(_collect_world_ids(payload))
     return frozenset(found)
 
 
@@ -485,6 +493,13 @@ def install_hosted_request_boundary(
     ):
         raise ValueError("world_scope_resolvers_invalid")
     route_resolvers = dict(world_scope_resolvers or {})
+    from starlette.routing import compile_path
+
+    world_path_resolvers = [
+        (method, path, compile_path(path)[0], resolver)
+        for (method, path), resolver in route_resolvers.items()
+        if any(marker in path for marker in ("{world_id}", "{document_id}", "{run_id}", "{asset_id}", "{draft_id}", "{encounter_id}", "{operation_id}", "{action_id}", "{request_id}", "{citation_id}"))
+    ]
     collections = dict(collection_authorizers or {})
     # Collection authorization is an explicit, code-owned read capability. It
     # is never a prefix exemption or permission for a mutation/list of all data.
@@ -578,7 +593,24 @@ def install_hosted_request_boundary(
             response.headers["Cache-Control"] = "no-store"
             return response
 
-        resolver = route_resolvers.get((request.method.upper(), request.url.path))
+        method = request.method.upper()
+        route_path = request.url.path
+        resolver = route_resolvers.get((method, route_path))
+        if resolver is None:
+            matches = [
+                (path, match, candidate)
+                for verb, path, pattern, candidate in world_path_resolvers
+                if verb == method
+                and (match := pattern.fullmatch(request.url.path))
+            ]
+            if len(matches) == 1:
+                route_path, match, resolver = matches[0]
+                params = match.groupdict()
+                request.state.hosted_route_world_id = params.get("world_id")
+                request.state.hosted_route_document_id = params.get("document_id")
+                request.state.hosted_route_run_id = params.get("run_id")
+                request.state.hosted_route_draft_id = params.get("draft_id")
+                request.state.hosted_route_asset_id = params.get("asset_id")
         if resolver is None:
             return JSONResponse(
                 status_code=403,
@@ -586,7 +618,19 @@ def install_hosted_request_boundary(
             )
 
         try:
-            requested_world_ids = await request_world_ids(request)
+            # The PDF upload handler streams and bounds opaque bytes. The
+            # gateway authorizes the World and Origin before reading any bytes.
+            if (method, route_path) == ("POST", BUILD_PDF_SOURCES_PATH):
+                requested_world_ids = _query_world_ids(request)
+            else:
+                # Sealed Worldbuilding plans include both managed and native IDs.
+                # The exact resolver validates both against the saved run and World binding.
+                requested_world_ids = await request_world_ids(
+                    request,
+                    collect_body_worlds=(method, route_path) != (
+                        "POST", "/api/live/extract-promote/worldbuilding/confirm",
+                    ),
+                )
             resolved_world_id = await _resolve_authoritative_world_id(request, resolver)
             if requested_world_ids and requested_world_ids != frozenset({resolved_world_id}):
                 raise HTTPException(
@@ -602,7 +646,10 @@ def install_hosted_request_boundary(
         except HTTPException as exc:
             return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
         response = await call_next(request)
-        if hasattr(request.state, "hosted_native_graph_world"):
+        if any(hasattr(request.state, marker) for marker in (
+            "hosted_native_graph_world", "hosted_build_pdf_world", "hosted_build_page_world",
+            "hosted_plan_context_world", "hosted_combat_encounter_world", "hosted_conversation_world",
+        )):
             response.headers["Cache-Control"] = "no-store"
         return response
 

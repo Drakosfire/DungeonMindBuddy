@@ -89,6 +89,21 @@ jobs:
           fi
           echo "image=$image" >> "$GITHUB_OUTPUT"
 
+      - name: Sample runner disk use during builds
+        shell: bash
+        run: |
+          docker_root=$(docker info --format '{{.DockerRootDir}}')
+          df -B1 / "$docker_root"
+          echo frontend > "$RUNNER_TEMP/buddy-build-disk.phase"
+          (
+            while true; do
+              printf '%s %s ' "$(cat "$RUNNER_TEMP/buddy-build-disk.phase")" "$(date -u +%FT%TZ)"
+              df -B1 --output=used,avail / | tail -1
+              sleep 2
+            done
+          ) > "$RUNNER_TEMP/buddy-build-disk.tsv" 2>&1 < /dev/null &
+          echo "$!" > "$RUNNER_TEMP/buddy-build-disk.pid"
+
       - name: Test and build hosted auth UI without publishing
         env:
           UI_BUILD_IMAGE: ${{ steps.ui-image.outputs.image }}
@@ -107,4 +122,31 @@ jobs:
           '
 
       - name: Build production image without publishing
-        run: docker buildx build --no-cache --file Dockerfile.production --tag dungeonmindbuddy:validation-${GITHUB_SHA::12} --load --progress plain .
+        run: |
+          echo image > "$RUNNER_TEMP/buddy-build-disk.phase"
+          docker buildx build --no-cache --file Dockerfile.production --tag dungeonmindbuddy:validation-${GITHUB_SHA::12} --load --progress plain .
+
+
+      - name: Report sampled runner disk peak
+        if: always()
+        shell: bash
+        run: |
+          samples="$RUNNER_TEMP/buddy-build-disk.tsv"
+          pid_file="$RUNNER_TEMP/buddy-build-disk.pid"
+          if [[ -f "$pid_file" ]]; then
+            kill "$(cat "$pid_file")" 2>/dev/null || true
+          fi
+          if [[ -s "$samples" ]]; then
+            awk 'NF == 4 && $3 ~ /^[0-9]+$/ {
+              phase=$1
+              if (!count[phase]++) start[phase]=$3
+              if ($3 > peak[phase]) { peak[phase]=$3; time[phase]=$2 }
+            } END {
+              for (phase in count)
+                printf "%s root disk: baseline %.0f bytes, sampled peak %.0f bytes at %s, increase %.0f bytes (%d samples)\n", phase, start[phase], peak[phase], time[phase], peak[phase]-start[phase], count[phase]
+              if (!count["frontend"] || !count["image"])
+                print "::warning::Missing disk samples for one or more build phases"
+            }' "$samples" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::No disk samples collected"
+          fi

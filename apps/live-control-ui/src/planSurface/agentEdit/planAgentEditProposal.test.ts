@@ -1184,15 +1184,17 @@ it.each(['document','basis','draft'])('refuses restoring a changed %s without ov
   expect(editor.getJSON()).toEqual(before);expect(editor.state.selection.toJSON()).toEqual(selection);
 });
 
-it('seals the real apply result without changing the mounted draft, then applies identical bytes',async()=>{
+it.each(['', ' [PDF page 13](#dmb-ref:citation:pdf_00000000-0000-4000-8000-000000000001_0)'])(
+  'seals the real apply result, then applies identical bytes with reference %s',async(reference)=>{
   const {editor,state}=mountedState('---\ntitle: Plan\n---\n\n# Plan\n\nOpening frame');
   editor.commands.setTextSelection({from:10,to:15});const current=worldState(state);
   const {target}=await captureWorldPlanAuthoringTarget(current,()=>current,authoringIdentity);
   const before=editor.getJSON(),selection=editor.state.selection.toJSON();
-  const prepared=await preparePlanAuthoringApplication(target,'A revised passage.', 'action-1',()=>current,
+  const prepared=await preparePlanAuthoringApplication(target,'A revised passage.'+reference, 'action-1',()=>current,
     expectedAgentBinding(),matchingAgentBinding);
   expect(editor.getJSON()).toEqual(before);expect(editor.state.selection.toJSON()).toEqual(selection);
   expect(prepared.afterMarkdown).toContain('title: Plan');
+  expect(prepared.afterMarkdown).toContain('A revised passage.'+reference);
   expect(prepared.afterEditorSha256).toBe(await sha256Hex(prepared.afterEditorJson));
   expect(prepared.afterDraftSha256).toBe(await sha256Hex(prepared.afterMarkdown));
   await applyWorldPlanEditProposal({captured:target,admitted:prepared.admitted,getCurrent:()=>current,

@@ -172,8 +172,10 @@ body.surface-projection-open .plan-agent-shell {
 
 .plan-agent-bar {
   display: block;
-  width: 5rem;
-  height: 5rem;
+  --buddy-launcher-size: 3.5rem;
+  --buddy-launcher-avatar-size: 3rem;
+  inline-size: var(--buddy-launcher-size);
+  block-size: var(--buddy-launcher-size);
 }
 
 .plan-agent-bar strong,
@@ -196,9 +198,10 @@ body.surface-projection-open .plan-agent-shell {
 }
 
 .plan-agent-bar button {
-  display: block;
-  width: 100%;
-  height: 100%;
+  display: grid;
+  place-items: center;
+  inline-size: var(--buddy-launcher-size);
+  block-size: var(--buddy-launcher-size);
   padding: 0;
   overflow: hidden;
   border: 2px solid rgba(186, 137, 255, 0.72);
@@ -209,8 +212,8 @@ body.surface-projection-open .plan-agent-shell {
 
 .plan-agent-bar button img {
   display: block;
-  width: 100%;
-  height: 100%;
+  inline-size: var(--buddy-launcher-avatar-size);
+  block-size: var(--buddy-launcher-avatar-size);
   object-fit: cover;
 }
 

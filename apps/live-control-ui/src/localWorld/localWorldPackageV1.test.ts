@@ -131,7 +131,9 @@ describe("normalized local World package v1 core", () => {
     expect(parsed.status).toBe("staged");
     if (parsed.status !== "staged") return;
     expect(parsed.candidate.assets).toEqual(data.assets);
-    expect(parsed.candidate.members.get(path)).toEqual(pathBytes);
+    const restoredBytes = parsed.candidate.members.get(path);
+    expect(restoredBytes?.byteLength).toBe(pathBytes.byteLength);
+    expect(restoredBytes?.every((byte, index) => byte === pathBytes[index])).toBe(true);
     expect(parsed.candidate.manifest.fidelity).toEqual(data.fidelity);
     expect(parsed.candidate.manifest.creatorProfileAssumptions).toEqual(data.creatorProfileAssumptions);
   }, 30_000);

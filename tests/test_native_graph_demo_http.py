@@ -15,7 +15,7 @@ from unittest import mock
 import threading
 import unittest
 
-from apps.live_control_server.native_graph_demo.server import (
+from evals.native_graph_demo.server import (
     DemoHTTPServer,
     MAX_BODY_BYTES,
 )
@@ -325,7 +325,7 @@ class NativeTransportTest(unittest.TestCase):
 class LauncherIsolationTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        path = Path(__file__).resolve().parents[1] / "scripts" / "native_graph_demo.py"
+        path = Path(__file__).resolve().parents[1] / "evals" / "native_graph_demo" / "launch.py"
         spec = importlib.util.spec_from_file_location(
             "native_demo_launcher_tests", path
         )

@@ -287,6 +287,13 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
             validate_selection(request, selected, expected_request_sha256=auth.parent_request_sha256,
                 current_scope_sha256=scope_sha256, current_revision=receipt.graph_authority.graph_revision,
                 current_parent_attempt_id=auth.provider_attempt_id)
+    exclusions = getattr(event, "exclusion_replay", None)
+    if exclusions is not None:
+        from .jev_retrieval_contract import retrieval_exclusions_for_replay
+        if exclusions != retrieval_exclusions_for_replay(
+            request, result, requested_work=event.requested_work if semantic else None,
+        ):
+            raise ValueError("Replay exclusions differ from the exact controller votes")
     observation = result.observation
     if (event.context_receipt_sha256 != receipt.context_receipt_sha256
             or event.execution_policy_sha256 != execution.execution_policy_sha256

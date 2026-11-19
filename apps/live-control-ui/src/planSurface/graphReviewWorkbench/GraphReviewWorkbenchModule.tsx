@@ -414,7 +414,9 @@ export function GraphReviewWorkbenchModule({
         setExactReviewError(null);
         setHistoricalRecapProjectionStatus("loading");
         try {
-          const projection = await getHistoricalRecapWorldProjection(run.run_id);
+          const projection = await (managedWorldId
+            ? getHistoricalRecapWorldProjection(run.run_id, managedWorldId)
+            : getHistoricalRecapWorldProjection(run.run_id));
           if (cancelled) return;
           if (
             projection.runId !== run.run_id
@@ -429,7 +431,8 @@ export function GraphReviewWorkbenchModule({
           }
           if (
             sourceReviewOnlyForCurrentRun
-            && projection.worldId.trim() !== context.campaignId.trim()
+            && (managedWorldId ? projection.managedWorldId !== managedWorldId
+              : projection.worldId.trim() !== context.campaignId.trim())
           ) {
             throw new Error(
               "historical recap projection World does not match the selected target World",
@@ -702,7 +705,7 @@ export function GraphReviewWorkbenchModule({
     try {
       const expectedDigest = await recapRequestDigest(capsule.request);
       if (!isCurrent()) return;
-      const receipt = capsule.receipt ?? await correctRecapRunEvidence(capsule.request);
+      const receipt = capsule.receipt ?? await correctRecapRunEvidence(capsule.request, managedWorldId ?? undefined);
       // A retained receipt is untrusted until the same adapter identity checks
       // and exact child/source checks below have succeeded.
       if (receipt.schema !== "dmb_recap_evidence_correction_response_v1" || receipt.status !== "reviewable"

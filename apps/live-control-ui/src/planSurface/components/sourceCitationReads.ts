@@ -1,3 +1,4 @@
+import { assertionPdfCitationId, parseAssertionPdfCitationId } from "../../tiptap/references/runbookReferences";
 import {getNativeRelatedRecaps, readNativeRecapPage} from "../../api/liveApi";
 import {sameInspectionPin, type InspectionPin} from "../../api/nativeGraphInspection";
 import {getAgentSavedSection} from '../../api/liveApi';
@@ -87,8 +88,20 @@ export function nativeChoices(completion:Partial<Pick<SurfaceEvidenceCompletionV
       return result.content;
     },
   }]),...(completion.native_assertion_citations??[]).flatMap((citation,index)=>citation.segment_index!==segmentIndex?[]:[{
-    key:`assertion:${index}`,number:sections.length+index+1,title:'Reviewed Graph · supporting source',label:'Read Graph assertion source',kind:'section' as const,load:async()=>{
+    key:`assertion:${index}`,number:sections.length+index+1,title:'Reviewed Graph · supporting source',label:'Read Graph assertion source',kind:'section' as const,
+    savedReferenceMarkdown:'region' in citation && parseAssertionPdfCitationId(`pdf_${turnId}_${index}`)
+      ? `[PDF page ${citation.region.page}](#dmb-ref:citation:${assertionPdfCitationId(turnId,index)})` : undefined,
+    load:async()=>{
       const result=await getAgentNativeAssertionSource(worldId,turnId,index);
+      if ('region' in citation) {
+        if (!exact(result,['schema','world_id','turn_id','citation_index','citation','png_base64'])
+          || result.schema!=='dmb_native_assertion_pdf_source_read_v1' || result.world_id!==worldId
+          || result.turn_id!==turnId || result.citation_index!==index
+          || canonical(result.citation)!==canonical(citation)
+          || typeof result.png_base64!=='string' || !result.png_base64.startsWith('iVBORw0KGgo'))
+          throw new Error('Native PDF assertion source binding differs');
+        return {pngBase64:result.png_base64,title:`Supporting PDF · page ${citation.region.page}`};
+      }
       if(!exact(result,['schema','world_id','turn_id','citation_index','citation','content'])
         ||result.schema!=='dmb_native_assertion_source_read_v1'||result.world_id!==worldId||result.turn_id!==turnId
         ||result.citation_index!==index||canonical(result.citation)!==canonical(citation)||typeof result.content!=='string'
@@ -123,7 +136,7 @@ export function nativeRecapChoices(
 ): CitationChoice[] {
   if (!("native_assertion_citations" in completion)) return [];
   return completion.native_assertion_citations.flatMap((citation, index) => {
-    if (citation.segment_index !== segmentIndex || citation.managed_world_id !== scope.managed_world_id
+    if ('region' in citation || citation.segment_index !== segmentIndex || citation.managed_world_id !== scope.managed_world_id
         || citation.native_world_id !== scope.native_world_id || citation.read_revision_id !== scope.revision_id) return [];
     return [{
       key: `native-recap:${index}`, number: 0, title: "Related session recap",

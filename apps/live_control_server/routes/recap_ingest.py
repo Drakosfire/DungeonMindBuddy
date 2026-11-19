@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from application_state.errors import ApplicationStateError
@@ -24,11 +24,25 @@ from graph_memory.ingestion.native_recap_source import (
     Status as NativeRecapSourceStatus,
 )
 
+from graph_memory.extraction.name_review import MAX_NAME_DECISIONS
+
 router = APIRouter(prefix="/api/live", tags=["live"])
 
 RecapIngestOperation = Literal[
     "generate_recap_memory", "build_graph_preview_bundle", "inspect_status"
 ]
+
+
+class NameDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    replacement: str | None
+
+
+class NameReviewReceipt(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    review_id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    decisions: list[NameDecision] = Field(max_length=MAX_NAME_DECISIONS)
 
 
 class RecapIngestRequest(BaseModel):
@@ -45,6 +59,7 @@ class RecapIngestRequest(BaseModel):
     managed_world_id: str | None = None
     session: Annotated[int, Field(ge=1, strict=True)]
     raw_text: str | None = None
+    name_review: NameReviewReceipt | None = None
     force_graph_run: bool = False
     graph_model_id: str | None = None
     include_graph_extraction: bool = True
@@ -306,6 +321,25 @@ def _native_source_request(body, request):
         ) from exc
 
 
+@router.post("/recap-name-review")
+def post_recap_name_review(body: RecapIngestRequest, request: Request, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, body.managed_world_id)
+    if body.operation != "generate_recap_memory" or not (body.raw_text or "").strip():
+        raise HTTPException(status_code=422, detail="Select a source recap to check names.")
+    _native_source_actor(body, request)
+    context = _request_recap_context(body)
+    from apps.live_control_server.services.recap_name_review import prepare_name_review
+    try:
+        review = prepare_name_review(body.raw_text, context, session_id=f"session-{body.session}")[2]
+        require_hosted_plan_world_context(request, body.managed_world_id)
+        return review
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @router.post("/recap-ingest", response_model=RecapIngestStatusResponse)
 def post_recap_ingest(
     body: RecapIngestRequest, request: Request = None
@@ -353,6 +387,7 @@ def post_recap_ingest(
             force_graph_run=body.force_graph_run,
             ingest_context=context,
             supplemental_evidence=supplemental_evidence,
+            name_review=body.name_review.model_dump() if body.name_review else None,
         )
         failed = graph.get("status") == "failed"
         return {

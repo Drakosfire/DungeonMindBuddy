@@ -6,29 +6,13 @@ from application_state.errors import ApplicationStateIntegrityError
 from apps.live_control_server.config import artifact_data_root, repo_root
 from apps.live_control_server.services.threat_draft_store import get_threat_draft, locked_threat_drafts
 from apps.live_control_server.services.statblock_acceptance_reconciliation import list_acceptance_operations_for_draft
-from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import source_definition_digest_from_body
+from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import matches_accepted_definition_digest
 from application_state.combat_encounters.types import CombatMechanicsSelection, CombatMechanicsSnapshot
 from application_state.errors import ApplicationStateConflictError
 from application_state.world_mechanics import service as associations
 from apps.live_control_server.services import world_creature_selection as creatures
 from apps.live_control_server.integrations.dungeonmind_statblocks.client import build_statblock_v1_client, verify_exact_revision_mechanics_integrity
 from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import locator_from_exact_revision, same_mechanics_locator
-
-
-def _require_combat_mechanics(exact) -> None:
-    definition = exact.definition
-    missing = [
-        label for label, value in (
-            ("D&D edition", definition.ruleset),
-            ("movement", definition.movement),
-            ("proficiency bonus", definition.challenge.proficiency_bonus),
-        )
-        if value is None
-    ]
-    if missing:
-        raise ApplicationStateConflictError(
-            "Resolve these statblock fields before combat adoption: " + ", ".join(missing)
-        )
 
 
 def preview(*, world_id: str, selection: CombatMechanicsSelection, records=None, creature_view=None):
@@ -47,7 +31,6 @@ def preview(*, world_id: str, selection: CombatMechanicsSelection, records=None,
         verify_exact_revision_mechanics_integrity(exact)
         if not same_mechanics_locator(locator_from_exact_revision(exact), record.proof.locator.model_dump(mode="json")):
             raise ApplicationStateConflictError("Exact accepted mechanics identity changed")
-        _require_combat_mechanics(exact)
         resource = exact.model_dump(mode="json")
         resource["definition"] = json.loads(exact.canonical_definition)
     finally:
@@ -77,8 +60,10 @@ def prepare_accepted_snapshot(*, world_id: str, selection: AcceptedCombatMechani
         and op.source_draft_id == draft.draft_id
         and op.source_draft_version == accepted.accepted_from_draft_version
         and op.source_candidate_id == accepted.accepted_from_candidate_id
-        and op.validation_receipt_digest == accepted.definition_digest
-        and source_definition_digest_from_body(op.request_body['definition']) == accepted.definition_digest
+        and matches_accepted_definition_digest(
+            op.request_body["definition"], validation_digest=op.validation_receipt_digest,
+            accepted_digest=accepted.definition_digest,
+        )
         and op.locator is not None and same_mechanics_locator(op.locator, accepted.to_mechanics_locator())
     )]
     if len(matches) != 1:
@@ -90,7 +75,6 @@ def prepare_accepted_snapshot(*, world_id: str, selection: AcceptedCombatMechani
         verify_exact_revision_mechanics_integrity(exact)
         if not same_mechanics_locator(locator_from_exact_revision(exact), accepted.to_mechanics_locator()):
             raise ApplicationStateIntegrityError('Exact mechanics differ from saved acceptance')
-        _require_combat_mechanics(exact)
         resource = exact.model_dump(mode='json')
         resource['definition'] = json.loads(exact.canonical_definition)
     finally:
@@ -131,7 +115,6 @@ def prepare_saved_override(*,world_id,draft_id,locator):
         world_id=world_id,draft_id=draft_id,locator=locator)
     if exact.validation_receipt.status=='invalid' or any(issue.severity=='error' for issue in exact.validation_receipt.issues or []):
         raise ApplicationStateIntegrityError('Selected mechanics have an invalid validation receipt')
-    _require_combat_mechanics(exact)
     resource=exact.model_dump(mode='json');resource['definition']=json.loads(exact.canonical_definition)
     payload=dict(origin='buddy_saved_mechanics_override_v1',managed_world_id=world_id,draft_id=str(draft_id),
         origin_acceptance_operation_id=str(anchor),revision_operation_id=str(operation) if operation else None,
@@ -149,10 +132,32 @@ def preview_saved_override(*,world_id,draft_id,locator):
         return AdoptionPreview(snapshot=snapshot,armor_class=ac,hit_points=hp)
 
 
-def adopt_saved_override(*,world_id,encounter_id,request,scope=None):
+def adopt_saved_override(*,world_id,encounter_id,request,scope=None,authorize=None):
     from application_state.combat_encounters import adoption
     replay=adoption.inspect(world_id=world_id,encounter_id=encounter_id,operation_id=request.operation_id,request=request,scope=scope)
     if replay is not None:return replay
     draft,origin,snapshot=prepare_saved_override(world_id=world_id,draft_id=request.draft_id,locator=request.locator)
     with accepted_drafts_guard([draft]):
-        return adoption.apply_verified(world_id=world_id,encounter_id=encounter_id,request=request,snapshot=snapshot,origin=origin,scope=scope)
+        return adoption.apply_verified(world_id=world_id,encounter_id=encounter_id,request=request,snapshot=snapshot,origin=origin,scope=scope,
+                                       **({"authorize": authorize} if authorize is not None else {}))
+
+
+def preview_conversation_variant(*, world_id, selection):
+    from application_state.agent_conversation.service import AgentConversationService
+    from application_state.combat_encounters.types import ConversationVariantCombatSnapshot
+    from .conversation_variant_save import open_saved_variant
+
+    opened = open_saved_variant(
+        AgentConversationService(), world_id, selection.conversation_id, selection.turn_id,
+        review_id=selection.review_id,
+    )
+    payload = {
+        **selection.model_dump(mode="json"),
+        "origin": "conversation_variant_mechanics_v1",
+        "managed_world_id": world_id,
+        "locator": opened["locator"],
+        "resource": opened["revision"],
+    }
+    return ConversationVariantCombatSnapshot(
+        **payload, snapshot_digest=ConversationVariantCombatSnapshot.digest_payload(payload),
+    )

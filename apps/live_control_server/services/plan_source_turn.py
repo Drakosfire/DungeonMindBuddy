@@ -187,6 +187,9 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
     from types import SimpleNamespace
     from application_state.agent_conversation.build_intentional_response import policy_capabilities,captured_capabilities
     caps = (captured_capabilities if reviewed else policy_capabilities)(SimpleNamespace(**actions))
+    if not reviewed:
+        from dataclasses import replace
+        caps = replace(caps, reviews=(*caps.reviews, "lore_page"))
     source_basis = t.BuildSourceContextBasisV1(world_id=basis.world_id, document_id=basis.document_id,
         registry_revision=basis.revision, content_sha256=basis.content_sha256, visibility=basis.visibility_state)
     from application_state.agent_conversation.build_related_pages import PagePointer

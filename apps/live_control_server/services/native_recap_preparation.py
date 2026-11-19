@@ -667,7 +667,7 @@ def prepare(request, principal):
     bound = native.binding(request.managed_world_id)
     space = bound["native_world_id"]
     data = load_reviewable_extraction_data(root, request.run_id)
-    run, artifact = data.run, data.source_artifact
+    run = data.run
     _require(run.revision == request.expected_run_revision, "candidate_run_changed")
     candidate_sha256 = hashlib.sha256(data.candidate_bytes).hexdigest()
     _require(candidate_sha256 == request.candidate_sha256, "candidate_bytes_changed")
@@ -678,6 +678,52 @@ def prepare(request, principal):
     _require(context["revision_id"] == request.expected_parent_revision_id, "candidate_parent_stale")
     _require(context["source_epoch"] == request.expected_source_authority_epoch,
              "candidate_source_authority_stale")
+    if isinstance(request, NativeRecapPrepareRequest) and request.cohort_edge_review is not None:
+        from dataclasses import asdict
+        from graph_memory.ingestion.cohort_edge_review import validate_prepare
+
+        try:
+            validate_prepare(
+                {"nodes": [asdict(node) for node in preview.nodes],
+                 "edges": [asdict(edge) for edge in preview.edges]},
+                request.cohort_edge_review,
+                request.model_dump(mode="json"),
+            )
+            edges = {edge.edge_id: edge for edge in preview.edges}
+            for decision in request.cohort_edge_review["edge_decisions"]:
+                if decision["decision"] != "already_present":
+                    continue
+                parsed = access.parsed.get_assertion(decision["assertion_id"])
+                if parsed is None:
+                    raise ValueError("Reviewed assertion is absent from the pinned parent")
+                assertion = native.assertion_contract(parsed)
+                predicate = _predicate(edges[decision["edge_id"]].relationship_type)
+                if (
+                    assertion.subject_entity_id != decision["subject_entity_id"]
+                    or assertion.predicate != predicate
+                    or [(binding.axis, binding.value) for binding in assertion.metadata.scope]
+                    != [(CAMPAIGN_SCOPE_AXIS, request.campaign_id)]
+                    or assertion.value.kind != "entity_ref"
+                    or assertion.value.entity_id != decision["target_entity_id"]
+                ):
+                    raise ValueError("Reviewed assertion differs from the candidate relationship")
+                cited = set(decision["evidence_ref_ids"])
+                if not cited <= set(assertion.metadata.evidence_ref_ids):
+                    raise ValueError("Reviewed evidence is absent from the assertion")
+                edge = edges[decision["edge_id"]]
+                witness = project_candidate_record_evidence(
+                    assertion_id=edge.edge_id, kind="relationship", label=edge.label,
+                    summary="", evidence_refs=edge.evidence_refs,
+                    source_prose=data.source_bytes.decode("utf-8"),
+                    source_artifact_id=data.source_artifact.source_artifact_id,
+                    span_index=data.span_index,
+                )
+                _support_refs(
+                    assertion.metadata.model_copy(update={"evidence_ref_ids": tuple(sorted(cited))}),
+                    witness.evidence, access, admitted,
+                )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ReviewRefused("candidate_cohort_edge_review_invalid") from exc
     domain_name = run.source_domain
     campaign = request.campaign_id if isinstance(request, NativeRecapPrepareRequest) else None
     producer = f"dungeonbuddy:reviewed-{domain_name}"
@@ -686,7 +732,20 @@ def prepare(request, principal):
                                 admitted, data, access, candidate_sha256=candidate_sha256,
                                 operation_id=operation_id, producer=producer)
     prepared = None
-    if intent.operations:
+    cohort_review = getattr(request, "cohort_edge_review", None)
+    verified_endpoints = {
+        decision[field]
+        for decision in cohort_review["edge_decisions"]
+        if decision["decision"] == "already_present"
+        for field in ("subject_entity_id", "target_entity_id")
+    } if cohort_review is not None else set()
+    verified_replay = bool(verified_endpoints) and all(
+        isinstance(operation, wk.UseExisting)
+        and not operation.facts
+        and operation.durable_object_id in verified_endpoints
+        for operation in intent.operations
+    )
+    if intent.operations and not verified_replay:
         domain, profile = native.descriptors(repo, space, context["revision_id"])
         prepared = transport.runtime(repo, domain, profile, now=datetime.now(UTC),
                                      operation_id=operation_id).prepare_change(intent)
@@ -773,7 +832,13 @@ def confirm(request, principal):
                  "candidate_source_authority_changed")
     _require(native.binding(envelope.review.managed_world_id) == bound, "candidate_binding_changed")
     domain, profile = native.descriptors(repo, space, prepared.expected_parent_revision_id)
-    result = transport.runtime(repo, domain, profile, now=prepared.prepared_at,
-                               operation_id=prepared.prepared_change_id).commit_prepared_change(
-                                   prepared, confirmed_by=principal.subject)
+    runtime = transport.runtime(
+        repo, domain, profile, now=prepared.prepared_at,
+        operation_id=prepared.prepared_change_id,
+    )
+    from apps.live_control_server.services.hosted_native_graph_access import require_explorer_access
+
+    _require(native.binding(envelope.review.managed_world_id) == bound, "candidate_binding_changed")
+    require_explorer_access(principal, envelope.review.managed_world_id)
+    result = runtime.commit_prepared_change(prepared, confirmed_by=principal.subject)
     return {"status": "committed", "recovered": recovering, "result": jsonable_encoder(result)}
