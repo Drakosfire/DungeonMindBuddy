@@ -1,81 +1,52 @@
-# BUDDY — restore public captured Play source passage reads
+# BUDDY — captured Play source passage reads and reuse
 
-ACTIVE. MIND owns design/implementation/review/merge under explicit operator
-lane authority. No ARCHITECTURE gate. Serial after merged4117 at
-709c622f19e7171195bd907c87fcb09900f7fd60, the actual branchbase.
-Branchcodex/v10-captured-play-source-reuse in existing task-owned Buddy checkout.
+COMPLETE for bounded M5. PR4120 merged0354193501278467c0876a1f0773dd08504e729a;
+accepted sourceb750726cee81bee2a30d297e57f3a2399e81b24d, base709c622f19,
+Cycle1 Hubble sourcePASS5978453910 plus terminal bounded evidence acceptance.
+Closed typed source Graph-basis selection now recognizes genuine Play alongside
+existing Plan receipts in repository history selection and passage eligibility.
+Plan-only capability helpers, full authority/pin/producer/trace checks, claim and
+reset fencing, budgets and transaction owners are preserved.
 
-## Outcome and critique
+Public captured fresh reads and actual APP completed-origin/current-Play reuse,
+producing inclusion/completion/citation reload, zero corpusIO, repeated reuse,
+rollback and replay/reset are proved with synthetic model/corpus transport.
+Same-turn original fresh reads retain separate IO/character charges. Core source
+lifecycle/withdrawal proof remains separate; no joint deployment/latency claim.
 
-Public broker_source_read with context capture must accept existing Play receipt
-families for fresh source reads and exact retained historical passage reuse.
-Today repository selection calls Plan-only capability_bases, while passage
-eligibility independently excludes Play. Fix both using a closed typed source
-Graph-basis extractor. Do not broaden the intentionally Plan-only helper.
-Source-only Plan remains a miss; unsupported families never acquire authority.
+Exact evidence: owning104pass/1fail, auth314/query1256pass, hosted1411/build and
+canonical validatorpass; all3 short CI jobs pass. One instruction-literal failure
+reproduces exactbase with identical ID/Eline and test/prompt Git blobs. Owning and
+backend overall remain red at the accepted head. Main remained exactbase709 at
+final check; clean mergetreecd042aa968636eef51bb80e9fd993f90f8c8c6d3.
+Evidence/retention: task scratch/v9-buddy/v10-captured-play/acceptance.json.
 
-## Exclusive write lease and review map
+## Active serial attribution-test repair
 
-- This handoff; predecessor HANDOFF-BUDDY-native-anchor-reopening.md settlement.
-- src/application_state/agent_conversation/source_passage_reuse.py: typed receipt
-  Graph-basis extraction shared with repository selection, existing eligibility.
-- src/application_state/agent_conversation/repository.py: only
-  list_retained_source_turns extraction; no other query/helper/owner change.
-- tests/test_source_passage_reuse.py: actual APP completed-producer/cross-turn
-  Play eligibility, admission, reuse, inclusion/completion and refusal proof.
-- tests/test_native_play_source_acquisition.py: public capture/fresh-read path;
-  remove the predecessor private-fresh bypass and retain exact reload checks.
-No agent service, Plan capability helper, schema/event/DB, Core/WK/dependency,
-UI/CI inventory, provider/live data/5202 or source lifecycle changes. Existing
-actual Core historical/withdrawal proof remains separate, not an APP-only claim.
-Rebrief before any necessary path/capability expansion; MIND owns that decision.
+MIND owns this ordinary bounded successor under full operator lane authority.
+Base0354193501278467c0876a1f0773dd08504e729a, branch
+codex/v10-source-attribution-expectation in the existing task-owned Buddy checkout.
+Write lease: this completed predecessor settlement and exactly the stale wording
+assertion in tests/test_surface_source_play_binding.py. Align it with current
+shared instructions; preserve both Plan/Play attribution-policy checks and all
+production policy. No new test file, schema, service, dependency, UI or runtime
+change. Open4118/4119 UI trace/recovery lanes and inspected older relevant patches
+have no expected overlap. No ARCHITECTURE coordination gate.
 
-Re-anchored709c622f; open4118/4119 are UI trace/test work. Inspected patches
-3824/1868/3290/3307/1764: no expected overlap with this receipt-helper/query
-section or owning tests. Shared repository.py is section-owned, not a general
-refactor. Preserve other lanes, with no assumption that stale work expired.
+Validate the whole affected backend module on committed exactsource, repository
+standard hosted/build/canonical evidence, independent cumulative review, current
+main compatibility and expected-head merge. Retain prior full UI diagnostic129
+fail/2pending and17 reproduced broader source-module failures as historical red;
+this correction cannot establish fullrelease qualification. Next substantial
+slice needs generic indexed authorized alias phrase/token search: exact-only
+lookup would drop existing SubjectSearch behavior, wholeworld enumeration would
+regress boundedwork. Design/adoption belongs to MIND before activation.
 
-## Invariants and proof
-
-Recognize closed PlanWorldGraphContextReceiptV1, PlanSourceContextReceiptV1
-Graph capability and PlayWorldGraphContextReceiptV1. Preserve complete authority
-equality (managed/native IDs, binding, revision and scope), current admitted pins,
-50-turn history bound, batch trace query, completed acknowledged original read
-and exact source bytes/hash/name/identity. Never recursively reuse a reuse event.
-
-Public first Play read with capture must durably preserve authorization/read and
-protected trace after reload. Actual completed origin must explicitly include
-that original read in its acknowledged producer. Subsequent Play turn imports
-only admitted exact historical passages, with zero corpus IO and durable reuse
-trace/event; actual Play completion/citation binds its included reuse. Repeated
-admitted reuse does not append/charge twice. Smaller limits, foreign World or
-conversation, changed revision/binding/source pin, omitted inclusion, incomplete
-trace, reset/claim loss and budget exhaustion preserve refusal/miss/rollback.
-Characterize same-turn fresh reads separately; add no new memoization policy.
-Preserve Plan behavior and source-only/unsupported receipt refusal.
-
-Historical reuse protects bytes already admitted by the existing contract; it
-is not a fresh source grant or citation reopening. Fresh miss/reopening still
-consults current Core authority and must deny withdrawn source, without trace
-fallback. Prior actualCore witness stays required; synthetic APP transport does
-not establish source lifecycle or deployment behavior.
-
-## Validation and delivery
-
-Run complete two owning modules plus applicable receipt/trace/Play inclusion
-regressions, exact auth/query contracts, standard exactSHA hosted/build and
-canonical validator, independent cumulative source/evidence review and expected
-head merge. No UI edit planned; if one becomes necessary, rebrief and run full
-discovered diagnostic. Preserve prior17 reproduced source-module failures and
-historical129 UI failures/2pending as red; no fullrelease claim from bounded proof.
-
-Reuse fresh locked runtime pinned Corecf197b9939f7b9106c75a8afb9fcf918c8b4aa1c
-without overlays, existing disposable APP test server32903 and uniquely owned
-fixture DB isolation. No live54330/54331, provider or baseline rerun. Task root
-/home/drakosfire/Projects/.codex/v7-elderwyld-scope; verified UUID
-48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8 and writable parent. New scratch namespace
-scratch/v9-buddy/v10-captured-play, no new worktree. MIND retains predecessor
-scratch/base mirror/runtime for active objective; no removal without approved
-scope and active process/mount/DB/dirty/unique-data checks. Cleanup follow-up at
-goal completion. Search/related-recap/classic current retirement, actual optimized
-deployment/rollback and V11 serving evidence remain ahead; goal stays active.
+Resources: existing task root /home/drakosfire/Projects/.codex/v7-elderwyld-scope,
+verified UUID48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8 and writable parent; new scratch
+v9-buddy/v10-attribution-regression only. Locked runtime/Core/WK pins reused, APP
+32903 disposable fixture DBs only. No live54330/54331/provider/serving change or
+frozen classic baseline rerun. MIND retains scratch/base mirror/runtime for the
+active full optimization/deployment/rollback/V10/V11 goal. No manual removal or
+reclaimedbyte claim. Cleanup follow-up requires approvedscope plus active process,
+mount, DB, dirty-worktree and unique-data/commit checks when the goal completes.
