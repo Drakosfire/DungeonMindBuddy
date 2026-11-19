@@ -532,5 +532,7 @@ def review(operation_id, world, request, principal):
         "prepared_packet": packet,
         "packet_digest": digest(packet),
     }
-    saved = store.change(record, review=decision)
+    from apps.live_control_server.services.hosted_native_graph_access import require_explorer_access
+
+    saved = store.change(record, review=decision, authorize=lambda: require_explorer_access(principal, world))
     return next(r for r in saved["reviews"] if r["decision_id"] == key)
