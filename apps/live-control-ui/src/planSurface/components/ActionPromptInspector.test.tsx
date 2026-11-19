@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { ActionPromptInspector } from './ActionPromptInspector'
 import { getPlanActionPromptIndex, getPlanActionPromptBody } from '../../api/liveApi'
@@ -30,6 +30,7 @@ it('aborts and clears private state on owner changes, ignoring late responses', 
   body.mockImplementation(() => new Promise(done => { resolve = done }))
   const view = render(<ActionPromptInspector worldId="world" actionId="action" />)
   open(); await screen.findByLabelText('Model call')
+  await waitFor(() => expect(body).toHaveBeenCalledTimes(1))
   const signal = body.mock.calls[0][3]!
   view.rerender(<ActionPromptInspector worldId="other" actionId="other-action" />)
   expect(signal.aborted).toBe(true)
