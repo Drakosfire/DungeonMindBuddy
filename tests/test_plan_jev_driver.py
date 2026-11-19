@@ -590,6 +590,11 @@ def test_subject_search_discovers_then_explicitly_reads_new_subject(plan_adapter
     assert graphs[1]['queryText'] == 'Park pond'
     assert graphs[2]['targets'] == [{'kind':'node','id':'bridge'}]
     assert len(sources) == 1 and len(proof['graph_packets']) == 3
+    # This fixture replaces broker I/O; it proves driver policy, not native Core routing.
+    search_event = next(event for event in plan_adapter._broker_execution().events
+        if isinstance(event, t.ValidatedGraphOperationEventV3)
+        and json.loads(plan_adapter.operation_payloads[event.event_id]).get("operation") == "search")
+    assert search_event.assertion_ids == search_event.relationship_ids == search_event.evidence_ref_ids == search_event.returned_source_pins == []
     assert not any(c['kind'].startswith('Search other mentions') for c in wire.calls[0]['state']['candidates'])
     assert any(c['kind'].startswith('Search other mentions') for c in wire.calls[1]['state']['candidates'])
     assert not any(c['label']=='Park pond' and c['kind'].startswith('Search other mentions')

@@ -1,9 +1,58 @@
-# BUDDY — native selected-subject navigation search (external design draft)
+# BUDDY — SUPERSEDED native SubjectSearch migration attempt
 
-Status: ACTIVE. MIND owns design/implementation/review/merge under explicit operator
-full lane authority; no ARCHITECTURE gate. Serial B is authorized after accepted C0.
-Actual base80768107187f916def203bf79c8363f21a70fe97, branch
-codex/v10-native-subject-search in the existing task-owned Buddy checkout.
+Status: SUPERSEDED / PRESERVATION ONLY. MIND explicitly superseded B after the
+actual reachability audit. No acceptance, qualification, merge or activation of
+this runtime attempt is authorized. Full MIND goal remains ACTIVE; this is an
+owner rebrief, not a goal pause. Preserve branch/dirty work/evidence without
+reset/stash/deletion. Parent owns closing draft PR4135 with the audit rationale.
+Branch codex/v10-native-subject-search, base80768107187f916def203bf79c8363f21a70fe97;
+original adopted briefb728a8e64fb0f1e4ba13a26cd3fa7e4deb7e99bc remains historical.
+
+## Superseding audit, non-green evidence and preservation
+
+Actual default factory routes/agent.py:2495 wires native_graph_query_resolver.
+agent_turn_service.py:6911-6922 rejects fresh retired Plan V1 and establishes
+native_surface_sources; its fresh native query branch around7331-7360 calls that
+resolver while policy_bootstrap stays None. Optional Graph bootstrap resolution
+belongs to retained graph_capability receipts. PlanJevDriver:25 sets
+ graph_available = adapter.bootstrap is not None; around155 it offers mentions
+only under that condition, and _graph_read around195 refuses absent Graph
+capability. Current native-query V4/V2 candidates/read operations are separate.
+Hubble also confirmed the actual default factory/PlanNativeContext validator.
+
+Therefore this SubjectSearch path is retained compatibility acquisition, not
+ordinary fresh native execution. The fixture deliberately supplied a bootstrap
+before the first APP claim; it cannot establish fresh production reachability.
+Existing captured Graph pins do not identify payload family, so unconditional
+native dispatch could reinterpret a classic receipt. No new family field, bridge,
+classic fallback or schema conversion was authorized to repair that mismatch.
+The full objective must continue through actual current defaults or an explicitly
+adopted retained-family retirement contract, after MIND rebrief.
+
+Preserve ALL current in-lease implementation/tests as unaccepted WIP in this
+branch, with a clearly labeled preservation commit pushed to existing draft4135.
+There was no runtime/test acceptance or serving rollout. No further diagnostic
+jobs or code additions are authorized under this superseded handoff.
+
+Retained scratch/v9-buddy/v10-native-subject-search evidence:
+- service-diagnostic-1:9failed/13passed; fixture imports assumed nonexistent root
+  exports, then corrected to existing owning modules, not a Core/API change.
+- service-diagnostic-2:9failed; illegal fixture maxNodes100, corrected to legal12,
+  no public bound was widened or bypassed.
+- subject-diagnostic-3:24passed/2failed; remaining joint prefix request lacked
+  campaignId. This was partial working diagnostic, not qualification.
+- joint-diagnostic-4:2failed/19deselected, exit1,9.05s after the fixture correction;
+  both stopped on missing snapshot in broker-facing response. The actual joint
+  proof never completed and no fresh-default claim follows from helper passes.
+- Existing session88256 is terminal; no ongoing owned diagnostic remains.
+
+Production files, helper fixtures, test assertions and original failures are
+retained, not silently discarded. Heavy backend/frontend qualification never
+started for B; no PR merge acceptance is implied. The other39 inherited retired-
+protocol test failures remain separate fullgoal debt, not repaired or waived.
+Core99 adoption and C0 acceptance remain valid independent predecessor outcomes.
+
+## Former design below — historical attempted scope, not current authority
 
 ## Accepted prerequisites and serial anchor
 
@@ -171,10 +220,15 @@ Use existing plan_adapter and actual Core/WK memory fixtures in existing test fi
 Set the editable bootstrap, native scope, session, binding and actual pinned Core
 head BEFORE first claim, so real APP owns the captured receipt. Managed/native IDs
 must deliberately differ. Seed actual source evidence/name facts/aliases with public
-publishers. Only decision transport and fixture catalog-record lookup may be
-synthetic; do not patch plan_subject_search/_shared_retrieval_pin/_pinned or return
-synthetic Core results in the joint witness. Existing helper-mocked negatives remain
-useful policy proof, labeled separately.
+publishers. The joint B cutpoint is actual APP captured receipt and acknowledged canonical-
+label selection -> unpatched broker search -> real plan_subject_search/Core
+admission -> durable APP reload. The preceding validated object packet may be a
+real Core-produced DTO seeded through explicit fixture/transport and APP event
+validation; this does not claim production object acquisition migrated. Subsequent
+object authorization can use the existing transport fixture while preserving its
+separate acknowledgement. Never patch B's search helper/pin/read functions or return
+synthetic Core search results. Existing helper-mocked negatives and whole-broker
+mocked driver tests remain separately labeled policy proof.
 
 Run real object packet -> canonical label offer -> acknowledged mentions selection
 -> actual broker -> native Core search/admission -> durable APP reload. Prove:
@@ -218,7 +272,7 @@ two matching stale-review/failureResult symptoms. This is inherited historical-t
 retirement debt, not a passing module, and not authorized for repair inside B.
 M5/4122 and Core232 acceptance do not waive that debt or broader release gates.
 General shared Search/related-recap/object migration, remaining V10 and actual
-optimized deployment/rollback/V11 remain required; this draft does not narrow the
+optimized deployment/rollback/V11 remain required; this slice does not narrow the
 full goal to one successful slice.
 
 ## Resources, qualification split and retention

@@ -1057,37 +1057,146 @@ def shared_search(request, principal, *, include_source_pins=False,
     return ResolvedWorldGraphOperationV3(result, tuple(pins))
 
 
-def plan_subject_search(request, principal):
-    """Return navigation labels from the broker's pinned native read."""
-    from dungeonmind.application.vnext import SearchReadService
+# Process-owned structural cache only. No context, source view or admission retained.
+_subject_alias_index_cache = None
+_subject_alias_index_cache_lock = Lock()
+
+
+def _subject_alias_cache():
+    global _subject_alias_index_cache
+    with _subject_alias_index_cache_lock:
+        if _subject_alias_index_cache is None:
+            from dungeonmind.application.vnext import AliasSearchIndexCache
+
+            _subject_alias_index_cache = AliasSearchIndexCache(max_entries=8, max_postings=250000)
+        return _subject_alias_index_cache
+
+
+def _subject_navigation_labels(parsed, entities, admitted_ids):
+    """Candidate-own admitted names only; no fabricated Core result carrier."""
+    import json
+    from collections import Counter
+
+    identifiers = sorted(entities)
+    values = {entity: set() for entity in identifiers}
+    for assertion_id in admitted_ids:
+        assertion = parsed.get_assertion(assertion_id)
+        if assertion is None:
+            raise InspectionUnavailable("native_subject_assertion_missing")
+        if (assertion.subject_entity_id in values and assertion.predicate == "dnd5e:name"
+                and getattr(assertion.value, "kind", None) == "literal"
+                and isinstance(assertion.value.value, str) and assertion.value.value.strip()):
+            values[assertion.subject_entity_id].add(assertion.value.value.strip())
+    names = {entity: next(iter(value)) if len(value) == 1 else None
+             for entity, value in values.items()}
+    counts = Counter(name for name in names.values() if name is not None)
+    labels = {}
+    for position, entity in enumerate(identifiers, 1):
+        name = names[entity]
+        if name is not None:
+            labels[entity] = name if counts[name] == 1 else f"{name} (object {position})"
+        elif values[entity]:
+            labels[entity] = (f"Multiple recorded names (object {position}): "
+                              + json.dumps(sorted(values[entity]), ensure_ascii=False))
+        else:
+            labels[entity] = f"Unnamed object {position}"
+    return labels
+
+
+def _subject_search_pin(request, principal, expected_native_world_id, expected_binding_version):
+    """Fence captured identity before any Core head/context access."""
+    require_native_graph_gm(principal)
+    if request.admissibility != principal.role:
+        raise InspectionUnavailable("native_neighborhood_scope_mismatch")
+    bound = native.binding(request.world_id)
+    if (bound["native_world_id"], bound["binding_version"]) != (
+        expected_native_world_id, expected_binding_version,
+    ):
+        raise InspectionUnavailable("native_inspection_binding_changed")
+    head = native.read_repository().get_head(bound["native_world_id"])
+    if head is None:
+        raise InspectionUnavailable("native_inspection_head_unavailable")
+    pin = InspectionPin(managed_world_id=request.world_id, native_world_id=bound["native_world_id"],
+        binding_version=bound["binding_version"], revision_id=request.revision_pin,
+        scope_mode=request.scope_mode,
+        campaign_id=request.campaign_id if request.scope_mode == "campaign" else None)
+    return bound, head, pin
+
+
+def plan_subject_search(request, principal, *, expected_native_world_id,
+                        expected_binding_version, known_subject_id):
+    """Compose complete authorized witnesses into scoped navigation, never grants."""
+    from dungeonmind.application.vnext import AliasSearchReadService, SearchReadService
     from graph_memory.retrieval.models import (
         WorldGraphRetrievalCoverage,
         WorldGraphRetrievalNode,
         WorldGraphRetrievalResult,
         WorldGraphRetrievalSnapshot,
     )
-    from .native_graph_reads import _navigation_labels
 
     if request.revision_pin is None or request.seed_node_ids:
         raise ValueError("Plan subject search requires a pinned query without seeds")
-    bound, head, pin = _shared_retrieval_pin(request, principal)
-    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_parsed_cache)
-    search = SearchReadService().search_entities(read, request.query_text, limit=20)
-    reader = EntityReadService()
-    hits = [hit for hit in search.hits if hit.admitted_match_assertions]
-    limit = request.bounds.max_nodes
-    retained = {hit.entity.entity_id: hit for hit in hits[:limit]}
-    labels = _navigation_labels({entity_id: reader.get_entity(read, entity_id) for entity_id in retained})
-    nodes = [
-        WorldGraphRetrievalNode(node_id=entity_id, label=labels[entity_id], kind="entity", role="match")
-        for entity_id in retained
-    ]
-    reasons = {entity_id: list(hit.match_kinds) for entity_id, hit in retained.items()}
+    if not isinstance(known_subject_id, str) or not known_subject_id:
+        raise ValueError("Plan subject search requires its validated private subject")
+    if principal is None:
+        raise InspectionUnavailable("native_subject_principal_unavailable")
+    bound, head, pin = _subject_search_pin(
+        request, principal, expected_native_world_id, expected_binding_version,
+    )
+    read_binding, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_parsed_cache)
+    if read_binding != bound:
+        raise InspectionUnavailable("native_inspection_binding_changed")
+    parsed = read.parsed
+    search = SearchReadService().search_entities(read, request.query_text, limit=len(parsed.entities_by_id))
+    aliases = AliasSearchReadService().search_aliases(
+        read, request.query_text, limit=len(parsed.aliases_by_id), index_cache=_subject_alias_cache(),
+    )
+    if search.completeness.status != "complete" or aliases.completeness.status != "complete":
+        raise InspectionUnavailable("native_subject_search_incomplete")
+    native_hits = {hit.entity.entity_id: hit for hit in search.hits}
+    by_entity = {}
+    for hit in aliases.hits:
+        by_entity.setdefault(hit.alias.entity_id, []).append(hit)
+    candidates = set(native_hits) | set(by_entity) | {known_subject_id}
+    assertion_ids = sorted({assertion_id for entity in candidates for assertion_id in (
+        *parsed.get_subject_assertion_ids(entity), *parsed.get_incoming_entity_ref_assertion_ids(entity),
+    )})
+    admission, _ = read.evaluate_candidates(assertion_ids)
+    present = set()
+    for assertion_id in admission.admitted_assertion_ids:
+        assertion = parsed.get_assertion(assertion_id)
+        if assertion is None:
+            raise InspectionUnavailable("native_subject_assertion_missing")
+        if assertion.subject_entity_id in candidates:
+            present.add(assertion.subject_entity_id)
+        if getattr(assertion.value, "kind", None) == "entity_ref" and assertion.value.entity_id in candidates:
+            present.add(assertion.value.entity_id)
+    # Labels are computed over the complete scoped union before the response cap.
+    labels = _subject_navigation_labels(parsed, present, admission.admitted_assertion_ids)
+    reasons, ranks = {}, {}
+    for entity in present:
+        hits = by_entity.get(entity, ())
+        alias_kinds = {kind for hit in hits for kind in hit.match_kinds}
+        tokens = {token for hit in hits for token in hit.matched_tokens}
+        native_hit = native_hits.get(entity)
+        evidence = set(native_hit.match_kinds if native_hit is not None else ())
+        evidence.update("alias:" + kind for kind in alias_kinds)
+        if any(hit.ambiguous for hit in hits):
+            evidence.add("alias:ambiguous")
+        if entity == known_subject_id:
+            evidence.add("known_subject")
+        reasons[entity] = sorted(evidence)
+        rank_class = (0 if entity == known_subject_id else 1 if "exact" in alias_kinds
+                      else 2 if "phrase" in alias_kinds else 3)
+        ranks[entity] = (rank_class, -len(tokens),
+                         -(native_hit.deterministic_score if native_hit is not None else 0), entity)
+    ordered = sorted(present, key=ranks.__getitem__)
+    retained = ordered[:request.bounds.max_nodes]
     _response(bound, pin)
-    truncated = len(hits) > limit or search.completeness.status != "complete"
+    truncated = len(ordered) > len(retained)
     return WorldGraphRetrievalResult(
         operation="search",
-        outcome="partial" if truncated else "enough" if nodes else "empty",
+        outcome="partial" if truncated else "enough" if retained else "empty",
         snapshot=WorldGraphRetrievalSnapshot(
             world_id=request.world_id, campaign_id=request.campaign_id,
             revision_id=pin.revision_id, head_revision_id=head.head_revision_id,
@@ -1096,6 +1205,8 @@ def plan_subject_search(request, principal):
             scope_mode=request.scope_mode,
         ),
         request_summary={"query_text": request.query_text, "seed_node_ids": []},
-        matched_node_ids=list(reasons), match_reasons=reasons, nodes=nodes,
+        matched_node_ids=retained, match_reasons={entity: reasons[entity] for entity in retained},
+        nodes=[WorldGraphRetrievalNode(node_id=entity, label=labels[entity], kind="entity", role="match")
+               for entity in retained],
         coverage=WorldGraphRetrievalCoverage(truncated_fields=["nodes"] if truncated else []),
     )

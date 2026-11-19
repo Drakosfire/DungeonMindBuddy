@@ -1,6 +1,8 @@
 """One selected dependency lifetime, with fresh native reads and durable guards."""
 import asyncio
 import json
+from uuid import uuid4
+from tests import test_native_graph_inspection as _subject_core_tests
 
 import pytest
 from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
@@ -126,6 +128,8 @@ def test_subject_search_exact_real_broker_gate_and_single_use(plan_adapter,monke
     from apps.live_control_server.services.plan_jev_acquisition import subject_search_acquisition
     a=plan_adapter
     dispatch=selected_subject_search(a)
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    a.native_principal = NativeGraphPrincipal(subject="test:gm", role="gm", auth_method="local_operator")
     calls=[]
     def search(services,request):
         calls.append(request.query_text)
@@ -152,9 +156,22 @@ def test_subject_search_exact_real_broker_gate_and_single_use(plan_adapter,monke
         lambda _: pytest.fail("classic service resolved during native subject search"),
     )
 
-    def native_search(request, principal):
-        assert request.revision_pin == a.bootstrap.world_scope.revision_id
-        return search(None, request).result
+    def native_search(request, principal, **kwargs):
+        authority = a._broker_graph_receipt().graph_authority
+        assert request.world_id == authority.managed_world_id
+        assert request.revision_pin == authority.graph_revision
+        assert principal == a.native_principal
+        assert kwargs == {"expected_native_world_id": authority.native_world_id,
+                          "expected_binding_version": authority.binding_version, "known_subject_id": "pond"}
+        return search(None, request).result.model_copy(update={
+            "snapshot": search_snapshot(request),
+        })
+
+    def search_snapshot(request):
+        from graph_memory.retrieval.models import WorldGraphRetrievalSnapshot
+        return WorldGraphRetrievalSnapshot(world_id=request.world_id, campaign_id="",
+            revision_id=request.revision_pin, head_revision_id=request.revision_pin, is_head=True,
+            scope_mode="world", admissibility="gm", focus={"kind": "none"})
 
     monkeypatch.setattr(
         'apps.live_control_server.services.native_graph_inspection.plan_subject_search',
@@ -217,3 +234,146 @@ def test_subject_scope_refuses_forged_parent_or_handle(plan_adapter,case):
     with pytest.raises(ValueError,match='current offered canonical label'):
         with subject_search_acquisition(a,dispatch,handle): pytest.fail('Forged subject scope')
     assert getattr(a,'_plan_graph_read_services',None) is None
+
+
+# Actual Core fixture aliases; no replacement of B's broker/search/read helpers.
+
+_subject_core_inspection = _subject_core_tests.inspection
+recap_lane = _subject_core_tests.recap_lane
+subject_plan_adapter = plan_adapter
+
+
+@pytest.mark.parametrize("selector", [None, "stale-other-world"])
+def test_subject_search_actual_app_ack_core_read_and_durable_reload(
+    subject_plan_adapter, _subject_core_inspection, monkeypatch, selector,
+):
+    """Core-produced object DTO is prefix transport; B's search path is production."""
+    from dataclasses import replace
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+    from application_state.agent_conversation import AgentConversationService, types as t
+    from application_state.agent_conversation.plan_jev_decision import current_selection
+    from apps.live_control_server.services import native_graph_inspection as native
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
+    from apps.live_control_server.services.plan_jev_acquisition import subject_search_acquisition, read_subject_labels
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from graph_memory.interaction.session_store import create_session
+    from graph_memory.retrieval.models import WorldGraphObjectRequest
+
+    x = _subject_core_inspection
+    case = _subject_core_tests._subject_search_case(x, monkeypatch, sparse_aliases=True)
+    a = subject_plan_adapter
+    selected = case.worlds["managed"]
+    record = case.records["managed"]
+    case.records[a.world_id] = type(record).model_validate({
+        **record.model_dump(mode="json"), "world_id": a.world_id,
+    })
+    monkeypatch.setattr('apps.live_control_server.services.native_source_navigation.resolve_managed_world_binding',
+                        case.managed.resolve_managed_world_binding)
+    scope = replace(a.bootstrap.world_scope, world_id=selected.space, revision_id=case.pin)
+    session = a.bootstrap.retrieval_session.model_copy(deep=True)
+    session.snapshot = session.snapshot.model_copy(update={"world_id": selected.space, "revision_id": case.pin})
+    a.bootstrap = replace(a.bootstrap, world_scope=scope, binding_version=selected.version,
+        retrieval_session=session, graph_envelope={**a.bootstrap.graph_envelope,
+            "world_id": selected.space, "revision_id": case.pin})
+    a.native_principal = NativeGraphPrincipal(subject="test:gm", role="gm", auth_method="local_operator")
+    assert a.fence is None and a.world_id != selected.space
+    create_session(session)
+    first = PlanJevDispatch(a, (RetrievalCandidate(handle="node:" + case.root, label="Catalog label", kind="World entity"),))
+    asyncio.run(first.run(transport=Decisions(), api_key="synthetic-not-secret"))
+    assert current_selection(a.fence.turn).selected_handles == ["node:" + case.root]
+    authority = a._broker_graph_receipt().graph_authority
+    assert (authority.managed_world_id, authority.native_world_id, authority.binding_version,
+            authority.graph_revision) == (a.world_id, selected.space, selected.version, case.pin)
+
+    def core_object(node):
+        request = WorldGraphObjectRequest.model_validate({
+            "schema": "dmb_world_graph_object_request_v1", "worldId": a.world_id,
+            "campaignId": "", "scopeMode": "world", "revisionPin": case.pin, "nodeId": node,
+        })
+        result = native.shared_exact_object(request, a.native_principal)
+        return result.model_copy(update={"snapshot": result.snapshot.model_copy(update={"world_id": selected.space})})
+
+    # This is an explicitly fixture-owned prefix, not production object migration.
+    produced = core_object(case.root)
+    packet = produced.model_dump(mode="json", by_alias=True)
+    arguments = {"retrievalSessionId": session.id, "operation": "object",
+                 "targets": [{"kind": "node", "id": case.root}]}
+    event = t.ValidatedGraphOperationEventV3(kind="validated_graph_operation_v3", event_id=uuid4(),
+        sequence=len(a._broker_execution().events), operation_id=uuid4(),
+        operation="expand_graph_retrieval", request_arguments_sha256=t.canonical_sha256(arguments),
+        graph_revision=case.pin, result_packet_sha256=t.canonical_sha256(packet),
+        assertion_ids=sorted({row.assertion_id for row in produced.attributes}),
+        relationship_ids=sorted({row.edge_id for row in produced.relationships}),
+        evidence_ref_ids=sorted({row.evidence_ref_id for row in produced.source_anchors}),
+        evidence_sufficiency_status="insufficient", coverage_status="complete", truncated=False,
+        source_opened=False, returned_source_pins=[])
+    a.turn, _ = a.fence.append('append_validated_graph_operation', 'operation_event', event)
+    a.operation_payloads[event.event_id] = json.dumps(packet | {
+        "retrievalSessionId": session.id, "addedClaimIds": [], "claimLedger": [],
+    })
+    label = read_subject_labels(a)[case.root]
+    dispatch = PlanJevDispatch(a, (RetrievalCandidate(handle="mentions:" + case.root, label=label,
+        kind="Search other mentions of this explored World subject"),))
+    asyncio.run(dispatch.run(transport=Decisions(), api_key="synthetic-not-secret"))
+    if selector is None:
+        monkeypatch.delenv("DMB_NATIVE_PLAN_SUBJECT_SEARCH_WORLD", raising=False)
+    else:
+        monkeypatch.setenv("DMB_NATIVE_PLAN_SUBJECT_SEARCH_WORLD", selector)
+    monkeypatch.setattr(direct, "direct_services_from_config", lambda *_: pytest.fail("classic search service"))
+    monkeypatch.setattr(direct, "search_world_graph_direct_v3", lambda *_: pytest.fail("classic search read"))
+    runtime = _subject_core_tests.transport.runtime(case.repo, x.lane.domain, x.lane.profile,
+        now=datetime.now(UTC), operation_id="joint-subject-head-advance")
+    runtime.commit_prepared_change(runtime.prepare_change(_subject_core_tests.wk.WorldChangeIntent(
+        selected.space, "later head", (_subject_core_tests.wk.CreateObject("later"),))), confirmed_by="local_operator")
+    head, events = case.repo.get_head(selected.space), case.repo.head_events(selected.space)
+    epoch = case.repo.open_native_source_view(selected.space).epoch
+    before_pins = dict(a._broker_execution().effective_source_pins())
+    before_payloads = dict(a.source_payloads)
+    with subject_search_acquisition(a, dispatch, "mentions:" + case.root):
+        message = {"toolName": "expand_graph_retrieval", "arguments": {
+            "retrievalSessionId": session.id, "operation": "search", "queryText": label}}
+        reply = _PolicyExecutionAdapter.broker_graph_operation(a, message)
+        result = json.loads(reply["resultJson"])
+        assert result.get("operation") == "search", result
+        assert result["snapshot"]["worldId"] == selected.space
+        assert result["snapshot"]["revisionId"] == case.pin
+        assert result["snapshot"]["headRevisionId"] == head.head_revision_id
+        assert result["snapshot"]["isHead"] is False
+        assert result["attributes"] == result["relationships"] == result["sourceAnchors"] == []
+        assert case.subjects["phrase"] in result["matchedNodeIds"]
+        again = _PolicyExecutionAdapter.broker_graph_operation(a, message)
+        assert json.loads(again["resultJson"])["code"] == "plan_jev_acquisition_not_current"
+    turn = a.fence.turn
+    durable = AgentConversationService().inspect_turn(world_id=a.world_id, turn_id=turn.turn_id)
+    assert durable.graph_context_execution == turn.graph_context_execution
+    search_event = durable.graph_context_execution.events[-1]
+    assert isinstance(search_event, t.ValidatedGraphOperationEventV3)
+    assert search_event.assertion_ids == search_event.relationship_ids == search_event.evidence_ref_ids == search_event.returned_source_pins == []
+    assert a._broker_execution().effective_source_pins() == before_pins
+    assert a.source_payloads == before_payloads
+    target = case.subjects["phrase"]
+    object_message = {"toolName": "expand_graph_retrieval", "arguments": {
+        "retrievalSessionId": session.id, "operation": "object", "targets": [{"kind": "node", "id": target}]}}
+    denied = _PolicyExecutionAdapter.broker_graph_operation(a, object_message)
+    assert json.loads(denied["resultJson"])["code"] == "plan_jev_acquisition_not_current"
+    # A distinct actual APP acknowledgement is required before object transport.
+    candidate = next(row for row in result["nodes"] if row["nodeId"] == target)
+    object_dispatch = PlanJevDispatch(a, (RetrievalCandidate(handle="node:" + target,
+        label=candidate["label"], kind="World entity"),))
+    asyncio.run(object_dispatch.run(transport=Decisions(), api_key="synthetic-not-secret"))
+    assert current_selection(a.fence.turn).selected_handles == ["node:" + target]
+    transport_calls = []
+    def object_transport(_services, request, **_kwargs):
+        transport_calls.append(request.node_id)
+        return SimpleNamespace(result=core_object(request.node_id), source_pins=(),
+            reviewed_source_observations=(), observation_gap_codes=(), observation_missing_ids=())
+    with monkeypatch.context() as object_fixture:
+        object_fixture.setattr(direct, "direct_services_from_config", lambda *_: object())
+        object_fixture.setattr(direct, "get_object_with_reviewed_sources_direct_v3", object_transport)
+        opened = _PolicyExecutionAdapter.broker_graph_operation(a, object_message)
+    assert json.loads(opened["resultJson"]).get("operation") == "object", opened
+    assert transport_calls == [target]
+    assert case.repo.get_head(selected.space) == head and case.repo.head_events(selected.space) == events
+    assert case.repo.open_native_source_view(selected.space).epoch == epoch

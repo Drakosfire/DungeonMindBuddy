@@ -108,9 +108,10 @@ def read_subject_labels(adapter):
 
 
 class SubjectSearch(GraphReadServices):
-    def __init__(self, adapter, selection, query):
+    def __init__(self, adapter, selection, query, subject_node_id):
         super().__init__(adapter.bootstrap.world_scope.world_id, ())
         self.selection_id, self.query = selection.event_id, query
+        self.subject_node_id = subject_node_id
         self.adapter, self.consumed = adapter, False
 
     def consume(self, request, selection):
@@ -142,7 +143,7 @@ def subject_search_acquisition(adapter, dispatch, handle):
             or selection.controller_attempt_id != auth.provider_attempt_id
             or selection.controller_envelope_sha256 != auth.envelope_sha256):
         raise ValueError("Plan subject search requires its current offered canonical label")
-    lifetime = SubjectSearch(adapter, selection, candidates[0].label)
+    lifetime = SubjectSearch(adapter, selection, candidates[0].label, node)
     adapter._plan_graph_read_services = lifetime
     try:
         yield lifetime.query

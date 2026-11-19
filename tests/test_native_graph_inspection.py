@@ -2368,3 +2368,262 @@ def test_installed_core_alias_search_reauthorizes_published_alias(inspection, mo
     assert index_cache.entry_count == 1  # structural reuse grants no cached admission
     assert repo.get_head(selected.space) == head and repo.head_events(selected.space) == events
     assert repo.open_native_source_view(selected.space).epoch == withdrawn_epoch
+
+
+def _subject_search_case(x, monkeypatch, *, label="Park pond", duplicate=False, sparse_aliases=False):
+    """Actual Core/WK candidates; only typed APP catalog lookup is fixture-owned."""
+    from dungeonmind.application.vnext import build_parsed_knowledge_revision
+    from dungeonmind.application.vnext.materialization import decode_native_graph_payload, GovernedPublicationIdentity
+    from dungeonmind.application.vnext.prospective_aliases import publish_prospective_alias_contribution
+    from dungeonmind.contracts.vnext.prospective_aliases import ProspectiveAliasContributionV1
+    from dungeonmind.contracts.vnext.contribution import ContributionDisposition
+
+    case = _managed_projection_case(x, monkeypatch, second=True)
+    space = case.worlds["managed"].space
+    meta = replace(x.meta, scope=())
+    operations = [wk.CreateObject("subject-root", (
+        wk.CreateFact("root-name", "dnd5e:name", wk.LiteralFactValue(label), meta),))]
+    operations += [wk.CreateObject(f"native:{i}", (
+        wk.CreateFact(f"native-name:{i}", "dnd5e:name", wk.LiteralFactValue(label if duplicate and i == 0 else label + f" witness {i}"), meta),))
+        for i in range(25)]
+    if duplicate:
+        operations.append(wk.CreateRelationship("duplicate-name-link", wk.ResultOf("subject-root"),
+            "dnd5e:located_in", wk.ResultOf("native:0"), meta))
+    runtime = transport.runtime(case.repo, x.lane.domain, x.lane.profile, now=datetime.now(UTC), operation_id="subject-seed")
+    result = runtime.commit_prepared_change(runtime.prepare_change(wk.WorldChangeIntent(
+        space, "Subject search owning fixtures", tuple(operations))), confirmed_by="local_operator")
+    objects = {item.client_op_id: item.durable_object_id for item in result.object_results}
+    stored = case.repo.get_revision(space, case.repo.get_head(space).head_revision_id)
+    parent = build_parsed_knowledge_revision(stored.revision, decoded_content=decode_native_graph_payload(stored.graph_payload))
+    stamp = datetime.now(UTC)
+    items, aliases = [], []
+    metadata = {"scope": [], "visibility": {"kind": "labels_any", "labels": ["dungeonbuddy.visibility:gm"]},
+        "epistemic_basis": "inferred", "claim_mode": "dungeonbuddy.claim:fact", "standing": "provisional",
+        "evidence_ref_ids": [case.worlds["managed"].evidence], "temporal_scope": {"kind": "unknown"}}
+    keys = [*(f"alias:{i}" for i in range(26)), "phrase", "incoming", "orphan", "foreign", "hidden"]
+    for key in keys:
+        items.append({"kind": "create_entity", "item_id": "entity:" + key, "client_op_id": key})
+        if key not in {"incoming", "orphan"} and not (sparse_aliases and key.startswith("alias:")):
+            field_meta = copy.deepcopy(metadata)
+            if key == "foreign":
+                field_meta["scope"] = [{"axis": CAMPAIGN_SCOPE_AXIS, "value": "other-campaign"}]
+            items.append({"kind": "create_assertion", "item_id": "name:" + key, "client_op_id": "name:" + key,
+                "subject": {"kind": "result_of", "client_op_id": key}, "predicate": "dnd5e:name",
+                "value": {"kind": "literal", "value": "Candidate " + key}, "metadata": field_meta})
+        aliases.append({"item_id": "identity:" + key, "alias_id": "alias:subject:" + key,
+            "entity": {"kind": "result_of", "client_op_id": key},
+            "alias_text": "Old " + label + " crossing" if key == "phrase" else label,
+            "evidence_ref_ids": [case.worlds["managed"].evidence],
+            "standing": "retracted" if key == "hidden" else "provisional"})
+    # Duplicate authorized aliases for one entity must not strengthen its rank.
+    aliases.append({**aliases[0], "item_id": "identity:duplicate", "alias_id": "alias:subject:duplicate"})
+    items.append({"kind": "create_assertion", "item_id": "incoming-ref", "client_op_id": "incoming-ref",
+        "subject": {"kind": "result_of", "client_op_id": "alias:0"}, "predicate": "dnd5e:located_in",
+        "value": {"kind": "entity_ref", "entity": {"kind": "result_of", "client_op_id": "incoming"}},
+        "metadata": metadata})
+    request = ProspectiveAliasContributionV1.model_validate({"contribution": {
+        "contribution_id": "subject-alias-fixture", "space_id": space, "producer": "test.subject-search",
+        "produced_at": stamp, "status": "finalized", "items": items}, "aliases": aliases})
+    published = publish_prospective_alias_contribution(parent=parent, request=request,
+        dispositions=[ContributionDisposition(item_id=item["item_id"], disposition="accepted") for item in (*items, *aliases)],
+        publication=GovernedPublicationIdentity(operation_ids=("subject-alias-fixture",), created_at=stamp,
+            expected_parent_revision_id=parent.revision_id), publication_id="subject-alias-fixture",
+        domain_contract=x.lane.domain, semantic_profile=x.lane.profile, repository=case.repo)
+    objects.update({item.client_op_id: item.durable_id for item in published.prospective_result.results
+                    if item.client_op_id in keys})
+    case.subjects = objects
+    case.root = objects["subject-root"]
+    case.label = label
+    case.pin = case.repo.get_head(space).head_revision_id
+    return case
+
+
+def _subject_search_request(case, *, world="managed", **overrides):
+    from graph_memory.retrieval.models import WorldGraphSearchRequest
+    return WorldGraphSearchRequest.model_validate({"schema": "dmb_world_graph_search_request_v1",
+        "worldId": world, "scopeMode": "campaign", "campaignId": case.x.lane.run.campaign_id,
+        "revisionPin": case.pin, "queryText": case.label, "bounds": {"maxNodes": 12}, **overrides})
+
+
+def _subject_search(case, request=None, *, principal=None, root=None, **overrides):
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    principal = principal or NativeGraphPrincipal(subject="test:gm", role="gm", auth_method="local_operator")
+    selected = case.worlds["managed"]
+    return service.plan_subject_search(request or _subject_search_request(case), principal,
+        expected_native_world_id=selected.space, expected_binding_version=selected.version,
+        known_subject_id=root or case.root, **overrides)
+
+
+def test_subject_search_composes_complete_alias_stream_with_scoped_presence(inspection, monkeypatch):
+    from dungeonmind.application.vnext import EntityReadService
+    case = _subject_search_case(inspection, monkeypatch)
+    monkeypatch.setattr(EntityReadService, "list_entities", lambda *_: pytest.fail("World enumeration"))
+    monkeypatch.setattr(EntityReadService, "get_complete_entity", lambda *_: pytest.fail("per-candidate complete read"))
+    monkeypatch.setattr(EntityReadService, "get_entity", lambda *_: pytest.fail("per-candidate entity read"))
+    result = _subject_search(case)
+    identifiers = result.matched_node_ids
+    assert identifiers[0] == case.root
+    exact = sorted([*(case.subjects[f"alias:{i}"] for i in range(26)), case.subjects["incoming"]])
+    assert identifiers == [case.root, *exact[:11]]
+    assert _subject_search(case, root=case.subjects["incoming"]).nodes[0].node_id == case.subjects["incoming"]
+    assert case.subjects["orphan"] not in identifiers
+    assert case.subjects["foreign"] not in identifiers
+    assert case.subjects["hidden"] not in identifiers
+    assert result.attributes == result.relationships == result.source_anchors == []
+    assert all("alias:ambiguous" in result.match_reasons[entity] for entity in identifiers[1:])
+    # Duplicate aliases do not strengthen alias:0: ties follow entity ID, not multiplicity.
+    assert [entity for entity in identifiers if entity in exact] == exact[:11]
+    assert result.outcome == "partial"
+    capped = _subject_search(case, _subject_search_request(case, bounds={"maxNodes": 4}))
+    assert capped.matched_node_ids == identifiers[:4]
+    assert capped.outcome == "partial" and capped.coverage.truncated_fields == ["nodes"]
+    assert {n.node_id: n.label for n in capped.nodes} == {n.node_id: n.label for n in result.nodes[:4]}
+
+
+@pytest.mark.parametrize("kind", ["unicode", "duplicate", "unnamed"])
+def test_subject_root_continuity_and_labels_are_fresh_and_cap_invariant(inspection, monkeypatch, kind):
+    from dungeonmind.application.vnext import AliasSearchIndexCache, EntityReadService
+    from apps.live_control_server.services.native_graph_reads import _navigation_labels
+
+    case = _subject_search_case(inspection, monkeypatch,
+        label="🌙" if kind == "unicode" else "Same recorded name" if kind == "duplicate" else "Park pond",
+        duplicate=kind == "duplicate")
+    repo, space = case.repo, case.worlds["managed"].space
+    read, _, _, _ = service.native.read_context(repo, space, case.pin, case.x.lane.run.campaign_id)
+    root = case.subjects["incoming"] if kind == "unnamed" else case.root
+    entities = {root: EntityReadService().get_entity(read, root)}
+    if kind == "duplicate":
+        entities[case.subjects["native:0"]] = EntityReadService().get_entity(read, case.subjects["native:0"])
+    query = _navigation_labels(entities)[root]
+    if kind == "duplicate":
+        assert query.startswith("Same recorded name (object ")
+        assert read.parsed.get_outgoing_entity_ref_assertion_ids(root)
+    elif kind == "unnamed":
+        assert query.startswith("Unnamed object ")
+        assert read.parsed.get_incoming_entity_ref_assertion_ids(root)
+        assert not entities[root].assertions
+    else:
+        assert query == "🌙"
+    service._subject_alias_cache().clear()
+    hits, views = [], []
+    get_index = AliasSearchIndexCache.get_or_build
+    def observed(cache, parsed):
+        value = get_index(cache, parsed)
+        hits.append(value[1])
+        return value
+    monkeypatch.setattr(AliasSearchIndexCache, "get_or_build", observed)
+    source_view = repo.open_native_source_view
+    def opened(*args, **kwargs):
+        view = source_view(*args, **kwargs)
+        views.append(view)
+        return view
+    monkeypatch.setattr(repo, "open_native_source_view", opened)
+    first = _subject_search(case, _subject_search_request(case, queryText=query, bounds={"maxNodes": 1}), root=root)
+    full = _subject_search(case, _subject_search_request(case, queryText=query), root=root)
+    assert first.nodes[0].node_id == root
+    assert first.nodes[0].label == next(n.label for n in full.nodes if n.node_id == root)
+    if kind == "duplicate":
+        other = case.subjects["native:0"]
+        labels = {n.node_id: n.label for n in full.nodes}
+        if other in labels:
+            assert labels[root] != labels[other]
+        # The second same-name candidate is in the eligible union even when cap hides it.
+        assert labels[root].startswith("Same recorded name (object ")
+    if kind == "unnamed":
+        assert first.nodes[0].label.startswith("Unnamed object ")
+    assert hits == [False, True]
+    assert views[0] is not views[1]
+    evidence = read.parsed.get_evidence(case.worlds["managed"].evidence)
+    head, events = repo.get_head(space), repo.head_events(space)
+    repo.withdraw_native_source(space_id=space, source_artifact_id=evidence.source_artifact_id,
+                               source_revision_id=evidence.source_revision_id)
+    epoch = source_view(space).epoch
+    assert _subject_search(case, _subject_search_request(case, queryText=query), root=root).nodes == []
+    assert hits == [False, True, True]
+    assert views[-1].epoch == epoch
+    assert repo.get_head(space) == head and repo.head_events(space) == events
+    assert source_view(space).epoch == epoch
+
+
+@pytest.mark.parametrize("damage", ["missing-principal", "player", "version", "space"])
+def test_subject_search_fences_before_core_repository_io(inspection, monkeypatch, damage):
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    from fastapi import HTTPException
+    case = _subject_search_case(inspection, monkeypatch)
+    selected = case.worlds["managed"]
+    principal = None if damage == "missing-principal" else NativeGraphPrincipal(
+        subject="test:gm", role="player" if damage == "player" else "gm", auth_method="local_operator")
+    monkeypatch.setattr(service.native, "read_repository", lambda **_: pytest.fail("Core IO before binding fence"))
+    with pytest.raises((service.InspectionUnavailable, HTTPException)):
+        service.plan_subject_search(_subject_search_request(case), principal,
+            expected_native_world_id="space:foreign" if damage == "space" else selected.space,
+            expected_binding_version=selected.version + (damage == "version"), known_subject_id=case.root)
+
+
+def test_subject_search_historical_pin_binding_drift_and_work_shape(inspection, monkeypatch):
+    from dungeonmind.application.vnext.read_context import KnowledgeReadContext
+    from dungeonmind.application.vnext import SearchReadService, AliasSearchReadService
+    case = _subject_search_case(inspection, monkeypatch)
+    repo, space = case.repo, case.worlds["managed"].space
+    runtime = transport.runtime(repo, inspection.lane.domain, inspection.lane.profile,
+        now=datetime.now(UTC), operation_id="subject-later-head")
+    runtime.commit_prepared_change(runtime.prepare_change(wk.WorldChangeIntent(
+        space, "later unrelated entity", (wk.CreateObject("later"),))), confirmed_by="local_operator")
+    calls = []
+    original = KnowledgeReadContext.evaluate_candidates
+    def count(context, ids):
+        calls.append(tuple(ids))
+        return original(context, ids)
+    monkeypatch.setattr(KnowledgeReadContext, "evaluate_candidates", count)
+    upstream = {}
+    native_search = SearchReadService.search_entities
+    alias_search = AliasSearchReadService.search_aliases
+    def native_candidates(owner, context, query, **kwargs):
+        value = native_search(owner, context, query, **kwargs)
+        upstream["native"] = value
+        assert kwargs["limit"] == len(context.parsed.entities_by_id)
+        return value
+    def alias_candidates(owner, context, query, **kwargs):
+        value = alias_search(owner, context, query, **kwargs)
+        upstream["alias"] = value
+        assert kwargs["limit"] == len(context.parsed.aliases_by_id)
+        return value
+    monkeypatch.setattr(SearchReadService, "search_entities", native_candidates)
+    monkeypatch.setattr(AliasSearchReadService, "search_aliases", alias_candidates)
+    result = _subject_search(case)
+    assert result.snapshot.revision_id == case.pin
+    assert result.snapshot.head_revision_id != case.pin and not result.snapshot.is_head
+    assert len(calls) == 2  # indexed assertion search + one batched scoped presence
+    assert len(upstream["native"].hits) > 20 and len(upstream["alias"].hits) > 20
+    expected = ({hit.entity.entity_id for hit in upstream["native"].hits}
+                | {hit.alias.entity_id for hit in upstream["alias"].hits} | {case.root})
+    read, _, _, _ = service.native.read_context(repo, space, case.pin, None, scope_mode="world")
+    assert set(calls[-1]) == {aid for entity in expected
+        for aid in (*read.parsed.get_subject_assertion_ids(entity), *read.parsed.get_incoming_entity_ref_assertion_ids(entity))}
+    record = case.records["managed"]
+    real = service.native.read_context
+    def drift(*args, **kwargs):
+        value = real(*args, **kwargs)
+        case.records["managed"] = record.model_copy(update={"native_graph_binding":
+            record.native_graph_binding.model_copy(update={"binding_version": record.native_graph_binding.binding_version + 1})})
+        return value
+    monkeypatch.setattr(service.native, "read_context", drift)
+    with pytest.raises(service.InspectionUnavailable, match="binding_changed"):
+        _subject_search(case)
+
+
+
+def test_subject_search_late_phrase_alias_survives_global_identity_filtering(inspection, monkeypatch):
+    from dungeonmind.application.vnext import AliasSearchReadService
+    case = _subject_search_case(inspection, monkeypatch, sparse_aliases=True)
+    read, _, _, _ = service.native.read_context(case.repo, case.worlds["managed"].space,
+        case.pin, case.x.lane.run.campaign_id)
+    limited = AliasSearchReadService().search_aliases(read, case.label, limit=20)
+    assert limited.completeness.status == "partial"
+    assert not any(hit.alias.entity_id == case.subjects["phrase"] for hit in limited.hits)
+    result = _subject_search(case)
+    assert case.subjects["phrase"] in result.matched_node_ids
+    assert len(result.nodes) <= 12
+    assert all(case.subjects[f"alias:{i}"] not in result.matched_node_ids for i in range(1, 26))
+    assert result.matched_node_ids[:4] == [case.root,
+        *sorted((case.subjects["alias:0"], case.subjects["incoming"])), case.subjects["phrase"]]

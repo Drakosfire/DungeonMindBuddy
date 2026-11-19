@@ -3500,10 +3500,11 @@ class _PolicyExecutionAdapter:
                 if (services is not None or request.operation != allowed_operation
                         or not isinstance(execution.policy, graph_types.PlanJevRetrievalPolicyV1)):
                     return denied("native_acquisition_operation_mismatch", 409)
-                native_subject_search = (
-                    isinstance(plan_services, SubjectSearch)
-                    and common["worldId"] == os.environ.get("DMB_NATIVE_PLAN_SUBJECT_SEARCH_WORLD", "").strip()
-                )
+                native_subject_search = isinstance(plan_services, SubjectSearch)
+                if native_subject_search and (
+                    self.native_principal is None or self.native_principal.role != "gm"
+                ):
+                    return denied("native_subject_principal_unavailable", 403)
                 if not native_subject_search:
                     services = plan_services.resolve()
             native_shared_search = (
@@ -3584,7 +3585,17 @@ class _PolicyExecutionAdapter:
                 })
                 if native_subject_search:
                     from .native_graph_inspection import plan_subject_search
-                    result = plan_subject_search(effective_request, self.native_principal)
+                    authority = self._broker_graph_receipt().graph_authority
+                    result = plan_subject_search(
+                        effective_request.model_copy(update={"world_id": authority.managed_world_id}),
+                        self.native_principal,
+                        expected_native_world_id=authority.native_world_id,
+                        expected_binding_version=authority.binding_version,
+                        known_subject_id=plan_services.subject_node_id,
+                    )
+                    result = result.model_copy(update={
+                        "snapshot": result.snapshot.model_copy(update={"world_id": authority.native_world_id}),
+                    })
                     resolved = None
                 elif native_shared_search:
                     from .native_graph_inspection import shared_search
