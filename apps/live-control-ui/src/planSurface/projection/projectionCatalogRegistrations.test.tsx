@@ -251,7 +251,7 @@ describe("explicit Ingest definition renderer factories", () => {
         })}
       </>,
     );
-    expect(await screen.findByTestId("diagnostics-panel")).toBeInTheDocument();
+    expect(await screen.findByTestId("diagnostics-panel")).toBeVisible();
     expect(diagnosticsPanelSpy).toHaveBeenCalledTimes(1);
     expect(IngestionModule).not.toHaveBeenCalled();
   });
@@ -273,7 +273,7 @@ describe("PlanProjectionCatalogRegistration integration", () => {
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(within(screen.getByLabelText("Tools toolbar")).getByRole("button", { name: "Recap" }));
-    expect(await screen.findByTestId("recap-module")).toBeInTheDocument();
+    expect(await screen.findByTestId("recap-module")).toBeVisible();
   });
 
   it("registers only published tool descriptors", () => {
@@ -359,7 +359,7 @@ describe("IngestProjectionCatalogRegistration integration", () => {
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(within(screen.getByLabelText("Tools toolbar")).getByRole("button", { name: "Diagnostics" }));
-    expect(await screen.findByTestId("diagnostics-panel")).toBeInTheDocument();
+    expect(await screen.findByTestId("diagnostics-panel")).toBeVisible();
     expect(diagnosticsPanelSpy).toHaveBeenCalled();
   });
 });
