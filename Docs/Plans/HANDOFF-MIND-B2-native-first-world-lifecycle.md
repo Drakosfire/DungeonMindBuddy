@@ -107,9 +107,17 @@ admission. B2 must establish and seal those facts at their owning boundaries.
 - Owning tests: `tests/test_database_first_world_publication.py` for first-World
   HTTP, hosted authorization, lifecycle and SQL witnesses, and
   `tests/test_reviewed_native_graph_activation.py` for native APP activation.
-  Preserve their classic historical tests. Do not allocate the shared
-  `tests/test_hosted_native_graph_access.py` or `ci/test-classification.json`;
-  run affected shared regressions read-only. This handoff's consuming activation
+  Preserve their classic historical tests. **Exact shared-test function split:**
+  in `tests/test_hosted_native_graph_access.py`, edit only
+  `test_hosted_first_world_prepare_uses_stored_world_and_rechecks_before_preparing`
+  to patch `native_first_world_publication.prepare_native_first_world`, send the
+  versioned native prepare schema, and assert the current principal and supplied
+  authorizer. Retain the same test ID and owner/nonowner/foreign-World,
+  untrusted-Origin and mid-call foreign-World assertions. Do not edit any other
+  function, helper, fixture or shared import block in that file; use function-
+  local imports if needed. The rest of that test file and the shared
+  `ci/test-classification.json` remain read-only; run affected shared regressions
+  without broadening their lease. This handoff's consuming activation
   record belongs on a separately pinned, explicitly allocated path. B1 compiler
   files/tests outside the narrowly transferred correction above may be read,
   not broadened without explicit transfer. No dependency pin, Core/WK runtime,
