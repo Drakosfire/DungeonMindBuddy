@@ -198,7 +198,7 @@ def build_ingestion_source_bundle(
 ) -> IngestionSourceBundle:
     """Map the ingested corpus library into the SourceUnit contract without reading corpus bodies."""
     repo_root = root or default_repo_root()
-    library = build_library(root=repo_root)
+    library = build_library(root=repo_root, include_auxiliary=False)
     corpus_root = str(library["corpus_root"])
     activation = library.get("retrieval_activation", {})
     slim_routes = set(activation.get("c2s23_planning_manifest", {}).get("routes", []))
