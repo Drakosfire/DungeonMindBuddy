@@ -1,3 +1,4 @@
+import {exportPlanCardMarkdown, planCardScopeKey} from "../planCardEditing";
 import {planRootBoundaryPosition} from './planPlacementCatalog';
 import { isTableCaptionAt } from '../../tiptap/markdown/tableCaption';
 import type {PlanAuthoringCapture, PlanOriginalAuthoringCapture, PlanPlacementCatalog, PlanReviewApplication, PlanAuthoringReview} from "../../api/planAuthoringReviewApi";
@@ -756,15 +757,34 @@ export async function preparePlanAuthoringApplication(target:CapturedWorldPlanEd
     :validateFragment(markdown,target.sectionTarget?.protectedInventory);
   const admitted:AdmittedWorldPlanEditProposal<PlanEditApplicationIdentity>={...fragment,response:{document_id:target.request.document_id,
     world_id:target.request.world_id,draft_sha256:target.request.draft_sha256,action_id:actionId}};
+  const live=effectiveWorldPlanEditState(getCurrent());
+  const initial={...live,playableTarget:live.playableTarget ? {...live.playableTarget} : live.playableTarget};
+  const mounted=currentWorldEditor(initial);
+  const scope=planCardScopeKey.getState(mounted.state);
+  const cardScope=scope ? {...scope} : undefined;
+  const assertCurrent=()=>{
+    const latest=effectiveWorldPlanEditState(getCurrent());
+    if(mounted!==target.editor || !sameWorldPlanEditorBinding(initial,latest)
+      ||JSON.stringify(mounted.getJSON())!==target.editorJson
+      ||JSON.stringify(mounted.state.selection.toJSON())!==target.selectionJson
+      ||JSON.stringify(planCardScopeKey.getState(mounted.state))!==JSON.stringify(cardScope))
+      throw new PlanEditGuardError('The Plan source, editor or scene view changed during preparation. Nothing was inserted.');
+    assertWorldPlanAgentBinding(binding(),expected);
+  };
+  assertCurrent();
   const editor=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:JSON.parse(target.editorJson)});
   try {
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.fromJSON(editor.state.doc,JSON.parse(target.selectionJson))));
-    const state={...effectiveWorldPlanEditState(getCurrent()),editor};
+    const state={...initial,editor};
     await applyWorldPlanEditProposal({captured:{...target,editor},admitted,getCurrent:()=>state,
       expectedAgentBinding:expected,getAgentBinding:binding});
     const afterEditorJson=JSON.stringify(editor.getJSON());
-    const afterMarkdown=preserveLeadingYamlFrontmatter(target.request.draft_markdown,tiptapJsonToSemanticMarkdown(editor.getJSON()));
+    const canonical=tiptapJsonToSemanticMarkdown(editor.getJSON());
+    const afterMarkdown=cardScope?.active
+      ?exportPlanCardMarkdown(editor,initial.sourceMarkdown,canonical,cardScope)
+      :preserveLeadingYamlFrontmatter(target.request.draft_markdown,canonical);
     const [afterEditorSha256,afterDraftSha256]=await Promise.all([sha256(afterEditorJson),sha256(afterMarkdown)]);
+    assertCurrent();
     return {admitted,afterEditorJson,afterEditorSha256,afterMarkdown,afterDraftSha256};
   } finally {editor.destroy();}
 }
