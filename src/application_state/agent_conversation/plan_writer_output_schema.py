@@ -300,9 +300,16 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
                 from .lore_page_review import explicit_blank_lore_page
 
                 definitions["LorePageTitleWitness"]["properties"]["title"]["enum"] = [destination["title"]]
+                answer_segments = base["properties"]["answer_segments"]
                 if explicit_blank_lore_page(destination["instruction"]):
-                    base["properties"]["answer_segments"]["maxItems"] = 0
+                    answer_segments["maxItems"] = 0
                     review = review["anyOf"][0]
+                else:
+                    items = answer_segments["items"]
+                    items["anyOf"] = [
+                        variant for variant in items["anyOf"]
+                        if variant["properties"]["kind"].get("const") in {"native_body_claim", "proposal"}
+                    ]
             base['properties']['collaboration']=review
             base['required'].append('collaboration')
             if definitions:

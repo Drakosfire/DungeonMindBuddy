@@ -132,7 +132,8 @@ def test_writer_schema_offers_only_the_author_bound_title(blank):
     }
     evidence = {
         "schema": SCHEMA, "answer_policy": ASSERTION_POLICY,
-        "native_statements": {"statements": []}, "native_body_evidence": {"excerpts": []},
+        "native_statements": {"statements": []},
+        "native_body_evidence": {"excerpts": [{"excerpt_handle": "s1"}]},
         "native_assertions": None,
     }
     rules = PlanRulesEvidenceFrameV1(
@@ -144,5 +145,10 @@ def test_writer_schema_offers_only_the_author_bound_title(blank):
     assert schema["$defs"]["LorePageTitleWitness"]["properties"]["title"]["enum"] == ["Rowan"]
     assert schema["properties"]["answer_segments"].get("maxItems") == (0 if blank else None)
     assert "destination" in schema["properties"]["collaboration"]["required"]
+    if not blank:
+        assert {item["properties"]["kind"]["const"]
+                for item in schema["properties"]["answer_segments"]["items"]["anyOf"]} == {
+                    "native_body_claim", "proposal",
+                }
     historical = native_output_format(evidence, rules, host, build_local=True)["schema"]
     assert "enum" not in historical["$defs"]["LorePageTitleWitness"]["properties"]["title"]

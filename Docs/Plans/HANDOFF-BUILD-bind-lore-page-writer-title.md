@@ -9,7 +9,9 @@ AW10 turn 7 reached standalone lore review. Its model-authored title failed
 the host's existing exact title check. Derive the explicit title from the
 author's instruction and constrain the native writer schema to that title. The live test then reached blank
 body validation, so bind explicit blank requests to an empty body and a
-required lore review in the same schema.
+required lore review in the same schema. Restrict populated lore reviews to
+passage-backed claims and labeled proposals after the next live turn
+exposed a mismatch with the existing completion validator.
 Reconstruct the same binding when verifying the serialized request. Preserve
 historical request verification, ambiguity checks and revision-bound save.
 
