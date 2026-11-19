@@ -137,7 +137,7 @@
     }
   ],
   "pending": [
-    "Source-proposal fixture APP ordering, other independent World/local-auth/durable-page fixture contracts; auth guard inventory; historical0166 readback; skipped extension PostgreSQL proof",
+    "Historical0160\u21920166 readback/current-runtime compatibility test; other independent World/local-auth/durable-page fixture contracts and auth specialized-guard inventory",
     "Requalify deliberately bounded repaired candidate, exact-head frontend, independent cumulative review and normal checks",
     "V9.B fresh live recovery/schema/artifact readiness and actual activation; V10 retirement; V11 serving baseline"
   ],
@@ -361,6 +361,18 @@
       "combat_inherited_failed": 1,
       "frontend_and_normal_checks": "passed",
       "full_v9_accepted": false
+    },
+    {
+      "pr": 4068,
+      "merge": "414852082115039148184fbba18cf235eae8336e",
+      "reviewed_head": "c9681d35cc9290f425bbc54f9aa5ab4e1b8f2bbc",
+      "review": 5970045779,
+      "source_modules_passed": 137,
+      "skipped": 0,
+      "postgres_extension_enabled": true,
+      "owned_test_database_cleanup": "dropped_after_exit_zero_connections",
+      "frontend_and_normal_checks": "passed",
+      "full_v9_accepted": false
     }
   ],
   "current_proof_artifacts": [
@@ -578,6 +590,26 @@
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/v9-final-contract-query-and-answer.log",
       "bytes": 496656,
       "sha256": "4b4aedc4859a76449fa51838a1e54ca32912bcd2d88b0d8991fe78ac2d5d9a51"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/source-proposal-verification.json",
+      "bytes": 751,
+      "sha256": "2f325d86ffee4d25a9cc897ddf028a1e2ebd313ccf400a62590f8b6f4d9f8a9e"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/source-proposal-exact-source-modules.log",
+      "bytes": 1163,
+      "sha256": "a3a4edeb207e4adceaa2765ad01e4e6fa3d9c279fde309e1459a37a489bf2443"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/source-proposal-exact-core-migrations.log",
+      "bytes": 3810,
+      "sha256": "c385f059fc503515201b66c1e3a8a24b1ffc7de904b9994d9be46e6f616bc724"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/source-proposal-inventory.json",
+      "bytes": 262,
+      "sha256": "9795884a83ab3b49e903d58c8629b18ad97f227e716077d8613e3c4f176a8db3"
     }
   ],
   "historical_qualified_source": "0274e014daa6527cccf6abd71dd2e641204dc4b0",
@@ -894,5 +926,10 @@
     "live_source_mutation": false,
     "forward_verified_quiescent": true
   },
-  "next_candidate_runtime_base": "c8b0fe3c208825317707b109cde841fcebedbb2c"
+  "next_candidate_runtime_base": "c9681d35cc9290f425bbc54f9aa5ab4e1b8f2bbc",
+  "source_fixture_gap_resolution": {
+    "status": "closed",
+    "ten_setup_errors": "explicit APP dependencies",
+    "opt_in_pg_proof": "both full source modules ran137passed0skips with owned PostgreSQL extension DB"
+  }
 }

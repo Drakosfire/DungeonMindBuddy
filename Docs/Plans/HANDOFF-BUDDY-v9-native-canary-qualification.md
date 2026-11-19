@@ -178,10 +178,17 @@ with0166 although the base is0168. Its later readback/downgrade proof remains op
 Exact hosted frontend/canonical validation and all four normal checks passed.
 This is bounded repair acceptance, not a green combat contract or V9 acceptance.
 
-Next serial slice fixes source-proposal fixture APP dependency ordering. Then
-settle remaining independent fixture/contract groups, the historical0166 readback
-and skipped native-source-extension PostgreSQL proof. The repaired candidate starts
-from acceptedc8b, excluding unrelated later-main runtime; final proof must qualify
+Source fixture4068 is accepted: reviewedc9681d35cc9290f425bbc54f9aa5ab4e1b8f2bbc,
+merge414852082115039148184fbba18cf235eae8336e, review5970045779. Explicit APP fixture
+dependencies precede catalog creation. Both full source/proposal modules137pass/
+0skips, including real owned PostgreSQL extensions. Generated DB dropped after
+exit/zero-connection checks; exact frontend/canonical and normal checks passed.
+The prior ten setup errors and opt-in PostgreSQL proof gap are closed.
+
+Next serial slice repairs the historical0160→0166 test while preserving its exact
+schema/row/forward-recovery assertions and current-runtime legacy readability.
+Then settle remaining auth/World/local-mode/durable-page fixture contracts.
+The repaired candidate starts from acceptedc968, excluding unrelated later-main runtime; final proof must qualify
 that bounded descendant. Current6fac proof remains tied to its original bytes.
 No provider generation or classic baseline rerun is needed.
 
