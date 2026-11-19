@@ -367,26 +367,40 @@ describe("App inspector integration", () => {
   });
 
   it("renders plan surface from /plan", async () => {
-    const user = userEvent.setup();
-    window.history.pushState({}, "", "/plan");
-    render(<App />);
-
-    expect(await screen.findByTestId("plan-canvas-title")).toHaveTextContent(/C2 Session 23 Prep/i);
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
+    const worlds = vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{
+        schema_version: "dmb_world_container_record_v1",
+        world_id: "eldyrwild",
+        name: "Eldyrwild",
+        source_root_relpath: "",
+        created_at: "2026-01-01T00:00:00Z",
+      }],
     });
-    await user.click(screen.getByRole("button", { name: "Tools" }));
-    await user.click(screen.getByRole("button", { name: "Recap" }));
-    const toolbox = await screen.findByRole("navigation", { name: "Toolbox tools" });
-    expect(toolbox).toBeInTheDocument();
-    expect(document.querySelectorAll(".surface-projection-host")).toHaveLength(1);
-    expect(within(toolbox).queryByRole("button", { name: "Ingest Recap" })).not.toBeInTheDocument();
-    expect(within(toolbox).queryByRole("button", { name: "Graph Preview" })).not.toBeInTheDocument();
-    expect(within(toolbox).queryByRole("button", { name: "Graph Gold Review" })).not.toBeInTheDocument();
-    expect(within(toolbox).queryByRole("button", { name: "Graph Review" })).not.toBeInTheDocument();
-    expect(within(toolbox).queryByRole("button", { name: "Vocabulary Review" })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Plan canvas")).toBeInTheDocument();
-    expect(liveApi.getPlanView).toHaveBeenCalled();
+    const recoveryKey = "dmb:world-plan-local-draft:v2:eldyrwild";
+    const recovery = JSON.stringify({
+      schema_version: "dmb_plan_promotion_recovery_v2", scope_mode: "world",
+      world_id: "eldyrwild", document_id: null, title: "Unsaved session",
+      markdown: "# Recollections\nStill drafting.", revision: null,
+    });
+    localStorage.setItem(recoveryKey, recovery);
+    try {
+      window.history.pushState({}, "", "/plan");
+      render(<App />);
+
+      expect(await screen.findByRole("heading", { name: "Plan your next session" })).toBeInTheDocument();
+      const picker = screen.getByRole("region", { name: "Choose your World" });
+      expect(await within(picker).findByRole("link", { name: /Eldyrwild/ })).toHaveAttribute("href", "/plan?world=eldyrwild");
+      expect(screen.queryByTestId("plan-canvas-title")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Plan canvas")).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Toolbox tools" })).not.toBeInTheDocument();
+      expect(liveApi.getPlanView).not.toHaveBeenCalled();
+      expect(liveApi.listWorkspaceDocuments).not.toHaveBeenCalled();
+      expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+      expect(localStorage.getItem(recoveryKey)).toBe(recovery);
+    } finally {
+      worlds.mockRestore();
+    }
   });
 
   it("renders the first-use Ingest landing from /ingest", async () => {
