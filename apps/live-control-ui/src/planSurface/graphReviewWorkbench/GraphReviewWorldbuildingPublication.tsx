@@ -8,7 +8,7 @@ import type { ExactRunReviewPackage, ManagedWorldGraphProjectionResponse } from 
 import { confirmWorldbuilding, getWorldbuildingCapabilities, prepareWorldbuilding,
   type WorldbuildingDecision, type WorldbuildingPlan, type WorldbuildingReceipt } from "../../api/worldbuildingPublicationApi";
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
-import { GraphReviewFirstWorldPublishSheet } from "./GraphReviewFirstWorldPublishSheet";
+import { GraphReviewFirstWorldPublishSheet, GraphReviewFirstWorldRecovery } from "./GraphReviewFirstWorldPublishSheet";
 
 import {assertWorldbuildingPlan, clearUnsubmittedWorldbuildingPublication, readWorldbuildingPublicationRecovery,
   readNativeWorldbuildingPublicationRecovery, retryNativeWorldbuildingConfirmation,
@@ -30,7 +30,10 @@ export function GraphReviewWorldbuildingPublication(props: Props) {
   if (world.kind !== "managed" || props.review.worldId !== world.worldId) {
     return <p role="status">Select the verified World belonging to this exact source to review publication.</p>;
   }
-  if (props.review.inspectionStatus !== "ready" || props.review.sourceDomain !== "worldbuilding") return null;
+  if (props.review.sourceDomain !== "worldbuilding") return null;
+  if (props.review.inspectionStatus !== "ready") return <GraphReviewFirstWorldRecovery
+    worldId={world.worldId} runId={props.review.runId} isCurrent={isCurrent}
+    onConfirmInFlightChange={props.onConfirmInFlightChange}/>;
   return <PublicationEntry key={`${scope}:${epoch}`} {...props} isCurrent={isCurrent}
     managedWorldId={world.worldId} onReset={() => setEpoch(n => n + 1)} />;
 }
@@ -130,6 +133,10 @@ function Publication({review, managedWorldId, onConfirmInFlightChange, onReset, 
         }
         if (saved.error) throw new Error(saved.error);
         if (saved.recovery) assertWorldbuildingPlan(saved.recovery.plan, review, managedWorldId, p);
+        // A verified source-only native head is present but has no published
+        // facts yet. Keep this eligible reservation on the first-World protocol.
+        if (!saved.recovery && review.worldState === "uninitialized" && review.firstWorldPublishEligible === true
+          && p.projection.nodes.length === 0) { setFirstWorld(true); return; }
         setProjection(p);
         const capability = await getWorldbuildingCapabilities(managedWorldId);
         if (cancelled) return;

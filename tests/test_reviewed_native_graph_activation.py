@@ -214,3 +214,25 @@ def test_active_replay_rejects_same_world_metadata_aba(tmp_path):
         _activate(tmp_path, world, target, receipt, services, aba)
     assert get_world_container(world.world_id) == active
     assert _activate(tmp_path, world, target, receipt, services) == active
+
+
+@pytest.mark.parametrize("operation", ["publish", "publish_prospective_publication", "rollback", "close", "delete_revision"])
+def test_native_first_world_activation_readonly_adapter_refuses_writes(operation):
+    from apps.live_control_server.services.world_graph_binding import _NativeFirstWorldReadOnlyRepository
+
+    calls = []
+    underlying = SimpleNamespace(**{operation: lambda *args, **kwargs: calls.append(operation)})
+    readonly = _NativeFirstWorldReadOnlyRepository(underlying)
+    with pytest.raises(WorldGraphBindingError, match="non-read operation"):
+        getattr(readonly, operation)()
+    assert calls == []
+
+
+def test_native_first_world_activation_readonly_adapter_preserves_read_identity():
+    from apps.live_control_server.services.world_graph_binding import _NativeFirstWorldReadOnlyRepository
+
+    marker = object()
+    calls = []
+    underlying = SimpleNamespace(get_head=lambda space: calls.append(space) or marker)
+    assert _NativeFirstWorldReadOnlyRepository(underlying).get_head("exact-space") is marker
+    assert calls == ["exact-space"]

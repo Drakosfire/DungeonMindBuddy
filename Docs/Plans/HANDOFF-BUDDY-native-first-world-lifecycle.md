@@ -198,3 +198,16 @@ qualification are not yet complete or accepted. UI sidecar owns only its named
 UI paths; parent owns server/model/SQL tests/handoff. No Node tests run while
 implementation is changing; normal shared-lock verification remains required.
 Serving5202, live data, provider state and frozen retrieval baseline are unchanged.
+
+## Integration checkpoint — draft PR #4104
+
+The dedicated UI protocol/recovery implementation is present for integration; no
+Node/build or full frontend acceptance is claimed. Distinct native APP activation
+now rechecks signed principal/scope, public Core exact-request/result recovery
+through a read-only adapter, current-head ancestry, owner genesis and unchanged
+APP reservation CAS. No caller-supplied receipt establishes activation authority.
+Working-tree activation diagnostics:21 passed, including historical classic cases
+and six read-only adapter controls. Actual native stage/activation integration is
+still pending. Source-stage implementation is delegated within the existing
+allocated publication service and owning SQL test file; no new module/path lease.
+No serving, live-data, provider or frozen-baseline changes.
