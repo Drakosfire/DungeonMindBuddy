@@ -66,7 +66,7 @@ class SurfaceNativeCompletionV1(Strict):
         if related and self.surface_id not in {'build','plan'}:
             raise ValueError('Saved authored claims require their actual authoring surface')
         if isinstance(self.collaboration, ProposedLorePage) and any(
-            segment.kind != "source_passage_claim"
+            segment.kind not in {"source_passage_claim", "limitation"}
             and not (segment.kind == "proposal" and segment.label == "invented_idea")
             for segment in self.answer_segments
         ):
@@ -160,7 +160,7 @@ def _validate_citations(completion, receipt, execution, auth, evidence):
                 raise ValueError("Lore draft lacks its admitted Build review")
             completion.collaboration.destination.bind(
                 execution.policy.action.intent.message,
-                has_body=bool(completion.answer_segments),
+                has_body=any(segment.kind != "limitation" for segment in completion.answer_segments),
             )
         if completion.collaboration is not None and completion.collaboration.kind=='connected_page':
             from .connected_page_origins import execution_rows

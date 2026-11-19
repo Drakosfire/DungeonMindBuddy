@@ -152,3 +152,22 @@ def test_writer_schema_offers_only_the_author_bound_title(blank):
                 }
     historical = native_output_format(evidence, rules, host, build_local=True)["schema"]
     assert "enum" not in historical["$defs"]["LorePageTitleWitness"]["properties"]["title"]
+
+
+def test_lore_save_body_excludes_conversation_limitations():
+    from types import SimpleNamespace
+
+    from application_state.agent_conversation.lore_page_confirmation import _body
+
+    completion = SimpleNamespace(
+        native_body_citations=[SimpleNamespace(segment_index=1)],
+        answer_segments=[
+            SimpleNamespace(kind="limitation", text="Some details were unavailable."),
+            SimpleNamespace(kind="source_passage_claim", text="Rowan was named."),
+            SimpleNamespace(kind="proposal", text="Possible connection."),
+        ],
+    )
+    body = _body(SimpleNamespace(world_id="test", turn_id="turn", completion=completion))
+    assert body.startswith("Rowan was named.\n\n[Source 1]")
+    assert body.endswith("**Proposed**\n\nPossible connection.")
+    assert "unavailable" not in body

@@ -11,11 +11,13 @@ author's instruction and constrain the native writer schema to that title. The l
 body validation, so bind explicit blank requests to an empty body and a
 required lore review in the same schema. Restrict populated lore reviews to
 passage-backed claims and labeled proposals after the next live turn
-exposed a mismatch with the existing completion validator.
+exposed a mismatch with the existing completion validator. Keep host-added
+limitations visible in conversation while excluding them from the saved body.
 Reconstruct the same binding when verifying the serialized request. Preserve
 historical request verification, ambiguity checks and revision-bound save.
 
 Write scope is the existing lore review parser, Build writer work projection,
-native writer request verification and schema, and their focused tests.
+native writer request verification and schema, lore completion and saved
+body projection, and their focused tests.
 Verify explicit pivots, an unrelated/connected control, exact format
 reconstruction and ordinary isolated replay. Keep Gold local.

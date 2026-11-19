@@ -493,6 +493,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 author_text = self.adapter.turn.user_text
                 if "blank page" in author_text:
                     candidate["answer_segments"] = []
+                else:
+                    candidate["limitations"] = ["missing_requested_details"]
                 candidate["collaboration"] = {
                     "kind": "lore_page",
                     "destination": {"instruction": author_text, "title": "Glass Regent"},
@@ -2370,9 +2372,9 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
     assert str(reopened.revision.work_revision_id) == receipt["revision_id"]
     assert completion.answer_segments[0].text in reopened.revision.markdown
     assert f"/conversation/turns/{populated.turn_id}/native-body-excerpts/0" in reopened.revision.markdown
-    assert completion.answer_segments and all(
-        segment.kind == "source_passage_claim" for segment in completion.answer_segments
-    )
+    assert {segment.kind for segment in completion.answer_segments} == {"source_passage_claim", "limitation"}
+    assert all(segment.text not in reopened.revision.markdown for segment in completion.answer_segments
+               if segment.kind == "limitation")
     reads = {
         read.event_id: read.excerpt.text for read in acquired_body_reads(populated.graph_context_execution)
     }

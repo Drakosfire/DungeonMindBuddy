@@ -41,6 +41,8 @@ def _body(turn: Turn) -> str:
         )
     paragraphs = []
     for index, segment in enumerate(turn.completion.answer_segments):
+        if segment.kind == "limitation":
+            continue
         if segment.kind == "proposal":
             paragraphs.append(f"**Proposed**\n\n{segment.text}")
         elif index in citations:
