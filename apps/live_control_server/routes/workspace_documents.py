@@ -276,6 +276,7 @@ def get_world_owned_runbooks(
     world_id: Annotated[str, Query(min_length=1)],
     request: Request,
 ) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, world_id)
     unsupported = sorted(set(request.query_params.keys()) - {"world_id"})
     if unsupported:
         raise HTTPException(
@@ -283,11 +284,13 @@ def get_world_owned_runbooks(
             detail=f"World Runbook inventory accepts only world_id; unsupported selectors: {', '.join(unsupported)}",
         )
     try:
-        return list_world_owned_runbooks_v2(
+        inventory = list_world_owned_runbooks_v2(
             _managed_world_root(), world_id=world_id
         ).model_dump(mode="json")
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    require_hosted_plan_world_context(request, world_id)
+    return inventory
 
 
 @router.post(

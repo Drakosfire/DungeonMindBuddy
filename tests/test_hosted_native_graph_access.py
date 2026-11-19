@@ -420,6 +420,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/rules/query"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/rules/passages/{citation_id}"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/workspace-documents/world-runbooks"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_connected_page,
             ("POST", "/api/live/connected-pages/prepare"): access.resolve_hosted_connected_page,
             ("POST", "/api/live/connected-pages/confirm"): access.resolve_hosted_connected_page,
@@ -5705,3 +5706,22 @@ def test_hosted_discussion_retry_read_binds_world_and_revision(hosted, monkeypat
     denied = hosted.client.request("GET", path)
     assert denied.status_code == 403, denied.text
     assert "withheld retry input" not in denied.text
+
+
+def test_hosted_runbook_inventory_checks_world_before_listing(hosted, monkeypatch):
+    from apps.live_control_server.routes import workspace_documents
+
+    calls = []
+
+    def inventory(_root, *, world_id):
+        calls.append(world_id)
+        return workspace_documents.WorldOwnedRunbooksResponseV2(world_id=world_id, records=[])
+
+    monkeypatch.setattr(workspace_documents, "list_world_owned_runbooks_v2", inventory)
+    path = "/api/live/workspace-documents/world-runbooks?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&scope_mode=world").status_code == 403
+    assert calls == []
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert calls == ["managed"]
