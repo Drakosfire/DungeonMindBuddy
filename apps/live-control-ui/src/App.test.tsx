@@ -59,6 +59,7 @@ vi.mock("./api/liveApi", async (importOriginal) => {
   return {
     ...actual,
     getSurface: vi.fn(),
+    getSurfaceSessionViews: vi.fn(),
     getEvents: vi.fn(),
     getJobs: vi.fn(),
     getPlanView: vi.fn(),
@@ -162,6 +163,14 @@ describe("App inspector integration", () => {
       catalog: mockCatalog,
       layout: mockLayout,
       state: mockState,
+    });
+    vi.mocked(liveApi.getSurfaceSessionViews).mockResolvedValue({
+      catalog: mockCatalog,
+      layout: mockLayout,
+      state: mockState,
+      events: [],
+      jobs: [],
+      plan_view: mockPlanView,
     });
     vi.mocked(liveApi.getEvents).mockResolvedValue({ events: [] });
     vi.mocked(liveApi.getJobs).mockResolvedValue({ jobs: [] });
@@ -351,6 +360,7 @@ describe("App inspector integration", () => {
       expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
     });
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(liveApi.getSurfaceSessionViews).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(screen.getByRole("button", { name: /inspector/i }));
     expect(await screen.findByText(/Select a timeline ref or record event to inspect/i)).toBeInTheDocument();
