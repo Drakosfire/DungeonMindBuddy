@@ -498,7 +498,7 @@ def install_hosted_request_boundary(
     world_path_resolvers = [
         (method, path, compile_path(path)[0], resolver)
         for (method, path), resolver in route_resolvers.items()
-        if any(marker in path for marker in ("{world_id}", "{document_id}", "{run_id}", "{asset_id}", "{draft_id}", "{encounter_id}", "{operation_id}", "{action_id}", "{request_id}"))
+        if any(marker in path for marker in ("{world_id}", "{document_id}", "{run_id}", "{asset_id}", "{draft_id}", "{encounter_id}", "{operation_id}", "{action_id}", "{request_id}", "{citation_id}"))
     ]
     collections = dict(collection_authorizers or {})
     # Collection authorization is an explicit, code-owned read capability. It

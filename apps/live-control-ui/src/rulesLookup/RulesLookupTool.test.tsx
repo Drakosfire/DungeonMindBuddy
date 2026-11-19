@@ -18,7 +18,7 @@ it('uses a real shared packet and verified exact passage without replacing the s
  render(<><input aria-label="Source draft" defaultValue="keep this"/><RulesLookupTool/></>);const draft=screen.getByRole('textbox',{name:'Source draft'});
  await screen.findByRole('combobox');expect(api.queryRulesEvidence).not.toHaveBeenCalled();await search();
  await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Inspect cited passage'}))});const cited=await screen.findByRole('region',{name:'Cited rules passage'});
- expect(cited).toHaveTextContent(text);expect(cited).toHaveTextContent('Page 14');expect(api.getRulesPassage).toHaveBeenCalledWith(corpus,hit.citation_id,expect.any(AbortSignal));
+ expect(cited).toHaveTextContent(text);expect(cited).toHaveTextContent('Page 14');expect(api.getRulesPassage).toHaveBeenCalledWith(corpus,hit.citation_id,expect.any(AbortSignal),undefined);
  fireEvent.click(within(cited).getByRole('button',{name:'Close cited passage'}));expect(screen.getByRole('textbox',{name:'Source draft'})).toBe(draft);expect(draft).toHaveValue('keep this');
 });
 it('shows limited coverage and a missing-topic result without claiming no rule exists',async()=>{

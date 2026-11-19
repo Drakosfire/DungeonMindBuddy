@@ -310,6 +310,9 @@ def hosted(monkeypatch, request):
     from apps.live_control_server.routes import workspace_lifecycle
 
     app.include_router(workspace_lifecycle.router)
+    from apps.live_control_server.routes import rules_lookup
+
+    app.include_router(rules_lookup.router)
     app.include_router(conversation_library.router)
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
@@ -410,6 +413,9 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-projection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_exact_extraction_read,
             ("GET", "/api/live/world-workspace/trash"): HOSTED_WORLD_SCOPE_RESOLVERS[("GET", "/api/live/world-workspace/trash")],
+            ("GET", "/api/live/rules/catalog"): access.resolve_hosted_rules_lookup,
+            ("GET", "/api/live/rules/query"): access.resolve_hosted_rules_lookup,
+            ("GET", "/api/live/rules/passages/{citation_id}"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_connected_page,
             ("POST", "/api/live/connected-pages/prepare"): access.resolve_hosted_connected_page,
@@ -5528,3 +5534,36 @@ def test_hosted_document_trash_and_restore_preserve_identity(hosted, application
     assert restored.status_code == 200, restored.text
     assert restored.json()["status"] == "active"
     assert restored.json()["id"] == record["document_id"]
+
+
+def test_hosted_rules_lookup_requires_owned_world(hosted):
+    path = "/api/live/rules/catalog?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert any(source["available"] for source in response.json()["sources"])
+
+
+@pytest.mark.parametrize(
+    ("path", "reader"),
+    [
+        ("/catalog?world_id=managed", "catalog"),
+        (f"/query?world_id=managed&corpus={'a' * 64}&question=Cover&limit=4", "query_rules"),
+        (f"/passages/{'b' * 64}?world_id=managed&corpus={'a' * 64}", "inspect_passage"),
+    ],
+)
+def test_hosted_rules_lookup_rechecks_owner_after_read(hosted, monkeypatch, path, reader):
+    from apps.live_control_server.services import rules_lookup
+
+    def transfer_during_read(*_args):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"content": "withheld rules evidence"}
+
+    monkeypatch.setattr(rules_lookup, reader, transfer_during_read)
+    response = hosted.client.request("GET", "/api/live/rules" + path)
+    assert response.status_code == 403, response.text
+    assert "withheld rules evidence" not in response.text

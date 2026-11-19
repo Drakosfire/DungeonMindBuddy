@@ -153,6 +153,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_image_history,
     resolve_hosted_image_world,
     resolve_hosted_image_preparation,
+    resolve_hosted_rules_lookup,
     resolve_hosted_chat_turn,
     resolve_hosted_build_page_create,
     resolve_hosted_build_page_inventory,
@@ -244,6 +245,10 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/graph-authoring/document-relationship/native-confirm"): resolve_hosted_native_relationship,
     ("GET", "/api/live/media/images/preparations/{action_id}"): resolve_hosted_image_preparation,
     ("GET", "/api/live/media/images/preparations/list"): resolve_hosted_image_history,
+    ("GET", "/api/live/rules/catalog"): resolve_hosted_rules_lookup,
+    ("GET", "/api/live/rules/query"): resolve_hosted_rules_lookup,
+    ("GET", "/api/live/rules/passages/{citation_id}"): resolve_hosted_rules_lookup,
+
     ("POST", "/api/live/agent/turn"): resolve_hosted_chat_turn,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/conversation/new"): resolve_hosted_conversation_world,
