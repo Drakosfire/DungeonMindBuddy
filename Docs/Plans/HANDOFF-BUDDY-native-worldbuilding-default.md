@@ -103,3 +103,15 @@ and owner-decision assertions, proving native context dispatch and no native/cla
 prepare on load. No parent production/API edits or unrelated test retirement.
 They are indivisible integration proof of this same N1 capability, not a second
 outcome. Hosted remains held until repaired frozen head and parent full rerun.
+
+
+Companion repair working diagnostic6: both complete integration modules64PASS,
+zero failed/skipped,3.49s; companion-diagnostic-6.log/xml retained. Build verifies
+exact run/source context, frozen saved revision2 versus current editor3, no second
+source surface, no preparation on load, then exact explicit native fact selection
+using the frozen coordinates. Generic verifies current native context dispatch,
+visible provisional fact review and zero native/classic preparation/confirmation
+on load. Both use typed public native API response fixtures, not real SQL authority
+proof; parent focused backend remains separate. No production delta from25bf.
+Original component/API84PASS proof remains unchanged; parent full-discovered rerun
+and independent delta review are pending. Hosted remains held until owner release.
