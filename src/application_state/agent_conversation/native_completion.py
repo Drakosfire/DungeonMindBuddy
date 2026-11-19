@@ -494,10 +494,18 @@ def verify_completion(completion, receipt, execution, authorization, **producing
 
 def validate_retained_completion(completion, receipt, execution, producer, bindings):
     """Validate stored native citations/binding; producing admission owns acceptance."""
-    from .native_execution import SurfaceNativeExecutionV1, NativeWriterAuthorizedV1, validate_context_binding, NATIVE_WRITER_TYPES
+    from .native_execution import validate_context_binding
+
+    validate_context_binding(receipt, execution)
+    _join_retained_completion(completion, receipt, execution, producer, bindings)
+
+
+def _join_retained_completion(completion, receipt, execution, producer, bindings):
+    """Check the completion against an already validated context and execution."""
+    from .native_execution import SurfaceNativeExecutionV1, NATIVE_WRITER_TYPES
     from .native_writer import model_frame, read_evidence_records
     from .surface_evidence_answer import validate_authored_owners
-    validate_context_binding(receipt, execution)
+
     if isinstance(completion,(t.BuildAuthoringCompletionV1,t.BuildImagePreparationCompletionV1)):
         from .build_authoring import validate_native_authoring_binding
         validate_native_authoring_binding(completion,receipt,execution,producer,bindings)
