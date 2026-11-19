@@ -234,13 +234,27 @@ def test_build_opening_uses_instrumented_decision_client(monkeypatch):
 
     from apps.live_control_server.services import build_jev_harness
 
+    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+
     marker = Mock()
     transport = object()
-    adapter = SimpleNamespace(trace=SimpleNamespace(mark_first_jev_dispatch=marker), turn=None)
+    trace = AgentTurnTraceBuilder(agent_thread_id=None, turn_id=None,
+        runtime="test", backend="test", mode="test")
+    trace.mark_first_jev_dispatch = marker
+    adapter = SimpleNamespace(trace=trace, turn=None, context_capture=None,
+        record_prepared_build_decision=lambda event: False)
     plan = SimpleNamespace(state=lambda: {"question": "fixture"})
     driver = SimpleNamespace(stage=lambda: plan, step=SimpleNamespace(questions=[SimpleNamespace(kind="binary", name="check", question="Ready?")]))
-    client = SimpleNamespace(decide=AsyncMock(side_effect=RuntimeError("fixture")),
-                             aclose=AsyncMock())
+    driver.authorize = lambda prepared: False
+
+    async def decide(request):
+        callbacks = factory.call_args.kwargs
+        assert await callbacks["authorize"](object()) is False
+        assert await callbacks["record"](SimpleNamespace(outcome="response_received")) is False
+        assert await callbacks["record"](SimpleNamespace(outcome="sending")) is False
+        raise RuntimeError("fixture")
+
+    client = SimpleNamespace(decide=decide, aclose=AsyncMock())
     factory = Mock(return_value=client)
     monkeypatch.setattr(build_jev_harness, "decision_client", factory)
     harness = BuildJevHarness(decision_transport=transport)
@@ -249,6 +263,10 @@ def test_build_opening_uses_instrumented_decision_client(monkeypatch):
     with pytest.raises(RuntimeError, match="fixture"):
         asyncio.run(harness._decide(adapter, driver))
 
+    assert [span["name"] for span in trace.spans] == [
+        "build_first_jev_controller_stage", "build_first_jev_authorization",
+        "build_first_jev_sending_acknowledgement",
+    ]
     assert factory.call_args.kwargs["on_dispatch"] is marker
     assert factory.call_args.kwargs["transport"] is transport
     client.aclose.assert_awaited_once()

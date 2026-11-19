@@ -1443,7 +1443,7 @@ def test_prepared_native_query_reuses_core_revision_and_preserves_exact_catalog(
         measure_work=trace.measure_host_work)
     assert [span["name"] for span in trace.spans] == [
         "native_turn_graph_projection", "native_turn_graph_entity_search",
-        "native_turn_graph_match_catalog",
+        "native_turn_graph_complete_entity_read", "native_turn_graph_match_catalog",
     ]
     assert all(span["status"] == "ok" for span in trace.spans)
     assert actual == expected

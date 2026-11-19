@@ -300,7 +300,8 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
     def read_entity(at_revision, entity_id, context):
         key = at_revision, entity_id
         if key not in entities_by_revision:
-            entity = EntityReadService().get_complete_entity(context[0], entity_id)
+            with measure("native_turn_graph_complete_entity_read"):
+                entity = EntityReadService().get_complete_entity(context[0], entity_id)
             if (entity.identity.space_id, entity.identity.revision_id) != (space, at_revision):
                 raise ValueError('Core entity read changed pinned authority')
             entities_by_revision[key] = entity
