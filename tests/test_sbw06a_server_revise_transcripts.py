@@ -22,6 +22,12 @@ TRANSCRIPT_DIR = (
 )
 
 
+# Historical capture identity; exact schema pin is in the transcript README.
+CAPTURED_OPENAPI_FINGERPRINT = (
+    "sha256:df46327f24180150aadd28a8fe6477ceabde40c300b64c931b27e639a762f36a"
+)
+
+
 def _load(name: str) -> dict:
     return json.loads((TRANSCRIPT_DIR / f"{name}.json").read_text(encoding="utf-8"))
 
@@ -33,8 +39,8 @@ def test_manifest_cites_server_commit_fingerprint_and_fixture_hashes() -> None:
     server = manifest["dungeonmind_server"]
     assert server["commit"] == "2c7d2566baa744f2b1a4667761775c1dec87a2d4"
     assert server["reviewed_head"] == "1ad8de2baf0431c7ddb401cdd72389afc730519a"
-    assert server["openapi_fingerprint"] == OPENAPI_FINGERPRINT
-    assert manifest["buddy_vendored_openapi_fingerprint"] == OPENAPI_FINGERPRINT
+    assert server["openapi_fingerprint"] == CAPTURED_OPENAPI_FINGERPRINT
+    assert manifest["buddy_vendored_openapi_fingerprint"] == CAPTURED_OPENAPI_FINGERPRINT
     assert manifest["openapi_fingerprint_match"] is True
     snapshot = (
         Path(__file__).resolve().parents[1]
@@ -42,6 +48,11 @@ def test_manifest_cites_server_commit_fingerprint_and_fixture_hashes() -> None:
         / "dungeonbuddy-statblocks-v1.json"
     )
     assert "sha256:" + hashlib.sha256(snapshot.read_bytes()).hexdigest() == OPENAPI_FINGERPRINT
+    headers = (snapshot.parent.parent / "generated/models.py").read_text().splitlines()[:6]
+    assert [line for line in headers if line.startswith("# Source fingerprint:")] == [
+        f"# Source fingerprint: {OPENAPI_FINGERPRINT}",
+        f"# Source fingerprint: {OPENAPI_FINGERPRINT}",
+    ]
     assert {
         "revise-request",
         "revise-replay-response",
