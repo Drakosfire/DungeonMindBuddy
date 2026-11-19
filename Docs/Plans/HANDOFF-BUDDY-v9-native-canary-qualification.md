@@ -126,3 +126,33 @@ reproducible artifacts after active process/mount/connection, dirty/unique-data 
 commit checks. Keep live sources, other-lane processes and prior V8 evidence intact.
 Settle the actual #4029 merge in this PR; settle this slice after actual merge in
 its dependent activation record, never by inventing a future merge identity.
+
+## Pre-start clarification from independent boundary review
+
+Before any canary process starts, establish these concrete gates:
+
+- Snapshot receipt currently proves separate dump consistency and stable selected
+  head/binding only. Source epoch/lifecycle and APP provisioning coherence need
+  explicit restored/live comparison or a fresh appropriately bounded capture.
+  Do not retrospectively claim unrecorded before-epoch checks.
+- Inventory required file-backed artifact bodies, managed/source files and session
+  dependencies. Copy and hash required authority or mount it explicitly read-only;
+  identify unavailable locators. Never silently resolve mutable source-checkout
+  paths as isolated canary authority.
+- Pin an isolated dotenv root with explicit Core/APP restore DSNs, managed/artifact/
+  session/world paths, frontend proxy and all intended native selectors. Inspect
+  startup/background-write behavior; no source/other-lane defaults. Recheck free
+  owned ports immediately before bind.
+- Exact older native release rollback target is Buddy
+  0a746752da32324256d83b018e884aa7cb8ad692 with Core4b6516e; forward target is
+  frozen92cc639. Test BOTH against Core0022 and the forward APP0167 restore,
+  without downgrading schema/data. Distinguish same-release restart from release
+  rollback and record unsupported new APP payload kinds honestly. If backward
+  compatibility is absent, rebrief a safe rollback target before activation;
+  do not call a restart proof a release-rollback proof.
+
+Snapshot capture completed in task scratch: Core947930229 bytes and APP102665777
+bytes, hash-bound in current-authority-snapshot.json. Both source connections were
+read-only; head/binding remained equal. APP source schema20261117_0160 is behind
+selected candidate0167. These dumps are retained pending the additional coherence,
+restore and file-authority checks above; no canary/rollback/activation success.
