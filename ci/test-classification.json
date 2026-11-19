@@ -682,6 +682,7 @@
       "tests/test_plan_authored_references.py",
       "tests/test_plan_jev_authoring.py",
       "tests/test_play_authored_source_references.py",
+      "tests/test_play_creation_authorization.py",
       "tests/test_pydantic_ai_agent_runtime.py",
       "tests/test_recap_generationengine_default.py",
       "tests/test_recap_literal_evidence_correction.py",
