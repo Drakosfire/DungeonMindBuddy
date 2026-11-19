@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 from pydantic import ValidationError
 import pytest
@@ -19,7 +20,6 @@ from apps.live_control_server.services.world_graph_projection import (
 )
 from graph_memory.projection.world_projection import (
     WorldGraphProjection,
-    WorldGraphProjectionRequest,
 )
 
 
@@ -77,6 +77,33 @@ def _native_projection(world_id: str = "eldyrwild") -> WorldGraphProjection:
     )
 
 
+
+def _native_projection_stub(monkeypatch, *, on_read=None):
+    """Orchestration fixture; actual Core/HTTP provenance is proved separately."""
+    from apps.live_control_server.integrations.dungeonmind import vnext_world_projection as adapter
+
+    seen, outputs = [], []
+    context, source_access = object(), object()
+    def read(binding, revision_pin):
+        seen.append((binding.native_world_id, revision_pin))
+        if on_read is not None:
+            on_read()
+        revision = revision_pin or "rev:head"
+        support = SimpleNamespace(listing=SimpleNamespace(identity=SimpleNamespace(revision_id=revision)))
+        return "rev:head", context, source_access, support
+    def project(actual_context, support, snapshot, *, access: object, managed_world_id):
+        assert actual_context is context and access is source_access
+        assert managed_world_id == "the-glass-orchard"
+        assert snapshot.revision_id == support.listing.identity.revision_id
+        projection = _native_projection(snapshot.world_id)
+        projection.snapshot = snapshot
+        outputs.append(projection)
+        return projection
+    monkeypatch.setattr(managed_projection, "_read_native_projection_support", read)
+    monkeypatch.setattr(adapter, "project_native_world", project)
+    return seen, outputs
+
+
 def test_active_binding_reads_native_world_and_returns_unchanged_projection(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -88,33 +115,22 @@ def test_active_binding_reads_native_world_and_returns_unchanged_projection(
         "get_world_container",
         lambda _world_id: bound,
     )
-    native_projection = _native_projection()
-    seen_requests: list[WorldGraphProjectionRequest] = []
-
-    def read_native(request: WorldGraphProjectionRequest) -> WorldGraphProjection:
-        seen_requests.append(request)
-        return native_projection
-
-    monkeypatch.setattr(managed_projection, "project_world_graph", read_native)
-
+    seen, outputs = _native_projection_stub(monkeypatch)
     result = managed_projection.project_managed_world_graph(
         _request(revisionPin="rev:requested", queryText="keeper"), root=tmp_path
     )
-
-    assert len(seen_requests) == 1
-    native_request = seen_requests[0]
-    assert native_request.world_id == "eldyrwild"
-    assert native_request.campaign_id == ""
-    assert native_request.scope_mode == "world"
-    assert native_request.admissibility == "gm"
-    assert native_request.revision_pin == "rev:requested"
-    assert native_request.query_text == "keeper"
+    assert seen == [("eldyrwild", "rev:requested")]
     assert result.managed_world_id == managed.world_id
-    assert result.native_world_id == "eldyrwild"
-    assert result.binding_version == 1
-    assert result.projection is native_projection
+    assert result.native_world_id == "eldyrwild" and result.binding_version == 1
+    assert result.projection is outputs[0]
     assert result.projection.snapshot.world_id == "eldyrwild"
-    assert result.projection.snapshot.revision_id == "rev:read"
+    assert result.projection.snapshot.revision_id == "rev:requested"
+    assert result.projection.snapshot.head_revision_id == "rev:head"
+    assert not result.projection.snapshot.is_head
+    assert result.projection.snapshot.focus.kind == "none"
+    assert result.projection.snapshot.admissibility == "gm"
+    assert result.projection.snapshot.scope_mode == "world"
+    assert result.projection.query_context.query_text == "keeper"
 
 
 def test_shared_binding_resolver_does_not_read_native_graph(
@@ -126,8 +142,8 @@ def test_shared_binding_resolver_does_not_read_native_graph(
         managed_projection, "get_world_container", lambda _world_id: bound
     )
     monkeypatch.setattr(
-        managed_projection, "project_world_graph",
-        lambda _request: pytest.fail("binding resolution read the native Graph"),
+        managed_projection, "_read_native_projection_support",
+        lambda *_args: pytest.fail("binding resolution read the native Graph"),
     )
     binding = managed_projection.resolve_managed_world_binding(
         managed.world_id, root=tmp_path
@@ -139,7 +155,7 @@ def test_shared_binding_resolver_does_not_read_native_graph(
 
 
 @pytest.mark.parametrize(
-    "state", ["missing-record", "unbound", "inactive", "wrong-world"]
+    "state", ["missing-record", "unbound", "inactive", "wrong-world", "provisioning"]
 )
 def test_unresolvable_or_unverified_binding_fails_before_native_read(
     tmp_path: Path,
@@ -161,12 +177,9 @@ def test_unresolvable_or_unverified_binding_fails_before_native_read(
         return record
 
     monkeypatch.setattr(managed_projection, "get_world_container", resolve)
-    reader_calls: list[WorldGraphProjectionRequest] = []
-    monkeypatch.setattr(
-        managed_projection,
-        "project_world_graph",
-        lambda request: reader_calls.append(request) or _native_projection(),
-    )
+    reader_calls = []
+    monkeypatch.setattr(managed_projection, "_read_native_projection_support",
+                        lambda *args: reader_calls.append(args) or pytest.fail("invalid binding reached native read"))
 
     with pytest.raises(WorldGraphProjectionServiceError) as exc_info:
         managed_projection.project_managed_world_graph(_request(), root=tmp_path)
@@ -177,6 +190,7 @@ def test_unresolvable_or_unverified_binding_fails_before_native_read(
         "unbound": "native_graph_binding_missing",
         "inactive": "native_graph_binding_inactive",
         "wrong-world": "managed_world_identity_mismatch",
+        "provisioning": "native_graph_provisioning_pending",
     }
     assert exc_info.value.code == expected_codes[state]
 
@@ -198,11 +212,7 @@ def test_binding_change_during_projection_discards_native_result(
         "get_world_container",
         lambda _world_id: next(records),
     )
-    monkeypatch.setattr(
-        managed_projection,
-        "project_world_graph",
-        lambda _request: _native_projection("eldyrwild"),
-    )
+    _native_projection_stub(monkeypatch)
 
     with pytest.raises(WorldGraphProjectionServiceError) as exc_info:
         managed_projection.project_managed_world_graph(_request(), root=tmp_path)
@@ -327,3 +337,38 @@ def test_native_projection_distinguishes_missing_pin_from_integrity_failure(
             managed_projection._read_native_projection_support(binding, "missing")
         assert caught.value.status_code == status
         assert caught.value.code == "native_graph_revision_unavailable"
+
+
+@pytest.mark.parametrize("kind,code,status", [
+    ("unavailable", "native_graph_authority_unavailable", 503),
+    ("integrity", "native_graph_integrity_failure", 500),
+])
+def test_native_managed_projection_failures_remain_typed_without_empty_success(tmp_path, monkeypatch, kind, code, status):
+    from dungeonmind.domain.errors import PersistenceIntegrityError, PersistenceUnavailableError
+    from apps.live_control_server.services import world_graph_projection as classic
+    managed = create_world_container(name="The Glass Orchard")
+    bound = _record_with_binding(managed)
+    monkeypatch.setattr(managed_projection, "get_world_container", lambda _: bound)
+    exception = (PersistenceUnavailableError if kind == "unavailable" else PersistenceIntegrityError)("private infrastructure detail")
+    def fail_read():
+        raise exception
+    seen, outputs = _native_projection_stub(monkeypatch, on_read=fail_read)
+    monkeypatch.setattr(classic, "project_world_graph", lambda *_args, **_kwargs: pytest.fail("native failure fell back to classic"))
+    with pytest.raises(WorldGraphProjectionServiceError) as error:
+        managed_projection.project_managed_world_graph(_request(), root=tmp_path)
+    assert error.value.code == code and error.value.status_code == status
+    assert error.value.__cause__ is exception
+    assert "private infrastructure detail" not in str(error.value)
+    assert seen == [("eldyrwild", None)] and outputs == []
+
+
+def test_expected_managed_binding_change_refuses_before_native_io(tmp_path, monkeypatch):
+    managed = create_world_container(name="The Glass Orchard")
+    bound = _record_with_binding(managed)
+    monkeypatch.setattr(managed_projection, "get_world_container", lambda _: bound)
+    monkeypatch.setattr(managed_projection, "_read_native_projection_support",
+                        lambda *_args: pytest.fail("changed expected binding reached native IO"))
+    expected = managed_projection.VerifiedManagedWorldBinding(managed.world_id, "old-native", 1, bound.source_root_relpath)
+    with pytest.raises(WorldGraphProjectionServiceError) as error:
+        managed_projection.project_managed_world_graph(_request(), root=tmp_path, expected_binding=expected)
+    assert error.value.code == "native_graph_binding_changed" and error.value.status_code == 409

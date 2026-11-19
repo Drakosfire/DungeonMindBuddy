@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+from dungeonmind.domain.errors import PersistenceIntegrityError, PersistenceUnavailableError
+from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
 
 from apps.live_control_server import config
 from apps.live_control_server.services.world_container_registry import (
@@ -19,7 +20,6 @@ from apps.live_control_server.services.world_container_registry import (
 )
 from apps.live_control_server.services.world_graph_projection import (
     WorldGraphProjectionServiceError,
-    project_world_graph,
 )
 from graph_memory.projection.world_projection import (
     WorldGraphProjection,
@@ -179,7 +179,6 @@ def resolve_managed_source_identity(
     )
 
 
-from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
 
 _managed_projection_parsed_cache = NativeParsedRevisionCache()
 
@@ -246,7 +245,7 @@ def project_managed_world_graph(
             "scopeMode": "world",
         }
     )
-    if os.environ.get("DMB_VNEXT_MANAGED_PROJECTION_WORLD") == initial.managed_world_id:
+    try:
         from apps.live_control_server.integrations.dungeonmind.vnext_world_projection import (
             project_native_world,
             project_query_context,
@@ -273,8 +272,16 @@ def project_managed_world_graph(
         )
         if request.query_text:
             projection.query_context = project_query_context(projection, request.query_text)
-    else:
-        projection = project_world_graph(native_request)
+    except PersistenceUnavailableError as exc:
+        raise WorldGraphProjectionServiceError(
+            "Native Graph authority is unavailable.",
+            code="native_graph_authority_unavailable", status_code=503,
+        ) from exc
+    except PersistenceIntegrityError as exc:
+        raise WorldGraphProjectionServiceError(
+            "Native Graph integrity could not be verified.",
+            code="native_graph_integrity_failure", status_code=500,
+        ) from exc
 
     current = resolve_managed_world_binding(request.managed_world_id, root=root)
     if current != initial:

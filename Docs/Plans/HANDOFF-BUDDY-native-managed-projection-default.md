@@ -85,3 +85,21 @@ No new port/container/worktree, provider call or5202 rollout is authorized by th
 slice's execution plan. Retain task evidence/workspaces for the full active goal;
 cleanup requires resource/process/mount/DB-connection/dirty/unique-data checks and
 specifically approved scope. No manual removals or reclaimed-byte claims.
+
+## Implementation checkpoint
+
+Draft PR4113 is open. The current service no longer reads the rollout selector
+or imports/calls classic projection. Existing native support/presentation is the
+only managed read path; missing authority cannot trigger conversion or fallback.
+Availability/integrity errors map to service503/500 with safe messages; binding
+and exact-pin error paths remain unchanged. Moved the existing parsed-cache import
+to the import section; cache construction/lifetime is unchanged.
+
+Working-tree diagnostics:17 owning managed-projection cases pass, including
+provisioning/expected-binding refusal before Core IO and typed native failures.
+Ruff and whitespace checks pass on the parent-owned service/test file. These unit
+orchestration controls do not replace actual Core/HTTP proof. A test worker owns
+only managed-projection cases/helpers in test_native_graph_inspection.py; two-space
+source/WK publication fixture patterns already exist. Actual two-World/default,
+authorized aliases, historical pins, citation bytes, withdrawal, auth, no mutation
+and bounded work proof remain in progress. No Node/provider/serving change.
