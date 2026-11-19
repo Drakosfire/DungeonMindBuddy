@@ -656,6 +656,7 @@ def commit_plan(
     expected_revision: int | None = None,
     expected_world_id: str | None = None,
     title: str | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
     return _commit(
         document_id,
@@ -664,6 +665,7 @@ def commit_plan(
         expected_revision=expected_revision,
         expected_world_id=expected_world_id,
         title=title,
+        authorize_world=authorize_world,
     )
 
 

@@ -1484,8 +1484,14 @@ it("prepares and commits a hosted Build page containing saved artwork", async ()
       method: "POST", body: JSON.stringify(body),
     })).rejects.toThrow(/exact same-origin/);
   }
-  await expect(api.prepareTiptapMarkdownWrite({
-    ...body, world_id: "managed", scope_mode: "world", schema_version: "dmb_tiptap_markdown_write_prepare_v2",
-  })).rejects.toThrow(/exact same-origin/);
-  expect(fetch).toHaveBeenCalledTimes(2);
+  const plan = { ...body, world_id: "managed", scope_mode: "world" } as const;
+  await api.prepareTiptapMarkdownWrite({ ...plan, schema_version: "dmb_tiptap_markdown_write_prepare_v2" });
+  await api.commitWorldOwnedPlanMarkdownWrite({
+    ...plan, schema_version: "dmb_tiptap_markdown_write_commit_v2", writer_confirm_token: "fixture",
+  });
+  expect(fetch).toHaveBeenCalledTimes(4);
+  for (const call of fetch.mock.calls.slice(2)) {
+    expect(call[1]).toMatchObject({ credentials: "same-origin", mode: "same-origin" });
+    expect(new Headers(call[1]?.headers).has("Authorization")).toBe(false);
+  }
 });
