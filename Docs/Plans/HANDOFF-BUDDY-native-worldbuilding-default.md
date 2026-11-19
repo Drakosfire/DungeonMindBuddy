@@ -5,13 +5,15 @@ implementation/delivery authority. Base9a14917de74be501fb4b25dece3fb34875b01567;
 branchcodex/v10-native-worldbuilding-default in the existing task Buddy checkout.
 Parent owns independent review and merge. No deployment or live authority change.
 
-## Outcome and exclusive five-path lease
+## Outcome and exclusive seven-path lease
 
 - This handoff.
 - Docs/Plans/HANDOFF-BUDDY-native-admission-test-repair.md: factual C0 settlement.
 - apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorldbuildingPublication.tsx
 - apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorldbuildingPublication.test.tsx
 - apps/live-control-ui/src/planSurface/graphReviewWorkbench/worldbuildingPublicationRecovery.ts only if required.
+- apps/live-control-ui/src/buildSurface/BuildRunReview.test.tsx: only the exact-run existing-World publication integration case/required fixture.
+- apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewGenericRun.test.tsx: only the existing-World review integration case/required fixture.
 
 Fresh existing-World publication always uses the existing native context/prepare/
 confirm protocol, regardless of unset/stale/matching VITE selector. No classic
@@ -86,3 +88,18 @@ explicit comparison obligations), plus focused actual backend worldbuilding proo
 Worker hosted/build/canonical waits for parent full terminal/explicit lock release.
 No source edits during frozen runners; independent source review and normal checks
 remain pending. C0 predecessor settlement is factual only; no N1 acceptance seal.
+
+## MIND rebrief after exact25bf full-discovered comparison
+
+MIND explicitly authorizes two existing integration-test companions before edits.
+Candidate25bf full-discovered:8140PASS110FAIL2skips, build0/cleanuptrue; canonical
+comparison found exactly two new failures, in BuildRunReview exact-run review and
+GraphReviewGenericRun existing-World review. Original108 failure IDs/messages are
+unchanged, zero missing tests, same two extra skipped collection identities. Raw
+base/candidate/comparison receipts remain retained; no inherited claim for these2.
+These cases still expect retired fresh-classic controls. Adapt their fixtures at
+the real native context API boundary, retaining exact run/frozen source/newer editor
+and owner-decision assertions, proving native context dispatch and no native/classic
+prepare on load. No parent production/API edits or unrelated test retirement.
+They are indivisible integration proof of this same N1 capability, not a second
+outcome. Hosted remains held until repaired frozen head and parent full rerun.
