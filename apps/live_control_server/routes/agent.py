@@ -2133,7 +2133,9 @@ def get_world_replay_identities(world_id: str, turn_id: UUID, trace_id: UUID, re
     from apps.live_control_server.services.agent_replay_identities import replay_identities
     from apps.live_control_server.services.native_graph_inspection import InspectionUnavailable
 
-    principal = enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal, require_explorer_access
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     world = _verified_world_id(world_id)
     selectors = list(request.query_params.multi_items())
     offset_text = request.query_params.get("offset", "0")
@@ -2144,7 +2146,9 @@ def get_world_replay_identities(world_id: str, turn_id: UUID, trace_id: UUID, re
     try:
         result = replay_identities(service=_conversation_service(request), principal=principal,
                                    world_id=world, turn_id=turn_id, trace_id=trace_id, offset=int(offset_text))
-        return JSONResponse(result, headers={"Cache-Control": "no-store"})
+        response = JSONResponse(result, headers={"Cache-Control": "no-store"})
+        require_explorer_access(principal, world_id)
+        return response
     except InspectionUnavailable as exc:
         raise HTTPException(status_code=404, detail={"code": exc.code}) from exc
     except ApplicationStateError as exc:
@@ -2169,7 +2173,9 @@ def _read_replay_assertion(world_id, turn_id, trace_id, sequence, request, opene
     from apps.live_control_server.services.native_graph_inspection import InspectionUnavailable
     from fastapi.responses import JSONResponse
 
-    principal = enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal, require_explorer_access
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     world = _verified_world_id(world_id)
     selectors = list(request.query_params.multi_items())
     if not 0 <= sequence < 2048 or len(selectors) != 1 or selectors[0][0] != "assertion_id" or not 0 < len(selectors[0][1].strip()) <= 256:
@@ -2177,7 +2183,9 @@ def _read_replay_assertion(world_id, turn_id, trace_id, sequence, request, opene
     try:
         result = opener(service=_conversation_service(request), principal=principal,
             world_id=world, turn_id=turn_id, trace_id=trace_id, sequence=sequence, assertion_id=selectors[0][1])
-        return JSONResponse(result, headers={"Cache-Control": "no-store"})
+        response = JSONResponse(result, headers={"Cache-Control": "no-store"})
+        require_explorer_access(principal, world_id)
+        return response
     except InspectionUnavailable as exc:
         raise HTTPException(status_code=404, detail={"code": exc.code}) from exc
     except ApplicationStateError as exc:
