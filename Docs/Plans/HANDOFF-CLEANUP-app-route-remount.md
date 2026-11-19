@@ -70,3 +70,26 @@ host cleanup; do not accept unsaved availability as equivalent composer coverage
 fake registration, or remove the composer assertion. Source remains diagnostic;
 PR stays draft pending this correction, independent review and exact-head checks.
 Raw87ab module31pass1fail retained; no resolution credited.
+
+
+## Predecessor settlement and integrated lane
+
+#4149 independently approved head710588dd14016d9cf6f1dacc3d37c2c751051426
+merged at91f25029149e001d76acaf4ec75cd6d71286c8f1, whole tree identical.
+Subscribe-then-sync correction and two actual-editor regressioncases: full8149pass
+103fail2pending,8254reported/8252inventory, only two new passing IDs and no other
+result changes; hosted1406/build/validator0. All8Media contracts pass. No persistent
+failure reduction credited. Initial4147full remains retained: E7pass plus newMedia
+variant; not accepted as inherited or made green by report manipulation.
+
+App lane rebased onto that merge; new base91f250291. Steward transfers removal
+of completed `HANDOFF-CLEANUP-media-editability-subscription.md` into this consuming
+lease, Git history retains authority/evidence. No Media runtime/test changes in
+this App slice. Topology reconverges to serial, one remaining implementation PR.
+
+Saved Plan correction now uses typed World-owned record/snapshot/committed basis
+and empty history; actual saved prose readiness, real Open/composer, one current
+Plan dock and outgoing cleanup passed32/32complete App module at old3821bf0da.
+Full/hosted evidence at oldhead is superseded for acceptance; rerun on integrated
+exact SHA and independently compare all IDs/results against4149baseline. Preserve
+cold import observation and every earlier failed diagnostic; no timeout/preload.
