@@ -91,9 +91,15 @@ async def image_model_catalog(
     request: Request, response: Response,
     cursor: str | None = Query(default=None, max_length=4096),
     limit: int = Query(default=100, ge=1, le=100),
+    world_id: str | None = None,
 ):
     """Explicit provider discovery; never inference, storage or document writes."""
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    if world_id is None:
+        enforce_native_graph_gm(request)
+    else:
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     response.headers["Cache-Control"] = "no-store"
     if not _fal_key():
         raise HTTPException(503, detail="The model catalog needs the server's fal credential.")
@@ -112,6 +118,8 @@ async def image_model_catalog(
     result = page.model_dump(mode="json")
     for item in result["models"]:
         item["selectable"] = item["executable_model"] in selectable
+    if world_id is not None:
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     return result
 
 

@@ -633,6 +633,13 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "GET" && init?.body == null && worldId !== null && worldId !== ""
       && path === objectKindsPath + "?world_id=" + encodeURIComponent(worldId);
   }
+  const imageCatalog = "/api/live/media/images/catalog?";
+  if (path.startsWith(imageCatalog)) {
+    const query = new URLSearchParams(path.slice(imageCatalog.length));
+    return method === "GET" && init?.body == null && !!query.get("world_id")
+      && [...query.keys()].every(key => ["world_id", "cursor", "limit"].includes(key))
+      && [...query.keys()].every(key => query.getAll(key).length === 1);
+  }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
   const planInventoryPage = "/api/live/workspace-documents/world-plans/page?";
   if (path.startsWith(planInventoryPage)) {
