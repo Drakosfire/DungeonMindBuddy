@@ -1,133 +1,64 @@
 # BUDDY — native managed projection by default
 
-Status: ACTIVE. Owner/designer/implementer: MIND Elderwyld completion lane.
-The operator explicitly owns and authorizes this lane's design, implementation,
-review and merge decisions. No ARCHITECTURE coordination gate applies.
-Topology: serial after accepted PR4104, merge
-c6348aa1b4fbe3e62553724fb09baaf905662a0b. Actual base is that merge;
-branch codex/v10-managed-native-projection in the existing task-owned Buddy checkout.
+Status: COMPLETE — PR4113 accepted and merged
+696227b4ff7b9221a790206fe186c0a9209d2365. Accepted source
+198cfc192d6a9a83cfba7cf71a2caf3a6e1870d2, base
+c6348aa1b4fbe3e62553724fb09baaf905662a0b (merged4104).
+Owner/designer: MIND under explicit operator lane authority; no coordination gate.
+Full optimization/deployment/V10/V11 completion remains false.
 
-## One outcome and why
+## Delivered behavior
 
-Every current managed Graph projection reads the bound generic-native KnowledgeSpace
-without a per-World rollout selector or classic fallback. The existing active APP
-binding, current native head or exact requested native revision, Core authorization,
-source freshness and existing presentation mapper remain authority. This closes
-one remaining V10 current-read selector; it does not deploy or finish V10/V11.
+Every managed current Graph projection uses its verified active APP binding and
+existing generic-native read context/support/presentation mapper. The per-World
+DMB_VNEXT_MANAGED_PROJECTION_WORLD dispatch and classic fallback are removed.
+No bridge, conversion, source admission, head refresh or guessed authority.
 
-Source trace: project_managed_world_graph currently uses native support only when
-DMB_VNEXT_MANAGED_PROJECTION_WORLD equals the managed World. Otherwise it calls the
-classic project_world_graph. Native support and projection adapters already exist;
-no new graph reconstruction, admission policy, bridge or converter is needed.
+Preserved DTO/schema, exact pins, current native head identity, query presentation,
+authorized aliases, direction, node-own/adjacency provenance and source/citation
+semantics. Binding checks remain before/after the read; route owner/GM and
+post-serialization ownership checks are unchanged. Missing configuration or native
+unavailability returns typed503 before inappropriate IO; corruption returns500,
+missing head/pin404 and binding changes409. None becomes an empty success or
+classic retry. The parsed-cache import moved without changing lifetime.
 
-## Exact expected write lease and review map
+## Accepted proof and limits
 
-- This handoff.
-- Docs/Plans/HANDOFF-BUDDY-native-first-world-lifecycle.md: truthful completed4104
-  settlement and compact current checkpoint, preserving references/proof limits.
-- apps/live_control_server/services/managed_world_graph_projection.py: remove only
-  selector/classic import/dispatch; retain source-identity/binding helpers and DTOs.
-  Keep expected-binding checks before read and binding equality after read. Translate
-  known native infrastructure/integrity failures through existing service errors
-  without empty success, classic retry or exposing private internals.
-- tests/test_managed_world_graph_projection.py: migrate old classic-dispatch mocks
-  to the actual current boundary, preserving binding, query, pin and refusal checks.
-- tests/test_native_graph_inspection.py: managed-projection owning cases and fixtures
-  only; actual Core-backed reads, selector unset/stale and classic tripwires.
+Independent Cycle1 source PASS5977501215 plus final evidence-only bounded acceptance;
+no outstanding findings. Exact accepted source remained clean and unchanged:
+- Owning managed-projection/native-inspection plus unchanged hosted owner/transfer
+  regression119 passed.
+- World/content465 passed/74 deselected; auth/app313 passed; query/answer1256 passed.
+- Standard hosted frontend1411/build/canonical validation passed.
+- Prospective main integration264a3eda900087fc71e840edc0c5f0a1d8e64701 with
+  c5a06c6efe1a691fb93f91cfa359ea6d36529ec3 also passed1411/build/canonical validation.
+  Subsequent257685b1e Plan-artwork/title-save delta was statically checked with
+  no managed-projection overlap; latest merge tree15b8492dd86e484b44a0f8aa8206850e2f2c186f
+  had no conflicts. Short inventory/discovery and rules CI passed.
 
-No route/auth/shared UI/type changes, dependency/Core/WK/migration/global configuration,
-recap-context/harness migration, generic classic projection retirement or serving change.
-No new test file or classification inventory edit. Checkpoint a genuinely coupled
-scope expansion before absorbing it; user authority permits MIND to adopt a concrete
-rebrief while preserving other active lanes' leases.
+Actual Core/WK memory authority and typed APP bindings prove two independent
+Worlds, unset/stale selectors, distinct content/foreign pins, named later fact vs
+history, aliases/query, exact UTF-8/CRLF citation bytes, withdrawal isolation,
+request/auth/binding denial and repository nonmutation. Actual counters prove one
+revision read and source-view open per projection, with one cold parse and no
+reparse on warm reads or same-pin withdrawal. This is not a latency benchmark.
 
-## Critique and invariants
+No UI source changed, so this slice did not rerun the full discovered frontend
+diagnostic. B2's129 base-reproduced failures/2pending remain explicitly unqualified;
+full_release_qualified is false. No provider, live data, serving, dependency,
+Core/WK/migration or global body-budget change.5202 remains on its prior fixed build.
 
-Binding existence is not proof of a native head: missing/inactive/provisioning,
-unconverted or corrupt state must fail closed. No fallback, auto-ingestion, guessed
-IDs or alias-index authority. A pin must stay exact; never refresh a failed pin to
-current head. Keep GM/hosted owner authentication at the existing route and its
-post-serialization owner recheck. Current binding changes discard the result.
+## Continuation and resources
 
-The current native branch can leak infrastructure exceptions to a generic500;
-adopt explicit service503 for known unavailability and500 for persistence integrity,
-while preserving existing missing-head/revision404 and binding409. Authorization
-refusals must retain their status. No broad catch may manufacture an empty projection.
-Preserve schema/DTO fields, ordering, aliases, direction, node-own versus adjacency
-provenance, query presentation, source withdrawal and exact citation bytes.
+Next: HANDOFF-BUDDY-native-anchor-reopening.md. Already-admitted native anchors still
+need selector-independent broker reopening. Selected-label search has a managed/
+native identity seam; general shared search also needs capability-preserving native
+related-recap representation/read work before its selector can be removed. Native
+presentation helpers still import the classic adapter and need a separate neutral
+quarantine before classic Core import retirement. Do not call these complete.
 
-Use two managed identities/native bindings with selectors unset or stale, real
-Core records for positive integration, and classic tripwires. Prove current and
-historical pins, denied/missing/corrupt authority, no mutation, changing bindings,
-and the existing hosted/local owner fences. Reuse the native support service once
-per projection and preserve its immutable parsed-cache/source-authority separation.
-
-## Validation, dependencies and delivery
-
-Core cf197b9939f7b9106c75a8afb9fcf918c8b4aa1c remains the locked runtime; no Core
-PYTHONPATH overlay. No unmerged behavioral dependency. Current open PR3824/1868
-patches were rechecked and do not touch the three owning code/test paths; remaining
-open lanes were inspected for names/scopes. Shared hosted projection auth tests
-remain read-only and run as regressions. No other lane is declared expired.
-
-Run complete owning managed-projection and native-inspection modules and the
-existing hosted-managed-projection regression. Run applicable exact-source backend
-contracts plus the unmodified exact-head hosted frontend/build verifier, independent
-cumulative review, expected-head merge and source-truthful settlement. No UI source
-is planned; full discovered frontend is required if that scope changes. Preserve
-inherited reds and proof limitations. The frozen classic retrieval benchmark is
-not rerun. Final deployment/semantic/performance acceptance remains later work.
-
-Resources: reuse /home/drakosfire/Projects/.codex/v7-elderwyld-scope and its verified
-Projects UUID48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8. Use owned scratch/cache and existing
-admin32903 disposable fixture databases; never live54330/54331 or witness databases.
-No new port/container/worktree, provider call or5202 rollout is authorized by this
-slice's execution plan. Retain task evidence/workspaces for the full active goal;
-cleanup requires resource/process/mount/DB-connection/dirty/unique-data checks and
-specifically approved scope. No manual removals or reclaimed-byte claims.
-
-## Implementation checkpoint
-
-Draft PR4113 is open. The current service no longer reads the rollout selector
-or imports/calls classic projection. Existing native support/presentation is the
-only managed read path; missing authority cannot trigger conversion or fallback.
-Availability/integrity errors map to service503/500 with safe messages; binding
-and exact-pin error paths remain unchanged. Moved the existing parsed-cache import
-to the import section; cache construction/lifetime is unchanged.
-
-Working-tree diagnostics:17 owning managed-projection cases pass, including
-provisioning/expected-binding refusal before Core IO and typed native failures.
-Ruff and whitespace checks pass on the parent-owned service/test file. These unit
-orchestration controls do not replace actual Core/HTTP proof. A test worker owns
-only managed-projection cases/helpers in test_native_graph_inspection.py; two-space
-source/WK publication fixture patterns already exist. Actual two-World/default,
-authorized aliases, historical pins, citation bytes, withdrawal, auth, no mutation
-and bounded work proof remain in progress. No Node/provider/serving change.
-
-## Integrated proof checkpoint
-
-The complete owning managed-projection/native-inspection modules and unchanged
-hosted managed-owner/transfer regression pass117 cases/4 existing warnings in
-working-tree diagnostics. The new managed Core/HTTP cohort alone passed14 cases.
-It uses two independent native spaces with real source admission, WK facts and
-public Core alias publication, typed APP binding lookup and the real resolver.
-Selector unset/stale, distinct content/foreign pins, named later fact versus exact
-history, query/aliases, UTF-8/CRLF citations, withdrawal isolation, strict auth and
-request refusal,503/500/404/409, unchanged repository authority and one native
-support call are covered. Existing direction/node-own evidence/query/citation
-assertions remain. No Node/provider/serving actions. Exact committed-source
-qualification and independent cumulative review remain required before merge.
-
-Pre-review found one configuration error path before freeze: an unset Core DSN
-could escape the adapter as AttributeError. The native support helper now refuses
-missing configuration with typed503 before opening Core; a mounted no-I/O case
-passes. Counter coverage now instruments actual repository revision/source-view
-reads and the Core parser: one revision read and source view per projection, one
-cold parse, none repeated for warm reads or same-pin withdrawal. This is synthetic
-Core-backed regression proof, not a timing benchmark. Complete owning check119
-cases/4 existing warnings passes after these refinements.
-
-Caller trace found managed projection also used by Agent reads and threat-query
-hydration. Include the query-and-answer contract in exact-source verification,
-with world-and-content and auth-app, while keeping implementation scope unchanged.
-No caller is granted classic fallback or new write/provider authority.
+Retain task-owned scratch/v9-buddy/v10-managed-projection reports/logs and protected
+refs/codex/v10-managed-projection-integration-c5a06c6ef; owner MIND Elderwyld lane.
+The standard verifier cleaned its own temporary roots. No manual removal/reclaimed
+bytes claimed. Cleanup follow-up after accepted replacement: active task/process/
+mount/DB connection, dirty/unique-data/commit audit and specifically approved scope.
