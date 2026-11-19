@@ -6606,13 +6606,13 @@ export function WorldPlanAgentConversation({
             <div className="world-plan-agent-conversation__reply-heading">
               <span className="world-plan-agent-conversation__speaker">Buddy</span>
 
+              {loreTitle !== null && <header>
+                <h3>{loreTitle}</h3>
+                {loreDraftSuperseded
+                  ? <p>Superseded by a later draft</p>
+                  : !completed?.answer_segments.length && <p>Blank draft</p>}
+              </header>}
             </div>
-            {loreTitle !== null && <header>
-              <h3>{loreTitle}</h3>
-              {loreDraftSuperseded
-                ? <p>Superseded by a later draft</p>
-                : !completed?.answer_segments.length && <p>Blank draft</p>}
-            </header>}
             {reviewedDraftReply ? reviewedDraftReply : pageSuggestion ? pageSuggestion.element : turn.native_statement_context ? <NativeStatementAnswer context={turn.native_statement_context}
               worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : !pageProposalAcknowledgment&&(graphContextForTurn(turn)?.completion?.schema === 'dmb_surface_native_completion_v1' || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v3" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v4" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v5" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v6"||graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v7")))))
               ? <SurfaceEvidenceAnswer completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletion|import("../../api/types").SurfaceNativeCompletionV1} buildSourceBasis={buildSource??undefined} nativeScope={(() => {
