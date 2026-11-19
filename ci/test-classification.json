@@ -1286,6 +1286,7 @@
       "tests/test_mirathorn_worldbuilding_query_gold_v1.py",
       "tests/test_model_policy_authority.py",
       "tests/test_native_answer_output.py",
+      "tests/test_lore_page_review.py",
       "tests/test_native_build_work_view.py",
       "tests/test_native_descriptor_consumer_contract.py",
       "tests/test_native_graph_input.py",
