@@ -42,8 +42,22 @@ function PublicationEntry(props: Props & {managedWorldId: string; onReset: () =>
   // creation request must not reparent an in-flight sheet on a busy/status
   // update and discard its actual receipt. True remounts still recover explicitly.
   const [entry] = useState(() => {
-    try { return {creation: readFirstWorldRecovery(props.review) !== null, error: null}; }
-    catch (reason) { return {creation: obsoleteUnsubmittedRecovery(props.review)!==null, error: message(reason)}; }
+    let creation = false;
+    let error: string | null = null;
+    try { creation = readFirstWorldRecovery(props.review) !== null; }
+    catch (reason) {
+      creation = obsoleteUnsubmittedRecovery(props.review) !== null;
+      error = message(reason);
+      if (!creation) return {creation, error};
+    }
+    try {
+      const native = readNativeWorldbuildingPublicationRecovery(props.review, props.managedWorldId, {allowClassic: true});
+      const classic = native ? null : readWorldbuildingPublicationRecovery(props.review, props.managedWorldId);
+      if (creation && (native || classic)) {
+        return {creation: false, error: "Multiple publication requests are retained. Recover the original request before continuing."};
+      }
+    } catch (reason) { return {creation: false, error: message(reason)}; }
+    return {creation, error};
   });
   if (entry.creation) return <GraphReviewFirstWorldPublishSheet {...props}/>;
   if (entry.error) return <p role="alert">{entry.error}</p>;
@@ -54,19 +68,52 @@ function ExistingWorldPublication(props: Props & {managedWorldId: string; onRese
   const [saved] = useState(() => {
     try {
       const packet = readNativeWorldbuildingPublicationRecovery(props.review, props.managedWorldId, {allowClassic: true});
-      const useNative = !packet && import.meta.env.VITE_NATIVE_WORLDBUILDING_WORLD === props.managedWorldId &&
-        !readWorldbuildingPublicationRecovery(props.review, props.managedWorldId);
-      return {packet, useNative, error: null};
+      const classic = packet ? null : readWorldbuildingPublicationRecovery(props.review, props.managedWorldId);
+      return {packet, classic, error: null};
     } catch (reason) {
-      return {packet: null, error: message(reason)};
+      return {packet: null, classic: null, error: message(reason)};
     }
   });
   if (saved.error) return <p role="alert">{saved.error}</p>;
   if (saved.packet) return <NativePublicationRecovery {...props}/>;
-  if (saved.useNative) {
-    return <NativePublication {...props}/>;
-  }
-  return <Publication {...props}/>;
+  // Even an unsubmitted classic packet keeps its original protocol. New work
+  // never selects that protocol, and native errors cannot fall back to it.
+  if (saved.classic) return <Publication {...props}/>;
+  return <FreshPublication {...props}/>;
+}
+
+function FreshPublication(props: Props & {managedWorldId: string}) {
+  const [entryHints] = useState(() => ({worldState: props.review.worldState,
+    firstWorldPublishEligible: props.review.firstWorldPublishEligible}));
+  const eligible = entryHints.worldState === "uninitialized" && entryHints.firstWorldPublishEligible === true;
+  const [route, setRoute] = useState<"checking" | "first" | "native">(eligible ? "checking" : "native");
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!eligible) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const p = await postManagedWorldGraphProjection({schema: "dmb_managed_world_graph_projection_request_v1", managedWorldId: props.managedWorldId});
+        if (cancelled || props.isCurrent?.() === false) return;
+        if (p.managedWorldId !== props.managedWorldId || p.nativeWorldId !== p.projection.snapshot.worldId
+          || !p.projection.snapshot.isHead || p.projection.snapshot.revisionId !== p.projection.snapshot.headRevisionId) {
+          throw new Error("The World projection binding could not be verified.");
+        }
+        setRoute(p.projection.nodes.length === 0 ? "first" : "native");
+      } catch (reason) {
+        if (cancelled || props.isCurrent?.() === false) return;
+        if (reason instanceof LiveApiError && reason.code === "native_graph_provisioning_pending") setRoute("first");
+        else setError(message(reason));
+      }
+    })();
+    return () => {cancelled = true;};
+  }, [eligible, props.managedWorldId]);
+  if (error) return <p role="alert">{error}</p>;
+  if (route === "checking") return <p role="status">Checking World publication state…</p>;
+  // The child also gates navigation on these hints. Keep the classified entry
+  // stable; its prepare request still verifies actual current authority.
+  if (route === "first") return <GraphReviewFirstWorldPublishSheet {...props} review={{...props.review, ...entryHints}}/>;
+  return <NativePublication {...props}/>;
 }
 
 function NativePublicationRecovery({review, managedWorldId, isCurrent, onConfirmInFlightChange}: Props & {managedWorldId: string}) {
