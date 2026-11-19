@@ -1,6 +1,6 @@
 # BUDDY: adopt validated prospective command transfer
 
-Status: ACTIVE. Owner: Elderwyld pre-cutover optimization lane.
+Status: COMPLETE — accepted Buddy #4029. Owner: Elderwyld pre-cutover optimization lane.
 Authority: operator goal with implementation/review/merge authorization.
 Base: 84b9bc9ab104cf2b7a54d74af53f6e6ae72c8f98, current fetched main.
 Branch: codex/native-validated-command-adoption. Serial successor to #4024.
@@ -61,3 +61,13 @@ Retain unique refs/evidence for optimization-lane review/integration. Cleanup
 requires explicit scope and active process/connection/mount, dirty checkout and
 unique-data/commit checks. No standing deletion permission or manual removal.
 Settle this slice's merge only after it occurs through the next dependent consumer.
+
+## Accepted settlement
+
+Exact reviewed head0c2717cd43c1443afecb5d79776085900654b3a9 merged as
+0a746752da32324256d83b018e884aa7cb8ad692. Independent review approved;
+263 native/recap tests and253 auth tests passed, four opt-in PostgreSQL cases
+passed separately, and exact-head hosted frontend qualification passed1410 tests
+plus build/canonical validation. All normal automatic checks were green. V8 was
+subsequently accepted through Core #229 atf770098; V9.A now owns restore/canary
+qualification. This adoption did not itself perform a serving switch.
