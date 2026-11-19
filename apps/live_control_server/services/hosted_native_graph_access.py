@@ -1201,7 +1201,7 @@ async def resolve_hosted_world_lookup(request: Request) -> str:
 
 
 _source_warmup_lock = Lock()
-_source_warmup_logger = logging.getLogger(__name__)
+_source_warmup_logger = logging.getLogger("uvicorn.error")
 
 
 def _warm_hosted_world_sources(subject: str, world_id: str) -> None:
