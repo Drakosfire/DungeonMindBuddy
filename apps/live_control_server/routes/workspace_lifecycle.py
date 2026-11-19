@@ -62,11 +62,21 @@ def _raise(exc: Exception) -> None:
 
 @router.get("/trash")
 def get_world_trash(request: Request, world_id: str = Query(min_length=1)) -> dict:
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     try:
-        return list_world_workspace_trash(_root(), world_id=world_id)
+        inventory = list_world_workspace_trash(_root(), world_id=world_id)
     except Exception as exc:
         _raise(exc)
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    return inventory
 
 
 @router.post("/documents/{document_id}/{action}")

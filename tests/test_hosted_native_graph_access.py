@@ -307,6 +307,9 @@ def hosted(monkeypatch, request):
     app.add_api_route(replay_path + "/identities", agent_routes.get_world_replay_identities, methods=["GET"])
     authored_path = "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}"
     app.add_api_route(authored_path + "/related-pages/{read_id}", agent_routes.get_world_turn_related_page, methods=["GET"])
+    from apps.live_control_server.routes.workspace_lifecycle import get_world_trash
+
+    app.add_api_route("/api/live/world-workspace/trash", get_world_trash, methods=["GET"])
     app.include_router(conversation_library.router)
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
@@ -406,6 +409,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-projection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_exact_extraction_read,
+            ("GET", "/api/live/world-workspace/trash"): HOSTED_WORLD_SCOPE_RESOLVERS[("GET", "/api/live/world-workspace/trash")],
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_connected_page,
             ("POST", "/api/live/connected-pages/prepare"): access.resolve_hosted_connected_page,
@@ -5417,3 +5421,33 @@ def test_hosted_related_page_read_binds_saved_turn(hosted, monkeypatch):
     denied = hosted.client.request("GET", path)
     assert denied.status_code == 403, denied.text
     assert "withheld authored passage" not in denied.text
+
+
+def test_hosted_trash_inventory_requires_world_owner(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import workspace_lifecycle
+
+    root = object()
+    inventory = Mock(return_value={"world_id": "managed", "documents": [], "sessions": []})
+    monkeypatch.setattr(workspace_lifecycle, "_root", lambda: root)
+    monkeypatch.setattr(workspace_lifecycle, "list_world_workspace_trash", inventory)
+    path = "/api/live/world-workspace/trash?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    inventory.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    inventory.assert_called_once_with(root, world_id="managed")
+
+    def transfer(*args, **kwargs):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"documents": ["withheld"]}
+
+    inventory.side_effect = transfer
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 403, denied.text
+    assert "withheld" not in denied.text
