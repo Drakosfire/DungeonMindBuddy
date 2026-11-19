@@ -55,3 +55,19 @@ def test_native_review_schema_and_admission_use_the_author_witness():
     frame["response_contract"] = resolve("discuss", capabilities)
     with pytest.raises(ValueError, match="resolved supported work"):
         normalize_native_review(candidate, [], frame, author_text="Open a blank page for Rowan.")
+
+
+def test_title_witness_cannot_promote_an_unrelated_subject_from_the_same_turn():
+    text = "Consider the Bath House. Create a blank page for the threat that is Rowan."
+    with pytest.raises(ValueError, match="explicit page request"):
+        LorePageTitleWitness(instruction="Consider the Bath House.", title="Bath House").bind(text)
+    witness = LorePageTitleWitness(
+        instruction="Create a blank page for the threat that is Rowan.", title="Rowan",
+    )
+    assert witness.bind(text) == "Rowan"
+
+
+def test_two_explicit_page_requests_require_disambiguation():
+    text = "Create a page for Rowan. Create a page for Willow."
+    with pytest.raises(ValueError, match="one explicit page request"):
+        LorePageTitleWitness(instruction="Create a page for Willow.", title="Willow").bind(text)

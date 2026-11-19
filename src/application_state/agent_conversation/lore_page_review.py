@@ -1,10 +1,29 @@
 """User text witness for an inert standalone lore-page review."""
 
+import re
 from typing import Literal
 
 from pydantic import Field
 
 from .collaboration import Closed
+
+
+_PAGE_REQUEST = re.compile(
+    r'(?:^|(?<=[.!?])\s+)(?P<request>(?:create|open|make)\s+'
+    r'(?:a\s+)?(?:(?:new|blank|standalone|lore)\s+)*page\s+'
+    r'(?:for|about|called|named|titled)\s+'
+    r'(?P<subject>"[^"\r\n]+"|“[^”\r\n]+”|[^,.!?;\r\n]+))',
+    re.IGNORECASE,
+)
+
+
+def _requested_title(subject: str) -> str:
+    subject = subject.strip()
+    if (subject[0], subject[-1]) in {('"', '"'), ('“', '”')}:
+        return subject[1:-1].strip()
+    # A request may describe the subject before giving its explicit name.
+    title = re.split(r'\bthat is\b', subject, flags=re.IGNORECASE)[-1].strip()
+    return re.sub(r'^the\s+', '', title, flags=re.IGNORECASE)
 
 
 class LorePageTitleWitness(Closed):
@@ -26,11 +45,16 @@ class LorePageTitleWitness(Closed):
             raise ValueError("Lore page witness has surrounding whitespace")
         if not self.title or not self.instruction or author_text.count(self.instruction) != 1:
             raise ValueError("Lore page instruction must occur once in the author turn")
-        before, found, after = self.instruction.partition(self.title)
-        if not found or self.title in after:
-            raise ValueError("Lore page title must occur once in the selected instruction")
-        if (before and before[-1].isalnum()) or (after and after[0].isalnum()):
-            raise ValueError("Lore page title must select whole words")
+        requests = list(_PAGE_REQUEST.finditer(author_text))
+        if len(requests) != 1:
+            raise ValueError("Lore page requires one explicit page request")
+        request = requests[0]
+        if not self.instruction.startswith(request["request"].rstrip()):
+            raise ValueError("Lore page witness must quote the explicit page request")
+        subject = re.split(r'\s+and\s+(?:populate|fill|leave|keep)\b', request["subject"],
+                           maxsplit=1, flags=re.IGNORECASE)[0]
+        if not subject.strip() or self.title != _requested_title(subject):
+            raise ValueError("Lore page title differs from the explicit page request")
         return self.title
 
 
