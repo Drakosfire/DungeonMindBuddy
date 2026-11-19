@@ -1,6 +1,6 @@
 {
   "schema": "dmb_v9_native_canary_qualification_v1",
-  "status": "ACTIVE_FINAL_CANDIDATE_QUALIFICATION",
+  "status": "HELD_ON_AUTH_INVENTORY_AND_CHANGED_BOUNDARIES",
   "owner": "Elderwyld vNext completion lane",
   "candidate": {
     "buddy": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc",
@@ -137,9 +137,8 @@
     }
   ],
   "pending": [
-    "Frozen6fac exact consumer/auth/hosted frontend qualification and full-app/browser/selected-world/source-review proof",
-    "Frozen6fac governed write, process/mapping rollback, exact replay/citations and successful after-request loaded-source attestation",
-    "Final independent cumulative review/normal checks; V9.A acceptance",
+    "Bounded Play runtime authority repair; independent fixture/contract groups; auth specialized-guard inventory reconciliation; skipped PostgreSQL proof",
+    "Requalify deliberately bounded repaired candidate, exact-head frontend, independent cumulative review and normal checks",
     "V9.B fresh live recovery/schema/artifact readiness and actual activation; V10 retirement; V11 serving baseline"
   ],
   "evidence_files": [
@@ -352,78 +351,6 @@
       "merge": "5c887f0e600c0ab1d23af4b6c71d4df5b6bd2fe5"
     }
   ],
-  "current_owned_restore": {
-    "status": "passed",
-    "candidate": "0274e014daa6527cccf6abd71dd2e641204dc4b0",
-    "scope": "Read-only owned-restore inventory after rehearsal, not live-source state",
-    "core": {
-      "head": "rev:48384a4bd1aad0456e3e526897ee001e",
-      "source_epoch": 195,
-      "revisions": 602
-    },
-    "app": {
-      "migration": "20261118_0168",
-      "binding": {
-        "status": "active",
-        "world_id": "elderwyld",
-        "validated_at": "2026-10-28T17:21:34.990675Z",
-        "binding_version": 3,
-        "native_world_id": "elderwyld",
-        "provisioning_id": null,
-        "initialization_revision_id": null,
-        "validated_head_revision_id": "rev:d3015ae21f9ae0d2d3a125b505087b8e"
-      },
-      "page_presentation_table": "content.page_presentation"
-    },
-    "browser_observations": {
-      "world": "Elderwyld",
-      "initial_loaded_objects": 3012,
-      "rollback_loaded_objects": 3013,
-      "selected_conflicting_name_object_opened": true,
-      "supporting_source_excerpt_opened": true,
-      "forward_and_rollback_rehearsal_location_found": true,
-      "created_node_id": "ent:d90072dd57c5096b2121635f383a4a28",
-      "latest_revision_visible_after_rollback": "rev:48384a4bd1aad0456e3e526897ee001e",
-      "screenshot_delivery": "Native browser screenshots emitted in conversation; no standalone image-file claim",
-      "limit": "Rendered acceptance plus separate API exact-byte oracle; no timing claim"
-    }
-  },
-  "current_governed_write_rollback": {
-    "status": "passed",
-    "candidate": "0274e014daa6527cccf6abd71dd2e641204dc4b0",
-    "write_receipt_sha256": "33167c5d59e81c49d7e9dee140223aab1aa9fd08bc787404825ddfe9793af25b",
-    "operation_id": "b562468c-390b-4e68-b92f-34d8ffbc5ad7",
-    "head": "rev:48384a4bd1aad0456e3e526897ee001e",
-    "created_node_id": "ent:d90072dd57c5096b2121635f383a4a28",
-    "stages": [
-      {
-        "stage": "forward_via_real_ui_proxy",
-        "responding_pid": 3199036,
-        "head": "rev:48384a4bd1aad0456e3e526897ee001e",
-        "product_replay_equal": true,
-        "receipt_equal": true,
-        "authority_counts_unchanged": true,
-        "new_citation_bytes": 100,
-        "new_citation_sha256": "31e6ad20ad33ce495db4a9ec6c4a0bb35a66ca13b7f180a0dcbd5ef549666f0a",
-        "old_citation_bytes": 1276,
-        "old_citation_sha256": "77e5591fa6c983182cc085fea8899f872c06022d3b754ffe1ef1784ed34f4d60"
-      },
-      {
-        "stage": "rollback_to_baseline_via_real_ui_proxy",
-        "responding_pid": 3199026,
-        "head": "rev:48384a4bd1aad0456e3e526897ee001e",
-        "product_replay_equal": true,
-        "receipt_equal": true,
-        "authority_counts_unchanged": true,
-        "new_citation_bytes": 100,
-        "new_citation_sha256": "31e6ad20ad33ce495db4a9ec6c4a0bb35a66ca13b7f180a0dcbd5ef549666f0a",
-        "old_citation_bytes": 1276,
-        "old_citation_sha256": "77e5591fa6c983182cc085fea8899f872c06022d3b754ffe1ef1784ed34f4d60"
-      }
-    ],
-    "live_source_mutation": false,
-    "forward_verified_quiescent": true
-  },
   "current_proof_artifacts": [
     {
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/current-post-rehearsal-inventory.json",
@@ -524,6 +451,121 @@
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/harness-preparation.json",
       "bytes": 1774,
       "sha256": "4d6db34a272436969840136d4a16a1a4a345f62aa8be465d9b207860e53b27e6"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/added-boundary-route-proof.json",
+      "bytes": 1010,
+      "sha256": "e887910b6bf9b94285cd15afb7b3f337e116c2b10d27b9bebd9e354d7d94cca9"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/baseline-loaded-source.json",
+      "bytes": 300137,
+      "sha256": "475ce9de586f4b268d6a53c3d53d7315a64ffbee6c8513a51a95c39ebcf3da03"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/baseline-process.json",
+      "bytes": 1705,
+      "sha256": "3725e99068eecafa17ebcd59eb937ba6d4ae46e6f99912444a93d822cf16f483"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/browser-proof.json",
+      "bytes": 863,
+      "sha256": "232e67f9433f59aef3b6b6a0d4e9e107e3d443ca6524c0b28f511d94bf947dd6"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/execution-inputs.json",
+      "bytes": 3050,
+      "sha256": "50e339a91dcd83f76ef2adff55d93cd688a03bb2e8850461821b53fbee860ed8"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/forward-loaded-source.json",
+      "bytes": 300944,
+      "sha256": "7f055a9ab6d93336d8dff0402eeb7a9eb28fca95ba4fe671a5cc0477b73ad7b7"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/forward-process.json",
+      "bytes": 1701,
+      "sha256": "4c56323aefb3a466d540148dbb108f36faf819b556ed74b2f2eefd342f25f42d"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/owned-governed-write-confirmation.json",
+      "bytes": 2661047,
+      "sha256": "153bad00000e3b1f3e9f0fb708cc023842ccbc2c717750a588f2dd8f2f22b3f5"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/owned-write-rollback-proof.json",
+      "bytes": 2034,
+      "sha256": "5ad52c1247a5cfbb2eb7cd6dc0174cdaee198c82d929d5fd6a65b340c3e19c6b"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/post-rehearsal-inventory.json",
+      "bytes": 748,
+      "sha256": "071e65112529a9e90b5957df66664b41b7402b6a7c95d2fbc1eea1e6ae0d7919"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/qualification-checkpoint.json",
+      "bytes": 5651,
+      "sha256": "68b2a902d13db1fac90f2ef16d2c48766733a565b3d92d9248764c5422d618df"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/stop-receipt.json",
+      "bytes": 655,
+      "sha256": "fb509ebf83031a5296077758801c02480d14c92167550ae72e712fef80afdb4d"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/ui-current-active.json",
+      "bytes": 424,
+      "sha256": "8b5b55a1127557ae6851d7ed91cb1b438b96ea666626497d8b4f7d14b2079b8a"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/ui-current-baseline-process.json",
+      "bytes": 421,
+      "sha256": "eb097420d943e90cc18475f2d00e577373ed54f6c7f1069a420107910747d721"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/ui-current-forward-process.json",
+      "bytes": 423,
+      "sha256": "ddf9d6e9514d7604e5ffd60af09e75bcbaf458838559ee1de3ac3fcf7b26dcd8"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/ui-current-rollback-process.json",
+      "bytes": 424,
+      "sha256": "8b5b55a1127557ae6851d7ed91cb1b438b96ea666626497d8b4f7d14b2079b8a"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/v9-current-baseline-route-proof.json",
+      "bytes": 4404,
+      "sha256": "e36385a7ba9699e43c0c4d6b47cb6e5d7dacef2890e175eb6b608f52fac154bf"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/v9-current-forward-route-proof.json",
+      "bytes": 4404,
+      "sha256": "fae112653fe780d091be4583133597962807222500bcf1bd15b304a7dc93ef6c"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/v9-current-native-ui-route-proof.json",
+      "bytes": 2319,
+      "sha256": "7d2802dec151249c1baa0f03534c757b7444d310dd3b83c1d7918871d64fad30"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/v9-final-consumer-contracts.json",
+      "bytes": 939,
+      "sha256": "7f01fe904e63adf5a4fde66490a74cc3d9b28b5c40f8e76696e0620dccd6b319"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/changed-boundary-cohort.log",
+      "bytes": 55462,
+      "sha256": "1e9eb3a8206cb22268d6c49800ef0da0f614a4cc5b9b41fe9c11d53f3425e5e5"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/v9-final-contract-auth-app.log",
+      "bytes": 124462,
+      "sha256": "8f971495007848003f8b8fe41517ddaae7ac14cf15af50f2cb54a945f03e6b09"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/v9-final-contract-query-and-answer.log",
+      "bytes": 496656,
+      "sha256": "4b4aedc4859a76449fa51838a1e54ca32912bcd2d88b0d8991fe78ac2d5d9a51"
     }
   ],
   "historical_qualified_source": "0274e014daa6527cccf6abd71dd2e641204dc4b0",
@@ -576,20 +618,268 @@
   },
   "current_consumer_contracts": {
     "world-and-content": {
-      "status": "pending",
-      "runtime": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc"
+      "status": "passed",
+      "passed": 445,
+      "deselected": 74
     },
     "ingestion-and-review": {
-      "status": "pending",
-      "runtime": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc"
+      "status": "passed",
+      "passed": 888,
+      "deselected": 119
     },
     "query-and-answer": {
-      "status": "pending",
-      "runtime": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc"
+      "status": "passed",
+      "passed": 1256
     },
     "auth-app": {
-      "status": "pending",
-      "runtime": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc"
+      "status": "failed",
+      "passed": 260,
+      "failed": 1,
+      "failure": "test_every_public_native_graph_route_has_the_shared_gm_dependency: managed-projection specialized guard inventory"
     }
+  },
+  "current_consumer_execution_head": "df12467cd645df34475503f94842bf5c64ebe90c",
+  "frozen_candidate_rehearsal": {
+    "browser": {
+      "status": "passed",
+      "candidate": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc",
+      "baseline": {
+        "objects": 3013,
+        "world": "Elderwyld",
+        "admitted_multiple_name_object_opened": true,
+        "supporting_source_rendered_prefix": "Lysandra steps forward and uses her Commanding Shout"
+      },
+      "forward_and_rollback": {
+        "objects": 3014,
+        "node_id": "ent:47dbdac78c2cf7a137776adadeee414b",
+        "label": "V9 frozen-candidate rollback rehearsal - owned restore only",
+        "kind": "location",
+        "loaded_object_details_both_sides": true,
+        "rollback_head": "rev:0b2f2a8dc8b7f3b4fc331dfccd8b8546"
+      },
+      "limits": [
+        "Actual CUA browser interaction and rendered DOM; exact byte oracle is separate API proof",
+        "No screenshot-file or performance claim",
+        "Normal local session profile, owned restore only"
+      ],
+      "live_source_mutation": false
+    },
+    "rollback": {
+      "status": "passed",
+      "candidate": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc",
+      "write_receipt_sha256": "153bad00000e3b1f3e9f0fb708cc023842ccbc2c717750a588f2dd8f2f22b3f5",
+      "operation_id": "80a8c4ec-157c-45cb-ab3a-c8c3039da7ff",
+      "head": "rev:0b2f2a8dc8b7f3b4fc331dfccd8b8546",
+      "created_node_id": "ent:47dbdac78c2cf7a137776adadeee414b",
+      "stages": [
+        {
+          "stage": "forward_via_real_ui_proxy",
+          "responding_pid": 3986936,
+          "head": "rev:0b2f2a8dc8b7f3b4fc331dfccd8b8546",
+          "product_replay_equal": true,
+          "receipt_equal": true,
+          "authority_counts_unchanged": true,
+          "new_citation_bytes": 117,
+          "new_citation_sha256": "3f59cdcb44df227ce4966af954d9e8e04b3bf3ee567676888c7fbdba76c93876",
+          "old_citation_bytes": 1276,
+          "old_citation_sha256": "77e5591fa6c983182cc085fea8899f872c06022d3b754ffe1ef1784ed34f4d60",
+          "after_request_attestation": {
+            "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/forward-loaded-source.json",
+            "sha256": "7f055a9ab6d93336d8dff0402eeb7a9eb28fca95ba4fe671a5cc0477b73ad7b7",
+            "modules": 758
+          }
+        },
+        {
+          "stage": "rollback_to_baseline_via_real_ui_proxy",
+          "responding_pid": 3936382,
+          "head": "rev:0b2f2a8dc8b7f3b4fc331dfccd8b8546",
+          "product_replay_equal": true,
+          "receipt_equal": true,
+          "authority_counts_unchanged": true,
+          "new_citation_bytes": 117,
+          "new_citation_sha256": "3f59cdcb44df227ce4966af954d9e8e04b3bf3ee567676888c7fbdba76c93876",
+          "old_citation_bytes": 1276,
+          "old_citation_sha256": "77e5591fa6c983182cc085fea8899f872c06022d3b754ffe1ef1784ed34f4d60",
+          "after_request_attestation": {
+            "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/baseline-loaded-source.json",
+            "sha256": "475ce9de586f4b268d6a53c3d53d7315a64ffbee6c8513a51a95c39ebcf3da03",
+            "modules": 756
+          }
+        }
+      ],
+      "live_source_mutation": false,
+      "forward_verified_quiescent": true
+    },
+    "added_boundaries": {
+      "status": "passed",
+      "candidate": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc",
+      "forward_pid": 3986936,
+      "baseline_forward_exact_route_rows_equal": true,
+      "cases": [
+        {
+          "path": "world-graph/managed-projection",
+          "status": 200,
+          "anonymous_status": 401,
+          "response_sha256": "6f55fec7f8c4101666f9c978d7d029c9ea5ed3b442b9a2700edd5dacb3cdffa1"
+        },
+        {
+          "path": "extract-promote/worldbuilding/capabilities?world_id=elderwyld",
+          "status": 200,
+          "anonymous_status": 401,
+          "response_sha256": "6123a618661550eef78bacb46ce4944014cbee10f7425cffb9cbfbda73bcc74d"
+        },
+        {
+          "path": "duplicate_world_capability_selector",
+          "status": 422
+        }
+      ],
+      "limits": [
+        "Actual local operator full-app proxy routes, not hosted-browser qualification",
+        "Capabilities report configuration, not publication or DB reachability",
+        "Player/foreign-world/source-review negative checks belong to changed-boundary cohort"
+      ],
+      "live_source_mutation": false
+    },
+    "stop": {
+      "status": "stopped",
+      "owner": "Elderwyld vNext lane",
+      "processes": [
+        {
+          "pid": 3936382,
+          "port": 18290,
+          "identity_verified_before_signal": true,
+          "executable_stopped": true,
+          "listener_refused": true
+        },
+        {
+          "pid": 4064358,
+          "port": 15202,
+          "identity_verified_before_signal": true,
+          "executable_stopped": true,
+          "listener_refused": true
+        },
+        {
+          "pid": 3986936,
+          "port": 18291,
+          "previously_stopped_by_rollback": true,
+          "executable_stopped": true,
+          "listener_refused": true
+        }
+      ],
+      "other_services_untouched": true,
+      "owned_restore_retained": true
+    },
+    "owned_current_inventory": {
+      "status": "passed",
+      "core": {
+        "head": "rev:0b2f2a8dc8b7f3b4fc331dfccd8b8546",
+        "source_epoch": 196,
+        "knowledge_revisions": 604,
+        "knowledge_publication_receipts": 604,
+        "knowledge_head_events": 604
+      },
+      "app": {
+        "migration": "20261118_0168",
+        "binding": {
+          "status": "active",
+          "world_id": "elderwyld",
+          "validated_at": "2026-10-28T17:21:34.990675Z",
+          "binding_version": 3,
+          "native_world_id": "elderwyld",
+          "provisioning_id": null,
+          "initialization_revision_id": null,
+          "validated_head_revision_id": "rev:d3015ae21f9ae0d2d3a125b505087b8e"
+        }
+      },
+      "scope": "Owned restore, separate read-only repeatable-read DB inventories; not live source or globally atomic snapshot"
+    }
+  },
+  "changed_boundary_cohort": {
+    "status": "failed",
+    "passed": 600,
+    "failed": 9,
+    "errors": 10,
+    "skipped": 2,
+    "log": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/changed-boundary-cohort.log",
+    "runtime_defect": "Three Play creation helper calls use old signature; cancellation authorization callback must run before transactional insertion",
+    "fixture_contract_groups": [
+      "Registered catalog World authority",
+      "Explicit local deployment/auth",
+      "APP dependency ordering before creating source fixtures",
+      "Durable-page/APP-down contract reconciliation"
+    ],
+    "skipped_proof": "Two native-source-extension PostgreSQL cases need uniquely owned migrated test DB"
+  },
+  "historical_owned_restore": {
+    "status": "passed",
+    "candidate": "0274e014daa6527cccf6abd71dd2e641204dc4b0",
+    "scope": "Read-only owned-restore inventory after rehearsal, not live-source state",
+    "core": {
+      "head": "rev:48384a4bd1aad0456e3e526897ee001e",
+      "source_epoch": 195,
+      "revisions": 602
+    },
+    "app": {
+      "migration": "20261118_0168",
+      "binding": {
+        "status": "active",
+        "world_id": "elderwyld",
+        "validated_at": "2026-10-28T17:21:34.990675Z",
+        "binding_version": 3,
+        "native_world_id": "elderwyld",
+        "provisioning_id": null,
+        "initialization_revision_id": null,
+        "validated_head_revision_id": "rev:d3015ae21f9ae0d2d3a125b505087b8e"
+      },
+      "page_presentation_table": "content.page_presentation"
+    },
+    "browser_observations": {
+      "world": "Elderwyld",
+      "initial_loaded_objects": 3012,
+      "rollback_loaded_objects": 3013,
+      "selected_conflicting_name_object_opened": true,
+      "supporting_source_excerpt_opened": true,
+      "forward_and_rollback_rehearsal_location_found": true,
+      "created_node_id": "ent:d90072dd57c5096b2121635f383a4a28",
+      "latest_revision_visible_after_rollback": "rev:48384a4bd1aad0456e3e526897ee001e",
+      "screenshot_delivery": "Native browser screenshots emitted in conversation; no standalone image-file claim",
+      "limit": "Rendered acceptance plus separate API exact-byte oracle; no timing claim"
+    }
+  },
+  "historical_governed_write_rollback": {
+    "status": "passed",
+    "candidate": "0274e014daa6527cccf6abd71dd2e641204dc4b0",
+    "write_receipt_sha256": "33167c5d59e81c49d7e9dee140223aab1aa9fd08bc787404825ddfe9793af25b",
+    "operation_id": "b562468c-390b-4e68-b92f-34d8ffbc5ad7",
+    "head": "rev:48384a4bd1aad0456e3e526897ee001e",
+    "created_node_id": "ent:d90072dd57c5096b2121635f383a4a28",
+    "stages": [
+      {
+        "stage": "forward_via_real_ui_proxy",
+        "responding_pid": 3199036,
+        "head": "rev:48384a4bd1aad0456e3e526897ee001e",
+        "product_replay_equal": true,
+        "receipt_equal": true,
+        "authority_counts_unchanged": true,
+        "new_citation_bytes": 100,
+        "new_citation_sha256": "31e6ad20ad33ce495db4a9ec6c4a0bb35a66ca13b7f180a0dcbd5ef549666f0a",
+        "old_citation_bytes": 1276,
+        "old_citation_sha256": "77e5591fa6c983182cc085fea8899f872c06022d3b754ffe1ef1784ed34f4d60"
+      },
+      {
+        "stage": "rollback_to_baseline_via_real_ui_proxy",
+        "responding_pid": 3199026,
+        "head": "rev:48384a4bd1aad0456e3e526897ee001e",
+        "product_replay_equal": true,
+        "receipt_equal": true,
+        "authority_counts_unchanged": true,
+        "new_citation_bytes": 100,
+        "new_citation_sha256": "31e6ad20ad33ce495db4a9ec6c4a0bb35a66ca13b7f180a0dcbd5ef549666f0a",
+        "old_citation_bytes": 1276,
+        "old_citation_sha256": "77e5591fa6c983182cc085fea8899f872c06022d3b754ffe1ef1784ed34f4d60"
+      }
+    ],
+    "live_source_mutation": false,
+    "forward_verified_quiescent": true
   }
 }

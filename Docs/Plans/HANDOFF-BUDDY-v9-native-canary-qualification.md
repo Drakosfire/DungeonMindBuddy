@@ -1,6 +1,6 @@
 # BUDDY — V9.A native canary qualification and process rollback
 
-Status: ACTIVE — fixture blockers closed; frozen final-candidate qualification pending.
+Status: ACTIVE / HOLD — restored-data proof passed; auth inventory and changed-boundary repairs remain.
 Owner/designer: Elderwyld vNext completion lane. Operator authorized implementation,
 independent review, merge and launch; no PRIME coordination prerequisite.
 
@@ -115,32 +115,17 @@ Plan subject-search owning service passed navigation-only head/parent checks.
 These are pinned predecessor evidence, not automatic full proof of this new base,
 not browser-rendered acceptance and not a new forward publication transaction.
 
-## Current rehearsal checkpoint
+## Rehearsal history and current persistence
 
-Frozen0274e014 baseline/forward passed36 actual authenticated shared/native UI
-route cases. Browser loaded3012objects, opened Lysandra details and a supporting
-source excerpt. Its session parent needed task-owned private0700; that setup
-correction changed no product/global/live configuration.
+Earlier0274 browser/write/rollback proof remains in the report. Its prepare phase
+intentionally published an operator source; the original zero-head-change checker
+was wrong and the same operation resumed. This lesson is now in the corrected
+checker. Private session-parent0700 fixed setup only, not product security.
 
-Owned forward used real native Graph prepare/confirm for one rehearsal location.
-Prepare intentionally admitted an immutable operator source at
-rev:e428ac6df7f24dd76b8c6b61d50370d2; confirmation published the object at
-rev:48384a4bd1aad0456e3e526897ee001e. Original zero-head-change checker was wrong
-and retained as failed evidence; same operation ID resumed, no duplicate. All
-pre-existing entities/assertions stayed identical; one entity/two assertions added.
-Owned current head now48384a4b,602revisions/source epoch195. Live source unchanged.
-APP remains0168/binding3; its page_presentation table exists.
-
-Actual proxy and browser saw3013objects and the new location on forward, then
-again after forward stopped and mapping returned to baseline. Exact confirmation
-replay/receipt equality adds no publication. New100-byte and old1276-byte citation
-hashes match across rollback. No old dump restored over the write. Owned API/UI
-groups are now stopped; retain latest restore. This is same-version rollback only.
-
-The fixture failures are now closed. At90fb4b22fda76b5b1c1bdbf4c3975a4e5a3b98c3,
-world445, ingestion888, query1256 and auth261 passed. This is retained predecessor
-proof, not qualification of the later frozen6fac runtime. No worker/canary remains
-live before this re-anchor.
+The original source capture was600 revisions. Earlier owned rehearsal reached602;
+the current frozen-candidate rehearsal reached604. Never restore an old dump over
+those accepted owned writes or mistake the rehearsal head for live-source state.
+All prior proof receipts stay unchanged. Live source/serving remain unchanged.
 
 ## Frozen final candidate and delta obligations
 
@@ -152,20 +137,44 @@ Independent read-only delta critique records these boundaries in the retained
 v9-final-candidate-gate-map.json. Earlier browser/write/rollback proofs remain
 historical. Refresh proof on this candidate; do not infer runtime equality.
 
-Reuse the existing owned602-revision restore, with read-only fresh scope capture
-under scratch/v9-buddy/final-6fac. Separate logs/attestations preserve earlier proof.
-The new write checker understands prepare source admission then object confirm;
-no zero-head-change assumption at prepare. Current binding3, head48384a4b and
-parent e428ac6d were rechecked read-only. No live-source or serving change.
+The frozen6fac runtime was exercised at documentation/execution head
+df12467cd645df34475503f94842bf5c64ebe90c. All current evidence is under
+scratch/v9-buddy/final-6fac, retaining prior receipts separately.
 
-Run exact-candidate consumer/auth cohorts, real authenticated Graph/browser/source
-reads plus anonymous denial, selected-world capabilities, and owning negative
-source-review/hosted tests. Configuration reporting is not publication/readiness
-proof. Exercise changed local product routes where actual behavior is claimed;
-keep test-vs-browser limits explicit. No provider generation merely to qualify
-source review. Repeat governed forward write, real client mapping rollback and
-exact replay/old+new citation continuity, then verify after-request source attestation
-completed successfully. All current acceptance remains pending until collected.
+- Shared baseline14 and forward14 authenticated route/citation cases passed;
+  canonical response rows equal and retained citation SHA matched. Native UI8
+  head/parent cases passed. Added projection/configuration proxy cases passed,
+  including anonymous401 and duplicate-selector422. Configuration reporting is
+  not publication/readiness proof; local operator proof is not hosted-browser proof.
+- Actual browser loaded3013 objects, opened Lysandra alternatives and supporting
+  excerpt; after the governed write it found the exact new location among3014
+  objects on forward and again after rollback.
+- Public prepare source admission then confirm committed operation
+  80a8c4ec-157c-45cb-ab3a-c8c3039da7ff. New entity
+  ent:47dbdac78c2cf7a137776adadeee414b; current owned head
+  rev:0b2f2a8dc8b7f3b4fc331dfccd8b8546.604 revisions/receipts/events, source epoch196;
+  APP0168/binding3 unchanged. All existing entities/assertions preserved.
+- Real UI proxy rollback preserved exact result replay/receipt/counts and old/new
+  citation bytes. Successful fresh after-request source attestations were checked
+  before process shutdown. All owned API/UI listeners are refused; no canary live.
+- Exact consumer contracts: world445, ingestion888, query1256 passed; auth260pass/
+  1failed (static shared-GM dependency inventory at managed-projection). Current
+  specialized guard needs an explicit owning test/contract reconciliation, not
+  removal of authorization or a blanket test exemption.
+- Additional changed-boundary cohort600pass,9fail,10setup errors,2opt-in PG skips.
+  One real runtime defect: three Play creation route calls use the old shared
+  helper signature. Cancellation also needs its transaction-bound optional
+  authorization callback; merely write=False would bypass the intended check.
+  Other groups: missing persisted World fixture authority, explicit local auth,
+  APP fixture dependency ordering, and obsolete file-backed-page assumptions.
+  Preserve APP-down fail-closed proof when reconciling durable-page semantics.
+
+Next serial slice is the bounded Play runtime repair with all-three-route and
+cancellation authorization-loss/zero-mutation regressions. Inspect active hosted
+leases before activation. Then settle independent fixture/contract groups and
+skipped native-source-extension PG proof. Keep this candidate's proved scope and
+failures intact; requalify the deliberately bounded repaired candidate, not later
+floating main. No provider generation or classic baseline rerun is needed.
 
 ## Remaining required proof and dispatch order
 
