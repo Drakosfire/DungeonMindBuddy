@@ -91,18 +91,22 @@ the superseded Hermes foundation index as current context.
 The exact pre-settlement audit body is archived at
 `Docs/Reports/archive/2026-09-25/graph-document-audit-pre-settlement.md`.
 
-## Settlement hold: Campaign roadmap
+## Campaign roadmap retirement (2026-11-19)
 
-The canonical Campaign roadmap path is intentionally not modified in this pass.
-Open UI PR #761 explicitly edits it. Creating a second write lane on that path
-would violate the repository's own settlement discipline.
+The canonical Campaign roadmap is now a historical forwarding record. PR #761
+closed unmerged on 2026-10-07; its decision was explicitly retired with #760.
+The bounded settlement audit verified the historical CUTOVER writer merges,
+checked current PR-head handoffs, and disposed of the two dated Plan sequencing
+callers before retiring the old authority claim.
 
-Until the blocked successor runs:
-
-- its self-declared `Canonical implementation roadmap` header is stale;
-- it cannot override this audit or the current source manifest;
-- it is excluded from the clean Project Sources export;
-- no new Campaign slice may be dispatched from it.
+- The complete former roadmap remains accessible through the exact Git version
+  linked from the forwarding record.
+- The dated Plan documents preserve their product intent as reference context,
+  not a current global implementation sequence.
+- The roadmap remains excluded from the clean Project Sources export.
+- Current domain contracts and explicitly active bounded handoffs own dispatch;
+  this retirement neither reopens Campaign phases nor defines a replacement
+  global roadmap.
 
 ## Archive conventions
 

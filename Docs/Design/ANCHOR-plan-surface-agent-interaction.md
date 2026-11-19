@@ -52,9 +52,9 @@ Plan is a consumer surface. It publishes ambient context—world, campaign, focu
 - Hermes memory policy;
 - durable write rules.
 
-## Immediate sequence
+## Historical sequence recorded at the checkpoint
 
-The next Interaction Layer work is **SI-01 characterize Plan contributions**, then
+At this checkpoint, the proposed Interaction Layer order was **SI-01 characterize Plan contributions**, then
 shared Tool/Edit host hoist (SI-02) — not a Plan-local provider rewrite.
 
 ```text
@@ -64,8 +64,10 @@ SI-01 characterize Plan publications
       -> SI-04 Build World Reference Loop
 ```
 
-Hermes/graph retrieval sequencing remains under Campaign Supergraph tracker. R10b
-(bottom bar/pane + localStorage Phase A) is parallel, not a blocker for SI-01.
+At that checkpoint, Hermes/graph retrieval sequencing was assigned to the Campaign
+Supergraph tracker. R10b (bottom bar/pane + localStorage Phase A) was parallel,
+not a blocker for SI-01. This sequence is preserved as history, not an active
+assignment; use current domain ownership and a bounded handoff for new work.
 
 ## Retrieval invariant
 
@@ -82,10 +84,11 @@ A graph miss is rendered as a coverage gap and routed back toward ingestion/Grap
 - Extend the existing surface for PR010B; do not redesign the entire Plan shell.
 - Plan remains read-only for graph authority until PR011 governed tools.
 
-## Future provider lift
+## Provider lift proposed at the checkpoint
 
-PR011 / R10b may complete Agent Interaction **chrome** (bottom bar/pane) while
-preserving the R10a projection host. The provider must still treat:
+The checkpoint proposed that PR011 / R10b could complete Agent Interaction
+**chrome** (bottom bar/pane) while preserving the R10a projection host. That
+proposal retained these boundaries:
 
 - World Supergraph + source anchors as factual authority;
 - Hermes/thread state as non-canonical continuity;

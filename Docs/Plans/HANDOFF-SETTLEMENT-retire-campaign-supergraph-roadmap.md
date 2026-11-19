@@ -89,3 +89,13 @@ it was not a formal implementation judgment or permission to skip final review.
 validator0,22exports and124links passed; independent APPROVE. Its completed brief
 is retired here with Git history retained. Original247 accounting and unrelated
 UI/backend diagnostic failures are unchanged by this documentation retirement.
+
+
+## Source-review correction before qualification
+
+Review of6eb14fb1f found a contradictory governance tail still calling #761 open
+and retirement blocked, plus an unqualified Immediate sequence in the Agent
+anchor. Correct the complete governance section and its exact export; label the
+retained sequence/provider-lift text historical within those sections. Preserve
+all intended boundaries. The earlier hosted result belongs to superseded6eb14f,
+not acceptance of the corrected head; rerun exact-head hosted/build/validator.
