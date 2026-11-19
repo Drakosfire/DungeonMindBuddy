@@ -1656,7 +1656,7 @@ def test_worldbuilding_publishes_explicit_observation_with_exact_support(persist
 
     from apps.live_control_server.routes.world_graph_retrieval import router
 
-    x.monkeypatch.setattr(service.native, "read_repository", lambda: x.repo)
+    x.monkeypatch.setattr(service.native, "read_repository", lambda **_kwargs: x.repo)
     x.monkeypatch.setenv("DMB_NATIVE_SEARCH_WORLD", x.world.world_id)
     x.client.app.include_router(router)
     base = "/api/live/world-graph/retrieval"

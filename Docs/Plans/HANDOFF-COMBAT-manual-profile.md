@@ -234,3 +234,18 @@ create/Save paths remain untouched on boot. No product runtime change is needed.
 Keep all inherited failures and collection omissions visibly red; compare full
 messages/case multiplicity before acceptance. Final exact-head evidence and review
 remain required after this test correction.
+
+## Accepted predecessor settlement
+
+#4008 merged as83013db27115007435b586cf657c39119a47b60a after independent approval
+of exact head a0b3c7aa4adc2233b39cd66d35b82b7b92b37f9e. Backend227 and hosted1410
+passed; full discovered remains red160 inherited failures/two extra skipped cases,
+with18 additive passes and no omissions against exact base b4ec540818. Paired
+Staged diagnostics resolved failure-depth variability with matching base/head
+causes. Browser ran clean fc874f8/migration0163; its product blob equality to final
+a0 was independently accepted without relabeling execution SHA. Plan/Play source,
+recovery and16actor responsive/group flow passed. Rehearsal API/UI and disposable
+databases were cleaned. Evidence is outside source under buddy-check.LPopRI.
+This ordered-manual slice is accepted; its ACTIVE write lease is retired. The
+serial side-turn successor owns its newly pinned bounded writes in
+HANDOFF-COMBAT-side-turns.md. Spotlight and real-runtime delivery are not complete.

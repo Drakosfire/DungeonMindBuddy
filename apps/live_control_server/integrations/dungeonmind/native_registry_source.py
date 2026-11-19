@@ -69,13 +69,13 @@ def access_context(repo, space_id):
     return context, access
 
 
-def read_repository():
+def read_repository(*, verification_cache=None):
     """Every inspection connection is read-only, including Core source reads."""
     dsn = config.world_graph_authority_database_url()
     options = conninfo_to_dict(dsn).get("options", "")
     return PostgresNativeSourceEvidenceRepository(PostgresDatabase(
         make_conninfo(dsn, options=(options + " -c default_transaction_read_only=on").strip())
-    ))
+    ), verification_cache=verification_cache)
 
 
 def read_context(repo, space, revision, campaign, role="gm", *, scope_mode="campaign", parsed_cache=None):

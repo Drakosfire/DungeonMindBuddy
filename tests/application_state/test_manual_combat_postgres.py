@@ -8,7 +8,7 @@ from psycopg.types.json import Jsonb
 from application_state.combat_encounters.manual_encounters import (
     CreateManualEncounterRequest, SaveManualEncounterRequest, ManualParticipant,
 )
-from application_state.combat_encounters.manual_profiles import initial_actor_values
+from application_state.combat_encounters.manual_profiles import initial_actor_values, ManualCombatProfile
 from application_state.combat_encounters.service import create_encounter, get_encounter, save_encounter
 from application_state.combat_encounters.types import SaveCombatEncounterRequest, CombatEncounterDraft
 from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
@@ -16,9 +16,13 @@ from tests.test_combat_manual_encounters import profile
 from tests.test_combat_scene_templates import scene_case
 
 
-def create():
+def create(rules=None):
     return create_encounter(world_id="crossing-world", request=CreateManualEncounterRequest(
-        title="Crossing", profile=profile()))
+        title="Crossing", profile=rules if rules is not None else profile()))
+
+
+def profile_for(pacing):
+    return ManualCombatProfile.model_validate(profile().model_dump(mode='json',by_alias=True)|{'pacing':{'mode':pacing,'rounds':False}})
 
 
 def test_manual_cold_read_save_cas_and_profile_membership(application_state_dsn):
@@ -77,7 +81,8 @@ def test_database_refuses_missing_unknown_and_mixed_versions(application_state_d
     assert get_encounter(world_id=record.world_id, encounter_id=record.encounter_id) == record
 
 
-def test_manual_preparation_materialization_scope_save_and_independence(scene_case):
+@pytest.mark.parametrize("pacing", ['ordered','side','spotlight'])
+def test_manual_preparation_materialization_scope_save_and_independence(scene_case, pacing):
     from uuid import uuid4
     from application_state.combat_encounters import scene_templates
     from application_state.combat_encounters.scene_template_types import CreateSceneTemplateRequest
@@ -86,10 +91,20 @@ def test_manual_preparation_materialization_scope_save_and_independence(scene_ca
     from tests.application_state.test_run_scene_encounters_postgres import request_for
     p=scene_case
     body=deepcopy(p.body)
-    body['encounter']=CreateManualEncounterRequest(title="Crossing",profile=profile()).model_dump(mode="json",by_alias=True)
+    rules=profile_for(pacing)
+    body['encounter']=CreateManualEncounterRequest(title="Crossing",profile=rules).model_dump(mode="json",by_alias=True)
     view=scene_templates.create(world_id="elderwyld",request=CreateSceneTemplateRequest.model_validate(body))
     draft=deepcopy(view.encounter.draft)
     draft.entities=[ManualParticipant(id="crew",name="Crew",values=initial_actor_values(profile()),notes="Prepared note",statuses=("Pinned",),participation="out_of_action")]
+    if pacing=='side':
+        from application_state.combat_encounters.manual_encounters import ManualSide, SideTurn
+        draft.sides=[ManualSide(id='crew-side',label='Crew'),ManualSide(id='empty-side',label='Empty')]
+        draft.entities[0].side_id='crew-side'
+        draft.turn=SideTurn(active_side_id='crew-side',acted_actor_ids=['crew'])
+    if pacing=='spotlight':
+        from application_state.combat_encounters.manual_encounters import SpotlightTurn
+        draft.entities.append(ManualParticipant(id='guide',name='Guide',values=initial_actor_values(rules)))
+        draft.turn=SpotlightTurn(active_actor_id='guide')
     prepared=save_encounter(world_id="elderwyld",encounter_id=view.encounter.encounter_id,request=SaveManualEncounterRequest(expected_revision=1,draft=draft))
     view=scene_templates.read(world_id="elderwyld",document_id=p.obj.work_object_id,scene_id="scene:gate")
     pin=dict(encounter_id=prepared.encounter_id,revision=2,digest=view.versions[0].digest)
@@ -103,10 +118,22 @@ def test_manual_preparation_materialization_scope_save_and_independence(scene_ca
     assert fight.draft.entities[0].id!='crew'
     assert fight.draft.entities[0].notes=='Prepared note'
     assert fight.draft.entities[0].participation=='out_of_action'
+    if pacing=='side':
+        assert fight.draft.turn==SideTurn()
+        assert fight.draft.entities[0].side_id==fight.draft.sides[0].id!='crew-side'
+        assert fight.draft.sides[1].id!='empty-side'
+    if pacing=='spotlight':
+        assert fight.draft.turn==SpotlightTurn()
+        assert fight.draft.entities[1].id!='guide'
     assert get_encounter(world_id="elderwyld",encounter_id=fight.encounter_id,scope=scope)==fight
     with pytest.raises(ApplicationStateConflictError,match="owning session"):
         get_encounter(world_id="elderwyld",encounter_id=fight.encounter_id)
     changed=deepcopy(fight.draft);changed.entities[0].notes='Run-only note'
+    if pacing=='side':
+        changed.turn=SideTurn(active_side_id=changed.sides[0].id,acted_actor_ids=[changed.entities[0].id])
+    if pacing=='spotlight':
+        changed.entities[0].participation='in_action'
+        changed.turn=SpotlightTurn(active_actor_id=changed.entities[0].id)
     saved=save_encounter(world_id="elderwyld",encounter_id=fight.encounter_id,scope=scope,request=SaveManualEncounterRequest(expected_revision=1,draft=changed))
     assert saved.revision==2
     assert get_encounter(world_id="elderwyld",encounter_id=prepared.encounter_id)==prepared
@@ -168,7 +195,7 @@ def test_oversized_template_profile_refuses_atomically(scene_case):
             assert conn.execute('SELECT count(*) FROM '+table).fetchone()[0]==0
 
 
-def test_serial_0160_0161_0162_0163_rehearsal_preserves_legacy_row(monkeypatch):
+def test_serial_0160_through_0166_rehearsal_preserves_legacy_row(monkeypatch):
     #0162 is forward-only. Rehearse forward on a fresh uniquely owned database;
     #never rewrite migration history or downgrade through that compatibility fence.
     import json
@@ -195,31 +222,52 @@ def test_serial_0160_0161_0162_0163_rehearsal_preserves_legacy_row(monkeypatch):
                 with psycopg.connect(dsn) as conn:
                     return conn.execute('SELECT ruleset_snapshot::text,ruleset_digest,draft::text FROM combat.encounter WHERE encounter_id=%s',(legacy.encounter_id,)).fetchone()
             before=stored()
-            for revision in ('20261117_0161','20261118_0162','20261118_0163'):
+            for revision in ('20261117_0161','20261118_0162','20261118_0163','20261118_0164','20261118_0165','20261118_0166'):
                 command.upgrade(config,revision)
                 assert stored()==before
-            assert _alembic_head()=='20261118_0163'
+            assert _alembic_head()=='20261118_0166'
             assert get_encounter(world_id=legacy.world_id,encounter_id=legacy.encounter_id)==legacy
+            with pytest.raises(RuntimeError,match='forward recovery'):
+                command.downgrade(config,'20261118_0165')
+            assert stored()==before
+            with psycopg.connect(dsn) as conn:
+                assert conn.execute('SELECT version_num FROM application_state.schema_migrations').fetchone()[0]=='20261118_0166'
     finally:
         _drop_database(admin,name)
 
 
-def test_manual_http_versions_cas_and_principal_boundary(scene_case,monkeypatch):
+@pytest.mark.parametrize('pacing',['ordered','side','spotlight'])
+def test_manual_http_versions_cas_and_principal_boundary(scene_case,monkeypatch,pacing):
     from tests.test_run_scene_encounters import client_for
     from apps.live_control_server.services import agent_graph_auth
     p=scene_case;client,_=client_for(p,monkeypatch)
     root='/api/live/combat/encounters'
-    result=client.post(root+'?world_id=elderwyld',json=CreateManualEncounterRequest(title='Crossing',profile=profile()).model_dump(mode='json',by_alias=True))
+    rules=profile_for(pacing)
+    result=client.post(root+'?world_id=elderwyld',json=CreateManualEncounterRequest(title='Crossing',profile=rules).model_dump(mode='json',by_alias=True))
     assert result.status_code==200,result.text
     record=result.json();path=f"{root}/{record['encounter_id']}?world_id=elderwyld"
     assert record['ruleset']['schema']=='dmb_combat_profile_v2'
     assert client.get(path).json()==record
     assert client.get(root+'?world_id=elderwyld').json()==[record]
     draft=deepcopy(record['draft']);draft['entities']=[ManualParticipant(id='crew',name='Crew',values=initial_actor_values(profile())).model_dump(mode='json',by_alias=True)]
+    if pacing=='side':
+        draft['sides']=[dict(id='crew-side',label='Crew')]
+        draft['entities'][0]['side_id']='crew-side'
+        draft['turn']=dict(kind='side',active_side_id='crew-side',active_actor_id=None,acted_actor_ids=['crew'])
+    if pacing=='spotlight':
+        draft['turn']=dict(kind='spotlight',active_actor_id='crew')
     changed=client.put(path,json=dict(expected_revision=1,draft=draft))
     assert changed.status_code==200,changed.text
     assert changed.json()['revision']==2
     assert client.put(path,json=dict(expected_revision=1,draft=draft)).status_code==409
+    if pacing=='side':
+        invalid=deepcopy(draft);invalid['turn']['active_side_id']='foreign-side'
+        assert client.put(path,json=dict(expected_revision=2,draft=invalid)).status_code==422
+        assert client.get(path).json()==changed.json()
+    if pacing=='spotlight':
+        invalid=deepcopy(draft);invalid['turn']['active_actor_id']='foreign-actor'
+        assert client.put(path,json=dict(expected_revision=2,draft=invalid)).status_code==422
+        assert client.get(path).json()==changed.json()
     draft['entities'][0]['values']['stats']['position']=12
     assert client.put(path,json=dict(expected_revision=2,draft=draft)).status_code==422
     assert client.get(path).json()==changed.json()
@@ -229,9 +277,10 @@ def test_manual_http_versions_cas_and_principal_boundary(scene_case,monkeypatch)
     assert client.put(path,json=dict(expected_revision=2,draft=changed.json()['draft'])).status_code==403
 
 
-def test_manual_source_admission_and_ordinary_save_cannot_replace_source(application_state_dsn):
+@pytest.mark.parametrize('pacing',['ordered','side','spotlight'])
+def test_manual_source_admission_and_ordinary_save_cannot_replace_source(application_state_dsn,pacing):
     from tests.test_combat_manual_encounters import source
-    record=create();draft=deepcopy(record.draft);snapshot=source('accepted')
+    record=create(profile_for(pacing));draft=deepcopy(record.draft);snapshot=source('accepted')
     actor=ManualParticipant(id='crew',name='Crew',values=initial_actor_values(profile()),mechanics_snapshot=snapshot)
     draft.entities=[actor]
     with pytest.raises(ApplicationStateValidationError,match='independently verified'):

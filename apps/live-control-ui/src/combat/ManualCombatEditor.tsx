@@ -4,7 +4,9 @@ import type {RunEncounterScope} from './runEncountersApi';
 import {CombatRecoverySession,combatDraftEqual,type CombatRecovery} from './combatRecovery';
 import {getAnyWorldCombatEncounter,saveManualCombatEncounter} from './combatApi';
 import {isManualCombatRecord} from './ManualCombatTypes';
-import {advanceManualTurn,newManualActor,removeManualActor,setManualParticipation} from './ManualCombatState';
+import {advanceManualTurn,assignManualSide,newManualActor,removeManualActor,setManualParticipation} from './ManualCombatState';
+import {ManualCombatSides,ManualSideTurnRail} from './ManualCombatSides';
+import {ManualSpotlightRail} from './ManualCombatSpotlight';
 import {CombatSavedStatblock} from './CombatMechanicsInspection';
 import {ManualCombatSourcePicker} from './ManualCombatSourcePicker';
 import {validManualDraft} from './validateCombatRecovery';
@@ -24,6 +26,7 @@ export function ManualCombatEditor({record,scope,onSaved,onBlocked,externallyDis
   const [recovery,setRecovery]=useState<CombatRecovery<ManualCombatRecord>|null>(null);
   const [error,setError]=useState<string|null>(null),[message,setMessage]=useState<string|null>(null);
   const [name,setName]=useState(''),[projection,setProjection]=useState<string|null>(null);
+  const [additionSide,setAdditionSide]=useState<string|null>(null);
   const [groupName,setGroupName]=useState(''),[groupMembers,setGroupMembers]=useState<string[]>([]);
   const alive=useRef(false);
   const lifetime=useRef(0),workspace=useRef<HTMLElement>(null),sourcePanel=useRef<HTMLElement>(null);
@@ -74,7 +77,10 @@ export function ManualCombatEditor({record,scope,onSaved,onBlocked,externallyDis
       state.current.draft=next;setDraft(next);setError(null);return true;
     } catch(caught){setError(String(caught));return false;}
   }
-  function actorChange(actor:ManualCombatActor) {return update({...state.current.draft,entities:state.current.draft.entities.map(item=>item.id===actor.id?actor:item)});}
+  function actorChange(actor:ManualCombatActor) {
+    const assigned=assignManualSide(state.current.draft,actor.id,actor.side_id);
+    return update({...assigned,entities:assigned.entities.map(item=>item.id===actor.id?actor:item)});
+  }
   async function save() {
     if(blocked||saving)return;
     const submitted=state.current.pending??{expected_revision:state.current.base.revision,draft:copy(state.current.draft)};
@@ -129,6 +135,7 @@ export function ManualCombatEditor({record,scope,onSaved,onBlocked,externallyDis
   const participating=draft.entities.filter(actor=>actor.participation==='in_action');
   const next=participating[(participating.findIndex(actor=>actor.id===active?.id)+1)%participating.length];
   const projected=draft.entities.find(actor=>actor.id===projection);
+  const newSide=draft.sides.some(side=>side.id===additionSide)?additionSide:null;
   useEffect(()=>{if(projection&&!projected?.mechanics_snapshot)closeProjection();},[projection,projected?.mechanics_snapshot]);
   const disabled=blocked||!!state.current.pending&&!saving;
   return <section ref={workspace} tabIndex={-1} className="manual-combat" aria-label="Manual combat encounter">
@@ -143,9 +150,12 @@ export function ManualCombatEditor({record,scope,onSaved,onBlocked,externallyDis
     {recovery&&<aside aria-label="Retained Combat draft"><p>Local edits are available. Recover or discard them before editing.</p><button onClick={recover}>Recover local edits</button><button onClick={discard}>Discard retained draft</button></aside>}
     <label>Encounter title<ManualCombatValueInput label="Encounter title" kind="name" value={draft.title} maxLength={160} disabled={disabled} onValue={value=>update({...draft,title:String(value)})}/></label>
     <section ref={rail} className="combat-roster-turn-rail" aria-label="Turn order">
+      {draft.turn.kind==='side'?<ManualSideTurnRail draft={draft} disabled={disabled} onChange={update}/>
+        :draft.turn.kind==='spotlight'?<ManualSpotlightRail draft={draft} disabled={disabled} onChange={update}/>:<>
       {draft.turn.kind==='ordered_rounds'&&<strong>Round {draft.turn.round}</strong>}
       <span>Current: {active?.name??'Not started'}</span><span>Next: {next?.name??'No participants'}</span>
       <button disabled={disabled||!participating.length} onClick={()=>{try{update(advanceManualTurn(draft));}catch(caught){setError(String(caught));}}}>{active?'Next turn':'Start turns'}</button>
+      </>}
     </section>
     <div className="manual-combat-workspace">
       <div className="manual-combat-roster">
@@ -154,12 +164,19 @@ export function ManualCombatEditor({record,scope,onSaved,onBlocked,externallyDis
           <button disabled={disabled} onClick={()=>update({...draft,groups:draft.groups.filter(item=>item.id!==group.id)})}>Ungroup {group.label}</button>
         </div>)}
         <ManualCombatRosterTable draft={draft} profile={base.ruleset} disabled={disabled} projection={projection} sourceRegionId={sourceRegionId}
+          onTurnChange={update}
           onActorChange={actorChange} onParticipation={(id,participation)=>update(setManualParticipation(draft,id,participation))}
           onMove={move} onRemove={id=>{if(update(removeManualActor(draft,id)))setGroupMembers(ids=>ids.filter(item=>item!==id));}}
           onProject={(id,trigger)=>{sourceTrigger.current=trigger;setProjection(id);}} onError={setError}/>
         {!draft.entities.length&&<p>Add participants to begin. Values come from this encounter’s profile.</p>}
-        <form onSubmit={event=>{event.preventDefault();if(!name.trim())return;if(update({...draft,entities:[...draft.entities,newManualActor(base.ruleset,name.trim())]}))setName('');}}>
+        {draft.turn.kind==='side'&&<ManualCombatSides draft={draft} disabled={disabled} onChange={update}/>}
+        <form onSubmit={event=>{event.preventDefault();if(!name.trim())return;
+          const actor=newManualActor(base.ruleset,name.trim());if(draft.turn.kind==='side')actor.side_id=newSide;
+          if(update({...draft,entities:[...draft.entities,actor]}))setName('');}}>
           <label>Participant name<input value={name} maxLength={160} disabled={disabled} onChange={event=>setName(event.target.value)}/></label><button disabled={disabled||!name.trim()||draft.entities.length>=100}>Add participant</button>
+          {draft.turn.kind==='side'&&<label>Side for new participants<select disabled={disabled} value={newSide??''} onChange={event=>setAdditionSide(event.target.value||null)}>
+            <option value="">Unassigned</option>{draft.sides.map(side=><option key={side.id} value={side.id}>{side.label}</option>)}
+          </select></label>}
         </form>
         <details><summary>Group participants</summary><label>Group name<input value={groupName} maxLength={160} disabled={disabled} onChange={event=>setGroupName(event.target.value)}/></label>
           {draft.entities.filter(actor=>!draft.groups.some(group=>group.member_ids.includes(actor.id))).map(actor=><label key={actor.id}><input type="checkbox" disabled={disabled} checked={groupMembers.includes(actor.id)} onChange={event=>setGroupMembers(items=>event.target.checked?[...items,actor.id]:items.filter(id=>id!==actor.id))}/>{actor.name}</label>)}
@@ -167,6 +184,7 @@ export function ManualCombatEditor({record,scope,onSaved,onBlocked,externallyDis
         </details>
         <ManualCombatSourcePicker worldId={base.world_id} disabled={disabled||draft.entities.length>=100} onAdd={(identity,source)=>{
           const actor=newManualActor(base.ruleset,identity.label);actor.world_identity=identity;actor.mechanics_snapshot=source;
+          if(draft.turn.kind==='side')actor.side_id=newSide;
           return update({...draft,entities:[...draft.entities,actor]});
         }}/>
       </div>

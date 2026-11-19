@@ -1,7 +1,7 @@
 """Fence older readers before recording standalone lore-page draft completions."""
 
-revision = "20261118_0165"
-down_revision = "20261118_0164"
+revision = "20261118_0167"
+down_revision = "20261118_0166"
 branch_labels = None
 depends_on = None
 

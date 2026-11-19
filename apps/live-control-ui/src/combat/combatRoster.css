@@ -57,7 +57,7 @@
 
 .manual-combat { container-type:inline-size; min-width:0; --manual-host-offset:0px; }
 .native-combat-surface .manual-combat { --manual-host-offset:var(--app-chrome-top); }
-.manual-combat > .combat-roster-turn-rail { top:var(--manual-host-offset); }
+.manual-combat > .combat-roster-turn-rail { top:var(--manual-host-offset); z-index:3; }
 .manual-combat label { display:flex; flex-direction:column; gap:.3rem; font-size:.85rem; color:var(--ui-text-secondary); }
 .manual-combat input,.manual-combat textarea,.manual-combat select { min-width:0; max-width:100%; box-sizing:border-box; }
 .manual-combat :is(input,textarea,select),.manual-combat-profile :is(input:not([type=checkbox]),select) {
@@ -88,6 +88,11 @@
 .manual-combat-table thead th:first-child { position:sticky; left:0; z-index:2; }
 .manual-combat-participant-actions { display:flex; align-items:center; flex-wrap:wrap; gap:.3rem; margin-top:.3rem; }
 .manual-combat-group-label { display:block; margin-top:.25rem; color:var(--ui-text-quiet); font-size:.75rem; }
+.manual-combat-turn-marker { display:block; margin:.3rem 0; color:var(--ui-text-quiet); }
+.manual-combat-participant > label { display:block; margin:.35rem 0; }
+.manual-combat-participant select { max-width:100%; }
+.manual-combat-side,.manual-combat-sides form { display:flex; align-items:end; flex-wrap:wrap; gap:.5rem; margin:.5rem 0; }
+.manual-combat-sides { margin:.75rem 0; }
 .manual-combat-stat { min-width:7.5rem; }
 .manual-combat-stat.is-text { min-width:12rem; }
 .manual-combat-resource { min-width:10rem; }

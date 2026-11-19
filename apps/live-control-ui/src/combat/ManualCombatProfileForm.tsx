@@ -6,6 +6,7 @@ export function ManualCombatProfileForm({disabled,onCreate}:{disabled:boolean;on
   const [title,setTitle]=useState('Crossing under pressure');
   const [system,setSystem]=useState('Crossing');
   const [rounds,setRounds]=useState(false);
+  const [pacing,setPacing]=useState<'ordered'|'side'|'spotlight'>('ordered');
   const [stats,setStats]=useState([{id:'position',label:'Position',type:'text' as 'text'|'integer'},{id:'resolve',label:'Resolve',type:'integer' as 'text'|'integer'}]);
   const [resources,setResources]=useState([{id:'stress',label:'Stress'},{id:'momentum',label:'Momentum'}]);
   const [error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false);
@@ -17,7 +18,7 @@ export function ManualCombatProfileForm({disabled,onCreate}:{disabled:boolean;on
       schema:'dmb_combat_profile_v2',profile_id:crypto.randomUUID(),name:system.trim(),system_id:crypto.randomUUID(),revision:1,
       stats:stats.map(field=>({field_id:field.id,label:field.label.trim(),value_type:field.type,initial:null})),
       resources:resources.map(field=>({field_id:field.id,label:field.label.trim(),initial:{current:null,minimum:null,maximum:null}})),
-      pacing:{mode:'ordered',rounds},
+      pacing:pacing==='ordered'?{mode:'ordered',rounds}:{mode:pacing,rounds:false},
     });setExpanded(false);}catch(caught){setError(String(caught));}finally{setBusy(false);}
   }
   return <details className="manual-combat-profile" open={expanded} onToggle={event=>setExpanded(event.currentTarget.open)}><summary>Create for another system</summary>
@@ -25,7 +26,13 @@ export function ManualCombatProfileForm({disabled,onCreate}:{disabled:boolean;on
     <fieldset disabled={disabled||busy}><legend>Encounter profile</legend>
       <label>Encounter name<input maxLength={160} value={title} onChange={event=>setTitle(event.target.value)}/></label>
       <label>System name<input maxLength={80} value={system} onChange={event=>setSystem(event.target.value)}/></label>
-      <label><input type="checkbox" checked={rounds} onChange={event=>setRounds(event.target.checked)}/>Count rounds</label>
+      <label>Turn structure<select value={pacing} onChange={event=>setPacing(event.target.value as 'ordered'|'side'|'spotlight')}>
+        <option value="ordered">Ordered participants</option><option value="side">Side turns · choose who acts</option>
+        <option value="spotlight">Free spotlight · no fixed sequence</option>
+      </select></label>
+      {pacing==='ordered'?<label><input type="checkbox" checked={rounds} onChange={event=>setRounds(event.target.checked)}/>Count rounds</label>
+        :pacing==='side'?<p>Sides take turns. Choose participants within each side and pass explicitly; no rounds or action budget are inferred.</p>
+        :<p>Choose any participant who is in action. Finish their spotlight whenever the fiction changes; no sequence, sides or rounds are required.</p>}
       <h4>Stats</h4>
       {stats.map((field,index)=><div key={field.id}><label>Stat {index+1}<input maxLength={80} value={field.label} onChange={event=>setStats(items=>items.map(item=>item.id===field.id?{...item,label:event.target.value}:item))}/></label>
         <select aria-label={`Type for stat ${index+1}`} value={field.type} onChange={event=>setStats(items=>items.map(item=>item.id===field.id?{...item,type:event.target.value as 'text'|'integer'}:item))}><option value="text">Text</option><option value="integer">Whole number</option></select>
