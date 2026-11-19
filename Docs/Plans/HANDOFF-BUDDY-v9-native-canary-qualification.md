@@ -68,7 +68,7 @@ ports; provider-free consumer checks. No live source migration or history write.
 APP/Core dumps are separate snapshots, not a cross-database atomic transaction;
 record before/after head/binding and reject incoherent assumptions.
 
-Reserve API18290/UI15202 only after confirming free. No use of8000 or5202 in
+Reserve baseline API18290, forward API18291 and UI15202 only after confirming free. No use of8000 or5202 in
 this qualification. Use loopback/local-operator configuration, exact source
 attestation and explicit frontend proxy. No request traffic to other-lane API.
 Preserve source/artifact locators and real restored managed binding; no fixture
@@ -143,16 +143,49 @@ Before any canary process starts, establish these concrete gates:
   session/world paths, frontend proxy and all intended native selectors. Inspect
   startup/background-write behavior; no source/other-lane defaults. Recheck free
   owned ports immediately before bind.
-- Exact older native release rollback target is Buddy
-  0a746752da32324256d83b018e884aa7cb8ad692 with Core4b6516e; forward target is
-  frozen92cc639. Test BOTH against Core0022 and the forward APP0167 restore,
-  without downgrading schema/data. Distinguish same-release restart from release
-  rollback and record unsupported new APP payload kinds honestly. If backward
-  compatibility is absent, rebrief a safe rollback target before activation;
-  do not call a restart proof a release-rollback proof.
+- Rollback is explicitly same-version process/configuration rollback. Qualify a
+  known-good baseline Buddy92cc639/Core4b6516e on API18290 first, with APP0167 /
+  Core0022 and UI15202 mapped to it. Then qualify a separately owned forward
+  process on18291, switch and verify the owned client mapping, quiesce/disconnect
+  forward, restore baseline mapping, and verify the latest committed native head,
+  receipts/replay and exact citations. Both processes use the same explicitly
+  compatible owned authoritative persistence; only private logs/caches differ.
+  Verify which process answered each phase and prevent competing background
+  writers. No database downgrade or old snapshot restoration. Older Buddy0a
+  expects APP0166 and is unsupported on0167 under strict schema equality. The
+  APP0167-compatible ae0e predecessor is runtime-identical to92cc; neither pair
+  is advertised as older-behavioral-software rollback. This rehearsal covers
+  process/mapping failure, not a defect shared by identical binaries.
 
 Snapshot capture completed in task scratch: Core947930229 bytes and APP102665777
 bytes, hash-bound in current-authority-snapshot.json. Both source connections were
 read-only; head/binding remained equal. APP source schema20261117_0160 is behind
 selected candidate0167. These dumps are retained pending the additional coherence,
 restore and file-authority checks above; no canary/rollback/activation success.
+
+## Restore preparation checkpoint
+
+Unique Core/App restores codex_v9_core_f7273a3fef and codex_v9_app_2ed3662f84
+now exist on the owned32903 server. Supplemental read-only repeatable-read
+inventories bracketed restored selected-state comparison with stable source
+observations:600 lineage revisions, source epoch194, complete source metadata,
+87 body hashes, real binding/grants and schema agree. Independent method review
+approved this scoped witness; it is not globally atomic backup or full historical
+graph replay. Original narrower audit and failed checker attempts stay retained.
+
+Core0022/APP0167 applied only to these restores. The known APP0161 migration
+changes one active Run scope local→world:elderwyld. UUID database IDs and JSON
+string IDs must be normalized for checking; no unmatched Run exists. Every other
+APP table fingerprint stayed unchanged except schema bookkeeping. Core ordinary
+head/parent verification passes; explicit head/parent artifacts match ordinary
+semantic digests, with selected revision/source/receipt/event metadata unchanged.
+Ordinary source integrity verifies71 admissions,79 extensions and16 PDF bodies.
+
+The original corpus/elderwyld-markdown hint is absent on disk. Actual native
+binding resolution does not open it;79 head source pairs resolve in database
+source bodies. Do not recreate an old World/path/bridge. Native Graph/source and
+Plan corpus acquisition may be qualified against that database authority; source
+availability is not yet user authorization/span-opening proof. Empty isolated
+output roots are not recovered file authority. Saved conversations, attachments,
+authoring/session/file-ingestion capabilities remain unqualified until their
+actually required files/authority are demonstrated. No canary is started yet.
