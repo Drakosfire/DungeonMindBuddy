@@ -55,3 +55,18 @@ ConversationDock and redirects Agent chrome to a launcher. Assert one actual doc
 and real WorldPlanAgentConversation composer, zero obsolete chrome, and outgoing
 dock removal. This preserves Agent/remount coverage under current presentation,
 not a chooser-only substitution or fabricated plugin. Retain both failed attempts.
+
+
+## Saved Plan prerequisite discovered
+
+Thea984 dock check reached the real workspace but not a composer.87ab real Open
+click confirmed this is not simply collapsed presentation: WorldPlanAgentConversation
+explicitly returns `Save this Plan to start an Agent conversation.` for an unsaved
+Plan (current lines6325–6327). Thus a new local draft cannot prove the required
+real Agent remount boundary. Next fixture must select a saved World-owned Plan
+with current typed snapshot, committed revision/context and conversation history
+reads as required by those owners. Keep the same actual three-route remounts and
+host cleanup; do not accept unsaved availability as equivalent composer coverage,
+fake registration, or remove the composer assertion. Source remains diagnostic;
+PR stays draft pending this correction, independent review and exact-head checks.
+Raw87ab module31pass1fail retained; no resolution credited.
