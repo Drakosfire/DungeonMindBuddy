@@ -444,7 +444,7 @@ function checkedRejectedReference(world:string,key:string,bytes:string):Retained
  const value:unknown=JSON.parse(bytes);
  if(!hasExactKeys(value,['schema','world_id','document_id','turn_id','reason_code','original_bytes'])||value.schema!=='dmb_rejected_authored_build_request_v1'||value.world_id!==world||typeof value.original_bytes!=='string'||typeof value.reason_code!=='string'||!REJECTED_REFERENCE_CODES.includes(value.reason_code))throw new Error('A retained rejected request needs inspection. Its bytes were preserved.');
  const stored=readPendingPlayTurn(world,value.original_bytes),r=stored?.request as WorldBuildAgentTurnRequestV1|undefined;
- if(!stored||r?.surface.surface_id!=='build'||!r.build_authored_references||r.reviewed_step||r.primary_work.object_id!==value.document_id||r.turn_id!==value.turn_id||key!==rejectedReferenceKey(r))throw new Error('The retained rejection belongs to another request. Both copies were preserved.');
+ if(!stored||r?.surface.surface_id!=='build'||(!r.build_authored_references&&value.reason_code!=='build_source_unavailable')||r.reviewed_step||r.primary_work.object_id!==value.document_id||r.turn_id!==value.turn_id||key!==rejectedReferenceKey(r))throw new Error('The retained rejection belongs to another request. Both copies were preserved.');
  return {storageKey:key,reasonCode:value.reason_code,stored};
 }
 function readRejectedReferences(world:string):{items:RetainedRejectedRequest[];issues:string[]}{
@@ -3599,7 +3599,7 @@ export function WorldPlanAgentConversation({
     try {
       let stored = readPendingPlayTurn(verifiedWorldId);
       setPendingPlayTurn(stored);
-      if(stored&&stored.request.surface.surface_id==='build'&&(stored.request as WorldBuildAgentTurnRequestV1).build_authored_references){
+      if(stored&&stored.request.surface.surface_id==='build'){
         // Exact request recovery never depends on listing unrelated local receipts.
         const key=rejectedReferenceKey(stored.request as WorldBuildAgentTurnRequestV1),bytes=localStorage.getItem(key);
         if(bytes!==null){
@@ -4382,7 +4382,7 @@ export function WorldPlanAgentConversation({
         }
       }
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'The saved request could not be verified. Nothing was retried.'); return; }
-    if(request.surface.surface_id==='build'&&(request as WorldBuildAgentTurnRequestV1).build_authored_references){
+    if(request.surface.surface_id==='build'){
       try{
         const key=rejectedReferenceKey(request as WorldBuildAgentTurnRequestV1),bytes=localStorage.getItem(key);
         if(bytes!==null){const retained=checkedRejectedReference(request.owner_scope.world_id,key,bytes);
@@ -4542,6 +4542,9 @@ export function WorldPlanAgentConversation({
         && (["play_context_unavailable", "world_owner_unverified", "build_source_unavailable", "build_editor_context_changed", "reviewed_step_unavailable", "build_retry_unavailable"].includes(reason.code ?? "")
           || request.surface.surface_id==='play'&&reason.code==='authored_source_unavailable'
           || reason.status === 401 || reason.status === 403);
+      const staleBuildSource = request.primary_work.kind === 'build'
+        && !(request as WorldBuildAgentTurnRequestV1).reviewed_step
+        && reason instanceof LiveApiError && reason.code === 'build_source_unavailable';
       let preserveRejectedComposer=request.primary_work.kind==='build'&&!!(request as WorldBuildAgentTurnRequestV1).retry_of?.retained_snapshot_sha256;
       if (rejectedBeforeDispatch) {
         if(request.surface.surface_id==='play'&&(request as WorldPlayAgentTurnRequestV1).authored_references){
@@ -4559,13 +4562,15 @@ export function WorldPlanAgentConversation({
           }
         }
         const refs=request.primary_work.kind==='build'?(request as WorldBuildAgentTurnRequestV1).build_authored_references:undefined;
-        if(refs&&!(request as WorldBuildAgentTurnRequestV1).reviewed_step){
+        if((refs || staleBuildSource)&&!(request as WorldBuildAgentTurnRequestV1).reviewed_step){
           if(!(reason instanceof LiveApiError)||!REJECTED_REFERENCE_CODES.includes(reason.code??'')){setError('This rejection needs its original saved-request recovery. Nothing was replaced or resent.');return;}
           try{retainRejectedReference(stored,reason.code!);}
           catch(retentionError){
             try{setPendingPlayTurn(readPendingPlayTurn(request.owner_scope.world_id));}catch(loadError){setPendingPlayLoadError(String(loadError));}
             setError(String(retentionError));return;
           }finally{refreshRejectedRequests(request.owner_scope.world_id);}
+        }
+        if(refs&&!(request as WorldBuildAgentTurnRequestV1).reviewed_step){
           try{
             if(!restoreInitialComposerReferences)throw new Error('Recovery did not replace your composer. The saved request and its references are retained.');
             const world=request.owner_scope.world_id,page=request.primary_work.object_id,key=`build:${page}`;
@@ -4586,7 +4591,9 @@ export function WorldPlanAgentConversation({
       }
       const graphFailure = reason instanceof LiveApiError
         && ["graph_unavailable", "native_binding_invalid", "graph_revision_unavailable", "graph_read_failed"].includes(reason.code ?? "");
-      const notice = buildTargetUnavailable ? reason.message : rejectedBeforeDispatch
+      const notice = buildTargetUnavailable ? reason.message : staleBuildSource
+        ? 'This message was not sent. Reopen the current saved page, then recover the message from Conversation options and send it again.'
+        : rejectedBeforeDispatch
         ? `This message was not sent. ${localOperatorCredentialFailure(reason, "send this message again")
           ?? (reason instanceof Error ? reason.message : "Reopen the saved work.")}`
         : graphFailure
@@ -7015,7 +7022,37 @@ export function WorldPlanAgentConversation({
       </section>
       {referenceRecoveryCopies?.key===referenceScopeKey&&referenceRecoveryCopies.copies.length>0&&<details aria-label="Retained reference drafts"><summary>Retained reference drafts · {referenceRecoveryCopies.copies.length}</summary>{referenceRecoveryCopies.copies.map(copy=><details key={copy.key}><summary>Original reference draft</summary><pre>{copy.raw}</pre></details>)}</details>}
       {rejectedRequestError&&<p role="alert">{rejectedRequestError}</p>}
-      {rejectedRequests?.world===verifiedWorldId&&rejectedRequests.items.length>0&&<details aria-label="Retained rejected requests"><summary>Retained rejected requests · {rejectedRequests.items.length}</summary><p>These browser recovery copies were retained after a reported rejection. They do not authorize another attempt.</p>{rejectedRequests.items.map(item=><article key={item.storageKey}><p>{item.stored.request.message}</p><p>Reported reason: {item.reasonCode}</p><SurfaceGraphReferenceInput worldId={item.stored.request.owner_scope.world_id} label="Rejected request Graph context" readOnly value={(item.stored.request as WorldBuildAgentTurnRequestV1).build_authored_references!.references} onChange={()=>{}}/><details><summary>Original request</summary><pre>{item.stored.serialized}</pre></details></article>)}</details>}
+      {rejectedRequests?.world === verifiedWorldId && rejectedRequests.items.length > 0 && (
+        <details aria-label="Retained rejected requests">
+          <summary>Rejected messages · {rejectedRequests.items.length}</summary>
+          {rejectedRequests.items.map(item => {
+            const request = item.stored.request as WorldBuildAgentTurnRequestV1;
+            const references = request.build_authored_references;
+            return <article key={item.storageKey}>
+              <p>{request.message}</p>
+              {item.reasonCode === 'build_source_unavailable' && isBuild && (
+                <button type="button" disabled={composerBusy || !buildMode?.savedSource
+                  || buildMode.savedSource.documentId !== request.primary_work.object_id
+                  || Boolean(composerMessage && composerMessage !== request.message)}
+                  onClick={() => {
+                    composerEditGenerationRef.current += 1;
+                    setContinuationOfActionId(null);
+                    setComposerIntentCorrection(null);
+                    retireComposerReferenceSubmission();
+                    setComposerMessage(request.message);
+                    setError(null);
+                    setConversationNotice('Message restored. Review it and send against the current saved page.');
+                  }}>
+                  Restore message to composer
+                </button>
+              )}
+              {references && <SurfaceGraphReferenceInput worldId={request.owner_scope.world_id}
+                label="Rejected request Graph context" readOnly value={references.references} onChange={() => {}} />}
+              <details><summary>Original request</summary><pre>{item.stored.serialized}</pre></details>
+            </article>;
+          })}
+        </details>
+      )}
       {keptTurns?.world === verifiedWorldId && (keptTurns.items.length > 0 || keptTurns.issues > 0) ? <details aria-label="Requests kept for later">
         <summary>Kept for later · {keptTurns.items.length}</summary>
         <p>These exact requests remain available for review. Keeping a copy does not cancel or retry it.</p>
@@ -7374,9 +7411,9 @@ export function WorldPlanAgentConversation({
               const options = presentationHosts?.header?.closest("details") ?? connectionOptionsRef.current;
               if (options instanceof HTMLDetailsElement) options.open = true;
             }}>Check saved request</button>{" "}
-            {pendingPlayTurn ? <><button type="button"
+            {pendingPlayTurn ? <>{!isBuild && <button type="button"
               disabled={requestRef.current !== null}
-              onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }}>Retry</button>{" "}
+              onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }}>Retry</button>}{" "}
               <button type="button" disabled={requestRef.current !== null} onClick={() => keepSavedTurnForLater(pendingPlayTurn)}>Keep for later</button></> : null}
           </p>
         ) : null}

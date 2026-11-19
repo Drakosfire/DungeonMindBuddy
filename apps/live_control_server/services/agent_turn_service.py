@@ -4148,9 +4148,8 @@ class _PolicyExecutionAdapter:
                 or request.max_chars > execution.policy.max_chars_per_source_read
             ):
                 return denied("source_read_over_budget", 413)
-            scoped_native_source = (
-                authority.managed_world_id == os.environ.get("DMB_NATIVE_SEARCH_WORLD", "").strip()
-                and any(anchor_id.startswith("native-neighborhood:") for anchor_id in request.anchor_ids)
+            scoped_native_source = any(
+                anchor_id.startswith("native-neighborhood:") for anchor_id in request.anchor_ids
             )
             if scoped_native_source:
                 if self.native_principal is None:
