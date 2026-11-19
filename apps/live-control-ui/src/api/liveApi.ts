@@ -442,6 +442,8 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && typeof body?.expected_world_id === "string" && Boolean(body.expected_world_id);
   }
+  const recapCorrection = /^\/api\/live\/extract-promote\/runs\/[^/?#%]+\/recap-evidence-corrections\?managed_world_id=([a-z][a-z0-9_-]{0,62})$/.exec(path);
+  if (recapCorrection) return method === "POST" && requestBodyRecord(init?.body) !== null;
   if (/^\/api\/live\/extract-promote\/runs\/[^/?#%]+\/semantic-disposition\?managed_world_id=[a-z][a-z0-9_-]{0,62}$/.test(path)) {
     return method === "POST" && requestBodyRecord(init?.body) !== null;
   }

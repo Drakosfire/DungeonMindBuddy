@@ -296,17 +296,35 @@ def post_recap_evidence_corrections(
     request_context: Request,
     run_id: str,
     request: ExactRunEvidenceCorrectionRequest,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     """GM-only literal evidence child; semantic disposition starts held."""
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_recap_correction
+
+    world_id = request_context.query_params.get("managed_world_id")
+    require_hosted_recap_correction(request_context, world_id or "")
     try:
-        _reject_selector_query(request_context)
+        local = hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS
+        if local:
+            _reject_selector_query(request_context)
         if run_id != request.parent_run_id:
             raise ExtractPromoteError(
                 "path run ID does not match parentRunId",
                 code="invalid_request", status_code=422,
             )
-        response = correct_recap_run_evidence(request)
+        if local:
+            response = correct_recap_run_evidence(request)
+        else:
+            def authorize_write() -> None:
+                require_hosted_recap_correction(request_context, world_id or "")
+
+            response = correct_recap_run_evidence(request, authorize_write=authorize_write)
+        result = response.model_dump(mode="json", by_alias=True)
+        if not local:
+            authorize_write()
+        return result
+    except HTTPException:
+        raise
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except Exception:
@@ -317,7 +335,6 @@ def post_recap_evidence_corrections(
                 code="extract_promote_internal_error", status_code=500,
             )
         )
-    return response.model_dump(mode="json", by_alias=True)
 
 
 def recap_candidate_correction_access(request: Request, managed_world_id: str | None = None) -> None:
