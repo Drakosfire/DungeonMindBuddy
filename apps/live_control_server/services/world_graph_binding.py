@@ -306,6 +306,8 @@ def activate_native_first_world(managed_world_id, *, plan, repository,
     from apps.live_control_server.services.native_first_world_compilation import bind_first_world_native_intent
     from graph_memory.vnext.domain_runtime import resolve_dungeonbuddy_descriptors
 
+    if type(principal_subject) is not str or not principal_subject.strip():
+        raise WorldGraphBindingError("A current confirming principal is required.", status_code=403)
     plan = native.decode_native_plan(plan, principal_subject=principal_subject)
     if managed_world_id != plan.world_id:
         raise WorldGraphBindingError("Native review belongs to a different World.")

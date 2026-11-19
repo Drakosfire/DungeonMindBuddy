@@ -217,3 +217,10 @@ receipt disclosure, without mutable run reload. Working-tree owning activation
 cohort:23 passed/1 warning. Two branch tests stub signature decoding and protocol
 validation to isolate routing/owner behavior; they do not establish full signed
 HTTP acceptance. Mounted handler dispatch and historical recovery remain pending.
+
+Independent focused activation critique found that principal=None could invoke
+scope-only decoding. Activation now requires an exact nonblank string principal
+before decoding/reads/CAS. Four regression cases refuse missing/blank/wrong-type
+principals without APP mutation. Owning diagnostic cohort:27 passed/1 warning.
+The reviewer confirmed read-only wrapper compatibility with actual Core recovery;
+this is a focused critique, not cumulative acceptance or stage integration proof.

@@ -286,3 +286,16 @@ def test_native_first_world_hosted_recovery_uses_signed_scope_without_run_reload
         assert asyncio.run(access.resolve_hosted_first_world(request)) == "signed-world"
         assert request.state.hosted_first_world == "signed-world"
     assert calls == ["signature", "owner"]
+
+
+@pytest.mark.parametrize("principal", [None, "", "   ", 1])
+def test_native_first_world_activation_requires_current_principal_before_reads(monkeypatch, principal):
+    from apps.live_control_server.services import native_first_world_publication as native
+    from apps.live_control_server.services.world_graph_binding import activate_native_first_world
+
+    monkeypatch.setattr(native, "decode_native_plan", lambda *args, **kwargs: pytest.fail("missing principal reached decoding"))
+    before = world_snapshot()
+    with pytest.raises(WorldGraphBindingError, match="current confirming principal") as error:
+        activate_native_first_world("world", plan=object(), repository=object(), principal_subject=principal)
+    assert error.value.status_code == 403
+    assert world_snapshot() == before
