@@ -39,3 +39,33 @@ Core99/WKef9 task environment without overlay/resync. Task Projects UUID
 48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8 verified; writable check before new scratch.
 Retain task scratch/logs/failures under MIND ownership for fullgoal; no deletion.
 No worktree/new environment allocated. Cleanup requires separately approved scope.
+
+## Implementation checkpoint
+
+Revision4 digest36a75fbf0cda6cf9b19c97bc6b25042d18b7fc344d062e649080f64884f7e5d4.
+42 unique predicates and15 classification terms retain prior declarations and add
+all13 mapped kinds (two prior legacy terms remain). Full45-label mapping/direction/
+endpoint matrix is pinned, not encoded as profile endpoint authority.
+
+Actual WK preparation validates structure/evidence existence/exact descriptors,
+NOT classification-term membership or predicate read admission. Initial diagnostic
+wrongly expected predicate refusal at prepare and referenced a nonexistent result
+field; retained diagnostic1/2 capture these test failures. Correct owning proof:
+all13 public WK/Core creations committed, parsed child classifications equal the
+catalog, Core semantic gate accepts mapped entity-ref predicates; WK rejects
+missing endpoints and wrong descriptor identity before mutation. Neither proof
+establishes current source authorization or a deployed manual writer.
+
+Scoped module diagnostic3:30pass; Ruff1:PASS (final exact-source diagnostics and
+prior1/2/3 descriptor preservation receipt retained at task scratch
+v9-buddy/v10-native-manual-profile). Open58-PR exact-five-path audit:no overlaps.
+N3a handoff is a short dependency pointer to preserved29ef gate (not on main),
+not an absorption of its unmerged ten-path API design. No consumers/defaults or
+Worlds changed. Parent final review/qualification/merge remain separate.
+
+Final working-source diagnostic:30passed in0.35s, no skips; scoped Ruff and
+`git diff --check` PASS. `capability-preservation-proof.json` verifies prior
+constructor source bytes, canonical descriptors/digests and checked JSON bytes
+against exactbase97011d4. Exact-source logs/XML retained, including initial failed
+diagnostics. No broad backend/SQL/frontend execution claim. Parent receives frozen
+implementation for independent review; no serving/process/provider changes.

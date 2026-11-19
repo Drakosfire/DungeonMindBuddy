@@ -253,6 +253,83 @@ def dungeonbuddy_dnd5e_observation_profile() -> SemanticProfileDescriptorV3:
     return SemanticProfileDescriptorV3.model_validate(descriptor)
 
 
+DUNGEONBUDDY_MANUAL_PROFILE_REVISION = "4"
+DUNGEONBUDDY_MANUAL_PROFILE_DIGEST = '36a75fbf0cda6cf9b19c97bc6b25042d18b7fc344d062e649080f64884f7e5d4'
+
+
+def dungeonbuddy_dnd5e_manual_profile() -> SemanticProfileDescriptorV3:
+    """Declare the immutable opt-in manual catalog; never select it by default.
+
+    These closed terms are frozen revision-4 data, not a live producer lookup.
+    Endpoint qualification and spelling/direction aliases remain Buddy-owned.
+    """
+    descriptor = dungeonbuddy_dnd5e_observation_profile().model_dump(mode="json")
+    descriptor["profile_revision"] = DUNGEONBUDDY_MANUAL_PROFILE_REVISION
+    for term in (
+        "dnd5e:creature",
+        "dnd5e:encounter",
+        "dnd5e:event",
+        "dnd5e:faction",
+        "dnd5e:group",
+        "dnd5e:item",
+        "dnd5e:location",
+        "dnd5e:mystery",
+        "dnd5e:npc",
+        "dnd5e:party",
+        "dnd5e:player_character",
+        "dnd5e:thread",
+        "dnd5e:threat",
+    ):
+        if term not in descriptor["classification_terms"]:
+            descriptor["classification_terms"].append(term)
+    existing = {item["term"] for item in descriptor["predicates"]}
+    for term in (
+        "dnd5e:allied_with",
+        "dnd5e:associated_with",
+        "dnd5e:attacks",
+        "dnd5e:aware_of",
+        "dnd5e:carries",
+        "dnd5e:causes",
+        "dnd5e:commands",
+        "dnd5e:contains",
+        "dnd5e:cooperates_with",
+        "dnd5e:displaced_from",
+        "dnd5e:holds",
+        "dnd5e:knows_about",
+        "dnd5e:leads",
+        "dnd5e:leads_to",
+        "dnd5e:located_in",
+        "dnd5e:member_of",
+        "dnd5e:near",
+        "dnd5e:occurs_at",
+        "dnd5e:operates",
+        "dnd5e:owns",
+        "dnd5e:parent_of",
+        "dnd5e:part_of",
+        "dnd5e:participates_in",
+        "dnd5e:possesses",
+        "dnd5e:present_at",
+        "dnd5e:protects",
+        "dnd5e:pursues",
+        "dnd5e:recruits_for",
+        "dnd5e:rivals",
+        "dnd5e:serves",
+        "dnd5e:south_of",
+        "dnd5e:suspects",
+        "dnd5e:threatens",
+        "dnd5e:travels_to",
+        "dnd5e:trusts",
+        "dnd5e:works_with",
+    ):
+        if term not in existing:
+            descriptor["predicates"].append({
+                "term": term,
+                "allowed_value_kinds": ["entity_ref"],
+                "literal_schema": None,
+            })
+    return SemanticProfileDescriptorV3.model_validate(descriptor)
+
+
 class DungeonBuddyDescriptorError(ValueError):
     """A selected immutable descriptor is unsupported, mismatched, or has drifted."""
 
@@ -294,6 +371,10 @@ def resolve_dungeonbuddy_descriptors(
     profiles[(DUNGEONBUDDY_PROFILE_ID, DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION)] = (
         dungeonbuddy_dnd5e_observation_profile,
         DUNGEONBUDDY_OBSERVATION_PROFILE_DIGEST,
+    )
+    profiles[(DUNGEONBUDDY_PROFILE_ID, DUNGEONBUDDY_MANUAL_PROFILE_REVISION)] = (
+        dungeonbuddy_dnd5e_manual_profile,
+        DUNGEONBUDDY_MANUAL_PROFILE_DIGEST,
     )
     selected = profiles.get((profile_ref.profile_id, profile_ref.profile_revision))
     if selected is None:
