@@ -253,6 +253,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id:uuid}/messages"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/retry-attempts"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/retry-context"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/variant-approval"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): resolve_hosted_conversation_world,

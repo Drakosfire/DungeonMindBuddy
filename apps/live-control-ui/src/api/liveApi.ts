@@ -777,6 +777,9 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return (method === "GET" && init?.body == null)
       || (method === "PUT" && !!requestBodyRecord(init?.body));
   }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/conversations\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/turns\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/retry-attempts(?:\?limit=(?:[1-9]|[1-4][0-9]|50)(?:&before_sequence=[1-9][0-9]*)?)?$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
   const conversation = /^\/api\/live\/agent\/worlds\/[^/?]+\/(conversation(?:\/new|\/commands\/[0-9a-f-]+)?|conversations(?:\/active\/messages|\/[0-9a-f-]+\/(?:messages|turns|retry-context))?)(?:\?([^#]*))?$/.exec(path);
   if (conversation) {
     if (conversation[1] === "conversation/new") {

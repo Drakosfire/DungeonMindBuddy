@@ -469,6 +469,7 @@ def hosted(monkeypatch, request):
 
 
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/name"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/retry-attempts"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/retry-context"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
             ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
@@ -3262,6 +3263,11 @@ def test_hosted_conversation_starts_and_reopens_in_exact_world(hosted, applicati
     response = hosted.client.request("POST", base + "/new", json=body)
     assert response.status_code == 200, response.text
     created = response.json()
+    attempt_path = f"{base}s/{created['conversation_id']}/turns/{uuid4()}/retry-attempts?limit=50"
+    missing = hosted.client.request("GET", attempt_path)
+    assert missing.status_code == 404, missing.text
+    denied = hosted.client.request("GET", attempt_path, session="other-session")
+    assert denied.status_code == 403, denied.text
     retry_context = f"{base}s/{created['conversation_id']}/retry-context"
     retry_query = f"?turn_ids={uuid4()}"
     assert hosted.client.request("GET", retry_context + retry_query, session="other-session").status_code == 403
@@ -5277,3 +5283,28 @@ def test_hosted_image_preparation_binds_world_and_owner(hosted, monkeypatch):
     denied = hosted.client.request("GET", path)
     assert denied.status_code == 404
     assert "A gate at dusk" not in denied.text
+
+
+def test_hosted_retry_attempts_recheck_world_owner_before_disclosure(hosted, monkeypatch):
+    from apps.live_control_server.routes import conversation_library
+
+    path = f"/api/live/agent/worlds/managed/conversations/{uuid4()}/turns/{uuid4()}/retry-attempts"
+
+    def read(*args, **kwargs):
+        return {"attempts": ["saved metadata"]}
+
+    monkeypatch.setattr(conversation_library.library, "read_retry_attempts", read)
+    result = hosted.client.request("GET", path)
+    assert result.status_code == 200, result.text
+    assert result.json()["attempts"] == ["saved metadata"]
+
+    def transfer(*args, **kwargs):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return read(*args, **kwargs)
+
+    monkeypatch.setattr(conversation_library.library, "read_retry_attempts", transfer)
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 403, denied.text
+    assert "saved metadata" not in denied.text
