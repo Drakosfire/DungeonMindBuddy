@@ -1440,3 +1440,15 @@ async def resolve_hosted_source_statement_publication(request: Request) -> str:
     world = await run_in_threadpool(_owned_world, subject, world_id)
     request.state.hosted_native_graph_world = world.world_id
     return world.world_id
+
+
+async def resolve_hosted_source_statement_subject(request: Request) -> str:
+    world_id = getattr(request.state, "hosted_route_world_id", None)
+    selectors = request.query_params.multi_items()
+    if (not world_id or len(selectors) != 2
+            or {key for key, _ in selectors} != {"campaign_id", "revision_id"}
+            or any(not value.strip() for _, value in selectors) or await request.body()):
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_native_graph_world = world.world_id
+    return world.world_id
