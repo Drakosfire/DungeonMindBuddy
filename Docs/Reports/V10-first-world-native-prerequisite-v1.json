@@ -142,7 +142,7 @@
     }
   ],
   "closed_inventory": {
-    "status": "IMPLEMENTED_AWAITING_EXACT_HEAD_QUALIFICATION",
+    "status": "V10_C1_CLOSED_EFFECT_INVENTORY_ACCEPTED",
     "outcome": "Immutable complete effect accounting with typed unsupported blockers, or a non-publishing audit packet after exact zero-effect consistency checks. No executable operations or publication authority.",
     "implementation_lease": "b771c7b65708884410ef1b241fad9ef6480ccd97",
     "focused_module": "tests/test_first_world_typed_evidence.py",
@@ -154,10 +154,7 @@
     "lint": "Scoped Ruff passes for both new modules and affected existing test module",
     "inventory": "Canonical inventory passes; existing classified test module explicitly invoked, not claimed selected by unrelated named contract",
     "review_repair": "Reconcile node map, outcomes, deferred IDs and mentions against decisions; forbid shared assertions before non-publishing classification. Require rejected effects and unique deferred IDs/mentions; duplicate or missing accounting fails closed.",
-    "qualification_pending": [
-      "Unmodified exact-head frontend/canonical verification",
-      "Independent cumulative final-head review"
-    ],
+    "qualification_pending": [],
     "current_main_checked": "59b419cdccac6bae5670be84e319d32d2aad22cc",
     "newer_main_changes": "Independent UI fixture/handoff work only; no backend source delta adopted.",
     "native_writer_complete": false,
@@ -168,6 +165,22 @@
       "build_passed": true,
       "cleanup_complete": true,
       "final_head_requalification_required": true
-    }
+    },
+    "accepted_code_head": "cdc99d53c81b1c8e51e294f0ef533a9b3f4fcf62",
+    "review_id": 5973079737,
+    "exact_head_frontend": {
+      "head": "cdc99d53c81b1c8e51e294f0ef533a9b3f4fcf62",
+      "passed": 1411,
+      "build_passed": true,
+      "canonical_receipt_validated": true,
+      "cleanup_complete": true,
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v10-first-world-native/inventory-final/first-world-inventory-final-hosted-cdc99d53-attempt1/evidence.json",
+      "sha256": "04b117bae5252ac9e21264ea99bc9060965d9f588c915484347d1975df82b66e"
+    },
+    "automatic_checks": {
+      "Rules-only runtime regression": "success",
+      "Test classification inventory": "success"
+    },
+    "sealing_delta": "Documentation acceptance only; code/tests unchanged from accepted_code_head. Final merge head still requires its own frontend canonical qualification."
   }
 }

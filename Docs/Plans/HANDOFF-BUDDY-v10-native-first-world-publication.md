@@ -1,6 +1,6 @@
 # BUDDY — V10.C1 first-World native effect/compiler contract
 
-Status: ACTIVE — C1 closed inventory implementation, not accepted or deployed.
+Status: COMPLETE — V10.C1 closed inventory accepted; native publication and deployment remain incomplete.
 Owner/designer: Elderwyld completion lane, explicit operator implementation/review/
 merge/launch authority. Existing isolated checkout, branch
 codex/v10-native-first-world-publication. Serial actual parent
@@ -274,3 +274,23 @@ conflicting same-ID mentions fail closed. All39 affected tests pass. The earlier
 6a283cb72 exact-head hosted verifier passed1411 selected tests, production build
 and cleanup; the repaired final head must receive its own qualification. No serving
 or publication change is inferred from those frontend checks.
+
+
+## C1 acceptance seal and next question
+
+Accepted implementation headcdc99d53c81b1c8e51e294f0ef533a9b3f4fcf62,
+independent cumulative review recorded as5973079737 on PR4087. Exact-head affected
+module39 passed, scoped Ruff/canonical inventory passed, hosted frontend1411 passed,
+production build and canonical receipt validation passed, verifier cleanup/source
+cleanliness verified. Automatic rules-only regression and classification inventory
+checks passed. This sealing delta changes documentation only; final merge-head
+frontend qualification remains required and is recorded on the PR/external receipt.
+
+Disposition: V10_C1_CLOSED_EFFECT_INVENTORY_ACCEPTED. Complete means this inventory
+slice only. The generic prospective alias target, explicit summary disposition,
+native source/metadata mapping and integrated publication remain unimplemented.
+Next primary question: can generic prospective entity creation and evidence-bearing
+alias identity be published atomically without predicting a durable ID? Trace the
+current Core/WK contracts, add only the demonstrated generic prerequisite in its
+own reviewed slice, then resume the integrated first-World writer. Do not retire
+managed classic projection or claim an Elderwyld latency improvement from C1.
