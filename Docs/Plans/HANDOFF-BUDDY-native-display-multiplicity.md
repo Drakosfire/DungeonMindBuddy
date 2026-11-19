@@ -80,3 +80,22 @@ Retain unique refs, failure/proof receipts and owned restored state for resumed
 qualification; cleanup only after explicit scoped authorization plus active
 process/mount/connection, dirty-worktree and unique-data/commit checks. No manual
 removal or standing deletion permission. Settle actual acceptance in its consumer.
+
+## Exact-source verification prerequisite amendment
+
+The frozen repair base includes already accepted APP0168, which adds two empty lore
+receipt tables. The earlier qualification restore is at0167. To verify this repair
+against the retained actual-data failure, explicitly upgrade ONLY the recorded
+owned APP restore codex_v9_app_2ed3662f84 on32903 to accepted0168 and verify the
+new tables empty and the current native binding unchanged. This is fixture
+preparation, not schema authoring or production migration. No live source or
+other database may be upgraded. Do not bypass strict schema checks or downgrade
+state. Candidate API startup for the repair uses its own exact frozen ref and
+normal binding/auth. Stop it after the proof; #4041 resumes only after merge and
+must re-pin both baseline/forward to the accepted schema-compatible composition.
+
+Initial owning cohort:73 passed; old strict ambiguity tests preserved. Scoped lint
+also required three mechanical existing-file corrections (two late imports moved
+to the import block and a fixture lambda changed to def). These do not alter the
+presentation policy, cache ownership or authorization. Qualify the final exact
+head after these changes and independent cumulative review.
