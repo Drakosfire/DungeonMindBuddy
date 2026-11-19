@@ -101,7 +101,7 @@ def _insert(conn,receipt):
         (receipt.operation_id,receipt.world_id,receipt.encounter_id,receipt.created_at,Jsonb(receipt.model_dump(mode='json',by_alias=True))))
 
 
-def cancel(*,world_id,encounter_id,request:AdoptMechanicsRequest,scope=None):
+def cancel(*,world_id,encounter_id,request:AdoptMechanicsRequest,scope=None,authorize=None):
     with unit_of_work(_dsn()) as conn:
         from application_state.combat_encounters.access import guard
         guard(conn, world_id=world_id, encounter_id=encounter_id, scope=scope)
@@ -113,6 +113,8 @@ def cancel(*,world_id,encounter_id,request:AdoptMechanicsRequest,scope=None):
         receipt=AdoptionReceipt(operation_id=request.operation_id,world_id=world_id,encounter_id=encounter_id,
             request_digest=intent_digest(world_id,encounter_id,request),state='canceled',source=request.locator,
             expected_revision=request.expected_revision,committed_revision=None,transitions=[],created_at=datetime.now(UTC))
+        if authorize is not None:
+            authorize()
         _insert(conn,receipt);return _outcome(conn,receipt)
 
 
@@ -210,7 +212,7 @@ def _replace(conn,world_id,record,request,snapshot,origin):
     return updated,transitions
 
 
-def apply_verified(*,world_id,encounter_id,request,snapshot,origin,scope=None):
+def apply_verified(*,world_id,encounter_id,request,snapshot,origin,scope=None,authorize=None):
     with unit_of_work(_dsn()) as conn:
         from application_state.combat_encounters.access import guard
         owned_run=guard(conn, world_id=world_id, encounter_id=encounter_id, scope=scope)
@@ -226,6 +228,8 @@ def apply_verified(*,world_id,encounter_id,request,snapshot,origin,scope=None):
         if request.draft_id!=snapshot.draft_id or request.locator!=snapshot.locator:
             raise ApplicationStateIntegrityError('Verified mechanics differ from the selected version')
         draft,transitions=_replace(conn,world_id,before,request,snapshot,origin)
+        if authorize is not None:
+            authorize()
         saved=repo.cas_replace_draft(conn,world_id=world_id,encounter_id=before.encounter_id,expected_revision=request.expected_revision,
             draft=draft.model_dump(mode='json',by_alias=True),updated_at=datetime.now(UTC))
         if saved is None:raise ApplicationStateConflictError('Encounter changed; reload and preview adoption again')

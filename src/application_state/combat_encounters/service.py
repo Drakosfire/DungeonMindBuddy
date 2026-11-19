@@ -129,6 +129,7 @@ def save_encounter(
     verified_world_identities: dict[str, CombatWorldIdentity] | None = None,
     verified_mechanics_snapshots: dict | None = None,
     scope=None,
+    authorize=None,
 ) -> AnyCombatRecord:
     canonical_world_id = _world_id(world_id)
     canonical_encounter_id = _encounter_id(encounter_id)
@@ -193,6 +194,8 @@ def save_encounter(
                     raise ApplicationStateValidationError("World identity alone supplies no statblock mechanics")
         from application_state.world_mechanics.service import verify_current_slots
         verify_current_slots(conn, world_id=canonical_world_id, snapshots=new_snapshots)
+        if authorize is not None:
+            authorize()
         saved = repo.cas_replace_draft(
             conn,
             encounter_id=canonical_encounter_id,

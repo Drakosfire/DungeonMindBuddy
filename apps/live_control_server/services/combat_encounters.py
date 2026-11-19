@@ -49,7 +49,7 @@ def get_world_combat_encounter(
 
 
 def save_world_combat_encounter(
-    *, world_id: str, encounter_id: str, request: AnySaveEncounterRequest, scope=None
+    *, world_id: str, encounter_id: str, request: AnySaveEncounterRequest, scope=None, authorize=None
 ) -> AnyCombatRecord:
     before = get_world_combat_encounter(world_id=world_id, encounter_id=encounter_id, scope=scope)
     if before.revision != request.expected_revision:
@@ -136,6 +136,7 @@ def save_world_combat_encounter(
             world_id=world_id, encounter_id=encounter_id,
             request=type(request)(expected_revision=request.expected_revision, draft=verified_draft),
             verified_world_identities=verified, verified_mechanics_snapshots=verified_snapshots, scope=scope,
+            **({"authorize": authorize} if authorize is not None else {}),
         )
 
 

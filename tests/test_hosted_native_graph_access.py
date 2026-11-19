@@ -333,6 +333,9 @@ def hosted(monkeypatch, request):
     from apps.live_control_server.routes import combat_scene_templates
 
     app.include_router(combat_scene_templates.router)
+    from apps.live_control_server.routes import combat_run_encounters
+
+    app.include_router(combat_run_encounters.router)
     app.include_router(play_runs.router)
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
@@ -464,6 +467,17 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/combat/scene-templates/operations/{operation_id}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/combat/scene-templates/{document_id}/scenes/{scene_id}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/combat/scene-templates/{document_id}/scenes/{scene_id}/versions/{revision}"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}"): access.resolve_hosted_combat_encounter,
+            ("GET", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}/preview"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}/cancel"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}/inspect"): access.resolve_hosted_combat_encounter,
+            ("GET", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}/encounters/{encounter_id}"): access.resolve_hosted_combat_encounter,
+            ("PUT", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}/encounters/{encounter_id}"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}/encounters/{encounter_id}/mechanics-adoptions"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}/encounters/{encounter_id}/mechanics-adoptions:cancel"): access.resolve_hosted_combat_encounter,
+            ("GET", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}/encounters/{encounter_id}/mechanics-adoptions/{operation_id}"): access.resolve_hosted_combat_encounter,
+            ("GET", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}/encounters/{encounter_id}/mechanics-adoptions"): access.resolve_hosted_combat_encounter,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/rebase"): access.resolve_hosted_play_command,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): access.resolve_hosted_play_command,
@@ -5935,3 +5949,32 @@ def test_hosted_scene_template_command_requires_world_owner_and_origin(hosted, m
     assert response.status_code == 200, response.text
     assert cancel.call_args.kwargs["world_id"] == "managed"
     assert cancel.call_args.kwargs["request"].pin.scene_id == "scene:gate"
+
+
+def test_hosted_run_encounter_read_binds_exact_world_run_and_scene(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import combat_run_encounters
+
+    monkeypatch.setattr(combat_run_encounters, "_verified_world", lambda world: world)
+    read = Mock(return_value=None)
+    monkeypatch.setattr(combat_run_encounters.sessions, "read_encounter", read)
+    run_id = uuid4()
+    path = f"/api/live/combat/run-encounters/{run_id}/scenes/scene%3Agate?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    assert hosted.client.request("POST", path, origin="https://outside.example", json={}).status_code == 403
+    read.assert_not_called()
+    assert hosted.client.request("GET", path).status_code == 200
+    read.assert_called_once_with(world_id="managed", run_id=run_id, scene_id="scene:gate")
+
+    def transfer_during_read(**_kwargs):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"record": "withheld encounter"}
+
+    monkeypatch.setattr(combat_run_encounters.sessions, "read_encounter", transfer_during_read)
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 403, denied.text
+    assert "withheld encounter" not in denied.text
