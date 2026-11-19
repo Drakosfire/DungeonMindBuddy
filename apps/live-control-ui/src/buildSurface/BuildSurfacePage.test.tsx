@@ -701,6 +701,8 @@ describe("BuildSurfacePage", () => {
       });
       renderBuildPage();
       await waitFor(() => expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Pointer source"));
+      await waitFor(() => expectBuildSaveState("saved"));
+      expect(liveApi.getCommittedPageSnapshot).toHaveBeenLastCalledWith(DOC_ID);
       expect(screen.queryByTestId("build-graph-object-context")).not.toBeInTheDocument();
       expect(completeObject).not.toHaveBeenCalled();
       expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
