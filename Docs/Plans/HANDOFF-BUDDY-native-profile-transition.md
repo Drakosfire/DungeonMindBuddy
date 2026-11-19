@@ -1,6 +1,6 @@
 # Explicit native profile2/3 ->4 transition
 
-ACTIVE. MIND adopts explicit user full-lane implementation authority after4154
+COMPLETE for the original exact2/3->4 API. MIND adopts explicit user full-lane implementation authority after4154
 merged01ee3cf7de8546bb9071f2ef77b78cbb336fd7d4, exact fetched base. Branch
 codex/v10-native-profile-transition in existing Buddy task checkout. Parent owns
 broad qualification/independent Hubble review/merge. Serial API-only capability.
@@ -103,3 +103,21 @@ Inventory one new domain-integration entry PASS; diffcheckPASS. Final source has
 and recipe in qualification.json. These are worker scoped diagnostics, not broader
 contracts/CI or fullgoal acceptance. Parent exact-head broad qual/Hubble/merge next.
 No active worker runners/source edits after freeze; installeda685/WKef9 unchanged.
+
+
+## Accepted original slice and bounded successor
+
+PR4168 merged663718879553dc535df8b94a62c4a3b4ab0da5ec from exact reviewed
+4b4fa47f4650a08d124050c9a98a005d756ca2e0. Independent Cycle2 accepted,
+review5985086575; three exact-head CI checks passed. Postcommit owning/hosted/
+FirstWorld50 and auth315 passed. Earlier broad native383/cache411 ran on
+f19d0103bc72f6908eb597f234fddb3ab84f164c, not the final ASCII-token repair.
+Do not promote those older runs to new-head execution or full-release acceptance.
+
+The successor [profile1 compatibility handoff](HANDOFF-BUDDY-profile-one-manual-transition.md)
+adds exact accepted1 to the same explicit API. The original2/3 acceptance above
+is unchanged. Active FirstWorld can retain profile1 without custom predicates;
+its manual-authoring enablement must not require provisioning or a fake
+intermediate transition. No automatic World upgrade, serving change, source
+admission, default or dependency change follows. Manual publication, UI, route
+retirement, deployment/rollback and V11 remain open under the active full goal.

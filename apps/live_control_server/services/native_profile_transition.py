@@ -109,7 +109,7 @@ def _descriptors(request):
         domain_ref=request.domain_contract_ref, profile_ref=request.from_profile_ref
     )
     _require(
-        current.profile_revision in {"2", "3"},
+        current.profile_revision in {"1", "2", "3"},
         "profile_transition_from_profile_unsupported",
     )
     return domain, current, target

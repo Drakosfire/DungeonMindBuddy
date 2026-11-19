@@ -60,3 +60,19 @@ No removal/reclaimed bytes. Cleanup follow-up requires explicit approved scope,
 process/mount/dirty-worktree/unique-commit and unique-data checks. Manual API/UI,
 route retirement, compatible primary/fallback rollout, rollback and V11 remain
 unfinished; this slice cannot complete the goal. Elderwyld remains profile2.
+
+## Implementation checkpoint — awaiting exact-head acceptance
+
+The only runtime delta adds exact accepted profile1 to the existing closed1/2/3
+from-profile set. Full installed-descriptor resolution, target4/domain2 checks,
+original signed intent, authorization, CAS and immutable recovery remain shared.
+The old deliberate1-refusal test is replaced by1 success in the same payload/
+origin/event/descendant/expired read-only recovery proof used for2/3. SQL rollback
+and lost-ack/replay now exercise1 and3. Unauthorized-before-IO, late binding denial
+and declaration-drift refusal also exercise1. No implicit upgrade is introduced.
+
+Working-source owning diagnostic54 passed/1 existing Pydantic schema warning in
+19.24s, including two FirstWorld controls, on installed Corea685/WKef9 and owned
+32903 disposable DBs. This is not yet independent review, CI or exact committed
+head acceptance. All evidence is retained under the named task scratch; no
+serving/live data/config/provider changes or frozen benchmark rerun occurred.

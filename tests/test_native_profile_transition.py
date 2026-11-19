@@ -220,7 +220,7 @@ def descendant(case):
     )
 
 
-@pytest.mark.parametrize("transition_case", ["2", "3"], indirect=True)
+@pytest.mark.parametrize("transition_case", ["1", "2", "3"], indirect=True)
 def test_explicit_transition_unchanged_payload_one_event_and_readonly_expired_recovery(
     transition_case, monkeypatch
 ):
@@ -310,14 +310,6 @@ def test_signature_tamper_zero_mutation(transition_case, field):
     assert state(c) == before
 
 
-@pytest.mark.parametrize("transition_case", ["1"], indirect=True)
-def test_profile_one_refused(transition_case):
-    c = transition_case
-    before = state(c)
-    r = c.client.post(PATH + "/prepare", json=c.body)
-    assert r.status_code == 409 and state(c) == before
-
-
 @pytest.mark.parametrize("failure", ["expired", "already4", "head", "binding"])
 def test_fresh_commit_refusals_zero_mutation(transition_case, failure):
     c = transition_case
@@ -345,6 +337,7 @@ def test_fresh_commit_refusals_zero_mutation(transition_case, failure):
     assert state(c) == before
 
 
+@pytest.mark.parametrize("transition_case", ["1", "2"], indirect=True)
 def test_auth_before_core_io(transition_case, monkeypatch):
     c = transition_case
     monkeypatch.setattr(
@@ -357,6 +350,7 @@ def test_auth_before_core_io(transition_case, monkeypatch):
         assert r.status_code == 401
 
 
+@pytest.mark.parametrize("transition_case", ["1", "2"], indirect=True)
 def test_late_binding_denial_is_not_unknown(transition_case, monkeypatch):
     c = transition_case
     packet = prepare(c)
@@ -480,7 +474,7 @@ def test_signed_original_authority_commitments_checked(transition_case, mutation
 
 
 @pytest.fixture
-def sql_case(application_state_dsn, monkeypatch):
+def sql_case(application_state_dsn, monkeypatch, request):
     from tests.test_native_recap_source_admission import native_core_dsn
     from dungeonmind.infrastructure.postgres import (
         PostgresDatabase,
@@ -498,7 +492,9 @@ def sql_case(application_state_dsn, monkeypatch):
             lambda: repo,
         )
         case = transition_case.__wrapped__(
-            application_state_dsn, monkeypatch, SimpleNamespace(param="3")
+            application_state_dsn,
+            monkeypatch,
+            SimpleNamespace(param=getattr(request, "param", "3")),
         )
         case.dsn = dsn
         yield case
@@ -528,6 +524,7 @@ def sql_counts(c):
         }
 
 
+@pytest.mark.parametrize("sql_case", ["1", "3"], indirect=True)
 def test_sql_atomic_rollback_then_exact_recovery(sql_case, monkeypatch):
     c = sql_case
     before = sql_counts(c)
@@ -573,6 +570,7 @@ def test_sql_atomic_rollback_then_exact_recovery(sql_case, monkeypatch):
     )
 
 
+@pytest.mark.parametrize("sql_case", ["1", "3"], indirect=True)
 def test_sql_lost_ack_verifies_original_child(sql_case, monkeypatch):
     c = sql_case
     packet = prepare(c)
@@ -826,6 +824,7 @@ def test_nonnull_origin_and_post4_observation_precedence_reads(transition_case):
     assert set(context.admit_candidates(ids).admitted_assertion_ids) == set(ids)
 
 
+@pytest.mark.parametrize("transition_case", ["1", "2"], indirect=True)
 def test_accepted_target_declaration_drift_refused(transition_case, monkeypatch):
     from graph_memory.vnext import domain_runtime
 
