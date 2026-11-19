@@ -20,7 +20,7 @@ import type {
   FirstWorldGraphPrepareRequest,
 } from "./types";
 
-import { authenticatedApiFetch } from "./liveApi";
+import { authenticatedApiFetch, usesLoopbackLiveApi } from "./liveApi";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
 
@@ -110,8 +110,10 @@ export async function correctRecapRunEvidence(input: {
   parentCandidateSha256: string;
   corrections: ExactRunEvidenceQuoteCorrection[];
 }, worldId?: string): Promise<RecapEvidenceCorrectionResponse> {
+  const query = worldId && !usesLoopbackLiveApi()
+    ? `?managed_world_id=${encodeURIComponent(worldId)}` : "";
   const { response } = await authenticatedApiFetch(
-    `/api/live/extract-promote/runs/${encodeURIComponent(input.parentRunId)}/recap-evidence-corrections${worldId ? `?managed_world_id=${encodeURIComponent(worldId)}` : ""}`,
+    `/api/live/extract-promote/runs/${encodeURIComponent(input.parentRunId)}/recap-evidence-corrections${query}`,
     { method: "POST", body: JSON.stringify({ schema: "dmb_exact_run_evidence_correction_request_v1", ...input }) },
   );
   if (!response.ok) {
