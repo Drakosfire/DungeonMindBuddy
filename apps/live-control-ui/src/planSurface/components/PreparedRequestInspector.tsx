@@ -52,8 +52,7 @@ export function PreparedRequestInspector({ payloadJson, previousPayloadJson }: {
     if (before && after && JSON.stringify(before.value) === JSON.stringify(after.value)) return []
     return [{ pointer, before, after, kind: !before ? 'Added' : !after ? 'Removed' : 'Changed' }]
   }) : []
-  return <details className="buddy-prompt buddy-prompt__disclosure">
-    <summary>Model request preparation</summary>
+  return <div className="buddy-prompt">
     <p>Input message numbers and roles belong to this model request, not separate chat turns. Readable view decodes JSON message content; Exact JSON bytes preserves the captured request.</p>
     <div className="buddy-prompt__toolbar"><button type="button" onClick={() => setSelected(null)}>Show full request</button>
       <label><input type="checkbox" checked={raw} onChange={event => setRaw(event.target.checked)} /> Exact JSON bytes</label></div>
@@ -74,5 +73,5 @@ export function PreparedRequestInspector({ payloadJson, previousPayloadJson }: {
         {change.after && <div className="buddy-prompt__added"><h6>Now</h6><pre>{format(change.after.value, raw)}</pre></div>}
       </details>)}
     </details>}
-  </details>
+  </div>
 }

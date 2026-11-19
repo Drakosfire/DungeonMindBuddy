@@ -43,18 +43,13 @@ it.each(['Normal prose','42','true','null'])('keeps non-object message content a
  expect(JSON.parse(screen.getByLabelText('Captured request').querySelector('pre')!.textContent!).input[0].content).toBe(content);
 });
 
-it('groups the ordered Luna prompt, configuration and field diagnostics under one preparation row', () => {
+it('shows the ordered Luna prompt and configuration with collapsed field diagnostics', () => {
   const input = [{ role: 'user', content: 'First' }, { role: 'user', content: 'Second' }];
   const payload = { model: 'gpt-6-luna', instructions: 'Ground the answer', input, reasoning: { effort: 'low' }, service_tier: 'priority', stream: true };
   render(<PreparedRequestInspector payloadJson={JSON.stringify(payload)} previousPayloadJson='{"model":"decision"}' />);
-  const preparation = screen.getByText('Model request preparation').closest('details')!;
-  expect(preparation).not.toHaveAttribute('open');
-  fireEvent.click(screen.getByText('Model request preparation'));
-  expect(preparation).toHaveAttribute('open');
-  const request = preparation.querySelector('[aria-label="Captured request"] pre')!;
+  const request = screen.getByLabelText('Captured request').querySelector('pre')!;
   expect(JSON.parse(request.textContent!)).toEqual(payload);
   const changes = screen.getByLabelText('Changes since previous model call');
-  expect(preparation).toContainElement(changes);
   expect(changes).not.toHaveAttribute('open');
   fireEvent.click(screen.getByText('Changes since previous captured call'));
   expect(changes).toHaveAttribute('open');
