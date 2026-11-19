@@ -660,6 +660,7 @@ def _commit_plan_postgres(
     request: TiptapMarkdownWriteCommitRequest,
     write_mode: WriteMode,
     authorize_runbook_world=None,
+    authorize_plan_world=None,
 ) -> TiptapMarkdownWriteCommitResponse | None:
     from application_state.content.service import (
         commit_plan,
@@ -689,6 +690,8 @@ def _commit_plan_postgres(
         return None
     if authorize_runbook_world is not None and obj.kind != "runbook":
         raise TiptapMarkdownWriteConflictError("The authorized Runbook is no longer available")
+    if authorize_plan_world is not None and obj.kind != "plan":
+        raise TiptapMarkdownWriteConflictError("The authorized Plan is no longer available")
     _require_requested_world_scope(obj, request.world_id)
     if write_mode == "source_import":
         raise TiptapMarkdownWriteError(
@@ -731,6 +734,8 @@ def _commit_plan_postgres(
         if obj.kind == "plan":
             commit_kwargs["expected_world_id"] = request.world_id
             commit_kwargs["title"] = request.title
+            if authorize_plan_world is not None:
+                commit_kwargs["authorize_world"] = authorize_plan_world
         elif authorize_runbook_world is not None:
             commit_kwargs["authorize_world"] = authorize_runbook_world
         committed, revision = commit(request.document_id, content, **commit_kwargs)
@@ -820,7 +825,7 @@ def commit_tiptap_markdown_write(
         raise _map_registry_error(
             WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
         ) from exc
-    if authorize_world is not None:
+    if authorize_world is not None and request.world_id is None:
         raise TiptapMarkdownWriteConflictError("The authorized Page is no longer available")
     if "page_presentation" in request.model_fields_set:
         raise TiptapMarkdownWriteError(
@@ -828,6 +833,7 @@ def commit_tiptap_markdown_write(
         )
     result = _commit_plan_postgres(
         request=request, write_mode=write_mode, authorize_runbook_world=authorize_runbook_world,
+        authorize_plan_world=authorize_world,
     )
     if result is None:
         error = TiptapMarkdownWriteError("workspace document not found")

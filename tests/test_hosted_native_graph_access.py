@@ -2564,7 +2564,8 @@ def test_hosted_plan_inventory_reopens_an_exact_owned_plan(hosted, application_s
         assert hosted.client.request("GET", path).status_code == 403
 
 
-def test_hosted_owner_saves_exact_world_plan(hosted, application_state_dsn, tmp_path):
+@pytest.mark.parametrize("with_artwork", [False, True])
+def test_hosted_owner_saves_exact_world_plan(hosted, application_state_dsn, tmp_path, monkeypatch, with_artwork):
     from apps.live_control_server.services.workspace_document_registry import create_world_owned_plan_v2
 
     plan = create_world_owned_plan_v2(tmp_path, world_id="managed", title="Before")
@@ -2578,6 +2579,14 @@ def test_hosted_owner_saves_exact_world_plan(hosted, application_state_dsn, tmp_
         "markdown": "# After\n\nA saved Plan.\n",
         "expected_revision": plan.revision,
     }
+    if with_artwork:
+        from tests.integration.test_build_images_postgres import saved_image
+
+        artwork = saved_image(access.hosted_world_media_owner("managed"))
+        foreign = saved_image(access.hosted_world_media_owner("foreign"))
+        body["markdown"] += f"\n![Plan map](dmb-media:{artwork['asset_id']})\n"
+        foreign_body = {**body, "markdown": f"![Foreign map](dmb-media:{foreign['asset_id']})"}
+        assert hosted.client.request("POST", f"{editor}/prepare", json=foreign_body).status_code == 422
     assert hosted.client.request("POST", f"{editor}/prepare", json=body, session="other-session").status_code == 403
     assert hosted.client.request("POST", f"{editor}/prepare", json={**body, "world_id": "foreign"}).status_code == 403
     prepared = hosted.client.request("POST", f"{editor}/prepare", json=body)
@@ -2589,6 +2598,29 @@ def test_hosted_owner_saves_exact_world_plan(hosted, application_state_dsn, tmp_
         "writer_confirm_token": prepared.json()["writer_confirm_token"],
     }
     assert hosted.client.request("POST", f"{editor}/commit", json=commit, session="other-session").status_code == 403
+    if with_artwork:
+        from fastapi import HTTPException
+        from apps.live_control_server.services import tiptap_markdown_write
+
+        snapshot_path = f"/api/live/workspace-documents/{plan.document_id}/snapshot"
+        before = hosted.client.request("GET", snapshot_path)
+        assert before.status_code == 200
+        validate_media = tiptap_markdown_write.validate_saved_media_references
+        with monkeypatch.context() as patch:
+            def transfer_during_validation(markdown, owner):
+                validate_media(markdown, owner)
+
+                def reject_previous_owner(*_):
+                    raise HTTPException(403, detail="World ownership changed")
+
+                patch.setattr(access, "_owned_world", reject_previous_owner)
+
+            patch.setattr(tiptap_markdown_write, "validate_saved_media_references", transfer_during_validation)
+            assert hosted.client.request("POST", f"{editor}/commit", json=commit).status_code == 403
+        unchanged = hosted.client.request("GET", snapshot_path)
+        assert unchanged.status_code == 200
+        assert unchanged.json()["loaded_revision"] == before.json()["loaded_revision"]
+        assert unchanged.json()["markdown"] == before.json()["markdown"]
     saved = hosted.client.request("POST", f"{editor}/commit", json=commit)
     assert saved.status_code == 200, saved.text
     snapshot = hosted.client.request("GET", f"/api/live/workspace-documents/{plan.document_id}/snapshot")
@@ -2605,6 +2637,32 @@ def test_hosted_owner_saves_exact_world_plan(hosted, application_state_dsn, tmp_
     assert committed.headers["cache-control"] == "no-store"
     assert hosted.client.request("GET", path, session="other-session").status_code == 403
     assert hosted.client.request("GET", path + "?world_id=managed").status_code == 403
+
+    if with_artwork:
+        from application_state.content import service as content_service
+
+        title_only = {**body, "title": "Renamed", "expected_revision": snapshot.json()["loaded_revision"]}
+        prepared_title = hosted.client.request("POST", f"{editor}/prepare", json=title_only)
+        assert prepared_title.status_code == 200, prepared_title.text
+        commit_title = {
+            **title_only,
+            "schema_version": "dmb_tiptap_markdown_write_commit_v2",
+            "writer_confirm_token": prepared_title.json()["writer_confirm_token"],
+        }
+        read_revision = content_service.repo.get_work_revision
+        with monkeypatch.context() as patch:
+            def transfer_after_read(*args, **kwargs):
+                revision = read_revision(*args, **kwargs)
+
+                def reject_previous_owner(*_):
+                    raise HTTPException(403, detail="World ownership changed")
+
+                patch.setattr(access, "_owned_world", reject_previous_owner)
+                return revision
+
+            patch.setattr(content_service.repo, "get_work_revision", transfer_after_read)
+            assert hosted.client.request("POST", f"{editor}/commit", json=commit_title).status_code == 403
+        assert hosted.client.request("GET", snapshot_path).json()["record"]["title"] == "After"
 
 
 def test_hosted_owner_creates_lists_and_reopens_plan(hosted, application_state_dsn):

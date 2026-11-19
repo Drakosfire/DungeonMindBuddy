@@ -777,17 +777,26 @@ def post_statblock_workbench_draft_retrieval_verify(
     return response.model_dump(mode="json")
 
 
+def _require_markdown_media_world(request: Request, world_id: str, plan_world: str | None) -> None:
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        require_hosted_build_page_world, require_hosted_plan_world_context,
+    )
+
+    require_hosted_build_page_world(request, world_id)
+    if plan_world is not None:
+        require_hosted_plan_world_context(request, world_id)
+
+
 def _markdown_media_world(request: Request, markdown: str, plan_world: str | None) -> str | None:
     if not has_saved_media_references(markdown):
         return None
     from apps.live_control_server.services import hosted_auth
-    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_page_world
 
     if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
         world_id = getattr(request.state, "hosted_build_page_world", None)
-        if world_id is None or plan_world is not None:
-            raise HTTPException(403, detail="Saved artwork requires a verified Build page.")
-        require_hosted_build_page_world(request, world_id)
+        if world_id is None:
+            raise HTTPException(403, detail="Saved artwork requires a verified World.")
+        _require_markdown_media_world(request, world_id, plan_world)
         return world_id
     enforce_native_graph_gm(request)
     return None
@@ -806,7 +815,7 @@ def post_tiptap_markdown_write_prepare(
         require_hosted_plan_world_context(request, body.world_id)
     try:
         from apps.live_control_server.services.hosted_native_graph_access import (
-            hosted_world_media_owner, require_hosted_build_page_world,
+            hosted_world_media_owner,
         )
 
         world_id = _markdown_media_world(request, body.markdown, body.world_id)
@@ -815,7 +824,7 @@ def post_tiptap_markdown_write_prepare(
             media_owner=hosted_world_media_owner(world_id) if world_id else "local_operator",
         )
         if world_id:
-            require_hosted_build_page_world(request, world_id)
+            _require_markdown_media_world(request, world_id, body.world_id)
     except TiptapMarkdownWriteError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
@@ -834,7 +843,7 @@ def post_tiptap_markdown_write_commit(
         require_hosted_plan_world_context(request, body.world_id)
     try:
         from apps.live_control_server.services.hosted_native_graph_access import (
-            hosted_world_media_owner, require_hosted_build_page_world,
+            hosted_world_media_owner,
         )
 
         world_id = _markdown_media_world(request, body.markdown, body.world_id)
@@ -842,11 +851,11 @@ def post_tiptap_markdown_write_commit(
             root=repo_root(), request=body,
             media_owner=hosted_world_media_owner(world_id) if world_id else "local_operator",
             authorize_world=(
-                lambda locked_world: require_hosted_build_page_world(request, locked_world)
+                lambda locked_world: _require_markdown_media_world(request, locked_world, body.world_id)
             ) if world_id else None,
         )
         if world_id:
-            require_hosted_build_page_world(request, world_id)
+            _require_markdown_media_world(request, world_id, body.world_id)
     except TiptapMarkdownWriteError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
