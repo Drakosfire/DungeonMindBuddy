@@ -709,7 +709,7 @@ def _ordinary_native_case(
         native_binding=ManagedWorldSourceIdentity(world,world,1,None)
         bound=asdict(native_binding);bound.pop('provisioning_id')
         monkeypatch.setattr(native,'binding',lambda identity:dict(bound) if identity==world else pytest.fail('Foreign native binding'))
-        monkeypatch.setattr(native,'repository',lambda:lane.repo)
+        monkeypatch.setattr(native,'repository',lambda *, verification_cache=None:lane.repo)
         monkeypatch.setattr(native,'read_repository',lambda:lane.repo)
         monkeypatch.setattr(admission,'_repository',lambda:lane.repo)
         monkeypatch.setattr(admission,'_source_world_binding',lambda root,identity:native_binding if identity==world else pytest.fail('Foreign source binding'))
