@@ -843,6 +843,28 @@ def require_hosted_exact_review_package(
     _recheck_hosted_exact_extraction_world(request, world_id, recap_binding)
 
 
+async def resolve_hosted_recap_selection(request: Request) -> str:
+    from apps.live_control_server.models.ingest_selection_context import IngestSelectionContextRequest
+
+    if request.query_params:
+        raise _denied()
+    selection = IngestSelectionContextRequest.model_validate(await request.json())
+    if not selection.expected_world_id:
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), selection.expected_world_id)
+    request.state.hosted_saved_recap_world = world.world_id
+    return world.world_id
+
+
+def recap_selection_subject(request: Request, world_id: str | None) -> str:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return enforce_native_graph_gm(request).subject
+    if not world_id:
+        raise _denied()
+    require_saved_recap_access(request, world_id)
+    return f"hosted_dms:{_hosted_subject(request)}"
+
+
 async def resolve_hosted_build_extraction(request: Request) -> str:
     subject = _hosted_subject(request)
     if request.method == "POST":
