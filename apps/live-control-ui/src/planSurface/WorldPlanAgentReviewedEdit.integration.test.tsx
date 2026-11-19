@@ -12,6 +12,8 @@ import { SelectedWorldProvider, useSelectedWorld } from "../selectedWorld/Select
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { AgentInteractionChrome } from "../agentInteraction/AgentInteractionChrome";
+import { WorldAgentConversation, WorldAgentConversationProvider } from "../agentInteraction/WorldAgentConversation";
+import { setupPlanAuthoringIntegration } from "../test/planAuthoringIntegrationFixture";
 import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
 import { activeThreadStorageKey, threadIndexStorageKey, threadStorageKey } from "../agentInteraction/agentInteractionStorage";
 import { PlanSurfacePage } from "./PlanSurfacePage";
@@ -257,6 +259,17 @@ function IntegrationPage() {
       </AskPluginSlotProvider>
     </AgentInteractionProvider>
   );
+}
+
+function CurrentIntegrationPage() {
+  const selected = useSelectedWorld();
+  if (selected.kind !== "managed") return null;
+  return <AgentInteractionProvider><AskPluginSlotProvider>
+    <WorldAgentConversationProvider worldId={selected.worldId}>
+      <PlanSurfacePage /><AgentInteractionChrome />
+      <WorldAgentConversation surface="plan" worldId={selected.worldId} worldName="Integration World" />
+    </WorldAgentConversationProvider>
+  </AskPluginSlotProvider></AgentInteractionProvider>;
 }
 
 function ThreadSwitchControl() {
@@ -576,157 +589,113 @@ it("keeps a Scene target available when a sibling Option has multiple paragraphs
   } finally { editor.destroy(); }
 });
 
-it.each(liveApplyScenarios)("composes, reviews, applies, saves, and reloads a live %s edit on the mounted editor", async (_label, sourceMarkdown, replacementMarkdown, expectedAppliedText, expectedVisibleSource = sourceMarkdown) => {
-  savedMarkdown = sourceMarkdown;
+it.each(liveApplyScenarios)("stages, reviews, explicitly saves, and reloads a live %s edit on the mounted editor", async (label, sourceMarkdown, replacementMarkdown, expectedAppliedText) => {
   setupWorldApi();
-  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
-    schema_version: "dmb_world_plan_document_edit_proposal_v1",
-    action_id: "00000000-0000-4000-8000-000000000001",
-    idempotency_key: request.idempotency_key,
-    document_id: request.document_id,
-    world_id: request.world_id,
-    base_revision: request.base_revision,
-    base_content_sha256: request.base_content_sha256,
-    draft_sha256: request.draft_sha256,
-    target_kind: request.target_kind,
-    selected_text_sha256: await sha256Hex(request.selected_text),
-    replacement_markdown: replacementMarkdown,
-    summary: "Add a lantern-lit opening beat.",
-    assumptions: ["The lantern is already present at the location."],
-    model: "gpt-6-luna",
-    model_observed: true,
-    model_latency_ms: 1,
-    wall_latency_ms: 1,
-    usage: null,
+  const current = setupPlanAuthoringIntegration(planRecord(), sourceMarkdown, replacementMarkdown);
+  const nativeNavigator = navigator;
+  vi.stubGlobal("navigator", new Proxy(nativeNavigator, {
+    get: (target, key) => key === "locks"
+      ? { request: async (_name: string, work: () => unknown) => work() }
+      : Reflect.get(target, key, target),
   }));
-  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
-    schema_version: "dmb_tiptap_markdown_write_prepare_v2",
-    scope_mode: "world",
-    world_id: worldId,
-    document_id: documentId,
-    title: "Integration Plan",
-    target_relpath: `out/workspace/plan/${documentId}.md`,
-    target_display_path: `out/workspace/plan/${documentId}.md`,
-    registry_revision: 8,
-    file_exists: true,
-    writer_ok: true,
-    writer_confirm_token: "integration-save-token",
-    warnings: [],
-    diagnostics: [],
-  });
-  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async (request) => {
-    savedMarkdown = request.markdown;
-    savedRevision = 8;
-    savedDigest = "c".repeat(64);
-    const committedRecord = { ...planRecord(), revision: savedRevision };
-    return {
-      schema_version: "dmb_tiptap_markdown_write_commit_v2",
-      scope_mode: "world",
-      world_id: worldId,
-      document_id: documentId,
-      title: "Integration Plan",
-      target_relpath: `out/workspace/plan/${documentId}.md`,
-      target_display_path: `out/workspace/plan/${documentId}.md`,
-      registry_revision: savedRevision,
-      committed_revision: savedRevision,
-      committed_record: committedRecord,
-      normalized_content_sha256: savedDigest,
-      writer_ok: true,
-      writer_phase: "commit",
-      diagnostics: [],
-    };
-  });
-
-  const location = `/plan?world=${worldId}&documentId=${documentId}`;
+  const location = "/plan?world=" + worldId + "&documentId=" + documentId;
   window.history.replaceState({}, "", location);
-  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
-  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
-  await waitFor(() => expect(editorSurface).toHaveTextContent(expectedVisibleSource));
-  const proseMirror = editorSurface.querySelector(".ProseMirror") as HTMLElement;
-  const textNode = proseMirror.querySelector("p")?.firstChild as Text;
-  expect(textNode?.textContent).toContain("Opening image:");
-  const range = document.createRange();
-  const firstSentenceEnd = (textNode?.textContent ?? "").indexOf(".") + 1;
-  range.setStart(textNode, firstSentenceEnd);
-  range.collapse(true);
-  const domSelection = window.getSelection();
-  domSelection?.removeAllRanges();
-  domSelection?.addRange(range);
-  fireEvent.mouseUp(proseMirror);
-  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  expect(await screen.findByRole("region", { name: "Saved World Plan conversation" })).toBeInTheDocument();
-  expect(screen.getByText(/Talk through the saved Plan, or choose Propose edit to request a change/)).toBeInTheDocument();
-
-  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
-  fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
-    target: { value: "Add a warm light source to the opening." },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
-  await screen.findByRole("region", { name: "Review proposed Plan edit" }).catch(() => {
-    const alerts = screen.queryAllByRole("alert").map((element) => element.textContent).filter(Boolean).join(" | ");
-    throw new Error(`Section proposal was rejected. Alerts: ${alerts || "none"}`);
-  });
-  const request = proposal.mock.calls[0][0];
-  expect(request).toMatchObject({
-    document_id: documentId,
-    world_id: worldId,
-    base_revision: 7,
-    base_content_sha256: "b".repeat(64),
-    instruction: "Add a warm light source to the opening.",
-  });
-  if (_label === "plain root blockquote") {
-    expect(request.draft_markdown).toContain("> A root-level witness keeps watch from the broken wall.");
-  } else {
-    expect(request.draft_markdown.trimEnd()).toBe(sourceMarkdown);
+  const tree = () => <StrictMode><SelectedWorldProvider locationSnapshot={location}><CurrentIntegrationPage /></SelectedWorldProvider></StrictMode>;
+  let view = render(tree());
+  try {
+    const surface = await screen.findByTestId("world-owned-plan-markdown-editor");
+    const element = surface.querySelector(".ProseMirror") as HTMLElement & { editor: Editor };
+    const editor = element.editor;
+    const firstParagraph = editor.state.doc.firstChild!;
+    expect(firstParagraph.type.name).toBe("paragraph");
+    const originalParagraph = firstParagraph.textContent;
+    const firstSentenceEnd = originalParagraph.indexOf(".") + 1;
+    expect(firstSentenceEnd).toBeGreaterThan(0);
+    const position = 1 + firstSentenceEnd;
+    act(() => editor.commands.setTextSelection(position));
+    const before = editor.getJSON();
+    const beforeText = editor.state.doc.textBetween(0, editor.state.doc.content.size, "");
+    const originalQuotes = before.content?.filter(node => node.type === "blockquote") ?? [];
+    fireEvent.click(await screen.findByRole("button", {name: "Open", exact: true}));
+    const conversation = await screen.findByRole("region", {name: "World conversation"});
+    await waitFor(() => expect(within(conversation).getByRole("region", {name: "World conversation transcript"}))
+      .toHaveAttribute("aria-busy", "false"));
+    const field = within(conversation).getByLabelText("Message DungeonBuddy");
+    fireEvent.change(field, {target: {value: "Add a warm light source to the opening."}});
+    fireEvent.click(within(conversation).getByText(/^(Automatic|Plan change) · Change$/));
+    fireEvent.click(within(conversation).getByRole("button", {name: "Request a Plan change"}));
+    const send = within(conversation).getByRole("button", {name: "Propose edit"});
+    await waitFor(() => expect(send).toBeEnabled());
+    fireEvent.click(send);
+    await waitFor(() => expect(current.post).toHaveBeenCalledTimes(1));
+    const request = current.post.mock.calls[0]![0];
+    const capture = request.plan_authoring_capture!;
+    expect(request.plan_requested_operation).toBe("write_current_page");
+    expect(request.owner_scope).toEqual({kind: "world", world_id: worldId});
+    expect(request.primary_work.object_id).toBe(documentId);
+    expect(capture).toMatchObject({
+      schema: "dmb_plan_authoring_capture_v1", world_id: worldId, document_id: documentId,
+      base_revision: 7, target_kind: "insert_at_caret", selected_text: "", from: position, to: position,
+    });
+    expect(JSON.parse(capture.editor_json)).toEqual(before);
+    expect(capture.draft_markdown).toContain(originalParagraph);
+    expect(request).not.toHaveProperty("session");
+    const suggestion = await screen.findByRole("textbox", {name: "Suggestion text"});
+    expect(suggestion).toHaveTextContent(expectedAppliedText);
+    expect(suggestion.closest("[data-turn-id]")).toBeNull();
+    expect(editor.getJSON()).toEqual(before);
+    expect(current.readSaved().markdown).toBe(sourceMarkdown);
+    expect(current.commands.mock.calls.filter(call => call[2].operation === "confirm")).toHaveLength(0);
+    expect(current.ordinaryPrepare).not.toHaveBeenCalled();
+    expect(current.ordinaryCommit).not.toHaveBeenCalled();
+    expect(current.legacyProposal).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole("region", {name: "Suggestion review"})).getByRole("button", {name: "Save", exact: true}));
+    await waitFor(() => expect(current.readReview()?.state).toBe("applied"));
+    const saved = current.readSaved();
+    expect(saved.record.revision).toBe(8);
+    expect(current.commands.mock.calls.filter(call => call[2].operation === "confirm")).toHaveLength(1);
+    const after = editor.getJSON();
+    const afterText = editor.state.doc.textBetween(0, editor.state.doc.content.size, "");
+    const insertedText = label === "canonical READ-ALOUD callout"
+      ? replacementMarkdown.split("\n").slice(1).map(line => line.replace(/^> ?/, "")).join("\n")
+      : replacementMarkdown;
+    // The inserted block splits the paragraph; Markdown reload drops its one
+    // leading boundary space, while every other original character is protected.
+    const protectedSuffix = beforeText.slice(firstSentenceEnd).replace(/^ /, "");
+    const expectedText = beforeText.slice(0, firstSentenceEnd) + insertedText + protectedSuffix;
+    expect(afterText).toBe(expectedText);
+    expect(saved.markdown).toBe(tiptapJsonToSemanticMarkdown(after));
+    if (label === "canonical READ-ALOUD callout") expect(saved.markdown).toContain("> [!READ-ALOUD]");
+    if (label === "plain root blockquote") {
+      expect(after.content?.filter(node => node.type === "blockquote")).toEqual(originalQuotes);
+      expect(saved.markdown).toContain("> A root-level witness keeps watch from the broken wall.");
+    }
+    expect(current.ordinaryPrepare).not.toHaveBeenCalled();
+    expect(current.ordinaryCommit).not.toHaveBeenCalled();
+    view.unmount();
+    window.history.replaceState({}, "", location);
+    view = render(tree());
+    const reopened = await screen.findByTestId("world-owned-plan-markdown-editor");
+    await waitFor(() => {
+      const reopenedEditor = (reopened.querySelector(".ProseMirror") as HTMLElement & {editor: Editor}).editor;
+      expect(reopenedEditor.getJSON()).toEqual(after);
+    });
+    expect(liveApi.getWorldOwnedPlanSnapshot).toHaveBeenLastCalledWith(documentId);
+    fireEvent.click(await screen.findByRole("button", {name: "Open", exact: true}));
+    await screen.findByRole("region", {name: "World conversation"});
+    fireEvent.click(await screen.findByText("Details", {selector: "summary"}));
+    await screen.findByText("Suggestion saved on the Plan.");
+    expect(screen.queryByRole("textbox", {name: "Suggestion text"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "Save", exact: true})).not.toBeInTheDocument();
+    expect(current.readReview()?.state).toBe("applied");
+    expect(current.post).toHaveBeenCalledTimes(1);
+    expect(current.commands.mock.calls.filter(call => call[2].operation === "confirm")).toHaveLength(1);
+    expect(current.ordinaryCommit).not.toHaveBeenCalled();
+  } finally {
+    view.unmount();
+    vi.unstubAllGlobals();
+    sessionStorage.clear();
   }
-  expect(request.target_kind).toBe("insert_at_caret");
-  expect(request.selected_text).toBe("");
-  expect(JSON.stringify(request)).not.toContain("session");
-  expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedVisibleSource);
-  expect(screen.getByRole("region", { name: "Review proposed Plan edit" })).toHaveTextContent(expectedAppliedText);
-  expect(prepare).not.toHaveBeenCalled();
-  expect(commit).not.toHaveBeenCalled();
-
-  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
-  await waitFor(() => {
-    expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedVisibleSource);
-    expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedAppliedText);
-  });
-  expect(prepare).not.toHaveBeenCalled();
-  expect(commit).not.toHaveBeenCalled();
-  const namespace = `world-plan-agent:world:${encodeURIComponent(worldId)}:document:${encodeURIComponent(documentId)}`;
-  const threadId = localStorage.getItem(activeThreadStorageKey(namespace, "plan", documentId));
-  expect(threadId).toBeTruthy();
-  const proposalTurn = JSON.parse(localStorage.getItem(threadStorageKey(namespace, threadId!)) ?? "null").turns[0];
-  expect(proposalTurn).toMatchObject({
-    backend: "plan_edit",
-    planEdit: { applied: true, targetKind: "insert_at_caret" },
-  });
-  expect(proposalTurn.replacement_markdown).toBeUndefined();
-
-  fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
-  await waitFor(() => expect(screen.getByText("Saved to this World.")).toBeInTheDocument());
-  expect(commit).toHaveBeenCalledWith(expect.objectContaining({
-    schema_version: "dmb_tiptap_markdown_write_commit_v2",
-    world_id: worldId,
-    document_id: documentId,
-    writer_confirm_token: "integration-save-token",
-    markdown: expect.stringContaining(replacementMarkdown),
-  }));
-  if (_label === "plain root blockquote") {
-    expect(commit.mock.calls[0][0].markdown).toContain("> A root-level witness keeps watch from the broken wall.");
-  }
-
-  view.unmount();
-  window.history.replaceState({}, "", location);
-  render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
-  expect(await screen.findByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedVisibleSource);
-  expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedAppliedText);
-  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  expect(await screen.findByText("Local proposal · Applied to your draft")).toBeInTheDocument();
-  expect(screen.getByRole("region", { name: "Local Plan proposal activity" })).toBeInTheDocument();
-  expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
 });
 
 const session29SectionCases = [
