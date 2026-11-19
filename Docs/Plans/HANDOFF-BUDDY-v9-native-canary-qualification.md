@@ -1,269 +1,152 @@
 # BUDDY — V9.A native canary qualification and process rollback
 
-Status: ACTIVE — identified repair gates closed; final integrated qualification pending.
+Status: IMPLEMENTED — final report-head frontend, independent review and merge pending.
 Owner/designer: Elderwyld vNext completion lane. Operator authorized implementation,
 independent review, merge and launch; no PRIME coordination prerequisite.
 
 ## Current anchor and mission
 
-Frozen integrated runtime candidate: Buddy1c7ddcdd9ce08077cf9c5297ab952ebd1a41560f
-(includes accepted bounded repairs through4076; final qualification pending). Retained rehearsal
-runtime6fac remains separately identified below.
-Core runtime4b6516e2c0dfd81acaa4410b9b9bb9da18894c90; V8 evidence accepted in
-Core229 mergef770098ad27b772e6351f2827a2b7bd6628705e8. Read canonical
-Docs/Handoffs/dm_vnext_contract_acceptance_v1.json there; do not rerun classic baseline.
-Branch codex/v9-native-canary-qualification is rebased onto this accepted bounded
-descendant. Earlier6fac proofs remain historical; qualify the integrated bytes. This is the deliberately frozen release candidate; do not chase
-later floating main. Record each final execution head/imported-source manifest separately;
-these documentation commits do not silently qualify later unrelated main changes.
+Frozen Buddy runtime1c7ddcdd9ce08077cf9c5297ab952ebd1a41560f; accepted test-only
+successor4f4ed526278badc8b9b7241e418e90c7fd474c98 (#4078 merge18bd5bab704e6618a9b8f6251557eab919e2380c).
+Core runtime4b6516e2c0dfd81acaa4410b9b9bb9da18894c90. V8 accepted in Core229
+mergef770098ad27b772e6351f2827a2b7bd6628705e8; canonical authority is
+Docs/Handoffs/dm_vnext_contract_acceptance_v1.json there. Never rerun classic baseline.
 
-Can this native runtime use a verified restore of current Elderwyld authority,
-preserve consumer semantics and survive an owned process/configuration rollback?
-This slice is qualification only. Separate V9.B owns live readiness/activation;
-V10 retirement and V11 deployed baseline remain in the full objective.
+Branch codex/v9-native-canary-qualification consumes these bounded accepted heads,
+not later floating main. Integrated app and four consumer contracts executed at
+d42921316870fd81fabe9d450882c32b187ecf06. Its runtime/test bytes equal1c7;
+4078 adds only a test and handoff. Runtime equivalence for apps/src/scripts/lock/
+pyproject is verified. Final documentation head is recorded by frontend/review
+receipts rather than pretending earlier tests ran that later SHA.
+
+Question: can the native runtime use verified restored Elderwyld authority,
+preserve consumer semantics, and survive same-version process/config rollback?
+This slice proves that bounded rehearsal. It does not activate live serving.
+V9.B actual readiness/activation, V10 retirement and V11 deployed baseline remain.
 
 Three-path write lease: this handoff; Docs/Reports/V9-native-canary-qualification-v1.json;
 Docs/Plans/HANDOFF-BUDDY-native-validated-command-adoption.md (truthful4029 seal).
-No runtime/DTO/auth/schema/dependency/provider/ingestion/production DDL or serving
-switch. Split discovered product defects into independently reviewable repairs.
+No runtime/DTO/auth/schema/dependency/provider/ingestion/production DDL/serving switch.
 
-## Accepted prerequisites and lessons
+## Accepted repair dependencies and lessons
 
-- 4047 mergea192f2be6d5ab53d4c1406a0d40d0aa4143d3580: shared read routes display
-  admitted name/classification alternatives without inventing canonical truth.
-- 4051 mergeeffc99da9aab42b83f61a518401191ab0a096e49: standalone native Graph
-  inspection uses the same existing presentation policy; original ledger retained.
-- 4053 merge063c91de8441cad82d0db906c3b017e9c942ebf4: exact frozen dialogue prefix
-  plus three writer frames; explicit selector inventory, no skipped deeper failures.
-- 4055 merge4ffb7500d35e2398c4311c7722b0733546215858: old PDF support reuse must
-  pass current receipt admission or acquire fresh support. Historical selection
-  does not become perpetual authority.274 owning tests, exact frontend/CI pass.
-- 4056 merge475f65d92411e380c7881a2b7a394fa38e7e65b7: actual local bearer auth,
-  explicit local fixtures and current typed registry response.76 owning tests,
-  exact frontend/CI pass. Runtime authorization unchanged.
+Detailed failures, exact heads, independent reviews and checks live in their PRs
+and report-linked receipts. All identified repair/proof gates are closed:
 
-- 4059 merge803e95912511f7692ec044ca5333ba73cc4818a0: explicit local source-inspection
-  fixture; unchanged auth/source assertions. Auth261 passed.
-- 4061 merge5c887f0e600c0ab1d23af4b6c71d4df5b6bd2fe5: current completed-row transfer
-  into exact historical0139 schema, preserving original constraints/comparison.
-  Module17 passed, query1256 passed; independent review5969679353 and frontend pass.
+- 4047/4051 preserve admitted name/classification alternatives on shared/standalone
+  native reads. Composite names do not establish new canonical semantic authority.
+- 4053 preserves frozen dialogue prefix and writer frames; 4055 requires current
+  receipt admission before old PDF support reuse. Historical access is not permanent.
+- 4056/4059/4071 reconcile explicit local auth fixtures and exact owner-aware managed
+  projection guard. Current auth262pass; hosted ownership remains a separate proof.
+- 4061/4069 preserve exact historical schema/bytes/downgrade fences while testing
+  public reads against a separate current APP schema. Combat/session116pass.
+- 4067 fixes Play request forwarding and transaction-bound cancellation authority.
+  HTTP4 plus owning diagnostics pass; no write=False authorization bypass.
+- 4068 orders APP setup before source fixtures;137pass/0skips includes real owned
+  PostgreSQL extensions. 4072 explicit local/loopback Runbook/rebase fixtures pass.
+- 4075 seeds actual catalog World authority; hosted module366pass. Authored-page
+  ownership proof does not attest synthetic Graph-binding fixture consistency.
+- 4076 proves current durable-page APP-down503/no file fallback; Runbook/rebase/
+  canonical page68pass. Storage smoke labels are truthful, not retrieval benchmarks.
+- 4078 proves source-review authorization loss at real transactional persistence
+  leaves the entire row and native authority unchanged, then the identical allowed
+  request saves one review/revision increment. Target1/full owning84pass; two existing
+  opt-in PG skips retain4068's separate no-skip proof. Review5970713369, exact frontend/
+  canonical and both normal checks passed. No runtime change.
 
-Their independent reviews and failure histories live in those PRs and task proof
-receipts. GM intentionally admits GM and player labels; player-only is not hidden
-from GM. Neither composite labels nor successful catalog reads establish full
-route/citation/consumer correctness. Do not treat an exited child zombie or TCP
-cleanup state as an executable listener. Process checks need the owning executor:
-unprivileged ps once hid a live canary; it was stopped before any source change.
+An independent coverage audit mapped changed routes to these exact owning proofs;
+the four consumer contracts do not select every owning module. Do not claim the old
+combined600pass/9fail/10errors/2skips cohort was rerun. Preserve exact proof/source
+links. GM can see player labels; player-only is not hidden from GM by default.
 
-## Verified restored authority and persistence
+## Restored authority and current owned state
 
-Taskroot /home/drakosfire/Projects/.codex/v7-elderwyld-scope, Projects UUID
-48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8. Reuse existing isolated checkout/venv without
-sync; new scratch in scratch/v9-buddy and caches under taskroot. Verify UUID and
-parent write access before allocation; never fall back to root/tmp storage.
+Taskroot /home/drakosfire/Projects/.codex/v7-elderwyld-scope on UUID
+48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8; verify UUID/write access before allocation.
+Reuse isolated checkout/venv without sync; owned scratch/cache under taskroot.
+No root/tmp fallback or global environment changes.
 
-Source inventory captured Core54330/dungeonmind_cutover_live_restore_20261011
-(schema0021) and separate APP54331/dungeonbuddy_application_state (schema0160).
-Credentials remain private. Sources are unchanged by this slice. Before V9.B,
-freshly establish their actual current state rather than assuming this capture.
-
-Owned32903 server codex-v8-live-head contains ONLY selected new restores:
-Corecodex_v9_core_f7273a3fef; APPcodex_v9_app_2ed3662f84. Preserve prior V8 clone.
-Separate consistent dumps: Core947930229bytes SHA66284bd73ae9042659d886722ba1c8eef5bcec811538a0a8c3e153cae1db8daf;
+Original readonly sources: Core54330/dungeonmind_cutover_live_restore_20261011
+(schema0021), APP54331/dungeonbuddy_application_state (schema0160). Sources remain
+unchanged by V9.A. Before V9.B re-read actual current source authority.
+Separate consistent dumps Core947930229bytes SHA66284bd73ae9042659d886722ba1c8eef5bcec811538a0a8c3e153cae1db8daf;
 APP102665777bytes SHA02a52f887d21605544863bb05199a31fde0841a31d1e6349b5c9dd42d359c771.
-They are not a globally atomic Core/APP snapshot. Supplemental repeatable-read
-source-before/restore/source-after inventories matched selected authority, source
-metadata/body hashes, binding/grants and stable epoch194. No full historical graph
-payload replay or original before-dump epoch claim.
+Not globally atomic: supplemental repeatable-read before/restore/after inventories
+matched selected authority/source hashes/binding/grants at stable epoch194.
+No full historical graph-payload replay or original dump-epoch reconstruction claim.
 
-Initial restored headrev:5293c1b237a0064bd16fffd080bfa6b1, parentrev:9eac817676327afaeaaff25d8f38df60,
-600 lineage revisions/receipts/events. APP binding elderwyld→elderwyld activev3;
-validated-head field is historical metadata. Provisioning fields null, not a
-missing record. DomainContract revision2/profile refs verified.79 head source
-pairs/87 body records available; ordinary checks verify71 admissions/79extensions/
-16PDF bodies. The absent legacy corpus/elderwyld-markdown hint is not rebuilt.
-No old-name bridge. Native source bodies are database authority; unrelated files,
-sessions, attachments, saved-page/authoring paths require their own proof.
+Owned server32903/codex-v8-live-head: Corecodex_v9_core_f7273a3fef and
+APPcodex_v9_app_2ed3662f84 only. Preserve original V8 clone. Source capture600
+revisions advanced through three owned rehearsals to606. Never restore an older
+dump over accepted writes. Current verified headrev:d54ba97208687c72c50e4aafd05b5aa3,
+606 revisions/receipts/events, source epoch197. APP0168/binding elderwyld→elderwyld
+activev3 unchanged; validated-head is historical metadata and null provisioning
+fields legitimate. DomainContract2/profile refs verified. No old-name bridge.
 
-Only owned restores upgraded: Core0022 with explicit head/parent artifact backfill,
-ordinary/derived digests equal and selected authority unchanged; APP0167 then0168.
-0161 intentionally changed one active Run scope local→world:elderwyld; normalized
-UUID/string comparison has no unmatched Run.0168 adds two empty lore receipt
-tables, binding unchanged. Never downgrade or bypass strict schema equality.
+Only owned restores upgraded Core0022 with head/parent artifact backfill and equal
+ordinary/derived digests, APP0167 then0168.0161 deliberately maps one active Run
+local→world:elderwyld, no unmatched normalized UUID.0168 adds empty lore tables.
+Do not downgrade/bypass strict schema equality. Original selected79source pairs/
+87body records available; ordinary71admissions/79extensions/16PDF proof retained.
+Absent legacy corpus/elderwyld-markdown is not rebuilt; native source bodies are DB
+owned. Other saved-page/session/attachment/authoring paths use their owning proofs.
 
-## Runtime isolation and proved limits
+## Current integrated proof
 
-Owned baselineAPI18290, forward18291, UI15202. API8000 belongs to another dirty
-checkout; serving5202 is outside this slice. Never stop/seize those other ports.
-No owned canaries remain live at this checkpoint. Stop/identity-verify every owned
-process before changing source; do not infer shutdown from a stale state file.
+Evidence namespace scratch/v9-buddy/integrated-1c7ddcd; report binds sizes/hashes.
+Prior0274/6fac proofs remain historical and separately labelled. They are not
+substitutes for current imported-source or consumer evidence.
 
-Launcher pins isolated dotenv/private auth profiles, distinct Core/APP restores,
-explicit shared owned managed/artifact/session/world roots and private process
-caches/logs; all intended Elderwyld native selectors. Real app/lifespan/binding and
-normal bearer authorization, no repository/preparation substitutions. Offline
-owned tokenizer is hash-bound; no provider requests. Secrets stay out of reports.
-Source attestation binds actual imported project bytes to fixed Git blobs; package
-metadata alone is insufficient. Diagnostic response headers identify process,
-not performance. Runtime-selected file dependencies remain separately qualified.
+- Full consumer contracts: world/content445, ingestion/review888, query/answer1256,
+  auth/app262 passed at executiond429. Owned disposable APP test DBs; no providers.
+- Real app/lifespan baseline18290 and forward18291 each passed14 authenticated
+  head/parent retrieval/citation cases with identical canonical response rows;
+  native inspection8 passed. Retained1276byte citation SHA77e5591fa6c983182cc085fea8899f872c06022d3b754ffe1ef1784ed34f4d60.
+  Projection/configuration proxy200, anonymous401, duplicate selector422 passed.
+  Configuration reporting is not publication reachability or hosted-browser proof.
+- Browser loaded3014 objects, opened Lysandra alternatives/details/supporting source.
+  Forward governed prepare admitted a source, then confirm created
+  ent:c383fff873a9e345f875423a5fcccd72. All prior entities/assertions preserved.
+  Browser forward and rollback found the same new location among3015 objects.
+- Real UI proxy forward→baseline rollback preserved exact result replay/receipt/
+  authority counts, old citation and new121byte citation SHAfe90f3f108ad98d5bcbad4308118af16cf16fac6c694f1a16a006c5bebdc539b.
+  Successful fresh after-request source attestations verified Core4b/Buddy1c7 Git
+  blobs (forward758/baseline756 imported modules). Signal delivery alone is no proof.
+- Actual source/config/output isolation: private dotenv/auth profiles, selected
+  owned DBs/shared managed/artifact/session roots, hash-bound offline tokenizer,
+  distinct caches; no repository/preparation/auth substitution or provider calls.
+  Diagnostic response headers identify process, not performance.
+- All owned API/UI processes stopped after identity checks;18290/18291/15202
+  listeners refused. API8000 belongs to another checkout; serving5202 untouched.
 
-Earlier abfd/Core4b baseline and forward each passed14 actual-data route/citation
-cases at head/parent; real Vite HTML/proxy baseline→forward→baseline mapping returned
-identical neighborhood and1276-byte citation. Forward was stopped/listener refused.
-Exact existing-publication replay afterward returned the same receipt and left
-selected authority hashes/head unchanged. Native UI repair e70 separately passed
-8 head/parent endpoint cases with retained entity/complete-object assertions.
-Plan subject-search owning service passed navigation-only head/parent checks.
-These are pinned predecessor evidence, not automatic full proof of this new base,
-not browser-rendered acceptance and not a new forward publication transaction.
+Browser proof is actual rendered DOM, not screenshot-file/timing proof. Same-version
+rollback neither establishes older-schema compatibility nor protects against defects
+shared by identical binaries. Never infer live serving acceptance from these results.
 
-## Rehearsal history and current persistence
+## Remaining gates and next primary question
 
-Earlier0274 browser/write/rollback proof remains in the report. Its prepare phase
-intentionally published an operator source; the original zero-head-change checker
-was wrong and the same operation resumed. This lesson is now in the corrected
-checker. Private session-parent0700 fixed setup only, not product security.
+Complete unmodified exact-final-report-head hosted frontend/canonical validation,
+independent cumulative review and normal checks, then merge V9.A truthfully.
+No checkout edits/switches while a qualifying verifier uses the caller. Shared
+frontend lock must be honored; never steal/unlink it. Dirty-caller diagnostics
+remain retained and cannot qualify the candidate.
 
-The original source capture was600 revisions. Earlier owned rehearsal reached602;
-the current frozen-candidate rehearsal reached604. Never restore an old dump over
-those accepted owned writes or mistake the rehearsal head for live-source state.
-All prior proof receipts stay unchanged. Live source/serving remain unchanged.
-
-## Frozen final candidate and delta obligations
-
-Candidate6facf08bcc77c11fe9d11addc2154b3be1ffebfc includes hosted authorization,
-credential routing and mutation rechecks added since0274: Runbooks, Build proposals,
-Play/combat, managed Graph projection, Worldbuilding configuration and source
-statement proposal read/review. No migration, dependency or lockfile delta.
-Independent read-only delta critique records these boundaries in the retained
-v9-final-candidate-gate-map.json. Earlier browser/write/rollback proofs remain
-historical. Refresh proof on this candidate; do not infer runtime equality.
-
-The frozen6fac runtime was exercised at documentation/execution head
-df12467cd645df34475503f94842bf5c64ebe90c. All current evidence is under
-scratch/v9-buddy/final-6fac, retaining prior receipts separately.
-
-- Shared baseline14 and forward14 authenticated route/citation cases passed;
-  canonical response rows equal and retained citation SHA matched. Native UI8
-  head/parent cases passed. Added projection/configuration proxy cases passed,
-  including anonymous401 and duplicate-selector422. Configuration reporting is
-  not publication/readiness proof; local operator proof is not hosted-browser proof.
-- Actual browser loaded3013 objects, opened Lysandra alternatives and supporting
-  excerpt; after the governed write it found the exact new location among3014
-  objects on forward and again after rollback.
-- Public prepare source admission then confirm committed operation
-  80a8c4ec-157c-45cb-ab3a-c8c3039da7ff. New entity
-  ent:47dbdac78c2cf7a137776adadeee414b; current owned head
-  rev:0b2f2a8dc8b7f3b4fc331dfccd8b8546.604 revisions/receipts/events, source epoch196;
-  APP0168/binding3 unchanged. All existing entities/assertions preserved.
-- Real UI proxy rollback preserved exact result replay/receipt/counts and old/new
-  citation bytes. Successful fresh after-request source attestations were checked
-  before process shutdown. All owned API/UI listeners are refused; no canary live.
-- Exact consumer contracts: world445, ingestion888, query1256 passed; auth260pass/
-  1failed (static shared-GM dependency inventory at managed-projection). Current
-  specialized guard needs an explicit owning test/contract reconciliation, not
-  removal of authorization or a blanket test exemption.
-- Additional changed-boundary cohort600pass,9fail,10setup errors,2opt-in PG skips.
-  One real runtime defect: three Play creation route calls use the old shared
-  helper signature. Cancellation also needs its transaction-bound optional
-  authorization callback; merely write=False would bypass the intended check.
-  Other groups: missing persisted World fixture authority, explicit local auth,
-  APP fixture dependency ordering, and obsolete file-backed-page assumptions.
-  Preserve APP-down fail-closed proof when reconciling durable-page semantics.
-
-Play repair4067 is accepted: reviewedc8b0fe3c208825317707b109cde841fcebedbb2c,
-mergee2e6ade44e6fffcf79bf81de5beec4588ba9a972, independent review5969972489.
-All three routes forward the HTTP request; cancellation checks authority inside its
-transaction. New HTTP4 and diagnostic34 passed; named combat/session cohort115pass/
-1inherited failure: historical0160→0166 test incorrectly equates repository head
-with0166 although the base is0168. Its later readback/downgrade proof remains open.
-Exact hosted frontend/canonical validation and all four normal checks passed.
-This is bounded repair acceptance, not a green combat contract or V9 acceptance.
-
-Source fixture4068 is accepted: reviewedc9681d35cc9290f425bbc54f9aa5ab4e1b8f2bbc,
-merge414852082115039148184fbba18cf235eae8336e, review5970045779. Explicit APP fixture
-dependencies precede catalog creation. Both full source/proposal modules137pass/
-0skips, including real owned PostgreSQL extensions. Generated DB dropped after
-exit/zero-connection checks; exact frontend/canonical and normal checks passed.
-The prior ten setup errors and opt-in PostgreSQL proof gap are closed.
-
-Historical fixture4069 is accepted: reviewed1bf51c6ba83e33204a055666e40e988f1bcc6868,
-merge3718403577f1c19573e1ea10aed52ca898b40225, review5970130978. Historical schema166,
-row-byte/downgrade fences and separate current public legacy read all passed;
-full combat/session contract116passed. Exact frontend/canonical and normal checks
-passed. That inherited contract failure and previously unreachable proof are closed.
-
-Auth proof4071 is accepted: reviewed293a78e2019060c722a109a82a5fb27f3afa53f3,
-mergebd4429ebceda536c0150179bd04baf693aebbca4, review5970210195. All nine route
-checks remain, with eight shared GM dependencies and the exact owner-aware managed
-projection guard. Actual local denial-before-work and hosted owned/foreign/transfer
-proof passed. Full auth262passed, exact hosted case1passed; frontend/canonical and
-normal checks passed. The prior auth inventory failure is closed; no policy changed.
-
-Local fixture4072 is accepted: revieweda2fd516318bb8daf49b0a141e3b90b99119c71e8,
-merge1fd6c7ffaef93a444d8cef741a3caf8651ac8815, review5970321919. Explicit local modes
-and loopback peers preserve the real boundary. Former Runbook create and four
-rebase HTTP cases now pass:full modules18pass/2unchanged direct-service page reds.
-Independent review accepts this bounded correction; no full-module green claim.
-The corrected exact-head frontend/canonical and all normal checks passed; earlier
-dirty-caller diagnostic is retained and not reused as qualification.
-
-Registered-World fixture4075 is accepted: revieweda3d927b3ab44e9059c496e242b44eba43b6112e7,
-mergef65c5ed66586725f51737d454c727938892bd61b, review5970411974. The real APP catalog
-seed preserves every existing page-workflow assertion without changing shared
-fixtures or copying synthetic native bindings. Full hosted authorization366passed;
-exact frontend/canonical and normal checks passed. That missing-World gate is closed.
-
-Page contract4076 is accepted: reviewed1c7ddcdd9ce08077cf9c5297ab952ebd1a41560f,
-merge4b2bc1451f7a9f0a3e3cdbc82aaae29b2b557c0d, review5970505225. Valid committed
-page precedes APP outage; create/scoped-list/snapshot503 and no file output replace
-the superseded fallback expectation. Truthful PostgreSQL page/runbook storage smoke
-preserves all work/content checks. Owning Runbook/rebase/canonical modules68passed;
-exact frontend/canonical and normal checks passed. No retrieval baseline/speed claim.
-
-All identified repair gates are closed. Next serial work is integrated V9.A proof:
-freeze execution head, run all four consumer contracts, attest loaded source/config,
-refresh actual app/browser reads and governed write/process rollback, then final
-exact-head frontend and independent cumulative review. The candidate is deliberately
-bounded at1c7ddcd; do not chase later floating-main runtime. Live activation remains
-V9.B, then V10 retirement and V11 deployed baseline. No completion is implied here.
-
-## Remaining required proof and dispatch order
-
-1. Freeze final qualification head and manifest imported Core/Buddy bytes, lock pin,
-   schema, real binding, authority/output layout and selector inventory. Preserve
-   snapshot/coherence limits and exact proof artifact hashes in the report.
-2. Run current world-and-content, ingestion-and-review, query-and-answer, auth-app
-   repo-owned contracts with pinned Node/uv PATH and uniquely owned test DBs.
-   The90fb predecessor is green; do not promote it to final6fac-byte proof.
-3. Qualify current full app and real frontend mapping/actual UI behavior for intended
-   managed projection, exact/complete object, neighborhood, evidence, source anchors,
-   search and Plan subject search. Preserve authorization/source withdrawal/exact
-   spans. Do not promote search navigation to evidence or model-visible host state.
-4. Rehearse same-version process/configuration rollback on shared owned current
-   persistence. Qualify baseline first; forward separately, switch client mapping,
-   verify responding process, quiesce forward and restore baseline. Verify latest
-   head/binding/receipts/replay/citations. Existing-head replay proves old history;
-   any claim of fresh-write continuity needs a governed owned forward write and
-   post-rollback replay, never a stale dump restored over it. No legacy fallback.
-5. Run unmodified exact-SHA hosted frontend verifier/canonical validation/shared
-   resource lock; independent cumulative review and normal automatic checks.
-6. Merge V9.A only with truthful acceptance. V9.B separately establishes fresh live
-   recovery/write boundary/schema/artifact readiness and actual serving activation,
-   then latest-head/receipt/citation checks. V10/V11 still required.
-
-Same-version rollback does not protect against defects shared by identical
-binaries or promise compatibility with older APP readers. No production migration,
-selector activation or broad capability exemption follows from these proofs.
+Next primary question for V9.B: can fresh actual Elderwyld live authority be safely
+prepared with verified recovery, schema/artifacts and write boundary, then served
+by this accepted candidate with latest-head/receipt/citation verification?
+Pin its bounded handoff before action. Do not treat old source capture as current,
+seize another lane's process, substitute a classic fallback, or claim cutover now.
+V10 retirement and V11 deployed baseline follow. Frozen classic baseline stays intact.
 
 ## Retention and cleanup
 
-Retain task-owned dumps/restores/scripts/logs/proof receipts/private runtime roots
-and protected refs for qualification/activation review, owner Elderwyld lane.
-No standing deletion authority. Remove only specifically approved reproducible
-artifacts after process/connection/mount, dirty-worktree and unique-data/commit
-checks. Successful verifier roots have their own cleanup receipts; failed initial
-frontend-verification-vycr58xj remains retained with cleanup followup. No manual
-removal or reclaimed-byte claim. Detailed history belongs in PRs/receipts/Git;
-rewrite this handoff when current truth changes. Settle each actual merge in its
-consumer, never invent a future merge identity.
+Retain task-owned dumps/restores/private runtime roots/scripts/logs/proof receipts/
+caches and protected refs, owner Elderwyld qualification/activation, until activation
+review resolves their cleanup followup. No standing deletion authority. Check active
+processes/connections/mounts, dirty worktrees and unique data/commits before specifically
+approved removal. Successful verifier roots have cleanup receipts; failed initial
+frontend-verification-vycr58xj remains retained for failure audit/followup. No manual
+removal or physical reclaimed-byte claim. Detailed history lives in PRs/receipts/Git;
+rewrite stale handoff state rather than append a diary. Core158 owns unrelated global
+Steward/roadmap paths; do not absorb them into this lease.
