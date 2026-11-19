@@ -584,3 +584,26 @@ def test_authored_page_inventory_route_continues_within_world(world):
     assert second["campaign_tags"] is None
     assert second["next_before_document_id"] is None
     assert second["next_before_updated_at"] is None
+
+
+def test_committed_lore_page_joins_the_owner_transaction(world, application_state_dsn):
+    class RollbackProbe(Exception):
+        pass
+
+    with pytest.raises(RollbackProbe), psycopg.connect(application_state_dsn) as conn:
+        rolled_back, _ = pages.create_committed_lore_page(
+            conn, world_id=world, title="Rollback probe", markdown="Uncommitted body",
+        )
+        raise RollbackProbe
+    with pytest.raises(ApplicationStateNotFoundError):
+        pages.get_page(ident(rolled_back), world_id=world)
+
+    with psycopg.connect(application_state_dsn) as conn:
+        saved, revision = pages.create_committed_lore_page(
+            conn, world_id=world, title="Reviewed lore", markdown="Approved body",
+        )
+    reopened = pages.committed_page(ident(saved), world_id=world)
+    assert reopened.page.title == "Reviewed lore"
+    assert reopened.metadata.authority_state == "reviewed"
+    assert reopened.revision == revision
+    assert reopened.revision.markdown == "Approved body"

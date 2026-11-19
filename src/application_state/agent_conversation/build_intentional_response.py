@@ -1243,6 +1243,11 @@ def semantic_collaboration(card):
     if card is None:
         return None
     kind = card.get("kind")
+    if kind == "lore_page":
+        from .lore_page_review import ProposedLorePage
+
+        draft = ProposedLorePage.model_validate(card)
+        return {"kind": kind, "title": draft.destination.title}
     fields = {
         "plan": {"kind", "objective", "steps"},
         "questions": {"kind", "questions"},

@@ -17,6 +17,7 @@ from apps.live_control_server.services.conversation_variant_save import CorrectC
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from application_state.agent_conversation.lore_page_confirmation import LorePageConfirmation
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from apps.live_control_server.services.rules_answer_presentation import project_rules_answer_context
@@ -1734,6 +1735,51 @@ def confirm_conversation_variant_review(
             _conversation_service(request), verified, conversation_id, turn_id,
             ConfirmConversationVariant(review_id=review_id),
         )
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.post("/worlds/{world_id}/conversation/lore-pages/review")
+def prepare_world_lore_save_review(world_id: str, body: LorePageConfirmation, request: Request):
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+    if principal.role != "gm":
+        raise HTTPException(status_code=403, detail={"code": "lore_confirmation_forbidden"})
+    try:
+        _conversation_service(request).prepare_lore_save_review(
+            world_id=_verified_world_id(world_id), principal_subject=principal.subject, confirmation=body,
+        )
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return {"review_sha256": body.review_sha256}
+
+
+@router.post("/worlds/{world_id}/conversation/lore-pages/confirm")
+def confirm_world_lore_page(world_id: str, body: LorePageConfirmation, request: Request):
+    from apps.live_control_server.services.agent_native_source_sections import open_native_body_excerpt
+    from apps.live_control_server.services.agent_source_passages import SourcePassageOpenError
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+    world = _verified_world_id(world_id)
+    service = _conversation_service(request)
+    if principal.role != "gm":
+        raise HTTPException(status_code=403, detail={"code": "lore_confirmation_forbidden"})
+
+    def verify_source(turn_id, ordinal):
+        return open_native_body_excerpt(
+            world_id=world, turn_id=turn_id, citation_index=ordinal,
+            principal=principal, service=service,
+        )
+
+    try:
+        return service.confirm_lore_page(
+            world_id=world, principal_subject=principal.subject, confirmation=body,
+            verify_source=verify_source,
+        )
+    except SourcePassageOpenError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 

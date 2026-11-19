@@ -370,7 +370,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             frame = next(row for row in inputs if set(row)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
             work = next(row['build_work'] for row in inputs if 'build_work' in row)
             if not mode:
-                assert len(inputs)==3 and inputs[-1] == frame
+                if requested_work == "review_lore_page" and self.adapter.turn.sequence == 2:
+                    assert len(inputs) == 5
+                    assert inputs[:2] == [{"conversation": message}, {"conversation": ""}]
+                    assert inputs[-1] == frame
+                else:
+                    assert len(inputs)==3 and inputs[-1] == frame
             if self.adapter.submitted_intent.reviewed_step is not None:
                 from application_state.agent_conversation.reviewed_action import writer_scope,SCOPE_KEY
                 scope=writer_scope(self.adapter._broker_execution())
@@ -396,8 +401,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 else:
                     assert sum(draft.snapshot.draft_markdown in row['content'] for row in body['input'])==1
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
-            assert (handles or saved_statblock in {"associated", "by-name"} or authored_source=='source_only') and 'DISPLAY ONLY' not in str(frame)
             current_work = requested_work(self.adapter.request.message) if callable(requested_work) else requested_work
+            assert (handles or saved_statblock in {"associated", "by-name"}
+                    or authored_source == 'source_only' or current_work == "review_lore_page")
+            assert 'DISPLAY ONLY' not in str(frame)
             if saved_statblock:
                 from application_state.agent_conversation.response_prompt import VARIANT_BASE
 
@@ -483,9 +490,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     segment for segment in candidate["answer_segments"]
                     if segment["kind"] == "native_body_claim"
                 ]
+                author_text = self.adapter.turn.user_text
+                if "blank page" in author_text:
+                    candidate["answer_segments"] = []
                 candidate["collaboration"] = {
                     "kind": "lore_page",
-                    "destination": {"instruction": message, "title": "Glass Regent"},
+                    "destination": {"instruction": author_text, "title": "Glass Regent"},
                 }
             if connected_review:
                 section=next(row for row in sections if 'A proposed conversation.' in source_text(row))
@@ -2296,25 +2306,81 @@ def test_standalone_page_intent_preserves_the_page_owner_boundary(lane, tmp_path
 def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path, monkeypatch):
     from application_state.agent_conversation.native_corpus import acquired_body_reads
 
+    from evals.buddy_benchmark import workflow
+
+    thread_id, template = str(uuid4()), {}
+
+    def first(client, world, body):
+        body["client_thread_id"] = thread_id
+        template.update((key, value) for key, value in body.items() if key != "message")
+        return client.post("/api/live/agent/turn", json=body)
+
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, False, False, False,
-        message="Create a page for Glass Regent and populate it with what we know.",
-        requested_work="review_lore_page",
-        native_body="direct_support",
+        message="Create a blank page for Glass Regent.",
+        requested_work="review_lore_page", native_body="direct_support", dispatch=first,
     )
-    completion = case.turn.completion
+    blank = case.turn
+    assert not blank.completion.answer_segments
+    response = workflow.capture_case(
+        case.client, case.world, template,
+        {"question": "Create a page for Glass Regent and populate it with what we know."},
+        tmp_path / "lore-populate", build_thread_id=thread_id,
+        expected_conversation_id=str(blank.conversation_id),
+    )
+    assert response.status_code == 200, response.text
+    from application_state.agent_conversation.service import AgentConversationService
+    history = case.client.get(f"/api/live/agent/worlds/{case.world}/conversation")
+    assert history.status_code == 200, history.text
+    row = max(history.json()["turns"], key=lambda turn: turn["sequence"])
+    populated = AgentConversationService().inspect_turn(world_id=case.world, turn_id=UUID(row["turn_id"]))
+    from application_state.agent_conversation.lore_page_confirmation import LorePageConfirmation
+    from application_state.agent_conversation.rules_authority_types import canonical_sha256
+    from application_state.content import pages
+
+    completion = populated.completion
     assert completion.collaboration.destination.title == "Glass Regent"
+    request = LorePageConfirmation(conversation_id=populated.conversation_id,
+        turn_id=populated.turn_id, review_sha256=canonical_sha256(completion))
+    url = f"/api/live/agent/worlds/{case.world}/conversation/lore-pages/confirm"
+    body = request.model_dump(mode="json")
+    before = len(pages.list_pages(world_id=case.world))
+    stale = case.client.post(url, json={**body, "turn_id": str(blank.turn_id),
+        "review_sha256": canonical_sha256(blank.completion)})
+    assert stale.status_code == 409 and "superseded" in stale.text, stale.text
+    unseen = case.client.post(url, json={**body, "turn_id": str(uuid4())})
+    assert unseen.status_code == 404, unseen.text
+    rejected = case.client.post(url, json={**body, "review_sha256": "0" * 64})
+    assert rejected.status_code == 409, rejected.text
+    assert len(pages.list_pages(world_id=case.world)) == before
+    unopened = case.client.post(url, json=body)
+    assert unopened.status_code == 409 and "Open the exact" in unopened.text, unopened.text
+    assert len(pages.list_pages(world_id=case.world)) == before
+    shown = case.client.post(url.removesuffix("/confirm") + "/review", json=body)
+    assert shown.status_code == 200 and shown.json() == {"review_sha256": body["review_sha256"]}, shown.text
+    assert len(pages.list_pages(world_id=case.world)) == before
+    created = case.client.post(url, json=body)
+    assert created.status_code == 200, created.text
+    receipt = created.json()
+    replay = case.client.post(url, json=body)
+    assert replay.status_code == 200 and replay.json() == receipt, replay.text
+    assert len(pages.list_pages(world_id=case.world)) == before + 1
+    reopened = pages.committed_page(receipt["document_id"], world_id=case.world)
+    assert reopened.page.title == "Glass Regent"
+    assert str(reopened.revision.work_revision_id) == receipt["revision_id"]
+    assert completion.answer_segments[0].text in reopened.revision.markdown
+    assert f"/conversation/turns/{populated.turn_id}/native-body-excerpts/0" in reopened.revision.markdown
     assert completion.answer_segments and all(
         segment.kind == "source_passage_claim" for segment in completion.answer_segments
     )
     reads = {
-        read.event_id: read.excerpt.text for read in acquired_body_reads(case.turn.graph_context_execution)
+        read.event_id: read.excerpt.text for read in acquired_body_reads(populated.graph_context_execution)
     }
     assert completion.native_body_citations
-    for index, citation in enumerate(completion.native_body_citations):
-        opened = case.client.get(
-            f"/api/live/agent/worlds/{case.world}/conversation/turns/"
-            f"{case.turn.turn_id}/native-body-excerpts/{index}"
-        )
+    import re
+    links = re.findall(r"\[Source \d+\]\((/api/live/agent/[^)]+)\)", reopened.revision.markdown)
+    assert len(links) == len(completion.native_body_citations)
+    for link, citation in zip(links, completion.native_body_citations, strict=True):
+        opened = case.client.get(link)
         assert opened.status_code == 200, opened.text
         assert opened.json()["content"] == reads[citation.read_event_id]
