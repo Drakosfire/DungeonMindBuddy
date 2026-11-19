@@ -298,14 +298,17 @@ def get_world_owned_runbooks(
     response_model=WorldOwnedRunbookRecordV2,
 )
 def post_world_owned_runbook(
-    body: CreateWorldOwnedRunbookRequestV2,
+    body: CreateWorldOwnedRunbookRequestV2, request: Request = None,
 ) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, body.world_id)
     try:
         record = create_world_owned_runbook_v2(
-            _managed_world_root(), world_id=body.world_id, title=body.title
+            _managed_world_root(), world_id=body.world_id, title=body.title,
+            authorize_world=lambda world: require_hosted_plan_world_context(request, world),
         )
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    require_hosted_plan_world_context(request, body.world_id)
     return record.model_dump(mode="json")
 
 

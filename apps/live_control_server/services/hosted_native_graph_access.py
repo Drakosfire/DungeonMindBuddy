@@ -1039,6 +1039,17 @@ async def resolve_hosted_agent_readiness(request: Request) -> str:
     return world.world_id
 
 
+async def resolve_hosted_runbook_create(request: Request) -> str:
+    from apps.live_control_server.services.workspace_document_registry import CreateWorldOwnedRunbookRequestV2
+
+    if request.query_params:
+        raise _denied()
+    body = CreateWorldOwnedRunbookRequestV2.model_validate(await request.json())
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.world_id)
+    request.state.hosted_plan_context_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_runbook_read(request: Request) -> str:
     selectors = request.query_params.multi_items()
     world_id = request.query_params.get("world_id")

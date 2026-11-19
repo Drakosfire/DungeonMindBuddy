@@ -83,6 +83,7 @@ def create_work_object(
     target_session: int | None = None,
     target_relpath: str | None = None,
     document_id: str | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkObject:
     cleaned_world = world_id.strip() if world_id is not None else None
     cleaned_campaign = campaign_id.strip() if campaign_id is not None else None
@@ -118,6 +119,8 @@ def create_work_object(
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        if authorize_world is not None:
+            authorize_world(obj.world_id)
         return repo.insert_work_object(conn, obj)
 
 
@@ -164,6 +167,7 @@ def create_world_runbook(
     world_id: str,
     target_relpath: str | None = None,
     document_id: str | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkObject:
     return create_work_object(
         kind="runbook",
@@ -173,6 +177,7 @@ def create_world_runbook(
         target_session=None,
         target_relpath=target_relpath,
         document_id=document_id,
+        authorize_world=authorize_world,
     )
 
 

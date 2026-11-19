@@ -674,6 +674,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return path === runbookRead[0] + expected;
   }
 
+  if (path === "/api/live/workspace-documents/world-runbooks" && method === "POST") {
+    const body = requestBodyRecord(init?.body);
+    return body?.schema_version === "dmb_workspace_document_create_v2" && body.scope_mode === "world"
+      && typeof body.world_id === "string" && Boolean(body.world_id) && typeof body.title === "string";
+  }
   const planInventoryPage = "/api/live/workspace-documents/world-plans/page?";
   if (path.startsWith(planInventoryPage)) {
     const query = new URLSearchParams(path.slice(planInventoryPage.length));

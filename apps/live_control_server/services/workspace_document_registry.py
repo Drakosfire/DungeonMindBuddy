@@ -714,7 +714,8 @@ def list_world_owned_plans_v2(
 
 
 def create_world_owned_runbook_v2(
-    root: Path, *, world_id: str, title: str
+    root: Path, *, world_id: str, title: str,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorldOwnedRunbookRecordV2:
     cleaned_world = _validate_world_id(world_id)
     cleaned_title = _validate_title(title)
@@ -732,7 +733,9 @@ def create_world_owned_runbook_v2(
                 "selected World identity does not match the managed World record",
                 status_code=409,
             )
-        obj = create_world_runbook(title=cleaned_title, world_id=cleaned_world)
+        obj = create_world_runbook(
+            title=cleaned_title, world_id=cleaned_world, authorize_world=authorize_world,
+        )
     except WorldContainerRegistryError as exc:
         raise WorkspaceDocumentRegistryError(
             str(exc), status_code=exc.status_code

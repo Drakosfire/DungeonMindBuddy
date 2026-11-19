@@ -421,6 +421,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/rules/passages/{citation_id}"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/world-runbooks"): access.resolve_hosted_plan_world_context,
+            ("POST", "/api/live/workspace-documents/world-runbooks"): HOSTED_WORLD_SCOPE_RESOLVERS[("POST", "/api/live/workspace-documents/world-runbooks")],
             ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}"): access.resolve_hosted_runbook_read,
             ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}/snapshot"): access.resolve_hosted_runbook_read,
             ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}/committed-revision"): access.resolve_hosted_runbook_read,
@@ -5750,3 +5751,20 @@ def test_hosted_runbook_read_checks_world_before_document_lookup(hosted, monkeyp
     result = hosted.client.request("GET", path)
     assert result.status_code == 404, result.text
     assert calls == [("managed", document_id)]
+
+
+def test_hosted_runbook_creation_uses_only_owned_world(hosted, application_state_dsn, monkeypatch):
+    from application_state.content.service import get_content_optional
+    from apps.live_control_server.services import world_container_registry
+
+    monkeypatch.setattr(world_container_registry, "get_world_container", lambda world: SimpleNamespace(world_id=world))
+    path = "/api/live/workspace-documents/world-runbooks"
+    body = {"schema_version": "dmb_workspace_document_create_v2", "scope_mode": "world",
+            "world_id": "managed", "title": "Session Runbook"}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "world_id": "foreign"}).status_code == 403
+    assert hosted.client.request("POST", path + "?world_id=managed", json=body).status_code == 403
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    saved = get_content_optional(response.json()["document_id"])
+    assert (saved.kind, saved.world_id, saved.title) == ("runbook", "managed", "Session Runbook")
