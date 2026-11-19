@@ -1,6 +1,6 @@
 {
   "schema": "v9_live_native_activation_v1",
-  "status": "LIVE_PREPARATION_COMMITTED_READONLY_FINALIZATION_RUNNING",
+  "status": "LIVE_PREPARATION_VERIFIED_AWAITING_SERVING_LAUNCH_REVIEW",
   "owner": "Elderwyld vNext completion lane",
   "authorization": "Explicit user implementation/review/merge/launch authorization",
   "qualification": {
@@ -34,7 +34,6 @@
   "activation_performed": false,
   "evidence_root": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live",
   "pending": [
-    "Complete read-only official typed fingerprint/current-state finalization",
     "Independent concrete serving launch review",
     "Actual authenticated5202 serving/browser/receipt/citation/restart/same-version rollback checks",
     "Final exact-head frontend/canonical/review/merge"
@@ -247,8 +246,37 @@
       }
     ],
     "raw_receipt_status": "failed at final in-memory tuple/list equality only; serialized official fingerprints are identical",
-    "read_only_resolution": "running; no migration or artifact-write retry",
+    "read_only_resolution": "passed: official typed fingerprint comparison, exact current inventories and both artifact digests reverified; original raw failed receipt retained",
     "pre_mutation_approval": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/pre-mutation-review.json",
     "limits": "Schemas/artifacts committed, serving remains off; finalization does not imply live new-write or cutover completion"
+  },
+  "live_readiness": {
+    "status": "prepared_verified",
+    "authority": {
+      "core": {
+        "head": "rev:5293c1b237a0064bd16fffd080bfa6b1",
+        "parent": "rev:9eac817676327afaeaaff25d8f38df60",
+        "schema": "0022_native_read_artifacts",
+        "source_epoch": 194,
+        "knowledge_revisions": 600,
+        "knowledge_publication_receipts": 600,
+        "knowledge_head_events": 600
+      },
+      "app": {
+        "schema": "20261118_0168",
+        "binding": {
+          "status": "active",
+          "world_id": "elderwyld",
+          "validated_at": "2026-10-28T17:21:34.990675Z",
+          "binding_version": 3,
+          "native_world_id": "elderwyld",
+          "provisioning_id": null,
+          "initialization_revision_id": null,
+          "validated_head_revision_id": "rev:d3015ae21f9ae0d2d3a125b505087b8e"
+        }
+      }
+    },
+    "official_app_fingerprint_digest": "de047bb56b64bf7bf6745d2f47bf531fa0f1893a9ec8235b329ae8514dd85802",
+    "resolution_receipt": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/live-readiness-resolution.json"
   }
 }
