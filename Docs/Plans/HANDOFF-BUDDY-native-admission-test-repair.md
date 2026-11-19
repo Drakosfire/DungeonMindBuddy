@@ -70,3 +70,16 @@ change. Official frontend verifier owns its normal isolated temporary workspace.
 MIND retains scratch/logs/cache for fullgoal evidence; no manual removal or reclaimed
 bytes. Cleanup follow-up requires specifically approved scope and active task/
 process/mount/DB/dirty/unique-data/commit checks at fullgoal completion.
+
+
+## Implementation diagnostic checkpoint
+
+Working diagnostic: full affected module plus related managed projection module
+22passed/0failed/0skipped in5.45s using installed Core99 and disposable APP fixtures.
+Scoped Ruff and git diff --check passed. Only the native support/adapter stub and
+associated exact result assertions changed; no production source was edited.
+Retained affected-diagnostic.log/xml under owning scratch. This is working-source
+proof, not exact committed-source backend qualification. Parent owns that backend
+and ingestion run; worker will run final exact-SHA hosted/build/canonical only.
+Independent review/merge and terminal evidence acceptance remain pending; no gate
+is premarked green. Source freezes after implementation commit until runners finish.
