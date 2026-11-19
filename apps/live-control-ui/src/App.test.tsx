@@ -576,6 +576,8 @@ describe("App inspector integration", () => {
     expect(await screen.findByLabelText("Markdown plan")).toBeInTheDocument();
     expect(context).toHaveBeenCalledWith("eldyrwild");
     expect(plans).toHaveBeenCalledWith("eldyrwild");
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Open", exact: true }));
+    expect(await screen.findByPlaceholderText("Ask Buddy, or tell it what to change…")).toBeInTheDocument();
     await waitFor(() => {
       expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
       expect(document.querySelectorAll(".plan-conversation-dock")).toHaveLength(1);
