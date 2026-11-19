@@ -16,8 +16,6 @@ from generationengine.types import (
     ChoiceDecisionQuestion,
     DecisionRequest,
 )
-from generationengine.decision_dispatch import DecisionDispatchGate
-from generationengine.providers.typesafe_decision import TypeSafeDecisionProvider
 from generationengine.providers.openai_text import OpenAITextProvider
 from generationengine.text_dispatch import TextDispatchGate
 from application_state.agent_conversation import types as ledger
@@ -28,6 +26,7 @@ from apps.live_control_server.models.build_document_proposal import (
     BuildDocumentProposalRequest,
 )
 from .agent_runtime import AgentRuntimeDescriptor
+from .plan_jev_dispatch import decision_client
 from . import build_document_proposal as proposal_owner
 from . import build_jev_dispatch as decision_policy
 from . import build_jev_writer as writer_policy
@@ -540,11 +539,12 @@ class BuildJevHarness:
             body = json.loads(prepared.body)
             return DecisionContextMode(accounting.context_mode(body, host_phase=getattr(plan,"host_phase",None)))
 
-        provider = TypeSafeDecisionProvider(
-            dispatch_gate=DecisionDispatchGate(authorize, record, select_context),
+        trace = getattr(adapter, "trace", None)
+        client = decision_client(
+            authorize=authorize, record=record, select_context=select_context,
             transport=self.decision_transport,
+            on_dispatch=getattr(trace, "mark_first_jev_dispatch", None),
         )
-        client = GenerationClient(decision_providers={"typesafe": provider})
         started = time.perf_counter()
         try:
             self.failure_stage = "controller_dispatch"
