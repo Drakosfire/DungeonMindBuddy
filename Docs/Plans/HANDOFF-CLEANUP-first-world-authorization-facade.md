@@ -7,7 +7,7 @@ Topology: serial, one repair PR before continuing original finding 106 / #3534.
 
 Scope: only prepare_first_world and confirm_first_world in
 apps/live_control_server/services/extract_promote.py, the dedicated
- tests/test_first_world_authorization_facade.py, and this handoff. Forward the
+tests/test_database_first_world_publication.py, and this handoff. Forward the
 existing keyword-only authorization callback to its current owner without
 changing route policy, publication semantics, or internal optional-call behavior.
 The callback must retain identity and any denial must propagate.
@@ -32,3 +32,6 @@ completes the synthetic Recap publication/Plan walkthrough.
 Runtime: no listening application ports. Disposable PostgreSQL uses an ephemeral
 loopback port and task-owned tmpfs data; stop/remove it after each verification.
 Evidence and caches remain outside source on the verified Projects filesystem.
+
+Verification adjustment: facade regressions extend the existing classified database
+first-World test module; no shared classification/contract registry edits.
