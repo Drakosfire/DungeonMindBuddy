@@ -396,6 +396,8 @@ def hosted(monkeypatch, request):
                 for operation in OPERATIONS
             },
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
+            ("POST", "/api/live/native-graph-inspection/recap-page"): access.resolve_hosted_explorer_world,
+            ("POST", "/api/live/native-graph-inspection/related-recaps"): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-graph-inspection/authoring-identities"): HOSTED_WORLD_SCOPE_RESOLVERS[("POST", "/api/live/native-graph-inspection/authoring-identities")],
             ("POST", access.COMPLETE_OBJECT_PATH): HOSTED_WORLD_SCOPE_RESOLVERS[("POST", access.COMPLETE_OBJECT_PATH)],
             ("POST", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolve"): access.resolve_hosted_conversation_world,
@@ -5567,3 +5569,41 @@ def test_hosted_rules_lookup_rechecks_owner_after_read(hosted, monkeypatch, path
     response = hosted.client.request("GET", "/api/live/rules" + path)
     assert response.status_code == 403, response.text
     assert "withheld rules evidence" not in response.text
+
+
+def test_hosted_related_recaps_bind_pinned_world(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.services import native_graph_inspection
+
+    read = Mock(return_value={"targets": []})
+    monkeypatch.setattr(native_graph_inspection, "related_recaps", read)
+    path = "/api/live/native-graph-inspection/related-recaps"
+    scope = _inspection_payload(hosted)["scope"]
+    body = {"scope": scope, "assertion_id": "assertion:1"}
+    assert hosted.client.request("POST", path, session="other-session", json=body).status_code == 403
+    assert hosted.client.request("POST", path, origin=None, json=body).status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    pin, principal, assertion = read.call_args.args
+    assert pin.managed_world_id == principal.managed_world_id == "managed"
+    assert pin.revision_id == scope["revision_id"]
+    assert assertion == "assertion:1"
+
+    record = hosted.records["managed"]
+
+    def change_binding(*_):
+        hosted.records["managed"] = record.model_copy(
+            update={
+                "native_graph_binding": record.native_graph_binding.model_copy(
+                    update={"binding_version": scope["binding_version"] + 1},
+                ),
+            },
+        )
+        return {"targets": ["withheld"]}
+
+    read.side_effect = change_binding
+    conflict = hosted.client.request("POST", path, json=body)
+    assert conflict.status_code == 409, conflict.text
+    assert "withheld" not in conflict.text

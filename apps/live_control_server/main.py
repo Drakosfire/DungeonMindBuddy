@@ -393,6 +393,8 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", COMPLETE_OBJECT_PATH): resolve_hosted_explorer_world,
     ("POST", "/api/live/native-graph-inspection/authoring-identities"): resolve_hosted_explorer_world,
     ("POST", INSPECTION_READ_PATH): resolve_hosted_explorer_world,
+    ("POST", "/api/live/native-graph-inspection/recap-page"): resolve_hosted_explorer_world,
+    ("POST", "/api/live/native-graph-inspection/related-recaps"): resolve_hosted_explorer_world,
     ("POST", "/api/live/native-graph-inspection/catalog"): resolve_hosted_explorer_world,
     ("POST", "/api/live/native-source-inspection/catalog"): resolve_hosted_explorer_world,
     ("POST", "/api/live/native-source-inspection/read"): resolve_hosted_explorer_world,
