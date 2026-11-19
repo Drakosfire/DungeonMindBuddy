@@ -12,7 +12,6 @@ import json
 from pathlib import Path
 
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
-    OPENAPI_FINGERPRINT,
     CreateStatblockRequestV1,
     CreateStatblockResponseV1,
 )
@@ -28,6 +27,12 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.models import 
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "statblocks" / "v1"
 TRANSCRIPT_DIR = FIXTURE_DIR / "server_transcripts"
+
+
+# Historical capture identity; exact schema pin is in the transcript README.
+CAPTURED_OPENAPI_FINGERPRINT = (
+    "sha256:df46327f24180150aadd28a8fe6477ceabde40c300b64c931b27e639a762f36a"
+)
 
 
 def _load(name: str) -> dict:
@@ -53,8 +58,8 @@ def test_manifest_cites_clean_server_commit_fingerprint_and_fixture_hashes() -> 
     assert server["commit"] == "7a214741af81d3895866c5f29332937bd2af87ab"
     assert server["worktree_clean"] is True
     assert server["statblocks_v1_package_path"].endswith("statblocks_v1/__init__.py")
-    assert server["openapi_fingerprint"] == OPENAPI_FINGERPRINT
-    assert manifest["buddy_vendored_openapi_fingerprint"] == OPENAPI_FINGERPRINT
+    assert server["openapi_fingerprint"] == CAPTURED_OPENAPI_FINGERPRINT
+    assert manifest["buddy_vendored_openapi_fingerprint"] == CAPTURED_OPENAPI_FINGERPRINT
     assert manifest["openapi_fingerprint_match"] is True
     fixtures = {row["path"]: row["sha256"] for row in manifest["server_source_fixtures"]}
     assert (

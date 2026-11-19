@@ -54,3 +54,7 @@ The post-processing preserves the public string-enum behavior and the
 `kind` discriminator on each nested effect union. When updating the
 snapshot, review any change in the discriminator count and update the
 source fingerprint headers to match the canonical file.
+
+The exported `generated.OPENAPI_FINGERPRINT` and generated model headers must
+match the canonical snapshot digest. Historical create/revise transcripts retain
+their capture-time identities; see their [provenance guide](../../../../../tests/fixtures/statblocks/v1/server_transcripts/README.md).

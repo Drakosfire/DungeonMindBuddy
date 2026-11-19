@@ -57,3 +57,34 @@ def test_capture_marks_interrupted_publication(tmp_path: Path, monkeypatch: pyte
     assert not marker.exists()
     assert manifest.read_bytes() == b"new manifest"
     assert leaf.read_bytes() == b"new leaf"
+
+
+def test_capture_refuses_old_schema_before_writing_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import sys
+    from scripts import capture_sbw07a_server_create_transcripts as capture
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+        OPENAPI_FINGERPRINT,
+    )
+
+    server = tmp_path / "server"
+    artifact = server / "openapi/dungeonbuddy-statblocks-v1.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("{}")
+    buddy = Path(__file__).resolve().parents[1]
+    output = tmp_path / "capture-output"
+    monkeypatch.setattr(capture, "_assert_clean_worktree", lambda _: None)
+    monkeypatch.setattr(capture, "_assert_package_from_checkout", lambda _: server / "statblocks_v1/__init__.py")
+    old = "sha256:df46327f24180150aadd28a8fe6477ceabde40c300b64c931b27e639a762f36a"
+    monkeypatch.setattr(capture, "_sha256_file", lambda _: old)
+    monkeypatch.setattr(sys, "argv", [
+        "capture", "--buddy-repo", str(buddy), "--server-repo", str(server),
+        "--out-subdir", str(output),
+    ])
+
+    with pytest.raises(SystemExit, match="does not match Buddy vendored contract") as error:
+        capture.main()
+    assert old in str(error.value)
+    assert OPENAPI_FINGERPRINT in str(error.value)
+    assert not output.exists()

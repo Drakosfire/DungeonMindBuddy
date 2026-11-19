@@ -13,6 +13,7 @@ database, provider or deployment resources. No unmerged dependency.
 - `apps/live_control_server/integrations/dungeonmind_statblocks/README.md`
 - `tests/test_sbw06a_server_revise_transcripts.py`
 - `tests/test_sbw07a_server_transcripts.py`
+- `tests/test_sbw07a_capture_output.py` (negative fingerprint refusal)
 - `tests/fixtures/statblocks/v1/server_transcripts/README.md`
 
 Current schema/models cite3887196e, but public fingerprint still citesdf46327f.
