@@ -1475,7 +1475,8 @@ def test_shared_search_preserves_admitted_seed_under_node_bound(inspection, monk
     assert result["coverage"]["missingSeedNodeIds"] == [inspection.objects["object:1"]]
 
 
-def test_native_search_source_pin_matches_batch_receipt(inspection, monkeypatch):
+@pytest.mark.parametrize("selector", [None, "managed:other"])
+def test_native_search_source_pin_matches_batch_receipt(inspection, monkeypatch, selector):
     from apps.live_control_server.integrations.dungeonmind import world_graph_reads
     from apps.live_control_server.services import native_graph_inspection as native, world_graph_retrieval
     from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
@@ -1487,6 +1488,7 @@ def test_native_search_source_pin_matches_batch_receipt(inspection, monkeypatch)
         **scope, "schema": "dmb_world_graph_search_request_v1", "queryText": "Object 1",
         "bounds": {"maxNodes": 1},
     })
+    monkeypatch.setenv("DMB_NATIVE_SEARCH_WORLD", "managed")
     binding = inspection.lane.bound
     with pytest.raises(native.InspectionUnavailable, match="native_inspection_binding_changed"):
         native.shared_search(
@@ -1500,6 +1502,22 @@ def test_native_search_source_pin_matches_batch_receipt(inspection, monkeypatch)
         expected_binding_version=binding["binding_version"],
     )
     pin, = search.source_pins
+    # The broker separately proves dispatch after selector changes. Here the
+    # real Core reader proves exact historical bytes and current withdrawal.
+    if selector is None:
+        monkeypatch.delenv("DMB_NATIVE_SEARCH_WORLD", raising=False)
+    else:
+        monkeypatch.setenv("DMB_NATIVE_SEARCH_WORLD", selector)
+    repo = inspection.lane.repo
+    runtime = transport.runtime(repo, inspection.lane.domain, inspection.lane.profile,
+                                now=datetime.now(UTC), operation_id="source-reopen-later-head")
+    runtime.commit_prepared_change(runtime.prepare_change(wk.WorldChangeIntent(
+        binding["native_world_id"], "later unrelated object", (wk.CreateObject("later"),),
+    )), confirmed_by="local_operator")
+    head = repo.get_head(binding["native_world_id"])
+    assert head.head_revision_id != pin.graph_revision
+    events = repo.head_events(binding["native_world_id"])
+    epoch = repo.open_native_source_view(binding["native_world_id"]).epoch
     monkeypatch.setattr(world_graph_reads, "direct_services_from_config",
                         lambda *_: pytest.fail("classic source reader invoked"))
     receipt, = world_graph_retrieval.read_source_anchors_internal_v2((
@@ -1508,7 +1526,11 @@ def test_native_search_source_pin_matches_batch_receipt(inspection, monkeypatch)
             "revisionPin": pin.graph_revision, "anchorId": pin.anchor_id,
         }),
     ), native_principal=principal)
-    assert receipt.result.content == inspection.lane.text.splitlines(keepends=True)[0]
+    expected = inspection.lane.text.splitlines(keepends=True)[0]
+    assert "é" in expected and expected.endswith("\r\n")
+    assert receipt.result.content.encode("utf-8") == expected.encode("utf-8")
+    assert receipt.result.snapshot.head_revision_id == head.head_revision_id
+    assert receipt.result.snapshot.is_head is False
     assert receipt.result.snapshot.revision_id == receipt.graph_revision == pin.graph_revision
     assert receipt.source_revision_id == pin.source_revision_id
     assert receipt.evidence_ref_id == pin.evidence_ref_id
@@ -1553,6 +1575,25 @@ def test_native_search_source_pin_matches_batch_receipt(inspection, monkeypatch)
     assert denied_read["receipt"] is None
     assert denied_read["result"]["code"] == "native_source_unavailable"
     assert "content" not in denied_read["result"]
+
+    assert repo.get_head(binding["native_world_id"]) == head
+    assert repo.head_events(binding["native_world_id"]) == events
+    assert repo.open_native_source_view(binding["native_world_id"]).epoch == epoch
+    repo.withdraw_native_source(
+        space_id=binding["native_world_id"], source_artifact_id=pin.source_artifact_id,
+        source_revision_id=pin.source_revision_id,
+    )
+    withdrawn_epoch = repo.open_native_source_view(binding["native_world_id"]).epoch
+    withdrawn = expansion_executor.execute_read_graph_source({
+        "retrievalSessionId": session.id, "anchorIds": [pin.anchor_id],
+    }, receipt_version=2, native_principal=principal, native_authority=authority)
+    denied, = withdrawn["reads"]
+    assert denied["receipt"] is None
+    assert "content" not in denied["result"]
+    assert denied["result"].get("outcome") != "enough"
+    assert repo.get_head(binding["native_world_id"]) == head
+    assert repo.head_events(binding["native_world_id"]) == events
+    assert repo.open_native_source_view(binding["native_world_id"]).epoch == withdrawn_epoch
 
 
 def test_native_recap_pages_reauthorize_exact_span_after_withdrawal(inspection):
