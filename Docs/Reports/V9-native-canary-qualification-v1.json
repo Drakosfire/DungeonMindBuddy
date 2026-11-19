@@ -1,6 +1,6 @@
 {
   "schema": "dmb_v9_native_canary_qualification_v1",
-  "status": "HELD_ON_AUTH_INVENTORY_AND_CHANGED_BOUNDARIES",
+  "status": "HELD_ON_REMAINING_WORLD_AND_PAGE_FIXTURE_CONTRACTS",
   "owner": "Elderwyld vNext completion lane",
   "candidate": {
     "buddy": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc",
@@ -137,7 +137,7 @@
     }
   ],
   "pending": [
-    "Managed-projection owner-aware authorization inventory and denial proof; remaining registered World/local-auth/durable-page fixture contracts",
+    "Explicit local-mode Runbook/rebase HTTP fixtures; registered World fixture authority; durable-page APP-down contract reconciliation",
     "Requalify deliberately bounded repaired candidate, exact-head frontend, independent cumulative review and normal checks",
     "V9.B fresh live recovery/schema/artifact readiness and actual activation; V10 retirement; V11 serving baseline"
   ],
@@ -381,6 +381,16 @@
       "review": 5970130978,
       "combat_contract_passed": 116,
       "failed": 0,
+      "frontend_and_normal_checks": "passed",
+      "full_v9_accepted": false
+    },
+    {
+      "pr": 4071,
+      "merge": "bd4429ebceda536c0150179bd04baf693aebbca4",
+      "reviewed_head": "293a78e2019060c722a109a82a5fb27f3afa53f3",
+      "review": 5970210195,
+      "auth_contract_passed": 262,
+      "hosted_ownership_case_passed": 1,
       "frontend_and_normal_checks": "passed",
       "full_v9_accepted": false
     }
@@ -630,6 +640,21 @@
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/historical-manual-lint-comparison.json",
       "bytes": 250,
       "sha256": "c7436627135d0b88ccc595d141b098e417b7d637b5b2a907b5353b647ce86116"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/managed-auth-exact-auth-app.log",
+      "bytes": 124119,
+      "sha256": "e2f8955d8ec5f13027623f6dc7f867bb2cfaac9b12f53f7fdbe95ba265acb6ff"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/managed-auth-exact-hosted.log",
+      "bytes": 1807,
+      "sha256": "a6eb014516326201d672eb9aade20433d703ffb05c429e0e706d65fe30f7dff4"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/managed-auth-inventory.json",
+      "bytes": 262,
+      "sha256": "d0417b9bfecfe060f5ec770f6cf55ecd8420a20c9a8ef1eb94d9c39e7939b700"
     }
   ],
   "historical_qualified_source": "0274e014daa6527cccf6abd71dd2e641204dc4b0",
@@ -946,7 +971,7 @@
     "live_source_mutation": false,
     "forward_verified_quiescent": true
   },
-  "next_candidate_runtime_base": "1bf51c6ba83e33204a055666e40e988f1bcc6868",
+  "next_candidate_runtime_base": "293a78e2019060c722a109a82a5fb27f3afa53f3",
   "source_fixture_gap_resolution": {
     "status": "closed",
     "ten_setup_errors": "explicit APP dependencies",
@@ -957,5 +982,12 @@
     "historical_schema": "0166 retained with raw-row/downgrade fences",
     "current_public_read": "actual migrated record transferred to separate current schema, normal guards retained",
     "combat_contract": "116passed0failed"
+  },
+  "managed_auth_gap_resolution": {
+    "status": "closed",
+    "inventory": "all9exactdependencies retained",
+    "local_guard": "anonymous/invalid401 and resolvedplayer403 before projection; validGMsentinel",
+    "hosted_guard": "owned/foreign/ownership-transfer test passed",
+    "auth_contract": "262passed0failed"
   }
 }

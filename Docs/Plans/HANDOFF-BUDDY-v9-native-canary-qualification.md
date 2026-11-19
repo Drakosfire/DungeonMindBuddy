@@ -6,8 +6,8 @@ independent review, merge and launch; no PRIME coordination prerequisite.
 
 ## Current anchor and mission
 
-Next bounded candidate base: Buddy1bf51c6ba83e33204a055666e40e988f1bcc6868
-(includes accepted4067–4069; final qualification pending). Retained rehearsal
+Next bounded candidate base: Buddy293a78e2019060c722a109a82a5fb27f3afa53f3
+(includes accepted4067–4071; final qualification pending). Retained rehearsal
 runtime6fac remains separately identified below.
 Core runtime4b6516e2c0dfd81acaa4410b9b9bb9da18894c90; V8 evidence accepted in
 Core229 mergef770098ad27b772e6351f2827a2b7bd6628705e8. Read canonical
@@ -193,10 +193,17 @@ row-byte/downgrade fences and separate current public legacy read all passed;
 full combat/session contract116passed. Exact frontend/canonical and normal checks
 passed. That inherited contract failure and previously unreachable proof are closed.
 
-Next serial slice reconciles the managed-projection authorization inventory with
-its exact owner-aware dependency, retaining guard-before-projection denial proof.
-Then settle registered-World/local-mode/durable-page fixture contracts.
-The repaired candidate starts from accepted1bf51, excluding unrelated later-main runtime; final proof must qualify
+Auth proof4071 is accepted: reviewed293a78e2019060c722a109a82a5fb27f3afa53f3,
+mergebd4429ebceda536c0150179bd04baf693aebbca4, review5970210195. All nine route
+checks remain, with eight shared GM dependencies and the exact owner-aware managed
+projection guard. Actual local denial-before-work and hosted owned/foreign/transfer
+proof passed. Full auth262passed, exact hosted case1passed; frontend/canonical and
+normal checks passed. The prior auth inventory failure is closed; no policy changed.
+
+Next serial slice makes Runbook/rebase HTTP fixtures explicitly local. Then settle
+registered-World and durable-page APP-down fixture contracts. These are separate
+remaining gates; no missing fixture authority is bypassed.
+The repaired candidate starts from accepted293a78e, excluding unrelated later-main runtime; final proof must qualify
 that bounded descendant. Current6fac proof remains tied to its original bytes.
 No provider generation or classic baseline rerun is needed.
 
