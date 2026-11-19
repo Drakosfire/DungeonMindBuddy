@@ -961,6 +961,12 @@ def hosted_world_media_owner(world_id: str) -> str:
     return f"hosted_world:{world_id}"
 
 
+def require_hosted_build_page_world(request: Request, world_id: str) -> None:
+    if not world_id or getattr(request.state, "hosted_build_page_world", None) != world_id:
+        raise _denied()
+    _owned_world(_hosted_subject(request), world_id)
+
+
 async def resolve_hosted_saved_artwork(request: Request) -> str:
     from application_state import media
     from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
