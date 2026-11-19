@@ -1,6 +1,8 @@
 # BUDDY — native source-backed manual knowledge backend
 
-ACTIVE N3a. MIND adopts explicit operator full-lane design/implementation/review/
+GATED N3a — prerequisite findings; no API implementation.
+
+ACTIVE ownership retained pending root serial handoff. MIND adopts explicit operator full-lane design/implementation/review/
 merge authority. Serial after N2b4146 merged4bac6a82a600f08c3f64a1264fb154e21e1b2679;
 exact branch/basecodex/v10-native-manual-knowledge-backend at that merge in existing
 task Buddy checkout. Parent owns broad qualification/independent review/merge.
@@ -79,3 +81,29 @@ launch. Retain logs/failures/scratch/cache under MIND ownership for fullgoal; no
 manual removal or reclaimed bytes. Cleanup follow-up needs approved scope and
 process/mount/dirty/unique-data checks. V10 remaining writes/reads, deployment,
 39 historical cutover cases and V11 remain open; no completion claim.
+
+## Required-gate checkpoint
+
+Retained task scratch `v9-buddy/v10-native-manual-knowledge-backend/gate-report.json`
+binds catalog-probe-3 and installed Core source hashes. Actual native profile
+revisions1/2/3 each admit all13 kind-classification values at the semantic gate,
+but exclude43/45 current mapped predicate inputs (only located_in/within pass).
+All45 have current catalog endpoint-kind witnesses. Profile2 custom namespace
+does not admit the missing dnd5e terms; no silent remapping or kind subset.
+This is not full source admission/publication/authorization proof.
+
+Root must first own a separate immutable/versioned Buddy relationship-profile
+capability and descriptor-transition proof. Independently, Core99 extension
+publication checks current source access before receipt replay; preserve that
+intentional refusal. Generic public get_publication_receipt validates the child
+command/payload/parent, not the entire original extension/governed request. No
+sufficient public exact immutable extension recovery path was identified. Root
+may authorize a separate read-only Core recovery API with exact request/descriptors,
+admission/parent lineage, bindings/proofs, committed child/result mapping and
+memory+SQL withdrawn/later-head/tamper/zero-write proofs. Host ownership/binding
+checks precede IO; recovery grants no source body/citation authority.
+
+Recovery finding is source inspection, not an executed withdrawal recovery test.
+No new API models/services/routes/tests/classification were implemented. No active
+worker exec handles remain. All probes and initial failures retained; no cleanup.
+N3a stays gated before API work; root can safely hand off serial prerequisites.
