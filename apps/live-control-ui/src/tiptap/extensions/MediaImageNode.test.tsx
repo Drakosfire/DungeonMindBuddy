@@ -89,3 +89,29 @@ it('reveals controls when production toggles Read to Edit without emitting an au
  expect(view.getByRole('button',{name:'Collapse image'})).toBeEnabled();
  expect(editor.getJSON()).toEqual(before);expect(updates).not.toHaveBeenCalled();
 });
+
+it.each([
+ { initial: false, transition: 'Read to Edit' },
+ { initial: true, transition: 'Edit to Read' },
+])('synchronizes $transition during node-view subscription without authoring changes', async ({ initial }) => {
+ editor = new Editor({editable:initial, extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
+  content:markdownToTiptapDoc(`![Edge map](dmb-media:${id})`).doc});
+ const before=editor.getJSON();const updates=vi.fn();editor.on('update',updates);
+ const dom=editor.view.dom;const addListener=dom.addEventListener.bind(dom);let changed=false;
+ // Hold the real subscription boundary open while production changes editability.
+ vi.spyOn(dom,'addEventListener').mockImplementation((type,listener,options)=>{
+  if(type==='dmb-media-editability'&&!changed){changed=true;editor.setEditable(!initial,false);}
+  addListener(type,listener,options);
+ });
+ const view=render(<EditorContent editor={editor}/>);
+ await waitFor(()=>expect(changed).toBe(true));
+ expect(editor.isEditable).toBe(!initial);
+ if(initial){
+  await waitFor(()=>expect(view.queryByRole('slider')).not.toBeInTheDocument());
+  expect(view.getByRole('button',{name:'Collapse image'})).toBeDisabled();
+ }else{
+  await waitFor(()=>expect(view.getByRole('slider',{name:'Resize image'})).toBeInTheDocument());
+  expect(view.getByRole('button',{name:'Collapse image'})).toBeEnabled();
+ }
+ expect(editor.getJSON()).toEqual(before);expect(updates).not.toHaveBeenCalled();
+});

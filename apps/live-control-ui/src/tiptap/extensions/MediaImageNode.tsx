@@ -18,6 +18,8 @@ export function MediaImageView({ node, editor, updateAttributes, getPos }: NodeV
     const dom = editor.view.dom;
     dom.addEventListener('dmb-media-editability', sync);
     editor.on('destroy', sync);
+    // Read/Edit may change after render but before this listener is installed.
+    sync();
     return () => { dom.removeEventListener('dmb-media-editability', sync); editor.off('destroy', sync); };
   }, [editor]);
   const width = Number(node.attrs.width ?? 100);
