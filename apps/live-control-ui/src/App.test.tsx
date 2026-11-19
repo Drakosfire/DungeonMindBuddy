@@ -521,7 +521,7 @@ describe("App inspector integration", () => {
       content_status: "committed",
       revision: 2,
     });
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+    const page = vi.spyOn(liveApi, "getCommittedPageSnapshot").mockResolvedValue(
       fixtureSnapshot({
         record: buildRecord,
         markdown: "# Faction Notes\n",
@@ -531,33 +531,26 @@ describe("App inspector integration", () => {
         file_exists: true,
       }),
     );
-    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
-      schema: "dmb_world_graph_projection_v1",
-      snapshot: {
-        worldId: "eldyrwild",
-        campaignId: "longmont-c1",
-        revisionId: "rev-1",
-        headRevisionId: "rev-1",
-        isHead: true,
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-        scopeMode: "campaign",
-      },
-      summary: {
-        nodeCount: 0,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
+    const worlds = vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{ schema_version: "dmb_world_container_record_v1", world_id: "eldyrwild",
+        name: "Eldyrwild", source_root_relpath: "", created_at: "2026-01-01T00:00:00Z" }],
     });
+    vi.mocked(liveApi.getWorkspaceDocumentAny).mockResolvedValue(buildRecord);
+    const inventory = vi.spyOn(liveApi, "listWorkspacePageInventory").mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1", records: [buildRecord],
+      campaign_tags: null, next_before_updated_at: null, next_before_document_id: null,
+    });
+    const context = vi.spyOn(liveApi, "getManagedWorldPlanContext").mockResolvedValue({
+      schema_version: "dmb_managed_world_plan_context_v2", scope_mode: "world",
+      world_id: "eldyrwild", campaign_id: null, session: null, authoritative: false,
+      generated_at: "2026-01-01T00:00:00Z", derived_from: ["managed_world_container"], timeline: [],
+    });
+    const plans = vi.spyOn(liveApi, "listWorldOwnedPlans").mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v2", scope_mode: "world",
+      world_id: "eldyrwild", records: [],
+    });
+    try {
 
     window.history.pushState({}, "", `/build?documentId=${buildDocId}&campaign=longmont-c1`);
     const { unmount: unmountBuild } = render(<App />);
@@ -566,15 +559,20 @@ describe("App inspector integration", () => {
     await waitFor(() => {
       expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
       expect(document.querySelectorAll('[data-testid="surface-edit-host"]')).toHaveLength(1);
-      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(0);
     });
 
+    expect(page).toHaveBeenCalledWith(buildDocId);
+    expect(screen.getByTestId("build-markdown-editor")).toHaveTextContent("Faction Notes");
     unmountBuild();
+    expect(document.querySelectorAll('[data-testid="surface-tool-host"], [data-testid="surface-edit-host"], [data-testid="agent-interaction-chrome"]')).toHaveLength(0);
 
-    window.history.pushState({}, "", "/plan");
+    window.history.pushState({}, "", "/plan?world=eldyrwild");
     const { unmount: unmountPlan } = render(<App />);
 
-    expect(await screen.findByTestId("plan-canvas-title")).toHaveTextContent(/C2 Session 23 Prep/i);
+    expect(await screen.findByLabelText("Markdown plan")).toBeInTheDocument();
+    expect(context).toHaveBeenCalledWith("eldyrwild");
+    expect(plans).toHaveBeenCalledWith("eldyrwild");
     await waitFor(() => {
       expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
       expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
@@ -582,6 +580,7 @@ describe("App inspector integration", () => {
     });
 
     unmountPlan();
+    expect(document.querySelectorAll('[data-testid="surface-tool-host"], [data-testid="surface-edit-host"], [data-testid="agent-interaction-chrome"]')).toHaveLength(0);
 
     window.history.pushState({}, "", `/build?documentId=${buildDocId}&campaign=longmont-c1`);
     render(<App />);
@@ -590,8 +589,15 @@ describe("App inspector integration", () => {
     await waitFor(() => {
       expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
       expect(document.querySelectorAll('[data-testid="surface-edit-host"]')).toHaveLength(1);
-      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(0);
     });
+    expect(screen.getByTestId("build-markdown-editor")).toHaveTextContent("Faction Notes");
+    expect(page).toHaveBeenCalledTimes(2);
+    } finally {
+      plans.mockRestore(); context.mockRestore(); inventory.mockRestore();
+      worlds.mockRestore(); page.mockRestore();
+      vi.mocked(liveApi.getWorkspaceDocumentAny).mockReset();
+    }
   });
 
   describe("current Play shell", () => {
