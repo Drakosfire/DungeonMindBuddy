@@ -39,6 +39,14 @@ that raw failure. Supply the existing owning test's projection shape with matchi
 world_id/campaign_id/session0; verify the actual World-scoped read arguments and
 managed welcome heading. Do not weaken the guard or assert an error page as ready.
 
+The9ed7bace5 focused case passed, but the complete module exposed a test cleanup
+bug: spying/restoring an existing mock replaced the function expected by later
+beforeEach setup. Override and restore the existing mock's resolved value instead.
+Retain the failed module evidence. The same run also saw an unchanged first-Plan
+cold import remain at Loading Plan past the default assertion deadline; keep that
+observation open and compare a same-executor parent/head module control before
+calling it inherited or fixed. Do not increase timeouts or preload product pages.
+
 Bare Run-only inference remains a supported separate contract, not retired by
 this fixture change. Existing owner controls for managed inference, C2 legacy
 admission and refusal of unverifiable Runs remain untouched; all three passed

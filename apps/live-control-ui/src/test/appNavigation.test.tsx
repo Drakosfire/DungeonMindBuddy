@@ -337,7 +337,7 @@ describe("App same-document primary navigation", () => {
     const nativeRun = vi.spyOn(liveApi, "getWorldPlayRun").mockRejectedValue(
       new liveApi.LiveApiError("not found", 404),
     );
-    const planRead = vi.spyOn(liveApi, "getPlanView").mockResolvedValue({
+    const planRead = vi.mocked(liveApi.getPlanView).mockResolvedValue({
       ...mockPlanView, world_id: worldId, campaign_id: worldId, session: 0,
     });
     try {
@@ -365,7 +365,7 @@ describe("App same-document primary navigation", () => {
       });
       expect(liveApi.getPlayRun).not.toHaveBeenCalled();
     } finally {
-      planRead.mockRestore();
+      planRead.mockResolvedValue(mockPlanView);
       nativeRun.mockRestore();
       worlds.mockRestore();
     }
