@@ -100,3 +100,26 @@ export async function archiveKnown(located:Located){
     localStorage.removeItem(located.key);
   });
 }
+
+/** Explicit known APP admission -> exact resume transition. Archive first, but
+ * never remove the active pointer: localStorage.setItem replaces it atomically.
+ * If archival or replacement fails, the original active bytes still recover. */
+export async function replaceAdmissionWithResume(located:Located,operation:Extract<Operation,{stage:'admission';mode:'resume'}>):Promise<Located>{
+  const s=located.value.snapshot;
+  if(located.value.operation.stage!=='admission')refuse('Only the saved admission may transition to its explicit resume.');
+  const value:Recovery={schema:'dmb_native_recap_publication_recovery_v1',snapshot:clone(s),operation:clone(operation),submitted:true};
+  validateRecovery(value,s.worldId,s.runId);
+  const raw=JSON.stringify(value),archiveDigest=await sha256(located.raw);
+  return locked(s.worldId,s.runId,()=>{
+    assertNoClassicConflict(s.worldId,s.runId);
+    if(localStorage.getItem(located.key)!==located.raw)refuse('Another tab changed the retained request.');
+    const archive=located.key+':retained:admission:'+archiveDigest;
+    localStorage.setItem(archive,located.raw);
+    if(localStorage.getItem(archive)!==located.raw)refuse('The original admission could not be archived.');
+    // No removeItem: a thrown quota error or a crash before this atomic write
+    // leaves the old request active. After success, the new exact request is active.
+    localStorage.setItem(located.key,raw);
+    if(localStorage.getItem(located.key)!==raw)refuse('The exact resume request could not be retained.');
+    return {key:located.key,raw,value};
+  });
+}

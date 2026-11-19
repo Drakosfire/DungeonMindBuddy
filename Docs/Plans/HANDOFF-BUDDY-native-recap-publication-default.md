@@ -145,3 +145,23 @@ Parent owns exact full-discovered candidate comparison against retained raw base
 (8146PASS104FAIL2skips,build0; zero missing/two known extra skips) and broaderbackend/
 independent review. Worker hosted remains HOLD until parent full terminal/explicit
 release. Source freezes at implementation commit. No fullrelease/V10/V11 claim.
+
+
+## Required admission-resume atomicity repair
+
+Parent identified a real crash/quota window in0a7fdf618: removing the active
+admission pointer before retaining its resume could strand recovery in an archive.
+The same leased helper now compares the original raw value under its WebLock,
+archives exact old bytes, and replaces the active value directly with one atomic
+setItem; it never removes the old key first. Failed archival/new-active write
+preserves the original active bytes and pointer. This changes no backend intent,
+ID/time/authority or scope. The new regression observes the archive-before-write
+window, injects quota failure on active replacement and proves original discovery
+still works and removeItem is never called.
+
+Affected final repair diagnostic4:22PASS in2files,0FAIL; application TypeScript0.
+resume-repair-diagnostic-4.{xml,-tests.log,-types.log,-driver.json} retained. Earlier
+120PASS/5file proof predates this repair; do not describe that as a full final-head
+execution. Parent exact candidate/fullbackend and formal review remain pending;
+worker hosted stays held until explicit release. No worker process remains live
+at handback and no additional source edits are planned during frozen checks.

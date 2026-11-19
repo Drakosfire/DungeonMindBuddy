@@ -5,7 +5,7 @@ import {LiveApiError} from '../api/liveApi';
 import {loadRecapSnapshot,readContext,prepareRecap,confirmRecap,extendEvidence,witnessFromLines,buildExtension,targetFor,
   type Snapshot,type Context,type Selection,type Metadata,type ReviewRecord,type ReviewField} from '../api/nativeRecapPublicationApi';
 import type {ExactRunCandidateProjection} from '../api/exactRunCandidateProjectionApi';
-import {readNativeRecovery,retain,verifyRecovery,archiveKnown,type Located,type Operation} from './nativeRecapPublicationRecovery';
+import {readNativeRecovery,retain,verifyRecovery,archiveKnown,replaceAdmissionWithResume,type Located,type Operation} from './nativeRecapPublicationRecovery';
 
 type Props={review:ExactRunReviewPackage;run:ExtractionRunRecord;worldId:string;onBusy:(busy:boolean)=>void};
 const message=(e:unknown)=>e instanceof Error?e.message:'Native Recap is unavailable.';
@@ -62,9 +62,8 @@ export function NativeRecapPublication(props:Props){
     // resume is a new explicit request; archive original exact bytes first.
     lock.current=true;setBusy(true);props.onBusy(true);setError(null);
     try{
-      const s=pending.value.snapshot,target=pending.value.operation.target;
-      await archiveKnown(pending);
-      const located=await retain(s,{stage:'admission',mode:'resume',target,previous:status});
+      const target=pending.value.operation.target;
+      const located=await replaceAdmissionWithResume(pending,{stage:'admission',mode:'resume',target,previous:status});
       if(!alive.current)return;setPending(located);await execute(located);
     }catch(e){if(alive.current)setError(message(e));}finally{lock.current=false;if(alive.current)setBusy(false);props.onBusy(false);}
   }
