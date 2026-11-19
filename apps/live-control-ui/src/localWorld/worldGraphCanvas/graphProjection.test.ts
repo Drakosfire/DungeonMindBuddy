@@ -386,7 +386,7 @@ describe("loaded corpus exploration", () => {
     const previous = createGraphFallbackPositions(indexLocalWorldGraph(record.snapshot));
     const added = { ...record.snapshot.objects[0], id: "added" as typeof record.snapshot.objects[number]["id"] };
     const next = { ...record, snapshot: { ...record.snapshot, objects: [added, ...record.snapshot.objects] } };
-    const retained = createGraphFallbackPositions(indexLocalWorldGraph(next.snapshot), previous);
+    const retained = createGraphFallbackPositions(indexLocalWorldGraph(next.snapshot));
     const index = indexLocalWorldGraph(record.snapshot);
     for (const [id, position] of previous) {
       if (index.relationshipCounts.get(id)) expect(retained.get(id)).toEqual(position);
@@ -403,7 +403,7 @@ describe("loaded corpus exploration", () => {
     expect(byId.get(a.id)).toMatchObject({ x: 123, y: 456 });
     expect(byId.get(b.id)).toMatchObject({ x: 0, y: 6000 });
     expect(byId.get(c.id)).toMatchObject({ x: retained.get(c.id)!.x, y: 333 });
-    const removed = createGraphFallbackPositions(indexLocalWorldGraph(record.snapshot), retained);
+    const removed = createGraphFallbackPositions(indexLocalWorldGraph(record.snapshot));
     expect(removed.has(added.id)).toBe(false);
   });
 
