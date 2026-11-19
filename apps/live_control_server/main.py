@@ -177,6 +177,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_play_table_roll,
     resolve_hosted_play_command,
     resolve_hosted_workspace_lifecycle,
+    resolve_hosted_play_table_receipts,
     resolve_hosted_world_lookup,
 )
 from bootstrap_env import load_dungeonmindbuddy_dotenv
@@ -323,6 +324,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/world-play-runs/v2/{run_id}/prepared-tables"): resolve_hosted_play_read,
     ("GET", "/api/live/world-play-runs/v2/{run_id}/content/revisions/{revision_n}"): resolve_hosted_play_read,
     ("GET", "/api/live/world-play-runs/v2/{run_id}/content/commands/{command_id}"): resolve_hosted_play_read,
+    ("GET", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/receipts"): resolve_hosted_play_table_receipts,
     ("PUT", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/commands/{command_id}"): resolve_hosted_play_table_roll,
     ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): resolve_hosted_play_creation,
     ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): resolve_hosted_play_creation,
