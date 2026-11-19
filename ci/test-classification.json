@@ -271,6 +271,7 @@
       "apps/live-control-ui/src/planSurface/components/BuildComposeProposal.test.tsx",
       "apps/live-control-ui/src/planSurface/components/BuildSourcePassageEvidence.test.tsx",
       "apps/live-control-ui/src/planSurface/components/ConversationConnectedPageReview.test.tsx",
+      "apps/live-control-ui/src/planSurface/components/ConversationLorePageConfirmation.test.tsx",
       "apps/live-control-ui/src/planSurface/components/ConversationReplyDetails.test.tsx",
       "apps/live-control-ui/src/planSurface/components/ConversationWorkbook.test.tsx",
       "apps/live-control-ui/src/planSurface/components/DurableWorkPlan.test.tsx",
