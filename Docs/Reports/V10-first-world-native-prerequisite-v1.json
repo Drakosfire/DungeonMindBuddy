@@ -1,0 +1,96 @@
+{
+  "schema": "v10_first_world_native_prerequisite_v1",
+  "status": "IMPLEMENTATION_REQUIRED",
+  "owner": "Elderwyld completion lane",
+  "parent": "322dbb332f1c421f03cb0dced6fbd8c72aa3a092",
+  "probe_source": "437ff4e6eb081517f2d0f941213c4500b1bec48e",
+  "probe_backend_source_equal_to_parent": true,
+  "core_source": "4b6516e2c0dfd81acaa4410b9b9bb9da18894c90",
+  "scope": "Existing first-World functional test in two owned migrated Core test databases plus fixture-isolated APP state; not a retrieval benchmark/live ingestion",
+  "test": "tests/test_cutover_dungeonmind_first_world_initialization.py::test_fresh_source_receipt_survives_reviewed_graph_activation",
+  "observed": [
+    {
+      "mode": "current classic projection",
+      "exit_code": 0,
+      "passed": 1
+    },
+    {
+      "mode": "existing native projection selector",
+      "exit_code": 1,
+      "failed": 1,
+      "failure": "Native projection revision differs from confirmation committedRevisionId",
+      "native_revision": "rev:7ceb4c2634562aadc7daa9bc09900336",
+      "confirmed_classic_revision": "rev:f3cb0fde8f2fc0f4aca1a1f285c36d28"
+    }
+  ],
+  "cause": "Source admission advances native KnowledgeSpace while first-World confirmation invokes classic initialize_reviewed_world. Shared identity does not make their heads one authority.",
+  "required_sequence": [
+    "Native first-World reviewed publication preserving source/head and durable recovery",
+    "Confirmation/native receipt/projection revision and semantic agreement",
+    "Managed-default retirement",
+    "Remaining V10 retirement and V11 deployed baseline"
+  ],
+  "managed_default_retirement_ready": false,
+  "runtime_changed": false,
+  "live_authority_mutated": false,
+  "frozen_classic_baseline_rerun": false,
+  "provider_requests": false,
+  "artifacts": [
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v10-first-world-native/probe_projection_dependency.py",
+      "bytes": 2680,
+      "sha256": "03c09495560f8740ae6ba5ade044593d463c98c4b418aab919ebc642c1187a7a"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v10-first-world-native/projection-dependency-probe.json",
+      "bytes": 1439,
+      "sha256": "0cb2c09114a0c80fa13e0034390b45858efe061749dc9b5d3b44ce60f7cdfa02"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v10-first-world-native/probe.log",
+      "bytes": 58,
+      "sha256": "f34dd6e4220546df5cdd8fa1fa87248d4d4945b174f6e2e29dbbc7d8f39fcca1"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v10-first-world-native/current_classic_projection.log",
+      "bytes": 1807,
+      "sha256": "0b1982ffea601851dca219ccaf16157b32cb303b0af6924c5964bde7a83d0088"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v10-first-world-native/current_classic_projection.xml",
+      "bytes": 417,
+      "sha256": "4fc2091a15dd17f227df2c1d10c58baa1cf38d6d2777fff1933e65919608bc5c"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v10-first-world-native/proposed_native_projection.log",
+      "bytes": 30441,
+      "sha256": "6ae421e4690253658a9a179676bd387b67b76c75e721c54fa69123345207e56e"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v10-first-world-native/proposed_native_projection.xml",
+      "bytes": 3459,
+      "sha256": "b03d0697852aea83ecfc5e277824f185ff8a3beb1a6477f517e081720fa07d2c"
+    }
+  ],
+  "retention": {
+    "owner": "Elderwyld first-World lane",
+    "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v10-first-world-native",
+    "databases": [
+      {
+        "name": "codex_v10_firstworld_test_0d5d41eb79e2",
+        "owner": "Elderwyld V10 first-World dependency audit",
+        "purpose": "current_classic_projection",
+        "cleanup_followup": "Retain failure/correctness evidence; no automatic manual drop. Inspect connections/unique data and approved scope before later disposal."
+      },
+      {
+        "name": "codex_v10_firstworld_test_e66c01d3df28",
+        "owner": "Elderwyld V10 first-World dependency audit",
+        "purpose": "proposed_native_projection",
+        "cleanup_followup": "Retain failure/correctness evidence; no automatic manual drop. Inspect connections/unique data and approved scope before later disposal."
+      }
+    ],
+    "removed_paths": [],
+    "manual_reclaimed_bytes": 0,
+    "cleanup_followup": "Retain databases/logs/XML through implementation/review; inspect connections/unique data/processes/mounts/dirty/unique commits and approved scope before task-owned disposal. Active serving mirrors untouched."
+  }
+}
