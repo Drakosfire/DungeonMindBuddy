@@ -250,7 +250,7 @@ def inspect(
         return _response(
             bound, pin, schema="dmb_native_graph_neighborhood_v1",
             node_ids=bounded.node_ids,
-            nodes=[node.model_dump(mode="json", by_alias=True) for node in map_nodes(read, bounded)],
+            nodes=[node.model_dump(mode="json", by_alias=True) for node in map_nodes(read, bounded, allow_multiple=True)],
             missing_seed_node_ids=result.missing_seed_entity_ids,
             relationships=[edge.model_dump(mode="json", by_alias=True)
                            for edge in map_relationships(read, result, bounded)],
