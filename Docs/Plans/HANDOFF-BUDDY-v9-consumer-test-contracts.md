@@ -46,3 +46,14 @@ restore mutation by tests. Per-process PATH may include existing local uv; no
 global setting/install. Retain proof artifacts and unique refs for qualification,
 owner Elderwyld lane; cleanup followup after explicit scope and active process,
 mount, dirty-worktree/unique-data checks. No manual deletion/reclaimed-byte claim.
+
+## Discovery checkpoint
+
+The initial targeted cohort passes18 cases, with2 consecutive mounted Build cases
+still failing. Their old writer count assertion is fixed; they now fail earlier
+in a later turn's native execution join: saved-statblock PDF support differs from
+its admitted Graph pin. Keep those cases red and their traces intact. Do not
+relax the authority join or change fixtures to hide this deeper condition here.
+A separate runtime/continuation diagnosis and bounded repair must precede overall
+V9 acceptance. This test-only slice remains independently useful; all goal and
+consumer acceptance obligations remain, including the failing consecutive cases.

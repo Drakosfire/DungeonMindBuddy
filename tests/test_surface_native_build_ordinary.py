@@ -375,7 +375,20 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert inputs[:2] == [{"conversation": message}, {"conversation": ""}]
                     assert inputs[-1] == frame
                 else:
-                    assert len(inputs)==3 and inputs[-1] == frame
+                    dialogue = [(role, pair[role])
+                        for pair in getattr(self.adapter, "build_frozen_history", ())
+                        for role in ("user", "assistant")]
+                    assert isinstance(body['input'], list)
+                    assert len(body['input']) == len(dialogue) + 3
+                    for row, (role, text) in zip(body['input'][:len(dialogue)], dialogue, strict=True):
+                        assert row['role'] == role
+                        assert json.loads(row['content']) == {"conversation": text}
+                    assert len(inputs) == len(dialogue) + 3
+                    assert inputs[:len(dialogue)] == [{"conversation": text} for _, text in dialogue]
+                    assert all(row['role'] == 'user' for row in body['input'][len(dialogue):])
+                    assert inputs[-3] == {"build_work": work}
+                    assert set(inputs[-2]) == {'lookups', 'ruleset', 'supports'}
+                    assert inputs[-1] == frame
             if self.adapter.submitted_intent.reviewed_step is not None:
                 from application_state.agent_conversation.reviewed_action import writer_scope,SCOPE_KEY
                 scope=writer_scope(self.adapter._broker_execution())
