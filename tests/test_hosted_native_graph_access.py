@@ -457,6 +457,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/extract-promote/runs/{run_id}/selection-context"): access.resolve_hosted_recap_selection,
             ("POST", "/api/live/threats/query-hydration"): access.resolve_hosted_threat_hydration,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
+            ("PUT", "/api/live/world-play-runs/v2/{run_id}/rebase"): access.resolve_hosted_play_command,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): access.resolve_hosted_play_command,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/content/commands/{command_id}"): access.resolve_hosted_play_command,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/review/commands/{command_id}"): access.resolve_hosted_play_command,
@@ -5861,3 +5862,29 @@ def test_hosted_build_insertion_ack_requires_owned_world_and_exact_revision(host
     result = hosted.client.request("POST", path)
     assert result.status_code == 200, result.text
     assert calls == [("managed", action, 3)]
+
+
+def test_hosted_play_rebase_binds_world_run_and_checks_ownership(hosted, monkeypatch):
+    from apps.live_control_server.routes import play_runs
+
+    run_id = str(uuid4())
+    path = f"/api/live/world-play-runs/v2/{run_id}/rebase?world_id=managed"
+    body = {"expected_run_revision": 2, "target_playable_revision": 4,
+            "target_playable_content_sha256": "a" * 64}
+    calls = []
+
+    def rebase(*, authorize_world, **kwargs):
+        calls.append(kwargs)
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        authorize_world()
+        pytest.fail("rebase proceeded after the World changed owners")
+
+    monkeypatch.setattr(play_runs, "rebase_or_replay_world_play_run", rebase)
+    assert hosted.client.request("PUT", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("PUT", path, json=body, origin=None).status_code == 403
+    assert not calls
+    denied = hosted.client.request("PUT", path, json=body)
+    assert denied.status_code == 403, denied.text
+    assert calls == [{"world_id": "managed", "run_id": run_id, **body}]

@@ -320,6 +320,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/workspace-documents/world-runbooks/{document_id}/tiptap/commit"): resolve_hosted_runbook_write,
     ("POST", "/api/live/world-play-runs/v2/preparation"): resolve_hosted_play_preparation,
     ("PUT", "/api/live/world-play-runs/v2/{run_id}"): resolve_hosted_play_creation,
+    ("PUT", "/api/live/world-play-runs/v2/{run_id}/rebase"): resolve_hosted_play_command,
     ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): resolve_hosted_play_command,
     ("PUT", "/api/live/world-play-runs/v2/{run_id}/content/commands/{command_id}"): resolve_hosted_play_command,
     ("PUT", "/api/live/world-play-runs/v2/{run_id}/review/commands/{command_id}"): resolve_hosted_play_command,

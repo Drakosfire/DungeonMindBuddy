@@ -624,6 +624,7 @@ def rebase_world_play_run(
     expected_run_revision: int,
     target_playable_revision: int,
     target_playable_content_sha256: str,
+    authorize_world=None,
 ) -> WorldPlayRunAggregate:
     result = _rebase_play_run(
         run_id=run_id,
@@ -631,6 +632,7 @@ def rebase_world_play_run(
         target_playable_revision=target_playable_revision,
         target_playable_content_sha256=target_playable_content_sha256,
         world_id=world_id,
+        authorize_world=authorize_world,
     )
     if not isinstance(result, WorldPlayRunAggregate):
         raise ApplicationStateIntegrityError("World PlayRun rebase lost its resolved owner")
@@ -644,6 +646,7 @@ def _rebase_play_run(
     target_playable_revision: int,
     target_playable_content_sha256: str,
     world_id: str | None,
+    authorize_world=None,
 ) -> PlayRunAggregate | WorldPlayRunAggregate:
     canonical_run_id = _as_uuid(run_id, field_name="run_id")
     canonical_world_id = None if world_id is None else _require_world_id(world_id)
@@ -749,6 +752,8 @@ def _rebase_play_run(
         _admit_progress_payload(
             run.progress, document, run_id=canonical_run_id, status_code=409
         )
+        if authorize_world is not None:
+            authorize_world()
         updated = repo.update_run_binding(
             conn,
             run_id=canonical_run_id,
