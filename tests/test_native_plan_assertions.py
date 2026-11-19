@@ -1168,7 +1168,7 @@ def test_recorded_name_ambiguity_reaches_actual_ordinary_controller_and_keeps_ci
 
 
 @pytest.mark.parametrize('shape',['relationship','other-schema-json'])
-def test_native_assertion_shapes_do_not_require_qualified_summary_json(lane,shape):
+def test_native_assertion_shapes_do_not_require_qualified_summary_json(lane,shape,monkeypatch):
     runtime=transport.runtime(lane.repo,dungeonbuddy_world_domain_contract(),
         dungeonbuddy_dnd5e_custom_predicate_profile(),now=NOW,operation_id='ordinary-shape')
     operations=(wk.CreateRelationship('reported-about',wk.DurableObjectRef(lane.ids['A']),'dungeonbuddy.custom:reports_on',wk.DurableObjectRef(lane.ids['B']),lane.meta),) if shape=='relationship' else (
@@ -1183,6 +1183,26 @@ def test_native_assertion_shapes_do_not_require_qualified_summary_json(lane,shap
     if shape=='relationship':
         relationship=next(m for m in result.assertion_matches if 'reports_on' in m.label)
         assert relationship.subject_entity_id==lane.ids['A'] and not relationship.label.startswith('B ·')
+        from collections import Counter
+        from dungeonmind.application.vnext.entity_reads import EntityReadService
+        from apps.live_control_server.services import native_graph_reads
+
+        ids = (lane.ids['A'], lane.ids['B'])
+        entities = {key: EntityReadService().get_complete_entity(context.pinned[0], key) for key in ids}
+        wire = native_graph_reads.assertion_contract
+        calls = Counter()
+
+        def count_contract(assertion):
+            calls[assertion.assertion_id] += 1
+            return wire(assertion)
+
+        monkeypatch.setattr(native_graph_reads, 'assertion_contract', count_contract)
+        assembled = native_graph_reads._assertion_matches(entities, excluded_subjects=set())
+        shared = next(row for row in assembled if row.assertion_id == relationship.assertion_id)
+        assert shared.discovered_entity_ids == tuple(sorted(ids))
+        assert shared.assertion_sha256 == relationship.assertion_sha256
+        assert calls[relationship.assertion_id] == 1
+
     assert lane.repo.get_head(lane.world.world_id)==before
 
 
