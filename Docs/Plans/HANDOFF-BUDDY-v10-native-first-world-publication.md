@@ -1,6 +1,6 @@
 # BUDDY — V10.C1 first-World native effect/compiler contract
 
-Status: ACTIVE DESIGN — production implementation remains in progress, not accepted.
+Status: ACTIVE — C1 closed inventory implementation, not accepted or deployed.
 Owner/designer: Elderwyld completion lane, explicit operator implementation/review/
 merge/launch authority. Existing isolated checkout, branch
 codex/v10-native-first-world-publication. Serial actual parent
@@ -203,3 +203,43 @@ newly owned32903 proof databases plus source/scripts/logs/XML/hashes. Retain thr
 implementation/review; later inspect connections/processes/mounts/dirty/unique commits
 and data plus approved scope before task-owned disposal. No manual removal or
 reclaimed bytes. Existing5202 mirrors remain Buddy4f4/Core4b, not this draft.
+
+
+## Activated C1 implementation lease
+
+Independent design critique accepts a CLOSED INVENTORY contract, not an executable
+Graph compiler. Output is immutable UnsupportedEffects with every field/blocker
+accounted, or NonPublishingDecisionPacket only when there are zero accepted graph
+and identity effects. Neither grants source/parent/profile/publication/activation
+authority. No operations/ready plan are exposed on unsupported output. Alias and
+summary reviewed/classic meanings remain distinct; source binding is unverified,
+not falsely described as absent. No unconditional profile transition is inferred.
+
+Exact six-path expected write set for this PR:
+1. this handoff;
+2. Docs/Reports/V10-first-world-native-prerequisite-v1.json;
+3. apps/live_control_server/models/native_first_world_effects.py (new immutable types);
+4. apps/live_control_server/services/native_first_world_effects.py (new pure inventory);
+5. tests/test_first_world_typed_evidence.py (existing classified owning module);
+6. Docs/Plans/HANDOFF-BUDDY-v10-native-retrieval-default.md (actual4083 sealing only).
+
+Relevant open1163/3531/1868/1235/1148/3824 paths were inspected: no overlap. Current
+main1b1decc8703db9d1912ec237f4f4a075038c237b differs from parent only in independent
+UI fixture/handoff work; no backend source delta is adopted or deployed by this PR.
+Current parent remains322dbb33. Reanchor again before review/merge.
+
+Input must be canonical producer JSON with explicit size/depth/count bounds; reject
+nonfinite values and preserve list/evidence order, numeric kinds and alias spelling.
+Freeze nested values as canonical JSON and expose decoded copies. Unsupported inner
+fields yield stable assertion/candidate/JSON-pointer blockers without dropping the
+rest of the inventory; malformed outer/cross-linked product effects fail validation.
+Tests exercise actual first-World materialization, exhaustive leaf accounting,
+reject/defer/non-node accepted effects, identity/summary distinctions, unknown fields,
+bounds, deep immutability, mutation isolation and deterministic digests with no
+source/repository/provider I/O. Existing tests/test_first_world_typed_evidence.py is
+run explicitly; do not claim it is selected by an unrelated named cohort.
+
+Required final checks: complete affected module, focused Ruff, canonical inventory,
+unmodified exact-head frontend/canonical qualification and independent cumulative
+review. The wider original HTTP mismatch remains a red prerequisite, not repaired
+by this inventory. C1 acceptance must not mark the native writer or V10 complete.
