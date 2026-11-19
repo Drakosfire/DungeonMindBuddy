@@ -137,7 +137,7 @@
     }
   ],
   "pending": [
-    "Explicit local-mode Runbook/rebase HTTP fixtures; registered World fixture authority; durable-page APP-down contract reconciliation",
+    "Registered World fixture authority; two durable-page APP-down/latency-analogue contract cases",
     "Requalify deliberately bounded repaired candidate, exact-head frontend, independent cumulative review and normal checks",
     "V9.B fresh live recovery/schema/artifact readiness and actual activation; V10 retirement; V11 serving baseline"
   ],
@@ -392,6 +392,16 @@
       "auth_contract_passed": 262,
       "hosted_ownership_case_passed": 1,
       "frontend_and_normal_checks": "passed",
+      "full_v9_accepted": false
+    },
+    {
+      "pr": 4072,
+      "merge": "1fd6c7ffaef93a444d8cef741a3caf8651ac8815",
+      "reviewed_head": "a2fd516318bb8daf49b0a141e3b90b99119c71e8",
+      "review": 5970321919,
+      "module_passed": 18,
+      "unchanged_page_contract_failures": 2,
+      "frontend_and_normal_checks": "passed at corrected head",
       "full_v9_accepted": false
     }
   ],
@@ -655,6 +665,26 @@
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/managed-auth-inventory.json",
       "bytes": 262,
       "sha256": "d0417b9bfecfe060f5ec770f6cf55ecd8420a20c9a8ef1eb94d9c39e7939b700"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/local-play-v2-exact-modules.log",
+      "bytes": 3243,
+      "sha256": "dc24fe679a1906e7c91004758201a64cf6d6ae1d74058441c1c69d6f819593b6"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/local-play-v2-lint-comparison.json",
+      "bytes": 212,
+      "sha256": "d517af740843020672d17b50fa1e8c835dead4decd2679944bca4fb05eb6d804"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/local-play-v2-page-failure-classification.json",
+      "bytes": 738,
+      "sha256": "de30703c9b9026246e63dd92113f6bfa3fc2a27793aa70081a20f6030d592372"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/local-play-v2-inventory.json",
+      "bytes": 263,
+      "sha256": "08d7810c211a1e0b12ce03af439a66d1b239e08bb1ff257daf08f048cfd3d8db"
     }
   ],
   "historical_qualified_source": "0274e014daa6527cccf6abd71dd2e641204dc4b0",
@@ -971,7 +1001,7 @@
     "live_source_mutation": false,
     "forward_verified_quiescent": true
   },
-  "next_candidate_runtime_base": "293a78e2019060c722a109a82a5fb27f3afa53f3",
+  "next_candidate_runtime_base": "a2fd516318bb8daf49b0a141e3b90b99119c71e8",
   "source_fixture_gap_resolution": {
     "status": "closed",
     "ten_setup_errors": "explicit APP dependencies",
@@ -989,5 +1019,10 @@
     "local_guard": "anonymous/invalid401 and resolvedplayer403 before projection; validGMsentinel",
     "hosted_guard": "owned/foreign/ownership-transfer test passed",
     "auth_contract": "262passed0failed"
+  },
+  "local_fixture_gap_resolution": {
+    "status": "closed_for_local_fixture_boundary",
+    "formerly_blocked": "Runbook create and4rebaseHTTP cases pass",
+    "remaining": "2unchanged direct-service page-contract tests do not use changed clients"
   }
 }

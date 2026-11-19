@@ -6,8 +6,8 @@ independent review, merge and launch; no PRIME coordination prerequisite.
 
 ## Current anchor and mission
 
-Next bounded candidate base: Buddy293a78e2019060c722a109a82a5fb27f3afa53f3
-(includes accepted4067–4071; final qualification pending). Retained rehearsal
+Next bounded candidate base: Buddya2fd516318bb8daf49b0a141e3b90b99119c71e8
+(includes accepted4067–4072; final qualification pending). Retained rehearsal
 runtime6fac remains separately identified below.
 Core runtime4b6516e2c0dfd81acaa4410b9b9bb9da18894c90; V8 evidence accepted in
 Core229 mergef770098ad27b772e6351f2827a2b7bd6628705e8. Read canonical
@@ -200,10 +200,18 @@ projection guard. Actual local denial-before-work and hosted owned/foreign/trans
 proof passed. Full auth262passed, exact hosted case1passed; frontend/canonical and
 normal checks passed. The prior auth inventory failure is closed; no policy changed.
 
-Next serial slice makes Runbook/rebase HTTP fixtures explicitly local. Then settle
-registered-World and durable-page APP-down fixture contracts. These are separate
-remaining gates; no missing fixture authority is bypassed.
-The repaired candidate starts from accepted293a78e, excluding unrelated later-main runtime; final proof must qualify
+Local fixture4072 is accepted: revieweda2fd516318bb8daf49b0a141e3b90b99119c71e8,
+merge1fd6c7ffaef93a444d8cef741a3caf8651ac8815, review5970321919. Explicit local modes
+and loopback peers preserve the real boundary. Former Runbook create and four
+rebase HTTP cases now pass:full modules18pass/2unchanged direct-service page reds.
+Independent review accepts this bounded correction; no full-module green claim.
+The corrected exact-head frontend/canonical and all normal checks passed; earlier
+dirty-caller diagnostic is retained and not reused as qualification.
+
+Next serial slice seeds the missing real registered-World fixture authority. Then
+reconcile the two durable-page APP-down/latency-analogue contract cases. Neither is
+waived or fixed by changing runtime authorization or inventing a file fallback.
+The repaired candidate starts from accepteda2fd516, excluding unrelated later-main runtime; final proof must qualify
 that bounded descendant. Current6fac proof remains tied to its original bytes.
 No provider generation or classic baseline rerun is needed.
 
