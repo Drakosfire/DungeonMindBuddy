@@ -1,15 +1,19 @@
-# PR41 Benchmark Artifacts
+# Historical PR41 benchmark report
 
-These artifacts were generated as part of PR41 budget-aware admission diagnostics.
+PR41 captured budget-aware admission diagnostics. This is PR-scoped diagnostic
+evidence, not canonical benchmark truth or a current runtime contract.
 
-## Files
+The checkout payload is retired. Recover the complete original
+[pr41_step2c_expected_context_multimode_report.json](https://github.com/Drakosfire/DungeonMindBuddy/blob/e25edf9017aeb6716eb84c1f97d966cfc2307378/evals/c1s4_preplanning_vertical_slice/artifacts/pr41/pr41_step2c_expected_context_multimode_report.json) from its exact Git version:
 
-- `pr41_step2c_expected_context_multimode_report.json`
-  - Generated with:
-    `uv run python evals/c1s4_preplanning_vertical_slice/step2c_expected_context_benchmark.py --all-modes --output-json evals/c1s4_preplanning_vertical_slice/artifacts/pr41/pr41_step2c_expected_context_multimode_report.json`
-  - Purpose:
-    Captures Step 2C multimode expected-context benchmark output with budget admission diagnostics.
+- Bytes: 332,194
+- SHA256: `7ee6678c845038eebdc0add39d02037ac4f4834aee0bbc61eababaa18024a23b`
 
-Notes:
-- This folder is PR-scoped evidence and not canonical benchmark truth.
-- Canonical generated artifacts may continue to live under the root `artifacts/` paths.
+The [original README](https://github.com/Drakosfire/DungeonMindBuddy/blob/e25edf9017aeb6716eb84c1f97d966cfc2307378/evals/c1s4_preplanning_vertical_slice/artifacts/pr41/README.md)
+preserves the historical generation command and context. That command has not
+been requalified against current dependencies or inputs; reproducing old values
+requires their historical environment. No report data was regenerated or changed.
+
+For new work follow the [lab guide](../../../README.md) and use owned external
+outputs. Current generators, canonical fixtures and neighboring evidence remain
+in place. Legacy comparison modes remain recoverable in the pinned report.
