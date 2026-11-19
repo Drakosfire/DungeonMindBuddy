@@ -680,7 +680,7 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       || ((encounter && method === "PUT" || method === "POST" && /\/mechanics-adoptions(?::cancel)?$/.test(suffix))
         && isRecord(requestBodyRecord(init?.body)));
   }
-  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-proposals\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(path)) {
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-proposals\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(?:\/prompt)?$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);

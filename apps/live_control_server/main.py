@@ -284,6 +284,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/inserted"): resolve_hosted_build_insertion_ack,
     ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/prompt"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/related-pages/{read_id}"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/saved-sections/{segment_index}/{section_event_id}"): resolve_hosted_conversation_world,
