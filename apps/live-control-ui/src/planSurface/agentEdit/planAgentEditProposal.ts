@@ -757,7 +757,8 @@ export async function preparePlanAuthoringApplication(target:CapturedWorldPlanEd
     :validateFragment(markdown,target.sectionTarget?.protectedInventory);
   const admitted:AdmittedWorldPlanEditProposal<PlanEditApplicationIdentity>={...fragment,response:{document_id:target.request.document_id,
     world_id:target.request.world_id,draft_sha256:target.request.draft_sha256,action_id:actionId}};
-  const initial=effectiveWorldPlanEditState(getCurrent());
+  const live=effectiveWorldPlanEditState(getCurrent());
+  const initial={...live,playableTarget:live.playableTarget ? {...live.playableTarget} : live.playableTarget};
   const mounted=currentWorldEditor(initial);
   const scope=planCardScopeKey.getState(mounted.state);
   const cardScope=scope ? {...scope} : undefined;

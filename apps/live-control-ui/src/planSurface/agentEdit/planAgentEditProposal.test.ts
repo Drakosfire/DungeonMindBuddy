@@ -1499,7 +1499,7 @@ it("seals the same scoped Markdown as mounted Cards while preserving raw outside
   expect(JSON.stringify(editor.getJSON())).toBe(prepared.afterEditorJson);
   expect(exportPlanCardMarkdown(editor,state.sourceMarkdown,tiptapJsonToSemanticMarkdown(editor.getJSON()))).toBe(prepared.afterMarkdown);
 });
-it.each(["view","scene","source","editor","draft","selection"])("refuses a %s race during scoped preparation without overwriting the live draft",async change=>{
+it.each(["view","scene","source","editor","draft","selection","target-in-place"])("refuses a %s race during scoped preparation without overwriting the live draft",async change=>{
   const {editor,state}=scopedAuthoringState();let current=state;
   const {target}=await captureWorldPlanAuthoringTarget(current,()=>current,authoringIdentity);
   const before=editor.getJSON();const digest=crypto.subtle.digest.bind(crypto.subtle);let changed=false;
@@ -1507,7 +1507,8 @@ it.each(["view","scene","source","editor","draft","selection"])("refuses a %s ra
     if(!changed){changed=true;
       if(change==="view")setPlanCardScope(editor,{active:false,sceneId:null});
       if(change==="scene")setPlanCardScope(editor,{active:true,sceneId:"scene:b"});
-      if(change==="source")current={...current,sourceMarkdown:scopedAuthoringSource+"\n"};
+      if(change==="source")current.sourceMarkdown=scopedAuthoringSource+"\n";
+      if(change==="target-in-place")current.currentSceneTarget!.id="scene:b";
       if(change==="editor"){
         const replacement=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,PlanCardEditing],content:editor.getJSON()});
         editors.push(replacement);setPlanCardScope(replacement,{active:true,sceneId:"scene:a"});current={...current,editor:replacement};
