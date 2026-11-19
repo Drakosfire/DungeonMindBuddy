@@ -1234,9 +1234,13 @@ it("uses the hosted session for exact Worldbuilding evidence corrections", async
 
 it.each([
   "/api/live/graph-preview/extraction-runs/saved-run",
+  "/api/live/graph-preview/extraction-runs/run%3Areviewed",
   "/api/live/graph-preview/extraction-runs/saved-run/build-context",
+  "/api/live/graph-preview/extraction-runs/run%3Areviewed/build-context",
   "/api/live/extract-promote/runs/saved-run/review-package",
+  "/api/live/extract-promote/runs/run%3Areviewed/review-package",
   "/api/live/extract-promote/runs/saved-run/frozen-source-spans",
+  "/api/live/extract-promote/runs/run%3Areviewed/frozen-source-spans",
 ])("uses the hosted session for exact saved extraction reads at %s", async path => {
   const api = await setup();
   hostedOrigin();
@@ -1247,6 +1251,21 @@ it.each([
   expect(init).toMatchObject({ credentials: "same-origin", mode: "same-origin" });
   expect(new Headers(init?.headers).has("Authorization")).toBe(false);
   await expect(api.authenticatedApiFetch(path + "?world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("reopens a Build extraction whose saved run ID contains a colon", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  const base = "/api/live/graph-preview/extraction-runs/";
+  await api.getExtractionRunStatus("run:reviewed");
+  expect(fetch).toHaveBeenCalledWith(base + "run%3Areviewed/build-context", expect.objectContaining({
+    credentials: "same-origin", mode: "same-origin", redirect: "error",
+  }));
+  for (const invalid of ["run%2Freviewed", "run%253Areviewed", "run%3Freviewed"]) {
+    await expect(api.authenticatedApiFetch(base + invalid + "/build-context")).rejects.toThrow(/exact same-origin/);
+  }
   expect(fetch).toHaveBeenCalledTimes(1);
 });
 
