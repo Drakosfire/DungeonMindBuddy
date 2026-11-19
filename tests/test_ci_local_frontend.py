@@ -551,6 +551,50 @@ def test_filtered_result_cannot_hide_duplicate_selected_case_as_unselected(tmp_p
     )["collection_parity"]
 
 
+@pytest.mark.parametrize("change", ["dirty", "committed"])
+def test_final_source_observation_controls_command_outcome(sandbox, monkeypatch, change):
+    args, _, fake = sandbox
+    real_git = local.git
+    state = {"built": False, "statuses": 0, "changed": False}
+
+    def command(argv, cwd, log, env):
+        result = fake(argv, cwd, log, env)
+        if argv == ["npm", "run", "build"]:
+            state["built"] = True
+        return result
+
+    def late_git(repo, *argv):
+        # After the build boundary and ordinary post-build status, introduce
+        # actual source drift just before the final source inspection.
+        if state["built"] and argv == ("status", "--porcelain"):
+            state["statuses"] += 1
+        if (
+            state["built"] and not state["changed"]
+            and argv == ("rev-parse", "HEAD") and state["statuses"] == 2
+        ):
+            state["changed"] = True
+            (Path(repo) / "late-source-change.txt").write_text("late change")
+            if change == "committed":
+                subprocess.run(["git", "-C", str(repo), "add", "late-source-change.txt"], check=True)
+                subprocess.run([
+                    "git", "-C", str(repo), "-c", "user.name=Verifier",
+                    "-c", "user.email=verifier@example.test", "commit", "-qm", "late change",
+                ], check=True)
+        return real_git(repo, *argv)
+
+    monkeypatch.setattr(local, "command", command)
+    monkeypatch.setattr(local, "git", late_git)
+    assert local.verify(args) == 1
+    report = json.loads((Path(args.output) / "evidence.json").read_text())
+    assert state["changed"]
+    assert report["source_dirty_after"] == (change == "dirty")
+    assert (report["source_sha_after"] != args.sha) == (change == "committed")
+    assert report["test_exit_code"] == report["build_exit_code"] == 0
+    assert report["exit_code"] == 1 and report["cleanup_complete"]
+    with pytest.raises(ValueError):
+        local.validate(Path(args.output) / "evidence.json", args.sha, "discovered")
+
+
 def test_clean_committed_source_drift_during_install_is_refused(sandbox, monkeypatch):
     args, _, fake = sandbox
 
