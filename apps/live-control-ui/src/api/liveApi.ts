@@ -720,6 +720,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "POST" && (source?.kind === "pdf" || source?.kind === "text")
       && typeof source.revision_id === "string" && Boolean(source.revision_id);
   }
+  const imagePreparation = /^\/api\/live\/media\/images\/preparations\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
+  if (imagePreparation) {
+    const query = new URLSearchParams(imagePreparation[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
   const imageHistory = "/api/live/media/images/preparations/list?";
   if (path.startsWith(imageHistory)) {
     const selectors = new URLSearchParams(path.slice(imageHistory.length));

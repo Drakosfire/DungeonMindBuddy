@@ -440,6 +440,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/media/images/capabilities"): access.resolve_hosted_image_world,
             ("POST", "/api/live/media/images/generate"): access.resolve_hosted_image_world,
             ("POST", "/api/live/media/images/preparations/{action_id}/asset"): access.resolve_hosted_image_world,
+            ("GET", "/api/live/media/images/preparations/{action_id}"): access.resolve_hosted_image_preparation,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
             ("POST", "/api/live/media/images/{asset_id}/save"): access.resolve_hosted_saved_artwork,
             ("POST", "/api/live/media/images/{asset_id}/regenerate"): access.resolve_hosted_saved_artwork,
@@ -5249,3 +5250,30 @@ def test_hosted_recap_correction_checks_exact_parent_in_owned_world(hosted, monk
     lost_access = hosted.client.request("POST", path, json=body)
     assert lost_access.status_code == 403, lost_access.text
     assert writes == ["owned-run"]
+
+
+def test_hosted_image_preparation_binds_world_and_owner(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import media_images
+
+    service = Mock()
+    record = service.get.return_value
+    record.reservation.basis.world_id = "managed"
+    record.model_dump.return_value = {"prompt": "A gate at dusk"}
+    monkeypatch.setattr(media_images, "BuildImageService", lambda: service)
+    action = uuid4()
+    path = f"/api/live/media/images/preparations/{action}?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    service.get.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    identifier, owner = service.get.call_args.args
+    assert identifier == action
+    assert owner.startswith("hosted_dms:")
+    record.reservation.basis.world_id = "foreign"
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 404
+    assert "A gate at dusk" not in denied.text

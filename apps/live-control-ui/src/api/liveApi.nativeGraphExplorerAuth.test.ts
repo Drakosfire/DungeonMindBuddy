@@ -1300,3 +1300,16 @@ it.each([false, true])("routes recap evidence correction for hosted=%s", async (
     hosted ? null : "Bearer synthetic-local-token",
   );
 });
+
+it("reopens a saved image direction under its hosted World", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  const path = "/api/live/media/images/preparations/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee?world_id=elderwyld";
+  await api.authenticatedApiFetch(path);
+  expect(fetch.mock.calls[0][1]).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledOnce();
+});

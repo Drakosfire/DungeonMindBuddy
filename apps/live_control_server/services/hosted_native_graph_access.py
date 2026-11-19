@@ -249,6 +249,15 @@ def first_world_authorizer(request: Request):
     return authorize
 
 
+async def resolve_hosted_image_preparation(request: Request) -> str:
+    world_id = request.query_params.get("world_id")
+    if not world_id or request.query_params.multi_items() != [("world_id", world_id)] or await request.body():
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_image_history(request: Request) -> str:
     selectors = request.query_params
     world_id = selectors.get("world_id")
