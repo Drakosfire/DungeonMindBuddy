@@ -493,8 +493,8 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && body.scope_mode === "world" && typeof body.world_id === "string"
       && Boolean(body.world_id) && typeof body.title === "string";
   }
-  if (/^\/api\/live\/graph-preview\/extraction-runs\/[a-z0-9:_-]+(?:\/build-context)?$/i.test(path)
-    || /^\/api\/live\/extract-promote\/runs\/[a-z0-9:_-]+\/(?:review-package|frozen-source-spans)$/i.test(path)) {
+  if (/^\/api\/live\/graph-preview\/extraction-runs\/(?:[a-z0-9:_-]|%3A)+(?:\/build-context)?$/i.test(path)
+    || /^\/api\/live\/extract-promote\/runs\/(?:[a-z0-9:_-]|%3A)+\/(?:review-package|frozen-source-spans)$/i.test(path)) {
     return method === "GET" && init?.body == null;
   }
   if (/^\/api\/live\/extract-promote\/runs\/[a-z0-9_-]+\/evidence-corrections$/i.test(path)) {
@@ -1210,8 +1210,9 @@ function apiRequestTarget(
     || /^\/api\/live\/workspace-documents\/world-runbooks\/[^/]+\/tiptap\/(?:prepare|commit)$/.test(normalizedPath)
     || normalizedPath === "/api/live/workspace-documents/world-plans/page"
     || normalizedPath === "/api/live/workspace-documents/world-plans"
-    || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+(?:\/build-context)?$/.test(normalizedPath)
-    || /^\/api\/live\/extract-promote\/runs\/[^/]+\/(?:review-package|frozen-source-spans)$/.test(normalizedPath)
+    || [normalizedPath, path.split("?", 1)[0]].some(candidate =>
+      /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+(?:\/build-context)?$/.test(candidate)
+      || /^\/api\/live\/extract-promote\/runs\/[^/]+\/(?:review-package|frozen-source-spans)$/.test(candidate))
     || /^\/api\/live\/extract-promote\/runs\/[^/]+\/evidence-corrections$/.test(normalizedPath)
     || /^\/api\/live\/workspace-documents\/[^/]+\/native-world-source$/.test(normalizedPath)
     || /^\/api\/live\/world-play-runs\/v2\/[^/]+\/(?:progress|rebase)$/.test(normalizedPath)
