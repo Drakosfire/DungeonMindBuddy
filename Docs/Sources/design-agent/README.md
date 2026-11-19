@@ -1,8 +1,8 @@
 # Design Agent / Project Sources Export
 
 **Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies
-**Canonical content rechecked at:** `97011d4673edda9da348a2b55c79f4ef07cb65fe`, with the bounded retired-PR gate correction in this change
-**Repository refresh:** 2026-11-19. The README and DEMO roadmap exports were refreshed, the manifest links were repaired, the retired PR #761 gate was corrected, and all 22 mapped exports were checked. This is not a full design/corpus audit; user-managed Project Sources were not changed.
+**Canonical content rechecked at:** `3836a2c74e7e5bf67e86d060e8b14cffe63bab3a`, with the bounded Campaign roadmap/caller retirement in this change
+**Repository refresh:** 2026-11-19. The README and DEMO roadmap exports were refreshed, the manifest links were repaired, the Campaign roadmap and its two dated sequencing callers were retired as current dispatch authority, and all 22 mapped exports were checked. This is not a full design/corpus audit; user-managed Project Sources were not changed.
 **Canonical source-set index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../../Design/INDEX-design-agent-source-set.md)
 
 This directory is the clean pickup point for refreshing ChatGPT immediate /
@@ -59,11 +59,12 @@ Do not upload as current:
 - `JUMPSTART-docs-relevance-first.md` — superseded;
 - download-suffixed historical copies.
 
-The Campaign roadmap remains excluded from this export. Its physical retirement
-still requires the current-lease and consumer audit in
+The Campaign roadmap remains excluded from this export. Its canonical path is a
+historical forwarding record with the complete former body pinned in Git.
+The bounded settlement contract and caller dispositions are recorded in
 `Docs/Plans/HANDOFF-SETTLEMENT-retire-campaign-supergraph-roadmap.md`.
-PR #761 closed unmerged on 2026-10-07 and is no longer a live PR gate. This export
-does not activate the blocked retirement handoff or release any other assignment.
+Current work follows domain contracts and explicitly active bounded handoffs;
+this export does not provide a replacement global sequence.
 
 ## Maintenance rule
 

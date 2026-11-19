@@ -2,6 +2,7 @@
 
 **Date:** 2026-07-10
 **Settlement refresh:** 2026-09-25
+**Roadmap retirement refresh:** 2026-11-19 — bounded Campaign roadmap/caller settlement only; other dated classifications below are not newly requalified
 **Status:** ACTIVE documentation-governance authority
 **Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Source manifest:** [`INDEX-design-agent-source-set.md`](../Design/INDEX-design-agent-source-set.md)
@@ -27,12 +28,12 @@ and ownership have moved past it.
 | **ARCHIVED** | Historical body preserved under archive tree |
 | **DELETE** | No living consumer or unique historical value |
 
-## 2026-09-25 settlement decisions
+## 2026-09-25 settlement decisions (roadmap disposition updated 2026-11-19)
 
 | Document | Classification | Current role |
 |---|---|---|
 | `Docs/Design/ARCHITECTURE-campaign-supergraph.md` | **ACTIVE AUTHORITY** | World-model invariants; runtime ownership re-anchored to DungeonMind/WorldKeeper/Buddy |
-| `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` | **SETTLEMENT_HOLD** | Program history; self-claim to current roadmap is stale, physical retirement blocked by UI #761 path lease |
+| `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` | **HISTORICAL / forwarding record** | Closed program history is pinned in Git; current sequencing claims retired after the lease/consumer audit |
 | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` | **HISTORICAL / FROZEN** | Old Campaign/CUTOVER sequence; no dispatch |
 | `Docs/Design/STATUS-world-graph-continuity-spine.md` | **HISTORICAL / FROZEN** | August continuity snapshot |
 | `Docs/Design/ARCHITECTURE-surface-interaction-layer.md` | **ACTIVE AUTHORITY** | Stable shared chrome/Surface/Canvas ownership |

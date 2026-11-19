@@ -5,13 +5,19 @@
 > Plan is a **characterized consumer** — not the shared API owner. Shared chrome
 > authority:
 > [`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md).
-> Remaining provider/bar hoist sequencing:
+> Historical provider/bar hoist sequencing:
 > [`PLAN-surface-interaction-hoist-build-first.md`](../Plans/PLAN-surface-interaction-hoist-build-first.md).
 
-**Status:** Active surface reference; not sequencing authority
+**Status:** Dated surface reference; not current sequencing authority
 **Re-anchored:** 2026-07-15 after the Hermes Campaign Authoring Foundation reset
 
-Agent Interaction began as a Plan-local bottom bar/pane and remains dogfooded first on `/plan`. Its current architectural direction is now governed by:
+This reference preserves the July checkpoint and August host-ownership note.
+For current work, use the [documentation map](../README.md),
+[shared Surface architecture](ARCHITECTURE-surface-interaction-layer.md), and the
+owning workstream's explicitly active bounded handoff.
+
+Agent Interaction began as a Plan-local bottom bar/pane. The following links
+record the historical foundation, not a current implementation sequence:
 
 1. [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 2. [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
@@ -19,11 +25,11 @@ Agent Interaction began as a Plan-local bottom bar/pane and remains dogfooded fi
 4. [`Docs/Design/ARCHITECTURE-hermes-campaign-authoring-foundation.md`](ARCHITECTURE-hermes-campaign-authoring-foundation.md)
 5. [`Docs/Design/UX-STORIES-hermes-campaign-authoring-foundation.md`](UX-STORIES-hermes-campaign-authoring-foundation.md)
 
-The Hermes documents above are the active reset surface. The old graph-only anchor
+The Hermes documents above record the reset surface used at that checkpoint. The old graph-only anchor
 and Rung-based stories remain only as compatibility stubs pointing to the dated
 archive.
 
-## Current state
+## Recorded state at the checkpoint
 
 - PR008A migrated Plan object cards, references, relationship traversal, and diagnostics to the revision-pinned World Supergraph projection.
 - PR008B attached deterministic World Graph query context to Agent Interaction.
