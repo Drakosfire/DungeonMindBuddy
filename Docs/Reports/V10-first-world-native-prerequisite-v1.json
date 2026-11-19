@@ -25,8 +25,9 @@
   ],
   "cause": "Source admission advances native KnowledgeSpace while first-World confirmation invokes classic initialize_reviewed_world. Shared identity does not make their heads one authority.",
   "required_sequence": [
-    "Native first-World reviewed publication preserving source/head and durable recovery",
-    "Confirmation/native receipt/projection revision and semantic agreement",
+    "Closed native first-World effect inventory/compiler contract, including identity/alias expressibility",
+    "Only demonstrated generic Core/WK prerequisite if needed",
+    "Integrated versioned native prepare/confirm/recovery and binding activation",
     "Managed-default retirement",
     "Remaining V10 retirement and V11 deployed baseline"
   ],
@@ -70,6 +71,11 @@
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v10-first-world-native/proposed_native_projection.xml",
       "bytes": 3459,
       "sha256": "b03d0697852aea83ecfc5e277824f185ff8a3beb1a6477f517e081720fa07d2c"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v10-first-world-native/authority-comparison.json",
+      "bytes": 1337,
+      "sha256": "4a66650107907341c95c44dbd53adb5777e0e4e7d257985bc6d4cac378ded7d3"
     }
   ],
   "retention": {
@@ -92,5 +98,47 @@
     "removed_paths": [],
     "manual_reclaimed_bytes": 0,
     "cleanup_followup": "Retain databases/logs/XML through implementation/review; inspect connections/unique data/processes/mounts/dirty/unique commits and approved scope before task-owned disposal. Active serving mirrors untouched."
-  }
+  },
+  "authority_content_comparison": [
+    {
+      "mode": "current_classic_projection",
+      "database": "codex_v10_firstworld_test_0d5d41eb79e2",
+      "space_id": "world:11111111111111111111111111111111",
+      "native_head": "rev:310dee850741c52438219489e9607edf",
+      "classic_head": "rev:f541ae3c9a182f0570865e7dc35ddec1",
+      "native_graph_counts": {
+        "aliases": 0,
+        "assertions": 0,
+        "entities": 0,
+        "evidence": 1
+      },
+      "classic_graph_counts": {
+        "objects": 2,
+        "evidence_refs": 1,
+        "relationships": 1,
+        "semantic_profile": 4
+      },
+      "histories_differ": true
+    },
+    {
+      "mode": "proposed_native_projection",
+      "database": "codex_v10_firstworld_test_e66c01d3df28",
+      "space_id": "world:11111111111111111111111111111111",
+      "native_head": "rev:7ceb4c2634562aadc7daa9bc09900336",
+      "classic_head": "rev:f3cb0fde8f2fc0f4aca1a1f285c36d28",
+      "native_graph_counts": {
+        "aliases": 0,
+        "assertions": 0,
+        "entities": 0,
+        "evidence": 1
+      },
+      "classic_graph_counts": {
+        "objects": 2,
+        "evidence_refs": 1,
+        "relationships": 1,
+        "semantic_profile": 4
+      },
+      "histories_differ": true
+    }
+  ]
 }

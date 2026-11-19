@@ -1,4 +1,4 @@
-# BUDDY — V10.C native first-World publication prerequisite
+# BUDDY — V10.C1 first-World native effect/compiler contract
 
 Status: ACTIVE DESIGN — production implementation remains in progress, not accepted.
 Owner/designer: Elderwyld completion lane, explicit operator implementation/review/
@@ -24,6 +24,36 @@ No provider, live ingestion or frozen retrieval baseline was run.
 The proposed managed-default retirement was critiqued but NEVER dispatched. Do not
 remove that fallback before this current publication dependency is closed. Do not
 call the failing contract obsolete or choose whichever history has visible nodes.
+
+## First implementation boundary after independent critique
+
+This PR's first capability is a closed effect inventory/compiler contract, without
+production dispatch. For every accepted create/defer/reject choice, enumerate exact
+native effects and either prove expressibility or return a typed unsupported-effect
+result. Include aliases and identity semantics; an alias-dropping compiler is not
+complete. The full integrated outcome below remains mandatory in later serial slices.
+
+Trace actual published-node aliases separately from deferred identity mentions.
+worldbuilding_write_plan.py:903 is a deferred-node mention, not by itself the
+published alias mapper. WK CreateObject exposes facts; Core ProspectiveCreateEntity
+has no aliases, and ordinary identity decisions do not expose prospective targets.
+Investigate the genuine supported path before claiming a generic contract gap.
+No predicted durable ID or arbitrary name-fact replacement is acceptable.
+
+Prefer atomic entity-plus-alias publication. Separate alias publication is allowed
+only after explicit product partial-outcome/recovery semantics are established;
+never activate or report a complete first World with incomplete accepted identity.
+
+Test actual compiled predicates/value kinds against registered profile1. Its
+classification_terms list is not by itself a closed admission test; do not invent
+profile4 merely for item/mystery. Use accepted explicit1→2 transition only if custom
+relationships actually require it.
+
+Serial topology: effect/compiler proof → any demonstrated Core/WK prerequisite →
+integrated versioned prepare/confirm/recovery → managed-default retirement. The
+initial two-file design lease still applies until exact compiler/model/test paths
+and active shared-file ownership are pinned and critiqued. No production dispatch
+has been authorized by an unclosed effect map.
 
 ## Required integrated outcome
 
