@@ -376,3 +376,135 @@ def test_signed_native_review_publishes_once(case, graph, monkeypatch, hosted_mo
     assert retry.json() == receipt.json()
     assert repo.get_head(space).head_revision_id == child.revision.revision_id
     assert repo.open_native_source_view(space).epoch == epoch + 1
+
+
+
+def test_installed_core_governed_extension_metadata_recovery(case):
+    """Installed public Core/WK compatibility; not HTTP recovery implementation."""
+    from copy import deepcopy
+    from datetime import UTC, datetime
+    from hashlib import sha256
+
+    from dungeonmind.application.vnext import (
+        initialize_empty_knowledge_space, open_admitted_native_text,
+        open_native_text_source_access_context, preview_native_source_evidence_extension,
+        publish_native_source_evidence_extension, publish_native_text_source_evidence,
+        recover_native_source_evidence_extension,
+    )
+    from dungeonmind.application.vnext.errors import (
+        KnowledgePublicationIdempotencyConflictError, NativeTextSourceAdmissionIntegrityError,
+    )
+    from dungeonmind.application.vnext.materialization import decode_native_graph_payload
+    from dungeonmind.contracts.vnext.native_source import (
+        GovernedNativeSourceEvidenceExtensionV1, NativeSourceEvidenceExtensionV1,
+        NativeTextSourceAdmissionV1,
+    )
+    from dungeonmind.infrastructure.memory.vnext_sources import InMemoryNativeSourceEvidenceRepository
+    from worldkeeper.integrations.dungeonmind import compile_prepared_change_to_dungeonmind
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
+    from apps.live_control_server.services import graph_document_relationship as reader
+    from graph_memory.vnext.domain_runtime import (
+        dungeonbuddy_world_domain_contract, dungeonbuddy_dnd5e_custom_predicate_profile,
+    )
+
+    body = reader.get_committed_page_snapshot(case.root, case.record.document_id).markdown
+    raw = body.encode("utf-8")
+    domain, profile = dungeonbuddy_world_domain_contract(), dungeonbuddy_dnd5e_custom_predicate_profile()
+    repo = InMemoryNativeSourceEvidenceRepository()
+    space, now = "space:installed-recovery", datetime.now(UTC)
+    genesis = initialize_empty_knowledge_space(repository=repo, space_id=space,
+        initialization_id="init:installed-recovery", created_at=now,
+        domain_contract=domain, semantic_profile=profile)
+    root = publish_native_text_source_evidence(repository=repo, domain_contract=domain,
+        semantic_profile=profile, request=NativeTextSourceAdmissionV1(
+            space_id=space, admission_id="admission:installed-recovery",
+            expected_parent_revision_id=genesis.published_revision_id, created_at=now,
+            body_text=body, expected_body_sha256=sha256(raw).hexdigest(),
+            source_classification="dungeonbuddy.source:worldbuilding", authority="primary",
+            visibility={"kind": "public"}, spans=[dict(client_ref="opening", evidence_role="context",
+                start_byte=0, end_byte=1, expected_slice_sha256=sha256(raw[:1]).hexdigest())]))
+    extension = NativeSourceEvidenceExtensionV1(space_id=space,
+        extension_id="extension:installed-recovery", original_admission_id=root.admission_id,
+        source_artifact_id=root.source_artifact_id, source_revision_id=root.source_revision_id,
+        expected_body_sha256=sha256(raw).hexdigest(), created_at=now,
+        expected_parent_revision_id=repo.get_head(space).head_revision_id,
+        expected_source_authority_epoch=repo.open_native_source_view(space).epoch,
+        spans=[dict(client_ref="reviewed", evidence_role="support", start_byte=0,
+                    end_byte=len(raw), expected_slice_sha256=sha256(raw).hexdigest())])
+    evidence, = preview_native_source_evidence_extension(repository=repo, request=extension,
+        domain_contract=domain, semantic_profile=profile, audience_labels=())
+    context, _ = native.access_context(repo, space)
+    prepared = reader.prepare_native_relationship(DocumentRelationshipRequest.model_validate(intent(case)),
+        repository=repo, context=context, operation_id=extension.extension_id,
+        predicate="dungeonbuddy.custom:owns", evidence_ref_id=evidence.evidence_ref_id,
+        prepared_at=now, preview_evidence=evidence)
+    compiled = compile_prepared_change_to_dungeonmind(prepared)
+    request = GovernedNativeSourceEvidenceExtensionV1.model_validate({
+        **extension.model_dump(mode="json"), "contribution": compiled.prospective_contribution,
+        "dispositions": list(compiled.dispositions),
+    })
+
+    class MetadataOnly:
+        def __getattr__(self, name):
+            assert name in {"get_revision", "get_publication_receipt",
+                            "get_native_source_admission_receipt",
+                            "get_native_source_evidence_extension_receipt"}, name
+            return getattr(repo, name)
+
+    metadata = MetadataOnly()
+
+    def recover(value=request):
+        return recover_native_source_evidence_extension(repository=metadata, request=value,
+            domain_contract=domain, semantic_profile=profile)
+
+    def snapshot():
+        return deepcopy({key: value for key, value in vars(repo).items() if key != "_lock"})
+
+    before = snapshot()
+    assert recover() is None
+    assert snapshot() == before
+    receipt = publish_native_source_evidence_extension(repository=repo, request=request,
+        domain_contract=domain, semantic_profile=profile, audience_labels=())
+    before = snapshot()
+    assert recover() == receipt
+    assert snapshot() == before
+    child = repo.get_revision(space, receipt.publication_receipt.published_revision_id)
+    content = decode_native_graph_payload(child.graph_payload)
+    actual_entities = {e.entity_id for e in content.entities}
+    actual_assertions = {a.assertion_id for a in content.assertions}
+    assert {b.durable_id for b in receipt.result_bindings if b.result_kind == "entity"} <= actual_entities
+    assert {b.durable_id for b in receipt.result_bindings if b.result_kind == "assertion"} <= actual_assertions
+    assert len([b for b in receipt.result_bindings if b.result_kind == "entity"]) == 2
+    assert len([b for b in receipt.result_bindings if b.result_kind == "assertion"]) >= 1
+
+    later = extension.model_copy(update={
+        "extension_id": "extension:installed-recovery-later",
+        "expected_parent_revision_id": child.revision.revision_id,
+        "expected_source_authority_epoch": repo.open_native_source_view(space).epoch,
+        "spans": [extension.spans[0].model_copy(update={
+            "client_ref": "later", "end_byte": 4, "expected_slice_sha256": sha256(raw[:4]).hexdigest(),
+        })],
+    })
+    publish_native_source_evidence_extension(repository=repo, request=later,
+        domain_contract=domain, semantic_profile=profile, audience_labels=())
+    assert repo.get_head(space).head_revision_id != child.revision.revision_id
+    before = snapshot()
+    assert recover() == receipt
+    assert snapshot() == before
+    repo.withdraw_native_source(space_id=space, source_artifact_id=root.source_artifact_id,
+                                source_revision_id=root.source_revision_id)
+    before = snapshot()
+    recovered = recover()
+    assert recovered == receipt
+    assert not hasattr(recovered, "body_text") and not hasattr(recovered, "body_bytes")
+    assert snapshot() == before
+    with pytest.raises(KnowledgePublicationIdempotencyConflictError):
+        recover(request.model_copy(update={"created_at": now.replace(microsecond=(now.microsecond + 1) % 1000000)}))
+    assert snapshot() == before
+    with pytest.raises(NativeTextSourceAdmissionIntegrityError):
+        publish_native_source_evidence_extension(repository=repo, request=request,
+            domain_contract=domain, semantic_profile=profile, audience_labels=())
+    assert snapshot() == before
+    access = open_native_text_source_access_context(repository=repo, space_id=space,
+        revision_id=repo.get_head(space).head_revision_id, domain_contract=domain, audience_labels=())
+    assert open_admitted_native_text(access, receipt.bindings[0].evidence_ref_id).status == "unavailable"

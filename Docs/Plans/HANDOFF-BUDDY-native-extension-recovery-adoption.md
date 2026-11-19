@@ -42,3 +42,34 @@ Projects UUID48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8 and actual writable cache/scra
 parents verified before allocation. Retain task scratch/v9-buddy/v10-native-extension-recovery-adoption
 and new env under MIND ownership, reason active fullgoal evidence. No deletion;
 cleanup follow-up needs approved scope/process/mount/dirty/unique-data checks.
+
+## Initial implementation checkpoint — MERGE HOLD
+
+Exact2f743 full uv regeneration retained:152packages, expected pin-only complete
+non-artifact metadata/graph equality before normalizing139artifact-noise packages.
+Normalized lock preserves ALL baseline artifact records; lock-check and fresh
+locked sync PASS. Python3.13.12 isolated installed provenance verifies exactCore2f743,
+WKef9 unchanged and prior Core99 environment unchanged. No Core overlay.
+
+Public smoke passed1; full existing document-relationship owning module24PASS,
+4warnings. Real committed disposable APP document + real Core memory/WK governed
+publication, no mock recovery/result authority or predicted allocations. Metadata-only
+repository permits only exact immutable receipt/revision reads, forbids current
+head/source-view/body/write ports. Absent/committed/laterhead/withdrawn recovery,
+result bindings, changed-intent conflict and no mutation pass. Fresh source opening
+and publisher replay still refuse after withdrawal. This is public package
+compatibility, NOT HTTP recovery/writer implementation. Existing HTTP cases remain
+separate owning regressions. No broader-contract/frontend qualification claim.
+
+Owner identified redundant shared ancestry verification cost in Core2f743 normal
+publisher/preview. Separate Core performance prerequisite is root-owned; MERGE HOLD
+until its accepted exact merge is supplied and owner authorizes pin retarget with
+new installed provenance/evidence. Continue preserving this2f743 qualification;
+no silent retarget or Buddy scope growth. Parent owns all broad qualification.
+
+Task evidence: baseline/full-regenerated locks, lock-regeneration-comparison.json,
+lock-normalization.json, uv-lock-check.log, uv-sync-locked.log,
+installed-provenance.json, recovery-smoke-1.log, owning.xml/log and Ruff comparison.
+All retained; no failed tests in these scoped runs, artifact noise preserved rather
+than hidden. New environment and scratch remain MIND-owned pending fullgoal
+cleanup authority; no resources removed or active worker jobs after freeze.
