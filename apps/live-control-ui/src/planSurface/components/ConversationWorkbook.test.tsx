@@ -1,12 +1,12 @@
 import {cleanup,fireEvent,render,screen} from '@testing-library/react'
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest'
 import {ConversationWorkbook} from './ConversationWorkbook'
-import {getWorkPlan,saveWorkPlan} from '../../api/conversationWorkPlanApi'
-vi.mock('../../api/conversationWorkPlanApi',()=>({getWorkPlan:vi.fn(),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}))
+import {getWorkPlan,saveWorkPlan,continueWorkPlan} from '../../api/conversationWorkPlanApi'
+vi.mock('../../api/conversationWorkPlanApi',async original=>({...await original<typeof import('../../api/conversationWorkPlanApi')>(),getWorkPlan:vi.fn(),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}))
 const binding={worldId:'world',conversationId:'conversation',turnId:'turn'}
 const source='Before writing:\n\n1. Read Edge’s table.\n2. Choose an existing shop owner.\n'
 function mount(onAdd=vi.fn(),extra={}) {render(<ConversationWorkbook {...binding} source={source} onAdd={onAdd} {...extra}/>);return onAdd}
-beforeEach(()=>window.sessionStorage.clear())
+beforeEach(()=>{vi.clearAllMocks();window.sessionStorage.clear()})
 afterEach(()=>vi.restoreAllMocks())
 describe('author conversation workbook',()=>{
  it('edits/selects steps and adds only reviewed steps without sending',()=>{
@@ -77,10 +77,15 @@ it('does not infer a workbook from an ordinary new typed answer containing a lis
 it('saves both typed actions and the author’s deferred choice without execution',async()=>{
  vi.mocked(getWorkPlan).mockResolvedValue(null);
  const pending=new Promise<never>(()=>{});vi.mocked(saveWorkPlan).mockReturnValue(pending);
- mount(vi.fn(),{source:'Let’s build together.',collaboration:{kind:'plan',steps:[{text:'Read names.',kind:'discuss'},{text:'Prepare prose.',kind:'prepare_insertion'}]},durable:{disabled:false,onContinue:vi.fn()}});
+ const onAdd=vi.fn(),onContinue=vi.fn();
+ const source='Let’s build together.',objective='Review the names before drafting prose.';
+ mount(onAdd,{source,collaboration:{kind:'plan',steps:[{text:'Read names.',kind:'discuss'},{text:'Prepare prose.',kind:'prepare_insertion'}]},durable:{disabled:false,onContinue}});
  await screen.findByLabelText('Action 2');
  expect(screen.getByLabelText('Action 2')).toHaveValue('prepare_insertion');
+ fireEvent.change(screen.getByLabelText('Expected outcome'),{target:{value:objective}});
  fireEvent.click(screen.getByLabelText('Include step 2'));
  fireEvent.click(screen.getByRole('button',{name:'Save reviewed plan'}));
- expect(saveWorkPlan).toHaveBeenCalledWith(expect.anything(),0,[expect.objectContaining({text:'Read names.',kind:'discuss',selected:true}),expect.objectContaining({text:'Prepare prose.',kind:'prepare_insertion',selected:false})]);
+ expect(saveWorkPlan).toHaveBeenCalledTimes(1);
+ expect(saveWorkPlan).toHaveBeenCalledWith({...binding,source},0,[expect.objectContaining({text:'Read names.',kind:'discuss',selected:true}),expect.objectContaining({text:'Prepare prose.',kind:'prepare_insertion',selected:false})],objective);
+ expect(continueWorkPlan).not.toHaveBeenCalled();expect(onContinue).not.toHaveBeenCalled();expect(onAdd).not.toHaveBeenCalled();
 });
