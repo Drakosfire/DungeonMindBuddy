@@ -1963,6 +1963,7 @@ def confirm(
 
 def prepare_first_world(
     request: FirstWorldGraphPrepareRequest,
+    *, authorize_world: Callable[[str], None] | None = None,
 ) -> FirstWorldGraphPlan:
     """Seal an inert first-world initialization plan (no production graph mutation)."""
     from apps.live_control_server.services.first_world_graph_publication import (
@@ -1970,11 +1971,12 @@ def prepare_first_world(
     )
 
 
-    return _prepare(request)
+    return _prepare(request, authorize_world=authorize_world)
 
 
 def confirm_first_world(
     request: FirstWorldGraphConfirmRequest,
+    *, authorize_world: Callable[[str], None] | None = None,
 ) -> FirstWorldGraphConfirmReceipt:
     """Verify a sealed first-world plan and atomically initialize W."""
     from apps.live_control_server.services.first_world_graph_publication import (
@@ -1982,7 +1984,7 @@ def confirm_first_world(
     )
 
 
-    return _confirm(request)
+    return _confirm(request, authorize_world=authorize_world)
 
 
 __all__ = [
