@@ -391,3 +391,23 @@ def test_preparation_fails_closed_if_source_traversal_disagrees(scene_case, monk
     monkeypatch.setattr(plan_playable_body_target, '_attached_heading', lambda *args, **kwargs: {})
     with pytest.raises(ApplicationStateIntegrityError, match='scene order'):
         service.preparation_preview(world_id='elderwyld', request=source)
+
+
+def test_cancel_authorization_denial_leaves_no_rows(scene_case):
+    p = scene_case
+    request = request_for(p)
+    run_id = uuid4()
+    calls = []
+
+    def denied():
+        calls.append("before_insert")
+        raise PermissionError("World authority changed")
+
+    with pytest.raises(PermissionError, match="World authority changed"):
+        service.cancel_creation(world_id="elderwyld", run_id=run_id,
+                                request=request, authorize=denied)
+    assert calls == ["before_insert"]
+    with psycopg.connect(p.dsn) as conn:
+        for table in ("session_creation_cancellation", "session_preparation", "run"):
+            assert conn.execute(f"SELECT count(*) FROM play.{table} WHERE run_id=%s", (run_id,)).fetchone() == (0,)
+    assert service.cancel_creation(world_id="elderwyld", run_id=run_id, request=request)["state"] == "canceled"

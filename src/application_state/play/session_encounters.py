@@ -175,7 +175,7 @@ def inspect_creation(*, world_id, run_id):
         return _result(conn, world_id, run_id, receipt) if receipt else _canceled(conn, world_id, run_id)
 
 
-def cancel_creation(*, world_id, run_id, request):
+def cancel_creation(*, world_id, run_id, request, authorize=None):
     run_id = UUID(str(run_id)); dsn = load_runtime_dsn(); assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
         _lock_creation(conn, run_id)
@@ -187,6 +187,8 @@ def cancel_creation(*, world_id, run_id, request):
             return canceled
         if repo.get_run(conn, run_id) is not None:
             raise ApplicationStateConflictError('Run already exists without this creation receipt')
+        if authorize is not None:
+            authorize()
         conn.execute('INSERT INTO play.session_creation_cancellation(run_id,world_id,request_digest,request) VALUES(%s,%s,%s,%s)',
             (run_id, world_id, _intent(world_id, request), Jsonb(request.model_dump(mode='json'))))
         return _canceled(conn, world_id, run_id, request)

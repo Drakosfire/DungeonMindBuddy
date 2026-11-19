@@ -274,7 +274,7 @@ def preview_world_session(
     world_id: str = Query(min_length=1), entry_scene_id: str | None = None,
 ):
     _authorize_world_session(request, world_id)
-    return call(session_encounters.preparation_preview, world_id=_verified_world(world_id), request=body, entry_scene_id=entry_scene_id)
+    return call(request, session_encounters.preparation_preview, world_id=_verified_world(world_id), request=body, entry_scene_id=entry_scene_id)
 
 
 @router.put("/world-play-runs/v2/{run_id}")
@@ -290,7 +290,7 @@ def put_world_play_run_v2(run_id: str, body: WorldSessionCreateRequest, request:
 def inspect_world_session(run_id: UUID, request: Request, world_id: str = Query(min_length=1)):
     hosted = _authorize_world_session(request, world_id)
     try:
-        return world_session_outcome(call(session_encounters.inspect_creation, world_id=_verified_world(world_id), run_id=run_id))
+        return world_session_outcome(call(request, session_encounters.inspect_creation, world_id=_verified_world(world_id), run_id=run_id))
     except HTTPException as exc:
         if hosted and exc.status_code == 409:
             return None
@@ -300,7 +300,7 @@ def inspect_world_session(run_id: UUID, request: Request, world_id: str = Query(
 @router.post("/world-play-runs/v2/{run_id}/creation:cancel")
 def cancel_world_session(run_id: UUID, body: WorldSessionCreateRequest, request: Request, world_id: str = Query(min_length=1)):
     _authorize_world_session(request, world_id)
-    return world_session_outcome(call(session_encounters.cancel_creation, world_id=_verified_world(world_id), run_id=run_id, request=body))
+    return world_session_outcome(call(request, session_encounters.cancel_creation, write=True, world_id=_verified_world(world_id), run_id=run_id, request=body))
 
 
 @router.get("/world-play-runs/v2/{run_id}", response_model=WorldPlayRunRecord)

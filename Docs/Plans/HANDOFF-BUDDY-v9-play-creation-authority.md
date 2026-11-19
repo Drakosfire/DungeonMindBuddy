@@ -8,7 +8,7 @@ codex/v9-play-creation-authority; existing isolated Buddy checkout under
 Serial runtime repair→separate fixture/contract repairs→resume qualification4041.
 Do not incorporate later floating-main runtime as an implicit candidate change.
 
-## Outcome, invariant and five-path write lease
+## Outcome, invariant and six-path write lease
 
 Repair preparation, creation inspection and cancellation routes using the shared
 helper's current (HTTP request, service function) signature. Preserve local GM and
@@ -21,7 +21,9 @@ remain protected before disclosure. No schema, wire, provider or serving change.
 Only this handoff; apps/live_control_server/routes/play_runs.py;
 src/application_state/play/session_encounters.py;
 tests/test_play_creation_authorization.py (new, owns its additive cases);
-tests/application_state/test_run_scene_encounters_postgres.py.
+tests/application_state/test_run_scene_encounters_postgres.py;
+ci/test-classification.json (add only the new database-backed module to its owning
+domain-integration lane; no selector or broader inventory change).
 
 Current failure: changed-boundary cohort atdf12467(6fac runtime) hit TypeError in
 preview before the service ran. Inspection/cancellation contain the same obsolete
@@ -35,6 +37,10 @@ in this base. Do not edit/adopt its draft. The historical ACTIVE hosted graph
 handoff leases shared tests/test_hosted_native_graph_access.py: read/import its
 synthetic hosted fixture only; add independent tests in the new owned module.
 OpenPRs/currentmain and narrow AGENTS were inspected. No canary/worker uses checkout.
+
+A new test file requires repository inventory registration. The owner expanded
+this lease by that one additive inventory entry before editing it; behavior and
+serial dependencies remain unchanged.
 
 ## Validation and remaining goal
 
