@@ -2,6 +2,7 @@
 from hashlib import sha256
 from contextlib import nullcontext
 import json
+import httpx2
 from generationengine import GenerationEngineError
 from time import perf_counter
 from uuid import UUID, uuid4
@@ -30,10 +31,27 @@ def request_budget():
         }}
 
 
-def decision_client(*, authorize, record, transport=None, api_key=None, select_context=None):
+class _ObservedJevTransport(httpx2.AsyncBaseTransport):
+    """Observe entry to the existing wire transport, behind the SDK dispatch gate."""
+
+    def __init__(self, transport, on_dispatch):
+        self.transport = transport
+        self.on_dispatch = on_dispatch
+
+    async def handle_async_request(self, request):
+        self.on_dispatch()
+        return await self.transport.handle_async_request(request)
+
+    async def aclose(self):
+        await self.transport.aclose()
+
+
+def decision_client(*, authorize, record, transport=None, api_key=None, select_context=None, on_dispatch=None):
     from generationengine import GenerationClient
     from generationengine.decision_dispatch import DecisionDispatchGate
     from generationengine.providers.typesafe_decision import TypeSafeDecisionProvider
+    if on_dispatch is not None:
+        transport = _ObservedJevTransport(transport or httpx2.AsyncHTTPTransport(retries=0), on_dispatch)
     options = {"dispatch_gate": DecisionDispatchGate(authorize, record, select_context), "transport": transport}
     if api_key is not None: options["api_key"] = api_key
     return GenerationClient(decision_providers={PROVIDER: TypeSafeDecisionProvider(**options)})
@@ -334,7 +352,8 @@ class PlanJevDispatch:
             async def record(event): return self.record(event)
             owns_client = client is None
             if owns_client:
-                client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key,select_context=self.select_context)
+                client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key, select_context=self.select_context,
+                    on_dispatch=getattr(trace, "mark_first_jev_dispatch", None))
             started = perf_counter()
             try:
                 prepare = prepare_requested_work_decision if isinstance(self.parent, PlanRequestedWorkInputV1) else prepare_decision

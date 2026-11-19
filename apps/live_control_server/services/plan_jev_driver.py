@@ -792,10 +792,11 @@ class PlanJevDriver:
             return self.current.record(event) if self.current is not None else False
         async def select_context(prepared):
             return await self.current.select_context(prepared)
-        client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key,select_context=select_context)
+        trace = getattr(self.adapter, "trace", None)
+        client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key,
+            select_context=select_context, on_dispatch=getattr(trace, "mark_first_jev_dispatch", None))
         try:
             while not self.finished:
-                trace = getattr(self.adapter, "trace", None)
                 with trace.measure_host_work("retrieval_candidate_preparation") if trace is not None else nullcontext():
                     dispatch = PlanJevDispatch(self.adapter, **self.decision_arguments())
                 self.current = dispatch

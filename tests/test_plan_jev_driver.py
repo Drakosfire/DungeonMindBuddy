@@ -125,16 +125,29 @@ class Decisions(httpx2.AsyncBaseTransport):
 
 @pytest.mark.parametrize('sequential', [False, True])
 @pytest.mark.parametrize('anchors', [1, 11, 45])
-def test_shared_anchors_and_objects_read_once_with_actual_plan_decisions(plan_adapter, sequential, anchors):
-    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
-    host = AgentTurnTraceBuilder(agent_thread_id=None, turn_id=None, runtime="test", backend="test", mode="test")
+def test_shared_anchors_and_objects_read_once_with_actual_plan_decisions(plan_adapter, sequential, anchors, monkeypatch):
+    from apps.live_control_server.services import agent_turn_trace
+
+    host = agent_turn_trace.AgentTurnTraceBuilder(agent_thread_id=None, turn_id="fixture-turn",
+        runtime="test", backend="test", mode="test")
+    dispatches = []
+    monkeypatch.setattr(agent_turn_trace.LOGGER, "info", lambda *args: dispatches.append(args))
     plan_adapter.trace = host
     plan_adapter.bootstrap.retrieval_session.referents = [GraphReferent(id='pond', label='Park pond'),
                                                          GraphReferent(id='bridge', label='Footbridge')]
     graphs, sources = fixture_reads(plan_adapter, anchors=anchors)
     driver = PlanJevDriver(plan_adapter, dialogue=[{'role': 'user', 'content': 'Earlier park discussion.'}])
     transport = Decisions(sequential=sequential)
+    send = transport.handle_async_request
+
+    async def observed_send(request):
+        assert len(dispatches) == 1
+        assert plan_adapter.fence.turn.graph_context_execution.events[-1].outcome == "sdk_entered"
+        return await send(request)
+
+    monkeypatch.setattr(transport, "handle_async_request", observed_send)
     proof = asyncio.run(driver.run(transport=transport, api_key='synthetic-not-secret'))
+    assert dispatches[0][1:3] == ('fixture-turn', host.trace_id)
     assert [row['targets'][0]['id'] for row in graphs] == ['pond', 'bridge']
     assert len(sources) == (1 if anchors == 1 else 2 if anchors == 11 else 7)
     read_anchors = [anchor for call in sources for anchor in call['anchorIds']]

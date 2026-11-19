@@ -631,6 +631,18 @@ class AgentTurnTraceBuilder:
         self._captured_accounting: dict[str, Any] | None = None
         self._host_work_spans: dict[str, dict[str, Any]] = {}
         self._host_work_lock = Lock()
+        self._first_jev_dispatch_recorded = False
+
+    def mark_first_jev_dispatch(self) -> None:
+        """Record the first outbound transport entry, after dispatch authorization."""
+        if self._first_jev_dispatch_recorded or not self.turn_id:
+            return
+        self._first_jev_dispatch_recorded = True
+        LOGGER.info(
+            "buddy_first_jev_dispatch turn_id=%s trace_id=%s unix_ms=%d server_elapsed_ms=%.1f",
+            self.turn_id, self.trace_id, time.time_ns() // 1_000_000,
+            (time.monotonic() - self._started_mono) * 1000,
+        )
 
     @contextmanager
     def measure_host_work(self, name: str) -> Iterator[None]:
