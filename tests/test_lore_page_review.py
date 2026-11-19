@@ -71,3 +71,11 @@ def test_two_explicit_page_requests_require_disambiguation():
     text = "Create a page for Rowan. Create a page for Willow."
     with pytest.raises(ValueError, match="one explicit page request"):
         LorePageTitleWitness(instruction="Create a page for Willow.", title="Willow").bind(text)
+
+
+def test_explicit_blank_request_rejects_a_populated_body():
+    author = "Create a blank lore page for Rowan."
+    witness = LorePageTitleWitness(instruction=author, title="Rowan")
+    with pytest.raises(ValueError, match="Blank lore-page request"):
+        witness.bind(author, has_body=True)
+    assert witness.bind(author) == "Rowan"

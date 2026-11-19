@@ -10,7 +10,7 @@ from .collaboration import Closed
 
 _PAGE_REQUEST = re.compile(
     r'(?:^|(?<=[.!?])\s+)(?P<request>(?:create|open|make)\s+'
-    r'(?:a\s+)?(?:(?:new|blank|standalone|lore)\s+)*page\s+'
+    r'(?:a\s+)?(?P<modifiers>(?:(?:new|blank|standalone|lore)\s+)*)page\s+'
     r'(?:for|about|called|named|titled)\s+'
     r'(?P<subject>"[^"\r\n]+"|“[^”\r\n]+”|[^,.!?;\r\n]+))',
     re.IGNORECASE,
@@ -39,7 +39,7 @@ class LorePageTitleWitness(Closed):
         description="Quote the requested page title from that instruction.",
     )
 
-    def bind(self, author_text: str) -> str:
+    def bind(self, author_text: str, *, has_body: bool = False) -> str:
         """Check the literal witness against the producing author turn."""
         if self.instruction != self.instruction.strip() or self.title != self.title.strip():
             raise ValueError("Lore page witness has surrounding whitespace")
@@ -55,6 +55,8 @@ class LorePageTitleWitness(Closed):
                            maxsplit=1, flags=re.IGNORECASE)[0]
         if not subject.strip() or self.title != _requested_title(subject):
             raise ValueError("Lore page title differs from the explicit page request")
+        if has_body and "blank" in request["modifiers"].lower().split():
+            raise ValueError("Blank lore-page request cannot carry a populated body")
         return self.title
 
 

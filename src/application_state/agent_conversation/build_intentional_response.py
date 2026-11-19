@@ -977,7 +977,7 @@ def normalize_native_review(candidate, segments, frame, *, author_text):
     validate_collaboration(review,segments,frame['response_contract'],
         primary_rows=frame['artifact_under_edit']['sections'],origin_rows=native_origin_rows(frame))
     if isinstance(review, ProposedLorePage):
-        review.destination.bind(author_text)
+        review.destination.bind(author_text, has_body=bool(segments))
     if isinstance(review,ProposedPlanV3) and not selection_packet(frame):
         raise ValueError('Plan review lacks its pre-writer selection contract')
     return review
