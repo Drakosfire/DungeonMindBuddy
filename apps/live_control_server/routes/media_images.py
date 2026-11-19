@@ -299,11 +299,22 @@ def image_preparations(request: Request, response: Response, world_id: str, conv
 
 
 @router.get('/preparations/{action_id}')
-def image_preparation(action_id: UUID, request: Request, response: Response):
-    principal = enforce_native_graph_gm(request)
+def image_preparation(action_id: UUID, request: Request, response: Response, world_id: str | None = None):
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = (
+        conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+        if world_id is not None else enforce_native_graph_gm(request)
+    )
     response.headers['Cache-Control'] = 'no-store'
     try:
-        return _preparation_record(BuildImageService().get(action_id, principal.subject))
+        record = BuildImageService().get(action_id, principal.subject)
+        if world_id is not None and record.reservation.basis.world_id != world_id:
+            raise HTTPException(404, detail='Image preparation unavailable.')
+        result = _preparation_record(record)
+        if world_id is not None:
+            conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+        return result
     except ApplicationStateError as error:
         raise HTTPException(error.status_code, detail='Image preparation unavailable.') from error
 
