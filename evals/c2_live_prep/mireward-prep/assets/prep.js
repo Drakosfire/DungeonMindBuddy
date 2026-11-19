@@ -28,20 +28,6 @@
     { id: "markdown-theme-fixtures", label: "Theme fixtures", href: "markdown-theme-fixtures.html" },
   ];
 
-  /**
-   * Product Command Board nav — keep in sync with
-   * apps/live-control-ui/src/chrome/appChromeConfig.ts APP_NAV_ITEMS.
-   * Used by Combat Tracker when opened as a product surface (/combat).
-   */
-  const PRODUCT_NAV = [
-    { id: "index", label: "Index", href: "/" },
-    { id: "plan", label: "Plan", href: "/plan" },
-    { id: "play", label: "Play", href: "/play" },
-    { id: "ingest", label: "Ingest", href: "/ingest" },
-    { id: "build", label: "Build", href: "/build" },
-    { id: "combat", label: "Combat Tracker", href: "/combat" },
-  ];
-
   function isFileProtocol() {
     return location.protocol === "file:";
   }
@@ -121,19 +107,12 @@
 
   /**
    * @param {string} activeId
-   * @param {"product" | "prep"=} navMode — combat defaults to product Command Board nav
    */
-  function initNav(activeId, navMode) {
+  function initNav(activeId) {
     const host = document.getElementById("site-nav");
     if (!host) return;
-    const useProduct =
-      navMode === "product" || (navMode !== "prep" && activeId === "combat");
-    const items = useProduct ? PRODUCT_NAV : PREP_NAV;
-    host.setAttribute(
-      "aria-label",
-      useProduct ? "Command board navigation" : "Prep navigation",
-    );
-    host.innerHTML = items
+    host.setAttribute("aria-label", "Prep navigation");
+    host.innerHTML = PREP_NAV
       .map(function (item) {
         const cls = item.id === activeId ? "active" : "";
         return (

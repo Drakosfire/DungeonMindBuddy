@@ -1,12 +1,12 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { APP_NAV_ITEMS } from "../chrome/appChromeConfig";
+// Keep this registered test path; the historical prototype no longer owns product navigation.
 
 type MirewardPrepNavApi = {
-  initNav: (activeId: string, navMode?: "product" | "prep") => void;
+  initNav: (activeId: string) => void;
 };
 
 function prepApi(): MirewardPrepNavApi {
@@ -22,12 +22,12 @@ describe("Combat Tracker product nav", () => {
     window.eval(readFileSync(prepPath, "utf8"));
   });
 
-  it("renders Command Board links matching AppChrome, not legacy prep pages", () => {
+  it("keeps the standalone Combat prototype inside local prep navigation", () => {
     document.body.innerHTML = '<nav id="site-nav" class="site-nav"></nav>';
-    prepApi().initNav("combat", "product");
+    prepApi().initNav("combat");
 
     const host = document.getElementById("site-nav");
-    expect(host).toHaveAttribute("aria-label", "Command board navigation");
+    expect(host).toHaveAttribute("aria-label", "Prep navigation");
 
     const links = Array.from(host?.querySelectorAll("a") ?? []).map((anchor) => ({
       href: anchor.getAttribute("href"),
@@ -35,21 +35,29 @@ describe("Combat Tracker product nav", () => {
       active: anchor.classList.contains("active"),
     }));
 
-    expect(links).toEqual(
-      APP_NAV_ITEMS.map((item) => ({
-        href: item.href,
-        label: item.label,
-        active: item.href === "/combat",
-      })),
-    );
-    expect(links.some((link) => /live play|retrieval|theme fixtures/i.test(link.label ?? ""))).toBe(
-      false,
-    );
+    const pages = [
+      ["index.html", "Index"], ["live-play.html", "Live play"],
+      ["retrieval.html", "Retrieval"], ["combat.html", "Combat tracker"],
+      ["live-notes.html", "Live notes"], ["timeline.html", "Timeline"],
+      ["locations.html", "Locations"], ["npcs.html", "NPCs"],
+      ["roll-tables.html", "Roll tables"], ["statblocks.html", "Statblocks"],
+      ["markdown-theme-fixtures.html", "Theme fixtures"],
+    ];
+    expect(links).toEqual(pages.map(([page, label]) => ({
+      href: `/${page}`, label, active: page === "combat.html",
+    })));
+    for (const [page] of pages) {
+      expect(existsSync(resolve(process.cwd(), "../../evals/c2_live_prep/mireward-prep", page!))).toBe(true);
+    }
+    const combatHtml = readFileSync(resolve(process.cwd(), "../../evals/c2_live_prep/mireward-prep/combat.html"), "utf8");
+    expect(combatHtml).toContain('MirewardPrep.initNav("combat");');
+    expect(combatHtml).not.toContain('initNav("combat", "product")');
+    expect(links.some(link => ["/", "/graph", "/plan", "/play", "/combat"].includes(link.href ?? ""))).toBe(false);
   });
 
   it("keeps legacy prep nav available for non-product pages", () => {
     document.body.innerHTML = '<nav id="site-nav" class="site-nav"></nav>';
-    prepApi().initNav("live-play", "prep");
+    prepApi().initNav("live-play");
 
     const labels = Array.from(document.querySelectorAll("#site-nav a")).map((a) => a.textContent);
     expect(labels).toContain("Live play");
