@@ -531,7 +531,8 @@ _CONTEXT_KEYS = (
     "current_work_present", "current_work_kind", "pointer_count", "model_context_char_count",
 )
 _SPAN_ATTRIBUTE_KEYS = (*_CONTEXT_KEYS, "count", "reason", "is_error", "outcome",
-                        "retrieval_schema", "result_count", "source_count", "error_count", "max_duration_ms")
+                        "retrieval_schema", "result_count", "source_count", "error_count", "max_duration_ms",
+                        "start_offset_ms", "end_offset_ms")
 
 
 def _log_metrics(value: Any, keys: Iterable[str]) -> dict[str, Any]:
@@ -628,6 +629,7 @@ class AgentTurnTraceBuilder:
         self.correlation: dict[str, Any] = {}
         self.context_summary: dict[str, Any] = {}
         self._open_phases: dict[str, dict[str, Any]] = {}
+        self._phase_offsets: dict[str, dict[str, float]] = {}
         self._captured_accounting: dict[str, Any] | None = None
         self._host_work_spans: dict[str, dict[str, Any]] = {}
         self._host_work_lock = Lock()
@@ -643,6 +645,14 @@ class AgentTurnTraceBuilder:
             self.turn_id, self.trace_id, time.time_ns() // 1_000_000,
             (time.monotonic() - self._started_mono) * 1000,
         )
+
+    @contextmanager
+    def phase_before_first_jev(self, name: str) -> Iterator[None]:
+        if self._first_jev_dispatch_recorded:
+            yield
+        else:
+            with self.phase(name):
+                yield
 
     @contextmanager
     def measure_host_work(self, name: str) -> Iterator[None]:
@@ -719,6 +729,11 @@ class AgentTurnTraceBuilder:
         merged_attributes = dict(open_span["attributes"])
         if attributes:
             merged_attributes.update(dict(attributes))
+        completed_mono = time.monotonic()
+        self._phase_offsets[span_id] = {
+            "start_offset_ms": (open_span["started_mono"] - self._started_mono) * 1000,
+            "end_offset_ms": (completed_mono - self._started_mono) * 1000,
+        }
         self.spans.append(
             {
                 "span_id": span_id,
@@ -729,7 +744,7 @@ class AgentTurnTraceBuilder:
                 "started_at": open_span["started_at"],
                 "completed_at": utc_now_z(),
                 "duration_ms": max(
-                    0, int((time.monotonic() - open_span["started_mono"]) * 1000)
+                    0, int((completed_mono - open_span["started_mono"]) * 1000)
                 ),
                 "attributes": merged_attributes,
             }
@@ -893,7 +908,14 @@ class AgentTurnTraceBuilder:
         if not self.logged:
             self.logged = True
             try:
-                emit_baseline_trace_log(dict(trace, correlation=dict(self.correlation)))
+                logged_spans = [
+                    dict(span, attributes={
+                        **span["attributes"],
+                        **self._phase_offsets.get(span["span_id"], {}),
+                    })
+                    for span in trace["spans"]
+                ]
+                emit_baseline_trace_log(dict(trace, spans=logged_spans, correlation=dict(self.correlation)))
             except Exception:
                 # Observability must neither change authority nor trigger a provider replay.
                 pass
