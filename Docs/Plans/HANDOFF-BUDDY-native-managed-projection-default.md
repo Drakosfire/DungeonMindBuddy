@@ -103,3 +103,31 @@ only managed-projection cases/helpers in test_native_graph_inspection.py; two-sp
 source/WK publication fixture patterns already exist. Actual two-World/default,
 authorized aliases, historical pins, citation bytes, withdrawal, auth, no mutation
 and bounded work proof remain in progress. No Node/provider/serving change.
+
+## Integrated proof checkpoint
+
+The complete owning managed-projection/native-inspection modules and unchanged
+hosted managed-owner/transfer regression pass117 cases/4 existing warnings in
+working-tree diagnostics. The new managed Core/HTTP cohort alone passed14 cases.
+It uses two independent native spaces with real source admission, WK facts and
+public Core alias publication, typed APP binding lookup and the real resolver.
+Selector unset/stale, distinct content/foreign pins, named later fact versus exact
+history, query/aliases, UTF-8/CRLF citations, withdrawal isolation, strict auth and
+request refusal,503/500/404/409, unchanged repository authority and one native
+support call are covered. Existing direction/node-own evidence/query/citation
+assertions remain. No Node/provider/serving actions. Exact committed-source
+qualification and independent cumulative review remain required before merge.
+
+Pre-review found one configuration error path before freeze: an unset Core DSN
+could escape the adapter as AttributeError. The native support helper now refuses
+missing configuration with typed503 before opening Core; a mounted no-I/O case
+passes. Counter coverage now instruments actual repository revision/source-view
+reads and the Core parser: one revision read and source view per projection, one
+cold parse, none repeated for warm reads or same-pin withdrawal. This is synthetic
+Core-backed regression proof, not a timing benchmark. Complete owning check119
+cases/4 existing warnings passes after these refinements.
+
+Caller trace found managed projection also used by Agent reads and threat-query
+hydration. Include the query-and-answer contract in exact-source verification,
+with world-and-content and auth-app, while keeping implementation scope unchanged.
+No caller is granted classic fallback or new write/provider authority.

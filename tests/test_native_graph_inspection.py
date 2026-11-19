@@ -654,21 +654,111 @@ def test_catalog_fetches_the_pinned_revision_once(inspection, monkeypatch):
     assert result["assertions"]
 
 
-def test_managed_projection_uses_native_authorized_graph(inspection, monkeypatch):
+def _managed_projection_case(x, monkeypatch, *, second=False):
+    """Typed APP lookup with real Core source/WK authority, never a projection stub."""
+    from dataclasses import asdict
+    from dungeonmind.application.vnext.materialization import encode_native_graph_payload
+    from dungeonmind.contracts.vnext.knowledge import PublishKnowledgeRevisionCommand
     from apps.live_control_server.routes.world_graph_projection import router as projection_router
     from apps.live_control_server.services import managed_world_graph_projection as managed
+    from apps.live_control_server.services import world_graph_projection as classic
+    from apps.live_control_server.services.world_container_registry import (
+        NativeGraphBindingRecord, WorldContainerRecord, WorldContainerRegistryError,
+    )
 
+    monkeypatch.setattr(managed.config, "world_graph_authority_database_url", lambda: "postgresql://memory-fixture/not-opened")
+    _retired_classic_tripwires(monkeypatch)
+    monkeypatch.setattr(classic, "project_world_graph", lambda *_a, **_k:
+                        pytest.fail("Managed native projection attempted classic projection"))
+    repo, first_space = x.lane.repo, x.lane.bound["native_world_id"]
+    worlds = {"managed": SimpleNamespace(space=first_space, version=x.lane.bound["binding_version"],
+        node=x.objects["object:0"], assertion=x.assertions["name:0"], evidence=x.lane.support_ids["first"],
+        text=x.lane.text.splitlines(keepends=True)[0])}
+    if second:
+        space, text = "second-native-managed-projection", "Second World support for Anîra.\r\n"
+        first = repo.get_revision(first_space, repo.get_head(first_space).head_revision_id)
+        repo.publish_revision(PublishKnowledgeRevisionCommand(space_id=space, operation_ids=["managed-second-genesis"],
+            graph_schema=first.revision.graph_schema, graph_payload=encode_native_graph_payload(entities={}, assertions={}, aliases={}, evidence={}),
+            domain_contract_ref=first.revision.domain_contract_ref, semantic_profile_ref=first.revision.semantic_profile_ref,
+            created_at=datetime.now(UTC)))
+        digest = sha256(text.encode()).hexdigest()
+        admission = publish_native_text_source_evidence(repository=repo, domain_contract=x.lane.domain, semantic_profile=x.lane.profile,
+            request=NativeTextSourceAdmissionV1(space_id=space, admission_id="managed-second-source",
+                expected_parent_revision_id=repo.get_head(space).head_revision_id, created_at=datetime.now(UTC),
+                body_text=text, expected_body_sha256=digest, source_classification="dungeonbuddy.source:session_recap",
+                authority="primary", visibility={"kind": "labels_any", "labels": ["dungeonbuddy.visibility:gm"]},
+                spans=[dict(client_ref="support", evidence_role="support", start_byte=0, end_byte=len(text.encode()), expected_slice_sha256=digest)]))
+        evidence = admission.bindings[0].evidence_ref_id
+        meta = replace(x.meta, evidence_ref_ids=(evidence,))
+        runtime = transport.runtime(repo, x.lane.domain, x.lane.profile, now=datetime.now(UTC), operation_id="managed-second-objects")
+        result = runtime.commit_prepared_change(runtime.prepare_change(wk.WorldChangeIntent(space, "Independent second World", (
+            wk.CreateObject("second", (wk.CreateFact("second-name", "dnd5e:name", wk.LiteralFactValue("Object Second"), meta),)),
+            wk.CreateObject("second-endpoint"),
+            wk.CreateRelationship("second-edge", wk.ResultOf("second"), "dnd5e:located_in", wk.ResultOf("second-endpoint"), meta),
+        ))), confirmed_by="local_operator")
+        worlds["second-managed"] = SimpleNamespace(space=space, version=7,
+            node=next(r.durable_object_id for r in result.object_results if r.client_op_id == "second"),
+            assertion=next(r.durable_assertion_id for r in result.assertion_results if r.client_op_id == "second-name"),
+            evidence=evidence, text=text)
+    records = {world: WorldContainerRecord(world_id=world, name=world, source_root_relpath="corpus/" + world,
+        created_at="2026-11-19T12:00:00Z", native_graph_binding=NativeGraphBindingRecord(native_world_id=value.space,
+            binding_version=value.version, status="active", validated_at="2026-11-19T12:00:00Z",
+            validated_head_revision_id=repo.get_head(value.space).head_revision_id)) for world, value in worlds.items()}
+    def record(world):
+        if world not in records:
+            raise WorldContainerRegistryError("Unknown managed World", status_code=404)
+        return records[world]
+    monkeypatch.setattr(managed, "get_world_container", record)
+    # Inspection/citation and managed projection resolve the very same typed bindings.
+    monkeypatch.setattr(service.native, "binding", lambda world: asdict(managed.resolve_managed_world_binding(world)))
+    x.app.include_router(projection_router)
+    return SimpleNamespace(x=x, repo=repo, managed=managed, worlds=worlds, records=records)
+
+
+def _managed_projection_post(case, world="managed", **options):
+    return case.x.client.post("/api/live/world-graph/managed-projection", json={
+        "schema": "dmb_managed_world_graph_projection_request_v1", "managedWorldId": world, **options})
+
+
+def _managed_projection_alias(case, world):
+    """Publish an actual evidence-bearing alias through the public Core publisher."""
+    from dungeonmind.application.vnext.builder import build_parsed_knowledge_revision
+    from dungeonmind.application.vnext.materialization import decode_native_graph_payload, GovernedPublicationIdentity
+    from dungeonmind.application.vnext.prospective_aliases import publish_prospective_alias_contribution
+    from dungeonmind.contracts.vnext.prospective_aliases import ProspectiveAliasContributionV1
+    from dungeonmind.contracts.vnext.contribution import ContributionDisposition
+
+    selected = case.worlds[world]
+    stored = case.repo.get_revision(selected.space, case.repo.get_head(selected.space).head_revision_id)
+    parent = build_parsed_knowledge_revision(stored.revision, decoded_content=decode_native_graph_payload(stored.graph_payload))
+    stamp = datetime.now(UTC)
+    request = ProspectiveAliasContributionV1.model_validate({"contribution": {
+        "contribution_id": "managed-alias:" + world, "space_id": selected.space, "producer": "managed-projection-fixture",
+        "produced_at": stamp, "status": "finalized", "items": [
+            {"kind": "create_entity", "item_id": "entity", "client_op_id": "alias-holder"},
+            {"kind": "create_assertion", "item_id": "name", "client_op_id": "alias-name",
+             "subject": {"kind": "result_of", "client_op_id": "alias-holder"}, "predicate": "dnd5e:name",
+             "value": {"kind": "literal", "value": "Alias holder " + world},
+             "metadata": {"scope": [], "visibility": {"kind": "labels_any", "labels": ["dungeonbuddy.visibility:gm"]},
+                 "epistemic_basis": "inferred", "claim_mode": "dungeonbuddy.claim:fact", "standing": "provisional",
+                 "evidence_ref_ids": [selected.evidence], "temporal_scope": {"kind": "unknown"}}},
+        ]}, "aliases": [{"item_id": "alias", "alias_id": "alias:managed-projection:" + world,
+            "entity": {"kind": "result_of", "client_op_id": "alias-holder"}, "alias_text": "Exact Àlias " + world,
+            "evidence_ref_ids": [selected.evidence], "standing": "provisional"}]})
+    result = publish_prospective_alias_contribution(parent=parent, request=request,
+        dispositions=[ContributionDisposition(item_id=item, disposition="accepted") for item in ("entity", "name", "alias")],
+        publication=GovernedPublicationIdentity(operation_ids=("managed-alias:" + world,), created_at=stamp,
+            expected_parent_revision_id=parent.revision_id), publication_id="managed-alias:" + world,
+        domain_contract=case.x.lane.domain, semantic_profile=case.x.lane.profile, repository=case.repo)
+    selected.alias_node = next(r.durable_id for r in result.prospective_result.results if r.client_op_id == "alias-holder")
+    selected.alias_text = request.aliases[0].alias_text
+
+
+def test_managed_projection_uses_native_authorized_graph(inspection, monkeypatch):
+    _managed_projection_case(inspection, monkeypatch)
     lane = inspection.lane
     space = lane.bound["native_world_id"]
-    binding = managed.VerifiedManagedWorldBinding("managed", space, 1, "")
-    monkeypatch.setattr(managed, "resolve_managed_world_binding", lambda *a, **kw: binding)
-    monkeypatch.setenv("DMB_VNEXT_MANAGED_PROJECTION_WORLD", "managed")
-
-    def forbidden(*args, **kwargs):
-        pytest.fail("Native managed route used the classic graph")
-
-    monkeypatch.setattr(managed, "project_world_graph", forbidden)
-    inspection.app.include_router(projection_router)
+    monkeypatch.delenv("DMB_VNEXT_MANAGED_PROJECTION_WORLD", raising=False)
     revision = lane.repo.get_head(space).head_revision_id
     response = inspection.client.post(
         "/api/live/world-graph/managed-projection",
@@ -705,7 +795,8 @@ def test_managed_projection_uses_native_authorized_graph(inspection, monkeypatch
             "revisionPin": "missing-native-revision",
         },
     )
-    assert unavailable.status_code >= 400
+    assert unavailable.status_code == 404
+    assert unavailable.json()["code"] == "native_graph_revision_unavailable"
     assert "projection" not in unavailable.json()
     assert lane.repo.get_head(space).head_revision_id == revision
 
@@ -748,6 +839,234 @@ def test_managed_projection_uses_native_authorized_graph(inspection, monkeypatch
     assert lane.repo.get_head(space) == head
     assert lane.repo.head_events(space) == events
 
+
+@pytest.mark.parametrize("selectors", ["unset", "stale"])
+@pytest.mark.parametrize("world", ["managed", "second-managed"])
+def test_managed_projection_native_default_two_bindings_pins_aliases_and_withdrawal(
+    inspection, monkeypatch, selectors, world,
+):
+    case = _managed_projection_case(inspection, monkeypatch, second=True)
+    if selectors == "unset":
+        monkeypatch.delenv("DMB_VNEXT_MANAGED_PROJECTION_WORLD", raising=False)
+    else:
+        monkeypatch.setenv("DMB_VNEXT_MANAGED_PROJECTION_WORLD", "retired-unrelated-world")
+    for name in case.worlds:
+        _managed_projection_alias(case, name)
+    selected = case.worlds[world]
+    other = case.worlds["second-managed" if world == "managed" else "managed"]
+    historical = case.repo.get_head(selected.space).head_revision_id
+    runtime = transport.runtime(case.repo, inspection.lane.domain, inspection.lane.profile,
+        now=datetime.now(UTC), operation_id="managed-visible-later:" + world)
+    later = runtime.commit_prepared_change(runtime.prepare_change(wk.WorldChangeIntent(selected.space, "Visible later fact", (
+        wk.CreateObject("visible-later", (wk.CreateFact("visible-later-name", "dnd5e:name", wk.LiteralFactValue("Visible later " + world),
+            replace(inspection.meta, evidence_ref_ids=(selected.evidence,))),)),
+    ))), confirmed_by="local_operator")
+    later_node = later.object_results[0].durable_object_id
+    current = case.repo.get_head(selected.space).head_revision_id
+    assert current != historical
+    before = copy.deepcopy({k: v for k, v in case.repo.__dict__.items() if k != "_lock"})
+    calls = []
+    original = case.managed._read_native_projection_support
+    def counted(binding, pin):
+        calls.append((binding.managed_world_id, binding.native_world_id, pin))
+        return original(binding, pin)
+    monkeypatch.setattr(case.managed, "_read_native_projection_support", counted)
+    for pin, expected in ((None, current), (historical, historical)):
+        call_count = len(calls)
+        response = _managed_projection_post(case, world, **({"revisionPin": pin} if pin else {}), queryText=selected.alias_text)
+        assert response.status_code == 200, response.text
+        assert calls[call_count:] == [(world, selected.space, pin)]
+        packet, projection = response.json(), response.json()["projection"]
+        assert (packet["managedWorldId"], packet["nativeWorldId"], packet["bindingVersion"]) == (world, selected.space, selected.version)
+        assert projection["snapshot"]["revisionId"] == expected
+        assert projection["snapshot"]["headRevisionId"] == current
+        assert projection["snapshot"]["isHead"] == (pin is None)
+        nodes = {n["nodeId"]: n for n in projection["nodes"]}
+        assert selected.node in nodes and selected.alias_node in nodes
+        assert other.node not in nodes and other.alias_node not in nodes
+        assert nodes[selected.alias_node]["aliases"] == [selected.alias_text]
+        assert selected.alias_node in projection["queryContext"]["matchedNodeIds"]
+        assert (later_node in nodes) == (pin is None)
+        assert any(e["evidenceRefId"] == selected.evidence for e in projection["evidence"])
+        scope = dict(managed_world_id=world, native_world_id=selected.space, binding_version=selected.version,
+                     revision_id=expected, scope_mode="world", campaign_id=None)
+        citation = read(inspection, scope, dict(kind="source", assertion_id=selected.assertion, evidence_ref_id=selected.evidence))
+        assert citation.status_code == 200, citation.text
+        assert citation.json()["scope"] == scope
+        source = citation.json()["source"]
+        assert source["text"].encode("utf-8") == selected.text.encode("utf-8")
+        projected = next(e for e in projection["evidence"] if e["evidenceRefId"] == selected.evidence)
+        assert projected["sourceArtifactId"] == source["source_artifact_id"]
+    foreign_pin = case.repo.get_head(other.space).head_revision_id
+    foreign = _managed_projection_post(case, world, revisionPin=foreign_pin)
+    assert foreign.status_code == 404 and foreign.json()["code"] == "native_graph_revision_unavailable"
+    assert "projection" not in foreign.json()
+    assert {k: v for k, v in case.repo.__dict__.items() if k != "_lock"} == before
+    selected_source = source
+    heads = {name: case.repo.get_head(value.space) for name, value in case.worlds.items()}
+    events = {name: case.repo.head_events(value.space) for name, value in case.worlds.items()}
+    case.repo.withdraw_native_source(space_id=selected.space, source_artifact_id=selected_source["source_artifact_id"],
+                                    source_revision_id=selected_source["source_revision_id"])
+    after_withdrawal = copy.deepcopy({k: v for k, v in case.repo.__dict__.items() if k != "_lock"})
+    withdrawn = _managed_projection_post(case, world, revisionPin=historical)
+    assert withdrawn.status_code == 200, withdrawn.text
+    assert selected.node not in {n["nodeId"] for n in withdrawn.json()["projection"]["nodes"]}
+    assert selected.alias_node not in {n["nodeId"] for n in withdrawn.json()["projection"]["nodes"]}
+    assert selected.evidence not in {e["evidenceRefId"] for e in withdrawn.json()["projection"]["evidence"]}
+    denied = read(inspection, scope, dict(kind="source", assertion_id=selected.assertion, evidence_ref_id=selected.evidence))
+    assert denied.status_code == 409 and "source" not in denied.json()
+    remaining = _managed_projection_post(case, "second-managed" if world == "managed" else "managed")
+    assert remaining.status_code == 200, remaining.text
+    other_nodes = {n["nodeId"]: n for n in remaining.json()["projection"]["nodes"]}
+    assert other.node in other_nodes and other_nodes[other.alias_node]["aliases"] == [other.alias_text]
+    assert {k: v for k, v in case.repo.__dict__.items() if k != "_lock"} == after_withdrawal
+    assert {name: case.repo.get_head(value.space) for name, value in case.worlds.items()} == heads
+    assert {name: case.repo.head_events(value.space) for name, value in case.worlds.items()} == events
+
+
+def test_managed_projection_auth_and_closed_request_refuse_before_binding_or_core(inspection, monkeypatch):
+    from apps.live_control_server.services import hosted_native_graph_access as access
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal, require_native_graph_gm
+    case = _managed_projection_case(inspection, monkeypatch)
+    calls = []
+    def forbidden(*args, **kwargs):
+        calls.append((args, kwargs))
+        pytest.fail("Denied managed projection reached binding/Core")
+    monkeypatch.setattr(case.managed, "get_world_container", forbidden)
+    monkeypatch.setattr(case.repo, "get_head", forbidden)
+    monkeypatch.setattr(case.repo, "get_revision", forbidden)
+    inspection.client.headers.pop("Authorization")
+    assert _managed_projection_post(case).status_code == 401
+    inspection.client.headers["Authorization"] = "Bearer invalid-managed-test-token"
+    assert _managed_projection_post(case).status_code == 401
+    inspection.client.headers["Authorization"] = "Bearer " + TOKEN
+    for extra in ({"nativeWorldId": "forged"}, {"bindingVersion": 99}, {"admissibility": "gm"}):
+        assert _managed_projection_post(case, **extra).status_code == 422
+    assert inspection.client.post("/api/live/world-graph/managed-projection?managedWorldId=foreign",
+        json={"schema": "dmb_managed_world_graph_projection_request_v1", "managedWorldId": "managed"}).status_code == 422
+    monkeypatch.setattr(access, "enforce_native_graph_gm", lambda _request: require_native_graph_gm(
+        NativeGraphPrincipal(subject="synthetic-resolved-player", role="player", auth_method="local_operator")))
+    assert _managed_projection_post(case).status_code == 403
+    assert calls == []
+
+
+@pytest.mark.parametrize("failure,status,code", [
+    ("head", 404, "native_graph_head_unavailable"), ("pin", 404, "native_graph_revision_unavailable"),
+    ("integrity", 500, "native_graph_integrity_failure"), ("unavailable", 503, "native_graph_authority_unavailable"),
+])
+def test_managed_projection_native_failures_are_typed_without_fallback_or_empty(
+    inspection, monkeypatch, failure, status, code,
+):
+    from dungeonmind.domain.errors import PersistenceIntegrityError, PersistenceUnavailableError
+    case = _managed_projection_case(inspection, monkeypatch)
+    options = {}
+    if failure == "head":
+        record = case.records["managed"]
+        case.records["managed"] = record.model_copy(update={"native_graph_binding": record.native_graph_binding.model_copy(
+            update={"native_world_id": "active-binding-with-no-head"})})
+    elif failure == "pin":
+        options["revisionPin"] = "rev:unavailable"
+    else:
+        def corrupt(*_args, **_kwargs):
+            raise (PersistenceIntegrityError if failure == "integrity" else PersistenceUnavailableError)("private storage diagnostic")
+        monkeypatch.setattr(case.repo, "get_revision" if failure == "integrity" else "get_head", corrupt)
+    before = copy.deepcopy({k: v for k, v in case.repo.__dict__.items() if k != "_lock"})
+    response = _managed_projection_post(case, **options)
+    assert response.status_code == status, response.text
+    assert response.json()["code"] == code
+    assert "projection" not in response.json() and "private storage diagnostic" not in response.text
+    assert {k: v for k, v in case.repo.__dict__.items() if k != "_lock"} == before
+
+
+@pytest.mark.parametrize("failure", ["unbound", "inactive", "provisioning"])
+def test_managed_projection_binding_refusal_is_409_before_core(inspection, monkeypatch, failure):
+    from apps.live_control_server.services.world_container_registry import NativeGraphProvisioningRecord
+    case = _managed_projection_case(inspection, monkeypatch)
+    record = case.records["managed"]
+    binding = None if failure == "unbound" else record.native_graph_binding.model_copy(update={"status": "inactive"})
+    if failure == "provisioning":
+        binding = NativeGraphProvisioningRecord(native_world_id="world:" + "1" * 32, provisioning_id="provision:" + "2" * 32)
+    case.records["managed"] = record.model_copy(update={"native_graph_binding": binding})
+    monkeypatch.setattr(case.repo, "get_head", lambda *_a: pytest.fail("Invalid binding read Core"))
+    response = _managed_projection_post(case)
+    assert response.status_code == 409, response.text
+    assert response.json()["code"] == {"unbound": "native_graph_binding_missing", "inactive": "native_graph_binding_inactive",
+                                        "provisioning": "native_graph_provisioning_pending"}[failure]
+    assert "projection" not in response.json()
+
+
+def test_managed_projection_binding_change_discards_real_core_result(inspection, monkeypatch):
+    case = _managed_projection_case(inspection, monkeypatch)
+    before = copy.deepcopy({k: v for k, v in case.repo.__dict__.items() if k != "_lock"})
+    original = case.managed._read_native_projection_support
+    calls = []
+    def transfer(binding, pin):
+        result = original(binding, pin)
+        calls.append((binding, pin))
+        record = case.records["managed"]
+        case.records["managed"] = record.model_copy(update={"native_graph_binding": record.native_graph_binding.model_copy(
+            update={"binding_version": record.native_graph_binding.binding_version + 1})})
+        return result
+    monkeypatch.setattr(case.managed, "_read_native_projection_support", transfer)
+    response = _managed_projection_post(case)
+    assert response.status_code == 409 and response.json()["code"] == "native_graph_binding_changed"
+    assert len(calls) == 1 and "projection" not in response.json()
+    assert {k: v for k, v in case.repo.__dict__.items() if k != "_lock"} == before
+
+
+
+def test_managed_projection_missing_configuration_is_503_before_repository_io(inspection, monkeypatch):
+    case = _managed_projection_case(inspection, monkeypatch)
+    monkeypatch.setattr(case.managed.config, "world_graph_authority_database_url", lambda: None)
+    monkeypatch.setattr(service.native, "read_repository", lambda **_kwargs: pytest.fail("missing configuration opened Core"))
+    before = copy.deepcopy({k: v for k, v in case.repo.__dict__.items() if k != "_lock"})
+    response = _managed_projection_post(case)
+    assert response.status_code == 503, response.text
+    assert response.json()["code"] == "native_graph_authority_unavailable"
+    assert "projection" not in response.json()
+    assert {k: v for k, v in case.repo.__dict__.items() if k != "_lock"} == before
+
+
+def test_managed_projection_reads_revision_and_source_once_reuses_parse_after_withdrawal(inspection, monkeypatch):
+    from dungeonmind.application.vnext import native_source_access
+    case = _managed_projection_case(inspection, monkeypatch)
+    selected = case.worlds["managed"]
+    pin = case.repo.get_head(selected.space).head_revision_id
+    monkeypatch.setattr(case.managed, "_managed_projection_parsed_cache", native_source_access.NativeParsedRevisionCache())
+    counts = {"revision": [], "source": [], "parse": []}
+    get_revision, source_view, parse = case.repo.get_revision, case.repo.open_native_source_view, native_source_access._parse_verified_revision
+    def revision(space, revision_id):
+        counts["revision"].append((space, revision_id))
+        return get_revision(space, revision_id)
+    def source(space):
+        counts["source"].append(space)
+        return source_view(space)
+    def parsed(repository, stored):
+        counts["parse"].append(stored.revision.revision_id)
+        return parse(repository, stored)
+    monkeypatch.setattr(case.repo, "get_revision", revision)
+    monkeypatch.setattr(case.repo, "open_native_source_view", source)
+    monkeypatch.setattr(native_source_access, "_parse_verified_revision", parsed)
+    for step in (1, 2):
+        result = _managed_projection_post(case, revisionPin=pin)
+        assert result.status_code == 200, result.text
+        assert counts["revision"] == [(selected.space, pin)] * step
+        assert counts["source"] == [selected.space] * step
+        assert counts["parse"] == [pin]
+    evidence = next(e for e in result.json()["projection"]["evidence"] if e["evidenceRefId"] == selected.evidence)
+    # Use the fixture's actual committed admission identity without adding reads
+    # to the instrumentation being measured.
+    assert evidence["sourceArtifactId"] == inspection.lane.admitted.source_artifact_id
+    case.repo.withdraw_native_source(space_id=selected.space, source_artifact_id=evidence["sourceArtifactId"],
+                                    source_revision_id=inspection.lane.admitted.source_revision_id)
+    before = copy.deepcopy({k: v for k, v in case.repo.__dict__.items() if k != "_lock"})
+    result = _managed_projection_post(case, revisionPin=pin)
+    assert result.status_code == 200, result.text
+    assert selected.evidence not in {e["evidenceRefId"] for e in result.json()["projection"]["evidence"]}
+    assert counts["revision"] == [(selected.space, pin)] * 3
+    assert counts["source"] == [selected.space] * 3
+    assert counts["parse"] == [pin]
+    assert {k: v for k, v in case.repo.__dict__.items() if k != "_lock"} == before
 
 @pytest.mark.parametrize("depth", [1, 2])
 def test_native_neighborhood_citation_round_trip(inspection, depth):

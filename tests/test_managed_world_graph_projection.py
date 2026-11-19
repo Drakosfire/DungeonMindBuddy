@@ -259,6 +259,7 @@ def test_native_projection_support_uses_exact_revision(monkeypatch, revision_pin
         assert read_context is context
         return support
 
+    monkeypatch.setattr(managed_projection.config, "world_graph_authority_database_url", lambda: "postgresql://unused-fixture/not-opened")
     monkeypatch.setattr(native_registry_source, "read_repository", lambda: repository)
     monkeypatch.setattr(native_registry_source, "read_context", read_context)
     monkeypatch.setattr(EntityReadService, "list_entities_with_support", list_support)
@@ -325,6 +326,7 @@ def test_native_projection_distinguishes_missing_pin_from_integrity_failure(
     def read_context(*args, **kwargs):
         raise failure
 
+    monkeypatch.setattr(managed_projection.config, "world_graph_authority_database_url", lambda: "postgresql://unused-fixture/not-opened")
     monkeypatch.setattr(native_registry_source, "read_repository", lambda: repository)
     monkeypatch.setattr(native_registry_source, "read_context", read_context)
     binding = SimpleNamespace(native_world_id="elderwyld")

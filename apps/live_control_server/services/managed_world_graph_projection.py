@@ -192,6 +192,11 @@ def _read_native_projection_support(
 
     from apps.live_control_server.integrations.dungeonmind import native_registry_source
 
+    if not config.world_graph_authority_database_url():
+        raise WorldGraphProjectionServiceError(
+            "Native Graph authority is not configured.",
+            code="native_graph_authority_unavailable", status_code=503,
+        )
     repository = native_registry_source.read_repository()
     head = repository.get_head(binding.native_world_id)
     if head is None:
