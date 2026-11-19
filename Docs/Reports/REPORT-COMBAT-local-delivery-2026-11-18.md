@@ -99,10 +99,34 @@ first template attempt refused a missing explicit test-admin DSN. Preserved APP
 copy rows were checked equal before changing API provider configuration; no state
 was reconstructed to imitate a browser action.
 
-Old static prototype remains unhosted/browser-unavailable. Historical source
-reading is not visual proof; no file:// restriction was bypassed. Current compact
-roster/ordering/grouping/source/recovery strengths are covered by the implementation
-handoffs and browser evidence. User table-play acceptance is not claimed.
+## Original prototype comparison
+
+The original request to inspect both pages is fulfilled. After the initially
+unhosted page had only been read as source, review correctly identified browser
+inspection as unfinished work. A normal reversible HTTP preview on separate
+loopback5220 served the exact frozen repository combat.html, assets and linked
+markdown; no browser security interstitial or file:// restriction was bypassed.
+The preview had no backend proxy and refused writes. Its new port isolated browser
+local state from existing product origins. The temporary tab was closed and the
+preview server stopped after inspection.
+
+The browser rendered the Session26 Mireward wall-breach table from its retained
+static save: initiative/AC/current-max HP/damage-heal/notes are editable in compact
+rows, group headings summarize units, dead units remain recoverable, and floating
+turn controls keep the current actor reachable. Group collapse worked, a Caelynn
+name click opened the actual markdown statblock popup, and Next turn changed the
+rendered actor to Meat Mind. Only preview-origin browser state changed; frozen
+files and product data were not edited. Wide, popup and narrow screenshots are
+combat-original-static-{wide,preview,narrow}.png in the same visualization directory.
+
+The delivered design preserves compact roster scanning, stable ordering, individual
+group state, persistent turn selection and quick exact source access. It makes
+participation explicit, keeps source independent from tracker fields, and adds
+ordered/side/free spotlight pacing and arbitrary typed fields/resources so those
+strengths apply beyond D&D. The old narrow table measured about1014px wide in its
+contained region; the new hosts preserve horizontal access with document375px at
+viewport390px. This comparison does not turn old D&D HP/initiative assumptions into
+universal rules. User table-play acceptance is not claimed.
 
 ## Retained local service handoff
 
@@ -119,5 +143,5 @@ remove the two labeled runtime containers and their anonymous volumes, and drop
 only the recorded disposable APP database. The earlier failed native database on
 plain PostgreSQL was removed after checking that it had no active connections;
 its exact identity and successful removal remain in the ownership receipt.
-no prefix-wide deletion or shared PostgreSQL removal is authorized. Retain the
+No prefix-wide deletion or shared PostgreSQL removal is authorized. Retain the
 referenced receipts/screenshots; Git history owns superseded process notes.

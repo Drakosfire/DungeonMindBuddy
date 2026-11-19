@@ -12,8 +12,8 @@ local state. Prove the integrated Combat experience through product navigation;
 focused route composition is predecessor evidence, not full startup proof.
 Preserve the overall goal, including Graph/source projection, configurable
 mechanics/pacing, crowded groups, defeat/return, mutable stats, notes/status,
-Save/reopen/recovery, preparation and run isolation. Static prototype remains
-unhosted and browser-unavailable; do not turn source reading into visual proof.
+Save/reopen/recovery, preparation and run isolation. The static prototype was
+initially unhosted; source reading alone does not count as browser inspection.
 
 Expected writes: this bounded handoff, truthful spotlight predecessor settlement,
 and an eventual delivery report if it carries unique evidence. Runtime executors,
@@ -89,3 +89,12 @@ See ../Reports/REPORT-COMBAT-local-delivery-2026-11-18.md for exact ownership,
 receipts, retained service handoff and limitations. Final independent review and
 exact-head hosted verification remain required; no pre-marked approval or goal
 completion is implied.
+
+Original both-pages requirement is now fulfilled: the user's browser-preview
+request authorizes a reversible local HTTP preview of the repository prototype.
+The original combat.html and its frozen assets were served read-only on separate
+loopback5220, with no backend proxy or write endpoints. Actual browser inspection
+covered compact rows, grouped members, persistent turn controls and a real markdown
+statblock popup, plus a narrow view. Screenshots are retained; the temporary tab
+was closed and its server stopped. Earlier unhosted/source-only handoff statements
+are historical limits, not evidence that this original requirement can be omitted.
