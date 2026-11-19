@@ -347,6 +347,9 @@ def hosted(monkeypatch, request):
     from apps.live_control_server.routes import world_graph_projection
 
     app.include_router(world_graph_projection.router)
+    from apps.live_control_server.routes import source_statements
+
+    app.include_router(source_statements.router)
     app.include_router(play_runs.router)
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
@@ -491,6 +494,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}/encounters/{encounter_id}/mechanics-adoptions/{operation_id}"): access.resolve_hosted_combat_encounter,
             ("GET", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}/encounters/{encounter_id}/mechanics-adoptions"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/world-graph/managed-projection"): access.resolve_hosted_managed_projection,
+            ("GET", "/api/live/source-statements/proposals/{operation_id}"): access.resolve_hosted_source_statement_proposal,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/rebase"): access.resolve_hosted_play_command,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): access.resolve_hosted_play_command,
@@ -6138,3 +6142,35 @@ def test_hosted_worldbuilding_capabilities_requires_owned_world(hosted):
     response = hosted.client.request("GET", path + "?world_id=managed")
     assert response.status_code == 200, response.text
     assert response.json()["confirmationSupported"] is True
+
+
+def test_hosted_source_statement_proposal_reads_as_exact_reviewer(hosted, monkeypatch):
+    from apps.live_control_server.routes import source_statements
+
+    calls = []
+
+    def read(operation_id, world, principal):
+        calls.append((str(operation_id), world, principal.subject))
+        return {"state": "verified"}
+
+    monkeypatch.setattr(source_statements.proposals, "get", read)
+    operation_id = "00000000-0000-4000-8000-000000000001"
+    path = f"/api/live/source-statements/proposals/{operation_id}?managed_world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&managed_world_id=foreign").status_code == 403
+    assert calls == []
+    result = hosted.client.request("GET", path)
+    assert result.status_code == 200, result.text
+    assert result.json() == {"state": "verified"}
+    assert calls == [(operation_id, "managed", "hosted_dms:synthetic-owner-alpha")]
+
+    def transfer_during_read(*_args):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"state": "withheld proposal"}
+
+    monkeypatch.setattr(source_statements.proposals, "get", transfer_during_read)
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 403, denied.text
+    assert "withheld proposal" not in denied.text
