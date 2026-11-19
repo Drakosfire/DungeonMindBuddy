@@ -723,6 +723,15 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && typeof body.target_playable_content_sha256 === "string"
       && /^[0-9a-f]{64}$/.test(body.target_playable_content_sha256);
   }
+  const sceneTemplate = /^\/api\/live\/combat\/scene-templates(\/cancel|\/operations\/[0-9a-f-]+|\/[0-9a-f-]+\/scenes\/[^/?#]+(?:\/versions\/[1-9][0-9]*)?)?\?([^#]+)$/.exec(path);
+  if (sceneTemplate) {
+    const query = new URLSearchParams(sceneTemplate[2]);
+    if (query.size !== 1 || !query.get("world_id")) return false;
+    if (!sceneTemplate[1] || sceneTemplate[1] === "/cancel") {
+      return method === "POST" && requestBodyRecord(init?.body)?.schema_version === "dmb_scene_template_create_v1";
+    }
+    return method === "GET" && init?.body == null;
+  }
   const playProgress = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/progress\?([^#]+)$/.exec(path);
   if (playProgress) {
     const query = new URLSearchParams(playProgress[1]);

@@ -19,12 +19,14 @@ pytest_plugins=['tests.application_state.conftest']
 @pytest.fixture
 def scene_case(application_state_dsn,monkeypatch):
     from apps.live_control_server.routes import combat_scene_templates as routes
-    from apps.live_control_server.services.agent_graph_auth import authenticate_native_graph_principal,NativeGraphPrincipal
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
     obj=create_world_plan(title='Synthetic road encounter',world_id='elderwyld')
     obj,rev=commit_plan(str(obj.work_object_id),V2_SOURCE_MARKDOWN,expected_world_id='elderwyld',expected_revision=obj.object_revision)
     body=dict(schema_version='dmb_scene_template_create_v1',operation_id=str(uuid4()),pin=dict(document_id=str(obj.work_object_id),scene_id='scene:gate',revision_n=rev.revision_n,work_revision_id=str(rev.work_revision_id),content_sha256=rev.content_sha256),encounter={'title':'Gate guardians'})
     app=FastAPI();app.include_router(routes.router)
-    app.dependency_overrides[authenticate_native_graph_principal]=lambda:NativeGraphPrincipal('test-gm','gm','local_session')
+    from apps.live_control_server.services import agent_graph_auth
+    monkeypatch.setattr(agent_graph_auth, "authenticate_native_graph_principal",
+                        lambda _request: NativeGraphPrincipal("test-gm", "gm", "local_session"))
     monkeypatch.setattr(routes,'_verified_world',lambda world_id:world_id)
     return SimpleNamespace(obj=obj,rev=rev,body=body,client=TestClient(app),app=app,base='/api/live/combat/scene-templates',dsn=application_state_dsn)
 
@@ -106,10 +108,12 @@ def test_atomic_history_failure_rolls_back_creation_and_save(scene_case,monkeypa
     assert get_encounter(world_id='elderwyld',encounter_id=record['encounter_id']).model_dump(mode='json',by_alias=True)==record
 
 
-def test_player_and_foreign_world_cannot_read_or_create(scene_case):
+def test_player_and_foreign_world_cannot_read_or_create(scene_case, monkeypatch):
     p=scene_case;assert create(p).status_code==200;assert read(p,'other-world').json() is None
-    from apps.live_control_server.services.agent_graph_auth import authenticate_native_graph_principal,NativeGraphPrincipal
-    p.app.dependency_overrides[authenticate_native_graph_principal]=lambda:NativeGraphPrincipal('test-player','player','local_session')
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    from apps.live_control_server.services import agent_graph_auth
+    monkeypatch.setattr(agent_graph_auth, "authenticate_native_graph_principal",
+                        lambda _request: NativeGraphPrincipal("test-player", "player", "local_session"))
     assert read(p).status_code==403;assert create(p).status_code==403
     assert p.client.get(p.base+'/operations/'+p.body['operation_id']+'?world_id=elderwyld').status_code==403
     assert p.client.post(p.base+'/cancel?world_id=elderwyld',json=p.body).status_code==403
@@ -136,3 +140,17 @@ def test_noncanonical_or_duplicate_scene_markup_cannot_create(scene_case,markdow
     p=scene_case;obj,rev=commit_plan(str(p.obj.work_object_id),markdown,expected_world_id='elderwyld',expected_revision=p.obj.object_revision)
     body=deepcopy(p.body);body['pin'].update(revision_n=rev.revision_n,work_revision_id=str(rev.work_revision_id),content_sha256=rev.content_sha256)
     result=create(p,body);assert result.status_code in (409,422),result.text
+
+
+@pytest.mark.parametrize("operation", [service.create, service.cancel])
+def test_scene_template_mutation_stops_when_authorization_changes(scene_case, operation):
+    request = CreateSceneTemplateRequest.model_validate(scene_case.body)
+
+    def deny():
+        raise PermissionError("World ownership changed")
+
+    with pytest.raises(PermissionError, match="World ownership changed"):
+        operation(world_id="elderwyld", request=request, authorize=deny)
+
+    assert service.inspect_operation(world_id="elderwyld", operation_id=request.operation_id) is None
+    assert create(scene_case).status_code == 200
