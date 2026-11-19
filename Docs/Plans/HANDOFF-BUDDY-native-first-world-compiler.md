@@ -1,6 +1,6 @@
 # BUDDY — native first-World compiler
 
-Status: ACTIVE. Owner/designer: MIND Elderwyld completion lane. Explicit operator
+Status: COMPLETE — compiler implementation accepted; final delivery gates below. Owner/designer: MIND Elderwyld completion lane. Explicit operator
 implementation, review, merge and launch authorization applies. Serial slice B1,
 base a0765314d86827a553924c2b933c5b16938dd1eb; branch
 codex/v10-native-first-world-compiler. Existing isolated task Buddy checkout.
@@ -102,40 +102,63 @@ for active goal with cleanup follow-up after qualified replacement. No standing
 deletion permission; inventory paths/processes/mounts/dirty and unique data before
 separately approved disposal. No removed paths or reclaimed bytes at activation.
 
-## Implementation checkpoint
+## Accepted implementation and final delivery
 
-The real two-stage compiler and sealed binding models are implemented. Actual
-producer input executes through installed Core cf197b9 public native source
-admission and prospective-alias publication, with replay, native authorized
-readback, exact citation bytes and source withdrawal. Focused diagnostic cohort:
-84 passed, one existing warning. No current-source or APP activation claim.
-The full-source digest check was added after an adversarial matching-prefix /
-changed-uncited-tail case; proof intervals alone were insufficient.
+Disposition: BUDDY_NATIVE_FIRST_WORLD_COMPILER_IMPLEMENTED. Accepted runtime/test
+head06ca6c9fe2f7b135b67915276f4581f0cdb477bd. Independent cumulative Cycle3
+approval5974769559 by Hubble, posted through the operator account, not a separate
+GitHub-user approval. Earlier reviews5974635983/5974701220 identified candidate
+subject and decision-kind ownership gaps; both were reproduced through public
+Kernel publication and are closed by explicit candidate kind/action/map checks.
+Detailed history belongs to PR4097 and external proof, not this current handoff.
 
-Independent implementation review and clean exact-head backend/frontend/build/
-canonical/automatic checks remain required. The diagnostic smoke initially found
-a contribution status mismatch (reviewed versus required finalized), corrected
-before the passing publisher witness; do not treat earlier failures as passing.
-The parent owns service/integration; Aristotle implemented model and tests after
-an explicit disjoint write-scope split. Final independent review must cover the
-entire cumulative change, not reuse either author's review of their own code.
+Exact accepted-code verification using actual installed Core cf197b9:
+- compiler owning cohort:91 passed, one existing schema-name warning;
+- ingestion-and-review contract:888 passed,119 deselected, zero skips,59 warnings,
+  202.67 seconds pytest /206.127 seconds contract;
+- Ruff on both new modules and owning test, plus Git diff whitespace checks:pass.
 
-Cycle1 independent Hubble review5974635983 held exact5fa1b7c6e on one node/candidate
-association defect. An isolated public Kernel reproduction actually published
-Bob-to-Alice after swapping subjects while preserving candidate maps. The repair
-requires each accepted node subject to equal its owning reviewed candidate's mapped
-identity. Its regression refuses before publication. Additional public proofs cover
-legitimate multiple reviewed references sharing one exact native proof and player
-denial of a GM-only source even for a player-labelled assertion. Diagnostic87 pass.
-Prior exact5fa backend:84 focused and888 ingestion passed,119 deselected, zero skips;
-the repair head still requires its own exact checks and independent Cycle2.
+Public memory-owner proofs cover actual producer effects, native admission and
+prospective-alias publication/replay, complete native readback, exact Unicode/CRLF
+citation bytes, source withdrawal, player denial of GM evidence, legitimate exact
+proof deduplication, rejected-intent idempotency conflicts, full-body digest drift,
+closed ownership/metadata and sealed copies. No B2 HTTP/SQL lifecycle acceptance.
+The packet request_sha256 is a Buddy packet commitment, not Core's prospective
+request/result digest; publication receipts remain Core's authority.
 
-Cycle2 independent review5974701220 held1ec300b988 on a missing owner-kind/action
-check, reproduced with a forged edge-owned null-subject node publishing a third
-entity. The repair now closes row ownership against the exact reviewed candidate
-kind/action, requires explicit node map membership and a nonblank matching subject,
-and rejects duplicate reviewed decisions. Both impersonation directions and malformed
-binding references have regressions. Diagnostic91 pass; prior1ec exact87+888 passed.
-Repair requires cumulative independent Cycle3 and exact qualification; no completion
-claim is made by the focused diagnostic. Ruff's one service semicolon violation was
-corrected before this repair commit.
+The final documentation seal must preserve byte-identical accepted runtime/tests.
+Before merge, validate the unmodified hosted frontend/build/canonical receipt at
+that final SHA, review the documentation-only delta, and require applicable short
+automatic checks plus expected-head merge. Results after this seal belong to the
+PR and retained acceptance receipt, then the next consuming handoff. No future
+merge SHA or uncompleted delivery result is asserted here.
+
+Current main98d3157a09790e5a53a851b9ea24a5de51bd2aa5 adds independent UI tests,
+Plan descriptor admission, lab navigation and cleanup handoffs; no backend, Core
+pin or four-path overlap. Recheck at merge. The original source/status mismatch
+was corrected before accepted-code proof; failed diagnostics remain in history.
+
+## Next boundary and retained resources
+
+B2 is not activated by this completion. It needs a bounded contract for versioned
+prepare/confirm/recovery, actual source-origin/freshness/reservation/history checks,
+profile transition when required, public native publication, and verified APP
+activation. Existing activation hardcodes classic genesis/receipt/null-parent D0;
+it cannot acknowledge this native packet or be satisfied by relabelling a receipt.
+Current vNext source-only space is still not a published first-World object graph.
+Potential successor shared-path leases must be rechecked and reconciled before
+activation:1855 models/extract_promote.py;3824 route/source-admission/API owners;
+4057/2087/1235 shared UI types/API. Prefer a coherent disjoint versioned contract
+where appropriate; do not silently take another lane's files.
+
+Owner of retained task worktrees/runtime cache/scratch is the active Elderwyld
+completion lane. Created compiler scratch retains source trace, installed-pin
+preflight, public smoke, qualification wrappers and exact logs/receipts. Existing
+worktrees, installed runtime, serving mirrors and historical proof remain retained
+for the full goal. No manual paths removed, no reclaimed bytes. Standard fixture
+clones clean up through their existing test lifecycle; no live or retained witness
+DB is selected. Qualification workers are terminal before this documentation seal;
+frontend verifier resources remain its normal lock/cleanup owner. Cleanup follow-up
+for every retained temporary root: after qualified replacement, audit active tasks,
+processes/mounts/connections, dirty/unique commits and data, then dispose only under
+separately approved scope. No standing deletion authority.
