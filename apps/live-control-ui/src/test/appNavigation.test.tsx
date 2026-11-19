@@ -315,20 +315,22 @@ describe("App same-document primary navigation", () => {
 
   it("does not intercept right-click Combat or modifier-click primary links", async () => {
     const user = userEvent.setup();
+    window.history.pushState({}, "", "/ingest");
     render(<App />);
+    expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
     const nav = commandBoardNav();
     const combat = within(nav).getByRole("link", { name: "Combat Tracker" });
     expect(combat).toHaveAttribute("href", "/combat");
 
     const pushSpy = vi.spyOn(window.history, "pushState");
     await user.pointer({ keys: "[MouseRight]", target: combat });
-    expect(window.location.pathname).toBe("/");
+    expect(window.location.pathname).toBe("/ingest");
 
     const ingest = within(nav).getByRole("link", { name: "Ingest" });
     ingest.dispatchEvent(
       new MouseEvent("click", { bubbles: true, cancelable: true, button: 0, ctrlKey: true }),
     );
-    expect(window.location.pathname).toBe("/");
+    expect(window.location.pathname).toBe("/ingest");
     expect(pushSpy.mock.calls.some((call) => String(call[2]) === "/ingest")).toBe(false);
     pushSpy.mockRestore();
   });
