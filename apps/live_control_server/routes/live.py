@@ -777,6 +777,21 @@ def post_statblock_workbench_draft_retrieval_verify(
     return response.model_dump(mode="json")
 
 
+def _markdown_media_owner(request: Request, markdown: str) -> str:
+    if not has_saved_media_references(markdown):
+        return "local_operator"
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import hosted_world_media_owner
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        world_id = getattr(request.state, "hosted_build_page_world", None)
+        if world_id is None:
+            raise HTTPException(403, detail="The document World could not be verified.")
+        return hosted_world_media_owner(world_id)
+    enforce_native_graph_gm(request)
+    return "local_operator"
+
+
 @router.post(
     "/tiptap/markdown-write/prepare",
     response_model=TiptapMarkdownWritePrepareResponse,
@@ -789,9 +804,9 @@ def post_tiptap_markdown_write_prepare(
 
         require_hosted_plan_world_context(request, body.world_id)
     try:
-        if has_saved_media_references(body.markdown):
-            enforce_native_graph_gm(request)
-        response = prepare_tiptap_markdown_write(root=repo_root(), request=body)
+        response = prepare_tiptap_markdown_write(
+            root=repo_root(), request=body, media_owner=_markdown_media_owner(request, body.markdown),
+        )
     except TiptapMarkdownWriteError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
@@ -809,9 +824,9 @@ def post_tiptap_markdown_write_commit(
 
         require_hosted_plan_world_context(request, body.world_id)
     try:
-        if has_saved_media_references(body.markdown):
-            enforce_native_graph_gm(request)
-        response = commit_tiptap_markdown_write(root=repo_root(), request=body)
+        response = commit_tiptap_markdown_write(
+            root=repo_root(), request=body, media_owner=_markdown_media_owner(request, body.markdown),
+        )
     except TiptapMarkdownWriteError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
