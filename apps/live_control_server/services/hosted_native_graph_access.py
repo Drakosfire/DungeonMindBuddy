@@ -10,9 +10,12 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from dataclasses import dataclass
+import logging
+from threading import Lock
+from time import monotonic
 from uuid import UUID
 
-from fastapi import HTTPException, Request
+from fastapi import BackgroundTasks, HTTPException, Request
 from pydantic import TypeAdapter
 from starlette.concurrency import run_in_threadpool
 
@@ -1197,12 +1200,48 @@ async def resolve_hosted_world_lookup(request: Request) -> str:
     return world.world_id
 
 
-def read_hosted_world_lookup(request: Request, managed_world_id: str) -> WorldContainerPublicRecord:
+_source_warmup_lock = Lock()
+_source_warmup_logger = logging.getLogger(__name__)
+
+
+def _warm_hosted_world_sources(subject: str, world_id: str) -> None:
+    from .plan_source_turn import prepare
+
+    # The worker cache holds one revision. Avoid competing speculative reads.
+    if not _source_warmup_lock.acquire(blocking=False):
+        return
+    started = monotonic()
+    try:
+        _owned_world(subject, world_id)
+        principal = HostedOwnerGraphPrincipal(
+            subject=f"hosted_dms:{subject}", dms_subject=subject, role="gm",
+            auth_method="hosted_owner", managed_world_id=world_id,
+        )
+        context, _ = prepare(world_id, principal)
+        _source_warmup_logger.info(
+            "buddy_world_source_warmup world_id=%s status=%s elapsed_ms=%.1f",
+            world_id, "ready" if context is not None else "unavailable",
+            (monotonic() - started) * 1000,
+        )
+    except Exception:
+        # Lookup has already returned. Send uses the normal preparation path.
+        _source_warmup_logger.warning(
+            "buddy_world_source_warmup world_id=%s status=error elapsed_ms=%.1f",
+            world_id, (monotonic() - started) * 1000,
+        )
+    finally:
+        _source_warmup_lock.release()
+
+
+def read_hosted_world_lookup(
+    request: Request, managed_world_id: str, background_tasks: BackgroundTasks,
+) -> WorldContainerPublicRecord:
     if getattr(request.state, "hosted_world_lookup_id", None) != managed_world_id:
         raise _denied()
-    return WorldContainerPublicRecord.from_record(
-        _owned_world(_hosted_subject(request), managed_world_id)
-    )
+    subject = _hosted_subject(request)
+    record = WorldContainerPublicRecord.from_record(_owned_world(subject, managed_world_id))
+    background_tasks.add_task(_warm_hosted_world_sources, subject, record.world_id)
+    return record
 
 
 async def hosted_owner_collection(request: Request) -> dict:
