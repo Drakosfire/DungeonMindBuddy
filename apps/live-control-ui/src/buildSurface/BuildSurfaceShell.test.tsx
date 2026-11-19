@@ -1435,7 +1435,7 @@ describe("BuildSurfaceShell", () => {
     render(<BuildDocumentHarness documentId={DOC_ID} />);
 
     const editor = await screen.findByTestId("build-markdown-editor");
-    expect(editor).toHaveTextContent("Hesta's Apothecary");
+    await waitFor(() => expect(editor).toHaveTextContent("Hesta's Apothecary"));
     expect(screen.queryByTestId("build-source-reader")).not.toBeInTheDocument();
 
     await waitForEditor();
