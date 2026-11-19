@@ -147,6 +147,7 @@
       "apps/live-control-ui/src/combat/combatRecovery.test.ts",
       "apps/live-control-ui/src/combat/ManualCombatRecovery.test.ts",
       "apps/live-control-ui/src/combat/ManualCombatEditor.test.tsx",
+      "apps/live-control-ui/src/combat/ManualCombatSides.test.ts",
       "apps/live-control-ui/src/combat/validateCombatRecovery.test.ts",
       "apps/live-control-ui/src/components/DurableSaveStatus.test.tsx",
       "apps/live-control-ui/src/contracts/dungeonbuddy-statblocks-v1/dungeonbuddyStatblockV1Contract.test.ts",
