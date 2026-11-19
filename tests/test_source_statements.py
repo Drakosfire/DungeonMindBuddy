@@ -348,6 +348,8 @@ def test_authenticated_routes_and_strict_selection(lane):
 
     app = FastAPI()
     app.include_router(router)
+    from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency
+    app.dependency_overrides[native_graph_explorer_dependency] = lambda: GM
     app.dependency_overrides[native_graph_gm_dependency] = lambda: GM
     app.dependency_overrides[authenticate_native_graph_principal] = lambda: GM
     with TestClient(app) as client:
@@ -683,6 +685,8 @@ def extension_client(principal=GM):
     app.include_router(router)
     if principal is not None:
         app.dependency_overrides[authenticate_native_graph_principal] = lambda: principal
+        from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency
+        app.dependency_overrides[native_graph_explorer_dependency] = lambda: principal
     return TestClient(app, client=("127.0.0.1", 50000))
 
 
