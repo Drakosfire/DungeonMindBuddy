@@ -114,7 +114,7 @@
     "baseline_api": 18290,
     "forward_api": 18291,
     "owned_ui": 15202,
-    "source_identity": "Both final frozen qualification head on accepted475f65d runtime/Core4b, ownedCore0022/APP0168",
+    "source_identity": "Both processes use qualified Buddy runtime1c7ddcdd9ce08077cf9c5297ab952ebd1a41560f/Core4b6516e2c0dfd81acaa4410b9b9bb9da18894c90 at execution head d42921316870fd81fabe9d450882c32b187ecf06; accepted test-only successor4f4ed526278badc8b9b7241e418e90c7fd474c98 preserves runtime bytes; owned Core0022/APP0168",
     "claim_limit": "Not older behavioral software rollback or protection from a defect shared by identical binaries. Preserve the latest native authority, not an old dump."
   },
   "file_authority": {
