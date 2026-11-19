@@ -135,7 +135,7 @@ def make_lane(tmp_path, monkeypatch, *, repo=None, narrow=False, multiple=False)
         "native_world_id": world.world_id,
         "binding_version": 1,
     }
-    monkeypatch.setattr(service.native, "repository", lambda: repo)
+    monkeypatch.setattr(service.native, "repository", lambda *, verification_cache=None: repo)
     monkeypatch.setattr(service.native, "binding", lambda _: bound.copy())
     clause = BODY.splitlines(keepends=True)[0].encode()
     selection = StatementSelection(
