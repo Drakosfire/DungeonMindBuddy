@@ -659,6 +659,7 @@ def _commit_plan_postgres(
     *,
     request: TiptapMarkdownWriteCommitRequest,
     write_mode: WriteMode,
+    authorize_runbook_world=None,
 ) -> TiptapMarkdownWriteCommitResponse | None:
     from application_state.content.service import (
         commit_plan,
@@ -686,6 +687,8 @@ def _commit_plan_postgres(
         return None
     if obj.kind not in ("plan", "runbook"):
         return None
+    if authorize_runbook_world is not None and obj.kind != "runbook":
+        raise TiptapMarkdownWriteConflictError("The authorized Runbook is no longer available")
     _require_requested_world_scope(obj, request.world_id)
     if write_mode == "source_import":
         raise TiptapMarkdownWriteError(
@@ -728,6 +731,8 @@ def _commit_plan_postgres(
         if obj.kind == "plan":
             commit_kwargs["expected_world_id"] = request.world_id
             commit_kwargs["title"] = request.title
+        elif authorize_runbook_world is not None:
+            commit_kwargs["authorize_world"] = authorize_runbook_world
         committed, revision = commit(request.document_id, content, **commit_kwargs)
     except ApplicationStateError as exc:
         raise _map_registry_error(
@@ -765,12 +770,12 @@ def _commit_plan_postgres(
 
 
 def prepare_tiptap_markdown_write(
-    *, root: Path, request: TiptapMarkdownWritePrepareRequest
+    *, root: Path, request: TiptapMarkdownWritePrepareRequest, media_owner: str = "local_operator"
 ) -> TiptapMarkdownWritePrepareResponse:
     write_mode = _normalize_write_mode(request.write_mode)
     if write_mode == "source_import":
         _source_import_content(request.markdown)
-    validate_saved_media_references(request.markdown)
+    validate_saved_media_references(request.markdown, media_owner)
     from application_state.content import pages
     from application_state.errors import ApplicationStateError
 
@@ -795,18 +800,21 @@ def prepare_tiptap_markdown_write(
 
 
 def commit_tiptap_markdown_write(
-    *, root: Path, request: TiptapMarkdownWriteCommitRequest, authorize_world=None
+    *, root: Path, request: TiptapMarkdownWriteCommitRequest, authorize_world=None,
+    authorize_runbook_world=None, media_owner: str = "local_operator"
 ) -> TiptapMarkdownWriteCommitResponse:
     write_mode = _normalize_write_mode(request.write_mode)
     if write_mode == "source_import":
         _source_import_content(request.markdown)
-    validate_saved_media_references(request.markdown)
+    validate_saved_media_references(request.markdown, media_owner)
     from application_state.content import pages
     from application_state.errors import ApplicationStateError
 
     try:
         state = pages.find_page(request.document_id)
         if state is not None:
+            if authorize_runbook_world is not None:
+                raise TiptapMarkdownWriteConflictError("The authorized Runbook is no longer available")
             return _commit_page(request, write_mode, state, authorize_world=authorize_world)
     except ApplicationStateError as exc:
         raise _map_registry_error(
@@ -818,7 +826,9 @@ def commit_tiptap_markdown_write(
         raise TiptapMarkdownWriteError(
             "presentation is only supported for authored Pages"
         )
-    result = _commit_plan_postgres(request=request, write_mode=write_mode)
+    result = _commit_plan_postgres(
+        request=request, write_mode=write_mode, authorize_runbook_world=authorize_runbook_world,
+    )
     if result is None:
         error = TiptapMarkdownWriteError("workspace document not found")
         error.status_code = 404
