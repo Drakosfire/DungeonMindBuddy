@@ -3,6 +3,7 @@
 **Status:** DESIGNED / READY FOR MIND RE-ANCHOR; no implementation write lease
 until the consuming owner completes the activation checks below.
 **Design anchor:** Buddy `main@98d3157a09790e5a53a851b9ea24a5de51bd2aa5`;
+**Auth-boundary re-anchor:** Buddy `main@3624806dd` (2026-11-19);
 Core #231 merge `cf197b9939f7b9106c75a8afb9fcf918c8b4aa1c`, adopted by Buddy
 #4093 merge `5289f99c27263c1176682588433921592ea818a2`.
 **Prerequisite settled:** Buddy #4097 B1 compiler merged at
@@ -53,34 +54,47 @@ admission. B2 must establish and seal those facts at their owning boundaries.
   first-World authorizer, error safety and hosted/local principal semantics.
   A necessary edit outside this exact section requires an explicit new split or
   transfer before editing, not a blanket claim on this shared file.
+- `apps/live_control_server/services/hosted_native_graph_access.py`: **function
+  split only** for `resolve_hosted_first_world` to parse the versioned native
+  first-World request and establish current subject/World ownership. Put narrow
+  first-World auth witnesses in the existing owning test file below. Do not edit other
+  helpers, middleware, generic auth, recap or location paths; no blanket lease
+  on this file or transfer of #3824's other sections is implied.
 - `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewFirstWorldPublishSheet.tsx`,
-  `firstWorldPublicationRecovery.ts` and their owning tests, plus new dedicated
-  first-World API/type modules and tests under the same workbench or `src/api/`.
+  `firstWorldPublicationRecovery.ts` and their existing owning tests, plus new
+  dedicated first-World API/type implementation modules under the same workbench
+  or `src/api/`. Extend existing first-World UI test files; avoid new test files
+  that would require the shared classification inventory.
   Wire the actual ordinary first-World UI to the native protocol and preserve
   retained exact-request recovery. Do not modify shared `src/api/types.ts` or
   `src/api/extractPromoteApi.ts`.
-- Owning tests: `tests/test_database_first_world_publication.py`,
-  `tests/test_world_graph_binding.py`, relevant first-World HTTP/auth tests,
-  and new narrowly named native lifecycle/SQL tests; this handoff's consuming
-  activation record only on a separately pinned, explicitly allocated path.
-  B1 compiler files/tests may be read, not broadened without an explicit
-  transfer. No dependency pin, Core/WK runtime, migration, generic schema,
-  model policy, provider, or unrelated UI/route changes.
+- Owning tests: `tests/test_database_first_world_publication.py` for first-World
+  HTTP, hosted authorization, lifecycle and SQL witnesses, and
+  `tests/test_reviewed_native_graph_activation.py` for native APP activation.
+  Preserve their classic historical tests. Do not allocate the shared
+  `tests/test_hosted_native_graph_access.py` or `ci/test-classification.json`;
+  run affected shared regressions read-only. This handoff's consuming activation
+  record belongs on a separately pinned, explicitly allocated path. B1 compiler
+  files/tests may be read, not broadened without explicit transfer. No dependency
+  pin, Core/WK runtime, migration, generic schema, model policy, provider, or
+  unrelated UI/route changes.
 
 This is a proposed exclusive expected-path allowlist, not an instruction to
 edit every listed file. Before activation, compare exact current open PR heads,
 active leases and actual shared sections; record branch/base, checkout, owned
-ports/databases/output paths, tests and any path-specific split. The user
-explicitly requested this first-World section split; it does not transfer or
-modify the other lanes. At the design anchor #1855 head `08b4c817` edits a
+ports/databases/output paths, tests and any path-specific split. The user granted MIND lane and handoff authority; this architecture disposition
+designs the exact first-World section splits. It does not transfer or modify
+the other lanes. At the design anchor #1855 head `08b4c817` edits a
 reviewed-location binding class in `models/extract_promote.py`; #3824 head
-`76c31187` edits hosted-auth/shared router and
-`integrations/dungeonmind/native_world_source_admission.py`; #2090 head
+`76c31187` edits hosted-auth/shared router, other hosted access sections and
+`integrations/dungeonmind/native_world_source_admission.py`; its inspected
+hosted-access diff has no first-World resolver hunk. #3824 and #3808 share
+`tests/test_hosted_native_graph_access.py`, which B2 does not allocate. #2090 head
 `19355258` edits ingest-selection handling in the same router. #4057, #2087
 and #1235 touch shared frontend API/types, and #1235 has an explicit partial
 lease withdrawal recorded in its own PR. B2 avoids those shared model, client
-and admission-integration files, and the router split is only the first-World
-handlers described above. Recheck #4050, #3531, #1163, #1148 and any new work.
+and admission-integration files, and the router and hosted-resolver splits are only the first-World handlers and
+function described above. Recheck #4050, #3531, #1163, #1148 and any new work.
 If exact section isolation or safe composition is not possible, stop that edit
 and obtain an explicit transfer/split or owning-boundary prerequisite; do not
 infer that historical ACTIVE leases expired or rely on Git conflicts as consent.
@@ -91,7 +105,10 @@ infer that historical ACTIVE leases expired or rely on Git conflicts as consent.
    genesis, source admission, profile transition, Graph publication, APP
    reservation activation or provider call. Resolve and authorize the exact
    persisted run/document, original source bytes and current binding; compile
-   the complete reviewed B1 intent and preserve accept/reject/defer decisions.
+   the complete reviewed B1 intent and preserve supported `create_new`, `accept`
+   and `reject` decisions. The current UI/request does not offer defer and B1
+   explicitly refuses deferred identity; reject unsupported defer clearly. Do
+   not silently broaden B1 or drop an unsupported decision.
 2. Seal a versioned, integrity-protected plan containing the exact principal-
    authorized managed/native World and reservation identity/version, persisted
    raw-to-native source association and full-body digest, frozen span/evidence
@@ -100,14 +117,26 @@ infer that historical ACTIVE leases expired or rely on Git conflicts as consent.
    Record source-not-yet-admitted as such; do not fabricate a parent or span
    proof. Freeze the intended admission and any required profile transition
    preconditions so confirm cannot silently choose different authority or policy.
-3. Confirm first authenticates and authorizes the current requester and verifies
+3. The hosted middleware invokes `resolve_hosted_first_world` before the route.
+   Native prepare must resolve the exact server-owned current run and authorize
+   its World as today. For native confirm, the resolver must verify the actual
+   server-signed versioned plan, then enforce `_owned_world(subject, sealedWorld)`
+   before receipt lookup/disclosure, without reloading the mutable run on the
+   recovery path. Reject malformed/unsigned/tampered plans, query selectors,
+   foreign subjects/Worlds and revoked access. A claimed World alone is never
+   authorization. Retain current local GM enforcement and do not weaken hosted
+   principal, body or selector checks. Legacy submitted recovery must not treat
+   an unsigned World claim as sufficient publication or receipt authority: its
+   service must require the exact current reservation and verified historical
+   receipt. No generic authorization bypass is introduced.
+4. Confirm first authenticates and authorizes the current requester and verifies
    plan integrity/scope. **Before re-reading mutable candidate/source state**,
    query the exact durable native publication receipt by its sealed identity.
    If it exists, verify its request/payload, source association, World,
    reservation, profile, parent and ancestry against the sealed plan, then
    recover the same result and perform only the separately verified idempotent
    APP activation. Do not leak receipt existence across authorization scopes.
-4. For a genuinely not-yet-applied plan, revalidate the exact source revision,
+5. For a genuinely not-yet-applied plan, revalidate the exact source revision,
    live authorization, reservation, pins and expected state. Admit the source
    through the existing owner only at confirmation, obtain and verify the actual
    source-only parent and evidence, execute an explicitly sealed profile
@@ -118,7 +147,7 @@ infer that historical ACTIVE leases expired or rely on Git conflicts as consent.
    recoverable partial/unknown states truthfully and replay only the exact sealed
    operation. No automatic reprepare, head refresh, source substitution, ID
    prediction or changed timestamps on retry.
-5. Reject obsolete/unsubmitted plans explicitly while preserving recovery for
+6. Reject obsolete/unsubmitted plans explicitly while preserving recovery for
    potentially submitted operations. The UI must preserve the exact versioned
    request across interruption and distinguish not-invoked, unknown, committed,
    recovered and activation-pending outcomes. Do not make a stale plan current
@@ -131,7 +160,10 @@ PostgreSQL targets; never operator/live databases or provider calls. Prove at
 least: no-write prepare with existing and absent admission; exact reviewed
 choices and all fields/evidence/aliases retained; raw/native full-body mismatch,
 wrong source, scope, principal, reservation, profile, parent and stale plan
-fail closed; needed and unnecessary profile transitions; source/Graph/APP
+fail closed; hosted middleware accepts only a valid signed native plan and current
+World owner before receipt disclosure, rejects forged/unsigned World claims and
+query selectors, and recovers after the mutable run disappears or changes;
+legacy recovery requires its verified historical receipt and exact reservation; needed and unnecessary profile transitions; source/Graph/APP
 partial failures, lost responses, exact receipt-first recovery after mutable
 candidate/source changes, idempotent retries, ancestry and reservation
 races; no classic initialization/dual write; unchanged classic historical
