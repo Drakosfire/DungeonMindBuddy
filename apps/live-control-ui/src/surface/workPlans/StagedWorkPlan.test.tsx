@@ -10,8 +10,23 @@ import {getWorkspaceDocumentSnapshot} from '../../api/liveApi';
 import {StagedWorkPlan} from './StagedWorkPlan';
 import {placementDigest,stagePlacement,readPlacement,type PlacementLocks} from './workPlanPlacement';
 import type {WorkPlanReference} from './workPlanReference';
+import type {InspectionPin,NativeGraphCatalog} from '../../api/nativeGraphInspection';
+import type {NativeSourceCatalog} from '../../api/nativeSourceInspection';
 vi.mock('../../api/conversationWorkPlanApi',async original=>({...await original<typeof import('../../api/conversationWorkPlanApi')>(),getWorkPlanRecord:vi.fn(),getWorkPlan:vi.fn(),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}));
-vi.mock('../../api/liveApi',()=>({getWorkspaceDocumentSnapshot:vi.fn()}));
+vi.mock('../../api/liveApi',()=>{
+ const scope=(managed_world_id:string):InspectionPin=>({managed_world_id,native_world_id:'native',binding_version:1,revision_id:'r1',scope_mode:'world',campaign_id:null});
+ return {
+  getWorkspaceDocumentSnapshot:vi.fn(),
+  getNativeGraphCatalog:vi.fn(async({managed_world_id}:{managed_world_id:string}):Promise<NativeGraphCatalog>=>({
+   schema:'dmb_native_graph_catalog_v1',scope:scope(managed_world_id),
+   catalogue:{identity:{space_id:'native',revision_id:'r1'},entities:[],admitted_assertion_ids:[],completeness:{status:'complete',reason:null},request_sha256:'fixture-request',result_digest:'fixture-result'},assertions:[],
+  })),
+  getNativeSourceCatalog:vi.fn(async({managed_world_id}:{managed_world_id:string}):Promise<NativeSourceCatalog>=>({
+   schema:'dmb_native_source_catalog_v1',scope:scope(managed_world_id),
+   catalogue:{space_id:'native',revision_id:'r1',source_authority_epoch:1,sources:[],complete:true},navigation_complete:true,
+  })),
+ };
+});
 const conversation='11111111-1111-4111-8111-111111111111',turnId='22222222-2222-4222-8222-222222222222';
 let editor:Editor,state:BuildComposeEditorState,bridge:ReturnType<typeof createBuildComposeBridge>,ref:WorkPlanReference;
 let plan:WorkPlan|null,savedMarkdown:string;const onVisible=vi.fn();
@@ -35,6 +50,7 @@ afterEach(()=>{cleanup();editor.destroy();editor.view.dom.remove();});
 const props=()=>({worldId:'world',documentId:'page',conversationId:conversation,turnId,source:'A plan.',objective:'Develop a useful shop scene.',steps:[{text:'Read the chart.',kind:'discuss' as const},{text:'Write a scene.',kind:'prepare_insertion' as const}],bridge,pointerRevision:2,disabled:false,onVisible});
 async function savedOnPage(){await waitFor(async()=>expect((await readPlacement(ref))?.phase).toBe('saved'));await screen.findByText('Plan on page.');}
 async function stage(){const captured=await bridge.capture();return stagePlacement(ref,captured.basis,2,props().steps.map(s=>({...s,step_id:crypto.randomUUID(),selected:true})),0,localStorage,navigator.locks,'Develop a useful shop scene.');}
+async function placePlan(){const button=await screen.findByRole('button',{name:'Place plan on page'});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);}
 it('places editable checkboxes on the real editor and one Save persists the same review/reference without continuation',async()=>{
  await stage();render(<StagedWorkPlan {...props()}/>);
  const checkbox=await screen.findByRole('checkbox',{name:'Include step 2'});
@@ -97,7 +113,7 @@ it('restores historical local wording by step identity without erasing current V
 it('initializes explicit page placement from host source references before any saved review exists',async()=>{
  vi.mocked(getWorkPlanRecord).mockResolvedValue({plan:null,sourceReferences:[contextRef]});
  vi.spyOn(bridge,'pickWorkPlanInsertion').mockImplementation(async()=>bridge.capture());
- render(<StagedWorkPlan {...props()}/>);fireEvent.click(await screen.findByRole('button',{name:'Place plan on page'}));
+ render(<StagedWorkPlan {...props()}/>);await placePlan();
  expect(await screen.findByText('@Cedar box')).toBeVisible();
  fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await savedOnPage();
  expect(plan?.schema==='dmb_reviewed_work_plan_v3'&&plan.root_references).toEqual([contextRef]);expect(plan!.steps.every(row=>Array.isArray(row.references))).toBe(true);
@@ -124,7 +140,7 @@ it('explicit fresh placement preserves a deferred proposed row through Save and 
  vi.spyOn(bridge,'pickWorkPlanInsertion').mockImplementation(async()=>bridge.capture());
  const proposed={...props(),steps:props().steps.map((s,i)=>({...s,selected:i===0}))};
  const mounted=render(<StagedWorkPlan {...proposed}/>);
- fireEvent.click(await screen.findByRole('button',{name:'Place plan on page'}));
+ await placePlan();
  expect(await screen.findByRole('checkbox',{name:'Include step 1'})).toBeChecked();
  expect(screen.getByRole('checkbox',{name:'Include step 2'})).not.toBeChecked();
  fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await savedOnPage();
