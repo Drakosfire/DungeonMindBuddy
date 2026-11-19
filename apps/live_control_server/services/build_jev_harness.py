@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -508,25 +509,35 @@ class BuildJevHarness:
 
     async def _decide(self, adapter, driver):
         self.failure_stage = "controller_prepare"
-        plan, intent = driver.stage(), driver.step
+        trace = getattr(adapter, "trace", None)
+        phase = getattr(trace, "phase", None) if not self.calls else None
+
+        def measure(name):
+            return phase(name) if phase is not None else nullcontext()
+
+        with measure("build_first_jev_controller_stage"):
+            plan, intent = driver.stage(), driver.step
         admission_failure = None
 
         async def authorize(prepared):
             nonlocal admission_failure
-            accepted = driver.authorize(prepared)
-            if accepted:
-                # Retain author input after the claim, before a controller failure can lose it.
-                capture_draft_context(adapter)
-            if not accepted:
-                admission_failure = (getattr(driver, "admission_failure", None)
-                    or getattr(adapter, "decision_admission_failure", None))
-                if admission_failure is not None and adapter.context_capture is not None:
-                    adapter.context_capture.observe({"kind": "failure", "phase": "context_build",
-                        "code": admission_failure.code})
-            return accepted
+            with measure("build_first_jev_authorization"):
+                accepted = driver.authorize(prepared)
+                if accepted:
+                    # Retain author input after the claim, before a controller failure can lose it.
+                    capture_draft_context(adapter)
+                if not accepted:
+                    admission_failure = (getattr(driver, "admission_failure", None)
+                        or getattr(adapter, "decision_admission_failure", None))
+                    if admission_failure is not None and adapter.context_capture is not None:
+                        adapter.context_capture.observe({"kind": "failure", "phase": "context_build",
+                            "code": admission_failure.code})
+                return accepted
 
         async def record(event):
-            acknowledged = adapter.record_prepared_build_decision(event)
+            with (measure("build_first_jev_sending_acknowledgement")
+                  if event.outcome == "sending" else nullcontext()):
+                acknowledged = adapter.record_prepared_build_decision(event)
             if acknowledged:
                 self._entered(event, "controller")
             return acknowledged
@@ -539,7 +550,6 @@ class BuildJevHarness:
             body = json.loads(prepared.body)
             return DecisionContextMode(accounting.context_mode(body, host_phase=getattr(plan,"host_phase",None)))
 
-        trace = getattr(adapter, "trace", None)
         client = decision_client(
             authorize=authorize, record=record, select_context=select_context,
             transport=self.decision_transport,
