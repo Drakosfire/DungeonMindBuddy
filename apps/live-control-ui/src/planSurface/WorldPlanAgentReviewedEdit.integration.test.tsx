@@ -7,6 +7,8 @@ import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { Editor } from "@tiptap/core";
 
 import * as liveApi from "../api/liveApi";
+import * as conversationLibrary from "../api/conversationLibraryApi";
+import * as planEdit from "./agentEdit/planAgentEditProposal";
 import type { WorldOwnedPlanRecordV2, WorldPlanActionProjectionPage, WorldPlanDocumentEditProposalRequest, WorldPlanDocumentEditProposalResponse } from "../api/types";
 import { SelectedWorldProvider, useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
@@ -1125,60 +1127,109 @@ it("rejects an initial native proposal whose origin key differs from its sealed 
   }
 });
 
-it("rejects a thread switch during deferred Apply without changing the mounted editor", async () => {
+it("rejects a conversation switch during deferred native Save without changing the mounted editor", async () => {
   setupWorldApi();
-  vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
-    schema_version: "dmb_world_plan_document_edit_proposal_v1",
-    action_id: "00000000-0000-4000-8000-000000000005",
-    idempotency_key: request.idempotency_key,
-    document_id: request.document_id,
-    world_id: request.world_id,
-    base_revision: request.base_revision,
-    base_content_sha256: request.base_content_sha256,
-    draft_sha256: request.draft_sha256,
-    target_kind: request.target_kind,
-    selected_text_sha256: await sha256Hex(request.selected_text),
-    replacement_markdown: "A lantern glows under the arch.",
-    summary: "Add a lantern-lit opening beat.",
-    assumptions: [],
-    model: "gpt-6-luna",
-    model_observed: true,
-    model_latency_ms: 1,
-    wall_latency_ms: 1,
-    usage: null,
+  const current = setupPlanAuthoringIntegration(planRecord(), initialMarkdown, "A lantern glows under the arch.");
+  const nextConversation = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  let switched = false;
+  let freshPointerReads = 0;
+  const messages = vi.mocked(conversationLibrary.readActiveConversationMessages);
+  const readMessages = messages.getMockImplementation()!;
+  messages.mockImplementation(async (...args) => {
+    const page = await readMessages(...args);
+    if (!switched) return page;
+    freshPointerReads += 1;
+    return {...page, conversation_id: nextConversation, active_conversation_id: nextConversation,
+      pointer_revision: 5, messages: [], next_before_sequence: null};
+  });
+  const history = vi.mocked(liveApi.getWorldAgentConversationHistory);
+  const readHistory = history.getMockImplementation()!;
+  history.mockImplementation(async (...args) => {
+    const page = await readHistory(...args);
+    return switched ? {...page, conversation_id: nextConversation, active_conversation_id: nextConversation,
+      pointer_revision: 5, turns: [], next_before_sequence: null} : page;
+  });
+  const actions = vi.mocked(liveApi.getWorldPlanConversationActions);
+  const readActions = actions.getMockImplementation()!;
+  actions.mockImplementation(async (...args) => {
+    expect(args[0]).toBe(worldId);
+    if (args[1] !== nextConversation) return readActions(...args);
+    expect(switched).toBe(true);
+    return {schema_version: "dmb_world_plan_action_conversation_projection_v1", world_id: worldId,
+      conversation_id: nextConversation, actions: [], next_before_action_sequence: null};
+  });
+  const reset = vi.spyOn(liveApi, "postWorldAgentNewConversation").mockImplementation(async (world, command) => {
+    expect(world).toBe(worldId);
+    expect(command).toMatchObject({expected_pointer_revision: 4,
+      expected_active_conversation_id: "11111111-1111-4111-8111-111111111111"});
+    switched = true;
+    return {schema: "dmb_agent_new_conversation_response_v1", world_id: worldId,
+      conversation_id: nextConversation, active_conversation_id: nextConversation, pointer_revision: 5};
+  });
+  const nativeNavigator = navigator;
+  vi.stubGlobal("navigator", new Proxy(nativeNavigator, {
+    get: (target, key) => key === "locks"
+      ? { request: async (_name: string, work: () => unknown) => work() }
+      : Reflect.get(target, key, target),
   }));
-  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
-  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
   const location = `/plan?world=${worldId}&documentId=${documentId}`;
   window.history.replaceState({}, "", location);
-  render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
-  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
-  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
-  fireEvent.change(await screen.findByLabelText("Message DungeonBuddy"), {
-    target: { value: "Add a lantern." },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
-  expect(await screen.findByRole("region", { name: "Review proposed Plan edit" })).toBeInTheDocument();
-  const editorTextBefore = editorSurface.textContent;
-
-  const originalDigest = crypto.subtle.digest.bind(crypto.subtle);
+  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><CurrentIntegrationPage /></SelectedWorldProvider></StrictMode>);
   let release!: () => void;
-  const gate = new Promise<void>((resolve) => { release = resolve; });
-  const digest = vi.spyOn(crypto.subtle, "digest").mockImplementationOnce(async (...args) => {
-    await gate;
-    return originalDigest(...args);
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
-  await waitFor(() => expect(digest).toHaveBeenCalledTimes(1));
-  fireEvent.click(screen.getByRole("button", { name: "Switch Agent thread" }));
-  await waitFor(() => expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument());
-  await act(async () => { release(); });
-
-  expect(editorSurface.textContent).toBe(editorTextBefore);
-  expect(editorSurface).not.toHaveTextContent("A lantern glows under the arch.");
-  expect(prepare).not.toHaveBeenCalled();
-  expect(commit).not.toHaveBeenCalled();
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  try {
+    const surface = await screen.findByTestId("world-owned-plan-markdown-editor");
+    const editor = (surface.querySelector(".ProseMirror") as HTMLElement & {editor: Editor}).editor;
+    const before = editor.getJSON();
+    fireEvent.click(await screen.findByRole("button", {name: "Open", exact: true}));
+    const conversation = await screen.findByRole("region", {name: "World conversation"});
+    await waitFor(() => expect(within(conversation).getByRole("region", {name: "World conversation transcript"})).toHaveAttribute("aria-busy", "false"));
+    fireEvent.change(within(conversation).getByLabelText("Message DungeonBuddy"), {target: {value: "Add a lantern."}});
+    fireEvent.click(within(conversation).getByText(/^(Automatic|Plan change) · Change$/));
+    fireEvent.click(within(conversation).getByRole("button", {name: "Request a Plan change"}));
+    const send = within(conversation).getByRole("button", {name: "Propose edit"});
+    await waitFor(() => expect(send).toBeEnabled());
+    fireEvent.click(send);
+    await screen.findByRole("textbox", {name: "Suggestion text"});
+    const save = within(screen.getByRole("region", {name: "Suggestion review"})).getByRole("button", {name: "Save", exact: true});
+    await waitFor(() => expect(save).toBeEnabled());
+    const realRestore = planEdit.restorePlanAuthoringTarget;
+    const restore = vi.spyOn(planEdit, "restorePlanAuthoringTarget").mockImplementationOnce(async (...args) => {
+      await gate;
+      return realRestore(...args);
+    });
+    fireEvent.click(save);
+    await waitFor(() => expect(restore).toHaveBeenCalledTimes(1));
+    const pendingRestore = restore.mock.results[0]!.value;
+    fireEvent.click(await screen.findByRole("button", {name: "Open", exact: true}));
+    expect(screen.getByRole("region", {name: "World conversation"})).toBeVisible();
+    const newConversation = screen.getByRole("button", {name: "New conversation", exact: true});
+    await waitFor(() => expect(newConversation).toBeEnabled());
+    fireEvent.click(newConversation);
+    await waitFor(() => expect(reset).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(freshPointerReads).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.queryByRole("region", {name: "Suggestion review"})).not.toBeInTheDocument());
+    await waitFor(() => expect(within(conversation).getByRole("region", {name: "World conversation transcript"})).toHaveAttribute("aria-busy", "false"));
+    await act(async () => {
+      release();
+      await pendingRestore.catch((error: unknown) => expect(error).toBeInstanceOf(planEdit.PlanEditGuardError));
+    });
+    expect(editor.getJSON()).toEqual(before);
+    expect(editor.state.doc.textBetween(0, editor.state.doc.content.size, "")).not.toContain("A lantern glows under the arch.");
+    expect(screen.queryByRole("region", {name: "Suggestion review"})).not.toBeInTheDocument();
+    expect(current.readSaved().markdown).toBe(initialMarkdown);
+    expect(current.readSaved().record.revision).toBe(7);
+    expect(current.commands.mock.calls.map(call => call[2].operation)).toEqual(["open"]);
+    expect(current.ordinaryPrepare).not.toHaveBeenCalled();
+    expect(current.ordinaryCommit).not.toHaveBeenCalled();
+    expect(current.legacyProposal).not.toHaveBeenCalled();
+    expect(current.post).toHaveBeenCalledTimes(1);
+  } finally {
+    release();
+    view.unmount();
+    vi.unstubAllGlobals();
+    sessionStorage.clear();
+  }
 });
 
 async function currentSceneBodyRoundTrip(
