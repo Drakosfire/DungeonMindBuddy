@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from apps.live_control_server.services.source_artifact_registry import (
     SourceArtifactRegistryError, create_recap_source_artifact_from_workspace_document,
@@ -17,7 +17,7 @@ def _sha(payload: dict[str, Any]) -> str:
 
 
 def register_build_recap_source(root: Path, *, document_id: str, expected_revision: int,
-    expected_content_sha256: str, session_id: str, ingest_context: Any):
+    expected_content_sha256: str, session_id: str, ingest_context: Any, authorize: Callable[[], None] | None = None):
     # Use the same source scope as ordinary Recap execution; no campaign inference.
     from apps.live_control_server.services.graph_preview_runner import _source_scope_lineage
     campaign_id = getattr(ingest_context, "campaign_id", None)
@@ -25,7 +25,7 @@ def register_build_recap_source(root: Path, *, document_id: str, expected_revisi
     return create_recap_source_artifact_from_workspace_document(root,
         document_id=document_id, expected_revision=expected_revision,
         expected_content_sha256=expected_content_sha256, managed_world_id=context["managed_world_id"],
-        native_world_id=native_world, campaign_id=context["campaign_id"], session_id=session_id)
+        native_world_id=native_world, campaign_id=context["campaign_id"], session_id=session_id, authorize=authorize)
 
 
 def frozen_build_recap_configuration(root: Path, *, source_artifact_id: str,
