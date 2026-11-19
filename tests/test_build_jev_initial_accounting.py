@@ -258,7 +258,6 @@ def test_build_opening_uses_instrumented_decision_client(monkeypatch):
     factory = Mock(return_value=client)
     monkeypatch.setattr(build_jev_harness, "decision_client", factory)
     harness = BuildJevHarness(decision_transport=transport)
-    harness.calls = []
     monkeypatch.setattr(harness, "_failed", Mock())
 
     with pytest.raises(RuntimeError, match="fixture"):

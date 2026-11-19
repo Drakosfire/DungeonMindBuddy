@@ -531,7 +531,8 @@ _CONTEXT_KEYS = (
     "current_work_present", "current_work_kind", "pointer_count", "model_context_char_count",
 )
 _SPAN_ATTRIBUTE_KEYS = (*_CONTEXT_KEYS, "count", "reason", "is_error", "outcome",
-                        "retrieval_schema", "result_count", "source_count", "error_count", "max_duration_ms")
+                        "retrieval_schema", "result_count", "source_count", "error_count", "max_duration_ms",
+                        "start_offset_ms", "end_offset_ms")
 
 
 def _log_metrics(value: Any, keys: Iterable[str]) -> dict[str, Any]:
@@ -645,6 +646,14 @@ class AgentTurnTraceBuilder:
         )
 
     @contextmanager
+    def phase_before_first_jev(self, name: str) -> Iterator[None]:
+        if self._first_jev_dispatch_recorded:
+            yield
+        else:
+            with self.phase(name):
+                yield
+
+    @contextmanager
     def measure_host_work(self, name: str) -> Iterator[None]:
         """Inclusive cumulative timings, not additive critical-path spans.
 
@@ -719,6 +728,11 @@ class AgentTurnTraceBuilder:
         merged_attributes = dict(open_span["attributes"])
         if attributes:
             merged_attributes.update(dict(attributes))
+        completed_mono = time.monotonic()
+        merged_attributes.update(
+            start_offset_ms=(open_span["started_mono"] - self._started_mono) * 1000,
+            end_offset_ms=(completed_mono - self._started_mono) * 1000,
+        )
         self.spans.append(
             {
                 "span_id": span_id,
@@ -729,7 +743,7 @@ class AgentTurnTraceBuilder:
                 "started_at": open_span["started_at"],
                 "completed_at": utc_now_z(),
                 "duration_ms": max(
-                    0, int((time.monotonic() - open_span["started_mono"]) * 1000)
+                    0, int((completed_mono - open_span["started_mono"]) * 1000)
                 ),
                 "attributes": merged_attributes,
             }

@@ -510,10 +510,7 @@ class BuildJevHarness:
     async def _decide(self, adapter, driver):
         self.failure_stage = "controller_prepare"
         trace = getattr(adapter, "trace", None)
-        phase = getattr(trace, "phase", None) if not self.calls else None
-
-        def measure(name):
-            return phase(name) if phase is not None else nullcontext()
+        measure = getattr(trace, "phase_before_first_jev", nullcontext)
 
         with measure("build_first_jev_controller_stage"):
             plan, intent = driver.stage(), driver.step

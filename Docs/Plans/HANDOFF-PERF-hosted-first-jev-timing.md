@@ -3,7 +3,8 @@
 ACTIVE serial Buddy slice under the operator's hosted Send-to-Jev goal.
 Base ca239ca90. The preceding #4140 Graph stage timings are merged and
 observed on hosted af014b344. No unmerged dependency. This slice owns only
-Build initial-decision stage timing, native complete-entity read timing, their
+Build and shared native initial-decision stage timing, trace-relative phase
+offsets, native complete-entity read timing, their
 existing tests, and this handoff. It does not change queries, cache keys, storage
 authority, provider settings, or prompts. It runs locally without providers for
 contract verification. Hosted comparisons use authorized ordinary Build turns
@@ -26,3 +27,6 @@ reads get a cumulative timer. The timer may also observe authored/campaign reads
 outside catalog assembly, and must be treated accordingly. Verify unchanged
 dispatch entry and exact Graph catalog equality with local tests and compare
 exclusive timing again in hosted opening and continued turns.
+
+The exact transport marker gates both decision paths. Monotonic phase offsets
+support interval-union accounting even where retained UTC seconds coincide.

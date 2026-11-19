@@ -786,19 +786,26 @@ class PlanJevDriver:
     async def run(self, *, transport=None, api_key=None):
         if self.finished:
             return self.proof()
+        trace = getattr(self.adapter, "trace", None)
+        measure = getattr(trace, "phase_before_first_jev", nullcontext)
+
         async def authorize(prepared):
-            return self.current.authorize(prepared) if self.current is not None else False
+            with measure("native_first_jev_authorization"):
+                return self.current.authorize(prepared) if self.current is not None else False
+
         async def record(event):
-            return self.current.record(event) if self.current is not None else False
+            with (measure("native_first_jev_sending_acknowledgement")
+                  if event.outcome == "sending" else nullcontext()):
+                return self.current.record(event) if self.current is not None else False
         async def select_context(prepared):
             return await self.current.select_context(prepared)
-        trace = getattr(self.adapter, "trace", None)
         client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key,
             select_context=select_context, on_dispatch=getattr(trace, "mark_first_jev_dispatch", None))
         try:
             while not self.finished:
                 with trace.measure_host_work("retrieval_candidate_preparation") if trace is not None else nullcontext():
-                    dispatch = PlanJevDispatch(self.adapter, **self.decision_arguments())
+                    with measure("native_first_jev_candidate_preparation"):
+                        dispatch = PlanJevDispatch(self.adapter, **self.decision_arguments())
                 self.current = dispatch
                 try:
                     with trace.measure_host_work("retrieval_decision") if trace is not None else nullcontext():
