@@ -67,3 +67,22 @@ existing template/per-test disposable clone isolation on owned32903, never live
 active goal; inventory created/retained/removed paths and cleanup follow-up. No
 standing deletion authority. Check active tasks/processes/mounts/connections,
 unique data and dirty/unique commits before specifically approved disposal.
+
+## Implementation checkpoint and lock normalization
+
+Both project declarations now select accepted Core cf197b99; the lock has only
+the resulting Core Git source/root requirement changes. uv0.10.2 regenerated a
+152-package graph without package/version/edge changes, but refreshed unrelated
+117 sdist and139 wheel artifact catalogs. The full generated lock and structured
+diff are retained in scratch. Preserve the accepted unrelated artifact records
+only after asserting exact equality of all non-artifact graph/metadata with that
+full regeneration. The resulting uv lock check passes; this is an explicit,
+reviewable normalization, not a silently discarded dependency change.
+
+Fresh uv sync --locked succeeded in the isolated runtime environment with
+Python3.13.12. Installed Core direct_url commit is exact cf197b99; new alias module
+resolves inside that environment, not an editable checkout or diagnostic target.
+The retired vnext.legacy_compat module is absent; the explicit
+application.compatibility.legacy_graph module is present. Existing generated
+Hermes manifest verification passed; WorldKeeper remains exact ef9c50f2. No shared
+or serving environment was synced. Backend/frontend/review acceptance is pending.
