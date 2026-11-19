@@ -6597,3 +6597,90 @@ def test_hosted_recap_publication_context_owner_before_source_IO(hosted, monkeyp
     else:
         assert result.status_code==200,result.text
         assert calls==[("source","saved-run"),("context","saved-run","managed")]
+
+
+
+@pytest.mark.parametrize("phase", ["prepare", "confirm"])
+def test_hosted_explicit_profile_transition_scope_and_owner_fence(
+    transition_case, monkeypatch, phase
+):
+    from tests.test_native_profile_transition import PATH as transition_path, state
+    from apps.live_control_server.routes.native_profile_transition import router
+    from apps.live_control_server.services import (
+        native_profile_transition as transition,
+    )
+    from apps.live_control_server.main import HOSTED_WORLD_SCOPE_RESOLVERS
+
+    c = transition_case
+    stored = catalog.get_world(c.world.world_id)
+    catalog.save_world(
+        stored.record.model_copy(update={"owner_subject": OWNER}),
+        expected_revision=stored.revision,
+    )
+    monkeypatch.setenv(DEPLOYMENT_ENVIRONMENT_ENV, "production")
+    monkeypatch.setenv(AUTH_MODE_ENV, "hosted_dms")
+    monkeypatch.setenv(TRUSTED_FRONTEND_ORIGINS_ENV, FRONTEND_ORIGIN)
+    monkeypatch.setenv(
+        HOSTED_WORLD_ACCESS_ENV, json.dumps({c.world.world_id: [OWNER, OTHER_OWNER]})
+    )
+    app = FastAPI()
+    app.include_router(router)
+    install_hosted_request_boundary(
+        app,
+        world_scope_resolvers={
+            ("POST", transition_path + "/" + name): HOSTED_WORLD_SCOPE_RESOLVERS[
+                ("POST", transition_path + "/" + name)
+            ]
+            for name in ["prepare", "confirm"]
+        },
+    )
+    client = _OfflineClient(app)
+    response = client.request("POST", transition_path + "/prepare", json=c.body)
+    assert response.status_code == 200, response.text
+    packet = {"schema": "dmb_native_profile_transition_confirm_v1", **response.json()}
+    body = c.body if phase == "prepare" else packet
+    before = state(c)
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            transition.native,
+            "repository",
+            lambda: pytest.fail("denied request reached Core receipt IO"),
+        )
+        for session, status in [(None, 401), ("other-session", 403)]:
+            r = client.request(
+                "POST", transition_path + "/" + phase, json=body, session=session
+            )
+            assert r.status_code == status, r.text
+        assert (
+            client.request(
+                "POST", transition_path + "/" + phase, json=body, origin=None
+            ).status_code
+            == 403
+        )
+        assert (
+            client.request(
+                "POST", transition_path + "/" + phase + "?worldId=foreign", json=body
+            ).status_code
+            == 403
+        )
+    committed = client.request("POST", transition_path + "/confirm", json=packet)
+    assert committed.status_code == 200, committed.text
+    stored = catalog.get_world(c.world.world_id)
+    catalog.save_world(
+        stored.record.model_copy(update={"owner_subject": OTHER_OWNER}),
+        expected_revision=stored.revision,
+    )
+    after = state(c)
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            transition.native,
+            "repository",
+            lambda: pytest.fail("transferred owner reached recovery IO"),
+        )
+        denied = client.request("POST", transition_path + "/confirm", json=packet)
+    assert denied.status_code == 403, denied.text
+    assert state(c) == after
+    assert before != after
+
+
+from tests.test_native_profile_transition import transition_case as transition_case  # noqa: E402

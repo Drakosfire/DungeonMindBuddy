@@ -962,3 +962,58 @@ def test_native_first_world_mounted_hosted_prepare_only_returns_submitable_size(
         published = client.request("POST", access.FIRST_WORLD_CONFIRM_PATH, json=confirm)
         assert published.status_code == 200, published.text
         assert published.json()["activationStatus"] == "active"
+
+
+
+def test_original_signed_first_world_recovery_after_profile4_descendant(
+    native_first_world_core_dsn, application_state_dsn, monkeypatch, tmp_path,
+):
+    """The original1->2 packet survives explicit2->4 without protocol rewrites."""
+    from datetime import UTC, datetime
+    from dungeonmind.application.vnext.profile_transition import transition_knowledge_semantic_profile
+    from dungeonmind.contracts.semantic_profile import SemanticProfileRef
+    from dungeonmind.contracts.vnext.profile_transition import KnowledgeProfileTransitionV1
+    from dungeonmind.contracts.vnext.knowledge import PublishKnowledgeRevisionCommand
+    from dungeonmind.domain.canonical import canonical_sha256
+    from graph_memory.vnext.domain_runtime import dungeonbuddy_dnd5e_custom_predicate_profile, dungeonbuddy_dnd5e_manual_profile, dungeonbuddy_world_domain_contract
+    from apps.live_control_server.models.native_first_world_publication import NativeFirstWorldConfirmRequest
+
+    case = _native_stage_case(monkeypatch, tmp_path, native_first_world_core_dsn)
+    assert case.plan.target_profile_ref.profile_revision == '2'
+    request = NativeFirstWorldConfirmRequest.model_validate({
+        'schema':'dmb_native_first_world_confirm_request_v1',
+        'plan':case.plan.model_dump(mode='json', by_alias=True)})
+    original_packet = request.model_dump(mode='json', by_alias=True)
+    first = case.native.confirm_native_first_world(request, principal_subject='test-operator', repository=case.repository)
+    assert first.outcome == 'initialized'
+    parent = case.repository.get_revision(case.plan.native_target.native_world_id, first.committed_revision_id)
+    target = dungeonbuddy_dnd5e_manual_profile()
+    transition = KnowledgeProfileTransitionV1(space_id=parent.revision.space_id,
+        publication_id='explicit-post-first-world-profile4', expected_parent_revision_id=parent.revision.revision_id,
+        domain_contract_ref=parent.revision.domain_contract_ref, from_profile_ref=parent.revision.semantic_profile_ref,
+        to_profile_ref=SemanticProfileRef(profile_id=target.profile_id, profile_revision=target.profile_revision,
+            descriptor_sha256=canonical_sha256(target.model_dump(mode='json'))), created_at=datetime.now(UTC))
+    receipt = transition_knowledge_semantic_profile(repository=case.repository, request=transition,
+        domain_contract=dungeonbuddy_world_domain_contract(), current_profile=dungeonbuddy_dnd5e_custom_predicate_profile(), target_profile=target)
+    child = case.repository.get_revision(parent.revision.space_id, receipt.published_revision_id)
+    case.repository.publish_revision(PublishKnowledgeRevisionCommand(space_id=parent.revision.space_id,
+        parent_revision_id=child.revision.revision_id, expected_parent_revision_id=child.revision.revision_id,
+        operation_ids=['post-profile4-descendant'], graph_schema=child.revision.graph_schema,
+        graph_payload=child.graph_payload, domain_contract_ref=child.revision.domain_contract_ref,
+        semantic_profile_ref=child.revision.semantic_profile_ref, migration_origin_ref=child.revision.migration_origin_ref,
+        created_at=datetime.now(UTC)))
+    before = _native_core_counts(native_first_world_core_dsn)
+    def forbidden(*a, **k):
+        pytest.fail('original signed FirstWorld recovery loaded mutable source or wrote')
+    with monkeypatch.context() as patch:
+        patch.setattr(case.native,'resolve_promotable_ingest_run',forbidden)
+        patch.setattr(case.native.source_owner,'_load_exact_snapshot',forbidden)
+        patch.setattr(case.repository,'publish_prospective_publication',forbidden)
+        patch.setattr(case.repository,'publish_publication',forbidden)
+        patch.setattr(case.repository,'publish_revision',forbidden)
+        recovered = case.native.confirm_native_first_world(request, principal_subject='test-operator', repository=case.repository)
+    assert recovered.outcome == 'already_initialized' and recovered.recovered
+    assert recovered.native_publication == first.native_publication
+    assert recovered.committed_revision_id == first.committed_revision_id
+    assert request.model_dump(mode='json', by_alias=True) == original_packet
+    assert _native_core_counts(native_first_world_core_dsn) == before

@@ -1578,3 +1578,24 @@ async def resolve_hosted_recap_review_context(request: Request) -> str:
         raise _denied()
     request.state.hosted_native_graph_world = world.world_id
     return world.world_id
+
+
+async def resolve_hosted_native_profile_transition(request: Request) -> str:
+    """Only current owner/signed scope; no source/run/current-head eligibility."""
+    from apps.live_control_server.models.native_profile_transition import (
+        ProfileTransitionConfirm, ProfileTransitionPrepare,
+    )
+
+    if request.query_params:
+        raise _denied()
+    subject = _hosted_subject(request)
+    raw = await request.json()
+    if request.url.path.endswith("/prepare"):
+        body = ProfileTransitionPrepare.model_validate(raw)
+        world = body.managed_world_id
+    else:
+        body = ProfileTransitionConfirm.model_validate(raw)
+        world = body.plan.managed_world_id
+    _owned_world(subject, world)
+    request.state.hosted_native_graph_world = world
+    return world
