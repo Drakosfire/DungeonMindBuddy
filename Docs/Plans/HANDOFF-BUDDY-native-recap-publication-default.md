@@ -194,3 +194,20 @@ new explicit operator action. No backend authority/semantics expansion.
 Both parent runners were terminal before release. Worker owns the affected-client
 repair/tests/types/inventory then promptly refreezes/pushes samePR4146. Parent full
 candidate and independent review repeat on new head; worker hosted remains held.
+
+
+Repair working diagnostic5:67PASS in3affected files,0FAIL; application TypeScript0;
+ci_contract.py inventory exit0 (3newfast entries only; no exclusions, removals or
+selector changes). precommit-repair-diagnostic-5.{xml,-tests.log,-types.log,
+-inventory.log,-driver.json} retained. New tests exercise all4confirmation codes,
+extension parent-CAS rejection, exact raw archives/fresh context/new user action,
+and12unknown/auth/arbitrary/status-mismatched/cross-stage cases retaining exact
+active bytes/retries across remount. Generic extension epoch-integrity reason is
+explicitly not parsed or whitelisted. Prior f310 failures/review/receipts stay intact.
+
+precommit-repair-backend-input-equivalence.json compares every tracked Python file,
+pyproject/uv.lock and named ci/contracts.json actual working bytes to f310 Git blobs:
+zero differences. Parent may carry f310backend905/315/409 only with that explicit
+input-equivalence limit; there was no successor backend execution. All final-head
+full-discovered/short checks/review and later released hosted proof remain pending.
+Worker processes terminal before refreeze; no additional source edits planned.

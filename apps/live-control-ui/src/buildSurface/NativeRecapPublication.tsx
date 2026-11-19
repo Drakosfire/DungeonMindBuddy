@@ -9,6 +9,13 @@ import {readNativeRecovery,retain,verifyRecovery,archiveKnown,replaceAdmissionWi
 
 type Props={review:ExactRunReviewPackage;run:ExtractionRunRecord;worldId:string;onBusy:(busy:boolean)=>void};
 const message=(e:unknown)=>e instanceof Error?e.message:'Native Recap is unavailable.';
+function isDefinitivePrecommitRejection(error:unknown,operation:Operation|undefined):boolean{
+  if(!(error instanceof LiveApiError)||error.status!==409)return false;
+  if(operation?.stage==='confirmation')return ['candidate_parent_stale','candidate_source_authority_stale',
+    'candidate_review_expired','native_recap_commit_stale'].includes(error.code??'');
+  return operation?.stage==='extension'&&error.code==='knowledge_stale_parent_revision';
+}
+
 /** Recovery is mounted before any fresh-source or mutable-context read. */
 export function NativeRecapPublication(props:Props){
   const [initial]=useState(()=>{try{return {saved:readNativeRecovery(props.worldId,props.run.run_id),error:null};}
@@ -41,11 +48,13 @@ export function NativeRecapPublication(props:Props){
   async function act(s?:Snapshot,op?:Operation){
     if(lock.current||complete||initial.error)return;
     lock.current=true;setBusy(true);props.onBusy(true);setError(null);setDefinitive(false);
+    let attempted:Located|null=null;
     try{
       const located=s&&op?await retain(s,op):pending;
+      attempted=located;
       if(!located)throw new Error('There is no retained request to recover.');
       if(!alive.current)return;setPending(located);await execute(located);
-    }catch(e){if(alive.current){setError(message(e));setDefinitive(e instanceof LiveApiError&&e.code==='native_recap_commit_stale');}}
+    }catch(e){if(alive.current){setError(message(e));setDefinitive(isDefinitivePrecommitRejection(e,attempted?.value.operation));}}
     finally{lock.current=false;if(alive.current)setBusy(false);props.onBusy(false);}
   }
   async function inspect(){
@@ -83,7 +92,7 @@ export function NativeRecapPublication(props:Props){
       <button disabled={busy} onClick={()=>void inspect()}>Inspect saved source operation</button>
       {!status.admission_committed&&['reserved','conflict','unknown'].includes(status.state)&&<button disabled={busy} onClick={()=>void resume()}>Resume exact source admission</button>}
     </>}
-    {definitive&&<button disabled={busy} onClick={()=>void setAside()}>Archive rejected confirmation and review again</button>}
+    {definitive&&<button disabled={busy} onClick={()=>void setAside()}>Archive rejected {pending.value.operation.stage} and review again</button>}
     {error&&<p role="alert">{error}</p>}
   </section>;
   return <>{error&&<p role="alert">{error}</p>}<FreshRecap key={generation} {...props} busy={busy} onOperation={act}/></>;

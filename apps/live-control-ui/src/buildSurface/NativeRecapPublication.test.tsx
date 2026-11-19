@@ -69,3 +69,77 @@ it('resumes an actual saved admission with no command yet without inventing a co
   await screen.findByRole('button',{name:'Extend exact support evidence'});
   expect(sourceApi.resumeRecapSource).toHaveBeenCalledExactlyOnceWith(api.targetFor(snapshot),saved);
 });
+
+async function rejectStage(stage:'confirmation'|'extension',error:Error){
+  admitted=true;supported=stage==='confirmation';
+  const ui=mount();
+  if(stage==='confirmation'){
+    await screen.findByLabelText('Action for node:ari');await choose();
+    vi.mocked(api.confirmRecap).mockRejectedValueOnce(error);
+    fireEvent.click(screen.getByRole('button',{name:'Confirm native Recap publication'}));
+  }else{
+    vi.mocked(api.extendEvidence).mockRejectedValueOnce(error);
+    await screen.findByRole('button',{name:'Extend exact support evidence'});
+    fireEvent.change(screen.getByLabelText('Frozen witness paragraph'),{target:{value:'0'}});
+    fireEvent.change(screen.getByLabelText('Exact witness text'),{target:{value:'Ari'}});
+    fireEvent.click(screen.getByRole('button',{name:'Extend exact support evidence'}));
+  }
+  await screen.findByRole('alert');
+  return {ui,raw:localStorage.getItem(recoveryKey('world','run'))!};
+}
+it.each(['candidate_parent_stale','candidate_source_authority_stale','candidate_review_expired','native_recap_commit_stale'])(
+  'explicitly archives verified precommit confirmation %s before fresh review, never automatically prepares',async code=>{
+    const {raw}=await rejectStage('confirmation',new LiveApiError('Verified precommit refusal',409,{code}));
+    const beforeReads=vi.mocked(api.readContext).mock.calls.length;
+    expect(localStorage.getItem(recoveryKey('world','run'))).toBe(raw);
+    expect(api.confirmRecap).toHaveBeenCalledOnce();expect(api.prepareRecap).toHaveBeenCalledOnce();
+    context.prepare_coordinates={...context.prepare_coordinates,expected_parent_revision_id:'rev:fresh',expected_source_authority_epoch:9};
+    fireEvent.click(screen.getByRole('button',{name:'Archive rejected confirmation and review again'}));
+    await waitFor(()=>expect(api.readContext).toHaveBeenCalledTimes(beforeReads+1));
+    await screen.findByRole('button',{name:'Prepare selected Recap facts'});
+    expect(localStorage.getItem(recoveryKey('world','run'))).toBeNull();
+    expect(Object.keys(localStorage).filter(k=>k.includes(':retained:confirmation:')).map(k=>localStorage.getItem(k))).toContain(raw);
+    expect(api.prepareRecap).toHaveBeenCalledOnce();expect(api.confirmRecap).toHaveBeenCalledOnce();
+    await choose();expect(api.prepareRecap).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(api.prepareRecap).mock.calls[1][1].prepare_coordinates.expected_parent_revision_id).toBe('rev:fresh');
+  });
+it('explicitly archives typed extension parent-CAS rejection; only a new user action creates a fresh request',async()=>{
+  const {raw}=await rejectStage('extension',new LiveApiError('Verified extension precommit refusal',409,{code:'knowledge_stale_parent_revision'}));
+  const oldRequest=vi.mocked(api.extendEvidence).mock.calls[0][1];
+  context.prepare_coordinates={...context.prepare_coordinates,expected_parent_revision_id:'rev:extension-fresh',expected_source_authority_epoch:9};
+  fireEvent.click(screen.getByRole('button',{name:'Archive rejected extension and review again'}));
+  await screen.findByRole('button',{name:'Extend exact support evidence'});
+  expect(localStorage.getItem(recoveryKey('world','run'))).toBeNull();
+  expect(Object.keys(localStorage).filter(k=>k.includes(':retained:extension:')).map(k=>localStorage.getItem(k))).toContain(raw);
+  expect(api.extendEvidence).toHaveBeenCalledOnce();expect(api.prepareRecap).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText('Frozen witness paragraph'),{target:{value:'0'}});
+  fireEvent.change(screen.getByLabelText('Exact witness text'),{target:{value:'Ari'}});
+  fireEvent.click(screen.getByRole('button',{name:'Extend exact support evidence'}));
+  await waitFor(()=>expect(api.extendEvidence).toHaveBeenCalledTimes(2));
+  const next=vi.mocked(api.extendEvidence).mock.calls[1][1];
+  expect(next.expected_parent_revision_id).toBe('rev:extension-fresh');expect(next.expected_source_authority_epoch).toBe(9);
+  expect(next.extension_id).not.toBe(oldRequest.extension_id);
+  expect(JSON.parse(raw).operation.request).toEqual(oldRequest);
+});
+it.each([
+  ['confirmation',409,'arbitrary_conflict'],['confirmation',401,'candidate_parent_stale'],
+  ['confirmation',403,'candidate_review_expired'],['confirmation',503,'candidate_source_authority_stale'],
+  ['confirmation',409,'knowledge_stale_parent_revision'],['confirmation',503,'native_recap_commit_outcome_unknown'],
+  ['extension',409,'candidate_parent_stale'],['extension',401,'knowledge_stale_parent_revision'],
+  ['extension',403,'knowledge_stale_parent_revision'],['extension',503,'knowledge_stale_parent_revision'],
+  ['extension',409,'native_text_source_admission_integrity_error'],['extension',409,'arbitrary_conflict'],
+] as const)('retains exact %s on status %s/code %s; no generic message parsing or automatic refresh',async(stage,statusCode,code)=>{
+  const {ui,raw}=await rejectStage(stage,new LiveApiError('extension_source_epoch_stale candidate_parent_stale',statusCode,{code}));
+  expect(screen.queryByRole('button',{name:/Archive rejected/})).toBeNull();
+  expect(localStorage.getItem(recoveryKey('world','run'))).toBe(raw);
+  expect(Object.keys(localStorage).some(k=>k.includes(':retained:'))).toBe(false);
+  ui.unmount();vi.mocked(api.loadRecapSnapshot).mockClear().mockRejectedValue(new Error('mutable source is unavailable'));
+  vi.mocked(api.readContext).mockClear().mockRejectedValue(new Error('fresh context unavailable'));
+  mount();expect(api.loadRecapSnapshot).not.toHaveBeenCalled();expect(api.readContext).not.toHaveBeenCalled();
+  if(stage==='extension')vi.mocked(api.extendEvidence).mockRejectedValueOnce(new Error('still unknown'));
+  else vi.mocked(api.confirmRecap).mockRejectedValueOnce(new Error('still unknown'));
+  fireEvent.click(screen.getByRole('button',{name:'Retry exact saved '+stage}));
+  await screen.findByText('still unknown');
+  const calls=stage==='extension'?vi.mocked(api.extendEvidence).mock.calls:vi.mocked(api.confirmRecap).mock.calls;
+  expect(calls[1]).toEqual(calls[0]);expect(localStorage.getItem(recoveryKey('world','run'))).toBe(raw);
+});
