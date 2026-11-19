@@ -1,6 +1,13 @@
 # CLEANUP: repair proposal source identity and committed-read fixtures
 
-Status: ACTIVE under the user-authorized cleanup goal, including review and merge.
+Status: SETTLED by #4085, merged 322dbb332f1c421f03cb0dced6fbd8c72aa3a092.
+Reviewed head: 8f163eb0bb2975f1aa2a6a296357ee5b801a3f37.
+Independent exact-head source/raw-evidence review approved. Hosted 1411 tests,
+build and evidence validation passed. Full discovered diagnostic: 8038 passed,
+141 failed, 2 pending. All 33 proposal cases passed; exactly two intended failures
+resolved, with no added/omitted cases, new failures or changed remaining leading
+messages. Full qualification remains red with the same two conditional inventory
+extras and the earlier unresolved quote-correction observation under #4074.
 Base: 0f19b5acb888632cac2ff52f4e878842164c6ca3.
 Branch: codex/build-proposal-verification-fixtures, existing cleanup checkout.
 Topology: serial after merged #4084; no unmerged behavioral dependency.

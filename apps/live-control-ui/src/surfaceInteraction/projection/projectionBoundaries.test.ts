@@ -151,10 +151,19 @@ describe("projection host ownership boundaries", () => {
     expect(hits).toEqual([]);
   });
 
-  it("mounts exactly one LegacyProjectionHostAdapter in App.tsx", () => {
-    const appSource = readRelative("App.tsx");
-    expect(appSource.match(/<LegacyProjectionHostAdapter\s*\/>/g)).toHaveLength(1);
-    expect(appSource.match(/\bimport\s+\{\s*LegacyProjectionHostAdapter\s*\}/g)).toHaveLength(1);
+  it("mounts the single LegacyProjectionHostAdapter in LocalWorkspace.tsx", () => {
+    const mounts: string[] = [];
+    const imports: string[] = [];
+    for (const file of listProductionSourcesUnder("")) {
+      const source = stripCommentsForScan(readFileSync(file, "utf8"));
+      const owner = relative(SRC_ROOT, file);
+      const mountCount = source.match(/<LegacyProjectionHostAdapter\b/g)?.length ?? 0;
+      const importCount = source.match(/\bfrom\s*["'][^"']*\/LegacyProjectionHostAdapter["']/g)?.length ?? 0;
+      if (mountCount) mounts.push(`${owner}:${mountCount}`);
+      if (importCount) imports.push(`${owner}:${importCount}`);
+    }
+    expect(mounts).toEqual(["LocalWorkspace.tsx:1"]);
+    expect(imports).toEqual(["LocalWorkspace.tsx:1"]);
   });
 
   it("uses ProjectionHost exactly once in production", () => {
