@@ -568,7 +568,7 @@ describe("App inspector integration", () => {
     expect(page).toHaveBeenCalledWith(buildDocId);
     expect(screen.getByTestId("build-markdown-editor")).toHaveTextContent("Faction Notes");
     unmountBuild();
-    expect(document.querySelectorAll('[data-testid="surface-tool-host"], [data-testid="surface-edit-host"], [data-testid="agent-interaction-chrome"]')).toHaveLength(0);
+    expect(document.querySelectorAll('[data-testid="surface-tool-host"], [data-testid="surface-edit-host"], [data-testid="agent-interaction-chrome"], .plan-conversation-dock')).toHaveLength(0);
 
     window.history.pushState({}, "", "/plan?world=eldyrwild");
     const { unmount: unmountPlan } = render(<App />);
@@ -578,12 +578,14 @@ describe("App inspector integration", () => {
     expect(plans).toHaveBeenCalledWith("eldyrwild");
     await waitFor(() => {
       expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
-      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
+      expect(document.querySelectorAll(".plan-conversation-dock")).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(0);
+      expect(screen.getAllByPlaceholderText("Ask Buddy, or tell it what to change…")).toHaveLength(1);
       expect(document.querySelectorAll('[data-testid="surface-edit-host"]').length).toBeLessThanOrEqual(1);
     });
 
     unmountPlan();
-    expect(document.querySelectorAll('[data-testid="surface-tool-host"], [data-testid="surface-edit-host"], [data-testid="agent-interaction-chrome"]')).toHaveLength(0);
+    expect(document.querySelectorAll('[data-testid="surface-tool-host"], [data-testid="surface-edit-host"], [data-testid="agent-interaction-chrome"], .plan-conversation-dock')).toHaveLength(0);
 
     window.history.pushState({}, "", `/build?documentId=${buildDocId}&campaign=longmont-c1`);
     render(<App />);

@@ -43,3 +43,15 @@ verified Projects storage. Preserve failures; clean owned scratch. Then exact-he
 hosted/build/validator and full discovered identity/status comparison, independent
 cumulative review, docs check. Full qualification remains red. No arbitrary
 timeout/preload, test deletion, fabricated ownership or weakened runtime guards.
+
+## Diagnostic contract correction
+
+Initiala7b6d63 focused cold Build import timed out; complete module reached Build
+but exposed missing editor snapshot (controller committed-read and canvas authoring
+read are distinct). ee93174 supplies both and restores prior mock implementations;
+its module reached Plan but old Agent chrome selector was absent. Current owner
+`daa92ae2e` introduces PlanConversationDockAdapter; current adapter owns the shared
+ConversationDock and redirects Agent chrome to a launcher. Assert one actual dock
+and real WorldPlanAgentConversation composer, zero obsolete chrome, and outgoing
+dock removal. This preserves Agent/remount coverage under current presentation,
+not a chooser-only substitution or fabricated plugin. Retain both failed attempts.
