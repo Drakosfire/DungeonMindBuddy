@@ -1,6 +1,6 @@
 # BUDDY — V9.A native canary qualification and process rollback
 
-Status: ACTIVE. Owner/designer: Elderwyld vNext completion lane.
+Status: BLOCKED ON NATIVE DISPLAY REPAIR — qualification evidence retained. Owner/designer: Elderwyld vNext completion lane.
 Authority: operator's active optimize-before-cutover/finish-vNext goal, including
 implementation, review, merge and launch authorization. No PRIME coordination
 required. V8 prerequisite is satisfied by Core #229 merge
@@ -189,3 +189,21 @@ availability is not yet user authorization/span-opening proof. Empty isolated
 output roots are not recovered file authority. Saved conversations, attachments,
 authoring/session/file-ingestion capabilities remain unqualified until their
 actually required files/authority are demonstrated. No canary is started yet.
+
+## Canary-discovered prerequisite — native display multiplicity
+
+Actual full-app startup and real binding catalog passed at frozen92cc/Core4b,
+with prepared offline Jev runtime,3012entities/15718admittedassertions and
+anonymous401. Shared neighborhood then returned500 for admitted multiple
+dnd5e:name claims on related entityent:2d6cefd039ed619e53cb4b6a21c47d3f.
+The owning-service traceback is retained; no fixture binding or repository
+substitution was used. Owned canary2352711 was gracefully stopped before source
+changes. No UI/forward process or live activation occurred.
+
+The completion-lane owner splits a necessary presentation-only prerequisite into
+HANDOFF-BUDDY-native-display-multiplicity.md, serially ahead of this draft. It
+will preserve strict adapter defaults and opt current host routes into existing
+multiple-value display, with admitted assertions/evidence intact. Runtime writes
+are excluded from this qualification PR. Resume and re-pin qualification only
+after that repair is reviewed/merged; update source/schema compatibility and
+rerun the actual failing route before claiming a known-good rollback target.

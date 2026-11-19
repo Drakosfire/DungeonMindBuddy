@@ -1,6 +1,6 @@
 {
   "schema": "dmb_v9_native_canary_qualification_v1",
-  "status": "RESTORE_PREPARATION_COMPLETE_CANARY_PENDING",
+  "status": "BLOCKED_ON_NATIVE_DISPLAY_REPAIR",
   "owner": "Elderwyld vNext completion lane",
   "candidate": {
     "buddy": "92cc639aa6da1f89a07de69693a82c7b7e293d59",
@@ -135,6 +135,7 @@
     }
   ],
   "pending": [
+    "Separate bounded display repair must merge, then re-pin and resume actual canary qualification",
     "Explicit isolated dotenv/DSNs/persistence roots/selectors/background-writer controls",
     "Baseline and forward actual full-app startup and loaded-code/route/source/citation qualification",
     "Owned client mapping forward/back and process identity witnesses, latest-head/receipt/replay preservation",
@@ -286,5 +287,23 @@
       "sha256": "d88cbbbb03040f5e721bc4e874cdf12a84bc8d77c23f607fb7097dee362c0494"
     }
   ],
-  "cleanup_followup": "Retain two owned restore DBs, backups, scripts/logs/receipts for V9 qualification/activation. No automatic cleanup or live-source changes. Scoped removal only after explicit authorization and active process/connection/mount/dirty/unique-data checks."
+  "cleanup_followup": "Retain two owned restore DBs, backups, scripts/logs/receipts for V9 qualification/activation. No automatic cleanup or live-source changes. Scoped removal only after explicit authorization and active process/connection/mount/dirty/unique-data checks.",
+  "canary_discovered_prerequisite": {
+    "baseline_pid": 2352711,
+    "baseline_stopped": true,
+    "actual_full_app_startup": true,
+    "prepared_offline_jev_runtime": true,
+    "real_binding_catalog": {
+      "entities": 3012,
+      "admitted_assertions": 15718,
+      "binding_version": 3,
+      "anonymous_status": 401
+    },
+    "shared_neighborhood_http_status": 500,
+    "error_type": "VNextCompleteObjectProjectionError",
+    "cause": "Multiple admitted dnd5e:name claims for related entity ent:2d6cefd039ed619e53cb4b6a21c47d3f",
+    "diagnosis_sha256": "ed87a77ee4ffdf02d7582f66ecc886adc4015cd1115d53b2d3682be83c78923b",
+    "repair_handoff": "Docs/Plans/HANDOFF-BUDDY-native-display-multiplicity.md",
+    "qualification_claim": false
+  }
 }
