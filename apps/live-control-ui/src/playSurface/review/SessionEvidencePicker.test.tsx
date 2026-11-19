@@ -1,7 +1,7 @@
 import {act,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {webcrypto,createHash} from "node:crypto";
 import {canonical} from "../../shared/sourcePassageProtocol";
-import {beforeEach,expect,it,vi} from "vitest";
+import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {SessionEvidencePicker} from "./SessionEvidencePicker";
 import {SessionEvidenceViewer} from "./SessionEvidenceViewer";
 import {listSessionEvidence,readSessionEvidence,type SessionEvidence,type SessionEvidenceIndexItem} from "./sessionEvidenceApi";
@@ -10,6 +10,7 @@ const item={schema_version:"dmb_session_evidence_v1",world_id:"elderwyld",run_id
 const indexItem={run_id:"run-a",review_revision:54,title:"Played session",ended_at:"2026-10-19T00:00:00Z",source_count:1,citation_url:"/play?world=elderwyld&run=run-a&evidence_revision=54"} as SessionEvidenceIndexItem;
 const indexItemB={...indexItem,run_id:"run-b",citation_url:"/play?world=elderwyld&run=run-b&evidence_revision=54"};
 beforeEach(()=>{localStorage.clear();vi.resetAllMocks();vi.mocked(listSessionEvidence).mockResolvedValue([indexItem]);vi.mocked(readSessionEvidence).mockResolvedValue(item)});
+afterEach(()=>{vi.unstubAllGlobals()});
 it("requires explicit attachment and emits exact pinned references",async()=>{
  const change=vi.fn();render(<SessionEvidencePicker worldId="elderwyld" targetKey="c2:30" onChange={change}/>);
  fireEvent.click(screen.getByText(/Supplemental session evidence/));const box=await screen.findByRole("checkbox");expect(box).not.toBeChecked();expect(readSessionEvidence).not.toHaveBeenCalled();
@@ -82,11 +83,37 @@ it("surfaces an index failure that arrives after clear",async()=>{
 });
 it("renders pinned sources read-only without a reflections editor",async()=>{
  vi.stubGlobal('crypto',webcrypto);
- const packet={...item,checkpoint_run_revision:8,session_content_sha256:'c'.repeat(64),
-  sources:item.sources.map(source=>({...source,sha256:createHash('sha256').update(source.text).digest('hex')}))};
+ const runId='11111111-1111-4111-8111-111111111111';
+ const citationUrl=`/play?world=elderwyld&run=${runId}&evidence_revision=54`;
+ const packet={...item,run_id:runId,citation_url:citationUrl,
+  checkpoint_run_revision:8,session_content_sha256:'c'.repeat(64),
+  sources:item.sources.map(source=>({...source,citation_url:citationUrl,
+   sha256:createHash('sha256').update(source.text).digest('hex')}))};
  const {sha256:_old,...body}=packet;
- vi.mocked(readSessionEvidence).mockResolvedValue({...packet,sha256:createHash('sha256').update(canonical(body)).digest('hex')});
- render(<SessionEvidenceViewer worldId="elderwyld" runId="run-a" revision={54}/>);
- expect(await screen.findByText("Players want combat next time.")).toBeInTheDocument();expect(readSessionEvidence).toHaveBeenCalledWith("elderwyld","run-a",54);
+ const signed={...packet,sha256:createHash('sha256').update(canonical(body)).digest('hex')};
+ vi.mocked(readSessionEvidence).mockResolvedValue(signed);
+ const {unmount}=render(<SessionEvidenceViewer worldId="elderwyld" runId={runId} revision={54}/>);
+ const text=await screen.findByText("Players want combat next time.");
+ expect(readSessionEvidence).toHaveBeenCalledWith("elderwyld",runId,54);
+ expect(text.closest('section')).toHaveAttribute('aria-label','Closing reflections');
+ const entryIdentity=createHash('sha256').update(canonical({kind:'closing_reflections',element_id:null,ordinal:0})).digest('hex');
+ expect(text.closest('section')).toHaveAttribute('id',
+  `source-0-${entryIdentity}-${signed.sources[0]!.sha256}-${signed.sha256}-${signed.session_content_sha256}`);
  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+ expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+ expect(screen.getByRole('link',{name:'Open current session reflections'})).toHaveAttribute(
+  'href',`/play?world=elderwyld&run=${runId}&review=1`);
+ unmount();
+ // A valid digest cannot make a non-UUID run an admitted navigation target.
+ const invalidUrl='/play?world=elderwyld&run=run-a&evidence_revision=54';
+ const invalidBody={...body,run_id:'run-a',citation_url:invalidUrl,
+  sources:body.sources.map(source=>({...source,citation_url:invalidUrl}))};
+ vi.mocked(readSessionEvidence).mockResolvedValue({...invalidBody,
+  sha256:createHash('sha256').update(canonical(invalidBody)).digest('hex')});
+ render(<SessionEvidenceViewer worldId="elderwyld" runId="run-a" revision={54}/>);
+ expect(await screen.findByRole('alert')).toHaveTextContent('Invalid session evidence navigation reference');
+ expect(readSessionEvidence).toHaveBeenLastCalledWith('elderwyld','run-a',54);
+ expect(readSessionEvidence).toHaveBeenCalledTimes(2);
+ expect(screen.queryByText("Players want combat next time.")).not.toBeInTheDocument();
+ expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
 });
