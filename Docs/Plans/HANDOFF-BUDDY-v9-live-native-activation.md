@@ -68,7 +68,9 @@ NOT live Elderwyld and must never replace the fresh600 source.
    concrete recovery/migration/launch plan before live mutation.
 4. Apply accepted Core0022 and APP0168 explicitly after verified recovery and fresh
    write-boundary checks. Verify allowed changes: migration rows;0161 active Run
-   scope local→its actual World;0168 new lore tables; additive read-artifact table.
+   scope local→its actual World;0163 replaces two combat CHECK constraints and adds
+   the exact version-pair CHECK without rewriting rows;0168 new lore tables; additive
+   read-artifact table.
    All other preexisting rows must match. Backfill head/parent read artifacts and
    prove ordinary/derived semantic digests equal, primary/source/head/receipts/events
    unchanged. Do not downgrade schemas or restore an old dump over later writes.

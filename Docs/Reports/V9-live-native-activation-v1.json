@@ -1,6 +1,6 @@
 {
   "schema": "v9_live_native_activation_v1",
-  "status": "ACTIVE_RECOVERY_CAPTURE",
+  "status": "RECOVERY_AND_PACKAGE_PROVED_AWAITING_LIVE_PREPARATION_REVIEW",
   "owner": "Elderwyld vNext completion lane",
   "authorization": "Explicit user implementation/review/merge/launch authorization",
   "qualification": {
@@ -34,16 +34,177 @@
   "activation_performed": false,
   "evidence_root": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live",
   "pending": [
-    "Fresh complete backup/restore and external-file recovery proof",
-    "Immutable runtime/frontend assets and actual persistence layout",
-    "Independently reviewed concrete migration/artifact/activation plan",
-    "Explicit accepted live migrations/artifacts with allowed-change verification",
-    "Actual authenticated serving/browser/receipt/citation/restart/same-version rollback checks",
+    "Independent exact concrete pre-mutation script/input review",
+    "Live accepted migrations/artifacts with source-stability/extension/allowed-change verification",
+    "Actual authenticated5202 serving/browser/receipt/citation/restart/same-version rollback checks",
     "Final exact-head frontend/canonical/review/merge"
   ],
   "full_goal_remaining": [
     "V10 retirement",
     "V11 deployed serving baseline"
   ],
-  "cleanup_followup": "Owner Elderwyld activation retains task-owned evidence/backups/recovery DBs/private profiles/mirrors/builds through review and V10/V11. No standing deletion permission."
+  "cleanup_followup": "Owner Elderwyld activation retains task-owned evidence/backups/recovery DBs/private profiles/mirrors/builds through review and V10/V11. No standing deletion permission.",
+  "recovery": {
+    "capture_status": "captured_stable",
+    "backups": [
+      {
+        "kind": "core",
+        "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/core-pre-activation.dump",
+        "bytes": 947930229,
+        "sha256": "561ff456789fb79a31a032c7832b3b8243ff1ec91433089a54bfea67c5cacb0d",
+        "snapshot": "00000003-000A803C-1"
+      },
+      {
+        "kind": "app",
+        "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/app-pre-activation.dump",
+        "bytes": 102665777,
+        "sha256": "32e46e69016a7cc5da529e620b435d92c056a02b9f489b97683354e0edc9594d",
+        "snapshot": "00000003-0004B656-1"
+      }
+    ],
+    "scope": "Stored table rows and column/constraint/index definitions, sequences and large objects; not full function/view/policy/ACL parity or globally atomic Core/APP snapshot",
+    "core_restore": "Exact data/table/sequence/large-object parity passed",
+    "app_restore": "Original raw constraint-rendering mismatch retained; separate exact two-constraint cast-equivalence resolution passed, all other fields equal",
+    "constraint_exception_receipt": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/constraint-rendering-resolution-v3.json",
+    "rehearsal_status": "prepared_verified",
+    "artifacts": [
+      {
+        "revision": "rev:5293c1b237a0064bd16fffd080bfa6b1",
+        "bytes": 4080272,
+        "sha256": "c2f1c2e9458439bae5c704f51a4c2991bae455ca2a92c01d595adb656566c4f2",
+        "ordinary_semantic_digest": "088e81727cbb8ddb361bdb6436953688332fa15ced38488631946740a472a59e",
+        "derived_semantic_digest": "088e81727cbb8ddb361bdb6436953688332fa15ced38488631946740a472a59e"
+      },
+      {
+        "revision": "rev:9eac817676327afaeaaff25d8f38df60",
+        "bytes": 4079643,
+        "sha256": "f4e03900ba5475d10bb7fdaa94b6447581707dfd5eb5a78c0b72b6bd7b998c29",
+        "ordinary_semantic_digest": "77ca6ede3a3f584f7c1717b6e9b9e9fc8b737b53d7c7639a19d0e7e42a8696f2",
+        "derived_semantic_digest": "77ca6ede3a3f584f7c1717b6e9b9e9fc8b737b53d7c7639a19d0e7e42a8696f2"
+      }
+    ],
+    "official_current_schema_app_fingerprint": "de047bb56b64bf7bf6745d2f47bf531fa0f1893a9ec8235b329ae8514dd85802",
+    "extension_scope": "Source Core vector0.8.6 unchanged; recovery target0.8.7 explicitly recorded, no blanket binary-extension parity claim"
+  },
+  "persistence_layout": {
+    "status": "database_bodies_and_existing_referenced_files_verified",
+    "source_bodies_verified": 62,
+    "component_payloads_verified": 767,
+    "existing_referenced_files_backed_up": 864,
+    "existing_referenced_file_bytes": 42680675,
+    "historical_locator_candidates_absent": 112,
+    "roots": {
+      "managed_world_data": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy",
+      "artifact_data": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy",
+      "session": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/c2_live_prep/live/session_22",
+      "world_output": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/out",
+      "promote_source": "unset; preserve default policy, not inferred from graph output"
+    },
+    "limits": [
+      "Locator scan covers structured APP JSON values with repo:// or known operator-data prefixes, not arbitrary strings or all filesystem content",
+      "Existing referenced files copied and hash-verified; DB body/component owners do not use historical file mirrors",
+      "No old-name bridge or file reconstruction; no claim every historical file-dependent capability is available",
+      "External files captured separately from DB snapshots; changed files fail capture, no global atomicity claim",
+      "Ready Cloudflare image receipts remain external immutable CDN objects; DB backup preserves receipts/staged bytes, not a claim of independent CDN backup or generation readiness"
+    ]
+  },
+  "immutable_package": {
+    "status": "built_not_launched",
+    "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/verification/v9b-serving",
+    "tracked_entries": {
+      "DungeonMindBuddy": 8826,
+      "DungeonMind": 715
+    },
+    "frontend_asset_count": 163,
+    "node": "v22.23.0",
+    "npm": "10.9.8",
+    "steps": [
+      {
+        "step": "install",
+        "exit_code": 0,
+        "log": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/serving-install.log"
+      },
+      {
+        "step": "build",
+        "exit_code": 0,
+        "log": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/serving-build.log"
+      }
+    ],
+    "refs": {
+      "DungeonMindBuddy": "4f4ed526278badc8b9b7241e418e90c7fd474c98",
+      "DungeonMind": "4b6516e2c0dfd81acaa4410b9b9bb9da18894c90"
+    }
+  },
+  "writer_boundary": {
+    "receipt": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/writer-boundary.json",
+    "scope": "Operator-controlled known-process interval, not physical DB fencing against arbitrary external SQL; unknown clients/drift stop progression and preserve partial outcomes"
+  },
+  "discovered_and_resolved": [
+    "Two APP restored CHECKs have equivalent element-vs-array varchar\u2192text cast renderings; exact named semantic proof, raw failure retained",
+    "Dropped physical column slots renumber on pg_dump restore; logical column names/types/typmods/collations/constraints match",
+    "Migration0163 legitimately changes three combat constraints without rewriting rows; exact allowed effects now verified",
+    "Recovery resume inspected recorded completed migration state before finishing artifacts; migrations were not rerun blindly"
+  ],
+  "evidence_files": [
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/app-restore-parity-diagnostic.json",
+      "bytes": 1587596,
+      "sha256": "f1e26dceffafbf18a87279fb311c6b63c986e3fbe995cd8100356b0ac17687df"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/constraint-flag-diagnostic.json",
+      "bytes": 6622,
+      "sha256": "842463c38c6c327072fd75bc79cb194569d30a57c2b9f28e411aa64f6d8f14ed"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/constraint-rendering-resolution-v3.json",
+      "bytes": 7023,
+      "sha256": "42fc40aecb09ac100ef3d1706e0d29a4dd653025bfb3f5c979c637d306840940"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/fresh-recovery-capture.json",
+      "bytes": 5351742,
+      "sha256": "d47d01fe0d2ab69f06e05236c592f585119af86403f420c70aa2fc9b4628aebe"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/fresh-recovery-restore.json",
+      "bytes": 161650,
+      "sha256": "189e7db7dac799a85f0c3448bbd95479bf531a7362a23acd199aec3d43ba2556"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/persistence-layout.json",
+      "bytes": 776172,
+      "sha256": "86b32972bf64811fa4ed5702ad55ce53704d360aa3466a81c3b4c5816060b248"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/pre-mutation-inputs.json",
+      "bytes": 6660,
+      "sha256": "5a7d40a32c775280827b73564f7a158caf0f9a794708910ef6a4a8f70a69401c"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/recovery-authority-preparation-v2.json",
+      "bytes": 5293202,
+      "sha256": "0a8c7767a9b223e1ddee1aa31cfa5ff36969c7a8bf607eb3210d4d79ff5376a8"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/recovery-authority-preparation.json",
+      "bytes": 3523827,
+      "sha256": "0e4403bbe250c754e0a0a77144a9e752e4c93fe000442b172fec1f9b7bfbda18"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/serving-configuration.json",
+      "bytes": 2234,
+      "sha256": "ce5d52ef4833edebfbafa18fae2623b8dcfacc3a9abbc31a73576cf10c7fcc0a"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/serving-package.json",
+      "bytes": 2713639,
+      "sha256": "23f4a4653a5b18f4ff9852761becdea0ef58047b4465f69c4cb7d031d7c88d6c"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/writer-boundary.json",
+      "bytes": 1895,
+      "sha256": "d3aac6619f01d373a1296e9eed9356d63b978a7c59f03c63e9993b4fe6ddcf74"
+    }
+  ]
 }

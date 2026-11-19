@@ -1396,8 +1396,7 @@
     "limits": [
       "Owned restored authority, not live deployment",
       "Same-version rollback does not prove compatibility with older schema readers or protect against shared binary defects",
-      "No new latency/baseline/provider experiment",
-      "Final report-head frontend/cumulative independent review/normal checks remain pending"
+      "No new latency/baseline/provider experiment"
     ]
   },
   "source_review_gap_resolution": {
