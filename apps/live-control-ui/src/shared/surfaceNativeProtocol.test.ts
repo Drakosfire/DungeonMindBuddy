@@ -253,3 +253,26 @@ it('accepts a source-grounded Build PDF claim only for its World',()=>{
   scope.managed_world_id='foreign';
   expect(isSurfaceNativeCompletion(answer,receipt as SurfaceNativeContextReceiptV1)).toBe(false);
 });
+
+it('accepts an inert Build lore draft and rejects a writer-owned duplicate body', () => {
+  const c = authoredContext();
+  const draft = {
+    kind: 'lore_page',
+    destination: {instruction: 'Create a blank page for Rowan.', title: 'Rowan'},
+  };
+  const answer = {
+    ...c.completion,
+    answer_context_status: 'discussion',
+    answer_segments: [],
+    collaboration: draft,
+    saved_source_citations: [],
+    native_body_citations: [],
+    native_clause_citations: [],
+    native_assertion_citations: [],
+  };
+  const receipt = c.receipt as SurfaceNativeContextReceiptV1;
+  expect(isSurfaceNativeCompletion(answer, receipt)).toBe(true);
+  expect(isSurfaceNativeCompletion(
+    {...answer, collaboration: {...draft, markdown: 'Uncited prose'}}, receipt,
+  )).toBe(false);
+});

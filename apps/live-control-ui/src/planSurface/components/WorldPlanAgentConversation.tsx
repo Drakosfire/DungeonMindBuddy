@@ -6553,6 +6553,14 @@ export function WorldPlanAgentConversation({
     const replyText = turn.assistant_text ?? '';
     const completed=graphContextForTurn(turn)?.completion;
     const collaboration=completed&&'collaboration' in completed?completed.collaboration:undefined;
+    const loreTitle = collaboration?.kind === 'lore_page' ? collaboration.destination.title : null;
+    const loreDraftSuperseded = loreTitle !== null && history?.turns.some((later) => {
+      if (later.sequence <= turn.sequence) return false;
+      const next = graphContextForTurn(later)?.completion;
+      return next?.schema === 'dmb_surface_native_completion_v1'
+        && next.collaboration?.kind === 'lore_page'
+        && next.collaboration.destination.title === loreTitle;
+    });
     const context=graphContextForTurn(turn);
     const buildSource=context?.receipt.schema==='dmb_surface_native_context_receipt_v1'&&context.receipt.work_context.surface_id==='build'
       ?context.receipt.work_context.source_basis:context?.schema==='dmb_build_graph_context_response_v1'?context.receipt.source_basis:null;
@@ -6599,6 +6607,12 @@ export function WorldPlanAgentConversation({
               <span className="world-plan-agent-conversation__speaker">Buddy</span>
 
             </div>
+            {loreTitle !== null && <header>
+              <h3>{loreTitle}</h3>
+              {loreDraftSuperseded
+                ? <p>Superseded by a later draft</p>
+                : !completed?.answer_segments.length && <p>Blank draft</p>}
+            </header>}
             {reviewedDraftReply ? reviewedDraftReply : pageSuggestion ? pageSuggestion.element : turn.native_statement_context ? <NativeStatementAnswer context={turn.native_statement_context}
               worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : !pageProposalAcknowledgment&&(graphContextForTurn(turn)?.completion?.schema === 'dmb_surface_native_completion_v1' || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v3" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v4" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v5" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v6"||graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v7")))))
               ? <SurfaceEvidenceAnswer completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletion|import("../../api/types").SurfaceNativeCompletionV1} buildSourceBasis={buildSource??undefined} nativeScope={(() => {
@@ -6662,7 +6676,7 @@ export function WorldPlanAgentConversation({
             {variantApproval}
             {verifiedWorldId && history?.conversation_id && !pageWorkPlan && <ConversationWorkbook
               key={`workbook:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
-              collaboration={collaboration}
+              collaboration={collaboration?.kind === 'lore_page' ? undefined : collaboration}
               source={replyText} worldId={verifiedWorldId} conversationId={history.conversation_id}
               turnId={turn.turn_id} disabled={composerBusy}
               durable={turn.provenance.surface_id==='build'?{disabled:!isBuild||!visible||history.active_conversation_id!==history.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id,

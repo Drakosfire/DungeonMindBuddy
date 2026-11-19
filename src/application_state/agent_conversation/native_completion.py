@@ -14,6 +14,7 @@ from pydantic import Field, model_validator
 from . import types as t
 from .build_draft_answer import DraftDiscussionV1, normalize_native_segment
 from .relationship_review import RelationshipCollaborationV3
+from .lore_page_review import ProposedLorePage
 from . import native_corpus as bodies
 from . import native_plan_statements as statements
 from . import native_plan_assertions as assertions
@@ -51,7 +52,7 @@ class SurfaceNativeCompletionV1(Strict):
     answer_basis: Literal['mixed_evidence'] = 'mixed_evidence'
     answer_context_status: t.SurfaceEvidenceStatusV1 | Literal['discussion']
     answer_segments: list[NativeSegment] = Field(max_length=128)
-    collaboration: RelationshipCollaborationV3 | None
+    collaboration: RelationshipCollaborationV3 | ProposedLorePage | None
     saved_source_citations: list[t.BuildSectionSegmentBindingV1] = Field(max_length=128)
     native_body_citations: list[t.NativeBodyExcerptCitationV1] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
     native_clause_citations: list[t.NativeStatementClauseCitationV1] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
@@ -64,6 +65,12 @@ class SurfaceNativeCompletionV1(Strict):
         related = any(isinstance(s,t.RelatedPageClaim) for s in self.answer_segments)
         if related and self.surface_id not in {'build','plan'}:
             raise ValueError('Saved authored claims require their actual authoring surface')
+        if isinstance(self.collaboration, ProposedLorePage) and any(
+            segment.kind != "source_passage_claim"
+            and not (segment.kind == "proposal" and segment.label == "invented_idea")
+            for segment in self.answer_segments
+        ):
+            raise ValueError("Lore draft requires source passages or clearly labeled proposals")
         from .collaboration import ProposedConnectedPage
         if self.collaboration is not None and self.surface_id != 'build' and not (
                 self.surface_id=='plan' and isinstance(self.collaboration,ProposedConnectedPage)):
@@ -142,6 +149,16 @@ def _validate_citations(completion, receipt, execution, auth, evidence):
     if completion.surface_id=='build':
         from .plan_objective import validate_completion as validate_plan_output
         validate_plan_output(completion,execution,auth.provider_attempt_id)
+        if isinstance(completion.collaboration, ProposedLorePage):
+            reviews = [
+                event for event in execution.events
+                if isinstance(event, t.BuildRequestedWorkResolutionV1)
+                and event.requested_work == "review_lore_page"
+                and event.resolution["barrier"] is None
+            ]
+            if len(reviews) != 1:
+                raise ValueError("Lore draft lacks its admitted Build review")
+            completion.collaboration.destination.bind(execution.policy.action.intent.message)
         if completion.collaboration is not None and completion.collaboration.kind=='connected_page':
             from .connected_page_origins import execution_rows
             from .collaboration import saved_excerpt
@@ -427,7 +444,12 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
         collaboration=ProposedConnectedPage.model_validate(review)
         saved_excerpt(collaboration,execution_rows(execution,None,authorization.provider_attempt_id))
     else:
-        collaboration=normalize_native_review(review,segments,evidence.work_frame) if review_enabled and not plan_review else None
+        collaboration = (
+            normalize_native_review(
+                review, segments, evidence.work_frame,
+                author_text=execution.policy.action.intent.message,
+            ) if review_enabled and not plan_review else None
+        )
     if review_enabled and not segments and collaboration is None:
         raise ValueError('Empty intentional response')
     # Missing native capability does not make an available authored page

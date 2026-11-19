@@ -52,10 +52,19 @@ export function isSurfaceNativeReceipt(v:unknown,validateWork:(work:unknown)=>wo
     ||v.work_context.surface_id==='build'&&isNativeProviderInput(v.assembled_input,'native_build_semantic_initial_v2')
     ||v.work_context.surface_id==='build'&&exact(v.assembled_input,['assembler_version','submitted_intent_sha256','assembled_input_sha256'])&&v.assembled_input.assembler_version==='reviewed_author_admission_v1'&&hash(v.assembled_input.submitted_intent_sha256)&&hash(v.assembled_input.assembled_input_sha256);
 }
+function isLorePageDraft(value: unknown): boolean {
+  return exact(value, ['kind', 'destination'])
+    && value.kind === 'lore_page'
+    && exact(value.destination, ['instruction', 'title'])
+    && text(value.destination.instruction) && [...value.destination.instruction].length <= 2000
+    && text(value.destination.title) && [...value.destination.title].length <= 200
+    && !/[\r\n]/.test(value.destination.title);
+}
+
 export function isSurfaceNativeCompletion(v:unknown,r:SurfaceNativeContextReceiptV1):v is SurfaceNativeCompletionV1 {
   if(!exact(v,['schema','surface_id','context_receipt_sha256','producing_provider_attempt_id','answer_basis','answer_context_status','answer_segments','collaboration','saved_source_citations','native_body_citations','native_clause_citations','native_assertion_citations'])
     ||v.schema!=='dmb_surface_native_completion_v1'||v.surface_id!==r.work_context.surface_id||v.context_receipt_sha256!==r.context_receipt_sha256||!uuid(v.producing_provider_attempt_id)||v.answer_basis!=='mixed_evidence'
-    ||!Array.isArray(v.answer_segments)||v.answer_segments.length>128||!isCollaboration(v.collaboration,true,true,true,true)||v.collaboration!==null&&v.surface_id!=='build'&&!(v.surface_id==='plan'&&typeof v.collaboration==='object'&&v.collaboration!==null&&'kind' in v.collaboration&&v.collaboration.kind==='connected_page')||!v.answer_segments.length&&v.collaboration===null)return false;
+    ||!Array.isArray(v.answer_segments)||v.answer_segments.length>128||!(isCollaboration(v.collaboration,true,true,true,true) || v.surface_id === 'build' && isLorePageDraft(v.collaboration))||v.collaboration!==null&&v.surface_id!=='build'&&!(v.surface_id==='plan'&&typeof v.collaboration==='object'&&v.collaboration!==null&&'kind' in v.collaboration&&v.collaboration.kind==='connected_page')||!v.answer_segments.length&&v.collaboration===null)return false;
   const sources=new Set<number>(),graphs=new Map<number,string[]>(),saved=new Set<number>(),blocks=new Set<string>();
   let authored=false,buildAuthored=false,proposal=false,partial=false,discussion=false,pdf=false;
   const work=r.work_context;
