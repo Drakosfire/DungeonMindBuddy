@@ -1,10 +1,11 @@
 {
   "schema": "dmb_v9_native_canary_qualification_v1",
-  "status": "BLOCKED_ON_NATIVE_DISPLAY_REPAIR",
+  "status": "ACTIVE_QUALIFICATION_RESUMED",
   "owner": "Elderwyld vNext completion lane",
   "candidate": {
-    "buddy": "92cc639aa6da1f89a07de69693a82c7b7e293d59",
-    "core": "4b6516e2c0dfd81acaa4410b9b9bb9da18894c90"
+    "buddy": "a192f2be6d5ab53d4c1406a0d40d0aa4143d3580",
+    "core": "4b6516e2c0dfd81acaa4410b9b9bb9da18894c90",
+    "scope": "Accepted runtime base; exact frozen qualification head separately attested"
   },
   "v8_acceptance_merge": "f770098ad27b772e6351f2827a2b7bd6628705e8",
   "source_mutation": false,
@@ -64,7 +65,7 @@
   "owned_migrations": {
     "status": "migrated_owned_restores",
     "core_version": "0022_native_read_artifacts",
-    "app_version": "20261118_0167",
+    "app_version": "20261118_0168",
     "changed_app_tables": [
       "application_state.schema_migrations",
       "play.active_run",
@@ -77,7 +78,8 @@
         "after_scope_key": "world:elderwyld"
       }
     ],
-    "unmatched_run_pointers": []
+    "unmatched_run_pointers": [],
+    "repair_fixture_upgrade": "Accepted additive0168 only on owned restore; two new tables empty and binding unchanged"
   },
   "artifacts": [
     {
@@ -111,7 +113,7 @@
     "baseline_api": 18290,
     "forward_api": 18291,
     "owned_ui": 15202,
-    "source_identity": "both frozen92cc/Core4b withCore0022/APP0167",
+    "source_identity": "both accepted a192f2be runtime composition/Core4b with Core0022/APP0168",
     "claim_limit": "Not older behavioral software rollback or protection from a defect shared by identical binaries. Preserve the latest native authority, not an old dump."
   },
   "file_authority": {
@@ -135,7 +137,7 @@
     }
   ],
   "pending": [
-    "Separate bounded display repair must merge, then re-pin and resume actual canary qualification",
+    "Qualify accepted repair composition with both actual canary processes and exact imported-source attestation",
     "Explicit isolated dotenv/DSNs/persistence roots/selectors/background-writer controls",
     "Baseline and forward actual full-app startup and loaded-code/route/source/citation qualification",
     "Owned client mapping forward/back and process identity witnesses, latest-head/receipt/replay preservation",
@@ -305,5 +307,21 @@
     "diagnosis_sha256": "ed87a77ee4ffdf02d7582f66ecc886adc4015cd1115d53b2d3682be83c78923b",
     "repair_handoff": "Docs/Plans/HANDOFF-BUDDY-native-display-multiplicity.md",
     "qualification_claim": false
+  },
+  "original_candidate": {
+    "buddy": "92cc639aa6da1f89a07de69693a82c7b7e293d59",
+    "core": "4b6516e2c0dfd81acaa4410b9b9bb9da18894c90"
+  },
+  "display_repair": {
+    "pr": 4047,
+    "merge": "a192f2be6d5ab53d4c1406a0d40d0aa4143d3580",
+    "reviewed_head": "52b4d42538b0e93fe2389bf8d15bbfd2d7f2171c",
+    "review": 5968921804,
+    "automatic_checks": "all_passed",
+    "real_route_cases": 14,
+    "backend_passed": 295,
+    "postgres_passed": 4,
+    "frontend_selected_passed": 1410,
+    "qualification_complete": false
   }
 }

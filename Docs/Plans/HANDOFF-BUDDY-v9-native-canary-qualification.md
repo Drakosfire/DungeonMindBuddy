@@ -1,6 +1,6 @@
 # BUDDY — V9.A native canary qualification and process rollback
 
-Status: BLOCKED ON NATIVE DISPLAY REPAIR — qualification evidence retained. Owner/designer: Elderwyld vNext completion lane.
+Status: ACTIVE — display repair accepted; canary qualification resumed. Owner/designer: Elderwyld vNext completion lane.
 Authority: operator's active optimize-before-cutover/finish-vNext goal, including
 implementation, review, merge and launch authorization. No PRIME coordination
 required. V8 prerequisite is satisfied by Core #229 merge
@@ -8,8 +8,8 @@ f770098ad27b772e6351f2827a2b7bd6628705e8, reviewed final head6b3c52d and
 all-green CI44442480375 attempt2. Core runtime remains4b6516e; that merge changes
 only evidence/control documents. Read the canonical V8 acceptance artifact there.
 
-Base/candidate: Buddy92cc639aa6da1f89a07de69693a82c7b7e293d59, fetched main at
-activation. Branch: codex/v9-native-canary-qualification. Freeze this exact source
+Base/runtime candidate: Buddya192f2be6d5ab53d4c1406a0d40d0aa4143d3580, accepted
+#4047 merge. Original activation candidate92cc remains historical evidence. Branch: codex/v9-native-canary-qualification. Freeze this exact source
 composition rather than chase subsequent main movement. Core dependency4b6516e
 is unchanged; V8 qualified Buddy0a746752 is the semantic predecessor, not automatic
 qualification of the later hosted/lore/combat/store changes or APP schema.
@@ -144,7 +144,7 @@ Before any canary process starts, establish these concrete gates:
   startup/background-write behavior; no source/other-lane defaults. Recheck free
   owned ports immediately before bind.
 - Rollback is explicitly same-version process/configuration rollback. Qualify a
-  known-good baseline Buddy92cc639/Core4b6516e on API18290 first, with APP0167 /
+  known-good baseline Buddya192f2be/Core4b6516e on API18290 first, with APP0168 /
   Core0022 and UI15202 mapped to it. Then qualify a separately owned forward
   process on18291, switch and verify the owned client mapping, quiesce/disconnect
   forward, restore baseline mapping, and verify the latest committed native head,
@@ -207,3 +207,30 @@ multiple-value display, with admitted assertions/evidence intact. Runtime writes
 are excluded from this qualification PR. Resume and re-pin qualification only
 after that repair is reviewed/merged; update source/schema compatibility and
 rerun the actual failing route before claiming a known-good rollback target.
+
+## Accepted repair and resumed qualification
+
+PR #4047 merged as a192f2be6d5ab53d4c1406a0d40d0aa4143d3580, reviewed
+head52b4d42538b0e93fe2389bf8d15bbfd2d7f2171c. Independent exact-head review
+5968921804 approved; all automatic checks passed. Actual restored head/parent
+14 authenticated route/citation cases pass, anonymous401; complete-object keeps
+60 assertions. Backend295pass plus4 separately enabled PostgreSQL passes;
+repo-owned hosted frontend1410selected cases/build and canonical validation pass.
+These are repair evidence, not complete V9 consumer/rollback qualification.
+
+Qualification branch is rebased serially onto this accepted merge. Both baseline
+and forward must use this same schema-compatible composition, with exact imported
+source hashes recorded for their frozen qualification head. Owned APP restore now
+has accepted0168 (two added empty lore receipt tables), binding unchanged; Core0022.
+Live source APP0160/Core0021 remain untouched. No downgrade/schema-check bypass.
+Retain original92cc failure and repair receipts as historical evidence; stale
+checkpoint prose above describes when those observations were made.
+
+Before rebase the repair candidate2469991 was identity-verified and gracefully
+stopped in the executor that can see it. Unprivileged ps had falsely appeared
+absent; never use that narrower process visibility as proof of stop. No source
+edits occurred while it was live. The new baseline/forward process checks must
+use the owning executor. No live serving switch or provider request is authorized
+by this qualification slice. Remaining proof includes actual frontend mapping,
+Plan subject search, current consumer cohorts, latest-head receipt/replay and
+forward/back process rollback. V9.B activation, V10 and V11 remain ahead.
