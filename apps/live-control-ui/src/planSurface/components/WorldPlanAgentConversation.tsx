@@ -7411,9 +7411,9 @@ export function WorldPlanAgentConversation({
               const options = presentationHosts?.header?.closest("details") ?? connectionOptionsRef.current;
               if (options instanceof HTMLDetailsElement) options.open = true;
             }}>Check saved request</button>{" "}
-            {pendingPlayTurn && !isBuild ? <><button type="button"
+            {pendingPlayTurn ? <>{!isBuild && <button type="button"
               disabled={requestRef.current !== null}
-              onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }}>Retry</button>{" "}
+              onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }}>Retry</button>}{" "}
               <button type="button" disabled={requestRef.current !== null} onClick={() => keepSavedTurnForLater(pendingPlayTurn)}>Keep for later</button></> : null}
           </p>
         ) : null}
