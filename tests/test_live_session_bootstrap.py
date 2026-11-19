@@ -115,8 +115,10 @@ def test_plan_view_from_bootstrapped_packet(workspace: Path) -> None:
 
 
 def test_live_server_loads_bootstrapped_session(workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
     monkeypatch.setenv(SESSION_DIR_ENV, str(workspace))
-    client = TestClient(create_app())
+    client = TestClient(create_app(), client=("127.0.0.1", 50000))
     response = client.get("/api/live/plan-view")
     assert response.status_code == 200
     body = response.json()
