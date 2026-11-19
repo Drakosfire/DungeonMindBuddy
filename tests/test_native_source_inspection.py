@@ -24,6 +24,8 @@ SCOPE = {"managed_world_id": "managed", "scope_mode": "world", "campaign_id": No
 @pytest.fixture
 def inspection(request, monkeypatch):
     lane = request.getfixturevalue("source_lane")
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", TOKEN)
