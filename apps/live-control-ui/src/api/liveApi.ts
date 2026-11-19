@@ -739,6 +739,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (method === "GET" && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\/(?:revisions\/[1-9][0-9]*|commands\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\?world_id=[a-z0-9][a-z0-9_-]{0,62}$/.test(path)) {
     return init?.body == null;
   }
+  const trashInventory = "/api/live/world-workspace/trash?";
+  if (path.startsWith(trashInventory)) {
+    const worldId = new URLSearchParams(path.slice(trashInventory.length)).get("world_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && path === trashInventory + "world_id=" + encodeURIComponent(worldId);
+  }
   if (path === "/api/live/agent/turn") {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && isRecord(body?.owner_scope)

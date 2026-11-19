@@ -993,7 +993,7 @@ async def resolve_hosted_plan_world_context(request: Request) -> str:
         [("scope_mode", "world"), ("world_id", world_id)],
     ):
         raise _denied()
-    if request.url.path.endswith("/world-plans") and selectors != [("world_id", world_id)]:
+    if request.url.path.endswith(("/world-plans", "/trash")) and selectors != [("world_id", world_id)]:
         raise _denied()
     world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
     request.state.hosted_plan_context_world = world.world_id
