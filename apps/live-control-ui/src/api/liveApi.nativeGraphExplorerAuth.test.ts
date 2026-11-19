@@ -1394,3 +1394,23 @@ it("uses hosted transport for the exact scene template read and cancel", async (
   await expect(api.authenticatedApiFetch(cancel + "&world_id=foreign", request)).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(2);
 });
+
+it("uses hosted transport for exact run encounter routes and adoption pagination", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const id = "11111111-1111-4111-8111-111111111111";
+  const root = `/api/live/combat/run-encounters/${id}/scenes/scene%3Agate`;
+  const path = `${root}/encounters/${id}/mechanics-adoptions?world_id=managed&limit=5`;
+  await api.authenticatedApiFetch(path);
+  const materialize = root + "?world_id=managed";
+  const request = { method: "POST", body: JSON.stringify({ schema_version: "dmb_scene_encounter_materialize_v1" }) };
+  await api.authenticatedApiFetch(materialize, request);
+  expect(fetch.mock.calls).toEqual([
+    [path, expect.objectContaining({ credentials: "same-origin", mode: "same-origin" })],
+    [materialize, expect.objectContaining({ method: "POST", credentials: "same-origin", mode: "same-origin" })],
+  ]);
+  await expect(api.authenticatedApiFetch(path + "&limit=6")).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(materialize + "&limit=5", request)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(2);
+});

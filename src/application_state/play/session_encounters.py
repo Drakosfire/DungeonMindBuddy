@@ -308,7 +308,7 @@ def _existing_materialization(conn, *, world_id, run_id, scene_id, request, prep
     return None
 
 
-def materialize_encounter(*, world_id, run_id, scene_id, request):
+def materialize_encounter(*, world_id, run_id, scene_id, request, authorize=None):
     from uuid import uuid4
     from application_state.combat_encounters import repository as encounters
     from application_state.combat_encounters.access import lock_session
@@ -337,6 +337,8 @@ def materialize_encounter(*, world_id, run_id, scene_id, request):
         now = repo.now_utc()
         record = type(source)(encounter_id=uuid4(), world_id=world_id, revision=1,
             ruleset=source.ruleset, ruleset_digest=source.ruleset_digest, draft=draft, created_at=now, updated_at=now)
+        if authorize is not None:
+            authorize()
         encounters.insert_encounter(conn, record)
         intent = _materialization_intent(world_id, run_id, scene_id, request)
         receipt = {'schema_version': 'dmb_run_scene_encounter_v1', 'intent': intent,
@@ -350,7 +352,7 @@ def materialize_encounter(*, world_id, run_id, scene_id, request):
         return {'state': 'applied', 'encounter': record, 'receipt': receipt}
 
 
-def cancel_materialization(*, world_id, run_id, scene_id, request):
+def cancel_materialization(*, world_id, run_id, scene_id, request, authorize=None):
     from application_state.combat_encounters.access import lock_session
     run_id = UUID(str(run_id)); dsn = load_runtime_dsn(); assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
@@ -360,6 +362,8 @@ def cancel_materialization(*, world_id, run_id, scene_id, request):
         if existing:
             return existing
         intent = _materialization_intent(world_id, run_id, scene_id, request)
+        if authorize is not None:
+            authorize()
         conn.execute('''INSERT INTO combat.run_scene_cancellation(operation_id,world_id,run_id,scene_id,request_digest,request)
             VALUES(%s,%s,%s,%s,%s,%s)''', (request.operation_id, world_id, run_id, scene_id, digest(intent), Jsonb(intent)))
         return {'state': 'canceled', **intent}
