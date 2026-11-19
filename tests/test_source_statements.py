@@ -724,6 +724,8 @@ def test_http_extension_authority_refusal_before_core_io(extension_lane, monkeyp
     from fastapi import HTTPException
     lane = extension_lane
     request = extension_request(lane)
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", "x" * 40)

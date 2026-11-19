@@ -497,6 +497,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/source-statements/proposals/{operation_id}"): access.resolve_hosted_source_statement_proposal,
             ("POST", "/api/live/source-statements/proposals/{operation_id}/review"): access.resolve_hosted_source_statement_review,
             ("GET", "/api/live/source-statements/{world_id}/subjects/{entity_id}"): access.resolve_hosted_source_statement_subject,
+            ("POST", "/api/live/source-statements/extend-evidence"): access.resolve_hosted_source_evidence_extension,
             ("POST", "/api/live/source-statements/prepare"): access.resolve_hosted_source_statement_publication,
             ("POST", "/api/live/source-statements/confirm"): access.resolve_hosted_source_statement_publication,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
@@ -6250,3 +6251,46 @@ def test_hosted_source_statement_subject_is_exact_world_read(hosted, monkeypatch
     result = hosted.client.request("GET", path)
     assert result.status_code == 200, result.text
     assert calls == [("managed", "rev:head", "hosted_dms:synthetic-owner-alpha")]
+
+
+def test_hosted_source_evidence_extension_checks_world_before_writing(hosted, monkeypatch):
+    from apps.live_control_server.routes import source_statements
+
+    from unittest.mock import Mock
+
+    calls = []
+    real_extend = source_statements.service.extend_source_evidence
+
+    def extend(body, principal):
+        calls.append((body.managed_world_id, principal.subject))
+        return {"status": "committed"}
+
+    monkeypatch.setattr(source_statements.service, "extend_source_evidence", extend)
+    path = "/api/live/source-statements/extend-evidence"
+    body = {
+        "managed_world_id": "managed", "extension_id": "extension", "original_admission_id": "admission",
+        "source_artifact_id": "artifact", "source_revision_id": "source", "expected_body_sha256": "a" * 64,
+        "expected_parent_revision_id": "rev:head", "expected_source_authority_epoch": 1,
+        "created_at": "2026-11-17T00:00:00Z",
+        "spans": [{"client_ref": "scope", "evidence_role": "support", "start_byte": 0,
+                   "end_byte": 1, "expected_slice_sha256": "b" * 64}],
+    }
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "managed_world_id": "foreign"}).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 200, result.text
+    assert calls == [("managed", "hosted_dms:synthetic-owner-alpha")]
+
+    monkeypatch.setattr(source_statements.service, "extend_source_evidence", real_extend)
+    native = source_statements.service.native
+    binding = Mock(side_effect=[{"native_world_id": "native-old"}, {"native_world_id": "native-new"}])
+    monkeypatch.setattr(native, "binding", binding)
+    monkeypatch.setattr(native, "repository", lambda: object())
+    monkeypatch.setattr(native, "descriptors", lambda *_args: (object(), object()))
+    publish = Mock()
+    monkeypatch.setattr(source_statements.service, "publish_native_source_evidence_extension", publish)
+    denied = hosted.client.request("POST", path, json=body)
+    assert "statement_binding_changed" in denied.text, denied.text
+    assert binding.call_count == 2
+    publish.assert_not_called()

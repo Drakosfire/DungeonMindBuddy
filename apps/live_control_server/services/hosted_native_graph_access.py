@@ -1452,3 +1452,14 @@ async def resolve_hosted_source_statement_subject(request: Request) -> str:
     world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
     request.state.hosted_native_graph_world = world.world_id
     return world.world_id
+
+
+async def resolve_hosted_source_evidence_extension(request: Request) -> str:
+    from apps.live_control_server.models.source_statements import ExtendSourceEvidence
+
+    if request.query_params:
+        raise _denied()
+    body = ExtendSourceEvidence.model_validate(await request.json())
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.managed_world_id)
+    request.state.hosted_native_graph_world = world.world_id
+    return world.world_id

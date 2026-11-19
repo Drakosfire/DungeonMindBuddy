@@ -172,9 +172,12 @@ router.add_api_route("/proposals/{operation_id}/review", review_proposal, method
 
 def extend_source_evidence(
     body: ExtendSourceEvidence,
-    principal: Annotated[NativeGraphPrincipal, Depends(native_graph_gm_dependency)],
+    principal: Annotated[NativeGraphPrincipal, Depends(native_graph_explorer_dependency)],
 ):
-    return _call(service.extend_source_evidence, body, principal)
+    require_explorer_access(principal, body.managed_world_id)
+    result = _call(service.extend_source_evidence, body, principal)
+    require_explorer_access(principal, body.managed_world_id)
+    return result
 
 
 router.add_api_route(
