@@ -8,7 +8,7 @@ Parent owns broader qualification/independent review/merge. No new worktree.
 ## Exact five-path lease
 
 - This handoff.
-- pyproject.toml: two Core99 -> acceptedCore2342f743c0d85abe3901994ba2b8be7a3d75d649426 refs.
+- pyproject.toml: two Core99 -> acceptedCore236a685da4cbe5daf36d88dac62e6a85378f5323058 refs (includes234 recovery).
 - uv.lock: controlled Core-only source/reference update after full regeneration comparison.
 - Docs/Plans/HANDOFF-BUDDY-native-profile-capability-consumers.md: truthful4153 settlement.
 - tests/test_graph_document_relationship.py: public immutable recovery consumer smoke only.
@@ -43,7 +43,7 @@ parents verified before allocation. Retain task scratch/v9-buddy/v10-native-exte
 and new env under MIND ownership, reason active fullgoal evidence. No deletion;
 cleanup follow-up needs approved scope/process/mount/dirty/unique-data checks.
 
-## Initial implementation checkpoint — MERGE HOLD
+## Preserved initial implementation checkpoint — original2f743 merge hold
 
 Exact2f743 full uv regeneration retained:152packages, expected pin-only complete
 non-artifact metadata/graph equality before normalizing139artifact-noise packages.
@@ -62,10 +62,10 @@ compatibility, NOT HTTP recovery/writer implementation. Existing HTTP cases rema
 separate owning regressions. No broader-contract/frontend qualification claim.
 
 Owner identified redundant shared ancestry verification cost in Core2f743 normal
-publisher/preview. Separate Core performance prerequisite is root-owned; MERGE HOLD
-until its accepted exact merge is supplied and owner authorizes pin retarget with
-new installed provenance/evidence. Continue preserving this2f743 qualification;
-no silent retarget or Buddy scope growth. Parent owns all broad qualification.
+publisher/preview. Original merge hold was satisfied by root-authorized accepted
+Core236a685da4cbe5daf36d88dac62e6a85378f5323058 (details below). Initial2f743
+qualification remains preserved, not relabeled as the retarget execution.
+Final parent review/broad qualification still gates merge; no scope growth.
 
 Task evidence: baseline/full-regenerated locks, lock-regeneration-comparison.json,
 lock-normalization.json, uv-lock-check.log, uv-sync-locked.log,
@@ -73,3 +73,25 @@ installed-provenance.json, recovery-smoke-1.log, owning.xml/log and Ruff compari
 All retained; no failed tests in these scoped runs, artifact noise preserved rather
 than hidden. New environment and scratch remain MIND-owned pending fullgoal
 cleanup authority; no resources removed or active worker jobs after freeze.
+
+## Authorized Core236 retarget — current target
+
+Root supplied accepted mergea685da4cbe5daf36d88dac62e6a85378f5323058 after exact
+review5984326859/CI44626559988 and explicitly authorized this existing4154 update.
+No other source/test logic changed from2bd544405; owning test blob identical.
+Retarget full regeneration remains152packages, exact expected pin-only complete
+non-artifact graph/metadata equality PASS before retaining all baseline artifacts.
+139packages had registry artifact noise; raw full regeneration is retained.
+Lock-check and locked sync PASS into idle existing4154 task env ONLY, no99/serving
+sync. New isolated direct_url/sitepackage provenance exactCorea685/WKef9 verified.
+
+Actual retarget owning module24PASS/4warnings/15.19s. This is new execution on
+installeda685, not carried2f evidence. Source test unchanged; prior Ruff17inherited/
+0added remains applicable by exact blob equality, not a new lint-execution claim.
+Retarget artifacts all use retarget-a685- prefix (comparison/normalization,
+lock-check/sync/provenance/owning XML/log/qualification). All initial2f files remain.
+Parent Hubble delta/broader qualification gates merge; no deployment/API/transition
+or source authorization change. Plan-only transition proposal retained separately
+in scratch, not an implementation outcome of this PR. No active worker runners
+when frozen, no manual cleanup. Independent reader-fence repair PR4157 stays out
+of4154, separately protected608c743e8f29c2c83c848a6286940eae5f0f1da3.
