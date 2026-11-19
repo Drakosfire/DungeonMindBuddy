@@ -159,14 +159,25 @@ def _revision_call(callback,**kwargs):
     except StatblockIntegrationError as exc:raise HTTPException(status_code=503,detail="Saved mechanics provider is unavailable") from exc
 
 
-@router.get("/saved-statblocks/lookup", dependencies=[Depends(native_graph_gm_dependency)])
+@router.get("/saved-statblocks/lookup")
 def lookup_saved_statblock(
+    request: Request,
     world_id: Annotated[str, Query(pattern=r"^[a-z][a-z0-9_-]{0,62}$")],
     name: Annotated[str, Query(min_length=1)],
 ):
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+    else:
+        require_hosted_plan_world_context(request, world_id)
     if not name.strip():
         raise HTTPException(status_code=422, detail="Statblock name is required")
-    return _revision_call(saved_versions.find_saved_version, world_id=world_id, name=name)
+    result = _revision_call(saved_versions.find_saved_version, world_id=world_id, name=name)
+    if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+        require_hosted_plan_world_context(request, world_id)
+    return result
 
 
 @router.get('/threat-drafts/{draft_id}/mechanics-revisions')

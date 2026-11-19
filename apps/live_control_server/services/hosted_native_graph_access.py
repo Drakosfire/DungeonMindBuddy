@@ -630,7 +630,13 @@ async def _owned_build_page(
 async def resolve_hosted_statblock_inventory(request: Request) -> str:
     world_id = request.query_params.get("world_id")
     selectors = request.query_params.multi_items()
-    allowed = {"world_id", "limit", "offset"} if request.url.path.endswith("/threat-drafts") else {"world_id"}
+    allowed = {"world_id"}
+    if request.url.path.endswith("/threat-drafts"):
+        allowed.update({"limit", "offset"})
+    if request.url.path.endswith("/saved-statblocks/lookup"):
+        if not request.query_params.get("name", "").strip():
+            raise _denied()
+        allowed.add("name")
     keys = {key for key, _ in selectors}
     if not world_id or len(keys) != len(selectors) or not keys <= allowed or await request.body():
         raise _denied()

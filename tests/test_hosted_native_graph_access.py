@@ -524,6 +524,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/workspace-documents/{document_id}/native-world-source"): access.resolve_hosted_build_native_source,
             ("POST", "/api/live/workspace-documents/{document_id}/native-world-source"): access.resolve_hosted_build_native_source,
             ("GET", "/api/live/threat-drafts"): access.resolve_hosted_statblock_inventory,
+            ("GET", "/api/live/saved-statblocks/lookup"): access.resolve_hosted_statblock_inventory,
             ("POST", "/api/live/agent/turn"): access.resolve_hosted_chat_turn,
             ("GET", "/api/live/agent/readiness"): HOSTED_WORLD_SCOPE_RESOLVERS[("GET", "/api/live/agent/readiness")],
             ("GET", "/api/live/agent/worlds/{world_id}/conversation"): access.resolve_hosted_conversation_world,
@@ -5978,3 +5979,35 @@ def test_hosted_run_encounter_read_binds_exact_world_run_and_scene(hosted, monke
     denied = hosted.client.request("GET", path)
     assert denied.status_code == 403, denied.text
     assert "withheld encounter" not in denied.text
+
+
+def test_hosted_saved_statblock_lookup_requires_owned_world(hosted, monkeypatch):
+    from apps.live_control_server.routes import statblock_candidates
+
+    calls = []
+
+    def lookup(_root, *, world_id, name):
+        calls.append((world_id, name))
+        return {"status": "not_found"}
+
+    monkeypatch.setattr(statblock_candidates.saved_versions, "find_saved_version", lookup)
+    path = "/api/live/saved-statblocks/lookup?world_id=managed&name=Meat+Mind"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path.replace("managed", "foreign")).status_code == 403
+    assert hosted.client.request("GET", path + "&name=Other").status_code == 403
+    assert calls == []
+    result = hosted.client.request("GET", path)
+    assert result.status_code == 200, result.text
+    assert result.json() == {"status": "not_found"}
+    assert calls == [("managed", "Meat Mind")]
+
+    def transfer_during_lookup(_root, **_kwargs):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"status": "withheld saved statblock"}
+
+    monkeypatch.setattr(statblock_candidates.saved_versions, "find_saved_version", transfer_during_lookup)
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 403, denied.text
+    assert "withheld saved statblock" not in denied.text
