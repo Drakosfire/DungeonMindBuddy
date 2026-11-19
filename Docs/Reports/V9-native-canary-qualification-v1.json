@@ -137,7 +137,7 @@
     }
   ],
   "pending": [
-    "Registered World fixture authority; two durable-page APP-down/latency-analogue contract cases",
+    "Two durable-page APP-down/current-storage-smoke contract cases",
     "Requalify deliberately bounded repaired candidate, exact-head frontend, independent cumulative review and normal checks",
     "V9.B fresh live recovery/schema/artifact readiness and actual activation; V10 retirement; V11 serving baseline"
   ],
@@ -402,6 +402,16 @@
       "module_passed": 18,
       "unchanged_page_contract_failures": 2,
       "frontend_and_normal_checks": "passed at corrected head",
+      "full_v9_accepted": false
+    },
+    {
+      "pr": 4075,
+      "merge": "f65c5ed66586725f51737d454c727938892bd61b",
+      "reviewed_head": "a3d927b3ab44e9059c496e242b44eba43b6112e7",
+      "review": 5970411974,
+      "hosted_module_passed": 366,
+      "failed": 0,
+      "frontend_and_normal_checks": "passed",
       "full_v9_accepted": false
     }
   ],
@@ -685,6 +695,21 @@
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/local-play-v2-inventory.json",
       "bytes": 263,
       "sha256": "08d7810c211a1e0b12ce03af439a66d1b239e08bb1ff257daf08f048cfd3d8db"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/registered-world-exact-hosted-module.log",
+      "bytes": 2221,
+      "sha256": "db478b8b0996c2d72498e99920dfd48221ecdd0ec9d67835327f3b75e6d3858e"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/registered-world-lint-comparison.json",
+      "bytes": 207,
+      "sha256": "8957df6cb6b9b378aa0d617503af4a424898d1c41a91d0abf64322343d834394"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/registered-world-inventory.json",
+      "bytes": 263,
+      "sha256": "547bc94809e10ce4d378f3ec6ba8d50292a47bff1166cdb64934dbc20b144a29"
     }
   ],
   "historical_qualified_source": "0274e014daa6527cccf6abd71dd2e641204dc4b0",
@@ -1001,7 +1026,7 @@
     "live_source_mutation": false,
     "forward_verified_quiescent": true
   },
-  "next_candidate_runtime_base": "a2fd516318bb8daf49b0a141e3b90b99119c71e8",
+  "next_candidate_runtime_base": "a3d927b3ab44e9059c496e242b44eba43b6112e7",
   "source_fixture_gap_resolution": {
     "status": "closed",
     "ten_setup_errors": "explicit APP dependencies",
@@ -1024,5 +1049,11 @@
     "status": "closed_for_local_fixture_boundary",
     "formerly_blocked": "Runbook create and4rebaseHTTP cases pass",
     "remaining": "2unchanged direct-service page-contract tests do not use changed clients"
+  },
+  "registered_world_gap_resolution": {
+    "status": "closed",
+    "real_registered_world": "publiccatalog.create_world managed/OWNER",
+    "hosted_module": "366passed0failed",
+    "native_binding_consistency": "not claimed; synthetic active binding not persisted"
   }
 }

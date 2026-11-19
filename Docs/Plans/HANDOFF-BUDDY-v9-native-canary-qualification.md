@@ -6,8 +6,8 @@ independent review, merge and launch; no PRIME coordination prerequisite.
 
 ## Current anchor and mission
 
-Next bounded candidate base: Buddya2fd516318bb8daf49b0a141e3b90b99119c71e8
-(includes accepted4067–4072; final qualification pending). Retained rehearsal
+Next bounded candidate base: Buddya3d927b3ab44e9059c496e242b44eba43b6112e7
+(includes accepted bounded repairs through4075; final qualification pending). Retained rehearsal
 runtime6fac remains separately identified below.
 Core runtime4b6516e2c0dfd81acaa4410b9b9bb9da18894c90; V8 evidence accepted in
 Core229 mergef770098ad27b772e6351f2827a2b7bd6628705e8. Read canonical
@@ -208,10 +208,18 @@ Independent review accepts this bounded correction; no full-module green claim.
 The corrected exact-head frontend/canonical and all normal checks passed; earlier
 dirty-caller diagnostic is retained and not reused as qualification.
 
-Next serial slice seeds the missing real registered-World fixture authority. Then
-reconcile the two durable-page APP-down/latency-analogue contract cases. Neither is
-waived or fixed by changing runtime authorization or inventing a file fallback.
-The repaired candidate starts from accepteda2fd516, excluding unrelated later-main runtime; final proof must qualify
+Registered-World fixture4075 is accepted: revieweda3d927b3ab44e9059c496e242b44eba43b6112e7,
+mergef65c5ed66586725f51737d454c727938892bd61b, review5970411974. The real APP catalog
+seed preserves every existing page-workflow assertion without changing shared
+fixtures or copying synthetic native bindings. Full hosted authorization366passed;
+exact frontend/canonical and normal checks passed. That missing-World gate is closed.
+
+Next serial slice reconciles two obsolete page cases with the accepted database-
+only authored-page contract: valid registered page setup, APP-down create/list/read
+503 with no file fallback, and truthful current PostgreSQL page/runbook storage
+smoke labels. Preserve all exact content and prepare/commit/load/current/historical/
+run-admission checks. This is not a retained retrieval baseline or speed claim.
+The repaired candidate starts from accepteda3d927b, excluding unrelated later-main runtime; final proof must qualify
 that bounded descendant. Current6fac proof remains tied to its original bytes.
 No provider generation or classic baseline rerun is needed.
 
