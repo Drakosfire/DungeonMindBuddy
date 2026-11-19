@@ -493,6 +493,24 @@ async def resolve_hosted_play_command(request: Request) -> str:
     return await _resolve_hosted_play_world(request)
 
 
+async def resolve_hosted_play_roll_receipts(request: Request) -> str:
+    query = request.query_params
+    world_id = query.get("world_id")
+    run_id = getattr(request.state, "hosted_route_run_id", None)
+    try:
+        canonical_run = bool(run_id) and str(UUID(run_id)) == run_id
+    except ValueError:
+        raise _denied() from None
+    if (not world_id or not canonical_run
+        or set(query) - {"world_id", "before", "limit"}
+        or len(query.multi_items()) != len(query)
+        or await request.body()):
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_plan_context_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_play_table_roll(request: Request) -> str:
     return await _resolve_hosted_play_world(request)
 
