@@ -16,7 +16,7 @@ This directory is **proof machinery**, not architecture ownership. Durable contr
 | **Contract validators** | `validate_*.py`, `report_*.py` | No-LLM gates and diagnostic reports |
 
 **Session 24 manual projection:** projection benchmark gold, not extractor evidence.  
-**Category-decomposed extraction (`anchor_quote_n3`):** proven quality path — 5 category node passes + beat + edge on Session 22 (`gpt-5.4-mini`, n=3, node recall ~0.80–0.88). The product uses `src/graph_memory/extraction/category_candidate_graph_extractor.py`; these historical measurements do not establish current extraction quality.
+**Category-decomposed extraction (`anchor_quote_n3`):** historical quality study — 5 category node passes + beat + edge on Session 22 (`gpt-5.4-mini`, n=3, node recall ~0.80–0.88). The product uses `src/graph_memory/extraction/category_candidate_graph_extractor.py`; these historical measurements do not establish current extraction quality.
 
 Historical layout reference: `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md`. Current extraction ownership is in the runtime modules above.
 
@@ -24,30 +24,19 @@ Historical layout reference: `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md`. Curre
 
 ## Purpose
 
-This directory is the evaluation scaffold for the Graph Memory Layer experiment. It gives the experiment a dedicated, non-production place for smoke checks, future baseline captures, and later shadow artifacts.
-
-## Current Phase
-
-PR 1 is baseline/fork tracking only. It establishes branch safety documentation, baseline artifact directories, and a no-LLM smoke runner.
-
-The smoke runner must not require an OpenAI key, environment variables, network access, production retrieval imports, or graph-memory implementation modules.
-
-## Non-Goals for PR 1
-
-- No graph schemas.
-- No graph retrieval.
-- No RDF export.
-- No LLM extraction.
-- No production retrieval behavior changes.
-- No benchmark output regeneration or reinterpretation.
+This directory is the evaluation scaffold for the Graph Memory Layer experiment. It holds retained fixtures, validators, reports and opt-in studies; product runtime owners are listed above.
 
 ## Expected Commands
 
-Run the scaffold-only/default smoke check during bootstrap work:
+Start with the no-write baseline validator below. These fixture-specific checks
+are not a substitute for the owning runtime or release verification.
 
-```bash
-uv run python -m evals.graph_memory_layer.run_smoke
-```
+The June 2026 scaffold and fork-policy procedure is
+[historical](../../Docs/Experiments/GRAPH-MEMORY-FORK-TRACKING.md).
+Its `run_smoke` command currently fails because the required experiment document
+was archived. The old `experiment/graph-memory-layer` / `graph-exp/` naming rules
+do not allocate current lanes. Follow the repository's [agent policy](../../AGENTS.md)
+and the active handoff instead. The retained CLI and its tests are unchanged.
 
 Validate the frozen baseline case manifest with the no-LLM baseline validator:
 
@@ -111,24 +100,6 @@ uv run python -m evals.graph_memory_layer.validate_real_structure_gate
 ```
 
 This validates the gate manifest for the first future real-structure materializer. It does not materialize real data, read session-memory JSONL, scan corpus files, parse Markdown/Tiptap output, call an LLM, or change retrieval behavior. The gate admits exactly one future source family and keeps real materialization deferred to a later PR under validation and reporting constraints.
-
-Once fork enforcement is active for later stacked PRs, run strict branch-policy validation:
-
-```bash
-uv run python -m evals.graph_memory_layer.run_smoke --check-git-context
-```
-
-Strict git-context mode accepts the experiment root branch (`experiment/graph-memory-layer`) and any stacked branch that starts with `graph-exp/`. For a handoff that must be validated against one exact branch, add `--expected-branch`:
-
-```bash
-uv run python -m evals.graph_memory_layer.run_smoke --check-git-context --expected-branch graph-exp/01-freeze-baseline-reports
-```
-
-## Future PRs
-
-Later phases may add graph materialization, graph reports, graph-shadow retrieval, entity candidates, relationship candidates, taxonomy governance, and live retrieval shadow mode.
-
-Any LLM-backed experiment must be added behind explicit CLI flags in a later PR.
 
 ## Session-Memory Sentence-Unit Materializer
 
