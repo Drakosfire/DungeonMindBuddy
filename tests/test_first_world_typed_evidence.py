@@ -1007,3 +1007,49 @@ def test_native_compiler_gm_source_remains_unavailable_to_player_after_publicati
     listing = EntityReadService().list_entities_with_support(read)
     assert not listing.aliases and not listing.listing.entities
     assert open_admitted_native_text(context, case.native.span_proof.evidence_ref_id).status == "unavailable"
+
+
+@pytest.mark.parametrize("forgery", ["edge_as_node", "node_as_edge"])
+def test_native_compiler_rejects_assertions_impersonating_another_reviewed_decision_kind(forgery):
+    from copy import deepcopy
+    from apps.live_control_server.models.native_first_world_compilation import FirstWorldCompilationError
+    from apps.live_control_server.services.native_first_world_compilation import compile_first_world_native_intent
+
+    case = _native_compilation_case()
+    node, edge = case.effect["accepted_proposals"][0], case.effect["accepted_proposals"][2]
+    if forgery == "edge_as_node":
+        edge.update(assertion_kind="node", subject_node_id=None, target_node_id=None,
+                    predicate=None, label="Forged node", value=deepcopy(node["value"]),
+                    identity_resolution_outcome="created_new")
+    else:
+        node.update(assertion_kind="edge", subject_node_id="candidate:b", target_node_id="candidate:b",
+                    predicate=edge["predicate"], value=deepcopy(edge["value"]),
+                    identity_resolution_outcome="accepted_by_operator")
+        node["value"].update(edge_id="edge:candidate:b:located_in:candidate:b", extract_edge_id="candidate:a")
+    head = case.repo.get_head(case.space)
+    with pytest.raises(FirstWorldCompilationError, match="assertion_owner_decision_mismatch"):
+        compile_first_world_native_intent(case.effect, world_id="world", source_text=case.text, span_index=case.index)
+    assert case.repo.get_head(case.space) == head
+
+
+def test_native_compiler_rejects_duplicate_reviewed_decisions():
+    from copy import deepcopy
+    from apps.live_control_server.models.native_first_world_compilation import FirstWorldCompilationError
+    from apps.live_control_server.services.native_first_world_compilation import compile_first_world_native_intent
+
+    case = _native_compilation_case()
+    case.effect["decision_snapshot"].append(deepcopy(case.effect["decision_snapshot"][0]))
+    with pytest.raises(FirstWorldCompilationError):
+        compile_first_world_native_intent(case.effect, world_id="world", source_text=case.text, span_index=case.index)
+
+
+def test_native_compiler_invalid_binding_reference_has_a_typed_refusal():
+    from apps.live_control_server.models.native_first_world_compilation import FirstWorldCompilationError
+    from apps.live_control_server.services.native_first_world_compilation import bind_first_world_native_intent
+
+    case = _native_compilation_case()
+    intent, _ = _compile_and_bind(case)
+    bad = replace(case.bindings[0], reviewed_evidence_ref_id=[])
+    with pytest.raises(FirstWorldCompilationError, match="invalid_reviewed_evidence_ref"):
+        bind_first_world_native_intent(intent, parent=case.parent, native_space_id=case.space,
+                                      bindings=(bad,), produced_at=case.now)

@@ -155,6 +155,8 @@ def compile_first_world_native_intent(effect, *, world_id, source_text, span_ind
                 _fail(blocker.code, blocker.field_path)
     effect = inventory.inventory.reviewed_effect
     _require(not effect["deferred_candidate_ids"] and not effect["unresolved_mentions"], "unsupported_deferred_identity")
+    decisions_by_candidate = {choice["assertion_id"]: choice for choice in effect["decision_snapshot"]}
+    _require(len(decisions_by_candidate) == len(effect["decision_snapshot"]), "duplicate_reviewed_decision")
     for choice in effect["decision_snapshot"]:
         expected = {"node": {"create_new", "reject"}, "edge": {"accept", "reject"}}
         _require(choice["candidate_kind"] in expected
@@ -165,6 +167,11 @@ def compile_first_world_native_intent(effect, *, world_id, source_text, span_ind
     owner_by_assertion = {identifier: candidate for candidate, identifiers in effect["candidate_effect_map"].items() for identifier in identifiers}
     custom = False
     for row in effect["accepted_proposals"]:
+        owner = owner_by_assertion[row["assertion_id"]]
+        choice = decisions_by_candidate[owner]
+        _require(choice["candidate_kind"] == row["assertion_kind"]
+                 and choice["decision"] == ("create_new" if row["assertion_kind"] == "node" else "accept"),
+                 "assertion_owner_decision_mismatch", row["assertion_id"])
         value = row["value"]
         _require(row["campaign_scope"] == world_id and row["temporal_scope"] is None
                  and row["epistemic_kind"] == "source_derived_candidate"
@@ -176,7 +183,9 @@ def compile_first_world_native_intent(effect, *, world_id, source_text, span_ind
                   "evidence_ref_ids": row["evidence_ref_ids"],
                   "visibility_label": PLAYER_LABEL if row["visibility"] == "player" else GM_LABEL}
         if row["assertion_kind"] == "node":
-            _require(row["subject_node_id"] == effect["node_id_map"].get(owner_by_assertion[row["assertion_id"]]),
+            _require(owner in effect["node_id_map"] and type(row["subject_node_id"]) is str
+                     and bool(row["subject_node_id"].strip())
+                     and row["subject_node_id"] == effect["node_id_map"][owner],
                      "node_subject_candidate_mismatch", row["assertion_id"])
             kind = value.get("kind")
             _require(type(kind) is str and kind in _KINDS and value.get("role") == kind and row["target_node_id"] is None
@@ -190,7 +199,8 @@ def compile_first_world_native_intent(effect, *, world_id, source_text, span_ind
             for alias in value["aliases"] or [row["label"]]:
                 _require(type(alias) is str, "invalid_aliases")
                 if alias.strip() and alias.casefold() not in seen:
-                    seen.add(alias.casefold()); aliases.append(alias)
+                    seen.add(alias.casefold())
+                    aliases.append(alias)
             _require(aliases, "invalid_aliases")
             summary = value.get("summary")
             _require(summary is None or type(summary) is str and bool(summary.strip()), "invalid_summary")
@@ -257,6 +267,7 @@ def bind_first_world_native_intent(intent, *, parent, native_space_id, bindings,
     for binding in bindings:
         _require(isinstance(binding, FirstWorldNativeSpanBinding), "invalid_native_binding")
         ref = binding.reviewed_evidence_ref_id
+        _require(type(ref) is str, "invalid_reviewed_evidence_ref")
         _require(ref in expected and ref not in resolved, "binding_inventory_mismatch")
         try:
             proof = NativeUtf8SpanProofV1.model_validate_json(binding.proof_json)

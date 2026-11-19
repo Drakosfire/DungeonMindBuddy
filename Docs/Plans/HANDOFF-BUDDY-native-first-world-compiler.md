@@ -129,3 +129,13 @@ legitimate multiple reviewed references sharing one exact native proof and playe
 denial of a GM-only source even for a player-labelled assertion. Diagnostic87 pass.
 Prior exact5fa backend:84 focused and888 ingestion passed,119 deselected, zero skips;
 the repair head still requires its own exact checks and independent Cycle2.
+
+Cycle2 independent review5974701220 held1ec300b988 on a missing owner-kind/action
+check, reproduced with a forged edge-owned null-subject node publishing a third
+entity. The repair now closes row ownership against the exact reviewed candidate
+kind/action, requires explicit node map membership and a nonblank matching subject,
+and rejects duplicate reviewed decisions. Both impersonation directions and malformed
+binding references have regressions. Diagnostic91 pass; prior1ec exact87+888 passed.
+Repair requires cumulative independent Cycle3 and exact qualification; no completion
+claim is made by the focused diagnostic. Ruff's one service semicolon violation was
+corrected before this repair commit.
