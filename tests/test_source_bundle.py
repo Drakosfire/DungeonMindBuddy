@@ -119,7 +119,7 @@ def test_bundle_still_observes_source_and_manifest_changes(tmp_path) -> None:
     second.write_text("second", encoding="utf-8")
     manifest = tmp_path / C2S23_MANIFEST
     manifest.parent.mkdir(parents=True)
-    manifest.write_text(json.dumps({"entries": [{"route": first.relative_to(tmp_path).as_posix()}]}))
+    manifest.write_text(json.dumps({"source_sessions": [1], "entries": [{"route": first.relative_to(tmp_path).as_posix()}]}))
     updated = recaps_by_session()
     assert set(updated) == {1, 2}
     assert updated[1].metadata["sizeBytes"] == len("a longer recap")
