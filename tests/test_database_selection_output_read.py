@@ -41,12 +41,15 @@ def _selection(monkeypatch, root):
 
 def test_mounted_selection_route_with_all_files_removed(monkeypatch, tmp_path):
     from apps.live_control_server.routes import extract_promote as routes
-    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal, native_graph_gm_dependency
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
 
     run, request = _selection(monkeypatch, tmp_path)
     app = FastAPI()
     app.include_router(routes.router)
-    app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(subject="synthetic:operator", role="gm", auth_method="local_operator")
+    from apps.live_control_server.services import hosted_native_graph_access as access
+
+    principal = NativeGraphPrincipal(subject="synthetic:operator", role="gm", auth_method="local_operator")
+    monkeypatch.setattr(access, "enforce_native_graph_gm", lambda _: principal)
     for path in tmp_path.rglob("*"):
         if path.is_file():
             path.unlink()
