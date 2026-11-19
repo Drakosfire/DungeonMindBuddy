@@ -369,7 +369,8 @@ def load_retrieval_manifests(root: Path) -> dict[str, Any]:
     }
 
 
-def build_library(*, root: Path | None = None) -> dict[str, Any]:
+def build_library(*, root: Path | None = None, include_auxiliary: bool = True) -> dict[str, Any]:
+    """Build fresh corpus metadata; bundle callers can omit unused auxiliary views."""
     repo = root or repo_root()
     corpus = repo / "corpus/eldyrwild-markdown"
     longmont = corpus / "Longmont Campaign"
@@ -460,9 +461,9 @@ def build_library(*, root: Path | None = None) -> dict[str, Any]:
             "total_corpus_md_files": len(list(corpus.rglob("*.md"))) if corpus.is_dir() else 0,
         },
         "campaigns": campaigns,
-        "elderwyld": _scan_elderwyld(corpus / "Elderwyld", root=corpus),
-        "live_workspaces": _scan_live_workspaces(repo),
-        "eval_ingest_artifacts": _scan_eval_ingest_artifacts(repo),
+        "elderwyld": _scan_elderwyld(corpus / "Elderwyld", root=corpus) if include_auxiliary else {},
+        "live_workspaces": _scan_live_workspaces(repo) if include_auxiliary else [],
+        "eval_ingest_artifacts": _scan_eval_ingest_artifacts(repo) if include_auxiliary else {},
         "retrieval_activation": {
             "c2s23_planning_manifest": activation,
             "c2s23_dogfood_full_manifest": dogfood_activation,
