@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -21,11 +22,18 @@ def write_json(path: Path, data: dict[str, Any]) -> None:
     do not collide on replace.
     """
     temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
-    temp_path.write_text(
-        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-    temp_path.replace(path)
+    try:
+        temp_path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        temp_path.replace(path)
+    except BaseException:
+        # A partial write or failed replace must not retain our discarded bytes.
+        # Preserve the original failure if directory permissions block cleanup.
+        with suppress(OSError):
+            temp_path.unlink(missing_ok=True)
+        raise
 
 
 def iter_jsonl(path: Path) -> list[dict[str, Any]]:
