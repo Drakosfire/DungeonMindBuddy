@@ -537,7 +537,7 @@ def test_actual_cross_scope_dependency_is_partial(lane, hidden_component):
 
 
 @pytest.fixture
-def extension_lane(tmp_path, monkeypatch, request):
+def extension_lane(application_state_dsn, tmp_path, monkeypatch, request):
     repo = None
     if getattr(request, "param", "memory") == "postgres":
         from urllib.parse import urlsplit
