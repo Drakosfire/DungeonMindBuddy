@@ -5,9 +5,14 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
     OPENAPI_FINGERPRINT,
     ReviseCandidateRequestV1,
+    ChallengeProfile,
+    StatblockDefinitionV1Input,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.models import (
     ErrorEnvelopeV1,
@@ -86,3 +91,37 @@ def test_revise_changed_body_conflict_envelope() -> None:
     envelope = ErrorEnvelopeV1.model_validate(_load("revise-conflict-response"))
     assert envelope.error.code == "idempotency_conflict"
     assert envelope.error.details.get("idempotency_key") == "fixture-revise-source-def-1"
+
+
+@pytest.mark.parametrize("kind", ["input", "output"])
+@pytest.mark.parametrize("field", ["movement", "ruleset", "proficiency_bonus"])
+def test_regenerated_definition_preserves_required_nullable_fields(kind: str, field: str) -> None:
+    if kind == "input":
+        definition = _load("revise-request")["source_definition"]
+        model = StatblockDefinitionV1Input
+    else:
+        response = _load("revise-replay-response")
+        definition = response["definition"]
+        model = type(GeneratedStatblockCandidateV1.model_validate(response).definition)
+
+    container = definition["challenge"] if field == "proficiency_bonus" else definition
+    container[field] = None
+    dumped = model.model_validate(definition).model_dump(mode="json", by_alias=True)
+    assert (dumped["challenge"] if field == "proficiency_bonus" else dumped)[field] is None
+    del container[field]
+    with pytest.raises(ValidationError) as error:
+        model.model_validate(definition)
+    assert any(item["type"] == "missing" and item["loc"][-1] == field for item in error.value.errors())
+
+
+@pytest.mark.parametrize("bonus", [0, 3, None])
+def test_regenerated_proficiency_keeps_scalar_and_wire_identity(bonus: int | None) -> None:
+    profile = ChallengeProfile.model_validate({"rating": "1", "proficiency_bonus": bonus})
+    assert profile.proficiency_bonus == bonus
+    assert profile.proficiency_bonus is None or type(profile.proficiency_bonus) is int
+    assert profile.model_dump(mode="json")["proficiency_bonus"] == bonus
+
+
+def test_regenerated_proficiency_rejects_negative_bonus() -> None:
+    with pytest.raises(ValidationError):
+        ChallengeProfile.model_validate({"rating": "1", "proficiency_bonus": -1})

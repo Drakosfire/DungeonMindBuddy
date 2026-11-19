@@ -325,14 +325,7 @@ class ExplainsEdge(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
-    element_key: Annotated[
-        str,
-        Field(
-            description='Key of the rule element being explained. Descriptive only; the engine ignores it.',
-            pattern='^[a-z][a-z0-9_]*$',
-            title='Element Key',
-        ),
-    ]
+    element_key: Annotated[str, Field(pattern='^[a-z][a-z0-9_]*$', title='Element Key')]
     note: Annotated[str | None, Field(title='Note')] = None
 
 
@@ -1736,13 +1729,7 @@ class RuleElementInput(BaseModel):
     activation: Activation
     automation_support: AutomationSupport
     costs: Annotated[list[ResourceCost] | None, Field(title='Costs')] = None
-    explains: Annotated[
-        list[ExplainsEdge] | None,
-        Field(
-            description='Descriptive-only edges naming elements this one gives narrative context for. Not executable: the combat engine ignores them. Most elements need none; use only for a genuine cross-reference that rules_text alone cannot lift.',
-            title='Explains',
-        ),
-    ] = None
+    explains: Annotated[list[ExplainsEdge] | None, Field(title='Explains')] = None
     key: Annotated[str, Field(pattern='^[a-z][a-z0-9_]*$', title='Key')]
     mechanic: Annotated[
         AttackMechanicInput
@@ -1770,13 +1757,7 @@ class RuleElementOutput(BaseModel):
     activation: Activation
     automation_support: AutomationSupport
     costs: Annotated[list[ResourceCost] | None, Field(title='Costs')] = None
-    explains: Annotated[
-        list[ExplainsEdge] | None,
-        Field(
-            description='Descriptive-only edges naming elements this one gives narrative context for. Not executable: the combat engine ignores them. Most elements need none; use only for a genuine cross-reference that rules_text alone cannot lift.',
-            title='Explains',
-        ),
-    ] = None
+    explains: Annotated[list[ExplainsEdge] | None, Field(title='Explains')] = None
     key: Annotated[str, Field(pattern='^[a-z][a-z0-9_]*$', title='Key')]
     mechanic: Annotated[
         AttackMechanicOutput
