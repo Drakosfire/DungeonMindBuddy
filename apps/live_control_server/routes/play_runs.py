@@ -423,10 +423,18 @@ def get_world_run_content_revision(
         read_content,
     )
 
-    enforce_native_graph_gm(request)
-    return edition_response(
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
+    response = edition_response(
         read_content, run_id=run_id, world_id=world_id, revision_n=revision_n
     )
+    require_hosted_plan_world_context(request, world_id)
+    return response
 
 
 @router.get("/world-play-runs/v2/{run_id}/content/commands/{command_id}")
@@ -444,10 +452,18 @@ def get_world_run_content_command(
         read_command,
     )
 
-    enforce_native_graph_gm(request)
-    return edition_response(
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
+    response = edition_response(
         read_command, run_id=run_id, world_id=world_id, command_id=command_id
     )
+    require_hosted_plan_world_context(request, world_id)
+    return response
 
 
 @router.put("/world-play-runs/v2/{run_id}/content/commands/{command_id}")

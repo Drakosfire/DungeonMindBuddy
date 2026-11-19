@@ -724,6 +724,9 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && path === imageHistory + "world_id=" + encodeURIComponent(worldId)
         + "&conversation_id=" + conversationId;
   }
+  if (method === "GET" && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\/(?:revisions\/[1-9][0-9]*|commands\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\?world_id=[a-z0-9][a-z0-9_-]{0,62}$/.test(path)) {
+    return init?.body == null;
+  }
   if (path === "/api/live/agent/turn") {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && isRecord(body?.owner_scope)

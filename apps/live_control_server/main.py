@@ -287,6 +287,8 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}"): resolve_hosted_play_scene_proposal,
     ("GET", "/api/live/world-play-runs/v2/{run_id}/content"): resolve_hosted_play_read,
     ("GET", "/api/live/world-play-runs/v2/{run_id}/prepared-tables"): resolve_hosted_play_read,
+    ("GET", "/api/live/world-play-runs/v2/{run_id}/content/revisions/{revision_n}"): resolve_hosted_play_read,
+    ("GET", "/api/live/world-play-runs/v2/{run_id}/content/commands/{command_id}"): resolve_hosted_play_read,
     ("PUT", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/commands/{command_id}"): resolve_hosted_play_table_roll,
     ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): resolve_hosted_play_creation,
     ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): resolve_hosted_play_creation,
