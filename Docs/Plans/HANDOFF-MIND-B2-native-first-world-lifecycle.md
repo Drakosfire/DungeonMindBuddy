@@ -88,8 +88,9 @@ admission. B2 must establish and seal those facts at their owning boundaries.
 - **Narrow B1 transfer into this B2 capability:**
   `apps/live_control_server/services/native_first_world_compilation.py` only for
   the `_span_requirements` `source_ref_id` correlation-versus-document-reference
-  equality correction; and `tests/test_first_world_typed_evidence.py` only for
-  focused coverage of that correction. Keep nonblank correlation validation,
+  equality correction and the native binder's evidence-role check described
+  below; and `tests/test_first_world_typed_evidence.py` only for focused coverage
+  of those two corrections. Keep nonblank correlation validation,
   full raw audit/request commitment, and all artifact, revision, full-body
   digest, frozen index/span, locator and native-proof checks unchanged. This is
   a required producer-mapping correction, not a bridge, ID prediction, relaxed
@@ -152,6 +153,42 @@ index, span, locator or native proof. Re-run the existing B1 regressions and
 both actual SQL prepare cases; do not weaken any other validation or turn a
 correlation alias into source authority.
 
+## Existing exact source proofs and native evidence role
+
+Core's source-extension publication rejects an interval already registered for
+the same source. A one-paragraph source without a terminal newline can have a
+required frozen span identical to the whole-document interval already admitted
+as `context`. The existing native recap admission also uses `context`; Core's
+public evidence contracts permit `context` and `support`. B1 currently requires
+native parent evidence role `support` unconditionally.
+
+For these source-derived/inferred reviewed facts, B2 must reuse an **actual**
+existing native proof at the sealed parent when the artifact, revision,
+full-body digest, exact byte interval and slice digest match; retain its actual
+`context` or `support` role and identity. Never relabel `context` as `support`,
+accept `contradiction`, create a duplicate-interval extension, or use a
+correlation alias as source authority. Resolve multiple possible exact proofs
+deterministically and seal the chosen identity, or refuse ambiguity; do not
+silently choose a different proof on confirm. Extend only missing intervals.
+Prepare may seal existing proofs when an authorized admitted parent exists; if
+source admission is absent, prepare seals that fact without invented proofs and
+confirm obtains the actual whole-document proof from the durable admission
+receipt before binding. Retain all current owner authorization, source access,
+origin and integrity checks.
+
+Extend only the B1 binder's native evidence-role check to allow actual
+`support` **or** `context` for this bounded purpose, while continuing to refuse
+`contradiction`. Do not loosen the reviewed raw evidence's separate support
+semantics or any artifact/revision/body/index/span/locator/proof validation.
+The focused B1 test path must prove exact existing context proof reuse through
+the public Core publisher with role retained, support preservation, and
+contradiction refusal. Add owning B2 SQL coverage for a one-paragraph source
+without a final newline: both already-admitted and absent-admission paths must
+reuse the real exact proof rather than attempt duplicate extension. Also prove
+mismatched artifact, revision, full-body digest, interval or slice digest fails
+closed and a genuinely missing interval is extended once. These tests do not
+claim current source access after withdrawal or grant new Core authority.
+
 ## Sealed prepare, confirm and recovery contract
 
 1. **Prepare is read-only**, including when no source has been admitted: no
@@ -197,7 +234,8 @@ correlation alias into source authority.
 5. For a genuinely not-yet-applied plan, revalidate the exact source revision,
    live authorization, reservation, pins and expected state. Admit the source
    through the existing owner only at confirmation, obtain and verify the actual
-   source-only parent and evidence, execute an explicitly sealed profile
+   source-only parent and evidence, reuse any actual exact matching proofs and
+   extend only missing intervals, execute an explicitly sealed profile
    transition only when required, then bind the B1 intent and invoke Core's
    public prospective-alias publication. Verify the returned real receipt,
    native readback and ancestry before activating APP. Source admission, native
