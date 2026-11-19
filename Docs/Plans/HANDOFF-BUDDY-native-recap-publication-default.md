@@ -6,7 +6,7 @@ branchcodex/v10-native-recap-publication-default, existing task Buddy checkout.
 Dependency N2a PR4144 merged430eed, accepted exactf64aa60deb392597ed542f7771a06b0bf5c06245
 (review5982359112;905 ingestion315auth409cache-hosted). No ARCH/PRIME gate.
 
-## Exclusive13-path lease and review map
+## Exclusive14-path lease and review map
 
 - This handoff.
 - Docs/Plans/HANDOFF-BUDDY-native-recap-publication-context.md: truthful settlement.
@@ -21,6 +21,7 @@ Dependency N2a PR4144 merged430eed, accepted exactf64aa60deb392597ed542f7771a06b
 - apps/live-control-ui/src/api/liveApi.ts: exact context/extension classification only.
 - apps/live-control-ui/src/api/liveApi.nativeGraphExplorerAuth.test.ts: corresponding transport proof only.
 - apps/live-control-ui/src/buildSurface/BuildRunReview.test.tsx: mounted fresh flow.
+- ci/test-classification.json: ONLY the3newtestpaths added to fast; no exclusions/removals/selector/verifier changes.
 
 No existing savedRecapRunsApi/nativeRecapSourceApi/exactRunCandidateProjectionApi,
 classic recovery/Worldbuilding, backend/Core/WK/pin/migration or other path edits.
@@ -165,3 +166,31 @@ resume-repair-diagnostic-4.{xml,-tests.log,-types.log,-driver.json} retained. Ea
 execution. Parent exact candidate/fullbackend and formal review remain pending;
 worker hosted stays held until explicit release. No worker process remains live
 at handback and no additional source edits are planned during frozen checks.
+
+
+## Owner rebrief after terminal exactf310 review/qualification
+
+MIND explicitly adds the14thpath ci/test-classification.json BEFORE its edit:
+shortCI44610850346 inventory failed only for the3new UI test files, with stale and
+duplicate sets empty; frontend-discovery passed. Register only these3 in fast,
+matching analogous frontend tests. No inventory exclusions or tool/script edits.
+Parent backendf310 terminal905ingestion315auth409cache-hosted clean/unchanged;
+full-discovered8207PASS104FAIL2skips, zero new/changed vs base, zero missing/same2
+extras, build0/cleanuptrue. Those are f310 results, not successor execution claims.
+
+Hubble formalCycle1 HOLD5983120433 requires stage-specific precommit recovery.
+Only confirmation HTTP409 codes candidate_parent_stale,
+candidate_source_authority_stale,candidate_review_expired,native_recap_commit_stale
+and extension HTTP409 knowledge_stale_parent_revision permit explicit archive and
+fresh review. Service confirm checks receipt presence first; the first3 codes are
+before commit when no receipt exists. WK PreparedChangeStale maps exact parent CAS
+refusal. Core extension checks prior receipt before its typed parent CAS failure.
+Extension epoch-stale uses generic NativeTextSourceAdmissionIntegrityError; it is
+NOT a safe typed public whitelist entry. Never parse message text or treat an
+arbitrary409/auth/integrity/unknown as permission to replace. Preserve unknown
+exact retry. Archive old raw bytes before fresh context; new request only after a
+new explicit operator action. No backend authority/semantics expansion.
+
+Both parent runners were terminal before release. Worker owns the affected-client
+repair/tests/types/inventory then promptly refreezes/pushes samePR4146. Parent full
+candidate and independent review repeat on new head; worker hosted remains held.
