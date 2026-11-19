@@ -1,11 +1,11 @@
 {
   "schema": "dmb_v9_native_canary_qualification_v1",
-  "status": "IMPLEMENTED_AWAITING_FINAL_VERIFICATION_AND_REVIEW",
+  "status": "V9_A_NATIVE_CANARY_QUALIFIED",
   "owner": "Elderwyld vNext completion lane",
   "candidate": {
     "buddy": "1c7ddcdd9ce08077cf9c5297ab952ebd1a41560f",
     "core": "4b6516e2c0dfd81acaa4410b9b9bb9da18894c90",
-    "scope": "Frozen runtime qualified on owned restore; accepted test-only successor4f4ed52; final report-head frontend/review/merge pending"
+    "scope": "Accepted bounded runtime qualification; unrelated later-main changes excluded"
   },
   "v8_acceptance_merge": "f770098ad27b772e6351f2827a2b7bd6628705e8",
   "source_mutation": false,
@@ -138,7 +138,6 @@
     }
   ],
   "pending": [
-    "Unmodified exact-final-report-head frontend/canonical validation, independent cumulative review and normal checks; V9.A acceptance/merge",
     "V9.B fresh live readiness/recovery/schema/artifact/write-boundary and actual serving activation",
     "V10 retirement and V11 deployed baseline"
   ],
@@ -1397,8 +1396,7 @@
     "limits": [
       "Owned restored authority, not live deployment",
       "Same-version rollback does not prove compatibility with older schema readers or protect against shared binary defects",
-      "No new latency/baseline/provider experiment",
-      "Final report-head frontend/cumulative independent review/normal checks remain pending"
+      "No new latency/baseline/provider experiment"
     ]
   },
   "source_review_gap_resolution": {
@@ -1426,5 +1424,15 @@
     "auth": "current262passed",
     "limits": "Four consumer contracts do not select all these modules; retain exact owning receipts and equivalence rather than claim a rerun of old combined cohort"
   },
-  "selected_native_authority_metadata_unchanged_scope": "Migration/backfill preparation only; later explicitly governed owned writes advance authority as separately recorded"
+  "selected_native_authority_metadata_unchanged_scope": "Migration/backfill preparation only; later explicitly governed owned writes advance authority as separately recorded",
+  "acceptance": {
+    "pr": 4041,
+    "reviewed_head": "871404916ee8f815407a63875a8b0eece7898bc2",
+    "merge": "d2166f5bfde17e9d595daf108ee5d817eb105ebf",
+    "review": 5970779017,
+    "review_cycles": 2,
+    "exact_frontend_and_canonical": "passed",
+    "automatic_checks": "Not triggered for three documentation paths; no hosted CI green claim",
+    "scope": "Owned restored authority qualification, not live activation"
+  }
 }
