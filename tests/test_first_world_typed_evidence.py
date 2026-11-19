@@ -444,3 +444,47 @@ def test_native_inventory_evidence_list_order_is_part_of_commitment():
     reversed_result = inventory_first_world_native_effects(effect)
     assert original.inventory.effect_sha256 != reversed_result.inventory.effect_sha256
     assert original.inventory.reviewed_effect["accepted_proposals"][0]["value"]["evidence"][0]["source_span_ref_id"] == "span:one"
+
+
+
+def test_native_inventory_rejected_candidate_cannot_lose_its_effect():
+    from apps.live_control_server.services.native_first_world_effects import (
+        FirstWorldEffectInputError, inventory_first_world_native_effects,
+    )
+    effect = _first_world_effect(reject=True)
+    identifier = effect["candidate_effect_map"]["candidate:a"][0]
+    effect["candidate_effect_map"]["candidate:a"] = []
+    effect["rejected_assertions"] = [row for row in effect["rejected_assertions"]
+                                     if row["assertion_id"] != identifier]
+    with pytest.raises(FirstWorldEffectInputError, match="decision_has_no_effect"):
+        inventory_first_world_native_effects(effect)
+
+
+@pytest.mark.parametrize("duplicate", ["id", "mention"])
+def test_native_inventory_rejects_duplicate_deferred_accounting(duplicate):
+    from copy import deepcopy
+    from apps.live_control_server.models.world_graph_contribution_models import ContributionIdentityMention
+    from apps.live_control_server.services.native_first_world_effects import (
+        FirstWorldEffectInputError, inventory_first_world_native_effects,
+    )
+    effect = _first_world_effect(reject=True)
+    identifier = effect["candidate_effect_map"]["candidate:a"][0]
+    effect["candidate_effect_map"]["candidate:a"] = []
+    effect["rejected_assertions"] = [row for row in effect["rejected_assertions"]
+                                     if row["assertion_id"] != identifier]
+    effect["decision_snapshot"][0]["decision"] = "defer"
+    effect["identity_outcome_snapshot"]["candidate:a"] = "deferred_by_operator"
+    effect["deferred_candidate_ids"] = ["candidate:a"]
+    effect["unresolved_mentions"] = [ContributionIdentityMention(
+        mention_id="candidate:a", label="Alice", object_kind="npc", aliases=["Alice"],
+        evidence_ref_ids=["evidence:one"], identity_resolution_outcome="deferred_by_operator",
+    ).model_dump(mode="json")]
+    assert inventory_first_world_native_effects(effect).status == "non_publishing"
+    if duplicate == "id":
+        effect["deferred_candidate_ids"].append("candidate:a")
+    else:
+        mention = deepcopy(effect["unresolved_mentions"][0])
+        mention["aliases"] = ["Conflicting alias"]
+        effect["unresolved_mentions"].append(mention)
+    with pytest.raises(FirstWorldEffectInputError):
+        inventory_first_world_native_effects(effect)

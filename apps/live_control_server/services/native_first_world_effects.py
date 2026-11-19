@@ -180,8 +180,8 @@ def _validate_links(effect):
     covered = set()
     for candidate, ids in effect["candidate_effect_map"].items():
         decision = decisions[candidate]["decision"]
-        if decision in {"create_new", "accept"} and not ids:
-            raise FirstWorldEffectInputError("accepted_decision_has_no_effect")
+        if decision in {"create_new", "accept", "reject"} and not ids:
+            raise FirstWorldEffectInputError("decision_has_no_effect")
         for identifier in ids:
             if identifier not in by_id or (decision == "reject") != (
                 by_id[identifier] == "rejected"
@@ -218,12 +218,17 @@ def _validate_links(effect):
         effect["node_id_map"] != expected_nodes
         or effect["identity_outcome_snapshot"] != expected_outcomes
         or set(effect["deferred_candidate_ids"]) != deferred
+        or len(effect["deferred_candidate_ids"]) != len(deferred)
     ):
         raise FirstWorldEffectInputError("inconsistent_identity_inventory")
     mentions = effect["unresolved_mentions"]
-    if {mention["mention_id"] for mention in mentions} != deferred_nodes or any(
-        mention["identity_resolution_outcome"] != "deferred_by_operator"
-        for mention in mentions
+    if (
+        {mention["mention_id"] for mention in mentions} != deferred_nodes
+        or len(mentions) != len(deferred_nodes)
+        or any(
+            mention["identity_resolution_outcome"] != "deferred_by_operator"
+            for mention in mentions
+        )
     ):
         raise FirstWorldEffectInputError("inconsistent_deferred_inventory")
 

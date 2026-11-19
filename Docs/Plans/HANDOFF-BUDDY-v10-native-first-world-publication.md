@@ -248,7 +248,7 @@ by this inventory. C1 acceptance must not mark the native writer or V10 complete
 ## C1 implementation checkpoint
 
 The pure inventory and immutable model are implemented; the affected existing test
-module explicitly passes36 tests, scoped Ruff and canonical inventory pass. Exact
+module explicitly passes39 tests, scoped Ruff and canonical inventory pass. Exact
 head frontend/canonical qualification and final cumulative review remain pending.
 Independent implementation critique found contradictory identity maps could pass a
 zero-graph classification. The repair reconciles decision-specific node/outcome
@@ -266,3 +266,11 @@ are independent UI fixtures/handoffs, not an adopted backend change. Parent rema
 322dbb33. The original native/classic first-World mismatch is still unresolved.
 This checkpoint neither accepts C1 nor claims native publication, deployment,
 latency improvement, complete V10 retirement or complete V11 verification.
+
+
+Final validation delta additionally requires rejected candidates to retain their
+assertions and deferred IDs/mentions to be unique. Missing rejected effects and
+conflicting same-ID mentions fail closed. All39 affected tests pass. The earlier
+6a283cb72 exact-head hosted verifier passed1411 selected tests, production build
+and cleanup; the repaired final head must receive its own qualification. No serving
+or publication change is inferred from those frontend checks.

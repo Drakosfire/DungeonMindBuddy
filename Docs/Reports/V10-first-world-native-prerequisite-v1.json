@@ -147,13 +147,13 @@
     "implementation_lease": "b771c7b65708884410ef1b241fad9ef6480ccd97",
     "focused_module": "tests/test_first_world_typed_evidence.py",
     "focused_result": {
-      "passed": 36,
+      "passed": 39,
       "warnings": 1,
       "warning": "Existing CandidateAdmissionBinding schema shadows BaseModel attribute"
     },
     "lint": "Scoped Ruff passes for both new modules and affected existing test module",
     "inventory": "Canonical inventory passes; existing classified test module explicitly invoked, not claimed selected by unrelated named contract",
-    "review_repair": "Reconcile node map, outcomes, deferred IDs and mentions against decisions; forbid shared assertions before non-publishing classification.",
+    "review_repair": "Reconcile node map, outcomes, deferred IDs and mentions against decisions; forbid shared assertions before non-publishing classification. Require rejected effects and unique deferred IDs/mentions; duplicate or missing accounting fails closed.",
     "qualification_pending": [
       "Unmodified exact-head frontend/canonical verification",
       "Independent cumulative final-head review"
@@ -161,6 +161,13 @@
     "current_main_checked": "59b419cdccac6bae5670be84e319d32d2aad22cc",
     "newer_main_changes": "Independent UI fixture/handoff work only; no backend source delta adopted.",
     "native_writer_complete": false,
-    "deployed": false
+    "deployed": false,
+    "pre_repair_frontend": {
+      "head": "6a283cb72f55e185571c47b5886717c35f27b824",
+      "passed": 1411,
+      "build_passed": true,
+      "cleanup_complete": true,
+      "final_head_requalification_required": true
+    }
   }
 }
