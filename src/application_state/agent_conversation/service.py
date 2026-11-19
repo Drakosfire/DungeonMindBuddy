@@ -92,7 +92,7 @@ from .rules_authority_completion import (
     RulesCitedSourceTurnResultV1,
 )
 from .rules_authority_passages import RulesHistoricalPassageRequestV1, RulesHistoricalPassageV1
-from application_state.cli import assert_at_head
+from application_state.cli import assert_at_head, assert_connection_at_head
 from application_state.config import load_runtime_dsn
 from application_state.errors import (
     ApplicationStateConflictError,
@@ -916,7 +916,6 @@ class AgentConversationService:
             raise ApplicationStateValidationError(
                 "submitted intent World/message must match the turn"
             )
-        dsn = _ready_dsn()
         now = _now()
         fingerprint = request_fingerprint(submission)
         stable_fingerprint = turn_idempotency_fingerprint(
@@ -1005,7 +1004,8 @@ class AgentConversationService:
                 )
             return turn
 
-        with unit_of_work(dsn) as conn:
+        with unit_of_work() as conn:
+            assert_connection_at_head(conn)
             from .work_plan import validate_bound_intent
             validate_bound_intent(conn, world_id, submitted_intent_v2, submission.idempotency_key)
             # Read the receipt before touching mutable pointer/CAS state. The
@@ -1343,10 +1343,10 @@ class AgentConversationService:
     ) -> TurnClaimReceipt:
         world_id = _world_id(world_id)
         _validate_turn_claim_lease(lease_seconds)
-        dsn = _ready_dsn()
         interrupted_after_dispatch = False
         interrupted_domain = "Graph"
-        with unit_of_work(dsn) as conn:
+        with unit_of_work() as conn:
+            assert_connection_at_head(conn)
             turn = repo.lock_turn(conn, world_id, turn_id)
             if isinstance(turn, MixedCompletedTurnV1):
                 if turn.envelope.conversation_id != conversation_id:
