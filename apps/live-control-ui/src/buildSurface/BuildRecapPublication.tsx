@@ -6,10 +6,34 @@ import {GraphReviewCommittedProjectionPanel} from '../planSurface/graphReviewWor
 import {GraphReviewLiveStateProvider} from '../planSurface/graphReviewWorkbench/GraphReviewLiveStateContext';
 import {exactRunBindingKey,type GraphReviewCommittedBinding} from '../planSurface/graphReviewWorkbench/graphReviewCommittedAuthority';
 
+import {NativeRecapPublication} from './NativeRecapPublication';
+import {readNativeRecovery,classicRecoveryKeys} from './nativeRecapPublicationRecovery';
 import {assertRecapPrepared, recapPublicationScope, readRecapPublicationRecovery, saveRecapPublicationRecovery, setAsideRecapPublication} from './buildRecapPublicationRecovery';
 
-/** Hosts existing Recap prepare/confirm/receipt owners without the Ingest workbench. */
-export function BuildRecapPublication({review,run,worldId,onBusy}:{review:ExactRunReviewPackage;run:ExtractionRunRecord;worldId:string;onBusy:(busy:boolean)=>void}){
+type PublicationProps={review:ExactRunReviewPackage;run:ExtractionRunRecord;worldId:string;onBusy:(busy:boolean)=>void};
+/** Select a protocol once per entry. Retained requests outrank fresh reads. */
+export function BuildRecapPublication(props:PublicationProps){
+  return <PublicationEntry key={recapPublicationScope(props.review,props.run,props.worldId)} {...props}/>;
+}
+function PublicationEntry(props:PublicationProps){
+  const [entry]=useState(()=>{
+    try{
+      const native=readNativeRecovery(props.worldId,props.run.run_id),keys=classicRecoveryKeys(props.worldId,props.run.run_id);
+      if(keys.length>1||native&&keys.length)throw new Error('Multiple Recap publication requests are retained. Recover the original request.');
+      if(keys.length){
+        const scope=recapPublicationScope(props.review,props.run,props.worldId);
+        const saved=readRecapPublicationRecovery(scope,props.run,props.review,props.worldId);
+        if(!saved)throw new Error('A classic Recap request for an earlier snapshot is retained. Reopen its original review; it will not be converted.');
+        return {classic:true,error:null};
+      }
+      return {classic:false,error:null};
+    }catch(e){return {classic:false,error:e instanceof Error?e.message:'Saved Recap request is unavailable.'};}
+  });
+  if(entry.error)return <p role="alert">{entry.error}</p>;
+  return entry.classic?<RetainedRecapPublication {...props}/>:<NativeRecapPublication {...props}/>;
+}
+/** Compatibility session only: public entry requires a validated retained packet. */
+export function RetainedRecapPublication({review,run,worldId,onBusy}:PublicationProps){
   const [epoch,setEpoch]=useState(0);
   return <RecapPublication key={recapPublicationScope(review,run,worldId)+epoch} onReset={()=>setEpoch(n=>n+1)} review={review} run={run} worldId={worldId} onBusy={onBusy}/>;
 }

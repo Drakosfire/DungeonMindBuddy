@@ -4,6 +4,9 @@ import * as extract from '../api/extractPromoteApi';
 import * as live from '../api/liveApi';
 import * as publication from '../api/worldbuildingPublicationApi';
 import * as nativePublication from '../api/nativeWorldbuildingPublicationApi';
+import * as nativeRecap from '../api/nativeRecapPublicationApi';
+import * as recapSource from '../api/nativeRecapSourceApi';
+import {webcrypto} from 'node:crypto';
 import type { ExactRunReviewPackage, WorkspaceDocumentRecord, ExtractionRunRecord } from '../api/types';
 import { BuildRunReview } from './BuildRunReview';
 const selection=vi.hoisted(()=>({kind:'managed',worldId:'world-a'}));
@@ -126,15 +129,32 @@ it('keeps original recovery when World changes during awaited child adoption',as
 });
 
 it('reviews a Recap against native World and frozen source session without Worldbuilding publication',async()=>{
-  const p=props();p.run={...run,source_domain:'recap',campaign_id:'longmont-c2',session_id:'session-30',lineage:{world_campaign_ingest_context:{managed_world_id:'world-a',native_world_id:'native-a'}}};
-  const recap={...review,sourceDomain:'recap',campaignId:'longmont-c2',sessionId:'session-30',worldId:'native-a'};
-  vi.mocked(extract.getExactRunReviewPackage).mockResolvedValue(recap);
-  render(<BuildRunReview {...p}/>);
-  expect(await screen.findByRole('button',{name:'Prepare changes for review'})).toBeEnabled();
-  expect(publication.prepareWorldbuilding).not.toHaveBeenCalled();expect(live.postManagedWorldGraphProjection).not.toHaveBeenCalled();
-  expect(screen.queryByLabelText('Canonical source prose')).not.toBeInTheDocument();
+  vi.stubGlobal('crypto',webcrypto);
+  try{
+    const sourceMarkdown='The keeper watches the gate.',sourceSha=await nativeRecap.sha256(sourceMarkdown);
+    const p=props();p.sourceContentSha256=sourceSha;
+    p.run={...run,source_domain:'recap',campaign_id:'longmont-c2',session_id:'session-30',lineage:{world_campaign_ingest_context:{managed_world_id:'world-a',native_world_id:'native-a'}}};
+    const recap={...review,sourceRevisionId:'sha256:'+sourceSha,sourceDomain:'recap',campaignId:'longmont-c2',sessionId:'session-30',worldId:'native-a'};
+    vi.mocked(extract.getExactRunReviewPackage).mockResolvedValue(recap);
+    const snapshot:nativeRecap.Snapshot={worldId:'world-a',nativeWorldId:'native-a',bindingVersion:1,runId:'run-a',runRevision:7,campaignId:'longmont-c2',sessionId:'session-30',artifactId:'source-a',sourceRevisionId:'00000000-0000-4000-8000-000000000001',sourceSha256:sourceSha,candidateSha256:candidate,spanIndexSha256:'e'.repeat(64),sourceMarkdown};
+    const sourceRead=vi.spyOn(nativeRecap,'loadRecapSnapshot').mockResolvedValue({snapshot,projection:{sourceSpans:[]} as Awaited<ReturnType<typeof nativeRecap.loadRecapSnapshot>>['projection'],source:{} as Awaited<ReturnType<typeof nativeRecap.loadRecapSnapshot>>['source']});
+    const context=vi.spyOn(nativeRecap,'readContext').mockRejectedValue(new live.LiveApiError('Exact source needs admission',409,{code:'candidate_source_not_admitted'}));
+    const admit=vi.spyOn(recapSource,'admitRecapSource').mockRejectedValue(new Error('Synthetic admission response lost'));
+    const prepare=vi.spyOn(nativeRecap,'prepareRecap'),confirm=vi.spyOn(nativeRecap,'confirmRecap');
+    render(<BuildRunReview {...p}/>);
+    const action=await screen.findByRole('button',{name:'Admit or recover exact Recap source'});
+    expect(sourceRead).toHaveBeenCalledExactlyOnceWith('world-a','longmont-c2','run-a',7,candidate,'source-a','sha256:'+sourceSha);
+    expect(context).toHaveBeenCalledExactlyOnceWith(snapshot);expect(admit).not.toHaveBeenCalled();
+    expect(extract.getExactRunReviewPackage).toHaveBeenCalledExactlyOnceWith('run-a');
+    expect(screen.getByText(/editor has newer changes/)).toHaveTextContent('Edge');
+    expect(publication.prepareWorldbuilding).not.toHaveBeenCalled();expect(live.postManagedWorldGraphProjection).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('Canonical source prose')).not.toBeInTheDocument();
+    expect(prepare).not.toHaveBeenCalled();expect(confirm).not.toHaveBeenCalled();
+    fireEvent.click(action);await screen.findByText('Synthetic admission response lost');
+    expect(admit).toHaveBeenCalledExactlyOnceWith(nativeRecap.targetFor(snapshot));
+    expect(prepare).not.toHaveBeenCalled();expect(confirm).not.toHaveBeenCalled();
+  }finally{vi.unstubAllGlobals();}
 });
-
 it('repairs Recap quotes through the Recap owner and retains the semantic hold for explicit review',async()=>{
   const p=props();p.run={...run,source_domain:'recap',profile_id:'recap_category_v1@1.0',campaign_id:'longmont-c2',session_id:'session-30',
     components:{...run.components,source_artifact:{kind:'source_artifact',uri:'source.md',exists:true,sha256:hash},

@@ -1495,3 +1495,84 @@ it("prepares and commits a hosted Build page containing saved artwork", async ()
     expect(new Headers(call[1]?.headers).has("Authorization")).toBe(false);
   }
 });
+
+
+const nativeRecapContextBody = {
+  managed_world_id: "managed-a", campaign_id: "campaign-a", session_id: "session-8", run_id: "run-a",
+  expected_run_revision: 2, candidate_sha256: "a".repeat(64), source_artifact_id: "source-a",
+  source_revision_id: "11111111-1111-4111-8111-111111111111", source_sha256: "b".repeat(64),
+};
+const nativeRecapExtensionBody = {
+  managed_world_id: "managed-a", extension_id: "extension-a", original_admission_id: "admission-a",
+  source_artifact_id: "native-source-a", source_revision_id: "native-revision-a",
+  expected_body_sha256: "b".repeat(64), expected_parent_revision_id: "rev:parent", expected_source_authority_epoch: 3,
+  created_at: "2026-11-19T20:00:00Z", spans: [{ client_ref: "witness-a", evidence_role: "support",
+    start_byte: 2, end_byte: 8, expected_slice_sha256: "c".repeat(64) }],
+};
+const nativeRecapPublicationRoutes = [
+  ["context", "/api/live/extract-promote/native-recap-context", nativeRecapContextBody],
+  ["evidence extension", "/api/live/source-statements/extend-evidence", nativeRecapExtensionBody],
+] as const;
+
+it.each(nativeRecapPublicationRoutes)("authenticates exact local native Recap %s without changing its body", async (_name, path, body) => {
+  const api = await setup(); api.setNativeGraphAccessToken("recap-local-token");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ fixture: true }));
+  await api.authenticatedApiFetch(path, { method: "POST", body: JSON.stringify(body) });
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch.mock.calls[0][0]).toBe(path);
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).get("Authorization")).toBe("Bearer recap-local-token");
+  expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toEqual(body);
+});
+
+it.each(nativeRecapPublicationRoutes)("uses only secure same-origin cookies for native Recap %s", async (_name, path, body) => {
+  const api = await setup(); api.setNativeGraphAccessToken("local-token"); hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ fixture: true }));
+  await api.authenticatedApiFetch(path, { method: "POST", body: JSON.stringify(body), credentials: "include", redirect: "follow",
+    headers: { Authorization: "Bearer injected", "X-DMB-Graph-CSRF": "injected", Cookie: "injected", "X-DMS-Subject": "forged" } });
+  expect(fetch).toHaveBeenCalledTimes(1);
+  const init = fetch.mock.calls[0][1];
+  expect(init).toMatchObject({ credentials: "same-origin", mode: "same-origin", redirect: "error", cache: "no-store" });
+  for (const name of ["Authorization", "X-DMB-Graph-CSRF", "Cookie", "X-DMS-Subject"]) expect(new Headers(init?.headers).has(name)).toBe(false);
+  expect(JSON.parse(String(init?.body))).toEqual(body);
+});
+
+it.each(nativeRecapPublicationRoutes)("blocks remote, lookalike, wrong-method and malformed native Recap %s requests", async (_name, path, body) => {
+  const api = await setup(); hostedOrigin(); const fetch = vi.spyOn(globalThis, "fetch");
+  for (const candidate of [path + "/", path + "-extra", path + "?world_id=foreign", path + "#fragment",
+    path.replace("native-recap-context", "%6eative-recap-context").replace("extend-evidence", "%65xtend-evidence"),
+    path.replace("/api/live/", "/api/live/./"), "https://buddy.example" + path, "//outside.invalid" + path]) {
+    await expect(api.authenticatedApiFetch(candidate, { method: "POST", body: JSON.stringify(body) })).rejects.toThrow();
+  }
+  await expect(api.authenticatedApiFetch(path, { method: "GET" })).rejects.toThrow();
+  await expect(api.authenticatedApiFetch(path, { method: "POST", body: "{}" })).rejects.toThrow();
+  await expect(api.authenticatedApiFetch(path, { method: "POST", body: JSON.stringify({ ...body, managed_world_id: " " }) })).rejects.toThrow();
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+it("renews a local session once for the exact read-only Recap context", async () => {
+  const api = await setup(); let boots = 0; const bodies: string[] = [];
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+    if (String(url) === "/api/live/agent/local-session") {
+      if (init?.method === "POST") return Response.json({ status: "active", csrf_token: `csrf-${++boots}` });
+      return new Response(null, { status: 401 });
+    }
+    bodies.push(String(init?.body));
+    return bodies.length === 1 ? Response.json({ detail: { code: "graph_auth_required" } }, { status: 401 }) : Response.json({ fixture: true });
+  });
+  await expect(api.authenticatedApiFetch(nativeRecapPublicationRoutes[0][1], {
+    method: "POST", body: JSON.stringify(nativeRecapContextBody),
+  })).resolves.toMatchObject({ response: { ok: true } });
+  expect(boots).toBe(2); expect(bodies).toEqual([JSON.stringify(nativeRecapContextBody), JSON.stringify(nativeRecapContextBody)]);
+});
+
+it("never automatically replays a local evidence-extension mutation after auth rejection or response loss", async () => {
+  const api = await setup(); api.setNativeGraphAccessToken("local-token");
+  const fetch = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ detail: { code: "graph_auth_required" } }, { status: 401 }))
+    .mockRejectedValueOnce(new TypeError("lost response"));
+  const init = { method: "POST", body: JSON.stringify(nativeRecapExtensionBody) };
+  expect((await api.authenticatedApiFetch(nativeRecapPublicationRoutes[1][1], init)).response.status).toBe(401);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  await expect(api.authenticatedApiFetch(nativeRecapPublicationRoutes[1][1], init)).rejects.toThrow("lost response");
+  expect(fetch).toHaveBeenCalledTimes(2);
+});

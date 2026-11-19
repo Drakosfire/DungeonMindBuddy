@@ -320,6 +320,34 @@ function isRecapSelectionContextPath(pathname: string): boolean {
   return /^\/api\/live\/extract-promote\/runs\/[^/]+\/selection-context$/.test(pathname);
 }
 
+function isNativeRecapContextBody(body: Record<string, unknown> | null): boolean {
+  if (!body) return false;
+  const nonblank = (value: unknown) => typeof value === "string" && Boolean(value.trim());
+  return [body.managed_world_id, body.campaign_id, body.run_id, body.source_artifact_id].every(nonblank)
+    && typeof body.session_id === "string" && /^session-[1-9]\d*$/.test(body.session_id)
+    && Number.isSafeInteger(body.expected_run_revision) && Number(body.expected_run_revision) > 0
+    && typeof body.source_revision_id === "string"
+    && /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(body.source_revision_id)
+    && [body.source_sha256, body.candidate_sha256].every(value => typeof value === "string" && /^[a-f0-9]{64}$/.test(value));
+}
+
+function isNativeEvidenceExtensionBody(body: Record<string, unknown> | null): boolean {
+  if (!body) return false;
+  const nonblank = (value: unknown) => typeof value === "string" && Boolean(value.trim());
+  return [body.managed_world_id, body.extension_id, body.original_admission_id,
+    body.source_artifact_id, body.source_revision_id, body.expected_parent_revision_id].every(nonblank)
+    && typeof body.expected_body_sha256 === "string" && /^[a-f0-9]{64}$/.test(body.expected_body_sha256)
+    && Number.isSafeInteger(body.expected_source_authority_epoch) && Number(body.expected_source_authority_epoch) > 0
+    && typeof body.created_at === "string" && Number.isFinite(Date.parse(body.created_at))
+    && /(?:Z|[+-]\d\d:\d\d)$/.test(body.created_at)
+    && Array.isArray(body.spans) && body.spans.length > 0
+    && body.spans.every(span => isRecord(span) && nonblank(span.client_ref)
+      && ["support", "contradiction", "context"].includes(String(span.evidence_role))
+      && Number.isSafeInteger(span.start_byte) && Number(span.start_byte) >= 0
+      && Number.isSafeInteger(span.end_byte) && Number(span.end_byte) > Number(span.start_byte)
+      && typeof span.expected_slice_sha256 === "string" && /^[a-f0-9]{64}$/.test(span.expected_slice_sha256));
+}
+
 function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | undefined): boolean {
   const pathname = path.split("?", 1)[0];
   if ([
@@ -367,7 +395,9 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/prepared-tables(?:\/receipts|\/commands\/[^/]+)?$/.test(pathname)) return true;
   if (pathname === "/api/live/recap-ingest" || pathname === "/api/live/recap-name-review" || isRecapSelectionContextPath(pathname)) return true;
   if (pathname === "/api/live/extract-promote/native-prepare" || pathname === "/api/live/extract-promote/native-confirm"
-      || pathname === "/api/live/extract-promote/native-worldbuilding-context") return true;
+      || pathname === "/api/live/extract-promote/native-worldbuilding-context"
+      || pathname === "/api/live/extract-promote/native-recap-context"
+      || pathname === "/api/live/source-statements/extend-evidence") return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/review(?:\/commands\/[^/]+)?$/.test(pathname)) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/content(?:\/revisions\/\d+|\/commands\/[^/]+|\/proposals(?:\/[^/]+)?)?$/.test(pathname)) return true;
   if (/^\/api\/live\/graph-preview\/build-recap-launches(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})?$/i.test(pathname)) return true;
@@ -478,6 +508,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const body = requestBodyRecord(init?.body);
     const plan = path.endsWith("/confirm") ? body?.plan : body;
     return method === "POST" && isRecord(plan) && typeof plan.runId === "string" && Boolean(plan.runId);
+  }
+  if (path === "/api/live/extract-promote/native-recap-context") {
+    return method === "POST" && isNativeRecapContextBody(requestBodyRecord(init?.body));
+  }
+  if (path === "/api/live/source-statements/extend-evidence") {
+    return method === "POST" && isNativeEvidenceExtensionBody(requestBodyRecord(init?.body));
   }
   if (path === "/api/live/extract-promote/native-worldbuilding-context") {
     const body = requestBodyRecord(init?.body);
@@ -1210,6 +1246,8 @@ function apiRequestTarget(
   let normalizedPath = path;
   try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
   const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
+    || normalizedPath.startsWith("/api/live/extract-promote/native-recap-context")
+    || normalizedPath.startsWith("/api/live/source-statements/extend-evidence")
     || normalizedPath === "/api/live/workspace-documents/world-runbooks"
     || /^\/api\/live\/workspace-documents\/world-runbooks\/[^/]+(?:\/snapshot|\/committed-revision(?:\/[^/]+)?)?$/.test(normalizedPath)
     || /^\/api\/live\/workspace-documents\/world-runbooks\/[^/]+\/tiptap\/(?:prepare|commit)$/.test(normalizedPath)
@@ -1444,6 +1482,9 @@ function canRetryLocalSessionRequest(path: string, init?: RequestInit): boolean 
   if (pathname === "/api/live/agent/turn") {
     return typeof body?.client_thread_id === "string" && Boolean(body.client_thread_id)
       && typeof body.turn_id === "string" && Boolean(body.turn_id);
+  }
+  if (path === "/api/live/extract-promote/native-recap-context") {
+    return isNativeRecapContextBody(body);
   }
   return isRecapSelectionContextPath(pathname)
     || pathname === "/api/live/recap-name-review"
