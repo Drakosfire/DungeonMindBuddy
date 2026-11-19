@@ -415,3 +415,51 @@ def test_recap_planning_ranges_use_full_body_before_clipping(lane):
     assert selected.text == "### Next scene\r\nThe party returns.\r\n"
     historical = selected.model_dump(mode="json", exclude={"planning_ranges"})
     assert NativeCorpusExcerptV1.model_validate(historical).model_dump(mode="json") == historical
+
+
+def test_turn_source_preparation_reuses_only_immutable_revision(lane, monkeypatch):
+    from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import open_native_corpus_member
+    from apps.live_control_server.services import plan_source_turn
+
+    receipt = admit(lane)
+    monkeypatch.setattr(plan_source_turn, "turn_source_repository", lambda: lane.repo)
+    monkeypatch.setattr(plan_source_turn, "turn_parsed_revision_cache", NativeParsedRevisionCache())
+    revision_reads = []
+    load = lane.repo.get_revision
+
+    def read_revision(space, revision):
+        revision_reads.append((space, revision))
+        return load(space, revision)
+
+    monkeypatch.setattr(lane.repo, "get_revision", read_revision)
+    resolve = lambda _: lane.bound
+    previous_principal = SimpleNamespace(role="gm", managed_world_id="managed")
+    current_principal = SimpleNamespace(role="gm", managed_world_id="managed")
+    first, _ = plan_source_turn.prepare("managed", previous_principal, resolve_identity=resolve)
+    second, _ = plan_source_turn.prepare("managed", current_principal, resolve_identity=resolve)
+    assert first.access.parsed is second.access.parsed
+    assert first.access.source_view is not second.access.source_view
+    assert first.principal is previous_principal
+    assert second.principal is current_principal
+    assert revision_reads == [(lane.bound.native_world_id, first.authority.revision_id)] * 2
+
+    evidence_id = receipt.bindings[0].evidence_ref_id
+    assert open_native_corpus_member(second, evidence_id) is not None
+    lane.repo.withdraw_native_source(space_id=lane.bound.native_world_id,
+        source_artifact_id=receipt.source_artifact_id, source_revision_id=receipt.source_revision_id)
+    withdrawn, _ = plan_source_turn.prepare("managed", current_principal, resolve_identity=resolve)
+    assert withdrawn.authority.revision_id == second.authority.revision_id
+    assert withdrawn.access.parsed is second.access.parsed
+    assert withdrawn.authority.acquisition_epoch > second.authority.acquisition_epoch
+    assert open_native_corpus_member(withdrawn, evidence_id) is None
+
+    admit(lane, "second")
+    latest, _ = plan_source_turn.prepare("managed", current_principal, resolve_identity=resolve)
+    assert latest.authority.revision_id != first.authority.revision_id
+    assert latest.access.parsed is not first.access.parsed
+    assert latest.authority.acquisition_epoch >= second.authority.acquisition_epoch
+
+    with pytest.raises(ValueError, match="principal World"):
+        plan_source_turn.prepare("managed", SimpleNamespace(role="gm", managed_world_id="foreign"),
+                                 resolve_identity=resolve)
