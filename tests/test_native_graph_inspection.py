@@ -1920,3 +1920,37 @@ def test_non_native_historical_payload_is_not_decoded_on_current_route(inspectio
     response = x.client.post("/api/live/world-graph/retrieval/object", json=_default_retrieval_requests(x)["object"])
     assert response.status_code == 500, response.text
     assert response.json()["code"] != "retrieval_internal_error"
+
+
+@pytest.mark.parametrize("failure", ["binding", "head", "integrity", "unavailable"])
+def test_current_complete_object_preserves_native_failure_envelope_without_classic_fallback(
+    inspection, monkeypatch, failure,
+):
+    from apps.live_control_server.routes.world_graph_retrieval import router as product_router
+    from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
+    from dungeonmind.domain.errors import PersistenceIntegrityError, PersistenceUnavailableError
+
+    x = inspection
+    _retired_classic_tripwires(monkeypatch)
+    x.app.include_router(product_router)
+    if failure == "binding":
+        def missing(_):
+            raise WorldGraphProjectionServiceError("missing", code="native_graph_binding_missing", status_code=409)
+        monkeypatch.setattr(service.native, "binding", missing)
+        code = "native_graph_binding_missing"
+    elif failure == "head":
+        monkeypatch.setattr(x.lane.repo, "get_head", lambda _: None)
+        code = "native_inspection_head_unavailable"
+    else:
+        error = PersistenceIntegrityError if failure == "integrity" else PersistenceUnavailableError
+        def broken_repository(**_):
+            raise error("private internal diagnostic")
+        monkeypatch.setattr(service.native, "read_repository", broken_repository)
+        code = "persistence_integrity_error" if failure == "integrity" else "persistence_unavailable"
+    response = x.client.post("/api/live/world-graph/retrieval/complete-object",
+                             json=_default_retrieval_requests(x)["complete-object"])
+    # The existing native complete-object wrapper has a detail envelope and409
+    # for these failures. Retirement must not silently change that contract.
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"]["code"] == code
+    assert "outcome" not in response.json() and "private internal diagnostic" not in response.text
