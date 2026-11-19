@@ -68,6 +68,23 @@ admission. B2 must establish and seal those facts at their owning boundaries.
   Wire the actual ordinary first-World UI to the native protocol and preserve
   retained exact-request recovery. Do not modify shared `src/api/types.ts` or
   `src/api/extractPromoteApi.ts`.
+- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.tsx`:
+  **section split only** for mounting a dedicated saved-first-World recovery
+  affordance independently of mutable exact-review readiness, with a local import
+  if needed. Clamp it to the currently selected managed World and run, preserve
+  `sourceReviewOnly` restrictions, and do not change general navigation, agent,
+  correction or other publication behavior. The current publication component
+  is gated on ready `exactReview`, so a missing/error review package must not
+  prevent recovery of an already-submitted exact native plan.
+- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorldbuildingPublication.tsx`:
+  **section split only** for first-World saved-entry selection/wiring; source
+  revision changes must not hide a submitted recovery. Leave normal subsequent
+  Worldbuilding, native and recap publication behavior untouched. The recovery-
+  only panel may be exported from the already allocated first-World sheet or a
+  dedicated first-World component; it must not require today's candidate review.
+  Use existing `firstWorldPublicationContinuity.test.tsx` and existing sheet/
+  recovery tests for mounted reachability; do not allocate the shared
+  `GraphReviewWorkbenchModule.test.tsx`.
 - Owning tests: `tests/test_database_first_world_publication.py` for first-World
   HTTP, hosted authorization, lifecycle and SQL witnesses, and
   `tests/test_reviewed_native_graph_activation.py` for native APP activation.
@@ -89,12 +106,16 @@ reviewed-location binding class in `models/extract_promote.py`; #3824 head
 `76c31187` edits hosted-auth/shared router, other hosted access sections and
 `integrations/dungeonmind/native_world_source_admission.py`; its inspected
 hosted-access diff has no first-World resolver hunk. #3824 and #3808 share
-`tests/test_hosted_native_graph_access.py`, which B2 does not allocate. #2090 head
+`tests/test_hosted_native_graph_access.py`, which B2 does not allocate. #3824
+also edits both UI parent components, #1235 edits the Workbench component and
+#2405 edits its shared test; the explicit split above is only the first-World
+recovery affordance/selection sections and existing first-World tests. It does
+not transfer those lanes' other sections or the shared Workbench test. #2090 head
 `19355258` edits ingest-selection handling in the same router. #4057, #2087
 and #1235 touch shared frontend API/types, and #1235 has an explicit partial
 lease withdrawal recorded in its own PR. B2 avoids those shared model, client
-and admission-integration files, and the router and hosted-resolver splits are only the first-World handlers and
-function described above. Recheck #4050, #3531, #1163, #1148 and any new work.
+and admission-integration files. The router, hosted resolver and UI parent
+splits cover only the first-World sections described above. Recheck #4050, #3531, #1163, #1148 and any new work.
 If exact section isolation or safe composition is not possible, stop that edit
 and obtain an explicit transfer/split or owning-boundary prerequisite; do not
 infer that historical ACTIVE leases expired or rely on Git conflicts as consent.
@@ -135,7 +156,12 @@ infer that historical ACTIVE leases expired or rely on Git conflicts as consent.
    If it exists, verify its request/payload, source association, World,
    reservation, profile, parent and ancestry against the sealed plan, then
    recover the same result and perform only the separately verified idempotent
-   APP activation. Do not leak receipt existence across authorization scopes.
+   APP activation. For recovery read retained source-admission and evidence-
+   extension receipts plus immutable source metadata, origin associations and
+   proofs; do not replay the extension or call the source owner's
+   `_verify_receipt_and_source`, because those paths check current availability.
+   Keep ordinary source-access authorization and withdrawal denial intact. Do
+   not leak receipt existence across authorization scopes.
 5. For a genuinely not-yet-applied plan, revalidate the exact source revision,
    live authorization, reservation, pins and expected state. Admit the source
    through the existing owner only at confirmation, obtain and verify the actual
@@ -145,12 +171,23 @@ infer that historical ACTIVE leases expired or rely on Git conflicts as consent.
    native readback and ancestry before activating APP. Source admission, native
    Graph publication and APP reservation are distinct durable outcomes: expose
    recoverable partial/unknown states truthfully and replay only the exact sealed
-   operation. No automatic reprepare, head refresh, source substitution, ID
-   prediction or changed timestamps on retry.
+   operation. Core's prospective-alias publication has parent CAS but no atomic
+   source-epoch precondition: a withdrawal racing after extension can leave the
+   Graph committed while source evidence is unavailable. Report and recover the
+   actual durable outcome truthfully, and preserve normal source-access denial;
+   do not promise zero commit, fabricate availability, or require a new Core
+   prerequisite for this slice. No automatic reprepare, head refresh, source
+   substitution, ID prediction or changed timestamps on retry.
 6. Reject obsolete/unsubmitted plans explicitly while preserving recovery for
    potentially submitted operations. The UI must preserve the exact versioned
    request across interruption and distinguish not-invoked, unknown, committed,
-   recovered and activation-pending outcomes. Do not make a stale plan current
+   recovered and activation-pending outcomes. Recovery discovery must not be
+   keyed solely by today's source revision or validated against today's mutable
+   candidate list: provide a bounded saved-entry lookup scoped to the selected
+   managed World and run, followed by signed-plan/server authorization. It must
+   remain reachable when the current review package is missing, errors or has a
+   different source revision, without exposing other Worlds or bypassing
+   `sourceReviewOnly`. Do not make a stale plan current
    by silently rebuilding it; protect existing historical recovery records.
 
 ## Required verification and completion limits
@@ -163,7 +200,13 @@ wrong source, scope, principal, reservation, profile, parent and stale plan
 fail closed; hosted middleware accepts only a valid signed native plan and current
 World owner before receipt disclosure, rejects forged/unsigned World claims and
 query selectors, and recovers after the mutable run disappears or changes;
-legacy recovery requires its verified historical receipt and exact reservation; needed and unnecessary profile transitions; source/Graph/APP
+legacy recovery requires its verified historical receipt and exact reservation;
+mounted recovery remains reachable with missing/error/changed current review,
+rejects a wrong World/run and honors `sourceReviewOnly`; a withdrawal between
+extension and publication reports the actual durable commit or unknown outcome
+and keeps ordinary evidence reads denied; receipt recovery uses retained
+immutable proofs without extension replay/current-availability checks;
+needed and unnecessary profile transitions; source/Graph/APP
 partial failures, lost responses, exact receipt-first recovery after mutable
 candidate/source changes, idempotent retries, ancestry and reservation
 races; no classic initialization/dual write; unchanged classic historical
