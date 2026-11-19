@@ -1,6 +1,16 @@
 # CLEANUP: retire the orphaned blank runtime and preserve landing navigation
 
-Status: ACTIVE under the user-authorized cleanup goal, including review and merge.
+Status: SETTLED by #4091, merged ef2a3e5e50ab2dd4077230589767b2629e9d46ec.
+Reviewed head: 51f602d4701cb171a9760bfa746e67efc325c5a9.
+Independent exact-head source/raw-evidence review approved the bounded runtime
+removal and semantic retirements. Local hosted suite: 1411 passes, build and
+validator passed. Full diagnostic: 8042 passed, 135 failed, 2 pending; exactly two
+sole-subject unit cases retired and one old/new workflow paired, with no other
+additions/omissions, new failures or changed remaining leading messages. All 116
+neutral-core cases passed. Exact-state stale-document probe failed as intended.
+The CI-owned test relocation below remains BLOCKED, not completed or dispatched.
+Full qualification remains red with conditional inventory extras and the earlier
+unresolved quote-correction observation.
 Base: 5574068634341c57235800b77f7278bf0c6c08ad.
 Branch: codex/demolish-blank-runtime, existing cleanup checkout.
 Topology: serial after merged #4090; no unmerged behavioral dependency for this
