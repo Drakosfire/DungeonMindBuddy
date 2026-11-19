@@ -605,8 +605,11 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", `/plan?world=eldyrwild&documentId=${planId}`);
     const { unmount: unmountPlan } = render(<App />);
 
-    expect(await screen.findByLabelText("Markdown plan")).toBeInTheDocument();
-    expect(screen.getByLabelText("Markdown plan")).toHaveTextContent("A quiet gate.");
+    await waitFor(() => {
+      const editor = screen.getByLabelText("Markdown plan");
+      expect(editor).toBeInTheDocument();
+      expect(editor).toHaveTextContent("A quiet gate.");
+    });
     expect(planSnapshot).toHaveBeenCalledWith(planId);
     expect(context).toHaveBeenCalledWith("eldyrwild");
     expect(plans).toHaveBeenCalledWith("eldyrwild");
