@@ -250,6 +250,7 @@ describe("App same-document primary navigation", () => {
       window.history.pushState({}, "", "/surface");
       render(<App />);
       expect(await screen.findByRole("button", { name: "Tools" })).toBeInTheDocument();
+      expect(await screen.findByRole("textbox", { name: "Live query" })).toBeEnabled();
       expect(surface).toHaveBeenCalledTimes(1);
 
       const launcher = within(commandBoardNav()).getByRole("link", { name: "Plan" });
