@@ -6,6 +6,7 @@ automatic adoption or native source/publication authority is provided here.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from typing import Literal
 from uuid import UUID, uuid4
@@ -354,6 +355,7 @@ def update_page(
     title: str | None = None,
     metadata: PageMetadata | None = None,
     status: Literal["active", "discarded"] | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> PageState:
     with unit_of_work(_dsn()) as conn:
         state = _state(conn, document_id, world_id, lock=True)
@@ -362,6 +364,8 @@ def update_page(
             or state.page.object_revision != expected_revision
         ):
             raise ApplicationStateConflictError("authored page changed")
+        if authorize_world is not None:
+            authorize_world(state.page.world_id)
         updated_meta = (
             state.metadata
             if metadata is None

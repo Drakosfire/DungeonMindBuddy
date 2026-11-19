@@ -739,6 +739,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (method === "GET" && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\/(?:revisions\/[1-9][0-9]*|commands\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\?world_id=[a-z0-9][a-z0-9_-]{0,62}$/.test(path)) {
     return init?.body == null;
   }
+  const workspaceLifecycle = /^\/api\/live\/world-workspace\/(?:documents|sessions)\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/(?:trash|restore)\?([^#]+)$/i.exec(path);
+  if (workspaceLifecycle) {
+    const query = new URLSearchParams(workspaceLifecycle[1]);
+    return method === "POST" && query.size === 1 && Boolean(query.get("world_id"))
+      && requestBodyRecord(init?.body) !== null;
+  }
   const trashInventory = "/api/live/world-workspace/trash?";
   if (path.startsWith(trashInventory)) {
     const worldId = new URLSearchParams(path.slice(trashInventory.length)).get("world_id");

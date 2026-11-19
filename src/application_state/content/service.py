@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from datetime import datetime
 from typing import Literal
 from uuid import UUID, uuid4
@@ -347,6 +348,7 @@ def _update_metadata(
     expected_revision: int | None = None,
     status: str | None = None,
     target_session_set: bool = False,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkObject:
     work_object_id = _require_uuid(document_id)
     dsn = load_runtime_dsn()
@@ -362,6 +364,8 @@ def _update_metadata(
             raise ApplicationStateConflictError(
                 f"revision mismatch: expected {expected_revision}, current {obj.object_revision}"
             )
+        if authorize_world is not None:
+            authorize_world(obj.world_id)
         expected = obj.object_revision
         updates: dict = {"updated_at": repo.now_utc(), "object_revision": expected + 1}
         if title is not None:
@@ -391,6 +395,7 @@ def update_plan_metadata(
     expected_revision: int | None = None,
     status: str | None = None,
     target_session_set: bool = False,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkObject:
     return _update_metadata(
         document_id,
@@ -400,6 +405,7 @@ def update_plan_metadata(
         expected_revision=expected_revision,
         status=status,
         target_session_set=target_session_set,
+        authorize_world=authorize_world,
     )
 
 
@@ -910,6 +916,7 @@ def update_runbook_metadata(
     expected_revision: int | None = None,
     status: str | None = None,
     target_session_set: bool = False,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkObject:
     return _update_metadata(
         document_id,
@@ -919,4 +926,5 @@ def update_runbook_metadata(
         expected_revision=expected_revision,
         status=status,
         target_session_set=target_session_set,
+        authorize_world=authorize_world,
     )

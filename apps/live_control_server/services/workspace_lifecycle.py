@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+
+from fastapi import HTTPException
 
 from application_state.errors import ApplicationStateError
 from apps.live_control_server.services.world_container_registry import (
@@ -90,6 +93,7 @@ def set_world_document_trash(
     document_id: str,
     expected_revision: int,
     restore: bool,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> dict[str, Any]:
     world = _verify_world(root, world_id)
     record = get_workspace_document(root, document_id)
@@ -114,7 +118,9 @@ def set_world_document_trash(
     wanted = "active" if restore else "discarded"
     if record.status != wanted:
         mutate = restore_workspace_document if restore else discard_workspace_document
-        record = mutate(root, document_id, expected_revision=expected_revision)
+        record = mutate(
+            root, document_id, expected_revision=expected_revision, authorize_world=authorize_world,
+        )
     return _document_item(record, status="active" if restore else "trashed")
 
 
@@ -125,6 +131,7 @@ def set_world_session_trash(
     expected_revision: int,
     expected_content_revision: int,
     restore: bool,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> dict[str, Any]:
     from uuid import UUID
     from application_state.play.lifecycle import set_world_play_session_trash
@@ -136,9 +143,10 @@ def set_world_session_trash(
             expected_revision=expected_revision,
             expected_content_revision=expected_content_revision,
             restore=restore,
+            authorize_world=authorize_world,
         )
     except Exception as exc:
-        if isinstance(exc, WorkspaceDocumentRegistryError):
+        if isinstance(exc, (HTTPException, WorkspaceDocumentRegistryError)):
             raise
         if isinstance(exc, ApplicationStateError):
             raise WorkspaceDocumentRegistryError(
