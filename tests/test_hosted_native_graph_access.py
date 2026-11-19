@@ -504,6 +504,7 @@ def hosted(monkeypatch, request):
 
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/name"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/retry-attempts"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/discussion-retry-input"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/retry-context"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
             ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
@@ -5669,3 +5670,38 @@ def test_hosted_image_library_reads_only_selected_world_owner(hosted, monkeypatc
     assert response.json() == {"items": []}
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with("hosted_world:managed", before=None)
+
+
+def test_hosted_discussion_retry_read_binds_world_and_revision(hosted, monkeypatch):
+    from application_state.agent_conversation import retry
+
+    calls = []
+
+    def read(world, conversation, turn, revision):
+        calls.append((world, str(conversation), str(turn), revision))
+        return {"state": "retained"}
+
+    monkeypatch.setattr(retry, "read_discussion_retry_input", read)
+    conversation = "00000000-0000-4000-8000-000000000001"
+    turn = "00000000-0000-4000-8000-000000000002"
+    path = f"/api/live/agent/worlds/managed/conversations/{conversation}/turns/{turn}/discussion-retry-input?revision=3"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path.replace("/managed/", "/foreign/")).status_code == 403
+    assert hosted.client.request("GET", path + "&revision=4").status_code == 422
+    assert calls == []
+    result = hosted.client.request("GET", path)
+    assert result.status_code == 200, result.text
+    assert calls == [("managed", conversation, turn, 3)]
+
+    assert result.headers["cache-control"] == "no-store"
+
+    def transfer_during_read(*_args):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"input": "withheld retry input"}
+
+    monkeypatch.setattr(retry, "read_discussion_retry_input", transfer_during_read)
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 403, denied.text
+    assert "withheld retry input" not in denied.text
