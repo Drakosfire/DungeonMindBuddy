@@ -35,13 +35,14 @@ export function assertRecapPrepared(prepared: ExtractPromotePrepareResponse, run
   const membership=effect?.world_campaign_ingest_context;
   // Registry components are repo-relative (optionally repo://); prepare seals
   // their resolved absolute locator. Match the full relative path at its boundary.
-  const relative=run.components?.candidate_graph?.uri?.replace(/^repo:\/\//,'');
+  const candidateUri=run.components?.candidate_graph?.uri;
+  const relative=candidateUri?.replace(/^repo:\/\//,'');
   const segments=relative?.split('/').filter(segment=>segment!=='.');
   const candidatePath=segments?.join('/');
   const binding=effect?.extraction_run;
   const candidateDigest=run.components?.candidate_graph?.sha256?.replace(/^sha256:/,'').toLowerCase();
   const candidateMatches=relative?.startsWith('urn:')
-    ? relative===`urn:dmb:ingest-output:${run.run_id}:candidate_graph`
+    ? candidateUri===`urn:dmb:ingest-output:${run.run_id}:candidate_graph`
       && admission?.candidate_locator===null
       && typeof run.revision==="number" && Number.isSafeInteger(run.revision) && run.revision>0
       && binding?.run_id===run.run_id && binding.run_revision===run.revision
