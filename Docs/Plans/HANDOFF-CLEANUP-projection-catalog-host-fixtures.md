@@ -1,6 +1,15 @@
 # CLEANUP: mount current presentation in catalog integration fixtures
 
-Status: ACTIVE under the user-authorized cleanup goal, including review and merge.
+Status: SETTLED by #4084, merged 0f19b5acb888632cac2ff52f4e878842164c6ca3.
+Reviewed head: 7a1e9355d05198f52507bea023cf1e22ac15400f.
+Actual merge parent: f526026f89da4251dcdfd1d1e311536db2e99564, after backend-only
+#4083; frontend/verifier/contracts remained byte-identical to the base below.
+Independent exact-head source/raw-evidence review approved. Hosted 1411 tests,
+build and evidence validation passed. Full discovered diagnostic: 8036 passed,
+143 failed, 2 pending. All 15 catalog cases passed; exactly three intended failures
+resolved with no added/omitted cases, new failures or changed remaining leading
+failure messages. Full qualification remains red, with the same two conditional
+inventory extras and the earlier unresolved quote-correction observation (#4074).
 Base: a5060c55611e30bdd950f3be44d3afed7ee67f0b.
 Branch: codex/projection-catalog-host-fixtures in the existing cleanup checkout.
 Topology: serial after merged #4082; no unmerged behavioral dependency.

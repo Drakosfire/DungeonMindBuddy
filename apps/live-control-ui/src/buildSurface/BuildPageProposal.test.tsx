@@ -390,7 +390,10 @@ it('shows a proposal outside a hidden table-title heading without changing its s
  // Named-table presentation hides the source heading. Its review must be a sibling,
  // not a descendant that inherits that hidden state.
  expect(proposal.parentElement).toBe(editor.view.dom);
- expect(editor.view.dom.querySelector(':scope > h2')).toHaveTextContent('Quarry Households');
+ const sourceHeading=editor.view.nodeDOM(0);
+ expect(sourceHeading).toHaveProperty('tagName','H2');
+ expect(sourceHeading?.parentNode).toBe(editor.view.dom);
+ expect(sourceHeading).toHaveTextContent('Quarry Households');
  expect(editor.getJSON()).toEqual(before);
  fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
  await waitFor(()=>expect(saved.state).toBe('applied'));
@@ -418,15 +421,18 @@ it('acknowledges the same saved result after spacer recovery without another ins
  const sourceRecord=fixtureWorkspaceDocumentRecord({document_id:'doc',world_id:'world',kind:'worldbuilding_source',revision:2,content_status:'committed'});
  const snapshot={schema_version:'dmb_workspace_document_snapshot_v1' as const,record:sourceRecord,markdown:body,content_sha256:await digest(body),file_fingerprint:'saved-file',file_exists:true,loaded_revision:2};
  const saveMarkdown=vi.fn();const owner={documentId:'doc',editor,snapshot,saveMarkdown};
- const sourceRead=vi.spyOn(api,'getWorkspaceDocumentSnapshot').mockResolvedValue(snapshot);
+ const sourceRead=vi.spyOn(api,'getCommittedPageSnapshot').mockResolvedValue(snapshot);
+ const workingCopyRead=vi.spyOn(api,'getWorkspaceDocumentSnapshot').mockRejectedValue(new Error('Recovery must verify the committed page.'));
+ try{
  persist.mockImplementation((basis,afterEditor,afterDraft,projection)=>saveBuildProposal(()=>owner,basis,afterEditor,afterDraft,projection));
  const currentJson=editor.getJSON(),docChanges=vi.fn();editor.on('transaction',({transaction})=>{if(transaction.docChanged)docChanges();});
  fireEvent.click(screen.getByRole('button',{name:'Check insertion'}));
  await waitFor(()=>expect(saved.state).toBe('applied'));
  expect(saveMarkdown).not.toHaveBeenCalled();expect(apply).toHaveBeenCalledTimes(1);expect(sourceRead).toHaveBeenCalledTimes(1);
+ expect(sourceRead).toHaveBeenCalledWith('doc');expect(workingCopyRead).not.toHaveBeenCalled();
  expect(docChanges).not.toHaveBeenCalled();expect(editor.getJSON()).toEqual(currentJson);expect(saved.apply).toEqual(originalReceipt);
  expect(editor.getText().match(/A proposed custom/g)).toHaveLength(1);expect(complete).toHaveBeenCalledWith('applied');
- sourceRead.mockRestore();
+ }finally{sourceRead.mockRestore();workingCopyRead.mockRestore();}
 });
 
 
