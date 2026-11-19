@@ -569,10 +569,7 @@ def test_scoped_play_search_persists_native_source_extension(acquired, monkeypat
         from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
 
         f.adapter.context_capture = ContextTraceCollector(f.adapter.fence)
-    # Isolate capture persistence from the existing Play retained-source lookup,
-    # which currently asks capability_bases() for a Plan-only receipt.
-    read_source = f.adapter._broker_fresh_source_read if capture else f.adapter.broker_source_read
-    response = read_source({
+    response = f.adapter.broker_source_read({
         "toolName": "read_graph_source",
         "arguments": {"retrievalSessionId": f.session.id, "anchorIds": [f.pin.anchor_id], "maxChars": 1000},
     })
@@ -677,3 +674,39 @@ def test_native_and_historical_admitted_anchor_batch_refused_before_io(acquired,
     assert f.calls == []
     turn = f.adapter.fence.turn
     assert AgentConversationService().inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id).graph_context_execution == before
+
+
+@pytest.mark.parametrize("acquired", ["native_search"], indirect=True)
+def test_captured_play_same_turn_original_read_keeps_existing_fresh_read_behavior(acquired, monkeypatch):
+    from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
+
+    f = _admit_native_search_anchor(acquired, monkeypatch)
+    _selector_after_admission(monkeypatch, "unset")
+    from graph_memory.interaction import expansion_executor
+    source = expansion_executor.execute_read_graph_source
+    def distinct_reads(*args, **kwargs):
+        packet = source(*args, **kwargs)
+        # The real executor creates a fresh ID per read; the shared synthetic
+        # single-read fixture deliberately uses a constant ID.
+        for read in packet["reads"]:
+            read_id = "synthetic-repeat:" + uuid4().hex
+            read["sourceReadId"] = read_id
+            read["receipt"]["source_read_id"] = read_id
+        return packet
+    monkeypatch.setattr(expansion_executor, "execute_read_graph_source", distinct_reads)
+    f.adapter.context_capture = ContextTraceCollector(f.adapter.fence)
+    for _ in range(2):
+        reply = f.adapter.broker_source_read(_source_request(f))
+        assert json.loads(reply["resultJson"]).get("content") == f.text, reply
+    execution = f.adapter.fence.turn.graph_context_execution
+    reads = [event for event in execution.events if isinstance(event, t.ValidatedSourceReadEventV2)]
+    assert len(reads) == 2
+    assert reads[0].read_call_id != reads[1].read_call_id
+    assert f.calls == ["source", "source"]
+    assert not any(isinstance(event, t.SourcePassageReuseEventV1) for event in execution.events)
+    assert t.source_read_character_usage(execution.policy, execution.events) == 2 * len(f.text)
+    turn = f.adapter.fence.turn
+    reopened = AgentConversationService().inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert reopened.graph_context_execution == execution
+    trace, = f.service.list_context_trace_attempts(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert len([passage for passage in trace.observations if passage.kind == "source_passage"]) == 2

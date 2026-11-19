@@ -20,6 +20,13 @@ from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
 from tests.test_surface_source_answers import stage, answer as source_answer
 from tests.test_plan_jev_writer import WriterWire
 from tests.test_plan_jev_driver import Decisions, fixture_reads
+from tests import test_native_play_source_acquisition as play_acquisition
+from tests.test_native_play_source_acquisition import (
+    _admit_native_search_anchor, _source_request, _selector_after_admission,
+)
+
+
+acquired = play_acquisition.acquired
 
 
 def answer(writer):
@@ -416,3 +423,311 @@ def test_repeated_reuse_with_smaller_bound_delegates_to_bounded_reader(plan_adap
         assert second.fence.turn.graph_context_execution == before
     finally:
         second.fence.stop()
+
+
+
+def _play_acknowledge(f, provider):
+    for outcome in ("sdk_entered", "response_received"):
+        turn = f.adapter.fence.turn
+        updated, _ = f.service.record_provider_outcome(
+            turn.world_id, turn.conversation_id, turn.turn_id,
+            expected_revision=turn.revision, expected_attempt=turn.attempt,
+            outcome=t.ProviderOutcomeEventV1(kind="provider_outcome", event_id=uuid4(),
+                sequence=len(turn.graph_context_execution.events),
+                provider_attempt_id=provider.provider_attempt_id, outcome=outcome),
+        )
+        f.adapter.fence.renewer.update_turn(updated)
+
+
+def _complete_captured_play(f, response):
+    """Actual Play input/output/APP owners; only model response and corpus are fake."""
+    from hashlib import sha256
+    from tests.test_play_graph_authority import native_provider
+    from tests.application_state.test_native_play_input_postgres import append
+    from tests.application_state.test_plan_jev_decision_admission import rules_scope
+    from application_state.agent_conversation.native_rules_output import (
+        NativeRulesOutputProofV1, normalize_unused_native_output,
+    )
+    from application_state.agent_conversation.rules_authority_events import (
+        RulesProviderAuthorizedV1, RulesProviderIncludedV1, RulesNativeProviderOutcomeV1,
+    )
+    body = json.loads(f.raw)
+    body["messages"].extend([
+        {"role": "assistant", "tool_calls": [{"id": "captured-read", "type": "function",
+            "function": {"name": "read_graph_source", "arguments": json.dumps(_source_request(f)["arguments"])}}]},
+        {"role": "tool", "tool_call_id": "captured-read", "content": response["resultJson"]},
+    ])
+    raw = json.dumps(body)
+    turn = f.adapter.fence.turn
+    source = turn.graph_context_execution.events[-1]
+    assert isinstance(source, (t.ValidatedSourceReadEventV2, t.SourcePassageReuseEventV1))
+    reused = isinstance(source, t.SourcePassageReuseEventV1)
+    provider = native_provider(len(turn.graph_context_execution.events) + 1).model_copy(update={
+        "envelope_sha256": sha256(raw.encode()).hexdigest(), "api_mode": "chat_completions",
+        "included_source_read_event_ids": [] if reused else [source.event_id],
+        "included_evidence_ref_ids": [],
+    })
+    if reused:
+        provider = t.ProviderAttemptAuthorizedEventV4.model_validate({
+            **provider.model_dump(mode="python"), "kind": "provider_attempt_authorized_v4",
+            "included_source_reuse_event_ids": [source.event_id],
+        })
+    turn, _ = append(f.service, f.sub, turn, provider, raw)
+    f.adapter.fence.renewer.update_turn(turn)
+    scope = rules_scope(SimpleNamespace(turn=turn))
+    ledger = f.service.begin_rules_execution(scope, expected_turn_revision=turn.revision)
+    for cls, kind in ((RulesProviderAuthorizedV1, "provider_authorized"),
+                      (RulesProviderIncludedV1, "provider_included")):
+        fields = dict(kind=kind, event_id=uuid4(), sequence=len(ledger.execution.events),
+            execution_id=scope.execution_id, provider_attempt_id=provider.provider_attempt_id,
+            request_envelope_sha256=provider.envelope_sha256, matched_outputs=())
+        fields["declared_support_refs" if cls is RulesProviderAuthorizedV1 else "support_refs"] = ()
+        ledger = f.service.append_rules_provider_event(scope,
+            expected_turn_revision=turn.revision, expected_ledger_revision=ledger.revision,
+            event=cls(**fields), prepared_request_json=raw)
+    _play_acknowledge(f, provider)
+    turn = f.adapter.fence.turn
+    output = json.dumps({"schema": "dmb_surface_evidence_answer_v2", "limitations": [],
+        "requested_detail_gaps": [], "answer_segments": [{"kind": "source_passage_claim",
+            "text": "Bridge journal describes three lanterns.",
+            "passage_handles": [json.loads(response["resultJson"])["passageHandle"]]}]})
+    capture = SimpleNamespace(authorization_id="synthetic-native", api_request_id=str(uuid4()),
+        provider=provider.provider, model=provider.model, api_mode=provider.api_mode,
+        request_sha256=provider.envelope_sha256, status="answered", finish_reason="stop",
+        text=output, text_sha256=sha256(output.encode()).hexdigest(),
+        text_utf8_bytes=len(output.encode()), tool_calls=())
+    ledger = f.service.append_rules_provider_event(scope,
+        expected_turn_revision=turn.revision, expected_ledger_revision=ledger.revision,
+        event=RulesNativeProviderOutcomeV1.from_capture(capture, event_id=uuid4(),
+            sequence=len(ledger.execution.events), execution_id=scope.execution_id,
+            provider_attempt_id=provider.provider_attempt_id,
+            request_envelope_sha256=provider.envelope_sha256))
+    proof = NativeRulesOutputProofV1.from_capture(capture, prepared_request_json=raw,
+        rules_execution_id=scope.execution_id, producing_provider_attempt_id=provider.provider_attempt_id)
+    completion, bindings, text = normalize_unused_native_output(turn, ledger.execution, proof)
+    completed = f.service.complete_native_base_turn(t.TurnResult(world_id=turn.world_id,
+        conversation_id=turn.conversation_id, turn_id=turn.turn_id,
+        expected_revision=turn.revision, assistant_text=text, completion=completion,
+        producing_provider_attempt_id=provider.provider_attempt_id, claim_graph_event_ids=bindings),
+        output_proof=proof, expected_rules_revision=ledger.revision)
+    return completed, provider
+
+
+def _captured_play_origin(acquired, monkeypatch):
+    from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
+    f = _admit_native_search_anchor(acquired, monkeypatch)
+    _selector_after_admission(monkeypatch, "unset")
+    f.adapter.context_capture = ContextTraceCollector(f.adapter.fence)
+    response = f.adapter.broker_source_read(_source_request(f))
+    assert json.loads(response["resultJson"]).get("content") == f.text, response
+    origin, provider = _complete_captured_play(f, response)
+    f.adapter.fence.renewer.stop_and_join()
+    trace, = f.service.list_context_trace_attempts(world_id=origin.world_id, turn_id=origin.turn_id)
+    assert trace.capture_status == "complete"
+    assert trace.terminal_status == "completed"
+    return f, origin, provider, trace
+
+
+def _next_captured_play(f, monkeypatch):
+    from tests.test_play_graph_authority import native_provider
+    from tests.application_state.test_native_play_input_postgres import append
+    from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
+    from graph_memory.interaction.session_store import create_session
+    identity = uuid4()
+    sub = f.sub.model_copy(update={"idempotency_key": identity,
+        "expected_conversation_revision": f.service.get_conversation(f.sub.world_id, f.sub.conversation_id).revision})
+    body = json.loads(f.raw)
+    carrier = json.loads(body["messages"][0]["content"])
+    carrier["submission_id"] = str(identity)
+    body["messages"][0]["content"] = json.dumps(carrier)
+    raw = json.dumps(body)
+    from hashlib import sha256
+    # This is a newly sealed request for the same immutable Play source frame.
+    from tests.test_play_graph_context import seal_receipt
+    from application_state.agent_conversation.play_graph_authority import play_graph_execution_policy_digest
+    wire = sub.graph_context_receipt.model_dump(mode="json", by_alias=True)
+    wire["assembled_input"]["assembled_input_sha256"] = sha256(raw.encode()).hexdigest()
+    receipt = seal_receipt(wire)
+    execution = sub.graph_context_execution.model_copy(update={
+        "context_receipt_sha256": receipt.context_receipt_sha256,
+        "execution_policy_sha256": play_graph_execution_policy_digest(receipt.context_receipt_sha256, sub.graph_context_execution.policy)})
+    sub = sub.model_copy(update={"graph_context_receipt": receipt, "graph_context_execution": execution})
+    turn = f.service.accept_turn(sub)
+    turn = f.service.claim_turn(sub.world_id, sub.conversation_id, turn.turn_id, expected_revision=turn.revision).turn
+    initial = native_provider(1).model_copy(update={"envelope_sha256": sha256(raw.encode()).hexdigest(), "api_mode": "chat_completions"})
+    turn, _ = append(f.service, sub, turn, initial, raw)
+    session = f.session.model_copy(deep=True, update={"source_anchors": [], "source_reads": [], "operations": []})
+    create_session(session)
+    adapter = owner._PolicyExecutionAdapter(service=f.service, request=f.adapter.request,
+        world_id=turn.world_id, work=None, bootstrap=replace(f.adapter.bootstrap, retrieval_session=session),
+        playable_target=None, submitted_intent=None, existing_turn=turn, budget={})
+    adapter.fence = owner._ClaimFence(f.service, turn)
+    adapter.last_provider_attempt_id = initial.provider_attempt_id
+    current = SimpleNamespace(**{**vars(f), "adapter": adapter, "sub": sub, "raw": raw, "session": session})
+    _play_acknowledge(current, initial)
+    _admit_native_search_anchor(current, monkeypatch)
+    _selector_after_admission(monkeypatch, "stale")
+    adapter.context_capture = ContextTraceCollector(adapter.fence)
+    return current
+
+
+@pytest.mark.parametrize("acquired", ["native_search"], indirect=True)
+def test_actual_play_capture_reuse_producer_completion_and_reload(acquired, monkeypatch):
+    f, origin, origin_provider, trace = _captured_play_origin(acquired, monkeypatch)
+    current = _next_captured_play(f, monkeypatch)
+    try:
+        f.calls.clear()
+        def no_io(*args, **kwargs):
+            pytest.fail("retained Play passage reopened corpus IO")
+        monkeypatch.setattr("graph_memory.interaction.expansion_executor.execute_read_graph_source", no_io)
+        response = current.adapter.broker_source_read(_source_request(current))
+        assert json.loads(response["resultJson"]).get("content") == f.text, response
+        execution = current.adapter.fence.turn.graph_context_execution
+        reuse, = [e for e in execution.events if isinstance(e, t.SourcePassageReuseEventV1)]
+        assert reuse.origin_turn_id == origin.turn_id
+        assert reuse.origin_provider_attempt_id == origin_provider.provider_attempt_id
+        assert not any(isinstance(e, t.SourceReadAuthorizationEventV2) for e in execution.events)
+        before = execution.model_dump(mode="json")
+        again = current.adapter.broker_source_read(_source_request(current))
+        assert json.loads(again["resultJson"])["content"] == f.text
+        assert current.adapter.fence.turn.graph_context_execution.model_dump(mode="json") == before
+        completed, provider = _complete_captured_play(current, response)
+        assert provider.included_source_read_event_ids == []
+        assert provider.included_source_reuse_event_ids == [reuse.event_id]
+        reopened = AgentConversationService().inspect_turn(world_id=completed.world_id, turn_id=completed.turn_id)
+        assert reopened == completed
+        citation, = reopened.completion.source_citations
+        assert citation.read_event_id == reuse.event_id
+        assert citation.receipt == reuse.receipts[0]
+        assert f.calls == []
+        saved, = f.service.list_context_trace_attempts(world_id=completed.world_id, turn_id=completed.turn_id)
+        passage, = [p for p in saved.observations if p.kind == "source_passage_reuse"]
+        assert passage.text == f.text and passage.origin_turn_id == origin.turn_id
+        assert saved.capture_status == "complete"
+    finally:
+        current.adapter.fence.renewer.stop_and_join()
+
+
+@pytest.mark.parametrize("acquired", ["native_search"], indirect=True)
+def test_play_retained_eligibility_rejects_foreign_or_unproven_passages(acquired, monkeypatch):
+    f, origin, _producer, trace = _captured_play_origin(acquired, monkeypatch)
+    current = _next_captured_play(f, monkeypatch)
+    try:
+        turn = current.adapter.fence.turn
+        requested = {f.pin.anchor_id}
+        payload = trace.model_dump(mode="python", by_alias=True)
+        valid, = eligible_passages(turn, origin, payload, requested, 1000)
+        assert valid.passage.text == f.text
+        for damage in ("world", "conversation", "native_world", "binding", "graph", "scope",
+                       "source_revision", "unadmitted", "hash", "trace_missing", "trace_incomplete",
+                       "producer_omitted", "incomplete_origin", "small_bound"):
+            now, previous, captured, limit = turn.model_copy(deep=True), origin.model_copy(deep=True), trace.model_dump(mode="python", by_alias=True), 1000
+            if damage == "world":
+                now = now.model_copy(update={"world_id": "foreign"})
+            elif damage == "conversation":
+                now = now.model_copy(update={"conversation_id": uuid4()})
+            elif damage in {"native_world", "binding", "graph", "scope"}:
+                field, value = {"native_world": ("native_world_id", "native:foreign"),
+                    "binding": ("binding_version", 999), "graph": ("graph_revision", "revision:other"),
+                    "scope": ("admissibility_version", "player-v1")}[damage]
+                authority = now.graph_context_receipt.graph_authority.model_copy(update={field: value})
+                now = now.model_copy(update={"graph_context_receipt": now.graph_context_receipt.model_copy(update={"graph_authority": authority})})
+            elif damage in {"source_revision", "unadmitted"}:
+                events = []
+                for event in now.graph_context_execution.events:
+                    if isinstance(event, t.SourceScopeExtensionEventV3):
+                        pins = [] if damage == "unadmitted" else [p.model_copy(update={"source_revision_id": "revision:foreign"}) for p in event.pins]
+                        event = event.model_copy(update={"pins": pins})
+                    events.append(event)
+                now = now.model_copy(update={"graph_context_execution": now.graph_context_execution.model_copy(update={"events": events})})
+            elif damage == "hash":
+                for observation in captured["observations"]:
+                    if observation["kind"] == "source_passage":
+                        observation["text"] += "forged"
+            elif damage == "trace_missing":
+                captured = None
+            elif damage == "trace_incomplete":
+                captured["capture_status"] = "incomplete"
+            elif damage == "producer_omitted":
+                events = [event.model_copy(update={"included_source_read_event_ids": []})
+                    if isinstance(event, t.ProviderAttemptAuthorizedEventV3) else event
+                    for event in previous.graph_context_execution.events]
+                previous = previous.model_copy(update={"graph_context_execution": previous.graph_context_execution.model_copy(update={"events": events})})
+            elif damage == "incomplete_origin":
+                previous = previous.model_copy(update={"status": "running"})
+            else:
+                limit = 1
+            assert not eligible_passages(now, previous, captured, requested, limit), damage
+        assert current.adapter.fence.turn == turn
+    finally:
+        current.adapter.fence.renewer.stop_and_join()
+
+
+@pytest.mark.parametrize("acquired", ["native_search"], indirect=True)
+def test_play_reuse_trace_failure_rolls_back_public_broker_admission(acquired, monkeypatch):
+    from application_state.agent_conversation import service as app_owner
+    from application_state.errors import ApplicationStateValidationError
+    f, _origin, _producer, _trace = _captured_play_origin(acquired, monkeypatch)
+    current = _next_captured_play(f, monkeypatch)
+    try:
+        before = current.adapter.fence.turn
+        attempts = []
+        original = app_owner.append_source_passages_locked
+        def fail_reuse(conn, **kwargs):
+            if kwargs["passages"][0].kind == "source_passage_reuse":
+                attempts.append(kwargs["event_id"])
+                raise ApplicationStateValidationError("synthetic Play capture failure")
+            return original(conn, **kwargs)
+        monkeypatch.setattr(app_owner, "append_source_passages_locked", fail_reuse)
+        f.calls.clear()
+        reply = current.adapter.broker_source_read(_source_request(current))
+        assert json.loads(reply["resultJson"])["code"] == "source_reuse_indeterminate"
+        assert len(attempts) == 1 and f.calls == []
+        restored = AgentConversationService().inspect_turn(world_id=before.world_id, turn_id=before.turn_id)
+        assert restored.graph_context_execution == before.graph_context_execution
+        assert restored.revision == before.revision
+        trace, = f.service.list_context_trace_attempts(world_id=before.world_id, turn_id=before.turn_id)
+        assert not any(p.kind == "source_passage_reuse" for p in trace.observations)
+    finally:
+        current.adapter.fence.renewer.stop_and_join()
+
+
+@pytest.mark.parametrize("acquired", ["native_search"], indirect=True)
+def test_play_reuse_exact_replay_and_reset_keep_claim_fences(acquired, monkeypatch):
+    f, _origin, _producer, _trace = _captured_play_origin(acquired, monkeypatch)
+    current = _next_captured_play(f, monkeypatch)
+    try:
+        reply = current.adapter.broker_source_read(_source_request(current))
+        assert json.loads(reply["resultJson"]).get("content") == f.text, reply
+        turn = current.adapter.fence.turn
+        reused = turn.graph_context_execution.events[-1]
+        request = dict(anchor_ids=[f.pin.anchor_id], max_chars=1000,
+            elapsed_ms=current.adapter.context_capture.elapsed_ms, request_id=str(reused.reuse_request_id))
+        kwargs = dict(expected_revision=reused.request_turn_revision, expected_attempt=turn.attempt, request=request)
+        replay, fresh = f.service.admit_retained_source_passages(turn.world_id, turn.conversation_id, turn.turn_id, **kwargs)
+        assert not fresh and replay.graph_context_execution == turn.graph_context_execution
+        pointer = f.service.get_world_pointer(turn.world_id)
+        f.service.new_conversation(t.ConversationCommand(world_id=turn.world_id, command_id=uuid4(),
+            expected_pointer_revision=pointer.revision, expected_active_conversation_id=turn.conversation_id))
+        with pytest.raises(ApplicationStateConflictError, match="active claim"):
+            f.service.admit_retained_source_passages(turn.world_id, turn.conversation_id, turn.turn_id, **kwargs)
+    finally:
+        current.adapter.fence.renewer.stop_and_join()
+
+
+def test_source_graph_basis_has_closed_receipt_families():
+    from application_state.agent_conversation.source_passage_reuse import source_graph_basis
+    from tests.test_play_graph_context import fixture
+    play, _execution, _frame = fixture()
+    assert source_graph_basis(play) is play
+    # Type-dispatch unit only: deliberately do not claim these minimal objects
+    # are independently validated receipts. Actual Plan/Play owners are exercised above.
+    plan = t.PlanWorldGraphContextReceiptV1.model_construct()
+    combined = t.PlanSourceContextReceiptV1.model_construct(graph_capability=plan)
+    source_only = t.PlanSourceContextReceiptV1.model_construct(graph_capability=None)
+    assert source_graph_basis(plan) is plan
+    assert source_graph_basis(combined) is plan
+    assert source_graph_basis(source_only) is None
+    for unsupported in (None, {}, play.model_dump(mode="json", by_alias=True),
+                        SimpleNamespace(graph_authority=play.graph_authority)):
+        assert source_graph_basis(unsupported) is None
