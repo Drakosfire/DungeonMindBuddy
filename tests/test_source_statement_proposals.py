@@ -172,6 +172,8 @@ def client(monkeypatch, wire):
     app = FastAPI()
     app.include_router(routes.router)
     app.dependency_overrides[native_graph_gm_dependency] = lambda: GM
+    from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency
+    app.dependency_overrides[native_graph_explorer_dependency] = lambda: GM
     return TestClient(app)
 
 

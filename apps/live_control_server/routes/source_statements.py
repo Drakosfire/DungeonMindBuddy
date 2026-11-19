@@ -5,6 +5,7 @@ from uuid import UUID
 
 from dungeonmind.application.vnext.errors import KnowledgePublicationOutcomeUnknownError
 from dungeonmind.domain.errors import DungeonMindError
+from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency, require_explorer_access
 from fastapi import APIRouter, Depends, HTTPException
 from worldkeeper.application.commit import (
     CommitAuthorityIntegrityFailure,
@@ -133,8 +134,11 @@ async def produce_proposals(body: ProposalRequest, principal=Depends(native_grap
 
 
 @router.get("/proposals/{operation_id}")
-def read_proposals(operation_id: UUID, managed_world_id: str, principal=Depends(native_graph_gm_dependency)):
-    return _proposal_call(proposals.get, operation_id, managed_world_id, principal)
+def read_proposals(operation_id: UUID, managed_world_id: str, principal=Depends(native_graph_explorer_dependency)):
+    require_explorer_access(principal, managed_world_id)
+    result = _proposal_call(proposals.get, operation_id, managed_world_id, principal)
+    require_explorer_access(principal, managed_world_id)
+    return result
 
 
 def review_proposal(operation_id: UUID, managed_world_id: str, body: ProposalReview,
