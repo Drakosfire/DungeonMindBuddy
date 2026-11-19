@@ -281,6 +281,10 @@ def hosted(monkeypatch, request):
         agent_routes.get_world_turn_native_body_excerpt, methods=["GET"],
     )
     app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/connected-page-origin",
+        agent_routes.get_world_turn_connected_page_origin, methods=["GET"],
+    )
+    app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace",
         agent_routes.get_world_turn_context_trace, methods=["GET"],
     )
@@ -465,6 +469,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/connected-page-origin"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/source-passages/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
@@ -5067,3 +5072,25 @@ def test_hosted_recap_semantic_decision_uses_world_owner(hosted, monkeypatch):
     denied = hosted.client.request("POST", path, json=body)
     assert denied.status_code == 403, denied.text
     assert calls == [("saved", "accepted", "hosted_dms:synthetic-owner-alpha")]
+
+
+def test_hosted_connected_page_origin_reads_exact_saved_turn(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import agent_connected_page_origin
+
+    service = Mock()
+    read = Mock(return_value={"kind": "saved_page_excerpt"})
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(agent, "_conversation_service", lambda request: service)
+    monkeypatch.setattr(agent_connected_page_origin, "open_origin", read)
+    turn = uuid4()
+    path = f"/api/live/agent/worlds/managed/conversation/turns/{turn}/connected-page-origin"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=foreign").status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    read.assert_called_once_with(service, "managed", turn)

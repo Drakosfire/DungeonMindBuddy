@@ -731,6 +731,9 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && Boolean(body.owner_scope.world_id.trim())
       && typeof body.client_thread_id === "string" && typeof body.turn_id === "string";
   }
+  if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/conversation\/turns\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/connected-page-origin$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
   if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(metadata|original)$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
