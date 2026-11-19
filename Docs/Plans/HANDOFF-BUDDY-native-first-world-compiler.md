@@ -62,8 +62,9 @@ Validate exact source body digest, frozen index commitment and line/UTF-8 interv
 raw/native artifact and revision identities, parent evidence membership and actual
 proof interval/slice bytes. Define unambiguous deduplication of reviewed references;
 refuse conflicting proofs, unused/foreign or missing bindings. Source-only means
-zero entities/assertions/aliases and no unrelated initialization history; B2 must
-verify current reservation and source lifecycle independently. Both stages seal
+zero entities/assertions/aliases. A parsed payload cannot prove its ancestry; B2
+must verify no unrelated initialization history, current reservation and source
+lifecycle independently. Both stages seal
 canonical immutable values, revalidate inputs/commitments and return fresh Core
 models on access. Parent evidence membership is not current source authorization.
 
