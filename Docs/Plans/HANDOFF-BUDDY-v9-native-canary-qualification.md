@@ -6,12 +6,14 @@ independent review, merge and launch; no PRIME coordination prerequisite.
 
 ## Current anchor and mission
 
-Runtime base: Buddy6facf08bcc77c11fe9d11addc2154b3be1ffebfc (includes accepted4059/4061).
+Next bounded candidate base: Buddy1bf51c6ba83e33204a055666e40e988f1bcc6868
+(includes accepted4067–4069; final qualification pending). Retained rehearsal
+runtime6fac remains separately identified below.
 Core runtime4b6516e2c0dfd81acaa4410b9b9bb9da18894c90; V8 evidence accepted in
 Core229 mergef770098ad27b772e6351f2827a2b7bd6628705e8. Read canonical
 Docs/Handoffs/dm_vnext_contract_acceptance_v1.json there; do not rerun classic baseline.
-Branch codex/v9-native-canary-qualification is rebased onto the frozen accepted
-runtime base. This is the deliberately frozen release candidate; do not chase
+Branch codex/v9-native-canary-qualification retains the6fac rehearsal source;
+re-anchor final execution onto the accepted bounded descendant after fixture repairs. This is the deliberately frozen release candidate; do not chase
 later floating main. Record each final execution head/imported-source manifest separately;
 these documentation commits do not silently qualify later unrelated main changes.
 
@@ -185,10 +187,16 @@ dependencies precede catalog creation. Both full source/proposal modules137pass/
 exit/zero-connection checks; exact frontend/canonical and normal checks passed.
 The prior ten setup errors and opt-in PostgreSQL proof gap are closed.
 
-Next serial slice repairs the historical0160→0166 test while preserving its exact
-schema/row/forward-recovery assertions and current-runtime legacy readability.
-Then settle remaining auth/World/local-mode/durable-page fixture contracts.
-The repaired candidate starts from acceptedc968, excluding unrelated later-main runtime; final proof must qualify
+Historical fixture4069 is accepted: reviewed1bf51c6ba83e33204a055666e40e988f1bcc6868,
+merge3718403577f1c19573e1ea10aed52ca898b40225, review5970130978. Historical schema166,
+row-byte/downgrade fences and separate current public legacy read all passed;
+full combat/session contract116passed. Exact frontend/canonical and normal checks
+passed. That inherited contract failure and previously unreachable proof are closed.
+
+Next serial slice reconciles the managed-projection authorization inventory with
+its exact owner-aware dependency, retaining guard-before-projection denial proof.
+Then settle registered-World/local-mode/durable-page fixture contracts.
+The repaired candidate starts from accepted1bf51, excluding unrelated later-main runtime; final proof must qualify
 that bounded descendant. Current6fac proof remains tied to its original bytes.
 No provider generation or classic baseline rerun is needed.
 
