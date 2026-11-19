@@ -1,6 +1,12 @@
 # CLEANUP: consistent authored-Page rejection from Plan
 
-Status: ACTIVE. Standing cleanup goal authorizes implementation, independent
+Status: SETTLED by #4096, merge6fee61800b98f6cc7ac49e00021a18f9a8db5cbc.
+Exact reviewed headb42201ee12c3b0d2a62c5e7efc09a6c470a75bea approved independently.
+Focused30pass, all26descriptor cases pass; hosted1411/build/validator pass.
+Full8045pass132fail2pending: only intended failure resolves, no omissions/new
+failures/changed remaining leading messages. Full qualification remains red.
+
+Historical assignment: Standing cleanup goal authorizes implementation, independent
 review and merge. Base a0765314d86827a553924c2b933c5b16938dd1eb.
 Serial after #4095, no unmerged dependency. Existing isolated cleanup checkout;
 no ports, databases, providers or operator data.
