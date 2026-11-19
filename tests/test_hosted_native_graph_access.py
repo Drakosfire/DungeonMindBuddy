@@ -388,6 +388,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-inspection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): access.resolve_hosted_saved_recap,
+            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-projection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_exact_extraction_read,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_connected_page,
@@ -5067,3 +5068,33 @@ def test_hosted_recap_semantic_decision_uses_world_owner(hosted, monkeypatch):
     denied = hosted.client.request("POST", path, json=body)
     assert denied.status_code == 403, denied.text
     assert calls == [("saved", "accepted", "hosted_dms:synthetic-owner-alpha")]
+
+
+def test_hosted_historical_recap_projection_rejects_foreign_result(hosted, monkeypatch):
+    from apps.live_control_server.services import historical_recap_world_projection as historical
+
+    calls = []
+
+    def project(_root, run_id, *, managed_world_id):
+        calls.append((run_id, managed_world_id))
+        return SimpleNamespace(managed_world_id="foreign", model_dump=lambda **_: {})
+
+    monkeypatch.setattr(historical, "build_historical_recap_world_projection", project)
+    path = "/api/live/graph-preview/extraction-runs/saved/recap-projection"
+    assert hosted.client.request("GET", path).status_code == 403
+    assert hosted.client.request("GET", path + "?managed_world_id=managed", session="other-session").status_code == 403
+    assert calls == []
+    assert hosted.client.request("GET", path + "?managed_world_id=managed").status_code == 403
+    assert calls == [("saved", "managed")]
+
+    def transfer_during_serialization(**_kwargs):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"private": "Historical recap text"}
+
+    monkeypatch.setattr(historical, "build_historical_recap_world_projection", lambda *_args, **_kwargs:
+        SimpleNamespace(managed_world_id="managed", model_dump=transfer_during_serialization))
+    denied = hosted.client.request("GET", path + "?managed_world_id=managed")
+    assert denied.status_code == 403, denied.text
+    assert "Historical recap text" not in denied.text

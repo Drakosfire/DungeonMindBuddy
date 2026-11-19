@@ -679,7 +679,7 @@ async def resolve_hosted_saved_recap(request: Request) -> str:
     world_id = request.query_params.get("managed_world_id")
     if request.url.path.endswith("/recap-inspection"):
         valid_keys = keys == {"managed_world_id", "expected_run_revision", "source_revision_id"}
-    elif request.url.path.endswith("/candidate-projection"):
+    elif request.url.path.endswith(("/candidate-projection", "/recap-projection")):
         valid_keys = keys == {"managed_world_id"}
     else:
         valid_keys = keys <= {"managed_world_id", "campaign_id"}

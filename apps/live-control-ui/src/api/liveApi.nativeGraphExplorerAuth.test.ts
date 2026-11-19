@@ -1268,3 +1268,16 @@ it("uses the hosted session for World Plan inventory and creation", async () => 
   })).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(2);
 });
+
+it("loads a historical recap with the hosted session for the selected World", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-only-fixture");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({}));
+  const path = "/api/live/graph-preview/extraction-runs/saved/recap-projection?managed_world_id=managed";
+  await api.getHistoricalRecapWorldProjection("saved", "managed");
+  expect(fetch).toHaveBeenCalledWith(path, expect.objectContaining({ credentials: "same-origin" }));
+  expect(new Headers(fetch.mock.calls[0]?.[1]?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path + "&managed_world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});

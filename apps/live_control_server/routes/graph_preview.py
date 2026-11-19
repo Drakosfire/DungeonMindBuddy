@@ -6,7 +6,7 @@ from apps.live_control_server.services.native_recap_source_admission import publ
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from uuid import UUID
 from apps.live_control_server.models.build_recap_launch import BuildRecapLaunchRequest
 from apps.live_control_server.models.saved_recap_runs import SavedRecapRunsResponse, SavedRecapSourceResponse
@@ -321,6 +321,7 @@ def get_extraction_run_candidate_projection(
 def get_extraction_run_recap_projection(
     run_id: str,
     request: Request,
+    response_context: Response,
 ) -> dict[str, Any]:
     """Project exact durable recap text onto the current governed World.
 
@@ -347,6 +348,12 @@ def get_extraction_run_recap_projection(
         build_historical_recap_world_projection,
     )
 
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_saved_recap_access(request, managed_world_id or "")
     try:
         response = build_historical_recap_world_projection(
             repo_root(),
@@ -362,7 +369,11 @@ def get_extraction_run_recap_projection(
                 "diagnostics": [item.model_dump(mode="json") for item in exc.diagnostics],
             },
         ) from exc
-    return response.model_dump(mode="json", by_alias=True)
+    result = response.model_dump(mode="json", by_alias=True)
+    if hosted:
+        require_saved_recap_access(request, response.managed_world_id or "")
+        response_context.headers["Cache-Control"] = "no-store"
+    return result
 
 
 @router.get("/extraction-runs/{run_id}/build-context")

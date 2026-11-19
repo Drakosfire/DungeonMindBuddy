@@ -372,7 +372,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/graph-preview\/build-recap-launches(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})?$/i.test(pathname)) return true;
   if (pathname === "/api/live/graph-preview/extraction-runs") return true;
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/recap-inspection$/.test(pathname)) return true;
-  if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)) return true;
+  if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/(?:candidate-projection|recap-projection)$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/(?:capabilities|prepare|confirm)$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/first-world\/(?:prepare|confirm)$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/runs\/[^/]+\/(?:recap-evidence-corrections|semantic-disposition)$/.test(pathname)) return true;
@@ -835,7 +835,7 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && body.expected_revision > 0 && typeof body.expected_content_sha256 === "string"
       && /^(?:sha256:)?[a-f0-9]{64}$/.test(body.expected_content_sha256);
   }
-  const savedRecap = /^\/api\/live\/graph-preview\/extraction-runs(?:\/[^/?]+\/(recap-inspection|candidate-projection))?\?/.exec(path);
+  const savedRecap = /^\/api\/live\/graph-preview\/extraction-runs(?:\/[^/?]+\/(recap-inspection|candidate-projection|recap-projection))?\?/.exec(path);
   if (savedRecap && method === "GET" && init?.body == null) {
     const query = new URLSearchParams(path.slice(savedRecap[0].length));
     const worldId = query.get("managed_world_id");
