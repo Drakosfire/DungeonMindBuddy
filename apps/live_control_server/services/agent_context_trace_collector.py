@@ -57,7 +57,8 @@ class ContextTraceCollector:
         self.started = monotonic()
         self.provider_attempts_by_request: dict[str, Any] = {}
         self.ambiguous_provider_requests: set[str] = set()
-        with fence.renewer._lock:
+        measure = getattr(getattr(fence, "trace", None), "phase_before_first_jev", nullcontext)
+        with measure("first_jev_context_trace_start"), fence.renewer._lock:
             turn = fence.renewer._turn
             self.bound_context_receipt_sha256 = getattr(getattr(turn, "graph_context_receipt", None),
                                                        "context_receipt_sha256", None)
@@ -105,8 +106,10 @@ class ContextTraceCollector:
     def _append_observation_locked(self, observation):
         """All callers already hold the same claim lock; timing is observation only."""
         host_trace = getattr(self.fence, "trace", None)
-        with host_trace.measure_host_work("trace_append") if host_trace is not None else nullcontext():
-            return self.fence.service.append_context_trace(**self._binding(), observation=observation)
+        measure = getattr(host_trace, "phase_before_first_jev", nullcontext)
+        with measure("first_jev_context_trace_append"):
+            with host_trace.measure_host_work("trace_append") if host_trace is not None else nullcontext():
+                return self.fence.service.append_context_trace(**self._binding(), observation=observation)
 
     def observe(self, fields: Mapping[str, Any]) -> None:
         with self.fence.renewer._lock:
@@ -130,7 +133,9 @@ class ContextTraceCollector:
         """Commit an exact request reference or refuse dispatch; never best effort."""
         from .agent_prompt_evidence import store_prompt
         with self.fence.renewer._lock:
-            evidence_id = store_prompt(view["payloadJson"], digest=view["payloadSha256"], size=view["payloadUtf8Bytes"])
+            measure = getattr(getattr(self.fence, "trace", None), "phase_before_first_jev", nullcontext)
+            with measure("first_jev_prompt_evidence_store"):
+                evidence_id = store_prompt(view["payloadJson"], digest=view["payloadSha256"], size=view["payloadUtf8Bytes"])
             observation = _OBSERVATION.validate_python({
                 "kind": "prompt_reference", "sequence": len(self.trace.observations),
                 "elapsed_ms": self.elapsed_ms, "evidence_id": evidence_id,
