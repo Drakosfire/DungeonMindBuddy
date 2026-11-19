@@ -350,3 +350,91 @@ def test_iter_jsonl_rejects_invalid_json_line(tmp_path: Path) -> None:
     path.write_text('{"ok": true}\n{not json}\n', encoding="utf-8")
     with pytest.raises(json.JSONDecodeError):
         iter_jsonl(path)
+
+
+def test_failed_json_replace_removes_only_its_temporary_file(tmp_path: Path) -> None:
+    target = tmp_path / "snapshot.json"
+    target.mkdir()
+    previous = target / "keep.txt"
+    previous.write_text("existing destination", encoding="utf-8")
+    unrelated = tmp_path / ".snapshot.json.other-writer.tmp"
+    unrelated.write_text("another writer", encoding="utf-8")
+
+    with pytest.raises(IsADirectoryError):
+        write_json(target, {"derived": True})
+
+    assert previous.read_text(encoding="utf-8") == "existing destination"
+    assert unrelated.read_text(encoding="utf-8") == "another writer"
+    assert list(tmp_path.glob(".snapshot.json.*.tmp")) == [unrelated]
+
+
+def test_partial_json_write_preserves_previous_file_and_original_error(tmp_path, monkeypatch) -> None:
+    target = tmp_path / "snapshot.json"
+    write_json(target, {"previous": True})
+    before = target.read_bytes()
+    original_write = Path.write_text
+    failure = OSError("synthetic partial write failure")
+
+    def partial_write(path, data, *args, **kwargs):
+        if path.name.startswith(".snapshot.json."):
+            original_write(path, "partial", *args, **kwargs)
+            raise failure
+        return original_write(path, data, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", partial_write)
+    with pytest.raises(OSError) as caught:
+        write_json(target, {"replacement": True})
+
+    assert caught.value is failure
+    assert target.read_bytes() == before
+    assert not list(tmp_path.glob(".snapshot.json.*.tmp"))
+
+
+def test_json_cleanup_failure_does_not_mask_replace_failure(tmp_path, monkeypatch) -> None:
+    target = tmp_path / "snapshot.json"
+    target.mkdir()
+    original_unlink = Path.unlink
+
+    def denied_cleanup(path, *args, **kwargs):
+        if path.name.startswith(".snapshot.json."):
+            raise PermissionError("synthetic cleanup denial")
+        return original_unlink(path, *args, **kwargs)
+
+    with monkeypatch.context() as denied:
+        denied.setattr(Path, "unlink", denied_cleanup)
+        with pytest.raises(IsADirectoryError):
+            write_json(target, {"derived": True})
+
+    # Cleanup remains best effort when the directory will not permit unlink.
+    assert len(list(tmp_path.glob(".snapshot.json.*.tmp"))) == 1
+    assert target.is_dir()
+
+
+def test_failed_json_writer_does_not_disrupt_concurrent_writers(tmp_path, monkeypatch) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    target = tmp_path / "snapshot.json"
+    barrier = Barrier(5, timeout=10)
+    original_replace = Path.replace
+    failure = OSError("synthetic concurrent replace failure")
+
+    def concurrent_replace(path, destination):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        barrier.wait()
+        if payload["writer"] == "failed":
+            raise failure
+        return original_replace(path, destination)
+
+    monkeypatch.setattr(Path, "replace", concurrent_replace)
+    with ThreadPoolExecutor(max_workers=5) as workers:
+        successful = [workers.submit(write_json, target, {"writer": i}) for i in range(4)]
+        failed = workers.submit(write_json, target, {"writer": "failed"})
+        with pytest.raises(OSError) as caught:
+            failed.result()
+        for result in successful:
+            result.result()
+
+    assert caught.value is failure
+    assert load_json(target)["writer"] in range(4)
+    assert not list(tmp_path.glob(".snapshot.json.*.tmp"))
