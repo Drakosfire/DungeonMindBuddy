@@ -1329,3 +1329,18 @@ it("reads hosted image model catalog pages under one World", async () => {
   await expect(api.authenticatedApiFetch(path + "&unknown=value")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledOnce();
 });
+
+it("browses a hosted World library and exact private preview", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ items: [] }));
+  const path = "/api/live/media/images/library?world_id=elderwyld";
+  await api.authenticatedApiFetch(path);
+  await api.authenticatedApiFetch("/api/live/media/images/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.authenticatedApiFetch(path + "&before_id=orphan")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
