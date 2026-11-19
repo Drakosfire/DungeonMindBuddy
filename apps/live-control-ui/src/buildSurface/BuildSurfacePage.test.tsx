@@ -289,7 +289,7 @@ describe("BuildSurfacePage", () => {
     expect(landing).toHaveTextContent("Bring your lore");
     expect(landing.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     expect(container.querySelector(".plan-conversation-dock")).toBeInTheDocument();
-    expect(screen.getByText("Source actions")).toBeInTheDocument();
+    expect(screen.queryByText("Source actions")).not.toBeInTheDocument();
     expect(screen.getByTestId("build-document-create-open")).toBeInTheDocument();
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
@@ -662,30 +662,54 @@ describe("BuildSurfacePage", () => {
       "",
       `/build?documentId=${DOC_ID}&campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`,
     );
-    mockUntitledDraftCreate(DOC_ID, "longmont-c2");
-    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
-      schema: "dmb_world_graph_projection_v1",
+    const snapshot = buildLongmontSnapshot(DOC_ID, "Pointer source");
+    const record = { ...snapshot.record, campaign_id: "longmont-c2" };
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({ ...snapshot, record });
+    const completeObject = vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockResolvedValue({
+      schema: "dmb_world_graph_object_projection_v1",
+      found: true,
+      completeness: { status: "complete", truncatedFields: [] },
       snapshot: session23WorldGraphRecapFixture.snapshot,
-      summary: {
-        nodeCount: 1,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [session23WorldGraphRecapFixture.nodeViews.pc_caelynn],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
+      requestedNodeId: "pc_caelynn",
+      resolvedNodeId: "pc_caelynn",
+      node: session23WorldGraphRecapFixture.nodeViews.pc_caelynn,
+      relatedNodes: [],
+      semanticFingerprint: "fp-entry-fixture",
     });
-    renderBuildPage();
-    expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
-    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
-    expect(new URLSearchParams(window.location.search).get("graphNodeId")).toBe("pc_caelynn");
-    expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
+    try {
+      const { unmount } = renderBuildPage();
+      expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByTestId("build-graph-object-context")).toHaveTextContent("Caelynn"));
+      expect(liveApi.getCommittedPageSnapshot).toHaveBeenCalledWith(DOC_ID);
+      expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+      const params = new URLSearchParams(window.location.search);
+      expect(params.get("documentId")).toBe(DOC_ID);
+      expect(params.get("graphNodeId")).toBe("pc_caelynn");
+      expect(params.get("graphRevision")).toBe(session23WorldGraphRecapFixture.snapshot.revisionId);
+      expect(completeObject).toHaveBeenCalledTimes(1);
+      expect(completeObject).toHaveBeenCalledWith({
+        schema: "dmb_world_graph_object_projection_request_v1",
+        worldId: "eldyrwild", campaignId: "longmont-c2", nodeId: "pc_caelynn",
+        admissibility: "gm", revisionPin: session23WorldGraphRecapFixture.snapshot.revisionId,
+        originSurface: "build", focus: { kind: "none", sessionId: null },
+      });
+      expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
+      unmount();
+      completeObject.mockClear();
+      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+        ...snapshot, record: { ...record, world_id: "different-world" },
+      });
+      renderBuildPage();
+      await waitFor(() => expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Pointer source"));
+      await waitFor(() => expectBuildSaveState("saved"));
+      expect(liveApi.getCommittedPageSnapshot).toHaveBeenLastCalledWith(DOC_ID);
+      expect(screen.queryByTestId("build-graph-object-context")).not.toBeInTheDocument();
+      expect(completeObject).not.toHaveBeenCalled();
+      expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
+      expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+    } finally {
+      completeObject.mockRestore();
+    }
   });
 
   it("E5: BuildSurfacePage → ToolHost → shared native inspection", async () => {
