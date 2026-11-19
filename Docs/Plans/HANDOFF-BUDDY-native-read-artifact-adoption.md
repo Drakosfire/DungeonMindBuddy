@@ -1,6 +1,10 @@
 # BUDDY: adopt accepted native read-artifact storage
 
-Status: ACTIVE. Owner: Elderwyld pre-cutover optimization lane.
+Status: COMPLETE, accepted #4024 merge3ec5c8bf04a8889c052b54e685704a4ec4c63fbd.
+Reviewed5dff4ec;78 native and253 auth tests,1410 exact-head frontend tests/build/
+canonical receipt validation,3 automatic CI jobs and independent review passed.
+Owner: Elderwyld pre-cutover optimization lane.
+Current dependency updates belong to HANDOFF-BUDDY-native-validated-command-adoption.md.
 Authority: operator goal with implementation, review and merge authorization.
 Base: 044aaba4d29ac85c49d546dc20f572f0a7744d53, current fetched Buddy main.
 Branch: codex/native-read-artifact-adoption. Serial successor to accepted #4013.
