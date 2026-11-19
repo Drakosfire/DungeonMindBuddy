@@ -1,6 +1,6 @@
 # CLEANUP: current focused Scene body round trips
 
-BLOCKED after authorized regression implementation. Serial after
+ACTIVE after scoped ownership/design review under standing cleanup goal authority. Serial after
 4106, base429b3dee733f381b0a57c8fc26caec747401bf2c, isolated existing checkout.
 No providers, operator data, databases or runtime ports.
 
@@ -51,3 +51,33 @@ checks, then prove both original fixtures save once and freshly reopen with prot
 siblings intact. Do not trim test input/output or switch views to claim resolution.
 Full exact-head qualification, negative probes and final approval remain pending;
 no failures are counted as resolved. Other17casebodies and Option obligation intact.
+
+## Adopted runtime repair at the serialization owner
+
+Independent scope review established that1014 is an inactive PREPARATION ONLY
+candidate with frozen source inputs, not a current helper implementation lease.
+Its candidate branch, source blobs and all operational inputs remain untouched.
+All current open heads checked: no active helper owner besides that reference.
+No PlanSurfacePage ownership transfer or write is needed.
+
+Expand this same coherent PR to planCardEditing.ts and its test, and
+agentEdit/planAgentEditProposal.ts and its test. Use existing scoped serialization
+for isolated preparation with an explicit scope snapshot; default mounted callers
+retain plugin-state behavior. Snapshot raw source/editor/scope together and reject
+changes across async preparation. Preserve the existing unscoped Document path.
+The preparer must seal exactly the bytes the real Cards apply emits, including raw
+outside-scene spacing, YAML and siblings; never trim the live result or relax the
+sealed-copy guard. Missing/ambiguous/changed targets and view/source/editor races
+must refuse. Guard/recovery/identity/confirmation logic stays intact.
+
+These helper changes are coupled: exposing scoped serialization alone does not
+repair Save, and preparation cannot match live behavior without it. Review map:
+serializer explicit snapshot/default behavior; preparer snapshot/fences/real shared
+export; unit races/protected raw bytes; two mounted Save/reopen regressions. No new
+public API/provider/DB contract. Existing diagnostic HOLD is not acceptance.
+Re-anchor on899481ec4378c2e09cc1b8f7ee81561224845bae; new actual-parent full
+baseline is required because4111 changed frontend inputs since old2787 evidence.
+Run focused owning tests plus exact-head hosted/build/validator/full discovered,
+compare every case/omission/failure to exactparent, retain prior observations,
+and obtain independent cumulative exact-head source/raw approval. No merge until
+these pass. Remove settled brief final tree, retaining this pushed adopted scope.
