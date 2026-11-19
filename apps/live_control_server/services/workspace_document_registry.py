@@ -10,6 +10,7 @@ from application_state.content.page_presentation import PagePresentation
 
 import re
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from uuid import UUID
 from pathlib import Path
@@ -1174,6 +1175,7 @@ def discard_workspace_document(
     document_id: str,
     *,
     expected_revision: int | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkspaceDocumentRecord:
     from application_state.content import pages
     from application_state.errors import ApplicationStateError
@@ -1191,6 +1193,7 @@ def discard_workspace_document(
                 expected_revision=expected_revision
                 if expected_revision is not None
                 else state.page.object_revision,
+                authorize_world=authorize_world,
                 **kwargs,
             )
         except ApplicationStateError as exc:
@@ -1220,6 +1223,7 @@ def discard_workspace_document(
             document_id,
             status="discarded",
             expected_revision=expected_revision,
+            authorize_world=authorize_world,
         )
     except ApplicationStateError as exc:
         raise _map_application_state_error(exc) from exc
@@ -1231,6 +1235,7 @@ def restore_workspace_document(
     document_id: str,
     *,
     expected_revision: int | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkspaceDocumentRecord:
     from application_state.content import pages
     from application_state.errors import ApplicationStateError
@@ -1248,6 +1253,7 @@ def restore_workspace_document(
                 expected_revision=expected_revision
                 if expected_revision is not None
                 else state.page.object_revision,
+                authorize_world=authorize_world,
                 **kwargs,
             )
         except ApplicationStateError as exc:
@@ -1277,6 +1283,7 @@ def restore_workspace_document(
             document_id,
             status="active",
             expected_revision=expected_revision,
+            authorize_world=authorize_world,
         )
     except ApplicationStateError as exc:
         raise _map_application_state_error(exc) from exc

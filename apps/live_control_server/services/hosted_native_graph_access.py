@@ -488,6 +488,10 @@ async def resolve_hosted_play_preparation(request: Request) -> str:
     return owned_world
 
 
+async def resolve_hosted_workspace_lifecycle(request: Request) -> str:
+    return await _resolve_hosted_play_world(request)
+
+
 async def resolve_hosted_play_read(request: Request) -> str:
     if await request.body():
         raise _denied()
