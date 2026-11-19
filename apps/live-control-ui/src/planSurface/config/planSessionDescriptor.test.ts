@@ -251,10 +251,10 @@ describe("resolvePlanningDocument campaign admission", () => {
     const managedView = { ...mockPlanView, world_id: worldId, campaign_id: worldId };
     // Kind rejection precedes campaign admission: neither scope can turn a Page
     // into a Plan or trigger a fallback inventory read.
-    for (const sourceWorld of [worldId, "other-world"]) {
+    for (const sourceCampaign of [worldId, "other-campaign"]) {
       const source = fixtureWorkspaceDocumentRecord({
         document_id: SOURCE_ID,
-        campaign_id: sourceWorld,
+        campaign_id: sourceCampaign,
         kind: "worldbuilding_source",
         title: "Of Conks source",
       });
