@@ -31,7 +31,7 @@
 .buddy-home__primary:hover { transform: translateY(-2px); box-shadow: 0 7px 28px #d9a44128; }
 .buddy-home__primary span { font-size: 23px; }
 .buddy-home__explore { color: #ecc37a !important; text-underline-offset: 5px; font-size: 15px; }
-.buddy-home__preview { position: relative; margin: 0; padding: 22px 28px 16px; color: var(--home-ink); background: linear-gradient(120deg, #fffaf02b, #bb9d6730), var(--home-paper); background-image: url('../statblocks/render/statblock-theme/assets/parchmentBackground.jpg'); background-size: cover; border: 1px solid #c0ad6a; border-radius: 3px 16px 3px 16px; box-shadow: 0 22px 64px #0006, 0 0 0 6px #c0ad6a18, inset 0 0 0 5px #fff9eb55; }
+.buddy-home__preview { position: relative; margin: 0; padding: 22px 28px 16px; color: var(--home-ink); background: linear-gradient(120deg, #fffaf02b, #bb9d6730), var(--home-paper); background-image: url('../statblocks/render/statblock-theme/assets/buddy-paper.svg'); background-size: cover; border: 1px solid #c0ad6a; border-radius: 3px 16px 3px 16px; box-shadow: 0 22px 64px #0006, 0 0 0 6px #c0ad6a18, inset 0 0 0 5px #fff9eb55; }
 .buddy-home__preview::before { content: ''; position: absolute; inset: 8px; border: 1px solid #9f80466b; border-radius: 1px 10px 1px 10px; pointer-events: none; }
 .buddy-home__preview-label { display: flex; align-items: center; gap: 14px; justify-content: center; margin-bottom: 20px; }
 .buddy-home__preview-label::before, .buddy-home__preview-label::after { content: ''; height: 1px; flex: 1; background: #9a5c4b88; }
