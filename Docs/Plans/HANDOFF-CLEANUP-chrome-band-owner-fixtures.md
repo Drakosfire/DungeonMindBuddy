@@ -1,6 +1,14 @@
 # CLEANUP: align Chrome band tests with current CSS owners
 
-Status: ACTIVE under the user-authorized cleanup goal, including review and merge.
+Status: SETTLED by #4082, merged a5060c55611e30bdd950f3be44d3afed7ee67f0b.
+Reviewed head: c4f1ef52caff8ae56f5027856923472d8d84b35e.
+Independent exact-head source/raw-evidence review approved. Hosted 1411 tests,
+production build and evidence validation passed. Full discovered diagnostic:
+8033 passed, 146 failed, 2 pending; all six Chrome cases passed. Exactly two
+intended failures resolved versus the byte-identical parent frontend, with no
+added/omitted cases, new failures or changed remaining leading failure messages.
+Full qualification remains red; the two conditional inventory extras and earlier
+unresolved quote-correction observation remain tracked under #4074.
 Base: c4a3403e8e552797e185899b7f35f4a6817047f9.
 Branch: codex/chrome-band-owner-fixtures in the existing cleanup checkout.
 Topology: serial after merged #4081; no unmerged behavioral dependency.

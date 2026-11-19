@@ -1,7 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
+import { ToolHost } from "../../surfaceInteraction/toolHost/ToolHost";
+import { PeekRegionProvider, PeekRegionSlot } from "../../surfaceInteraction/peekHost";
 
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import type { SurfaceConfig } from "../types";
@@ -116,6 +118,19 @@ const ingestSurfaceConfig: SurfaceConfig = {
   canvas: { documentId: null },
   theme: {},
 };
+
+// Production owns Tools and Peek outside the projection adapter.
+function CatalogIntegrationHost({ config, children }: { config: SurfaceConfig; children: ReactNode }) {
+  return (
+    <PeekRegionProvider>
+      <AgentInteractionProjectionTestHost config={config}>
+        <ToolHost />
+        {children}
+        <PeekRegionSlot />
+      </AgentInteractionProjectionTestHost>
+    </PeekRegionProvider>
+  );
+}
 
 describe("projection catalog registration inventory", () => {
   it("exports the exact Plan projection definition inventory", () => {
@@ -236,7 +251,7 @@ describe("explicit Ingest definition renderer factories", () => {
         })}
       </>,
     );
-    expect(await screen.findByTestId("diagnostics-panel")).toBeInTheDocument();
+    expect(await screen.findByTestId("diagnostics-panel")).toBeVisible();
     expect(diagnosticsPanelSpy).toHaveBeenCalledTimes(1);
     expect(IngestionModule).not.toHaveBeenCalled();
   });
@@ -251,13 +266,14 @@ describe("PlanProjectionCatalogRegistration integration", () => {
   it("renders recap through catalog resolution", async () => {
     const user = userEvent.setup();
     render(
-      <AgentInteractionProjectionTestHost config={planSurfaceConfig}>
+      <CatalogIntegrationHost config={planSurfaceConfig}>
         <LegacyProjectionHostAdapter />
-      </AgentInteractionProjectionTestHost>,
+      </CatalogIntegrationHost>,
     );
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
-    expect(await screen.findByTestId("recap-module")).toBeInTheDocument();
+    await user.click(within(screen.getByLabelText("Tools toolbar")).getByRole("button", { name: "Recap" }));
+    expect(await screen.findByTestId("recap-module")).toBeVisible();
   });
 
   it("registers only published tool descriptors", () => {
@@ -280,6 +296,7 @@ describe("PlanProjectionCatalogRegistration integration", () => {
 
 describe("IngestProjectionCatalogRegistration integration", () => {
   beforeEach(() => {
+    window.history.pushState({}, "", "/ingest");
     diagnosticsPanelSpy.mockClear();
   });
 
@@ -303,14 +320,14 @@ describe("IngestProjectionCatalogRegistration integration", () => {
     }
 
     render(
-      <AgentInteractionProjectionTestHost config={ingestSurfaceConfig}>
+      <CatalogIntegrationHost config={ingestSurfaceConfig}>
         <ResolveProbe />
         <LegacyProjectionHostAdapter />
-      </AgentInteractionProjectionTestHost>,
+      </CatalogIntegrationHost>,
     );
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
-    await user.click(screen.getByRole("button", { name: "Diagnostics" }));
+    await user.click(within(screen.getByLabelText("Tools toolbar")).getByRole("button", { name: "Diagnostics" }));
     await waitFor(() => {
       expect(statuses).toContain("binding_missing");
     });
@@ -322,7 +339,7 @@ describe("IngestProjectionCatalogRegistration integration", () => {
   it("transitions the same registration to ready when the diagnostics payload is present", async () => {
     const user = userEvent.setup();
     render(
-      <AgentInteractionProjectionTestHost config={ingestSurfaceConfig}>
+      <CatalogIntegrationHost config={ingestSurfaceConfig}>
         <GraphReviewLiveStateProvider
           campaignId="longmont-c2"
           sessionId="session-21"
@@ -337,12 +354,12 @@ describe("IngestProjectionCatalogRegistration integration", () => {
           <GraphReviewDiagnosticsProjectionBinding />
         </GraphReviewLiveStateProvider>
         <LegacyProjectionHostAdapter />
-      </AgentInteractionProjectionTestHost>,
+      </CatalogIntegrationHost>,
     );
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
-    await user.click(screen.getByRole("button", { name: "Diagnostics" }));
-    expect(await screen.findByTestId("diagnostics-panel")).toBeInTheDocument();
+    await user.click(within(screen.getByLabelText("Tools toolbar")).getByRole("button", { name: "Diagnostics" }));
+    expect(await screen.findByTestId("diagnostics-panel")).toBeVisible();
     expect(diagnosticsPanelSpy).toHaveBeenCalled();
   });
 });
