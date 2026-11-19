@@ -383,3 +383,207 @@ def test_context_request_is_a_real_projection_request(preservation: dict) -> Non
         ),
     )
     assert isinstance(context.request, ProjectionRequest)
+
+
+# Revision-4 declaration capability: public WK/Core, no product/source authority.
+def _manual_profile():
+    from graph_memory.vnext.domain_runtime import dungeonbuddy_dnd5e_manual_profile
+
+    return dungeonbuddy_dnd5e_manual_profile()
+
+
+def _manual_catalog():
+    from apps.live_control_server.integrations.dungeonmind import assertion_qualification as c
+
+    target = c.CONNECTED_PLACE_OPERATION_V7_TARGET
+    labels = sorted(
+        set(c._DIRECT_PREDICATE_MAP)
+        | set(c._RENAME_PREDICATE_MAP)
+        | set(c._REVERSE_ENDPOINT_PREDICATE_MAP)
+        | set(target.predicate_map_additions or {})
+    )
+    return c, target, labels
+
+
+def test_manual_profile_canonical_additive_and_detached() -> None:
+    from graph_memory.vnext.domain_runtime import (
+        DUNGEONBUDDY_MANUAL_PROFILE_DIGEST,
+        dungeonbuddy_dnd5e_observation_profile,
+    )
+
+    profile = _manual_profile()
+    raw = profile.model_dump(mode="json")
+    checked = json.loads((ROOT / "Docs/Contracts/vnext/dungeonbuddy_dnd5e_manual_semantic_profile_v4.json").read_text())
+    assert raw == checked
+    assert canonical_sha256(raw) == DUNGEONBUDDY_MANUAL_PROFILE_DIGEST
+    assert profile.profile_revision == "4"
+    old = dungeonbuddy_dnd5e_observation_profile().model_dump(mode="json")
+    assert all(p in raw["predicates"] for p in old["predicates"])
+    assert set(old["classification_terms"]) <= set(raw["classification_terms"])
+    assert raw["open_predicate_namespaces"] == old["open_predicate_namespaces"]
+    profile.predicates.clear()
+    assert _manual_profile().model_dump(mode="json") == checked
+    assert dungeonbuddy_dnd5e_semantic_profile().profile_revision == "1"
+
+
+def test_manual_profile_closed_catalog_direction_and_endpoint_matrix() -> None:
+    c, target, labels = _manual_catalog()
+    profile = _manual_profile()
+    declarations = {p.term: p for p in profile.predicates}
+    assert len(labels) == 45
+    assert len(declarations) == len(profile.predicates)
+    assert set(target.buddy_to_dm_kind.values()) <= set(profile.classification_terms)
+    vocabulary = target.world_object_loader()
+    matrix = {}
+    for label in labels:
+        term, reverse = c.resolve_buddy_predicate_mapping_v4(label, target=target)
+        assert declarations[term].allowed_value_kinds == ["entity_ref"]
+        expected_reverse = label == "belongs_to"
+        assert reverse is expected_reverse
+        allowed = [(a, b) for a in target.buddy_to_dm_kind for b in target.buddy_to_dm_kind
+                   if c.edge_endpoint_kind_admission_reason(
+                       buddy_predicate=label, from_buddy_kind=a, to_buddy_kind=b,
+                       target=target, vocabulary=vocabulary) is None]
+        assert allowed, label
+        matrix[label] = {"term": term, "reverse": reverse, "allowed_pairs": allowed}
+    assert canonical_sha256(matrix) == "0ac3bb2a41df5ddf129acd3f267bed46940a94676d62d2a028ea65b191a8b371"
+    assert c.resolve_buddy_predicate_mapping_v4("not_a_manual_predicate", target=target) is None
+    assert "dnd5e:not_a_manual_predicate" not in declarations
+    assert c.edge_endpoint_kind_admission_reason(
+        buddy_predicate="owns", from_buddy_kind="creature", to_buddy_kind="npc",
+        target=target, vocabulary=vocabulary) is not None
+    assert c.edge_endpoint_kind_admission_reason(
+        buddy_predicate="belongs_to", from_buddy_kind="creature", to_buddy_kind="npc",
+        target=target, vocabulary=vocabulary) is None
+
+
+def test_manual_profile_exact_ref_resolution() -> None:
+    from graph_memory.vnext.domain_runtime import (
+        DungeonBuddyDescriptorError, resolve_dungeonbuddy_descriptors,
+    )
+
+    domain = dungeonbuddy_world_domain_contract()
+    profile = _manual_profile()
+    domain_ref = DomainContractRef(domain_id=domain.domain_id, domain_revision=domain.domain_revision,
+                                   descriptor_sha256=canonical_sha256(domain.model_dump(mode="json")))
+    ref = SemanticProfileRef(profile_id=profile.profile_id, profile_revision="4",
+                             descriptor_sha256=canonical_sha256(profile.model_dump(mode="json")))
+    assert resolve_dungeonbuddy_descriptors(domain_ref=domain_ref, profile_ref=ref)[1] == profile
+    for change in ({"descriptor_sha256": "0" * 64}, {"profile_revision": "999"}):
+        with pytest.raises(DungeonBuddyDescriptorError):
+            resolve_dungeonbuddy_descriptors(domain_ref=domain_ref, profile_ref=ref.model_copy(update=change))
+
+
+def _manual_wk(profile):
+    from dungeonmind.application.vnext import initialize_empty_knowledge_space
+    from dungeonmind.infrastructure.memory.vnext_knowledge import InMemoryKnowledgeRevisionRepository
+    from worldkeeper.integrations.dungeonmind import DungeonMindWorldKeeperRuntime
+
+    repository = InMemoryKnowledgeRevisionRepository()
+    domain = dungeonbuddy_world_domain_contract()
+    now = datetime(2026, 11, 19, tzinfo=UTC)
+    initialize_empty_knowledge_space(repository=repository, space_id="manual-profile-proof",
+                                     initialization_id="manual-profile-genesis", created_at=now,
+                                     domain_contract=domain, semantic_profile=profile)
+    runtime = DungeonMindWorldKeeperRuntime(repository=repository, domain_contract=domain,
+                                           semantic_profile=profile, clock=lambda: now,
+                                           prepared_id_factory=lambda: "manual-profile-operation")
+    return repository, runtime
+
+
+def _manual_ops(kind_terms, predicate="dnd5e:owns"):
+    from worldkeeper.application import contracts as wk
+
+    meta = wk.AssertionMetadata(scope=(), visibility=wk.Visibility("labels_any", ("dungeonbuddy.visibility:gm",)),
+                                epistemic_basis="asserted", claim_mode="dungeonbuddy.claim:fact",
+                                standing="established", temporal_scope=wk.TemporalScope(kind="unknown"),
+                                evidence_ref_ids=())
+    objects = tuple(wk.CreateObject(f"kind-{i}", (
+        wk.CreateFact(f"classification-{i}", "dnd5e:classification", wk.TermRefFactValue(term), meta),
+    )) for i, term in enumerate(kind_terms))
+    return objects + (wk.CreateRelationship("manual-edge", wk.ResultOf("kind-0"), predicate,
+                                            wk.ResultOf("kind-1"), meta),)
+
+
+def test_manual_profile_public_wk_prepare_all_kinds_and_core_commit() -> None:
+    from worldkeeper.application import contracts as wk
+
+    _, target, _ = _manual_catalog()
+    repo, runtime = _manual_wk(_manual_profile())
+    before = repo.get_head("manual-profile-proof")
+    prepared = runtime.prepare_change(wk.WorldChangeIntent("manual-profile-proof", "manual catalog declaration proof",
+                                                          _manual_ops(tuple(target.buddy_to_dm_kind.values()))))
+    assert repo.get_head("manual-profile-proof") == before
+    result = runtime.commit_prepared_change(prepared, confirmed_by="declaration-proof")
+    assert len(result.object_results) == 13
+    assert len(result.assertion_results) == 14
+    from dungeonmind.application.vnext.admission import semantic_profile_passes
+    from dungeonmind.application.vnext.materialization import decode_native_graph_payload
+
+    child = repo.get_revision("manual-profile-proof", result.child_revision_id)
+    parsed = build_parsed_knowledge_revision(child.revision,
+        decoded_content=decode_native_graph_payload(child.graph_payload))
+    classifications = [a for a in parsed.assertions_by_id.values() if a.predicate == "dnd5e:classification"]
+    assert {a.value.term for a in classifications} == set(target.buddy_to_dm_kind.values())
+    assert all(semantic_profile_passes(a, semantic_profile=_manual_profile()) is None
+               for a in parsed.assertions_by_id.values())
+    assert repo.get_head("manual-profile-proof") != before
+
+
+def test_manual_profile_public_wk_refusal_zero_mutation() -> None:
+    from worldkeeper.application import contracts as wk
+    from worldkeeper.application.preparation import InvalidWorldChange
+
+    repo, runtime = _manual_wk(_manual_profile())
+    before = repo.get_head("manual-profile-proof")
+    ops = _manual_ops(("dnd5e:npc", "dnd5e:location"))
+    from dataclasses import replace
+
+    bad = (*ops[:-1], replace(ops[-1], source=wk.ResultOf("missing")))
+    with pytest.raises(InvalidWorldChange, match="result_of_missing_create_object"):
+        runtime.prepare_change(wk.WorldChangeIntent("manual-profile-proof", "refusal proof", bad))
+    assert repo.get_head("manual-profile-proof") == before
+
+
+def test_manual_profile_semantic_gate_is_distinct_from_wk_structure() -> None:
+    from dungeonmind.application.vnext.admission import semantic_profile_passes
+    from dungeonmind.contracts.vnext.domain import AssertionMetadata, EntityRefValue, TermRefValue
+
+    meta = AssertionMetadata(visibility={"kind": "labels_any", "labels": ["dungeonbuddy.visibility:gm"]},
+                             epistemic_basis="asserted", claim_mode="dungeonbuddy.claim:fact",
+                             standing="established", temporal_scope={"kind": "unknown"})
+    c, target, labels = _manual_catalog()
+    new = _manual_profile()
+    old = dungeonbuddy_dnd5e_semantic_profile()
+    for label in labels:
+        term, _ = c.resolve_buddy_predicate_mapping_v4(label, target=target)
+        assertion = Assertion(assertion_id="edge", subject_entity_id="left", predicate=term,
+                              value=EntityRefValue(entity_id="right"), metadata=meta)
+        assert semantic_profile_passes(assertion, semantic_profile=new) is None
+        if term != "dnd5e:located_in":
+            assert semantic_profile_passes(assertion, semantic_profile=old) == "semantic_profile"
+    for term in target.buddy_to_dm_kind.values():
+        assertion = Assertion(assertion_id="kind", subject_entity_id="left", predicate="dnd5e:classification",
+                              value=TermRefValue(term=term), metadata=meta)
+        # Core's structural predicate/value-kind gate does NOT enforce classification membership.
+        assert semantic_profile_passes(assertion, semantic_profile=old) is None
+        assert semantic_profile_passes(assertion, semantic_profile=new) is None
+    unknown = assertion.model_copy(update={"predicate": "dnd5e:unknown_manual"})
+    assert semantic_profile_passes(unknown, semantic_profile=new) == "semantic_profile"
+
+
+def test_manual_profile_wk_exact_descriptor_refusal() -> None:
+    from worldkeeper.application import contracts as wk
+    from worldkeeper.application.preparation import InvalidWorldChange
+    from worldkeeper.integrations.dungeonmind import DungeonMindWorldKeeperRuntime
+
+    repo, _ = _manual_wk(_manual_profile())
+    before = repo.get_head("manual-profile-proof")
+    runtime = DungeonMindWorldKeeperRuntime(repository=repo,
+        domain_contract=dungeonbuddy_world_domain_contract(),
+        semantic_profile=dungeonbuddy_dnd5e_semantic_profile(),
+        clock=lambda: datetime(2026, 11, 19, tzinfo=UTC))
+    with pytest.raises(InvalidWorldChange, match="semantic_profile_mismatch"):
+        runtime.prepare_change(wk.WorldChangeIntent("manual-profile-proof", "wrong profile",
+                                                   _manual_ops(("dnd5e:npc", "dnd5e:location"))))
+    assert repo.get_head("manual-profile-proof") == before

@@ -1,0 +1,338 @@
+{
+  "classification_terms": [
+    "dnd5e:location",
+    "dnd5e:npc",
+    "dungeonbuddy:faction",
+    "dungeonbuddy:organization",
+    "dnd5e:creature",
+    "dnd5e:encounter",
+    "dnd5e:event",
+    "dnd5e:faction",
+    "dnd5e:group",
+    "dnd5e:item",
+    "dnd5e:mystery",
+    "dnd5e:party",
+    "dnd5e:player_character",
+    "dnd5e:thread",
+    "dnd5e:threat"
+  ],
+  "open_predicate_namespaces": [
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "namespace": "dungeonbuddy.custom"
+    }
+  ],
+  "predicates": [
+    {
+      "allowed_value_kinds": [
+        "term_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:classification"
+    },
+    {
+      "allowed_value_kinds": [
+        "literal"
+      ],
+      "literal_schema": {
+        "type": "string"
+      },
+      "term": "dnd5e:name"
+    },
+    {
+      "allowed_value_kinds": [
+        "literal"
+      ],
+      "literal_schema": {
+        "type": "string"
+      },
+      "term": "dnd5e:summary"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:located_in"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dungeonbuddy:allied_with"
+    },
+    {
+      "allowed_value_kinds": [
+        "term_ref"
+      ],
+      "literal_schema": null,
+      "term": "dungeonbuddy:source_classification"
+    },
+    {
+      "allowed_value_kinds": [
+        "literal"
+      ],
+      "literal_schema": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "term": "dungeonbuddy:reviewed_source_observation"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:allied_with"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:associated_with"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:attacks"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:aware_of"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:carries"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:causes"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:commands"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:contains"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:cooperates_with"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:displaced_from"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:holds"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:knows_about"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:leads"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:leads_to"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:member_of"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:near"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:occurs_at"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:operates"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:owns"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:parent_of"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:part_of"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:participates_in"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:possesses"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:present_at"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:protects"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:pursues"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:recruits_for"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:rivals"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:serves"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:south_of"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:suspects"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:threatens"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:travels_to"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:trusts"
+    },
+    {
+      "allowed_value_kinds": [
+        "entity_ref"
+      ],
+      "literal_schema": null,
+      "term": "dnd5e:works_with"
+    }
+  ],
+  "profile_id": "dungeonbuddy.dnd5e",
+  "profile_revision": "4",
+  "schema_version": "dm_semantic_profile_v3",
+  "term_namespaces": [
+    "dnd5e",
+    "dungeonbuddy",
+    "dungeonbuddy.custom"
+  ]
+}
