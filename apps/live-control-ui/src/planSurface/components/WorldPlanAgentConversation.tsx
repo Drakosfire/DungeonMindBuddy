@@ -3599,7 +3599,7 @@ export function WorldPlanAgentConversation({
     try {
       let stored = readPendingPlayTurn(verifiedWorldId);
       setPendingPlayTurn(stored);
-      if(stored&&stored.request.surface.surface_id==='build'&&(stored.request as WorldBuildAgentTurnRequestV1).build_authored_references){
+      if(stored&&stored.request.surface.surface_id==='build'){
         // Exact request recovery never depends on listing unrelated local receipts.
         const key=rejectedReferenceKey(stored.request as WorldBuildAgentTurnRequestV1),bytes=localStorage.getItem(key);
         if(bytes!==null){
@@ -4382,7 +4382,7 @@ export function WorldPlanAgentConversation({
         }
       }
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'The saved request could not be verified. Nothing was retried.'); return; }
-    if(request.surface.surface_id==='build'&&(request as WorldBuildAgentTurnRequestV1).build_authored_references){
+    if(request.surface.surface_id==='build'){
       try{
         const key=rejectedReferenceKey(request as WorldBuildAgentTurnRequestV1),bytes=localStorage.getItem(key);
         if(bytes!==null){const retained=checkedRejectedReference(request.owner_scope.world_id,key,bytes);

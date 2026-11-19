@@ -3473,8 +3473,10 @@ describe("one App-level World conversation host across Plan and Play", () => {
     }finally{spy.mockRestore();}
   });
 
-  it.each(['unknown','receipt-write','cleanup-crash','changed-pending'])('preserves rejected recovery at the actual storage boundary: %s',async mode=>{
-    writeComposerReferences(sessionStorage,WORLD,'source-one',null,[authoredRef('original-box')]);
+  it.each(['unknown','receipt-write','cleanup-crash','cleanup-crash-no-refs','changed-pending'])('preserves rejected recovery at the actual storage boundary: %s',async mode=>{
+    const withoutReferences = mode === 'cleanup-crash-no-refs';
+    const cleanupCrash = mode === 'cleanup-crash' || withoutReferences;
+    if (!withoutReferences) writeComposerReferences(sessionStorage,WORLD,'source-one',null,[authoredRef('original-box')]);
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history());let reject!:(reason:unknown)=>void;
     vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_,r)=>{reject=r}));
     const mounted=render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
@@ -3489,21 +3491,27 @@ describe("one App-level World conversation host across Plan and Play", () => {
         if(mode==='receipt-write')throw new DOMException('Archive denied','QuotaExceededError');
         write.call(this,key,value);write.call(this,pendingKey,altered);return;
       }return write.call(this,key,value);
-    }):mode==='cleanup-crash'?vi.spyOn(Storage.prototype,'removeItem').mockImplementation(function(key){if(key===pendingKey)throw new DOMException('Cleanup interrupted');return remove.call(this,key);}):null;
+    }):cleanupCrash?vi.spyOn(Storage.prototype,'removeItem').mockImplementation(function(key){if(key===pendingKey)throw new DOMException('Cleanup interrupted');return remove.call(this,key);}):null;
     try{
-      await act(async()=>reject(mode==='unknown'?new LiveApiError('Unknown outcome',503,{code:'transport_unavailable'}):new LiveApiError('Source context changed',422,{code:'build_editor_context_changed'})));
+      await act(async()=>reject(mode==='unknown'?new LiveApiError('Unknown outcome',503,{code:'transport_unavailable'}):new LiveApiError('Source context changed',409,{code:withoutReferences?'build_source_unavailable':'build_editor_context_changed'})));
       await screen.findByText(mode==='receipt-write'?/Archive denied/:mode==='changed-pending'?/The pending request changed. Both recovery copies were retained./:mode==='unknown'?'Unknown outcome Check World history or explicitly retry the saved request with its original IDs.':/^This message was not sent\./);
       expect(input).toHaveValue('Newer independent note.');expect(readComposerReferences(sessionStorage,WORLD,'source-one').references).toEqual([]);
       expect(localStorage.getItem(pendingKey)).toBe(mode==='changed-pending'?altered:original);
-      expect(rejectedReferenceCopies()).toHaveLength(mode==='cleanup-crash'||mode==='changed-pending'?1:0);
-      if(mode==='cleanup-crash'||mode==='changed-pending')expect(rejectedReferenceCopies()[0].original_bytes).toBe(original);
+      expect(rejectedReferenceCopies()).toHaveLength(cleanupCrash||mode==='changed-pending'?1:0);
+      if(cleanupCrash||mode==='changed-pending')expect(rejectedReferenceCopies()[0].original_bytes).toBe(original);
       if(mode==='changed-pending'){
         openConversationOptions();expect(await screen.findByLabelText('Retained rejected requests')).toHaveTextContent('Original box request.');expect(screen.getByLabelText('Saved turn recovery')).toHaveTextContent('Another tab request.');
         spy!.mockRestore();mounted.unmount();render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
         openConversationOptions();expect(await screen.findByLabelText('Retained rejected requests')).toHaveTextContent('Original box request.');expect(screen.getByLabelText('Rejected request Graph context')).toHaveTextContent('@original-box');expect(screen.getByLabelText('Saved turn recovery')).toHaveTextContent('Another tab request.');
         expect(localStorage.getItem(pendingKey)).toBe(altered);expect(rejectedReferenceCopies()).toHaveLength(1);expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
       }
-      if(mode==='cleanup-crash'){
+      if(cleanupCrash){
+        if (withoutReferences) {
+          openConversationOptions();
+          fireEvent.click(await screen.findByRole('button', {name: 'Retry exact saved turn'}));
+          await screen.findByText(/It was not resent/);
+          expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+        }
         spy!.mockRestore();mounted.unmount();const recovered=render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
         await waitFor(()=>expect(localStorage.getItem(pendingKey)).toBeNull());expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);expect(rejectedReferenceCopies()).toHaveLength(1);
         openConversationOptions();expect(await screen.findByLabelText('Retained rejected requests')).toHaveTextContent('Original box request.');
