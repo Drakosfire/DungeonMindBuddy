@@ -60,7 +60,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid"):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -493,7 +493,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 author_text = self.adapter.turn.user_text
                 if "blank page" in author_text:
                     candidate["answer_segments"] = []
-                else:
+                if lore_limitation and candidate["answer_segments"]:
                     candidate["limitations"] = ["missing_requested_details"]
                 candidate["collaboration"] = {
                     "kind": "lore_page",
@@ -2320,7 +2320,7 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, False, False, False,
         message="Create a blank page for Glass Regent.",
-        requested_work="review_lore_page", native_body="direct_support", dispatch=first,
+        requested_work="review_lore_page", native_body="direct_support", dispatch=first, lore_limitation=True,
     )
     blank = case.turn
     assert not blank.completion.answer_segments
