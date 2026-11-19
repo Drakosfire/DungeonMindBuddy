@@ -196,7 +196,15 @@ def build_ingestion_source_bundle(
     scope: str = "campaign-ingested",
     campaign_id: str | None = None,
 ) -> IngestionSourceBundle:
-    """Map the ingested corpus library into the SourceUnit contract without reading corpus bodies."""
+    """Project fresh corpus metadata without embedding corpus bodies.
+
+    ``scope`` labels the response and determines its legacy bundle ID; it does
+    not filter units. ``campaign_id`` selects campaign-derived session units.
+    Shared manifest reference units and library-wide coverage totals remain
+    unfiltered; selected-unit counts and pipeline tiers reflect the selection.
+    Bundle IDs are shared across campaign filters, so neither the label nor
+    the ID alone identifies a reusable inventory.
+    """
     repo_root = root or default_repo_root()
     library = build_library(root=repo_root, include_auxiliary=False)
     corpus_root = str(library["corpus_root"])
