@@ -372,6 +372,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/content(?:\/revisions\/\d+|\/commands\/[^/]+|\/proposals(?:\/[^/]+)?)?$/.test(pathname)) return true;
   if (/^\/api\/live\/graph-preview\/build-recap-launches(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})?$/i.test(pathname)) return true;
   if (pathname === "/api/live/graph-preview/extraction-runs") return true;
+  if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/usage$/.test(pathname)) return true;
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/recap-inspection$/.test(pathname)) return true;
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/(?:candidate-projection|recap-projection)$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/(?:capabilities|prepare|confirm)$/.test(pathname)) return true;
@@ -998,6 +999,14 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     if (!worldId || path !== combatEncounter[0] + new URLSearchParams({ world_id: worldId })) return false;
     if (method === "GET") return init?.body == null;
     return method === (combatEncounter[1] ? "PUT" : "POST") && !!requestBodyRecord(init?.body);
+  }
+  const recapUsage = /^\/api\/live\/graph-preview\/extraction-runs\/[^/?#]+\/usage\?([^#]+)$/.exec(path);
+  if (recapUsage) {
+    const query = new URLSearchParams(recapUsage[1]);
+    const worldId = query.get("managed_world_id");
+    const revision = query.get("expected_run_revision");
+    return method === "GET" && init?.body == null && !!worldId && !!revision && /^[1-9][0-9]*$/.test(revision)
+      && recapUsage[1] === new URLSearchParams({ managed_world_id: worldId, expected_run_revision: revision }).toString();
   }
   if (path === "/api/live/graph-preview/extraction-runs") {
     const body = requestBodyRecord(init?.body);

@@ -438,6 +438,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-inspection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-projection"): access.resolve_hosted_saved_recap,
+            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/usage"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_exact_extraction_read,
             ("GET", "/api/live/world-workspace/trash"): HOSTED_WORLD_SCOPE_RESOLVERS[("GET", "/api/live/world-workspace/trash")],
             ("GET", "/api/live/rules/catalog"): access.resolve_hosted_rules_lookup,
@@ -6294,3 +6295,39 @@ def test_hosted_source_evidence_extension_checks_world_before_writing(hosted, mo
     assert "statement_binding_changed" in denied.text, denied.text
     assert binding.call_count == 2
     publish.assert_not_called()
+
+
+def test_hosted_recap_usage_requires_owned_world_and_exact_revision(hosted, monkeypatch):
+    from apps.live_control_server.services import extraction_usage
+
+    calls = []
+
+    def read_usage(*, root, managed_world_id, run_id, expected_run_revision):
+        calls.append((managed_world_id, run_id, expected_run_revision))
+        return SimpleNamespace(model_dump=lambda **kwargs: {"runRevision": expected_run_revision})
+
+    monkeypatch.setattr(extraction_usage, "read_extraction_usage", read_usage)
+    path = "/api/live/graph-preview/extraction-runs/recap-run/usage"
+    query = "?managed_world_id=managed&expected_run_revision=2"
+    assert hosted.client.request("GET", path + query, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + query + "&expected_run_revision=3").status_code == 403
+    assert calls == []
+    result = hosted.client.request("GET", path + query)
+    assert result.status_code == 200, result.text
+    assert result.json() == {"runRevision": 2}
+    assert calls == [("managed", "recap-run", 2)]
+
+    def transfer_during_serialization(**_kwargs):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"runRevision": 2}
+
+    monkeypatch.setattr(
+        extraction_usage,
+        "read_extraction_usage",
+        lambda **_kwargs: SimpleNamespace(model_dump=transfer_during_serialization),
+    )
+    denied = hosted.client.request("GET", path + query)
+    assert denied.status_code == 403, denied.text
+    assert "runRevision" not in denied.text

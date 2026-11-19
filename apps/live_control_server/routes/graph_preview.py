@@ -803,9 +803,13 @@ def get_build_recap_launch(request_id: UUID, document_id: UUID, managed_world_id
 @router.get("/extraction-runs/{run_id}/usage")
 def get_extraction_usage(run_id: str, request: Request,
     managed_world_id: Annotated[str, Query(min_length=1)],
-    expected_run_revision: Annotated[int, Query(gt=0)],
-    _principal=Depends(native_graph_gm_dependency)):
+    expected_run_revision: Annotated[int, Query(gt=0)]):
     from apps.live_control_server.services.extraction_usage import read_extraction_usage
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
+
+    require_saved_recap_access(request, managed_world_id)
     _saved_run_query(request, {"managed_world_id", "expected_run_revision"})
-    return _saved_run_response(lambda: read_extraction_usage(root=repo_root(),run_id=run_id,
+    response = _saved_run_response(lambda: read_extraction_usage(root=repo_root(),run_id=run_id,
         managed_world_id=managed_world_id,expected_run_revision=expected_run_revision))
+    require_saved_recap_access(request, managed_world_id)
+    return response
