@@ -2328,6 +2328,25 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
     token = prepared.json()["writer_confirm_token"]
     commit = {**request, "writer_confirm_token": token}
     assert hosted.client.request("POST", f"{editor}/commit", json=commit, session="other-session").status_code == 403
+    from apps.live_control_server.services import tiptap_markdown_write
+
+    validate_media = tiptap_markdown_write.validate_saved_media_references
+    with monkeypatch.context() as patch:
+        def transfer_during_validation(markdown, owner):
+            validate_media(markdown, owner)
+            from fastapi import HTTPException
+
+            def reject_previous_owner(*_):
+                raise HTTPException(403, detail="World ownership changed")
+
+            patch.setattr(access, "_owned_world", reject_previous_owner)
+
+        patch.setattr(tiptap_markdown_write, "validate_saved_media_references", transfer_during_validation)
+        assert hosted.client.request("POST", f"{editor}/commit", json=commit).status_code == 403
+    unchanged = hosted.client.request("GET", f"{document}/snapshot")
+    assert unchanged.status_code == 200
+    assert unchanged.json()["loaded_revision"] == record["revision"]
+
     committed = hosted.client.request("POST", f"{editor}/commit", json=commit)
     assert committed.status_code == 200, committed.text
     reopened = hosted.client.request("GET", f"{document}/snapshot")
