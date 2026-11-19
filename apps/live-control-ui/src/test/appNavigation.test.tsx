@@ -326,12 +326,12 @@ describe("App same-document primary navigation", () => {
     await user.pointer({ keys: "[MouseRight]", target: combat });
     expect(window.location.pathname).toBe("/ingest");
 
-    const ingest = within(nav).getByRole("link", { name: "Ingest" });
-    ingest.dispatchEvent(
+    const plan = within(nav).getByRole("link", { name: "Plan" });
+    plan.dispatchEvent(
       new MouseEvent("click", { bubbles: true, cancelable: true, button: 0, ctrlKey: true }),
     );
     expect(window.location.pathname).toBe("/ingest");
-    expect(pushSpy.mock.calls.some((call) => String(call[2]) === "/ingest")).toBe(false);
+    expect(pushSpy.mock.calls.some((call) => String(call[2]) === "/plan")).toBe(false);
     pushSpy.mockRestore();
   });
 });
