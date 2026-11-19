@@ -48,9 +48,17 @@ admission. B2 must establish and seal those facts at their owning boundaries.
 - `apps/live_control_server/routes/extract_promote.py`: **section split only**
   for the two `/worldbuilding/first-world/{prepare,confirm}` handlers and
   their response/dispatch wiring. Use local imports or a separately defined
-  versioned router/model where needed; do not edit shared import blocks, common
-  auth helpers, middleware, recap, generic Worldbuilding, source observation or
-  location-binding routes. Preserve `_reject_selector_query`, the existing
+  versioned router/model where needed. **Exact import-wiring exception:** remove
+  only `FirstWorldGraphConfirmReceipt`, `FirstWorldGraphConfirmRequest`,
+  `FirstWorldGraphPlan`, `FirstWorldGraphPrepareRequest`, `confirm_first_world`
+  and `prepare_first_world` from their existing shared blocks when their only
+  uses in these two handlers are replaced; add dedicated native protocol and
+  historical-response imports immediately adjacent to the first-World handlers.
+  These are the six exclusive legacy imports present at Buddy main
+  `f27992d11`; do not remove any additional name without separately establishing
+  its scope. Otherwise do not edit shared import blocks, common auth helpers,
+  middleware, recap, generic Worldbuilding, source observation or location-
+  binding routes. Preserve `_reject_selector_query`, the existing
   first-World authorizer, error safety and hosted/local principal semantics.
   A necessary edit outside this exact section requires an explicit new split or
   transfer before editing, not a blanket claim on this shared file.
