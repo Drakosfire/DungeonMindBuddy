@@ -275,6 +275,7 @@ def hosted(monkeypatch, request):
         "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolutions/{operation_id}",
         agent_routes.get_world_command_resolution, methods=["GET"],
     )
+    app.add_api_route("/api/live/agent/readiness", agent_routes.get_agent_readiness, methods=["GET"])
     app.add_api_route("/api/live/agent/turn", agent_routes.post_agent_turn, methods=["POST"])
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}",
@@ -485,6 +486,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/workspace-documents/{document_id}/native-world-source"): access.resolve_hosted_build_native_source,
             ("GET", "/api/live/threat-drafts"): access.resolve_hosted_statblock_inventory,
             ("POST", "/api/live/agent/turn"): access.resolve_hosted_chat_turn,
+            ("GET", "/api/live/agent/readiness"): HOSTED_WORLD_SCOPE_RESOLVERS[("GET", "/api/live/agent/readiness")],
             ("GET", "/api/live/agent/worlds/{world_id}/conversation"): access.resolve_hosted_conversation_world,
             ("POST", "/api/live/agent/worlds/{world_id}/conversation/new"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}"): access.resolve_hosted_conversation_world,
@@ -5607,3 +5609,16 @@ def test_hosted_related_recaps_bind_pinned_world(hosted, monkeypatch):
     conflict = hosted.client.request("POST", path, json=body)
     assert conflict.status_code == 409, conflict.text
     assert "withheld" not in conflict.text
+
+
+def test_hosted_readiness_requires_the_owned_world(hosted):
+    path = "/api/live/agent/readiness?surface=build&world_graph=true"
+    selected = f"{path}&world_id=managed"
+    response = hosted.client.request("GET", selected)
+    assert response.status_code == 200, response.text
+    assert response.json()["surface"] == "build"
+    for denied_path in (path, f"{path}&world_id=foreign", f"{selected}&world_id=foreign"):
+        denied = hosted.client.request("GET", denied_path)
+        assert denied.status_code == 403, denied.text
+    denied = hosted.client.request("GET", selected, session="other-session")
+    assert denied.status_code == 403, denied.text
