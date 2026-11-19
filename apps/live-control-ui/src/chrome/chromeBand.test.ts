@@ -19,11 +19,12 @@ describe("app chrome band", () => {
 
   it("keeps Tools, Edit, Projection, and Author Node drawers inside the chrome band", () => {
     const styles = readCss("styles.css");
+    const tools = readCss("surfaceInteraction/toolHost/ToolHostView.css");
     const projection = readCss("surfaceInteraction/projection/projectionHost.css");
     const plan = readCss("planSurface/planSurface.css");
 
-    expect(styles).toMatch(/\.app-tools-toolbox-drawer\s*\{[^}]*top:\s*var\(--app-chrome-top\)/s);
-    expect(styles).toMatch(/\.app-tools-toolbox-drawer\s*\{[^}]*bottom:\s*var\(--app-chrome-bottom\)/s);
+    expect(tools).toMatch(/\.app-tools-toolbox-drawer\s*\{[^}]*top:\s*var\(--app-chrome-top\)/s);
+    expect(tools).toMatch(/\.app-tools-toolbox-drawer\s*\{[^}]*bottom:\s*var\(--app-chrome-bottom\)/s);
     expect(styles).toMatch(/\.app-edit-toolbox-drawer\s*\{[^}]*top:\s*var\(--app-chrome-top\)/s);
     expect(styles).toMatch(/\.app-edit-toolbox-drawer\s*\{[^}]*bottom:\s*var\(--app-chrome-bottom\)/s);
 
@@ -37,10 +38,22 @@ describe("app chrome band", () => {
   });
 
   it("has no unavailable Ask sheet presentation and keeps the registered closed dock compact", () => {
-    const css = readCss("planSurface/planSurface.css");
+    const css = readCss("agentInteraction/AgentInteractionChrome.css");
+    const plan = readCss("planSurface/planSurface.css");
+    expect(plan).not.toMatch(/\.plan-agent-shell\.open\[data-ask-available="false"\]/);
     expect(css).not.toMatch(/\.plan-agent-shell\.open\[data-ask-available="false"\]/);
     expect(css).toMatch(/\.plan-agent-shell\s*\{[^}]*width:\s*max-content;[^}]*max-width:\s*calc\(100vw - 2rem\)/s);
-    expect(css).toMatch(/\.plan-agent-bar\s*\{[^}]*width:\s*5rem;[^}]*height:\s*5rem/s);
+    const launcherSize = css.match(/\.plan-agent-bar\s*\{[^}]*--buddy-launcher-size:\s*([\d.]+)rem;/s);
+    expect(launcherSize).not.toBeNull();
+    // At the default 16px root size, 2.75rem preserves the 44px hit target.
+    expect(Number(launcherSize?.[1])).toBeGreaterThanOrEqual(2.75);
+    expect(Number(launcherSize?.[1])).toBeLessThanOrEqual(5);
+    for (const selector of [/\.plan-agent-bar\s*\{[^}]*\}/gs, /\.plan-agent-bar button\s*\{[^}]*\}/gs]) {
+      expect([...css.matchAll(selector)].some(([rule]) =>
+        /inline-size:\s*var\(--buddy-launcher-size\)/.test(rule)
+        && /block-size:\s*var\(--buddy-launcher-size\)/.test(rule),
+      )).toBe(true);
+    }
   });
 
   it("reserves wrapped navigation but no collapsed Agent band at the narrow breakpoint", () => {
