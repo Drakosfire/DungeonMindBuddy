@@ -111,11 +111,12 @@ def _request(
     )
 
 
-def _project(data: dict, request: WorldGraphObjectProjectionRequest):
+def _project(data: dict, request: WorldGraphObjectProjectionRequest, *, allow_multiple=False):
     parsed, reader = _runtime(data)
     return project_complete_world_object_vnext(
         parsed_revision=parsed,
         source_reader=reader,
+        allow_multiple_display_values=allow_multiple,
         request=request,
         read_identity=DungeonBuddyVNextReadIdentity(
             space_id="eldyrwild",
@@ -414,7 +415,8 @@ def test_unknown_role_and_revision_mismatch_fail_closed(preservation: dict) -> N
         _project(preservation, _request(revision_id="rev:wrong"))
 
 
-def test_conflicting_source_context_metadata_fails_closed(preservation: dict) -> None:
+@pytest.mark.parametrize("allow_multiple", [False, True])
+def test_conflicting_source_context_metadata_fails_closed(preservation: dict, allow_multiple: bool) -> None:
     preservation["sources"][0]["domain_metadata"].append(
         {
             "schema": "dungeonbuddy.source:context_v1",
@@ -426,7 +428,7 @@ def test_conflicting_source_context_metadata_fails_closed(preservation: dict) ->
     )
 
     with pytest.raises(VNextCompleteObjectProjectionError, match="conflicting source"):
-        _project(preservation, _request())
+        _project(preservation, _request(), allow_multiple=allow_multiple)
 
 
 def test_unrepresentable_literal_shape_fails_closed() -> None:
@@ -462,3 +464,78 @@ def test_adapter_does_not_cross_alias_or_legacy_read_authority_boundary() -> Non
     assert "aliases_by_entity" not in source
     assert "graph_memory.adapters.dungeonmind_reader" not in source
     assert "get_world_graph_object_projection" not in source
+
+
+def _add_display_alternatives(data):
+    name = next(a for a in data["assertions"] if a["predicate"] == "dnd5e:name" and a["subject_entity_id"] == NODE_ID)
+    added = {}
+    for subject in [NODE_ID, "entity:loc:mireward"]:
+        added[subject] = set()
+        for index, (predicate, value) in enumerate([
+            ("dnd5e:name", {"kind": "literal", "value": "Alpha / literal"}),
+            ("dnd5e:name", {"kind": "literal", "value": "Zulu"}),
+            ("dnd5e:name", {"kind": "literal", "value": "Zulu"}),
+            ("dnd5e:classification", {"kind": "term_ref", "term": "dnd5e:npc"}),
+            ("dnd5e:classification", {"kind": "term_ref", "term": "dnd5e:location"}),
+            ("dnd5e:summary", {"kind": "literal", "value": "Summary one"}),
+            ("dnd5e:summary", {"kind": "literal", "value": "Summary two"}),
+        ]):
+            row = copy.deepcopy(name)
+            row.update(assertion_id=f"as:display:{subject}:{index}", subject_entity_id=subject, predicate=predicate, value=value)
+            data["assertions"].append(row)
+            added[subject].add(row["assertion_id"])
+    return added
+
+
+@pytest.mark.parametrize("selected", [NODE_ID, "entity:loc:mireward"])
+@pytest.mark.parametrize("incoming", [False, True])
+def test_opted_in_complete_display_preserves_multiplicity_and_ledgers(preservation, selected, incoming):
+    added = _add_display_alternatives(preservation)
+    if incoming:
+        edge = next(a for a in preservation["assertions"] if a["assertion_id"] == "as:brennan-located-in-mireward")
+        edge["subject_entity_id"], edge["value"]["entity_id"] = edge["value"]["entity_id"], edge["subject_entity_id"]
+    result = _project(preservation, _request(node_id=selected), allow_multiple=True)
+    assert result.node is not None
+    expected = {NODE_ID: "Alpha / literal / Brennan Tallow / Zulu", "entity:loc:mireward": "Alpha / literal / Zulu"}
+    assert result.node.label == expected[selected]
+    assert result.node.kind == "entity" and result.node.summary is None
+    other = next(iter(set(expected) - {selected}))
+    related, = result.related_nodes
+    assert related.label == expected[other] and related.kind == "entity" and related.summary is None
+    assert result.node.adjacency[0].label == expected[other]
+    assert related.adjacency[0].label == expected[selected]
+    assert added[selected] <= {a.assertion_id for a in result.assertions}
+    assert result.source_bindings
+    permuted = copy.deepcopy(preservation)
+    permuted["assertions"].reverse()
+    again = _project(permuted, _request(node_id=selected), allow_multiple=True)
+    assert result.model_dump(mode="json") == again.model_dump(mode="json")
+
+
+@pytest.mark.parametrize("exclusion", ["gm", "foreign", "retracted"])
+def test_opted_in_display_excludes_inadmissible_alternatives(preservation, exclusion):
+    _add_display_alternatives(preservation)
+    request = _request(role="player")
+    baseline = _project(preservation, request, allow_multiple=True)
+    hidden = copy.deepcopy(next(a for a in preservation["assertions"] if a["predicate"] == "dnd5e:name"))
+    hidden.update(assertion_id="as:hidden-display", value={"kind": "literal", "value": "Never visible"})
+    if exclusion == "gm":
+        hidden["metadata"]["visibility"] = {"kind": "labels_any", "labels": ["dungeonbuddy.visibility:gm"]}
+    elif exclusion == "foreign":
+        hidden["metadata"]["scope"][0]["value"] = "campaign-other"
+    else:
+        hidden["metadata"]["standing"] = "retracted"
+    preservation["assertions"].append(hidden)
+    actual = _project(preservation, request, allow_multiple=True)
+    assert actual.model_dump(mode="json") == baseline.model_dump(mode="json")
+
+
+@pytest.mark.parametrize("wrong_kind", [False, True])
+def test_multiple_display_opt_in_still_rejects_malformed_name_values(preservation, wrong_kind):
+    from dataclasses import replace
+    from dungeonmind.application.vnext.records import ParsedTermRefValue
+    parsed, _ = _runtime(preservation)
+    name = parsed.get_assertion("as:brennan-name")
+    malformed = replace(name, value=ParsedTermRefValue(term="dnd5e:npc") if wrong_kind else ParsedLiteralValue(value=17, canonical_json_text="17"))
+    with pytest.raises(VNextCompleteObjectProjectionError, match="unsupported value kind|string"):
+        adapter.world_object_display_values((malformed,), NODE_ID, allow_multiple=True)

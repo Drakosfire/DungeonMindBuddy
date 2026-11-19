@@ -427,6 +427,7 @@ def project_complete_world_object_vnext(
     source_reader: KnowledgeSourceReader,
     request: WorldGraphObjectProjectionRequest,
     read_identity: DungeonBuddyVNextReadIdentity,
+    allow_multiple_display_values: bool = False,
 ) -> WorldGraphObjectProjectionResult:
     """Project one exact native-vNext complete entity into the existing Buddy DTO."""
     if read_identity.space_id != parsed_revision.space_id:
@@ -523,7 +524,10 @@ def project_complete_world_object_vnext(
         for item in complete.assertions
         if item.subject_entity_id == request.node_id
     )
-    label, kind, summary = world_object_display_values(selected_assertions, request.node_id)
+    label, kind, summary = world_object_display_values(
+        selected_assertions, request.node_id,
+        allow_multiple=allow_multiple_display_values,
+    )
     relationships = [
         _map_relationship(
             item,
@@ -570,7 +574,8 @@ def project_complete_world_object_vnext(
         )
         related_result = related_results[related_id]
         related_label, related_kind, related_summary = world_object_display_values(
-            related_result.assertions, related_id
+            related_result.assertions, related_id,
+            allow_multiple=allow_multiple_display_values,
         )
         relationship_badges = _evidence_badges(
             relationship.evidence_ref_ids,
@@ -600,7 +605,8 @@ def project_complete_world_object_vnext(
 
     for related_id, related_result in related_results.items():
         related_label, related_kind, related_summary = world_object_display_values(
-            related_result.assertions, related_id
+            related_result.assertions, related_id,
+            allow_multiple=allow_multiple_display_values,
         )
         touching = [
             item
