@@ -1,6 +1,8 @@
 # BUDDY — V9.A native canary qualification and process rollback
 
-Status: IMPLEMENTED — final report-head frontend, independent review and merge pending.
+Status: COMPLETE — V9.A qualification accepted in4041 merge
+d2166f5bfde17e9d595daf108ee5d817eb105ebf. Exact8714049 frontend/canonical passed;
+independent Cycle2 review5970779017 approved. Live activation is V9.B.
 Owner/designer: Elderwyld vNext completion lane. Operator authorized implementation,
 independent review, merge and launch; no PRIME coordination prerequisite.
 
@@ -126,8 +128,9 @@ shared by identical binaries. Never infer live serving acceptance from these res
 
 ## Remaining gates and next primary question
 
-Complete unmodified exact-final-report-head hosted frontend/canonical validation,
-independent cumulative review and normal checks, then merge V9.A truthfully.
+Exact871404916ee8f815407a63875a8b0eece7898bc2 frontend/canonical validation and
+independent review are complete;4041 merged. Three docs-only paths triggered no
+automatic workflows under their path filters; no hosted-green claim.
 No checkout edits/switches while a qualifying verifier uses the caller. Shared
 frontend lock must be honored; never steal/unlink it. Dirty-caller diagnostics
 remain retained and cannot qualify the candidate.

@@ -1,0 +1,49 @@
+{
+  "schema": "v9_live_native_activation_v1",
+  "status": "ACTIVE_RECOVERY_CAPTURE",
+  "owner": "Elderwyld vNext completion lane",
+  "authorization": "Explicit user implementation/review/merge/launch authorization",
+  "qualification": {
+    "pr": 4041,
+    "merge": "d2166f5bfde17e9d595daf108ee5d817eb105ebf",
+    "runtime_buddy": "1c7ddcdd9ce08077cf9c5297ab952ebd1a41560f",
+    "test_only_successor": "4f4ed526278badc8b9b7241e418e90c7fd474c98",
+    "core": "4b6516e2c0dfd81acaa4410b9b9bb9da18894c90"
+  },
+  "live_targets": {
+    "core": {
+      "port": 54330,
+      "database": "dungeonmind_cutover_live_restore_20261011",
+      "schema_before": "0021_native_source_withdrawal"
+    },
+    "app": {
+      "port": 54331,
+      "database": "dungeonbuddy_application_state",
+      "schema_before": "20261117_0160"
+    },
+    "expected_elderwyld_head_before": "rev:5293c1b237a0064bd16fffd080bfa6b1",
+    "expected_lineage_count_before": 600,
+    "binding_version": 3
+  },
+  "ports": {
+    "ui": 5202,
+    "owned_api": 18292,
+    "other_lane_api_untouched": 8000
+  },
+  "live_mutation_performed": false,
+  "activation_performed": false,
+  "evidence_root": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live",
+  "pending": [
+    "Fresh complete backup/restore and external-file recovery proof",
+    "Immutable runtime/frontend assets and actual persistence layout",
+    "Independently reviewed concrete migration/artifact/activation plan",
+    "Explicit accepted live migrations/artifacts with allowed-change verification",
+    "Actual authenticated serving/browser/receipt/citation/restart/same-version rollback checks",
+    "Final exact-head frontend/canonical/review/merge"
+  ],
+  "full_goal_remaining": [
+    "V10 retirement",
+    "V11 deployed serving baseline"
+  ],
+  "cleanup_followup": "Owner Elderwyld activation retains task-owned evidence/backups/recovery DBs/private profiles/mirrors/builds through review and V10/V11. No standing deletion permission."
+}
