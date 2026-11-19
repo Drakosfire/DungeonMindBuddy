@@ -227,7 +227,8 @@ def verify_native_work_input(execution, basis, raw):
     expected = (semantic_frame(host, execution,
         include_variant=format_name in {VARIANT_WRITER_FORMAT, VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS},
         variant_edits=format_name in {VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS},
-        variant_passage_review=format_name in VARIANT_PASSAGE_FORMATS) if frame is not None else host)
+        variant_passage_review=format_name in VARIANT_PASSAGE_FORMATS,
+        bind_lore_page="lore_page_destination" in frame["build_work"]) if frame is not None else host)
     if frame is None:
         frame=responses_text_frame(raw,schemas={NATIVE_WORK_SCHEMA},label='Native Build work')
     if (body.get('model') != execution.policy.provider_roles.writer.model

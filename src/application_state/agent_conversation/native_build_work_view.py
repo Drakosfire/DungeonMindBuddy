@@ -77,7 +77,7 @@ def variant_output_version(work_frame):
 
 
 def semantic_frame(host, execution, *, include_variant=False, variant_edits=False,
-                   variant_passage_review=False):
+                   variant_passage_review=False, bind_lore_page=False):
     from .build_primary_context import NATIVE_WORK_SCHEMA
     if (host.get('schema') != NATIVE_WORK_SCHEMA
             or set(host) - ({'schema', 'source_basis', 'artifact_under_edit'} | _OPTIONAL)):
@@ -113,6 +113,16 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
              'barrier_detail', 'capabilities')}
         work['requested_work']['available_followups'] = [row['description']
             for row in contract['available_followups']]
+        if bind_lore_page and contract['requested_work'] == 'review_lore_page' and not contract['barrier']:
+            from .lore_page_review import explicit_lore_page_witness
+
+            try:
+                witness = explicit_lore_page_witness(execution.policy.action.intent.message)
+            except ValueError:
+                # A follow-up or ambiguous request has no new explicit title to bind.
+                pass
+            else:
+                work['lore_page_destination'] = witness.model_dump(mode='json')
     if 'captured_editor' in host:
         editor = host['captured_editor']
         if set(editor)-{'idempotency_key','conversation_id','expected_pointer_revision','basis',
