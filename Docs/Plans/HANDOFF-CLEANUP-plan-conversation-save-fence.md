@@ -1,0 +1,9 @@
+# CLEANUP: current conversation switch during Plan Save
+
+Status: ACTIVE under user standing cleanup implementation/review/merge goal. Base9aca8915b3e984464609e4d0c9347a2204592455; branchcodex/plan-conversation-save-fence; existing isolated checkout. Serial after merged4119. The parked Option producer handoff is BLOCKED and grants no active lease. Current open heads inspected for target-test overlap.
+
+Write lease: only existing thread-switch/deferred-Apply case and necessary imports in apps/live-control-ui/src/planSurface/WorldPlanAgentReviewedEdit.integration.test.tsx, plus this temporary brief. All other case bodies/runtime/helpers/CI/schema are read-only. No ports/databases/providers.
+
+Migrate retired test-only Agent thread switch to actual current New conversation. Start native suggestion Save, gate/delegate the real restorePlanAuthoringTarget, switch current World conversation through actual control and valid synthetic API response/history, then settle restore and prove no stale editor/persistence/prepare/confirm. Require actual reset request and fresh pointer/history; do not claim a changed fixture variable alone proves switching. Valid no-switch control must reach successful Save. Preserve current recovery/abort/identity guards and all nineteen other cases. This is synthetic client evidence, not real server/database qualification.
+
+Validation: focused old/new and no-switch control; standard isolated exact-SHA hosted/build/validator plus full discovered comparison and independent exact-head review. Scratch on verified Projects/global frontend lock, dispose after evidence retained. Stop/split on runtime defect or missing producer rather than force state/relax assertions. Remove temporary brief from final tree, retaining pinned history; settle actual results in external ledger/#4074 after merge.
