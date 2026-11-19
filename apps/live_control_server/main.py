@@ -203,6 +203,7 @@ PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
 PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("POST", "/api/live/extract-promote/runs/{run_id}/recap-evidence-corrections"): resolve_hosted_recap_correction,
     ("POST", "/api/live/extract-promote/runs/{run_id}/recap-candidate-corrections"): resolve_hosted_recap_correction,
     ("POST", "/api/live/extract-promote/runs/{run_id}/semantic-disposition"): resolve_hosted_recap_correction,
     ("POST", "/api/live/extract-promote/native-prepare"): resolve_hosted_native_publication,
