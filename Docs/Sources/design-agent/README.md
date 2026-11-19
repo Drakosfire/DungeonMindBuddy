@@ -1,8 +1,8 @@
 # Design Agent / Project Sources Export
 
 **Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies
-**Canonical content rechecked at:** `bb7911e5255e8adf8e143dc0e85b9f69c72dacfb`, with the bounded manifest/navigation repair in this change
-**Repository refresh:** 2026-11-19. The README and DEMO roadmap exports were refreshed, the manifest links were repaired, and all 22 mapped exports were checked. This is not a full design/corpus audit; user-managed Project Sources were not changed.
+**Canonical content rechecked at:** `97011d4673edda9da348a2b55c79f4ef07cb65fe`, with the bounded retired-PR gate correction in this change
+**Repository refresh:** 2026-11-19. The README and DEMO roadmap exports were refreshed, the manifest links were repaired, the retired PR #761 gate was corrected, and all 22 mapped exports were checked. This is not a full design/corpus audit; user-managed Project Sources were not changed.
 **Canonical source-set index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../../Design/INDEX-design-agent-source-set.md)
 
 This directory is the clean pickup point for refreshing ChatGPT immediate /
@@ -59,9 +59,11 @@ Do not upload as current:
 - `JUMPSTART-docs-relevance-first.md` — superseded;
 - download-suffixed historical copies.
 
-The Campaign roadmap's canonical path remains temporarily unrevised only because
-live UI PR #761 explicitly owns that path. Exclusion from this export is
-deliberate.
+The Campaign roadmap remains excluded from this export. Its physical retirement
+still requires the current-lease and consumer audit in
+`Docs/Plans/HANDOFF-SETTLEMENT-retire-campaign-supergraph-roadmap.md`.
+PR #761 closed unmerged on 2026-10-07 and is no longer a live PR gate. This export
+does not activate the blocked retirement handoff or release any other assignment.
 
 ## Maintenance rule
 
