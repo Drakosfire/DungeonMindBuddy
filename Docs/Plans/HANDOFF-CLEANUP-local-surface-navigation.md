@@ -2,7 +2,7 @@
 
 Status: ACTIVE under the standing cleanup goal's implementation, independent
 review and merge authority. Serial one PR; base
-`bf493b1a1d3f2603e31082cb0ae70c858709a3af`, branch
+`e3e0346c267a668ac61a8881b899dd2545d9cda4`, branch
 `codex/local-surface-navigation`, reused isolated checkout. No runtime resources.
 
 ## Bounded lease and settlement
@@ -14,7 +14,7 @@ complete cached #3824 paths at unchanged76c31187f3e9badecbc403f2d9c943994c5f5f9c
 checked. #2405 remains0ba62b05450b215418a10b320069c11c2cf56c8f; preserve its
 obsolete wrapper mock/setup seam. No shared fixture/runtime/classification writes.
 
-#4141 merged at this base: exact reviewed9c3478d797e144ea0fc97ccd1169d6e82b1077a6,
+#4141 mergedbf493b1a1d3f2603e31082cb0ae70c858709a3af: exact reviewed9c3478d797e144ea0fc97ccd1169d6e82b1077a6,
 localhosted1406/build/validator; full8130pass105fail2pending. The merge includes
 four separate backend #4140/#4142 paths; entire-tree equality is false. Independent
 postmerge review confirmed identical frontend/verifier/manifests/policy inputs.
@@ -60,5 +60,15 @@ all other case IDs/bodies must remain byte-identical. No unaccounted omissions.
 
 Exact-head hosted/build/validator, full default-discovered comparison with approved
 single ID migration, source equality, docs and independent cumulative review.
-Baseline exact9c3478frontend8130pass105fail2pending. Keep full diagnostics red and
+Retained old baseline9c3478frontend8130pass105fail2pending is historical only.
+The prior ea54d0fa91fd120bd4c486e5294a55cb42a2d3b0 head passed localhosted1406,
+build/validator and full8131pass104fail2pending with the mapped case corrected;
+all three owning Agent controls passed. Those raw results remain retained.
+
+Integration checkpoint: #4137 merged at current basee3e0346c267a668ac61a8881b899dd2545d9cda4
+with Graph Review frontend/runtime/test changes. Old source equality no longer
+holds. Establish an exact current-base full diagnostic, then requalify this
+rebased head against it and obtain independent new-head review. No Graph Review
+write lease or qualification of its backend/publication behavior is implied.
+Do not merge using the old head's evidence. Keep full diagnostics red and
 preserve all raw evidence; only this mapped contract correction earns credit.

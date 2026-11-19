@@ -259,11 +259,12 @@ describe("App same-document primary navigation", () => {
       expect(await screen.findByRole("heading", { name: "Plan your next session" })).toBeInTheDocument();
       expect(window.location.pathname).toBe("/plan");
 
-      const chrome = screen.getByTestId("agent-interaction-chrome");
+      // World entry and first-use Ingest have no registered Ask plugin (#701).
+      expect(screen.queryByTestId("agent-interaction-chrome")).not.toBeInTheDocument();
       fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Ingest" }));
       expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
       expect(window.location.pathname).toBe("/ingest");
-      expect(screen.getByTestId("agent-interaction-chrome")).toBe(chrome);
+      expect(screen.queryByTestId("agent-interaction-chrome")).not.toBeInTheDocument();
 
       fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Build" }));
       expect(await screen.findByTestId("build-surface-empty")).toBeInTheDocument();
