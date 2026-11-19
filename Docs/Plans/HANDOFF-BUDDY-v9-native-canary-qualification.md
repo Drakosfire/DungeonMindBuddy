@@ -1,6 +1,6 @@
 # BUDDY — V9.A native canary qualification and process rollback
 
-Status: ACTIVE — full consumer qualification resumed after accepted prerequisites.
+Status: ACTIVE — canary/write rollback passed; two test-fixture blockers remain.
 Owner/designer: Elderwyld vNext completion lane. Operator authorized implementation,
 independent review, merge and launch; no PRIME coordination prerequisite.
 
@@ -67,7 +67,7 @@ source-before/restore/source-after inventories matched selected authority, sourc
 metadata/body hashes, binding/grants and stable epoch194. No full historical graph
 payload replay or original before-dump epoch claim.
 
-Restored headrev:5293c1b237a0064bd16fffd080bfa6b1, parentrev:9eac817676327afaeaaff25d8f38df60,
+Initial restored headrev:5293c1b237a0064bd16fffd080bfa6b1, parentrev:9eac817676327afaeaaff25d8f38df60,
 600 lineage revisions/receipts/events. APP binding elderwyld→elderwyld activev3;
 validated-head field is historical metadata. Provisioning fields null, not a
 missing record. DomainContract revision2/profile refs verified.79 head source
@@ -107,6 +107,34 @@ selected authority hashes/head unchanged. Native UI repair e70 separately passed
 Plan subject-search owning service passed navigation-only head/parent checks.
 These are pinned predecessor evidence, not automatic full proof of this new base,
 not browser-rendered acceptance and not a new forward publication transaction.
+
+## Current rehearsal checkpoint
+
+Frozen0274e014 baseline/forward passed36 actual authenticated shared/native UI
+route cases. Browser loaded3012objects, opened Lysandra details and a supporting
+source excerpt. Its session parent needed task-owned private0700; that setup
+correction changed no product/global/live configuration.
+
+Owned forward used real native Graph prepare/confirm for one rehearsal location.
+Prepare intentionally admitted an immutable operator source at
+rev:e428ac6df7f24dd76b8c6b61d50370d2; confirmation published the object at
+rev:48384a4bd1aad0456e3e526897ee001e. Original zero-head-change checker was wrong
+and retained as failed evidence; same operation ID resumed, no duplicate. All
+pre-existing entities/assertions stayed identical; one entity/two assertions added.
+Owned current head now48384a4b,602revisions/source epoch195. Live source unchanged.
+APP remains0168/binding3; its page_presentation table exists.
+
+Actual proxy and browser saw3013objects and the new location on forward, then
+again after forward stopped and mapping returned to baseline. Exact confirmation
+replay/receipt equality adds no publication. New100-byte and old1276-byte citation
+hashes match across rollback. No old dump restored over the write. Owned API/UI
+groups are now stopped; retain latest restore. This is same-version rollback only.
+
+Current contracts: world445pass; ingestion888pass; query1255pass/1failed (historical
+0139 comparison fixture using later current page reader); auth225pass/36failed
+(one source fixture missing explicit local mode). These remain acceptance blockers.
+Repair separately, preserve historical schema/security/source checks, then final
+review and exact-head evidence assembly. Detailed hashes are in the report.
 
 ## Remaining required proof and dispatch order
 
