@@ -35,7 +35,7 @@ def digest(value):
 
 POLICY = "build_intentional_response_v2"
 OPERATIONS = ("answer_from_sources", "propose_build_insertion", "prepare_build_image")
-REVIEWS = ("questions", "plan", "connected_page", "relationship")
+REVIEWS = ("questions", "plan", "connected_page", "relationship", "lore_page")
 _PREVIOUS_GUIDANCE = """Identify what the user requests now, independently of the executable operations.
 The labels describe user intentions, not permission to execute them. Determine Discuss versus
 Create from that requested work. A runnable encounter or mechanics version is not page prose.
@@ -298,6 +298,7 @@ def resolve(label, capabilities, *, work_options=None):
             descriptions = {
                 "questions": "Prepare clarifying questions as an inline conversation object.",
                 "plan": "Prepare an editable plan/checklist on the Surface; selected steps require explicit continuation.",
+                "lore_page": "Prepare a standalone lore-page draft for review in conversation.",
                 "connected_page": "Prepare connected-page review; the author explicitly confirms page creation.",
                 "relationship": "Prepare a saved-page relationship review; the author edits and explicitly confirms publication in the existing review flow.",
             }
@@ -339,6 +340,7 @@ def resolve(label, capabilities, *, work_options=None):
         },
         "prepare_image": {"discuss_request", "prepare_image_prompt"},
         "review_connected_page": {"discuss_request", "review_connected_page"},
+        "review_lore_page": {"discuss_request", "review_lore_page"},
         "review_relationship": {"discuss_request", "review_relationship"},
         "publish_relationships": {"discuss_request", "review_relationship"},
         "save_page": {"discuss_request", "author_save_current_page"},
@@ -923,6 +925,7 @@ def native_review_schema(frame, *, local=False):
     """Existing typed review model with only the actual producing selectors."""
     from .collaboration import ProposedQuestions, ProposedPlanV3, ProposedConnectedPage
     from .relationship_review import ProposedRelationship
+    from .lore_page_review import ProposedLorePage
     from .plan_objective import selection_packet
     from .build_draft_context import resolve_body_aliases
     frame=resolve_body_aliases(frame)
@@ -936,7 +939,8 @@ def native_review_schema(frame, *, local=False):
     contract=frame['response_contract']
     kind=WORK[contract['requested_work']].review if not contract['barrier'] else None
     model={'questions':ProposedQuestions,'plan':ProposedPlanV3,
-        'connected_page':ProposedConnectedPage,'relationship':ProposedRelationship}.get(kind)
+        'connected_page':ProposedConnectedPage,'relationship':ProposedRelationship,
+        'lore_page':ProposedLorePage}.get(kind)
     if model is None:
         return {'type':'null'},{}
     if kind=='plan' and not selection_packet(frame):
@@ -954,13 +958,14 @@ def native_review_schema(frame, *, local=False):
     return ({'anyOf':[schema,{'type':'null'}]} if kind not in {'questions','plan'} else schema),definitions
 
 
-def normalize_native_review(candidate, segments, frame):
+def normalize_native_review(candidate, segments, frame, *, author_text):
     from pydantic import TypeAdapter
     from .relationship_review import RelationshipCollaborationV3
     from .build_draft_context import resolve_body_aliases
     from .collaboration import ProposedPlanV3
     from .plan_objective import selection_packet
-    review=TypeAdapter(RelationshipCollaborationV3 | None).validate_python(candidate)
+    from .lore_page_review import ProposedLorePage
+    review=TypeAdapter(RelationshipCollaborationV3 | ProposedLorePage | None).validate_python(candidate)
     frame=resolve_body_aliases(frame)
     from .reviewed_action import SCOPE_KEY,ReviewedDiscussionScopeV1
     if SCOPE_KEY in frame:
@@ -971,6 +976,8 @@ def normalize_native_review(candidate, segments, frame):
         return review
     validate_collaboration(review,segments,frame['response_contract'],
         primary_rows=frame['artifact_under_edit']['sections'],origin_rows=native_origin_rows(frame))
+    if isinstance(review, ProposedLorePage):
+        review.destination.bind(author_text, has_body=bool(segments))
     if isinstance(review,ProposedPlanV3) and not selection_packet(frame):
         raise ValueError('Plan review lacks its pre-writer selection contract')
     return review

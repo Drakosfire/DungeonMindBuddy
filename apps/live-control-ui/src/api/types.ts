@@ -1219,6 +1219,10 @@ export interface SurfaceNativeContextReceiptV1 {
     | {assembler_version:'reviewed_author_admission_v1';submitted_intent_sha256:string;assembled_input_sha256:string}
     | NativePlanRequestAdmissionV1;
 }
+export interface ConversationLorePageDraft {
+  kind: 'lore_page';
+  destination: {instruction: string; title: string};
+}
 export interface SurfaceNativeCompletionV1 {
   schema:'dmb_surface_native_completion_v1';surface_id:'build'|'plan'|'play';context_receipt_sha256:string;
   producing_provider_attempt_id:string;answer_basis:'mixed_evidence';
@@ -1227,7 +1231,7 @@ export interface SurfaceNativeCompletionV1 {
     | Extract<WorldBuildRelatedPageCompletionV1['answer_segments'][number],{kind:'draft_reference_claim'|'related_page_claim'|'saved_source_claim'}>
     | {kind:'discussion';text:string}
     | {kind:'statblock_pdf_claim';text:string;scope:import('./nativeGraphInspection').InspectionPin;assertion_id:string;evidence_ref_id:string})[];
-  collaboration:ConversationCollaborationV3|ConversationConnectedPageProposal|ConversationRelationshipProposal|null;
+  collaboration:ConversationCollaborationV3|ConversationConnectedPageProposal|ConversationRelationshipProposal|ConversationLorePageDraft|null;
   saved_source_citations:{segment_index:number;text_sha256:string;section_event_ids:string[]}[];
   native_body_citations:NativeBodyExcerptCitationV1[];native_clause_citations:NativeStatementClauseCitationV1[];
   native_assertion_citations:NativeAssertionCitation[];

@@ -478,6 +478,15 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                         excerpt_handles=[r['excerpt_handle'] for r in exposed]))
                 else:
                     assert all(r.excerpt.text not in json.dumps(frame) for r in acquired)
+            if requested_work == "review_lore_page":
+                candidate["answer_segments"] = [
+                    segment for segment in candidate["answer_segments"]
+                    if segment["kind"] == "native_body_claim"
+                ]
+                candidate["collaboration"] = {
+                    "kind": "lore_page",
+                    "destination": {"instruction": message, "title": "Glass Regent"},
+                }
             if connected_review:
                 section=next(row for row in sections if 'A proposed conversation.' in source_text(row))
                 candidate['answer_segments']=([dict(kind='proposal',label='invented_idea',
@@ -1146,6 +1155,26 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         )
         assert context['completion']['answer_context_status'] == expected_status
         assert context['completion']['native_assertion_citations'] == []
+        return SimpleNamespace(client=client, world=world, turn=turn, decisions=decisions)
+    if requested_work == "review_lore_page":
+        assert context["completion"]["collaboration"]["kind"] == "lore_page"
+        assert not context["completion"]["native_assertion_citations"]
+        history = client.get(
+            f"/api/live/agent/worlds/{world}/conversation",
+            params={"include_turn_correlation": "true"},
+        )
+        assert history.status_code == 200, history.text
+        retained = history.json()["turns"][0]["knowledge_context"]["completion"]
+        assert retained == context["completion"]
+        calls_before_replay = len(decisions.calls), len(writer.calls)
+        replay = client.post("/api/live/agent/turn", json=body)
+        assert replay.status_code == 200, replay.text
+        replay_context = replay.json()["knowledge_context"]
+        assert replay_context["delivery_replay"] is True
+        assert replay_context["completion"] == retained
+        assert (len(decisions.calls), len(writer.calls)) == calls_before_replay
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        assert lane.repo.get_head(world).head_revision_id == current_revision
         return SimpleNamespace(client=client, world=world, turn=turn, decisions=decisions)
     citations = context['completion']['native_assertion_citations']
     assert citations and all(c['read_revision_id'] == current_revision for c in citations)
@@ -2256,6 +2285,36 @@ def test_standalone_page_intent_preserves_the_page_owner_boundary(lane, tmp_path
         if isinstance(event, t.BuildRequestedWorkResolutionV1)
     ]
     assert selection.requested_work == "review_lore_page"
-    assert selection.resolution["barrier"] == "requested_review_not_offered"
-    assert selection.resolution["purpose"] == "explain_capability"
-    assert case.turn.completion.collaboration is None
+    assert selection.resolution["barrier"] is None
+    draft = case.turn.completion.collaboration
+    assert draft.kind == "lore_page"
+    assert draft.destination.title == "Glass Regent"
+    assert not case.turn.completion.answer_segments
+
+
+
+def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation.native_corpus import acquired_body_reads
+
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Create a page for Glass Regent and populate it with what we know.",
+        requested_work="review_lore_page",
+        native_body="direct_support",
+    )
+    completion = case.turn.completion
+    assert completion.collaboration.destination.title == "Glass Regent"
+    assert completion.answer_segments and all(
+        segment.kind == "source_passage_claim" for segment in completion.answer_segments
+    )
+    reads = {
+        read.event_id: read.excerpt.text for read in acquired_body_reads(case.turn.graph_context_execution)
+    }
+    assert completion.native_body_citations
+    for index, citation in enumerate(completion.native_body_citations):
+        opened = case.client.get(
+            f"/api/live/agent/worlds/{case.world}/conversation/turns/"
+            f"{case.turn.turn_id}/native-body-excerpts/{index}"
+        )
+        assert opened.status_code == 200, opened.text
+        assert opened.json()["content"] == reads[citation.read_event_id]
