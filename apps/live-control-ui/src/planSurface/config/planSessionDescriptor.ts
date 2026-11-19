@@ -249,7 +249,9 @@ export async function resolvePlanningDocument(args: {
 
   if (requestedId) {
     const record = await getWorkspaceDocument(requestedId);
-    if (record.kind === "worldbuilding_source") throw new Error("Authored Pages cannot open as Plans.");
+    if (record.kind === "worldbuilding_source") {
+      throw new UnsupportedPlanningDocumentKindError(record.document_id, record.kind);
+    }
     if (record.campaign_id !== campaignId) {
       if (record.kind === "runbook") {
         throw new CrossCampaignRunbookAdmissionError(requestedId, record.campaign_id, campaignId);

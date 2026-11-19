@@ -246,23 +246,34 @@ describe("resolvePlanningDocument campaign admission", () => {
 
   it("rejects a same-World source document from an exact managed Plan URL", async () => {
     const worldId = "of-conks-cons-demo";
-    const source = fixtureWorkspaceDocumentRecord({
-      document_id: SOURCE_ID,
-      campaign_id: worldId,
-      kind: "worldbuilding_source",
-      title: "Of Conks source",
-    });
-    const getDocument = vi.spyOn(liveApi, "getWorkspaceDocument").mockResolvedValue(source);
+    const getDocument = vi.spyOn(liveApi, "getWorkspaceDocument");
     const listDocuments = vi.spyOn(liveApi, "listWorkspaceDocuments");
     const managedView = { ...mockPlanView, world_id: worldId, campaign_id: worldId };
-    await expect(resolvePlanningDocument({
-      planView: managedView,
-      locationSearch: `?world=${worldId}&documentId=${SOURCE_ID}`,
-    })).rejects.toBeInstanceOf(UnsupportedPlanningDocumentKindError);
-    expect(getDocument).toHaveBeenCalledWith(SOURCE_ID);
-    expect(listDocuments).not.toHaveBeenCalled();
-    expect(() => workspaceRecordToPlanDocumentDescriptor(source)).toThrow(
-      UnsupportedPlanningDocumentKindError,
-    );
+    // Kind rejection precedes campaign admission: neither scope can turn a Page
+    // into a Plan or trigger a fallback inventory read.
+    for (const sourceWorld of [worldId, "other-world"]) {
+      const source = fixtureWorkspaceDocumentRecord({
+        document_id: SOURCE_ID,
+        campaign_id: sourceWorld,
+        kind: "worldbuilding_source",
+        title: "Of Conks source",
+      });
+      getDocument.mockResolvedValue(source);
+      const rejection = await resolvePlanningDocument({
+        planView: managedView,
+        locationSearch: `?world=${worldId}&documentId=${SOURCE_ID}`,
+      }).then(() => null, (error: unknown) => error);
+      expect(rejection).toBeInstanceOf(UnsupportedPlanningDocumentKindError);
+      expect(rejection).toMatchObject({
+        name: "UnsupportedPlanningDocumentKindError",
+        message: new UnsupportedPlanningDocumentKindError(SOURCE_ID, source.kind).message,
+      });
+      expect(getDocument).toHaveBeenLastCalledWith(SOURCE_ID);
+      expect(listDocuments).not.toHaveBeenCalled();
+      expect(() => workspaceRecordToPlanDocumentDescriptor(source)).toThrow(
+        UnsupportedPlanningDocumentKindError,
+      );
+    }
+    expect(getDocument).toHaveBeenCalledTimes(2);
   });
 });
