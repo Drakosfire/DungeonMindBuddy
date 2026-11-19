@@ -1,6 +1,15 @@
 # CLEANUP: verify ingestion survives sibling pane expansion directly
 
-Status: ACTIVE under the user-authorized cleanup goal, including review and merge.
+Status: SETTLED by #4090, merged 7c7fc9a8b5cbae53cb4f44169c98b28e5de29441.
+Reviewed head: 0c4f035d538aac63b692f558e1afc6b774d0b642.
+Independent exact-head source/raw-evidence review approved. Hosted 1411 tests,
+build and evidence validation passed. Completed full retry: 8043 passed, 136 failed,
+2 pending; all seven Shell cases passed. Exactly one inherited failure resolved,
+with no added/omitted cases, new failures or changed remaining leading messages.
+The first full attempt was lock-rejected before allocation/tests/build and is
+excluded. The forced-remount probe failed at node identity despite identical
+rehydrated markup. Full qualification remains red with two conditional inventory
+extras and the earlier unresolved quote-correction observation.
 Base: 59b419cdccac6bae5670be84e319d32d2aad22cc.
 Branch: codex/shell-ingestion-lifecycle-fixture, existing cleanup checkout.
 Topology: serial after merged #4089; no unmerged behavioral dependency.
