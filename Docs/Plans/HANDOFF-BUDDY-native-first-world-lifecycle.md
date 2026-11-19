@@ -1,327 +1,89 @@
 # BUDDY — native first-World lifecycle
 
-Status: ACTIVE. Owner/designer/adopter: MIND Elderwyld completion lane, under
-explicit operator implementation/review/merge/launch authority. Serial after
-Buddy4097 merged cf8ab495965026334249eba557be3843a1c5d45d. One coupled B2 PR,
-base3624806ddabcf7ac520c6c0b45111134bcd52035; branch
-codex/v10-native-first-world-lifecycle, existing task-owned Buddy checkout.
+Status: COMPLETE — bounded lifecycle accepted and merged as PR4104.
+Owner: MIND Elderwyld completion lane under operator design/implementation/review/
+merge authority. Merge c6348aa1b4fbe3e62553724fb09baaf905662a0b; accepted code
+ d1cb9085777bfd38470deb6da97e9b8bc7a5c37d. Overall deployment/V10/V11 is incomplete.
 
-## Pinned assignment and current source
+## Authority and delivered behavior
 
-Adopt ARCHITECTURE's bounded disposition at
-[95b6ef00463ecf9e19e7e95a010989cd2b30f8b8](https://github.com/Drakosfire/DungeonMindBuddy/blob/95b6ef00463ecf9e19e7e95a010989cd2b30f8b8/Docs/Plans/HANDOFF-MIND-B2-native-first-world-lifecycle.md).
-Its complete outcome, sealed lifecycle, failure cases and verification requirements
-are part of this assignment. The user granted lane authority; ARCHITECTURE designed
-the precise section splits. No PRIME or standing-Steward gate. No competing branch
-is edited or declared expired. B1 exact code06ca6c9fe / final3dbefaec9 is accepted
-and merged;91 compiler,888 ingestion and1411 frontend/build/canonical passed.
-Buddy4093's accepted Core pin cf197b9939f7b9106c75a8afb9fcf918c8b4aa1c is unchanged.
+Serial after compiler PR4097 cf8ab495965026334249eba557be3843a1c5d45d. Consumed
+ARCHITECTURE design95b6ef00463ecf9e19e7e95a010989cd2b30f8b8, including exact shared
+route import and single hosted-test function splits. Future sequencing belongs
+to MIND; the operator removed any coordination gate. Core remains pinned to
+cf197b9939f7b9106c75a8afb9fcf918c8b4aa1c, with no WK/dependency/migration change.
 
-Rechecked60 open PR patches, including3824/2090/1855/4057/4050/2087/1235/3531/
-1163/1148/2405/3808. No collision on dedicated new files or two owning backend test
-files. Shared router/auth/UI parent overlap is resolved only by the exact splits
-below. Base advanced9060f457 to3624806d by cleanup documents only; no backend or
-dependency drift. Freshly re-anchor again before review/merge.
+Ordinary first-World prepare is read-only and returns a versioned signed exact
+review. Confirm current-authorizes, probes the fixed reservation publication identity
+before mutable run reads, then composes canonical genesis/source admission, real
+proof reuse or missing-interval extension, optional additive profile transition,
+and public Core prospective alias publication. APP activation independently verifies
+the exact signed request/result, ancestry/genesis and current reservation CAS.
+Historical classic confirmations read their verified old receipt only; no new
+classic initialization or native relabelling. UI retains exact submitted requests
+and exposes scoped recovery even when today's review is missing or changed.
 
-## Outcome, review map and exact write lease
+## Accepted invariants and lessons
 
-The actual ordinary first-World review/confirm path must publish native facts and
-aliases into its source KnowledgeSpace and activate only the exact reserved APP
-World after verified native receipt and ancestry. No new classic initialization,
-dual write, fake WK context, allocated-ID prediction, dependency/Core/WK/migration/
-model-policy/provider changes or serving switch. Historical classic receipt reads
-remain explicit historical recovery; they are never relabelled native. The full
-optimized deployment/V10 retirement/V11 serving acceptance goal remains active.
+- Raw source_ref_id is producer correlation, not document authority. Exact body,
+  artifact/revision/span/proof and complete request commitments remain mandatory.
+- Reuse exact existing support/context proofs and original authority epochs;
+  preserve the introducing evidence role/metadata. Refuse contradiction/ambiguity;
+  extend only missing intervals. Current epoch is freshness, not proof provenance.
+- Graph publication identity is fixed to the APP reservation; stage identities,
+  timestamps and parents stay sealed. No automatic parent refresh or ID prediction.
+- Committed recovery uses immutable source/receipt records, including after source
+  withdrawal. It never replays extension/current-availability admission. Ordinary
+  reads still deny withdrawn evidence. No atomic source-epoch guarantee is invented.
+- Preserve deterministic Core/Buddy failures, including immutable revision conflict,
+  current owner denial and token errors. Ambiguous stage failures retain the exact
+  request as outcome unknown. A verified graph commit with unconfirmed APP/Core
+  activation returns activation pending instead of hiding the known commitment.
+- Measure the actual serialized UTF-8 confirmation, including its token, against
+  the unchanged hosted1MiB body budget. All-rejected confirms refuse before writes.
+- Archive obsolete unsubmitted recovery under its actual original key and own
+  source scope, protecting both current and legacy locks. Verify exact archive bytes
+  before removing the active slot; submitted/ambiguous/racing records survive.
 
-One coherent PR couples four review seams: strict versioned signed protocol;
-receipt-first source/graph lifecycle; distinct verified native APP activation;
-ordinary UI exact-request submission/recovery. Splitting the mounted protocol from
-its UI or auth would create an unusable or unsafe recovery boundary.
+## Review and exact-source proof
 
-Exclusive expected-path lease (only named sections where stated):
-- this consuming handoff;
-- apps/live_control_server/models/native_first_world_publication.py (new);
-- apps/live_control_server/services/native_first_world_publication.py (new);
-- apps/live_control_server/services/first_world_graph_publication.py: native schema
-  dispatch and retained-classic receipt-only recovery wiring; preserve historical
-  pure helpers and tests, never invoke classic initialize from mounted old requests;
-- apps/live_control_server/services/world_graph_binding.py: distinct native proof/
-  activation function, preserving existing classic checks;
-- apps/live_control_server/routes/extract_promote.py: only the two first-World
-  prepare/confirm handlers and their local model/response/dispatch wiring. No shared
-  import block, selector/auth helper, recap/location/other route changes;
-- apps/live_control_server/services/hosted_native_graph_access.py: only
-  resolve_hosted_first_world's versioned first-World parsing/authorization. Native
-  confirm verifies signed scope and current owner before receipt disclosure without
-  mutable run reload; prepare still resolves exact current server-owned run. No
-  middleware or other auth/helper changes; legacy claims alone grant no authority;
-- apps/live-control-ui/src/api/nativeFirstWorldPublicationApi.ts (new);
-- apps/live-control-ui/src/api/nativeFirstWorldPublicationTypes.ts (new);
-- apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewFirstWorldPublishSheet.tsx;
-- apps/live-control-ui/src/planSurface/graphReviewWorkbench/firstWorldPublicationRecovery.ts;
-- apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.tsx:
-  first-World recovery-only affordance and narrowly required import/wiring only,
-  independent of exact-review readiness, current World/run scoped/sourceReviewOnly;
-- apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorldbuildingPublication.tsx:
-  first-World saved-entry selection/wiring only, no later Worldbuilding/recap changes;
-- existing tests/test_database_first_world_publication.py and
-  tests/test_reviewed_native_graph_activation.py: native SQL/HTTP/auth and APP
-  witnesses respectively, preserving historical classic tests;
-- existing workbench GraphReviewFirstWorldPublishSheet.test.tsx,
-  firstWorldPublicationRecovery.test.ts, firstWorldPublicationContinuity.test.tsx,
-  GraphReviewWorldbuildingPublication.test.tsx and firstWorldPublicationRecovery.testSupport.ts.
+Cycle1 HOLD at964173915a, review5976648873. Four bounded defects repaired in the
+accepted head: confirmation size, obsolete key archival, all-rejected source writes,
+and local token-error classification. Cycle2 source PASS5976919016 plus evidence
+acceptance; no outstanding source findings. The review history retains details.
 
-No shared models/extract_promote.py, root UI api/types.ts or extractPromoteApi.ts,
-native_world_source_admission.py, hosted-access tests outside the function-only
-transfer below, WorkbenchModule tests, CI
-inventory/contracts, B1 models/unrelated compiler behavior or other sequencing files. Extend
-existing classified tests. Narrow B1 transfer under c19a429a adds only
-apps/live_control_server/services/native_first_world_compilation.py source_ref_id
-correlation-versus-document equality and native support/context role guard, plus
-tests/test_first_world_typed_evidence.py focused coverage. No contradiction, role
-upgrade or source identity/byte guard is permitted.
+Exact accepted-head results, clean unchanged source:
+- Owning compiler/SQL/mounted HTTP/activation181 passed.
+- Ingestion888 passed/119 deselected; world-and-content464 passed/74 deselected;
+  auth-app298 passed. Real uniquely owned disposable APP/Core fixtures only.
+- Hosted frontend1411 and build passed; exact evidence validates.
+- Full discovered8087 passed/129 failed/2 pending; build passed. All211 owning UI
+  cases pass. Zero new failing IDs versus exact base3624806d;129 reproduce with
+  matching first error lines, not proof of identical complete root causes. One
+  base-only BuildRunReview locking failure is not claimed fixed. Full release
+  qualification remains false.
 
-A required edit outside this list requires an owning
-rebrief before that edit; continue unaffected authorized work.
+Prospective integration036e90c9c34e23f8a489be7f2ee5ca508527307c with main e0852b69c
+passed hosted1411/build and canonical validation. Later main4057/4109 changed AW10
+writer/conversation paths; static integration audit found no first-World overlap
+or merge conflict. Actual merge tree on ffec9d77d was7e82e8d9aabd2e26b7f803a555dd8f1b99cb8695.
+Short inventory/discovery and rules-only GitHub workflows passed. No real DMS or
+provider calls: hosted HTTP tests use offline synthetic DMS transport. No serving,
+live data, global body budget or frozen retrieval benchmark changes.
 
-## Adopted critique and concrete lifecycle
+## Continuation and retained resources
 
-Independent read-only Hubble design critique found API feasibility, with three
-refinements adopted into ARCHITECTURE's final disposition: source epoch is not atomic
-at graph commit; immutable recovery must avoid current-availability helpers; and
-retained requests need a reachable UI independent of today's candidate package.
+Next serial slice: HANDOFF-BUDDY-native-managed-projection-default.md. Remaining
+recap-context/full projection/harness and Core current/public retirement, optimized
+deployment/rollback acceptance, V11 serving proof and successor handoff stay open.
+5202 remains on its earlier fixed serving mirrors; this merge is not a rollout.
 
-Prepare performs reads only, including absent native head/admission. Authorize
-server-owned exact run/document, reservation and current source; freeze complete
-B1 intent, body/span/decision/policy commitments, current descriptor pins, admission
-state, original parent/epoch, current principal scope and stable stage identities/
-timestamps in a strict server-signed plan. An absent source stays explicitly absent.
-The current UI/model supports create_new/accept/reject only; refuse defer, do not
-silently change B1 or discard deferred identity effects.
-
-Existing source-owner admit_native_world_source refreshes its head on retry, so B2
-must not call that retry loop. Reuse its exact snapshot/origin/receipt qualification
-and canonical owner genesis/admission identities, compose the same public Core
-whole-document request with a sealed parent and no refresh, then a public exact
-paragraph extension and explicitly sealed additive1-to2 profile transition only
-when needed. Later stage parents come from verified earlier receipts, never fake
-IDs. Existing admission/extension/transition receipts must match their original
-sealed command; do not substitute current heads or timestamps on retry.
-
-Confirm authenticates/current-authorizes and verifies the signed plan, then probes
-its exact graph receipt before mutable run/document/source reads. Recovery verifies
-retained admission/extension receipts, origin, immutable metadata/proofs/parent and
-request through public Core recovery, without replaying extension/current-access
-helpers. Corrupt or contradictory durable state fails closed. For genuinely
-unapplied work revalidate freshness/reservation/expected state before each owned
-write. Source admission, graph publication and APP activation remain separate
-durable outcomes. A withdrawal racing the alias publication may leave graph
-committed and evidence unavailable: report actual outcome, preserve ordinary read
-denial, and recover original commit; promise no atomic source-epoch guard.
-
-Native APP activation must itself verify the real exact publication/result/ancestry
-and current reservation CAS; do not trust a caller-supplied receipt or weaken classic
-genesis validation. Report graph committed/activation pending truthfully, never
-re-publish or refresh to another reservation.
-
-UI retains exact versioned requests across interruption and source/run changes;
-discover submitted saved entries by current managed World/run, validate their own
-envelope independently of mutable candidates, and expose deliberate retry even
-when today's review is missing/errors. No cross-World/sourceReviewOnly bypass,
-automatic confirmation/reprepare, or discarding potentially submitted old records.
-
-## Proof, resources and completion
-
-All required cases in pinned9fb4deea apply: read-only prepare absent/existing source;
-exact choices/fields/aliases/citations; wrong source/body/scope/principal/World/
-reservation/profile/parent/epoch/stale refusal; actual hosted/local HTTP auth;
-needed/unneeded profile transition; source/graph/APP partial failure/lost response/
-exact retry after mutable state disappears; native ancestry/races; no classic write;
-historical receipt recovery; withdrawal race and immutable recovery; mounted UI
-recovery without current review, sourceReviewOnly/current World/run fences.
-
-Use actual installed Core cf197b9 in existing task cache/v10-alias-adoption-runtime,
-no Core PYTHONPATH overlay. Test SQL uses standard uniquely created/dropped APP/Core
-fixtures on existing owned32903, never live54330/54331 or witness DBs. No provider,
-5202, or frozen classic retrieval baseline run. Run owning focused cohorts and
-affected backend contracts, independent exact-head cumulative review, exact-head
-repo frontend hosted/build/canonical and full discovered diagnostic for UI changes;
-preserve inherited red IDs and uncertain comparisons, no fabricated qualification.
-
-Task root /home/drakosfire/Projects/.codex/v7-elderwyld-scope; scratch namespace
-scratch/v9-buddy/v10-first-world-lifecycle. UUID48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8
-and writable parent reverified before allocation. Reuse current worktree/cache; no
-new manual worktree/container/ports/global config. Retain proof and runtime for
-active goal. No manual removed paths/reclaimed bytes. At completion inventory
-created/retained/removed resources, active process/mount/connection/dirty/unique
-data checks and cleanup follow-up after accepted replacement/approved scope.
-
-Implementation status: not yet accepted. This activation settles scope and critique,
-not runtime, deployment or full goal completion.
-
-## Scope checkpoint — actual integration evidence
-
-Two real disposable PostgreSQL preparation cases exposed B1's false equality
-between producer-local source_ref_id and the index's document reference. The
-producer preserves nonblank local aliases; artifact/revision/frozen span/bytes
-remain source authority. ARCHITECTURE c19a429a explicitly transfers the two narrow
-compiler/test sections into this B2 PR. Preserve each raw alias and its complete
-request commitment, never normalize it into authority.
-
-Core rejects already-registered intervals. Reuse actual exact existing support or
-context proofs, preserving identities and roles; refuse contradiction/ambiguity and
-extend only missing intervals. Current SourceView epoch is freshness; each proof's
-original authority_epoch is provenance, not a substitute for the current epoch.
-Seal exact existing reviewed-ref to proof/revision/role/creation-epoch/origin receipt
-associations. Absent admission contains no future proof. Recovery reads immutable
-records even if artifact is now retracted; ordinary access validation remains
-mandatory for prepare/unapplied work and normal reads.
-
-Graph publication identity is fixed to native space plus APP provisioning identity,
-so a second reviewed command cannot claim first initialization after rollback or
-activation failure. Per-review extension/profile stage identities remain stable
-inside that signed request. No new generic Core cancellation/epoch contract.
-
-## Implementation checkpoint
-
-Strict versioned protocol and real read-only prepare are implemented, including
-server-signed intent, actual source state, source-only history, fixed reservation
-publication identity and reusable proof identity/role/creation-epoch/origin receipt
-sealing. Immutable source/intent/publication verification helpers are written.
-Working-tree diagnostics:95 compiler tests pass;4 actual SQL preparation cases
-pass (absent/admitted, normal/matching one-paragraph no-newline source), with all
-Core table counts and APP catalog snapshot unchanged. Fixtures dropped their
-uniquely owned test databases. Earlier diagnostic logs retain one fixture-call
-error and the real producer-correlation failure; neither is passing evidence.
-
-Confirmation/stage replay/native APP activation, handler/auth wiring and full
-qualification are not yet complete or accepted. UI sidecar owns only its named
-UI paths; parent owns server/model/SQL tests/handoff. No Node tests run while
-implementation is changing; normal shared-lock verification remains required.
-Serving5202, live data, provider state and frozen retrieval baseline are unchanged.
-
-## Integration checkpoint — draft PR #4104
-
-The dedicated UI protocol/recovery implementation is present for integration; no
-Node/build or full frontend acceptance is claimed. Distinct native APP activation
-now rechecks signed principal/scope, public Core exact-request/result recovery
-through a read-only adapter, current-head ancestry, owner genesis and unchanged
-APP reservation CAS. No caller-supplied receipt establishes activation authority.
-Working-tree activation diagnostics:21 passed, including historical classic cases
-and six read-only adapter controls. Actual native stage/activation integration is
-still pending. Source-stage implementation is delegated within the existing
-allocated publication service and owning SQL test file; no new module/path lease.
-No serving, live-data, provider or frozen-baseline changes.
-
-Hosted native-confirm scope parsing now uses the signed plan/current owner before
-receipt disclosure, without mutable run reload. Working-tree owning activation
-cohort:23 passed/1 warning. Two branch tests stub signature decoding and protocol
-validation to isolate routing/owner behavior; they do not establish full signed
-HTTP acceptance. Mounted handler dispatch and historical recovery remain pending.
-
-Independent focused activation critique found that principal=None could invoke
-scope-only decoding. Activation now requires an exact nonblank string principal
-before decoding/reads/CAS. Four regression cases refuse missing/blank/wrong-type
-principals without APP mutation. Owning diagnostic cohort:27 passed/1 warning.
-The reviewer confirmed read-only wrapper compatibility with actual Core recovery;
-this is a focused critique, not cumulative acceptance or stage integration proof.
-
-## Mounted lifecycle checkpoint
-
-Pinned b3ebc533 narrows the shared router import exception: remove only replaced
-exclusive legacy first-World names, place dedicated native/historical protocol
-imports beside the two allocated handlers. Four now-unused names were removed;
-the two legacy request models remain because obsolete/historical requests are
-explicitly parsed. No unrelated import/auth/route changes. The pre-existing
-unused native_graph_gm_dependency import remains outside this split.
-
-Source stages, native confirmation, public Core graph recovery, APP activation,
-and both mounted handlers are implemented. Historical confirmations only read
-verified old Core receipts/current reservations; never initialize or activate.
-Current-auth guards preserve denial through Core recovery; typed deterministic
-failures remain typed. Transient Core/APP activation failure retains the known
-committed graph receipt as activation pending. Generic ambiguous stage failures
-retain the request with typed outcome-unknown response.
-
-Working-tree diagnostics (not exact-head acceptance):15 SQL prepare/stage cases;
-4 graph/APP confirmation cases;5 role-mutation/confirmation cases after correction;
-3 lost-response/pending/owner-denial cases;actual local HTTP1 and actual hosted
-middleware1 (offline synthetic DMS transport, real disposable APP/Core databases).
-The integrated owning three-module run returned165 passed/2 failures/4 warnings.
-Both failures were historical fixture unlink attempts on nonexistent object
-locators; guarding all paths while deleting only real mirrors fixed both, with
-2 targeted passes. An initial role comparison incorrectly compared wire models
-with parsed records; the retained failed log precedes its corrected5-case pass.
-Source-proof reuse now compares the original parsed introducing row, cached once
-per introducing revision, refusing role or metadata mutation.
-
-A shared hosted-auth test still patches the retired prepare symbol and fails
-AttributeError. An exact function-only test transfer has been requested from
-ARCHITECTURE before editing that previously unallocated path. Full backend
-contracts, needed/unneeded profile/partial-failure matrix, frontend hosted/build
-and discovered diagnostics, exact-head cumulative review remain pending. No
-serving/live/provider/baseline change or deployment acceptance is claimed.
-
-## Qualification repair checkpoint
-
-ARCHITECTURE95b6ef00 explicitly transfers only the existing shared hosted-test
-function test_hosted_first_world_prepare_uses_stored_world_and_rechecks_before_preparing.
-It now patches native preparation, uses its versioned schema and checks the current
-principal/authorizer; all original owner/nonowner/foreign/Origin/mid-call checks
-remain. Targeted result1 passed/372 deselected. No shared test imports or other
-functions changed. The exact pin is retained in the consuming commit history.
-
-Exact69c0c7cd0c hosted frontend selected1411 passed with collection parity and clean
-source, but build failed TS2352 in retained recovery's synthetic review cast.
-The validator now checks retained structure directly with typed local values;
-it constructs no current review/evidence. Existing proof/revision/artifact/body
-correlations are checked explicitly. This repair still awaits frontend execution.
-The failed verifier reports its temporary verification root cleaned, evidence
-retained externally; no successful build or release qualification is claimed.
-
-Additional actual SQL diagnostics:7 freshness/profile/lost-extension-response
-cases passed, then6 deterministic/refusal cases passed with one test expecting
-the wrong original lineage-error type for changed body. The corrected body case
-passed separately. Known Buddy lineage/source/compiler errors remain deterministic
-through native confirmation and mounted response mapping; arbitrary ambiguous
-stage errors remain outcome unknown. A no-custom-predicate publication proves no
-profile transition, while ordinary custom-predicate fixtures exercise the needed
-transition. Both source roles and original producer metadata remain unchanged.
-Full exact-head backend/frontend/discovered qualification and cumulative independent
-review remain pending; the full optimized deployment/V10/V11 goal remains active.
-
-## Review Cycle 1 repair
-
-Independent cumulative review at964173915a is HOLD, posted as5976648873. Its four
-findings are repaired within the existing lifecycle boundary: prepare measures
-the actual UTF-8 serialized native confirm envelope, including token, against
-the unchanged hosted body budget; all-rejected confirmations refuse before any
-source stage; token-owner errors retain their deterministic code/status; obsolete
-unsubmitted recovery finds its actual original key and own source scope and
-archives exact bytes under both current and legacy locks. Current World/run
-selection remains mandatory, including after source changes. Ambiguous/submitted
-records and storage/race failures preserve active bytes. The structural validator
-retains both mismatch and foreign-scope explanations without removing checks.
-
-The unchanged964 checkpoint completed owning176, ingestion888, world-and-content464
-and auth-app298 passes. Hosted1411/build pass and exact evidence validate.
-Discovered8070 passed/132 failed/2 pending/build passed. Exact-base comparison
-returned8047 passed/130 failed/2 pending:129 shared failure IDs with matching first
-error lines,3 new owning message-expectation failures repaired here, and one
-base-only BuildRunReview locking failure that is not claimed fixed. Detailed
-comparison retained externally; shared IDs do not alone prove identical causes.
-
-Repairs were staged in a git-archive verification copy while original qualification
-remained live and clean. Five actual SQL/mounted HTTP repair cases passed there: all
-rejected no-mutation, malformed/expired local token409, and hosted64KiB successful
-submission versus600KiB source refused during read-only prepare. Only the two
-backend and two UI owner paths were promoted after frozen checks completed.
-Mirror evidence is diagnostic; exact-head repair qualification and Cycle2 remain
-pending. No global body-budget, dependency, Core, provider or serving changes.
-
-Retained task-owned verification/b2-cycle1-repair (owner MIND Elderwyld lane) holds
-the repair diagnostic source. Keep until promoted fixes and replacement evidence
-are accepted; cleanup follows active process/mount/connection, unique-data/commit
-and dirty-worktree checks plus specifically approved scope. No manual artifacts
-removed or reclaimed bytes claimed. Repository verifier reports its own temporary
-roots cleaned; all referenced result artifacts remain in task-owned scratch.
+Evidence owner MIND, taskroot /home/drakosfire/Projects/.codex/v7-elderwyld-scope:
+scratch/v9-buddy/v10-first-world-lifecycle holds exact reports, logs, comparison and
+review records. verification/b2-cycle1-repair retains the diagnostic source copy;
+refs/codex/v10-native-first-world-integration-e0852b69c protects the local integration
+commit. Preserve them until accepted replacement evidence and cleanup review.
+Repository verifiers report their own temporary roots cleaned. No manual paths
+removed or reclaimed bytes claimed. Cleanup follow-up: inventory active tasks,
+processes, mounts, DB connections, dirty/unique data and protected commits, then
+remove only reproducible owned artifacts within specifically approved scope.
