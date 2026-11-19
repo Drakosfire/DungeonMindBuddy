@@ -330,6 +330,9 @@ def hosted(monkeypatch, request):
 
     app.include_router(threat_query_hydration.router)
     app.include_router(native_threat_creation.router)
+    from apps.live_control_server.routes import combat_scene_templates
+
+    app.include_router(combat_scene_templates.router)
     app.include_router(play_runs.router)
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
@@ -456,6 +459,11 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/extract-promote/native-worldbuilding-context"): access.resolve_hosted_worldbuilding_review_context,
             ("POST", "/api/live/extract-promote/runs/{run_id}/selection-context"): access.resolve_hosted_recap_selection,
             ("POST", "/api/live/threats/query-hydration"): access.resolve_hosted_threat_hydration,
+            ("POST", "/api/live/combat/scene-templates"): access.resolve_hosted_play_command,
+            ("POST", "/api/live/combat/scene-templates/cancel"): access.resolve_hosted_play_command,
+            ("GET", "/api/live/combat/scene-templates/operations/{operation_id}"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/combat/scene-templates/{document_id}/scenes/{scene_id}"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/combat/scene-templates/{document_id}/scenes/{scene_id}/versions/{revision}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/rebase"): access.resolve_hosted_play_command,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): access.resolve_hosted_play_command,
@@ -5888,3 +5896,42 @@ def test_hosted_play_rebase_binds_world_run_and_checks_ownership(hosted, monkeyp
     denied = hosted.client.request("PUT", path, json=body)
     assert denied.status_code == 403, denied.text
     assert calls == [{"world_id": "managed", "run_id": run_id, **body}]
+
+
+def test_hosted_scene_template_reads_exact_owned_scene(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import combat_scene_templates
+
+    monkeypatch.setattr(combat_scene_templates, "_verified_world", lambda world: world)
+    read = Mock(return_value=None)
+    monkeypatch.setattr(combat_scene_templates.service, "read", read)
+    document_id = uuid4()
+    path = f"/api/live/combat/scene-templates/{document_id}/scenes/scene%3Agate?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    read.assert_not_called()
+    assert hosted.client.request("GET", path).status_code == 200
+    read.assert_called_once_with(world_id="managed", document_id=document_id, scene_id="scene:gate")
+
+
+def test_hosted_scene_template_command_requires_world_owner_and_origin(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import combat_scene_templates
+
+    monkeypatch.setattr(combat_scene_templates, "_verified_world", lambda world: world)
+    cancel = Mock(return_value={"state": "canceled"})
+    monkeypatch.setattr(combat_scene_templates.service, "cancel", cancel)
+    path = "/api/live/combat/scene-templates/cancel?world_id=managed"
+    body = {"schema_version": "dmb_scene_template_create_v1", "operation_id": str(uuid4()),
+            "pin": {"document_id": str(uuid4()), "scene_id": "scene:gate", "revision_n": 1,
+                    "work_revision_id": str(uuid4()), "content_sha256": "a" * 64},
+            "encounter": {"title": "Gate"}}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin="https://outside.example").status_code == 403
+    cancel.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    assert cancel.call_args.kwargs["world_id"] == "managed"
+    assert cancel.call_args.kwargs["request"].pin.scene_id == "scene:gate"

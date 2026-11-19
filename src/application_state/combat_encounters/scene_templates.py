@@ -1,5 +1,6 @@
 """APP-owned Plan scene preparation, exact creation replay and version history."""
 from datetime import UTC, datetime
+from typing import Callable
 from uuid import UUID, uuid4
 import hashlib
 import json
@@ -90,7 +91,7 @@ def _view(conn,binding):
     return SceneTemplateView(binding=binding,encounter=encounter,versions=versions,scene_present=_present(conn,binding))
 
 
-def create(*,world_id,request:CreateSceneTemplateRequest):
+def create(*,world_id,request:CreateSceneTemplateRequest,authorize: Callable[[], None] | None = None):
     world_id=_world_id(world_id)
     if request.encounter.campaign_id is not None or request.encounter.session is not None:
         raise ApplicationStateValidationError("Plan encounter templates cannot claim campaign/session ownership")
@@ -126,6 +127,8 @@ def create(*,world_id,request:CreateSceneTemplateRequest):
             except ValueError as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
             record=CombatEncounterRecord(encounter_id=uuid4(),world_id=world_id,revision=1,ruleset=ruleset,ruleset_digest=ruleset_digest(ruleset),draft=CombatEncounterDraft(title=request.encounter.title),created_at=now,updated_at=now)
+        if authorize is not None:
+            authorize()
         repo.insert_encounter(conn,record)
         binding=SceneTemplateBinding(world_id=world_id,encounter_id=record.encounter_id,origin=pin,operation_id=request.operation_id,request_digest=request_digest,created_at=now)
         conn.execute("""INSERT INTO combat.scene_template(encounter_id,world_id,document_id,scene_id,operation_id,request_digest,request,payload)
@@ -167,7 +170,7 @@ def read_version(*,world_id,document_id,scene_id,revision):
         return record
 
 
-def cancel(*,world_id,request:CreateSceneTemplateRequest):
+def cancel(*,world_id,request:CreateSceneTemplateRequest,authorize: Callable[[], None] | None = None):
     world_id=_world_id(world_id);body=request.model_dump(mode='json');request_digest=digest({'world_id':world_id,'request':body})
     dsn=load_runtime_dsn();assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
@@ -181,6 +184,8 @@ def cancel(*,world_id,request:CreateSceneTemplateRequest):
         if existing is not None and (existing['world_id']!=world_id or existing['request_digest']!=request_digest or existing['request']!=body):
             raise ApplicationStateConflictError("Creation key already has a different intent")
         if existing is None:
+            if authorize is not None:
+                authorize()
             conn.execute("INSERT INTO combat.scene_template_cancellation(operation_id,world_id,request_digest,request) VALUES(%s,%s,%s,%s)",(request.operation_id,world_id,request_digest,Jsonb(body)))
         return {'state':'canceled','operation_id':str(request.operation_id),'world_id':world_id,'request_digest':request_digest}
 

@@ -1376,3 +1376,21 @@ it("uses the hosted session for a pinned Runbook revision", async () => {
   await expect(api.authenticatedApiFetch(path)).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("uses hosted transport for the exact scene template read and cancel", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const root = "/api/live/combat/scene-templates";
+  const path = root + "/11111111-1111-4111-8111-111111111111/scenes/scene%3Agate?world_id=managed";
+  await api.authenticatedApiFetch(path);
+  const cancel = root + "/cancel?world_id=managed";
+  const request = { method: "POST", body: JSON.stringify({ schema_version: "dmb_scene_template_create_v1" }) };
+  await api.authenticatedApiFetch(cancel, request);
+  expect(fetch.mock.calls).toEqual([
+    [path, expect.objectContaining({ credentials: "same-origin", mode: "same-origin" })],
+    [cancel, expect.objectContaining({ method: "POST", credentials: "same-origin", mode: "same-origin" })],
+  ]);
+  await expect(api.authenticatedApiFetch(cancel + "&world_id=foreign", request)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
