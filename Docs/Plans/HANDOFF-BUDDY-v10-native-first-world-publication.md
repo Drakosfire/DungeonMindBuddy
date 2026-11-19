@@ -243,3 +243,26 @@ Required final checks: complete affected module, focused Ruff, canonical invento
 unmodified exact-head frontend/canonical qualification and independent cumulative
 review. The wider original HTTP mismatch remains a red prerequisite, not repaired
 by this inventory. C1 acceptance must not mark the native writer or V10 complete.
+
+
+## C1 implementation checkpoint
+
+The pure inventory and immutable model are implemented; the affected existing test
+module explicitly passes36 tests, scoped Ruff and canonical inventory pass. Exact
+head frontend/canonical qualification and final cumulative review remain pending.
+Independent implementation critique found contradictory identity maps could pass a
+zero-graph classification. The repair reconciles decision-specific node/outcome
+maps, deferred IDs and unresolved mentions and rejects shared assertions. Dedicated
+regressions cover those contradictions; no contradiction becomes a no-op success.
+
+Actual first-World materialization supplies the create/reject/edge test packets.
+The tests account for every JSON leaf, alias spelling/classic dedup behavior,
+reviewed-versus-published summaries, typed source/metadata/predicate blockers,
+unknown inner fields, JSON pointers, numeric kinds, evidence/list order, immutable
+commitments and resource bounds. No source admission or repository call occurs.
+
+Main was rechecked at59b419cdccac6bae5670be84e319d32d2aad22cc; intervening changes
+are independent UI fixtures/handoffs, not an adopted backend change. Parent remains
+322dbb33. The original native/classic first-World mismatch is still unresolved.
+This checkpoint neither accepts C1 nor claims native publication, deployment,
+latency improvement, complete V10 retirement or complete V11 verification.

@@ -140,5 +140,27 @@
       },
       "histories_differ": true
     }
-  ]
+  ],
+  "closed_inventory": {
+    "status": "IMPLEMENTED_AWAITING_EXACT_HEAD_QUALIFICATION",
+    "outcome": "Immutable complete effect accounting with typed unsupported blockers, or a non-publishing audit packet after exact zero-effect consistency checks. No executable operations or publication authority.",
+    "implementation_lease": "b771c7b65708884410ef1b241fad9ef6480ccd97",
+    "focused_module": "tests/test_first_world_typed_evidence.py",
+    "focused_result": {
+      "passed": 36,
+      "warnings": 1,
+      "warning": "Existing CandidateAdmissionBinding schema shadows BaseModel attribute"
+    },
+    "lint": "Scoped Ruff passes for both new modules and affected existing test module",
+    "inventory": "Canonical inventory passes; existing classified test module explicitly invoked, not claimed selected by unrelated named contract",
+    "review_repair": "Reconcile node map, outcomes, deferred IDs and mentions against decisions; forbid shared assertions before non-publishing classification.",
+    "qualification_pending": [
+      "Unmodified exact-head frontend/canonical verification",
+      "Independent cumulative final-head review"
+    ],
+    "current_main_checked": "59b419cdccac6bae5670be84e319d32d2aad22cc",
+    "newer_main_changes": "Independent UI fixture/handoff work only; no backend source delta adopted.",
+    "native_writer_complete": false,
+    "deployed": false
+  }
 }

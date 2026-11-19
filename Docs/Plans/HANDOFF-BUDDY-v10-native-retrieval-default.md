@@ -1,6 +1,6 @@
 # BUDDY — V10.B current retrieval uses native authority
 
-Status: ACTIVE. Owner/designer: Elderwyld completion lane, explicit operator
+Status: COMPLETE — accepted PR4083. Owner/designer: Elderwyld completion lane, explicit operator
 implementation/review/merge authority. Serial delivery, actual parent Buddy main
 c4a3403e8e552797e185899b7f35f4a6817047f9 (merged4081 UI fixture correction), containing
 accepted V9.B4079 e36abef5d75d543b7e8c656d611b93723757b362.
@@ -96,3 +96,15 @@ Owner Elderwyld completion retains scratch/cache/evidence/refs through acceptanc
 and V10/V11. No manual cleanup/reclaimed-byte claim or standing deletion authority.
 Cleanup followup after qualified replacement: process/mount/DB-connection/dirty/
 unique-commit/data checks and approved scope before disposing reproducible outputs.
+
+
+## Accepted predecessor seal
+
+PR4083 merged as f526026f89da4251dcdfd1d1e311536db2e99564 after review of
+437ff4e6eb081517f2d0f941213c4500b1bec48e (review5972365394). Authorization tests298
+passed; world tests445 passed at034 with2565 independently matching final selected
+runtime/test blobs (no claim of an exact437 world execution). Exact final frontend
+qualification passed1411 tests, production build and canonical evidence validation;
+automatic inventory/discovery checks passed. Full V10 remains incomplete. The
+native first-World publication prerequisite is tracked by the separate V10.C1
+handoff; accepting this retrieval slice did not change that writer or deployment.
