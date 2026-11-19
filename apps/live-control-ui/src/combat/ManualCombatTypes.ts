@@ -5,7 +5,7 @@ export interface ManualCombatProfile {
   schema:'dmb_combat_profile_v2'; profile_id:string; name:string; system_id:string; revision:number;
   stats:{field_id:string; label:string; value_type:'integer'|'text'; initial:number|string|null}[];
   resources:{field_id:string; label:string; initial:ManualResource}[];
-  pacing:{mode:'ordered'; rounds:boolean}|{mode:'side'; rounds:false};
+  pacing:{mode:'ordered'; rounds:boolean}|{mode:'side'; rounds:false}|{mode:'spotlight'; rounds:false};
 }
 export interface ManualCombatActor {
   id:string; name:string; side_id:string|null; participation:'in_action'|'out_of_action';
@@ -15,7 +15,7 @@ export interface ManualCombatActor {
 }
 export type ManualTurn = {kind:'ordered'; active_actor_id:string|null} |
   {kind:'ordered_rounds'; active_actor_id:string|null; round:number; round_start_actor_id:string|null} |
-  {kind:'side'; active_side_id:string|null; active_actor_id:string|null; acted_actor_ids:string[]};
+  {kind:'side'; active_side_id:string|null; active_actor_id:string|null; acted_actor_ids:string[]}|{kind:'spotlight'; active_actor_id:string|null};
 export interface ManualCombatDraft {
   schema:'dmb_combat_encounter_draft_v2'; title:string; entities:ManualCombatActor[];
   groups:{id:string; label:string; member_ids:string[]; collapsed:boolean}[];

@@ -2,8 +2,8 @@
 
 ACTIVE under the operator's full Combat design/implementation/review/accepted-merge
 and local-delivery assignment. Root owns this bounded design. Serial successor to
-#4018, merged90995af354398aede97c3a50ee53a2827dab5d03. Base is that exact fetched
-main; branch codex/combat-spotlight-turns in isolated fc67. No unmerged parent or
+#4018, merged90995af354398aede97c3a50ee53a2827dab5d03. Original base is that exact fetched main; qualification rebase
+8be0a02841014f1661145f8b1bcab1556d55a98d; branch codex/combat-spotlight-turns in isolated fc67. No unmerged parent or
 other open Combat implementation PR. This slice delivers one turn-structure
 capability, not full-goal completion; real-runtime delivery and integrated final
 acceptance remain a separate required successor.
@@ -105,3 +105,21 @@ advance, editing stats/resources/notes/status, Graph/source projection, Save/rel
 recovery, Plan/Play initialization and independent writes, wide/narrow reachability
 and no page overflow. Preserve actual source/schema identities, process and cleanup
 receipts. Completion of this slice does not establish full product runtime delivery.
+
+
+## Implementation checkpoint — not accepted or complete
+
+The vertical implementation now adds strict spotlight profile/turn discrimination,
+shared explicit selection/Finish controls and row actions, semantic recovery mode/
+reference checks, a forward0166 reader fence, and owning tests. The existing generic
+manual initializer already resets via empty_manual_draft and requires no edit.
+The former unsupported profile-mode fixture now tests a truly unknown mode while
+new positive/mismatch cases cover spotlight; ordered/side controls remain.
+
+Working-tree diagnostics:128 pure profile/record/generated-schema checks,113
+persistence/HTTP cases and48 focused frontend state/editor/recovery/Plan/Play cases
+pass; typecheck passes. Existing Plan act and Pydantic schema-name warnings remain
+visible in raw output. These are not exact-source qualification. Required next:
+exact-SHA backend and hosted/discovered/current-base evidence, crowded real-route/
+APP browser iteration and independent cumulative code/evidence review. No merge
+readiness, accepted delivery or full-goal completion is claimed.

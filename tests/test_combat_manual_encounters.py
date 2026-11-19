@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from application_state.combat_encounters.manual_encounters import (
     ManualEncounterDraft, ManualEncounterRecord, ManualParticipant,
-    OrderedRoundTurn, OrderedTurn, SideTurn, decode_combat_record, empty_manual_draft,
+    OrderedRoundTurn, OrderedTurn, SideTurn, SpotlightTurn, decode_combat_record, empty_manual_draft,
 )
 from application_state.combat_encounters.manual_profiles import (
     ManualCombatProfile, initial_actor_values, manual_profile_digest,
@@ -23,6 +23,56 @@ from application_state.combat_encounters.types import (
 FIXTURES = Path(__file__).parent / "fixtures"
 WORLD = "crossing-world"
 UUID = "11111111-1111-4111-8111-111111111111"
+
+
+def spotlight_record():
+    body=record().model_dump(mode='json',by_alias=True)
+    body['ruleset']['pacing']={'mode':'spotlight','rounds':False}
+    rules=ManualCombatProfile.model_validate(body['ruleset'])
+    body['ruleset_digest']=manual_profile_digest(rules)
+    body['draft']['turn']={'kind':'spotlight','active_actor_id':'crew-a'}
+    return decode_combat_record(body)
+
+
+def test_spotlight_is_explicit_without_an_order_side_or_round_and_resets_only_selection():
+    from application_state.play.session_encounters import initialize_draft
+    current=spotlight_record();before=current.model_dump(mode='json',by_alias=True)
+    assert isinstance(empty_manual_draft(current.ruleset,'New').turn,SpotlightTurn)
+    assert current.draft.sides==[]
+    current.draft.entities[0].notes='Keep this note'
+    current.draft.entities[0].statuses=('Exposed',)
+    live,actor_map,_=initialize_draft(current,fresh_ids=True)
+    assert live.turn==SpotlightTurn()
+    assert live.entities[0].id==actor_map['crew-a']!='crew-a'
+    assert live.entities[0].values==current.draft.entities[0].values
+    assert live.entities[0].notes=='Keep this note' and live.entities[0].statuses==('Exposed',)
+    assert current.draft.turn.active_actor_id==before['draft']['turn']['active_actor_id']
+
+
+@pytest.mark.parametrize('turn',[
+    {'kind':'ordered','active_actor_id':None},
+    {'kind':'side','active_side_id':None,'active_actor_id':None,'acted_actor_ids':[]},
+    {'kind':'spotlight','active_actor_id':'missing'},
+    {'kind':'spotlight','active_actor_id':'crew-a','round':1},
+    {'kind':'spotlight','active_actor_id':None,'acted_actor_ids':[]},
+])
+def test_spotlight_refuses_mismatched_modes_stale_references_and_invented_round_state(turn):
+    body=spotlight_record().model_dump(mode='json',by_alias=True);body['draft']['turn']=turn
+    with pytest.raises(ValidationError):decode_combat_record(body)
+
+
+def test_out_of_action_cannot_retain_an_active_spotlight():
+    body=spotlight_record().model_dump(mode='json',by_alias=True)
+    body['draft']['entities'][0]['participation']='out_of_action'
+    with pytest.raises(ValidationError,match='in-action'):decode_combat_record(body)
+    body['draft']['turn']['active_actor_id']=None
+    assert decode_combat_record(body).draft.entities[0].values.resources['stress'].current==2
+
+
+@pytest.mark.parametrize('rounds',[True,0,'false',None])
+def test_spotlight_never_coerces_rounds_or_invents_a_counter(rounds):
+    body=spotlight_record().ruleset.model_dump(mode='json',by_alias=True);body['pacing']['rounds']=rounds
+    with pytest.raises(ValidationError):ManualCombatProfile.model_validate(body)
 
 
 def side_record():
