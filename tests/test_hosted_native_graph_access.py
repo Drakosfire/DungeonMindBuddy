@@ -314,6 +314,10 @@ def hosted(monkeypatch, request):
     from apps.live_control_server.routes import rules_lookup
 
     app.include_router(rules_lookup.router)
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/inserted",
+        agent_routes.report_build_document_proposal_inserted, methods=["POST"],
+    )
     app.include_router(conversation_library.router)
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
@@ -517,6 +521,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
             ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): access.resolve_hosted_conversation_world,
+            ("POST", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/inserted"): access.resolve_hosted_build_insertion_ack,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/related-pages/{read_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/saved-sections/{segment_index}/{section_event_id}"): access.resolve_hosted_conversation_world,
@@ -5832,3 +5837,27 @@ def test_hosted_runbook_edit_persists_committed_revision(hosted, application_sta
     persisted = service.get_runbook(document_id)
     assert persisted.object_revision == saved.json()["registry_revision"]
     assert persisted.current_revision_id is not None
+
+
+def test_hosted_build_insertion_ack_requires_owned_world_and_exact_revision(hosted, monkeypatch):
+    from application_state.build_proposal import service
+    from apps.live_control_server.services import build_document_proposal
+
+    calls = []
+
+    def report(self, world, action, *, expected_revision, authorize):
+        authorize()
+        calls.append((world, str(action), expected_revision))
+        return {"inserted_in_draft": True}
+
+    monkeypatch.setattr(service.BuildProposalService, "report_inserted", report)
+    monkeypatch.setattr(build_document_proposal, "_public", lambda value: value)
+    action = "00000000-0000-4000-8000-000000000001"
+    path = f"/api/live/agent/worlds/managed/build-proposals/{action}/inserted?expected_revision=3"
+    assert hosted.client.request("POST", path, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path + "&expected_revision=4").status_code == 403
+    assert hosted.client.request("POST", path, json={"extra": True}).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path)
+    assert result.status_code == 200, result.text
+    assert calls == [("managed", action, 3)]

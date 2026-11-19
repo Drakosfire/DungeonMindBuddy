@@ -124,7 +124,7 @@ class BuildProposalService:
                 "revision": previous.revision + 1, "updated_at": datetime.now(timezone.utc)}
             return _save(conn, previous, updated)
 
-    def report_inserted(self, world_id: str, action_id: UUID, *, expected_revision: int) -> BuildProposalRecord:
+    def report_inserted(self, world_id: str, action_id: UUID, *, expected_revision: int, authorize=None) -> BuildProposalRecord:
         """Client-observed draft insertion; never a durable workspace Save receipt."""
         with unit_of_work(_ready_dsn()) as conn:
             row = conn.execute("SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s FOR UPDATE", (world_id, action_id)).fetchone()
@@ -135,5 +135,7 @@ class BuildProposalService:
                 return previous
             if previous.state != "proposed" or previous.revision != expected_revision:
                 raise ApplicationStateConflictError("Build proposal cannot be inserted")
+            if authorize is not None:
+                authorize()
             return _save(conn, previous, {**previous.model_dump(mode="python"), "inserted_in_draft": True,
                 "revision": previous.revision + 1, "updated_at": datetime.now(timezone.utc)})

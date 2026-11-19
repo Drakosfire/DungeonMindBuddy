@@ -3396,15 +3396,29 @@ def get_build_document_proposal_prompt(world_id: str, action_id: UUID, request: 
 @router.post("/worlds/{world_id}/build-proposals/{action_id}/inserted")
 def report_build_document_proposal_inserted(world_id: str, action_id: UUID, request: Request, expected_revision: int = Query(ge=1)):
     from application_state.build_proposal.service import BuildProposalService
+    from apps.live_control_server.services import hosted_auth
     from apps.live_control_server.services.build_document_proposal import _public
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     if set(request.query_params) != {"expected_revision"} or len(request.query_params.getlist("expected_revision")) != 1:
         raise HTTPException(status_code=422, detail="one exact revision selector is required")
+    def authorize() -> None:
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+
+    hosted = hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS
     try:
-        return {"schema": "dmb_build_proposal_response_v1", "record": _public(BuildProposalService().report_inserted(verified, action_id, expected_revision=expected_revision))}
+        record = BuildProposalService().report_inserted(
+            verified, action_id, expected_revision=expected_revision,
+            **({"authorize": authorize} if hosted else {}),
+        )
+        result = {"schema": "dmb_build_proposal_response_v1", "record": _public(record)}
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": "build_proposal_insert_status_unavailable"}) from exc
+    if hosted:
+        authorize()
+    return result
 
 # Review is a separate owner from immutable generated proposal/provider evidence.
 from .build_proposal_reviews import router as build_proposal_review_router
