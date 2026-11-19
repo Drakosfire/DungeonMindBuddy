@@ -383,6 +383,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new|\/commands\/[^/]+(?:\/resolve|\/resolutions\/[^/]+)?)?$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/(?:conversation\/turns|plan-proposals)\/[^/]+\/graph-evidence$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace(?:\/[^/]+\/prompt\/[^/]+)?$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[^/]+\/turns\/[^/]+\/discussion-retry-input$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/(?:identities|(?:native-)?steps\/\d+\/assertion)$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/prompts$/.test(pathname)
@@ -683,6 +684,9 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "PUT" && query.size === 1 && Boolean(query.get("world_id"))
       && typeof body?.expected_run_revision === "number" && Number.isSafeInteger(body.expected_run_revision)
       && body.expected_run_revision > 0 && isRecord(body.progress);
+  }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/conversations\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\/turns\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\/discussion-retry-input\?revision=[1-9][0-9]*$/.test(path)) {
+    return method === "GET" && init?.body == null;
   }
   if (connectedPage) {
     const query = new URLSearchParams(connectedPage[1]);

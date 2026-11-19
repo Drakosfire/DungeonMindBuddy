@@ -4,7 +4,7 @@ from hashlib import sha256
 import json
 from typing import Literal
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from application_state.agent_conversation import library
 from application_state.errors import ApplicationStateError
 from application_state.agent_conversation.retry import AuthoringRetryRequiredError
@@ -162,9 +162,15 @@ def retry_attempts(
 
 
 @router.get("/{conversation_id}/turns/{turn_id}/discussion-retry-input")
-def discussion_retry_input(world_id: str, conversation_id: UUID, turn_id: UUID, request: Request, revision: int = Query(..., ge=1)):
+def discussion_retry_input(world_id: str, conversation_id: UUID, turn_id: UUID, request: Request, response: Response, revision: int = Query(..., ge=1)):
     from application_state.agent_conversation.retry import read_discussion_retry_input
-    return call(read_discussion_retry_input, scope(request, world_id, {"revision"}), conversation_id, turn_id, revision)
+    from apps.live_control_server.services import hosted_auth
+
+    result = call(read_discussion_retry_input, scope(request, world_id, {"revision"}), conversation_id, turn_id, revision)
+    if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    response.headers["Cache-Control"] = "no-store"
+    return result
 
 
 @router.post("/{conversation_id}/resume", response_model=ConversationCommandReceipt)
