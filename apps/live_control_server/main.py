@@ -154,6 +154,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_image_world,
     resolve_hosted_image_preparation,
     resolve_hosted_rules_lookup,
+    resolve_hosted_agent_readiness,
     resolve_hosted_chat_turn,
     resolve_hosted_build_page_create,
     resolve_hosted_build_page_inventory,
@@ -249,6 +250,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/rules/query"): resolve_hosted_rules_lookup,
     ("GET", "/api/live/rules/passages/{citation_id}"): resolve_hosted_rules_lookup,
 
+    ("GET", "/api/live/agent/readiness"): resolve_hosted_agent_readiness,
     ("POST", "/api/live/agent/turn"): resolve_hosted_chat_turn,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/conversation/new"): resolve_hosted_conversation_world,

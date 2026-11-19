@@ -6930,7 +6930,7 @@ export function WorldPlanAgentConversation({
           <button type="button" aria-pressed={playEditMode} onClick={() => setPlayEditMode(true)} disabled={!playMode.sceneEditBridge}>Propose scene edit</button>
           {playEditMode ? <p>Review a change to the current scene in this session copy. The Plan stays intact.</p> : null}
         </div> : null}
-      <BuddyReadiness active={visible && agent.paneState.isOpen} surface={isBuild ? "build" : isReadOnly ? "play" : "plan"}
+      <BuddyReadiness worldId={verifiedWorldId ?? undefined} active={visible && agent.paneState.isOpen && Boolean(verifiedWorldId)} surface={isBuild ? "build" : isReadOnly ? "play" : "plan"}
         worldGraph={useWorldGraphForAsk} blockedReason={composerBusy ? (
           sending || composing || buildCompose.busy || playCompose.busy ? "A request is running."
           : pendingPlayTurn || sharedConversation?.pendingTurn || pendingPlayLoadError || pendingPlayRecoveryHydrating

@@ -118,8 +118,10 @@ router = APIRouter(prefix="/agent", tags=["agent-turn"])
 
 @router.get("/readiness")
 def get_agent_readiness(request: Request, surface: Literal["build", "plan", "play"],
-                        world_graph: bool = True):
-    enforce_native_graph_gm(request)
+                        world_graph: bool = True, world_id: str | None = None):
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id or "", authorize_local=enforce_native_graph_gm)
     from apps.live_control_server.services.agent_readiness import agent_readiness
     return agent_readiness(surface=surface, world_graph=world_graph,
                            build_runtime=getattr(request.app.state, "build_jev_runtime_factory", None))
