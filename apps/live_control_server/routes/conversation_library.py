@@ -149,7 +149,7 @@ def retry_attempts(
     before_sequence: int | None = Query(None, gt=0),
 ):
     world = scope(request, world_id, {"limit", "before_sequence"})
-    return call(
+    result = call(
         library.read_retry_attempts,
         world,
         conversation_id,
@@ -157,6 +157,8 @@ def retry_attempts(
         limit=limit,
         before_sequence=before_sequence,
     )
+    require_conversation_access(request, world, authorize_local=enforce_native_graph_gm)
+    return result
 
 
 @router.get("/{conversation_id}/turns/{turn_id}/discussion-retry-input")
