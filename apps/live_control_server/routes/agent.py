@@ -3367,14 +3367,21 @@ def list_build_document_proposals(world_id: str, conversation_id: UUID, request:
 def get_build_document_proposal(world_id: str, action_id: UUID, request: Request):
     from application_state.build_proposal.service import BuildProposalService
     from apps.live_control_server.services.build_document_proposal import _public
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     if request.query_params:
         raise HTTPException(status_code=422, detail="Build proposal does not accept query selectors")
     try:
-        return {"schema": "dmb_build_proposal_response_v1", "record": _public(BuildProposalService().get(verified, action_id))}
+        result = {"schema": "dmb_build_proposal_response_v1", "record": _public(BuildProposalService().get(verified, action_id))}
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": "build_proposal_unavailable"}) from exc
+    from apps.live_control_server.services import hosted_auth
+
+    if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    return result
 
 
 @router.get("/worlds/{world_id}/build-proposals/{action_id}/prompt")
