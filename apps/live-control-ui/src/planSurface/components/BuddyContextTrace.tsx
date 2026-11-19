@@ -63,7 +63,7 @@ function InlinePrompt({ trace, reference }: { trace: BuddyTurnContextTrace; refe
   const previous = trace.observations.filter((item): item is BuddyTracePromptReference =>
     item.kind === 'prompt_reference' && item.sequence < reference.sequence).at(-1)
   return <details className="buddy-prompt__disclosure" onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary>Working context · composed input prompt · {reference.model}<span className="buddy-prompt__collapse" aria-hidden="true">Collapse</span></summary>
+    <summary>Model request preparation · {reference.model}<span className="buddy-prompt__collapse" aria-hidden="true">Collapse</span></summary>
     <p>Exact captured input for this model call. Capture does not prove the provider received it.</p>
     {!previous && <p>First captured input in this attempt.</p>}
     {open && <CapturedPrompt trace={trace} reference={reference} previousReference={previous} />}

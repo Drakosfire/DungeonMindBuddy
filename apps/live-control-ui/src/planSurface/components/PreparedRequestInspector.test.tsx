@@ -42,3 +42,21 @@ it.each(['Normal prose','42','true','null'])('keeps non-object message content a
  render(<PreparedRequestInspector payloadJson={JSON.stringify({input:[{role:'user',content}]})}/>);
  expect(JSON.parse(screen.getByLabelText('Captured request').querySelector('pre')!.textContent!).input[0].content).toBe(content);
 });
+
+it('shows the ordered Luna prompt and configuration with collapsed field diagnostics', () => {
+  // Match the retained Luna capture's field order and configuration, with synthetic prompt text.
+  const input = ['First', 'Second', 'Third'].map(content => ({ role: 'user', content }));
+  const payload = {
+    input, instructions: 'Ground the answer', model: 'gpt-6-luna',
+    reasoning: { effort: 'low' }, service_tier: 'fast', stream: false,
+    text: {}, tools: [],
+  };
+  render(<PreparedRequestInspector payloadJson={JSON.stringify(payload)} previousPayloadJson='{"model":"decision"}' />);
+  const request = screen.getByLabelText('Captured request').querySelector('pre')!;
+  expect(JSON.parse(request.textContent!)).toEqual(payload);
+  const changes = screen.getByLabelText('Changes since previous model call');
+  expect(changes).not.toHaveAttribute('open');
+  fireEvent.click(screen.getByText('Changes since previous captured call'));
+  expect(changes).toHaveAttribute('open');
+  expect(changes).toHaveTextContent('Added · Message 2 · user · /input/1');
+});

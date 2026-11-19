@@ -135,7 +135,7 @@ it("opens a failed turn's exact captured request within Debug only on demand", a
     conversation_id:'conversation',turn_id:'turn',trace_id:'trace',attempt:1,reference,
     payload_json:JSON.stringify({model:'model',input:'Exact image direction request'})})
   render(<BuddyContextTraceLoader {...props} enabled load={vi.fn().mockResolvedValue(response([captured]))} loadPrompt={loadPrompt} />)
-  const control = await screen.findByText('Working context · composed input prompt · model', {selector:'summary'})
+  const control = await screen.findByText('Model request preparation · model', {selector:'summary'})
   expect(loadPrompt).not.toHaveBeenCalled()
   fireEvent.click(control)
   await screen.findByRole('heading',{name:'Full composed request'})
@@ -155,11 +155,12 @@ it.each([false,true])('reads only the selected input and previous capture on dem
       reference:refs.find(ref=>ref.provider_attempt_id===id),payload_json:JSON.stringify({input:id})}
   })
   render(<BuddyContextTraceLoader {...props} enabled load={vi.fn().mockResolvedValue(response([captured]))} loadPrompt={loadPrompt} />)
-  const control=await screen.findByText('Working context · composed input prompt · three',{selector:'summary'})
+  const control=await screen.findByText('Model request preparation · three',{selector:'summary'})
   expect(loadPrompt).not.toHaveBeenCalled()
   fireEvent.click(control)
   await screen.findByRole('heading',{name:'Full composed request'})
   expect(loadPrompt.mock.calls.map(call=>call[3])).toEqual(['three','two'])
+  expect(control.closest('details')).toContainElement(screen.getByLabelText('Captured request'))
   expect(screen.getByLabelText('Captured request')).toHaveTextContent('three')
   if(missing) {
     expect(screen.getByText(/previous captured input is unavailable/)).toBeInTheDocument()
