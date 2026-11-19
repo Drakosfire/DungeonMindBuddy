@@ -16,19 +16,46 @@ const FORBIDDEN_PATTERNS: Array<{ name: string; pattern: RegExp }> = [
     pattern:
       /\b(from|import)\b\s*\(?\s*['"][^'"]*(planSurface|buildSurface|ingestSurface|agentInteraction|chrome|markdownCanvas|graphReference)/,
   },
+  {
+    name: "shared host import",
+    pattern: /\b(from|import)\b\s*\(?\s*['"][^'"]*\/(contextHost|peekHost|toolHost|editHost|projection|SurfaceSelectionActions)(?:\/|\.tsx?['"]|['"])/,
+  },
   { name: "ReactNode", pattern: /\bReactNode\b/ },
   { name: "react import", pattern: /from\s+["']react(\/[^"']*)?["']/ },
   { name: ".tsx import specifier", pattern: /\.tsx["']/ },
 ];
 
-/** The exact SIH-01 production allowlist (handoff §4). Later slices that add
- * files to this package must update this list deliberately. */
-const EXPECTED_PRODUCTION_FILES = [
+/** The exact SIH-01 neutral core. Shared React hosts are separate owners below. */
+const EXPECTED_NEUTRAL_FILES = [
   "index.ts",
   "publication.ts",
   "surfaceIdentity.ts",
   "types.ts",
 ];
+
+/** These package owners already have their own boundary checks. */
+const SEPARATELY_CHECKED_HOST_DIRS = ["projection", "toolHost", "editHost"];
+
+/** Later shared presentation files; additions require explicit classification. */
+const EXPECTED_SHARED_HOST_FILES = [
+  "SurfaceSelectionActions.tsx",
+  "contextHost/SurfaceContextHost.tsx",
+  "contextHost/SurfaceContextModule.tsx",
+  "contextHost/SurfaceContextPrimitives.tsx",
+  "contextHost/SurfaceContextProvider.tsx",
+  "contextHost/SurfaceNavbarIconButton.tsx",
+  "contextHost/index.ts",
+  "contextHost/surfaceContextTypes.ts",
+  "contextHost/useSurfaceContext.ts",
+  "peekHost/PeekRegionProvider.tsx",
+  "peekHost/index.ts",
+];
+
+function listNeutralFiles(): string[] {
+  return listProductionFiles(ROOT, SEPARATELY_CHECKED_HOST_DIRS).filter(
+    (file) => !EXPECTED_SHARED_HOST_FILES.includes(relative(ROOT, file)),
+  );
+}
 
 function listProductionFiles(dir: string, skipSubdirs: readonly string[] = []): string[] {
   const out: string[] = [];
@@ -48,15 +75,17 @@ function listProductionFiles(dir: string, skipSubdirs: readonly string[] = []): 
 }
 
 describe("surfaceInteraction boundaries", () => {
-  it("contains exactly the allowlisted production files and no JSX host files", () => {
-    const files = listProductionFiles(ROOT, ["projection", "toolHost", "editHost"]).map((path) => relative(ROOT, path));
-    expect(files.sort()).toEqual(EXPECTED_PRODUCTION_FILES);
-    expect(files.some((file) => file.endsWith(".tsx"))).toBe(false);
+  it("classifies production files and keeps the neutral core free of JSX hosts", () => {
+    const files = listProductionFiles(ROOT, SEPARATELY_CHECKED_HOST_DIRS).map((path) => relative(ROOT, path));
+    expect(files.sort()).toEqual([...EXPECTED_NEUTRAL_FILES, ...EXPECTED_SHARED_HOST_FILES].sort());
+    const neutralFiles = listNeutralFiles().map((path) => relative(ROOT, path));
+    expect(neutralFiles.sort()).toEqual(EXPECTED_NEUTRAL_FILES);
+    expect(neutralFiles.some((file) => file.endsWith(".tsx"))).toBe(false);
   });
 
-  it("keeps production sources free of surface, domain, and React host references", () => {
+  it("keeps neutral core sources free of surface, domain, and React host references", () => {
     const violations: string[] = [];
-    for (const file of listProductionFiles(ROOT, ["projection", "toolHost", "editHost"])) {
+    for (const file of listNeutralFiles()) {
       const source = readFileSync(file, "utf8");
       for (const { name, pattern } of FORBIDDEN_PATTERNS) {
         if (pattern.test(source)) {

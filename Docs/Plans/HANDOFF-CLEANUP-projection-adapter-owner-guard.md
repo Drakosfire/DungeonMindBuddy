@@ -1,6 +1,14 @@
 # CLEANUP: verify the current projection adapter owner
 
-Status: ACTIVE under the user-authorized cleanup goal, including review and merge.
+Status: SETTLED by #4086, merged 1b1decc8703db9d1912ec237f4f4a075038c237b.
+Reviewed head: 0cf965e222aa5da11a95d7afcdfbc6e6cf48791c.
+Independent exact-head source/raw-evidence review approved. Hosted 1411 tests,
+build and evidence validation passed. Full discovered diagnostic: 8039 passed,
+140 failed, 2 pending; all 13 boundary cases passed. Exactly one old App.tsx case
+was paired with its renamed LocalWorkspace.tsx replacement; no other additions
+or omissions, new failures or changed remaining leading messages. Both negative
+ownership probes failed as intended. Full qualification remains red with two
+conditional inventory extras and the earlier unresolved quote-correction case.
 Base: 322dbb332f1c421f03cb0dced6fbd8c72aa3a092.
 Branch: codex/projection-adapter-owner-guard, existing cleanup checkout.
 Topology: serial after merged #4085; no unmerged behavioral dependency.
