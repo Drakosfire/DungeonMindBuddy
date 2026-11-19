@@ -13,8 +13,11 @@ const initialViews: SessionViews = {
 };
 const refreshedViews: SessionViews = {
   ...initialViews,
-  state: { ...mockState, now: { ...mockState.now, day_label: "After accepted command" }, recent_event_count: 1 },
+  state: { ...mockState, now: { ...mockState.now, day_label: "After accepted command" }, recent_event_count: 1, queued_job_count: 1 },
   events: [mockRollEvent],
+  jobs: [{ schema_version: "0.1.0", id: "job-after-accept", created_at: "2026-05-28T00:01:00Z",
+    campaign_id: mockState.campaign_id, session: mockState.session,
+    job_type: "refresh_projection", status: "queued", source_event_id: mockRollEvent.id }],
   plan_view: { ...mockPlanView, generated_at: "2026-05-28T00:01:00Z" },
 };
 
@@ -34,7 +37,7 @@ vi.mock("./surface/InspectorPane", () => ({
     <button
       type="button"
       onClick={() => {
-        void onCommandAccepted?.(makeWriteResult());
+        void onCommandAccepted?.(makeWriteResult({ events_appended: [mockRollEvent.id], jobs_queued: ["job-after-accept"] }));
       }}
     >
       Trigger command accepted
