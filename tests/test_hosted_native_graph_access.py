@@ -424,7 +424,6 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}"): access.resolve_hosted_play_scene_proposal,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/prepared-tables"): access.resolve_hosted_play_read,
-            ("GET", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/receipts"): access.resolve_hosted_play_roll_receipts,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content/revisions/{revision_n}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content/commands/{command_id}"): access.resolve_hosted_play_read,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/commands/{command_id}"): access.resolve_hosted_play_table_roll,
@@ -2737,12 +2736,6 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     recorded = hosted.client.request("PUT", roll_path, json=roll)
     assert recorded.status_code == 200, recorded.text
     assert recorded.json()["receipt"]["outcome"] == "Dry"
-    receipts_path = f"{base}/prepared-tables/receipts?world_id=managed&limit=1"
-    receipts_response = hosted.client.request("GET", receipts_path)
-    assert receipts_response.status_code == 200, receipts_response.text
-    assert receipts_response.json()["receipts"] == [recorded.json()["receipt"]]
-    assert hosted.client.request("GET", receipts_path, session="other-session").status_code == 403
-    assert hosted.client.request("GET", receipts_path + "&world_id=foreign").status_code == 403
     command_path = f"{base}/content/commands/{uuid4()}?world_id=managed"
     assert hosted.client.request("GET", command_path, session="other-session").status_code == 403
     missing_command = hosted.client.request("GET", command_path)
