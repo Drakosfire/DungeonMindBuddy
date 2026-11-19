@@ -337,7 +337,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 raise httpx.ReadTimeout('synthetic unknown writer outcome',request=req)
             body = json.loads(req.content)
             assert body['model'] == self.adapter._broker_execution().policy.provider_roles.writer.model
-            expected_effort = 'medium' if requested_work == 'draft_in_conversation' and saved_statblock == 'associated' else 'low'
+            current_work = requested_work(self.adapter.request.message) if callable(requested_work) else requested_work
+            expected_effort = 'medium' if current_work == 'draft_in_conversation' and saved_statblock == 'associated' else 'low'
             if body.get('reasoning', {}).get('effort') != expected_effort:
                 return httpx.Response(400, request=req, json={'error': {
                     'message': 'Unsupported reasoning effort for configured writer',
@@ -414,7 +415,6 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 else:
                     assert sum(draft.snapshot.draft_markdown in row['content'] for row in body['input'])==1
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
-            current_work = requested_work(self.adapter.request.message) if callable(requested_work) else requested_work
             assert (handles or saved_statblock in {"associated", "by-name"}
                     or authored_source == 'source_only' or current_work == "review_lore_page")
             assert 'DISPLAY ONLY' not in str(frame)
@@ -1891,6 +1891,11 @@ def test_benchmark_captures_consecutive_mounted_build_turns(lane, tmp_path, monk
         requested_work=lambda message: "draft_in_conversation" if message == draft_request else "discuss",
         saved_statblock="associated", dispatch=first,
     )
+    from unittest.mock import Mock
+    from apps.live_control_server.services import native_graph_inspection
+
+    fresh_pdf_reads = Mock(wraps=native_graph_inspection.statblock_pdf_support)
+    monkeypatch.setattr(native_graph_inspection, "statblock_pdf_support", fresh_pdf_reads)
     for index, question in enumerate((
         "Could it negotiate?",
         "What choice could I offer the players?",
@@ -1915,6 +1920,19 @@ def test_benchmark_captures_consecutive_mounted_build_turns(lane, tmp_path, monk
             assert request["build_draft_context"]["snapshot"]["draft_markdown"] == snapshot.draft_markdown
     service = AgentConversationService()
     turns = [service.inspect_turn(world_id=case.world, turn_id=UUID(row["turn_id"])) for row in history["turns"]]
+    from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+
+    reads = [[event for event in turn.graph_context_execution.events
+        if isinstance(event, BuildSavedStatblockReadV1)] for turn in turns]
+    assert all(len(events) == 1 for events in reads)
+    initial_pin = reads[0][0].pdf_support.scope.revision_id
+    current_pin = turns[1].graph_context_receipt.source_authority.revision_id
+    assert initial_pin != current_pin
+    assert fresh_pdf_reads.call_count == 1
+    assert fresh_pdf_reads.call_args.args[0].graph_revision == current_pin
+    assert reads[1][0].reused_from_turn_id is None
+    assert all(events[0].pdf_support.scope.revision_id == current_pin for events in reads[1:])
+    assert all(events[0].reused_from_turn_id is not None for events in reads[2:])
     assert all(turn.conversation_id == case.turn.conversation_id for turn in turns)
     assert service.conversation_draft_turn_ids(case.world, case.turn.conversation_id,
         [turn.turn_id for turn in turns]) == {turns[-1].turn_id}
@@ -2397,3 +2415,42 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
         opened = case.client.get(link)
         assert opened.status_code == 200, opened.text
         assert opened.json()["content"] == reads[citation.read_event_id]
+
+
+@pytest.mark.parametrize("component,value", [
+    ("managed_world_id", "foreign-managed"),
+    ("native_world_id", "foreign-native"),
+    ("binding_version", 999),
+    ("revision_id", "rev:unadmitted"),
+])
+def test_followup_rejects_inadmissible_fresh_pdf_support(lane, tmp_path, monkeypatch, component, value):
+    from evals.buddy_benchmark import workflow
+    from apps.live_control_server.services import native_graph_inspection
+
+    template = {}
+    thread = str(uuid4())
+
+    def first(client, world, body):
+        template.update((key, value) for key, value in body.items() if key != "message")
+        return workflow.capture_case(client, world, template, {"question": body["message"]},
+            tmp_path / "initial", build_thread_id=thread)
+
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Let's brainstorm a variant of this creature.", requested_work="discuss",
+        saved_statblock="associated", dispatch=first)
+    original = native_graph_inspection.statblock_pdf_support
+    calls = []
+
+    def invalid(reference, *args, **kwargs):
+        calls.append(reference)
+        support = original(reference, *args, **kwargs)
+        return support | {"scope": support["scope"] | {component: value}}
+
+    monkeypatch.setattr(native_graph_inspection, "statblock_pdf_support", invalid)
+    head = lane.repo.get_head(case.world)
+    response = workflow.capture_case(case.client, case.world, template,
+        {"question": "Could it negotiate?"}, tmp_path / "followup", build_thread_id=thread,
+        expected_conversation_id=str(case.turn.conversation_id))
+    assert response.status_code == 503, response.text
+    assert calls
+    assert lane.repo.get_head(case.world) == head

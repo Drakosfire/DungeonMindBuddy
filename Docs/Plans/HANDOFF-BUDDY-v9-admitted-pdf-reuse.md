@@ -53,3 +53,11 @@ fixtures on32903 only. No owned canary or prior worker uses checkout at start.
 No live DB/serving5202/otherlane8000/provider change. Retain refs/evidence for
 qualification, owner Elderwyld lane; cleanup followup after explicit scope and
 active process/mount/dirty/unique-data checks. No manual deletion/reclaimed bytes.
+
+Targeted discovery: the first preflight cohort passed12 cases, including all four
+invalid fresh identities, but both consecutive cases reached a later fake-provider
+400: the fixture compared the callable initial requested_work rather than its
+current resolved value when asserting reasoning effort. Move the existing current
+work computation before that exact assertion; retain medium-for-draft/low-for-
+discussion checks. This is a necessary fixture correction in the already leased
+test file, with no provider/runtime policy change. Preserve the failed receipt.
