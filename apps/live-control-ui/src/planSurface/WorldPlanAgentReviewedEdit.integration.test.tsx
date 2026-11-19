@@ -1127,213 +1127,109 @@ it("rejects a thread switch during deferred Apply without changing the mounted e
   expect(commit).not.toHaveBeenCalled();
 });
 
-it("applies a reviewed Scene body through semantic Markdown reload without changing surrounding Plan content", async () => {
-  savedMarkdown = protectedScenePlanMarkdown;
+async function currentSceneBodyRoundTrip(
+  source: string, sceneId: string, replacement: string, originalBody: string,
+  verifySaved: (markdown: string) => void,
+) {
   setupWorldApi();
-  const replacement = "A clearly synthetic scene used only to verify the local Plan-to-Play path. No campaign canon.\n\nGM note: Pause here and invite the players to choose their next action.";
-  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) =>
-    v2SceneProposalResponse(request, "00000000-0000-4000-8000-000000000071", replacement));
-  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
-    schema_version: "dmb_tiptap_markdown_write_prepare_v2",
-    scope_mode: "world",
-    world_id: worldId,
-    document_id: documentId,
-    title: "Integration Plan",
-    target_relpath: `out/workspace/plan/${documentId}.md`,
-    target_display_path: `out/workspace/plan/${documentId}.md`,
-    registry_revision: 8,
-    file_exists: true,
-    writer_ok: true,
-    writer_confirm_token: "integration-scene-save-token",
-    warnings: [],
-    diagnostics: [],
-  });
-  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async (request) => {
-    savedMarkdown = request.markdown;
-    savedRevision = 8;
-    savedDigest = "e".repeat(64);
-    return {
-      schema_version: "dmb_tiptap_markdown_write_commit_v2",
-      scope_mode: "world",
-      world_id: worldId,
-      document_id: documentId,
-      title: "Integration Plan",
-      target_relpath: `out/workspace/plan/${documentId}.md`,
-      target_display_path: `out/workspace/plan/${documentId}.md`,
-      registry_revision: savedRevision,
-      committed_revision: savedRevision,
-      committed_record: { ...planRecord(), revision: savedRevision },
-      normalized_content_sha256: savedDigest,
-      writer_ok: true,
-      writer_phase: "commit",
-      diagnostics: [],
-    };
-  });
-
+  const current = setupPlanAuthoringIntegration(planRecord(), source, replacement);
+  const nativeNavigator = navigator;
+  vi.stubGlobal("navigator", new Proxy(nativeNavigator, {
+    get: (target, key) => key === "locks"
+      ? { request: async (_name: string, work: () => unknown) => work() }
+      : Reflect.get(target, key, target),
+  }));
   const location = `/plan?world=${worldId}&documentId=${documentId}`;
   window.history.replaceState({}, "", location);
-  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
-  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
-  await waitFor(() => expect(editorSurface).toHaveTextContent("A clearly synthetic scene used only to verify the local Plan-to-Play path."));
-  fireEvent.click(await screen.findByRole("button", { name: "Cards" }));
-  const cards = screen.getByTestId("world-plan-cards");
-  const sceneCard = cards.querySelector<HTMLElement>('[data-element-id="scene:dogfood-smoke"]');
-  expect(sceneCard).not.toBeNull();
-  fireEvent.click(within(sceneCard!).getByRole("button", { name: "Select for Edit" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
-  fireEvent.change(await screen.findByLabelText("Message DungeonBuddy"), {
-    target: { value: "Preserve the smoke sentence and add one sensory GM cue." },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
-  await screen.findByRole("region", { name: "Review proposed Plan edit" });
-  const request = proposal.mock.calls[0]?.[0];
-  expect(request).toMatchObject({
-    target_kind: "replace_playable_body",
-    selected_text: "",
-    playable_target: { kind: "scene", id: "scene:dogfood-smoke" },
-    target_body_markdown: "A clearly synthetic scene used only to verify the local Plan-to-Play path. No campaign canon.\n",
-  });
-  expect(screen.getByRole("region", { name: "Review proposed Plan edit" })).toHaveTextContent("GM note: Pause here and invite the players to choose their next action.");
-  expect(savedMarkdown).toBe(protectedScenePlanMarkdown);
-  expect(prepare).not.toHaveBeenCalled();
-  expect(commit).not.toHaveBeenCalled();
-
-  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
-  await waitFor(() => expect(editorSurface).toHaveTextContent("GM note: Pause here and invite the players to choose their next action."), { timeout: 3_000 }).catch(() => {
-    const alerts = screen.queryAllByRole("alert").map((element) => element.textContent).filter(Boolean).join(" | ");
-    throw new Error(`Scene Apply did not update the mounted draft. Alerts: ${alerts || "none"}`);
-  });
-  expect(savedMarkdown).toBe(protectedScenePlanMarkdown);
-  expect(prepare).not.toHaveBeenCalled();
-  expect(commit).not.toHaveBeenCalled();
-
-  fireEvent.click(await screen.findByRole("button", { name: "Save Plan" }));
-  await screen.findByText("Saved to this World.");
-  expect(prepare).toHaveBeenCalledTimes(1);
-  expect(commit).toHaveBeenCalledTimes(1);
-
-  const beforeParsed = markdownToTiptapDoc(protectedScenePlanMarkdown);
-  const beforeEditor = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: beforeParsed.doc });
-  const capturedTarget = await resolvePlayableBodyTarget(beforeEditor, { kind: "scene", id: "scene:dogfood-smoke" });
-  const afterParsed = markdownToTiptapDoc(savedMarkdown);
-  const afterEditor = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: afterParsed.doc });
+  const tree = () => <StrictMode><SelectedWorldProvider locationSnapshot={location}><CurrentIntegrationPage /></SelectedWorldProvider></StrictMode>;
+  let view = render(tree());
   try {
-    expect(afterParsed.diagnostics.filter((diagnostic) => diagnostic.level === "warning")).toEqual([]);
-    expect(tiptapJsonToSemanticMarkdown(afterParsed.doc)).toBe(savedMarkdown);
-    expect(playableBodyProtectedStructureMatches(beforeParsed.doc, afterParsed.doc, capturedTarget)).toBe(true);
-    const reopenedTarget = await resolvePlayableBodyTarget(afterEditor, { kind: "scene", id: "scene:dogfood-smoke" });
-    expect(reopenedTarget.targetBodyMarkdown).toBe(
-      tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(replacement).doc),
-    );
-    expect(session29V2Markers(savedMarkdown)).toEqual(session29V2Markers(protectedScenePlanMarkdown));
-    expect(savedMarkdown).toContain("DOGFOOD REVISION CHECK — saved for source pin verification.");
-    expect(savedMarkdown).toContain("The air carries a cool, earthy scent of damp stone, like a cellar after rain.");
-    expect(savedMarkdown).toContain("- Continue the smoke test.");
-  } finally {
-    beforeEditor.destroy();
-    afterEditor.destroy();
+    const surface = await screen.findByTestId("world-owned-plan-markdown-editor");
+    const editor = (surface.querySelector(".ProseMirror") as HTMLElement & {editor: Editor}).editor;
+    const before = editor.getJSON();
+    const target = await resolvePlayableBodyTarget(editor, {kind: "scene", id: sceneId});
+    expect(target.targetBodyMarkdown).toBe(originalBody);
+    fireEvent.click(within(screen.getByRole("group", {name: "Plan view"})).getByRole("button", {name: "Cards"}));
+    const reader = await screen.findByRole("region", {name: "Focused Plan scene"});
+    expect(within(reader).queryByRole("button", {name: "Select for Edit"})).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", {name: "Open", exact: true}));
+    const conversation = await screen.findByRole("region", {name: "World conversation"});
+    await waitFor(() => expect(within(conversation).getByRole("region", {name: "World conversation transcript"})).toHaveAttribute("aria-busy", "false"));
+    expect(within(conversation).getByLabelText("Actual Plan change target")).toHaveTextContent(`Replace scene body:`);
+    expect(within(conversation).getByLabelText("Actual Plan change target")).toHaveTextContent(sceneId);
+    fireEvent.change(within(conversation).getByLabelText("Message DungeonBuddy"), {target: {value: "Add one short GM cue to the current scene while preserving its original text."}});
+    fireEvent.click(within(conversation).getByText(/^(Automatic|Plan change) · (Change|Question)$/));
+    fireEvent.click(within(conversation).getByRole("button", {name: "Request a Plan change"}));
+    const send = within(conversation).getByRole("button", {name: "Propose edit"});
+    await waitFor(() => expect(send).toBeEnabled());
+    fireEvent.click(send);
+    await waitFor(() => expect(current.post).toHaveBeenCalledTimes(1));
+    const request = current.post.mock.calls[0]![0];
+    expect(request.plan_requested_operation).toBe("write_current_page");
+    expect(request.playable_target).toMatchObject({kind: "scene", id: sceneId});
+    expect(request.plan_authoring_capture).toMatchObject({world_id: worldId, document_id: documentId,
+      base_revision: 7, target_kind: "replace_playable_body", selected_text: "",
+      playable_target: {kind: "scene", id: sceneId, marker_grammar_version: "v2", body_markdown: originalBody}});
+    expect(JSON.parse(request.plan_authoring_capture!.editor_json)).toEqual(before);
+    await screen.findByRole("textbox", {name: "Suggestion text"});
+    expect(editor.getJSON()).toEqual(before);
+    expect(current.readSaved().markdown).toBe(source);
+    expect(current.commands.mock.calls.filter(call => call[2].operation === "confirm")).toHaveLength(0);
+    expect(current.legacyProposal).not.toHaveBeenCalled();
+    expect(current.ordinaryPrepare).not.toHaveBeenCalled();
+    expect(current.ordinaryCommit).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole("region", {name: "Suggestion review"})).getByRole("button", {name: "Save", exact: true}));
+    await waitFor(() => expect(current.readReview()?.state, JSON.stringify({alerts: screen.queryAllByRole("alert").map(element => element.textContent), confirmCount: current.commands.mock.calls.filter(call => call[2].operation === "confirm").length, persistedUnchanged: current.readSaved().markdown === source})).toBe("applied"));
+    const saved = current.readSaved();
+    expect(saved.record.revision).toBe(8);
+    const parsed = markdownToTiptapDoc(saved.markdown);
+    expect(parsed.diagnostics.filter(diagnostic => diagnostic.level === "warning")).toEqual([]);
+    expect(tiptapJsonToSemanticMarkdown(parsed.doc)).toBe(saved.markdown);
+    expect(playableBodyProtectedStructureMatches(before, parsed.doc, target)).toBe(true);
+    expect(session29V2Markers(saved.markdown)).toEqual(session29V2Markers(source));
+    expect(session29NodeLinks(saved.markdown)).toEqual(session29NodeLinks(source));
+    verifySaved(saved.markdown);
+    const after = editor.getJSON();
+    expect(tiptapJsonToSemanticMarkdown(after)).toBe(saved.markdown);
+    const savedTarget = await resolvePlayableBodyTarget(editor, {kind: "scene", id: sceneId});
+    expect(savedTarget.targetBodyMarkdown).toBe(tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(replacement).doc));
     view.unmount();
+    window.history.replaceState({}, "", location);
+    view = render(tree());
+    const reopened = await screen.findByTestId("world-owned-plan-markdown-editor");
+    await waitFor(() => expect((reopened.querySelector(".ProseMirror") as HTMLElement & {editor: Editor}).editor.getJSON()).toEqual(after));
+    expect(current.post).toHaveBeenCalledTimes(1);
+    expect(current.commands.mock.calls.filter(call => call[2].operation === "confirm")).toHaveLength(1);
+    expect(current.ordinaryPrepare).not.toHaveBeenCalled();
+    expect(current.ordinaryCommit).not.toHaveBeenCalled();
+  } finally {
+    view.unmount();
+    vi.unstubAllGlobals();
+    sessionStorage.clear();
   }
+}
+
+it("saves a reviewed focused Scene body without changing surrounding Plan content", async () => {
+  await currentSceneBodyRoundTrip(protectedScenePlanMarkdown, "scene:dogfood-smoke",
+    "A clearly synthetic scene used only to verify the local Plan-to-Play path. No campaign canon.\n\nGM note: Pause here and invite the players to choose their next action.",
+    "A clearly synthetic scene used only to verify the local Plan-to-Play path. No campaign canon.\n",
+    markdown => {
+      expect(markdown).toContain("DOGFOOD REVISION CHECK — saved for source pin verification.");
+      expect(markdown).toContain("The air carries a cool, earthy scent of damp stone, like a cellar after rain.");
+      expect(markdown).toContain("- Continue the smoke test.");
+    });
 });
 
-it("applies a reviewed Scene edit when a protected sibling Option has multiple paragraphs", async () => {
-  savedMarkdown = multiParagraphProtectedScenePlanMarkdown;
-  setupWorldApi();
-  const replacement = "Scene body.\n\nGM note: Pause here for the players to choose their next action.";
-  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) =>
-    v2SceneProposalResponse(request, "00000000-0000-4000-8000-000000000072", replacement));
-  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
-    schema_version: "dmb_tiptap_markdown_write_prepare_v2",
-    scope_mode: "world",
-    world_id: worldId,
-    document_id: documentId,
-    title: "Integration Plan",
-    target_relpath: `out/workspace/plan/${documentId}.md`,
-    target_display_path: `out/workspace/plan/${documentId}.md`,
-    registry_revision: 8,
-    file_exists: true,
-    writer_ok: true,
-    writer_confirm_token: "integration-multiline-scene-save-token",
-    warnings: [],
-    diagnostics: [],
-  });
-  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async (request) => {
-    savedMarkdown = request.markdown;
-    savedRevision = 8;
-    savedDigest = "f".repeat(64);
-    return {
-      schema_version: "dmb_tiptap_markdown_write_commit_v2",
-      scope_mode: "world",
-      world_id: worldId,
-      document_id: documentId,
-      title: "Integration Plan",
-      target_relpath: `out/workspace/plan/${documentId}.md`,
-      target_display_path: `out/workspace/plan/${documentId}.md`,
-      registry_revision: savedRevision,
-      committed_revision: savedRevision,
-      committed_record: { ...planRecord(), revision: savedRevision },
-      normalized_content_sha256: savedDigest,
-      writer_ok: true,
-      writer_phase: "commit",
-      diagnostics: [],
-    };
-  });
-
-  const location = `/plan?world=${worldId}&documentId=${documentId}`;
-  window.history.replaceState({}, "", location);
-  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
-  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
-  await waitFor(() => expect(editorSurface).toHaveTextContent("Scene body."));
-  fireEvent.click(await screen.findByRole("button", { name: "Cards" }));
-  const cards = screen.getByTestId("world-plan-cards");
-  const sceneCard = cards.querySelector<HTMLElement>('[data-element-id="scene:smoke"]');
-  expect(sceneCard).not.toBeNull();
-  fireEvent.click(within(sceneCard!).getByRole("button", { name: "Select for Edit" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
-  fireEvent.change(await screen.findByLabelText("Message DungeonBuddy"), {
-    target: { value: "Preserve the Scene body and add one short GM cue." },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
-  await screen.findByRole("region", { name: "Review proposed Plan edit" });
-  expect(proposal).toHaveBeenCalledTimes(1);
-  expect(proposal.mock.calls[0]?.[0]).toMatchObject({
-    target_kind: "replace_playable_body",
-    selected_text: "",
-    playable_target: { kind: "scene", id: "scene:smoke" },
-    target_body_markdown: "Scene body.\n",
-  });
-  expect(savedMarkdown).toBe(multiParagraphProtectedScenePlanMarkdown);
-  expect(prepare).not.toHaveBeenCalled();
-  expect(commit).not.toHaveBeenCalled();
-
-  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
-  await waitFor(() => expect(editorSurface).toHaveTextContent("GM note: Pause here for the players to choose their next action."), { timeout: 3_000 });
-  expect(savedMarkdown).toBe(multiParagraphProtectedScenePlanMarkdown);
-  expect(prepare).not.toHaveBeenCalled();
-  expect(commit).not.toHaveBeenCalled();
-
-  fireEvent.click(await screen.findByRole("button", { name: "Save Plan" }));
-  await screen.findByText("Saved to this World.");
-  expect(prepare).toHaveBeenCalledTimes(1);
-  expect(commit).toHaveBeenCalledTimes(1);
-
-  const reopened = markdownToTiptapDoc(savedMarkdown);
-  const list = reopened.doc.content?.find((node) => node.type === "bulletList");
-  expect(list?.content?.[0]?.content).toHaveLength(3);
-  expect(reopened.diagnostics.filter((diagnostic) => diagnostic.level === "warning")).toEqual([]);
-  expect(tiptapJsonToSemanticMarkdown(reopened.doc)).toBe(savedMarkdown);
-  expect(session29V2Markers(savedMarkdown)).toEqual(session29V2Markers(multiParagraphProtectedScenePlanMarkdown));
-  expect(session29NodeLinks(savedMarkdown)).toEqual(session29NodeLinks(multiParagraphProtectedScenePlanMarkdown));
-  const reopenedEditor = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: reopened.doc });
-  try {
-    const target = await resolvePlayableBodyTarget(reopenedEditor, { kind: "scene", id: "scene:smoke" });
-    expect(target.targetBodyMarkdown).toBe(tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(replacement).doc));
-  } finally {
-    reopenedEditor.destroy();
-    view.unmount();
-  }
+it("saves a reviewed focused Scene edit with a protected multi-paragraph sibling Option", async () => {
+  await currentSceneBodyRoundTrip(multiParagraphProtectedScenePlanMarkdown, "scene:smoke",
+    "Scene body.\n\nGM note: Pause here for the players to choose their next action.", "Scene body.\n",
+    markdown => {
+      const doc = markdownToTiptapDoc(markdown).doc;
+      const list = doc.content?.find(node => node.type === "bulletList");
+      expect(list?.content?.[0]?.content).toHaveLength(3);
+      expect(markdown).toContain("First option paragraph with [the guide](dmb-node:node:guide).");
+      expect(markdown).toContain("Second option paragraph.");
+    });
 });
 
 it("drops a delayed card-body proposal after a new Option target is selected", async () => {

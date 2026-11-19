@@ -116,7 +116,9 @@ export function setupPlanAuthoringIntegration(
       primary_work: {resolution: 'resolved', kind: 'plan', object_id: documentId,
         revision: String(record.revision), content_sha256: digest,
         object_revision: record.revision, work_revision_id: workRevision, revision_n: revisionN},
-      supporting_work: [],
+      supporting_work: request.playable_target ? [{resolution: 'resolved', kind: 'dmb_plan_playable_target_v1',
+        object_id: request.playable_target.id, revision: capture.playable_target!.marker_grammar_version,
+        content_sha256: null, object_revision: null, work_revision_id: null, revision_n: null}] : [],
       selected_object: {resolution: 'absent', kind: null, object_id: null, revision: null,
         content_sha256: null, object_revision: null, work_revision_id: null, revision_n: null},
     };
@@ -127,7 +129,10 @@ export function setupPlanAuthoringIntegration(
     if (work.surface_id !== 'plan') throw new Error('Expected a native Plan fixture.');
     work.plan_basis = basis();
     work.plan_context_policy = request.plan_context_policy;
-    work.playable_target = null;
+    work.playable_target = request.playable_target ? {
+      schema: 'dmb_plan_playable_target_receipt_v1', kind: request.playable_target.kind,
+      id: request.playable_target.id, marker_grammar_version: capture.playable_target!.marker_grammar_version,
+    } : null;
     const authority = context.receipt.source_authority;
     const query = context.receipt.native_query;
     if (!('schema_version' in authority) || !('authority' in query)) throw new Error('Expected native authority.');

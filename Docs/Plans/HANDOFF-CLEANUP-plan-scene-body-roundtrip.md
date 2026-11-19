@@ -1,6 +1,6 @@
 # CLEANUP: current focused Scene body round trips
 
-ACTIVE under standing cleanup implementation/review/merge authority. Serial after
+BLOCKED after authorized regression implementation. Serial after
 4106, base429b3dee733f381b0a57c8fc26caec747401bf2c, isolated existing checkout.
 No providers, operator data, databases or runtime ports.
 
@@ -29,3 +29,25 @@ omissions/newfail/changedprefixes;8179reported8177inventory discrepancy staysope
 Synthetic client evidence proves no APP/Core/provider/publication/deployment. Original
 18 and prior observations remainopen. Pin assignment in branch history, remove final
 brief and link immutable contract from PR. No unmerged dependency or extra capability.
+
+## Observed runtime gate; no merge authority from this evidence
+
+Both current Scene tests stage a valid proposal, apply locally, then stop before
+confirm with PlanSurfacePage: "The local application differs from its sealed copy."
+Disposable tracing of the actual guard finds editor JSON/title equal, but current
+Markdown equals sealed Markdown plus one terminal newline in both cases. Merely
+normalizing the initial source to one newline does not resolve the failure.
+A separate diagnostic control switching to Document before Save passes both cases;
+that is isolation evidence, not an accepted replacement for focused Cards behavior.
+The retained tests keep Cards active and require successful Save and fresh reopen.
+No confirms/persistence are accepted on the failing path. No runtime guard changed.
+
+Owning boundary: focused Cards Markdown synchronization and sealed Plan application
+in PlanSurfacePage (existing active owners3824/1188). This slice grants no runtime
+write lease. Its test/helper lane is frozen in a draft PR pending owner coordination.
+Unblock: make the focused Cards application produce exactly the sealed editor JSON,
+Markdown and title through the owning runtime, retain all protection/hold/recovery
+checks, then prove both original fixtures save once and freshly reopen with protected
+siblings intact. Do not trim test input/output or switch views to claim resolution.
+Full exact-head qualification, negative probes and final approval remain pending;
+no failures are counted as resolved. Other17casebodies and Option obligation intact.
