@@ -1,6 +1,14 @@
 # CLEANUP: preserve neutral core boundaries alongside shared React hosts
 
-Status: ACTIVE under the user-authorized cleanup goal, including review and merge.
+Status: SETTLED by #4088, merged 84ba5c4191320467cbd80810f5b601d69f9c47f5.
+Reviewed head: be8f156d44c6206a71cb7306cbc7effb7a211f15.
+Independent exact-head source/raw-evidence review approved. Hosted 1411 tests,
+build and evidence validation passed. Full discovered diagnostic: 8041 passed,
+138 failed, 2 pending; all three boundary cases passed. Exactly two renamed cases
+were paired, with no other additions/omissions, new failures or changed remaining
+leading messages. All three negative probes failed at the intended guard. Full
+qualification remains red with two conditional inventory extras and the earlier
+unresolved quote-correction observation under #4074.
 Base: 1b1decc8703db9d1912ec237f4f4a075038c237b.
 Branch: codex/neutral-core-host-boundaries, existing cleanup checkout.
 Topology: serial after merged #4086; no unmerged behavioral dependency.
