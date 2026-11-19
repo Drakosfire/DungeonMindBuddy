@@ -236,39 +236,53 @@ describe("App same-document primary navigation", () => {
     }
   });
 
-  it("navigates blank Surface and AppChrome primary links without replacing the document", async () => {
+  it("navigates local Surface and AppChrome primary links without replacing the document", async () => {
+    const surface = vi.spyOn(liveApi, "getSurfaceSessionViews").mockResolvedValue({
+      catalog: mockCatalog, layout: mockLayout, state: mockState,
+      events: [], jobs: [], plan_view: mockPlanView,
+    });
+    const worlds = vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1", records: [],
+    });
     const pushSpy = vi.spyOn(window.history, "pushState");
-    render(<App />);
+    const browserDocument = document;
+    try {
+      window.history.pushState({}, "", "/surface");
+      render(<App />);
+      expect(await screen.findByRole("button", { name: "Tools" })).toBeInTheDocument();
+      expect(surface).toHaveBeenCalledTimes(1);
 
-    const launcher = within(commandBoardNav()).getByRole("link", { name: "Plan" });
-    expect(launcher).toHaveAttribute("href", "/plan");
-    fireEvent.click(launcher);
-    expect(await screen.findByTestId("plan-canvas-title")).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/plan");
+      const launcher = within(commandBoardNav()).getByRole("link", { name: "Plan" });
+      expect(launcher).toHaveAttribute("href", "/plan");
+      fireEvent.click(launcher);
+      expect(await screen.findByRole("heading", { name: "Plan your next session" })).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/plan");
 
-    const chrome = screen.getByTestId("agent-interaction-chrome");
-    fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Ingest" }));
-    expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/ingest");
-    expect(screen.getByTestId("agent-interaction-chrome")).toBe(chrome);
+      const chrome = screen.getByTestId("agent-interaction-chrome");
+      fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Ingest" }));
+      expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/ingest");
+      expect(screen.getByTestId("agent-interaction-chrome")).toBe(chrome);
 
-    fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Build" }));
-    expect(await screen.findByTestId("build-surface-empty")).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/build");
+      fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Build" }));
+      expect(await screen.findByTestId("build-surface-empty")).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/build");
 
-    fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Play" }));
-    expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/play");
+      fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Play" }));
+      expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/play");
+      expect(within(commandBoardNav()).getByRole("link", { name: "Combat Tracker" })).toHaveAttribute("href", "/combat");
 
-    fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Home" }));
-    expect(await screen.findByRole("heading", { name: "Buddy Surface" })).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/");
-    expect(within(commandBoardNav()).getByRole("link", { name: "Combat Tracker" })).toHaveAttribute(
-      "href",
-      "/combat",
-    );
-    expect(pushSpy.mock.calls.some((call) => String(call[2]).includes("/combat"))).toBe(false);
-    pushSpy.mockRestore();
+      fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Home" }));
+      expect(await screen.findByRole("heading", { name: /Your world,\s*ready for the table\./ })).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/");
+      expect(document).toBe(browserDocument);
+      expect(pushSpy.mock.calls.some((call) => String(call[2]).includes("/combat"))).toBe(false);
+    } finally {
+      pushSpy.mockRestore();
+      worlds.mockRestore();
+      surface.mockRestore();
+    }
   });
 
   it("replays primary routes on browser back/forward", async () => {
