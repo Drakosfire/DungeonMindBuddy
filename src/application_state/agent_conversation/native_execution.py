@@ -553,7 +553,7 @@ def validate_turn_fields(receipt, execution, provenance, intent_fingerprint, com
 
 
 def _join_turn_fields(receipt, execution, completion, assistant_text):
-    """Complete the structural join after the caller's request/provenance checks."""
+    """Complete the structural join after the caller has checked the context binding."""
     bindings=[event for event in execution.events if isinstance(event,t.CompletionBindingEventV1)]
     if completion is None:
         if assistant_text is not None or bindings:
@@ -561,8 +561,10 @@ def _join_turn_fields(receipt, execution, completion, assistant_text):
         return
     if (len(bindings)!=1 or assistant_text!='\n'.join(s.text for s in completion.answer_segments)):
         raise ValueError('Shared native completion requires exact retained text and binding')
-    from .native_completion import validate_retained_completion
-    validate_retained_completion(completion,receipt,execution,bindings[0].provider_attempt_id,bindings[0].claim_graph_event_ids)
+    from .native_completion import _join_retained_completion
+
+    binding = bindings[0]
+    _join_retained_completion(completion, receipt, execution, binding.provider_attempt_id, binding.claim_graph_event_ids)
 
 
 def _join_turn_lifecycle(turn):
