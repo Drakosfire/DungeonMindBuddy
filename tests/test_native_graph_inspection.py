@@ -1609,3 +1609,57 @@ def test_shared_routes_display_admitted_alternatives_without_losing_evidence(
             assert opened.json()["content"] in x.lane.text
     stored = x.lane.repo.get_revision(space, head)
     assert added_ids <= {row["assertion_id"] for row in stored.graph_payload["assertions"]}
+
+
+@pytest.mark.parametrize("selected", ["object:0", "endpoint"])
+def test_native_inspection_routes_preserve_admitted_display_alternatives(inspection, selected):
+    x = inspection
+    space = x.lane.bound["native_world_id"]
+    operations = []
+    for key in ["object:0", "endpoint"]:
+        facts = tuple(wk.CreateFact(f"inspect-display:{key}:{i}", predicate, value, x.meta)
+            for i, (predicate, value) in enumerate([
+                ("dnd5e:name", wk.LiteralFactValue("Zulu")),
+                ("dnd5e:name", wk.LiteralFactValue("Alpha")),
+                ("dnd5e:name", wk.LiteralFactValue("Zulu")),
+                ("dnd5e:classification", wk.TermRefFactValue("dnd5e:npc")),
+                ("dnd5e:classification", wk.TermRefFactValue("dnd5e:location")),
+            ]))
+        # Neither a foreign campaign nor retracted alternative changes GM display.
+        facts += (
+            wk.CreateFact(f"foreign:{key}", "dnd5e:name", wk.LiteralFactValue("Foreign secret"),
+                replace(x.meta, scope=(wk.ScopeBinding(CAMPAIGN_SCOPE_AXIS, "elsewhere"),))),
+            wk.CreateFact(f"retracted:{key}", "dnd5e:name", wk.LiteralFactValue("Retracted secret"),
+                replace(x.meta, standing="retracted")),
+        )
+        operations.append(wk.UseExisting(x.objects[key], facts))
+    runtime = transport.runtime(x.lane.repo, x.lane.domain, x.lane.profile,
+        now=datetime.now(UTC), operation_id="inspection-display-alternatives")
+    committed = runtime.commit_prepared_change(runtime.prepare_change(
+        wk.WorldChangeIntent(space, "inspection alternatives", tuple(operations))),
+        confirmed_by="local_operator")
+    pin = catalog(x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id)["scope"]
+    identity = x.objects[selected]
+    response = read(x, pin, {"kind": "neighborhood", "seed_node_ids": [identity], "max_depth": 1})
+    assert response.status_code == 200, response.text
+    packet = response.json()
+    labels = {x.objects["object:0"]: "Alpha / Object 0 / Zulu", x.objects["endpoint"]: "Alpha / Zulu"}
+    assert {n["nodeId"]: n["label"] for n in packet["nodes"]} == labels
+    assert all(n["kind"] == "entity" for n in packet["nodes"])
+    assert len(packet["relationships"]) == 1
+    assert "Foreign secret" not in response.text and "Retracted secret" not in response.text
+    entity = read(x, pin, {"kind": "entity", "entity_id": identity})
+    assert entity.status_code == 200, entity.text
+    expected = {r.durable_assertion_id for r in committed.assertion_results
+        if r.client_op_id.startswith("inspect-display:" + selected + ":")}
+    assert expected <= {a["assertion_id"] for a in entity.json()["entity"]["assertions"]}
+    complete = x.client.post("/api/live/native-graph-inspection/complete-object", json={
+        "scope": pin, "request": {"schema": "dmb_world_graph_object_projection_request_v1",
+            "worldId": "managed", "scopeMode": "campaign", "campaignId": pin["campaign_id"],
+            "revisionPin": pin["revision_id"], "nodeId": identity}})
+    assert complete.status_code == 200, complete.text
+    result = complete.json()
+    assert result["node"]["label"] == labels[identity]
+    assert expected <= {a["assertionId"] for a in result["assertions"]}
+    assert result["sourceBindings"]
+    assert "Foreign secret" not in complete.text and "Retracted secret" not in complete.text
