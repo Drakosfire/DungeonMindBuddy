@@ -1,13 +1,14 @@
 # MIND B2 — native first-World lifecycle
 
-**Status:** DESIGNED / BLOCKED; no implementation write lease until B1 merges
-and the consuming owner completes the activation checks below.
+**Status:** DESIGNED / READY FOR MIND RE-ANCHOR; no implementation write lease
+until the consuming owner completes the activation checks below.
 **Design anchor:** Buddy `main@98d3157a09790e5a53a851b9ea24a5de51bd2aa5`;
 Core #231 merge `cf197b9939f7b9106c75a8afb9fcf918c8b4aa1c`, adopted by Buddy
 #4093 merge `5289f99c27263c1176682588433921592ea818a2`.
-**Prerequisite:** Buddy #4097 B1 compiler must merge; its final unmerged head
-`3dbefaec9b9ea56fa03071c83d9c4202b8d1a904` is a reference, not an accepted
-revision. Pin the actual merge and current main after it lands.
+**Prerequisite settled:** Buddy #4097 B1 compiler merged at
+`cf8ab495965026334249eba557be3843a1c5d45d`, reviewed final head
+`3dbefaec9b9ea56fa03071c83d9c4202b8d1a904`. Re-fetch current main and active
+leases again before adoption; the B1 merge does not itself activate B2.
 **Topology:** serial: #4097 → B2 one independently reviewed implementation PR
 → later managed-default retirement. No PRIME or standing-steward gate.
 **Owner:** the user-authorized MIND first-World completion lane. Implementation,
