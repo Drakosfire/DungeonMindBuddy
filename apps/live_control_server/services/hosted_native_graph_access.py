@@ -1039,6 +1039,18 @@ async def resolve_hosted_agent_readiness(request: Request) -> str:
     return world.world_id
 
 
+async def resolve_hosted_runbook_read(request: Request) -> str:
+    selectors = request.query_params.multi_items()
+    world_id = request.query_params.get("world_id")
+    exact_revision = "/committed-revision/" in request.url.path
+    keys = {"world_id", "expected_sha256"} if exact_revision else {"world_id"}
+    if not world_id or len(selectors) != len(keys) or {key for key, _ in selectors} != keys or await request.body():
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_plan_context_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_plan_world_context(request: Request) -> str:
     selectors = request.query_params.multi_items()
     world_id = request.query_params.get("world_id")
