@@ -528,7 +528,9 @@ def test_navigation_names_preserve_admitted_scope_and_explicit_ambiguity(lane, m
         elif case == 'partial':
             return replace(entity, completeness=replace(entity.completeness, status='partial', reason='support_unavailable'))
         return replace(entity, assertions=tuple(assertions))
-    monkeypatch.setattr(native, 'EntityReadService', lambda: SimpleNamespace(get_complete_entity=read))
+    monkeypatch.setattr(native, 'EntityReadService', lambda: SimpleNamespace(
+        get_complete_entity=read,
+        get_complete_entities=lambda context, ids: tuple(read(context, identity) for identity in ids)))
     _, result = query(lane)
     assert len(result.matches) == 1
     if case == 'conflicting':
@@ -572,7 +574,9 @@ def test_direct_statement_hit_never_expands_referent_names(lane, monkeypatch):
         calls.append(identity)
         assert identity not in lane.ids.values()
         return original.get_complete_entity(context, identity)
-    monkeypatch.setattr(native, 'EntityReadService', lambda: SimpleNamespace(get_complete_entity=read))
+    monkeypatch.setattr(native, 'EntityReadService', lambda: SimpleNamespace(
+        get_complete_entity=read,
+        get_complete_entities=lambda context, ids: tuple(read(context, identity) for identity in ids)))
     _, result = query(lane, 'episode-1')
     assert len(result.matches) == 1 and calls == list(result.discovered_entity_ids)
     assert not result.matches[0].label.startswith('About ')
@@ -612,3 +616,23 @@ def test_shared_selected_read_authority_rejects_both_record_families(lane, famil
         read_selected(ctx, grant, GM)
     if failure.startswith('binding_'):
         assert calls == [lane.world.world_id] * (2 if failure == 'binding_during' else 1)
+
+
+def test_native_catalog_batch_preserves_query_and_reopened_support(lane, monkeypatch):
+    from apps.live_control_server.services import native_graph_reads as native
+
+    commit(lane)
+    batched_context, batched = query(lane, 'A B')
+    calls = []
+
+    def singles(self, context, entity_ids):
+        calls.append(tuple(entity_ids))
+        return tuple(self.get_complete_entity(context, identity) for identity in entity_ids)
+
+    monkeypatch.setattr(native.EntityReadService, 'get_complete_entities', singles)
+    singleton_context, singleton = query(lane, 'A B')
+    assert calls
+    assert batched.model_dump_json(by_alias=True) == singleton.model_dump_json(by_alias=True)
+    batched_reads = selected(lane, batched_context)
+    assert batched_reads[0]
+    assert batched_reads == selected(lane, singleton_context)

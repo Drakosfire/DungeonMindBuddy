@@ -155,10 +155,11 @@ def _assertion_matches(entities, *, excluded_subjects, name_scope=None, discover
         for a, witnesses, label in sorted(found.values(), key=lambda row: row[0].assertion_id))
 
 
-def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campaign_id, read_entity, discovery_hops=None):
+def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campaign_id, read_entity, prefetch_entities, discovery_hops=None):
     """Compose one catalog from actual scoped Core entities, without body IO."""
     gaps = []
     routes, entities = {}, {}
+    prefetch_entities(revision_id, identities, pinned)
     for entity_id in identities:
         obj = read_entity(revision_id, entity_id, pinned)
         entities[entity_id] = obj
@@ -176,6 +177,7 @@ def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campa
     matches = []
     scoped_labels = {}
     qualified_subjects = set()
+    prefetch_entities(revision_id, (node for node in routes if node not in entities), pinned)
     for statement_id, paths in routes.items():
         obj = entities.get(statement_id)
         followed_link = obj is None
@@ -300,15 +302,27 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
         domain_ref=h['domain_ref'], profile_ref=h['profile_ref'],
         acquisition_epoch=pinned[1].source_view.epoch, scope_mode=scope_mode, campaign_id=campaign_id)
     entities_by_revision = {}
-    def read_entity(at_revision, entity_id, context):
-        key = at_revision, entity_id
-        if key not in entities_by_revision:
-            with measure("native_turn_graph_complete_entity_read"):
-                entity = EntityReadService().get_complete_entity(context[0], entity_id)
-            if (entity.identity.space_id, entity.identity.revision_id) != (space, at_revision):
+
+    def prefetch_entities(at_revision, entity_ids, context):
+        pending = tuple(key for key in dict.fromkeys((at_revision, node) for node in entity_ids)
+            if key not in entities_by_revision)
+        if not pending:
+            return
+        reader = EntityReadService()
+        with measure("native_turn_graph_complete_entity_read"):
+            if len(pending) == 1:
+                results = (reader.get_complete_entity(context[0], pending[0][1]),)
+            else:
+                results = reader.get_complete_entities(context[0], tuple(node for _, node in pending))
+        for key, entity in zip(pending, results, strict=True):
+            if (entity.identity.space_id, entity.identity.revision_id, entity.identity.entity_id) != (space, *key):
                 raise ValueError('Core entity read changed pinned authority')
             entities_by_revision[key] = entity
-        return entities_by_revision[key]
+
+    def read_entity(at_revision, entity_id, context):
+        prefetch_entities(at_revision, (entity_id,), context)
+        return entities_by_revision[at_revision, entity_id]
+
     if authored_references is not None:
         for ref in object_selections(authored_references):
             if repo.get_revision(space, ref.graph_revision) is None:
@@ -333,6 +347,7 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
             return [(binding.axis, binding.value) for binding in assertion.metadata.scope] == campaign_scope
 
         timeline_events = []
+        prefetch_entities(revision_id, discovered, pinned)
         for entity_id in discovered:
             entity = read_entity(revision_id, entity_id, pinned)
             if not entity.found or entity.completeness.status != 'complete':
@@ -357,14 +372,14 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
     with measure("native_turn_graph_match_catalog"):
         matches, assertion_matches, entity_gaps, _entities = _entity_catalog(discovered, pinned,
             space=space, revision_id=revision_id, scope_mode=scope_mode, campaign_id=campaign_id,
-            read_entity=read_entity, discovery_hops=discovery_hops)
+            read_entity=read_entity, prefetch_entities=prefetch_entities, discovery_hops=discovery_hops)
     gaps.extend(entity_gaps)
     targets = []
     if authored_references is not None:
         for ref in object_selections(authored_references):
             target_matches, target_assertions, target_gaps, entities = _entity_catalog(
                 (ref.node_id,), pinned, space=space, revision_id=revision_id,
-                scope_mode=scope_mode, campaign_id=campaign_id, read_entity=read_entity)
+                scope_mode=scope_mode, campaign_id=campaign_id, read_entity=read_entity, prefetch_entities=prefetch_entities)
             entity = entities[ref.node_id]
             if not entity.found:
                 target_gaps = ('native_authored_entity_unavailable',)
