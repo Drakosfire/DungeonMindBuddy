@@ -75,6 +75,43 @@ def _locked_review(conn, world_id: str, confirmation: LorePageConfirmation) -> T
     return turn
 
 
+def admit_lore_save_followup(
+    dsn: str, *, world_id: str, idempotency_key: UUID, conversation_id: UUID | None,
+    surface_instance_id: str, document_id: str, revision: int, content_sha256: str,
+) -> bool:
+    """Select local routing only for the active matching review or its retained result."""
+    with unit_of_work(dsn) as conn:
+        retained = repository.get_turn_by_world_key(conn, world_id, idempotency_key)
+        if retained is not None:
+            turn, _, _, v1, v2 = retained
+            return (isinstance(turn, Turn) and v1 is not None and v2 is None
+                    and turn.provenance.surface_id == "build" and is_lore_save_followup(turn.user_text)
+                    and (turn.status != "completed" or isinstance(turn.completion, LoreSaveReviewReference)))
+        pointer = repository.get_world_state(conn, world_id)
+        active_id = pointer.active_conversation_id if pointer else None
+        if active_id is None or (conversation_id is not None and conversation_id != active_id):
+            return False
+        prior_id = conn.execute(
+            """SELECT turn_id FROM agent.turn
+               WHERE world_id = %s AND conversation_id = %s
+                 AND status NOT IN ('failed', 'interrupted')
+               ORDER BY sequence DESC LIMIT 1""",
+            (world_id, active_id),
+        ).fetchone()
+        if prior_id is None:
+            return False
+        prior = repository.get_turn(conn, world_id, prior_id[0])
+        if (not isinstance(prior, Turn) or prior.status != "completed"
+                or prior.provenance.surface_id != "build"
+                or prior.provenance.surface_instance_id != surface_instance_id
+                or not isinstance(prior.completion, SurfaceNativeCompletionV1)
+                or not isinstance(prior.completion.collaboration, ProposedLorePage)):
+            return False
+        work = prior.provenance.primary_work
+        return (work.resolution == "resolved" and work.kind == "build" and work.object_id == document_id
+                and work.revision == str(revision) and work.content_sha256 == content_sha256)
+
+
 def resolve_lore_save_followup(
     dsn: str, *, world_id: str, conversation_id: UUID, current_turn_id: UUID,
 ) -> LoreSaveReviewReference | None:

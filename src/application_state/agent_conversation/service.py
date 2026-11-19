@@ -1122,6 +1122,11 @@ class AgentConversationService:
             )
         return turn
 
+    def admit_lore_save_followup(self, *, world_id, **request):
+        from .lore_page_confirmation import admit_lore_save_followup
+
+        return admit_lore_save_followup(_ready_dsn(), world_id=_world_id(world_id), **request)
+
     def resolve_lore_save_followup(self, *, world_id, conversation_id, current_turn_id):
         from .lore_page_confirmation import resolve_lore_save_followup
 

@@ -4915,6 +4915,42 @@ export function WorldPlanAgentConversation({
     historySnapshotRef.current = next; setHistory(next);
   }
 
+  async function openLoreSaveReview(followup: WorldAgentConversationHistoryTurn) {
+    const reference = followup.lore_save_review;
+    const snapshot = historySnapshotRef.current;
+    if (!reference || !snapshot || snapshot.active_conversation_id !== reference.conversation_id) return;
+    const generation = historyGenerationRef.current;
+    try {
+      let original = snapshot.turns.find(row => row.turn_id === reference.turn_id);
+      if (!original) {
+        const messages = messagePageRef.current;
+        const row = messages && messagePresentation(messages).turns.find(item => item.turn_id === reference.turn_id);
+        if (!row) throw new Error('The original lore review is outside the loaded conversation history.');
+        await inspectSavedMessage(row, new AbortController().signal);
+        original = historySnapshotRef.current?.turns.find(item => item.turn_id === reference.turn_id);
+      }
+      const review = original ? graphContextForTurn(original)?.completion : null;
+      if (!original || original.sequence >= followup.sequence
+        || original.provenance.primary_work.object_id !== followup.provenance.primary_work.object_id
+        || !review || review.schema !== 'dmb_surface_native_completion_v1'
+        || review.collaboration?.kind !== 'lore_page'
+        || review.collaboration.destination.title !== reference.title
+        || await textSha256(canonicalJson(review)) !== reference.review_sha256)
+        throw new Error('The original lore review could not be verified.');
+      const current = historySnapshotRef.current;
+      if (!latestRef.current.mounted || generation !== historyGenerationRef.current
+        || !current || !sameHistoryPointer(current, snapshot)) return;
+      requestAnimationFrame(() => {
+        const card = document.querySelector<HTMLElement>(`[data-turn-id="${CSS.escape(reference.turn_id)}"]`);
+        card?.scrollIntoView?.({block: 'nearest'});
+        card?.focus();
+      });
+    } catch (reason) {
+      if (latestRef.current.mounted && generation === historyGenerationRef.current)
+        setError(reason instanceof Error ? reason.message : 'The original lore review could not be opened.');
+    }
+  }
+
   async function loadOlderTurns() {
     const current = historySnapshotRef.current;
     if (!current || !current.next_before_sequence || olderLoading || historyLoading
@@ -6694,21 +6730,7 @@ export function WorldPlanAgentConversation({
               onVisible={()=>agent.setPaneOpen(false)}/>:null}
             {turn.lore_save_review && isBuild && !isReadOnly
               && turn.lore_save_review.conversation_id === history?.active_conversation_id
-              && <button type="button" onClick={async () => {
-                const reference = turn.lore_save_review!;
-                const original = history?.turns.find(row => row.turn_id === reference.turn_id);
-                const review = original ? graphContextForTurn(original)?.completion : null;
-                if (!review || review.schema !== 'dmb_surface_native_completion_v1'
-                  || review.collaboration?.kind !== 'lore_page'
-                  || review.collaboration.destination.title !== reference.title
-                  || await textSha256(canonicalJson(review)) !== reference.review_sha256) {
-                  setError('The original lore review could not be verified.');
-                  return;
-                }
-                const card = document.querySelector<HTMLElement>(`[data-turn-id="${CSS.escape(reference.turn_id)}"]`);
-                card?.scrollIntoView?.({block: 'nearest'});
-                card?.focus();
-              }}>Go to review for {turn.lore_save_review.title}</button>}
+              && <button type="button" onClick={() => void openLoreSaveReview(turn)}>Go to review for {turn.lore_save_review.title}</button>}
             {loreTitle !== null && completed?.schema === 'dmb_surface_native_completion_v1'
               && verifiedWorldId && history?.conversation_id && !loreDraftSuperseded && isBuild
               && visible && !isReadOnly && history.active_conversation_id === history.conversation_id

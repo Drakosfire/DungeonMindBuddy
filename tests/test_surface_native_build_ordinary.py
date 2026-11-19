@@ -1443,6 +1443,32 @@ def test_native_connected_page_review_uses_its_included_saved_origin(lane,tmp_pa
     _fresh_case(lane,tmp_path,monkeypatch,None,True,True,False,connected_review=review)
 
 
+def test_create_page_after_connected_review_stays_on_the_existing_build_route(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.services import plan_source_turn
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+
+    checked = []
+    def dispatch(client, world, body):
+        reply = client.post("/api/live/agent/turn", json=body)
+        assert reply.json()["knowledge_context"]["completion"]["collaboration"]["kind"] == "connected_page"
+
+        def stop_before_provider(*args, **kwargs):
+            checked.append(True)
+            raise AgentTurnServiceError("Existing Build route reached", code="existing_build_route", status_code=418)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(plan_source_turn, "prepare", stop_before_provider)
+            followup = client.post("/api/live/agent/turn", json={
+                **body, "turn_id": str(uuid4()), "message": "Create the page",
+            })
+        assert followup.status_code == 418, followup.text
+        return reply
+
+    _fresh_case(lane, tmp_path, monkeypatch, None, True, True, False,
+                connected_review="valid", dispatch=dispatch)
+    assert checked == [True]
+
+
 @pytest.mark.parametrize('judgment',['direct_support','qualification_or_conflict','uncertain','irrelevant'])
 def test_ordinary_build_selects_native_body_and_reopens_only_included_support(lane,tmp_path,monkeypatch,judgment):
     from application_state.agent_conversation import native_corpus as corpus, writer_evidence_selection as selection

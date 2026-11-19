@@ -5312,7 +5312,7 @@ def _conversation_provenance(
 
 
 def _submitted_turn_intent(
-    request: AgentTurnRequest, *, world_id: str
+    request: AgentTurnRequest, *, world_id: str, local_lore: bool = False,
 ) -> SubmittedTurnIntentV1 | SubmittedTurnIntentV2 | PlayGraphIntentV1:
     """Capture normalized caller semantics before resolving mutable context."""
     graph_request = request.graph_request.model_dump(mode="python")
@@ -5360,7 +5360,7 @@ def _submitted_turn_intent(
         graph_request=graph_intent,
         graph_selection=graph_selection,
     )
-    if _lore_save_followup(request):
+    if local_lore:
         return SubmittedTurnIntentV1(**common)
     if _governed_build_turn(request):
         from application_state.agent_conversation.work_plan import resolve_request_action
@@ -6824,6 +6824,7 @@ def execute_agent_turn(
     durable_turn: Turn | MixedCompletedTurnV1 | None = None
     submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1 | None = None
     canonical_world_id: str | None = None
+    local_lore = False
     if request.owner_scope is not None and request.owner_scope.kind == "world":
         requested_world_id = request.owner_scope.world_id
         if (
@@ -6838,11 +6839,18 @@ def execute_agent_turn(
             )
         canonical_world_id = requested_world_id
         if conversation_service is not None:
+            idempotency_key = _turn_idempotency_key(canonical_world_id, request.turn_id)
+            if _lore_save_followup(request) and native_principal is not None and native_principal.role == "gm":
+                locator = request.primary_work
+                local_lore = conversation_service.admit_lore_save_followup(
+                    world_id=canonical_world_id, idempotency_key=idempotency_key,
+                    conversation_id=(request.build_draft_context.conversation_id
+                                     if request.build_draft_context is not None else None),
+                    surface_instance_id=request.surface.instance_id, document_id=locator.object_id,
+                    revision=locator.expected_revision, content_sha256=locator.expected_content_sha256,
+                )
             submitted_intent = _submitted_turn_intent(
-                request, world_id=canonical_world_id
-            )
-            idempotency_key = _turn_idempotency_key(
-                canonical_world_id, request.turn_id
+                request, world_id=canonical_world_id, local_lore=local_lore,
             )
             with trace.phase("durable_turn_reconciliation"):
                 try:
@@ -7182,7 +7190,7 @@ def execute_agent_turn(
                 code="turn_receipt_unverifiable",
                 status_code=409,
             )
-    if _lore_save_followup(request):
+    if local_lore:
         if (conversation_service is None or native_principal is None or native_principal.role != "gm"
                 or work is None or work.build_source is None or owner is None or canonical_world_id is None):
             raise AgentTurnServiceError("The active Build page and GM conversation are required.",
