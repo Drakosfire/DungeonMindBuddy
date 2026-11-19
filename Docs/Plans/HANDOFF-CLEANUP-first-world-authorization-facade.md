@@ -1,6 +1,8 @@
 # CLEANUP: preserve first-World authorization through the service facade
 
-Status: ACTIVE under the user's cleanup goal and standing review/merge authority.
+Status: SETTLED. PR #4077 merged at a488b2c9870e2c57efc3c47fcb4a49ad8c2acdc8
+from independently approved head bcb5020ce2d9eb99dd1c9b965578c8e4d1ab81e7.
+The facade lease is closed; #3532 owns the next candidate-recovery slice.
 Base: 4b2bc1451f7a9f0a3e3cdbc82aaae29b2b557c0d.
 Branch: codex/first-world-auth-forwarding; reuse buddy-bounded-production-logs checkout.
 Topology: serial, one repair PR before continuing original finding 106 / #3534.
@@ -35,3 +37,9 @@ Evidence and caches remain outside source on the verified Projects filesystem.
 
 Verification adjustment: facade regressions extend the existing classified database
 first-World test module; no shared classification/contract registry edits.
+
+Settlement evidence: exact-head hosted verifier 1,411 selected passes/build/validator;
+world-and-content contract 444 passes, one skip, 74 deselected. Actual native
+prepare/confirm and source read-pin checks pass. Two database locator fixture
+failures reproduce on the exact parent and remain red. This does not complete
+#3534 or prove the full synthetic Recap/tutorial or release qualification.

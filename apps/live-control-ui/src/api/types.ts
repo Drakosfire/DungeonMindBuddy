@@ -3049,6 +3049,7 @@ export interface ExtractionRunComponentRef {
 }
 
 export interface ExtractionRunRecord {
+  revision?: number;
   schema_version: "dmb_extraction_run_v1";
   version: string;
   run_id: string;

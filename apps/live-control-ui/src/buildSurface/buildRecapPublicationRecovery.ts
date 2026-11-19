@@ -35,9 +35,21 @@ export function assertRecapPrepared(prepared: ExtractPromotePrepareResponse, run
   const membership=effect?.world_campaign_ingest_context;
   // Registry components are repo-relative (optionally repo://); prepare seals
   // their resolved absolute locator. Match the full relative path at its boundary.
-  const relative=run.components?.candidate_graph?.uri?.replace(/^repo:\/\//,'');
+  const candidateUri=run.components?.candidate_graph?.uri;
+  const relative=candidateUri?.replace(/^repo:\/\//,'');
   const segments=relative?.split('/').filter(segment=>segment!=='.');
   const candidatePath=segments?.join('/');
+  const binding=effect?.extraction_run;
+  const candidateDigest=run.components?.candidate_graph?.sha256?.replace(/^sha256:/,'').toLowerCase();
+  const candidateMatches=relative?.startsWith('urn:')
+    ? candidateUri===`urn:dmb:ingest-output:${run.run_id}:candidate_graph`
+      && admission?.candidate_locator===null
+      && typeof run.revision==="number" && Number.isSafeInteger(run.revision) && run.revision>0
+      && binding?.run_id===run.run_id && binding.run_revision===run.revision
+      && /^[a-f0-9]{64}$/.test(candidateDigest??'')
+      && binding.components?.candidate_graph===`sha256:${candidateDigest}`
+    : Boolean(candidatePath&&!relative?.startsWith('/')&&!segments?.includes('..')&&!relative?.includes('\\')
+      && typeof admission?.candidate_locator==='string'&&admission.candidate_locator.endsWith('/'+candidatePath));
   if(pkg.schema!=='dmb_extract_promote_proposal_v1'||![2,3].includes(pkg.proposal_version)
     ||pkg.proposal_id!==prepared.proposalId||pkg.proposal_digest!==prepared.proposalDigest
     ||!effect||effect.world_id!==prepared.worldId||effect.parent_revision_id!==prepared.parentRevisionId
@@ -49,8 +61,7 @@ export function assertRecapPrepared(prepared: ExtractPromotePrepareResponse, run
     ||membership?.managed_world_id!==worldId||membership.native_world_id!==prepared.worldId||membership.campaign_id!==run.campaign_id
     ||admission?.schema!=='dmb_candidate_graph_admission_v1'||admission.source_artifact_id!==run.source_artifact_id
     ||admission.source_revision_id!==review.sourceRevisionId||admission.world_id!==prepared.worldId||admission.parent_revision_id!==prepared.parentRevisionId
-    ||!candidatePath||relative?.startsWith('/')||segments?.includes('..')||relative?.includes('\\')
-    ||typeof admission.candidate_locator!=='string'||!admission.candidate_locator.endsWith('/'+candidatePath)) {
+    ||!candidateMatches) {
     throw new Error('The sealed publication does not match the reviewed source, candidate and World.');
   }
 }
