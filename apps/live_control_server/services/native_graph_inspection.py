@@ -1,6 +1,8 @@
 """Faithful native inspection; Core owns admission, identity and source access."""
 
 from base64 import b64encode
+from collections import OrderedDict
+from threading import Lock
 
 from dungeonmind.application.vnext import (
     EntityReadService,
@@ -33,12 +35,16 @@ class InspectionUnavailable(ValueError):
 
 
 from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
+from dungeonmind.infrastructure.postgres.vnext_knowledge import VerifiedKnowledgeRevisionCache
 
 
-def _pinned(scope, principal, *, parsed_cache=None):
+def _pinned(scope, principal, *, parsed_cache=None, verification_cache=None):
     require_native_graph_gm(principal)
     bound = native.binding(scope.managed_world_id)
-    repo = native.read_repository()
+    if verification_cache is None:
+        repo = native.read_repository()
+    else:
+        repo = native.read_repository(verification_cache=verification_cache)
     space = bound["native_world_id"]
     if isinstance(scope, InspectionPin):
         if (scope.native_world_id, scope.binding_version) != (
@@ -221,10 +227,11 @@ def read_assertion(pin: InspectionPin, principal, assertion_id: str):
 
 def inspect(
     request, principal, *, include_source_span=False, source_classification=None,
-    _parsed_cache=None,
+    _parsed_cache=None, _verification_cache=None,
 ):
     bound, read, access, pin, _ = _pinned(
-        request.scope, principal, parsed_cache=_parsed_cache
+        request.scope, principal, parsed_cache=_parsed_cache,
+        verification_cache=_verification_cache,
     )
     selection = request.selection
     if selection.kind == "neighborhood":
@@ -520,7 +527,8 @@ def open_neighborhood_anchor(request, principal, *, include_receipt=False, autho
         packet = inspect(InspectionRead(
             scope=pin,
             selection={"kind": "source", "assertion_id": assertion_id, "evidence_ref_id": evidence_ref_id},
-        ), principal, include_source_span=include_receipt, _parsed_cache=_shared_parsed_cache)
+        ), principal, include_source_span=include_receipt, _parsed_cache=_shared_parsed_cache,
+            _verification_cache=_shared_verification_caches.for_pin(pin))
     except KnowledgeReadContextIntegrityError:
         if native.read_repository().get_revision(pin.native_world_id, pin.revision_id) is None:
             return empty
@@ -558,7 +566,39 @@ def open_neighborhood_anchor(request, principal, *, include_receipt=False, autho
     )
 
 
+class _SourceVerificationProofPool:
+    """Explicit per-worker retention; pin identity selects a slot, never authority.
+
+    Two Core proof objects each enforce a32MiB content cap. Core still fetches and
+    compares the complete current source on every use. Detached in-flight slots
+    are request-owned until completion and are not counted as retained pool RSS.
+    """
+    max_bytes = 64 * 1024 * 1024
+
+    def __init__(self):
+        self._lock = Lock()
+        self._entries = OrderedDict()
+
+    def for_pin(self, pin):
+        key = (pin.native_world_id, pin.revision_id)
+        with self._lock:
+            if key in self._entries:
+                self._entries.move_to_end(key)
+                return self._entries[key]
+            cache = VerifiedKnowledgeRevisionCache(max_bytes=self.max_bytes // 2)
+            self._entries[key] = cache
+            if len(self._entries) > 2:
+                self._entries.popitem(last=False)
+            return cache
+
+    @property
+    def retained_bytes(self):
+        with self._lock:
+            return sum(cache.retained_bytes for cache in self._entries.values())
+
+
 _shared_parsed_cache = NativeParsedRevisionCache()
+_shared_verification_caches = _SourceVerificationProofPool()
 
 
 def _shared_retrieval_pin(request, principal):
@@ -594,7 +634,10 @@ def shared_exact_object(request, principal):
 
 def shared_neighborhood(request, principal, *, object_id=None):
     bound, head, pin = _shared_retrieval_pin(request, principal)
-    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_parsed_cache)
+    _, read, _, _, _ = _pinned(
+        pin, principal, parsed_cache=_shared_parsed_cache,
+        verification_cache=_shared_verification_caches.for_pin(pin),
+    )
     return _shared_retrieval_projection(request, bound, head, pin, read, object_id=object_id)
 
 
