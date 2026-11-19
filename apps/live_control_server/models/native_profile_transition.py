@@ -60,6 +60,15 @@ class ProfileTransitionContent(Closed):
 class SignedProfileTransition(ProfileTransitionContent):
     token: str = Field(min_length=1, max_length=65536)
 
+    @field_validator("token")
+    @classmethod
+    def ascii_token(cls, value: str) -> str:
+        # The signer emits ASCII; reject Unicode before str compare_digest.
+        # Keep existing ASCII-invalid-token signature refusal semantics.
+        if not value.isascii():
+            raise ValueError("transition token must contain only ASCII characters")
+        return value
+
 
 class ProfileTransitionConfirm(Closed):
     schema_: Literal["dmb_native_profile_transition_confirm_v1"] = Field(alias="schema")

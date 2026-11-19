@@ -886,9 +886,7 @@ def test_binding_service_errors_are_typed_before_core_io(
     else:
 
         def unavailable(*args):
-            raise WorldContainerRegistryError(
-                "fixture unavailable", status_code=503
-            )
+            raise WorldContainerRegistryError("fixture unavailable", status_code=503)
 
         monkeypatch.setattr(managed, "get_world_container", unavailable)
     before = state(c)
@@ -928,4 +926,29 @@ def test_late_inactive_binding_keeps_typed_denial_without_receipt_probe(
     assert response.status_code == 409, response.text
     assert response.json()["detail"]["code"] == "native_graph_binding_inactive"
     assert not response.json()["detail"]["outcome_unknown"]
+    assert state(c) == before
+
+
+@pytest.mark.parametrize("token,status", [("é", 422), ("v1.invalid.invalid", 409)])
+def test_invalid_token_is_typed_before_core_io(
+    transition_case, monkeypatch, token, status
+):
+    c = transition_case
+    packet = prepare(c)
+    assert packet["plan"]["token"].isascii()
+    packet["plan"]["token"] = token
+    before = state(c)
+    monkeypatch.setattr(
+        service.native,
+        "repository",
+        lambda: pytest.fail("invalid token reached Core IO"),
+    )
+    response = confirm(c, packet)
+    assert response.status_code == status, response.text
+    if status == 409:
+        assert (
+            response.json()["detail"]["code"] == "profile_transition_signature_invalid"
+        )
+    else:
+        assert any(error["loc"][-1] == "token" for error in response.json()["detail"])
     assert state(c) == before
