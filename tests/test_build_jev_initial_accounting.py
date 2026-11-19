@@ -225,3 +225,30 @@ def test_encoded_assessment_still_refuses_true_context_overflow(build_case, monk
             writer_transport=writer, accounting=ExperimentalAccounting("synthetic-assess-overflow", count)))
     assert decisions.calls and writer.calls == []
     assert all(json.loads(request.content)["state"].get("assessment_codec") is None for request in decisions.calls)
+
+
+def test_build_opening_uses_instrumented_decision_client(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, Mock
+
+    from apps.live_control_server.services import build_jev_harness
+
+    marker = Mock()
+    transport = object()
+    adapter = SimpleNamespace(trace=SimpleNamespace(mark_first_jev_dispatch=marker), turn=None)
+    plan = SimpleNamespace(state=lambda: {"question": "fixture"})
+    driver = SimpleNamespace(stage=lambda: plan, step=SimpleNamespace(questions=[SimpleNamespace(kind="binary", name="check", question="Ready?")]))
+    client = SimpleNamespace(decide=AsyncMock(side_effect=RuntimeError("fixture")),
+                             aclose=AsyncMock())
+    factory = Mock(return_value=client)
+    monkeypatch.setattr(build_jev_harness, "decision_client", factory)
+    harness = BuildJevHarness(decision_transport=transport)
+    monkeypatch.setattr(harness, "_failed", Mock())
+
+    with pytest.raises(RuntimeError, match="fixture"):
+        asyncio.run(harness._decide(adapter, driver))
+
+    assert factory.call_args.kwargs["on_dispatch"] is marker
+    assert factory.call_args.kwargs["transport"] is transport
+    client.aclose.assert_awaited_once()
