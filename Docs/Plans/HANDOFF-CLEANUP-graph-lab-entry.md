@@ -38,5 +38,4 @@ and unchanged executable/fixture paths. Exact-head local hosted/build/validator
 and independent review before merge. No full diagnostic or release claim.
 
 Predecessor#4160 mergedaf6e0787, identical reviewed tree; final-source verifier
-outcome now reflects late source changes. Original52/#4156 and the other19
-original residuals are not resolved by this documentation cleanup.
+outcome now reflects late source changes. The19original residuals, including original52/#4156, are not resolved by this documentation cleanup.
