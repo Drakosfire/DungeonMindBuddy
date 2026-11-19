@@ -469,13 +469,14 @@ def test_actual_play_provider_preparation_retains_only_exposed_source_reads(
     assert f.calls == ["graph", "source"]
 
 
-@pytest.mark.parametrize("acquired", ["native_search"], indirect=True)
-def test_scoped_play_search_persists_native_source_extension(acquired, monkeypatch):
+def _admit_native_search_anchor(acquired, monkeypatch, *, mixed=False):
     from apps.live_control_server.services import native_graph_inspection
     from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
     from graph_memory.retrieval.models import WorldGraphRetrievalResult
 
     f = acquired
+    # The inherited helper defaults to Index; native passage reuse is a Play path.
+    f.adapter.request = _request(surface={"surface_id": "play", "instance_id": "play-main"})
     authority = f.adapter.fence.turn.graph_context_receipt.graph_authority
     monkeypatch.setenv("DMB_NATIVE_SEARCH_WORLD", authority.managed_world_id)
     f.adapter.native_principal = NativeGraphPrincipal(
@@ -507,7 +508,20 @@ def test_scoped_play_search_persists_native_source_extension(acquired, monkeypat
         pin = direct.ResolvedSourceAnchorMetadataV2(
             **f.pin.model_dump(), graph_revision=authority.graph_revision,
         )
-        return direct.ResolvedWorldGraphOperationV3(result, (pin,))
+        pins = (pin,)
+        if mixed:
+            legacy = t.GraphSourceScopeAnchorV2(
+                anchor_id="anchor:historical", evidence_ref_id="evidence:historical",
+                source_artifact_id="source:historical", source_revision_id="revision:historical",
+            )
+            result.source_anchors.append(result.source_anchors[0].model_copy(update={
+                "anchor_id": legacy.anchor_id, "evidence_ref_id": legacy.evidence_ref_id,
+                "source_artifact_id": legacy.source_artifact_id,
+            }))
+            pins += (direct.ResolvedSourceAnchorMetadataV2(
+                **legacy.model_dump(), graph_revision=authority.graph_revision,
+            ),)
+        return direct.ResolvedWorldGraphOperationV3(result, tuple(sorted(pins, key=lambda value: value.anchor_id)))
 
     monkeypatch.setattr(native_graph_inspection, "shared_search", search)
     monkeypatch.setattr(direct, "direct_services_from_config", lambda *_: pytest.fail("classic search resolved"))
@@ -522,13 +536,48 @@ def test_scoped_play_search_persists_native_source_extension(acquired, monkeypat
     assert isinstance(event, t.ValidatedGraphOperationEventV3)
     assert isinstance(extension, t.SourceScopeExtensionEventV3)
     assert extension.origin_graph_event_id == event.event_id
-    assert extension.pins == event.returned_source_pins == [f.pin]
+    assert extension.pins == event.returned_source_pins
+    assert f.pin in extension.pins
+    assert len(extension.pins) == (2 if mixed else 1)
 
-    response = f.adapter.broker_source_read({
+    return f
+
+
+def _source_request(f):
+    return {
+        "toolName": "read_graph_source",
+        "arguments": {"retrievalSessionId": f.session.id,
+                      "anchorIds": [f.pin.anchor_id], "maxChars": 1000},
+    }
+
+
+def _selector_after_admission(monkeypatch, selector):
+    if selector == "unset":
+        monkeypatch.delenv("DMB_NATIVE_SEARCH_WORLD", raising=False)
+    else:
+        monkeypatch.setenv("DMB_NATIVE_SEARCH_WORLD", "another-managed-world")
+
+
+@pytest.mark.parametrize("acquired", ["native_search"], indirect=True)
+@pytest.mark.parametrize("selector", ["unset", "stale"])
+@pytest.mark.parametrize("capture", [False, True])
+def test_scoped_play_search_persists_native_source_extension(acquired, monkeypatch, selector, capture):
+    # Real APP broker/ledger; synthetic corpus IO is not a Core reader witness.
+    f = _admit_native_search_anchor(acquired, monkeypatch)
+    _selector_after_admission(monkeypatch, selector)
+    if capture:
+        from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
+
+        f.adapter.context_capture = ContextTraceCollector(f.adapter.fence)
+    # Isolate capture persistence from the existing Play retained-source lookup,
+    # which currently asks capability_bases() for a Plan-only receipt.
+    read_source = f.adapter._broker_fresh_source_read if capture else f.adapter.broker_source_read
+    response = read_source({
         "toolName": "read_graph_source",
         "arguments": {"retrievalSessionId": f.session.id, "anchorIds": [f.pin.anchor_id], "maxChars": 1000},
     })
     assert json.loads(response["resultJson"]).get("content") == f.text, response["resultJson"]
+    turn = f.adapter.fence.turn
     reopened = AgentConversationService().inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
     authorization, read = reopened.graph_context_execution.events[-2:]
     assert isinstance(authorization, t.SourceReadAuthorizationEventV2)
@@ -537,3 +586,94 @@ def test_scoped_play_search_persists_native_source_extension(acquired, monkeypat
     receipt, = read.receipts
     assert receipt.source_revision_id == f.pin.source_revision_id
     assert receipt.content_sha256 == sha256(f.text.encode()).hexdigest()
+    assert receipt.source_artifact_id == f.pin.source_artifact_id
+    assert receipt.evidence_ref_id == f.pin.evidence_ref_id
+    assert f.calls == ["source"]
+    assert reopened.graph_context_execution == turn.graph_context_execution
+    if capture:
+        restored_trace, = AgentConversationService().list_context_trace_attempts(
+            world_id=turn.world_id, turn_id=turn.turn_id,
+        )
+        passages = [p for p in restored_trace.observations
+                    if p.kind == "source_passage" and p.source_read_event_id == read.event_id]
+        assert len(passages) == 1
+        assert passages[0].text == f.text
+        assert passages[0].source_read_id == receipt.source_read_id
+        assert passages[0].content_sha256 == receipt.content_sha256
+
+
+@pytest.mark.parametrize("acquired", ["native_search"], indirect=True)
+@pytest.mark.parametrize("change,code", [
+    ("principal", "native_source_principal_unavailable"),
+    ("unadmitted", "source_anchor_not_admitted"),
+    ("budget", "source_read_over_budget"),
+    ("captured_revision", "graph_revision_conflict"),
+])
+def test_native_anchor_reopening_refuses_before_io(acquired, monkeypatch, change, code):
+    f = _admit_native_search_anchor(acquired, monkeypatch)
+    _selector_after_admission(monkeypatch, "unset")
+    message = _source_request(f)
+    if change == "principal":
+        f.adapter.native_principal = None
+    elif change == "unadmitted":
+        message["arguments"]["anchorIds"] = ["native-neighborhood:unadmitted"]
+    elif change == "budget":
+        from tests.test_settled_source_read_accounting import authorization
+
+        execution = f.adapter._broker_execution()
+        auth = authorization(execution, len(execution.events), count=8,
+                             max_chars=execution.policy.max_chars_per_source_read)
+        f.adapter.turn, _ = f.adapter.fence.append("authorize_source_read", "authorization", auth)
+        message["arguments"]["maxChars"] = 1
+    else:
+        f.session.snapshot.revision_id = "revision:foreign"
+    before = f.adapter.fence.turn.graph_context_execution.model_dump(mode="json")
+    reply = f.adapter.broker_source_read(message)
+    assert json.loads(reply["resultJson"])["code"] == code
+    assert f.calls == []
+    turn = f.adapter.fence.turn
+    restored = AgentConversationService().inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert restored.graph_context_execution.model_dump(mode="json") == before
+
+
+@pytest.mark.parametrize("acquired", ["native_search"], indirect=True)
+def test_native_anchor_uncertain_read_retains_authorization_without_classic_retry(acquired, monkeypatch):
+    f = _admit_native_search_anchor(acquired, monkeypatch)
+    _selector_after_admission(monkeypatch, "stale")
+    attempted = []
+
+    def uncertain(arguments, **kwargs):
+        assert kwargs["native_principal"] == f.adapter.native_principal
+        assert kwargs["native_authority"] == f.adapter.fence.turn.graph_context_receipt.graph_authority
+        attempted.append(arguments)
+        raise TimeoutError("synthetic uncertain native binding/source read")
+
+    monkeypatch.setattr("graph_memory.interaction.expansion_executor.execute_read_graph_source", uncertain)
+    before = len(f.adapter._broker_execution().events)
+    first = f.adapter.broker_source_read(_source_request(f))
+    assert json.loads(first["resultJson"])["code"] == "source_read_unavailable"
+    turn = f.adapter.fence.turn
+    restored = AgentConversationService().inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert len(restored.graph_context_execution.events) == before + 1
+    assert isinstance(restored.graph_context_execution.events[-1], t.SourceReadAuthorizationEventV2)
+    assert restored.graph_context_execution.events[-1].anchors == [f.pin]
+    second = f.adapter.broker_source_read(_source_request(f))
+    assert json.loads(second["resultJson"])["code"] == "source_read_indeterminate"
+    assert len(attempted) == 1 and f.calls == []
+    assert AgentConversationService().inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id).graph_context_execution == restored.graph_context_execution
+
+
+@pytest.mark.parametrize("acquired", ["native_search"], indirect=True)
+def test_native_and_historical_admitted_anchor_batch_refused_before_io(acquired, monkeypatch):
+    f = _admit_native_search_anchor(acquired, monkeypatch, mixed=True)
+    _selector_after_admission(monkeypatch, "unset")
+    message = _source_request(f)
+    pins = f.adapter._broker_execution().effective_source_pins()
+    assert {f.pin.anchor_id, "anchor:historical"} <= set(pins)
+    message["arguments"]["anchorIds"].append("anchor:historical")
+    before = f.adapter.fence.turn.graph_context_execution
+    reply = f.adapter.broker_source_read(message)
+    assert json.loads(reply["resultJson"])["code"] == "mixed_source_authority"
+    assert f.calls == []
+    turn = f.adapter.fence.turn
+    assert AgentConversationService().inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id).graph_context_execution == before

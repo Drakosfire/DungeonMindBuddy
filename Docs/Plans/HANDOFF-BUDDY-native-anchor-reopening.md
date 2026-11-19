@@ -32,8 +32,9 @@ Do not remove those selectors or drop capabilities under this source-read repair
   authorization helpers, search, related-recap, provider or other method changes.
 - tests/test_native_play_source_acquisition.py: broker source reopening, exact
   durable authorization/read/recovery and refusal cases using existing fixtures.
-- tests/test_native_recap_preparation.py: existing real Core-backed source witness
-  and scoped fixture/test extensions only where needed for the actual reader.
+- tests/test_native_graph_inspection.py: extend the existing real Core-backed
+  source-pin/batch-receipt witness with historical-head and current withdrawal
+  proof. Reuse its inspection fixture; no recap-preparation edits are needed.
 
 Open3824/1868 patches were inspected: neither changes agent_turn_service.py.
 Other open current lanes were checked by scope; no competing expected lease on
@@ -76,3 +77,25 @@ live54330/54331/witness data. No new worktree/container/port/provider/ingestion 
 the full active optimization/deployment/V10/V11 goal. Cleanup requires ownership,
 active task/process/mount/DB connection, dirty/unique-data/commit checks and
 specifically approved scope; no standing deletion authority or reclaimed bytes.
+
+## Owning rebrief: actual source-reader proof
+
+MIND adopted this bounded test-path correction after source inspection: the real
+Core/WK source-pin and batch-reader witness is in native_graph_inspection, not
+recap_preparation. Replace that one leased test path rather than duplicate its
+fixture. The same single dispatch outcome, production boundary, serial parent
+and validation obligations remain; no new capability or runtime ownership.
+
+## Discovered public Play capture defect and next serial slice
+
+The public broker's retained-source branch currently fails for a Play receipt:
+repository.list_retained_source_turns calls Plan-only capability_bases and raises
+"Resolved Plan capability receipt required" before reaching fresh source dispatch.
+This branch and helper are unchanged by this PR. Preserve its failing diagnostic
+in task evidence; do not call the public captured Play route qualified. The APP
+capture cases deliberately exercise _broker_fresh_source_read and prove only its
+trace/receipt persistence; ordinary no-capture cases exercise broker_source_read.
+Actual Core reader evidence is a separate witness, not APP-through-Core end-to-end.
+MIND owns a separate immediate serial repair after this predicate change, before
+SubjectSearch default work. The full deployment goal requires that public path
+and retained-passage authorization/recovery to pass; it is not waived or complete.
