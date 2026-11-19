@@ -89,3 +89,33 @@ verified before scratch/v9-buddy/v10-native-manual-knowledge-backend-v2 allocati
 MIND retains new/old scratch/evidence for fullgoal; no deletion. Cleanup follow-up
 needs approved scope/process/mount/dirty/unique-data checks. Full manual UI/current
 route retirement/deploy rollback/V11 remain open; gate success not full acceptance.
+
+## Capability gate checkpoint (memory, not API acceptance)
+
+Retained scratch `v10-native-manual-knowledge-backend-v2/public_port_gate.py` and
+`public-port-gate-1.json` exercise installed public Corea685/WKef9 ports. Plain
+governed source extension accepted all13 mapped kinds and45 input labels, with
+endpoint/direction/description/scope checks and normal name search. It produced
+zero authorized primary-label aliases; current manual producer explicitly emits
+label fallback aliases. The separate prospective alias publisher supplied all13
+aliases with existing SUPPORT, but a public repository wrapper withdrawing the
+source immediately before publication still allowed commit (epoch1->2); fresh
+alias reads correctly denied them. This demonstrates its documented parent-
+evidence boundary, not a generic publisher authorization defect. New extension
+cannot directly accept the alias wrapper. Exact registered SUPPORT extension
+attempt refused; its precise exception is retained, not treated as proof of an
+exhaustive alternate-port search. No narrower manual API is shipped.
+
+Additional eligibility gate: existing test
+`test_native_first_world_without_custom_edge_does_not_publish_profile_transition`
+asserts active activation and exact profile1. Existing manual eligibility requires
+active binding/published head, not nonempty content or profile2/3. Accepted4168
+service is deliberately closed2/3->4. A separate owner-reviewed closed1->4
+compatibility/adoption boundary is required if profile4 is the manual prerequisite;
+N3a must not silently narrow valid active profile1 Worlds or expand4168.
+
+Next dependencies: Core-owned atomic evidence-bearing prospective alias + source
+extension/reused-SUPPORT composition with current epoch fence and immutable exact
+recovery; separately resolve profile1 enablement. Memory gate is no SQL, HTTP,
+current-owner, original-history, deployment, performance or full manual acceptance
+proof. Original scratch and failures remain retained by MIND; cleanup deferred.
