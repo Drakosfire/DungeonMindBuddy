@@ -6,6 +6,7 @@ Query discovery never opens supporting text; selected reads and citation reopeni
 share the same pinned authority and binding checks.
 """
 from collections import Counter
+from contextlib import nullcontext
 from dataclasses import dataclass
 import json
 from dungeonmind.application.vnext import (
@@ -224,8 +225,10 @@ def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campa
 
 def prepare_query(managed_world_id, question, principal, *, source_context=None,
                   revision_id=None, repository=None, resolve_binding=None,
-                  scope_mode='world', campaign_id=None, authored_references=None):
+                  scope_mode='world', campaign_id=None, authored_references=None,
+                  measure_work=None):
     _require_gm(principal)
+    measure = measure_work or (lambda _name: nullcontext())
     if authored_references is not None:
         from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferencesV1, AuthoredReferencesV2, object_selections
         if type(authored_references) not in {AuthoredGraphReferencesV1, AuthoredReferencesV2} or scope_mode != 'world' or campaign_id is not None:
@@ -272,10 +275,11 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
                 or source.acquisition_epoch != access.source_view.epoch):
             raise ValueError('Prepared native query differs from its source authority')
         from graph_memory.vnext.domain_runtime import DungeonBuddyVNextProjectionInput, build_dungeonbuddy_read_context
-        read = build_dungeonbuddy_read_context(parsed_revision=access.parsed,
-            projection_input=DungeonBuddyVNextProjectionInput(world_id=space,
-                revision_id=revision_id, role='gm', scope_mode=scope_mode, campaign_id=campaign_id),
-            source_reader=access.source_view)
+        with measure("native_turn_graph_projection"):
+            read = build_dungeonbuddy_read_context(parsed_revision=access.parsed,
+                projection_input=DungeonBuddyVNextProjectionInput(world_id=space,
+                    revision_id=revision_id, role='gm', scope_mode=scope_mode, campaign_id=campaign_id),
+                source_reader=access.source_view)
         domain, profile = read.domain_contract, read.semantic_profile
         pinned = read, access, domain, profile
     else:
@@ -285,7 +289,8 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
                 return None, NativePlanQueryUnavailableV1(managed_world_id=managed_world_id,
                     reason='native_graph_head_unavailable')
             revision_id = head.head_revision_id
-        pinned = statements._context(repo, space, revision_id, campaign_id, 'gm', scope_mode=scope_mode)
+        with measure("native_turn_graph_projection"):
+            pinned = statements._context(repo, space, revision_id, campaign_id, 'gm', scope_mode=scope_mode)
         h = header(repo.get_revision(space, revision_id))
     authority = NativePlanQueryAuthorityV1(managed_world_id=managed_world_id, native_world_id=space,
         binding_version=bound.binding_version, revision_id=revision_id,
@@ -309,7 +314,8 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
             selected = read_entity(ref.graph_revision, ref.node_id, origin)
             if not selected.found or selected.completeness.status != 'complete':
                 raise ValueError('Authored entity is unavailable in its selection snapshot')
-    result = SearchReadService().search_entities(pinned[0], question)
+    with measure("native_turn_graph_entity_search"):
+        result = SearchReadService().search_entities(pinned[0], question)
     if (result.identity.space_id, result.identity.revision_id) != (space, revision_id):
         raise ValueError('Core search changed query authority')
     gaps = [] if result.completeness.status == 'complete' else ['native_search_partial']
@@ -344,9 +350,10 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
             )
         discovered = tuple(dict.fromkeys((*discovered, *timeline_events)))
     discovery_hops = []
-    matches, assertion_matches, entity_gaps, _entities = _entity_catalog(discovered, pinned,
-        space=space, revision_id=revision_id, scope_mode=scope_mode, campaign_id=campaign_id,
-        read_entity=read_entity, discovery_hops=discovery_hops)
+    with measure("native_turn_graph_match_catalog"):
+        matches, assertion_matches, entity_gaps, _entities = _entity_catalog(discovered, pinned,
+            space=space, revision_id=revision_id, scope_mode=scope_mode, campaign_id=campaign_id,
+            read_entity=read_entity, discovery_hops=discovery_hops)
     gaps.extend(entity_gaps)
     targets = []
     if authored_references is not None:

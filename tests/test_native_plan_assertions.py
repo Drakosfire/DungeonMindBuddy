@@ -1426,6 +1426,10 @@ def _prepared_query_source(lane):
 
 def test_prepared_native_query_reuses_core_revision_and_preserves_exact_catalog(lane, monkeypatch):
     from apps.live_control_server.services import native_graph_reads as native
+    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+
+    trace = AgentTurnTraceBuilder(agent_thread_id=None, turn_id=None,
+        runtime="test", backend="test", mode="test")
     publish(lane, qualified=True)
     source, binding = _prepared_query_source(lane)
     _, expected = prepare_query(lane.world.world_id, 'What did B do?', GM,
@@ -1435,7 +1439,13 @@ def test_prepared_native_query_reuses_core_revision_and_preserves_exact_catalog(
     monkeypatch.setattr(lane.repo, 'get_revision', redundant)
     monkeypatch.setattr(native.statements.native, 'repository', redundant)
     context, actual = prepare_query(lane.world.world_id, 'What did B do?', GM,
-        source_context=source, resolve_binding=lambda _: binding)
+        source_context=source, resolve_binding=lambda _: binding,
+        measure_work=trace.measure_host_work)
+    assert [span["name"] for span in trace.spans] == [
+        "native_turn_graph_projection", "native_turn_graph_entity_search",
+        "native_turn_graph_match_catalog",
+    ]
+    assert all(span["status"] == "ok" for span in trace.spans)
     assert actual == expected
     assert context.repository is source.repository
     assert context.pinned[1] is source.access
