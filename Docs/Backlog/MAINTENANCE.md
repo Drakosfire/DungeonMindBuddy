@@ -7,6 +7,7 @@ This queue holds the maintenance items explicitly transferred out of the root pr
 | Candidate | Component owner | Evidence and next check |
 | --- | --- | --- |
 | Give retained PDF shortcuts a browser storage lifecycle | Buddy Build frontend | [#3380](https://github.com/Drakosfire/DungeonMindBuddy/pull/3380) shipped removal and passed 19 focused tests. In a synthetic Chrome run with 50 selected-World shortcuts and 200 reads per scenario, scans averaged 0.034, 0.104 and 0.518 ms across 100, 1,000 and 5,000 storage keys. A simulated World-scoped lookup averaged about 0.01 ms and serialized 50 entries in 9,991 ASCII bytes. Revisit indexing when representative profiles show a user-visible preview delay or report quota pressure. Any storage change must preserve legacy shortcuts and cross-tab updates and verify World isolation. |
+| Reduce PDF crop preview encoding and memory costs | Buddy Build frontend and browser-performance executor | Async Blob encoding and capture identity shipped, but payload sizes do not establish browser memory. [#4048](https://github.com/Drakosfire/DungeonMindBuddy/issues/4048) owns large-crop old/current browser memory measurements with supported profiler scope, capture boundaries and recapture/page-change/unmount cleanup. No active Build source lease needs changing for a source-preserving measurement. |
 
 ### Operational follow-ups
 
