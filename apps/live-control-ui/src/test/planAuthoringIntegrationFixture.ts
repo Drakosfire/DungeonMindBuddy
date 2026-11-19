@@ -31,7 +31,7 @@ function correlationKey(world: string, turn: string) {
 
 /** Synthetic client transport only: real host/editor/Save machinery remains mounted. */
 export function setupPlanAuthoringIntegration(
-  initialRecord: WorldOwnedPlanRecordV2, initialMarkdown: string, replacement: string,
+  initialRecord: WorldOwnedPlanRecordV2, initialMarkdown: string, replacementForDraft: string | ((draft: string) => string),
 ) {
   let record = {...initialRecord};
   let markdown = initialMarkdown;
@@ -109,6 +109,7 @@ export function setupPlanAuthoringIntegration(
     expect(capture.conversation_id).toBe(conversationId);
     expect(capture.expected_pointer_revision).toBe(4);
     expect(request.plan_placement_catalog?.original_capture_sha256).toBe(hash(canonical(capture)));
+    const replacement = typeof replacementForDraft === 'function' ? replacementForDraft(capture.draft_markdown) : replacementForDraft;
     const provenance: AgentConversationTurnProvenanceV1 = {
       world_id: world, surface_resolution: 'resolved', surface_id: 'plan',
       surface_instance_id: request.surface.instance_id,

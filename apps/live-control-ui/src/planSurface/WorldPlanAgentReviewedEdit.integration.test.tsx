@@ -713,157 +713,114 @@ const session29SectionCases = [
   },
 ] as const;
 
-it.each(session29SectionCases)("targets a Session 29 $label and keeps Apply within a safe round-trip boundary", async (sectionCase) => {
-  savedMarkdown = session29Markdown;
-  expect(session29V2Markers(session29Markdown)).toHaveLength(90);
-  expect(session29NodeLinks(session29Markdown)).toHaveLength(72);
+async function currentSectionRoundTrip(
+  sourceMarkdown: string, heading: string, replacementForDraft: (draft: string) => string,
+  verifyCapture: (selectedText: string, draft: string) => void,
+  verifySaved: (markdown: string) => void,
+) {
   setupWorldApi();
-  let expectedAfterApply = "";
-  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => {
-    const section = selectedMarkdownSection(request.draft_markdown, sectionCase.heading);
-    const replacement = reviseFirstSectionProse(section.fragment);
-    const canonicalReplacement = tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(replacement).doc);
-    expectedAfterApply = section.replace(canonicalReplacement);
-    return {
-      schema_version: "dmb_world_plan_document_edit_proposal_v1",
-      action_id: "00000000-0000-4000-8000-000000000002",
-      idempotency_key: request.idempotency_key,
-      document_id: request.document_id,
-      world_id: request.world_id,
-      base_revision: request.base_revision,
-      base_content_sha256: request.base_content_sha256,
-      draft_sha256: request.draft_sha256,
-      target_kind: request.target_kind,
-      selected_text_sha256: await sha256Hex(request.selected_text),
-      replacement_markdown: replacement,
-      summary: `Revise ${sectionCase.heading}.`,
-      assumptions: [],
-      model: "gpt-6-luna",
-      model_observed: true,
-      model_latency_ms: 1,
-      wall_latency_ms: 1,
-      usage: null,
-    };
-  });
-  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
-    schema_version: "dmb_tiptap_markdown_write_prepare_v2",
-    scope_mode: "world",
-    world_id: worldId,
-    document_id: documentId,
-    title: "Integration Plan",
-    target_relpath: `out/workspace/plan/${documentId}.md`,
-    target_display_path: `out/workspace/plan/${documentId}.md`,
-    registry_revision: 8,
-    file_exists: true,
-    writer_ok: true,
-    writer_confirm_token: "integration-save-token",
-    warnings: [],
-    diagnostics: [],
-  });
-  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async (request) => {
-    savedMarkdown = request.markdown;
-    savedRevision = 8;
-    savedDigest = "c".repeat(64);
-    return {
-      schema_version: "dmb_tiptap_markdown_write_commit_v2",
-      scope_mode: "world",
-      world_id: worldId,
-      document_id: documentId,
-      title: "Integration Plan",
-      target_relpath: `out/workspace/plan/${documentId}.md`,
-      target_display_path: `out/workspace/plan/${documentId}.md`,
-      registry_revision: savedRevision,
-      committed_revision: savedRevision,
-      committed_record: { ...planRecord(), revision: savedRevision },
-      normalized_content_sha256: savedDigest,
-      writer_ok: true,
-      writer_phase: "commit",
-      diagnostics: [],
-    };
-  });
-
+  const current = setupPlanAuthoringIntegration(planRecord(), sourceMarkdown, replacementForDraft);
+  const nativeNavigator = navigator;
+  vi.stubGlobal("navigator", new Proxy(nativeNavigator, {
+    get: (target, key) => key === "locks"
+      ? { request: async (_name: string, work: () => unknown) => work() }
+      : Reflect.get(target, key, target),
+  }));
   const location = `/plan?world=${worldId}&documentId=${documentId}`;
   window.history.replaceState({}, "", location);
-  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
-  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
-  await waitFor(() => expect(editorSurface).toHaveTextContent("The Hours They Bought"));
-  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  const tree = () => <StrictMode><SelectedWorldProvider locationSnapshot={location}><CurrentIntegrationPage /></SelectedWorldProvider></StrictMode>;
+  let view = render(tree());
+  try {
+    const surface = await screen.findByTestId("world-owned-plan-markdown-editor");
+    const editor = (surface.querySelector(".ProseMirror") as HTMLElement & {editor: Editor}).editor;
+    const before = editor.getJSON();
+    fireEvent.click(await screen.findByRole("button", {name: "Open", exact: true}));
+    const conversation = await screen.findByRole("region", {name: "World conversation"});
+    await waitFor(() => expect(within(conversation).getByRole("region", {name: "World conversation transcript"})).toHaveAttribute("aria-busy", "false"));
+    fireEvent.change(within(conversation).getByLabelText("Message DungeonBuddy"), {target: {value: `Revise ${heading} with reviewed details.`}});
+    fireEvent.click(within(conversation).getByText(/^(Automatic|Plan change) · Change$/));
+    fireEvent.click(within(conversation).getByRole("button", {name: "Request a Plan change"}));
+    const targetSummary = within(conversation).getByText("Choose section").closest("summary")!;
+    expect(targetSummary.closest("details")).not.toHaveAttribute("open");
+    fireEvent.click(targetSummary);
+    expect(targetSummary.closest("details")).toHaveAttribute("open");
+    fireEvent.click(within(conversation).getByRole("button", {name: "Refresh sections"}));
+    const select = within(conversation).getByRole("combobox", {name: "Plan section (optional)"}) as HTMLSelectElement;
+    expect(select).toHaveAttribute("aria-describedby", "world-plan-agent-target-help");
+    await waitFor(() => expect(Array.from(select.options).some(option => option.textContent?.includes(heading))).toBe(true));
+    const option = Array.from(select.options).find(row => row.textContent?.includes(heading))!;
+    expect(option.disabled).toBe(false);
+    fireEvent.change(select, {target: {value: option.value}});
+    await waitFor(() => expect(editor.state.selection.empty).toBe(false));
+    const {from, to} = editor.state.selection;
+    expect(editor.getJSON()).toEqual(before);
+    expect(current.post).not.toHaveBeenCalled();
+    expect(current.commands).not.toHaveBeenCalled();
+    const send = within(conversation).getByRole("button", {name: "Propose edit"});
+    await waitFor(() => expect(send).toBeEnabled());
+    fireEvent.click(send);
+    await waitFor(() => expect(current.post).toHaveBeenCalledTimes(1));
+    const capture = current.post.mock.calls[0]![0].plan_authoring_capture!;
+    expect(current.post.mock.calls[0]![0].plan_requested_operation).toBe("write_current_page");
+    expect(capture).toMatchObject({world_id: worldId, document_id: documentId, base_revision: 7,
+      target_kind: "replace_selection", from, to});
+    expect(JSON.parse(capture.editor_json)).toEqual(before);
+    verifyCapture(capture.selected_text, capture.draft_markdown);
+    const replacement = replacementForDraft(capture.draft_markdown);
+    const canonicalReplacement = tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(replacement).doc);
+    const expected = selectedMarkdownSection(capture.draft_markdown, heading).replace(canonicalReplacement);
+    await screen.findByRole("textbox", {name: "Suggestion text"});
+    expect(editor.getJSON()).toEqual(before);
+    expect(current.readSaved().markdown).toBe(sourceMarkdown);
+    expect(current.commands.mock.calls.filter(call => call[2].operation === "confirm")).toHaveLength(0);
+    expect(current.legacyProposal).not.toHaveBeenCalled();
+    expect(current.ordinaryPrepare).not.toHaveBeenCalled();
+    expect(current.ordinaryCommit).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole("region", {name: "Suggestion review"})).getByRole("button", {name: "Save", exact: true}));
+    await waitFor(() => expect(current.readReview()?.state).toBe("applied"));
+    const saved = current.readSaved();
+    expect(saved.record.revision).toBe(8);
+    expect(normalizeThematicBreakSpacing(saved.markdown)).toBe(normalizeThematicBreakSpacing(expected));
+    verifySaved(saved.markdown);
+    const after = editor.getJSON();
+    expect(tiptapJsonToSemanticMarkdown(after)).toBe(saved.markdown);
+    view.unmount();
+    window.history.replaceState({}, "", location);
+    view = render(tree());
+    const reopened = await screen.findByTestId("world-owned-plan-markdown-editor");
+    await waitFor(() => expect((reopened.querySelector(".ProseMirror") as HTMLElement & {editor: Editor}).editor.getJSON()).toEqual(after));
+    verifySaved(current.readSaved().markdown);
+    expect(current.post).toHaveBeenCalledTimes(1);
+    expect(current.commands.mock.calls.filter(call => call[2].operation === "confirm")).toHaveLength(1);
+    expect(current.ordinaryPrepare).not.toHaveBeenCalled();
+    expect(current.ordinaryCommit).not.toHaveBeenCalled();
+  } finally {
+    view.unmount();
+    vi.unstubAllGlobals();
+    sessionStorage.clear();
+  }
+}
 
-  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
-  const targetSummary = await screen.findByText(/Use selection; otherwise insert at cursor/);
-  expect(targetSummary.closest("details")).not.toHaveAttribute("open");
-  fireEvent.click(targetSummary);
-  expect(targetSummary.closest("details")).toHaveAttribute("open");
-  fireEvent.click(screen.getByRole("button", { name: "Refresh sections" }));
-  const sectionSelect = await screen.findByRole("combobox", { name: "Plan section (optional)" }) as HTMLSelectElement;
-  expect(sectionSelect).toHaveAttribute("aria-describedby", "world-plan-agent-target-help");
-  expect(screen.getByText(/Choosing a Plan section selects its text in the editor/)).toHaveClass("sr-only");
-  expect(screen.getByRole("button", { name: "Refresh sections" })).toHaveTextContent("Refresh");
-  await waitFor(() => expect(sectionSelect.options.length).toBeGreaterThan(1));
-  const option = Array.from(sectionSelect.options).find((candidate) => candidate.textContent?.includes(sectionCase.heading));
-  expect(option).toBeDefined();
-
-  expect(option!.disabled).toBe(false);
-  fireEvent.change(sectionSelect, { target: { value: option!.value } });
-  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(`${option!.textContent} selected`));
-  expect(targetSummary).toHaveTextContent(`Chosen section: ${sectionCase.heading}`);
-  const beforeProposalText = editorSurface.textContent;
-  expect(proposal).not.toHaveBeenCalled();
-  expect(prepare).not.toHaveBeenCalled();
-  expect(commit).not.toHaveBeenCalled();
-
-  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
-  fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
-    target: { value: `Revise ${sectionCase.heading} with one reviewed detail.` },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
-  await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1), { timeout: 3_000 }).catch(() => {
-    const alerts = screen.queryAllByRole("alert").map((element) => element.textContent).filter(Boolean).join(" | ");
-    throw new Error(`Section proposal was not sent. Alerts: ${alerts || "none"}`);
-  });
-  expect(proposal).toHaveBeenCalledTimes(1);
-  const request = proposal.mock.calls[0][0];
-  expect(request.target_kind).toBe("replace_selection");
-  expect(request.selected_text).toContain(sectionCase.heading);
-  expect(request.selected_text).toContain(sectionCase.includedChild);
-  expect(request.selected_text).not.toContain(sectionCase.excludedPeer);
-  expect(session29V2Markers(request.draft_markdown)).toEqual(session29V2Markers(session29Markdown));
-  expect(session29NodeLinks(request.draft_markdown)).toEqual(session29NodeLinks(session29Markdown));
-  expect(screen.getByTestId("world-owned-plan-markdown-editor")).not.toHaveTextContent("reviewed section detail");
-  expect(prepare).not.toHaveBeenCalled();
-  expect(commit).not.toHaveBeenCalled();
-
-  await screen.findByRole("region", { name: "Review proposed Plan edit" });
-  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
-  await waitFor(() => expect(editorSurface).toHaveTextContent("reviewed section detail")).catch(() => {
-    const alerts = screen.queryAllByRole("alert").map((element) => element.textContent).filter(Boolean).join(" | ");
-    throw new Error(`Section Apply failed. Alerts: ${alerts || "none"}`);
-  });
-  expect(prepare).not.toHaveBeenCalled();
-  expect(commit).not.toHaveBeenCalled();
-  expect(savedMarkdown).toBe(session29Markdown);
-
-  fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
-  await waitFor(() => expect(screen.getByText("Saved to this World.")).toBeInTheDocument());
-  expect(prepare).toHaveBeenCalledTimes(1);
-  expect(commit).toHaveBeenCalledTimes(1);
-  const submittedMarkdown = commit.mock.calls[0][0].markdown;
-  expect(normalizeThematicBreakSpacing(submittedMarkdown)).toBe(normalizeThematicBreakSpacing(expectedAfterApply));
-  expect(commit.mock.calls[0][0].markdown).toBe(prepare.mock.calls[0][0].markdown);
-  expect(session29V2Markers(submittedMarkdown)).toEqual(session29V2Markers(session29Markdown));
-  expect(session29NodeLinks(submittedMarkdown)).toEqual(session29NodeLinks(session29Markdown));
-  expect(submittedMarkdown).toContain("reviewed section detail");
-
-  view.unmount();
-  window.history.replaceState({}, "", location);
-  render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
-  const reloadedEditor = await screen.findByTestId("world-owned-plan-markdown-editor");
-  await waitFor(() => expect(reloadedEditor).toHaveTextContent("reviewed section detail"));
-  expect(session29V2Markers(savedMarkdown)).toEqual(session29V2Markers(session29Markdown));
-  expect(session29NodeLinks(savedMarkdown)).toEqual(session29NodeLinks(session29Markdown));
+it.each(session29SectionCases)("targets a Session 29 $label and explicitly saves its reviewed subtree", async (sectionCase) => {
+  expect(session29V2Markers(session29Markdown)).toHaveLength(90);
+  expect(session29NodeLinks(session29Markdown)).toHaveLength(72);
+  await currentSectionRoundTrip(session29Markdown, sectionCase.heading,
+    draft => reviseFirstSectionProse(selectedMarkdownSection(draft, sectionCase.heading).fragment),
+    (selected, draft) => {
+      expect(selected).toContain(sectionCase.heading);
+      expect(selected).toContain(sectionCase.includedChild);
+      expect(selected).not.toContain(sectionCase.excludedPeer);
+      expect(session29V2Markers(draft)).toEqual(session29V2Markers(session29Markdown));
+      expect(session29NodeLinks(draft)).toEqual(session29NodeLinks(session29Markdown));
+    },
+    markdown => {
+      expect(session29V2Markers(markdown)).toEqual(session29V2Markers(session29Markdown));
+      expect(session29NodeLinks(markdown)).toEqual(session29NodeLinks(session29Markdown));
+      expect(markdown).toContain("reviewed section detail");
+    });
 }, 30_000);
 
-it("reviews, applies, saves, and reloads rich content inside one selected World Plan section", async () => {
+it("stages, explicitly saves, and reloads rich content inside one selected World Plan section", async () => {
   const sourceMarkdown = [
     "# Plan",
     "",
@@ -898,124 +855,23 @@ it("reviews, applies, saves, and reloads rich content inside one selected World 
     "> ### Consequence",
     "> The town keeps the crossing until dawn.",
   ].join("\n");
-  savedMarkdown = sourceMarkdown;
-  setupWorldApi();
   const canonicalReplacement = tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(replacementMarkdown).doc);
-  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
-    schema_version: "dmb_world_plan_document_edit_proposal_v1",
-    action_id: "00000000-0000-4000-8000-000000000003",
-    idempotency_key: request.idempotency_key,
-    document_id: request.document_id,
-    world_id: request.world_id,
-    base_revision: request.base_revision,
-    base_content_sha256: request.base_content_sha256,
-    draft_sha256: request.draft_sha256,
-    target_kind: request.target_kind,
-    selected_text_sha256: await sha256Hex(request.selected_text),
-    replacement_markdown: replacementMarkdown,
-    summary: "Add the reviewed voices and decision.",
-    assumptions: [],
-    model: "gpt-6-luna",
-    model_observed: true,
-    model_latency_ms: 1,
-    wall_latency_ms: 1,
-    usage: null,
-  }));
-  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
-    schema_version: "dmb_tiptap_markdown_write_prepare_v2",
-    scope_mode: "world",
-    world_id: worldId,
-    document_id: documentId,
-    title: "Integration Plan",
-    target_relpath: `out/workspace/plan/${documentId}.md`,
-    target_display_path: `out/workspace/plan/${documentId}.md`,
-    registry_revision: 8,
-    file_exists: true,
-    writer_ok: true,
-    writer_confirm_token: "integration-rich-section-save-token",
-    warnings: [],
-    diagnostics: [],
-  });
-  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async (request) => {
-    savedMarkdown = request.markdown;
-    savedRevision = 8;
-    savedDigest = "d".repeat(64);
-    return {
-      schema_version: "dmb_tiptap_markdown_write_commit_v2",
-      scope_mode: "world",
-      world_id: worldId,
-      document_id: documentId,
-      title: "Integration Plan",
-      target_relpath: `out/workspace/plan/${documentId}.md`,
-      target_display_path: `out/workspace/plan/${documentId}.md`,
-      registry_revision: savedRevision,
-      committed_revision: savedRevision,
-      committed_record: { ...planRecord(), revision: savedRevision },
-      normalized_content_sha256: savedDigest,
-      writer_ok: true,
-      writer_phase: "commit",
-      diagnostics: [],
-    };
-  });
-
-  const location = `/plan?world=${worldId}&documentId=${documentId}`;
-  window.history.replaceState({}, "", location);
-  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
-  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
-  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
-  const targetSummary = await screen.findByText(/Use selection; otherwise insert at cursor/);
-  expect(targetSummary.closest("details")).not.toHaveAttribute("open");
-  fireEvent.click(targetSummary);
-  expect(targetSummary.closest("details")).toHaveAttribute("open");
-  const sectionSelect = await screen.findByRole("combobox", { name: "Plan section (optional)" }) as HTMLSelectElement;
-  fireEvent.click(screen.getByRole("button", { name: "Refresh sections" }));
-  await waitFor(() => expect(sectionSelect.options.length).toBeGreaterThan(1));
-  const option = Array.from(sectionSelect.options).find((candidate) => candidate.textContent?.includes("Mireward"));
-  expect(option).toBeDefined();
-  fireEvent.change(sectionSelect, { target: { value: option!.value } });
-  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(`${option!.textContent} selected`));
-  expect(targetSummary).toHaveTextContent("Chosen section: Mireward");
-  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
-  fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
-    target: { value: "Add the reviewed multi-paragraph witnesses, read-aloud, and decision consequence." },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
-  await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1));
-  await screen.findByRole("region", { name: "Review proposed Plan edit" });
-  expect(screen.getByTestId("world-owned-plan-markdown-editor")).not.toHaveTextContent("The watcher");
-  expect(prepare).not.toHaveBeenCalled();
-  expect(commit).not.toHaveBeenCalled();
-
-  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
-  await waitFor(() => expect(editorSurface).toHaveTextContent("second witness answers from the river"));
-  expect(prepare).not.toHaveBeenCalled();
-  expect(commit).not.toHaveBeenCalled();
-  expect(savedMarkdown).toBe(sourceMarkdown);
-
-  fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
-  await waitFor(() => expect(screen.getByText("Saved to this World.")).toBeInTheDocument());
-  expect(prepare).toHaveBeenCalledTimes(1);
-  expect(commit).toHaveBeenCalledTimes(1);
-  const submittedMarkdown = commit.mock.calls[0][0].markdown;
-  expect(selectedMarkdownSection(submittedMarkdown, "Mireward").fragment).toBe(canonicalReplacement);
-  expect(submittedMarkdown).toContain("## North Road");
-  expect(commit.mock.calls[0][0].markdown).toBe(prepare.mock.calls[0][0].markdown);
-  const reloadedSection = selectedMarkdownSection(savedMarkdown, "Mireward").fragment;
-  const semanticTree = markdownToTiptapDoc(reloadedSection).doc;
-  const serializedTree = JSON.stringify(semanticTree);
-  expect(serializedTree).toContain('"type":"bold"');
-  expect(serializedTree).toContain('"type":"italic"');
-  expect(serializedTree).toContain('"type":"blockquote"');
-  expect(serializedTree).toContain('"type":"callout"');
-  expect(serializedTree).toContain('"type":"decisionConsequence"');
-
-  view.unmount();
-  window.history.replaceState({}, "", location);
-  render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
-  const reloadedEditor = await screen.findByTestId("world-owned-plan-markdown-editor");
-  await waitFor(() => expect(reloadedEditor).toHaveTextContent("The watcher"));
-  expect(selectedMarkdownSection(savedMarkdown, "Mireward").fragment).toBe(canonicalReplacement);
+  await currentSectionRoundTrip(sourceMarkdown, "Mireward", () => replacementMarkdown,
+    selected => {
+      expect(selected).toContain("Mireward");
+      expect(selected).toContain("After the attack");
+      expect(selected).toContain("The town waits.");
+      expect(selected).not.toContain("North Road");
+      expect(selected).not.toContain("A different route.");
+    },
+    markdown => {
+      expect(selectedMarkdownSection(markdown, "Mireward").fragment).toBe(canonicalReplacement);
+      expect(selectedMarkdownSection(markdown, "North Road").fragment).toBe(selectedMarkdownSection(tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(sourceMarkdown).doc), "North Road").fragment);
+      const semanticTree = JSON.stringify(markdownToTiptapDoc(selectedMarkdownSection(markdown, "Mireward").fragment).doc);
+      for (const type of ["bold", "italic", "blockquote", "callout", "decisionConsequence"]) {
+        expect(semanticTree).toContain(`"type":"${type}"`);
+      }
+    });
 }, 30_000);
 
 it("drops a delayed proposal that completes after the mounted Plan conversation unmounts", async () => {
