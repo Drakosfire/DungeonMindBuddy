@@ -57,6 +57,11 @@ function renderBuildPage({ withConversationDock = false, managedWorld = false }:
   );
 }
 
+function expectBuildSaveState(state: "unsaved" | "saved") {
+  const status = within(screen.getByTestId("build-document-status")).getByRole("status");
+  expect(status).toHaveAttribute("data-save-state", state);
+}
+
 function mockUntitledDraftCreate(documentId = DOC_ID, campaignId = "longmont-c2") {
   vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue({
     schema_version: "dmb_workspace_document_record_v1",
@@ -394,7 +399,7 @@ describe("BuildSurfacePage", () => {
     expect(activeSession?.saveDisabled).toBe(true);
     expect(screen.getByTestId("build-navbar-save")).toBeDisabled();
     act(() => activeSession!.editor!.chain().focus().insertContent("A first note").run());
-    await waitFor(() => expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes"));
+    await waitFor(() => expectBuildSaveState("unsaved"));
     expect(activeSession?.saveDisabled).toBe(false);
     expect(screen.getByTestId("build-navbar-save")).toBeEnabled();
     sessionSpy.mockRestore();
@@ -488,7 +493,7 @@ describe("BuildSurfacePage", () => {
     });
     expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
+      expectBuildSaveState("saved");
     });
   });
 
@@ -989,7 +994,7 @@ describe("BuildSurfacePage", () => {
     const { unmount } = renderBuildPage();
 
     await waitFor(() => {
-      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+      expectBuildSaveState("unsaved");
     });
     expect(screen.queryByTestId("build-save-button")).not.toBeInTheDocument();
 
@@ -1022,7 +1027,7 @@ describe("BuildSurfacePage", () => {
     renderBuildPage();
 
     await waitFor(() => {
-      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
+      expectBuildSaveState("saved");
     });
     expect(liveApi.getWorkspaceDocumentSnapshot).toHaveBeenCalledWith(DOC_ID);
   });
@@ -1112,7 +1117,7 @@ describe("BuildSurfacePage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+      expectBuildSaveState("unsaved");
     });
 
     await user.click(screen.getByRole("button", { name: "Edit" }));
@@ -1162,7 +1167,7 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
       expect(screen.getByTestId("build-markdown-editor")).toBeInTheDocument();
-      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+      expectBuildSaveState("unsaved");
     });
 
     const stored = JSON.parse(
@@ -1320,7 +1325,7 @@ describe("BuildSurfacePage", () => {
     const { unmount } = renderBuildPage();
 
     await waitFor(() => {
-      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+      expectBuildSaveState("unsaved");
     });
     expect(screen.getByTestId("build-document-rename-open")).not.toBeDisabled();
 
@@ -1349,7 +1354,7 @@ describe("BuildSurfacePage", () => {
         name: "Ironveil Manufactory Grounds",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+    expectBuildSaveState("unsaved");
 
     vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
       schema_version: "dmb_tiptap_markdown_write_prepare_v1",
@@ -1433,7 +1438,7 @@ describe("BuildSurfacePage", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Ironveil Manufactory Grounds");
-      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
+      expectBuildSaveState("saved");
     });
     expect(await screen.findByTestId("build-markdown-editor")).toHaveTextContent(
       /western warehouse is empty during festival season/i,
