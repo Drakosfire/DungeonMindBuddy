@@ -142,8 +142,11 @@ def read_proposals(operation_id: UUID, managed_world_id: str, principal=Depends(
 
 
 def review_proposal(operation_id: UUID, managed_world_id: str, body: ProposalReview,
-                    principal=Depends(native_graph_gm_dependency)):
-    return _proposal_call(proposals.review, operation_id, managed_world_id, body, principal)
+                    principal=Depends(native_graph_explorer_dependency)):
+    require_explorer_access(principal, managed_world_id)
+    result = _proposal_call(proposals.review, operation_id, managed_world_id, body, principal)
+    require_explorer_access(principal, managed_world_id)
+    return result
 
 router.add_api_route("/proposals", produce_proposals, methods=["POST"], route_class_override=StrictJSONRoute)
 router.add_api_route("/proposals/{operation_id}/review", review_proposal, methods=["POST"], route_class_override=StrictJSONRoute)

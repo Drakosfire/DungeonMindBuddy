@@ -495,6 +495,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}/encounters/{encounter_id}/mechanics-adoptions"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/world-graph/managed-projection"): access.resolve_hosted_managed_projection,
             ("GET", "/api/live/source-statements/proposals/{operation_id}"): access.resolve_hosted_source_statement_proposal,
+            ("POST", "/api/live/source-statements/proposals/{operation_id}/review"): access.resolve_hosted_source_statement_review,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/rebase"): access.resolve_hosted_play_command,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): access.resolve_hosted_play_command,
@@ -6174,3 +6175,34 @@ def test_hosted_source_statement_proposal_reads_as_exact_reviewer(hosted, monkey
     denied = hosted.client.request("GET", path)
     assert denied.status_code == 403, denied.text
     assert "withheld proposal" not in denied.text
+
+
+def test_hosted_source_statement_review_checks_the_saved_world(hosted, monkeypatch):
+    from apps.live_control_server.routes import source_statements
+
+    calls = []
+
+    def review(operation_id, world, body, principal):
+        calls.append((world, body.selection.managed_world_id, principal.subject))
+        return {"reviewed": True}
+
+    monkeypatch.setattr(source_statements.proposals, "review", review)
+    operation_id = "00000000-0000-4000-8000-000000000001"
+    path = f"/api/live/source-statements/proposals/{operation_id}/review?managed_world_id=managed"
+    selection = {
+        "managed_world_id": "managed", "campaign_id": "campaign", "expected_parent_revision_id": "rev:head",
+        "source_admission_id": "admission", "evidence_ref_id": "evidence",
+        "source_sha256": "a" * 64, "start_byte": 0, "end_byte": 1, "clause_sha256": "b" * 64,
+        "meaning": "Reviewed statement", "mode": "narrator", "referents": ["ent:subject"],
+        "uncertainty": [], "qualifications": {"scope": "reviewed"}, "episode": "episode", "source_order": [],
+    }
+    body = {"decision_id": operation_id, "expected_revision": 1, "proposal_id": "proposal", "selection": selection}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={
+        **body, "selection": {**selection, "managed_world_id": "foreign"},
+    }).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 200, result.text
+    assert result.json() == {"reviewed": True}
+    assert calls == [("managed", "managed", "hosted_dms:synthetic-owner-alpha")]
