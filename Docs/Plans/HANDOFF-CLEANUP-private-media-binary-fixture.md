@@ -1,6 +1,14 @@
 # CLEANUP: align private artwork round-trip fixture with binary delivery
 
-Status: ACTIVE under the user-authorized cleanup goal, including review and merge.
+Status: SETTLED by #4089, merged 59b419cdccac6bae5670be84e319d32d2aad22cc.
+Reviewed head: 7f8f66e486eec665533cb377be7dddfeb664c116.
+Independent exact-head source/raw-evidence review approved. Hosted 1411 tests,
+build and evidence validation passed. Full discovered diagnostic: 8042 passed,
+137 failed, 2 pending. The intended round-trip failure resolved with no added or
+omitted cases, new failures or changed remaining leading messages. Focused media
+contracts: 16 passes. The insertion metadata check and two reload reads, UUID-only
+writer/reload, Blob bytes and URL cleanup remain verified. Full qualification is
+red with two conditional inventory extras and the earlier unresolved quote case.
 Base: 84ba5c4191320467cbd80810f5b601d69f9c47f5.
 Branch: codex/private-media-binary-fixture, existing cleanup checkout.
 Topology: serial after merged #4088; no unmerged behavioral dependency.
