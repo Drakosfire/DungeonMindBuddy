@@ -1841,6 +1841,22 @@ def test_exact_world_lookup_returns_the_same_public_record(hosted):
     assert response.json() == hosted.client.request("GET", COLLECTION).json()["records"][0]
 
 
+def test_exact_world_lookup_warms_only_the_authorized_world(hosted, monkeypatch):
+    from apps.live_control_server.services import plan_source_turn
+
+    warmed = []
+
+    def prepare(world_id, principal):
+        warmed.append((world_id, principal.managed_world_id, principal.role))
+        return object(), None
+
+    monkeypatch.setattr(plan_source_turn, "prepare", prepare)
+    assert hosted.client.request("GET", f"{COLLECTION}/lookup?managed_world_id=unowned").status_code == 403
+    assert warmed == []
+    assert hosted.client.request("GET", f"{COLLECTION}/lookup?managed_world_id=managed").status_code == 200
+    assert warmed == [("managed", "managed", "gm")]
+
+
 @pytest.mark.parametrize("query", [
     "managed_world_id=unowned",
     "managed_world_id=managed&managed_world_id=managed",
