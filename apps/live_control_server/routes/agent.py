@@ -765,6 +765,7 @@ def _plan_context_resolver(
         try:
             context, query = prepare_query(work.world_id, body.message, native_principal,
                 source_context=native_source_context,
+                measure_work=trace.measure_host_work if trace is not None else None,
                 authored_references=body.build_authored_references if body.surface.surface_id == 'build' else body.authored_references,
                 revision_id=frozen_query.authority.revision_id if isinstance(frozen_query, NativePlanQueryV1) else None)
         except ValueError as exc:
