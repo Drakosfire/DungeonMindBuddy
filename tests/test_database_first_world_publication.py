@@ -199,3 +199,72 @@ def test_internal_call_without_authorizer_preserves_optional_contract(monkeypatc
 
     monkeypatch.setattr(owner, operation, implementation)
     assert getattr(facade, operation)(request) is response
+
+
+@pytest.fixture
+def native_first_world_core_dsn(monkeypatch):
+    from tests.test_native_recap_source_admission import native_core_dsn
+    yield from native_core_dsn.__wrapped__(monkeypatch)
+
+
+def _native_core_counts(dsn):
+    from psycopg import sql
+    with psycopg.connect(dsn) as conn:
+        names = [row[0] for row in conn.execute(
+            "SELECT tablename FROM pg_tables WHERE schemaname='dungeonmind' ORDER BY tablename")]
+        return {name: conn.execute(sql.SQL("SELECT count(*) FROM dungeonmind.{}").format(
+                    sql.Identifier(name))).fetchone()[0] for name in names}
+
+
+@pytest.mark.parametrize("admitted", [False, True])
+@pytest.mark.parametrize("one_paragraph", [False, True])
+def test_native_first_world_prepare_is_read_only_with_absent_or_admitted_source(
+    native_first_world_core_dsn, application_state_dsn, monkeypatch, tmp_path, admitted, one_paragraph,
+):
+    from dungeonmind.infrastructure.postgres import PostgresDatabase, PostgresNativeSourceEvidenceRepository
+    from apps.live_control_server import config
+    from apps.live_control_server.models.native_first_world_publication import NativeFirstWorldPrepareRequest
+    from apps.live_control_server.services.native_first_world_publication import (
+        prepare_native_first_world, decode_native_plan,
+    )
+    from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import admit_native_world_source
+    from apps.live_control_server.services.world_container_registry import get_world_container
+    from tests.application_state.world_catalog_fixtures import world_snapshot
+
+    if one_paragraph:
+        import tests._cutover_d3a_blocker_safe_fixtures as helpers
+        original_save = helpers.save_page
+        monkeypatch.setattr(helpers, "save_page", lambda root, document, text:
+            original_save(root, document, "Worldbuilding source for promote. A second paragraph."))
+    case = _case(monkeypatch, tmp_path)
+    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(tmp_path))
+    monkeypatch.setenv("DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY", "native-first-world-test-only")
+    monkeypatch.setattr(config, "world_graph_authority_database_url", lambda: native_first_world_core_dsn)
+    repository = PostgresNativeSourceEvidenceRepository(PostgresDatabase(native_first_world_core_dsn))
+    document = case.baseline.workspace_document_id
+    if admitted:
+        status = admit_native_world_source(tmp_path, document,
+            expected_revision=int(case.baseline.workspace_document_revision),
+            expected_body_sha256=case.resolved.source_revision_id.removeprefix("sha256:"))
+        assert status.state == "admitted"
+    before = _native_core_counts(native_first_world_core_dsn)
+    world = get_world_container(case.baseline.world_id)
+    catalog_before = world_snapshot()
+    request = NativeFirstWorldPrepareRequest.model_validate({
+        "schema": "dmb_native_first_world_prepare_request_v1", "runId": case.request.run_id,
+        "decisions": [d.model_dump(mode="json", by_alias=True) for d in case.request.decisions],
+    })
+    plan = prepare_native_first_world(request, principal_subject="test-operator", repository=repository)
+    assert _native_core_counts(native_first_world_core_dsn) == before
+    assert world_snapshot() == catalog_before
+    assert plan.source_stage.admission_state == ("admitted" if admitted else "absent")
+    assert (plan.source_stage.native_source_artifact_id is not None) == admitted
+    assert decode_native_plan(plan, principal_subject="test-operator") == plan
+    if one_paragraph and admitted:
+        assert plan.source_stage.existing_bindings
+        assert {b.evidence_role for b in plan.source_stage.existing_bindings} == {"context"}
+        assert all(b.proof.start_byte == 0 and b.proof.end_byte == len("Worldbuilding source for promote. A second paragraph.".encode())
+                   for b in plan.source_stage.existing_bindings)
+    elif not admitted:
+        assert not plan.source_stage.existing_bindings
+    assert not case.authority.initializations

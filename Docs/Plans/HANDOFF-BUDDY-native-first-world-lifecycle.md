@@ -9,7 +9,7 @@ codex/v10-native-first-world-lifecycle, existing task-owned Buddy checkout.
 ## Pinned assignment and current source
 
 Adopt ARCHITECTURE's bounded disposition at
-[9fb4deea8997ac85370b9df14526059f2c9d0dbc](https://github.com/Drakosfire/DungeonMindBuddy/blob/9fb4deea8997ac85370b9df14526059f2c9d0dbc/Docs/Plans/HANDOFF-MIND-B2-native-first-world-lifecycle.md).
+[c19a429a3166ec74fc6a48992680706af04d507d](https://github.com/Drakosfire/DungeonMindBuddy/blob/c19a429a3166ec74fc6a48992680706af04d507d/Docs/Plans/HANDOFF-MIND-B2-native-first-world-lifecycle.md).
 Its complete outcome, sealed lifecycle, failure cases and verification requirements
 are part of this assignment. The user granted lane authority; ARCHITECTURE designed
 the precise section splits. No PRIME or standing-Steward gate. No competing branch
@@ -73,8 +73,14 @@ Exclusive expected-path lease (only named sections where stated):
 
 No shared models/extract_promote.py, root UI api/types.ts or extractPromoteApi.ts,
 native_world_source_admission.py, hosted-access tests, WorkbenchModule tests, CI
-inventory/contracts, B1 compiler/model/tests or other sequencing files. Extend
-existing classified tests. A required edit outside this list requires an owning
+inventory/contracts, B1 models/unrelated compiler behavior or other sequencing files. Extend
+existing classified tests. Narrow B1 transfer under c19a429a adds only
+apps/live_control_server/services/native_first_world_compilation.py source_ref_id
+correlation-versus-document equality and native support/context role guard, plus
+tests/test_first_world_typed_evidence.py focused coverage. No contradiction, role
+upgrade or source identity/byte guard is permitted.
+
+A required edit outside this list requires an owning
 rebrief before that edit; continue unaffected authorized work.
 
 ## Adopted critique and concrete lifecycle
@@ -151,3 +157,44 @@ data checks and cleanup follow-up after accepted replacement/approved scope.
 
 Implementation status: not yet accepted. This activation settles scope and critique,
 not runtime, deployment or full goal completion.
+
+## Scope checkpoint — actual integration evidence
+
+Two real disposable PostgreSQL preparation cases exposed B1's false equality
+between producer-local source_ref_id and the index's document reference. The
+producer preserves nonblank local aliases; artifact/revision/frozen span/bytes
+remain source authority. ARCHITECTURE c19a429a explicitly transfers the two narrow
+compiler/test sections into this B2 PR. Preserve each raw alias and its complete
+request commitment, never normalize it into authority.
+
+Core rejects already-registered intervals. Reuse actual exact existing support or
+context proofs, preserving identities and roles; refuse contradiction/ambiguity and
+extend only missing intervals. Current SourceView epoch is freshness; each proof's
+original authority_epoch is provenance, not a substitute for the current epoch.
+Seal exact existing reviewed-ref to proof/revision/role/creation-epoch/origin receipt
+associations. Absent admission contains no future proof. Recovery reads immutable
+records even if artifact is now retracted; ordinary access validation remains
+mandatory for prepare/unapplied work and normal reads.
+
+Graph publication identity is fixed to native space plus APP provisioning identity,
+so a second reviewed command cannot claim first initialization after rollback or
+activation failure. Per-review extension/profile stage identities remain stable
+inside that signed request. No new generic Core cancellation/epoch contract.
+
+## Implementation checkpoint
+
+Strict versioned protocol and real read-only prepare are implemented, including
+server-signed intent, actual source state, source-only history, fixed reservation
+publication identity and reusable proof identity/role/creation-epoch/origin receipt
+sealing. Immutable source/intent/publication verification helpers are written.
+Working-tree diagnostics:95 compiler tests pass;4 actual SQL preparation cases
+pass (absent/admitted, normal/matching one-paragraph no-newline source), with all
+Core table counts and APP catalog snapshot unchanged. Fixtures dropped their
+uniquely owned test databases. Earlier diagnostic logs retain one fixture-call
+error and the real producer-correlation failure; neither is passing evidence.
+
+Confirmation/stage replay/native APP activation, handler/auth wiring and full
+qualification are not yet complete or accepted. UI sidecar owns only its named
+UI paths; parent owns server/model/SQL tests/handoff. No Node tests run while
+implementation is changing; normal shared-lock verification remains required.
+Serving5202, live data, provider state and frozen retrieval baseline are unchanged.
