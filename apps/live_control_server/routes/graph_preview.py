@@ -19,7 +19,7 @@ from apps.live_control_server.models.exact_run_candidate_projection import (
 from apps.live_control_server.models.historical_recap_projection import (
     HistoricalRecapWorldProjectionResponse,
 )
-from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
+from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm, native_graph_gm_dependency
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GraphIngestLatestRunResponse,
     GraphIngestRunRegistryError,
@@ -790,14 +790,25 @@ def post_build_recap_launch(body: BuildRecapLaunchRequest) -> dict[str, Any]:
     return get_extraction_run_build_context(run.run_id)
 
 
-@router.get("/build-recap-launches/{request_id}", dependencies=[Depends(native_graph_gm_dependency)])
-def get_build_recap_launch(request_id: UUID, document_id: UUID, managed_world_id: str) -> dict[str, Any]:
+@router.get("/build-recap-launches/{request_id}")
+def get_build_recap_launch(request: Request, request_id: UUID, document_id: UUID, managed_world_id: str) -> dict[str, Any]:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_native_source
     from apps.live_control_server.services.build_recap_launch import recover_build_recap_launch
+
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+    else:
+        require_hosted_build_native_source(request, managed_world_id)
     try:
         run = recover_build_recap_launch(repo_root(),request_id=request_id,document_id=document_id,managed_world_id=managed_world_id)
     except Exception as exc:
         raise HTTPException(status_code=getattr(exc,"status_code",503),detail=str(exc)) from exc
-    return get_extraction_run_build_context(run.run_id)
+    context = get_extraction_run_build_context(run.run_id)
+    if context["document_id"] != str(document_id):
+        raise HTTPException(status_code=409, detail="Saved recap launch does not match this document")
+    require_hosted_build_native_source(request, managed_world_id)
+    return context
 
 
 @router.get("/extraction-runs/{run_id}/usage")
