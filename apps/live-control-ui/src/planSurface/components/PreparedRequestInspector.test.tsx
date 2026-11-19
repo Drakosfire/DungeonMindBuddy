@@ -44,8 +44,13 @@ it.each(['Normal prose','42','true','null'])('keeps non-object message content a
 });
 
 it('shows the ordered Luna prompt and configuration with collapsed field diagnostics', () => {
-  const input = [{ role: 'user', content: 'First' }, { role: 'user', content: 'Second' }];
-  const payload = { model: 'gpt-6-luna', instructions: 'Ground the answer', input, reasoning: { effort: 'low' }, service_tier: 'priority', stream: true };
+  // Match the retained Luna capture's field order and configuration, with synthetic prompt text.
+  const input = ['First', 'Second', 'Third'].map(content => ({ role: 'user', content }));
+  const payload = {
+    input, instructions: 'Ground the answer', model: 'gpt-6-luna',
+    reasoning: { effort: 'low' }, service_tier: 'fast', stream: false,
+    text: {}, tools: [],
+  };
   render(<PreparedRequestInspector payloadJson={JSON.stringify(payload)} previousPayloadJson='{"model":"decision"}' />);
   const request = screen.getByLabelText('Captured request').querySelector('pre')!;
   expect(JSON.parse(request.textContent!)).toEqual(payload);
