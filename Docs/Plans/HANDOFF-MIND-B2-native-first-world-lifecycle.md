@@ -134,7 +134,8 @@ reviewed-location binding class in `models/extract_promote.py`; #3824 head
 `76c31187` edits hosted-auth/shared router, other hosted access sections and
 `integrations/dungeonmind/native_world_source_admission.py`; its inspected
 hosted-access diff has no first-World resolver hunk. #3824 and #3808 share
-`tests/test_hosted_native_graph_access.py`, which B2 does not allocate. #3824
+`tests/test_hosted_native_graph_access.py`; B2 allocates only the exact first-World
+function named above and leaves the rest to those lanes. #3824
 also edits both UI parent components, #1235 edits the Workbench component and
 #2405 edits its shared test; the explicit split above is only the first-World
 recovery affordance/selection sections and existing first-World tests. It does
