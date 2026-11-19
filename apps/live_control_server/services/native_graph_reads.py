@@ -145,10 +145,10 @@ def _assertion_matches(entities, *, excluded_subjects, name_scope=None, discover
                 from application_state.agent_conversation.neighborhood_replay import NeighborhoodReplayHop
 
                 discovery_hops.append(NeighborhoodReplayHop(
-                    relationship_id=assertion.assertion_id, from_node_id=entity_id,
-                    to_node_id=assertion.subject_entity_id,
+                    relationship_id=parsed.assertion_id, from_node_id=entity_id,
+                    to_node_id=parsed.subject_entity_id,
                 ))
-                reached.add(assertion.subject_entity_id)
+                reached.add(parsed.subject_entity_id)
     return tuple(NativePlanAssertionMatchV1(assertion_id=a.assertion_id,
         subject_entity_id=a.subject_entity_id, discovered_entity_ids=tuple(sorted(witnesses)),
         assertion_sha256=digest(a), label=f'{label} · {a.predicate}')
