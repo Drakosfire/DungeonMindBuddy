@@ -1,17 +1,18 @@
 # BUDDY — V9.A native canary qualification and process rollback
 
-Status: ACTIVE — canary/write rollback passed; two test-fixture blockers remain.
+Status: ACTIVE — fixture blockers closed; frozen final-candidate qualification pending.
 Owner/designer: Elderwyld vNext completion lane. Operator authorized implementation,
 independent review, merge and launch; no PRIME coordination prerequisite.
 
 ## Current anchor and mission
 
-Runtime base: Buddy475f65d92411e380c7881a2b7a394fa38e7e65b7 (accepted4056).
+Runtime base: Buddy6facf08bcc77c11fe9d11addc2154b3be1ffebfc (includes accepted4059/4061).
 Core runtime4b6516e2c0dfd81acaa4410b9b9bb9da18894c90; V8 evidence accepted in
 Core229 mergef770098ad27b772e6351f2827a2b7bd6628705e8. Read canonical
 Docs/Handoffs/dm_vnext_contract_acceptance_v1.json there; do not rerun classic baseline.
 Branch codex/v9-native-canary-qualification is rebased onto the frozen accepted
-runtime base. Record each final execution head/imported-source manifest separately;
+runtime base. This is the deliberately frozen release candidate; do not chase
+later floating main. Record each final execution head/imported-source manifest separately;
 these documentation commits do not silently qualify later unrelated main changes.
 
 Can this native runtime use a verified restore of current Elderwyld authority,
@@ -38,6 +39,12 @@ switch. Split discovered product defects into independently reviewable repairs.
 - 4056 merge475f65d92411e380c7881a2b7a394fa38e7e65b7: actual local bearer auth,
   explicit local fixtures and current typed registry response.76 owning tests,
   exact frontend/CI pass. Runtime authorization unchanged.
+
+- 4059 merge803e95912511f7692ec044ca5333ba73cc4818a0: explicit local source-inspection
+  fixture; unchanged auth/source assertions. Auth261 passed.
+- 4061 merge5c887f0e600c0ab1d23af4b6c71d4df5b6bd2fe5: current completed-row transfer
+  into exact historical0139 schema, preserving original constraints/comparison.
+  Module17 passed, query1256 passed; independent review5969679353 and frontend pass.
 
 Their independent reviews and failure histories live in those PRs and task proof
 receipts. GM intentionally admits GM and player labels; player-only is not hidden
@@ -130,11 +137,35 @@ replay/receipt equality adds no publication. New100-byte and old1276-byte citati
 hashes match across rollback. No old dump restored over the write. Owned API/UI
 groups are now stopped; retain latest restore. This is same-version rollback only.
 
-Current contracts: world445pass; ingestion888pass; query1255pass/1failed (historical
-0139 comparison fixture using later current page reader); auth225pass/36failed
-(one source fixture missing explicit local mode). These remain acceptance blockers.
-Repair separately, preserve historical schema/security/source checks, then final
-review and exact-head evidence assembly. Detailed hashes are in the report.
+The fixture failures are now closed. At90fb4b22fda76b5b1c1bdbf4c3975a4e5a3b98c3,
+world445, ingestion888, query1256 and auth261 passed. This is retained predecessor
+proof, not qualification of the later frozen6fac runtime. No worker/canary remains
+live before this re-anchor.
+
+## Frozen final candidate and delta obligations
+
+Candidate6facf08bcc77c11fe9d11addc2154b3be1ffebfc includes hosted authorization,
+credential routing and mutation rechecks added since0274: Runbooks, Build proposals,
+Play/combat, managed Graph projection, Worldbuilding configuration and source
+statement proposal read/review. No migration, dependency or lockfile delta.
+Independent read-only delta critique records these boundaries in the retained
+v9-final-candidate-gate-map.json. Earlier browser/write/rollback proofs remain
+historical. Refresh proof on this candidate; do not infer runtime equality.
+
+Reuse the existing owned602-revision restore, with read-only fresh scope capture
+under scratch/v9-buddy/final-6fac. Separate logs/attestations preserve earlier proof.
+The new write checker understands prepare source admission then object confirm;
+no zero-head-change assumption at prepare. Current binding3, head48384a4b and
+parent e428ac6d were rechecked read-only. No live-source or serving change.
+
+Run exact-candidate consumer/auth cohorts, real authenticated Graph/browser/source
+reads plus anonymous denial, selected-world capabilities, and owning negative
+source-review/hosted tests. Configuration reporting is not publication/readiness
+proof. Exercise changed local product routes where actual behavior is claimed;
+keep test-vs-browser limits explicit. No provider generation merely to qualify
+source review. Repeat governed forward write, real client mapping rollback and
+exact replay/old+new citation continuity, then verify after-request source attestation
+completed successfully. All current acceptance remains pending until collected.
 
 ## Remaining required proof and dispatch order
 
@@ -143,7 +174,7 @@ review and exact-head evidence assembly. Detailed hashes are in the report.
    snapshot/coherence limits and exact proof artifact hashes in the report.
 2. Run current world-and-content, ingestion-and-review, query-and-answer, auth-app
    repo-owned contracts with pinned Node/uv PATH and uniquely owned test DBs.
-   Earlier query/auth never started after failures; do not claim them green.
+   The90fb predecessor is green; do not promote it to final6fac-byte proof.
 3. Qualify current full app and real frontend mapping/actual UI behavior for intended
    managed projection, exact/complete object, neighborhood, evidence, source anchors,
    search and Plan subject search. Preserve authorization/source withdrawal/exact

@@ -1,11 +1,11 @@
 {
   "schema": "dmb_v9_native_canary_qualification_v1",
-  "status": "ACTIVE_BLOCKED_ON_REMAINING_TEST_FIXTURES",
+  "status": "ACTIVE_FINAL_CANDIDATE_QUALIFICATION",
   "owner": "Elderwyld vNext completion lane",
   "candidate": {
-    "buddy": "475f65d92411e380c7881a2b7a394fa38e7e65b7",
+    "buddy": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc",
     "core": "4b6516e2c0dfd81acaa4410b9b9bb9da18894c90",
-    "scope": "Frozen accepted runtime base; final qualification head independently attested"
+    "scope": "Deliberately frozen final runtime; later main excluded until explicitly rebriefed"
   },
   "v8_acceptance_merge": "f770098ad27b772e6351f2827a2b7bd6628705e8",
   "source_mutation": false,
@@ -137,9 +137,10 @@
     }
   ],
   "pending": [
-    "Repair historical comparison and local source-inspection fixtures; full consumer acceptance held",
-    "Final exact-source/configuration/selector assembly, frontend qualification, independent cumulative review and checks",
-    "V9.B fresh live recovery/schema readiness/activation, V10 retirement, V11 serving baseline"
+    "Frozen6fac exact consumer/auth/hosted frontend qualification and full-app/browser/selected-world/source-review proof",
+    "Frozen6fac governed write, process/mapping rollback, exact replay/citations and successful after-request loaded-source attestation",
+    "Final independent cumulative review/normal checks; V9.A acceptance",
+    "V9.B fresh live recovery/schema/artifact readiness and actual activation; V10 retirement; V11 serving baseline"
   ],
   "evidence_files": [
     {
@@ -341,33 +342,16 @@
     {
       "pr": 4056,
       "merge": "475f65d92411e380c7881a2b7a394fa38e7e65b7"
+    },
+    {
+      "pr": 4059,
+      "merge": "803e95912511f7692ec044ca5333ba73cc4818a0"
+    },
+    {
+      "pr": 4061,
+      "merge": "5c887f0e600c0ab1d23af4b6c71d4df5b6bd2fe5"
     }
   ],
-  "current_qualified_source": "0274e014daa6527cccf6abd71dd2e641204dc4b0",
-  "current_consumer_contracts": {
-    "world-and-content": {
-      "passed": 445,
-      "deselected": 74,
-      "status": "passed"
-    },
-    "ingestion-and-review": {
-      "passed": 888,
-      "deselected": 119,
-      "status": "passed"
-    },
-    "query-and-answer": {
-      "passed": 1255,
-      "failed": 1,
-      "status": "held",
-      "failure": "Historical0139 fixture invokes current page reader without later page_presentation table; preserve historical boundary when repairing"
-    },
-    "auth-app": {
-      "passed": 225,
-      "failed": 36,
-      "status": "held",
-      "failure": "One source-inspection fixture omits explicit local deployment/auth mode"
-    }
-  },
   "current_owned_restore": {
     "status": "passed",
     "candidate": "0274e014daa6527cccf6abd71dd2e641204dc4b0",
@@ -510,6 +494,102 @@
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9-final-auth-contract.json",
       "bytes": 297,
       "sha256": "0bcd18b34c3c661e5e87eaad9b2d9edaa782ead6f8ce730f368e9b131abbca0c"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9-final-candidate-freeze.json",
+      "bytes": 3381,
+      "sha256": "8eb7e14da4b7f3a72553fae5b44a11bcc2400c0937d616c7d6e243dbd1042833"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9-final-candidate-gate-map.json",
+      "bytes": 1370,
+      "sha256": "9a4d5a2d1902f05792b2397199ef3e05fa6fcc8f02f8d71d0fedf0e79ca56cd8"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9-refreshed-consumer-contracts.json",
+      "bytes": 711,
+      "sha256": "28d8d9d0ee0f55f7744e22a8a17837cfc7ddf788fe7d92d61041a39fd7e248bb"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/historical-storage-query-contract.log",
+      "bytes": 496656,
+      "sha256": "3104c3bf61d1cbbf85164188dfba47ea4e4e85ab0269132212000ab463702977"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/qualification-authority.json",
+      "bytes": 1041,
+      "sha256": "01bc2181a3fb2a923bbee9d4c32785d78df054ce8634b08fc112a8099a495c0a"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/final-6fac/harness-preparation.json",
+      "bytes": 1774,
+      "sha256": "4d6db34a272436969840136d4a16a1a4a345f62aa8be465d9b207860e53b27e6"
     }
-  ]
+  ],
+  "historical_qualified_source": "0274e014daa6527cccf6abd71dd2e641204dc4b0",
+  "final_candidate_runtime": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc",
+  "historical_consumer_contracts": {
+    "world-and-content": {
+      "passed": 445,
+      "deselected": 74,
+      "status": "passed"
+    },
+    "ingestion-and-review": {
+      "passed": 888,
+      "deselected": 119,
+      "status": "passed"
+    },
+    "query-and-answer": {
+      "passed": 1255,
+      "failed": 1,
+      "status": "held",
+      "failure": "Historical0139 fixture invokes current page reader without later page_presentation table; preserve historical boundary when repairing"
+    },
+    "auth-app": {
+      "passed": 225,
+      "failed": 36,
+      "status": "held",
+      "failure": "One source-inspection fixture omits explicit local deployment/auth mode"
+    }
+  },
+  "predecessor_consumer_contracts": {
+    "source": "90fb4b22fda76b5b1c1bdbf4c3975a4e5a3b98c3",
+    "world-and-content": {
+      "passed": 445,
+      "deselected": 74,
+      "warnings": 83
+    },
+    "ingestion-and-review": {
+      "passed": 888,
+      "deselected": 119,
+      "warnings": 59
+    },
+    "query-and-answer": {
+      "passed": 1256,
+      "warnings": 156
+    },
+    "auth-app": {
+      "passed": 261,
+      "warnings": 4
+    },
+    "status": "passed; historical fixture and local source-auth blockers closed"
+  },
+  "current_consumer_contracts": {
+    "world-and-content": {
+      "status": "pending",
+      "runtime": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc"
+    },
+    "ingestion-and-review": {
+      "status": "pending",
+      "runtime": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc"
+    },
+    "query-and-answer": {
+      "status": "pending",
+      "runtime": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc"
+    },
+    "auth-app": {
+      "status": "pending",
+      "runtime": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc"
+    }
+  }
 }
