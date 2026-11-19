@@ -1406,7 +1406,7 @@ def test_original_review_identity_omits_absent_extension_field(lane, application
 
 
 @pytest.fixture
-def sibling_span_lane(tmp_path, monkeypatch):
+def sibling_span_lane(application_state_dsn, tmp_path, monkeypatch):
     from tests.test_source_statements import make_lane
     return make_lane(tmp_path, monkeypatch, multiple=True)
 
