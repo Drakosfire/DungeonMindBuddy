@@ -128,6 +128,7 @@ it.each(['normal','notes-failure'])('compares and explicitly adopts saved V3 con
  const adopt=await screen.findByRole('button',{name:'Use saved review for this placement'});
  expect((await readPlacement(ref))?.phase).toBe('staged');expect(saveWorkPlan).not.toHaveBeenCalled();expect(screen.getByLabelText('Saved review Graph context')).toHaveTextContent('@Cedar box');
  const write=Storage.prototype.setItem;const blocked=mode==='notes-failure'?vi.spyOn(Storage.prototype,'setItem').mockImplementation(function(key,value){if(this===sessionStorage&&key.startsWith('dmb:surface-work-plan-notes:'))throw new Error('notes storage denied');return write.call(this,key,value);}):null;
+ await waitFor(()=>expect(adopt).toBeEnabled());
  fireEvent.click(adopt);await waitFor(()=>expect(screen.getByRole('textbox',{name:'Plan step 1'})).toHaveValue('Saved review wording.'));
  const updated=(await readPlacement(ref))!;expect(updated.schema).toBe('dmb_surface_work_plan_placement_v3');
  expect(updated.retired_placements[0].review_snapshot?.rows[0].text).toBe('Older unsaved wording.');
