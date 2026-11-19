@@ -1,5 +1,21 @@
 # COMBAT — free spotlight pacing
 
+## Consuming delivery checkpoint
+
+Spotlight #4022 merged095311ca9cacf920777007d8b74b894cbaa6dc9c after independent
+acceptance of exact71edcec945e74a07de0d261950643db338a03640 versus8be0a028.
+257backend/1410hosted passes and builds passed. Full discovered remains red159
+inherited failures/2skips with7addedpasses/noomissions; all68 changed messages
+preserve failure causes, owning frames and multiplicity. Exact71ed/0166 browser
+proof covers15participants, wide/narrow groups, arbitrary spotlight/Finish,
+defeat/return, stats/notes/status, recovery, source projection and independent
+Plan4/live4 state. Owned servers stopped and disposable DB inventory empty.
+Evidence root is buddy-check.LPopRI with spotlight-exact-*-locked,
+spotlight-frontend-71edcec94 and spotlight-browser receipts. This closes the bounded
+spotlight capability, not global release qualification or full Combat delivery.
+The authorized serial consumer is HANDOFF-COMBAT-runtime-delivery.md. The original
+assignment and pre-acceptance implementation checkpoint below remain historical.
+
 ACTIVE under the operator's full Combat design/implementation/review/accepted-merge
 and local-delivery assignment. Root owns this bounded design. Serial successor to
 #4018, merged90995af354398aede97c3a50ee53a2827dab5d03. Original base is that exact fetched main; qualification rebase
