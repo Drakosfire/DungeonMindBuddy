@@ -412,6 +412,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/extract-promote/worldbuilding/prepare"): access.resolve_hosted_worldbuilding_write_plan,
             ("POST", "/api/live/extract-promote/worldbuilding/confirm"): access.resolve_hosted_worldbuilding_write_plan,
             ("POST", "/api/live/extract-promote/native-worldbuilding-context"): access.resolve_hosted_worldbuilding_review_context,
+            ("POST", "/api/live/extract-promote/runs/{run_id}/selection-context"): access.resolve_hosted_recap_selection,
             ("POST", "/api/live/threats/query-hydration"): access.resolve_hosted_threat_hydration,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): access.resolve_hosted_play_command,
@@ -5163,3 +5164,39 @@ def test_hosted_connected_page_origin_reads_exact_saved_turn(hosted, monkeypatch
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(service, "managed", turn)
+def test_hosted_recap_selection_requires_world_owner_and_origin(hosted, monkeypatch):
+    from apps.live_control_server.services import ingest_selection_context
+
+    run_id = str(uuid4())
+    calls = []
+
+    def select(run, request, *, operator_subject):
+        calls.append((run, request.expected_world_id, operator_subject))
+        return {"run_id": run}
+
+    monkeypatch.setattr(ingest_selection_context, "resolve_ingest_selection_context", select)
+    path = f"/api/live/extract-promote/runs/{run_id}/selection-context"
+    body = {
+        "schema": "dmb_ingest_native_review_request_v2", "expected_run_revision": 1,
+        "expected_candidate_sha256": "a" * 64, "expected_source_sha256": "b" * 64,
+        "expected_span_index_sha256": "c" * 64, "expected_world_id": "managed",
+        "node_ids": ["node"], "edge_ids": [], "inspect_source_support": True,
+    }
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    assert not calls
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 200, result.text
+    assert calls == [(run_id, "managed", f"hosted_dms:{OWNER}")]
+
+    def transfer(*args, **kwargs):
+        packet = select(*args, **kwargs)
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return packet
+
+    monkeypatch.setattr(ingest_selection_context, "resolve_ingest_selection_context", transfer)
+    denied = hosted.client.request("POST", path, json=body)
+    assert denied.status_code == 403, denied.text
+    assert run_id not in denied.text

@@ -438,6 +438,10 @@ const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (isRecapSelectionContextPath(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.expected_world_id === "string" && Boolean(body.expected_world_id);
+  }
   if (/^\/api\/live\/extract-promote\/runs\/[^/?#%]+\/semantic-disposition\?managed_world_id=[a-z][a-z0-9_-]{0,62}$/.test(path)) {
     return method === "POST" && requestBodyRecord(init?.body) !== null;
   }

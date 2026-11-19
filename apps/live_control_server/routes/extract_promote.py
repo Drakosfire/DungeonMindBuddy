@@ -438,14 +438,16 @@ def post_ingest_selection_context(
     request_context: Request,
     run_id: str,
     request: IngestSelectionContextRequest,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     """Read-only, exact-run selection packet; never invokes a model or Graph write."""
     from apps.live_control_server.services.ingest_selection_context import resolve_ingest_selection_context
     from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError
+    from apps.live_control_server.services.hosted_native_graph_access import recap_selection_subject
+
+    subject = recap_selection_subject(request_context, request.expected_world_id)
     try:
         _reject_selector_query(request_context)
-        return resolve_ingest_selection_context(run_id, request, operator_subject=principal.subject)
+        result = resolve_ingest_selection_context(run_id, request, operator_subject=subject)
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except GraphRunRegistryError as exc:
@@ -456,6 +458,10 @@ def post_ingest_selection_context(
             "Selected ingestion context could not be resolved.",
             code="ingest_selection_unavailable", status_code=503,
         ))
+
+
+    recap_selection_subject(request_context, request.expected_world_id)
+    return result
 
 
 @router.post("/prepare", response_model=ExtractPromotePrepareResponse)
