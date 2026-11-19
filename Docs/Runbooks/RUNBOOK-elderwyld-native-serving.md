@@ -1,8 +1,10 @@
 # Elderwyld native serving
 
-Status: actual activation functional checks passed; PR4079 exact-head frontend,
-independent cumulative review and merge remain pending. V10 retirement and V11
-serving measurements remain required. Functional qualification is not a speed claim.
+Status: V9.B actual activation accepted at PR4079 merge
+e36abef5d75d543b7e8c656d611b93723757b362, exact reviewed5b422140079b357e064176732b20918a85ba14d5,
+Cycle1review5971846921, frontend1411 selected passes/build/canonical/cleanup.
+V10 retirement and V11 serving measurements remain required. Functional qualification
+is not a speed claim. Current serving mirrors and commands below remain pinned.
 
 ## Serving anchor
 

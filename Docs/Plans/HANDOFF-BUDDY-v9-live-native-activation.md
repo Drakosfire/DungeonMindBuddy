@@ -1,6 +1,6 @@
 # BUDDY — V9.B Elderwyld native live activation
 
-Status: ACTIVE. Owner/designer: Elderwyld vNext completion lane. Operator explicitly
+Status: COMPLETE — V9.B functional activation accepted. Owner/designer: Elderwyld vNext completion lane. Operator explicitly
 authorized implementation, review, merge and launch. No PRIME coordination gate.
 Serial dependency V9.A4041 merged d2166f5bfde17e9d595daf108ee5d817eb105ebf,
 reviewed871404916ee8f815407a63875a8b0eece7898bc2, independent Cycle2 review5970779017.
@@ -30,9 +30,13 @@ schema design/dependency/global configuration changes; use existing accepted mig
 
 ## Current live anchor and write boundary
 
-Activation functional proof PASSED on2026-11-19. Final exact-head frontend/canonical,
-independent cumulative PR4079 review and guarded merge remain pending. This handoff
-is ACTIVE until those acceptance gates close; V10/V11 are not complete.
+Activation functional proof PASSED on2026-11-19. PR4079 merged
+ e36abef5d75d543b7e8c656d611b93723757b362 after exact reviewed head
+5b422140079b357e064176732b20918a85ba14d5, independent Cycle1 APPROVE review5971846921,
+unmodified frontend1411 selected passes/build/cleanup and canonical validation.
+Docs-only automatic workflows did not trigger; no hosted-green claim. V10/V11 remain
+incomplete. The consuming V10.B handoff owns the next bounded current-route retirement;
+this predecessor's accepted serving mirrors are not silently replaced by later main.
 
 Actual local operator UI5202 maps to qualified primary18292; fallback18293 qualified
 against the same latest persistence. Primary1064371 (generation2), fallback1049478,
