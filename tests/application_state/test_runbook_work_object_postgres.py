@@ -44,7 +44,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_ds
         lambda: tmp_path,
         raising=False,
     )
-    return TestClient(create_app())
+    return TestClient(create_app(), client=("127.0.0.1", 50000))
 
 
 def _tiptap_commit(root: Path, document_id: str, markdown: str, expected_revision: int) -> None:

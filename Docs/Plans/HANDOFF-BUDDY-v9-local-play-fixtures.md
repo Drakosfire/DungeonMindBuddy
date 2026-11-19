@@ -12,7 +12,9 @@ Only this handoff; tests/application_state/test_runbook_work_object_postgres.py;
 tests/test_live_play_run_rebase.py. Their client fixtures construct the full app
 without selecting local deployment/auth mode, causing503 before intended behavior.
 Set DMB_DEPLOYMENT_ENVIRONMENT=local and DMB_AUTH_MODE=local_operator explicitly
-inside each fixture. Preserve actual auth guards, DSN ownership, requests, replay,
+inside each fixture, with an explicit unproxied loopback TestClient peer. The local
+boundary correctly rejects TestClient's default non-IP peer. Preserve actual auth
+guards, DSN ownership, requests, replay,
 conflict and corrupt-manifest assertions. If a route needs credentials, use real
 fixture credentials rather than bypassing its guard. No runtime/schema/provider/
 serving change. No migration-head spoofing or broad test exemption.
