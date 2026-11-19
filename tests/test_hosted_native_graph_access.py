@@ -303,6 +303,8 @@ def hosted(monkeypatch, request):
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/source-passages/{source_read_event_id}",
         agent_routes.get_world_historical_source_passage, methods=["GET"],
     )
+    replay_path = "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}"
+    app.add_api_route(replay_path + "/identities", agent_routes.get_world_replay_identities, methods=["GET"])
     app.include_router(conversation_library.router)
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
@@ -486,6 +488,9 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/connected-page-origin"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/source-passages/{source_read_event_id}"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/identities"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/steps/{sequence}/assertion"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/native-steps/{sequence}/assertion"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/rules-passages/{support_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/source-passages/{citation_index}"): access.resolve_hosted_conversation_world,
@@ -5350,3 +5355,27 @@ def test_hosted_historical_passages_bind_saved_turn(hosted, monkeypatch, source)
     assert response.headers["cache-control"] == "no-store"
     reference, = read.call_args.args
     assert (reference.world_id, reference.turn_id, reference.conversation_id) == ("managed", turn, conversation)
+
+
+def test_hosted_saved_replay_binds_trace_before_read(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import agent_replay_identities
+
+    read = Mock(return_value={"identities": []})
+    monkeypatch.setattr(agent_replay_identities, "replay_identities", read)
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(agent, "_conversation_service", lambda request: None)
+    turn, trace = uuid4(), uuid4()
+    path = f"/api/live/agent/worlds/managed/conversation/turns/{turn}/context-trace/{trace}/identities"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=foreign").status_code == 403
+    assert hosted.client.request("GET", path + "?label=foreign").status_code == 422
+    read.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    params = read.call_args.kwargs
+    assert params["world_id"] == params["principal"].managed_world_id == "managed"
+    assert (params["turn_id"], params["trace_id"]) == (turn, trace)
