@@ -1,11 +1,11 @@
 {
   "schema": "dmb_v9_native_canary_qualification_v1",
-  "status": "HELD_ON_REMAINING_WORLD_AND_PAGE_FIXTURE_CONTRACTS",
+  "status": "ACTIVE_FINAL_INTEGRATED_QUALIFICATION",
   "owner": "Elderwyld vNext completion lane",
   "candidate": {
-    "buddy": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc",
+    "buddy": "1c7ddcdd9ce08077cf9c5297ab952ebd1a41560f",
     "core": "4b6516e2c0dfd81acaa4410b9b9bb9da18894c90",
-    "scope": "Deliberately frozen final runtime; later main excluded until explicitly rebriefed"
+    "scope": "Frozen integrated bounded descendant; all identified repair gates accepted; final qualification pending"
   },
   "v8_acceptance_merge": "f770098ad27b772e6351f2827a2b7bd6628705e8",
   "source_mutation": false,
@@ -137,9 +137,10 @@
     }
   ],
   "pending": [
-    "Two durable-page APP-down/current-storage-smoke contract cases",
-    "Requalify deliberately bounded repaired candidate, exact-head frontend, independent cumulative review and normal checks",
-    "V9.B fresh live recovery/schema/artifact readiness and actual activation; V10 retirement; V11 serving baseline"
+    "Integrated frozen candidate consumer contracts and source/config attestation",
+    "Refreshed actual app/browser reads and governed write/process rollback on owned restore",
+    "Final exact-head frontend, cumulative independent review, normal checks and V9.A acceptance",
+    "V9.B fresh live readiness/activation; V10 retirement; V11 deployed baseline"
   ],
   "evidence_files": [
     {
@@ -410,6 +411,16 @@
       "reviewed_head": "a3d927b3ab44e9059c496e242b44eba43b6112e7",
       "review": 5970411974,
       "hosted_module_passed": 366,
+      "failed": 0,
+      "frontend_and_normal_checks": "passed",
+      "full_v9_accepted": false
+    },
+    {
+      "pr": 4076,
+      "merge": "4b2bc1451f7a9f0a3e3cdbc82aaae29b2b557c0d",
+      "reviewed_head": "1c7ddcdd9ce08077cf9c5297ab952ebd1a41560f",
+      "review": 5970505225,
+      "owning_modules_passed": 68,
       "failed": 0,
       "frontend_and_normal_checks": "passed",
       "full_v9_accepted": false
@@ -710,10 +721,20 @@
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/registered-world-inventory.json",
       "bytes": 263,
       "sha256": "547bc94809e10ce4d378f3ec6ba8d50292a47bff1166cdb64934dbc20b144a29"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/durable-page-exact-modules.log",
+      "bytes": 1809,
+      "sha256": "534cd4256543ff6cf1e11f02e784a773f7ce0604db9709843694b60bee287aa8"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/durable-page-inventory.json",
+      "bytes": 262,
+      "sha256": "1f6e017644ea2069d8dc16a805dfd23214c2c6fcc8d549c505e3e591fecf3b83"
     }
   ],
   "historical_qualified_source": "0274e014daa6527cccf6abd71dd2e641204dc4b0",
-  "final_candidate_runtime": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc",
+  "final_candidate_runtime": "1c7ddcdd9ce08077cf9c5297ab952ebd1a41560f",
   "historical_consumer_contracts": {
     "world-and-content": {
       "passed": 445,
@@ -760,29 +781,6 @@
     },
     "status": "passed; historical fixture and local source-auth blockers closed"
   },
-  "current_consumer_contracts": {
-    "world-and-content": {
-      "status": "passed",
-      "passed": 445,
-      "deselected": 74
-    },
-    "ingestion-and-review": {
-      "status": "passed",
-      "passed": 888,
-      "deselected": 119
-    },
-    "query-and-answer": {
-      "status": "passed",
-      "passed": 1256
-    },
-    "auth-app": {
-      "status": "failed",
-      "passed": 260,
-      "failed": 1,
-      "failure": "test_every_public_native_graph_route_has_the_shared_gm_dependency: managed-projection specialized guard inventory"
-    }
-  },
-  "current_consumer_execution_head": "df12467cd645df34475503f94842bf5c64ebe90c",
   "frozen_candidate_rehearsal": {
     "browser": {
       "status": "passed",
@@ -1026,7 +1024,7 @@
     "live_source_mutation": false,
     "forward_verified_quiescent": true
   },
-  "next_candidate_runtime_base": "a3d927b3ab44e9059c496e242b44eba43b6112e7",
+  "next_candidate_runtime_base": "1c7ddcdd9ce08077cf9c5297ab952ebd1a41560f",
   "source_fixture_gap_resolution": {
     "status": "closed",
     "ten_setup_errors": "explicit APP dependencies",
@@ -1055,5 +1053,55 @@
     "real_registered_world": "publiccatalog.create_world managed/OWNER",
     "hosted_module": "366passed0failed",
     "native_binding_consistency": "not claimed; synthetic active binding not persisted"
+  },
+  "historical_full_consumer_cohort_6fac": {
+    "runtime": "6facf08bcc77c11fe9d11addc2154b3be1ffebfc",
+    "execution_head": "df12467cd645df34475503f94842bf5c64ebe90c",
+    "results": {
+      "world-and-content": {
+        "status": "passed",
+        "passed": 445,
+        "deselected": 74
+      },
+      "ingestion-and-review": {
+        "status": "passed",
+        "passed": 888,
+        "deselected": 119
+      },
+      "query-and-answer": {
+        "status": "passed",
+        "passed": 1256
+      },
+      "auth-app": {
+        "status": "failed",
+        "passed": 260,
+        "failed": 1,
+        "failure": "test_every_public_native_graph_route_has_the_shared_gm_dependency: managed-projection specialized guard inventory"
+      }
+    }
+  },
+  "current_consumer_contracts": {
+    "world-and-content": {
+      "status": "pending",
+      "runtime": "1c7ddcdd9ce08077cf9c5297ab952ebd1a41560f"
+    },
+    "ingestion-and-review": {
+      "status": "pending",
+      "runtime": "1c7ddcdd9ce08077cf9c5297ab952ebd1a41560f"
+    },
+    "query-and-answer": {
+      "status": "pending",
+      "runtime": "1c7ddcdd9ce08077cf9c5297ab952ebd1a41560f"
+    },
+    "auth-app": {
+      "status": "pending",
+      "runtime": "1c7ddcdd9ce08077cf9c5297ab952ebd1a41560f"
+    }
+  },
+  "durable_page_gap_resolution": {
+    "status": "closed",
+    "replacement": "accepted database-only contract with valid committed-page outage negatives",
+    "owning_modules": "68passed0failed",
+    "retrieval_baseline_rerun": false
   }
 }

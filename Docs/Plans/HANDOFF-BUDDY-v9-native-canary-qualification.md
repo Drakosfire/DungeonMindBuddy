@@ -1,19 +1,19 @@
 # BUDDY — V9.A native canary qualification and process rollback
 
-Status: ACTIVE / HOLD — restored-data proof passed; auth inventory and changed-boundary repairs remain.
+Status: ACTIVE — identified repair gates closed; final integrated qualification pending.
 Owner/designer: Elderwyld vNext completion lane. Operator authorized implementation,
 independent review, merge and launch; no PRIME coordination prerequisite.
 
 ## Current anchor and mission
 
-Next bounded candidate base: Buddya3d927b3ab44e9059c496e242b44eba43b6112e7
-(includes accepted bounded repairs through4075; final qualification pending). Retained rehearsal
+Frozen integrated runtime candidate: Buddy1c7ddcdd9ce08077cf9c5297ab952ebd1a41560f
+(includes accepted bounded repairs through4076; final qualification pending). Retained rehearsal
 runtime6fac remains separately identified below.
 Core runtime4b6516e2c0dfd81acaa4410b9b9bb9da18894c90; V8 evidence accepted in
 Core229 mergef770098ad27b772e6351f2827a2b7bd6628705e8. Read canonical
 Docs/Handoffs/dm_vnext_contract_acceptance_v1.json there; do not rerun classic baseline.
-Branch codex/v9-native-canary-qualification retains the6fac rehearsal source;
-re-anchor final execution onto the accepted bounded descendant after fixture repairs. This is the deliberately frozen release candidate; do not chase
+Branch codex/v9-native-canary-qualification is rebased onto this accepted bounded
+descendant. Earlier6fac proofs remain historical; qualify the integrated bytes. This is the deliberately frozen release candidate; do not chase
 later floating main. Record each final execution head/imported-source manifest separately;
 these documentation commits do not silently qualify later unrelated main changes.
 
@@ -214,14 +214,19 @@ seed preserves every existing page-workflow assertion without changing shared
 fixtures or copying synthetic native bindings. Full hosted authorization366passed;
 exact frontend/canonical and normal checks passed. That missing-World gate is closed.
 
-Next serial slice reconciles two obsolete page cases with the accepted database-
-only authored-page contract: valid registered page setup, APP-down create/list/read
-503 with no file fallback, and truthful current PostgreSQL page/runbook storage
-smoke labels. Preserve all exact content and prepare/commit/load/current/historical/
-run-admission checks. This is not a retained retrieval baseline or speed claim.
-The repaired candidate starts from accepteda3d927b, excluding unrelated later-main runtime; final proof must qualify
-that bounded descendant. Current6fac proof remains tied to its original bytes.
-No provider generation or classic baseline rerun is needed.
+Page contract4076 is accepted: reviewed1c7ddcdd9ce08077cf9c5297ab952ebd1a41560f,
+merge4b2bc1451f7a9f0a3e3cdbc82aaae29b2b557c0d, review5970505225. Valid committed
+page precedes APP outage; create/scoped-list/snapshot503 and no file output replace
+the superseded fallback expectation. Truthful PostgreSQL page/runbook storage smoke
+preserves all work/content checks. Owning Runbook/rebase/canonical modules68passed;
+exact frontend/canonical and normal checks passed. No retrieval baseline/speed claim.
+
+All identified repair gates are closed. Next serial work is integrated V9.A proof:
+freeze execution head, run all four consumer contracts, attest loaded source/config,
+refresh actual app/browser reads and governed write/process rollback, then final
+exact-head frontend and independent cumulative review. The candidate is deliberately
+bounded at1c7ddcd; do not chase later floating-main runtime. Live activation remains
+V9.B, then V10 retirement and V11 deployed baseline. No completion is implied here.
 
 ## Remaining required proof and dispatch order
 
