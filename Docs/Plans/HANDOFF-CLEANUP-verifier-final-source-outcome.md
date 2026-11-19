@@ -2,8 +2,9 @@
 
 Status: ACTIVE. Cleanup steward adopts original finding63 under the standing
 cleanup goal's implementation, independent review and merge authority. Serial,
-one PR; branch `codex/verifier-final-source-outcome`, fetched main base recorded
-in Git. No unmerged dependency; reused isolated checkout.
+one PR; branch `codex/verifier-final-source-outcome`, base
+`e0f9fb079273eeb88e31b057269d3f02ef09a88f`. No unmerged dependency; reused
+isolated checkout.
 
 Exclusive write lease: this handoff, `scripts/ci_local_frontend.py`, and
 `tests/test_ci_local_frontend.py`. Fresh open-PR changed-path scan found no overlap,

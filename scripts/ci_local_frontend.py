@@ -707,13 +707,6 @@ def verify(args):
                         != report["package_lock_sha256"]
                     ):
                         raise ValueError("lockfile changed during verification")
-                    report["exit_code"] = int(
-                        report["runner_dirty"]
-                        or report["source_dirty_before"]
-                        or report["source_dirty_after"]
-                        or report["test_exit_code"] != 0
-                        or report["build_exit_code"] != 0
-                    )
                 finally:
                     if source.exists():
                         try:
@@ -747,6 +740,16 @@ def verify(args):
         finally:
             report["finished_unix"] = time.time()
             report["finished_at"] = datetime.now(timezone.utc).isoformat()
+            report["exit_code"] = int(
+                bool(report["error"])
+                or not report["cleanup_complete"]
+                or report["runner_dirty"]
+                or report["source_dirty_before"]
+                or report["source_dirty_after"]
+                or report["source_sha_after"] != args.sha
+                or report["test_exit_code"] != 0
+                or report["build_exit_code"] != 0
+            )
             (out / "run-receipt.json").write_text(
                 json.dumps(
                     {key: value for key, value in report.items() if key != "artifacts"},
