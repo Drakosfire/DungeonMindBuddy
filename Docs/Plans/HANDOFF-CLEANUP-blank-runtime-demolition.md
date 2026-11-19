@@ -63,7 +63,9 @@ verifier/build/validator and full discovered diagnostic. Compare against retaine
 byte-identical parent frontend: exactly two passed orphan unit cases retired,
 one old/new navigation name pair, no other case additions/omissions or new
 failures/changed remaining leading messages. Require the new navigation case to
-pass. Preserve unrelated red results, conditional inventory extras and earlier
+pass. Require exact parsed null publication/projection state, not substring text
+matching; a task-local injected stale root document must fail that assertion even
+with null fields in its publication. Preserve unrelated red results, conditional inventory extras and earlier
 unresolved quote-correction observation. Full release qualification remains red.
 Independent exact-head cumulative source/raw-evidence approval before merge.
 Original cleanup owner/release gates remain outstanding.

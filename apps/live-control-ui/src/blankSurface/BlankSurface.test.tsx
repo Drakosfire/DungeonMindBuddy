@@ -60,8 +60,8 @@ it("navigates the current landing through Build and Back/Forward with isolated c
   window.history.replaceState({}, "", "/");
   render(<StrictMode><App /></StrictMode>);
   await screen.findByRole("heading", { name: /Your world,\s*ready for the table\./i });
-  expect(screen.getByTestId("publication")).toHaveTextContent("null");
-  expect(screen.getByTestId("active-projection")).toHaveTextContent("null");
+  expect(JSON.parse(screen.getByTestId("publication").textContent!)).toBeNull();
+  expect(JSON.parse(screen.getByTestId("active-projection").textContent!)).toBeNull();
   expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
   expect(fetchSpy).not.toHaveBeenCalled();
@@ -87,14 +87,14 @@ it("navigates the current landing through Build and Back/Forward with isolated c
   expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
   expect(screen.getAllByTestId("authoring-host-probe")).toHaveLength(1);
   fireEvent.click(screen.getByRole("button", { name: "Open fixture projection" }));
-  expect(screen.getByTestId("active-projection")).toHaveTextContent("fixture-projection");
+  expect(JSON.parse(screen.getByTestId("active-projection").textContent!)).toMatchObject({ kind: "tool", key: "fixture-projection" });
   await act(async () => { window.history.back(); });
   await screen.findByRole("heading", { name: /Your world,\s*ready for the table\./i });
   expect(screen.queryByRole("heading", { name: "Build fixture" })).not.toBeInTheDocument();
   expect(screen.queryByTestId("agent-interaction-chrome")).not.toBeInTheDocument();
   expect(screen.queryByTestId("authoring-host-probe")).not.toBeInTheDocument();
-  expect(screen.getByTestId("active-projection")).toHaveTextContent("null");
-  expect(screen.getByTestId("publication")).toHaveTextContent("null");
+  expect(JSON.parse(screen.getByTestId("active-projection").textContent!)).toBeNull();
+  expect(JSON.parse(screen.getByTestId("publication").textContent!)).toBeNull();
   expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
   await act(async () => { window.history.forward(); });
@@ -103,6 +103,6 @@ it("navigates the current landing through Build and Back/Forward with isolated c
   expect(screen.getAllByTestId("authoring-host-probe")).toHaveLength(1);
   // This fixture publishes tools, not an Ask plugin; the real dock stays gated.
   expect(screen.queryByTestId("agent-interaction-chrome")).not.toBeInTheDocument();
-  expect(screen.getByTestId("active-projection")).toHaveTextContent("null");
+  expect(JSON.parse(screen.getByTestId("active-projection").textContent!)).toBeNull();
   expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
 });
