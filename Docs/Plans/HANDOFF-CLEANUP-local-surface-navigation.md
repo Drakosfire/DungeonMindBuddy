@@ -29,11 +29,27 @@ root/default-session assumptions are obsolete.
 
 Use actual App at `/surface`, a case-local complete aggregate fixture and a typed
 empty World list; await actual Surface readiness. Retain Plan→Ingest→Build→Play→Home
-link navigation, pathname checks, Plan→Ingest Agent-chrome DOM identity, Combat
+link navigation, pathname checks, truthful no-plugin Agent presence, Combat
 href/no-accidental-navigation and unchanged browser document. Check Combat while
 still in the workspace; Home intentionally owns a different entry composition.
 Restore all spies in finally. Do not mock pages/router/history or issue a Chat turn.
 This does not qualify provider Chat, auth or production deployment.
+
+Scope checkpoint after exact0fdbd424cfe09e0059b4327f7df2f1c9fe396504 full run:
+the journey reaches real Surface/Plan but stops at the old always-mounted Agent
+DOM assertion. Retain that raw failed run. Merged #701 at
+d515904c2bf4d196be70efc7419dc8485e991515 explicitly retires unavailable Agent
+chrome; its owner handoff records Plan→Ingest→Plan removing/restoring chrome
+solely through plugin registration. Bare Plan and first-use Ingest have no Ask
+plugin. The old DOM-identity guard is therefore obsolete in this journey.
+
+Adopt the released presence contract by requiring no Agent chrome on both
+unselected entry screens. Do not fabricate a plugin or weaken an active editor's
+state continuity. Existing owning tests for no-plugin absence, retained pane state
+through plugin disappearance and mounted Plan-host close/reopen remain unchanged;
+all three passed the retained0fdb full run and must remain green. No new write
+paths or runtime contract. This same-case correction is indivisible from the
+journey migration: retaining the retired assertion prevents later links running.
 
 Rename only this case from `navigates blank Surface and AppChrome primary links
 without replacing the document` to `navigates local Surface and AppChrome primary
