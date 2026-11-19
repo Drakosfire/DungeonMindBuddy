@@ -191,30 +191,49 @@ describe("App same-document primary navigation", () => {
   });
 
   it("boots each primary URL from the current location without a prior in-app click", async () => {
-    window.history.pushState({}, "", "/plan");
-    const plan = render(<App />);
-    expect(await screen.findByTestId("plan-canvas-title")).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/plan");
-    plan.unmount();
+    const worlds = vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{
+        schema_version: "dmb_world_container_record_v1", world_id: "eldyrwild",
+        name: "Eldyrwild", source_root_relpath: "", created_at: "2026-01-01T00:00:00Z",
+      }],
+    });
+    try {
+      window.history.pushState({}, "", "/plan");
+      const plan = render(<App />);
+      expect(await screen.findByRole("heading", { name: "Plan your next session" })).toBeInTheDocument();
+      expect(await within(screen.getByRole("region", { name: "Choose your World" })).findByRole("link", { name: /Eldyrwild/ })).toHaveAttribute("href", "/plan?world=eldyrwild");
+      expect(screen.queryByTestId("plan-canvas-title")).not.toBeInTheDocument();
+      expect(window.location.pathname).toBe("/plan");
+      plan.unmount();
 
-    window.history.pushState({}, "", "/ingest");
-    const ingest = render(<App />);
-    expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
-    ingest.unmount();
+      window.history.pushState({}, "", "/ingest");
+      const ingest = render(<App />);
+      expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/ingest");
+      ingest.unmount();
 
-    window.history.pushState({}, "", "/build");
-    const build = render(<App />);
-    expect(await screen.findByTestId("build-surface-empty")).toBeInTheDocument();
-    build.unmount();
+      window.history.pushState({}, "", "/build");
+      const build = render(<App />);
+      expect(await screen.findByTestId("build-surface-empty")).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/build");
+      build.unmount();
 
-    window.history.pushState({}, "", "/play");
-    const play = render(<App />);
-    expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
-    play.unmount();
+      window.history.pushState({}, "", "/play");
+      const play = render(<App />);
+      expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
+      expect(await within(screen.getByRole("region", { name: "Choose your World" })).findByRole("link", { name: /Eldyrwild/ })).toHaveAttribute("href", "/play?world=eldyrwild&choose=1");
+      expect(window.location.pathname).toBe("/play");
+      play.unmount();
 
-    window.history.pushState({}, "", "/");
-    render(<App />);
-    expect(screen.getByRole("heading", { name: "Buddy Surface" })).toBeInTheDocument();
+      window.history.pushState({}, "", "/");
+      render(<App />);
+      expect(await screen.findByRole("heading", { name: /Your world,\s*ready for the table\./ })).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/");
+      expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+    } finally {
+      worlds.mockRestore();
+    }
   });
 
   it("navigates blank Surface and AppChrome primary links without replacing the document", async () => {
