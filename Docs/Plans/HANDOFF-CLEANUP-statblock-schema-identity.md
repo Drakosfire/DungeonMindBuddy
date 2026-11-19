@@ -24,6 +24,19 @@ fixture-model compatibility and capture mismatch refusal must remain intact.
 No schema or generated model body change, recapture, API or runtime behavior
 expansion. Checkpoint/split if regeneration reveals further drift.
 
+## Regeneration checkpoint and split
+
+Exact documented regeneration ataa6f3794 found additional pre-existing drift:
+required nullable movement/ruleset/proficiency fields become default-None in the
+generator output, plus a generated root type and description differences. The
+discriminator transformation still matched14unions. The steward splits this
+contract decision from the independently useful fingerprint correction. This
+PR preserves existing model behavior and raw captures, reports regeneration RED,
+and does not close original52/#4156. Its residual remains owned by statblock
+integration/generated-client maintainers and cleanup steward. No successor lane
+is dispatched; decide schema/model nullability authority before implementation.
+Blindly replacing models or normalizing away semantic differences is forbidden.
+
 Fresh open PR changed-path audit found no overlap, including complete102paths
 for unchanged#3824. Relevant#3808/#3729/#3716 scopes have no proposed-path claim.
 
@@ -33,7 +46,9 @@ Prove current snapshot/exported constant/generated headers agree; separately
 prove historical manifest identities and raw fixture hashes. Recover exact old
 schema bytes from Git. Run affected create/revise/capture contracts in a fresh
 locked exact-source environment, including negative capture refusal. Run the
-documented pinned generator and compare full model body. Exact-source local
+documented pinned generator and retain the complete body difference; the known
+failure above is a deferred contract decision, not a passing regeneration claim.
+Exact-source local
 hosted/build/validator and independent cumulative-head review before merge.
 No frontend changes: no duplicate full UI diagnostic or release qualification.
 Record any failures and do not rewrite old captures to make checks pass.

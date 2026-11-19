@@ -4,6 +4,15 @@ From the Buddy repository root, run the pinned generator against the canonical
 OpenAPI snapshot. The temporary output lets you verify parity before updating
 the checked-in models.
 
+Known drift: the procedure currently reports a mismatch, tracked in
+[#4156](https://github.com/Drakosfire/DungeonMindBuddy/issues/4156). In addition
+to descriptions and a generated root type, it would make currently required
+nullable movement, ruleset and proficiency fields optional with default `None`.
+Do not overwrite the models or normalize away those differences to obtain a
+passing comparison. The statblock integration owner must decide the intended
+schema/model contract first. Matching source fingerprints do not establish
+byte-exact regeneration or identical validation behavior.
+
 ```bash
 integration=apps/live_control_server/integrations/dungeonmind_statblocks
 scratch=$(mktemp -d)
