@@ -1,6 +1,6 @@
 {
   "schema": "v9_live_native_activation_v1",
-  "status": "RECOVERY_AND_PACKAGE_PROVED_AWAITING_LIVE_PREPARATION_REVIEW",
+  "status": "LIVE_PREPARATION_COMMITTED_READONLY_FINALIZATION_RUNNING",
   "owner": "Elderwyld vNext completion lane",
   "authorization": "Explicit user implementation/review/merge/launch authorization",
   "qualification": {
@@ -30,12 +30,12 @@
     "owned_api": 18292,
     "other_lane_api_untouched": 8000
   },
-  "live_mutation_performed": false,
+  "live_mutation_performed": true,
   "activation_performed": false,
   "evidence_root": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live",
   "pending": [
-    "Independent exact concrete pre-mutation script/input review",
-    "Live accepted migrations/artifacts with source-stability/extension/allowed-change verification",
+    "Complete read-only official typed fingerprint/current-state finalization",
+    "Independent concrete serving launch review",
     "Actual authenticated5202 serving/browser/receipt/citation/restart/same-version rollback checks",
     "Final exact-head frontend/canonical/review/merge"
   ],
@@ -172,6 +172,11 @@
       "sha256": "189e7db7dac799a85f0c3448bbd95479bf531a7362a23acd199aec3d43ba2556"
     },
     {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/live-authority-preparation-v3.json",
+      "bytes": 5294067,
+      "sha256": "f8d6ba87e6ec8f7fcfb965f49322fac6aeb9aad58a798e1de4cddf865edaffe6"
+    },
+    {
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/persistence-layout.json",
       "bytes": 776172,
       "sha256": "86b32972bf64811fa4ed5702ad55ce53704d360aa3466a81c3b4c5816060b248"
@@ -180,6 +185,11 @@
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/pre-mutation-inputs.json",
       "bytes": 6660,
       "sha256": "5a7d40a32c775280827b73564f7a158caf0f9a794708910ef6a4a8f70a69401c"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/pre-mutation-review.json",
+      "bytes": 799,
+      "sha256": "78d2a18098c284896ff78391c8251560e5178f8b03485d1347b4c5c46d9e539c"
     },
     {
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/recovery-authority-preparation-v2.json",
@@ -206,5 +216,39 @@
       "bytes": 1895,
       "sha256": "d3aac6619f01d373a1296e9eed9356d63b978a7c59f03c63e9993b4fe6ddcf74"
     }
-  ]
+  ],
+  "live_preparation": {
+    "migration_steps": [
+      {
+        "kind": "core",
+        "exit_code": 0,
+        "log": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/live-core-migration.log"
+      },
+      {
+        "kind": "app",
+        "exit_code": 0,
+        "log": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/live-app-migration.log"
+      }
+    ],
+    "artifacts": [
+      {
+        "revision": "rev:5293c1b237a0064bd16fffd080bfa6b1",
+        "bytes": 4080272,
+        "sha256": "c2f1c2e9458439bae5c704f51a4c2991bae455ca2a92c01d595adb656566c4f2",
+        "ordinary_semantic_digest": "088e81727cbb8ddb361bdb6436953688332fa15ced38488631946740a472a59e",
+        "derived_semantic_digest": "088e81727cbb8ddb361bdb6436953688332fa15ced38488631946740a472a59e"
+      },
+      {
+        "revision": "rev:9eac817676327afaeaaff25d8f38df60",
+        "bytes": 4079643,
+        "sha256": "f4e03900ba5475d10bb7fdaa94b6447581707dfd5eb5a78c0b72b6bd7b998c29",
+        "ordinary_semantic_digest": "77ca6ede3a3f584f7c1717b6e9b9e9fc8b737b53d7c7639a19d0e7e42a8696f2",
+        "derived_semantic_digest": "77ca6ede3a3f584f7c1717b6e9b9e9fc8b737b53d7c7639a19d0e7e42a8696f2"
+      }
+    ],
+    "raw_receipt_status": "failed at final in-memory tuple/list equality only; serialized official fingerprints are identical",
+    "read_only_resolution": "running; no migration or artifact-write retry",
+    "pre_mutation_approval": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/pre-mutation-review.json",
+    "limits": "Schemas/artifacts committed, serving remains off; finalization does not imply live new-write or cutover completion"
+  }
 }
