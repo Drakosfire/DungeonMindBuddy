@@ -3,7 +3,7 @@
 **Status:** ACTIVE REFERENCE / process index
 **Created:** 2026-08-02
 **Repository authority refresh:** 2026-09-26 DEMO reconciliation (repository adoption; Project Sources unchanged)
-**Repository export refresh:** 2026-11-11 — process/current-pickup and governance exports synchronized from canonical files; this was not a full design/corpus audit, and user-managed Project Sources were not changed
+**Repository export refresh:** 2026-11-19 — current README/DEMO roadmap copies and export-manifest navigation synchronized; all mapped copies checked against canonical files. This was not a full design/corpus audit, and user-managed Project Sources were not changed
 **Project Sources snapshot date:** 2026-08-02 — advance only after the operator actually replaces/re-observes the user-managed set
 **Repo-resident export mirror:** [`Docs/Sources/design-agent/`](../Sources/design-agent/)
 **Document class:** curated source index — not architecture or sequencing authority
@@ -103,7 +103,7 @@ path is free.
 
 1. Pin current `main`.
 2. Reconcile this index against current domain authorities and open PR leases.
-3. Refresh mapped export copies from canonical paths; they must be byte-identical.
+3. Refresh mapped documents from canonical paths byte-for-byte. For the exported manifest only, rewrite its mapped links to the corresponding export copies and its mirror link to the export root; the mapping and snapshot dates must otherwise agree.
 4. Ensure retired files above are absent from the clean export.
 5. Upload the clean classified bundle.
 6. Advance the Project Sources snapshot date only after the user-managed set is actually replaced/re-observed.

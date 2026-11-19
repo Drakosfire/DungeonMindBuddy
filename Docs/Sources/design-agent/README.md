@@ -1,8 +1,8 @@
 # Design Agent / Project Sources Export
 
 **Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies
-**Mirror refresh source revision:** `60ba556ba1d3ad494fa5b3e431edbf061ec7cfac` (repository bundle)
-**Process/current-pickup refresh:** Selected process and governance copies were synchronized with their canonical files in this change. This is not a full design/corpus audit; user-managed Project Sources were not changed.
+**Canonical content rechecked at:** `bb7911e5255e8adf8e143dc0e85b9f69c72dacfb`, with the bounded manifest/navigation repair in this change
+**Repository refresh:** 2026-11-19. The README and DEMO roadmap exports were refreshed, the manifest links were repaired, and all 22 mapped exports were checked. This is not a full design/corpus audit; user-managed Project Sources were not changed.
 **Canonical source-set index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../../Design/INDEX-design-agent-source-set.md)
 
 This directory is the clean pickup point for refreshing ChatGPT immediate /
@@ -67,7 +67,10 @@ deliberate.
 
 Never repair an export copy in place. Repair the canonical document first, then
 refresh its mapped export copy byte-for-byte. The canonical source index owns
-the mapping.
+the mapping. The exported manifest is the sole exception: its mapped links point to
+the matching bundle copies, and its mirror link points to the bundle root.
+Other copied documents retain their canonical relative links; open the canonical
+document when following links outside this upload set.
 
 The historical 2026-09-25 exports remain available at these pinned links.
 
