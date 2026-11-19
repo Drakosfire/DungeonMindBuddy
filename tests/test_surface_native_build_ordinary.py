@@ -486,11 +486,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 else:
                     assert all(r.excerpt.text not in json.dumps(frame) for r in acquired)
             if requested_work == "review_lore_page":
+                from apps.live_control_server.services.plan_jev_writer import LORE_PROPOSAL_GUIDANCE
+
+                author_text = self.adapter.turn.user_text
+                assert (LORE_PROPOSAL_GUIDANCE in body["instructions"]) == ("blank page" not in author_text)
                 candidate["answer_segments"] = [
                     segment for segment in candidate["answer_segments"]
                     if segment["kind"] == "native_body_claim"
                 ]
-                author_text = self.adapter.turn.user_text
                 if "blank page" in author_text:
                     candidate["answer_segments"] = []
                 if lore_limitation and candidate["answer_segments"]:
