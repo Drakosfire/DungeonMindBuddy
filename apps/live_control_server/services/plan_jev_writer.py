@@ -278,6 +278,13 @@ def _conversation_response_task(execution):
     return None
 
 
+LORE_PROPOSAL_GUIDANCE = (
+    "In a populated lore review, carry forward the author's relevant suggestions for this subject "
+    "from the conversation as separate labeled proposals. Keep them out of passage-backed "
+    "claims, even if they concern the same people or events. Do not introduce new suggestions."
+)
+
+
 RELATED_PAGE_RESPONSE = (
     'Saved authored pages describe authored material, not played truth. '
     'Use related_page_claim with the supplied local read_id and supporting_quotes containing '
@@ -430,6 +437,12 @@ class PlanJevWriter:
                     'as unexecuted. Nothing has been created, saved or published. Do not write this into the Plan. '
                     'If no included saved page can supply the origin, leave collaboration null and explain what '
                     'is needed rather than inventing a quote.\n')
+            destination = self.provider_work.get("build_work", {}).get("lore_page_destination") if self.shared else None
+            if destination is not None:
+                from application_state.agent_conversation.lore_page_review import explicit_blank_lore_page
+
+                if not explicit_blank_lore_page(destination["instruction"]):
+                    instructions += "\n" + LORE_PROPOSAL_GUIDANCE
             self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
                 RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if self.shared or getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
             if single_variant_base:
