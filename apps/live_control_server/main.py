@@ -314,6 +314,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}/snapshot"): resolve_hosted_runbook_read,
     ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}/committed-revision"): resolve_hosted_runbook_read,
     ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}/committed-revision/{revision_n}"): resolve_hosted_runbook_read,
+    ("GET", "/api/live/extract-promote/worldbuilding/capabilities"): resolve_hosted_plan_world_context,
     ("GET", "/api/live/workspace-documents/world-plans"): resolve_hosted_plan_world_context,
     ("GET", "/api/live/workspace-documents/world-plans/page"): resolve_hosted_plan_inventory_page,
     ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): resolve_hosted_committed_plan,

@@ -688,6 +688,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "POST" && body?.schema === "dmb_managed_world_graph_projection_request_v1"
       && typeof body.managedWorldId === "string" && Boolean(body.managedWorldId);
   }
+  const capabilityPath = "/api/live/extract-promote/worldbuilding/capabilities?";
+  if (path.startsWith(capabilityPath)) {
+    const worldId = new URLSearchParams(path.slice(capabilityPath.length)).get("world_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && path === capabilityPath + new URLSearchParams({ world_id: worldId });
+  }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
   const runbookRead = /^\/api\/live\/workspace-documents\/world-runbooks\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(?:\/snapshot|\/committed-revision(?:\/([1-9][0-9]*))?)?\?/.exec(path);
   if (runbookRead) {

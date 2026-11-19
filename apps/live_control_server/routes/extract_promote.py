@@ -521,18 +521,23 @@ def post_extract_promote_prepare(
 )
 def get_worldbuilding_publication_capabilities(
     request_context: Request,
-    _principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    world_id: str | None = None,
 ) -> WorldbuildingPublicationCapabilities | JSONResponse:
-    """Inspect configuration only; confirm remains the plan authority boundary.
+    """Report configuration without attempting publication or testing reachability."""
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
 
-    No database connection or source/World lookup is attempted. A configured
-    descriptor does not prove reachability, plan validity, or publication success.
-    Historical sealed plans (including their inert metadata) remain untouched.
-    """
-    try:
-        _reject_selector_query(request_context)
-    except ExtractPromoteError as exc:
-        return _error_response(exc)
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request_context)
+    else:
+        require_hosted_plan_world_context(request_context, world_id)
+    selectors = request_context.query_params.multi_items()
+    if selectors and (not world_id or selectors != [("world_id", world_id)]):
+        try:
+            _reject_selector_query(request_context)
+        except ExtractPromoteError as exc:
+            return _error_response(exc)
     reasons = []
     try:
         live_config.world_graph_authority_mode()
@@ -540,9 +545,12 @@ def get_worldbuilding_publication_capabilities(
         reasons.append("native_authority_configuration_invalid")
     if live_config.world_graph_authority_database_url() is None:
         reasons.append("native_database_unconfigured")
-    return WorldbuildingPublicationCapabilities(
+    result = WorldbuildingPublicationCapabilities(
         configured=not reasons, unavailability_reasons=reasons,
     )
+    if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+        require_hosted_plan_world_context(request_context, world_id)
+    return result
 
 
 @router.post(
