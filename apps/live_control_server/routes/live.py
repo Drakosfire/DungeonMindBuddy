@@ -777,7 +777,7 @@ def post_statblock_workbench_draft_retrieval_verify(
     return response.model_dump(mode="json")
 
 
-def _markdown_media_world(request: Request, markdown: str) -> str | None:
+def _markdown_media_world(request: Request, markdown: str, plan_world: str | None) -> str | None:
     if not has_saved_media_references(markdown):
         return None
     from apps.live_control_server.services import hosted_auth
@@ -785,8 +785,8 @@ def _markdown_media_world(request: Request, markdown: str) -> str | None:
 
     if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
         world_id = getattr(request.state, "hosted_build_page_world", None)
-        if world_id is None:
-            raise HTTPException(403, detail="The document World could not be verified.")
+        if world_id is None or plan_world is not None:
+            raise HTTPException(403, detail="Saved artwork requires a verified Build page.")
         require_hosted_build_page_world(request, world_id)
         return world_id
     enforce_native_graph_gm(request)
@@ -809,7 +809,7 @@ def post_tiptap_markdown_write_prepare(
             hosted_world_media_owner, require_hosted_build_page_world,
         )
 
-        world_id = _markdown_media_world(request, body.markdown)
+        world_id = _markdown_media_world(request, body.markdown, body.world_id)
         response = prepare_tiptap_markdown_write(
             root=repo_root(), request=body,
             media_owner=hosted_world_media_owner(world_id) if world_id else "local_operator",
@@ -837,13 +837,13 @@ def post_tiptap_markdown_write_commit(
             hosted_world_media_owner, require_hosted_build_page_world,
         )
 
-        world_id = _markdown_media_world(request, body.markdown)
+        world_id = _markdown_media_world(request, body.markdown, body.world_id)
         response = commit_tiptap_markdown_write(
             root=repo_root(), request=body,
             media_owner=hosted_world_media_owner(world_id) if world_id else "local_operator",
             authorize_world=(
                 lambda locked_world: require_hosted_build_page_world(request, locked_world)
-            ) if world_id and body.world_id is None else None,
+            ) if world_id else None,
         )
         if world_id:
             require_hosted_build_page_world(request, world_id)

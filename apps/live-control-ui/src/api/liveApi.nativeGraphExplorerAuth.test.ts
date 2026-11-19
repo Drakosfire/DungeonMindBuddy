@@ -1484,5 +1484,8 @@ it("prepares and commits a hosted Build page containing saved artwork", async ()
       method: "POST", body: JSON.stringify(body),
     })).rejects.toThrow(/exact same-origin/);
   }
+  await expect(api.prepareTiptapMarkdownWrite({
+    ...body, world_id: "managed", scope_mode: "world", schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+  })).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(2);
 });

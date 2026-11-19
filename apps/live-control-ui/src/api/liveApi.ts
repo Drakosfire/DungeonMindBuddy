@@ -444,7 +444,7 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (path === "/api/live/tiptap/markdown-write/prepare" || path === "/api/live/tiptap/markdown-write/commit") {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && typeof body?.document_id === "string" && Boolean(body.document_id)
-      && typeof body.markdown === "string" && body.markdown.includes("dmb-media:");
+      && body.world_id == null && typeof body.markdown === "string" && body.markdown.includes("dmb-media:");
   }
   if (isRecapSelectionContextPath(path)) {
     const body = requestBodyRecord(init?.body);
