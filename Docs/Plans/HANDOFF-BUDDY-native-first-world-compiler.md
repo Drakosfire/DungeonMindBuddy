@@ -119,3 +119,13 @@ before the passing publisher witness; do not treat earlier failures as passing.
 The parent owns service/integration; Aristotle implemented model and tests after
 an explicit disjoint write-scope split. Final independent review must cover the
 entire cumulative change, not reuse either author's review of their own code.
+
+Cycle1 independent Hubble review5974635983 held exact5fa1b7c6e on one node/candidate
+association defect. An isolated public Kernel reproduction actually published
+Bob-to-Alice after swapping subjects while preserving candidate maps. The repair
+requires each accepted node subject to equal its owning reviewed candidate's mapped
+identity. Its regression refuses before publication. Additional public proofs cover
+legitimate multiple reviewed references sharing one exact native proof and player
+denial of a GM-only source even for a player-labelled assertion. Diagnostic87 pass.
+Prior exact5fa backend:84 focused and888 ingestion passed,119 deselected, zero skips;
+the repair head still requires its own exact checks and independent Cycle2.

@@ -176,6 +176,8 @@ def compile_first_world_native_intent(effect, *, world_id, source_text, span_ind
                   "evidence_ref_ids": row["evidence_ref_ids"],
                   "visibility_label": PLAYER_LABEL if row["visibility"] == "player" else GM_LABEL}
         if row["assertion_kind"] == "node":
+            _require(row["subject_node_id"] == effect["node_id_map"].get(owner_by_assertion[row["assertion_id"]]),
+                     "node_subject_candidate_mismatch", row["assertion_id"])
             kind = value.get("kind")
             _require(type(kind) is str and kind in _KINDS and value.get("role") == kind and row["target_node_id"] is None
                      and row["predicate"] is None and row["identity_resolution_outcome"] == "created_new",

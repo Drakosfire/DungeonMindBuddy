@@ -945,3 +945,65 @@ def test_native_compiler_source_revision_binding_is_required_sealed_and_copy_on_
     assert binding.source_revision.model_dump(mode="json") == original
     with pytest.raises(TypeError, match="source_revision"):
         FirstWorldNativeSpanBinding.from_proof(binding.reviewed_evidence_ref_id, binding.proof)
+
+
+def test_native_compiler_rejects_swapped_candidate_subjects_before_publication():
+    from apps.live_control_server.models.native_first_world_compilation import FirstWorldCompilationError
+    from apps.live_control_server.services.native_first_world_compilation import compile_first_world_native_intent
+
+    case = _native_compilation_case()
+    first, second = case.effect["accepted_proposals"][:2]
+    first["subject_node_id"], second["subject_node_id"] = second["subject_node_id"], first["subject_node_id"]
+    head = case.repo.get_head(case.space)
+    with pytest.raises(FirstWorldCompilationError, match="node_subject_candidate_mismatch"):
+        compile_first_world_native_intent(case.effect, world_id="world", source_text=case.text, span_index=case.index)
+    assert case.repo.get_head(case.space) == head
+    assert not case.parent.entities_by_id
+
+
+def test_native_compiler_allows_exact_native_proof_dedup_for_distinct_reviewed_refs():
+    from apps.live_control_server.models.native_first_world_compilation import FirstWorldNativeSpanBinding
+
+    case = _native_compilation_case()
+    second = case.effect["accepted_proposals"][1]
+    second["evidence_ref_ids"] = ["reviewed:second-reference"]
+    second["value"]["evidence"][0]["evidence_ref_id"] = "reviewed:second-reference"
+    case.bindings += (FirstWorldNativeSpanBinding.from_proof(
+        "reviewed:second-reference", case.native.span_proof, source_revision=case.native.source_revision),)
+    _, bound = _compile_and_bind(case)
+    result = _publish_compilation(case, bound)
+    payload = case.repo.get_revision(case.space, result.publication_receipt.published_revision_id).graph_payload
+    assert len(payload["entities"]) == 2
+    assert len(payload["aliases"]) == 2
+    assert len(payload["evidence"]) == 1
+    assert all(a["metadata"]["evidence_ref_ids"] == [case.native.span_proof.evidence_ref_id]
+               for a in payload["assertions"])
+
+
+def test_native_compiler_gm_source_remains_unavailable_to_player_after_publication():
+    from dungeonmind.application.vnext.entity_reads import EntityReadService
+    from dungeonmind.application.vnext.native_source_access import (
+        open_native_text_source_access_context, open_admitted_native_text,
+    )
+    from graph_memory.vnext.domain_runtime import (
+        DungeonBuddyVNextProjectionInput, build_dungeonbuddy_read_context, PLAYER_LABEL,
+    )
+
+    case = _native_compilation_case()
+    # Even a player-labelled assertion does not authorize its GM-only source.
+    case.effect["accepted_proposals"][0]["visibility"] = "player"
+    _, bound = _compile_and_bind(case)
+    result = _publish_compilation(case, bound)
+    context = open_native_text_source_access_context(
+        repository=case.repo, space_id=case.space,
+        revision_id=result.publication_receipt.published_revision_id,
+        domain_contract=case.domain, audience_labels=[PLAYER_LABEL],
+    )
+    read = build_dungeonbuddy_read_context(
+        parsed_revision=context.parsed,
+        projection_input=DungeonBuddyVNextProjectionInput(world_id=case.space, scope_mode="world", role="player"),
+        source_reader=context.source_view,
+    )
+    listing = EntityReadService().list_entities_with_support(read)
+    assert not listing.aliases and not listing.listing.entities
+    assert open_admitted_native_text(context, case.native.span_proof.evidence_ref_id).status == "unavailable"
