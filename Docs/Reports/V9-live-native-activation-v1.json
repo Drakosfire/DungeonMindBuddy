@@ -1,6 +1,6 @@
 {
   "schema": "v9_live_native_activation_v1",
-  "status": "LIVE_PREPARATION_VERIFIED_AWAITING_SERVING_LAUNCH_REVIEW",
+  "status": "ACTIVATION_CHECKS_PASSED_AWAITING_EXACT_HEAD_VERIFICATION_AND_REVIEW",
   "owner": "Elderwyld vNext completion lane",
   "authorization": "Explicit user implementation/review/merge/launch authorization",
   "qualification": {
@@ -28,15 +28,15 @@
   "ports": {
     "ui": 5202,
     "owned_api": 18292,
-    "other_lane_api_untouched": 8000
+    "other_lane_api_untouched": 8000,
+    "fallback_api": 18293
   },
   "live_mutation_performed": true,
-  "activation_performed": false,
+  "activation_performed": true,
   "evidence_root": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live",
   "pending": [
-    "Independent concrete serving launch review",
-    "Actual authenticated5202 serving/browser/receipt/citation/restart/same-version rollback checks",
-    "Final exact-head frontend/canonical/review/merge"
+    "Final exact-head frontend/canonical validation",
+    "Independent cumulative PR review and guarded merge"
   ],
   "full_goal_remaining": [
     "V10 retirement",
@@ -108,7 +108,7 @@
     ]
   },
   "immutable_package": {
-    "status": "built_not_launched",
+    "status": "serving_actual_5202",
     "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/verification/v9b-serving",
     "tracked_entries": {
       "DungeonMindBuddy": 8826,
@@ -142,13 +142,42 @@
     "Two APP restored CHECKs have equivalent element-vs-array varchar\u2192text cast renderings; exact named semantic proof, raw failure retained",
     "Dropped physical column slots renumber on pg_dump restore; logical column names/types/typmods/collations/constraints match",
     "Migration0163 legitimately changes three combat constraints without rewriting rows; exact allowed effects now verified",
-    "Recovery resume inspected recorded completed migration state before finishing artifacts; migrations were not rerun blindly"
+    "Recovery resume inspected recorded completed migration state before finishing artifacts; migrations were not rerun blindly",
+    "Live preparation final tuple/list comparison failed after successful DDL/artifacts; separate read-only official typed fingerprint and inventory resolution passed; no migration rerun",
+    "UI mapping raw bind probe failed on TIME_WAIT after stopping owned UI; failed read receipt preserved, separately reviewed v4 connect_ex/strictPort correction and successful fallback/restored proofs",
+    "Reusable restart helper safety review added actual authenticated5202 readiness/PID check and retry-safe generation archive; helpers reviewed but not executed",
+    "Restricted executor localhost connection failed; host executor independently confirmed original serving PIDs/listeners and HTTP200 without restarting"
   ],
   "evidence_files": [
     {
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/app-restore-parity-diagnostic.json",
       "bytes": 1587596,
       "sha256": "f1e26dceffafbf18a87279fb311c6b63c986e3fbe995cd8100356b0ac17687df"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/attest_serving.py",
+      "bytes": 1123,
+      "sha256": "d05a9adc1df81e174960b79ed8e421d2eb8639342e1e963631c748bcb35ef86e"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/before-launch-authority.json",
+      "bytes": 2281,
+      "sha256": "1eca506fd17f673f22a3c92902f97579cfff7334a9f9df370bb5fac21716f3ec"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/before-restart-authority.json",
+      "bytes": 2282,
+      "sha256": "184e1020d3908e91e94e2f0b2ea05989a40d73a883fe7f7f3a287d42e7ad9845"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/built-asset-http-proof.json",
+      "bytes": 28601,
+      "sha256": "14ddc664d17b66b6f77502286be72c44bcdeabd4ddc0b8b62ed121fbd3ff26e8"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/capture_live_authority.py",
+      "bytes": 4928,
+      "sha256": "c1d7f529cdea078bf5515b426329bff9b2ebc4c542c60f0fd3aba670841562df"
     },
     {
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/constraint-flag-diagnostic.json",
@@ -161,6 +190,41 @@
       "sha256": "42fc40aecb09ac100ef3d1706e0d29a4dd653025bfb3f5c979c637d306840940"
     },
     {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/existing-product-read-smoke.json",
+      "bytes": 3819,
+      "sha256": "a3286673c868298381bb090be6a5fd20d34966f4fbc2acf70e24b4fb3787e5c0"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/fallback-direct-attestation.json",
+      "bytes": 258246,
+      "sha256": "db64ca97a81832abde04726c209378b5443f1ff813dbf66e27e9b50a027057a8"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/fallback-direct-initial-read-proof.json",
+      "bytes": 4491,
+      "sha256": "309f2c7caeae659e4708e6671a63a4183729525c2e0ff5b4a4919184f0c4c089"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/fallback-rollback-attestation.json",
+      "bytes": 258246,
+      "sha256": "db64ca97a81832abde04726c209378b5443f1ff813dbf66e27e9b50a027057a8"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/fallback-rollback-authority.json",
+      "bytes": 2285,
+      "sha256": "5f2ce58e455fe8e42d841c979009a21a8b6577a8160da5e4132d71da89b6a8df"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/fallback-ui-rollback-read-proof.json",
+      "bytes": 5121,
+      "sha256": "3107c6f93ef5b2fb14de1dd37e344b8950c8528c4b1b905930415cf3e3f31f79"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/fallback-ui-rollback-v2-read-proof.json",
+      "bytes": 4487,
+      "sha256": "f4b94c89c11574bc213fc3097f836107727d2afe88c34a925ee30bb17cbfc3fe"
+    },
+    {
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/fresh-recovery-capture.json",
       "bytes": 5351742,
       "sha256": "d47d01fe0d2ab69f06e05236c592f585119af86403f420c70aa2fc9b4628aebe"
@@ -171,9 +235,49 @@
       "sha256": "189e7db7dac799a85f0c3448bbd95479bf531a7362a23acd199aec3d43ba2556"
     },
     {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/launch-inputs.json",
+      "bytes": 5705,
+      "sha256": "a90a986cece7c7a1b1ef8187109ed94b3dd4876a63ddd416e7e890576ebb9c5d"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/launch-review.json",
+      "bytes": 802,
+      "sha256": "c2a25305e695a5a6b9a866d39616355d07fc5430f5f4b04fdf32406075ffbe06"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/launch_serving_v3.py",
+      "bytes": 4112,
+      "sha256": "aa37a8503884a7a67fcb8f992c2e55797cd5a413487c87d9ba990e17905911d8"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/launch_serving_v4.py",
+      "bytes": 4413,
+      "sha256": "46d815ea9f2e41d07b3de562b3270e420618784cb5ed9074ba3333aac9298222"
+    },
+    {
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/live-authority-preparation-v3.json",
       "bytes": 5294067,
       "sha256": "f8d6ba87e6ec8f7fcfb965f49322fac6aeb9aad58a798e1de4cddf865edaffe6"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/live-browser-proof.json",
+      "bytes": 957,
+      "sha256": "377aa6b5da106d87ea3d4a9512c47c43563039ca1ec9768fa48d017a2f47480c"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/live-readiness-resolution.json",
+      "bytes": 5982,
+      "sha256": "ac2298d0525e98eda93d04db356a5cda2af225432cf13968e3235f237266fafd"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/mapping-attempt1-failure.json",
+      "bytes": 876,
+      "sha256": "f86981f1603baf5f26417f0b124e90d16de91945467f8130d96b24e7cf879202"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/mapping-delta-review.json",
+      "bytes": 418,
+      "sha256": "cabb23731c5f6e551ccb1c6f1ca8c741359d2b4f8eae252d18877b10b4b33312"
     },
     {
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/persistence-layout.json",
@@ -191,6 +295,61 @@
       "sha256": "78d2a18098c284896ff78391c8251560e5178f8b03485d1347b4c5c46d9e539c"
     },
     {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/primary-before-restart-attestation.json",
+      "bytes": 258245,
+      "sha256": "f1242303c905b71f6d7a2b16b641dfb126cd8b25eed56c7083e382e1c5b82376"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/primary-direct-initial-read-proof.json",
+      "bytes": 4490,
+      "sha256": "6aea7b02c497388b67d64e48557a70dfcfd894d2857167873ad95e4f2ccb049c"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/primary-direct-restart-read-proof.json",
+      "bytes": 4490,
+      "sha256": "8b75dc6b882f5c5d93131052b88cdf145bff34d49558bdaedefa61c938ebf261"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/primary-initial-attestation.json",
+      "bytes": 258245,
+      "sha256": "f1242303c905b71f6d7a2b16b641dfb126cd8b25eed56c7083e382e1c5b82376"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/primary-initial-authority.json",
+      "bytes": 2283,
+      "sha256": "14db805b189d8eee9229b78064d2579d58b8f66dedce04dbf4984f0c08d55ee2"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/primary-restored-authority.json",
+      "bytes": 2284,
+      "sha256": "18b2a08d82f21b138cafab5e9707f4aa3a97909588f1d7dd2146e5ae324f7135"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/primary-restored-final-attestation.json",
+      "bytes": 259266,
+      "sha256": "20be3eee27e32e0cc95febddbf14785350e90bf0a8b7311c00f22c7c8c9a107c"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/primary-ui-initial-read-proof.json",
+      "bytes": 4486,
+      "sha256": "6d4330bab9b0cb4768205c67b50b29dc8fe1bd584eda77d2a810f26985533730"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/primary-ui-native-inspection-proof.json",
+      "bytes": 2317,
+      "sha256": "2f9c67d50a2f375825644de0f6e5213236d0544c11c3bb6c552675a091002aaa"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/primary-ui-restored-read-proof.json",
+      "bytes": 4486,
+      "sha256": "6d4825a87e6319a8f5215429f1fe473ed522b381a168f325ed3d834f534e2aed"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/qualification-primary-stop-generation1.json",
+      "bytes": 689,
+      "sha256": "3390b3dabf600ed78365e091977e902a978c4521bc3d4a2d05b19dac981f7aaa"
+    },
+    {
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/recovery-authority-preparation-v2.json",
       "bytes": 5293202,
       "sha256": "0a8c7767a9b223e1ddee1aa31cfa5ff36969c7a8bf607eb3210d4d79ff5376a8"
@@ -199,6 +358,21 @@
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/recovery-authority-preparation.json",
       "bytes": 3523827,
       "sha256": "0e4403bbe250c754e0a0a77144a9e752e4c93fe000442b172fec1f9b7bfbda18"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/restart-helper-review.json",
+      "bytes": 721,
+      "sha256": "d88bdefdf3670bd059ac1007bcc1f5c04b734d458fb2b634326af835ed3d8733"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/restored-built-asset-http-proof.json",
+      "bytes": 172,
+      "sha256": "a313165b846939d091fd48d7e1a7a1aab9a12a98a09ebc3218faa2ec2020d5e4"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/serving-completion-processes.json",
+      "bytes": 4300,
+      "sha256": "b5261e578253fd111bfd078d0de8731e628858441d8dc18b56552c6db27f5b9c"
     },
     {
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/serving-configuration.json",
@@ -211,9 +385,44 @@
       "sha256": "23f4a4653a5b18f4ff9852761becdea0ef58047b4465f69c4cb7d031d7c88d6c"
     },
     {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/serving-projection-configuration-proof.json",
+      "bytes": 744,
+      "sha256": "b9aba80c7326da4b61889ee9641d648e913a8087a5b58abead311893d89f20a0"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/serving_entry.py",
+      "bytes": 3711,
+      "sha256": "ca9bd299f83b5ba79050f3f67ab6ba2959035206632a9ae85273c83ae212da4e"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/stop_serving_for_restart.py",
+      "bytes": 3768,
+      "sha256": "c6d0421714bcbf14d9a35585616488df2e1ca47763eece2e082a3343fb0a188b"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/switch_serving_ui_v4.py",
+      "bytes": 3870,
+      "sha256": "f102efd06deae80cc2f0ae2a010fac16285778ff05f1562f5d2780eed1da1daa"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/verify_serving_native_inspection.py",
+      "bytes": 3420,
+      "sha256": "e5466ad50940deb3da2c59ce92a45f8654bf4d7fe1b3b2cdf6604ec7c20e8afa"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/verify_serving_reads.py",
+      "bytes": 4403,
+      "sha256": "1d855b27e44aa7811ee418a4c9fc3b9d6536a304a2311a5d3fff8e3ca981975f"
+    },
+    {
       "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/writer-boundary.json",
       "bytes": 1895,
       "sha256": "d3aac6619f01d373a1296e9eed9356d63b978a7c59f03c63e9993b4fe6ddcf74"
+    },
+    {
+      "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/writer-interval-complete.json",
+      "bytes": 838,
+      "sha256": "67b268c01027e076ee1f5f40e51b574e9828c308d57db22e405fbfe01b9d1d2d"
     }
   ],
   "live_preparation": {
@@ -248,7 +457,7 @@
     "raw_receipt_status": "failed at final in-memory tuple/list equality only; serialized official fingerprints are identical",
     "read_only_resolution": "passed: official typed fingerprint comparison, exact current inventories and both artifact digests reverified; original raw failed receipt retained",
     "pre_mutation_approval": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/pre-mutation-review.json",
-    "limits": "Schemas/artifacts committed, serving remains off; finalization does not imply live new-write or cutover completion"
+    "limits": "Accepted schemas and two derived read artifacts committed and independently verified; no new live semantic publication or provider generation invoked."
   },
   "live_readiness": {
     "status": "prepared_verified",
@@ -278,5 +487,96 @@
     },
     "official_app_fingerprint_digest": "de047bb56b64bf7bf6745d2f47bf531fa0f1893a9ec8235b329ae8514dd85802",
     "resolution_receipt": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/live-readiness-resolution.json"
+  },
+  "serving": {
+    "status": "actual_serving_activation_checks_passed",
+    "url": "http://127.0.0.1:5202/graph?world=elderwyld",
+    "verified_utc": "2026-11-19T08:22:24.657278+00:00",
+    "primary_pid_at_qualification": 1064371,
+    "fallback_pid_at_qualification": 1049478,
+    "ui_pid_at_qualification": 1069583,
+    "immutable_completion_receipt": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live/serving-completion-processes.json",
+    "operational_pointers": [
+      "primary-process.json",
+      "fallback-process.json",
+      "ui-active.json"
+    ],
+    "pointer_scope": "Mutable current pointers; qualification snapshot above remains immutable. launched_unqualified in launch records means launch-only state, superseded by separate successful qualification receipts.",
+    "phase_route_cases": {
+      "primary-direct-initial": 14,
+      "primary-ui-initial": 14,
+      "fallback-direct-initial": 14,
+      "fallback-ui-rollback-v2": 14,
+      "primary-direct-restart": 14,
+      "primary-ui-restored": 14
+    },
+    "successful_route_case_count": 84,
+    "canonical_rows_equal": true,
+    "anonymous_status_each_case": 401,
+    "citation_bytes": 1276,
+    "citation_sha256": "77e5591fa6c983182cc085fea8899f872c06022d3b754ffe1ef1784ed34f4d60",
+    "native_inspection_cases": 8,
+    "existing_product_read_cases": 8,
+    "active_run": "9a2af4d9-d5d0-41b3-a163-e2399284bd2b",
+    "built_asset_count_verified_over_http": 163,
+    "browser_phases": [
+      "initial primary",
+      "fallback mapping",
+      "restored restarted primary"
+    ],
+    "browser_loaded_object_count_each_phase": 3012,
+    "authority_comparison_sha256": "8cfb5ad2268b65635b8035019c25d5c830ea6a86287db635995ff99f00426a04",
+    "authority_limits": "Current selected native authority metadata/receipt/binding/Run invariance; not full database parity or new publication proof",
+    "after_requests_loaded_module_count": 771,
+    "new_live_write_proved": false,
+    "provider_generation_invoked": false,
+    "latency_benchmark": false,
+    "restart_scope": "Original identity-checked one-off primary drain, v3 launch and restored5202 read/browser proof executed. Reusable corrected stop helper and v4 launcher independently reviewed/syntax checked only; no new execution claim.",
+    "same_version_rollback_only": true
+  },
+  "verification_limits": [
+    "Functional actual-serving proof is not a deployed latency benchmark; V11 remains required",
+    "No new live publication/test node or provider request; fresh-write mechanics qualified in4041 owned recovery only",
+    "Historical absent locator and external CDN recovery limits remain; no blanket product/provider readiness claim",
+    "Serving uses pinned immutable mirrors and private profiles; later main is not silently deployed",
+    "Final exact-head frontend/review/merge remain pending at this commit"
+  ],
+  "retention": {
+    "owner": "Elderwyld activation lane",
+    "created_or_retained": [
+      {
+        "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live",
+        "reason": "Recovery dumps/restores/evidence/helper/private configuration owner; retain through V10/V11; clean only after replacement, process/mount/connection and unique-data checks plus approved disposal scope"
+      },
+      {
+        "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/verification/v9b-serving",
+        "reason": "Immutable source/build/node_modules actively used by primary/fallback/UI; do not remove while serving; cleanup followup after qualified replacement"
+      },
+      {
+        "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/cache/v9b-serving-npm",
+        "reason": "Reproducible serving build cache; scoped cleanup followup after acceptance and no active build"
+      },
+      {
+        "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/cache/v9b-primary",
+        "reason": "Active primary outputs; scoped cleanup after replacement"
+      },
+      {
+        "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/cache/v9b-fallback",
+        "reason": "Active fallback outputs; scoped cleanup after retirement"
+      },
+      {
+        "path": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/cache/v9b-ui",
+        "reason": "Active UI outputs; scoped cleanup after replacement"
+      }
+    ],
+    "recovery_databases_on_32903": [
+      "codex_v9b_recovery_core_086b44040baa",
+      "codex_v9b_recovery_app_d3bbc20e5061"
+    ],
+    "database_cleanup_followup": "Retain recovery parity/migration rehearsal authorities through V10/V11; inspect connections and unique records before separately approved disposal",
+    "removed_paths": [],
+    "manual_reclaimed_bytes": 0,
+    "backing_filesystem_uuid": "48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8",
+    "safety_checks": "Serving PIDs/listeners verified alive from host executor; caller branch clean before finalization; no linked worktree or unique commit removed, no manual cleanup or mount changes."
   }
 }

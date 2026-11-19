@@ -30,21 +30,38 @@ schema design/dependency/global configuration changes; use existing accepted mig
 
 ## Current live anchor and write boundary
 
-Fresh readonly preflight2026-11-19: Core127.0.0.1:54330/
-dungeonmind_cutover_live_restore_20261011, schema0021, headrev:5293c1b237a0064bd16fffd080bfa6b1,
-parentrev:9eac817676327afaeaaff25d8f38df60,600 revisions/receipts/events, epoch194.
-APP127.0.0.1:54331/dungeonbuddy_application_state schema20261117_0160;
-elderwyld→elderwyld active bindingv3. Root/parent dotenv overlays select these same
-DSNs. Re-read before changes; this is an observation, not a perpetual authorization.
-UI5202 absent. Other-lane API8000 PID1002232 in jev-freeze-dogfood must stay untouched.
-Known startup env has no DSNs; its explicit env-file contains only auth settings,
-and default dotenv locations contain no DSNs. No live DB connections observed.
-This is scoped configuration evidence, not process-memory attestation or proof of
-absence of every future writer. Recheck connection/activity and selected authority
-around capture and mutation. Stop on unexplained movement; do not terminate unknown
-clients, steal ports, seize that process, or infer quiescence from stale files.
-All qualification18290/18291/15202 processes are stopped. Rehearsal606 authority is
-NOT live Elderwyld and must never replace the fresh600 source.
+Activation functional proof PASSED on2026-11-19. Final exact-head frontend/canonical,
+independent cumulative PR4079 review and guarded merge remain pending. This handoff
+is ACTIVE until those acceptance gates close; V10/V11 are not complete.
+
+Actual local operator UI5202 maps to qualified primary18292; fallback18293 qualified
+against the same latest persistence. Primary1064371 (generation2), fallback1049478,
+UI1069583 (generation3) are qualification identities, not permanent PID authority.
+Immutable completion receipt and operational pointers are recorded in the report.
+Host executor confirmed these original PIDs/listeners and HTTP200 after a restricted
+executor connection failed; no restart was needed for that observation failure.
+
+Live Core54330/dungeonmind_cutover_live_restore_20261011 is now0022_native_read_artifacts;
+APP54331/dungeonbuddy_application_state is20261118_0168. Elderwyld head remains
+rev:5293c1b237a0064bd16fffd080bfa6b1, parentrev:9eac817676327afaeaaff25d8f38df60,
+600 Elderwyld revisions/receipts/events, epoch194, active bindingv3. Active Run
+9a2af4d9-d5d0-41b3-a163-e2399284bd2b is preserved. Do not confuse global642 revisions
+with Elderwyld600. These are qualification observations; legitimate future writes
+may advance head/counts. Never restore this old head merely to satisfy a checker.
+
+Fresh Core/APP backups restored in new owned32903 recovery DBs with exact recorded
+parity scope and bounded constraint-rendering resolution. Live accepted migrations
+and two derived head/parent artifacts passed official typed/read-only resolution.
+Known-process writer interval ended before launch; not a physical SQL fence.
+Other-lane API8000 was untouched. Rehearsal606 authority was never promoted.
+
+Six phases yielded84 matching authenticated route cases, anonymous401, exact1276-byte
+citation;8 native inspection and8 existing product GETs passed. Actual browser
+rendered3012 objects/Lysandra details/excerpt through primary→fallback→restarted primary.
+All163 built assets verified over HTTP. Source attestations bind actual imports to
+Buddy4f4/Core4b. No new live publication/provider generation or latency benchmark.
+Original failed tuple/list and TIME_WAIT receipts remain failed, separately resolved;
+no blind DDL retry, dump overwrite, fake test node or historical file reconstruction.
 
 ## Execution and proof gates
 
