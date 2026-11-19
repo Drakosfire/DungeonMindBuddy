@@ -9,18 +9,20 @@ from .collaboration import Closed
 
 
 _PAGE_REQUEST = re.compile(
-    r'(?:^|(?<=[.!?])\s+)(?P<request>(?:create|open|make)\s+'
+    r'(?:^|(?<=[.!?])\s+)(?P<request>(?:please\s+)?(?:create|open|make)\s+'
     r'(?:a\s+)?(?P<modifiers>(?:(?:new|blank|standalone|lore)\s+)*)page\s+'
     r'(?:for|about|called|named|titled)\s+'
-    r'(?P<subject>"[^"\r\n]+"|“[^”\r\n]+”|[^,.!?;\r\n]+))',
+    r"""(?P<subject>"[^"\r\n]+"|“[^”\r\n]+”|'[^'\r\n]+'|[^,.!?;\r\n]+))""",
     re.IGNORECASE,
 )
 
 
 def _requested_title(subject: str) -> str:
     subject = subject.strip()
-    if (subject[0], subject[-1]) in {('"', '"'), ('“', '”')}:
+    if (subject[0], subject[-1]) in {('"', '"'), ('“', '”'), ("'", "'")}:
         return subject[1:-1].strip()
+    if re.search(r"\b(?:and|or)\b", subject, re.IGNORECASE):
+        raise ValueError("Lore page request has a compound destination. Quote one intended title.")
     # A request may describe the subject before giving its explicit name.
     title = re.split(r'\bthat is\b', subject, flags=re.IGNORECASE)[-1].strip()
     return re.sub(r'^the\s+', '', title, flags=re.IGNORECASE)
@@ -51,8 +53,16 @@ class LorePageTitleWitness(Closed):
         request = requests[0]
         if not self.instruction.startswith(request["request"].rstrip()):
             raise ValueError("Lore page witness must quote the explicit page request")
-        subject = re.split(r'\s+and\s+(?:populate|fill|leave|keep)\b', request["subject"],
-                           maxsplit=1, flags=re.IGNORECASE)[0]
+        subject = request["subject"].strip()
+        if subject.startswith(('"', "“", "'")):
+            if re.match(r"\s+(?:and|or)\s+(?!(?:populate|fill|leave|keep)\b)",
+                        author_text[request.end():], re.IGNORECASE):
+                raise ValueError("Lore page request has a compound destination. Quote one intended title.")
+        else:
+            subject = re.split(
+                r"\s+and\s+(?:populate|fill|leave|keep)\b", subject,
+                maxsplit=1, flags=re.IGNORECASE,
+            )[0]
         if not subject.strip() or self.title != _requested_title(subject):
             raise ValueError("Lore page title differs from the explicit page request")
         if has_body and "blank" in request["modifiers"].lower().split():

@@ -79,3 +79,23 @@ def test_explicit_blank_request_rejects_a_populated_body():
     with pytest.raises(ValueError, match="Blank lore-page request"):
         witness.bind(author, has_body=True)
     assert witness.bind(author) == "Rowan"
+
+
+@pytest.mark.parametrize("subject", ["Rowan or Willow", "Rowan and make a page for Willow"])
+def test_unquoted_compound_destination_requires_clarification(subject):
+    author = f"Create a page for {subject}."
+    with pytest.raises(ValueError, match="compound destination"):
+        LorePageTitleWitness(instruction=author, title=subject).bind(author)
+
+
+@pytest.mark.parametrize("quote", ['"', "'"])
+def test_quoted_compound_title_is_one_explicit_destination(quote):
+    author = f"Please create a blank page called {quote}Rowan and Willow{quote}."
+    witness = LorePageTitleWitness(instruction=author, title="Rowan and Willow")
+    assert witness.bind(author) == "Rowan and Willow"
+
+
+def test_two_coordinated_quoted_titles_are_not_one_destination():
+    author = 'Create a page for "Rowan" and make a page for "Willow".'
+    with pytest.raises(ValueError, match="compound destination"):
+        LorePageTitleWitness(instruction=author, title="Rowan").bind(author)
