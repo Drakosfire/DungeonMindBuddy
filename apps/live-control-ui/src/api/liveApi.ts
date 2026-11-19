@@ -1016,6 +1016,15 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && body.expected_revision > 0 && typeof body.expected_content_sha256 === "string"
       && /^(?:sha256:)?[a-f0-9]{64}$/.test(body.expected_content_sha256);
   }
+  const recapRecovery = /^\/api\/live\/graph-preview\/build-recap-launches\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
+  if (recapRecovery) {
+    const query = new URLSearchParams(recapRecovery[1]);
+    const documentId = query.get("document_id");
+    const worldId = query.get("managed_world_id");
+    return method === "GET" && init?.body == null && !!documentId && !!worldId
+      && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(documentId)
+      && recapRecovery[1] === new URLSearchParams({ document_id: documentId, managed_world_id: worldId }).toString();
+  }
   const savedRecap = /^\/api\/live\/graph-preview\/extraction-runs(?:\/[^/?]+\/(recap-inspection|candidate-projection|recap-projection))?\?/.exec(path);
   if (savedRecap && method === "GET" && init?.body == null) {
     const query = new URLSearchParams(path.slice(savedRecap[0].length));

@@ -1465,3 +1465,16 @@ async def resolve_hosted_source_evidence_extension(request: Request) -> str:
     world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.managed_world_id)
     request.state.hosted_native_graph_world = world.world_id
     return world.world_id
+
+
+async def resolve_hosted_build_recap_recovery(request: Request) -> str:
+    selectors = request.query_params.multi_items()
+    if len(selectors) != 2 or {key for key, _ in selectors} != {
+        "document_id", "managed_world_id",
+    } or await request.body():
+        raise _denied()
+    world_id = await _owned_build_page(_hosted_subject(request), request.query_params.get("document_id"))
+    if request.query_params.get("managed_world_id") != world_id:
+        raise _denied()
+    request.state.hosted_build_page_world = world_id
+    return world_id
