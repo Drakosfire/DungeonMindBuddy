@@ -982,7 +982,7 @@ def test_reader_fence_preserves_old_rows_blocks_old_writers_and_refuses_downgrad
                 ),
             )
     assert ingest.get_extraction_run(run.run_id) == run
-    with pytest.raises(RuntimeError, match="recovery forward"):
+    with pytest.raises(RuntimeError, match="(?:recovery forward|forward recovery)"):
         command.downgrade(cfg, "20261030_0095")
     assert cli._read_current_revision(lane.dsn) == head
     assert native(inspection(lane, status)) == status
