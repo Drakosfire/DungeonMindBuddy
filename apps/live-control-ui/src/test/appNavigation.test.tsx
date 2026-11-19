@@ -325,23 +325,45 @@ describe("App same-document primary navigation", () => {
 
   it("keeps /play?run= across Ingest navigation and back", async () => {
     const user = userEvent.setup();
-    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
-    render(<App />);
-
-    expect(await screen.findByTestId("play-status-miss")).toBeInTheDocument();
-    expect(window.location.search).toBe(`?run=${PLAY_RUN_ID}`);
-
-    const nav = commandBoardNav();
-    await user.click(within(nav).getByRole("link", { name: "Ingest" }));
-    expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/ingest");
-    expect(window.location.search).toBe("");
-
-    window.history.back();
-    await waitFor(() => {
-      expect(window.location.pathname).toBe("/play");
-      expect(window.location.search).toBe(`?run=${PLAY_RUN_ID}`);
+    const worldId = "eldyrwild";
+    const playQuery = `?world=${worldId}&run=${PLAY_RUN_ID}`;
+    const worlds = vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{
+        schema_version: "dmb_world_container_record_v1", world_id: worldId,
+        name: "Eldyrwild", source_root_relpath: "", created_at: "2026-01-01T00:00:00Z",
+      }],
     });
+    const nativeRun = vi.spyOn(liveApi, "getWorldPlayRun").mockRejectedValue(
+      new liveApi.LiveApiError("not found", 404),
+    );
+    try {
+      window.history.pushState({}, "", `/play${playQuery}`);
+      render(<App />);
+
+      expect(await screen.findByTestId("play-status-miss")).toBeInTheDocument();
+      expect(window.location.search).toBe(playQuery);
+      expect(nativeRun).toHaveBeenCalledWith(PLAY_RUN_ID, worldId);
+      expect(liveApi.getPlayRun).not.toHaveBeenCalled();
+
+      const ingest = within(commandBoardNav()).getByRole("link", { name: "Ingest" });
+      expect(ingest).toHaveAttribute("href", `/ingest?world=${worldId}`);
+      await user.click(ingest);
+      expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/ingest");
+      expect(window.location.search).toBe(`?world=${worldId}`);
+
+      window.history.back();
+      await waitFor(() => {
+        expect(window.location.pathname).toBe("/play");
+        expect(window.location.search).toBe(playQuery);
+        expect(screen.getByTestId("play-status-miss")).toBeInTheDocument();
+      });
+      expect(liveApi.getPlayRun).not.toHaveBeenCalled();
+    } finally {
+      nativeRun.mockRestore();
+      worlds.mockRestore();
+    }
   });
 
   it("does not duplicate history when the active primary link is clicked again", async () => {
