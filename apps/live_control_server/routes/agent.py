@@ -1740,17 +1740,23 @@ def confirm_conversation_variant_review(
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/connected-page-origin")
 def get_world_turn_connected_page_origin(world_id: str, turn_id: UUID, request: Request):
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     if request.query_params:
         raise HTTPException(status_code=422, detail={"code":"connected_page_origin_selector_invalid"})
     from apps.live_control_server.services.agent_connected_page_origin import open_origin
+    from apps.live_control_server.services import hosted_auth
     try:
-        return open_origin(_conversation_service(request),verified,turn_id)
+        result = open_origin(_conversation_service(request),verified,turn_id)
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code":"connected_page_origin_unavailable"}) from exc
     except (ValueError,ValidationError,KeyError) as exc:
         raise HTTPException(status_code=409, detail={"code":"connected_page_origin_binding_invalid"}) from exc
+    if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    return result
 
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/related-pages/{read_id}")
