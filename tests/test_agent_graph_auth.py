@@ -185,7 +185,7 @@ def _clear_auth_environment(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(key, raising=False)
 
 
-def test_every_public_native_graph_route_has_the_shared_gm_dependency() -> None:
+def test_every_public_native_graph_route_has_its_exact_authorization_dependency() -> None:
     from fastapi.routing import APIRoute
 
     from apps.live_control_server.main import create_app
@@ -199,21 +199,25 @@ def test_every_public_native_graph_route_has_the_shared_gm_dependency() -> None:
         for route in app.routes
         if isinstance(route, APIRoute) and "POST" in route.methods
     }
-    protected_routes = [
-        "/api/live/world-graph/projection",
-        "/api/live/world-graph/managed-projection",
-        "/api/live/world-graph/recap-projection",
-        "/api/live/world-graph/retrieval/search",
-        "/api/live/world-graph/retrieval/object",
-        "/api/live/world-graph/retrieval/complete-object",
-        "/api/live/world-graph/retrieval/neighborhood",
-        "/api/live/world-graph/retrieval/evidence",
-        "/api/live/world-graph/retrieval/source-anchor/read",
-    ]
-    for path in protected_routes:
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        native_graph_explorer_dependency,
+    )
+
+    protected_routes = {
+        "/api/live/world-graph/projection": native_graph_gm_dependency,
+        "/api/live/world-graph/managed-projection": native_graph_explorer_dependency,
+        "/api/live/world-graph/recap-projection": native_graph_gm_dependency,
+        "/api/live/world-graph/retrieval/search": native_graph_gm_dependency,
+        "/api/live/world-graph/retrieval/object": native_graph_gm_dependency,
+        "/api/live/world-graph/retrieval/complete-object": native_graph_gm_dependency,
+        "/api/live/world-graph/retrieval/neighborhood": native_graph_gm_dependency,
+        "/api/live/world-graph/retrieval/evidence": native_graph_gm_dependency,
+        "/api/live/world-graph/retrieval/source-anchor/read": native_graph_gm_dependency,
+    }
+    for path, expected_dependency in protected_routes.items():
         route = route_map[path]
         assert any(
-            dependency.call is native_graph_gm_dependency
+            dependency.call is expected_dependency
             for dependency in route.dependant.dependencies
         ), path
 
@@ -520,3 +524,48 @@ def test_graphless_agent_turn_requires_auth_before_world_or_runtime_access(
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail["code"] == "graph_auth_required"
     assert touched == []
+
+
+def test_managed_projection_local_authorization_precedes_projection(monkeypatch) -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.routes import world_graph_projection as route
+    from apps.live_control_server.services import agent_graph_auth as auth
+
+    _clear_auth_environment(monkeypatch)
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setenv(auth.AUTH_ENVIRONMENT_ENV, "local")
+    monkeypatch.setenv(auth.AUTH_MODE_ENV, "local_operator")
+    monkeypatch.setenv(auth.LOCAL_OPERATOR_TOKEN_ENV, LOCAL_OPERATOR_TOKEN)
+    calls = []
+
+    def projection(body):
+        calls.append((body.managed_world_id, body.revision_pin))
+        raise route.WorldGraphProjectionServiceError(
+            "Authorized projection reached", code="fixture", status_code=409,
+        )
+
+    monkeypatch.setattr(route, "project_managed_world_graph", projection)
+    app = FastAPI()
+    app.include_router(route.router)
+    path = "/api/live/world-graph/managed-projection"
+    body = {"schema": "dmb_managed_world_graph_projection_request_v1",
+            "managedWorldId": "guarded-world", "revisionPin": "rev:guard"}
+    with TestClient(app, client=("127.0.0.1", 50000)) as client:
+        assert client.post(path, json=body).status_code == 401
+        assert client.post(path, json=body,
+                           headers={"Authorization": "Bearer invalid"}).status_code == 401
+        assert calls == []
+        headers = {"Authorization": "Bearer " + LOCAL_OPERATOR_TOKEN}
+        allowed = client.post(path, json=body, headers=headers)
+        assert allowed.status_code == 409, allowed.text
+        assert calls == [("guarded-world", "rev:guard")]
+        calls.clear()
+        # Substitute only identity resolution; the actual role/route guards run.
+        monkeypatch.setattr(auth, "authenticate_native_graph_principal",
+            lambda _request: auth.NativeGraphPrincipal("player", "player", "local_operator"))
+        denied = client.post(path, json=body, headers=headers)
+        assert denied.status_code == 403, denied.text
+        assert denied.json()["detail"]["code"] == "graph_gm_required"
+        assert calls == []
