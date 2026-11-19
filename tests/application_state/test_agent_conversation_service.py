@@ -991,6 +991,8 @@ def test_v1_accept_race_keeps_one_receipt_and_rejects_conflicting_intent(
 def test_turn_claim_expiry_fences_old_worker_and_terminal_retries(
     application_state_dsn: str,
 ) -> None:
+    from unittest.mock import patch
+
     import psycopg
 
     service = AgentConversationService()
@@ -1006,14 +1008,16 @@ def test_turn_claim_expiry_fences_old_worker_and_terminal_retries(
             "turn-claim-world", "Recover this claimed turn."
         ),
     )
-    accepted = service.accept_turn(submission)
-    first = service.claim_turn(
-        "turn-claim-world",
-        conversation.conversation_id,
-        accepted.turn_id,
-        expected_revision=accepted.revision,
-        lease_seconds=60,
-    )
+    with patch.object(psycopg, "connect", wraps=psycopg.connect) as connect:
+        accepted = service.accept_turn(submission)
+        first = service.claim_turn(
+            "turn-claim-world",
+            conversation.conversation_id,
+            accepted.turn_id,
+            expected_revision=accepted.revision,
+            lease_seconds=60,
+        )
+    assert connect.call_count == 2  # One per committed operation.
     assert first.disposition == "claimed"
     assert first.turn.status == "running"
     assert first.turn.attempt == 1
