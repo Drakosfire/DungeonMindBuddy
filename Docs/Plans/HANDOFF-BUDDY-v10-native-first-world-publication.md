@@ -55,6 +55,38 @@ initial two-file design lease still applies until exact compiler/model/test path
 and active shared-file ownership are pinned and critiqued. No production dispatch
 has been authorized by an unclosed effect map.
 
+## Source-traced effect inventory for the first compiler
+
+Independent source trace confirms published aliases travel through create_new →
+_map_node → map_candidate_node_to_assertion → adapter _map_contribution → Core
+_FirstWorldWorkspace.apply_node. The candidate mapper carries aliases, defaulting
+to the label; Core creates evidence-bearing alias records, removes blank/casefold
+repeats, and keeps surviving spelling. Deferred mentions are a separate path.
+An atomic prospective-alias target is not currently represented by the examined
+WK/Core operation models. Record a typed unsupported-effect result until an actual
+supported path is demonstrated or the generic owner adds the missing contract.
+
+The pure compiler must account for every choice/field, deterministically:
+- create: name/classification operations plus exact identity/alias/evidence intent;
+- directed edge: qualified predicate and prospective endpoints, no guessed IDs;
+- genuine source/body/span resolution or explicit source-admission prerequisite;
+- explicit scope/visibility/epistemic/temporal mapping or field-specific refusal;
+- reject: no graph publication, retained decision/audit commitment;
+- defer: no entity allocation, retain unresolved mention aliases/evidence;
+- bind-existing: a separately specified durable-target operation or typed refusal.
+
+Another source-traced distinction must be decided explicitly: the candidate mapper
+includes summary, while current Core first-World apply_node constructs summary=None
+and empty properties/aspects. Account for reviewed input and actual classic published
+effect separately. Do not silently perpetuate lost reviewed fields or add newly
+authoritative description facts while claiming exact old/new effect equivalence.
+Record and independently review the native disposition. No backfill of old history.
+
+Output is either a complete effect packet with satisfied native prerequisites or a
+closed list of typed unsupported effects. No partial-success packet, allocation,
+source mutation, fake WK context, permissive defaults or hidden production dispatch.
+This inventory is design evidence, not a claim that the compiler already exists.
+
 ## Required integrated outcome
 
 Newly confirmed first Worlds publish accepted reviewed entities/assertions/evidence
