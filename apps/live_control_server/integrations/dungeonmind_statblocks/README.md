@@ -1,22 +1,23 @@
 # Regenerate the statblock Python models
 
-From the Buddy repository root, run the pinned generator against the canonical
-OpenAPI snapshot. The temporary output lets you verify parity before updating
-the checked-in models.
+Use an installed Python 3.14 and uv. This pins the generator to 0.46.0, which
+preserves required nullable fields. The canonical OpenAPI requires explicit
+`ruleset`, `movement` and `proficiency_bonus` values even when those values are
+null. Preserve that distinction from omitted fields.
 
-Known drift: the procedure currently reports a mismatch, tracked in
-[#4156](https://github.com/Drakosfire/DungeonMindBuddy/issues/4156). In addition
-to descriptions and a generated root type, it would make currently required
-nullable movement, ruleset and proficiency fields optional with default `None`.
-Do not overwrite the models or normalize away those differences to obtain a
-passing comparison. The statblock integration owner must decide the intended
-schema/model contract first. Matching source fingerprints do not establish
-byte-exact regeneration or identical validation behavior.
+From the Buddy repository root, run the complete recipe below. The lab wrapper
+checks Projects storage and contains tool caches and scratch there. No Python
+download is permitted. It compares the complete normalized body without editing
+the checked-in models; temporary model output is removed on exit.
 
 ```bash
+task_slug="statblock-models-$(date +%s)-$$"
+UV_PYTHON_DOWNLOADS=never scripts/run_local_lab.sh "$task_slug" bash <<'SH'
+set -euo pipefail
 integration=apps/live_control_server/integrations/dungeonmind_statblocks
-scratch=$(mktemp -d)
-uvx --python 3.14 --from datamodel-code-generator==0.35.0 datamodel-codegen \
+scratch=$(mktemp -d "$TMPDIR/models.XXXXXX")
+trap 'rm -rf -- "$scratch"' EXIT
+uvx --python 3.14 --from datamodel-code-generator==0.46.0 datamodel-codegen \
   --input "$integration/openapi/dungeonbuddy-statblocks-v1.json" \
   --input-file-type openapi --output "$scratch/models.py" \
   --output-model-type pydantic_v2.BaseModel --target-python-version 3.13 \
@@ -34,6 +35,27 @@ generated = Path(sys.argv[1]).read_text().split("\n", 3)[3]
 checked_in = Path(sys.argv[2]).read_text().split("\n", 6)[6]
 generated = generated.replace("from enum import Enum", "from enum import StrEnum")
 generated = generated.replace("(str, Enum):", "(StrEnum):")
+
+# Preserve Buddy's scalar interface, rather than exposing a RootModel wrapper.
+# Exact shape/count guards refuse a changed constraint or generator structure.
+proficiency_root = """class ProficiencyBonus(RootModel[int]):
+    root: Annotated[
+        int,
+        Field(
+            description='Must match rating on the standard 5e challenge-rating table.',
+            ge=0,
+            title='Proficiency Bonus',
+        ),
+    ]
+
+
+"""
+if generated.count(proficiency_root) != 1:
+    raise SystemExit("Unexpected proficiency root model; review the schema and generator.")
+generated = generated.replace(proficiency_root, "")
+if generated.count("ProficiencyBonus | None") != 1:
+    raise SystemExit("Unexpected proficiency reference; review the generated interface.")
+generated = generated.replace("ProficiencyBonus | None", "Annotated[int, Field(ge=0)] | None")
 
 
 def restore_discriminator(match):
@@ -57,13 +79,18 @@ if count != 14 or generated != checked_in:
     raise SystemExit("Generated models differ. Review the schema and generated model changes.")
 print("Model body matches exactly.")
 PY
+SH
 ```
 
-The post-processing preserves the public string-enum behavior and the
-`kind` discriminator on each nested effect union. When updating the
-snapshot, review any change in the discriminator count and update the
-source fingerprint headers to match the canonical file.
+Post-processing preserves public string enums, fourteen nested effect-union
+discriminators, and the constrained integer proficiency interface. Shape/count
+guards and full-body comparison fail when generator/schema changes need review.
+The model header fingerprint and exported `generated.OPENAPI_FINGERPRINT` must
+match the canonical snapshot. Generated descriptions follow that snapshot.
 
-The exported `generated.OPENAPI_FINGERPRINT` and generated model headers must
-match the canonical snapshot digest. Historical create/revise transcripts retain
-their capture-time identities; see their [provenance guide](../../../../tests/fixtures/statblocks/v1/server_transcripts/README.md).
+When updating the schema, review the raw generated output and the complete model
+diff before deliberately updating the checked-in body and fingerprint headers.
+Recheck required/null/omitted behavior, scalar values, JSON round trips and
+captured DTO compatibility. Do not relax comparison guards merely to get a pass.
+Historical captures retain their capture-time identities; see their
+[provenance guide](../../../../tests/fixtures/statblocks/v1/server_transcripts/README.md).
