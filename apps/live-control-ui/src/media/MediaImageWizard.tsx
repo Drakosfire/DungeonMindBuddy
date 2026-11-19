@@ -69,12 +69,18 @@ function LibraryThumbnail({ record, port }: { record: MediaRecord; port: ImageGe
   return <span ref={holder} className="media-image-wizard__thumbnail">{source && !failed ? <img src={source} alt="" loading="lazy" onError={() => setFailed(true)} /> : <span>{failed ? 'Preview unavailable' : 'Loading preview…'}</span>}</span>;
 }
 
-/** Surface-independent generator. The host owns placement and any eventual document write. */
-export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initialPurpose = 'illustration', preparationId, chooseLabel = 'Insert into page', placeAfterBlock = false, selectionOnly = false, requireSaved = false, port = livePort }: {
+type MediaImageWizardProps = {
   initialPrompt?: string; initialPurpose?: 'illustration' | 'map'; preparationId?: string; chooseLabel?: string; placeAfterBlock?: boolean; selectionOnly?: boolean; requireSaved?: boolean; onClose: () => void; onChoose?: (image: GeneratedMediaImage, result: ImageGenerationResult, placement: { mode: 'click' | 'drag'; signal: AbortSignal }) => void | Promise<void>; port?: ImageGenerationPort;
-}) {
+};
+
+/** Surface-independent generator. The host owns placement and any eventual document write. */
+export function MediaImageWizard(props: MediaImageWizardProps) {
   const world = useSelectedWorld();
   const worldId = world.kind === "managed" ? world.worldId : undefined;
+  return <WorldImageWizard key={worldId} worldId={worldId} {...props} />;
+}
+
+function WorldImageWizard({ worldId, onClose, onChoose, initialPrompt = '', initialPurpose = 'illustration', preparationId, chooseLabel = 'Insert into page', placeAfterBlock = false, selectionOnly = false, requireSaved = false, port = livePort }: MediaImageWizardProps & { worldId?: string }) {
   const imageObservation=useTourImage(),tourImage=selectionOnly?null:imageObservation;
   const [collapsed, setCollapsed] = useState(false);
   const [placing, setPlacing] = useState(false);
@@ -113,16 +119,7 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
   const [catalogBusy, setCatalogBusy] = useState(false);
   const [catalogError, setCatalogError] = useState('');
   const catalogInFlight = useRef(false);
-  useEffect(() => {
-    browseSequence.current += 1;
-    setLibrary([]);
-    setResult(null);
-    setCompletion(null);
-    setView("create");
-    setLibraryOpen(false);
-    libraryOpenRef.current = false;
-    setLibraryBusy(false);
-  }, [worldId]);
+  useEffect(() => () => { browseSequence.current += 1; }, []);
   const model = models.find(item => item.id === modelId);
   const currentResult = useRef(result); currentResult.current = result;
   const mounted = useRef(true);
