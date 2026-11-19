@@ -2291,6 +2291,9 @@ def test_hosted_first_world_prepare_uses_stored_world_and_rechecks_before_prepar
 
 
 def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_state_dsn, monkeypatch):
+    registered = catalog.create_world(name="managed", owner_subject=OWNER)
+    assert registered.record.world_id == "managed"
+    assert registered.record.owner_subject == OWNER
     documents = "/api/live/workspace-documents"
     editor = "/api/live/tiptap/markdown-write"
     create = {
