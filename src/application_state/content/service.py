@@ -570,6 +570,8 @@ def _commit_in_connection(
                         "updated_at": repo.now_utc(),
                     }
                 )
+                if authorize_world is not None:
+                    authorize_world(obj.world_id)
                 persisted = repo.update_work_object(
                     conn, updated, expected_object_revision=obj.object_revision
                 )
@@ -656,6 +658,7 @@ def commit_plan(
     expected_revision: int | None = None,
     expected_world_id: str | None = None,
     title: str | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
     return _commit(
         document_id,
@@ -664,6 +667,7 @@ def commit_plan(
         expected_revision=expected_revision,
         expected_world_id=expected_world_id,
         title=title,
+        authorize_world=authorize_world,
     )
 
 
