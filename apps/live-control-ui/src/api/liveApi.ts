@@ -445,6 +445,18 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   }
   const recapCorrection = /^\/api\/live\/extract-promote\/runs\/[^/?#%]+\/recap-evidence-corrections\?managed_world_id=([a-z][a-z0-9_-]{0,62})$/.exec(path);
   if (recapCorrection) return method === "POST" && requestBodyRecord(init?.body) !== null;
+  const imageLibrary = "/api/live/media/images/library?";
+  if (path.startsWith(imageLibrary)) {
+    const query = new URLSearchParams(path.slice(imageLibrary.length));
+    const keys = [...query.keys()];
+    return method === "GET" && init?.body == null && !!query.get("world_id")
+      && keys.every(key => ["world_id", "before_time", "before_id"].includes(key))
+      && keys.every(key => query.getAll(key).length === 1)
+      && query.has("before_time") === query.has("before_id");
+  }
+  if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
   if (/^\/api\/live\/extract-promote\/runs\/[^/?#%]+\/semantic-disposition\?managed_world_id=[a-z][a-z0-9_-]{0,62}$/.test(path)) {
     return method === "POST" && requestBodyRecord(init?.body) !== null;
   }

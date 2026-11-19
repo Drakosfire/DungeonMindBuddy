@@ -19,7 +19,7 @@ type CatalogPage = { models: CatalogModel[]; next_cursor: string | null; has_mor
 export type ImageGenerationPort = {
   capabilities: (worldId?: string) => Promise<{ configured: boolean; library_ready: boolean; storage_configured: boolean; models: Model[]; default_model_id?: string; map_framing?: string }>;
   catalog?: (cursor?: string, worldId?: string) => Promise<CatalogPage>;
-  list: (cursor?: string) => Promise<{ items: MediaRecord[] }>;
+  list: (cursor?: string, worldId?: string) => Promise<{ items: MediaRecord[] }>;
   get: (assetId: string) => Promise<MediaRecord>;
   save: (assetId: string) => Promise<MediaRecord>;
   generate: (input: ImageGenerationInput) => Promise<ImageGenerationResult>;
@@ -37,7 +37,11 @@ const livePort: ImageGenerationPort = {
     if (worldId) query.set('world_id', worldId);
     return request('catalog' + (query.size ? '?' + query : ''));
   }, generate: input => request('generate', input),
-  list: (cursor = '') => request('library' + cursor), get: id => request(id), save: id => request(id + '/save', {}),
+  list: (cursor = '', worldId) => {
+    const query = new URLSearchParams(cursor);
+    if (worldId) query.set('world_id', worldId);
+    return request('library' + (query.size ? '?' + query : ''));
+  }, get: id => request(id), save: id => request(id + '/save', {}),
 };
 
 /** Lazy owner-authenticated previews; library reads never run generation or upload. */
@@ -92,6 +96,8 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
   const [completion, setCompletion] = useState<GeneratedMediaImage | null>(null);
   const libraryOpenRef = useRef(false);
   const browseSequence = useRef(0);
+  const currentWorld = useRef(worldId);
+  currentWorld.current = worldId;
   const [prompt, setPrompt] = useState(initialPrompt);
   const [modelId, setModelId] = useState('');
   const [shape, setShape] = useState('1024x1024');
@@ -107,6 +113,16 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
   const [catalogBusy, setCatalogBusy] = useState(false);
   const [catalogError, setCatalogError] = useState('');
   const catalogInFlight = useRef(false);
+  useEffect(() => {
+    browseSequence.current += 1;
+    setLibrary([]);
+    setResult(null);
+    setCompletion(null);
+    setView("create");
+    setLibraryOpen(false);
+    libraryOpenRef.current = false;
+    setLibraryBusy(false);
+  }, [worldId]);
   const model = models.find(item => item.id === modelId);
   const currentResult = useRef(result); currentResult.current = result;
   const mounted = useRef(true);
@@ -143,20 +159,26 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
     if (model.controls.includes('background')) options.background = background;
     if (model.controls.includes('seed') && seed !== '') options.seed = Number(seed);
     const tourScope=tourImage?.captureScope()??null;
+    const generation = getNativeGraphAccessGeneration();
+    const scopeIsCurrent = () => mounted.current && currentWorld.current === worldId && generation === getNativeGraphAccessGeneration();
     try {
       const input = { prompt, purpose, model: modelId, width, height, options, ...(preparationId ? { preparation_id: preparationId } : {}) };
       const generated: ImageGenerationResult = worldId && port === livePort
         ? await request(`generate?world_id=${encodeURIComponent(worldId)}`, input)
         : await port.generate(input);
+      if (!scopeIsCurrent()) return;
       tourImage?.generated(generated.images.map(image=>image.asset_id),generated.model,tourScope);
       setCompletion(generated.images[0] ?? null);
       if (libraryOpenRef.current) {
-        void port.list().then(page => setLibrary(page.items)).catch(() => { /* Completion still opens the acknowledged asset. */ });
+        const sequence = browseSequence.current;
+        void (worldId ? port.list(undefined, worldId) : port.list()).then(page => {
+          if (scopeIsCurrent() && sequence === browseSequence.current) setLibrary(page.items);
+        }).catch(() => { /* Completion still opens the acknowledged asset. */ });
       }
       // Keep the reader's library selection visible; completion is always reachable in chrome.
       if (!libraryOpenRef.current) { setResult(generated); setView('preview'); }
     }
-    catch (error) { setError(error instanceof Error ? error.message : 'Image generation did not complete.'); }
+    catch (error) { if (scopeIsCurrent()) setError(error instanceof Error ? error.message : 'Image generation did not complete.'); }
     finally { inFlight.current = false; setPending(false); }
   };
   const openLibrary = async (more = false) => {
@@ -166,7 +188,7 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
     try {
       const last = more ? library[library.length - 1] : null;
       const cursor = last ? `?before_time=${encodeURIComponent(last.created_at)}&before_id=${encodeURIComponent(last.asset_id)}` : '';
-      const page = await port.list(cursor);
+      const page = worldId ? await port.list(cursor, worldId) : await port.list(cursor);
       if (sequence === browseSequence.current) setLibrary(old => more ? [...new Map([...old, ...page.items].map(item => [item.asset_id, item])).values()] : page.items);
     } catch (error) { if (sequence === browseSequence.current) setError(error instanceof Error ? error.message : 'The image library could not be opened.'); }
     finally { if (sequence === browseSequence.current) setLibraryBusy(false); }

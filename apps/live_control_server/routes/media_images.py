@@ -278,14 +278,26 @@ def _public_record(row: dict) -> dict:
 
 
 @router.get('/library')
-def image_library(request: Request, response: Response, before_time: datetime | None = None, before_id: UUID | None = None):
-    principal = enforce_native_graph_gm(request)
+def image_library(request: Request, response: Response, before_time: datetime | None = None, before_id: UUID | None = None, world_id: str | None = None):
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        hosted_world_media_owner, require_hosted_plan_world_context,
+    )
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        require_hosted_plan_world_context(request, world_id)
+        owner = hosted_world_media_owner(world_id)
+    else:
+        owner = enforce_native_graph_gm(request).subject
     response.headers['Cache-Control'] = 'no-store'
     if (before_time is None) != (before_id is None):
         raise HTTPException(422, detail='Both media cursor fields are required.')
     try:
-        rows = media.list_assets(principal.subject, before=(before_time, before_id) if before_time is not None else None)
-        return {'items': [_public_record(row) for row in rows]}
+        rows = media.list_assets(owner, before=(before_time, before_id) if before_time is not None else None)
+        result = {'items': [_public_record(row) for row in rows]}
+        if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+            require_hosted_plan_world_context(request, world_id)
+        return result
     except ApplicationStateError as error:
         raise HTTPException(error.status_code, detail='Media library is unavailable.') from error
 
@@ -410,14 +422,16 @@ def image_original(asset_id: UUID, request: Request) -> Response:
 
 @router.get('/{asset_id}')
 def image_record(asset_id: UUID, request: Request, response: Response):
-    principal = enforce_native_graph_gm(request)
+    owner = _saved_artwork_owner(request, asset_id)
     response.headers['Cache-Control'] = 'no-store'
     try:
-        row = media.get_asset(asset_id, principal.subject)
+        row = media.get_asset(asset_id, owner)
         record = _public_record(row)
         # Original preview remains owner-authorized even before CDN Save.
-        content = media.read_staged_bytes(asset_id, principal.subject)
+        content = media.read_staged_bytes(asset_id, owner)
         record['data_url'] = f"data:{row['mime_type']};base64,{base64.b64encode(content).decode('ascii')}"
+        if _saved_artwork_owner(request, asset_id) != owner:
+            raise HTTPException(403, detail="Image access denied.")
         return record
     except ApplicationStateError as error:
         raise HTTPException(error.status_code, detail='Media asset could not be opened.') from error

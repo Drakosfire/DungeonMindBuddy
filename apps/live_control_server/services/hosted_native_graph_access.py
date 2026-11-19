@@ -1299,3 +1299,14 @@ async def resolve_hosted_image_catalog(request: Request) -> str:
     world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
     request.state.hosted_conversation_world = world.world_id
     return world.world_id
+
+
+async def resolve_hosted_media_library(request: Request) -> str:
+    query = request.query_params
+    world_id = query.get("world_id")
+    if (not world_id or set(query) not in ({"world_id"}, {"world_id", "before_time", "before_id"})
+            or len(query.multi_items()) != len(query) or await request.body()):
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_plan_context_world = world.world_id
+    return world.world_id
