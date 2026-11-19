@@ -40,10 +40,10 @@ class Store:
         return [self.trace]
 
 
-def collector():
+def collector(trace=None):
     store = Store()
     turn = SimpleNamespace(world_id="world", conversation_id=uuid4(), turn_id=uuid4(), revision=4, attempt=1, sequence=2)
-    fence = SimpleNamespace(service=store, turn=turn, renewer=SimpleNamespace(_lock=Lock(), _turn=turn))
+    fence = SimpleNamespace(service=store, turn=turn, trace=trace, renewer=SimpleNamespace(_lock=Lock(), _turn=turn))
     return ContextTraceCollector(fence), store, turn
 
 
@@ -54,6 +54,23 @@ def test_observations_use_current_execution_revision_and_assigned_sequence():
     capture.observe({"kind": "failure", "code": "provider_denied", "phase": "provider"})
     assert [item.sequence for item in store.trace.observations] == [0, 1]
     assert [item["expected_revision"] for item in store.bindings] == [4, 9]
+
+
+def test_trace_observations_keep_first_jev_timing_before_transport_only():
+    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+
+    trace = AgentTurnTraceBuilder(agent_thread_id=None, turn_id="turn",
+        runtime="test", backend="test", mode="test")
+    capture, store, _ = collector(trace)
+    capture.observe({"kind": "failure", "code": "graph_denied", "phase": "graph_retrieval"})
+    trace.mark_first_jev_dispatch()
+    capture.observe({"kind": "failure", "code": "provider_denied", "phase": "provider"})
+
+    names = [span["name"] for span in trace.spans]
+    assert names.count("first_jev_context_trace_start") == 1
+    assert names.count("first_jev_context_trace_append") == 1
+    assert next(span for span in trace.spans if span["name"] == "trace_append")["attributes"]["count"] == 2
+    assert [item.sequence for item in store.trace.observations] == [0, 1]
 
 
 def test_known_capture_rejection_is_explicit_and_does_not_retry_append():
