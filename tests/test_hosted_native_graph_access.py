@@ -305,6 +305,8 @@ def hosted(monkeypatch, request):
     )
     replay_path = "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}"
     app.add_api_route(replay_path + "/identities", agent_routes.get_world_replay_identities, methods=["GET"])
+    authored_path = "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}"
+    app.add_api_route(authored_path + "/related-pages/{read_id}", agent_routes.get_world_turn_related_page, methods=["GET"])
     app.include_router(conversation_library.router)
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
@@ -485,6 +487,8 @@ def hosted(monkeypatch, request):
             ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/related-pages/{read_id}"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/saved-sections/{segment_index}/{section_event_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/connected-page-origin"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/source-passages/{source_read_event_id}"): access.resolve_hosted_conversation_world,
@@ -5379,3 +5383,37 @@ def test_hosted_saved_replay_binds_trace_before_read(hosted, monkeypatch):
     params = read.call_args.kwargs
     assert params["world_id"] == params["principal"].managed_world_id == "managed"
     assert (params["turn_id"], params["trace_id"]) == (turn, trace)
+
+
+def test_hosted_related_page_read_binds_saved_turn(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import build_related_pages
+
+    read = Mock(return_value={"page": "Saved passage"})
+    monkeypatch.setattr(build_related_pages, "open_page", read)
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    service = object()
+    monkeypatch.setattr(agent, "_conversation_service", lambda request: service)
+    turn, read_id = uuid4(), uuid4()
+    path = f"/api/live/agent/worlds/managed/conversation/turns/{turn}/related-pages/{read_id}"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=foreign").status_code == 403
+    assert hosted.client.request("GET", path + "?revision=foreign").status_code == 422
+    read.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    read.assert_called_once_with(service, "managed", turn, read_id)
+
+    def transfer_during_read(*_args):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"page": "withheld authored passage"}
+
+    read.side_effect = transfer_during_read
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 403, denied.text
+    assert "withheld authored passage" not in denied.text
