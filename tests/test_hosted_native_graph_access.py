@@ -1541,7 +1541,7 @@ def test_hosted_entity_read_returns_pdf_reference_without_rendering(hosted, monk
     evidence_id = "pdf-region:fixture"
     request = _inspection_payload(hosted, entity_id)
 
-    def pinned(scope, principal):
+    def pinned(scope, principal, *, parsed_cache=None, verification_cache=None):
         return inspection_service.native.binding(scope.managed_world_id), None, None, scope, None
 
     class FixtureEntityReader:
@@ -2081,7 +2081,9 @@ def test_hosted_pdf_publish_recovers_only_exact_review(hosted, monkeypatch, sess
         request_body={"accepted_through": through},
     ))
 
-    def status(_root, actual_draft_id, world_id, principal):
+    def status(_root, actual_draft_id, world_id, principal, *, authorize_write=None):
+        if authorize_write is not None:
+            authorize_write()
         calls.append((actual_draft_id, world_id, principal.subject))
         return {"state": "published", "node_id": "published-creature"}
 
