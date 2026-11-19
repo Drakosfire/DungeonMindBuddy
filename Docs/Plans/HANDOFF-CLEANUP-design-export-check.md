@@ -23,8 +23,8 @@ Docs/Sources/design-agent/ACTIVE_REFERENCE/README.md;
 Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md;
 Docs/Sources/design-agent/README.md; this brief only.
 
-Verify parent failure and current checker success; all23mapped exports plus
-self-contained manifest links; byteidentity of22nonmanifestcopies to pinned
+Verify parent failure and current checker success; all22mapped exports plus
+self-contained manifest links; byteidentity of21nonmanifestcopies to pinned
 canonical files, no unexpectedexports. Negative drift and wrong-manifest-link
 probes in disposable copies must fail without checkout writes. Localdocslinks,
 exact-head hosted/build/validator, independent cumulative source/rawreview.
