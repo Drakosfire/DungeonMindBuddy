@@ -577,9 +577,15 @@ def confirm(request, principal):
     )
     if logical != clause["logical_source"] or quote != payload["quote"]:
         _refuse("statement_source_invalid", "Reviewed clause changed")
-    transport.runtime(
+    from apps.live_control_server.services.hosted_native_graph_access import require_explorer_access
+
+    runtime = transport.runtime(
         repo, domain, profile, now=prepared.prepared_at, operation_id=operation
-    ).commit_prepared_change(prepared, confirmed_by=principal.subject)
+    )
+    if native.binding(bound["managed_world_id"]) != bound:
+        _refuse("statement_binding_changed", "Reviewed World binding changed before commit")
+    require_explorer_access(principal, bound["managed_world_id"])
+    runtime.commit_prepared_change(prepared, confirmed_by=principal.subject)
     result = _recover(repo, space, payload)
     if result is None:
         raise StatementError(

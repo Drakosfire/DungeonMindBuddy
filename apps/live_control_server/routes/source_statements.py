@@ -76,16 +76,24 @@ def _call(fn, *args, **kwargs):
 
 def prepare(
     body: StatementSelection,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    principal: NativeGraphPrincipal = Depends(native_graph_explorer_dependency),
 ):
-    return _call(service.prepare, body, principal)
+    require_explorer_access(principal, body.managed_world_id)
+    result = _call(service.prepare, body, principal)
+    require_explorer_access(principal, body.managed_world_id)
+    return result
 
 
 def confirm(
     body: ConfirmStatement,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    principal: NativeGraphPrincipal = Depends(native_graph_explorer_dependency),
 ):
-    return _call(service.confirm, body, principal)
+    binding = body.envelope.get("binding")
+    world_id = binding.get("managed_world_id") if isinstance(binding, dict) else None
+    require_explorer_access(principal, world_id if isinstance(world_id, str) else "")
+    result = _call(service.confirm, body, principal)
+    require_explorer_access(principal, world_id if isinstance(world_id, str) else "")
+    return result
 
 
 router.add_api_route(

@@ -148,6 +148,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_connected_page,
     resolve_hosted_conversation_world,
     resolve_hosted_native_publication,
+    resolve_hosted_source_statement_publication,
     resolve_hosted_native_creature,
     resolve_hosted_mechanics_association,
     resolve_hosted_build_insertion_ack,
@@ -220,6 +221,8 @@ PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/extract-promote/runs/{run_id}/selection-context"): resolve_hosted_recap_selection,
     ("POST", "/api/live/extract-promote/runs/{run_id}/recap-evidence-corrections"): resolve_hosted_recap_correction,
+    ("POST", "/api/live/source-statements/prepare"): resolve_hosted_source_statement_publication,
+    ("POST", "/api/live/source-statements/confirm"): resolve_hosted_source_statement_publication,
     ("POST", "/api/live/extract-promote/runs/{run_id}/recap-candidate-corrections"): resolve_hosted_recap_correction,
     ("POST", "/api/live/extract-promote/runs/{run_id}/semantic-disposition"): resolve_hosted_recap_correction,
     ("POST", "/api/live/extract-promote/native-prepare"): resolve_hosted_native_publication,
