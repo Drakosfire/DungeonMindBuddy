@@ -1808,31 +1808,40 @@ def get_world_turn_connected_page_origin(world_id: str, turn_id: UUID, request: 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/related-pages/{read_id}")
 def get_world_turn_related_page(world_id: str, turn_id: UUID, read_id: UUID, request: Request):
     """Read the immutable authored page captured for this completed answer."""
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified=_verified_world_id(world_id)
     if request.query_params:
         raise HTTPException(status_code=422,detail={"code":"related_page_selector_invalid"})
     from apps.live_control_server.services.build_related_pages import open_page
     try:
-        return open_page(_conversation_service(request),verified,turn_id,read_id)
+        result = open_page(_conversation_service(request),verified,turn_id,read_id)
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code,detail={"code":"related_page_turn_unavailable"}) from exc
     except (ValueError,ValidationError,KeyError) as exc:
         raise HTTPException(status_code=409,detail={"code":"related_page_binding_invalid"}) from exc
+    if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    return result
 
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/saved-sections/{segment_index}/{section_event_id}")
 def get_world_turn_saved_section(world_id: str, turn_id: UUID, segment_index: int,
         section_event_id: UUID, request: Request):
     """Open persisted authored evidence; never substitute a current source."""
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     if request.query_params or not 0 <= segment_index <= 127:
         raise HTTPException(status_code=422, detail={"code": "saved_section_selector_invalid"})
     from apps.live_control_server.services.agent_saved_sections import open_saved_section
     from apps.live_control_server.services.agent_source_passages import SourcePassageOpenError
     try:
-        return open_saved_section(world_id=verified, turn_id=turn_id,
+        result = open_saved_section(world_id=verified, turn_id=turn_id,
             segment_index=segment_index, section_event_id=section_event_id,
             service=_conversation_service(request)).model_dump(mode="json", by_alias=True)
     except SourcePassageOpenError as exc:
@@ -1841,6 +1850,9 @@ def get_world_turn_saved_section(world_id: str, turn_id: UUID, segment_index: in
         raise HTTPException(status_code=exc.status_code, detail={"code": "saved_section_turn_unavailable"}) from exc
     except (ValidationError, ValueError, KeyError) as exc:
         raise HTTPException(status_code=409, detail={"code": "saved_section_binding_invalid"}) from exc
+    if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    return result
 
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/native-source-clauses/{citation_index}")
