@@ -236,3 +236,53 @@ def test_native_first_world_activation_readonly_adapter_preserves_read_identity(
     underlying = SimpleNamespace(get_head=lambda space: calls.append(space) or marker)
     assert _NativeFirstWorldReadOnlyRepository(underlying).get_head("exact-space") is marker
     assert calls == ["exact-space"]
+
+
+@pytest.mark.parametrize("deny_owner", [False, True])
+def test_native_first_world_hosted_recovery_uses_signed_scope_without_run_reload(monkeypatch, deny_owner):
+    import asyncio
+    import json
+    from fastapi import HTTPException
+    from starlette.requests import Request
+    from apps.live_control_server.models import native_first_world_publication as models
+    from apps.live_control_server.services import hosted_native_graph_access as access
+    from apps.live_control_server.services import native_first_world_publication as native
+    from apps.live_control_server.services import promotable_ingest_run as runs
+
+    plan = SimpleNamespace(world_id="signed-world")
+    calls = []
+    monkeypatch.setattr(access, "_hosted_subject", lambda request: "owner")
+    monkeypatch.setattr(models.NativeFirstWorldConfirmRequest, "model_validate",
+                        lambda body: SimpleNamespace(plan=plan))
+
+    def decode(value, *, principal_subject):
+        assert value is plan and principal_subject == "hosted_dms:owner"
+        calls.append("signature")
+        return value
+
+    def owner(subject, world):
+        assert subject == "owner" and world == "signed-world"
+        calls.append("owner")
+        if deny_owner:
+            raise HTTPException(status_code=403)
+
+    monkeypatch.setattr(native, "decode_native_plan", decode)
+    monkeypatch.setattr(access, "_owned_world", owner)
+    monkeypatch.setattr(runs, "resolve_promotable_ingest_run",
+                        lambda *args, **kwargs: pytest.fail("recovery reloaded a mutable run"))
+    body = json.dumps({"schema": models.NATIVE_CONFIRM_SCHEMA, "plan": {}}).encode()
+
+    async def receive():
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    request = Request({"type": "http", "method": "POST", "path": access.FIRST_WORLD_CONFIRM_PATH,
+                       "query_string": b"", "headers": []}, receive)
+    if deny_owner:
+        with pytest.raises(HTTPException) as error:
+            asyncio.run(access.resolve_hosted_first_world(request))
+        assert error.value.status_code == 403
+        assert not hasattr(request.state, "hosted_first_world")
+    else:
+        assert asyncio.run(access.resolve_hosted_first_world(request)) == "signed-world"
+        assert request.state.hosted_first_world == "signed-world"
+    assert calls == ["signature", "owner"]

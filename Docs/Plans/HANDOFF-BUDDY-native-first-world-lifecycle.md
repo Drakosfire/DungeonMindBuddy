@@ -211,3 +211,9 @@ and six read-only adapter controls. Actual native stage/activation integration i
 still pending. Source-stage implementation is delegated within the existing
 allocated publication service and owning SQL test file; no new module/path lease.
 No serving, live-data, provider or frozen-baseline changes.
+
+Hosted native-confirm scope parsing now uses the signed plan/current owner before
+receipt disclosure, without mutable run reload. Working-tree owning activation
+cohort:23 passed/1 warning. Two branch tests stub signature decoding and protocol
+validation to isolate routing/owner behavior; they do not establish full signed
+HTTP acceptance. Mounted handler dispatch and historical recovery remain pending.
