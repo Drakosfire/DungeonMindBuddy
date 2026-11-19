@@ -2,6 +2,7 @@
 
 **Date:** 2026-07-10
 **Settlement refresh:** 2026-09-25
+**Roadmap retirement refresh:** 2026-11-19 — bounded Campaign roadmap/caller settlement only; other dated classifications below are not newly requalified
 **Status:** ACTIVE documentation-governance authority
 **Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Source manifest:** [`INDEX-design-agent-source-set.md`](../Design/INDEX-design-agent-source-set.md)
@@ -27,12 +28,12 @@ and ownership have moved past it.
 | **ARCHIVED** | Historical body preserved under archive tree |
 | **DELETE** | No living consumer or unique historical value |
 
-## 2026-09-25 settlement decisions
+## 2026-09-25 settlement decisions (roadmap disposition updated 2026-11-19)
 
 | Document | Classification | Current role |
 |---|---|---|
 | `Docs/Design/ARCHITECTURE-campaign-supergraph.md` | **ACTIVE AUTHORITY** | World-model invariants; runtime ownership re-anchored to DungeonMind/WorldKeeper/Buddy |
-| `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` | **SETTLEMENT_HOLD** | Program history; self-claim to current roadmap is stale, physical retirement blocked by UI #761 path lease |
+| `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` | **HISTORICAL / forwarding record** | Closed program history is pinned in Git; current sequencing claims retired after the lease/consumer audit |
 | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` | **HISTORICAL / FROZEN** | Old Campaign/CUTOVER sequence; no dispatch |
 | `Docs/Design/STATUS-world-graph-continuity-spine.md` | **HISTORICAL / FROZEN** | August continuity snapshot |
 | `Docs/Design/ARCHITECTURE-surface-interaction-layer.md` | **ACTIVE AUTHORITY** | Stable shared chrome/Surface/Canvas ownership |
@@ -90,18 +91,22 @@ the superseded Hermes foundation index as current context.
 The exact pre-settlement audit body is archived at
 `Docs/Reports/archive/2026-09-25/graph-document-audit-pre-settlement.md`.
 
-## Settlement hold: Campaign roadmap
+## Campaign roadmap retirement (2026-11-19)
 
-The canonical Campaign roadmap path is intentionally not modified in this pass.
-Open UI PR #761 explicitly edits it. Creating a second write lane on that path
-would violate the repository's own settlement discipline.
+The canonical Campaign roadmap is now a historical forwarding record. PR #761
+closed unmerged on 2026-10-07; its decision was explicitly retired with #760.
+The bounded settlement audit verified the historical CUTOVER writer merges,
+checked current PR-head handoffs, and disposed of the two dated Plan sequencing
+callers before retiring the old authority claim.
 
-Until the blocked successor runs:
-
-- its self-declared `Canonical implementation roadmap` header is stale;
-- it cannot override this audit or the current source manifest;
-- it is excluded from the clean Project Sources export;
-- no new Campaign slice may be dispatched from it.
+- The complete former roadmap remains accessible through the exact Git version
+  linked from the forwarding record.
+- The dated Plan documents preserve their product intent as reference context,
+  not a current global implementation sequence.
+- The roadmap remains excluded from the clean Project Sources export.
+- Current domain contracts and explicitly active bounded handoffs own dispatch;
+  this retirement neither reopens Campaign phases nor defines a replacement
+  global roadmap.
 
 ## Archive conventions
 

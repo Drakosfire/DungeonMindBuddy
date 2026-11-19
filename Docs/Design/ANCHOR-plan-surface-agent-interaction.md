@@ -5,13 +5,20 @@
 > Plan is a **characterized consumer** — not the shared API owner. Shared chrome
 > authority:
 > [`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md).
-> Remaining provider/bar hoist sequencing:
+> Historical provider/bar hoist sequencing:
 > [`PLAN-surface-interaction-hoist-build-first.md`](../Plans/PLAN-surface-interaction-hoist-build-first.md).
 
-**Status:** Active surface reference; not sequencing authority
+**Status:** Dated surface reference; not current sequencing authority
 **Re-anchored:** 2026-07-15 after the Hermes Campaign Authoring Foundation reset
 
-Agent Interaction began as a Plan-local bottom bar/pane and remains dogfooded first on `/plan`. Its current architectural direction is now governed by:
+This reference preserves the July checkpoint and August host-ownership note.
+For current work, use the [documentation map](../README.md),
+[shared Surface architecture](ARCHITECTURE-surface-interaction-layer.md), and the
+owning workstream's explicitly active bounded handoff.
+
+Agent Interaction began as a Plan-local bottom bar/pane and was dogfooded first
+on `/plan` at this checkpoint. The following links record the historical
+foundation, not a current implementation sequence:
 
 1. [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 2. [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
@@ -19,11 +26,11 @@ Agent Interaction began as a Plan-local bottom bar/pane and remains dogfooded fi
 4. [`Docs/Design/ARCHITECTURE-hermes-campaign-authoring-foundation.md`](ARCHITECTURE-hermes-campaign-authoring-foundation.md)
 5. [`Docs/Design/UX-STORIES-hermes-campaign-authoring-foundation.md`](UX-STORIES-hermes-campaign-authoring-foundation.md)
 
-The Hermes documents above are the active reset surface. The old graph-only anchor
+The Hermes documents above record the reset surface used at that checkpoint. The old graph-only anchor
 and Rung-based stories remain only as compatibility stubs pointing to the dated
 archive.
 
-## Current state
+## Recorded state at the checkpoint
 
 - PR008A migrated Plan object cards, references, relationship traversal, and diagnostics to the revision-pinned World Supergraph projection.
 - PR008B attached deterministic World Graph query context to Agent Interaction.
@@ -45,9 +52,9 @@ Plan is a consumer surface. It publishes ambient context—world, campaign, focu
 - Hermes memory policy;
 - durable write rules.
 
-## Immediate sequence
+## Historical sequence recorded at the checkpoint
 
-The next Interaction Layer work is **SI-01 characterize Plan contributions**, then
+At this checkpoint, the proposed Interaction Layer order was **SI-01 characterize Plan contributions**, then
 shared Tool/Edit host hoist (SI-02) — not a Plan-local provider rewrite.
 
 ```text
@@ -57,8 +64,10 @@ SI-01 characterize Plan publications
       -> SI-04 Build World Reference Loop
 ```
 
-Hermes/graph retrieval sequencing remains under Campaign Supergraph tracker. R10b
-(bottom bar/pane + localStorage Phase A) is parallel, not a blocker for SI-01.
+At that checkpoint, Hermes/graph retrieval sequencing was assigned to the Campaign
+Supergraph tracker. R10b (bottom bar/pane + localStorage Phase A) was parallel,
+not a blocker for SI-01. This sequence is preserved as history, not an active
+assignment; use current domain ownership and a bounded handoff for new work.
 
 ## Retrieval invariant
 
@@ -75,10 +84,11 @@ A graph miss is rendered as a coverage gap and routed back toward ingestion/Grap
 - Extend the existing surface for PR010B; do not redesign the entire Plan shell.
 - Plan remains read-only for graph authority until PR011 governed tools.
 
-## Future provider lift
+## Provider lift proposed at the checkpoint
 
-PR011 / R10b may complete Agent Interaction **chrome** (bottom bar/pane) while
-preserving the R10a projection host. The provider must still treat:
+The checkpoint proposed that PR011 / R10b could complete Agent Interaction
+**chrome** (bottom bar/pane) while preserving the R10a projection host. That
+proposal retained these boundaries:
 
 - World Supergraph + source anchors as factual authority;
 - Hermes/thread state as non-canonical continuity;

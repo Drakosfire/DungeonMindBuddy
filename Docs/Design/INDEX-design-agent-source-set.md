@@ -3,7 +3,7 @@
 **Status:** ACTIVE REFERENCE / process index
 **Created:** 2026-08-02
 **Repository authority refresh:** 2026-09-26 DEMO reconciliation (repository adoption; Project Sources unchanged)
-**Repository export refresh:** 2026-11-19 — current README/DEMO roadmap copies and export-manifest navigation synchronized; retired PR #761 gate corrected; all mapped copies checked against canonical files. This was not a full design/corpus audit, and user-managed Project Sources were not changed
+**Repository export refresh:** 2026-11-19 — current README/DEMO roadmap copies and export-manifest navigation synchronized; Campaign roadmap retired as a historical forwarding record; all mapped copies checked against canonical files. This was not a full design/corpus audit, and user-managed Project Sources were not changed
 **Project Sources snapshot date:** 2026-08-02 — advance only after the operator actually replaces/re-observes the user-managed set
 **Repo-resident export mirror:** [`Docs/Sources/design-agent/`](../Sources/design-agent/)
 **Document class:** curated source index — not architecture or sequencing authority
@@ -80,7 +80,7 @@ and must not be uploaded as current authority.
 
 | Document | Classification | Reason |
 |---|---|---|
-| `ROADMAP-campaign-supergraph.md` | **HISTORICAL / retirement audit pending** | Self-declared roadmap is stale; physical retirement still requires a current-lease and consumer audit |
+| `ROADMAP-campaign-supergraph.md` | **HISTORICAL / forwarding record** | Old sequence cannot dispatch; complete program history is pinned in Git |
 | `PR-TRACKER-campaign-supergraph.md` | **HISTORICAL / FROZEN** | CUTOVER closed; no new dispatch |
 | `STATUS-world-graph-continuity-spine.md` | **HISTORICAL / FROZEN** | August migration snapshot, not current state |
 | `PLAN-surface-interaction-hoist-build-first.md` | **SUPERSEDED** | Construction target landed; DOGFOOD-POLISH closeout owns evidence |
@@ -91,18 +91,17 @@ and must not be uploaded as current authority.
 These files may remain reachable for historical links. They must not be
 uploaded as current Project Sources.
 
-## Settlement hold
+## Historical Campaign roadmap
 
-`ROADMAP-campaign-supergraph.md` remains excluded from the current source bundle.
-[UI PR #761](https://github.com/Drakosfire/DungeonMindBuddy/pull/761) closed
-unmerged on 2026-10-07; its closing note retired the dormant decision with #760.
-It is no longer a live PR gate.
+`ROADMAP-campaign-supergraph.md` is a historical forwarding record, excluded from
+the current source bundle. Its full program history is pinned in Git from the
+forwarder. The two dated Plan references retain their product intent and clearly
+separate historical sequencing from current domain ownership.
 
-The blocked successor handoff
-`Docs/Plans/HANDOFF-SETTLEMENT-retire-campaign-supergraph-roadmap.md` still requires
-a fresh current-lease and consumer audit before activation. Resolving the #761
-predecessor gate does not establish that the path is free, release another lane's
-assignment, or authorize retirement through this reference index.
+The bounded retirement contract and lease/consumer dispositions are in
+`Docs/Plans/HANDOFF-SETTLEMENT-retire-campaign-supergraph-roadmap.md`. No replacement
+global roadmap is introduced. Current dispatch requires an explicitly active
+bounded assignment; this reference index does not grant a write lease.
 
 ## Refresh procedure
 
