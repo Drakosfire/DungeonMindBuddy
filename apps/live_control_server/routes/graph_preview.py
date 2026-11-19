@@ -366,6 +366,17 @@ def get_extraction_run_recap_projection(
 
 
 @router.get("/extraction-runs/{run_id}/build-context")
+async def read_extraction_run_build_context(run_id: str, request: Request) -> dict[str, Any]:
+    from starlette.concurrency import run_in_threadpool
+
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import read_hosted_extraction_build_context
+
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return await run_in_threadpool(get_extraction_run_build_context, run_id)
+    return await read_hosted_extraction_build_context(request, run_id, _build_extraction_context)
+
+
 def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
     """Build-only exact-run envelope with server-resolved workspace lineage.
 
@@ -382,7 +393,6 @@ def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
         get_source_artifact,
     )
 
-    root = repo_root()
     try:
         run = get_extraction_run(run_id)
     except GraphRunRegistryError as exc:
@@ -393,6 +403,10 @@ def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
     except SourceArtifactRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
+    return _build_extraction_context(run, artifact)
+
+
+def _build_extraction_context(run, artifact) -> dict[str, Any]:
     document_id = artifact.workspace_document_id
     document_revision = artifact.workspace_document_revision
     content_sha256 = artifact.content_sha256

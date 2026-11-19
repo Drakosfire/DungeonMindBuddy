@@ -4677,6 +4677,11 @@ def test_hosted_saved_recap_run_uses_frozen_world_binding(hosted, monkeypatch, c
     denied = hosted.client.request("GET", path)
     assert denied.status_code == 403, denied.text
     assert "Private recap metadata" not in denied.text
+    hosted.records["managed"] = owned
+    denied = hosted.client.request("GET", context_path)
+    assert denied.status_code == 403, denied.text
+    assert "Private recap metadata" not in denied.text
+
 
 
 def test_hosted_evidence_correction_requires_exact_owned_parent(hosted, monkeypatch):
