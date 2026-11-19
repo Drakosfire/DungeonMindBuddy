@@ -514,6 +514,7 @@ def _commit_in_connection(
     expected_world_id: str | None = None,
     title: str | None = None,
     page_presentation_changed: bool = False,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> tuple[_StoredContentObject, WorkRevision]:
     """Use the caller's transaction; never commit or allocate another connection."""
     if page_presentation_changed and kind != "worldbuilding_source":
@@ -532,6 +533,8 @@ def _commit_in_connection(
             f"workspace document not found: {document_id}"
         )
     _require_kind_for_mutation(obj, kind)
+    if authorize_world is not None:
+        authorize_world(obj.world_id)
     _require_world_plan_scope(obj, expected_world_id)
     if obj.status == "discarded":
         raise ApplicationStateConflictError(
@@ -587,6 +590,8 @@ def _commit_in_connection(
         content_sha256=digest,
         created_at=repo.now_utc(),
     )
+    if authorize_world is not None:
+        authorize_world(obj.world_id)
     repo.insert_work_revision(conn, revision)
     expected = obj.object_revision
     updated = obj.model_copy(
@@ -631,6 +636,7 @@ def _commit(
     expected_revision: int | None = None,
     expected_world_id: str | None = None,
     title: str | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
@@ -639,6 +645,7 @@ def _commit(
             conn, document_id, markdown, kind=kind,
             expected_revision=expected_revision,
             expected_world_id=expected_world_id, title=title,
+            authorize_world=authorize_world,
         )
 
 
@@ -907,9 +914,11 @@ def commit_runbook(
     markdown: str,
     *,
     expected_revision: int | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
     return _commit(
-        document_id, markdown, kind="runbook", expected_revision=expected_revision
+        document_id, markdown, kind="runbook", expected_revision=expected_revision,
+        authorize_world=authorize_world,
     )
 
 

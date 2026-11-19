@@ -421,6 +421,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/rules/passages/{citation_id}"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/world-runbooks"): access.resolve_hosted_plan_world_context,
+            ("POST", "/api/live/workspace-documents/world-runbooks/{document_id}/tiptap/prepare"): access.resolve_hosted_runbook_write,
+            ("POST", "/api/live/workspace-documents/world-runbooks/{document_id}/tiptap/commit"): access.resolve_hosted_runbook_write,
             ("POST", "/api/live/workspace-documents/world-runbooks"): HOSTED_WORLD_SCOPE_RESOLVERS[("POST", "/api/live/workspace-documents/world-runbooks")],
             ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}"): access.resolve_hosted_runbook_read,
             ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}/snapshot"): access.resolve_hosted_runbook_read,
@@ -5768,3 +5770,65 @@ def test_hosted_runbook_creation_uses_only_owned_world(hosted, application_state
     assert response.status_code == 200, response.text
     saved = get_content_optional(response.json()["document_id"])
     assert (saved.kind, saved.world_id, saved.title) == ("runbook", "managed", "Session Runbook")
+
+
+@pytest.mark.parametrize("phase", ["prepare", "commit"])
+def test_hosted_runbook_edit_uses_world_media_owner(hosted, monkeypatch, phase):
+    from apps.live_control_server.routes import workspace_documents
+
+    calls = []
+
+    def write(*, root, request, media_owner, **kwargs):
+        calls.append((request.world_id, request.document_id, media_owner))
+        raise workspace_documents.WorkspaceDocumentRegistryError("fixture reached", status_code=409)
+
+    monkeypatch.setattr(workspace_documents, "get_world_owned_runbook_v2", lambda *_, **__: None)
+    monkeypatch.setattr(workspace_documents, f"{phase}_tiptap_markdown_write", write)
+    document_id = "00000000-0000-4000-8000-000000000001"
+    path = f"/api/live/workspace-documents/world-runbooks/{document_id}/tiptap/{phase}?world_id=managed"
+    body = {"schema_version": f"dmb_tiptap_markdown_write_{phase}_v2", "scope_mode": "world",
+            "world_id": "managed", "document_id": document_id, "markdown": "Saved text."}
+    if phase == "commit":
+        body["writer_confirm_token"] = "fixture"
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "document_id": "foreign-document"}).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 409, result.text
+    assert calls == [("managed", document_id, "hosted_world:managed")]
+
+
+def test_hosted_runbook_edit_persists_committed_revision(hosted, application_state_dsn, monkeypatch):
+    from application_state.content import service
+    from apps.live_control_server.services import world_container_registry
+
+    monkeypatch.setattr(world_container_registry, "get_world_container", lambda world: SimpleNamespace(world_id=world))
+    runbook = service.create_world_runbook(title="Hosted Runbook", world_id="managed")
+    document_id = str(runbook.work_object_id)
+    path = f"/api/live/workspace-documents/world-runbooks/{document_id}/tiptap"
+    body = {"schema_version": "dmb_tiptap_markdown_write_prepare_v2", "scope_mode": "world",
+            "world_id": "managed", "document_id": document_id, "markdown": "Saved text."}
+    prepared = hosted.client.request("POST", path + "/prepare?world_id=managed", json=body)
+    assert prepared.status_code == 200, prepared.text
+    commit = {**body, "schema_version": "dmb_tiptap_markdown_write_commit_v2",
+              "writer_confirm_token": prepared.json()["writer_confirm_token"]}
+    owner = hosted.records["managed"]
+    for read_name in ("lock_work_object", "next_revision_n"):
+        read = getattr(service.repo, read_name)
+
+        def transfer_after_read(*args, **kwargs):
+            result = read(*args, **kwargs)
+            hosted.records["managed"] = owner.model_copy(update={"owner_subject": OTHER_OWNER})
+            return result
+
+        with monkeypatch.context() as patch:
+            patch.setattr(service.repo, read_name, transfer_after_read)
+            denied = hosted.client.request("POST", path + "/commit?world_id=managed", json=commit)
+        assert denied.status_code == 403, denied.text
+        hosted.records["managed"] = owner
+        assert service.get_runbook(document_id).current_revision_id is None
+    saved = hosted.client.request("POST", path + "/commit?world_id=managed", json=commit)
+    assert saved.status_code == 200, saved.text
+    persisted = service.get_runbook(document_id)
+    assert persisted.object_revision == saved.json()["registry_revision"]
+    assert persisted.current_revision_id is not None

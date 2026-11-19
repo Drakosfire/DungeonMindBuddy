@@ -679,6 +679,14 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return body?.schema_version === "dmb_workspace_document_create_v2" && body.scope_mode === "world"
       && typeof body.world_id === "string" && Boolean(body.world_id) && typeof body.title === "string";
   }
+  const runbookWrite = /^\/api\/live\/workspace-documents\/world-runbooks\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/tiptap\/(prepare|commit)\?/.exec(path);
+  if (runbookWrite) {
+    const worldId = new URLSearchParams(path.slice(runbookWrite[0].length)).get("world_id");
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && !!worldId && path === runbookWrite[0] + new URLSearchParams({ world_id: worldId })
+      && body?.document_id === runbookWrite[1] && body.world_id === worldId && body.scope_mode === "world"
+      && body.schema_version === `dmb_tiptap_markdown_write_${runbookWrite[2]}_v2`;
+  }
   const planInventoryPage = "/api/live/workspace-documents/world-plans/page?";
   if (path.startsWith(planInventoryPage)) {
     const query = new URLSearchParams(path.slice(planInventoryPage.length));
@@ -1120,6 +1128,7 @@ function apiRequestTarget(
   const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
     || normalizedPath === "/api/live/workspace-documents/world-runbooks"
     || /^\/api\/live\/workspace-documents\/world-runbooks\/[^/]+(?:\/snapshot|\/committed-revision(?:\/[^/]+)?)?$/.test(normalizedPath)
+    || /^\/api\/live\/workspace-documents\/world-runbooks\/[^/]+\/tiptap\/(?:prepare|commit)$/.test(normalizedPath)
     || normalizedPath === "/api/live/workspace-documents/world-plans/page"
     || normalizedPath === "/api/live/workspace-documents/world-plans"
     || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+(?:\/build-context)?$/.test(normalizedPath)

@@ -1050,6 +1050,24 @@ async def resolve_hosted_runbook_create(request: Request) -> str:
     return world.world_id
 
 
+async def resolve_hosted_runbook_write(request: Request) -> str:
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWriteCommitRequest, TiptapMarkdownWritePrepareRequest,
+    )
+
+    world_id = request.query_params.get("world_id")
+    document_id = getattr(request.state, "hosted_route_document_id", None)
+    if not world_id or not document_id or request.query_params.multi_items() != [("world_id", world_id)]:
+        raise _denied()
+    model = TiptapMarkdownWritePrepareRequest if request.url.path.endswith("/prepare") else TiptapMarkdownWriteCommitRequest
+    write = model.model_validate(await request.json())
+    if write.document_id != document_id or write.world_id != world_id or write.scope_mode != "world":
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_plan_context_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_runbook_read(request: Request) -> str:
     selectors = request.query_params.multi_items()
     world_id = request.query_params.get("world_id")

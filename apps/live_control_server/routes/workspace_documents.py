@@ -372,7 +372,12 @@ def post_world_owned_runbook_tiptap_prepare(
     document_id: str,
     world_id: Annotated[str, Query(min_length=1)],
     body: TiptapMarkdownWritePrepareRequest,
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import hosted_world_media_owner
+
+    require_hosted_plan_world_context(request, world_id)
     if (
         body.document_id != document_id
         or body.schema_version != "dmb_tiptap_markdown_write_prepare_v2"
@@ -388,11 +393,16 @@ def post_world_owned_runbook_tiptap_prepare(
         get_world_owned_runbook_v2(
             world_root, world_id=world_id, document_id=document_id
         )
-        response = prepare_tiptap_markdown_write(root=world_root, request=body)
+        response = prepare_tiptap_markdown_write(root=world_root, request=body,
+            media_owner=(hosted_world_media_owner(world_id)
+                         if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+                         else "local_operator"),
+        )
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except TiptapMarkdownWriteError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    require_hosted_plan_world_context(request, world_id)
     return response.model_dump(mode="json")
 
 
@@ -404,7 +414,17 @@ def post_world_owned_runbook_tiptap_commit(
     document_id: str,
     world_id: Annotated[str, Query(min_length=1)],
     body: TiptapMarkdownWriteCommitRequest,
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import hosted_world_media_owner
+
+    def authorize_locked_runbook(locked_world):
+        if locked_world != world_id:
+            raise HTTPException(status_code=404, detail="Runbook not found in this World")
+        require_hosted_plan_world_context(request, world_id)
+
+    require_hosted_plan_world_context(request, world_id)
     if (
         body.document_id != document_id
         or body.schema_version != "dmb_tiptap_markdown_write_commit_v2"
@@ -420,11 +440,17 @@ def post_world_owned_runbook_tiptap_commit(
         get_world_owned_runbook_v2(
             world_root, world_id=world_id, document_id=document_id
         )
-        response = commit_tiptap_markdown_write(root=world_root, request=body)
+        response = commit_tiptap_markdown_write(root=world_root, request=body,
+            authorize_runbook_world=authorize_locked_runbook,
+            media_owner=(hosted_world_media_owner(world_id)
+                         if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+                         else "local_operator"),
+        )
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except TiptapMarkdownWriteError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    require_hosted_plan_world_context(request, world_id)
     return response.model_dump(mode="json")
 
 
