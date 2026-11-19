@@ -6,6 +6,7 @@ import { useState } from "react";
 import * as extractPromoteApi from "../../api/extractPromoteApi";
 import * as liveApi from "../../api/liveApi";
 import * as worldbuildingApi from "../../api/worldbuildingPublicationApi";
+import * as nativePublication from "../../api/nativeWorldbuildingPublicationApi";
 import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractionProvider";
 import type { PlanContextDescriptor } from "../types";
 import type { ExactRunReviewPackage, RecapEvidenceCorrectionResponse, ExtractionRunRecord, WorldContainerRecord } from "../../api/types";
@@ -415,7 +416,17 @@ describe("GraphReviewGenericRun", () => {
     mockCatalogApis();
     vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(exactRun);
     vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue(buildContext);
-    mockExactRunReviewPackage({...reviewPackage, worldId: "managed-world-a", inspectionStatus: "ready", firstWorldPublishEligible: false});
+    const sourceSha256="d".repeat(64);
+    mockExactRunReviewPackage({...reviewPackage, sourceRevisionId:"sha256:"+sourceSha256, worldId: "managed-world-a", inspectionStatus: "ready", firstWorldPublishEligible: false});
+    const context=vi.spyOn(nativePublication,"getNativeWorldbuildingContext").mockResolvedValue({
+      prepareCoordinates:{managed_world_id:"managed-world-a",run_id:exactRun.run_id,expected_run_revision:1,
+        candidate_sha256:"a".repeat(64),expected_parent_revision_id:"rev:1",expected_source_authority_epoch:1,
+        workspace_document_id:"doc-a",workspace_document_revision:1},nativeWorldId:"native-a",
+      records:[{kind:"node",record_id:"obj_session22_vial",label:"vial",fields:{label:"vial"}}],
+      sourceSupport:[{evidence_ref_id:"support:vial",text:"A source-backed vial.",start_byte:0,end_byte:21}],
+    });
+    const nativePrepare=vi.spyOn(nativePublication,"prepareNativeWorldbuilding");
+    const nativeConfirm=vi.spyOn(nativePublication,"confirmNativeWorldbuilding");
     vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue({schema: "dmb_managed_world_graph_projection_v1",
       managedWorldId: "managed-world-a", nativeWorldId: "native-a", bindingVersion: 1,
       projection: {snapshot: {worldId: "native-a", revisionId: "rev:1", headRevisionId: "rev:1", isHead: true}, nodes: []}} as Awaited<ReturnType<typeof liveApi.postManagedWorldGraphProjection>>);
@@ -424,8 +435,12 @@ describe("GraphReviewGenericRun", () => {
     const prepare = vi.spyOn(worldbuildingApi, "prepareWorldbuilding");
     const confirm = vi.spyOn(worldbuildingApi, "confirmWorldbuilding");
     renderModule();
-    await screen.findByRole("heading", {name: "Review for your World"});
-    await waitFor(() => expect(screen.getByRole("group", {name: "Publication choices"})).not.toBeDisabled());
+    expect(await screen.findByRole("group", {name:"Review provisional GM facts"})).toBeEnabled();
+    expect(screen.getByLabelText("Candidate object")).toHaveTextContent("vial");
+    expect(context).toHaveBeenCalledExactlyOnceWith({managed_world_id:"managed-world-a",run_id:exactRun.run_id,
+      source_artifact_id:exactRun.source_artifact_id,source_sha256:sourceSha256});
+    expect(liveApi.postManagedWorldGraphProjection).not.toHaveBeenCalled();
+    expect(nativePrepare).not.toHaveBeenCalled();expect(nativeConfirm).not.toHaveBeenCalled();
     expect(screen.queryByText("Read-only")).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-first-world-publish-sheet")).not.toBeInTheDocument();
     expect(prepare).not.toHaveBeenCalled(); expect(confirm).not.toHaveBeenCalled();

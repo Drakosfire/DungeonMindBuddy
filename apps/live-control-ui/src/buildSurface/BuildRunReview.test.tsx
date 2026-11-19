@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as extract from '../api/extractPromoteApi';
 import * as live from '../api/liveApi';
 import * as publication from '../api/worldbuildingPublicationApi';
+import * as nativePublication from '../api/nativeWorldbuildingPublicationApi';
 import type { ExactRunReviewPackage, WorkspaceDocumentRecord, ExtractionRunRecord } from '../api/types';
 import { BuildRunReview } from './BuildRunReview';
 const selection=vi.hoisted(()=>({kind:'managed',worldId:'world-a'}));
@@ -42,17 +43,36 @@ beforeEach(()=>{
 });
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 it('reads one exact run, shows frozen revision, and reuses owner decisions without another source surface',async()=>{
+  const coordinates={managed_world_id:'world-a',run_id:'run-a',expected_run_revision:7,candidate_sha256:candidate,
+    expected_parent_revision_id:'rev:1',expected_source_authority_epoch:1,workspace_document_id:'doc-a',workspace_document_revision:2};
+  const context=vi.spyOn(nativePublication,'getNativeWorldbuildingContext').mockResolvedValue({
+    prepareCoordinates:coordinates,nativeWorldId:'native-a',
+    records:[{kind:'node',record_id:'keeper',label:'Keeper',fields:{label:'Keeper'}}],
+    sourceSupport:[{evidence_ref_id:'support:keeper',text:'The keeper watches the gate.',start_byte:0,end_byte:28}],
+  });
+  const prepare=vi.spyOn(nativePublication,'prepareNativeWorldbuilding').mockRejectedValue(new Error('Prepared operation deliberately stopped in test'));
+  const confirm=vi.spyOn(nativePublication,'confirmNativeWorldbuilding');
   render(<BuildRunReview {...props()}/>);
-  await waitFor(()=>expect(screen.getByRole('group',{name:'Publication choices'})).not.toBeDisabled());
+  expect(await screen.findByRole('group',{name:'Review provisional GM facts'})).toBeEnabled();
   expect(extract.getExactRunReviewPackage).toHaveBeenCalledExactlyOnceWith('run-a');
+  expect(context).toHaveBeenCalledExactlyOnceWith({managed_world_id:'world-a',run_id:'run-a',source_artifact_id:'source-a',source_sha256:hash});
   expect(screen.getByText(/editor has newer changes/)).toHaveTextContent('Edge');
   expect(screen.queryByText(review.sourceProse)).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Canonical source prose')).not.toBeInTheDocument();
+  expect(prepare).not.toHaveBeenCalled();expect(confirm).not.toHaveBeenCalled();
   expect(publication.prepareWorldbuilding).not.toHaveBeenCalled();expect(publication.confirmWorldbuilding).not.toHaveBeenCalled();
-  fireEvent.change(screen.getByLabelText('Decision for Keeper'),{target:{value:'create_new'}});
-  fireEvent.click(screen.getByRole('button',{name:'Prepare proposed changes'}));
-  await waitFor(()=>expect(publication.prepareWorldbuilding).toHaveBeenCalledWith({runId:'run-a',expectedParentRevisionId:'rev:1',dispositions:[{assertionId:'keeper',decision:'create_new'}]}));
-  expect(publication.confirmWorldbuilding).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText('Candidate object'),{target:{value:'keeper'}});
+  const facts=screen.getByLabelText('Facts') as HTMLSelectElement;
+  facts.options[0].selected=true;fireEvent.change(facts);
+  fireEvent.change(screen.getByLabelText('Supporting excerpt'),{target:{value:'support:keeper'}});
+  fireEvent.click(screen.getByRole('button',{name:'Prepare selected facts'}));
+  await waitFor(()=>expect(prepare).toHaveBeenCalledExactlyOnceWith({...coordinates,selections:[{
+    kind:'node',record_id:'keeper',action:'create',facts:[{field:'label',metadata:{evidence_ref_ids:['support:keeper'],
+      visibility:{kind:'labels_any',labels:['dungeonbuddy.visibility:gm']},epistemic_basis:'asserted',
+      claim_mode:'dungeonbuddy.claim:fact',standing:'provisional',temporal_scope:{kind:'timeless'}}}],
+  }]}));
+  expect(confirm).not.toHaveBeenCalled();
+  expect(publication.prepareWorldbuilding).not.toHaveBeenCalled();expect(publication.confirmWorldbuilding).not.toHaveBeenCalled();
 });
 it.each(['world','digest','artifact','run'])('rejects mismatched review %s before publication',async field=>{
   const changed=structuredClone(review);
