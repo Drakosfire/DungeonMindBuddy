@@ -1117,6 +1117,14 @@ class AgentConversationService:
             )
         return turn
 
+    def confirm_lore_page(self, *, world_id, principal_subject, confirmation, verify_source):
+        from .lore_page_confirmation import confirm_lore_page
+
+        return confirm_lore_page(
+            _ready_dsn(), world_id=_world_id(world_id), principal_subject=principal_subject,
+            confirmation=confirmation, verify_source=verify_source,
+        )
+
     def inspect_turn(self, *, world_id: str, turn_id: UUID) -> TurnReadModel:
         """Load one historical turn in its verified World; no pointer/head lookup."""
         world_id = _world_id(world_id)
@@ -2870,6 +2878,9 @@ class AgentConversationService:
         from .plan_authoring import lock_authoring_owners,validate_authoring_transaction,validate_stored_authoring_result
         from application_state.plan_action_dialogue import repository as actions
         with unit_of_work(dsn) as conn:
+            from .lore_page_review import ProposedLorePage
+            if isinstance(getattr(result.completion, "collaboration", None), ProposedLorePage):
+                repo.lock_conversation(conn, world_id, result.conversation_id)
             action=(lock_authoring_owners(conn,authoring_proposal,world_id=world_id,
                 conversation_id=result.conversation_id,turn_id=result.turn_id) if authoring_proposal is not None else None)
             turn = repo.lock_turn(conn, world_id, result.turn_id)

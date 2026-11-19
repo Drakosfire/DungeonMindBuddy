@@ -24,6 +24,7 @@ import {captureWorkPlan} from '../../surface/workPlans/workPlanCapture';
 import {ConversationRelationshipReview} from './ConversationRelationshipReview';
 import {SourceCitedAnswer} from "./SourceCitedAnswer";
 import {ConversationConnectedPageReview} from "./ConversationConnectedPageReview";
+import {ConversationLorePageConfirmation} from "./ConversationLorePageConfirmation";
 import {ConversationLibrary} from '../../agentInteraction/ConversationLibrary';
 import {resumeConversation,changeConversationLifecycle,type ConversationLifecycleOperation,type ResumeConversationCommand} from '../../api/conversationLibraryApi';
 import {ConversationExport} from '../../agentInteraction/ConversationExport';
@@ -6672,6 +6673,15 @@ export function WorldPlanAgentConversation({
               pointerRevision={history.pointer_revision}
               disabled={composerBusy||!isBuild||history.active_conversation_id!==history.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id}
               onVisible={()=>agent.setPaneOpen(false)}/>:null}
+            {loreTitle !== null && completed?.schema === 'dmb_surface_native_completion_v1'
+              && verifiedWorldId && history?.conversation_id && !loreDraftSuperseded && isBuild
+              && visible && !isReadOnly && history.active_conversation_id === history.conversation_id
+              && <ConversationLorePageConfirmation
+                key={turn.turn_id}
+                worldId={verifiedWorldId} conversationId={history.conversation_id}
+                turnId={turn.turn_id} completion={completed} disabled={composerBusy}
+                digest={() => textSha256(canonicalJson(completed))}
+              />}
             {draftEditor}
             {variantApproval}
             {verifiedWorldId && history?.conversation_id && !pageWorkPlan && <ConversationWorkbook

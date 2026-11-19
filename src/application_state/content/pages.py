@@ -114,31 +114,9 @@ def create_page(
         raise ApplicationStateValidationError(
             "connected-page reservation requires its allocated document ID"
         )
-    now = repo.now_utc()
-    page = AuthoredPageObject(
-        work_object_id=ident,
-        world_id=world_id,
-        campaign_id=campaign_id,
-        title=content._require_title(title),
-        object_revision=1,
-        created_at=now,
-        updated_at=now,
-    )
     try:
         with unit_of_work(_dsn()) as conn:
-            repo.insert_work_object(conn, page)
-            conn.execute(
-                """INSERT INTO content.page_metadata
-                (work_object_id,document_class,authority_state,visibility_state,connected_page_operation_id)
-                VALUES (%s,%s,%s,%s,%s)""",
-                (
-                    ident,
-                    metadata.document_class,
-                    metadata.authority_state,
-                    metadata.visibility_state,
-                    metadata.connected_page_operation_id,
-                ),
-            )
+            _insert_page(conn, ident, world_id, title, campaign_id, metadata)
             return _state(conn, str(ident), world_id)
     except psycopg.IntegrityError:
         # Only return the original active allocation. Never rewrite a retried
@@ -159,6 +137,44 @@ def create_page(
         raise ApplicationStateConflictError(
             "authored page identity or reservation is already allocated"
         ) from None
+
+
+
+def _insert_page(conn, ident, world_id, title, campaign_id, metadata):
+    now = repo.now_utc()
+    page = AuthoredPageObject(
+        work_object_id=ident,
+        world_id=world_id,
+        campaign_id=campaign_id,
+        title=content._require_title(title),
+        object_revision=1,
+        created_at=now,
+        updated_at=now,
+    )
+    repo.insert_work_object(conn, page)
+    conn.execute(
+        """INSERT INTO content.page_metadata
+        (work_object_id,document_class,authority_state,visibility_state,connected_page_operation_id)
+        VALUES (%s,%s,%s,%s,%s)""",
+        (
+            ident,
+            metadata.document_class,
+            metadata.authority_state,
+            metadata.visibility_state,
+            metadata.connected_page_operation_id,
+        ),
+    )
+
+
+def create_committed_lore_page(conn, *, world_id: str, title: str, markdown: str):
+    """Create a reviewed page and its first revision inside the caller transaction."""
+    ident = uuid4()
+    metadata = PageMetadata(document_class="lore", authority_state="reviewed")
+    _insert_page(conn, ident, world_id, title, None, metadata)
+    _page, revision = content._commit_in_connection(
+        conn, str(ident), markdown, kind="worldbuilding_source", expected_revision=1,
+    )
+    return _state(conn, str(ident), world_id), revision
 
 
 def list_pages(
