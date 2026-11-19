@@ -2314,3 +2314,57 @@ def test_current_complete_object_preserves_native_failure_envelope_without_class
     assert response.status_code == 409, response.text
     assert response.json()["detail"]["code"] == code
     assert "outcome" not in response.json() and "private internal diagnostic" not in response.text
+
+
+
+def test_installed_core_alias_search_reauthorizes_published_alias(inspection, monkeypatch):
+    """Actual public publication/search + fresh source views, no synthetic results."""
+    from dungeonmind.application.vnext import AliasSearchIndexCache, AliasSearchReadService
+    from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
+
+    case = _managed_projection_case(inspection, monkeypatch)
+    _managed_projection_alias(case, "managed")
+    selected = case.worlds["managed"]
+    repo = case.repo
+    head = repo.get_head(selected.space)
+    events = repo.head_events(selected.space)
+    epoch = repo.open_native_source_view(selected.space).epoch
+    parsed_cache = NativeParsedRevisionCache()
+    index_cache = AliasSearchIndexCache(max_entries=1, max_postings=10000)
+    reader = AliasSearchReadService()
+
+    def context(role="gm"):
+        read, access, _, _ = service.native.read_context(
+            repo, selected.space, head.head_revision_id, None, role,
+            scope_mode="world", parsed_cache=parsed_cache,
+        )
+        return read, access
+
+    read, access = context()
+    result = reader.search_aliases(read, "àlias managed", limit=len(read.parsed.aliases_by_id), index_cache=index_cache)
+    hit, = result.hits
+    assert hit.alias.alias_id == "alias:managed-projection:managed"
+    assert hit.alias.entity_id == selected.alias_node
+    assert hit.alias.alias_text == selected.alias_text
+    assert "phrase" in hit.match_kinds
+    assert result.completeness.status == "complete"
+    assert result.identity.revision_id == head.head_revision_id
+    assert index_cache.entry_count == 1
+    player, _ = context("player")
+    assert reader.search_aliases(player, "àlias managed", index_cache=index_cache).hits == ()
+    assert repo.get_head(selected.space) == head and repo.head_events(selected.space) == events
+    assert repo.open_native_source_view(selected.space).epoch == epoch
+
+    evidence = read.parsed.get_evidence(selected.evidence)
+    assert evidence is not None
+    repo.withdraw_native_source(space_id=selected.space,
+        source_artifact_id=evidence.source_artifact_id, source_revision_id=evidence.source_revision_id)
+    withdrawn_epoch = repo.open_native_source_view(selected.space).epoch
+    assert withdrawn_epoch != epoch
+    fresh, fresh_access = context()
+    assert fresh_access.parsed is access.parsed
+    assert fresh_access.source_view is not access.source_view
+    assert reader.search_aliases(fresh, "àlias managed", index_cache=index_cache).hits == ()
+    assert index_cache.entry_count == 1  # structural reuse grants no cached admission
+    assert repo.get_head(selected.space) == head and repo.head_events(selected.space) == events
+    assert repo.open_native_source_view(selected.space).epoch == withdrawn_epoch

@@ -31,7 +31,7 @@ before editing outside this lease. Full V10/current-read retirement/V11 stays ac
 
 ## Current ownership check and invariants
 
-Fresh fetched main and all 57 open PRs were inspected with fully paginated file
+Fresh fetched main and all 58 open PRs were inspected with fully paginated file
 lists; evidence open-pr-path-audit.json in owning scratch. Only older1855
 (Core146 proposal, head08b4c8177909a6259e60d05d0b7b3ffe3e939fc1) and1868
 (Core150 proposal, head72b162688b613cd958a7b9dc57739160e714ac16) overlap the dependency
@@ -87,3 +87,29 @@ may allocate its normal isolated exact-SHA workspace under verified Projects.
 MIND retains new env, scratch/logs and verifier evidence for the active fullgoal.
 Nothing manually removed; no reclaimed bytes. Cleanup follow-up needs approved
 scope plus active task/process/mount/DB/dirty/unique-data/commit checks at completion.
+
+
+## Installed implementation checkpoint
+
+The two project declarations and two lock lines now select exact99e. uv0.10.2
+regenerated152packages; complete non-artifact package graph/metadata equals the
+normalized accepted lock exactly. Registry refresh affected117sdist/139wheel
+catalogs only. Full generated lock and structured comparisons are retained;
+accepted unrelated artifact records were preserved after that equality proof.
+Normalized uv lock --check and locked reinstall passed. Initial environment setup
+failure (uv-cache parent existed before venv), incorrect SHA occurrence-count
+assertion, and parent transient import during reinstall are retained diagnostics,
+not package-compatibility failures. Final post-install isolated imports passed.
+
+Fresh task environment Python3.13.12 direct_url commits are Core99e9eed4 and WKef9c50f2;
+Core aliases import from that environment's site-packages, no Core overlay.
+Generated Hermes source verification passed. New actual public publication/alias
+search plus fresh-context player/withdrawal witness passed1case (102deselected,
+1inherited warning); read operations preserve head/events/source epoch, withdrawal
+changes source epoch only. Owning/contract/frontend checks still require exact
+committed-source execution. The diagnostic is not a deployment or speed claim.
+
+Qualification records/logs will be retained under the owning scratch directory
+with exact Git SHA, package provenance, process exit and cleanup evidence. This
+handoff remains ACTIVE pending those checks and independent final review; no
+pending check is asserted green. SubjectSearch B is not dispatched by A.

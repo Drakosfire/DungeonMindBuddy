@@ -21,32 +21,27 @@ backend overall remain red at the accepted head. Main remained exactbase709 at
 final check; clean mergetreecd042aa968636eef51bb80e9fd993f90f8c8c6d3.
 Evidence/retention: task scratch/v9-buddy/v10-captured-play/acceptance.json.
 
-## Active serial attribution-test repair
+## Completed serial attribution-test repair
 
-MIND owns this ordinary bounded successor under full operator lane authority.
-Base0354193501278467c0876a1f0773dd08504e729a, branch
-codex/v10-source-attribution-expectation in the existing task-owned Buddy checkout.
-Write lease: this completed predecessor settlement and exactly the stale wording
-assertion in tests/test_surface_source_play_binding.py. Align it with current
-shared instructions; preserve both Plan/Play attribution-policy checks and all
-production policy. No new test file, schema, service, dependency, UI or runtime
-change. Open4118/4119 UI trace/recovery lanes and inspected older relevant patches
-have no expected overlap. No ARCHITECTURE coordination gate.
+PR4122 merged0044d059886466d59f5248282d20a333ad43832e from exact
+e15cb0af44031c6e19d85fb08df8aec0580a880d; independent review5978641459
+and terminal bounded evidence acceptance. The existing instruction-literal assertion
+was aligned with the current shared source-attribution instructions; runtime/policy
+and both Plan/Play checks were preserved. Exact affected module17passed; hosted1411,
+build and canonical validation passed. Later mainline test synchronization was
+statically reviewed, not represented as execution of that integrated tree.
 
-Validate the whole affected backend module on committed exactsource, repository
-standard hosted/build/canonical evidence, independent cumulative review, current
-main compatibility and expected-head merge. Retain prior full UI diagnostic129
-fail/2pending and17 reproduced broader source-module failures as historical red;
-this correction cannot establish fullrelease qualification. Next substantial
-slice needs generic indexed authorized alias phrase/token search: exact-only
-lookup would drop existing SubjectSearch behavior, wholeworld enumeration would
-regress boundedwork. Design/adoption belongs to MIND before activation.
+The previous owning104pass/1inheritedfail record above remains historical red;
+4122 repairs that exact literal regression, not every historical source/UI failure.
+Existing17 reproduced broader source-module failures and historical129 UI failures/
+2pending remain retained limitations, not fullrelease qualification.
 
-Resources: existing task root /home/drakosfire/Projects/.codex/v7-elderwyld-scope,
-verified UUID48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8 and writable parent; new scratch
-v9-buddy/v10-attribution-regression only. Locked runtime/Core/WK pins reused, APP
-32903 disposable fixture DBs only. No live54330/54331/provider/serving change or
-frozen classic baseline rerun. MIND retains scratch/base mirror/runtime for the
-active full optimization/deployment/rollback/V10/V11 goal. No manual removal or
-reclaimedbyte claim. Cleanup follow-up requires approvedscope plus active process,
-mount, DB, dirty-worktree and unique-data/commit checks when the goal completes.
+Current continuation is the separately bounded exact Core232 alias-read pin
+adoption, HANDOFF-BUDDY-native-alias-search-adoption.md. No native SubjectSearch
+default or general matching/ranking equivalence is accepted by these predecessor
+proofs. Full current-read retirement/optimization/deployment/V10/V11 remains active.
+
+Evidence retained: task scratch/v9-buddy/v10-captured-play and
+scratch/v9-buddy/v10-attribution-regression/acceptance.json. No manual cleanup or
+reclaimed bytes. MIND owns approvedscope/process/mount/DB/dirty/unique-data/commit
+checks and cleanup follow-up at fullgoal completion.
