@@ -1515,7 +1515,8 @@ def test_read_only_repository_factory_forwards_optional_proof_cache_without_open
 
 def test_source_proof_pool_retains_two_pins_with_a_fixed_total_budget():
     pool = service._SourceVerificationProofPool()
-    pin = lambda world, revision: SimpleNamespace(native_world_id=world, revision_id=revision)
+    def pin(world, revision):
+        return SimpleNamespace(native_world_id=world, revision_id=revision)
     old = pool.for_pin(pin("space:a", "rev:old"))
     new = pool.for_pin(pin("space:a", "rev:new"))
     assert pool.for_pin(pin("space:a", "rev:old")) is old
@@ -1539,3 +1540,72 @@ def test_source_proof_pool_concurrent_pin_selection_has_one_owner_per_pin():
         values = list(executor.map(lambda i: pool.for_pin(pins[i % 2]), range(32)))
     assert all(value is owners[i % 2] for i, value in enumerate(values))
     assert len(pool._entries) == 2
+
+
+@pytest.mark.parametrize("operation", ["neighborhood", "object", "complete-object"])
+@pytest.mark.parametrize("seed_is_target", [False, True])
+def test_shared_routes_display_admitted_alternatives_without_losing_evidence(
+    inspection, monkeypatch, operation, seed_is_target,
+):
+    from apps.live_control_server.routes.world_graph_retrieval import router as product_router
+
+    x = inspection
+    space = x.lane.bound["native_world_id"]
+    operations = []
+    for key in ["object:0", "endpoint"]:
+        facts = []
+        for index, (predicate, value) in enumerate([
+            ("dnd5e:name", wk.LiteralFactValue("Alpha")),
+            ("dnd5e:name", wk.LiteralFactValue("Zulu")),
+            ("dnd5e:name", wk.LiteralFactValue("Zulu")),
+            ("dnd5e:classification", wk.TermRefFactValue("dnd5e:npc")),
+            ("dnd5e:classification", wk.TermRefFactValue("dnd5e:location")),
+        ]):
+            facts.append(wk.CreateFact(f"display:{key}:{index}", predicate, value, x.meta))
+        operations.append(wk.UseExisting(x.objects[key], tuple(facts)))
+    runtime = transport.runtime(x.lane.repo, x.lane.domain, x.lane.profile,
+        now=datetime.now(UTC), operation_id="display-alternatives")
+    committed = runtime.commit_prepared_change(
+        runtime.prepare_change(wk.WorldChangeIntent(space, "display alternatives", tuple(operations))),
+        confirmed_by="local_operator",
+    )
+    added_ids = {row.durable_assertion_id for row in committed.assertion_results}
+    x.app.include_router(product_router)
+    selector = {"neighborhood": "NEIGHBORHOOD", "object": "EXACT_OBJECT", "complete-object": "COMPLETE_OBJECT"}[operation]
+    monkeypatch.setenv("DMB_NATIVE_" + selector + "_WORLD", "managed")
+    selected = "endpoint" if seed_is_target else "object:0"
+    selected_id = x.objects[selected]
+    head = x.lane.repo.get_head(space).head_revision_id
+    body = {"worldId": "managed", "campaignId": x.lane.run.campaign_id, "revisionPin": head}
+    if operation == "neighborhood":
+        body.update(schema="dmb_world_graph_neighborhood_request_v1", seedNodeIds=[selected_id], maxDepth=1)
+    else:
+        body.update(schema="dmb_world_graph_object_projection_request_v1" if operation == "complete-object" else "dmb_world_graph_object_request_v1", nodeId=selected_id)
+    response = x.client.post("/api/live/world-graph/retrieval/" + operation, json=body)
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    labels = {x.objects["object:0"]: "Alpha / Object 0 / Zulu", x.objects["endpoint"]: "Alpha / Zulu"}
+    if operation == "complete-object":
+        assert payload["node"]["label"] == labels[selected_id]
+        assert payload["node"]["kind"] == "entity"
+        related, = payload["relatedNodes"]
+        assert related["label"] == labels[related["nodeId"]]
+        assert payload["node"]["adjacency"][0]["label"] == related["label"]
+        assert related["adjacency"][0]["label"] == labels[selected_id]
+        selected_ids = {row["assertionId"] for row in payload["assertions"]}
+        expected_selected = {row.durable_assertion_id for row in committed.assertion_results if row.client_op_id.startswith("display:" + selected + ":")}
+        assert expected_selected <= selected_ids
+        assert payload["sourceBindings"]
+    else:
+        assert {node["nodeId"]: node["label"] for node in payload["nodes"]} == (labels if operation == "neighborhood" else {selected_id: labels[selected_id]})
+        assert all(node["kind"] == "entity" for node in payload["nodes"])
+        assert payload["sourceAnchors"]
+        for anchor in payload["sourceAnchors"]:
+            opened = x.client.post("/api/live/world-graph/retrieval/source-anchor/read", json={
+                "schema": "dmb_world_graph_source_anchor_read_request_v1", "worldId": "managed",
+                "campaignId": x.lane.run.campaign_id, "revisionPin": head, "anchorId": anchor["anchorId"],
+            })
+            assert opened.status_code == 200, opened.text
+            assert opened.json()["content"] in x.lane.text
+    stored = x.lane.repo.get_revision(space, head)
+    assert added_ids <= {row["assertion_id"] for row in stored.graph_payload["assertions"]}

@@ -11,6 +11,8 @@ from dungeonmind.application.vnext import (
     open_admitted_native_text,
     open_native_text_source_access_context,
 )
+from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
+from dungeonmind.infrastructure.postgres.vnext_knowledge import VerifiedKnowledgeRevisionCache
 from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import _repository
 from fastapi.encoders import jsonable_encoder
 from apps.live_control_server.services.native_pdf_evidence import open_admitted_pdf_evidence, render_admitted_pdf_evidence
@@ -34,8 +36,6 @@ class InspectionUnavailable(ValueError):
         super().__init__(code)
 
 
-from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
-from dungeonmind.infrastructure.postgres.vnext_knowledge import VerifiedKnowledgeRevisionCache
 
 
 def _pinned(scope, principal, *, parsed_cache=None, verification_cache=None):
@@ -435,6 +435,7 @@ def complete_object(body: NativeCompleteObjectRead, principal):
         parsed_revision=access.parsed,
         source_reader=access.source_view,
         request=request.model_copy(update={"world_id": pin.native_world_id}),
+        allow_multiple_display_values=True,
         read_identity=DungeonBuddyVNextReadIdentity(
             space_id=pin.native_world_id,
             revision_id=pin.revision_id,
@@ -697,12 +698,14 @@ def _shared_retrieval_projection(request, bound, head, pin, read, *, object_id=N
             relationships_truncated=len(relationships) > cap,
         )
         selected = EntityReadService().get_entity(read, object_id) if result.found else None
-        nodes = [map_entity_result(selected, object_id, attributes=attributes)] if selected else []
+        nodes = [map_entity_result(
+            selected, object_id, attributes=attributes, allow_multiple=True,
+        )] if selected else []
         if selected is not None:
             selected_entities[object_id] = selected
     else:
         result, bounded = read_neighborhood(read, request.seed_node_ids, request.max_depth, request.bounds)
-        nodes = map_nodes(read, bounded, attributes=attributes)
+        nodes = map_nodes(read, bounded, attributes=attributes, allow_multiple=True)
     edges = map_relationships(read, result, bounded)
     evidence = {row.evidence_ref_id: row for row in result.evidence}
     artifacts = {row.source_artifact_id: row for row in result.source_artifacts}
