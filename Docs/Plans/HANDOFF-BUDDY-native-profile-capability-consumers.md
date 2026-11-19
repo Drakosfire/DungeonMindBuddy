@@ -1,6 +1,6 @@
 # Native profile capability consumers
 
-ACTIVE. MIND adopts explicit user full-lane authority, independently of pending
+COMPLETE bounded capability-consumer slice. MIND adopts explicit user full-lane authority, independently of pending
 Core234 dependency adoption. Serial after declaration PR4152 merged3836a2c74e7e5bf67e86d060e8b14cffe63bab3a;
 base is that exact merge. Branch codex/v10-native-profile-capability-consumers,
 existing task Buddy checkout; no new worktree. Parent owns review/merge.
@@ -67,3 +67,11 @@ logs/XML/receipts at scratch/v9-buddy/v10-native-profile-capability-consumers.
 Owner MIND, reason regression attribution/active fullgoal. No resources removed;
 cleanup follow-up needs approved scope and active-process/mount/unique-data checks.
 Worker has no active runners after freeze; parent independent review/merge next.
+
+## Accepted settlement
+
+PR4153 mergedca1e9bb29436de855813d13fb4a1354f9d81cf7a from exact16c4a14274a82fdde23c894c033c682c2184d071.
+Independent acceptance review5984178271; checks44625228933/44625229269 green.
+Lease released. Prior314pass/1base-reproduced regex failure remains explicit;
+no retrospective full-green claim. Exact Core234 dependency adoption is separate,
+then explicit profile transition/manual API remain pending; no default changed.
