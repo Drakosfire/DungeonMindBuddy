@@ -33,8 +33,8 @@ from graph_memory.anchor_quotes import find_anchor_quote_matches
 from graph_memory.candidate_document_integrity import classify_candidate_document_integrity
 from graph_memory.candidate_graph_preview import NODE_TYPES
 from graph_memory.vnext.domain_runtime import (
-    CAMPAIGN_SCOPE_AXIS, DUNGEONBUDDY_PROFILE_ID, DUNGEONBUDDY_CUSTOM_PROFILE_REVISION,
-    DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION, DUNGEONBUDDY_OBSERVATION_PREDICATE,
+    CAMPAIGN_SCOPE_AXIS, DUNGEONBUDDY_OBSERVATION_PREDICATE,
+    dungeonbuddy_publication_capabilities,
     DungeonBuddyVNextProjectionInput, build_dungeonbuddy_read_context,
 )
 from graph_memory.predicate_catalog import SOURCE_PRECEDENCE_PREDICATE, source_precedence_endpoints_admitted
@@ -287,6 +287,9 @@ def _validate_placement(review, session_id):
 
 def _intent(preview, selections, space, campaign, admitted, data, access, *,
             candidate_sha256, operation_id, producer=PRODUCER):
+    capabilities = dungeonbuddy_publication_capabilities(
+        domain_ref=access.parsed.domain_contract_ref, profile_ref=access.parsed.semantic_profile_ref,
+    )
     records = {
         **{("node", row.node_id): row for row in preview.nodes},
         **{("edge", row.edge_id): row for row in preview.edges},
@@ -304,7 +307,7 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
         if selection is None or selection.action != "create":
             continue
         _require(producer == "dungeonbuddy:reviewed-worldbuilding"
-                 and access.parsed.semantic_profile_ref.profile_revision == DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION,
+                 and capabilities.reviewed_source_observation,
                  "observation_profile_not_adopted")
         subject = observation.subject_candidate_node_id
         subject_selection = by_key.get(("node", subject))
@@ -416,12 +419,7 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
             _require(predicate != TIMELINE_PREDICATE, "timeline_edge_requires_reviewed_placement")
             if predicate == _predicate(SOURCE_PRECEDENCE_PREDICATE):
                 _require(producer == PRODUCER, "precedence_requires_recap")
-                profile_ref = access.parsed.semantic_profile_ref
-                # Capability adoption, not a duplicate semantic-profile validator:
-                # access_context already resolves and verifies this immutable ref.
-                _require(profile_ref.profile_id == DUNGEONBUDDY_PROFILE_ID
-                         and profile_ref.profile_revision in (DUNGEONBUDDY_CUSTOM_PROFILE_REVISION,
-                                                              DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION),
+                _require(capabilities.source_precedence,
                          "precedence_profile_not_adopted")
                 _require(source_precedence_endpoints_admitted(
                     records[("node", edge.from_node_id)].node_type,
@@ -605,6 +603,9 @@ def worldbuilding_review_context(request, principal):
              "candidate_workspace_source_required")
     repo = native.repository()
     context, access = native.access_context(repo, bound["native_world_id"])
+    capabilities = dungeonbuddy_publication_capabilities(
+        domain_ref=access.parsed.domain_contract_ref, profile_ref=access.parsed.semantic_profile_ref,
+    )
     coordinates = NativeWorldbuildingPrepareRequest(
         managed_world_id=request.managed_world_id,
         run_id=request.run_id,
@@ -655,7 +656,7 @@ def worldbuilding_review_context(request, principal):
              "label": row.title, "subject_record_id": row.subject_candidate_node_id,
              "fields": {"description": row.description}}
             for row in preview.source_observations
-            if access.parsed.semantic_profile_ref.profile_revision == DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION
+            if capabilities.reviewed_source_observation
         ],
         "prepare_coordinates": coordinates.model_dump(exclude={"selections"}),
     }

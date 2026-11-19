@@ -587,3 +587,47 @@ def test_manual_profile_wk_exact_descriptor_refusal() -> None:
         runtime.prepare_change(wk.WorldChangeIntent("manual-profile-proof", "wrong profile",
                                                    _manual_ops(("dnd5e:npc", "dnd5e:location"))))
     assert repo.get_head("manual-profile-proof") == before
+
+
+@pytest.mark.parametrize("revision,observation,precedence", [
+    ("1", False, False), ("2", False, True), ("3", True, True), ("4", True, True),
+])
+def test_exact_profile_predicate_capability_matrix(revision, observation, precedence):
+    from graph_memory.vnext.domain_runtime import (
+        dungeonbuddy_dnd5e_observation_profile, dungeonbuddy_publication_capabilities,
+    )
+
+    profiles = {"1": dungeonbuddy_dnd5e_semantic_profile, "2": dungeonbuddy_dnd5e_custom_predicate_profile,
+                "3": dungeonbuddy_dnd5e_observation_profile, "4": _manual_profile}
+    domain = dungeonbuddy_world_domain_contract()
+    profile = profiles[revision]()
+    kwargs = dict(domain_ref=DomainContractRef(domain_id=domain.domain_id,
+        domain_revision=domain.domain_revision, descriptor_sha256=canonical_sha256(domain.model_dump(mode="json"))),
+        profile_ref=SemanticProfileRef(profile_id=profile.profile_id, profile_revision=revision,
+            descriptor_sha256=canonical_sha256(profile.model_dump(mode="json"))))
+    capabilities = dungeonbuddy_publication_capabilities(**kwargs)
+    assert capabilities.reviewed_source_observation is observation
+    assert capabilities.source_precedence is precedence
+    from dataclasses import FrozenInstanceError
+    with pytest.raises(FrozenInstanceError):
+        capabilities.source_precedence = False
+
+
+
+@pytest.mark.parametrize("change", [{"descriptor_sha256": "0" * 64}, {"profile_revision": "999"},
+                                    {"profile_id": "foreign.profile"}])
+def test_profile_capability_rejects_unverified_references(change):
+    from graph_memory.vnext.domain_runtime import DungeonBuddyDescriptorError, dungeonbuddy_publication_capabilities
+
+    domain = dungeonbuddy_world_domain_contract()
+    profile = _manual_profile()
+    domain_ref = DomainContractRef(domain_id=domain.domain_id, domain_revision=domain.domain_revision,
+                                  descriptor_sha256=canonical_sha256(domain.model_dump(mode="json")))
+    profile_ref = SemanticProfileRef(profile_id=profile.profile_id, profile_revision="4",
+                                    descriptor_sha256=canonical_sha256(profile.model_dump(mode="json")))
+    with pytest.raises(DungeonBuddyDescriptorError):
+        dungeonbuddy_publication_capabilities(domain_ref=domain_ref,
+            profile_ref=profile_ref.model_copy(update=change))
+    with pytest.raises(DungeonBuddyDescriptorError):
+        dungeonbuddy_publication_capabilities(domain_ref=domain_ref.model_copy(update={"descriptor_sha256": "0" * 64}),
+            profile_ref=profile_ref)
