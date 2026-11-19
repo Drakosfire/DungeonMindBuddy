@@ -570,6 +570,8 @@ def _commit_in_connection(
                         "updated_at": repo.now_utc(),
                     }
                 )
+                if authorize_world is not None:
+                    authorize_world(obj.world_id)
                 persisted = repo.update_work_object(
                     conn, updated, expected_object_revision=obj.object_revision
                 )

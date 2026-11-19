@@ -2641,6 +2641,32 @@ def test_hosted_owner_saves_exact_world_plan(hosted, application_state_dsn, tmp_
     assert hosted.client.request("GET", path, session="other-session").status_code == 403
     assert hosted.client.request("GET", path + "?world_id=managed").status_code == 403
 
+    if with_artwork:
+        from application_state.content import service as content_service
+
+        title_only = {**body, "title": "Renamed", "expected_revision": snapshot.json()["loaded_revision"]}
+        prepared_title = hosted.client.request("POST", f"{editor}/prepare", json=title_only)
+        assert prepared_title.status_code == 200, prepared_title.text
+        commit_title = {
+            **title_only,
+            "schema_version": "dmb_tiptap_markdown_write_commit_v2",
+            "writer_confirm_token": prepared_title.json()["writer_confirm_token"],
+        }
+        read_revision = content_service.repo.get_work_revision
+        with monkeypatch.context() as patch:
+            def transfer_after_read(*args, **kwargs):
+                revision = read_revision(*args, **kwargs)
+
+                def reject_previous_owner(*_):
+                    raise HTTPException(403, detail="World ownership changed")
+
+                patch.setattr(access, "_owned_world", reject_previous_owner)
+                return revision
+
+            patch.setattr(content_service.repo, "get_work_revision", transfer_after_read)
+            assert hosted.client.request("POST", f"{editor}/commit", json=commit_title).status_code == 403
+        assert hosted.client.request("GET", snapshot_path).json()["record"]["title"] == "After"
+
 
 def test_hosted_owner_creates_lists_and_reopens_plan(hosted, application_state_dsn):
     base = "/api/live/workspace-documents"
