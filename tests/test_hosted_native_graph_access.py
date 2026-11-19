@@ -295,6 +295,14 @@ def hosted(monkeypatch, request):
     from apps.live_control_server.routes.media_images import image_preparations
 
     app.add_api_route("/api/live/media/images/preparations/list", image_preparations, methods=["GET"])
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/rules-passages/{support_id}",
+        agent_routes.get_world_historical_rules_passage, methods=["GET"],
+    )
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/source-passages/{source_read_event_id}",
+        agent_routes.get_world_historical_source_passage, methods=["GET"],
+    )
     app.include_router(conversation_library.router)
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
@@ -477,6 +485,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/connected-page-origin"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/source-passages/{source_read_event_id}"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/rules-passages/{support_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/source-passages/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
@@ -5308,3 +5318,35 @@ def test_hosted_retry_attempts_recheck_world_owner_before_disclosure(hosted, mon
     denied = hosted.client.request("GET", path)
     assert denied.status_code == 403, denied.text
     assert "saved metadata" not in denied.text
+
+
+@pytest.mark.parametrize("source", [False, True])
+def test_hosted_historical_passages_bind_saved_turn(hosted, monkeypatch, source):
+    from unittest.mock import Mock
+
+    from application_state.errors import ApplicationStateNotFoundError
+    from apps.live_control_server.routes import agent
+
+    service = Mock()
+    read = service.read_historical_source_passage if source else service.inspect_rules_passage
+    read.side_effect = ApplicationStateNotFoundError("Passage unavailable")
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world_id: world_id)
+    monkeypatch.setattr(agent, "_conversation_service", lambda request: service)
+    turn, conversation, support = uuid4(), uuid4(), uuid4()
+    digest = "a" * 64
+    base = f"/api/live/agent/worlds/managed/conversation/turns/{turn}"
+    if source:
+        path = f"{base}/context-trace/{uuid4()}/source-passages/{support}"
+        query = f"?conversation_id={conversation}&attempt=1&source_read_id={uuid4()}&content_sha256={digest}"
+    else:
+        path = f"{base}/rules-passages/{support}"
+        query = f"?conversation_id={conversation}&attempt=1&support_sha256={digest}"
+    assert hosted.client.request("GET", path + query, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + query + "&world_id=foreign").status_code == 403
+    assert hosted.client.request("GET", path).status_code == 422
+    read.assert_not_called()
+    response = hosted.client.request("GET", path + query)
+    assert response.status_code == 404, response.text
+    assert response.headers["cache-control"] == "no-store"
+    reference, = read.call_args.args
+    assert (reference.world_id, reference.turn_id, reference.conversation_id) == ("managed", turn, conversation)
