@@ -16,8 +16,9 @@ For current work, use the [documentation map](../README.md),
 [shared Surface architecture](ARCHITECTURE-surface-interaction-layer.md), and the
 owning workstream's explicitly active bounded handoff.
 
-Agent Interaction began as a Plan-local bottom bar/pane. The following links
-record the historical foundation, not a current implementation sequence:
+Agent Interaction began as a Plan-local bottom bar/pane and was dogfooded first
+on `/plan` at this checkpoint. The following links record the historical
+foundation, not a current implementation sequence:
 
 1. [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 2. [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
