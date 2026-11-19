@@ -870,7 +870,16 @@ export interface WorldBuildAgentTurnRequestV1 {
 }
 
 /** Wire shape returned by the accepted generic turn route; runtime-validated by its caller. */
+export interface LoreSaveReviewReference {
+  schema: "dmb_lore_save_review_reference_v1";
+  conversation_id: string;
+  turn_id: string;
+  review_sha256: string;
+  title: string;
+}
+
 export interface WorldPlanAgentTurnResponseV1 {
+  lore_save_review?: LoreSaveReviewReference;
   plan_proposal?: import("./planAuthoringReviewApi").PlanAuthoredProposal | null;
   knowledge_context?: WorldBuildKnowledgeContext;
   schema: "dmb_agent_turn_response_v1";
@@ -1613,6 +1622,7 @@ export type AgentConversationTurnLifecycleV1 =
   | "interrupted";
 
 export interface WorldAgentConversationHistoryTurnV1 {
+  lore_save_review?: LoreSaveReviewReference;
   conversation_draft_available?: true;
   variant_draft_reviewed?: true;
   variant_approval_requested?: true;

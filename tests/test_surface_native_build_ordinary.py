@@ -2342,6 +2342,32 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
 
     completion = populated.completion
     assert completion.collaboration.destination.title == "Glass Regent"
+    followup = workflow.capture_case(
+        case.client, case.world, template,
+        {"question": "Create the page"},
+        tmp_path / "lore-create", build_thread_id=thread_id,
+        expected_conversation_id=str(populated.conversation_id),
+    )
+    assert followup.status_code == 200, followup.text
+    reference = followup.json()["lore_save_review"]
+    assert reference == {
+        "schema": "dmb_lore_save_review_reference_v1",
+        "conversation_id": str(populated.conversation_id),
+        "turn_id": str(populated.turn_id),
+        "review_sha256": canonical_sha256(completion),
+        "title": "Glass Regent",
+    }
+    assert followup.json()["answer"]["trace"]["model_calls"] == []
+    followup_history = case.client.get(
+        f"/api/live/agent/worlds/{case.world}/conversation", params={"include_turn_correlation": "true"},
+    ).json()
+    assert followup_history["turns"][-1]["lore_save_review"] == reference
+    import json
+    sent = json.loads((tmp_path / "lore-create" / "request.json").read_text())
+    repeated = case.client.post("/api/live/agent/turn", json=sent)
+    assert repeated.status_code == 200, repeated.text
+    assert repeated.json()["lore_save_review"] == reference
+    assert repeated.json()["answer"]["trace"]["model_calls"] == []
     request = LorePageConfirmation(conversation_id=populated.conversation_id,
         turn_id=populated.turn_id, review_sha256=canonical_sha256(completion))
     url = f"/api/live/agent/worlds/{case.world}/conversation/lore-pages/confirm"

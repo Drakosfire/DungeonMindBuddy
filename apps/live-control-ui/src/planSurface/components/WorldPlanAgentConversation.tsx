@@ -1693,12 +1693,26 @@ function isHistoryReference(value: unknown): boolean {
     && (value.revision_n === null || isPositiveRevision(value.revision_n));
 }
 
+function isLoreSaveReviewReference(value: unknown): value is import("../../api/types").LoreSaveReviewReference {
+  return isRecord(value) && hasExactKeys(value, ['schema', 'conversation_id', 'turn_id', 'review_sha256', 'title'])
+    && value.schema === 'dmb_lore_save_review_reference_v1'
+    && commandUuid(value.conversation_id) && commandUuid(value.turn_id)
+    && typeof value.review_sha256 === 'string' && /^[0-9a-f]{64}$/.test(value.review_sha256)
+    && typeof value.title === 'string' && value.title.length > 0;
+}
+
 function isHistoryTurn(
   value: unknown,
   schema: "dmb_agent_conversation_history_v1" | "dmb_agent_conversation_history_v2" | "dmb_agent_conversation_history_v3" | "dmb_agent_conversation_history_v4",
   worldId: string,
 ): boolean {
   if (!isRecord(value)) return false;
+  if (Object.hasOwn(value, 'lore_save_review')) {
+    const {lore_save_review: reference, ...envelope} = value;
+    return isLoreSaveReviewReference(reference) && reference.turn_id !== value.turn_id
+      && value.lifecycle_status === 'completed' && isRecord(value.provenance)
+      && value.provenance.surface_id === 'build' && isHistoryTurn(envelope, schema, worldId);
+  }
   if(Object.hasOwn(value,'native_statement_context')){
     if(schema!=='dmb_agent_conversation_history_v4'||value.schema!=='dmb_native_statement_history_turn_v1'
       ||!isNativeStatementContext(value.native_statement_context,worldId))return false;
@@ -4409,7 +4423,12 @@ export function WorldPlanAgentConversation({
       const sourcePlay = request.primary_work.kind === 'run' && request.graph_request.mode === 'none';
       const expectedSchema = mixed ? sourcePlay ? 'dmb_agent_play_rules_turn_response_v1' : 'dmb_agent_rules_turn_response_v1'
         : nativePlay ? 'dmb_agent_play_graph_turn_response_v1' : sourcePlay ? 'dmb_agent_play_source_turn_response_v1' : 'dmb_agent_turn_response_v1';
-      const contextKeys = [...(mixed ? ['rules_context'] : nativePlay ? ['play_context'] : request.graph_request.mode === 'world' ? ['knowledge_context'] : []),
+      const loreReference = 'lore_save_review' in response ? response.lore_save_review : undefined;
+      const localLore = request.primary_work.kind === 'build' && isLoreSaveReviewReference(loreReference)
+        && loreReference.conversation_id === response.conversation.conversation_id
+        && response.graph.status === 'not_requested' && response.answer.status === 'ok'
+        && !response.answer.graph_grounded;
+      const contextKeys = [...(localLore ? ['lore_save_review'] : mixed ? ['rules_context'] : nativePlay ? ['play_context'] : request.graph_request.mode === 'world' ? ['knowledge_context'] : []),
         ...(sourcePlay ? ['play_source_context'] : [])];
       if (!hasExactKeys(response, ['schema', 'client_thread_id', 'turn_id', 'surface', 'owner_scope', 'primary_work',
         'client_work_state_reported', 'graph', 'conversation', 'answer', ...contextKeys]) || response.schema !== expectedSchema) {
@@ -4437,11 +4456,11 @@ export function WorldPlanAgentConversation({
         || response.primary_work.expected_revision !== request.primary_work.expected_revision
         || response.primary_work.revision_used !== request.primary_work.expected_revision
         || response.client_work_state_reported !== request.client_work_state
-        || !(matchesPlayGraphResponse(response.graph, request)||request.primary_work.kind==='run'
+        || !(localLore || matchesPlayGraphResponse(response.graph, request)||request.primary_work.kind==='run'
           &&sharedPlayGraphResponseMatches(mixed?response.rules_context.base_context?.receipt??response.rules_context.unclaimed_context?.receipt:'play_context' in response&&isRecord(response.play_context)?response.play_context.receipt:null,response.graph))) {
         throw new Error("The reply did not match the saved request. Check World history before continuing.");
       }
-      if (request.primary_work.kind === "build" && request.graph_request.mode === "world") {
+      if (request.primary_work.kind === "build" && request.graph_request.mode === "world" && !localLore) {
         const context = mixed ? response.rules_context.base_context : "knowledge_context" in response ? response.knowledge_context : undefined;
         const unclaimed = mixed ? response.rules_context.unclaimed_context : null;
         if(unclaimed) {
@@ -6673,6 +6692,23 @@ export function WorldPlanAgentConversation({
               pointerRevision={history.pointer_revision}
               disabled={composerBusy||!isBuild||history.active_conversation_id!==history.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id}
               onVisible={()=>agent.setPaneOpen(false)}/>:null}
+            {turn.lore_save_review && isBuild && !isReadOnly
+              && turn.lore_save_review.conversation_id === history?.active_conversation_id
+              && <button type="button" onClick={async () => {
+                const reference = turn.lore_save_review!;
+                const original = history?.turns.find(row => row.turn_id === reference.turn_id);
+                const review = original ? graphContextForTurn(original)?.completion : null;
+                if (!review || review.schema !== 'dmb_surface_native_completion_v1'
+                  || review.collaboration?.kind !== 'lore_page'
+                  || review.collaboration.destination.title !== reference.title
+                  || await textSha256(canonicalJson(review)) !== reference.review_sha256) {
+                  setError('The original lore review could not be verified.');
+                  return;
+                }
+                const card = document.querySelector<HTMLElement>(`[data-turn-id="${CSS.escape(reference.turn_id)}"]`);
+                card?.scrollIntoView?.({block: 'nearest'});
+                card?.focus();
+              }}>Go to review for {turn.lore_save_review.title}</button>}
             {loreTitle !== null && completed?.schema === 'dmb_surface_native_completion_v1'
               && verifiedWorldId && history?.conversation_id && !loreDraftSuperseded && isBuild
               && visible && !isReadOnly && history.active_conversation_id === history.conversation_id

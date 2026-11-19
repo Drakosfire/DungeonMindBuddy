@@ -415,6 +415,11 @@ def _validated_base_execution_locked(
         except ValueError as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
     if turn.graph_context_receipt is None:
+        from .types import LoreSaveReviewReference
+        if isinstance(result.completion, LoreSaveReviewReference):
+            if result.producing_provider_attempt_id is not None or result.assistant_text != result.completion.reply_text:
+                raise ApplicationStateValidationError("Lore save reference must be a local result")
+            return None
         if result.completion is not None:
             raise ApplicationStateValidationError(
                 "Graph completion requires a frozen context receipt"
@@ -1116,6 +1121,14 @@ class AgentConversationService:
                 "turn idempotency key was already used with different submitted intent"
             )
         return turn
+
+    def resolve_lore_save_followup(self, *, world_id, conversation_id, current_turn_id):
+        from .lore_page_confirmation import resolve_lore_save_followup
+
+        return resolve_lore_save_followup(
+            _ready_dsn(), world_id=_world_id(world_id), conversation_id=conversation_id,
+            current_turn_id=current_turn_id,
+        )
 
     def prepare_lore_save_review(self, *, world_id, principal_subject, confirmation):
         from .lore_page_confirmation import prepare_lore_save_review
@@ -2885,6 +2898,15 @@ class AgentConversationService:
         from application_state.plan_action_dialogue import repository as actions
         with unit_of_work(dsn) as conn:
             from .lore_page_review import ProposedLorePage
+            from .types import LoreSaveReviewReference
+            if isinstance(result.completion, LoreSaveReviewReference):
+                from .lore_page_confirmation import resolve_lore_save_followup_locked
+
+                reference = resolve_lore_save_followup_locked(
+                    conn, world_id=world_id, conversation_id=result.conversation_id, current_turn_id=result.turn_id,
+                )
+                if reference != result.completion:
+                    raise ApplicationStateConflictError("The current lore review changed")
             if isinstance(getattr(result.completion, "collaboration", None), ProposedLorePage):
                 repo.lock_conversation(conn, world_id, result.conversation_id)
             action=(lock_authoring_owners(conn,authoring_proposal,world_id=world_id,

@@ -171,3 +171,63 @@ def test_lore_save_body_excludes_conversation_limitations():
     assert body.startswith("Rowan was named.\n\n[Source 1]")
     assert body.endswith("**Proposed**\n\nPossible connection.")
     assert "unavailable" not in body
+
+
+@pytest.mark.parametrize("scenario", ["matching", "topic_switch", "other_page", "inactive", "superseded", "qualified_request"])
+def test_save_followup_resolves_only_a_current_same_work_review(monkeypatch, scenario):
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from application_state.agent_conversation import lore_page_confirmation as owner
+    from application_state.agent_conversation.lore_page_review import ProposedLorePage
+    from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
+    from application_state.agent_conversation.types import Turn
+    from application_state.errors import ApplicationStateConflictError
+
+    conversation_id, current_id, prior_id = uuid4(), uuid4(), uuid4()
+    scope = SimpleNamespace(
+        surface_id="build", surface_instance_id="page",
+        primary_work=SimpleNamespace(resolution="resolved", object_id="page"),
+    )
+    prior_scope = scope if scenario != "other_page" else SimpleNamespace(
+        surface_id="build", surface_instance_id="other",
+        primary_work=SimpleNamespace(resolution="resolved", object_id="other"),
+    )
+    review = None if scenario == "topic_switch" else ProposedLorePage(
+        kind="lore_page", destination=LorePageTitleWitness(instruction="Create a page for Rowan", title="Rowan"),
+    )
+    completion = SurfaceNativeCompletionV1.model_construct(collaboration=review)
+    message = "Create the page with new details." if scenario == "qualified_request" else "Create the page."
+    current = Turn.model_construct(turn_id=current_id, conversation_id=conversation_id, user_text=message,
+                                   sequence=3, status="running", provenance=scope)
+    prior = Turn.model_construct(turn_id=prior_id, conversation_id=conversation_id,
+                                 sequence=1, status="completed", provenance=prior_scope, completion=completion)
+
+    def select_previous(query, params):
+        assert "sequence < %s" in query
+        assert "status NOT IN ('failed', 'interrupted')" in query
+        assert params == ("test", conversation_id, current.sequence)
+        return SimpleNamespace(fetchone=lambda: (prior_id,))
+
+    def require_current(conn, turn):
+        assert turn is prior
+        if scenario == "superseded":
+            raise ApplicationStateConflictError("Superseded")
+    conn = SimpleNamespace(execute=select_previous)
+    active_id = uuid4() if scenario == "inactive" else conversation_id
+    monkeypatch.setattr(owner, "unit_of_work", lambda dsn: nullcontext(conn))
+    monkeypatch.setattr(owner.repository, "lock_world_state", lambda *args: SimpleNamespace(active_conversation_id=active_id))
+    monkeypatch.setattr(owner.repository, "lock_conversation", lambda *args: object())
+    monkeypatch.setattr(owner.repository, "get_turn", lambda conn, world, key: {current_id: current, prior_id: prior}[key])
+    monkeypatch.setattr(owner, "_require_current_review", require_current)
+
+    reference = owner.resolve_lore_save_followup(
+        "fixture", world_id="test", conversation_id=conversation_id, current_turn_id=current_id,
+    )
+    if scenario == "matching":
+        assert reference.turn_id == prior_id
+        assert reference.review_sha256 == owner.canonical_sha256(completion)
+        assert reference.title == "Rowan"
+    else:
+        assert reference is None

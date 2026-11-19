@@ -1,5 +1,6 @@
 """Confirm exactly one retained native lore draft inside the APP transaction."""
 
+import re
 from urllib.parse import quote
 from uuid import UUID
 
@@ -14,7 +15,14 @@ from .collaboration import Closed
 from .lore_page_review import ProposedLorePage
 from .native_completion import SurfaceNativeCompletionV1
 from .rules_authority_types import canonical_sha256
-from .types import Turn
+from .types import LoreSaveReviewReference, Turn
+
+
+_SAVE_FOLLOWUP = re.compile(r"(?:please\s+)?create\s+(?:the|this)\s+page[.!]?", re.IGNORECASE)
+
+
+def is_lore_save_followup(message: str) -> bool:
+    return _SAVE_FOLLOWUP.fullmatch(message.strip()) is not None
 
 
 class LorePageConfirmation(Closed):
@@ -65,6 +73,61 @@ def _locked_review(conn, world_id: str, confirmation: LorePageConfirmation) -> T
     if canonical_sha256(turn.completion) != confirmation.review_sha256:
         raise ApplicationStateConflictError("Confirm the exact displayed lore revision")
     return turn
+
+
+def resolve_lore_save_followup(
+    dsn: str, *, world_id: str, conversation_id: UUID, current_turn_id: UUID,
+) -> LoreSaveReviewReference | None:
+    """Find the reviewed page the current Build turn can refer back to."""
+    with unit_of_work(dsn) as conn:
+        return resolve_lore_save_followup_locked(
+            conn, world_id=world_id, conversation_id=conversation_id, current_turn_id=current_turn_id,
+        )
+
+
+def resolve_lore_save_followup_locked(
+    conn, *, world_id: str, conversation_id: UUID, current_turn_id: UUID,
+) -> LoreSaveReviewReference | None:
+    pointer = repository.lock_world_state(conn, world_id)
+    conversation = repository.lock_conversation(conn, world_id, conversation_id)
+    if conversation is None or pointer.active_conversation_id != conversation_id:
+        return None
+
+    current = repository.get_turn(conn, world_id, current_turn_id)
+    if (not isinstance(current, Turn) or current.conversation_id != conversation_id
+            or current.status not in {"accepted", "running"}
+            or not is_lore_save_followup(current.user_text)
+            or current.provenance.surface_id != "build"
+            or current.provenance.primary_work.resolution != "resolved"):
+        return None
+
+    prior_id = conn.execute(
+        """SELECT turn_id FROM agent.turn
+           WHERE world_id = %s AND conversation_id = %s AND sequence < %s
+             AND status NOT IN ('failed', 'interrupted')
+           ORDER BY sequence DESC LIMIT 1""",
+        (world_id, conversation_id, current.sequence),
+    ).fetchone()
+    if prior_id is None:
+        return None
+
+    prior = repository.get_turn(conn, world_id, prior_id[0])
+    if (not isinstance(prior, Turn) or prior.status != "completed"
+            or prior.provenance.surface_id != "build"
+            or prior.provenance.surface_instance_id != current.provenance.surface_instance_id
+            or prior.provenance.primary_work != current.provenance.primary_work
+            or not isinstance(prior.completion, SurfaceNativeCompletionV1)
+            or not isinstance(prior.completion.collaboration, ProposedLorePage)):
+        return None
+    try:
+        _require_current_review(conn, prior)
+    except ApplicationStateConflictError:
+        return None
+    return LoreSaveReviewReference(
+        conversation_id=conversation_id, turn_id=prior.turn_id,
+        review_sha256=canonical_sha256(prior.completion),
+        title=prior.completion.collaboration.destination.title,
+    )
 
 
 def prepare_lore_save_review(dsn: str, *, world_id: str, principal_subject: str,
