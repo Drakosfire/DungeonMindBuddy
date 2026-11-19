@@ -1344,3 +1344,21 @@ it("browses a hosted World library and exact private preview", async () => {
   await expect(api.authenticatedApiFetch(path + "&before_id=orphan")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(2);
 });
+
+it("opens World Runbook inventory with the hosted session", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-only-fixture");
+  const inventory = {
+    schema_version: "dmb_world_owned_runbooks_list_v2",
+    scope_mode: "world", world_id: "managed", records: [],
+  };
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json(inventory));
+  await expect(api.listWorldOwnedRunbooks("managed")).resolves.toEqual(inventory);
+  const [url, init] = fetch.mock.calls[0]!;
+  expect(url).toBe("/api/live/workspace-documents/world-runbooks?world_id=managed");
+  expect(init).toMatchObject({ credentials: "same-origin", mode: "same-origin" });
+  expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(String(url) + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
