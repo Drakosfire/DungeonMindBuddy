@@ -85,6 +85,16 @@ admission. B2 must establish and seal those facts at their owning boundaries.
   Use existing `firstWorldPublicationContinuity.test.tsx` and existing sheet/
   recovery tests for mounted reachability; do not allocate the shared
   `GraphReviewWorkbenchModule.test.tsx`.
+- **Narrow B1 transfer into this B2 capability:**
+  `apps/live_control_server/services/native_first_world_compilation.py` only for
+  the `_span_requirements` `source_ref_id` correlation-versus-document-reference
+  equality correction; and `tests/test_first_world_typed_evidence.py` only for
+  focused coverage of that correction. Keep nonblank correlation validation,
+  full raw audit/request commitment, and all artifact, revision, full-body
+  digest, frozen index/span, locator and native-proof checks unchanged. This is
+  a required producer-mapping correction, not a bridge, ID prediction, relaxed
+  source authorization, new public contract, or generic metadata expansion.
+  Do not edit B1's models or unrelated compiler behavior.
 - Owning tests: `tests/test_database_first_world_publication.py` for first-World
   HTTP, hosted authorization, lifecycle and SQL witnesses, and
   `tests/test_reviewed_native_graph_activation.py` for native APP activation.
@@ -92,8 +102,9 @@ admission. B2 must establish and seal those facts at their owning boundaries.
   `tests/test_hosted_native_graph_access.py` or `ci/test-classification.json`;
   run affected shared regressions read-only. This handoff's consuming activation
   record belongs on a separately pinned, explicitly allocated path. B1 compiler
-  files/tests may be read, not broadened without explicit transfer. No dependency
-  pin, Core/WK runtime, migration, generic schema, model policy, provider, or
+  files/tests outside the narrowly transferred correction above may be read,
+  not broadened without explicit transfer. No dependency pin, Core/WK runtime,
+  migration, generic schema, model policy, provider, or
   unrelated UI/route changes.
 
 This is a proposed exclusive expected-path allowlist, not an instruction to
@@ -119,6 +130,27 @@ splits cover only the first-World sections described above. Recheck #4050, #3531
 If exact section isolation or safe composition is not possible, stop that edit
 and obtain an explicit transfer/split or owning-boundary prerequisite; do not
 infer that historical ACTIVE leases expired or rely on Git conflicts as consent.
+
+## B1 producer-mapping correction — re-anchored 2026-11-19
+
+Actual producer `_materialize_evidence_ref` preserves a supplied nonblank
+`source_ref_id` plus artifact pair. `candidate_graph_to_contribution` derives
+the authoritative evidence ID from the verified artifact and frozen span and
+retains `source_ref_id` as optional correlation; the frozen index separately
+has its document source reference. B1 currently requires those two source-ref
+values to be equal in `_span_requirements`, even though a valid candidate can
+carry its own correlation alias. The B2 isolated PostgreSQL diagnostic at
+`prepare-diagnostic-2.log` failed both absent/admitted-source cases with
+`reviewed_span_identity_mismatch` before lifecycle publication writes; its
+disposable databases were dropped. This is diagnostic evidence, not a publication or live-data witness.
+
+Transfer only the two paths and sections named above into the same serial B2
+PR. Prove a valid per-candidate nonblank correlation alias is accepted and
+retained/committed, and changing it changes the sealed intent/request identity.
+Negative controls must still refuse a wrong actual artifact, revision, body,
+index, span, locator or native proof. Re-run the existing B1 regressions and
+both actual SQL prepare cases; do not weaken any other validation or turn a
+correlation alias into source authority.
 
 ## Sealed prepare, confirm and recovery contract
 
