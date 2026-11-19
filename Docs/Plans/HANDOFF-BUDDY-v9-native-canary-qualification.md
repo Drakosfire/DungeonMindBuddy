@@ -1,236 +1,149 @@
 # BUDDY — V9.A native canary qualification and process rollback
 
-Status: ACTIVE — display repair accepted; canary qualification resumed. Owner/designer: Elderwyld vNext completion lane.
-Authority: operator's active optimize-before-cutover/finish-vNext goal, including
-implementation, review, merge and launch authorization. No PRIME coordination
-required. V8 prerequisite is satisfied by Core #229 merge
-f770098ad27b772e6351f2827a2b7bd6628705e8, reviewed final head6b3c52d and
-all-green CI44442480375 attempt2. Core runtime remains4b6516e; that merge changes
-only evidence/control documents. Read the canonical V8 acceptance artifact there.
+Status: ACTIVE — full consumer qualification resumed after accepted prerequisites.
+Owner/designer: Elderwyld vNext completion lane. Operator authorized implementation,
+independent review, merge and launch; no PRIME coordination prerequisite.
 
-Base/runtime candidate: Buddya192f2be6d5ab53d4c1406a0d40d0aa4143d3580, accepted
-#4047 merge. Original activation candidate92cc remains historical evidence. Branch: codex/v9-native-canary-qualification. Freeze this exact source
-composition rather than chase subsequent main movement. Core dependency4b6516e
-is unchanged; V8 qualified Buddy0a746752 is the semantic predecessor, not automatic
-qualification of the later hosted/lore/combat/store changes or APP schema.
+## Current anchor and mission
 
-## Outcome and serial boundary
+Runtime base: Buddy475f65d92411e380c7881a2b7a394fa38e7e65b7 (accepted4056).
+Core runtime4b6516e2c0dfd81acaa4410b9b9bb9da18894c90; V8 evidence accepted in
+Core229 mergef770098ad27b772e6351f2827a2b7bd6628705e8. Read canonical
+Docs/Handoffs/dm_vnext_contract_acceptance_v1.json there; do not rerun classic baseline.
+Branch codex/v9-native-canary-qualification is rebased onto the frozen accepted
+runtime base. Record each final execution head/imported-source manifest separately;
+these documentation commits do not silently qualify later unrelated main changes.
 
-Can the selected native runtime start against a verified restore of current real
-Elderwyld authority, preserve ordinary consumer semantics, and undergo a process
-rollback without rewriting knowledge/history or disturbing another runtime?
+Can this native runtime use a verified restore of current Elderwyld authority,
+preserve consumer semantics and survive an owned process/configuration rollback?
+This slice is qualification only. Separate V9.B owns live readiness/activation;
+V10 retirement and V11 deployed baseline remain in the full objective.
 
-One serial Buddy-owned qualification PR after V8. A separately bounded V9.B
-activation follows only after this slice passes. V10 retirement and V11 deployed
-baseline remain in the full objective. Do not substitute a successful canary for
-actual cutover or claim this slice completes vNext.
+Three-path write lease: this handoff; Docs/Reports/V9-native-canary-qualification-v1.json;
+Docs/Plans/HANDOFF-BUDDY-native-validated-command-adoption.md (truthful4029 seal).
+No runtime/DTO/auth/schema/dependency/provider/ingestion/production DDL or serving
+switch. Split discovered product defects into independently reviewable repairs.
 
-Three repository paths only: this handoff;
-Docs/Reports/V9-native-canary-qualification-v1.json;
-Docs/Plans/HANDOFF-BUDDY-native-validated-command-adoption.md (truthful #4029 seal).
-No route/DTO/auth/runtime implementation, schema authoring, dependency change,
-provider/ingestion experiment, production DDL/backfill or serving switch. If a
-runtime defect is found, rebrief and split its repair before acceptance.
-Inspect relevant open PR leases before edits; new qualification paths are unique.
+## Accepted prerequisites and lessons
 
-## Current discovery, not acceptance
+- 4047 mergea192f2be6d5ab53d4c1406a0d40d0aa4143d3580: shared read routes display
+  admitted name/classification alternatives without inventing canonical truth.
+- 4051 mergeeffc99da9aab42b83f61a518401191ab0a096e49: standalone native Graph
+  inspection uses the same existing presentation policy; original ledger retained.
+- 4053 merge063c91de8441cad82d0db906c3b017e9c942ebf4: exact frozen dialogue prefix
+  plus three writer frames; explicit selector inventory, no skipped deeper failures.
+- 4055 merge4ffb7500d35e2398c4311c7722b0733546215858: old PDF support reuse must
+  pass current receipt admission or acquire fresh support. Historical selection
+  does not become perpetual authority.274 owning tests, exact frontend/CI pass.
+- 4056 merge475f65d92411e380c7881a2b7a394fa38e7e65b7: actual local bearer auth,
+  explicit local fixtures and current typed registry response.76 owning tests,
+  exact frontend/CI pass. Runtime authorization unchanged.
 
-- Port5202 is not listening. API8000/PID1002232 belongs to the separate dirty
-  jev-freeze-dogfood checkout; it is outside this lease and is not a rollback target.
-- Original operator checkout .env identifies Core at127.0.0.1:54330,
-  database dungeonmind_cutover_live_restore_20261011, and separate APP state at
-  127.0.0.1:54331/dungeonbuddy_application_state. Credentials stay private.
-- Read-only discovery found native space elderwyld head
-  rev:5293c1b237a0064bd16fffd080bfa6b1, different from the old V8 restored head.
-  APP binding elderwyld→elderwyld is active/version3. Its validated-head field is
-  historical binding metadata, not current-head authority.
-- Core schema0021_native_source_withdrawal is behind required0022; only prior
-  task-owned clones have0022/artifacts. Migration/backfill are explicit actions,
-  never repairs performed by a read. Current native head/parent must be rechecked.
-- Core/APP logical sizes observed1873402903/199449623 bytes. Projects has ample
-  space, but logical size is not dump size or reclaimed bytes. No snapshot is
-  yet created by this slice. Sources remain untouched.
+Their independent reviews and failure histories live in those PRs and task proof
+receipts. GM intentionally admits GM and player labels; player-only is not hidden
+from GM. Neither composite labels nor successful catalog reads establish full
+route/citation/consumer correctness. Do not treat an exited child zombie or TCP
+cleanup state as an executable listener. Process checks need the owning executor:
+unprivileged ps once hid a live canary; it was stopped before any source change.
 
-## Operational lease and failure cases
+## Verified restored authority and persistence
 
-Reuse the existing task root /home/drakosfire/Projects/.codex/v7-elderwyld-scope,
-UUID48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8, writable verified before allocation.
-New scratch/evidence stays in scratch/v9-buddy, caches in the existing task cache.
-Use existing task PostgreSQL container codex-v8-live-head on32903 for uniquely
-named Core/APP restores, never its retained V8 clone or unrelated databases.
+Taskroot /home/drakosfire/Projects/.codex/v7-elderwyld-scope, Projects UUID
+48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8. Reuse existing isolated checkout/venv without
+sync; new scratch in scratch/v9-buddy and caches under taskroot. Verify UUID and
+parent write access before allocation; never fall back to root/tmp storage.
 
-Explicitly authorized operations for this slice: read-only source inventory;
-consistent source Core/APP exports; restore into unique owned databases;
-compatibility/lineage/binding/receipt/citation verification; migrate ONLY those
-restores to accepted Core/Buddy schema; explicit derived artifact backfill there;
-owned canary process startup/stop/restart/rollback on independently checked free
-ports; provider-free consumer checks. No live source migration or history write.
-APP/Core dumps are separate snapshots, not a cross-database atomic transaction;
-record before/after head/binding and reject incoherent assumptions.
+Source inventory captured Core54330/dungeonmind_cutover_live_restore_20261011
+(schema0021) and separate APP54331/dungeonbuddy_application_state (schema0160).
+Credentials remain private. Sources are unchanged by this slice. Before V9.B,
+freshly establish their actual current state rather than assuming this capture.
 
-Reserve baseline API18290, forward API18291 and UI15202 only after confirming free. No use of8000 or5202 in
-this qualification. Use loopback/local-operator configuration, exact source
-attestation and explicit frontend proxy. No request traffic to other-lane API.
-Preserve source/artifact locators and real restored managed binding; no fixture
-binding substitution. Keep APP/Core databases distinct. Loading a restored real
-binding is recovery proof, not direct live-serving proof.
+Owned32903 server codex-v8-live-head contains ONLY selected new restores:
+Corecodex_v9_core_f7273a3fef; APPcodex_v9_app_2ed3662f84. Preserve prior V8 clone.
+Separate consistent dumps: Core947930229bytes SHA66284bd73ae9042659d886722ba1c8eef5bcec811538a0a8c3e153cae1db8daf;
+APP102665777bytes SHA02a52f887d21605544863bb05199a31fde0841a31d1e6349b5c9dd42d359c771.
+They are not a globally atomic Core/APP snapshot. Supplemental repeatable-read
+source-before/restore/source-after inventories matched selected authority, source
+metadata/body hashes, binding/grants and stable epoch194. No full historical graph
+payload replay or original before-dump epoch claim.
 
-No new worktree/environment is required initially: use the existing isolated
-checkout sequentially. Before changing its Git source stop all owned processes
-using it, commit/protect changes, then restart at an exact ref. Never change code
-under a running process. Do not sync the shared venv. If a second immutable
-checkout becomes necessary, obtain it through the managed worktree tool within
-repository storage policy; do not allocate elsewhere as a fallback.
+Restored headrev:5293c1b237a0064bd16fffd080bfa6b1, parentrev:9eac817676327afaeaaff25d8f38df60,
+600 lineage revisions/receipts/events. APP binding elderwyld→elderwyld activev3;
+validated-head field is historical metadata. Provisioning fields null, not a
+missing record. DomainContract revision2/profile refs verified.79 head source
+pairs/87 body records available; ordinary checks verify71 admissions/79extensions/
+16PDF bodies. The absent legacy corpus/elderwyld-markdown hint is not rebuilt.
+No old-name bridge. Native source bodies are database authority; unrelated files,
+sessions, attachments, saved-page/authoring paths require their own proof.
 
-## Required evidence and verification
+Only owned restores upgraded: Core0022 with explicit head/parent artifact backfill,
+ordinary/derived digests equal and selected authority unchanged; APP0167 then0168.
+0161 intentionally changed one active Run scope local→world:elderwyld; normalized
+UUID/string comparison has no unmatched Run.0168 adds two empty lore receipt
+tables, binding unchanged. Never downgrade or bypass strict schema equality.
 
-1. Record exact snapshot/dump hashes, versions, source/restore database identities,
-   consistency boundaries and cleanup ownership. Preserve failures and unknowns.
-2. Verify current head→genesis lineage, parent, revision/receipt/event consistency,
-   domain/profile refs, real managed binding/version and source/citation identity.
-   Never assume the old V8 head remains current; no old-name bridge.
-3. Verify Core0022 and selected Buddy APP schema on restores; record additive
-   migration/older-native compatibility. Backfill only explicit exact head/parent
-   artifacts; verify ordinary-source/derived integrity and no authority mutation.
-4. Qualify actual imported Core/Buddy file hashes, lock pin, frontend build/API
-   mapping and full-app/lifespan startup. Installed package metadata alone is
-   insufficient. Keep secrets out of logs and evidence.
-5. Inventory intended managed projection, exact/complete object, neighborhood,
-   evidence, source anchor, search and Plan subject-search selectors. Native writes
-   have their own governed paths; one authority flag does not prove all routes.
-6. Run owning native inspection/source/recap, publication/relationship, auth and
-   affected newer consumer cohorts at exact source with existing disposable DB
-   isolation. Qualify the final full SHA with the unmodified repo-owned hosted
-   frontend verifier/canonical validator and normal lock. Later discovered-suite
-   diagnostics apply if frontend implementation changes; none is authorized here.
-7. Rehearse rollback using only owned processes/configuration and the same native
-   authority/history. Establish a known-good native target first. Verify restart,
-   loaded pins, head/binding, receipts/replay, fresh source authorization and exact
-   citation reopening. No legacy fallback or restoring stale data over writes.
-8. Independent cumulative review and normal automatic checks before merge. No
-   baseline rerun or timing claim from diagnostic/profiled durations.
+## Runtime isolation and proved limits
 
-## Continuation and cleanup
+Owned baselineAPI18290, forward18291, UI15202. API8000 belongs to another dirty
+checkout; serving5202 is outside this slice. Never stop/seize those other ports.
+No owned canaries remain live at this checkpoint. Stop/identity-verify every owned
+process before changing source; do not infer shutdown from a stale state file.
 
-V9.B must independently establish fresh live recovery readiness, selected-scope
-write boundary, actual schema/artifact readiness, loaded serving composition and
-mapping, then verify head/binding/receipts/citations after activation. This PR
-cannot authorize a silent live DDL, APP upgrade or selector change by implication.
-The operator's broader launch authority remains valid for that explicit next slice.
+Launcher pins isolated dotenv/private auth profiles, distinct Core/APP restores,
+explicit shared owned managed/artifact/session/world roots and private process
+caches/logs; all intended Elderwyld native selectors. Real app/lifespan/binding and
+normal bearer authorization, no repository/preparation substitutions. Offline
+owned tokenizer is hash-bound; no provider requests. Secrets stay out of reports.
+Source attestation binds actual imported project bytes to fixed Git blobs; package
+metadata alone is insufficient. Diagnostic response headers identify process,
+not performance. Runtime-selected file dependencies remain separately qualified.
 
-Retain unique refs, dumps, restore DBs, scripts/logs/receipts and canary resources
-for qualification/activation review, owned by this lane. Record every created,
-retained and removed path, owner/reason and cleanup follow-up. Do not blanket-clean
-shared storage. No standing deletion permission: remove only specifically scoped
-reproducible artifacts after active process/mount/connection, dirty/unique-data and
-commit checks. Keep live sources, other-lane processes and prior V8 evidence intact.
-Settle the actual #4029 merge in this PR; settle this slice after actual merge in
-its dependent activation record, never by inventing a future merge identity.
+Earlier abfd/Core4b baseline and forward each passed14 actual-data route/citation
+cases at head/parent; real Vite HTML/proxy baseline→forward→baseline mapping returned
+identical neighborhood and1276-byte citation. Forward was stopped/listener refused.
+Exact existing-publication replay afterward returned the same receipt and left
+selected authority hashes/head unchanged. Native UI repair e70 separately passed
+8 head/parent endpoint cases with retained entity/complete-object assertions.
+Plan subject-search owning service passed navigation-only head/parent checks.
+These are pinned predecessor evidence, not automatic full proof of this new base,
+not browser-rendered acceptance and not a new forward publication transaction.
 
-## Pre-start clarification from independent boundary review
+## Remaining required proof and dispatch order
 
-Before any canary process starts, establish these concrete gates:
+1. Freeze final qualification head and manifest imported Core/Buddy bytes, lock pin,
+   schema, real binding, authority/output layout and selector inventory. Preserve
+   snapshot/coherence limits and exact proof artifact hashes in the report.
+2. Run current world-and-content, ingestion-and-review, query-and-answer, auth-app
+   repo-owned contracts with pinned Node/uv PATH and uniquely owned test DBs.
+   Earlier query/auth never started after failures; do not claim them green.
+3. Qualify current full app and real frontend mapping/actual UI behavior for intended
+   managed projection, exact/complete object, neighborhood, evidence, source anchors,
+   search and Plan subject search. Preserve authorization/source withdrawal/exact
+   spans. Do not promote search navigation to evidence or model-visible host state.
+4. Rehearse same-version process/configuration rollback on shared owned current
+   persistence. Qualify baseline first; forward separately, switch client mapping,
+   verify responding process, quiesce forward and restore baseline. Verify latest
+   head/binding/receipts/replay/citations. Existing-head replay proves old history;
+   any claim of fresh-write continuity needs a governed owned forward write and
+   post-rollback replay, never a stale dump restored over it. No legacy fallback.
+5. Run unmodified exact-SHA hosted frontend verifier/canonical validation/shared
+   resource lock; independent cumulative review and normal automatic checks.
+6. Merge V9.A only with truthful acceptance. V9.B separately establishes fresh live
+   recovery/write boundary/schema/artifact readiness and actual serving activation,
+   then latest-head/receipt/citation checks. V10/V11 still required.
 
-- Snapshot receipt currently proves separate dump consistency and stable selected
-  head/binding only. Source epoch/lifecycle and APP provisioning coherence need
-  explicit restored/live comparison or a fresh appropriately bounded capture.
-  Do not retrospectively claim unrecorded before-epoch checks.
-- Inventory required file-backed artifact bodies, managed/source files and session
-  dependencies. Copy and hash required authority or mount it explicitly read-only;
-  identify unavailable locators. Never silently resolve mutable source-checkout
-  paths as isolated canary authority.
-- Pin an isolated dotenv root with explicit Core/APP restore DSNs, managed/artifact/
-  session/world paths, frontend proxy and all intended native selectors. Inspect
-  startup/background-write behavior; no source/other-lane defaults. Recheck free
-  owned ports immediately before bind.
-- Rollback is explicitly same-version process/configuration rollback. Qualify a
-  known-good baseline Buddya192f2be/Core4b6516e on API18290 first, with APP0168 /
-  Core0022 and UI15202 mapped to it. Then qualify a separately owned forward
-  process on18291, switch and verify the owned client mapping, quiesce/disconnect
-  forward, restore baseline mapping, and verify the latest committed native head,
-  receipts/replay and exact citations. Both processes use the same explicitly
-  compatible owned authoritative persistence; only private logs/caches differ.
-  Verify which process answered each phase and prevent competing background
-  writers. No database downgrade or old snapshot restoration. Older Buddy0a
-  expects APP0166 and is unsupported on0167 under strict schema equality. The
-  APP0167-compatible ae0e predecessor is runtime-identical to92cc; neither pair
-  is advertised as older-behavioral-software rollback. This rehearsal covers
-  process/mapping failure, not a defect shared by identical binaries.
+Same-version rollback does not protect against defects shared by identical
+binaries or promise compatibility with older APP readers. No production migration,
+selector activation or broad capability exemption follows from these proofs.
 
-Snapshot capture completed in task scratch: Core947930229 bytes and APP102665777
-bytes, hash-bound in current-authority-snapshot.json. Both source connections were
-read-only; head/binding remained equal. APP source schema20261117_0160 is behind
-selected candidate0167. These dumps are retained pending the additional coherence,
-restore and file-authority checks above; no canary/rollback/activation success.
+## Retention and cleanup
 
-## Restore preparation checkpoint
-
-Unique Core/App restores codex_v9_core_f7273a3fef and codex_v9_app_2ed3662f84
-now exist on the owned32903 server. Supplemental read-only repeatable-read
-inventories bracketed restored selected-state comparison with stable source
-observations:600 lineage revisions, source epoch194, complete source metadata,
-87 body hashes, real binding/grants and schema agree. Independent method review
-approved this scoped witness; it is not globally atomic backup or full historical
-graph replay. Original narrower audit and failed checker attempts stay retained.
-
-Core0022/APP0167 applied only to these restores. The known APP0161 migration
-changes one active Run scope local→world:elderwyld. UUID database IDs and JSON
-string IDs must be normalized for checking; no unmatched Run exists. Every other
-APP table fingerprint stayed unchanged except schema bookkeeping. Core ordinary
-head/parent verification passes; explicit head/parent artifacts match ordinary
-semantic digests, with selected revision/source/receipt/event metadata unchanged.
-Ordinary source integrity verifies71 admissions,79 extensions and16 PDF bodies.
-
-The original corpus/elderwyld-markdown hint is absent on disk. Actual native
-binding resolution does not open it;79 head source pairs resolve in database
-source bodies. Do not recreate an old World/path/bridge. Native Graph/source and
-Plan corpus acquisition may be qualified against that database authority; source
-availability is not yet user authorization/span-opening proof. Empty isolated
-output roots are not recovered file authority. Saved conversations, attachments,
-authoring/session/file-ingestion capabilities remain unqualified until their
-actually required files/authority are demonstrated. No canary is started yet.
-
-## Canary-discovered prerequisite — native display multiplicity
-
-Actual full-app startup and real binding catalog passed at frozen92cc/Core4b,
-with prepared offline Jev runtime,3012entities/15718admittedassertions and
-anonymous401. Shared neighborhood then returned500 for admitted multiple
-dnd5e:name claims on related entityent:2d6cefd039ed619e53cb4b6a21c47d3f.
-The owning-service traceback is retained; no fixture binding or repository
-substitution was used. Owned canary2352711 was gracefully stopped before source
-changes. No UI/forward process or live activation occurred.
-
-The completion-lane owner splits a necessary presentation-only prerequisite into
-HANDOFF-BUDDY-native-display-multiplicity.md, serially ahead of this draft. It
-will preserve strict adapter defaults and opt current host routes into existing
-multiple-value display, with admitted assertions/evidence intact. Runtime writes
-are excluded from this qualification PR. Resume and re-pin qualification only
-after that repair is reviewed/merged; update source/schema compatibility and
-rerun the actual failing route before claiming a known-good rollback target.
-
-## Accepted repair and resumed qualification
-
-PR #4047 merged as a192f2be6d5ab53d4c1406a0d40d0aa4143d3580, reviewed
-head52b4d42538b0e93fe2389bf8d15bbfd2d7f2171c. Independent exact-head review
-5968921804 approved; all automatic checks passed. Actual restored head/parent
-14 authenticated route/citation cases pass, anonymous401; complete-object keeps
-60 assertions. Backend295pass plus4 separately enabled PostgreSQL passes;
-repo-owned hosted frontend1410selected cases/build and canonical validation pass.
-These are repair evidence, not complete V9 consumer/rollback qualification.
-
-Qualification branch is rebased serially onto this accepted merge. Both baseline
-and forward must use this same schema-compatible composition, with exact imported
-source hashes recorded for their frozen qualification head. Owned APP restore now
-has accepted0168 (two added empty lore receipt tables), binding unchanged; Core0022.
-Live source APP0160/Core0021 remain untouched. No downgrade/schema-check bypass.
-Retain original92cc failure and repair receipts as historical evidence; stale
-checkpoint prose above describes when those observations were made.
-
-Before rebase the repair candidate2469991 was identity-verified and gracefully
-stopped in the executor that can see it. Unprivileged ps had falsely appeared
-absent; never use that narrower process visibility as proof of stop. No source
-edits occurred while it was live. The new baseline/forward process checks must
-use the owning executor. No live serving switch or provider request is authorized
-by this qualification slice. Remaining proof includes actual frontend mapping,
-Plan subject search, current consumer cohorts, latest-head receipt/replay and
-forward/back process rollback. V9.B activation, V10 and V11 remain ahead.
+Retain task-owned dumps/restores/scripts/logs/proof receipts/private runtime roots
+and protected refs for qualification/activation review, owner Elderwyld lane.
+No standing deletion authority. Remove only specifically approved reproducible
+artifacts after process/connection/mount, dirty-worktree and unique-data/commit
+checks. Successful verifier roots have their own cleanup receipts; failed initial
+frontend-verification-vycr58xj remains retained with cleanup followup. No manual
+removal or reclaimed-byte claim. Detailed history belongs in PRs/receipts/Git;
+rewrite this handoff when current truth changes. Settle each actual merge in its
+consumer, never invent a future merge identity.

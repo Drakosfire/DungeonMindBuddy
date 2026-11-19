@@ -1,11 +1,11 @@
 {
   "schema": "dmb_v9_native_canary_qualification_v1",
-  "status": "ACTIVE_QUALIFICATION_RESUMED",
+  "status": "ACTIVE_FULL_CONSUMER_QUALIFICATION",
   "owner": "Elderwyld vNext completion lane",
   "candidate": {
-    "buddy": "a192f2be6d5ab53d4c1406a0d40d0aa4143d3580",
+    "buddy": "475f65d92411e380c7881a2b7a394fa38e7e65b7",
     "core": "4b6516e2c0dfd81acaa4410b9b9bb9da18894c90",
-    "scope": "Accepted runtime base; exact frozen qualification head separately attested"
+    "scope": "Frozen accepted runtime base; final qualification head independently attested"
   },
   "v8_acceptance_merge": "f770098ad27b772e6351f2827a2b7bd6628705e8",
   "source_mutation": false,
@@ -113,7 +113,7 @@
     "baseline_api": 18290,
     "forward_api": 18291,
     "owned_ui": 15202,
-    "source_identity": "both accepted a192f2be runtime composition/Core4b with Core0022/APP0168",
+    "source_identity": "Both final frozen qualification head on accepted475f65d runtime/Core4b, ownedCore0022/APP0168",
     "claim_limit": "Not older behavioral software rollback or protection from a defect shared by identical binaries. Preserve the latest native authority, not an old dump."
   },
   "file_authority": {
@@ -137,13 +137,11 @@
     }
   ],
   "pending": [
-    "Qualify accepted repair composition with both actual canary processes and exact imported-source attestation",
-    "Explicit isolated dotenv/DSNs/persistence roots/selectors/background-writer controls",
-    "Baseline and forward actual full-app startup and loaded-code/route/source/citation qualification",
-    "Owned client mapping forward/back and process identity witnesses, latest-head/receipt/replay preservation",
-    "Current owning consumer cohorts and exact-SHA frontend qualification",
-    "Independent cumulative review and automatic CI before V9.A merge",
-    "Separate V9.B live readiness/migration/activation, then V10 and V11"
+    "Full four current consumer contracts at frozen qualification head",
+    "Current runtime source/configuration/schema/binding/selector manifests and actual UI/route proof",
+    "Current process mapping rollback, latest authority/receipt/replay/citations; governed new-write continuity if claimed",
+    "Exact-head frontend qualification, independent cumulative review and normal checks",
+    "V9.B fresh live readiness/activation, V10 retirement and V11 serving baseline"
   ],
   "evidence_files": [
     {
@@ -306,7 +304,8 @@
     "cause": "Multiple admitted dnd5e:name claims for related entity ent:2d6cefd039ed619e53cb4b6a21c47d3f",
     "diagnosis_sha256": "ed87a77ee4ffdf02d7582f66ecc886adc4015cd1115d53b2d3682be83c78923b",
     "repair_handoff": "Docs/Plans/HANDOFF-BUDDY-native-display-multiplicity.md",
-    "qualification_claim": false
+    "qualification_claim": false,
+    "resolution": "Accepted4047/4051 resolve shared and standalone display; historical failure retained"
   },
   "original_candidate": {
     "buddy": "92cc639aa6da1f89a07de69693a82c7b7e293d59",
@@ -323,5 +322,27 @@
     "postgres_passed": 4,
     "frontend_selected_passed": 1410,
     "qualification_complete": false
-  }
+  },
+  "accepted_prerequisites": [
+    {
+      "pr": 4047,
+      "merge": "a192f2be6d5ab53d4c1406a0d40d0aa4143d3580"
+    },
+    {
+      "pr": 4051,
+      "merge": "effc99da9aab42b83f61a518401191ab0a096e49"
+    },
+    {
+      "pr": 4053,
+      "merge": "063c91de8441cad82d0db906c3b017e9c942ebf4"
+    },
+    {
+      "pr": 4055,
+      "merge": "4ffb7500d35e2398c4311c7722b0733546215858"
+    },
+    {
+      "pr": 4056,
+      "merge": "475f65d92411e380c7881a2b7a394fa38e7e65b7"
+    }
+  ]
 }
