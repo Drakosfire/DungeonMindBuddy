@@ -127,14 +127,17 @@ def _assertion_matches(entities, *, excluded_subjects, name_scope=None, discover
         for parsed in entity.assertions:
             if parsed.subject_entity_id in excluded_subjects:
                 continue  # Qualified source-statement semantics have their own contract.
-            assertion = assertion_contract(parsed)
-            # A World query may contain facts from different campaigns. A name
-            # for one campaign must not silently name an assertion in another.
-            scope = name_scope if name_scope is not None else tuple((b.axis,b.value) for b in parsed.metadata.scope)
-            if scope not in scoped_labels:
-                scoped_labels[scope] = _navigation_labels(entities,scope=scope,complete_only=True)
-            labels = scoped_labels[scope]
-            row = found.setdefault(assertion.assertion_id, [assertion, set(), labels[assertion.subject_entity_id]])
+            row = found.get(parsed.assertion_id)
+            if row is None:
+                assertion = assertion_contract(parsed)
+                # Names are scoped to the assertion's campaign.
+                scope = name_scope if name_scope is not None else tuple(
+                    (binding.axis, binding.value) for binding in parsed.metadata.scope
+                )
+                if scope not in scoped_labels:
+                    scoped_labels[scope] = _navigation_labels(entities, scope=scope, complete_only=True)
+                row = (assertion, set(), scoped_labels[scope][assertion.subject_entity_id])
+                found[assertion.assertion_id] = row
             row[1].add(entity_id)
             if (discovery_hops is not None and len(discovery_hops) < 32
                     and parsed.subject_entity_id not in entities and parsed.subject_entity_id not in reached
