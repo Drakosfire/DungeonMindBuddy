@@ -14,7 +14,7 @@ from fastapi.routing import APIRoute
 from application_state.errors import ApplicationStateError
 from apps.live_control_server.integrations.dungeonmind.native_recap_source_admission import NativeRecapError
 from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import NativeWorldSourceAdmissionError
-from apps.live_control_server.models.native_recap_preparation import NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest, NativeRecapConfirmRequest, NativeWorldbuildingContextRequest
+from apps.live_control_server.models.native_recap_preparation import NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest, NativeRecapConfirmRequest, NativeWorldbuildingContextRequest, NativeRecapContextRequest
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
 from apps.live_control_server.services.hosted_native_graph_access import (
     first_world_authorizer, require_hosted_exact_review_package, worldbuilding_evidence_authorizer,
@@ -902,5 +902,24 @@ def native_worldbuilding_context(
 
 router.add_api_route(
     "/native-worldbuilding-context", native_worldbuilding_context, methods=["POST"],
+    route_class_override=StrictJSONRoute,
+)
+
+
+def native_recap_context(
+    body: NativeRecapContextRequest,
+    request: Request,
+    principal: NativeGraphPrincipal = Depends(native_graph_explorer_dependency),
+):
+    from apps.live_control_server.services.native_recap_preparation import recap_review_context
+
+    require_explorer_access(principal, body.managed_world_id)
+    response = _native_recap_operation(body, request, principal, recap_review_context)
+    require_explorer_access(principal, body.managed_world_id)
+    return response
+
+
+router.add_api_route(
+    "/native-recap-context", native_recap_context, methods=["POST"],
     route_class_override=StrictJSONRoute,
 )
