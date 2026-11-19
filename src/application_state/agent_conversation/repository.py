@@ -1021,8 +1021,8 @@ def list_retained_graph_tools(conn, world_id, conversation_id, turn_ids, authori
 
 def list_retained_source_turns(conn, current, anchor_ids) -> list[TurnReadModel]:
     """Filter one existing history window before materializing heavy ledgers."""
-    from .plan_source_context import capability_bases
-    graph = capability_bases(current.graph_context_receipt).graph
+    from .source_passage_reuse import source_graph_basis
+    graph = source_graph_basis(current.graph_context_receipt)
     if graph is None:
         return []
     with conn.cursor(row_factory=dict_row) as cur:

@@ -32,6 +32,17 @@ class RetainedPassage:
         return event, passage
 
 
+def source_graph_basis(
+    receipt: object,
+) -> t.PlanWorldGraphContextReceiptV1 | t.PlayWorldGraphContextReceiptV1 | None:
+    """Select only the existing source-reuse Graph receipt families."""
+    if isinstance(receipt, t.PlanSourceContextReceiptV1):
+        return receipt.graph_capability
+    if isinstance(receipt, (t.PlanWorldGraphContextReceiptV1, t.PlayWorldGraphContextReceiptV1)):
+        return receipt
+    return None
+
+
 def eligible_passages(current, previous, payload, requested, max_chars):
     """Yield only original reads included by a completed acknowledged producer.
 
@@ -43,11 +54,8 @@ def eligible_passages(current, previous, payload, requested, max_chars):
         if previous.base_projection.kind != "approved":
             return ()
         previous = previous.base_projection.turn
-    from .plan_source_context import capability_bases
-    def graph_basis(turn):
-        receipt = turn.graph_context_receipt
-        return capability_bases(receipt).graph if isinstance(receipt, (t.PlanSourceContextReceiptV1, t.PlanWorldGraphContextReceiptV1)) else None
-    current_graph, previous_graph = graph_basis(current), graph_basis(previous)
+    current_graph = source_graph_basis(current.graph_context_receipt)
+    previous_graph = source_graph_basis(previous.graph_context_receipt)
     if (previous.status != "completed" or previous.completed_at is None
             or previous.world_id != current.world_id or previous.conversation_id != current.conversation_id
             or previous.sequence >= current.sequence or previous.completion is None
