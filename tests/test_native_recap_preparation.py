@@ -75,6 +75,16 @@ def lane(monkeypatch, tmp_path, request):
             "profile_revision": DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION,
             "descriptor_sha256": DUNGEONBUDDY_OBSERVATION_PROFILE_DIGEST,
         })
+    if getattr(request, "param", None) in {"source_order_manual", "reviewed_observation_manual"}:
+        from graph_memory.vnext.domain_runtime import (
+            DUNGEONBUDDY_MANUAL_PROFILE_DIGEST,
+            DUNGEONBUDDY_MANUAL_PROFILE_REVISION,
+        )
+
+        profile_ref = profile_ref.model_copy(update={
+            "profile_revision": DUNGEONBUDDY_MANUAL_PROFILE_REVISION,
+            "descriptor_sha256": DUNGEONBUDDY_MANUAL_PROFILE_DIGEST,
+        })
     repo = InMemoryNativeSourceEvidenceRepository()
     repo.publish_revision(PublishKnowledgeRevisionCommand(
         space_id=SPACE_ID, operation_ids=["fixture-genesis"],
@@ -86,7 +96,7 @@ def lane(monkeypatch, tmp_path, request):
     bound = {"native_world_id": SPACE_ID, "binding_version": 3}
     source_id = "artifact:recap:v2:review-fixture"
     text = "A traveller met Pippa near the towér.\r\n\r\nThe traveller brought a lantern.\r\n\r\nAnother unrelated episode.\r\n"
-    source_order = getattr(request, "param", None) in {"source_order", "source_order_closed", "source_order_observation"}
+    source_order = getattr(request, "param", None) in {"source_order", "source_order_closed", "source_order_observation", "source_order_manual"}
     if source_order:
         text = ("An arrival happened. A discussion happened. Each occurred before a departure. "
                 "Their relative order is not stated. Pippa is a person.\r\n\r\n"
@@ -1327,10 +1337,15 @@ def _source_order_candidate(lane):
     assert not document.is_document_integrity_failure, (document.parse_error, document.integrity_issues)
 
 
-@pytest.mark.parametrize("lane", ["source_order", "source_order_observation"], indirect=True)
+@pytest.mark.parametrize("lane", ["source_order", "source_order_observation", "source_order_manual"], indirect=True)
 def test_source_order_description_only_events_publish_and_open_real_evidence(lane):
     _source_order_candidate(lane)
-    packet = confirmation(lane)
+    from unittest.mock import patch
+
+    with patch.object(service, "dungeonbuddy_publication_capabilities",
+                      wraps=service.dungeonbuddy_publication_capabilities) as capabilities:
+        packet = confirmation(lane)
+        assert capabilities.call_count == 1  # Two independently selected precedence edges.
     prepared = transport.decode_prepared(packet["prepared"])
     assert len([op for op in prepared.prepared_operations if isinstance(op, CreateObject)]) == 3
     assert all(op.facts[0].predicate == "dnd5e:summary"
@@ -1603,10 +1618,7 @@ def test_worldbuilding_context_binds_saved_source_and_native_prepare(world_lane)
     assert wrong.status_code == 409, wrong.text
     assert x.repo.head_events(SPACE_ID) == before
 
-@pytest.mark.parametrize("lane", ["reviewed_observation"], indirect=True)
-def test_worldbuilding_publishes_explicit_observation_with_exact_support(persistent_world_core, lane, request):
-    x = request.getfixturevalue("world_lane")
-    assert x.repo is persistent_world_core
+def _reviewed_observation_candidate(x):
     node = x.payload["nodes"][0]
     x.payload["version"] = "0.2"
     x.payload["source_observations"] = [{
@@ -1623,6 +1635,22 @@ def test_worldbuilding_publishes_explicit_observation_with_exact_support(persist
         kind="source_observation", record_id="observation:one", action="create",
         metadata={**META, "evidence_ref_ids": [x.evidence_id]},
     ))
+
+
+@pytest.mark.parametrize("lane", ["reviewed_observation", "reviewed_observation_manual"], indirect=True)
+def test_worldbuilding_publishes_explicit_observation_with_exact_support(persistent_world_core, lane, request):
+    x = request.getfixturevalue("world_lane")
+    assert x.repo is persistent_world_core
+    _reviewed_observation_candidate(x)
+    before_context = x.repo.head_events(SPACE_ID)
+    context_response = x.client.post("/api/live/extract-promote/native-worldbuilding-context", json={
+        "managed_world_id": x.world.world_id, "run_id": x.body["run_id"],
+        "source_artifact_id": x.source.source_artifact_id, "source_sha256": x.source.content_sha256,
+    }, headers={"Authorization": "Bearer " + TOKEN})
+    assert context_response.status_code == 200, context_response.text
+    assert any(row["kind"] == "source_observation" and row["record_id"] == "observation:one"
+               for row in context_response.json()["records"])
+    assert x.repo.head_events(SPACE_ID) == before_context
     metadata = x.body["selections"][-1]["metadata"]
     metadata["domain_metadata"] = [{
         "schema_term": service.WORLD_CONTEXT,
@@ -2045,3 +2073,55 @@ def test_recap_context_opens_exact_native_support_UTF8_CRLF_without_writes(recap
     assert response.json()["source_support"] == [{"evidence_ref_id":extended.bindings[0].evidence_ref_id,
         "start_byte":0,"end_byte":end,"text":raw[:end].decode("utf-8")}]
     assert case.snapshot() == before
+
+
+def test_worldbuilding_observation_missing_capability_is_held_and_refused(world_lane):
+    x = world_lane  # Existing exact profile2: custom relationships, no observation declaration.
+    _reviewed_observation_candidate(x)
+    before = (x.repo.get_head(SPACE_ID), x.repo.head_events(SPACE_ID),
+              x.repo.open_native_source_view(SPACE_ID).epoch)
+    context = x.client.post("/api/live/extract-promote/native-worldbuilding-context", json={
+        "managed_world_id": x.world.world_id, "run_id": x.body["run_id"],
+        "source_artifact_id": x.source.source_artifact_id, "source_sha256": x.source.content_sha256,
+    }, headers={"Authorization": "Bearer " + TOKEN})
+    assert context.status_code == 200, context.text
+    assert not any(row["kind"] == "source_observation" for row in context.json()["records"])
+    refused = x.post()
+    assert refused.status_code == 409, refused.text
+    assert "observation_profile_not_adopted" in refused.text
+    assert (x.repo.get_head(SPACE_ID), x.repo.head_events(SPACE_ID),
+            x.repo.open_native_source_view(SPACE_ID).epoch) == before
+
+
+@pytest.mark.parametrize("lane", ["reviewed_observation_manual"], indirect=True)
+def test_worldbuilding_capability_discovery_bounded_over_observation_rows(lane, request):
+    from unittest.mock import patch
+
+    x = request.getfixturevalue("world_lane")
+    _reviewed_observation_candidate(x)
+    for index in (2, 3):
+        identifier = f"observation:{index}"
+        row = copy.deepcopy(x.payload["source_observations"][0])
+        row["observation_id"] = identifier
+        x.payload["source_observations"].append(row)
+        selection = copy.deepcopy(x.body["selections"][-1])
+        selection["record_id"] = identifier
+        x.body["selections"].append(selection)
+    x.refresh()
+    before = (x.repo.get_head(SPACE_ID), x.repo.head_events(SPACE_ID),
+              x.repo.open_native_source_view(SPACE_ID).epoch)
+    with patch.object(service, "dungeonbuddy_publication_capabilities",
+                      wraps=service.dungeonbuddy_publication_capabilities) as capabilities:
+        context = x.client.post("/api/live/extract-promote/native-worldbuilding-context", json={
+            "managed_world_id": x.world.world_id, "run_id": x.body["run_id"],
+            "source_artifact_id": x.source.source_artifact_id, "source_sha256": x.source.content_sha256,
+        }, headers={"Authorization": "Bearer " + TOKEN})
+        assert context.status_code == 200, context.text
+        assert len([r for r in context.json()["records"] if r["kind"] == "source_observation"]) == 3
+        assert capabilities.call_count == 1
+        capabilities.reset_mock()
+        packet = confirmation(x)
+        assert capabilities.call_count == 1
+    assert (x.repo.get_head(SPACE_ID), x.repo.head_events(SPACE_ID),
+            x.repo.open_native_source_view(SPACE_ID).epoch) == before
+    assert packet["prepared"]

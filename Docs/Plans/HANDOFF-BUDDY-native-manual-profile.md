@@ -1,6 +1,6 @@
 # Native manual relationship semantic profile — declaration only
 
-ACTIVE. MIND adopts explicit user full-lane implementation/PR authority.
+COMPLETE declaration-only PR4152. MIND adopts explicit user full-lane authority.
 Serial base 97011d4673edda9da348a2b55c79f4ef07cb65fe on
 codex/v10-native-manual-profile, existing task Buddy checkout. Parent owns
 independent review/merge. N3a gate checkpoint29ef0b122 remains preserved.
@@ -69,3 +69,11 @@ constructor source bytes, canonical descriptors/digests and checked JSON bytes
 against exactbase97011d4. Exact-source logs/XML retained, including initial failed
 diagnostics. No broad backend/SQL/frontend execution claim. Parent receives frozen
 implementation for independent review; no serving/process/provider changes.
+
+## Accepted settlement
+
+PR4152 merged3836a2c74e7e5bf67e86d060e8b14cffe63bab3a from exact implementation
+9ebe97bc02f3998099d0eba6206b940386a0225a; independent review5983981222 and
+CI44622326964 accepted. Lease released. No World/default/consumer transition was
+part of that acceptance. Capability-consumer successor is independent of pending
+Core dependency adoption; both are prerequisites to explicit profile transition.

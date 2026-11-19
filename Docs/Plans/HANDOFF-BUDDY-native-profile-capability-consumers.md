@@ -9,7 +9,7 @@ existing task Buddy checkout; no new worktree. Parent owns review/merge.
 
 - This handoff.
 - Docs/Plans/HANDOFF-BUDDY-native-manual-profile.md: factual4152 settlement only.
-- src/graph_memory/vnext/domain_runtime.py: pure exact-reference predicate capability helper.
+- src/graph_memory/vnext/domain_runtime.py: pure exact-reference publication capability flags.
 - apps/live_control_server/services/native_recap_preparation.py: ONLY observation,
   source-precedence and observation-context revision capability checks/imports.
 - tests/test_v6_1_dungeonbuddy_vnext_domain_runtime.py: exact capability matrix/ref negatives.
@@ -43,3 +43,27 @@ scratch parent verified before namespace allocation. Evidence under task
 scratch/v9-buddy/v10-native-profile-capability-consumers; retain for MIND active
 goal, cleanup separately authorized after process/mount/dirty/unique-data checks.
 Full manual API/transition/adoption/V10 completion/current deployment/V11 remain.
+
+## Frozen implementation evidence and limits
+
+Owning+adjacent five-module diagnostic:314passed/1FAILED/no skips. Sole failure
+`test_reader_fence_preserves_old_rows_blocks_old_writers_and_refuses_downgrade`
+expects regex "recovery forward", while migration0169 raises "Use forward recovery
+to preserve local lore review references." Exactbase3836 verification export
+reproduces the SAME failure ID/E-lines; test+migration bytes equal. No seventh-path
+repair absorbed. `qualification-summary.json` binds both XML/logs and base proof.
+
+Both publication capability flags resolve exact domain/profile once per owning
+call, then frozen booleans are reused across rows. Tests prove all1/2/3/4 feature
+flags, wrong digest/unsupported refs, profile4 real source-precedence and SQL
+observation publication/citations/replay, profile2 held observation refusal, and
+three-observation/two-edge bounded work with prepare/context zero mutation. New
+selected diagnostics1/2/3 passed; broad run's inherited regex failure is retained.
+All four owned Python files have zero Ruff diagnostics, matching exactbase.
+No Core234/235 dependency adoption, FirstWorld code or signed-plan changes.
+
+Task-owned exactbase export retained at verification/v10-profile-capability-base-3836a2c;
+logs/XML/receipts at scratch/v9-buddy/v10-native-profile-capability-consumers.
+Owner MIND, reason regression attribution/active fullgoal. No resources removed;
+cleanup follow-up needs approved scope and active-process/mount/unique-data checks.
+Worker has no active runners after freeze; parent independent review/merge next.

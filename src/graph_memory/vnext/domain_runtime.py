@@ -404,6 +404,40 @@ def resolve_dungeonbuddy_descriptors(
 
 
 @dataclass(frozen=True, slots=True)
+class DungeonBuddyPublicationCapabilities:
+    """Feature discovery only; no source/value/endpoint authorization."""
+
+    reviewed_source_observation: bool
+    source_precedence: bool
+
+
+def dungeonbuddy_publication_capabilities(
+    *, domain_ref: DomainContractRef, profile_ref: SemanticProfileRef
+) -> DungeonBuddyPublicationCapabilities:
+    """Resolve the exact accepted descriptor once for a publication/context call."""
+    _, profile = resolve_dungeonbuddy_descriptors(
+        domain_ref=domain_ref, profile_ref=profile_ref
+    )
+    fixed = {declaration.term: declaration.allowed_value_kinds for declaration in profile.predicates}
+    open_namespaces = {
+        rule.namespace: rule.allowed_value_kinds
+        for rule in getattr(profile, "open_predicate_namespaces", ())
+    }
+
+    def supports(predicate: str, kind: str) -> bool:
+        # Fixed declarations take precedence over open namespace rules, as in Core.
+        kinds = fixed.get(predicate)
+        if kinds is None:
+            kinds = open_namespaces.get(predicate.split(":", 1)[0], ())
+        return kind in kinds
+
+    return DungeonBuddyPublicationCapabilities(
+        reviewed_source_observation=supports(DUNGEONBUDDY_OBSERVATION_PREDICATE, "literal"),
+        source_precedence=supports("dungeonbuddy.custom:precedes", "entity_ref"),
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class DungeonBuddyWorldAdmissionPolicy:
     """The explicit non-widening Buddy hook after generic Kernel gates."""
 
