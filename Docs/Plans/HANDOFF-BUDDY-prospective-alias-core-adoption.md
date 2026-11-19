@@ -1,6 +1,6 @@
 # BUDDY — adopt accepted prospective-alias Core
 
-Status: ACTIVE. Owner/designer: MIND's Elderwyld completion lane, operator-authorized
+Status: COMPLETE — implementation accepted; final delivery gates below. Owner/designer: MIND's Elderwyld completion lane, operator-authorized
 implementation, review, merge and launch. Serial dependency adoption only.
 Base: ef2a3e5e50ab2dd4077230589767b2629e9d46ec. Branch:
 codex/v10-prospective-alias-core-adoption, existing isolated Buddy checkout under
@@ -85,4 +85,42 @@ resolves inside that environment, not an editable checkout or diagnostic target.
 The retired vnext.legacy_compat module is absent; the explicit
 application.compatibility.legacy_graph module is present. Existing generated
 Hermes manifest verification passed; WorldKeeper remains exact ef9c50f2. No shared
-or serving environment was synced. Backend/frontend/review acceptance is pending.
+or serving environment was synced. Backend and independent code review completed;
+final documentation-head frontend/build/canonical delivery checks remain required.
+
+
+## Implementation acceptance and final delivery
+
+Disposition: BUDDY_ACCEPTED_CORE_ALIAS_PIN, reviewed implementation head
+0a10b2e9be85204120839f95fced18425e6ea34d. Independent cumulative code review
+recorded as5974053196 on PR4093 through the operator account; this is not a separate
+GitHub-user approval. Current main4df6d3adfa2f0eee7ccba06166b5ec74a7a3fcb6 adds
+independent UI fixture/cleanup documents only, with no dependency or backend delta.
+
+Actual fresh-installed-pin verification:
+- auth-app:298 passed;
+- world-and-content:444 passed,1 skipped,74 deselected. The skipped case was
+  tests/test_native_threat_creation.py::test_postgres_publication_survives_fresh_core_repository,
+  requiring the existing opt-in native-Core fixture. It separately passed after
+  enabling that uniquely created/migrated/dropped test database;
+- historical Core compatibility owner cohort:55 passed from installed package;
+- first ingestion attempt:877 passed,3 failed,8 skipped. The three launcher guards
+  stopped at missing uv on subprocess PATH. Logs are retained; no product edit was
+  made. Corrected process-local uv/Node22.23.0 PATH passed all6 launcher cases;
+- complete ingestion-and-review rerun:888 passed,0 skipped,119 deselected, with
+  native-Core disposable fixtures enabled. Actual imports remained installed code;
+  the accepted Core checkout supplied only migration scripts, not a source overlay.
+
+All implementation-head automatic checks passed (legacy import regression, rules
+regression, classification inventory). Final documentation-head unmodified hosted
+frontend/build/canonical qualification, independent delta review and applicable
+checks remain required before merging. Runtime/tests/lock entries are unchanged
+by this acceptance seal. Exact final-head evidence is recorded on the PR and in
+the retained external verification record; do not infer a serving change.
+
+Next primary question after this PR settles: can the new native first-World
+consumer compile and publish the entire reviewed effect into the source-admission
+KnowledgeSpace, with exact evidence/metadata/alias semantics and recoverable
+publication/activation? Author its bounded Slice B handoff before runtime edits.
+This pin alone does not close the original classic/native mismatch or complete
+optimized deployment, V10 retirement or V11 serving evidence.
