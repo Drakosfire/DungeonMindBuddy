@@ -1024,6 +1024,13 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && ["managed_world_id", "campaign_id", "session_id"].every(key =>
         typeof body[key] === "string" && Boolean(body[key].trim()));
   }
+  if (path === "/api/live/native-graph-inspection/related-recaps" || path === "/api/live/native-graph-inspection/recap-page") {
+    const body = requestBodyRecord(init?.body);
+    const read = path.endsWith("/recap-page") ? body?.read : body;
+    const scope = isRecord(read) ? read.scope : null;
+    return method === "POST" && isRecord(scope) && scope.scope_mode === "world" && scope.campaign_id === null
+      && typeof scope.managed_world_id === "string" && Boolean(scope.managed_world_id);
+  }
   if (HOSTED_EXPLORER_PATHS.has(path)) return true;
   if (path !== "/api/live/native-graph-inspection/read") return false;
   const body = requestBodyRecord(init?.body);

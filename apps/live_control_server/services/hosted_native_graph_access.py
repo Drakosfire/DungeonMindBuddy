@@ -24,7 +24,7 @@ from apps.live_control_server.models.native_graph_explorer import (
     NativeGraphExplorerOperationRequest,
     NativeGraphExplorerPrepareRequest,
 )
-from apps.live_control_server.models.native_graph_inspection import InspectionPin, InspectionRead, InspectionScope, NativeCompleteObjectRead
+from apps.live_control_server.models.native_graph_inspection import InspectionPin, InspectionRead, InspectionScope, NativeCompleteObjectRead, NativeRecapPageRequest, NativeRelatedRecapsRequest
 from apps.live_control_server.models.native_source_inspection import NativeSourceRead, PublishedRecapObjectsRead, PublishedRecapRead
 from apps.live_control_server.services import hosted_auth
 from apps.live_control_server.services.agent_graph_auth import (
@@ -54,6 +54,8 @@ _REQUESTS = {
     "/api/live/native-source-inspection/published-recap": TypeAdapter(PublishedRecapRead),
     "/api/live/native-source-inspection/published-recap/objects": TypeAdapter(PublishedRecapObjectsRead),
     "/api/live/native-graph-inspection/authoring-identities": TypeAdapter(InspectionPin | InspectionScope),
+    "/api/live/native-graph-inspection/recap-page": TypeAdapter(NativeRecapPageRequest),
+    "/api/live/native-graph-inspection/related-recaps": TypeAdapter(NativeRelatedRecapsRequest),
     "/api/live/native-graph-inspection/catalog": TypeAdapter(InspectionPin | InspectionScope),
     "/api/live/native-source-inspection/catalog": TypeAdapter(InspectionScope),
     "/api/live/native-source-inspection/read": TypeAdapter(NativeSourceRead),
@@ -142,7 +144,11 @@ async def resolve_hosted_explorer_world(request: Request) -> str:
         ):
             raise _denied()
         managed_world_id = scope.managed_world_id
-    elif isinstance(body, (InspectionRead, NativeSourceRead)):
+    elif isinstance(body, NativeRecapPageRequest):
+        if body.read.selection.kind != "source" or body.read.scope.scope_mode != "world":
+            raise _denied()
+        managed_world_id = body.read.scope.managed_world_id
+    elif isinstance(body, (InspectionRead, NativeSourceRead, NativeRelatedRecapsRequest)):
         if body.scope.scope_mode != "world":
             raise _denied()
         managed_world_id = body.scope.managed_world_id
