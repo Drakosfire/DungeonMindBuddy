@@ -254,7 +254,7 @@ def _answer_schema(variants, policy, rules, prose, *, proposal_labels=("invented
     return mixed
 
 
-def native_output_format(frame, rules, work_frame, *, build_local=False, format_version=2):
+def native_output_format(frame, rules, work_frame, *, build_local=False, format_version=2, execution=None):
     from .native_writer import SCHEMA, LEGACY_SCHEMA
     if type(format_version) is not int or format_version not in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}:
         raise ValueError('Unknown native writer output format version')
@@ -428,6 +428,16 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
         base=schema['$defs']['Base'] if rules.lookups else schema
         base['properties']['collaboration']=review
         base['required'].append('collaboration')
+    if execution is not None:
+        from .native_execution import NATIVE_PLAN_ACTION_TYPES
+        from .plan_placement import PlanPlacementCatalogV2
+        action = execution.policy.action
+        if (isinstance(action, NATIVE_PLAN_ACTION_TYPES)
+                and type(action.placement_catalog) is PlanPlacementCatalogV2
+                and work_frame.get('schema') == PLAN_WORK_SCHEMA
+                and work_frame.get('requested_work') == 'clarify'):
+            base = schema['$defs']['Base'] if rules.lookups else schema
+            base['properties']['answer_segments']['minItems'] = 1
     from generationengine.utils.schema_utils import make_schema_strict
     return {'type': 'json_schema', 'name': f'surface_native_evidence_selectors_v{format_version}', 'strict': True,
         'schema':make_schema_strict(schema)}

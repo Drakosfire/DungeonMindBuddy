@@ -3,8 +3,9 @@
 Status: ACTIVE. The initial inert preparation gate on #4240 is resolved: that PR
 merged, and the first integration used main6f8af81e6dd47ec92b5ef9a0180e2e34ffd104c4
 containing its actual 0170 migration. This lane now consumes main
-cf89e86624231a5e373d0afddc4d1be48e2af5de, preserving the merged tracing changes and
-DungeonMind046791d verified-row pin/opt-in. Alan explicitly chose #4240 first, then
+7d94acd0f265d98d82b557b4edd747c64f26fe82, preserving the merged tracing changes,
+DungeonMind046791d verified-row pin/opt-in, and #4277's released semantic-block
+authoring guidance. Alan explicitly chose #4240 first, then
 0171 after0170. The authorized fence is now allocated as
 `20261120_0171_plan_paragraph_placement_reader_fence.py`, down_revision0170.
 No production migration execution or deployment. V2 public admission/producer
@@ -33,6 +34,20 @@ reviews do not establish ordinary chat or release qualification.
 
 ## Authority and write boundary
 
+Current integration checkpoint: source52f355f passed the full query-and-answer
+contract1314/157warnings and hosted frontend1421/build/retained-validator checks.
+Those results remain52f evidence. Main then changed the owning writer boundary:
+#4277 merged at34f56d24 and released its writer lease, appending the shared
+semantic-callout guidance. This same serial PR rebases onto pinned7d94acd0f to
+preserve that guidance before final writer qualification. Plan catalog/API,
+Python/Node lockfiles, migration chain and Core pin are unchanged across the base
+change. No new implementation PR or topology change is authorized here.
+The next independently authored24-case writer-quality pack is frozen offline,
+with expected outcomes private. The consumed22-case actual-writer RED result
+remains unchanged. No provider/browser/server call was made for the fresh pack.
+Shared admission and external browser approvals remain pending; integration
+does not grant either. Qualify the integrated exact source before acceptance.
+
 Acceptance checkpoint after81b749e: the first actual-writer independent22-case
 run is RED, preserved without reruns/tuning. Jev matched22/22; clarification
 questions5/6, with one valid but empty raw writer envelope. Requested core
@@ -42,6 +57,16 @@ acceptance. Keep the consumed pack frozen and its oracle private.
 The current serial PR therefore needs a nonempty V2 clarification response
 contract and a V2-only separation of typed host disclosure from authored prose.
 No prompt tuning, intent reclassification or new migration is planned.
+The unshared schema amendment now passes actual execution to both production
+schema construction and sealed expected-format verification, requiring at least
+one reply segment only for an actual V2 Plan clarification. Its lease includes
+`plan_writer_output_schema.py` and `rules_authority_plan_packet.py`; a fresh
+open-PR audit, including the full #3824 file list, found no overlap. It is not a
+substitute for the separately pending host admission guard or semantic quality.
+V1/default literal and proof behavior remains compatible. Unreleased V2 draft
+proposals containing the former footer do not validate under the new projection;
+their evidence stays pinned to the producing SHA. No serving target or operator
+V2 history was activated by this goal, and no extra migration is implied.
 Fresh open-PR audit found no other owner of `plan_authoring.py` or the proposed
 `plan_writer_output_schema.py` boundary. Extend the existing owned projection
 and native helper tests here while preserving V1 literal/proof behavior and

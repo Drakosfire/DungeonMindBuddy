@@ -1289,6 +1289,10 @@ def _shared_plan_authoring_case(
                         and type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2
                         else "clarify" if routing == "clarify" else "answer")
                 assert payload["instructions"] == compose_response_prompt(task=task).instructions
+                schema = payload["text"]["format"]["schema"]
+                base = schema.get("$defs", {}).get("Base", schema)
+                assert base["properties"]["answer_segments"].get("minItems", 0) == (
+                    1 if task == "plan_placement_clarify" else 0)
             if routing in {"discuss", "clarify"}:
                 [packet] = rows
                 prose = packet["content"]

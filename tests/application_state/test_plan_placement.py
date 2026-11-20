@@ -219,6 +219,18 @@ def test_current_native_caller_v2_paragraph_proposal_and_explicit_save_or_no_res
     assert footer in authored_markdown(cold)  # Historical default projection is unchanged.
     assert footer not in proposal.replacement_markdown
     assert authored_markdown(cold, execution=cold.graph_context_execution) == proposal.replacement_markdown
+    # These copies exercise projection only, never proposal/Save authority.
+    # Equal literal words must survive; a typed status-only fragment must refuse.
+    from application_state.agent_conversation import types as t
+    literal = t.PlanWorldGraphProposalSegmentV1(kind="proposal", label="invented_idea", text=footer)
+    projection_only = cold.model_copy(update={"completion": cold.completion.model_copy(
+        update={"answer_segments": [literal]})})
+    assert authored_markdown(projection_only, execution=cold.graph_context_execution) == footer
+    status = next(s for s in cold.completion.answer_segments if isinstance(s, t.SurfaceLimitationV1))
+    projection_only = cold.model_copy(update={"completion": cold.completion.model_copy(
+        update={"answer_segments": [status]})})
+    with pytest.raises(ValueError, match="no nonempty admitted content"):
+        authored_markdown(projection_only, execution=cold.graph_context_execution)
     capture = proposal.capture
     assert capture.root_boundary == 3 and capture.from_ != 1
     assert json.loads(capture.selection_json) == {"type": "text", "anchor": 1, "head": 1}
