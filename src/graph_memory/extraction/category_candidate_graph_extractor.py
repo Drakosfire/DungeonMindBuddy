@@ -1897,6 +1897,27 @@ def _run_category_pipeline_impl(
     blocked_span_refs = {r["source_span_ref_id"] for r in withheld_rows}
     deferred_planning = deferred_source_rows(withheld_rows)
     original_client = client
+    world_aliases = None
+    if active_profile.admitted_source_domains == frozenset({"worldbuilding"}):
+        if options.source_text is None:
+            raise ValueError("Worldbuilding extraction requires the exact source text")
+        from graph_memory.extraction.worldbuilding_prompt_aliases import WorldbuildingPromptAliases
+        world_aliases = WorldbuildingPromptAliases(source_rows)
+
+    def retain_world_aliases(stage: str) -> None:
+        # Advisory review wraps the bounded client; capture mappings in the
+        # existing exact-run private evidence store, never in the model request.
+        owner = getattr(original_client, "client", original_client)
+        binding = getattr(owner, "execution_binding", None)
+        if world_aliases is not None and binding is not None:
+            persist = getattr(owner, "_persist_capture", None)
+            if not callable(persist):
+                raise RuntimeError("Worldbuilding alias evidence cannot be retained")
+            persist("pass_telemetry", {"schema": "dmb_private_worldbuilding_aliases_v1",
+                    "execution_binding": dict(binding), "capture_id": f"worldbuilding-aliases:{stage}",
+                    "context": world_aliases.record()})
+
+    retain_world_aliases("source")
     compact_context = (CompactEvidenceContext(source_rows, source_sha256=hashlib.sha256(
         options.source_text.encode("utf-8")).hexdigest())
         if active_profile.qualified_id == "recap_category_v2@2.0" and options.source_text is not None else None)
@@ -1908,6 +1929,9 @@ def _run_category_pipeline_impl(
     def _run_pass(*args: Any, **kwargs: Any) -> dict[str, Any]:
         result = original_client.run_pass(*args, **kwargs)
         parsed_output = result["parsed"]
+        if world_aliases is not None:
+            spec = kwargs.get("pass_spec")
+            parsed_output = world_aliases.resolve_output(parsed_output, endpoints=getattr(spec, "kind", None) in {"edge", "beat"})
         if compact_context is not None and args[0] in compact_passes:
             parsed_output = compact_context.expand(parsed_output)
         parsed, deferred = filter_planning_pass_output(
@@ -1939,7 +1963,7 @@ def _run_category_pipeline_impl(
         from graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
         node_source_packet = compile_source_sentence_packet(options.source_text, source_rows)
     prompts = render_category_pass_prompts(
-        source_rows,
+        world_aliases.source_rows() if world_aliases is not None else source_rows,
         profile=active_profile,
         node_source_packet=node_source_packet,
     )
@@ -1951,6 +1975,11 @@ def _run_category_pipeline_impl(
     system = "Category-decomposed graph memory extraction."
     node_vocabulary_pass_diagnostics: dict[str, Any] = {}
     effective_node_vocabulary_packet, dynamic_node_vocabulary_diag = resolve_node_vocabulary_packet_for_options(options)
+    if world_aliases is not None:
+        from graph_memory.extraction.worldbuilding_prompt_aliases import validate_worldbuilding_vocabulary
+        validate_worldbuilding_vocabulary(effective_node_vocabulary_packet)
+        if options.enable_edge_vocabulary_packet:
+            validate_worldbuilding_vocabulary(options.edge_vocabulary_packet)
 
     def _notify(pass_name: str, state: str) -> None:
         if progress_callback is not None:
@@ -1998,6 +2027,9 @@ def _run_category_pipeline_impl(
             source_rows=source_rows,
             profile=active_profile,
         )["nodes"]
+        if world_aliases is not None:
+            beat_nodes = world_aliases.nodes(beat_nodes)
+            retain_world_aliases("beat")
         beat_result = _run_pass(
             beat.pass_id,
             model_id=model_id,
@@ -2047,10 +2079,13 @@ def _run_category_pipeline_impl(
             node_vocabulary_pass_diagnostics[encounter_pass_id] = (
                 encounter_vocabulary.diagnostics
             )
+        encounter_nodes = world_aliases.nodes(consolidated["nodes"]) if world_aliases is not None else consolidated["nodes"]
+        encounter_beats = world_aliases.beats(consolidated["beats"]) if world_aliases is not None else consolidated["beats"]
+        retain_world_aliases("encounter")
         encounter_prompt = render_encounter_job_pass_prompt(
-            source_rows,
-            nodes=consolidated["nodes"],
-            beats=consolidated["beats"],
+            world_aliases.source_rows() if world_aliases is not None else source_rows,
+            nodes=encounter_nodes,
+            beats=encounter_beats,
             vocabulary_context=encounter_vocabulary_context,
             instruction=encounter_instruction,
         )
@@ -2090,9 +2125,11 @@ def _run_category_pipeline_impl(
             profile=active_profile,
         )
     edge = active_profile.edge_pass
+    edge_nodes = world_aliases.nodes(consolidated["nodes"]) if world_aliases is not None else consolidated["nodes"]
+    retain_world_aliases("edge")
     edge_prompt, edge_vocabulary_diag, encounter_job_edge_diag = build_edge_pass_prompt(
         later_prompts[_prompt_key(edge.pass_id)],
-        consolidated["nodes"],
+        edge_nodes,
         options=options,
         compact_context=compact_context,
     )
@@ -2208,17 +2245,21 @@ def _run_category_pipeline_impl(
         pre_review_candidate = deepcopy(candidate_graph)
         review = active_profile.edge_review_pass
         if candidate_graph.get("edges"):
+            review_graph = world_aliases.review_graph(candidate_graph) if world_aliases is not None else candidate_graph
+            review_rows = world_aliases.source_rows() if world_aliases is not None else source_rows
+            retain_world_aliases("review")
             if isinstance(review, ConstrainedEdgeReviewPassSpec):
-                review = replace(review, allowed_edge_ids=tuple(edge_ids(candidate_graph["edges"])))
-                prompt = review_prompt(candidate_graph, source_rows, allowed_edge_ids=review.allowed_edge_ids)
+                review = replace(review, allowed_edge_ids=tuple(edge_ids(review_graph["edges"])))
+                prompt = review_prompt(review_graph, review_rows, allowed_edge_ids=review.allowed_edge_ids)
             else:
-                prompt = review_prompt(candidate_graph, source_rows)
+                prompt = review_prompt(review_graph, review_rows)
             _notify(review.pass_id, "running")
             review_result = client.run_pass(
                 review.pass_id, model_id=model_id, instructions=review.instruction,
                 user_content=prompt, pass_spec=review,
             )
-            candidate_graph, advisory = apply_review(candidate_graph, review_result["parsed"])
+            reviewed = world_aliases.resolve_review(review_result["parsed"]) if world_aliases is not None else review_result["parsed"]
+            candidate_graph, advisory = apply_review(candidate_graph, reviewed)
             pass_outputs[review.pass_id] = deepcopy(review_result["parsed"])
             pass_telemetry[review.pass_id] = {
                 key: review_result.get(key) for key in

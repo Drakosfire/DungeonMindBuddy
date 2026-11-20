@@ -10,6 +10,13 @@ from typing import Any
 
 import pytest
 
+from tests.worldbuilding_alias_fixture import install_alias_fixture
+
+
+@pytest.fixture(autouse=True)
+def model_alias_fixture(monkeypatch):
+    install_alias_fixture(monkeypatch)
+
 from apps.live_control_server.services.source_artifact_registry import (
     create_source_artifact_from_workspace_document,
     load_source_span_index,

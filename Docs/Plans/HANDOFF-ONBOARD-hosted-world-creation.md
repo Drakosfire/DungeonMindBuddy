@@ -1,6 +1,7 @@
 # ONBOARD — hosted owner-created World
 
-Status: ACTIVE implementation assignment. The operator's ongoing Sizzek
+Status: MERGED in Buddy PR #4240 at `6f8af81e6dd47ec92b5ef9a0180e2e34ffd104c4`;
+feature disabled and hosted acceptance/release qualification outstanding. The operator's ongoing Sizzek
 onboarding goal authorizes this bounded capability and its reviewable PR; merge,
 deployment and live policy enablement remain separate. Base
 `e39ebc2523e5dc00c47ab18e6b0325804aa36b27`; branch
