@@ -154,6 +154,7 @@ export interface MarkdownCanvasSessionValue extends CanvasDocumentState {
 }
 
 export interface MarkdownCanvasSessionProviderProps {
+  initialSnapshot?: WorkspaceDocumentSnapshot;
   documentId: string;
   surface: WorkspaceDocumentLocalSurface;
   kind: WorkspaceDocumentLocalKind;

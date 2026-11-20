@@ -14,6 +14,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
   return {
     ...actual,
     getCommittedPageSnapshot: vi.fn(),
+    getWorkspaceDocumentSnapshot: vi.fn(),
     admitNativeWorldSource: vi.fn(),
     listWorkspacePageInventory: vi.fn(),
     listWorldContainers: vi.fn(),
@@ -92,6 +93,7 @@ async function waitForWorldDocumentUrl(worldId: string, documentId: string) {
 describe("useBuildWorkspaceDocumentController", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(id => liveApi.getCommittedPageSnapshot(id));
     vi.mocked(liveApi.admitNativeWorldSource).mockResolvedValue(
       {} as NativeWorldSourceAdmissionStatus,
     );

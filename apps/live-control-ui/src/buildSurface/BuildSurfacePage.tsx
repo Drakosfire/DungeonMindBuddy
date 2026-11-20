@@ -125,6 +125,7 @@ export function BuildSurfacePage() {
         <MarkdownCanvasSessionProvider
           key={controller.activeDocumentId}
           documentId={controller.activeDocumentId}
+          initialSnapshot={controller.initialEditorSnapshot ?? undefined}
           surface={BUILD_MARKDOWN_CANVAS.surface}
           kind={BUILD_MARKDOWN_CANVAS.kind}
           saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
