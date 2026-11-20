@@ -72,12 +72,14 @@ def build(root, case, *, world, question):
         if wire and (dispatch_entry is None or
                      not wire[0]["entry_ns"] <= dispatch_entry <= wire[0]["body_read_ns"]):
             raise ValueError("Jev transport does not join the case's first dispatch")
+        previous = ingress
         for phase in wire:
-            if phase["mode"] not in {"live", "replay"}:
+            if phase["mode"] not in {"live", "replay"} or phase["mode"] != wire[0]["mode"]:
                 raise ValueError("Unknown Jev timing boundary")
             first, last = phase["entry_ns"], phase["body_read_ns"]
-            if not ingress <= first <= last <= sink:
+            if not previous <= first <= last <= sink:
                 raise ValueError("Jev transport outside the measured host boundary")
+            previous = last
             if first < last:
                 spans.append(("Jev " + phase["mode"] + " transport", first, last))
 
