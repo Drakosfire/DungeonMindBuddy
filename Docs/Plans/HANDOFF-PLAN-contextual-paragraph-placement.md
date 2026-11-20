@@ -33,6 +33,24 @@ reviews do not establish ordinary chat or release qualification.
 
 ## Authority and write boundary
 
+Acceptance checkpoint after81b749e: the first actual-writer independent22-case
+run is RED, preserved without reruns/tuning. Jev matched22/22; clarification
+questions5/6, with one valid but empty raw writer envelope. Requested core
+prose12/12, but host-added retrieval status contaminated12/12 editable fragments.
+No negative reservation/proposal or source mutation occurred. This is not merge
+acceptance. Keep the consumed pack frozen and its oracle private.
+The current serial PR therefore needs a nonempty V2 clarification response
+contract and a V2-only separation of typed host disclosure from authored prose.
+No prompt tuning, intent reclassification or new migration is planned.
+Fresh open-PR audit found no other owner of `plan_authoring.py` or the proposed
+`plan_writer_output_schema.py` boundary. Extend the existing owned projection
+and native helper tests here while preserving V1 literal/proof behavior and
+all conversation disclosure. Shared `native_completion.py` admission overlaps
+#3307; its proposed guard is pending an explicit split and is not yet applied.
+No further external-writer call is authorized by an unanswered question: the
+prepared browser witness was rejected before process creation by automatic
+approval review and explicit synthetic-payload approval is pending.
+
 Clarification amendment: Alan explicitly authorized a bounded V2 Plan
 placement-clarification guidance split in
 `apps/live_control_server/services/plan_jev_writer.py`, preserving #3290/#3307's

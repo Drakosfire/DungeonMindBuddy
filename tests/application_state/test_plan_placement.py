@@ -171,6 +171,18 @@ def test_current_native_v2_paragraph_target_refuses_changed_authority(
         failure=failure, placement_factory=native_paragraph_placement_fixture)
 
 
+@pytest.mark.parametrize("mode", ["mixed", "rules_only"])
+def test_current_v2_rules_fragment_excludes_host_status_without_losing_prose_or_citations(
+    plan_adapter, tmp_path, monkeypatch, mode,
+):
+    from tests.test_plan_jev_authoring import _shared_plan_authoring_case
+
+    response = _shared_plan_authoring_case(plan_adapter, tmp_path, monkeypatch, "place1", mode,
+        placement_factory=native_paragraph_placement_fixture)
+    assert response.plan_proposal.replacement_markdown.strip()
+    assert "This answer uses partial retrieval" not in response.plan_proposal.replacement_markdown
+
+
 @pytest.mark.parametrize("routing", [None, "clarify", "discuss"])
 def test_current_native_caller_v2_paragraph_proposal_and_explicit_save_or_no_reservation(
     plan_adapter, tmp_path, monkeypatch, application_state_dsn, routing,
@@ -201,6 +213,12 @@ def test_current_native_caller_v2_paragraph_proposal_and_explicit_save_or_no_res
             assert conn.execute("SELECT count(*) FROM plan_action.action").fetchone()[0] == 0
         return
     proposal = response.plan_proposal
+    from application_state.agent_conversation.plan_authoring import authored_markdown
+    footer = "This answer uses partial retrieval and does not establish corpus completeness."
+    assert footer in response.answer.text
+    assert footer in authored_markdown(cold)  # Historical default projection is unchanged.
+    assert footer not in proposal.replacement_markdown
+    assert authored_markdown(cold, execution=cold.graph_context_execution) == proposal.replacement_markdown
     capture = proposal.capture
     assert capture.root_boundary == 3 and capture.from_ != 1
     assert json.loads(capture.selection_json) == {"type": "text", "anchor": 1, "head": 1}

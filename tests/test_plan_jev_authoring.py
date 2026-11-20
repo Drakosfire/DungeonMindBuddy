@@ -1528,6 +1528,14 @@ def _shared_plan_authoring_case(
     assert response.plan_proposal is not None
     expected = plan_adapter.request.plan_placement_catalog.resolve(capture, placement)
     assert response.plan_proposal.capture == expected
+    if mode == "base":
+        from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
+        footer = "This answer uses partial retrieval and does not establish corpus completeness."
+        assert footer in response.answer.text
+        if type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2:
+            assert footer not in response.plan_proposal.replacement_markdown
+        else:
+            assert footer in response.plan_proposal.replacement_markdown
     if mode != "rules_only":
         assert response.plan_proposal.replacement_markdown.startswith(
             "A proposed arrival, ready for the author to review."

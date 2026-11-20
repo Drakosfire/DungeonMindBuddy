@@ -858,14 +858,26 @@ def completed_result_digest(turn) -> str:
     return digest(turn.model_dump(mode="json", by_alias=True))
 
 
-def authored_markdown(result) -> str:
+def authored_markdown(result, *, execution=None) -> str:
     """Admitted blocks plus host references; retained older fragments stay unchanged."""
     from .rules_authority_completion import NativeRulesMixedTurnResultV1
     from .rules_authority_reads import MixedCompletedTurnV1
 
     from .native_plan_assertions import NativeAssertionPdfCitationV1
+    from .native_execution import NATIVE_PLAN_ACTION_TYPES
+    from .plan_placement import PlanPlacementCatalogV2
+    from .types import SurfaceLimitationV1
     from .session_summary_projection import summary_markdown
     envelope, evidence = turn_parts(result)
+    action = getattr(getattr(execution, "policy", None), "action", None)
+    paragraph_placement = (isinstance(action, NATIVE_PLAN_ACTION_TYPES)
+        and type(action.placement_catalog) is PlanPlacementCatalogV2)
+    def keep(completion, index):
+        # Disclosure stays in the admitted conversation. Only this unreleased
+        # catalog's authored projection excludes typed host status; older
+        # literal fragments and their retained validation keep their bytes.
+        return not (paragraph_placement
+            and isinstance(completion.answer_segments[index], SurfaceLimitationV1))
     world_id = result.scope.world_id if isinstance(result, NativeRulesMixedTurnResultV1) else envelope.world_id
     next_number = 1
     def project(completion, index):
@@ -885,6 +897,8 @@ def authored_markdown(result) -> str:
             if item.domain == "base" and evidence is not None and evidence.completion is not None
             else result.assistant_text[item.text_start : item.text_end]
             for item in result.accepted_binding.segment_map
+            if (item.domain != "base" or evidence is None or evidence.completion is None
+                or keep(evidence.completion, item.base_segment_index))
         ]
     elif isinstance(result, NativeRulesMixedTurnResultV1):
         texts = [
@@ -892,11 +906,13 @@ def authored_markdown(result) -> str:
             if item.domain == "base"
             else result.composition.rules_segments[item.segment_index].text
             for item in result.composition.ordered_refs
+            if item.domain != "base" or keep(result.base_result.completion, item.segment_index)
         ]
     else:
         if result.completion is None:
             raise ValueError("Plan writing requires admitted literal content")
-        texts = [project(result.completion, index) for index in range(len(result.completion.answer_segments))]
+        texts = [project(result.completion, index) for index in range(len(result.completion.answer_segments))
+            if keep(result.completion, index)]
     if not texts or any(not text.strip() for text in texts):
         raise ValueError("Plan writing has no nonempty admitted content blocks")
     return "\n\n".join(texts)
@@ -1038,7 +1054,7 @@ def validate_proposal_producer(proposal, turn, result, proof):
         or text_digest(proof.prepared_request_json) != proof.request_envelope_sha256
         or proof.producing_provider_attempt_id != origin.writer_attempt_id
         or writer_evidence_event_ids(execution, writers[0]) != origin.evidence_event_ids
-        or authored_markdown(result) != proposal.replacement_markdown
+        or authored_markdown(result, execution=execution) != proposal.replacement_markdown
     ):
         raise ApplicationStateValidationError(
             "Plan proposal differs from its actual admitted writer, evidence or literal output"
@@ -1079,7 +1095,7 @@ def validate_stored_authoring_result(action, turn):
         or execution.context_receipt_sha256 != stored.context_receipt_sha256
         or execution.execution_policy_sha256 != stored.execution_policy_sha256
         or completed_result_digest(turn) != stored.agent_result_sha256
-        or authored_markdown(turn) != stored.replacement_markdown
+        or authored_markdown(turn, execution=execution) != stored.replacement_markdown
     ):
         raise ApplicationStateIntegrityError(
             "Plan proposal and completed Agent result do not match"
@@ -1135,7 +1151,7 @@ def prepare_authoring_proposal(action, capture, turn, result, proof):
     if len(writers) != 1:
         raise ValueError("Plan writing has no unique actual writer")
     writer = writers[0]
-    fragment = authored_markdown(result)
+    fragment = authored_markdown(result, execution=turn.graph_context_execution)
     origin = action.authoring_origin.model_dump(mode="json", by_alias=True) | {
         "schema": "dmb_plan_jev_proposal_origin_v1",
         "expected_turn_revision": result.expected_turn_revision
