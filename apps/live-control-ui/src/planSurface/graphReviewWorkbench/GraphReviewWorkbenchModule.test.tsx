@@ -964,18 +964,10 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
   });
 
-  it("loads exact-handoff validated recap through historical projection without review package", async () => {
+  it("keeps a validated exact handoff out of projection and publication", async () => {
     const validated = canonicalRun({ status: "validated", run_id: "er_handoff_validated" });
     const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
-    const projectionSpy = vi
-      .spyOn(liveApi, "getHistoricalRecapWorldProjection")
-      .mockResolvedValue(
-        historicalProjection({
-          runId: "er_handoff_validated",
-          runStatus: "validated",
-          markdown: "# Handoff recap\n\n[Bonogo](dmb-node:node-1) arrives.\n",
-        }),
-      );
+    const projectionSpy = vi.spyOn(liveApi, "getHistoricalRecapWorldProjection");
     vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(validated);
     window.history.replaceState(
       {},
@@ -984,17 +976,12 @@ describe("GraphReviewWorkbenchModule", () => {
     );
     renderWorkbench([]);
 
-    await waitFor(
-      () => {
-        expect(projectionSpy).toHaveBeenCalledWith("er_handoff_validated");
-        expect(screen.getByTestId("graph-review-historical-recap-projection")).toBeInTheDocument();
-        expect(screen.getByTestId("graph-review-historical-recap-meta")).toHaveTextContent(
-          "validated",
-        );
-        expect(document.body.textContent).toMatch(/Handoff recap/);
-      },
-      { timeout: 3000 },
+    expect(await screen.findByTestId("graph-review-historical-recap-error")).toHaveTextContent(
+      "Admitted graph visualization for this saved run is unavailable.",
     );
+    expect(projectionSpy).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("graph-review-historical-recap-projection")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
     expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(screen.queryByTestId("graph-review-exact-run-review-error")).not.toBeInTheDocument();
   });
