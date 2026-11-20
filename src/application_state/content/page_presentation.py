@@ -295,6 +295,14 @@ UNSET = object()
 
 
 def candidate(value, markdown: str, current: PagePresentation | None):
+    # A wrapper-free projection from an older client sends null. Unlike an
+    # explicit visual unwrap, this must not erase nonvisual block identities.
+    if value is None and current is not None and all(
+        isinstance(item, BlockBinding) for item in current.items
+    ):
+        raise ApplicationStateValidationError(
+            "identity-only Page requires explicit presentation; this client cannot save it"
+        )
     if value is UNSET:
         if current is not None:
             raise ApplicationStateValidationError(
