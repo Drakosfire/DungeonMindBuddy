@@ -1,4 +1,5 @@
 """One exact Plan writer dispatch; no retrieval tools, retries or repair loop."""
+from contextlib import nullcontext
 from dataclasses import dataclass
 from hashlib import sha256
 import json
@@ -603,25 +604,27 @@ class PlanJevWriter:
             request_summary={'reasoning_effort': self.reasoning_effort})
 
     async def run(self, *, transport=None, api_key=None):
-        from generationengine import GenerationClient, TextRequest
-        from generationengine.text_dispatch import TextDispatchGate
-        from application_state.agent_conversation.native_build_work_view import VARIANT_PASSAGE_FORMATS
-
-        observer = host_work_observer.get()
         trace = getattr(self.adapter, "trace", None)
-        preparation_started = None
+        observer = host_work_observer.get()
+        detailed = trace is not None and observer is not None
+        with trace.measure_host_work("plan_writer_client_setup") if detailed else nullcontext():
+            from generationengine import GenerationClient, TextRequest
+            from generationengine.text_dispatch import TextDispatchGate
+            from application_state.agent_conversation.native_build_work_view import VARIANT_PASSAGE_FORMATS
 
-        async def authorize(prepared):
-            nonlocal preparation_started
-            if preparation_started is not None:
-                observer(trace.trace_id, "writer_sdk_preparation", preparation_started, monotonic(), False)
-                preparation_started = None
-            return self.authorize(prepared)
-        async def record(event): return self.record(event)
-        options = {'dispatch_gate':TextDispatchGate(authorize,record),'transport':transport}
-        if api_key is not None: options['api_key'] = api_key
-        provider = PlanWriterProvider(**options)
-        client = GenerationClient(text_providers={'openai':provider})
+            preparation_started = None
+
+            async def authorize(prepared):
+                nonlocal preparation_started
+                if preparation_started is not None:
+                    observer(trace.trace_id, "writer_sdk_preparation", preparation_started, monotonic(), False)
+                    preparation_started = None
+                return self.authorize(prepared)
+            async def record(event): return self.record(event)
+            options = {'dispatch_gate':TextDispatchGate(authorize,record),'transport':transport}
+            if api_key is not None: options['api_key'] = api_key
+            provider = PlanWriterProvider(**options)
+            client = GenerationClient(text_providers={'openai':provider})
         started = perf_counter()
         stage = self.failure_stage = "generation"
         try:

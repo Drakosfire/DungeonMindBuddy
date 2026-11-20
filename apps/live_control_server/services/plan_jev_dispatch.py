@@ -1,6 +1,8 @@
 """Plan-owned actual Jev dispatch. Host bindings never enter model state."""
 from hashlib import sha256
 from contextlib import nullcontext
+
+from .agent_turn_trace import host_work_observer
 import json
 import httpx2
 from generationengine import GenerationEngineError
@@ -347,18 +349,22 @@ class PlanJevDispatch:
 
     async def run(self, *, transport=None, api_key=None, client=None):
         trace = getattr(self.adapter, "trace", None)
+        detailed = trace is not None and host_work_observer.get() is not None
         with trace.measure_host_work('controller_round') if trace is not None else nullcontext():
             async def authorize(prepared): return self.authorize(prepared)
             async def record(event): return self.record(event)
             owns_client = client is None
-            if owns_client:
-                client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key, select_context=self.select_context,
-                    on_dispatch=getattr(trace, "mark_first_jev_dispatch", None))
+            with trace.measure_host_work("plan_jev_client_setup") if detailed else nullcontext():
+                if owns_client:
+                    client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key, select_context=self.select_context,
+                        on_dispatch=getattr(trace, "mark_first_jev_dispatch", None))
             started = perf_counter()
             try:
-                prepare = prepare_requested_work_decision if isinstance(self.parent, PlanRequestedWorkInputV1) else prepare_decision
-                result = await client.decide(prepare(self.parent) if isinstance(self.parent,PlanRequestedWorkInputV1)
-                    else prepare(self.parent,controller_accounting=self._native_accounting()))
+                with trace.measure_host_work("plan_jev_request_preparation") if detailed else nullcontext():
+                    request = (prepare_requested_work_decision(self.parent)
+                        if isinstance(self.parent, PlanRequestedWorkInputV1)
+                        else prepare_decision(self.parent, controller_accounting=self._native_accounting()))
+                result = await client.decide(request)
                 observation = result.observation
                 if self.call is not None:
                     counts = {"input_tokens": observation.input_tokens, "output_tokens": observation.output_tokens}
