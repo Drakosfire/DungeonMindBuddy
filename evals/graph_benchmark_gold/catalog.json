@@ -4,7 +4,7 @@
   "migration_revision": "bbb4f07df0ec0103e0563e2ff440b7ee10afe0d4",
   "migration_mode": "non_destructive_snapshot",
   "canonical_root": "evals/graph_benchmark_gold",
-  "legacy_compatibility_note": "Existing loaders under evals/graph_memory_layer still point at legacy fixture paths. Canonical snapshots are byte-identical copies; loader migration is intentionally deferred.",
+  "legacy_compatibility_note": "Current fixture loaders resolve the canonical candidate_graph files. Legacy path fields, migration revision, and blob identities retain historical source provenance; duplicate legacy checkout copies are retired.",
   "candidate_graph_fixtures": [
     {
       "fixture_id": "graph-memory:session-1-candidate-graph-gold:v1",
