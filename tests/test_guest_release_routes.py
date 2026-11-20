@@ -29,7 +29,7 @@ def test_owner_routes_fail_closed_and_require_owner(monkeypatch):
     from apps.live_control_server.main import HOSTED_WORLD_SCOPE_RESOLVERS
     routes = {key: value for key, value in HOSTED_WORLD_SCOPE_RESOLVERS.items()
               if value is guest_releases.resolve_hosted_guest_release_world}
-    assert len(routes) == 10
+    assert len(routes) == 12
     hosted_auth.install_hosted_request_boundary(app, world_scope_resolvers=routes)
     async def principal(request):
         subject = request.headers.get("x-test-subject")
@@ -55,6 +55,19 @@ def test_owner_routes_fail_closed_and_require_owner(monkeypatch):
     response = request("GET", options, headers={"x-test-subject": "owner"})
     assert response.status_code == 200 and response.json()["graph_revision"] == "rev"
     assert response.headers["cache-control"] == "no-store"
+    image_id = uuid4()
+    monkeypatch.setattr(guest_releases, "list_media", lambda **_: {"assets": [{"id": str(image_id)}], "next": None})
+    monkeypatch.setattr(guest_releases, "preview_media", lambda **_: ("image/png", b"sanitized"))
+    media_list = "/api/live/worlds/world/guest-releases/selection-media/list"
+    image_preview = f"/api/live/worlds/world/guest-releases/selection-media/{image_id}"
+    assert request("GET", image_preview).status_code == 401
+    assert request("GET", image_preview, headers={"x-test-subject": "other"}).status_code == 403
+    image_response = request("GET", image_preview, headers={"x-test-subject": "owner"})
+    assert image_response.content == b"sanitized" and image_response.headers["cache-control"] == "no-store"
+    owner_headers = {"x-test-subject": "owner", "origin": "https://buddy.example"}
+    assert request("POST", media_list, json={}, headers=owner_headers).json()["assets"][0]["id"] == str(image_id)
+    assert request("POST", media_list, json={"before_id": str(image_id)}, headers=owner_headers).status_code == 422
+    assert request("POST", media_list, json={}, headers={"x-test-subject": "owner", "origin": "https://evil.example"}).status_code == 403
     listing = "/api/live/worlds/world/guest-releases/candidates"
     assert request("GET", listing).status_code == 401
     assert request("GET", listing, headers={"x-test-subject": "other"}).status_code == 403

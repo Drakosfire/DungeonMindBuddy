@@ -102,8 +102,9 @@ fresh owner view. Unknown and timeless scope are retained separately in the
 candidate. Other temporal scopes and non-established or non-factual claims are
 currently rejected, not converted into facts. An initial owner selection
 interface inventories exact eligible source spans and requires explicit field
-and evidence choices; it does not yet select images, descriptions or dated and
-uncertain claims. Preparation is independently gated by
+and evidence choices. It also pages through World-owned images and requires
+explicit selection after a sanitized preview; descriptions and dated and
+uncertain claims remain unsupported. Preparation is independently gated by
 `DMB_GUEST_RELEASE_PREPARE_ENABLED=1` and defaults off. An initial owner review
 surface lists owned candidates, shows the Graph, excerpt visibility and selected
 images, and requires an explicit digest-bound approval. It is hidden unless
@@ -133,8 +134,11 @@ unchanged. Mounted authorization tests and a synthetic Core/APP test exercise
 signed-out reads and revocation. Synthetic local Chrome checks exercised the
 guest page at 1440×900 and 390×844 with no horizontal overflow; the captured
 synthetic screenshots are retained under the task's `sizzek-evidence` directory.
-This does not establish hosted behavior or release qualification: media and
-richer claim selection, first-World, real-browser privacy, exact-head and
+The synthetic Core/APP test also copies a World-owned image, verifies that
+sanitization removes synthetic metadata, and checks owner preview, signed-out
+delivery, cross-World denial and revocation. This does not establish hosted
+behavior or release qualification: richer claim selection, first-World,
+real-browser privacy, exact-head and
 independent security review evidence are still required before either switch
 can be enabled in deployment. #3824 remains open at
 `76c31187f3e9badecbc403f2d9c943994c5f5f9c` as of this change.

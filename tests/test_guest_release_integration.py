@@ -2,20 +2,24 @@
 from types import SimpleNamespace
 from uuid import uuid4
 import asyncio
+import io
 
 import httpx
 import psycopg
 import pytest
 from dungeonmind.application.vnext import ParsedEntityRefValue
 from fastapi import FastAPI
+from PIL import Image, PngImagePlugin
 
-from application_state import guest_release
+from application_state import guest_release, media
 from application_state.content.pages import PageMetadata, commit_page, create_page, snapshot_page
 from application_state.world_catalog.service import create_world
 from apps.live_control_server.services import guest_release_native_graph as native_reader
 from apps.live_control_server.services import guest_release_preparation as preparation
 from apps.live_control_server.services import guest_release_validation as validation
 from apps.live_control_server.services import guest_release_selection as discovery
+from apps.live_control_server.services import guest_release_media_selection as media_discovery
+from apps.live_control_server.services.hosted_native_graph_access import hosted_world_media_owner
 from apps.live_control_server.services.guest_release_evidence import GuestReleaseEvidenceError
 from apps.live_control_server.routes import guest_release_public
 from apps.live_control_server.routes import guest_releases as owner_routes
@@ -46,6 +50,21 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
             "binding_version=1,validated_at='now',validated_head_revision_id=%s, "
             "provisioning_id=NULL,initialization_revision_id=NULL WHERE world_id=%s", (case.space, graph_revision, world))
     binding = SimpleNamespace(native_world_id=case.space, binding_version=1)
+    image_bytes = io.BytesIO()
+    image_metadata = PngImagePlugin.PngInfo()
+    image_metadata.add_text("private", "synthetic secret")
+    Image.new("RGB", (2, 2), "red").save(image_bytes, format="PNG", pnginfo=image_metadata)
+    asset = media.stage_image(image_bytes.getvalue(), hosted_world_media_owner(world), {"private": "synthetic provenance"})
+    asset_id = asset["asset_id"]
+    media_page = media_discovery.list_media(world_id=world)
+    assert [item["id"] for item in media_page["assets"]] == [str(asset_id)]
+    assert "provenance" not in str(media_page) and "receipt" not in str(media_page)
+    mime, sanitized = media_discovery.preview_media(world_id=world, asset_id=asset_id)
+    assert mime == "image/png" and b"synthetic secret" not in sanitized
+    assert media_discovery.list_media(world_id="unrelated")["assets"] == []
+    from application_state.errors import ApplicationStateNotFoundError
+    with pytest.raises(ApplicationStateNotFoundError):
+        media_discovery.preview_media(world_id="unrelated", asset_id=asset_id)
     monkeypatch.setattr(native_reader, "resolve_managed_world_binding", lambda _: binding)
     monkeypatch.setattr(discovery, "resolve_managed_world_binding", lambda _: binding)
     monkeypatch.setattr(native_reader.native_registry_source, "read_repository", lambda: case.repo)
@@ -75,7 +94,7 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
         kind_source_index=index(kinds[entity])) for entity in (edge.subject_entity_id, edge.value.entity_id)]
     selection = preparation.ReleaseSelection(graph_revision=graph_revision, nodes=nodes, sources=sources,
         relationships=[preparation.RelationshipSelection(assertion_id=edge.assertion_id, subject_id=edge.subject_entity_id,
-            predicate=edge.predicate, evidence_id=edge.metadata.evidence_ref_ids[0], source_index=index(edge))], asset_ids=[])
+            predicate=edge.predicate, evidence_id=edge.metadata.evidence_ref_ids[0], source_index=index(edge))], asset_ids=[asset_id])
     monkeypatch.setenv(hosted_auth.DEPLOYMENT_ENVIRONMENT_ENV, "production")
     monkeypatch.setenv(hosted_auth.AUTH_MODE_ENV, "hosted_dms")
     monkeypatch.setenv(hosted_auth.TRUSTED_FRONTEND_ORIGINS_ENV, "https://buddy.example")
@@ -100,6 +119,11 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
             assert inventory.status_code == 200 and inventory.headers["cache-control"] == "no-store"
             assert inventory.json()["graph_revision"] == graph_revision
             assert any(field["assertion_id"] == edge.assertion_id for field in inventory.json()["fields"])
+            images = await client.post(f"/api/live/worlds/{world}/guest-releases/selection-media/list", json={},
+                headers={"x-test-owner": "yes", "origin": "https://buddy.example"})
+            assert images.status_code == 200 and images.json()["assets"][0]["id"] == str(asset_id)
+            preview = await client.get(f"/api/live/worlds/{world}/guest-releases/selection-media/{asset_id}", headers={"x-test-owner": "yes"})
+            assert preview.status_code == 200 and preview.content == sanitized and preview.headers["cache-control"] == "no-store"
             return await client.post(f"/api/live/worlds/{world}/guest-releases", json=selection.model_dump(mode="json"),
                 headers={"x-test-owner": "yes", "origin": "https://buddy.example"})
     response = asyncio.run(prepare_over_http())
@@ -112,6 +136,10 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
     assert manifest["projection_version"] == "explicit_native_assertions_v1"
     assert manifest["image_sanitizer_version"] == "bounded_png_v1"
     assert len(manifest["graph"]["edges"]) == 1
+    assert len(manifest["assets"]) == 1
+    released_asset = UUID(manifest["assets"][0]["id"])
+    assert released_asset != asset_id
+    assert guest_release.review_asset(world_id=world, subject="owner", release_id=release_id, asset_id=released_asset) == (mime, sanitized)
     assert all(node["name_temporal"] == "unknown" for node in manifest["graph"]["nodes"])
     assert guest_release.review_source_visibility(world_id=world, subject="owner", release_id=release_id) == {
         source["id"]: "internal" for source in manifest["sources"]}
@@ -131,6 +159,10 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
     public_response = asyncio.run(signed_out_read())
     assert public_response.status_code == 200 and public_response.json()["manifest"] == manifest
     assert public_response.headers["cache-control"] == "no-store"
+    async def signed_out_asset():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            return await client.get(f"/api/live/guest-releases/{public_id}/releases/{release_id}/assets/{released_asset}")
+    assert asyncio.run(signed_out_asset()).content == sanitized
     current = snapshot_page(str(document_id), world_id=world)
     commit_page(str(document_id), "A later private edit", world_id=world,
         expected_revision=current.page.object_revision, expected_working_copy_revision=current.working_copy_revision)
@@ -146,6 +178,6 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
     assert guest_release.public_manifest(public_id) == (release_id, manifest)
     guest_release.revoke(world_id=world, subject="owner", release_id=release_id)
     assert asyncio.run(signed_out_read()).status_code == 404
-    from application_state.errors import ApplicationStateNotFoundError
+    assert asyncio.run(signed_out_asset()).status_code == 404
     with pytest.raises(ApplicationStateNotFoundError):
         guest_release.public_manifest(public_id)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -18,6 +19,7 @@ from apps.live_control_server.services.guest_release_sources import GuestRelease
 from apps.live_control_server.services.guest_release_media import GuestReleaseMediaError
 from apps.live_control_server.services.guest_release_native_graph import GuestNativeGraphError
 from apps.live_control_server.services.guest_release_selection import selection_options
+from apps.live_control_server.services.guest_release_media_selection import list_media, preview_media
 from apps.live_control_server.services.hosted_native_graph_access import _hosted_subject, _owned_world
 
 router = APIRouter(prefix="/api/live/worlds/{world_id}/guest-releases", tags=["guest-releases"])
@@ -43,6 +45,12 @@ class PublishRequest(BaseModel):
 class RestoreRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     expected_version: int = Field(ge=0, strict=True)
+
+
+class MediaListRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    before_time: datetime | None = None
+    before_id: UUID | None = None
 
 
 def _owner(request: Request, world_id: str) -> str:
@@ -98,6 +106,31 @@ def release_selection_options(world_id: str, request: Request, response: Respons
         raise _error(exc) from exc
     except (GuestReleaseEvidenceError, GuestNativeGraphError, GuestReleaseAssertionError) as exc:
         raise _invalid_selection() from exc
+
+
+@router.post("/selection-media/list")
+def release_selection_media(world_id: str, body: MediaListRequest, request: Request, response: Response):
+    _owner(request, world_id)
+    response.headers["Cache-Control"] = "no-store"
+    if (body.before_time is None) != (body.before_id is None) or (body.before_time is not None and body.before_time.utcoffset() is None):
+        raise HTTPException(status_code=422, detail={"code": "invalid_media_cursor"}, headers={"Cache-Control": "no-store"})
+    try:
+        return list_media(world_id=world_id, before=(body.before_time, body.before_id) if body.before_time is not None else None)
+    except ApplicationStateError as exc:
+        raise _error(exc) from exc
+
+
+@router.get("/selection-media/{asset_id}")
+def release_selection_media_preview(world_id: str, asset_id: UUID, request: Request):
+    _owner(request, world_id)
+    try:
+        mime, content = preview_media(world_id=world_id, asset_id=asset_id)
+    except ApplicationStateError as exc:
+        raise _error(exc) from exc
+    except GuestReleaseMediaError as exc:
+        raise _invalid_selection() from exc
+    return Response(content, media_type=mime, headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+                                                       "Content-Security-Policy": "default-src 'none'; sandbox"})
 
 
 @router.get("/candidates")

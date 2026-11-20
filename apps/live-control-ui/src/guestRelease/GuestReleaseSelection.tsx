@@ -3,6 +3,8 @@ import { useState } from "react";
 type Field = { assertion_id: string; entity_id: string; kind: "name" | "classification" | "relationship"; value: string; predicate: string; target_id: string | null; temporal: string; evidence_ids: string[] };
 type Source = { document_id: string; document_title: string; visibility: string; revision_n: number; sha256: string; start: number; end: number; excerpt: string; evidence_id: string };
 type Options = { graph_revision: string; fields: Field[]; sources: Source[] };
+type Asset = { id: string; width: number; height: number; created_at: string };
+type Cursor = { before_time: string; before_id: string };
 
 /** Private owner selection; every field and supporting excerpt starts unselected. */
 export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string; onPrepared: () => void }) {
@@ -11,6 +13,10 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prepared, setPrepared] = useState(false);
+  const [assets, setAssets] = useState<Asset[] | null>(null);
+  const [nextAssets, setNextAssets] = useState<Cursor | null>(null);
+  const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
+  const [loadedAssets, setLoadedAssets] = useState<Set<string>>(new Set());
   const base = `/api/live/worlds/${encodeURIComponent(worldId)}/guest-releases`;
   async function load() {
     setBusy(true); setError(null); setOptions(null); setChosen({}); setPrepared(false);
@@ -19,6 +25,19 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
       if (!response.ok) throw new Error("unavailable");
       setOptions(await response.json() as Options);
     } catch { setError("Could not load release options. Try again."); }
+    finally { setBusy(false); }
+  }
+  async function loadImages(cursor?: Cursor) {
+    setBusy(true); setError(null);
+    if (!cursor) { setAssets(null); setSelectedAssets(new Set()); setLoadedAssets(new Set()); }
+    try {
+      const response = await fetch(`${base}/selection-media/list`, { method: "POST", credentials: "same-origin", cache: "no-store",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify(cursor ?? {}) });
+      if (!response.ok) throw new Error("unavailable");
+      const page = await response.json() as { assets: Asset[]; next: Cursor | null };
+      setAssets(previous => cursor ? [...(previous ?? []), ...page.assets.filter(item => !(previous ?? []).some(old => old.id === item.id))] : page.assets);
+      setNextAssets(page.next);
+    } catch { setError("Could not load World images. Try again."); }
     finally { setBusy(false); }
   }
   const selected = options?.fields.filter(field => Object.hasOwn(chosen, field.assertion_id)) ?? [];
@@ -47,7 +66,7 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
         source_index: evidenceIds.indexOf(chosen[field.assertion_id]) })),
       sources: evidenceIds.map(id => { const source = sources.get(id)!; return { document_id: source.document_id,
         revision_n: source.revision_n, sha256: source.sha256, start: source.start, end: source.end,
-        excerpt: source.excerpt, evidence_id: source.evidence_id }; }), asset_ids: [],
+        excerpt: source.excerpt, evidence_id: source.evidence_id }; }), asset_ids: [...selectedAssets],
     };
     setBusy(true); setError(null);
     try {
@@ -62,7 +81,7 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
   return <section aria-labelledby="guest-selection-heading">
     <h3 id="guest-selection-heading">Choose what to share</h3>
     <p>Choose each name, classification, relationship and supporting excerpt. Preparing a copy does not publish it.</p>
-    <p>Only supported, evidenced facts with unknown or timeless scope are shown. Other claims, summaries, dated events, and images cannot yet be selected here.</p>
+    <p>Only supported, evidenced facts with unknown or timeless scope are shown. Other claims, summaries, and dated events cannot yet be selected here.</p>
     <button type="button" disabled={busy} onClick={load}>Load selection options</button>
     {error && <p role="alert">{error}</p>}
     {prepared && <p role="status">Copy prepared. Load prepared copies below to review it.</p>}
@@ -81,6 +100,16 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
       {[...new Set(Object.values(chosen).filter(Boolean))].map(id => { const source = sources.get(id); return source && <section key={id}>
         <h4>{source.document_title} · {source.visibility === "internal" ? "private source" : "player-safe source"}</h4><p style={{ whiteSpace: "pre-wrap" }}>{source.excerpt}</p>
       </section>; })}
+      <h4>Images to include</h4><p>Choose images from this World. The reviewed copy will contain sanitized image bytes.</p>
+      <button type="button" disabled={busy} onClick={() => loadImages()}>Load World images</button>
+      {assets && assets.length === 0 && <p>No images found.</p>}
+      {assets && <div className="guest-release-image-choices">{assets.map((asset, index) => <label key={asset.id}>
+        <img src={`${base}/selection-media/${encodeURIComponent(asset.id)}`} alt={`World image ${index + 1}`} onLoad={() => setLoadedAssets(previous => new Set(previous).add(asset.id))}
+          onError={() => { setLoadedAssets(previous => { const next = new Set(previous); next.delete(asset.id); return next; }); setSelectedAssets(previous => { const next = new Set(previous); next.delete(asset.id); return next; }); setError("An image preview could not be loaded, so it cannot be selected."); }} />
+        <span><input type="checkbox" disabled={busy || !loadedAssets.has(asset.id) || (selectedAssets.size >= 100 && !selectedAssets.has(asset.id))} checked={selectedAssets.has(asset.id)} onChange={event => { const checked = event.target.checked; setSelectedAssets(previous => { const next = new Set(previous); if (checked) next.add(asset.id); else next.delete(asset.id); return next; }); }} /> Include image {index + 1}</span>
+      </label>)}</div>}
+      {nextAssets && <button type="button" disabled={busy} onClick={() => loadImages(nextAssets)}>Load more images</button>}
+      {assets && <p>{selectedAssets.size} of 100 images selected.</p>}
       <p>For each object, select exactly one name and classification. Relationships require both objects and an excerpt.</p>
       <button type="button" disabled={!ready || busy} onClick={prepare}>Prepare copy for review</button>
     </div>}
