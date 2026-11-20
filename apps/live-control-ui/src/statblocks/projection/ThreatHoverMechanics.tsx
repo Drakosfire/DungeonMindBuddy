@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
 import { postThreatQueryHydration } from "../../api/liveApi";
 import type { ExactGraphReferenceScope } from "../../graphReference/types";
 import {
@@ -8,6 +9,7 @@ import {
   mapBindingHydration,
   mapHydrationResultLabelToLoadStatus,
   selectExactThreatHit,
+  resolveManagedThreatScope,
   sortThreatSheetBindings,
   threatSelectionTupleKey,
   type ThreatSheetBindingViewModel,
@@ -40,15 +42,8 @@ export function resetThreatHoverHydrationCacheForTests(): void {
 function loadThreatHoverHydration(
   scope: ExactGraphReferenceScope,
   threatNodeId: string,
+  cacheKey: string,
 ): Promise<CachedThreatHoverHydration> {
-  const cacheKey = threatSelectionTupleKey({
-    worldId: scope.worldId,
-    campaignId: scope.campaignId,
-    scopeMode: scope.scopeMode,
-    revisionId: scope.revisionId,
-    threatNodeId,
-  });
-
   const cached = threatHoverHydrationCache.get(cacheKey);
   if (cached) {
     return Promise.resolve(cached);
@@ -119,28 +114,25 @@ export function useThreatHoverMechanics(
   threatNodeId: string,
   scope: ExactGraphReferenceScope | null | undefined,
 ): ThreatHoverMechanicsState {
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [loadStatus, setLoadStatus] = useState<ThreatSheetLoadStatus | "idle">("idle");
   const [bindings, setBindings] = useState<ThreatSheetBindingViewModel[]>([]);
 
-  const scopeKey = scope
-    ? `${scope.worldId}\0${scope.campaignId}\0${scope.scopeMode}\0${scope.revisionId}`
+  const binding = useOptionalWorldGraphLensProjection()?.managedBinding;
+  const managedScope = useMemo(() => resolveManagedThreatScope(scope, binding), [scope, binding]);
+  const cacheKey = managedScope && binding
+    ? JSON.stringify([binding.nativeWorldId, binding.bindingVersion, threatSelectionTupleKey({ ...managedScope, threatNodeId })])
     : null;
 
   useEffect(() => {
-    if (!enabled || !scope || !scopeKey) {
+    setLoadedKey(cacheKey);
+    if (!enabled || !managedScope || !cacheKey) {
       setLoadStatus("idle");
       setBindings([]);
       return;
     }
 
     let cancelled = false;
-    const cacheKey = threatSelectionTupleKey({
-      worldId: scope.worldId,
-      campaignId: scope.campaignId,
-      scopeMode: scope.scopeMode,
-      revisionId: scope.revisionId,
-      threatNodeId,
-    });
     const cached = threatHoverHydrationCache.get(cacheKey);
     if (cached) {
       setLoadStatus(cached.loadStatus);
@@ -151,7 +143,7 @@ export function useThreatHoverMechanics(
     setLoadStatus("loading");
     setBindings([]);
 
-    void loadThreatHoverHydration(scope, threatNodeId).then((result) => {
+    void loadThreatHoverHydration(managedScope, threatNodeId, cacheKey).then((result) => {
       if (cancelled) return;
       setLoadStatus(result.loadStatus);
       setBindings(result.bindings);
@@ -161,9 +153,12 @@ export function useThreatHoverMechanics(
       // Ignore outstanding UI updates only — do not abort the shared inflight POST.
       cancelled = true;
     };
-  }, [enabled, scope, scopeKey, threatNodeId]);
+  }, [enabled, managedScope, cacheKey, threatNodeId]);
 
   return useMemo(() => {
+    if (!enabled || !cacheKey || loadedKey !== cacheKey) {
+      return { loadStatus: "idle", compactBinding: null, availableCount: 0, bindingCount: 0 };
+    }
     const availableCount = availableBindingCount(bindings);
     const compactBinding =
       availableCount === 1
@@ -175,5 +170,5 @@ export function useThreatHoverMechanics(
       availableCount,
       bindingCount: bindings.length,
     };
-  }, [bindings, loadStatus]);
+  }, [bindings, loadStatus, enabled, cacheKey, loadedKey]);
 }

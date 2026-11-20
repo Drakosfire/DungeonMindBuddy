@@ -56,7 +56,7 @@ function threatResolution(
 function okResponse(nodeId: string, revisionId = scope.revisionId) {
   return {
     schema: "dmb_threat_query_hydration_response_v1" as const,
-    worldId: scope.worldId,
+    worldId: "managed-elderwyld",
     campaignId: null,
     scopeMode: scope.scopeMode,
     revisionId,
@@ -138,7 +138,7 @@ describe("useExactThreatMechanics", () => {
     });
     expect(postThreatQueryHydration).toHaveBeenCalledWith(
       expect.objectContaining({
-        worldId: scope.worldId,
+        worldId: "managed-elderwyld",
         campaignId: null,
         scopeMode: scope.scopeMode,
         revisionPin: scope.revisionId,
@@ -204,4 +204,15 @@ describe("useExactThreatMechanics", () => {
     expect(screen.getByTestId("hit-id")).toHaveTextContent("");
     expect(screen.getByTestId("message")).toHaveTextContent("mechanics service unavailable");
   });
+});
+
+
+vi.mock("../../graphLens/useWorldGraphLensProjection", async (importOriginal) => {
+  const value = {
+    managedBinding: { managedWorldId: "managed-elderwyld", nativeWorldId: "eldyrwild", bindingVersion: 2 },
+  };
+  return {
+    ...await importOriginal<typeof import("../../graphLens/useWorldGraphLensProjection")>(),
+    useOptionalWorldGraphLensProjection: () => value,
+  };
 });

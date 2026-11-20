@@ -21,7 +21,7 @@ const scope: ExactGraphReferenceScope = {
 
 const okResponse = {
   schema: "dmb_threat_query_hydration_response_v1" as const,
-  worldId: scope.worldId,
+  worldId: "managed-elderwyld",
   campaignId: scope.campaignId,
   scopeMode: scope.scopeMode,
   revisionId: scope.revisionId,
@@ -193,4 +193,15 @@ describe("useThreatHoverMechanics", () => {
     await waitFor(() => expect(postSpy).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(result.current.bindingCount).toBe(1));
   });
+});
+
+
+vi.mock("../../graphLens/useWorldGraphLensProjection", async (importOriginal) => {
+  const value = {
+    managedBinding: { managedWorldId: "managed-elderwyld", nativeWorldId: "eldyrwild", bindingVersion: 2 },
+  };
+  return {
+    ...await importOriginal<typeof import("../../graphLens/useWorldGraphLensProjection")>(),
+    useOptionalWorldGraphLensProjection: () => value,
+  };
 });

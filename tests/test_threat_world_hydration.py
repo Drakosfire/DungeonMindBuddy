@@ -1,5 +1,6 @@
 """Scope contract through the real HTTP parser, service and projection DTO."""
 from pathlib import Path
+from types import SimpleNamespace
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -7,6 +8,7 @@ import pytest
 
 from apps.live_control_server.routes import threat_query_hydration as route
 from apps.live_control_server.services import threat_query_hydration as service
+from apps.live_control_server.services import managed_world_graph_projection as managed
 from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
 from graph_memory.projection.world_projection import WorldGraphProjection
 
@@ -32,8 +34,29 @@ def client(monkeypatch):
     with TestClient(app,client=("127.0.0.1",50000),headers={"Authorization":f"Bearer {TOKEN}"}) as c:yield c
 
 
+def stub_managed_read(monkeypatch, read):
+    def wrap(body):
+        return managed.ManagedWorldGraphProjectionResponse(
+            schema="dmb_managed_world_graph_projection_v1",
+            managed_world_id=body.world_id, native_world_id="native-world",
+            binding_version=1, projection=read(body),
+        )
+
+    monkeypatch.setattr(service, "project_world_graph", lambda *_a, **_kw: pytest.fail("Classic projection reached"))
+    monkeypatch.setattr(managed, "project_managed_world_graph", lambda body: wrap(SimpleNamespace(
+        world_id=body.managed_world_id, campaign_id="", scope_mode="world", revision_pin=body.revision_pin,
+    )))
+    monkeypatch.setattr(managed, "project_managed_scoped_graph", lambda **args: wrap(SimpleNamespace(
+        world_id=args["managed_world_id"], campaign_id=args["campaign_id"],
+        scope_mode=args["scope_mode"], revision_pin=args["revision_pin"],
+    )))
+    monkeypatch.setattr(managed, "resolve_managed_world_binding", lambda world_id: managed.VerifiedManagedWorldBinding(
+        managed_world_id=world_id, native_world_id="native-world", binding_version=1, source_root_relpath="corpus/managed-world",
+    ))
+
+
 def request(**changes):
-    return {"schema":"dmb_threat_query_hydration_request_v1","worldId":"native-world","campaignId":None,
+    return {"schema":"dmb_threat_query_hydration_request_v1","worldId":"managed-world","campaignId":None,
             "scopeMode":"world","revisionPin":"graph-a","queryText":"Scout","focusNodeIds":["npc:scout"],**changes}
 
 
@@ -41,14 +64,14 @@ def test_world_null_scope_reaches_projection_and_returns_no_binding_honestly(cli
     calls=[]
     def read(body,**kwargs):
         calls.append(body)
-        assert body.world_id=="native-world" and body.campaign_id=="" and body.scope_mode=="world"
+        assert body.world_id=="managed-world" and body.campaign_id=="" and body.scope_mode=="world"
         assert body.revision_pin=="graph-a"
         return projection()
-    monkeypatch.setattr(service,"project_world_graph",read)
+    stub_managed_read(monkeypatch, read)
     result=client.post('/api/live/threats/query-hydration',json=request())
     assert result.status_code==200,result.text
     body=result.json();assert body['campaignId'] is None and body['scopeMode']=='world'
-    assert body['worldId']=='native-world' and body['revisionId']=='graph-a'
+    assert body['worldId']=='managed-world' and body['revisionId']=='graph-a'
     assert body['hits'][0]['threat']['nodeId']=='npc:scout'
     assert body['hits'][0]['mechanicsDisposition']=='no_binding' and body['hits'][0]['bindings']==[]
     assert len(calls)==1
@@ -56,12 +79,12 @@ def test_world_null_scope_reaches_projection_and_returns_no_binding_honestly(cli
 
 @pytest.mark.parametrize('scope,campaign', [('world','campaign-a'),('world',''),('campaign',None),('campaign','   ')])
 def test_rejects_wrong_scope_campaign_before_native_read(client,monkeypatch,scope,campaign):
-    monkeypatch.setattr(service,'project_world_graph',lambda *_a,**_kw:pytest.fail('invalid request reached native read'))
+    stub_managed_read(monkeypatch,lambda *_a,**_kw:pytest.fail('invalid request reached native read'))
     assert client.post('/api/live/threats/query-hydration',json=request(scopeMode=scope,campaignId=campaign)).status_code==422
 
 
 def test_campaign_scope_keeps_exact_nonblank_campaign(client,monkeypatch):
-    monkeypatch.setattr(service,'project_world_graph',lambda body,**_kw:projection('campaign',body.campaign_id))
+    stub_managed_read(monkeypatch,lambda body,**_kw:projection('campaign',body.campaign_id))
     result=client.post('/api/live/threats/query-hydration',json=request(scopeMode='campaign',campaignId='campaign-a'))
     assert result.status_code==200,result.text
     assert result.json()['campaignId']=='campaign-a'
@@ -69,7 +92,7 @@ def test_campaign_scope_keeps_exact_nonblank_campaign(client,monkeypatch):
 
 @pytest.mark.parametrize('changes',[{'campaign':'foreign-campaign'},{'revision':'other-pin'},{'scope':'campaign'}])
 def test_scope_echo_mismatch_never_grants_a_hit(client,monkeypatch,changes):
-    monkeypatch.setattr(service,'project_world_graph',lambda *_a,**_kw:projection(**changes))
+    stub_managed_read(monkeypatch,lambda *_a,**_kw:projection(**changes))
     result=client.post('/api/live/threats/query-hydration',json=request())
     assert result.status_code==500 and result.json()['diagnostics']==['projection_scope_mismatch']
 
@@ -77,7 +100,7 @@ def test_scope_echo_mismatch_never_grants_a_hit(client,monkeypatch,changes):
 def test_missing_revision_stays_not_found(client,monkeypatch):
     def read(*_a,**_kw):
         raise WorldGraphProjectionServiceError('Missing pinned revision',code='projection_revision_not_found',status_code=404)
-    monkeypatch.setattr(service,'project_world_graph',read)
+    stub_managed_read(monkeypatch,read)
     result=client.post('/api/live/threats/query-hydration',json=request())
     assert result.status_code==404 and result.json()['resultLabel']=='threat_query_hydration_not_found'
 

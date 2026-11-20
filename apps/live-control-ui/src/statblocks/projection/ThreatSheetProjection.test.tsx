@@ -60,7 +60,7 @@ describe("ThreatSheetProjection", () => {
   it("loads exact mechanics for the selected Threat tuple", async () => {
     vi.mocked(postThreatQueryHydration).mockResolvedValue({
       schema: "dmb_threat_query_hydration_response_v1",
-      worldId: scope.worldId,
+      worldId: "managed-elderwyld",
       campaignId: null,
       scopeMode: scope.scopeMode,
       revisionId: scope.revisionId,
@@ -117,7 +117,7 @@ describe("ThreatSheetProjection", () => {
 
     expect(postThreatQueryHydration).toHaveBeenCalledWith({
       schema: "dmb_threat_query_hydration_request_v1",
-      worldId: scope.worldId,
+      worldId: "managed-elderwyld",
       campaignId: null,
       scopeMode: scope.scopeMode,
       revisionPin: scope.revisionId,
@@ -154,7 +154,7 @@ describe("ThreatSheetProjection", () => {
   it("keeps multi-binding glance honest without choosing a first winner", async () => {
     vi.mocked(postThreatQueryHydration).mockResolvedValue({
       schema: "dmb_threat_query_hydration_response_v1",
-      worldId: scope.worldId,
+      worldId: "managed-elderwyld",
       campaignId: null,
       scopeMode: scope.scopeMode,
       revisionId: scope.revisionId,
@@ -236,7 +236,7 @@ describe("ThreatSheetProjection", () => {
       .mockImplementationOnce(() => first as never)
       .mockResolvedValueOnce({
         schema: "dmb_threat_query_hydration_response_v1",
-        worldId: scope.worldId,
+        worldId: "managed-elderwyld",
         campaignId: null,
         scopeMode: scope.scopeMode,
         revisionId: scope.revisionId,
@@ -288,7 +288,7 @@ describe("ThreatSheetProjection", () => {
 
     resolveFirst?.({
       schema: "dmb_threat_query_hydration_response_v1",
-      worldId: scope.worldId,
+      worldId: "managed-elderwyld",
       campaignId: null,
       scopeMode: scope.scopeMode,
       revisionId: scope.revisionId,
@@ -346,7 +346,7 @@ describe("ThreatSheetProjection", () => {
       relationships: typeof relationship[] = [],
     ) => ({
       schema: "dmb_threat_query_hydration_response_v1" as const,
-      worldId: scope.worldId,
+      worldId: "managed-elderwyld",
       campaignId: null,
       scopeMode: scope.scopeMode,
       revisionId: scope.revisionId,
@@ -458,7 +458,7 @@ describe("ThreatSheetProjection", () => {
     };
     vi.mocked(postThreatQueryHydration).mockResolvedValue({
       schema: "dmb_threat_query_hydration_response_v1",
-      worldId: scope.worldId,
+      worldId: "managed-elderwyld",
       campaignId: null,
       scopeMode: scope.scopeMode,
       revisionId: scope.revisionId,
@@ -514,7 +514,7 @@ describe("ThreatSheetProjection", () => {
   it("renders campaign full statblock chrome when expanded", async () => {
     vi.mocked(postThreatQueryHydration).mockResolvedValue({
       schema: "dmb_threat_query_hydration_response_v1",
-      worldId: scope.worldId,
+      worldId: "managed-elderwyld",
       campaignId: null,
       scopeMode: scope.scopeMode,
       revisionId: scope.revisionId,
@@ -607,4 +607,15 @@ describe("ThreatSheetProjection", () => {
     );
     expect(postThreatQueryHydration).not.toHaveBeenCalled();
   });
+});
+
+
+vi.mock("../../graphLens/useWorldGraphLensProjection", async (importOriginal) => {
+  const value = {
+    managedBinding: { managedWorldId: "managed-elderwyld", nativeWorldId: "eldyrwild", bindingVersion: 2 },
+  };
+  return {
+    ...await importOriginal<typeof import("../../graphLens/useWorldGraphLensProjection")>(),
+    useOptionalWorldGraphLensProjection: () => value,
+  };
 });

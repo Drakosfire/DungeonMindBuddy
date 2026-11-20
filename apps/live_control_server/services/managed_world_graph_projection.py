@@ -184,9 +184,10 @@ _managed_projection_parsed_cache = NativeParsedRevisionCache()
 
 
 def _read_native_projection_support(
-    binding: VerifiedManagedWorldBinding, revision_pin: str | None
+    binding: VerifiedManagedWorldBinding, revision_pin: str | None,
+    *, scope_mode: Literal["world", "campaign"] = "world", campaign_id: str | None = None,
 ):
-    """Resolve one native World revision and read its authorized projection inputs."""
+    """Read one native revision through the requested authorized scope."""
     from dungeonmind.application.vnext import EntityReadService
     from dungeonmind.application.vnext.errors import KnowledgeReadContextIntegrityError
 
@@ -208,7 +209,7 @@ def _read_native_projection_support(
     revision_id = head.head_revision_id if revision_pin is None else revision_pin
     try:
         context, access, _, _ = native_registry_source.read_context(
-            repository, binding.native_world_id, revision_id, None, scope_mode="world",
+            repository, binding.native_world_id, revision_id, campaign_id, scope_mode=scope_mode,
             parsed_cache=_managed_projection_parsed_cache
         )
     except KnowledgeReadContextIntegrityError as exc:
@@ -230,6 +231,55 @@ def project_managed_world_graph(
     expected_binding: VerifiedManagedWorldBinding | None = None,
 ) -> ManagedWorldGraphProjectionResponse:
     """Read through a stable active Buddy binding, failing closed on change."""
+    return _project_managed_graph(
+        request, root=root, expected_binding=expected_binding,
+        scope_mode="world", campaign_id=None,
+    )
+
+
+def project_managed_scoped_graph(
+    *,
+    managed_world_id: str,
+    revision_pin: str,
+    scope_mode: Literal["world", "campaign"],
+    campaign_id: str | None,
+    query_text: str | None = None,
+    root: Path | None = None,
+    expected_binding: VerifiedManagedWorldBinding | None = None,
+) -> ManagedWorldGraphProjectionResponse:
+    """Internal exact scoped read; never infer managed identity or change scope."""
+    if (
+        not isinstance(managed_world_id, str) or not managed_world_id.strip()
+        or managed_world_id != managed_world_id.strip()
+        or not isinstance(revision_pin, str) or not revision_pin.strip()
+        or revision_pin != revision_pin.strip()
+        or scope_mode not in ("world", "campaign")
+        or (scope_mode == "world" and campaign_id is not None)
+        or (scope_mode == "campaign" and (
+            not isinstance(campaign_id, str) or not campaign_id.strip()
+            or campaign_id != campaign_id.strip()
+        ))
+    ):
+        raise WorldGraphProjectionServiceError(
+            "An exact managed World, native revision and coherent scope are required.",
+            code="native_graph_scope_invalid", status_code=422,
+        )
+    request = ManagedWorldGraphProjectionRequest(
+        schema_="dmb_managed_world_graph_projection_request_v1",
+        managed_world_id=managed_world_id, revision_pin=revision_pin, query_text=query_text,
+    )
+    return _project_managed_graph(
+        request, root=root, expected_binding=expected_binding,
+        scope_mode=scope_mode, campaign_id=campaign_id,
+    )
+
+
+def _project_managed_graph(
+    request: ManagedWorldGraphProjectionRequest,
+    *, root: Path | None,
+    expected_binding: VerifiedManagedWorldBinding | None,
+    scope_mode: Literal["world", "campaign"], campaign_id: str | None,
+) -> ManagedWorldGraphProjectionResponse:
 
     initial = resolve_managed_world_binding(request.managed_world_id, root=root)
     if expected_binding is not None and initial != expected_binding:
@@ -242,12 +292,12 @@ def project_managed_world_graph(
         {
             "schema": "dmb_world_graph_projection_request_v1",
             "worldId": initial.native_world_id,
-            "campaignId": "",
+            "campaignId": campaign_id or "",
             "focus": {"kind": "none", "sessionId": None},
             "admissibility": "gm",
             "revisionPin": request.revision_pin,
             "queryText": request.query_text,
-            "scopeMode": "world",
+            "scopeMode": scope_mode,
         }
     )
     try:
@@ -257,20 +307,30 @@ def project_managed_world_graph(
         )
         from graph_memory.projection.world_projection import WorldGraphProjectionSnapshot
 
-        head, context, access, support = _read_native_projection_support(initial, request.revision_pin)
+        if scope_mode == "world":
+            head, context, access, support = _read_native_projection_support(initial, request.revision_pin)
+        else:
+            head, context, access, support = _read_native_projection_support(
+                initial, request.revision_pin, scope_mode=scope_mode, campaign_id=campaign_id,
+            )
         revision = support.listing.identity.revision_id
+        if request.revision_pin is not None and revision != request.revision_pin:
+            raise WorldGraphProjectionServiceError(
+                "Native Graph read returned a different revision.",
+                code="native_graph_revision_mismatch", status_code=500,
+            )
         projection = project_native_world(
             context,
             support,
             WorldGraphProjectionSnapshot(
                 world_id=initial.native_world_id,
-                campaign_id="",
+                campaign_id=campaign_id or "",
                 revision_id=revision,
                 head_revision_id=head,
                 is_head=revision == head,
                 focus=native_request.focus,
                 admissibility="gm",
-                scope_mode="world",
+                scope_mode=scope_mode,
             ),
             access=access,
             managed_world_id=initial.managed_world_id,

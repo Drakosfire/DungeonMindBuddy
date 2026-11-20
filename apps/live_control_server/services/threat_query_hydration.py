@@ -570,7 +570,6 @@ def query_threats_with_hydration(
 ) -> ThreatQueryHydrationResponseV1:
     """Query published Threats in one exact revision and hydrate all bindings."""
     graph_root = _resolved_root(root)
-    project = project_fn or project_world_graph
     projection_request = WorldGraphProjectionRequest(
         schema=PROJECTION_REQUEST_SCHEMA,
         world_id=request.world_id,
@@ -587,15 +586,25 @@ def query_threats_with_hydration(
     try:
         if managed_world:
             from apps.live_control_server.services.managed_world_graph_projection import (
-                ManagedWorldGraphProjectionRequest, project_managed_world_graph,
+                ManagedWorldGraphProjectionRequest, project_managed_scoped_graph, project_managed_world_graph,
             )
 
-            bound = project_managed_world_graph(ManagedWorldGraphProjectionRequest(
-                schema="dmb_managed_world_graph_projection_request_v1",
-                managed_world_id=request.world_id,
-                revision_pin=request.revision_pin,
-                query_text=request.query_text,
-            ))
+            if request.scope_mode == "campaign":
+                bound = project_managed_scoped_graph(
+                    managed_world_id=request.world_id,
+                    revision_pin=request.revision_pin,
+                    scope_mode="campaign",
+                    campaign_id=request.campaign_id,
+                    query_text=request.query_text,
+                    root=root,
+                )
+            else:
+                bound = project_managed_world_graph(ManagedWorldGraphProjectionRequest(
+                    schema="dmb_managed_world_graph_projection_request_v1",
+                    managed_world_id=request.world_id,
+                    revision_pin=request.revision_pin,
+                    query_text=request.query_text,
+                ))
             if bound.managed_world_id != request.world_id:
                 raise WorldGraphProjectionServiceError(
                     "Managed projection returned a different World.",
@@ -604,7 +613,7 @@ def query_threats_with_hydration(
             projected_world_id = bound.native_world_id
             projection = bound.projection
         else:
-            projection = project(projection_request, root=graph_root)
+            projection = (project_fn or project_world_graph)(projection_request, root=graph_root)
     except WorldGraphProjectionServiceError as exc:
         if exc.status_code == 404 or exc.code in {
             "projection_revision_not_found",
