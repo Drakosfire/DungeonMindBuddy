@@ -178,7 +178,7 @@ def metadata(evidence, *, label="reviewed fact"):
     )
 
 
-def request(c, b):
+def request(c, b, *, primary=False):
     evidence = preview_native_source_publication_evidence(
         repository=c.repo,
         request=b,
@@ -297,7 +297,7 @@ def request(c, b):
             item_id="alias:" + kind,
             alias_id=b.publication_id + ":alias:" + kind,
             entity={"kind": "result_of", "client_op_id": kind},
-            alias_text="Alias " + kind,
+            alias_text=("Name " if primary else "Alias ") + kind,
             evidence_ref_ids=[e.evidence_ref_id for e in evidence],
             standing="established",
         )
@@ -363,12 +363,12 @@ def context(c, revision, *, role="gm", campaign="campaign:alpha"):
     )
 
 
-def exercise(c, mode):
+def exercise(c, mode, *, primary=False):
     before = state(c)
     parent_evidence = decode_native_graph_payload(
         c.repo.get_revision(c.space, before[0].head_revision_id).graph_payload
     ).evidence
-    r = request(c, basis(c, mode, "publication:matrix"))
+    r = request(c, basis(c, mode, "publication:matrix"), primary=primary)
     assert state(c) == before  # Core preview + public WK preparation never write.
     receipt = publish(c, r)
     assert len(LABELS) == 45 and len(TARGET.buddy_to_dm_kind) == 13
@@ -439,6 +439,7 @@ def exercise(c, mode):
     assert reversed_edge.subject_entity_id == results["npc"]
     assert reversed_edge.value.entity_id == results["creature"]
     assert results["npc"] != results["creature"]
+    alias_query = "Name" if primary else "Alias"
     gm = context(c, revision)
     batch = EntityReadService().get_complete_entities(gm, list(entities))
     assert len(batch) == 13 and all(x.found for x in batch)
@@ -449,10 +450,14 @@ def exercise(c, mode):
     } == entities
     assert {
         h.alias.entity_id
-        for h in AliasSearchReadService().search_aliases(gm, "Alias", limit=100).hits
+        for h in AliasSearchReadService()
+        .search_aliases(gm, alias_query, limit=100)
+        .hits
     } == entities
     player = context(c, revision, role="player")
-    assert not AliasSearchReadService().search_aliases(player, "Alias", limit=100).hits
+    assert (
+        not AliasSearchReadService().search_aliases(player, alias_query, limit=100).hits
+    )
     assert not SearchReadService().search_entities(player, "Name", limit=100).hits
     assert (
         not SearchReadService()
@@ -486,8 +491,30 @@ def exercise(c, mode):
 
 
 @pytest.mark.parametrize("mode", ["new_intervals", "existing_support"])
-def test_installed_wk_core_full_manual_matrix(mode):
-    exercise(setup(), mode)
+@pytest.mark.parametrize("primary", [False, True], ids=["nickname", "canonical-label"])
+def test_installed_wk_core_full_manual_matrix(mode, primary):
+    c = setup()
+    r, receipt = exercise(c, mode, primary=primary)
+    if primary:
+        c.repo.withdraw_native_source(
+            space_id=c.space,
+            source_artifact_id=c.root.source_artifact_id,
+            source_revision_id=c.root.source_revision_id,
+        )
+        before = state(c)
+        revision = receipt.publication_receipt.published_revision_id
+        fresh = context(c, revision)
+        assert (
+            not AliasSearchReadService().search_aliases(fresh, "Name", limit=100).hits
+        )
+        ids = [
+            b.durable_id for b in receipt.result_bindings if b.result_kind == "entity"
+        ]
+        assert all(
+            not v.aliases for v in EntityReadService().get_complete_entities(fresh, ids)
+        )
+        assert recover(c, r, MetadataOnly(c.repo)) == receipt
+        assert state(c) == before
 
 
 class MetadataOnly:
@@ -854,15 +881,31 @@ def sql_repository(monkeypatch, record_property):
 
 
 @pytest.mark.parametrize("mode", ["new_intervals", "existing_support"])
-def test_sql_installed_composition_reopen_recovery(sql_repository, mode):
+@pytest.mark.parametrize("primary", [False, True], ids=["nickname", "canonical-label"])
+def test_sql_installed_composition_reopen_recovery(sql_repository, mode, primary):
     from dungeonmind.infrastructure.postgres import (
         PostgresNativeSourceEvidenceRepository,
     )
 
     repo, database = sql_repository
     c = setup(repo)
-    r, receipt = exercise(c, mode)
+    r, receipt = exercise(c, mode, primary=primary)
     c.repo = PostgresNativeSourceEvidenceRepository(database)
+    revision = receipt.publication_receipt.published_revision_id
+    reopened = context(c, revision)
+    entity_ids = [
+        b.durable_id for b in receipt.result_bindings if b.result_kind == "entity"
+    ]
+    complete = EntityReadService().get_complete_entities(reopened, entity_ids)
+    assert {a.alias_text for v in complete for a in v.aliases} == {
+        ("Name " if primary else "Alias ") + kind for kind in TARGET.buddy_to_dm_kind
+    }
+    assert {
+        h.alias.entity_id
+        for h in AliasSearchReadService()
+        .search_aliases(reopened, "Name" if primary else "Alias", limit=100)
+        .hits
+    } == set(entity_ids)
     assert recover(c, r, MetadataOnly(c.repo)) == receipt
     ref_span = (
         receipt.proofs[0].span_id
@@ -893,6 +936,16 @@ def test_sql_installed_composition_reopen_recovery(sql_repository, mode):
     assert recover(c, r, MetadataOnly(c.repo)) == receipt
     assert recover(c, reuse, MetadataOnly(c.repo)) == reused
     assert state(c) == before
+    withdrawn = context(c, revision)
+    assert (
+        not AliasSearchReadService()
+        .search_aliases(withdrawn, "Name" if primary else "Alias", limit=100)
+        .hits
+    )
+    assert all(
+        not v.aliases
+        for v in EntityReadService().get_complete_entities(withdrawn, entity_ids)
+    )
     with pytest.raises(NativeTextSourceAdmissionIntegrityError):
         publish(c, reuse)
     assert state(c) == before
