@@ -2669,15 +2669,21 @@ export interface WorldContainerRecord {
   name: string;
   source_root_relpath: string;
   created_at: string;
+  native_graph_binding?: {
+    status: "unbound" | "active" | "inactive" | "provisioning";
+    binding_version: number;
+  };
 }
 
 export interface WorldContainersListResponse {
   schema_version: "dmb_world_container_registry_v1";
   records: WorldContainerRecord[];
+  creation_available?: boolean;
 }
 
 export interface CreateWorldContainerRequest {
   name: string;
+  request_key?: string;
 }
 
 export interface CreateWorkspaceDocumentRequest {

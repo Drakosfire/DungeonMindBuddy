@@ -130,6 +130,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     WORLD_COLLECTION_PATH,
     WORLD_LOOKUP_PATH,
     hosted_owner_collection,
+    hosted_owner_creation,
     resolve_hosted_build_pdf_world,
     resolve_hosted_saved_artwork,
     resolve_hosted_build_extraction,
@@ -220,6 +221,7 @@ def _load_graph_preview_router():
 
 HOSTED_WORLD_COLLECTION_AUTHORIZERS = {
     ("GET", WORLD_COLLECTION_PATH): hosted_owner_collection,
+    ("POST", WORLD_COLLECTION_PATH): hosted_owner_creation,
 }
 
 PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
