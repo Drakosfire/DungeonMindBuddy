@@ -1,5 +1,6 @@
 """Authenticated conversation history and explicit APP-owned continuation."""
 
+from collections import OrderedDict
 from hashlib import sha256
 import json
 import logging
@@ -53,25 +54,26 @@ def list_conversations(
 
 
 _dialogue_warmup_lock = Lock()
-_recent_dialogue_warmup = None
+_dialogue_warmup_snapshots = OrderedDict()
+_DIALOGUE_WARMUP_SNAPSHOT_LIMIT = 16
 _dialogue_warmup_logger = logging.getLogger("uvicorn.error")
 
 
 def _warm_build_dialogue(service, world, conversation, pointer_revision, slots):
-    global _recent_dialogue_warmup
     if not _dialogue_warmup_lock.acquire(blocking=False):
         return
     started = monotonic()
     key = (world, conversation, pointer_revision, slots)
     try:
-        if _recent_dialogue_warmup and _recent_dialogue_warmup[0] == key:
-            if started - _recent_dialogue_warmup[1] < 5:
-                return
+        if key in _dialogue_warmup_snapshots:
+            return
         pointer = service.get_world_pointer(world)
         if (pointer.active_conversation_id, pointer.revision) != (conversation, pointer_revision):
             return
         service.list_build_dialogue(world, conversation)
-        _recent_dialogue_warmup = (key, monotonic())
+        _dialogue_warmup_snapshots[key] = None
+        if len(_dialogue_warmup_snapshots) > _DIALOGUE_WARMUP_SNAPSHOT_LIMIT:
+            _dialogue_warmup_snapshots.popitem(last=False)
         _dialogue_warmup_logger.info(
             "buddy_build_dialogue_warmup status=ready elapsed_ms=%.1f",
             (monotonic() - started) * 1000,
@@ -103,7 +105,7 @@ def active_messages(
 
     if before_sequence is None and limit >= 6 and page.get("active_conversation_id"):
         rows = page["messages"][-6:]
-        if any(
+        if rows and rows[-1]["status"] not in {"accepted", "running"} and any(
             row["status"] == "completed" and row["provenance"]["surface_id"] == "build"
             for row in rows
         ):
