@@ -2228,7 +2228,6 @@ class _PolicyExecutionAdapter:
             list(receipt.assembled_input.dispatched_evidence_ref_ids),
         ))
         assert self.turn is not None
-        from contextlib import nullcontext
         from application_state.agent_conversation.native_context import is_semantic_build_input
 
         capture = None
