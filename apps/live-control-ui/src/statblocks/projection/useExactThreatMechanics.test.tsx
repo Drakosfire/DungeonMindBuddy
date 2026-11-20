@@ -129,6 +129,24 @@ describe("useExactThreatMechanics", () => {
     vi.mocked(postThreatQueryHydration).mockReset();
   });
 
+  it("clears mechanics when the active binding moves to a different native World", async () => {
+    vi.mocked(postThreatQueryHydration).mockResolvedValue(okResponse("threat:tripod-null-calf"));
+    const resolution = threatResolution();
+    const view = render(<Probe resolution={resolution} />);
+    await waitFor(() => expect(screen.getByTestId("hit-id")).toHaveTextContent("threat:tripod-null-calf"));
+
+    const original = lensFixture.managedBinding;
+    try {
+      lensFixture.managedBinding = { ...original, nativeWorldId: "different-native-world", bindingVersion: 3 };
+      view.rerender(<Probe resolution={resolution} />);
+      expect(screen.getByTestId("hit-id")).toBeEmptyDOMElement();
+      expect(screen.getByTestId("load-status")).toHaveTextContent("integrity_failure");
+      expect(postThreatQueryHydration).toHaveBeenCalledTimes(1);
+    } finally {
+      lensFixture.managedBinding = original;
+    }
+  });
+
   it("requests the exact graph scope and Threat node from the resolution", async () => {
     vi.mocked(postThreatQueryHydration).mockResolvedValue(okResponse("threat:tripod-null-calf"));
     render(<Probe resolution={threatResolution()} />);
@@ -207,12 +225,11 @@ describe("useExactThreatMechanics", () => {
 });
 
 
-vi.mock("../../graphLens/useWorldGraphLensProjection", async (importOriginal) => {
-  const value = {
-    managedBinding: { managedWorldId: "managed-elderwyld", nativeWorldId: "eldyrwild", bindingVersion: 2 },
-  };
-  return {
-    ...await importOriginal<typeof import("../../graphLens/useWorldGraphLensProjection")>(),
-    useOptionalWorldGraphLensProjection: () => value,
-  };
-});
+const lensFixture = vi.hoisted(() => ({
+  managedBinding: { managedWorldId: "managed-elderwyld", nativeWorldId: "eldyrwild", bindingVersion: 2 },
+}));
+
+vi.mock("../../graphLens/useWorldGraphLensProjection", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../graphLens/useWorldGraphLensProjection")>(),
+  useOptionalWorldGraphLensProjection: () => lensFixture,
+}));
