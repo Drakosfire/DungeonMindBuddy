@@ -4,6 +4,7 @@ from pathlib import Path
 
 from docx import Document
 from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 import pytest
 
 from ingestion.docx_converter import docx_to_markdown, markdown_passthrough
@@ -94,6 +95,24 @@ def test_nonbold_hyperlink_prevents_bold_paragraph_becoming_heading(tmp_path: Pa
     doc.save(path)
 
     assert docx_to_markdown(path) == "**Bold introduction **ordinary link\n"
+
+
+def test_omitted_grid_positions_are_not_silently_realigned(tmp_path: Path) -> None:
+    doc = Document()
+    table = doc.add_table(rows=2, cols=3)
+    for row, position, removed in (
+        (table.rows[0], "gridAfter", -1),
+        (table.rows[1], "gridBefore", 0),
+    ):
+        row._tr.remove(row._tr.tc_lst[removed])
+        omitted = OxmlElement(f"w:{position}")
+        omitted.set(qn("w:val"), "1")
+        row._tr.get_or_add_trPr().append(omitted)
+    path = tmp_path / "omitted-grid.docx"
+    doc.save(path)
+
+    with pytest.raises(ValueError, match="Irregular DOCX tables"):
+        docx_to_markdown(path)
 
 
 @pytest.mark.parametrize("shape", ["nested", "merged"])

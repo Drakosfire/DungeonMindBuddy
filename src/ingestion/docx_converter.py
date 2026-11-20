@@ -58,6 +58,8 @@ def _table_to_markdown(table: Table) -> list[str]:
     """Render data rows without assuming the first row is a header."""
     rows: list[list[str]] = []
     for row in table.rows:
+        if row.grid_cols_before or row.grid_cols_after:
+            raise ValueError("Irregular DOCX tables are not supported")
         values: list[str] = []
         for cell in row.cells:
             if cell._tc.findall(qn("w:tbl")):
