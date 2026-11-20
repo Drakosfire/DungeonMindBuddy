@@ -29,8 +29,9 @@ _turn_revision_proof = VerifiedKnowledgeRevisionCache(max_bytes=32 * 1024 * 1024
 turn_parsed_revision_cache = NativeParsedRevisionCache()
 
 
-def turn_source_repository():
-    return native.repository(verification_cache=_turn_revision_proof)
+def turn_source_repository(*, read_only: bool = False):
+    repository = native.read_repository if read_only else native.repository
+    return repository(verification_cache=_turn_revision_proof)
 
 
 @dataclass(frozen=True)
