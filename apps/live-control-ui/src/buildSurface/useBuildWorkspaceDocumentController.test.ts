@@ -157,6 +157,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     });
     expect(liveApi.listWorkspacePageInventory).toHaveBeenCalledWith({worldId: undefined}, undefined);
     expect(result.current.documents).toHaveLength(2);
+    expect(liveApi.listWorkspacePageInventory).toHaveBeenCalledTimes(1);
   });
 
   it("admits document from URL and canonicalizes campaign", async () => {
@@ -172,6 +173,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     });
     expect(result.current.activeRecord?.document_id).toBe(DOC_A);
     expect(new URLSearchParams(window.location.search).get("campaign")).toBe("longmont-c1");
+    expect(liveApi.listWorkspacePageInventory).toHaveBeenCalledTimes(1);
   });
 
   it("selectDocument switches after successful resolve", async () => {
