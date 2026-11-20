@@ -76,6 +76,34 @@ def _save_trace(conn, trace: TurnContextTraceV1) -> None:
         raise ApplicationStateValidationError("trace exceeds the explicit 1 MiB per-attempt ceiling")
 
 
+def append_opening_prompt_locked(conn, turn, trace_id, prompt, authorized):
+    row = _trace_row(conn, turn.turn_id, turn.attempt)
+    if row is None:
+        raise ApplicationStateNotFoundError("context trace was not started")
+    trace = _load_trace(row[1])
+    if (trace.trace_id != trace_id or trace.world_id != turn.world_id
+            or trace.conversation_id != turn.conversation_id or trace.turn_id != turn.turn_id
+            or trace.attempt != turn.attempt or trace.closed_at is not None
+            or prompt.sequence != len(trace.observations)
+            or authorized.sequence != prompt.sequence + 1):
+        raise ApplicationStateConflictError("opening prompt trace is stale")
+    if (type(prompt) is not TracePromptReference or type(authorized) is not TraceProviderCall
+            or authorized.outcome != "authorized"
+            or (authorized.provider_attempt_id, authorized.provider, authorized.model)
+            != (prompt.provider_attempt_id, prompt.provider, prompt.model)
+            or any(isinstance(item, TracePromptReference) and item.provider_attempt_id == prompt.provider_attempt_id
+                   for item in trace.observations)):
+        raise ApplicationStateValidationError("invalid opening prompt observations")
+    validate_prompt_authorization(prompt, turn.graph_context_execution.model_dump(mode="json", by_alias=True),
+                                  trace.execution_start_sequence)
+    updated = TurnContextTraceV1.model_validate({
+        **trace.model_dump(mode="python"),
+        "observations": [*trace.observations, prompt, authorized],
+    })
+    _save_trace(conn, updated)
+    return updated
+
+
 def append_source_passages_locked(
     conn,
     *,
