@@ -85,6 +85,28 @@ def test_create_rejects_blank_campaign_before_database_write(
     assert after.json() == before.json() == []
 
 
+def test_create_preserves_explicit_dnd5e_and_legacy_ruleset_pins(client) -> None:
+    test_client, _ = client
+    legacy = _create(test_client)
+    query = {"world_id": "elderwyld"}
+    base = "/api/live/combat/encounters"
+    response = test_client.post(base, params=query, json={
+        "title": "Mireward Reach Wall", "campaign_id": "longmont-c2", "session": 26,
+        "ruleset_id": "dnd5e.manual-tracking",
+    })
+    assert response.status_code == 200, response.text
+    dnd = response.json()
+    assert dnd["ruleset"]["config_id"] == "dnd5e.manual-tracking"
+    assert dnd["ruleset"]["system_id"] == "dnd5e"
+    assert dnd["ruleset"]["edition_id"] == "5e"
+    assert legacy["ruleset"]["config_id"] == "generic.manual-tracking"
+    assert dnd["ruleset_digest"] != legacy["ruleset_digest"]
+    for record in (dnd, legacy):
+        exact = test_client.get(f"{base}/{record['encounter_id']}", params=query)
+        assert exact.status_code == 200, exact.text
+        assert exact.json() == record
+
+
 def test_world_scoped_encounter_http_create_open_save_and_conflict(client) -> None:
     test_client, resolutions = client
     created = _create(test_client)

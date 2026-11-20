@@ -49,7 +49,16 @@ GENERIC_MANUAL_V1 = CombatRulesetConfig(
     manual_defaults={"round": 1, "team": "enemy", "queue_model": "circular_barrel_v1"},
 )
 
-_CATALOG = {GENERIC_MANUAL_V1.config_id: GENERIC_MANUAL_V1}
+DND5E_MANUAL_V1 = GENERIC_MANUAL_V1.model_copy(update={
+    "config_id": "dnd5e.manual-tracking",
+    "system_id": "dnd5e",
+    "edition_id": "5e",
+})
+
+_CATALOG = {
+    GENERIC_MANUAL_V1.config_id: GENERIC_MANUAL_V1,
+    DND5E_MANUAL_V1.config_id: DND5E_MANUAL_V1,
+}
 
 
 def canonical_ruleset_payload(config: CombatRulesetConfig) -> dict:

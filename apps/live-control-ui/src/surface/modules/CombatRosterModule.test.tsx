@@ -295,7 +295,7 @@ describe("CombatRosterModule", () => {
 
     await userEvent.click(screen.getByRole("button", {name: "Create encounter from sample"}));
     await screen.findByText("Unsaved changes");
-    expect(create).toHaveBeenCalledWith("elderwyld", {title: "Crossing at dusk"});
+    expect(create).toHaveBeenCalledWith("elderwyld", {title: "Crossing at dusk", ruleset_id: "dnd5e.manual-tracking"});
     expect(save).not.toHaveBeenCalled();
   });
 
@@ -340,7 +340,7 @@ describe("CombatRosterModule", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
 
     expect(await screen.findByRole("textbox", { name: "Encounter title" })).toHaveValue("New encounter");
-    expect(createSpy).toHaveBeenCalledWith("elderwyld", { title: "Night ambush" });
+    expect(createSpy).toHaveBeenCalledWith("elderwyld", { title: "Night ambush", ruleset_id: "dnd5e.manual-tracking" });
 
     await userEvent.clear(screen.getByRole("textbox", { name: "Encounter title" }));
     await userEvent.type(screen.getByRole("textbox", { name: "Encounter title" }), "Night ambush");
