@@ -13,6 +13,31 @@ class GuestNativeGraphError(ValueError):
     """An exact player-scoped native Graph cannot be prepared."""
 
 
+def read_owner_graph(*, managed_world_id: str, revision_id: str):
+    """Open a coherent private view for explicit, owner-reviewed selections.
+
+    This function does not authorize its caller or make any data public.
+    """
+    if not revision_id or revision_id != revision_id.strip():
+        raise GuestNativeGraphError("Exact Graph revision is required")
+    binding = resolve_managed_world_binding(managed_world_id)
+    repository = native_registry_source.read_repository()
+    if repository.get_head(binding.native_world_id) is None:
+        raise GuestNativeGraphError("Native Graph head is unavailable")
+    context, access, _, _ = native_registry_source.read_context(
+        repository, binding.native_world_id, revision_id, None,
+        role="gm", scope_mode="world",
+    )
+    support = EntityReadService().list_entities_with_support(context)
+    if support.listing.identity.revision_id != revision_id:
+        raise GuestNativeGraphError("Native Graph revision changed")
+    if support.listing.completeness.status != "complete":
+        raise GuestNativeGraphError("Native Graph listing is incomplete")
+    if resolve_managed_world_binding(managed_world_id) != binding:
+        raise GuestNativeGraphError("Native Graph binding changed during read")
+    return binding, context, support, access
+
+
 def read_player_graph(*, managed_world_id: str, revision_id: str):
     """Read the requested vNext revision; never broaden player visibility."""
     if not revision_id or revision_id != revision_id.strip():

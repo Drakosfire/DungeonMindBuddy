@@ -125,3 +125,8 @@ def test_player_projection_excludes_assertions_backed_only_by_gm_source(monkeypa
     # player-visible assertions. Current first-World sources are GM-only.
     assert not projection.nodes
     assert owner_access.source_view.epoch >= 0
+    _, owner_context, owner_support, _ = reader.read_owner_graph(
+        managed_world_id="managed", revision_id=revision)
+    assert owner_support.listing.admitted_assertion_ids
+    assert all(owner_context.parsed.get_assertion(item) is not None
+               for item in owner_support.listing.admitted_assertion_ids)
