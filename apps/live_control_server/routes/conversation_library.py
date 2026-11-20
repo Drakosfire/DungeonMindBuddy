@@ -2,9 +2,12 @@
 
 from hashlib import sha256
 import json
+import logging
+from threading import Lock
+from time import monotonic
 from typing import Literal
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, Query, Request, Response
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request, Response
 from application_state.agent_conversation import library
 from application_state.errors import ApplicationStateError
 from application_state.agent_conversation.retry import AuthoringRetryRequiredError
@@ -49,20 +52,70 @@ def list_conversations(
     return call(library.list_library, world, status=status, limit=limit, before=before)
 
 
+_dialogue_warmup_lock = Lock()
+_recent_dialogue_warmup = None
+_dialogue_warmup_logger = logging.getLogger("uvicorn.error")
+
+
+def _warm_build_dialogue(service, world, conversation, pointer_revision, slots):
+    global _recent_dialogue_warmup
+    if not _dialogue_warmup_lock.acquire(blocking=False):
+        return
+    started = monotonic()
+    key = (world, conversation, pointer_revision, slots)
+    try:
+        if _recent_dialogue_warmup and _recent_dialogue_warmup[0] == key:
+            if started - _recent_dialogue_warmup[1] < 5:
+                return
+        pointer = service.get_world_pointer(world)
+        if (pointer.active_conversation_id, pointer.revision) != (conversation, pointer_revision):
+            return
+        service.list_build_dialogue(world, conversation)
+        _recent_dialogue_warmup = (key, monotonic())
+        _dialogue_warmup_logger.info(
+            "buddy_build_dialogue_warmup status=ready elapsed_ms=%.1f",
+            (monotonic() - started) * 1000,
+        )
+    except Exception as exc:
+        _dialogue_warmup_logger.warning(
+            "buddy_build_dialogue_warmup status=error error_type=%s elapsed_ms=%.1f",
+            type(exc).__name__, (monotonic() - started) * 1000,
+        )
+    finally:
+        _dialogue_warmup_lock.release()
+
+
 @router.get("/active/messages")
 def active_messages(
     world_id: str,
     request: Request,
+    background_tasks: BackgroundTasks,
     limit: int = Query(50, ge=1, le=100),
     before_sequence: int | None = Query(None, gt=0),
 ):
     world = scope(request, world_id, {"limit", "before_sequence"})
-    return call(
+    page = call(
         library.read_active_messages,
         world,
         limit=limit,
         before_sequence=before_sequence,
     )
+
+    if before_sequence is None and limit >= 6 and page.get("active_conversation_id"):
+        rows = page["messages"][-6:]
+        if any(
+            row["status"] == "completed" and row["provenance"]["surface_id"] == "build"
+            for row in rows
+        ):
+            background_tasks.add_task(
+                _warm_build_dialogue,
+                _conversation_service(request),
+                world,
+                UUID(page["active_conversation_id"]),
+                page["pointer_revision"],
+                tuple((row["turn_id"], row["revision"], row["status"]) for row in rows),
+            )
+    return page
 
 
 @router.get("/{conversation_id:uuid}/messages")
