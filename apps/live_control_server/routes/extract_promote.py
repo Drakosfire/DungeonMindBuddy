@@ -72,7 +72,6 @@ from apps.live_control_server.services.extract_promote import (
     confirm_worldbuilding,
     decide_recap_semantic_disposition,
     get_exact_run_review_package,
-    prepare,
 )
 from apps.live_control_server.services.exact_run_evidence_correction import (
     correct_exact_run_evidence,
@@ -483,7 +482,13 @@ def post_extract_promote_prepare(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_selector_query(request_context)
-        response = prepare(request)
+        if not request.managed_world_id:
+            raise ExtractPromoteError("An explicit managed World publication target is required.",
+                code="publication_target_required", status_code=422)
+        from apps.live_control_server.services.extract_promote import _resolve_publication_target
+        _resolve_publication_target(request.managed_world_id)
+        raise ExtractPromoteError("Classic extract preparation is retired; use current native review.",
+            code="classic_extract_prepare_retired", status_code=410)
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except Exception:
@@ -507,7 +512,6 @@ def post_extract_promote_prepare(
                 ],
             )
         )
-    return response.model_dump(mode="json", by_alias=True)
 
 
 @router.get(
