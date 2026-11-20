@@ -763,6 +763,11 @@ export function useWorkspaceDocumentAuthoring(
       });
       if (saveGeneration !== saveGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
       setLastCommitReceipt(committed);
+      if (projected && localState.page_presentation?.items.every(item => item.kind === 'block')
+        && presentationFingerprint(projected.presentation) !== (committed.page_presentation_sha256 ?? null)) {
+        dispatch({type: "VERIFICATION_MISMATCH", reason: "The Save receipt does not retain the submitted page presentation. Your local draft was kept."});
+        return;
+      }
       const receiptForThisSave = committed;
       const verificationGeneration = ++verificationGenerationRef.current;
       let editedDuringSave = editorMutationGenerationRef.current !== mutationGenerationAtSaveStart;

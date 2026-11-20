@@ -64,6 +64,25 @@ describe('Page layout authoring boundary',()=>{
   const cold=mount();await waitFor(()=>expect(cold.result.current.phase).toBe('ready_clean'));
   expect(cold.result.current.editorContent).toEqual(edited);cold.unmount();
  });
+ it('keeps the identity-only draft dirty when the commit receipt loses its sidecar',async()=>{
+  const layout:PagePresentation={schema_version:'dmb_page_presentation_v1',markdown_sha256:presentationSha256(source),
+   items:admittedPresentationBlocks(source).map((b,i)=>({kind:'block',id:`retained-${i}`,byte_start:b.byte_start,byte_end:b.byte_end,sha256:b.sha256}))};
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue({...snap(),page_presentation:layout,page_presentation_sha256:presentationFingerprint(layout)});
+  vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({writer_ok:true,writer_confirm_token:'token'} as never);
+  vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue({document_id:id,committed_revision:2,committed_record:snap().record,
+   normalized_content_sha256:'same-source',file_fingerprint:'postgres',writer_ok:true,page_presentation_sha256:null} as never);
+  const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const edited=hydratePresentation(source,layout);edited.content![0].content=[{type:'text',text:'Keep this draft.'}];
+  const editor={getJSON:()=>edited} as Editor;
+  act(()=>{h.result.current.setEditor(editor);h.result.current.handleEditorUpdate(edited,editor,{programmatic:false});});
+  await waitFor(()=>expect(h.result.current.saveDisabled).toBe(false));await act(()=>h.result.current.saveMarkdown());
+  await waitFor(()=>expect(h.result.current.phase).toBe('conflict'));
+  expect(h.result.current.dirty).toBe(true);
+  expect(readWorkspaceDocumentLocalState(localStorage,id)?.base_revision).toBe(1);
+  expect(readWorkspaceDocumentLocalState(localStorage,id)?.tiptap_json).toEqual(edited);
+  expect(readWorkspaceDocumentLocalState(localStorage,id)?.page_presentation?.items.map(item=>item.id)).toEqual(['retained-0','retained-1']);
+  h.unmount();
+ });
  it('retains resize-only draft across unmount and reopens it dirty without changing source bytes',async()=>{
   vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snap());
   const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));

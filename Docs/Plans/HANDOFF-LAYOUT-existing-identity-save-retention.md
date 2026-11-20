@@ -62,3 +62,14 @@ Evidence: `/home/drakosfire/Projects/.codex/buddy-check.A0jV7T/retention/`;
 The initial diagnostic startup failed on a shared dependency cache write; the
 successful run used task-owned configuration/caches and the global lock.
 Exact-commit hosted/discovered verification and independent review are pending.
+
+## Receipt correction
+
+Author-side inspection found that agreement between a stripped receipt and a
+stripped refreshed snapshot could acknowledge identity loss. For an existing
+identity-only sidecar, compare the returned fingerprint to the submitted
+projection before advancing the local base or marking the draft clean. A
+mismatch enters conflict and retains the draft. The new owning-hook regression
+requires this refusal and unchanged local base/IDs. The earlier queued verifier
+was explicitly cancelled while still awaiting the resource lock; it is not
+passing evidence. Verify the corrected full commit, not the earlier head.
