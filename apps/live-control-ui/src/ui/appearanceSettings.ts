@@ -35,3 +35,10 @@ export function saveAppearance(settings: AppearanceSettings) {
     // The current tab can still use the chosen settings.
   }
 }
+
+/** Only a direct request about Buddy's appearance can offer this local action. */
+export function appearanceAccentRequest(message: string): AppearanceAccent | null {
+  const request = /^(?:please )?(?:set|change|switch|make) (?:the |my )?(?:buddy(?:['’]s)? |app )?accent (?:to )?(sky blue|the theme default|the default)[.!]?$/i.exec(message.trim());
+  if (!request) return null;
+  return request[1].toLowerCase() === "sky blue" ? "sky" : "preset";
+}
