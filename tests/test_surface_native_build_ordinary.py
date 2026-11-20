@@ -1623,6 +1623,41 @@ def test_ordinary_build_human_source_reaches_writer_and_reopens_exact_citation(l
     _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,authored_source=selection)
 
 
+def test_build_dialogue_cache_checks_same_revision_storage_drift(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation import repository
+    from application_state.errors import ApplicationStateIntegrityError, ApplicationStateNotFoundError
+    from application_state.unit_of_work import unit_of_work
+
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+                       authored_source="section")
+    world, conversation = case.world, case.turn.conversation_id
+    turn_id = case.turn.turn_id
+    before = case.service.list_turns(world, conversation, limit=6)
+    expected = [item for turn in before if (item := repository._build_dialogue_item(turn)) is not None]
+    hydrated = []
+    decode = repository._turn_from_row
+
+    def count(conn, row, **fields):
+        hydrated.append(row["turn_id"])
+        return decode(conn, row, **fields)
+
+    monkeypatch.setattr(repository, "_turn_from_row", count)
+    projected = case.service.list_build_dialogue(world, conversation)
+    assert projected == expected and hydrated.count(turn_id) == 1
+    projected[-1]["assistant"] = "Caller mutation"
+    assert case.service.list_build_dialogue(world, conversation) == expected
+    assert hydrated.count(turn_id) == 1
+    with pytest.raises(ApplicationStateNotFoundError):
+        case.service.list_build_dialogue("foreign-world", conversation)
+
+    with unit_of_work() as conn:
+        conn.execute("UPDATE agent.turn SET assistant_text=%s WHERE turn_id=%s",
+                     ("Changed outside the normal storage owner", turn_id))
+    with pytest.raises(ApplicationStateIntegrityError, match="producing output"):
+        case.service.list_build_dialogue(world, conversation)
+    assert hydrated.count(turn_id) == 2
+
+
 def test_human_source_is_required_even_when_optional_bodies_are_irrelevant(lane,tmp_path,monkeypatch):
     _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,
         native_body='irrelevant',authored_source='section')
