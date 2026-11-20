@@ -1,6 +1,6 @@
 # Native World Threat draft revision admission
 
-Status: ACTIVE. Owner MIND; operator-authorized full vNext lane, including design,
+Status: COMPLETE — accepted implementation; merge pending. Owner MIND; operator-authorized full vNext lane, including design,
 implementation, independent review and merge. Serial successor to PR4232, merged
 430e43e6bac72f2e9994ed51914e80ef6d5ffa5b. Branch
 codex/v10-native-threat-draft-admission, existing task Buddy checkout. Pin this
@@ -54,3 +54,66 @@ This prerequisite does not complete V10 or cutover. Next remains reachable
 classic Threat publication retirement/history-only recovery, then remaining
 public writer retirement, deployment/rollback and V11 acceptance. Missing
 historical outcomes must never trigger fresh publication or automatic reprepare.
+
+## Accepted implementation and evidence
+
+PR #4233. Exact accepted source: `947d7d3e75576f1daba64259540a52f4d9ade036`.
+Independent Aristotle review: `5991870072`, bounded ACCEPT. Base remains
+`430e43e6bac72f2e9994ed51914e80ef6d5ffa5b`; pinned initial brief `9fff44cce`.
+No runtime, dependency, schema or UI changes beyond the leased admission helper.
+
+- Owning mounted/SQL cohort: 75 passed.
+- Native contract cohort: 96 passed.
+- Preservation cohort: 376 passed.
+- Authorization cohort: 316 passed.
+
+All four cohorts have zero failures, errors or skips and unchanged clean source.
+The real installed-Core SQL witness publishes only during fixture setup, advances
+its native head, then exercises mounted POST and PUT using the earlier pin. It
+requires one exact native lookup per request, forbids classic/head/source-view/
+publication access and compares counts plus hashes of every Core table before
+and after each draft write. The space has no classic revision/head state.
+
+Official exact-head hosted verifier: 1,412 selected passes, 147 filtered; parity,
+build and canonical validator exit 0. Temporary root removal was independently
+confirmed. This is a bounded hosted sample, not full-discovered frontend release
+qualification. No frontend change justified repeating the retained red diagnostic.
+Installed package files match accepted pins before and after: Core 179 + DND 39
+at `d206e56a9aa34ae6eb6cc7ac61980a7ac8919c4d`, WK 14 at
+`348c0dbf5156e7e7d5d951de90b9086501fc834f`. No dependency sync occurred.
+
+The first source `da35a4f618b7a342d36c5c879c52afd848409ecd` produced 74 passes
+and one new SQL fixture failure: the published stored envelope requires
+`later.revision.revision_id`, not `later.revision_id`. That failed proof is
+retained; accepted947 corrects only that assertion. No test was deleted or skipped.
+The route passes Ruff; test-file F811 (imported hosted fixture) and E702 (existing
+semicolon) independently exist at the base and remain explicitly inherited.
+
+Evidence owner MIND retains
+`/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v10-native-threat-draft-admission/`
+with `qualification-947d7d3e.json`, backend JSON/XML/logs, installed before/after
+audits, both original/corrected hosted receipts and `continuation.json`.
+Backend handle75753 and both hosted handles31524/38362 are terminal. All four
+recorded backend child PIDs are absent. Fixture-owned database teardown passed;
+exact owning-Core database names were not retained, so do not claim independently
+verified absence for those names or zero clients before their fixture drop.
+Readers/teardown do not establish global database cleanup authority.
+
+## Resource and continuation disposition
+
+No new manual worktree, mirror or environment. Retain the existing Buddy checkout,
+accepted runtime cache and this slice's scratch (4,031,508 bytes at the recorded
+pre-seal inventory) for MIND's active full goal. Official temporary verifier roots
+were removed by their owning verifier on the verified Projects filesystem;
+reclaimed bytes were not measured. No manual artifact deletion occurred. Cleanup
+follow-up after active use ends: inspect processes, mounts, dirty worktrees and
+unique commits, then obtain scoped deletion authority. The cache and prior lanes'
+evidence remain owned by their original tasks; do not blanket-clean them.
+
+The next consuming slice must settle this PR's actual merge anchor and replace
+this merge-pending field. Next: retire mounted classic Threat publication actions
+and matching UI controls while preserving V1 mechanics and recorded history.
+Unresolved historical outcomes stay unresolved; retained identifiers must never
+be cleared into permission for a fresh publication. Library writer retirement,
+deployment, later-write-safe rollback and V11 remain outstanding. Serving builds
+were not changed and the frozen retrieval baseline was not rerun.
