@@ -1139,7 +1139,7 @@ async def resolve_hosted_build_page_inventory(request: Request) -> str:
     selectors = request.query_params.getlist("world_id")
     if len(selectors) != 1 or not selectors[0] or await request.body():
         raise _denied()
-    world = _owned_world(subject, selectors[0])
+    world = await run_in_threadpool(_owned_world, subject, selectors[0])
     request.state.hosted_build_page_inventory_world = world.world_id
     return world.world_id
 
@@ -1227,7 +1227,7 @@ async def hosted_owner_collection(request: Request) -> dict:
         or await request.body()
     ):
         raise _denied()
-    return revalidate_hosted_owner_collection(request)
+    return await run_in_threadpool(revalidate_hosted_owner_collection, request)
 
 
 def revalidate_hosted_owner_collection(request: Request) -> dict:

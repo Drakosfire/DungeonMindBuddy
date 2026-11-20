@@ -13,13 +13,14 @@ import copy
 import json
 from io import BytesIO
 from pathlib import Path
+from threading import get_ident
 from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
 import pytest
 from pypdf import PdfWriter
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from application_state import pdf_statblock_review
 from apps.live_control_server.routes.agent import (
@@ -6604,3 +6605,39 @@ def test_build_recap_launch_reauthorizes_before_reserving_run(monkeypatch, tmp_p
     assert denied.value.status_code == 403
     assert register.call_args.kwargs["authorize"] is authorize
     reserve.assert_not_called()
+
+def test_hosted_catalog_authorizers_run_blocking_reads_off_event_loop(monkeypatch):
+    async def run():
+        event_loop_thread = get_ident()
+        catalog_threads = []
+
+        def owner_collection(_request):
+            catalog_threads.append(get_ident())
+            return {"records": []}
+
+        def owned_world(_subject, world_id):
+            catalog_threads.append(get_ident())
+            return SimpleNamespace(world_id=world_id)
+
+        def get_request(path, query=b""):
+            async def receive():
+                return {"type": "http.request", "body": b"", "more_body": False}
+
+            return Request(
+                {"type": "http", "path": path, "method": "GET", "query_string": query, "headers": []},
+                receive,
+            )
+
+        monkeypatch.setattr(access, "_hosted_subject", lambda _request: "test-subject")
+        monkeypatch.setattr(access, "revalidate_hosted_owner_collection", owner_collection)
+        monkeypatch.setattr(access, "_owned_world", owned_world)
+
+        collection = await access.hosted_owner_collection(get_request(access.WORLD_COLLECTION_PATH))
+        inventory = get_request(access.BUILD_PAGE_INVENTORY_PATH, b"world_id=elderwyld")
+        assert await access.resolve_hosted_build_page_inventory(inventory) == "elderwyld"
+        assert inventory.state.hosted_build_page_inventory_world == "elderwyld"
+        assert collection == {"records": []}
+        assert len(catalog_threads) == 2
+        assert all(thread != event_loop_thread for thread in catalog_threads)
+
+    asyncio.run(run())
