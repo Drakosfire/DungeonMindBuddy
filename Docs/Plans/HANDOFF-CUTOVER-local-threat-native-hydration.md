@@ -46,3 +46,11 @@ expected native World and binding version as correspondence conditions.
 Existing callers without captured binding can omit both. The UI sends both.
 The server derives authority from its registry and checks the expected
 binding before reading Core, then preserves the existing final recheck.
+
+## Delivered
+
+PR #4251 merged at 4e22cd3f9487b84f449d84e673cc8fb257fedb3c after review
+5996296631 and three successful GitHub checks. Source 861c3a11 passed
+60 owning and 335 authorization tests. Hosted UI passed 1,421 and built.
+Full UI reproduced the base's 103 failures and two pending cases, with
+one added test and no removals. Full release qualification remains open.
