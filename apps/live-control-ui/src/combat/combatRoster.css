@@ -116,3 +116,113 @@
 @media (max-width:640px) {
   .manual-combat-table .manual-combat-participant,.manual-combat-table thead th:first-child { position:static; }
 }
+
+.combat-roster-active-toolbar {
+  position:sticky;
+  top:0;
+  z-index:3;
+  padding:.35rem 0;
+  align-items:center;
+  background:var(--ui-background-app);
+}
+.native-combat-surface .combat-roster-active-toolbar { top:var(--app-chrome-top); }
+.combat-roster-active-toolbar > label { flex:0 1 15rem; }
+.combat-roster-active-toolbar > .combat-roster-turn-rail {
+  position:static;
+  display:flex;
+  flex:1 1 auto;
+  flex-wrap:wrap;
+  align-items:center;
+  margin:0;
+  padding:0;
+  gap:.35rem;
+}
+.combat-roster-active-toolbar > .combat-roster-turn-rail > div {
+  flex:0 1 auto;
+  min-width:0;
+  padding:.25rem .4rem;
+  overflow-wrap:anywhere;
+}
+.combat-roster-notes textarea { field-sizing:content; overflow-wrap:anywhere; }
+
+.combat-start-workspace {
+  display:grid;
+  grid-template-columns:minmax(0, 3fr) minmax(0, 1fr);
+  gap:.75rem;
+  margin-block:.75rem;
+}
+.combat-start-roster, .combat-start-source {
+  min-width:0;
+  border:1px solid var(--ui-border-subtle);
+  border-radius:var(--ui-radius-md);
+  background:var(--ui-background-app);
+}
+.combat-start-columns {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:.5rem;
+  padding:.65rem;
+  background:var(--ui-background-chrome);
+  overflow-wrap:anywhere;
+}
+.combat-start-card {
+  margin:clamp(.5rem, 2vw, 2rem);
+  padding:clamp(.75rem, 2vw, 1.5rem);
+  background:#f7ebd7;
+  color:#302316;
+  border:1px solid #c0ad6a;
+  border-radius:var(--ui-radius-md);
+}
+.combat-start-card h3, .combat-start-source h3 { margin:0; }
+.combat-start-fields { display:flex; flex-wrap:wrap; gap:.6rem; align-items:end; margin-top:.6rem; }
+.combat-start-fields label, .combat-start-card > label { display:grid; gap:.25rem; min-width:0; }
+.combat-start-fields input, .combat-start-card select { max-width:100%; }
+.combat-start-source { padding:.75rem; color:var(--ui-text-secondary); }
+@media (max-width:700px) {
+  .combat-start-workspace { grid-template-columns:minmax(0,1fr); }
+}
+
+.combat-start-roster .combat-roster-table {
+  width:100%;
+  min-width:0;
+  table-layout:fixed;
+  font-size:.875rem;
+}
+.combat-start-roster .combat-roster-table :is(th, td) {
+  padding:.35rem;
+  overflow-wrap:anywhere;
+}
+
+.combat-roster-workspace .combat-roster-table {
+  min-width:0;
+  table-layout:fixed;
+  font-size:.875rem;
+}
+.combat-roster-workspace .combat-roster-table :is(th, td) {
+  padding:.35rem;
+  overflow-wrap:anywhere;
+}
+.combat-roster-workspace .combat-roster-table thead th:nth-child(1) { width:9%; }
+.combat-roster-workspace .combat-roster-table thead th:nth-child(2) { width:18%; }
+.combat-roster-workspace .combat-roster-table thead th:nth-child(3),
+.combat-roster-workspace .combat-roster-table thead th:nth-child(4) { width:6%; }
+.combat-roster-workspace .combat-roster-table thead th:nth-child(5) { width:13%; }
+.combat-roster-workspace .combat-roster-table thead th:nth-child(6) { width:13%; }
+.combat-roster-workspace .combat-roster-table thead th:nth-child(7) { width:23%; }
+.combat-roster-workspace .combat-roster-table .combat-roster-participant,
+.combat-roster-workspace .combat-roster-table textarea { min-width:0; }
+.combat-roster-workspace .combat-roster-table :is(input:not([type=checkbox]), select, button, textarea) {
+  max-width:100%;
+  min-width:0;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.combat-roster-workspace .combat-roster-order-controls { flex-wrap:wrap; }
+.combat-roster-workspace .combat-roster-delta-controls {
+  grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
+}
+.combat-roster-workspace .combat-roster-health .combat-roster-short-input { width:42%; }
+.combat-roster-workspace .combat-roster-temp .combat-roster-short-input { flex:1; }
+@container (max-width:48rem) {
+  .combat-roster-workspace-layout > .combat-roster-table-wrap .combat-roster-table { min-width:45rem; }
+}

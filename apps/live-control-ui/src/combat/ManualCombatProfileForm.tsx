@@ -1,8 +1,8 @@
-import {useState} from 'react';
+import {useState, type ReactNode} from 'react';
 import type {ManualCombatProfile} from './ManualCombatTypes';
 
 /** Profile descriptors are frozen by creation, so every participant shares them. */
-export function ManualCombatProfileForm({disabled,onCreate}:{disabled:boolean;onCreate:(title:string,profile:ManualCombatProfile)=>Promise<void>}) {
+export function ManualCombatProfileForm({disabled,onCreate,inline=false}:{disabled:boolean;inline?:boolean;onCreate:(title:string,profile:ManualCombatProfile)=>Promise<void>}) {
   const [title,setTitle]=useState('Crossing under pressure');
   const [system,setSystem]=useState('Crossing');
   const [rounds,setRounds]=useState(false);
@@ -21,7 +21,7 @@ export function ManualCombatProfileForm({disabled,onCreate}:{disabled:boolean;on
       pacing:pacing==='ordered'?{mode:'ordered',rounds}:{mode:pacing,rounds:false},
     });setExpanded(false);}catch(caught){setError(String(caught));}finally{setBusy(false);}
   }
-  return <details className="manual-combat-profile" open={expanded} onToggle={event=>setExpanded(event.currentTarget.open)}><summary>Create for another system</summary>
+  const fields: ReactNode = <>
     <p>Choose the values your table uses. This profile is pinned when the encounter is created; participant values remain editable.</p>
     <fieldset disabled={disabled||busy}><legend>Encounter profile</legend>
       <label>Encounter name<input maxLength={160} value={title} onChange={event=>setTitle(event.target.value)}/></label>
@@ -43,5 +43,10 @@ export function ManualCombatProfileForm({disabled,onCreate}:{disabled:boolean;on
       <button type="button" disabled={resources.length>=16} onClick={()=>setResources(items=>[...items,{id:crypto.randomUUID(),label:''}])}>Add resource</button>
       <button type="button" disabled={!title.trim()||!system.trim()||[...stats,...resources].some(field=>!field.label.trim())} onClick={()=>void create()}>{busy?'Creating…':'Create manual encounter'}</button>
     </fieldset>{error&&<p role="alert">{error}</p>}
+  </>;
+  if (inline) return <div className="manual-combat-profile">{fields}</div>;
+  return <details className="manual-combat-profile" open={expanded} onToggle={event=>setExpanded(event.currentTarget.open)}>
+    <summary>Create for another system</summary>
+    {fields}
   </details>;
 }
