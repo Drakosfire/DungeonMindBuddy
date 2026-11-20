@@ -37,6 +37,13 @@ Graph head, or authorize public/anonymous access.
   activation, inspect its current head and active write lease; serialize or use
   an explicitly agreed region split. No dependency on its draft head is implied
   merely by a file overlap.
+- Re-anchor at `4715f169d28f2fc6cade2f883fba4730b67445e8`: #3824 head
+  `76c31187f3e9badecbc403f2d9c943994c5f5f9c` remains an open integration draft.
+  `HANDOFF-BUDDY-v9-registered-world-fixture.md` explicitly records that #3824
+  is not itself an exclusive bounded lease. Its own active lease is limited to
+  one named test function and its handoff; avoid that test region. Draft overlap
+  therefore requires reconciliation but does not by itself block a separate
+  bounded lane. Recheck actual leases and the draft before activation.
 
 ## Proposed bounded delivery
 
