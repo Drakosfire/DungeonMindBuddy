@@ -136,6 +136,7 @@
       "apps/live-control-ui/src/combat/CombatMechanicsInspection.test.tsx",
       "apps/live-control-ui/src/combat/CombatRosterTable.test.tsx",
       "apps/live-control-ui/src/combat/CombatRosterWorkspace.test.tsx",
+      "apps/live-control-ui/src/combat/CombatSurfacePage.test.tsx",
       "apps/live-control-ui/src/combat/PlanSceneEncounter.test.tsx",
       "apps/live-control-ui/src/combat/PlanSceneEncounter.tour.test.tsx",
       "apps/live-control-ui/src/combat/RunSceneEncounter.test.tsx",

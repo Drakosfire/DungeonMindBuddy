@@ -1,5 +1,6 @@
 import {stepCombatTurn} from "../../combat/combatTurn";
 import {CombatSamplePreview} from "../../combat/CombatSamplePreview";
+import {combatEncounterHref} from "../../combat/combatEncounterLocation";
 import type {SavedConversationVariantTarget} from '../../statblocks/savedStatblockLocation';
 import {useTourNavigationGuard} from '../../guidedTour/Navigation';
 import {useTourEncounter,type TourEncounterScope} from '../../guidedTour/EncounterScope';
@@ -677,6 +678,9 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
             <button type="button" disabled={showSample || operationsBlocked || manualRecord?.encounter_id===selectedEncounterId || !visibleEncounters.some((item) => item.encounter_id === selectedEncounterId) || dirty} onClick={() => void openEncounter()}>
               Open
             </button>
+            {preparedRecord && !preparedBlocked && !showSample && <a href={combatEncounterHref({
+              worldId: preparedRecord.world_id, encounterId: preparedRecord.encounter_id,
+            })}>Encounter link</a>}
             {!showSetup && dndSetup}
             </>}
             {!manualRecord&&<><button type="button" disabled={operationsBlocked || (!dirty && !pendingSave.current)} onClick={() => void saveEncounter()}>
