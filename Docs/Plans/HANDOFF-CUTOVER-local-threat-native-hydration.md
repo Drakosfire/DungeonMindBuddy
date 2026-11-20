@@ -25,3 +25,16 @@ hydration. Prove there is no mounted fallback to classic projection and
 saved V1 mechanics still read from the exact saved revision. Run focused
 backend and app authorization checks, plus affected UI tests if client
 changes are required. Independently review the final source before merge.
+
+## UI scope after caller audit
+
+Graph reference scopes contain native World IDs. Threat hover and sheet
+requests need the managed ID from a verified matching projection binding.
+The response remains keyed to the requested managed ID. Keep native ID,
+campaign, revision and binding generation in UI cache and in-flight
+identity. A missing or mismatched binding fails closed.
+
+MIND owns the two Threat mechanics hooks, threatSheetViewModel.ts and
+their existing tests for this adaptation. Inspect alternate scope
+producers before editing them. The change ships with the route switch
+because the old UI request cannot reliably address a managed World.
