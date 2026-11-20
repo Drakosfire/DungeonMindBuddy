@@ -1,6 +1,7 @@
 # Native World Threat draft revision admission
 
-Status: COMPLETE — accepted implementation; merge pending. Owner MIND; operator-authorized full vNext lane, including design,
+Status: COMPLETE — accepted and merged as PR #4233 at
+`43c39419cb9024054d6ef78db99746111f04178b`. Owner MIND; operator-authorized full vNext lane, including design,
 implementation, independent review and merge. Serial successor to PR4232, merged
 430e43e6bac72f2e9994ed51914e80ef6d5ffa5b. Branch
 codex/v10-native-threat-draft-admission, existing task Buddy checkout. Pin this
@@ -117,3 +118,15 @@ Unresolved historical outcomes stay unresolved; retained identifiers must never
 be cleared into permission for a fresh publication. Library writer retirement,
 deployment, later-write-safe rollback and V11 remain outstanding. Serving builds
 were not changed and the frozen retrieval baseline was not rerun.
+
+## Consuming-slice merge settlement
+
+PR #4233 merged at `43c39419cb9024054d6ef78db99746111f04178b`, guarded against
+accepted seal `10b1268c61dd3969c124fbaf1a8c2e189e6a9422`. Merge tree equals seal
+tree `9d584cd2e39983f5363ea960e3619c8099979e8e`; the merged commit itself was not
+executed. Tested source remains947. Source/evidence review5991870072 and seal
+review5991887202 accepted; CI44726857918 completed successfully (inventory and
+frontend-discovery). Independent Hubble audit also verified eight attributable
+native-cohort databases absent, with zero-client lifecycle records. Exact owning
+Core names were not retained, so their claim remains successful teardown only.
+This settles the merge-pending facts above; it does not broaden the acceptance.
