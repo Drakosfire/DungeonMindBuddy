@@ -385,14 +385,6 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     }
   }, [selectedWorldId]);
 
-  useEffect(() => {
-    setDocuments(null);
-    setCampaignTags([]);
-    setDocumentCursor(null);
-    void refreshDocuments();
-    void refreshManagedWorlds();
-  }, [refreshDocuments, refreshManagedWorlds]);
-
   const loadBuildDocument = useCallback(
     async (
       search: string,
@@ -526,18 +518,34 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    let active = true;
+    setDocuments(null);
+    setCampaignTags([]);
+    setDocumentCursor(null);
+    setListStatus("loading");
+
     const sync = () => {
       createControllerRef.current.supersedePendingCreateIntent();
-      void loadBuildDocument(window.location.search, { mode: "history" });
+      return loadBuildDocument(window.location.search, { mode: "history" });
     };
-    sync();
+    const refreshLists = () => {
+      if (!active) return;
+      void refreshDocuments();
+      void refreshManagedWorlds();
+    };
+    const openingDocument = readDocumentIdFromSearch(window.location.search);
+    const initialOpen = sync();
+    if (openingDocument) void initialOpen.then(refreshLists);
+    else refreshLists();
+
     window.addEventListener("popstate", sync);
     return () => {
+      active = false;
       window.removeEventListener("popstate", sync);
       documentLoadGenerationRef.current += 1;
       selectorListGenerationRef.current += 1;
     };
-  }, [loadBuildDocument]);
+  }, [loadBuildDocument, refreshDocuments, refreshManagedWorlds]);
 
   const selectDocument = useCallback(
     async (documentId: string, isCurrent:()=>boolean = ()=>true, expected?:{worldId:string;revision:number;digest:string}) => {

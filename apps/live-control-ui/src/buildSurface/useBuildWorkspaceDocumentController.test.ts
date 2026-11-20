@@ -162,6 +162,31 @@ describe("useBuildWorkspaceDocumentController", () => {
     expect(liveApi.listWorkspacePageInventory).toHaveBeenCalledTimes(1);
   });
 
+  it.each([true, false])("opens a saved document before starting lists (found: %s)", async (found) => {
+    let resolve!: (value: ReturnType<typeof mockSnapshot>) => void;
+    let reject!: (reason: Error) => void;
+    const snapshot = new Promise<ReturnType<typeof mockSnapshot>>((accept, fail) => {
+      resolve = accept;
+      reject = fail;
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockReturnValueOnce(snapshot);
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    expect(liveApi.getWorkspaceDocumentSnapshot).toHaveBeenCalledWith(DOC_A);
+    expect(liveApi.listWorkspacePageInventory).not.toHaveBeenCalled();
+    expect(liveApi.listWorldContainers).not.toHaveBeenCalled();
+
+    await act(async () => {
+      if (found) resolve(mockSnapshot(DOC_A));
+      else reject(new Error("Unavailable"));
+    });
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+    expect(result.current.loadStatus).toBe(found ? "ready" : "error");
+    expect(liveApi.listWorkspacePageInventory).toHaveBeenCalledTimes(1);
+    expect(liveApi.listWorldContainers).toHaveBeenCalledTimes(1);
+  });
+
   it("admits document from URL and canonicalizes campaign", async () => {
     vi.mocked(liveApi.getCommittedPageSnapshot).mockResolvedValue(
       mockSnapshot(DOC_A, { campaign_id: "longmont-c1" }),
