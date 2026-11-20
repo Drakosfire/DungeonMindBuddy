@@ -2083,7 +2083,9 @@ describe("StatblockWorkbenchModule", () => {
       });
 
       cleanup();
-      await loadId(candidateId);
+      render(<StatblockWorkbenchModule />);
+      await waitFor(() => expect(screen.getByPlaceholderText("cand_…")).toHaveProperty("value", candidateId));
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
       await waitFor(() => expect(screen.getByText(/Mechanics saved; not published/i)).toBeTruthy());
       expect(readSavedOperation).toHaveBeenCalledWith(savedDraft, saved.operation_id);
       const locator = screen.getByTestId("accept-mechanics-locator");
