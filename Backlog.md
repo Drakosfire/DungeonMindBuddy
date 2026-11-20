@@ -380,3 +380,11 @@ a prototype is not a new durable authority.
 **Action:** Build a benchmark suite with saved pages containing images, passages, headings, tables, and statblocks. Label the intended element or the expected clarification for requests that refer to position, captions, names, prior context, or the current selection. Include requests with no selection, duplicate labels, nested layouts, ambiguous targets, and missing targets.
 **Verification:** Report correct target selection, unnecessary clarifications, confident wrong-target choices, and latency. Check that Buddy can use the intended element through normal Send and that a missing or ambiguous target cannot silently become an edit to a different element.
 **Surfaces when:** Build or shared page-context selection, image references, or agent authoring benchmarks begin.
+
+## [IDEA] Hide provisional World state from users — captured 2026-11-20
+
+**Context:** Buddy Cloud Pilot could save Build and Plan documents while Graph, Play, and Combat Tracker exposed internal Graph provisioning and publication states.
+**Insight:** Provisional state is useful for backend lifecycle management and provenance. A user should see a World and the actions available in it. An empty World should feel ready to start.
+**Action:** Audit World creation, navigation, and empty states across Buddy. Keep provisioning and provenance in backend records and operator diagnostics. Hide provisional labels and internal publication states from the normal workspace. When setup prevents an action, show the next step the user can take, or explain when to retry.
+**Verification:** Open a new World before and after its first Graph publication. Check that user-facing surfaces show an inviting empty state or actionable feedback and that operators can still inspect the underlying state and provenance.
+**Surfaces when:** World onboarding, first Graph publication, or empty states across Buddy are being changed.
