@@ -13,6 +13,8 @@ LIVE_SESSION_FIXTURE = ROOT / "evals/c2_live_prep/live/session_22"
 
 
 def _temp_live_session(tmp_path: Path, monkeypatch) -> Path:
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
     session_dir = tmp_path / "session_22"
     session_dir.mkdir()
     for filename in (
@@ -126,7 +128,7 @@ def test_npc_corpus_index_endpoint_uses_repo_corpus(tmp_path: Path, monkeypatch)
         campaign_id=None,
     )
 
-    client = TestClient(create_app())
+    client = TestClient(create_app(), client=("127.0.0.1", 50000))
     response = client.get("/api/live/npcs/index")
 
     assert response.status_code == 200
@@ -139,7 +141,7 @@ def test_npc_corpus_index_endpoint_uses_repo_corpus(tmp_path: Path, monkeypatch)
 def test_npc_corpus_index_endpoint_on_real_repo(tmp_path: Path, monkeypatch) -> None:
     _temp_live_session(tmp_path, monkeypatch)
     monkeypatch.setattr("apps.live_control_server.routes.live.repo_root", lambda: ROOT)
-    client = TestClient(create_app())
+    client = TestClient(create_app(), client=("127.0.0.1", 50000))
 
     response = client.get("/api/live/npcs/index")
 
@@ -166,7 +168,7 @@ def test_npc_corpus_index_does_not_expose_secrets(tmp_path: Path, monkeypatch) -
         campaign_id=None,
     )
 
-    client = TestClient(create_app())
+    client = TestClient(create_app(), client=("127.0.0.1", 50000))
     response = client.get("/api/live/npcs/index")
 
     assert response.status_code == 200
