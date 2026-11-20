@@ -28,8 +28,14 @@ def build(root, case, *, world, question):
     summarize_host_trace(detail, ready, terminal)
     browser_file = capture / "browser-timing.json"
     browser = read(browser_file) if browser_file.is_file() else None
-    if browser is not None and browser["request"] != read(capture / case / "request.json"):
-        raise ValueError("Browser clock capture has a different case request")
+    if browser is not None:
+        from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
+        request_body = browser["request"]
+        if (request_body != read(capture / case / "request.json")
+                or request_body["owner_scope"]["world_id"] != turn.world_id
+                or request_body["message"] != turn.user_text
+                or _turn_idempotency_key(turn.world_id, request_body["turn_id"]) != turn.idempotency_key):
+            raise ValueError("Browser clock capture has a different durable case request")
     if detail["truncated"]:
         raise ValueError("Cannot attribute a truncated trace")
     bounds = browser["before"] + browser["after"] if browser is not None else [(0, 0)]
@@ -54,6 +60,8 @@ def build(root, case, *, world, question):
         spans += [("browser Send handling", click, request), ("browser to ASGI transit", request, ingress)]
     for entry in marks.get("preflight", []):
         first, last = tick(entry["start"]), min(request, tick(entry["end"]))
+        if not click <= first <= request or last < first:
+            raise ValueError("Browser preflight starts outside Send preparation")
         if first < last:
             spans.append(("browser " + entry["phase"], first, last))
     wire_path = root / "jev-transport-intervals.json"

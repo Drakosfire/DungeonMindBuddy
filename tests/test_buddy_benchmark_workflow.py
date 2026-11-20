@@ -1256,3 +1256,30 @@ def test_trace_report_counts_overlapping_spans_once(tmp_path, monkeypatch):
     assert "Question" not in rendered
     with pytest.raises(ValueError, match="differs from the manifest case"):
         trace_report.build(tmp_path, "example", world="elsewhere", question="Question")
+
+
+def test_trace_report_binds_browser_clock_to_durable_turn(tmp_path, monkeypatch):
+    from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
+    from evals.buddy_benchmark import trace_report
+
+    case = tmp_path / "example"
+    case.mkdir()
+    request = {"owner_scope": {"world_id": "world"}, "message": "Question", "turn_id": "browser-turn"}
+    for name in ("context-ready", "context-request", "context-stop"):
+        immutable_save(case, name, {})
+    immutable_save(case, "request", request)
+    immutable_save(case, "detailed-host-trace", {"trace_id": "trace", "truncated": False,
+        "start_monotonic_ns": 3_000_000, "end_monotonic_ns": 5_000_000, "intervals": []})
+    turn = SimpleNamespace(world_id="world", user_text="Question",
+                           idempotency_key=_turn_idempotency_key("world", "other-turn"))
+    monkeypatch.setattr(trace_report, "validate_context_packet", lambda *args: {
+        "turn": turn, "request_to_ready_ms": 2,
+    })
+    monkeypatch.setattr(trace_report, "summarize_host_trace", lambda *args: None)
+    immutable_save(tmp_path, "browser-timing", {"request": request, "before": [[0, 0]], "after": [[0, 0]],
+        "browserMarks": {"click": 1, "request": 2, "preflight": [{"start": 0, "end": 2, "phase": "invalid"}]}})
+    with pytest.raises(ValueError, match="different durable case request"):
+        trace_report.build(tmp_path, "example", world="world", question="Question")
+    turn.idempotency_key = _turn_idempotency_key("world", "browser-turn")
+    with pytest.raises(ValueError, match="outside Send preparation"):
+        trace_report.build(tmp_path, "example", world="world", question="Question")
