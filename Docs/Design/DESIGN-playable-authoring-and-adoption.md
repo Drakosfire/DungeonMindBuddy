@@ -186,6 +186,16 @@ The GM can:
 
 Scene is the normal table workspace in Play, but remains durably owned by its Beat.
 
+Read Aloud is spoken player-facing prose. GM Note is a private cue, condition,
+or reminder. Buddy should infer these roles from what the GM wants to do and
+leave ordinary exposition as prose. Build, Plan, and Play writers share the
+[callout writing guidance](../../apps/live_control_server/services/semantic_block_writing.py)
+for existing semantic Markdown markers. Rewrites preserve the block kind and
+title unless the GM requests a change. Each surface still owns the selected
+target, review and save behavior. See the
+[semantic block benchmark](../../evals/semantic-block-authoring-benchmark.md)
+for normal requests and round-trip controls.
+
 ### 4.3 Consequence authoring
 
 Consequences remain authored outcome framing, not a rules engine.
@@ -232,6 +242,7 @@ The first implementation does not add boolean expressions (`A && B && !C`), arbi
 If players later choose something outside all authored Options, Runtime need not fabricate a selection. A later deliberate authoring/Agent proposal may add a new Option through the normal WorkRevision path.
 
 ---
+
 
 ## 5. References and unexpected-play preparation
 

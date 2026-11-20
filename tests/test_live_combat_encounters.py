@@ -85,6 +85,28 @@ def test_create_rejects_blank_campaign_before_database_write(
     assert after.json() == before.json() == []
 
 
+def test_create_preserves_explicit_dnd5e_and_legacy_ruleset_pins(client) -> None:
+    test_client, _ = client
+    legacy = _create(test_client)
+    query = {"world_id": "elderwyld"}
+    base = "/api/live/combat/encounters"
+    response = test_client.post(base, params=query, json={
+        "title": "Mireward Reach Wall", "campaign_id": "longmont-c2", "session": 26,
+        "ruleset_id": "dnd5e.manual-tracking",
+    })
+    assert response.status_code == 200, response.text
+    dnd = response.json()
+    assert dnd["ruleset"]["config_id"] == "dnd5e.manual-tracking"
+    assert dnd["ruleset"]["system_id"] == "dnd5e"
+    assert dnd["ruleset"]["edition_id"] == "5e"
+    assert legacy["ruleset"]["config_id"] == "generic.manual-tracking"
+    assert dnd["ruleset_digest"] != legacy["ruleset_digest"]
+    for record in (dnd, legacy):
+        exact = test_client.get(f"{base}/{record['encounter_id']}", params=query)
+        assert exact.status_code == 200, exact.text
+        assert exact.json() == record
+
+
 def test_world_scoped_encounter_http_create_open_save_and_conflict(client) -> None:
     test_client, resolutions = client
     created = _create(test_client)
@@ -458,3 +480,69 @@ def test_manual_world_identity_cannot_claim_mechanics(client, monkeypatch, field
     refused = test_client.put(path,json={"expected_revision":1,"draft":{**created["draft"],"entities":[actor]}})
     assert refused.status_code == 422, refused.text
     assert test_client.get(path).json() == created
+
+
+def test_registered_corpus_sheet_is_exact_and_scoped_to_saved_participant(client, tmp_path) -> None:
+    from hashlib import sha256
+    from application_state.world_catalog.service import create_world
+    from apps.live_control_server.services.source_artifact_registry import create_source_artifact_from_workspace_document
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWriteCommitRequest,
+        TiptapMarkdownWritePrepareRequest,
+        commit_tiptap_markdown_write,
+        prepare_tiptap_markdown_write,
+    )
+    from apps.live_control_server.services.workspace_document_registry import create_workspace_document
+
+    test_client, _ = client
+    world = "elderwyld"
+    create_world(name="Elderwyld")
+    page = create_workspace_document(
+        tmp_path, title="Recorded sheet", kind="worldbuilding_source", world_id=world,
+        campaign_id="longmont-c2", source_domain="worldbuilding", document_class="lore",
+        authority_state="draft", visibility_state="internal",
+    )
+    markdown = "# Recorded sheet\n\nExactly recorded abilities.\n"
+    digest = sha256(markdown.encode()).hexdigest()
+    write = dict(document_id=page.document_id, markdown=markdown, expected_revision=1, write_mode="source_import")
+    prepared = prepare_tiptap_markdown_write(root=tmp_path, request=TiptapMarkdownWritePrepareRequest(**write))
+    commit_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWriteCommitRequest(**write, writer_confirm_token=prepared.writer_confirm_token),
+    )
+    source = create_source_artifact_from_workspace_document(
+        tmp_path, document_id=page.document_id, expected_revision=2, expected_content_sha256=digest,
+    )
+
+    record = _create(test_client)
+    base = f"/api/live/combat/encounters/{record['encounter_id']}"
+    sheet = f"{base}/participants/keeper/corpus-sheet"
+    draft = record["draft"]
+    draft["entities"] = [{
+        "id": "keeper", "name": "Keeper", "order": 1, "source": "imported",
+        "statblock_artifact_id": source.source_artifact_id, "corpus_fingerprint": "0" * 64, "hp": 4,
+    }]
+    query = {"world_id": world}
+    assert test_client.put(base, params=query, json={"expected_revision": 1, "draft": draft}).status_code == 422
+    draft["entities"][0]["corpus_fingerprint"] = digest
+    saved = test_client.put(base, params=query, json={"expected_revision": 1, "draft": draft})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["draft"]["entities"][0]["hp"] == 4
+
+    read = test_client.get(sheet, params=query)
+    assert read.status_code == 200, read.text
+    assert read.headers["cache-control"] == "private, no-store"
+    assert read.json() == {
+        "participant_id": "keeper", "source_artifact_id": source.source_artifact_id,
+        "content_sha256": digest, "markdown": markdown,
+    }
+    assert test_client.get(sheet.replace("/keeper/", "/missing/"), params=query).status_code == 404
+    assert test_client.get(sheet, params={"world_id": "other-world"}).status_code == 404
+    assert test_client.get(sheet, params=query, headers={"Authorization": ""}).status_code in (401, 403)
+
+    other = test_client.post("/api/live/combat/encounters", params={"world_id": "other-world"}, json={"title": "Other"})
+    other_base = f"/api/live/combat/encounters/{other.json()['encounter_id']}"
+    refused = test_client.put(
+        other_base, params={"world_id": "other-world"}, json={"expected_revision": 1, "draft": draft},
+    )
+    assert refused.status_code == 404, refused.text

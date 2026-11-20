@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {testCombatLocks} from "../../combat/combatRecovery.testSupport";
+import {combatRecoveryKey, combatSelectionKey} from "../../combat/combatRecovery";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
@@ -279,6 +280,50 @@ describe("CombatRosterModule", () => {
     expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
   });
 
+  it("runs sample turns without an encounter write until explicitly kept", async () => {
+    vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockResolvedValue([]);
+    const created = record({draft: {...record().draft, title: "Crossing at dusk", entities: []}});
+    const create = vi.spyOn(combatApi, "createWorldCombatEncounter").mockResolvedValue(created);
+    const save = vi.spyOn(combatApi, "saveWorldCombatEncounter");
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", {name: "Load sample"}));
+    await userEvent.click(screen.getByRole("button", {name: "Next turn"}));
+    expect(screen.getByText("Round 1 · Harbor Brute")).toBeVisible();
+    expect(create).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", {name: "Create encounter from sample"}));
+    await screen.findByText("Unsaved changes");
+    expect(create).toHaveBeenCalledWith("elderwyld", {title: "Crossing at dusk", ruleset_id: "dnd5e.manual-tracking"});
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it.each(["selection", "draft"])("retains the sample turn and retries against the same encounter when %s storage fails", async (failure) => {
+    vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockResolvedValue([]);
+    const created = record({draft: {...record().draft, title: "Crossing at dusk", entities: []}});
+    const create = vi.spyOn(combatApi, "createWorldCombatEncounter").mockResolvedValue(created);
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", {name: "Load sample"}));
+    await userEvent.click(screen.getByRole("button", {name: "Next turn"}));
+    const failingKey = failure === "selection" ? combatSelectionKey("elderwyld") : combatRecoveryKey("elderwyld", created.encounter_id);
+    const setItem = Storage.prototype.setItem;
+    const store = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (key === failingKey) throw new Error("Storage quota exceeded");
+      setItem.call(this, key, value);
+    });
+    await userEvent.click(screen.getByRole("button", {name: "Create encounter from sample"}));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Storage quota exceeded");
+    expect(screen.getByText("Round 1 · Harbor Brute")).toBeVisible();
+    store.mockRestore();
+
+    await userEvent.click(screen.getByRole("button", {name: "Create encounter from sample"}));
+    await screen.findByText("Unsaved changes");
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(within(screen.getByRole("group", {name: "Combat turn controls"})).getByText("Harbor Brute")).toBeVisible();
+  });
+
   it("creates a durable encounter, keeps edits local, then explicitly saves against its revision", async () => {
     const created = record({ draft: { ...record().draft, title: "New encounter", entities: [] } });
     vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockResolvedValue([]);
@@ -295,7 +340,7 @@ describe("CombatRosterModule", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
 
     expect(await screen.findByRole("textbox", { name: "Encounter title" })).toHaveValue("New encounter");
-    expect(createSpy).toHaveBeenCalledWith("elderwyld", { title: "Night ambush" });
+    expect(createSpy).toHaveBeenCalledWith("elderwyld", { title: "Night ambush", ruleset_id: "dnd5e.manual-tracking" });
 
     await userEvent.clear(screen.getByRole("textbox", { name: "Encounter title" }));
     await userEvent.type(screen.getByRole("textbox", { name: "Encounter title" }), "Night ambush");
@@ -870,7 +915,7 @@ describe("CombatRosterModule", () => {
     expect(round()).toHaveTextContent('4');
     await userEvent.click(screen.getByRole('button',{name:'Next turn'}));
     expect(round()).toHaveTextContent('5');
-    await userEvent.click(screen.getByRole('button',{name:'Previous turn'}));
+    await userEvent.click(screen.getByRole('button',{name:'Back'}));
     expect(round()).toHaveTextContent('4');
   });
 

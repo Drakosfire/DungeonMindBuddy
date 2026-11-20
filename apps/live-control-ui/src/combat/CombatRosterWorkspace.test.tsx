@@ -1,10 +1,11 @@
 import {useState} from 'react';
-import {cleanup, render, screen, within} from '@testing-library/react';
+import {cleanup, fireEvent, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {afterEach, expect, it, vi} from 'vitest';
 import fixture from '../../../../tests/fixtures/statblocks/v1/exact-revision-response.json';
 import type {CombatEncounterDraft, CombatEntity, CombatMechanicsSnapshot} from './combatTypes';
 import {CombatRosterWorkspace, type CombatProjectionControl} from './CombatRosterWorkspace';
+import * as combatApi from './combatApi';
 
 afterEach(() => {cleanup(); vi.restoreAllMocks();});
 function draft(): CombatEncounterDraft {
@@ -52,6 +53,41 @@ it('resolves explicit source replacement from the selected actor rather than a s
   expect(screen.queryByRole('heading',{name:'Ironhide Brute'})).toBeNull();
 });
 
+it('keeps roster focus when Save returns an equivalent statblock snapshot', async () => {
+  const initial = draft();
+  const view = render(board(initial));
+  await userEvent.click(screen.getByRole('button', {name: 'Project Bridge brute'}));
+  const input = screen.getByRole('textbox', {name: 'Staged damage'});
+  await userEvent.click(input);
+  view.rerender(board(structuredClone(initial)));
+  expect(input).toHaveFocus();
+  expect(screen.getByRole('complementary')).toBeVisible();
+});
+
+it('projects the exact registered corpus text independently of turn and tracker edits', async () => {
+  const value = draft();
+  const sourceId = 'artifact:worldbuilding:the-registered-source';
+  const sha = 'a'.repeat(64);
+  Object.assign(value.entities[0], {
+    source: 'imported', mechanics_snapshot: null,
+    statblock_artifact_id: sourceId, corpus_fingerprint: sha,
+  });
+  const request = vi.spyOn(combatApi, 'getWorldCombatCorpusSheet').mockResolvedValue('# Original sheet\n\nRecorded abilities');
+  const props = {disabled: false, onToggleGroup: vi.fn(), renderRow: row, corpusScope: {worldId: 'elderwyld', encounterId: 'bridge'}};
+  const view = render(<CombatRosterWorkspace draft={value} {...props}/>);
+  const trigger = screen.getByRole('button', {name: 'Project Bridge brute'});
+  await userEvent.click(trigger);
+  const panel = screen.getByRole('complementary');
+  expect(await within(panel).findByRole('heading', {name: 'Original sheet'})).toBeVisible();
+  expect(request).toHaveBeenCalledWith('elderwyld', 'bridge', 'brute', sourceId, sha, expect.any(AbortSignal));
+
+  view.rerender(<CombatRosterWorkspace draft={{...value, round: 2}} {...props}/>);
+  expect(within(panel).getByText('Recorded abilities')).toBeVisible();
+  expect(request).toHaveBeenCalledTimes(1);
+  await userEvent.click(within(panel).getByRole('button', {name: 'Close projected statblock'}));
+  expect(trigger).toHaveFocus();
+});
+
 it('retires a removed or sourceless selection and does not revive it when an ID returns',async()=>{
   const initial=draft();const view=render(board(initial));
   await userEvent.click(screen.getByRole('button',{name:'Project Bridge brute'}));
@@ -80,4 +116,34 @@ it('keeps selection through group collapse and returns close focus outside hidde
   expect(screen.queryByRole('button',{name:'Project Bridge brute'})).toBeNull();
   await userEvent.click(screen.getByRole('button',{name:'Close projected statblock'}));
   expect(screen.getByRole('region',{name:'Combat roster and statblock'})).toHaveFocus();
+});
+
+it('moves the selected source into a modal and restores roster focus on cancel', async () => {
+  const nativeDialog = HTMLDialogElement.prototype;
+  const showModal = Object.getOwnPropertyDescriptor(nativeDialog, 'showModal');
+  const close = Object.getOwnPropertyDescriptor(nativeDialog, 'close');
+  Object.defineProperties(nativeDialog, {
+    showModal: {configurable: true, value(this: HTMLDialogElement) { this.open = true; }},
+    close: {configurable: true, value(this: HTMLDialogElement) { this.open = false; }},
+  });
+  try {
+    render(board(draft()));
+    const trigger = screen.getByRole('button', {name: 'Project Bridge brute'});
+    await userEvent.click(trigger);
+    await userEvent.click(screen.getByRole('button', {name: 'Open as modal'}));
+    const modal = screen.getByRole('dialog', {name: 'Projected statblock for Bridge brute'});
+    expect(await within(modal).findByRole('heading', {name: 'Ironhide Brute'})).toBeVisible();
+    await userEvent.click(within(modal).getByRole('button', {name: 'Dock statblock'}));
+    expect(screen.getByRole('complementary')).toHaveFocus();
+    await userEvent.click(screen.getByRole('button', {name: 'Open as modal'}));
+    const reopened = screen.getByRole('dialog');
+    fireEvent(reopened, new Event('cancel', {cancelable: true}));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(trigger).toHaveFocus();
+  } finally {
+    if (showModal) Object.defineProperty(nativeDialog, 'showModal', showModal);
+    else Reflect.deleteProperty(nativeDialog, 'showModal');
+    if (close) Object.defineProperty(nativeDialog, 'close', close);
+    else Reflect.deleteProperty(nativeDialog, 'close');
+  }
 });
