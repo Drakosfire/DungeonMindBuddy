@@ -7,6 +7,8 @@ from dungeonmind.application.vnext import (
 )
 from apps.live_control_server.integrations.dungeonmind.native_corpus_source import (
     prepare_native_source_context,
+    turn_parsed_revision_cache,
+    turn_source_repository,
 )
 from apps.live_control_server.integrations.dungeonmind import (
     native_registry_source as native,
@@ -30,7 +32,8 @@ def _pinned(scope, principal):
         managed_world_id=scope.managed_world_id,
         principal=principal,
         revision_id=scope.revision_id if isinstance(scope, InspectionPin) else None,
-        repository=native.read_repository(),
+        repository=turn_source_repository(read_only=True),
+        parsed_cache=turn_parsed_revision_cache,
     )
     authority = context.authority
     pin = InspectionPin(
