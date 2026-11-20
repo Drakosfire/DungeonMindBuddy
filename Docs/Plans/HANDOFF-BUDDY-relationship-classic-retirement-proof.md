@@ -59,3 +59,19 @@ fixtures and helpers are untouched. These are working diagnostics, not final
 exact-head qualification. The removed assertions concerned a fresh classic prepare
 followed by confirm; original saved-packet receipt recovery is preserved by the
 accepted recovery-only route/service tests, not retired by this test repair.
+
+## Accepted parent integration
+
+Core246 merged `67db2e5cffa772467cec5cf911fea9683e6a0f8d`, reviewedfd345,
+review5988441626; all3 CI jobs succeed and the actual WK348 source consumer witness
+passes. Buddy4222 merged `7e35a942828a774b976db77d0fc358e1ab113e13`, tested62b9,
+review5988377665, bounded acceptance with375PASS1attributedstaletestFAIL preserved.
+Latermain0c1d's lazy-picker delta was independently inspected without dependency
+coupling. Its merged tree was not separately executed by the dependency slice.
+
+This child now integrates that actual accepted Buddy parent via normal merge
+`356d3b32b38e433205d3f5d47864c6ebb9595ac0`. The final PR base is main at7e35;
+cumulative owned scope remains exactly the handoff and one named test function.
+Run final qualification on the following frozen full head and retain its reports
+externally; no passing merged/deployed/full-backend claim follows from parent
+source equivalence. The full objective remains active.
