@@ -1672,6 +1672,7 @@ class _ClaimFence:
     def append(self, method_name: str, event_name: str, event: Any, **extras: Any) -> tuple[Turn, bool]:
         phase_name = {
             "authorize_provider_attempt_v2": "first_jev_provider_authorization_append",
+            "authorize_build_opening_with_prompt": "first_jev_provider_authorization_append",
             "record_provider_outcome": "first_jev_provider_outcome_append",
             "record_build_draft_context": "first_jev_build_draft_context_append",
         }.get(method_name)
@@ -1706,8 +1707,12 @@ class _ClaimFence:
                             expected_revision=current.revision, expected_attempt=current.attempt, **fields)
                         self.renewer._turn = updated
                         return updated, fresh
-                updated, fresh = method(current.world_id, current.conversation_id, current.turn_id,
+                result = method(current.world_id, current.conversation_id, current.turn_id,
                     expected_revision=current.revision, expected_attempt=current.attempt, **fields)
+                if method_name == "authorize_build_opening_with_prompt":
+                    updated, fresh, _ = result
+                else:
+                    updated, fresh = result
                 from application_state.agent_conversation.native_plan_session import NativePlanSession, eligible
                 # Other persistence ports and other action families keep their
                 # own owners. A current readonly Plan activates exactly once
@@ -1730,7 +1735,7 @@ class _ClaimFence:
                     "APP-STATE execution append returned an invalid disposition."
                 )
             self.renewer._turn = updated
-            return updated, fresh
+            return result
 
     def rules_checkpoint(self, operation, record):
         with self.renewer._lock:
@@ -3116,11 +3121,21 @@ class _PolicyExecutionAdapter:
             included_graph_event_ids=[],included_source_read_event_ids=[],
             context_mode=view['contextMode'],context_phase=view['contextPhase'],
             max_question_input_tokens=view['maxQuestionInputTokens'],dispatch_identity_sha256=view['dispatchIdentitySha256'])
-        self.turn = _require_fresh_execution_append(self.fence.append('authorize_provider_attempt_v2',
-            'provider_attempt_event',event,prepared_decision_json=view['payloadJson']))
+        from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
+        opening = view["contextPhase"] == "select" and isinstance(
+            getattr(self.turn.graph_context_receipt, "native_query", None), NativeBuildQueryPendingV1,
+        )
+        if opening:
+            self.turn = _require_fresh_execution_append(self.context_capture.authorize_build_opening(view, event))
+        else:
+            self.turn = _require_fresh_execution_append(self.fence.append(
+                'authorize_provider_attempt_v2', 'provider_attempt_event', event,
+                prepared_decision_json=view['payloadJson'],
+            ))
         self.last_provider_attempt_id = event.provider_attempt_id
         self._prepared_build_decision = prepared
-        self._capture_prepared_prompt(view,event)
+        if not opening:
+            self._capture_prepared_prompt(view, event)
         return True
 
     def authorize_prepared_build_decision(self, prepared: Any) -> bool:

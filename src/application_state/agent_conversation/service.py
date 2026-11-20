@@ -2873,6 +2873,33 @@ class AgentConversationService:
             duplicate_key="provider_attempt_id", prepared_decision_json=prepared_decision_json,
         )
 
+    def authorize_build_opening_with_prompt(
+        self, world_id, conversation_id, turn_id, *, expected_revision, expected_attempt,
+        provider_attempt_event, prepared_decision_json, trace_id, prompt, authorized,
+    ):
+        from .context_trace_store import append_opening_prompt_locked
+        from .native_context import NativeBuildQueryPendingV1
+        from .types import ProviderAttemptAuthorizedEventV5
+
+        if (type(provider_attempt_event) is not ProviderAttemptAuthorizedEventV5
+                or provider_attempt_event.context_phase != "select"
+                or provider_attempt_event.provider_attempt_id != prompt.provider_attempt_id
+                or len(prepared_decision_json.encode("utf-8")) != prompt.payload_utf8_bytes):
+            raise ApplicationStateValidationError("opening prompt does not bind the prepared decision")
+        with unit_of_work(_ready_dsn()) as conn:
+            turn, fresh = self._append_graph_execution_event(
+                world_id, conversation_id, turn_id, expected_revision=expected_revision,
+                expected_attempt=expected_attempt, event=provider_attempt_event,
+                duplicate_key="provider_attempt_id", prepared_decision_json=prepared_decision_json,
+                _connection=conn,
+            )
+            if not fresh:
+                raise ApplicationStateConflictError("opening provider authorization is already committed")
+            if not isinstance(getattr(turn.graph_context_receipt, 'native_query', None), NativeBuildQueryPendingV1):
+                raise ApplicationStateValidationError("opening prompt requires pending Build Graph admission")
+            trace = append_opening_prompt_locked(conn, turn, trace_id, prompt, authorized)
+        return turn, fresh, trace
+
     def authorize_native_play_provider(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int,

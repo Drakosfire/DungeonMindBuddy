@@ -682,8 +682,10 @@ def test_prompt_and_answer_draft_use_same_trace_append_measurement(tmp_path, mon
     with pytest.raises(ConnectionError) as caught:
         capture.capture_prompt({"payloadJson": "{}", "payloadSha256": sha256(b"{}").hexdigest(), "payloadUtf8Bytes": 2}, authorization)
     assert caught.value is failure
-    span, = host.spans
-    assert span["name"] == "trace_append"
+    spans = [item["name"] for item in host.spans]
+    assert spans.count("first_jev_prompt_evidence_store") == 2
+    assert spans.count("first_jev_context_trace_append") == 3
+    span, = [item for item in host.spans if item["name"] == "trace_append"]
     assert span["attributes"]["count"] == 3 and span["attributes"]["error_count"] == 1
 
 
