@@ -101,3 +101,27 @@ def test_real_player_projection_rejects_entity_with_gm_only_name():
     with pytest.raises(GuestReleaseProjectionError):
         project_selected_graph(projection, expected_world_id="private-world", expected_revision="private-revision",
                                selected_node_ids={target.node_id}, selected_edge_ids=set())
+
+
+def test_player_projection_excludes_assertions_backed_only_by_gm_source(monkeypatch):
+    from dataclasses import replace
+    from tests import test_governed_native_source_publication_adoption as fixture
+    from graph_memory.vnext.domain_runtime import PLAYER_LABEL
+
+    case = fixture.setup()
+    original_metadata = fixture.metadata
+    def player_metadata(evidence, *, label="reviewed fact"):
+        return replace(original_metadata(evidence, label=label),
+                       visibility=fixture.wk.Visibility("labels_any", (PLAYER_LABEL,)))
+    monkeypatch.setattr(fixture, "metadata", player_metadata)
+    request = fixture.request(case, fixture.basis(case, "new_intervals", "publication:player-assertions"))
+    receipt = fixture.publish(case, request)
+    revision = receipt.publication_receipt.published_revision_id
+    binding = SimpleNamespace(native_world_id=case.space, binding_version=1)
+    monkeypatch.setattr(reader, "resolve_managed_world_binding", lambda _: binding)
+    monkeypatch.setattr(reader.native_registry_source, "read_repository", lambda: case.repo)
+    _, projection, owner_access = reader.read_player_graph(managed_world_id="managed", revision_id=revision)
+    # Core's player projection requires player-admissible evidence as well as
+    # player-visible assertions. Current first-World sources are GM-only.
+    assert not projection.nodes
+    assert owner_access.source_view.epoch >= 0

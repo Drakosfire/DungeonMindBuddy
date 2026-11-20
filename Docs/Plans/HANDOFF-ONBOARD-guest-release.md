@@ -81,14 +81,19 @@ projection: it also reads current identity decisions. `content.pages.read_revisi
 can retrieve a committed page by World, revision number and content digest;
 this does not establish historical visibility or working-copy semantics.
 
-`world_graph_reads.project_world_graph_direct` maps an explicit revision pin
-and the closed `player` admissibility value into the DungeonMind projection.
-Its adapted response still carries source/evidence identities and is not a
-release-safe wire format. The release preparer must apply its own closed field
-allowlist, localize all IDs, check endpoint and citation closure, and exercise
-the actual Core visibility gate with GM-only adversarial fixture data. The
-hosted owner request must choose neither a broader admissibility nor an
-unverified native World binding.
+The Core player projection excludes assertions supported only by GM-only
+sources, including player-designated assertions; a pinned native fixture proves
+this. To support ordinary first-World ingestion, the owner-approved release
+must be a distinct copy, not described as Core player-admitted Graph data. The
+preparer may privately inspect the exact native Graph under verified owner/GM
+authority, but may copy only explicitly selected labels, facts, relationships,
+excerpts and assets into a closed release-local representation. Every displayed
+field must be shown for explicit digest-bound owner approval; do not copy GM
+summaries, aliases, neighbors or private identifiers by default. Revalidate
+exact evidence and source withdrawal at the adopted cutoff. Anonymous reads
+must use only the approved copy and never this private reader. This deliberately
+replaces the earlier player-projection-only restriction, which cannot represent
+the intended source path; the user chooses what becomes public.
 
 At the pinned base the application-state migration head is `20261120_0170`.
 `media.read_staged_bytes` checks an owner ID, length and SHA-256, while the
@@ -149,32 +154,6 @@ cutoff epoch, operation ID, principal, candidate digest, source coordinates,
 APP generations, pointer CAS basis and outcome privately. Lost responses must
 recover the committed outcome without republishing a revoked release.
 
-### Candidate cross-owner protocol for critique
-
-Core owns a durable release authorization keyed by a unique intent, exact native
-space/revision, admitted source proofs and candidate digest. APP first records a
-private pending intent under an owner/pointer fence; it is not guest-readable.
-Core then atomically checks source eligibility and records the authorization under
-its own source-withdrawal serialization boundary. That Core commit is the
-publication linearization point: a prior withdrawal rejects authorization; a
-later source edit or withdrawal does not rewrite an already approved release.
-APP finalizes the pointer only for the still-current fenced intent, and guest
-reads require both APP's published pointer and the corresponding live Core
-authorization. Release revocation withdraws the Core authorization and clears the
-APP pointer through an idempotent, recoverable operation; intermediate states
-must fail closed. A crash between either store's commits may make the release
-temporarily unavailable, never anonymously expose an unapproved candidate.
-
-This is a historical candidate cross-owner contract, not an available Core API. Bugbot's
-critique found that this optimistic protocol does **not** meet the currently
-required withdrawal rule: Core authorization is only a source-validation
-cutoff, not public publication. A native withdrawal after that authorization but
-before APP finalization would still permit publication. The current contract
-therefore remains unsatisfied; do not implement the sketch as though it closes
-that interval. A stricter joint fence or a deliberate owner-adopted change to
-the withdrawal cutoff is needed. The adopted cutoff above is that explicit
-change; the stricter cross-authority guarantee is no longer claimed.
-
 ## Explicit release-copy visibility decision
 
 Ordinary first-World and Worldbuilding source admissions are GM-only even when
@@ -184,25 +163,33 @@ the intended ingestion path. The owner may explicitly select exact excerpts
 from their private source, inspect the final sanitized copy and approve its
 digest for publication. This approval authorizes only that copy; it does not
 change the source's native visibility or grant guests access to the World.
-Graph assertions still come from the player-scoped projection. A separately
-authorized owner/GM source view may verify the selected evidence, but it must
-share the same pinned Graph revision and coherent Core source epoch as the player
-view. Neither view, its identifiers, nor any unselected text is guest output.
+Graph fields and source proofs come from one authorized owner/GM read at the
+same pinned Graph revision and coherent Core source epoch. This is a release
+declassification decision, not a claim of Core player admissibility. Neither the
+private view, its identifiers, nor any unselected text is guest output.
 APP source status and visibility changes after staging invalidate the candidate
 even when the original selected visibility was internal. Published copies remain
 independent until release revocation. The owner review must clearly identify
 that selected private excerpts will become public and show their exact final
 contents and assets before approval. Do not automatically release a whole source.
 
-A synchronous Core-owned guard around APP finalization is also insufficient as
-currently specified. Bugbot identified a lock-loss race: the Core connection
-can terminate and release the epoch lock, a withdrawal can commit, and an
-already-dispatched APP commit can still complete. A later health check cannot
-undo the exposure. A strict design needs enforceable commit/fence coupling and
-recovery for uncertain APP commit outcomes; it must also audit APP-to-Core lock
-ordering and bound the global Core epoch contention. A prepared transaction or
-shared durable commit coordinator might supply this, but either introduces a
-cross-owner operational contract and cannot be inferred from existing APIs.
+Select every displayed node name and classification from exact assertions (or
+use an explicitly declared release-local display category); reject fallback IDs
+and silently joined names. Each relationship binds its exact assertion,
+endpoints, predicate, displayed transformation and selected support. Selection
+of a node must not imply its descriptions, aliases or neighboring facts. Each
+copied fact preserves uncertainty, negation, temporal scope and standing, or is
+clearly presented as newly authored owner text. Privately retain exact proof and
+source coordinates for each selected field. Never expand an evidence span to
+include unselected material. The approved digest covers final rendered content,
+transformations, sanitizer/projection versions and copied asset bytes.
+
+The current draft's `read_player_graph` and projected-label selector do not meet
+this amended contract. Keep preparation disabled until they are replaced and
+the owner review and fresh-proof checks cover the selected fields. Include a
+real GM-only source fixture with multiple names, secret neighboring facts,
+mixed-visibility relationships and provisional or negated claims; verify only
+explicitly selected material appears and the original World is unchanged.
 
 The sketch also needs
 explicit rules for competing intents, ownership transfer during either commit,
