@@ -157,3 +157,19 @@ UUID48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8; parent writable. No new environment,
 manual worktree or global configuration. Retain unique evidence and accepted pins;
 cleanup follow-up must check active processes/mounts/dirty data/unique commits and
 specific deletion authorization. No standing manual deletion permission.
+
+
+## Proof-first checkpoint
+
+Independent Hubble readiness PASS on pinned2b52aabb530c91db7b1b87fd9c761627caf8a714;
+this is design readiness, not source/evidence acceptance. Draft PR4232 is open.
+Pure packet/selection integrity groundwork is implemented without route wiring.
+It validates original proposal/source-local/ledger/admission/target consistency and
+derives the historical selection operation, explicitly without claiming that an
+unkeyed digest authenticates history. Real-producer tests exercise empty/foreign/
+duplicate selections, changed effect before/after public digest recomputation and
+malformed ledger classification. Complete correspondence, Recap-domain proof,
+evidence mapping, reader composition, binding fences, route retirement andSQL
+remain pending. No current runtime behavior changed at this checkpoint.
+Retain packet-working-1 and owning-groundwork-1 failures: canonical target-key
+mistake and ledger validation order, corrected before passing qualification.

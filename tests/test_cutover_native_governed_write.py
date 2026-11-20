@@ -712,3 +712,82 @@ def test_file_mode_producer_still_opens_explicit_root(tmp_path):
 
     with pytest.raises(Exception):
         mutation_context_from_world_root(tmp_path / "missing-graph", "eldyrwild")
+
+
+def _original_extract_packet(tmp_path):
+    from tests.test_candidate_graph_admission_contract import _prepare, _candidate
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import bind_identity_ledger_to_package
+    from apps.live_control_server.services.extract_promote import _seal_publication_target
+    from apps.live_control_server.services.managed_world_graph_projection import VerifiedManagedWorldBinding
+    context = _context()
+    result = _prepare(tmp_path, _candidate(), mutation_context=context)
+    packet = bind_identity_ledger_to_package(result.review_package, context)
+    packet = _seal_publication_target(packet, VerifiedManagedWorldBinding(
+        managed_world_id="managed-history", native_world_id="eldyrwild", binding_version=1,
+        source_root_relpath="retained-unused",
+    ))
+    selected = [item["assertion_id"] for item in packet["effect"]["accepted_proposals"]]
+    return packet, selected
+
+
+def test_original_extract_integrity_uses_real_producer_without_authority_reads(tmp_path, monkeypatch):
+    import copy
+    from apps.live_control_server.integrations.dungeonmind.historical_extract_recovery import validate_original_packet
+    from apps.live_control_server.services import extract_promote
+    packet, selected = _original_extract_packet(tmp_path)
+    original = copy.deepcopy(packet)
+    monkeypatch.setattr(extract_promote, "_resolve_publication_target", lambda *_: pytest.fail("pure integrity read current World"))
+    value = validate_original_packet(packet, selected)
+    assert value["selection"] == tuple(selected)
+    assert value["verified"]["proposal_digest"] == packet["proposal_digest"]
+    assert value["operation_id"].startswith("reviewop:")
+    assert packet == original
+
+
+@pytest.mark.parametrize("selection", [[], ["missing"], ["a", "a"]])
+def test_original_extract_empty_foreign_or_duplicate_selection_refuses(tmp_path, selection):
+    from apps.live_control_server.integrations.dungeonmind.historical_extract_recovery import validate_original_packet
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+    packet, _ = _original_extract_packet(tmp_path)
+    with pytest.raises(ExtractPromoteError) as error:
+        validate_original_packet(packet, selection)
+    assert error.value.code == "plan_verification_failed"
+
+
+@pytest.mark.parametrize("reseal", [False, True])
+def test_original_extract_digest_is_integrity_not_original_authentication(tmp_path, reseal):
+    import copy
+    from graph_memory.extract_promote_proposal import compute_proposal_digest
+    from apps.live_control_server.integrations.dungeonmind.historical_extract_recovery import validate_original_packet
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+    packet, selected = _original_extract_packet(tmp_path)
+    original = validate_original_packet(packet, selected)
+    changed = copy.deepcopy(packet)
+    changed["effect"]["accepted_proposals"][0]["label"] = "A changed retained meaning"
+    for part in changed["effect"].get("contributions", []):
+        part["accepted_proposals"][0]["label"] = "A changed retained meaning"
+    if not reseal:
+        with pytest.raises(ExtractPromoteError) as error:
+            validate_original_packet(changed, selected)
+        assert error.value.code == "plan_verification_failed"
+    else:
+        changed["proposal_digest"] = compute_proposal_digest(changed["effect"])
+        result = validate_original_packet(changed, selected)
+        assert result["operation_id"] != original["operation_id"]
+        # Successful unkeyed integrity checking is deliberately NOT historical
+        # authentication. The terminal+complete-review proof is still required.
+
+
+def test_original_extract_malformed_ledger_is_typed_and_does_not_mutate_packet(tmp_path):
+    import copy
+    from graph_memory.extract_promote_proposal import compute_proposal_digest
+    from apps.live_control_server.integrations.dungeonmind.historical_extract_recovery import validate_original_packet
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+    packet, selected = _original_extract_packet(tmp_path)
+    packet["effect"]["identity_ledger"] = {"decisions": ["invalid"]}
+    packet["proposal_digest"] = compute_proposal_digest(packet["effect"])
+    before = copy.deepcopy(packet)
+    with pytest.raises(ExtractPromoteError) as error:
+        validate_original_packet(packet, selected)
+    assert error.value.code == "plan_verification_failed"
+    assert packet == before
