@@ -39,3 +39,29 @@ def test_validation_rechecks_exact_graph_and_citation(monkeypatch):
     edge.label = "changed"
     with pytest.raises(validation.GuestReleaseValidationError):
         validation.validate_candidate(world_id="world", subject="owner", release_id=release_id, digest="digest")
+
+
+def test_publish_uses_fresh_server_epoch_and_recovers_without_revalidation(monkeypatch):
+    release_id, operation_id, public_id = uuid4(), uuid4(), uuid4()
+    args = dict(world_id="world", subject="owner", release_id=release_id, digest="digest",
+                expected_version=0, operation_id=operation_id)
+    monkeypatch.setattr(validation.guest_release, "recover_publication", lambda **_: None)
+    monkeypatch.setattr(validation, "validate_candidate", lambda **_: 31)
+    seen = {}
+    monkeypatch.setattr(validation.guest_release, "commit_validated_promotion", lambda **kwargs: seen.update(kwargs) or (public_id, 1))
+    assert validation.publish_candidate(**args) == (public_id, 1)
+    assert seen["source_epoch"] == 31
+    monkeypatch.setattr(validation.guest_release, "recover_publication", lambda **_: (public_id, 1))
+    monkeypatch.setattr(validation, "validate_candidate", lambda **_: pytest.fail("recovery must not revalidate or republish"))
+    assert validation.publish_candidate(**args) == (public_id, 1)
+
+
+def test_concurrent_identical_publish_recovers_after_validation_race(monkeypatch):
+    release_id, operation_id, public_id = uuid4(), uuid4(), uuid4()
+    attempts = iter([None, (public_id, 1)])
+    monkeypatch.setattr(validation.guest_release, "recover_publication", lambda **_: next(attempts))
+    def fail(**_):
+        raise validation.GuestReleaseValidationError("candidate already published")
+    monkeypatch.setattr(validation, "validate_candidate", fail)
+    assert validation.publish_candidate(world_id="world", subject="owner", release_id=release_id,
+        digest="digest", expected_version=0, operation_id=operation_id) == (public_id, 1)

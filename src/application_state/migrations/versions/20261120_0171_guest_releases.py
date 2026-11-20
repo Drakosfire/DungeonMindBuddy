@@ -139,13 +139,29 @@ def upgrade():
             version bigint NOT NULL DEFAULT 0 CHECK (version >= 0)
         )
     """)
+    op.execute("""
+        CREATE TABLE workspace.guest_release_publication_receipt (
+            operation_id uuid PRIMARY KEY,
+            release_id uuid NOT NULL REFERENCES workspace.guest_release(release_id) ON DELETE RESTRICT,
+            world_id text NOT NULL REFERENCES workspace.managed_world(world_id) ON DELETE RESTRICT,
+            owner_subject text NOT NULL CHECK (length(owner_subject) > 0),
+            manifest_sha256 text NOT NULL CHECK (manifest_sha256 ~ '^[a-f0-9]{64}$'),
+            native_world_id text NOT NULL,
+            graph_revision text NOT NULL,
+            source_epoch bigint NOT NULL CHECK (source_epoch >= 0),
+            expected_pointer_version bigint NOT NULL CHECK (expected_pointer_version >= 0),
+            public_id uuid NOT NULL,
+            result_pointer_version bigint NOT NULL CHECK (result_pointer_version > 0),
+            created_at timestamptz NOT NULL DEFAULT clock_timestamp()
+        )
+    """)
 
 
 def downgrade():
     # Match the normal owner -> source -> release acquisition order before
     # taking locks that block staging. Trigger removal requires parent locks.
     op.execute("LOCK TABLE workspace.managed_world, content.work_object, content.page_metadata IN ACCESS EXCLUSIVE MODE")
-    op.execute("LOCK TABLE workspace.guest_release_pointer, workspace.guest_release_evidence_binding, workspace.guest_release_node_binding, workspace.guest_release_source_binding, workspace.guest_release_asset, workspace.guest_release IN ACCESS EXCLUSIVE MODE")
+    op.execute("LOCK TABLE workspace.guest_release_publication_receipt, workspace.guest_release_pointer, workspace.guest_release_evidence_binding, workspace.guest_release_node_binding, workspace.guest_release_source_binding, workspace.guest_release_asset, workspace.guest_release IN ACCESS EXCLUSIVE MODE")
     op.execute("""
         DO $$ BEGIN
             IF EXISTS (SELECT 1 FROM workspace.guest_release)
@@ -154,6 +170,7 @@ def downgrade():
             END IF;
         END $$
     """)
+    op.drop_table("guest_release_publication_receipt", schema="workspace")
     op.drop_table("guest_release_pointer", schema="workspace")
     op.drop_table("guest_release_evidence_binding", schema="workspace")
     op.drop_table("guest_release_node_binding", schema="workspace")

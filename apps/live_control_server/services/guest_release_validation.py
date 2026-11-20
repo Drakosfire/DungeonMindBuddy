@@ -67,3 +67,24 @@ def validate_candidate(*, world_id: str, subject: str, release_id: UUID, digest:
             excerpt=sources[excerpt_id], source_binding=source_bindings[excerpt_id],
             expected_native_world_id=binding.native_world_id, expected_graph_revision=material["graph_revision"])
     return access.source_view.epoch
+
+
+def publish_candidate(*, world_id: str, subject: str, release_id: UUID, digest: str,
+                      expected_version: int, operation_id: UUID) -> tuple[UUID, int]:
+    """Validate a fresh cutoff, then atomically commit or recover publication."""
+    previous = guest_release.recover_publication(world_id=world_id, subject=subject, release_id=release_id,
+        digest=digest, expected_version=expected_version, operation_id=operation_id)
+    if previous is not None:
+        return previous
+    try:
+        epoch = validate_candidate(world_id=world_id, subject=subject, release_id=release_id, digest=digest)
+    except Exception:
+        # An identical concurrent attempt may have committed after the first
+        # receipt lookup, causing candidate validation to see published state.
+        previous = guest_release.recover_publication(world_id=world_id, subject=subject, release_id=release_id,
+            digest=digest, expected_version=expected_version, operation_id=operation_id)
+        if previous is not None:
+            return previous
+        raise
+    return guest_release.commit_validated_promotion(world_id=world_id, subject=subject, release_id=release_id,
+        digest=digest, expected_version=expected_version, operation_id=operation_id, source_epoch=epoch)

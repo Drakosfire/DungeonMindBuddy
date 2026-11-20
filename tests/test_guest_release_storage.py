@@ -12,6 +12,10 @@ from application_state.errors import ApplicationStateConflictError, ApplicationS
 from application_state.world_catalog.service import create_world
 
 
+def _promote(**kwargs):
+    return guest_release.commit_validated_promotion(operation_id=uuid4(), source_epoch=1, **kwargs)
+
+
 def _bind(dsn, world):
     with psycopg.connect(dsn) as conn:
         conn.execute("UPDATE workspace.world_native_binding SET native_world_id=%s,status='active', "
@@ -48,9 +52,9 @@ def test_release_lifecycle_isolated_and_revocation(application_state_dsn):
     with pytest.raises(ApplicationStateNotFoundError):
         guest_release.review_asset(world_id=world, subject="other", release_id=release_id, asset_id=asset_id)
     with pytest.raises(ApplicationStateConflictError):
-        guest_release.promote(world_id=world, subject="owner", release_id=release_id,
+        _promote(world_id=world, subject="owner", release_id=release_id,
                               digest="0" * 64, expected_version=0)
-    public_id, version = guest_release.promote(world_id=world, subject="owner", release_id=release_id,
+    public_id, version = _promote(world_id=world, subject="owner", release_id=release_id,
                                                 digest=digest, expected_version=0)
     assert guest_release.pointer_status(world_id=world, subject="owner") == (public_id, version)
     assert guest_release.public_manifest(public_id) == (release_id, manifest)
@@ -75,7 +79,7 @@ def test_transfer_away_and_back_invalidates_candidate(application_state_dsn):
         conn.execute("UPDATE workspace.managed_world SET owner_subject='other' WHERE world_id=%s", (world,))
         conn.execute("UPDATE workspace.managed_world SET owner_subject='owner' WHERE world_id=%s", (world,))
     with pytest.raises(ApplicationStateConflictError):
-        guest_release.promote(world_id=world, subject="owner", release_id=release_id,
+        _promote(world_id=world, subject="owner", release_id=release_id,
                               digest=digest, expected_version=0)
 
 
@@ -90,11 +94,11 @@ def test_asset_request_never_crosses_pointer_promotion(application_state_dsn):
         return guest_release.stage(world_id=world, subject="owner", expected_owner_generation=generation,
                                    manifest=manifest, assets=[(asset_id, "image/png", content)], **graph)
     first, first_digest = stage(b"first")
-    public_id, version = guest_release.promote(world_id=world, subject="owner", release_id=first,
+    public_id, version = _promote(world_id=world, subject="owner", release_id=first,
                                                digest=first_digest, expected_version=0)
     assert guest_release.public_manifest(public_id)[0] == first
     second, second_digest = stage(b"second")
-    guest_release.promote(world_id=world, subject="owner", release_id=second,
+    _promote(world_id=world, subject="owner", release_id=second,
                           digest=second_digest, expected_version=version)
     with pytest.raises(ApplicationStateNotFoundError):
         guest_release.public_asset(public_id, first, asset_id)
@@ -121,7 +125,7 @@ def test_source_visibility_change_and_restore_invalidates_candidate(application_
         conn.execute("UPDATE content.page_metadata SET visibility_state='internal' WHERE work_object_id=%s", (document_id,))
         conn.execute("UPDATE content.page_metadata SET visibility_state='player_safe' WHERE work_object_id=%s", (document_id,))
     with pytest.raises(ApplicationStateConflictError):
-        guest_release.promote(world_id=world, subject="owner", release_id=release_id,
+        _promote(world_id=world, subject="owner", release_id=release_id,
                               digest=digest, expected_version=0)
 
 
@@ -134,8 +138,28 @@ def test_graph_rebind_invalidates_candidate(application_state_dsn):
     with psycopg.connect(application_state_dsn) as conn:
         conn.execute("UPDATE workspace.world_native_binding SET binding_version=2 WHERE world_id=%s", (world,))
     with pytest.raises(ApplicationStateConflictError):
-        guest_release.promote(world_id=world, subject="owner", release_id=release_id,
+        _promote(world_id=world, subject="owner", release_id=release_id,
                               digest=digest, expected_version=0)
+
+
+def test_publication_receipt_recovers_without_reactivating_revoked_release(application_state_dsn):
+    world = create_world(name="Receipt Fixture", owner_subject="owner").record.world_id
+    graph = _bind(application_state_dsn, world)
+    generation = guest_release.owner_generation(world_id=world, subject="owner")
+    release_id, digest = guest_release.stage(world_id=world, subject="owner", expected_owner_generation=generation,
+        manifest={"assets": []}, assets=[], **graph)
+    operation_id = uuid4()
+    args = dict(world_id=world, subject="owner", release_id=release_id, digest=digest,
+                expected_version=0, operation_id=operation_id)
+    result = guest_release.commit_validated_promotion(**args, source_epoch=17)
+    guest_release.revoke(world_id=world, subject="owner", release_id=release_id)
+    assert guest_release.recover_publication(**args) == result
+    assert guest_release.commit_validated_promotion(**args, source_epoch=18) == result
+    with pytest.raises(ApplicationStateNotFoundError):
+        guest_release.public_manifest(result[0])
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT source_epoch FROM workspace.guest_release_publication_receipt WHERE operation_id=%s",
+                            (operation_id,)).fetchone() == (17,)
 
 
 def test_source_status_change_and_restore_invalidates_candidate(application_state_dsn):
@@ -154,7 +178,7 @@ def test_source_status_change_and_restore_invalidates_candidate(application_stat
         conn.execute("UPDATE content.work_object SET status='discarded' WHERE work_object_id=%s", (page.page.work_object_id,))
         conn.execute("UPDATE content.work_object SET status='active' WHERE work_object_id=%s", (page.page.work_object_id,))
     with pytest.raises(ApplicationStateConflictError):
-        guest_release.promote(world_id=world, subject="owner", release_id=release_id,
+        _promote(world_id=world, subject="owner", release_id=release_id,
                               digest=digest, expected_version=0)
 
 
@@ -189,7 +213,7 @@ def test_promotion_observes_concurrent_visibility_withdrawal(application_state_d
         with psycopg.connect(application_state_dsn) as conn:
             conn.execute("UPDATE content.page_metadata SET visibility_state='internal' WHERE work_object_id=%s",
                          (page.page.work_object_id,))
-            future = pool.submit(guest_release.promote, world_id=world, subject="owner", release_id=release_id,
+            future = pool.submit(_promote, world_id=world, subject="owner", release_id=release_id,
                                  digest=digest, expected_version=0)
             with pytest.raises(TimeoutError):
                 future.result(timeout=0.3)
@@ -214,7 +238,7 @@ def test_author_edits_do_not_change_staged_or_published_excerpt(application_stat
     updated, _ = commit_page(str(page.page.work_object_id), "second version", world_id=world,
         expected_revision=committed.page.object_revision,
         expected_working_copy_revision=committed_page(str(page.page.work_object_id), world_id=world).working_copy_revision)
-    public_id, _ = guest_release.promote(world_id=world, subject="owner", release_id=release_id,
+    public_id, _ = _promote(world_id=world, subject="owner", release_id=release_id,
                                          digest=digest, expected_version=0)
     commit_page(str(page.page.work_object_id), "third version", world_id=world,
         expected_revision=updated.page.object_revision,

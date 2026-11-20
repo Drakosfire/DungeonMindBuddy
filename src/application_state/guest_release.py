@@ -183,6 +183,22 @@ def pointer_status(*, world_id: str, subject: str) -> tuple[UUID | None, int]:
         return (None, 0) if row is None else (row[0], row[1])
 
 
+def recover_publication(*, world_id: str, subject: str, release_id: UUID, digest: str,
+                        expected_version: int, operation_id: UUID) -> tuple[UUID, int] | None:
+    """Return an existing operation outcome without modifying release state."""
+    with unit_of_work(_dsn()) as conn:
+        _owner(conn, world_id, subject)
+        row = conn.execute(
+            "SELECT release_id,world_id,owner_subject,manifest_sha256,expected_pointer_version,public_id,result_pointer_version "
+            "FROM workspace.guest_release_publication_receipt WHERE operation_id=%s", (operation_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        if row[:5] != (release_id, world_id, subject, digest, expected_version):
+            raise ApplicationStateConflictError("Publication operation differs")
+        return row[5], row[6]
+
+
 def stage(*, world_id: str, subject: str, expected_owner_generation: int,
           native_world_id: str, native_binding_version: int, graph_revision: str, manifest: dict,
           assets: list[tuple[UUID, str, bytes]], source_bindings: list[tuple] | None = None,
@@ -292,15 +308,30 @@ def stage(*, world_id: str, subject: str, expected_owner_generation: int,
     return release_id, digest
 
 
-def promote(*, world_id: str, subject: str, release_id: UUID,
-            digest: str, expected_version: int) -> tuple[UUID, int]:
-    """Approve the stored candidate and move its World's pointer atomically."""
-    if type(expected_version) is not int or expected_version < 0:
+def commit_validated_promotion(*, world_id: str, subject: str, release_id: UUID,
+            digest: str, expected_version: int, operation_id: UUID, source_epoch: int) -> tuple[UUID, int]:
+    """Internal storage operation; caller must freshly validate Core first.
+
+    Never expose this function directly to an HTTP request. The epoch is
+    produced by server-owned validation, not accepted from a client.
+    """
+    if (type(expected_version) is not int or expected_version < 0
+        or not isinstance(operation_id, UUID) or type(source_epoch) is not int or source_epoch < 0):
         raise ApplicationStateValidationError("Invalid pointer version")
     with unit_of_work(_dsn()) as conn:
         generation = _owner(conn, world_id, subject)
+        previous = conn.execute(
+            "SELECT release_id,world_id,owner_subject,manifest_sha256,expected_pointer_version,public_id,result_pointer_version "
+            "FROM workspace.guest_release_publication_receipt WHERE operation_id=%s", (operation_id,),
+        ).fetchone()
+        if previous is not None:
+            if previous[:5] != (release_id, world_id, subject, digest, expected_version):
+                raise ApplicationStateConflictError("Publication operation differs")
+            # Recovery reports the historical outcome only; it never moves a
+            # pointer or reactivates a subsequently revoked release.
+            return previous[5], previous[6]
         row = conn.execute(
-            "SELECT owner_subject,owner_generation,manifest_sha256,state,native_world_id,native_binding_version,manifest "
+            "SELECT owner_subject,owner_generation,manifest_sha256,state,native_world_id,native_binding_version,manifest,graph_revision "
             "FROM workspace.guest_release WHERE release_id=%s AND world_id=%s FOR UPDATE",
             (release_id, world_id),
         ).fetchone()
@@ -330,6 +361,13 @@ def promote(*, world_id: str, subject: str, release_id: UUID,
         conn.execute(
             "UPDATE workspace.guest_release SET state='published',published_at=clock_timestamp() "
             "WHERE release_id=%s", (release_id,)
+        )
+        conn.execute(
+            "INSERT INTO workspace.guest_release_publication_receipt "
+            "(operation_id,release_id,world_id,owner_subject,manifest_sha256,native_world_id,graph_revision,source_epoch,expected_pointer_version,public_id,result_pointer_version) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            (operation_id, release_id, world_id, subject, digest, row[4], row[7], source_epoch,
+             expected_version, pointer[0], pointer[1]),
         )
         return pointer[0], pointer[1]
 
