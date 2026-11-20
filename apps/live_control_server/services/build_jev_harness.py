@@ -6,6 +6,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import json
 import logging
+import sys
 import time
 from contextlib import ExitStack, nullcontext
 from dataclasses import dataclass
@@ -636,7 +637,7 @@ class BuildJevHarness:
                     status_code=413, provider_dispatched=bool(self.calls)) from exc
             raise
         finally:
-            preparation.close()
+            preparation.__exit__(*sys.exc_info())
             if pending_query is not None:
                 if pending_query.done() and not pending_query.cancelled():
                     pending_query.exception()
