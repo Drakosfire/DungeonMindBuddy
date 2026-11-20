@@ -1,6 +1,6 @@
 # Public legacy recap-context retirement
 
-Status: ACTIVE. Owner MIND. Operator authorizes full optimized Elderwyld vNext
+Status: COMPLETE for implementation and source review. Merge pending. Owner MIND. Operator authorizes full optimized Elderwyld vNext
 cutover design, implementation, independent review and merge. Serial delivery.
 
 ## Current anchor and outcome
@@ -76,3 +76,27 @@ no full qualification waiver. Full default frontend also remains RED/unqualified
 Still false: complete public legacy retirement, full deployed cutover, later-write-safe
 rollback and V11 acceptance. Next after this outcome: raw projection/recap-projection
 retirement with actual consumers, then remaining Core exports and deployment gates.
+
+## Accepted evidence
+
+PR #4242 source c4d4e8a212f5df752a4db899a0eb7ef0226616a4 received
+bounded acceptance in review 5995249255. All 969 backend tests passed.
+The dedicated migrated Core test database was dropped and verified absent.
+Supplying that database resolved two earlier fixture configuration failures.
+
+641 focused UI tests and 1,419 hosted UI tests passed. Hosted build and
+validator passed. The full UI candidate reported 8,348 passes, 103 failures
+and 2 pending. Base 4715f169 reported 8,335 passes, 103 failures and 2 pending.
+All failure identities and first diagnostics matched. The candidate added
+13 tests and removed none. Scoped Ruff reported 11 inherited findings and
+zero new findings. Full UI release qualification remains open.
+
+Main advanced to 67e26b61 during verification through the Wayfinder and
+Dossier UI changes. No changed path overlaps the accepted source. The
+combined tree merged cleanly. The recorded suite results apply to the
+tested source and base.
+
+MIND retains task scratch and cache for review and cutover. Evidence includes
+discovered-comparison.json, both UI inventories, the backend and frontend
+ledgers and the Core fixture cleanup receipt. Check active use, mounts and
+unique evidence before authorized cleanup. No manual disposal occurred.
