@@ -346,8 +346,9 @@ def recover_original_receipt(
                 code="publication_receipt_unavailable", status_code=409,
             )
         # Reject older recipes before accessing any unsupported assertion shape.
-        from dungeonmind.contracts.contribution_review_v3 import ContributionReviewStateV3
-        if type(history.review) is not ContributionReviewStateV3:
+        from dungeonmind.contracts.contribution_review_v3 import ContributionReviewRecordV3, ContributionReviewStateV3
+        if (type(history.review) is not ContributionReviewStateV3
+                or type(history.review.record) is not ContributionReviewRecordV3):
             raise GraphObjectAuthoringError(
                 "Historical manual recipe is unsupported; retain the original request.",
                 code="publication_history_unsupported", status_code=409,

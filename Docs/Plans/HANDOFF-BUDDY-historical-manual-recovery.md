@@ -127,23 +127,27 @@ exact cumulative source/evidence review and expected-head merge.
 
 ## Draft implementation checkpoint
 
-Core247/WK348 are installed from their exact pinned Git revisions in a new retained
-Python3.13 environment. Working-tree diagnostics: commit family58pass;
-focused history/hosted41pass; an earlier two-file owning snapshot451pass with no
-failure/error/skip (predates the last four parent-decoder regressions). These are
-not final exact-source qualification. Changed runtime/commit-test Ruff passes;
-hosted test file retains11F811 failures reproduced on the exact base.
-Working SQL matrix now passes3cases: actual typed-V3 publication, later head,
+Core247/WK348 are installed from exact Git pins in a new retained Python3.13
+environment; all218Core and14WK production files match pinned Git archives.
+The current commit family diagnostic passes60cases, including valid V2 and guarded
+V3 unsupported-generation refusals before parent lookup. Changed runtime/family/
+SQL-test Ruff passes; hosted test retains11F811 failures reproduced on exact base.
+
+The real SQL matrix passes3cases: original typed-V3 publication, descendant,
 fixture-only consistent catalog withdrawal, original once-signed expired packet,
-then fresh bare recovery twice; absent receipt and corrupt child fail closed.
-All APP/Core rows are count-and-hash checked, and APP sources plus Core mutable
-artifact/head/writer access are tripwired. Three uniquely owned databases reached
-migration0023, each with zero clients before drop and verified absent afterward.
-This is a local historical publication witness with the inherited admitted-span
-presentation/context stubs; hosted managed authorization is proved separately.
-The separate parent-decoder failure matrix remains unit/composition coverage,
-not a claimed SQL-specific storage race. Final frozen hosted/build/canonical,
-owning/preservation contracts and independent acceptance remain pending. No baseline rerun or deployment; ACTIVE, draft, not merge-ready.
+and fresh bare recovery twice. Absent receipt/corrupt child fail closed. All APP/
+Core rows are count-and-hash checked; mutable APP/Core artifact/head/writers are
+tripwired. Each owned matrix DB reached0023, had zero clients before drop, and was
+verified absent. The local witness retains the inherited admitted-span presentation/
+context stubs; hosted managed authorization is separate. Parent-decoder storage
+faults are unit/composition proof, not a claimed SQL race.
+
+The first frozenb037 run passed auth316 and completed the hosted verifier, but
+concurrent database cohorts lost32903connections: owning2errors, native1failure/
+55errors, preservation33errors. Retain those failed diagnostics; service is healthy
+without restart/configuration change. Final updated-head serial owning/auth/native/
+preservation, official hosted/build validation and independent acceptance remain
+pending. ACTIVE draft, not merge-ready; no baseline rerun, deployment or cutover.
 
 ## Remaining work and resources
 

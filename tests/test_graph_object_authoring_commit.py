@@ -808,7 +808,7 @@ def test_historical_manual_candidate_preserves_complete_node_value():
 
 
 
-def _coherent_historical_manual_review(*, mutation: str | None = None, recipe: str = "object"):
+def _coherent_historical_manual_review(*, mutation: str | None = None, recipe: str = "object", generation: str = "v3"):
     """Use the historical producer and Core's real state builder, including forgeries."""
     from types import SimpleNamespace
     from dungeonmind.application.contribution_review_v3 import _build_review_state
@@ -821,6 +821,21 @@ def _coherent_historical_manual_review(*, mutation: str | None = None, recipe: s
         ContributionReviewSubmissionV3, contribution_v3_payload_sha256,
         derive_review_intent_sha256_v3,
     )
+    if generation == "v2":
+        # Build an actually valid older Core review, not an object masquerading
+        # as one. Local aliases keep the common producer fixture below shared.
+        from dungeonmind.application.contribution_review_v2 import _build_review_state
+        from dungeonmind.contracts.contribution_review_v2 import (
+            CommitConfirmationReceiptV2 as CommitConfirmationReceiptV3,
+            ContributionReviewIntentV2 as ContributionReviewIntentV3,
+            ContributionReviewSubmissionV2 as ContributionReviewSubmissionV3,
+            contribution_v2_payload_sha256 as contribution_v3_payload_sha256,
+            derive_review_intent_sha256_v2 as derive_review_intent_sha256_v3,
+        )
+    elif generation == "guarded_v3":
+        from dungeonmind.contracts.contribution_review_v3 import (
+            GuardedContributionReviewIntentV3 as ContributionReviewIntentV3,
+        )
     from dungeonmind.domain.canonical import canonical_sha256
     from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
         _build_v2_candidate, _build_identity_dispositions,
@@ -866,6 +881,18 @@ def _coherent_historical_manual_review(*, mutation: str | None = None, recipe: s
         pair_to_dm={("art:original", "buddy:original"): "rev:admitted"},
         produced_at=review_time,
     )
+    if generation == "v2":
+        from dungeonmind.contracts.contribution import GraphContributionV2
+        from dungeonmind.contracts.evidence import EvidenceRef
+        converted = candidate.model_dump(mode="json")
+        converted["schema_version"] = "dm_graph_contribution_v2"
+        for assertion in converted["assertions"]:
+            assertion["evidence_refs"] = [
+                {**{key: value for key, value in ref.items() if key in EvidenceRef.model_fields},
+                 "schema_version": EvidenceRef.model_fields["schema_version"].default}
+                for ref in assertion["evidence_refs"]
+            ]
+        candidate = GraphContributionV2.model_validate(converted)
     if mutation in {"role", "alias", "summary", "qualification", "scope", "identity"}:
         assertion = candidate.assertions[0]
         value = json.loads(assertion.value)
@@ -915,6 +942,16 @@ def _coherent_historical_manual_review(*, mutation: str | None = None, recipe: s
         identity_verdicts=verdicts, assertion_verdicts=assertion_verdicts,
         reviewer_id="original-actor", reviewed_at=review_time,
     )
+    if generation == "guarded_v3":
+        from dungeonmind.contracts.contribution_review_v3 import ReviewedIdentityPublicationPreconditionsV1
+        intent_fields["reviewed_identity_preconditions"] = ReviewedIdentityPublicationPreconditionsV1(
+            world_id=CAMPAIGN_ID, campaign_id=review_campaign,
+            expected_parent_revision_id=parent_id, decision_id="decision:retained",
+            decision_sha256="12" * 32, target_object_id=candidate.assertions[0].subject_object_id,
+            target_object_sha256="34" * 32, existence_evidence_sha256="56" * 32,
+            sources=[dict(source_artifact_id="art:original", source_revision_id="rev:admitted",
+                          source_artifact_sha256="78" * 32, source_revision_sha256="90" * 32)],
+        )
     digest = derive_review_intent_sha256_v3(**intent_fields)
     intent = ContributionReviewIntentV3(**intent_fields, review_intent_sha256=digest)
     confirmation = CommitConfirmationReceiptV3(
@@ -1095,3 +1132,19 @@ def test_historical_manual_service_parent_read_failure_is_typed(monkeypatch, fai
         commit_graph_object_authoring_write(request, authenticated_actor="original-actor", recovery_only=True)
     assert (error.value.code, error.value.status_code) == (code, status)
     assert [item[0] for item in calls] == ["terminal"]
+
+
+
+@pytest.mark.parametrize("generation", ["v2", "guarded_v3"])
+def test_historical_manual_unsupported_real_review_generation_retains_original_packet(monkeypatch, generation):
+    request, _, calls = _signed_historical_manual_request(monkeypatch)
+    history = _coherent_historical_manual_review(generation=generation)["history"]
+    # Each fixture is revalidated by Core's real versioned state contracts.
+    assert type(history.review).model_validate(history.review.model_dump(mode="json")) == history.review
+    monkeypatch.setattr("dungeonmind.application.compatibility.read_historical_finalized_publication",
+                        lambda *args, **kwargs: history)
+    with pytest.raises(GraphObjectAuthoringError) as error:
+        commit_graph_object_authoring_write(request, authenticated_actor="original-actor", recovery_only=True)
+    assert (error.value.code, error.value.status_code) == ("publication_history_unsupported", 409)
+    assert calls == []  # No parent lookup, mutable fallback, or fresh publication.
+    assert request.confirm_token  # Retained packet remains available to the caller.
