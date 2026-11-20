@@ -230,3 +230,28 @@ and no fresh reads/dispatch. API/backend still own authoritative admission; UI
 transport mocked. Legacy-codec-diagnostic-1.log selected6 unchanged codec tests
 and18 dispatcher tests, all24PASS. Earlier red logs remain retained. These are
 pre-main-integration working-source results, not new-head execution claims.
+
+Main integration: normal merge10176044ff4380f793d9aa626082c0f5ec55c016
+into0dbd77fedc95e41b3545e4374dc44ef5a0d862ab preserved eight upstream
+backend/docs/test paths; no N3b overlap. Hubble migration follow-up closed:
+retained same-name/same-kind relationship endpoints retain distinct IDs and
+direction on remount without fresh identity reads. Cache misses clear old rows
+before awaiting provider; failed/current-generation identity refresh cannot
+prepare stale endpoints. Valid unchanged empty/nonempty cache reuse remains.
+
+Integrated-owning-diagnostic-6.log TERMINAL290PASS across seven explicit paths:
+168 transport,29 parent,18 dispatcher,23 Native component,24 API,6 unchanged
+legacy codec,22 journal. Both integrated-types-app-6.log and
+integrated-types-verification-6.log exit0. This working-tree execution preceded
+final proof commit; source/test inputs retained in external final manifest.
+Inventory1575files passes; exact cumulative16paths, three new fast test entries
+only. Prior 0db committed-head owning/types also passed before final two scoped
+endpoint fixes; not substituted for their updated290 proof. All failures and
+prestart/cwd receipts remain in MIND-owned task scratch. No official full UI,
+hosted/build/canonical or final acceptance claim: root owns those gates.
+
+Retained task resources: existing checkout/cache unchanged ownerMIND; N3b scratch
+contains diagnostic logs/wire fixtures/manifests, retained for review and failure
+provenance. No resources removed, no reclaimed bytes; cleanup follow-up belongs
+to MIND after review/merge and active-process/unique-data checks. No worker Node,
+DB, provider or serving jobs remain at freeze.

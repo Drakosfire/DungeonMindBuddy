@@ -63,6 +63,7 @@ export function NativeManualKnowledge({scope,initial,getFresh,isCurrent,getSelec
   async function identities(c=context){
     if(!c)return;const key=identityKey(c);
     if(identityCache.current?.key===key){setNodes(identityCache.current.rows);return;}
+    identityCache.current=null;setNodes([]);
     const rows=await getNativeAuthoringIdentities(scope.worldId);active();
     if(key!==identityKey(c))throw new Error('Graph authorization changed during identity lookup.');
     identityCache.current={key,rows};setNodes(rows);
@@ -96,6 +97,7 @@ export function NativeManualKnowledge({scope,initial,getFresh,isCurrent,getSelec
       const seen=new Set<string>();const values=aliases.split(/[,\n]+/).map(x=>x.trim()).filter(x=>{const k=x;if(!x||seen.has(k))return false;seen.add(k);return true;});
       return {kind:'object',objectKind:kind,name:name.trim(),role:role.trim()||null,aliases:values,description:description.trim()||null};
     }
+    if(identityCache.current?.key!==identityKey(context))throw new Error('Refresh authorized object choices before reviewing this relationship.');
     const a=nodes.find(n=>n.node_id===from&&n.selectable!==false),b=nodes.find(n=>n.node_id===to&&n.selectable!==false);
     if(!a||!b||a.node_id===b.node_id||!context.predicates[predicate])throw new Error('Choose two distinct authorized objects and a supported relationship.');
     return {kind:'relationship',source:{entityId:a.node_id,name:a.label,objectKind:a.kind},target:{entityId:b.node_id,name:b.label,objectKind:b.kind},predicate,label:null,description:description.trim()||null};
@@ -176,8 +178,8 @@ export function NativeManualKnowledge({scope,initial,getFresh,isCurrent,getSelec
         <dt>Name</dt><dd>{op.request.operation.name}</dd><dt>Kind</dt><dd>{op.request.operation.objectKind}</dd>
         <dt>Role</dt><dd>{op.request.operation.role||op.request.operation.objectKind}</dd><dt>Aliases</dt><dd>{(op.request.operation.aliases.length?op.request.operation.aliases:[op.request.operation.name]).join(', ')}</dd>
         <dt>Description</dt><dd>{op.request.operation.description||'None'}</dd></dl>:<dl>
-        <dt>From</dt><dd>{op.request.operation.source.name+' · '+op.request.operation.source.objectKind}</dd><dt>Relationship</dt><dd>{op.request.operation.predicate}</dd>
-        <dt>To</dt><dd>{op.request.operation.target.name+' · '+op.request.operation.target.objectKind}</dd><dt>Description</dt><dd>{op.request.operation.description||'None'}</dd>
+        <dt>From</dt><dd>{op.request.operation.source.name+' · '+op.request.operation.source.objectKind+(op.request.operation.source.name===op.request.operation.target.name&&op.request.operation.source.objectKind===op.request.operation.target.objectKind?' · '+op.request.operation.source.entityId:'')}</dd><dt>Relationship</dt><dd>{op.request.operation.predicate}</dd>
+        <dt>To</dt><dd>{op.request.operation.target.name+' · '+op.request.operation.target.objectKind+(op.request.operation.source.name===op.request.operation.target.name&&op.request.operation.source.objectKind===op.request.operation.target.objectKind?' · '+op.request.operation.target.entityId:'')}</dd><dt>Description</dt><dd>{op.request.operation.description||'None'}</dd>
         {op.request.operation.predicate==='belongs_to'&&<><dt>Will record</dt><dd>{op.request.operation.target.name+' owns '+op.request.operation.source.name+' (direction reversed)'}</dd></>}
       </dl>}</>}
       {op?.stage==='profile'&&<p>This explicitly adopts the reviewed manual relationship capability for this World. It does not change existing facts or source access.</p>}

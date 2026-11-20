@@ -201,3 +201,23 @@ it('blocks a corrupt retained relationship without reading fresh source or dispa
  expect(getFresh).not.toHaveBeenCalled();expect(api.readManualContext).not.toHaveBeenCalled();expect(api.prepareManual).not.toHaveBeenCalled();expect(api.confirmManual).not.toHaveBeenCalled();
  expect(screen.queryByRole('button',{name:'Confirm World change'})).not.toBeInTheDocument();
 });
+
+it('retains same-name endpoint direction after remount without fresh identity reads',async()=>{
+ const request=api.clone(wire.request);request.operation={kind:'relationship',source:{entityId:'ent:first',name:'Same name',objectKind:'npc'},target:{entityId:'ent:second',name:'Same name',objectKind:'npc'},predicate:'allied_with',label:null,description:'Original directed relationship'};
+ const plan=await serverPlan(request);const saved=await journal.store(scope,journal.freshRecovery(scope,{stage:'manual',request,plan,witnessText:wire.witnessText}),null);
+ const a=mount(saved);await screen.findByRole('button',{name:'Confirm World change'});expect(screen.getByText('Same name · npc · ent:first')).toBeInTheDocument();a.unmount();
+ mount(saved);await screen.findByRole('button',{name:'Confirm World change'});
+ const from=screen.getByText('From').nextElementSibling,to=screen.getByText('To').nextElementSibling;
+ expect(from).toHaveTextContent('Same name · npc · ent:first');expect(to).toHaveTextContent('Same name · npc · ent:second');
+ expect(live.getNativeAuthoringIdentities).not.toHaveBeenCalled();expect(getFresh).not.toHaveBeenCalled();expect(api.prepareManual).not.toHaveBeenCalled();
+});
+it('clears stale endpoints before a rejected identity refresh and prevents relationship prepare',async()=>{
+ mount();await choose();fireEvent.change(screen.getByLabelText('Declare'),{target:{value:'relationship'}});
+ await waitFor(()=>expect(live.getNativeAuthoringIdentities).toHaveBeenCalledTimes(1));
+ fireEvent.change(screen.getByLabelText('From'),{target:{value:'ent:ari'}});fireEvent.change(screen.getByLabelText('To'),{target:{value:'ent:tower'}});
+ vi.mocked(live.getNativeGraphAccessGeneration).mockReturnValue(8);vi.mocked(live.getNativeAuthoringIdentities).mockRejectedValueOnce(new Error('identity admission refused'));
+ fireEvent.change(screen.getByLabelText('Declare'),{target:{value:'object'}});fireEvent.change(screen.getByLabelText('Declare'),{target:{value:'relationship'}});
+ await screen.findByText('identity admission refused');expect((screen.getByLabelText('From') as HTMLSelectElement).options).toHaveLength(1);expect((screen.getByLabelText('To') as HTMLSelectElement).options).toHaveLength(1);
+ fireEvent.click(screen.getByRole('button',{name:'Preview World change'}));await screen.findByText('Refresh authorized object choices before reviewing this relationship.');
+ expect(api.prepareManual).not.toHaveBeenCalled();expect(api.confirmManual).not.toHaveBeenCalled();expect(localStorage.length).toBe(0);
+});
