@@ -87,12 +87,12 @@ it('shows a precise CONTEXT collision path, retains the draft, and requires expl
  fireEvent.change(screen.getByLabelText('Exact witness or subrange'),{target:{value:'Elderwyld'}});fireEvent.click(screen.getByRole('button',{name:'Preview World change'}));await screen.findByRole('button',{name:'Confirm World change'});
  expect(vi.mocked(api.prepareManual).mock.calls[1][0].witness.sliceSha256).toBe(await api.sha256('Elderwyld'));
 });
-it.each(['403','stale','config'])('keeps unknown confirmation byte-for-byte across remount and later %s',async later=>{
+it.each(['403','stale','config'])('keeps the exact unknown packet across remount and later %s',async later=>{
  vi.mocked(api.confirmManual).mockRejectedValueOnce(new Error('response lost'));const view=mount();await preview();fireEvent.click(screen.getByRole('button',{name:'Confirm World change'}));await screen.findByText('response lost');
  const old=journal.discover(scope).native!,packet=api.clone((old.value.operation as {plan:ManualPlan}).plan);view.unmount();vi.mocked(api.readManualContext).mockClear();getFresh.mockClear().mockImplementation(()=>{throw new Error('today unavailable');});vi.mocked(api.prepareManual).mockClear();
  vi.mocked(api.confirmManual).mockRejectedValueOnce(new api.ManualApiError('later refusal',later==='403'?403:later==='config'?503:409,later==='stale'?'manual_parent_stale':'authority_unavailable',false,true));
  mount(old);await waitFor(()=>expect(screen.getByRole('button',{name:'Retry original confirmation'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Retry original confirmation'}));await screen.findByText('later refusal');
- expect(journal.discover(scope).native!.raw).toBe(old.raw);expect(vi.mocked(api.confirmManual).mock.calls.at(-1)?.[0]).toEqual(packet);
+ const retained=journal.discover(scope).native!;expect(retained.value.operation).toEqual(old.value.operation);expect(retained.value.attempts).toBe(old.value.attempts+1);expect(journal.uncertain(retained.value)).toBe(true);expect(vi.mocked(api.confirmManual).mock.calls.at(-1)?.[0]).toEqual(packet);
  expect(api.prepareManual).not.toHaveBeenCalled();expect(api.readManualContext).not.toHaveBeenCalled();expect(getFresh).not.toHaveBeenCalled();expect(screen.queryByRole('button',{name:'Set aside retained review and refresh'})).not.toBeInTheDocument();
 });
 it('does not mutate on render and recovers admission status before any repeat POST after lost acknowledgement',async()=>{

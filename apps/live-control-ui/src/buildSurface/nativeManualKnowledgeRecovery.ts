@@ -135,7 +135,7 @@ export async function store(scope:Scope,next:Recovery,previous:Located|null):Pro
     return {key,raw,value:clone(next)};
   });
 }
-export function dispatched(r:Recovery):Recovery{if(uncertain(r))return clone(r);return {...clone(r),submitted:true,attempts:r.attempts+1,everUnknown:r.everUnknown||r.submitted,zeroConfirmed:false};}
+export function dispatched(r:Recovery):Recovery{return {...clone(r),submitted:true,attempts:r.attempts+1,everUnknown:r.everUnknown||r.submitted,zeroConfirmed:false};}
 export function failed(r:Recovery,verifiedZero:boolean,wasUncertain:boolean):Recovery{
   if(wasUncertain||r.everUnknown)return clone(r);
   const sticky=wasUncertain||r.everUnknown||r.attempts>1;

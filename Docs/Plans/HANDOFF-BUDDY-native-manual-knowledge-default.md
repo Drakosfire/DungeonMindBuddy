@@ -190,3 +190,11 @@ at recoverySHA753bfb2873b97fa1b221de484ca8d4637f50e36d89bd7c4c99c44e28efae9a4b.
 Draft4207 remains WIP until existing dispatcher/transport/parent tests updated,
 fresh main integrated and cumulative proof complete; old102 discovered baseline
 failures retained, no global green claim. No worker job remains at checkpoint.
+
+Same-operation retry coordination: every actual dispatch advances a monotonic
+attempt marker under existing World/document WebLocks and raw CAS, including
+uncertain retries. Original request, signed plan, identifiers and times remain
+identical; journal attempt metadata changes. Concurrent tabs with one old raw
+snapshot cannot both dispatch. Stale completion/refusal writes cannot replace
+the newer marker or clear sticky uncertainty. Later refusal preserves current
+dispatch bytes and never permits archive/fresh authoring.

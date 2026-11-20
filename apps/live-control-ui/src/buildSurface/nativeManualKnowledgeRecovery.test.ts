@@ -20,10 +20,11 @@ it.each(['later403','later-stale409','later-config503'])('keeps sticky unknown a
  const {scope,value}=setup();let stored=await journal.store(scope,value,null);
  stored=await journal.store(scope,journal.dispatched(stored.value),stored);
  stored=await journal.store(scope,journal.failed(stored.value,false,false),stored);const raw=stored.raw;
- const later=journal.dispatched(stored.value);const refused=journal.failed(later,true,true);
- stored=await journal.store(scope,refused,stored);
- expect(stored.raw).toBe(raw);expect(journal.uncertain(stored.value)).toBe(true);
- await expect(journal.archive(scope,stored)).rejects.toThrow(/uncertain/);expect(localStorage.getItem(stored.key)).toBe(raw);
+ const original=clone(stored.value.operation);
+ stored=await journal.store(scope,journal.dispatched(stored.value),stored);const dispatchedRaw=stored.raw;
+ const refused=journal.failed(stored.value,true,true);stored=await journal.store(scope,refused,stored);
+ expect(stored.raw).toBe(dispatchedRaw);expect(stored.raw).not.toBe(raw);expect(stored.value.operation).toEqual(original);expect(journal.uncertain(stored.value)).toBe(true);
+ await expect(journal.archive(scope,stored)).rejects.toThrow(/uncertain/);expect(localStorage.getItem(stored.key)).toBe(dispatchedRaw);
 });
 it('treats crash after submitted marker as ambiguous even without an unknown flag',async()=>{
  const {scope,value}=setup();let stored=await journal.store(scope,journal.dispatched(value),null);
@@ -108,4 +109,17 @@ it.each(['profile-first','manual-first'])('serializes two-document same-World %s
  expect(pending[0].raw).toBe(kept.raw);expect(entered.filter(k=>k===journal.worldLockKey(scope.worldId))).toHaveLength(2);
  if(order==='profile-first')expect(journal.discover(scope).native?.raw).toBe(kept.raw);
  expect(localStorage.length).toBe(1);
+});
+
+it('monotonically claims same-operation retries and rejects stale responses before they can clear ambiguity',async()=>{
+ const {scope,value}=setup();let first=await journal.store(scope,journal.dispatched(value),null);
+ first=await journal.store(scope,journal.failed(first.value,false,false),first);
+ const retry=journal.dispatched(first.value);
+ const outcomes=await Promise.allSettled([journal.store(scope,retry,first),journal.store(scope,retry,first)]);
+ expect(outcomes.filter(x=>x.status==='fulfilled')).toHaveLength(1);
+ expect(outcomes.filter(x=>x.status==='rejected')).toHaveLength(1);
+ const current=(outcomes.find(x=>x.status==='fulfilled') as PromiseFulfilledResult<journal.Located>).value;
+ expect(current.value.attempts).toBe(first.value.attempts+1);expect(current.value.operation).toEqual(first.value.operation);
+ await expect(journal.store(scope,journal.failed(first.value,true,false),first)).rejects.toThrow();
+ expect(localStorage.getItem(current.key)).toBe(current.raw);expect(journal.uncertain(current.value)).toBe(true);
 });
