@@ -110,6 +110,15 @@ that eleventh path; prior runtime work remains within the original ten paths.
 
 ## Current implementation checkpoint
 
+Actual mainc8f62413cfdca9850f3160cbec484212c6d9a49e was integrated normally
+before final qualification. Deltas after activation include4213's two
+SelectedWorldContext source/test paths (parallel existing hosted World/Page reads)
+and4214's four appearance-setting paths. They are outside this write lease and
+are preserved. The remote ref advanced before merge, so the actual merge parent,
+not an earlier observed ref, defines qualification. Re-run SelectedWorldContext
+with the affected UI cohort and qualify the complete frozen tree; parent changes
+never waive new failures or make45b parity green.
+
 Owning working-tree diagnostics:31 backend PASS,1 optional historical PostgreSQL
 witness skipped because its separate DMB_CUTOVER_TEST_DATABASE_URL was not supplied;
 91 UI PASS across actual local Recap/remount, generic authoring surface, managed
