@@ -947,6 +947,8 @@ def test_worldbuilding_governs_uses_pinned_v6_at_prepare_and_confirm(
     assert receipt.committed_revision_id == seeded.history.publication.published_revision_id
     relation = next(item for item in seeded.history.review.candidate_contribution.assertions if item.assertion_kind == "edge")
     assert relation.predicate == "dnd5e:governs"
+    assert relation.subject_object_id == "obj_session22_vial"
+    assert relation.object_object_id == "mystery_puddles"
     assert fake.publish_calls == 0
     assert DEFAULT_WORLD_ID not in fake.heads
 
@@ -1644,7 +1646,14 @@ def test_bind_existing_native_verify_proves_attribute_and_alias(tmp_path, monkey
     attributes = [item for item in candidate.assertions if item.assertion_kind == "attribute"]
     aliases = [item for item in candidate.assertions if item.assertion_kind == "alias"]
     assert any(item.subject_object_id == target.object_id and item.evidence_refs for item in attributes)
-    assert any(item.subject_object_id == target.object_id and "Witness Alias" in item.value for item in aliases)
+    import json
+    alias = next(item for item in aliases if item.subject_object_id == target.object_id)
+    assert json.loads(alias.value)["alias"] == "Witness Alias"
+    assert alias.evidence_refs
+    assert all(ref.source_revision_id == plan.source_admission.source_revision_id for ref in alias.evidence_refs)
+    assert {ref.evidence_ref_id.split(":dm-extraction-v3:")[0] for ref in alias.evidence_refs} == {
+        ref for item in plan.effect.accepted_proposals if item.assertion_kind == "alias" for ref in item.evidence_ref_ids
+    }
     assert any(item.subject_object_id == "mystery_puddles" for item in candidate.assertions)
     assert fake.publish_calls == 0
     assert fake.heads[DEFAULT_WORLD_ID] == parent
