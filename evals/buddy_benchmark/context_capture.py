@@ -26,12 +26,14 @@ class WriterIODenied(BaseException):
     """The intended boundary was missed; context capture must fail closed."""
 
 
-def validate_context_packet(ready, request, terminal):
+def validate_context_packet(ready, request, terminal, *, writer_transport=None):
     """Join exact prepared bytes to the final, normally interrupted APP turn."""
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_execution import NativeWriterAuthorizedV1
 
     sink = terminal.get("transport_sink")
+    if writer_transport is not None and writer_transport != (sink is not None):
+        raise ValueError("Capture receipt differs from the requested boundary")
     expected_hits = 1 if sink is not None else 0
     if (ready.get("schema") != "dmb_benchmark_context_ready_v1"
             or terminal.get("status") != "captured"
@@ -188,7 +190,7 @@ class ContextCapture:
                     immutable_save(self.directory, name, value)
             ready = json.loads((self.directory / "context-ready.json").read_text())
             request = json.loads((self.directory / "context-request.json").read_text())
-            validate_context_packet(ready, request, terminal)
+            validate_context_packet(ready, request, terminal, writer_transport=self.writer_transport)
         except Exception as exc:
             terminal.update(status="incomplete", error_type=type(exc).__name__)
             immutable_save(self.directory, "context-stop", terminal)

@@ -113,9 +113,9 @@ def report_case(case, base):
     directory = Path(case["capture_dir"])
     directory = directory if directory.is_absolute() else base / directory
     boundary = case.get("capture_boundary", "response")
-    if boundary not in {"response", "context_ready"}:
+    if boundary not in {"response", "context_ready", "writer_transport"}:
         raise ValueError("Unknown capture boundary")
-    context_only = boundary == "context_ready"
+    context_only = boundary != "response"
     names = ("request", "history-after", "context-trace") + (
         ("context-ready", "context-request", "context-stop") if context_only else ("answer-http",))
     paths = {name: directory / (name + ".json") for name in names}
@@ -198,7 +198,9 @@ def report_case(case, base):
     context_packet = None
     if context_only:
         from .context_capture import validate_context_packet
-        context_packet = validate_context_packet(documents["context-ready"], documents["context-request"], documents["context-stop"])
+        context_packet = validate_context_packet(
+            documents["context-ready"], documents["context-request"], documents["context-stop"],
+            writer_transport=boundary == "writer_transport")
         captured = context_packet["turn"]
         authorization = context_packet["authorization"]
         if ((str(captured.turn_id), str(captured.conversation_id), captured.world_id, captured.user_text)
@@ -253,7 +255,7 @@ def report_case(case, base):
             return sum(c[key] for c in controller_calls.values()) if controller_calls and all(
                 c[key] is not None for c in controller_calls.values()) else None
         return {"case_id": case["id"], "question": case["question"], "capture_status": "complete",
-            "capture_boundary": "context_ready", "durable_turn_id": turn["turn_id"], "boundaries": boundaries,
+            "capture_boundary": boundary, "durable_turn_id": turn["turn_id"], "boundaries": boundaries,
             "context": {"status": "captured", "accepted_to_ready_ms": context_packet["elapsed_ms"],
                 "request_to_ready_ms": context_packet["request_to_ready_ms"],
                 "request_to_transport_ms": context_packet["request_to_transport_ms"],
@@ -524,7 +526,7 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
         # A new capture never inherits an old semantic assessment.
         current = {key: value for key, value in case.items() if key not in {"assessment", "assessments"}}
         if context_only:
-            current["capture_boundary"] = "context_ready"
+            current["capture_boundary"] = "writer_transport" if writer_transport else "context_ready"
         elif current.get("capture_boundary", "response") != "response":
             raise ValueError("Context capture requires the explicit capture-context mode")
         retained["cases"].append(dict(current, capture_dir=str((output / case["id"]).resolve()),

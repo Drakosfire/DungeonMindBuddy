@@ -1376,6 +1376,14 @@ def test_benchmark_context_boundary_uses_actual_sdk_admission_without_writer_io(
     transport_ready = json.loads((second / 'context-ready.json').read_text())
     transport_request = json.loads((second / 'context-request.json').read_text())
     transport_stop = json.loads((second / 'context-stop.json').read_text())
+    transport_case = dict(case, question='Which details are established about B?',
+        capture_dir=str(second), capture_boundary='writer_transport')
+    transport_report = workflow.report_case(transport_case, Path('.'))
+    assert transport_report['capture_boundary'] == 'writer_transport'
+    with pytest.raises(ValueError, match='requested boundary'):
+        workflow.report_case(dict(case, capture_boundary='writer_transport'), Path('.'))
+    with pytest.raises(ValueError, match='requested boundary'):
+        workflow.report_case(dict(transport_case, capture_boundary='context_ready'), Path('.'))
     packet = validate_context_packet(transport_ready, transport_request, transport_stop)
     assert packet['request_to_transport_ms'] >= packet['request_to_ready_ms'] >= 0
     tampered = deepcopy(transport_stop)
