@@ -1,6 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
+import shutil
+import subprocess
+import sys
+
+import pytest
 
 from evals.npc_corpus_recall_audit.npc_corpus_recall_audit import (
     build_npc_corpus_recall_audit_report,
@@ -12,6 +18,49 @@ def _row(report: dict, npc_id: str) -> dict:
         if str(row.get("npc_id") or "") == npc_id:
             return row
     raise AssertionError(f"npc_id not found in report rows: {npc_id}")
+
+
+def _isolated_cli(tmp_path: Path) -> Path:
+    source = Path(__file__).resolve().parents[1] / "evals/npc_corpus_recall_audit/npc_corpus_recall_audit.py"
+    script = tmp_path / "checkout/evals/npc_corpus_recall_audit/npc_corpus_recall_audit.py"
+    script.parent.mkdir(parents=True)
+    shutil.copyfile(source, script)
+    return script
+
+
+@pytest.mark.parametrize("no_update", [False, True])
+def test_cli_external_output_controls_existing_mirror(tmp_path: Path, no_update: bool) -> None:
+    script = _isolated_cli(tmp_path)
+    mirror = script.parent / "artifacts/last_npc_corpus_recall_audit.json"
+    mirror.parent.mkdir()
+    mirror.write_text("retained historical bytes", encoding="utf-8")
+    before = (mirror.read_bytes(), mirror.stat().st_mtime_ns)
+    output = tmp_path / "external/report.json"
+    command = [sys.executable, str(script), "--output", str(output)]
+    if no_update:
+        command.append("--no-update-latest")
+    result = subprocess.run(command, capture_output=True, text=True, check=True)
+    receipt = json.loads(result.stdout)
+    assert json.loads(output.read_text())["schema"] == "dmb_npc_corpus_recall_audit_v2"
+    if no_update:
+        assert (mirror.read_bytes(), mirror.stat().st_mtime_ns) == before
+        assert receipt["mirror"] is None
+    else:
+        assert mirror.read_bytes() == output.read_bytes()
+        assert receipt["mirror"] == str(mirror)
+    assert list(mirror.parent.iterdir()) == [mirror]
+
+
+def test_cli_no_update_does_not_create_checkout_artifacts(tmp_path: Path) -> None:
+    script = _isolated_cli(tmp_path)
+    output = tmp_path / "external/report.json"
+    result = subprocess.run(
+        [sys.executable, str(script), "--output", str(output), "--no-update-latest"],
+        capture_output=True, text=True, check=True,
+    )
+    assert output.is_file()
+    assert json.loads(result.stdout)["mirror"] is None
+    assert not (script.parent / "artifacts").exists()
 
 
 def test_npc_corpus_recall_audit_baseline_shape() -> None:
