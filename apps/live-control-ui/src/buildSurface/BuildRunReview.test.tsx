@@ -10,6 +10,8 @@ import {webcrypto} from 'node:crypto';
 import type { ExactRunReviewPackage, WorkspaceDocumentRecord, ExtractionRunRecord } from '../api/types';
 import { BuildRunReview } from './BuildRunReview';
 const selection=vi.hoisted(()=>({kind:'managed',worldId:'world-a'}));
+const manual=vi.hoisted(()=>({mounted:vi.fn()}));
+vi.mock('./BuildManualKnowledge',()=>({BuildManualKnowledge:(p:any)=>{manual.mounted(p);return <button onClick={()=>p.onBusyChange?.(true)}>Retained manual recovery</button>;}}));
 vi.mock('../selectedWorld/SelectedWorldContext',()=>({useSelectedWorld:()=>selection}));
 const hash='b'.repeat(64), candidate='a'.repeat(64);
 const document={document_id:'doc-a',title:'Edge',world_id:'world-a'} as WorkspaceDocumentRecord;
@@ -360,4 +362,14 @@ it('does not bypass an earlier request written after this review mounted',async(
   const oldKey=key.replace('dmb.buildEvidenceCorrection.v2:','dmb.buildEvidenceCorrection.v1:');localStorage.setItem(oldKey,'');
   submitCorrection();await waitFor(()=>expect(screen.getAllByRole('alert').some(el=>el.textContent?.includes('earlier correction request'))).toBe(true));
   expect(api).not.toHaveBeenCalled();expect(localStorage.getItem(oldKey)).toBe('');
+});
+
+it('mounts manual recovery even when the independent exact-run review read fails',async()=>{
+ vi.spyOn(extract,'getExactRunReviewPackage').mockRejectedValue(new Error('Review unavailable'));
+ const selected=props();render(<BuildRunReview {...selected}/>);await screen.findByText('Review unavailable');
+ fireEvent.click(screen.getByRole('button',{name:'Author knowledge from this source'}));
+ expect(await screen.findByRole('button',{name:'Retained manual recovery'})).toBeInTheDocument();
+ expect(manual.mounted.mock.calls.at(-1)?.[0]).toMatchObject({worldId:'world-a',review:null,run,handoff});
+ fireEvent.click(screen.getByRole('button',{name:'Retained manual recovery'}));await waitFor(()=>expect(selected.onBusyChange).toHaveBeenLastCalledWith(true));
+ expect(screen.getByRole('button',{name:'Close review'})).toBeDisabled();
 });

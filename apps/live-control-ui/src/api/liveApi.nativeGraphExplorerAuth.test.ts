@@ -1576,3 +1576,54 @@ it("never automatically replays a local evidence-extension mutation after auth r
   await expect(api.authenticatedApiFetch(nativeRecapPublicationRoutes[1][1], init)).rejects.toThrow("lost response");
   expect(fetch).toHaveBeenCalledTimes(2);
 });
+
+// Transport-only packets exercise the mounted path/body gate, not backend
+// admission or signed-plan verification (covered by nativeManualKnowledgeApi).
+const manualSource={managedWorldId:'managed-a',nativeWorldId:'space:a',bindingVersion:3,
+ documentId:'20000000-0000-4000-8000-000000000002',documentRevision:2,bodySha256:'a'.repeat(64),
+ runId:'30000000-0000-4000-8000-000000000003',runRevision:7,appSourceArtifactId:'app:one',
+ appSourceRevisionId:'40000000-0000-4000-8000-000000000004',spanIndexSha256:'b'.repeat(64)};
+const manualReview={schema:'dmb_native_manual_prepare_v1',source:manualSource,
+ operationId:'10000000-0000-4000-8000-000000000001',createdAt:'2026-11-20T04:00:00.123Z',
+ expectedParentRevisionId:'rev:a',expectedSourceAuthorityEpoch:1,witness:{},operation:{kind:'object'}};
+const nativeManualRoutes=[
+ ['/api/live/graph-authoring/native-manual/context',{schema:'dmb_native_manual_context_v1',managedWorldId:manualSource.managedWorldId,documentId:manualSource.documentId,documentRevision:2,bodySha256:manualSource.bodySha256,runId:manualSource.runId,runRevision:7}],
+ ['/api/live/graph-authoring/native-manual/prepare',manualReview],
+ ['/api/live/graph-authoring/native-manual/confirm',{schema:'dmb_native_manual_confirm_v1',plan:{schema:'dmb_native_manual_plan_v1',token:'test-only-token',review:manualReview,publication:{space_id:'space:a',publication_id:manualReview.operationId}}}],
+ ['/api/live/graph-authoring/native-profile-transition/prepare',{schema:'dmb_native_profile_transition_prepare_v1',managedWorldId:'managed-a',expectedNativeWorldId:'space:a',expectedBindingVersion:3,expectedParentRevisionId:'rev:a',publicationId:'profile:a'}],
+ ['/api/live/graph-authoring/native-profile-transition/confirm',{schema:'dmb_native_profile_transition_confirm_v1',plan:{schema:'dmb_native_profile_transition_plan_v1',token:'test-only-token',managedWorldId:'managed-a',nativeWorldId:'space:a',bindingVersion:3,request:{space_id:'space:a',publication_id:'profile:a',expected_parent_revision_id:'rev:a'}}}],
+] as const;
+it.each(nativeManualRoutes)('authenticates exact local native manual/profile transport %s',async(path,body)=>{
+ const api=await setup();api.setNativeGraphAccessToken('local-test-token');const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json({ok:true}));
+ await api.authenticatedApiFetch(path,{method:'POST',body:JSON.stringify(body)});
+ expect(fetch).toHaveBeenCalledTimes(1);expect(fetch.mock.calls[0][0]).toBe(path);expect(new Headers(fetch.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer local-test-token');
+ expect(fetch.mock.calls[0][1]).toMatchObject({credentials:'same-origin',redirect:'error'});expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toEqual(body);
+});
+it.each(nativeManualRoutes)('uses only same-origin hosted cookies for native manual/profile %s',async(path,body)=>{
+ const api=await setup();hostedOrigin();api.setNativeGraphAccessToken('must-not-leak');const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json({ok:true}));
+ await api.authenticatedApiFetch(path,{method:'POST',body:JSON.stringify(body),credentials:'include',redirect:'follow',headers:{Authorization:'Bearer forged','X-DMB-Graph-CSRF':'forged','X-DMS-Subject':'forged-owner','Content-Type':'application/json'}});
+ expect(fetch).toHaveBeenCalledTimes(1);expect(fetch.mock.calls[0][0]).toBe(path);expect(fetch.mock.calls[0][1]).toMatchObject({credentials:'same-origin',redirect:'error',mode:'same-origin',cache:'no-store'});
+ const headers=new Headers(fetch.mock.calls[0][1]?.headers);expect(headers.has('Authorization')).toBe(false);expect(headers.has('X-DMB-Graph-CSRF')).toBe(false);expect(headers.has('X-DMS-Subject')).toBe(false);
+ expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toEqual(body);
+});
+it.each([
+ '/api/live/graph-authoring/native-manual/prepare-extra','/api/live/graph-authoring/native-manual/prepare/',
+ '/api/live/graph-authoring/native-manual/prepare?extra=1','/api/live/graph-authoring/native-manual/%70repare',
+ '/api/live/graph-authoring/native-manual/../native-manual/prepare','https://buddy.example/api/live/graph-authoring/native-manual/prepare',
+ '//outside.invalid/api/live/graph-authoring/native-profile-transition/confirm','/api/live/graph-authoring/native-profile-transition/context',
+])('blocks hosted native manual/profile lookalike %s before fetch',async path=>{
+ const api=await setup();hostedOrigin();const fetch=vi.spyOn(globalThis,'fetch');await expect(api.authenticatedApiFetch(path,{method:'POST',body:JSON.stringify(manualReview)})).rejects.toThrow();expect(fetch).not.toHaveBeenCalled();
+});
+it.each(nativeManualRoutes)('rejects malformed hosted native manual/profile packet %s',async(path)=>{
+ const api=await setup();hostedOrigin();const fetch=vi.spyOn(globalThis,'fetch');await expect(api.authenticatedApiFetch(path,{method:'POST',body:'{}'})).rejects.toThrow();expect(fetch).not.toHaveBeenCalled();
+});
+it.each(nativeManualRoutes.filter(([path])=>!path.endsWith('/context')))('never automatically replays native manual/profile mutation %s after auth failure',async(path,body)=>{
+ const api=await setup();let mutations=0;const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async(url,init)=>{
+  if(String(url)==='/api/live/agent/local-session')return init?.method==='POST'?Response.json({status:'active',csrf_token:'csrf-once'}):new Response(null,{status:401});
+  mutations++;return Response.json({detail:{code:'graph_auth_csrf_rejected'}},{status:401});
+ });
+ await api.authenticatedApiFetch(path,{method:'POST',body:JSON.stringify(body)});expect(mutations).toBe(1);expect(fetch.mock.calls.filter(([url])=>String(url)===path)).toHaveLength(1);
+});
+it('rejects remote API bases for native manual transport before any credential dispatch',async()=>{
+ const api=await setup('https://outside.invalid');api.setNativeGraphAccessToken('must-not-leak');const fetch=vi.spyOn(globalThis,'fetch');await expect(api.authenticatedApiFetch(nativeManualRoutes[0][0],{method:'POST',body:JSON.stringify(nativeManualRoutes[0][1])})).rejects.toThrow(/loopback/);expect(fetch).not.toHaveBeenCalled();
+});
