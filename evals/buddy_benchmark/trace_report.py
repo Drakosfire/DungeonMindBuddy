@@ -53,9 +53,11 @@ def build(root, case, *, world, question):
                       if browser is not None else (ingress, ingress))
     if not click <= request <= ingress <= sink:
         raise ValueError("Browser and host milestones are out of order")
-    spans = [(s["name"], s["start_monotonic_ns"], s["end_monotonic_ns"])
-             for s in detail["intervals"] if s["name"] not in WRAPPERS
-             and s["start_monotonic_ns"] < s["end_monotonic_ns"]]
+    host_spans = [(s["name"], s["start_monotonic_ns"], s["end_monotonic_ns"])
+                  for s in detail["intervals"]]
+    spans = [(name, first, last) for name, first, last in host_spans
+             if name not in WRAPPERS and first < last]
+    measured_host_count = len(spans)
     if browser is not None:
         spans += [("browser Send handling", click, request), ("browser to ASGI transit", request, ingress)]
     for entry in marks.get("preflight", []):
@@ -84,17 +86,31 @@ def build(root, case, *, world, question):
                 spans.append(("Jev " + phase["mode"] + " transport", first, last))
 
     points = sorted({click, sink, *(p for _, a, b in spans for p in (a, b))})
-    intervals, totals = [], defaultdict(int)
+    intervals, totals, exclusive = [], defaultdict(int), defaultdict(int)
     for first, last in zip(points, points[1:]):
         active = [span for span in spans if span[1] <= first and last <= span[2]]
         leaves = [span for span in active if not any(span[1] <= child[1] and child[2] <= span[2]
                   and span[1:] != child[1:] for child in active)]
-        label = " / ".join(sorted({span[0] for span in leaves})) or "Unattributed"
+        names = sorted({span[0] for span in leaves})
+        label = " / ".join(names) or "Unattributed"
+        if len(names) == 1:
+            exclusive[names[0]] += last - first
         totals[label] += last - first
         if intervals and intervals[-1]["label"] == label:
             intervals[-1]["end_ms"] = (last - click) / 1e6
         else:
             intervals.append({"label": label, "start_ms": (first - click) / 1e6, "end_ms": (last - click) / 1e6})
+
+    durations = defaultdict(list)
+    for name, first, last in host_spans + spans[measured_host_count:]:
+        durations[name].append(last - first)
+    operations = [
+        {"name": name, "calls": len(samples), "inclusive_ms": sum(samples) / 1e6,
+         "max_call_ms": max(samples) / 1e6, "exclusive_ms": exclusive[name] / 1e6,
+         "wrapper_excluded": name in WRAPPERS}
+        for name, samples in durations.items()
+    ]
+    operations.sort(key=lambda row: (-row["exclusive_ms"], row["name"]))
 
     wall = sink - click
     if wall <= 0:
@@ -107,7 +123,7 @@ def build(root, case, *, world, question):
             "observed_duration_percent": 100 * (1 - totals["Unattributed"] / wall),
             "unattributed_ms": totals["Unattributed"] / 1e6,
             "allocated_ms": {key: value / 1e6 for key, value in sorted(totals.items(), key=lambda row: -row[1])},
-            "intervals": intervals}
+            "operations": operations, "intervals": intervals}
 
 
 def render(report):
@@ -120,6 +136,14 @@ def render(report):
         rows.append(f'<tr><th scope="row">{label}</th><td class="track"><span class="{kind}" '
                     f'style="left:{100 * start / wall:.3f}%;width:{100 * (end - start) / wall:.3f}%">'
                     f'</span></td><td>{start:,.2f}</td><td>{end - start:,.2f}</td></tr>')
+    operations = []
+    for operation in report["operations"]:
+        label = escape(operation["name"])
+        if operation["wrapper_excluded"]:
+            label += " (wrapper)"
+        operations.append(f'<tr><th scope="row">{label}</th><td>{operation["calls"]}</td>'
+                          f'<td>{operation["inclusive_ms"]:,.2f}</td><td>{operation["exclusive_ms"]:,.2f}</td>'
+                          f'<td>{operation["max_call_ms"]:,.2f}</td></tr>')
     case = escape(report["case"])
     start = escape(report["start_boundary"].replace("_", " "))
     end = escape(report["end_boundary"].replace("_", " "))
@@ -133,7 +157,11 @@ def render(report):
         '.track span{position:absolute;top:22%;bottom:22%;background:#25798a}.track .gap{background:#a9562a}</style>'
         f'<h1>{case} latency waterfall</h1><p>{start} to {end} · {wall:,.1f} ms · '
         f'{report["observed_duration_percent"]:.2f}% attributed</p><p><a href="trace-report.json">'
-        'Machine-readable report</a></p><table><thead><tr><th>Operation</th><th>Relative time</th>'
+        'Machine-readable report</a></p><h2>Operation totals</h2>'
+        '<p>Inclusive times can overlap. Exclusive times exclude wrappers and time shared by different operations.</p>'
+        '<table><thead><tr><th>Operation</th><th>Calls</th><th>Inclusive (ms)</th><th>Exclusive (ms)</th>'
+        '<th>Max call (ms)</th></tr></thead><tbody>' + "".join(operations) +
+        '</tbody></table><h2>Waterfall</h2><table><thead><tr><th>Operation</th><th>Relative time</th>'
         '<th>Start (ms)</th><th>Duration (ms)</th></tr></thead><tbody>' + "".join(rows) + "</tbody></table></html>\n"
     )
 

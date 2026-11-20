@@ -1249,6 +1249,11 @@ def test_trace_report_counts_overlapping_spans_once(tmp_path, monkeypatch):
         "read": 5, "bind <evidence> / read": 5, "bind <evidence>": 10, "Unattributed": 10,
     }
     assert report["observed_duration_percent"] == pytest.approx(200 / 3)
+    operations = {row["name"]: row for row in report["operations"]}
+    assert operations["read"] == {"name": "read", "calls": 1, "inclusive_ms": 10,
+                                  "max_call_ms": 10, "exclusive_ms": 5, "wrapper_excluded": False}
+    assert operations["runtime_dispatch"]["wrapper_excluded"] is True
+    assert operations["runtime_dispatch"]["exclusive_ms"] == 0
     assert report["start_boundary"] == "request_start"
     assert report["end_boundary"] == "writer_ready"
     rendered = trace_report.render(report)

@@ -98,7 +98,9 @@ timing is attributed only when the retained browser request and clock bounds
 match the captured case. Host-only captures use request start. The report
 labels writer-ready and writer transport sink separately. Outer wrapper spans
 are excluded from attributed wall time, and simultaneous independent spans
-share one interval. Packet content, Gold and citations are kept in the
+share one interval. The operation table shows observed call counts, inclusive
+time, maximum observed call and exclusive wall time. Shared intervals remain
+in the waterfall and are not assigned to any single operation. Packet content, Gold and citations are kept in the
 original evidence artifacts.
 
 ### Graph completeness and missing-evidence attribution
