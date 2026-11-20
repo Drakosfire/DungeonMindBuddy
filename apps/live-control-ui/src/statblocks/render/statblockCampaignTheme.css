@@ -257,3 +257,34 @@
 .statblock-renderer--campaign summary {
   color: var(--dm-text-dark-brown);
 }
+
+[data-buddy-page-style="dossier"] .statblock-renderer--campaign:not([data-md-theme], [data-md-theme] *) {
+  --dm-text-dark-brown: var(--dossier-ink);
+  --dm-text-header-brown: var(--dossier-heading);
+  --dm-text-maroon-red: var(--dossier-heading);
+  --dm-accent-gold: var(--dossier-border);
+  --dm-white-overlay: var(--dossier-panel);
+  background: var(--dossier-background);
+  border-color: var(--dossier-border);
+  box-shadow: none;
+  font-family: var(--dossier-prose);
+}
+[data-buddy-page-style="dossier"] .statblock-renderer--campaign:not([data-md-theme], [data-md-theme] *) :is(
+  .statblock-campaign-vitals, .statblock-campaign-ability-table,
+  .statblock-campaign-ability-table th, .statblock-campaign-quickfacts
+) {
+  background: var(--dossier-panel);
+  border-color: var(--dossier-border);
+  color: var(--dossier-ink);
+}
+[data-buddy-page-style="dossier"] .statblock-renderer--campaign:not([data-md-theme], [data-md-theme] *) :is(
+  .statblock-campaign-flavor, .statblock-campaign-vitals dt, .statblock-campaign-quickfacts dt
+) {
+  border-color: var(--dossier-border);
+  color: var(--dossier-ink);
+}
+[data-buddy-page-style="dossier"] .statblock-renderer--campaign:not([data-md-theme], [data-md-theme] *) :is(
+  .statblock-campaign-vitals, .statblock-campaign-ability-table, .statblock-campaign-card__heading
+) {
+  font-family: var(--dossier-readout);
+}

@@ -778,3 +778,27 @@ body:has([data-document-surface="build"])
   padding: 0.75rem 1rem;
   background: var(--panel, #151923);
 }
+
+/* Explicit authored reader themes continue to own their content styling. */
+[data-buddy-page-style="dossier"] .build-workspace-projection .build-surface-shell:not([data-md-theme], [data-md-theme] *) {
+  --ui-background-paper: var(--dossier-background);
+  --ui-text-on-paper: var(--dossier-ink);
+  --ui-border-paper: var(--dossier-border);
+  --ui-font-document: var(--dossier-prose);
+}
+[data-buddy-page-style="dossier"] .build-workspace-projection .build-surface-shell:not([data-md-theme], [data-md-theme] *) .build-surface-editor {
+  --fg-mute: var(--dossier-muted);
+  --bg-input: var(--dossier-panel);
+  --accent: var(--dossier-heading);
+}
+[data-buddy-page-style="dossier"] .build-workspace-projection .build-surface-shell :is(h1,h2,h3,h4, a):not([data-md-theme] *) {
+  color: var(--dossier-heading);
+}
+[data-buddy-page-style="dossier"] .build-workspace-projection .build-surface-shell :is(th, td):not([data-md-theme] *) {
+  background: var(--dossier-panel);
+  border-color: var(--dossier-border);
+  color: var(--dossier-ink);
+}
+[data-buddy-page-style="dossier"] .build-workspace-projection .build-surface-shell th:not([data-md-theme] *) {
+  font-family: var(--dossier-readout);
+}
