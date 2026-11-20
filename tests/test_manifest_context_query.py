@@ -1052,6 +1052,8 @@ def test_context_packet_evaluator_cli_output_paths(
     }), encoding="utf-8")
     packet_path.write_text(json.dumps({
         "admitted_evidence": [{"authority": "canon_play"}] if admitted else [],
+        "rejected_evidence": [] if admitted else [{"authority": "reference_tool"}],
+        "claims": [{"claim_type": "authority_check"}],
     }), encoding="utf-8")
     summary_path.write_text(json.dumps({
         "schema": "dmb_c2s23_manifest_query_context_run_v1",
