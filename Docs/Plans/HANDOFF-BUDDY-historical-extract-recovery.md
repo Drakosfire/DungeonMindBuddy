@@ -1,6 +1,6 @@
 # Historical ordinary Recap extract — immutable receipt recovery
 
-Status: ACTIVE. Owner MIND. Explicit operator authorization owns this complete
+Status: COMPLETE — accepted implementation; merge pending. Owner MIND. Explicit operator authorization owns this complete
 vNext optimization/cutover lane, design/implementation/review/merge without PRIME
 or ARCHITECTURE coordination. Serial successor to accepted PR4231 at base
  e89bfa6c486a4c2459de643ba0dc60007ff2e69b. Branch
@@ -168,84 +168,103 @@ cleanup follow-up must check active processes/mounts/dirty data/unique commits a
 specific deletion authorization. No standing manual deletion permission.
 
 
-## Implementation checkpoint — frozen qualification pending
+## Current accepted checkpoint
 
-Independent Hubble readiness PASS on pinned2b52aabb530c91db7b1b87fd9c761627caf8a714;
-this is design readiness, not source/evidence acceptance. Draft PR4232 is open.
-MIND adopted the explicit historical campaign/semantic and domain interpretation
-above after independent Aristotle WIP critique; no new path/capability/owner.
+Disposition: ORDINARY_RECAP_HISTORICAL_CONFIRMATION_ACCEPTED.
+Independent Hubble Cycle1 accepted exact implementation/qualification head
+1890b7afa9740b5d112bba87cd2dfb986461ea43, base
+ e89bfa6c486a4c2459de643ba0dc60007ff2e69b, review5991410759 on PR4232.
+GitHub44720718739/44720719087 succeeded on that head. The final sealing delta
+changes this handoff only; runtime/tests/dependencies remain identical.
 
-Complete original candidate/review derivation, bare terminal/parent/immutable-source
-readers, typed failures, current/late target fences and original receipt shaping
-are implemented. Classic service confirm is receipt-only; classic prepare returns
-410 after explicit target admission. Hosted403 remains unchanged through real
-middleware. Separate reviewed-extract helpers remain untouched and pending later.
+Classic service confirm is receipt-only; classic prepare returns410 after explicit
+target admission. Hosted403 remains unchanged through real middleware. Complete
+original candidate/review derivation, bare terminal/parent/immutable-source readers,
+typed failures, initial/late target fences and original receipt shaping are in
+place. Separate reviewed-extract runtime remains untouched and pending later.
 
-Working diagnostics: wired58pass including5SQL cases; broad owning/candidate/
-reviewed-extract preservation98pass1skip before final test additions. The skip
-requires a distinct unused dmb_reviewed_extract_test_ database, not a general
-service. Final qualification will create/migrate/zero-client-drop/verify absence
-of its own fixture rather than use shared/operator data. Subsequent focused
-closure15pass and hosted2pass include V3-single-slice, actual Core guardedV2 record
-refusal, explicit semantic correction/reviewed-extract deferral, coherent evidence
-ordering negatives, source-local edges/aliases, partial selection and explicit
-rejected-attribute/multi-span public-sealer recipes. Rejected recipes use the
-original sealer with Core's absent-attribute-predicate shape; no mounted rejected
-UI preparation claim. Changed helper/service/owning tests Ruff and diff checks pass;
-route's unrelated native_graph_gm_dependency F401 remains inherited.
+Exact1890 qualification:
+- owning621, native96, preservation376, auth316: all pass,0failure/error/skip;
+  serial cohorts guarded clean unchanged source before/after;
+- official Node22.23.0/npm10.9.8 hosted:1412selected pass,147filtered, collection
+  parity/build/canonical validation pass; temporary root independently absent;
+- complete before/after installed-source audits match Core218files at
+  d206e56a9aa34ae6eb6cc7ac61980a7ac8919c4d and WorldKeeper14files at
+  348c0dbf5156e7e7d5d951de90b9086501fc834f; no repin/resync/runtime overlay;
+- all17 qualifying fixture databases independently queried absent, with zero
+  clients before cleanup, including the separately owned reviewed-extract DB.
 
-Real SQL positives execute actual source admission and public ordinary publication
-at the repository-bootstrap seam (not the full former mounted prepare pipeline),
-advance a descendant, withdraw the catalog source consistently, remove the exact
-fixture body/candidate files, then call real service confirm twice with fresh bare
-readers. Full receipt parity and all APP/Core row counts/hashes stay unchanged.
-Missing receipt/corrupt child refuse. Actual admitted artifact domain is asserted
-SESSION_RECAP. A non-Recap original artifact is refused before admission with zero
-mutation; no impossible non-Recap historical publication is fabricated. A valid
-Core source-revision model substituted with the wrong ID also fails closed.
-Run/Page/current body/catalog/head/finalize/publish accesses are tripwired.
+Real SQL executes actual source admission and public ordinary publication at the
+repository-bootstrap seam (not the entire former mounted prepare pipeline),
+advances a descendant, withdraws the catalog source consistently, removes the
+exact fixture body/candidate files and calls real service confirm twice through
+fresh bare readers. Full original receipt and all APP/Core row counts/hashes stay
+unchanged. Missing receipt/corrupt child and wrong valid immutable revision refuse.
+Actual admitted artifact domain is SESSION_RECAP. Non-Recap original admission
+refuses before publication with zero mutation; no impossible history is fabricated.
+Run/Page/current source/catalog/head/finalize/publish accesses are tripwired.
+This proves historical correspondence, not renewed admission or membership.
 
-Evidence ownerMIND: task scratch/v10-historical-extract-recovery. Retain initial
-packet-key/ledger-order failures; owning-reconstruction-1 used an unmapped edge
-fixture, corrected to the genuinely admitted located_in predicate. sql-working-2
-recorded original non-Recap admission refusal, then the control was corrected to
-assert that owning boundary. recipe-working-1 rejected attribute predicates were
-invalid under the original Core contract, corrected in public-sealer fixture.
-boundary-working-1 used the wrong expected denial-code spelling; canonical existing
-constant is now used. No production invariant was weakened for those corrections.
-The tail command after owning-preservation-working-1 used a misspelled output path;
-XML/log establish98pass1skip, but this diagnostic is not qualifying exact-head proof.
+The original public sealer/producer/Core model matrix includes V2/V3-single-slice,
+source-local edges, aliases, partial selections, historical campaign coordinates,
+explicit rejected attributes and ordered accepted/rejected multi-span evidence.
+Rejected fixture attributes obey Core's absent-predicate shape; no mounted rejected
+UI preparation claim. Coherent alternate meaning/principal/preview/time/evidence
+order fails complete correspondence. Real guardedV2/V3 and independently reviewed
+or corrected generations refuse intentionally before companion reads.
 
-Final exact-source serial backend contracts, complete dependency byte audits,
-SQL lifecycle/independent absence, official hosted/build/canonical verifier,
-independent cumulative acceptance and expected-head merge remain pending. No
-serving change, full cutover or aggregate release-green claim.
+## Lease rebrief and retained failure evidence
 
+MIND rebrief6117517327ea737ec611cfe1752c3f74c6f489b4 replaced an unused candidate-
+admission-contract write slot with the reviewed-extract SQL preservation fixture;
+eight paths remain the exclusive budget. This preserved all existing repository-
+recreation and four-concurrent-retry assertions, with no reviewed runtime change.
+Known V1 artifact facts are copied to accepted SourceArtifactV2; its domain key
+comes from the original enum and missing nullable provenance is explicitly unknown.
 
-## MIND lease rebrief — inherited SQL fixture incompatibility
+Frozenf266 owning620pass1fail0skip exposed the formerly skipped fixture's V1 source
+against Core's V2 materializer. Exact basee89 reproduced the same failure with
+identical uv.lock, clean restoration and zero-client/drop/absence. The08f fixture
+attempt lacked V2-required nullable fields; corrected1890 real SQL smoke passed.
+These failed reports remain retained, not relabeled green. Earlier working
+fixture/key/ledger/edge/denial-spelling diagnostics are in the same evidence root;
+Git history and reports carry their detail rather than this re-entry document.
 
-Before editing the newly needed test path, MIND replaces the unused candidate-
-admission-contract write slot with the reviewed-extract test file above. The
-exclusive budget stays eight paths. This is required preservation fixture
-compatibility, not a new capability or implementation of reviewed-extract recovery.
-Its current missing-receipt publishing behavior remains explicitly later work.
+Evidence ownerMIND: Projects/.codex/v7-elderwyld-scope/scratch/
+v10-historical-extract-recovery. qualification-1890b7af.json, backend-1890b7af.json,
+cohort XML/logs, hosted-1890b7af/evidence.json and complete source audits are the
+acceptance packet. Full default frontend remains unqualified with inherited reds;
+route's unrelated native_graph_gm_dependency F401 remains inherited. Changed
+runtime/owning tests Ruff and cumulative diff checks pass.
 
-Frozenf26683eb8e8b8bca4653ebe502e85eb53010d295 owning cohort:620pass,1fail,0skip.
-The formerly skipped reviewed-extract SQL witness writes SourceArtifactV1 while
-accepted Core requires V2 (source_artifact_schema_not_v2). Exact base
- e89bfa6c486a4c2459de643ba0dc60007ff2e69b reproduced the identical single-test failure
-with identical uv.lock in the existing clean task checkout; branch/head restored
-clean afterward. Both owned fixture databases had zero clients before drop and
-were independently absent. Evidence:base-reviewed-sql.json/XML/log and
-backend-f26683eb.json. These remain failed evidence, not green qualification.
+## Next state and limits
 
-Only the SQL fixture's artifact representation may change: same identity/domain/
-World/campaign/session/revision/status/time, converted through SourceArtifactV2
-validation before persistence. Preserve the actual repository-recreation and
-four-concurrent-retry assertions. Run the corrected real SQL witness and all
-owning/preservation contracts at a new frozen head. Production/UI/dependencies
-remain byte-identical to f266. Its official hosted1412selected pass,147filtered,
-parity/build/canonical/cleanup evidence remains attributed to f266; no relabeling.
-Independent review must assess this bounded test-only delta alongside the full
-source/evidence acceptance. No exemption, skip, Core change or hidden fixture
-truncation is authorized.
+Expected-head merge remains pending. After merge, record its exact anchor in active
+continuation and settle this document with the next consuming slice. Do not invent
+merged execution: a later tree comparison proves equality only, not a new test run.
+No deployment, serving change, frozen retrieval-baseline rerun, full extract-family
+or complete-cutover acceptance is claimed.
+
+Next primary question: which deferred confirmation paths are actually reachable
+from current product/operator entry points, and what must be retired or recovered
+before the accepted native authority can be the sole deployed writer? Read-only
+discovery found confirm_reviewed_extract has no route reference in the inspected
+server tree, but its shared helper still publishes a finalized review when a
+receipt is absent. Inventory full consumers/roadmap gates before choosing the next
+bounded handoff; do not silently turn this into a new legacy capability project.
+
+Broader goal stays ACTIVE: deferred extract variants, reviewed-extract/Threat,
+Core public-writer retirement/import/read boundaries, compatible primary/fallback
+rollout, later-write-safe rollback/restart/restore and actual deployed V11 speed/
+citation acceptance remain incomplete. Safe parallel work is read-only discovery
+and retained-artifact analysis; preserve exclusive source ownership and the global
+frontend lock. No provider/baseline experiment is authorized by this handoff.
+
+MIND retains the existing Buddy worktree, accepted pinned dependency cache and
+unique scratch evidence for the active goal. No manual worktree/environment/cache
+was newly allocated. Official verifier temporary storage was removed by its own
+cleanup; reclaimed bytes were not measured. Fixture body/candidate removal was
+part of the scoped recovery proof, not general cleanup. No manual artifact deletion
+occurred. Cleanup follow-up: after the goal no longer uses these paths, inspect
+active tasks/processes/mounts, dirty/unique data and pushed commits, then apply only
+specifically authorized disposal. Keep unique evidence and accepted pins until then.
