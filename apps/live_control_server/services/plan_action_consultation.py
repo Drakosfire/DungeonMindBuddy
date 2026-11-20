@@ -41,6 +41,7 @@ from application_state.plan_action_dialogue.types import (
     PlanActionProposalResult,
     PlanActionContextUnavailableResult,
 )
+from .semantic_block_writing import SEMANTIC_BLOCK_WRITING
 from apps.live_control_server.services.agent_context_assembler import (
     assemble_agent_graph_context,
 )
@@ -98,14 +99,14 @@ evidence_ref_ids, plus "source_opened":false. With no Graph claim use
 citation_map:null. Never invent identifiers or promote Plan prose to World fact.
 For no_relevant_established_fact_found, label creative inventions in assumptions;
 it means only that this bounded successful consultation found no relevant fact.
-Replacement Markdown stays inside the captured selection. It may use ordinary
-prose, canonical READ-ALOUD and GM-NOTE callouts, or a canonical
-DECISION-CONSEQUENCE block with one Decision pane and one Consequence pane.
+Replacement Markdown stays inside the captured selection. It may also use a
+canonical DECISION-CONSEQUENCE block with one Decision pane and one Consequence pane.
 Never emit HTML, filesystem paths, or an entire replacement document.
 Existing dmb-playable-element:v2 markers and dmb-node references in the
 selected material may only be copied with exactly the same spelling, order and
 heading. Never invent, alter, remove or duplicate those protected identities.
-"""
+For replacement_markdown only, follow this writing guidance:
+""" + SEMANTIC_BLOCK_WRITING
 
 
 class PlanActionConsultationError(ValueError):

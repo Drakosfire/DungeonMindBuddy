@@ -21,6 +21,7 @@ from application_state.build_proposal.types import (
     BuildProviderAuthorization, BuildComposeError, BuildComposeTargetMismatch,
     BuildComposeOutput,
 )
+from apps.live_control_server.services.semantic_block_writing import SEMANTIC_BLOCK_WRITING
 from apps.live_control_server.models.build_document_proposal import BuildDocumentProposalRequest
 from apps.live_control_server.services.workspace_document_registry import get_committed_page_snapshot
 from apps.live_control_server.services.world_container_registry import get_world_container
@@ -102,7 +103,7 @@ each row should offer something usable, while keeping conditional outcomes unpla
 Do not claim anything was inserted, saved or published.
 Use ordinary Markdown, including headings, lists and standard pipe tables. Do not
 return HTML, paths, executable code, graph identities, dmb-node links, hidden markers
-or document metadata. You have no tools and cannot request more reads.'''
+or document metadata. You have no tools and cannot request more reads.''' + "\n" + SEMANTIC_BLOCK_WRITING
 
 
 def _model():

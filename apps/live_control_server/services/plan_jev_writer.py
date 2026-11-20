@@ -12,6 +12,7 @@ from application_state.agent_conversation.plan_jev_graph_packet import project
 from application_state.agent_conversation.rules_authority_types import canonical_bytes, canonical_sha256
 from application_state.agent_conversation.source_writer_output import strict_json
 from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
+from .semantic_block_writing import SEMANTIC_BLOCK_WRITING
 from .hermes_product_prompt import BUDDY_SYSTEM_PROMPT, IMAGE_DIRECTION_INSTRUCTIONS
 from .native_rules_capture import NativeProviderReply
 from .agent_turn_trace import host_work_observer
@@ -45,7 +46,7 @@ the page. Do not add a chat acknowledgment, surrounding explanation, save claim 
 Do not mint object IDs, dmb-node references, playable markers or unknown component markers.
 Headings, prose, lists and ordinary editable tables are supported; preserve existing protected
 tokens exactly when their captured selected content must be included. No page was saved.
-"""
+""" + SEMANTIC_BLOCK_WRITING
 RULES_INSTRUCTIONS = """A Rules lookup was performed. Use only supplied Rules supports for Rules claims,
 preserving their applicability. Keep interpretation and gaps distinct from supported
 Rules claims; campaign prose does not establish Rules. Ignore irrelevant Rules material.
