@@ -1218,7 +1218,7 @@ def action_report(manifest_path):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("report", "action-report", "capture", "capture-context", "writer-prepare", "writer-capture", "context-tasting"))
+    parser.add_argument("mode", choices=("report", "action-report", "capture", "capture-context", "writer-prepare", "writer-capture", "context-tasting", "trace-report"))
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--oracle", help="Private Gold JSON for offline report mode")
@@ -1226,6 +1226,8 @@ def main(argv=None):
     parser.add_argument("--writer-transport", action="store_true",
                         help="Capture the serialized writer request at a local transport sink")
     parser.add_argument("--detailed-trace", action="store_true", help="Retain individual host timing intervals")
+    parser.add_argument("--trace-input", type=Path, help="Retained detailed capture directory")
+    parser.add_argument("--case", help="Manifest case ID for trace-report")
     args = parser.parse_args(argv)
     if args.detailed_trace and args.mode != "capture-context":
         parser.error("--detailed-trace requires capture-context")
@@ -1233,6 +1235,18 @@ def main(argv=None):
         parser.error("--writer-transport requires capture-context")
     if args.mode != "report" and (args.oracle or args.citation_readback):
         parser.error("Oracle and citation readback are available only in report mode")
+    if args.mode == "trace-report":
+        if args.trace_input is None or args.case is None:
+            parser.error("trace-report requires --trace-input and --case")
+        manifest, _ = load_manifest(args.manifest)
+        case = next((case for case in manifest["cases"] if case["id"] == args.case), None)
+        if case is None:
+            parser.error("trace-report case is absent from the manifest")
+        from .trace_report import write_report
+        write_report(args.trace_input, args.case, Path(args.output), world=manifest["world"], question=case["question"])
+        return
+    if args.trace_input is not None or args.case is not None:
+        parser.error("--trace-input and --case require trace-report")
     if args.mode == "report":
         immutable_save(Path(args.output), "report", report(args.manifest, oracle=args.oracle, citation_readback=args.citation_readback))
     elif args.mode == "action-report":
