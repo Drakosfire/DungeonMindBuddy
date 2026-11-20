@@ -18,8 +18,9 @@ from apps.live_control_server.models.threat_draft import (
     ThreatDraftV2,
     UpdateThreatDraftRequest,
 )
-from apps.live_control_server.ports.world_graph_authority import WorldGraphAuthorityError
-from apps.live_control_server.ports.world_graph_authority_access import get_world_graph_authority
+from dungeonmind.domain.errors import PersistenceIntegrityError
+
+from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
 from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding
 from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
 from apps.live_control_server.services.threat_draft_store import (
@@ -55,18 +56,22 @@ def _admit_world_scope(world_id: str, revision_id: str | None) -> None:
         return  # Explicit freestanding snapshot, validated by the request model.
     try:
         binding = resolve_managed_world_binding(world_id, root=world_root)
-        revision = get_world_graph_authority().read_revision(binding.native_world_id, revision_id)
+        # A World draft carries the exact native projection pin. Admission is
+        # identity-only: never read a head, build a context, or open classic
+        # WorldGraph services (which also require historical genesis state).
+        try:
+            snapshot = native.read_repository().get_revision(binding.native_world_id, revision_id)
+        except PersistenceIntegrityError as exc:
+            raise HTTPException(status_code=500, detail="Native graph revision integrity failure") from exc
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="Native graph authority unavailable") from exc
         if resolve_managed_world_binding(world_id, root=world_root) != binding:
             raise HTTPException(status_code=409, detail="World Graph binding changed; refresh and retry")
     except WorldGraphProjectionServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    except WorldGraphAuthorityError as exc:
-        status = 503 if exc.code == "authority_unavailable" else 422
-        raise HTTPException(status_code=status, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        # The mounted-port factory can fail before an adapter exists.
-        raise HTTPException(status_code=503, detail="World graph authority unavailable") from exc
-    if revision.world_id != binding.native_world_id or revision.revision_id != revision_id:
+    revision = getattr(snapshot, "revision", None)
+    if (revision is None or getattr(revision, "space_id", None) != binding.native_world_id
+            or getattr(revision, "revision_id", None) != revision_id):
         raise HTTPException(status_code=422, detail="Graph revision does not belong to this World")
 
 

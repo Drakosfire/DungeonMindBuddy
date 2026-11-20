@@ -510,3 +510,88 @@ def test_hosted_native_creature_publication_and_replay(creature, hosted, monkeyp
     assert replay.status_code == 200, replay.text
     assert replay.json() == {**published, "replayed": True}
     assert c.lane.repo.get_head(c.bound["native_world_id"]) == head
+
+
+
+def test_postgres_world_draft_admits_older_native_pin_without_core_mutation(
+    creation_core_dsn, application_state_dsn, monkeypatch, tmp_path,
+):
+    """Mounted draft CRUD reads an exact native revision, never classic genesis.
+
+    The existing lane seeds the SQL native space/source. Advancing its head is
+    fixture setup; the fingerprint boundary below covers only draft POST/PUT.
+    """
+    import tests.test_native_recap_preparation as recap_tests
+    from dungeonmind.contracts.vnext.knowledge import PublishKnowledgeRevisionCommand
+    from dungeonmind.infrastructure.postgres import PostgresDatabase, PostgresNativeSourceEvidenceRepository
+    from apps.live_control_server.routes import threat_drafts as draft_routes
+    from apps.live_control_server.ports import world_graph_authority_access
+    from apps.live_control_server.services.world_container_registry import create_world_container
+    from tests.application_state.world_catalog_fixtures import store_world
+    from tests.test_database_graph_object_authoring_evidence import _database_rows_fingerprint
+
+    repo = PostgresNativeSourceEvidenceRepository(PostgresDatabase(creation_core_dsn))
+    monkeypatch.setattr(recap_tests, "InMemoryNativeSourceEvidenceRepository", lambda: repo)
+    lane = recap_lane.__wrapped__(monkeypatch, tmp_path, SimpleNamespace(param=None))
+    space = lane.bound["native_world_id"]
+    pin = repo.get_head(space).head_revision_id
+    snapshot = repo.get_revision(space, pin)
+    later = repo.publish_revision(PublishKnowledgeRevisionCommand(
+        space_id=space, parent_revision_id=pin, expected_parent_revision_id=pin,
+        operation_ids=["fixture:threat-draft-later-head"],
+        graph_schema=snapshot.revision.graph_schema, graph_payload=snapshot.graph_payload,
+        domain_contract_ref=snapshot.revision.domain_contract_ref,
+        semantic_profile_ref=snapshot.revision.semantic_profile_ref,
+        created_at=datetime.now(UTC),
+    ))
+    assert repo.get_head(space).head_revision_id == later.revision.revision_id != pin
+    world = create_world_container(name="Native-only draft pin fixture")
+    store_world(world.model_copy(update={"native_graph_binding": {
+        "status": "active", "native_world_id": space, "binding_version": 1,
+        "validated_at": "2026-11-20T00:00:00Z", "validated_head_revision_id": pin,
+    }}))
+    monkeypatch.setattr(draft_routes, "repo_root", lambda: tmp_path)
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app, client=("127.0.0.1", 50000))
+    fresh = PostgresNativeSourceEvidenceRepository(PostgresDatabase(creation_core_dsn))
+    reads = []
+    original_read = fresh.get_revision
+    def read_exact(space_id, revision_id):
+        assert (space_id, revision_id) == (space, pin)
+        reads.append((space_id, revision_id))
+        return original_read(space_id, revision_id)
+    monkeypatch.setattr(fresh, "get_revision", read_exact)
+    monkeypatch.setattr(draft_routes.native, "read_repository", lambda: fresh)
+    def forbidden(*args, **kwargs):
+        pytest.fail("Draft pin admission opened head/source/classic/publication authority")
+    monkeypatch.setattr(world_graph_authority_access, "get_world_graph_authority", forbidden)
+    monkeypatch.setattr(draft_routes.native, "repository", forbidden)
+    for name in ("get_head", "publish_revision", "open_native_source_view"):
+        monkeypatch.setattr(PostgresNativeSourceEvidenceRepository, name, forbidden)
+    before = _database_rows_fingerprint(creation_core_dsn, core=True)
+    # This fixture has native knowledge revisions but no classic graph genesis.
+    assert before["dungeonmind.graph_revisions"][0] == 0
+    assert before["dungeonmind.world_graph_heads"][0] == 0
+    payload = dict(
+        scope_mode="world", world_id=world.world_id, campaign_id=None,
+        name="A pinned draft", description="Unpublished local authoring state.", threat_kind="creature",
+        generation_intent={"ruleset": {"system": "dnd5e", "edition": "2024"}},
+        graph_context_snapshot={"graph_revision_id": pin, "selected_node_ids": [],
+                                "admitted_source_anchor_ids": []}, created_by="gm",
+    )
+    response = client.post("/api/live/threat-drafts", json=payload)
+    assert response.status_code == 200, response.text
+    created = response.json()
+    assert created["graph_context_snapshot"]["graph_revision_id"] == pin
+    assert reads == [(space, pin)]
+    assert _database_rows_fingerprint(creation_core_dsn, core=True) == before
+    update = {key: value for key, value in payload.items()
+              if key not in {"world_id", "campaign_id", "scope_mode", "created_by"}}
+    update.update(expected_version=created["version"], description="Still pinned after a later native head.")
+    response = client.put(f"/api/live/threat-drafts/{created['draft_id']}", json=update)
+    assert response.status_code == 200, response.text
+    assert response.json()["version"] == created["version"] + 1
+    assert response.json()["graph_context_snapshot"]["graph_revision_id"] == pin
+    assert reads == [(space, pin), (space, pin)]
+    assert _database_rows_fingerprint(creation_core_dsn, core=True) == before
