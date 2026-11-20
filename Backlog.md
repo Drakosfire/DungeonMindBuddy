@@ -373,3 +373,10 @@ a prototype is not a new durable authority.
 **Action:** Profile cold entry, warm navigation, and document opens from the picker and deep links across Build, Plan, Play, Graph, and Ingest. Correlate browser navigation to usable content with server timing for authentication, document snapshots, and World data. Remove duplicate reads and request waterfalls, reuse valid World and document data across surfaces, and keep the shared navigation mounted during in-app transitions.
 **Verification:** Compare p50 and p95 time to usable content before and after on hosted Buddy. Cover cold and warm loads, World changes, stale revisions, and load failures so a faster shell does not hide delayed content.
 **Surfaces when:** Document navigation, page loading, or hosted performance work begins.
+
+## [IDEA] Benchmark page element targeting in Buddy — captured 2026-11-19
+
+**Context:** Using a saved page image through normal Send still requires selecting nearby text. Users should be able to refer to page elements naturally.
+**Action:** Build a benchmark suite with saved pages containing images, passages, headings, tables, and statblocks. Label the intended element or the expected clarification for requests that refer to position, captions, names, prior context, or the current selection. Include requests with no selection, duplicate labels, nested layouts, ambiguous targets, and missing targets.
+**Verification:** Report correct target selection, unnecessary clarifications, confident wrong-target choices, and latency. Check that Buddy can use the intended element through normal Send and that a missing or ambiguous target cannot silently become an edit to a different element.
+**Surfaces when:** Build or shared page-context selection, image references, or agent authoring benchmarks begin.
