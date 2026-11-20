@@ -11,7 +11,7 @@ from apps.live_control_server.models.saved_recap_runs import SavedRecapRunsRespo
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.config import repo_root
-from apps.live_control_server.routes.build_extraction import router as build_extraction_router
+from apps.live_control_server.routes.build_extraction import get_extraction_run_build_context, router as build_extraction_router
 from apps.live_control_server.models.historical_recap_projection import (
     HistoricalRecapWorldProjectionResponse,
 )

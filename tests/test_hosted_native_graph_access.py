@@ -2428,6 +2428,38 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
     assert snapshot["record"]["target_relpath"] is None
     assert hosted.client.request("POST", launch, json=extraction, session="other-session").status_code == 403
     assert not runs
+
+    from apps.live_control_server.services import source_artifact_registry
+
+    original_world = hosted.records["managed"]
+    committed_page_input = source_artifact_registry._committed_page_input
+
+    def transfer_after_snapshot(*args, **kwargs):
+        saved = committed_page_input(*args, **kwargs)
+        hosted.records["managed"] = original_world.model_copy(update={"owner_subject": OTHER_OWNER})
+        return saved
+
+    def transfer_after_registration(_root, candidate, _content, *, authorize):
+        authorize()
+        hosted.records["managed"] = original_world.model_copy(update={"owner_subject": OTHER_OWNER})
+        return candidate
+
+    with monkeypatch.context() as transfer:
+        transfer.setattr(source_artifact_registry, "_committed_page_input", transfer_after_snapshot)
+        transfer.setattr(source_artifact_registry, "_register_source_input",
+                         lambda **_: pytest.fail("Source registered after ownership changed"))
+        blocked = hosted.client.request("POST", launch, json=extraction)
+        assert blocked.status_code == 403, blocked.text
+        assert not runs
+    hosted.records["managed"] = original_world
+
+    with monkeypatch.context() as transfer:
+        transfer.setattr(source_artifact_registry, "_register_page_source", transfer_after_registration)
+        blocked = hosted.client.request("POST", launch, json=extraction)
+        assert blocked.status_code == 403, blocked.text
+        assert not runs
+    hosted.records["managed"] = original_world
+
     started = hosted.client.request("POST", launch, json=extraction)
     assert started.status_code == 200, started.text
     exact_run = f"{launch}/{started.json()['run']['run_id']}"
@@ -6571,7 +6603,7 @@ def test_hosted_recap_usage_requires_owned_world_and_exact_revision(hosted, monk
 
 
 def test_hosted_build_recap_recovery_requires_owned_document(hosted, monkeypatch):
-    from apps.live_control_server.routes import build_extraction
+    from apps.live_control_server.routes import graph_preview
     from apps.live_control_server.services import build_recap_launch, workspace_document_registry
 
     document_id = "00000000-0000-4000-8000-000000000001"
@@ -6585,7 +6617,7 @@ def test_hosted_build_recap_recovery_requires_owned_document(hosted, monkeypatch
         return SimpleNamespace(run_id="saved-run")
 
     monkeypatch.setattr(build_recap_launch, "recover_build_recap_launch", recover)
-    monkeypatch.setattr(build_extraction, "get_extraction_run_build_context",
+    monkeypatch.setattr(graph_preview, "get_extraction_run_build_context",
                         lambda run_id: {"document_id": document_id, "run_id": run_id})
     path = f"/api/live/graph-preview/build-recap-launches/{request_id}?document_id={document_id}"
     valid_path = path + "&managed_world_id=managed"
@@ -6597,7 +6629,7 @@ def test_hosted_build_recap_recovery_requires_owned_document(hosted, monkeypatch
     assert result.status_code == 200, result.text
     assert result.json() == {"document_id": document_id, "run_id": "saved-run"}
     assert len(calls) == 1
-    monkeypatch.setattr(build_extraction, "get_extraction_run_build_context",
+    monkeypatch.setattr(graph_preview, "get_extraction_run_build_context",
                         lambda run_id: {"document_id": request_id, "run_id": run_id})
     assert hosted.client.request("GET", valid_path).status_code == 409
 
@@ -6605,7 +6637,7 @@ def test_hosted_build_recap_recovery_requires_owned_document(hosted, monkeypatch
 def test_hosted_build_recap_launch_binds_world_before_dispatch_and_return(hosted, monkeypatch):
     from unittest.mock import Mock
 
-    from apps.live_control_server.routes import build_extraction
+    from apps.live_control_server.routes import graph_preview
     from apps.live_control_server.services import build_recap_launch, workspace_document_registry
 
     document_id = "00000000-0000-4000-8000-000000000001"
@@ -6625,7 +6657,7 @@ def test_hosted_build_recap_launch_binds_world_before_dispatch_and_return(hosted
     launch = Mock(return_value=SimpleNamespace(run_id="saved-run"))
     monkeypatch.setattr(build_recap_launch, "launch_build_recap", launch)
     monkeypatch.setattr(
-        build_extraction, "get_extraction_run_build_context", lambda run_id: {"run_id": run_id},
+        graph_preview, "get_extraction_run_build_context", lambda run_id: {"run_id": run_id},
     )
     path = "/api/live/graph-preview/build-recap-launches"
     assert hosted.client.request("POST", path, json=payload, session="other-session").status_code == 403
@@ -6644,7 +6676,7 @@ def test_hosted_build_recap_launch_binds_world_before_dispatch_and_return(hosted
         )
         return {"run_id": run_id}
 
-    monkeypatch.setattr(build_extraction, "get_extraction_run_build_context", transfer_during_read)
+    monkeypatch.setattr(graph_preview, "get_extraction_run_build_context", transfer_during_read)
     response = hosted.client.request("POST", path, json=payload)
     assert response.status_code == 403, response.text
     assert "saved-run" not in response.text

@@ -160,8 +160,10 @@ def _build_extraction_context(run, artifact) -> dict[str, Any]:
 
 
 @router.post("/extraction-runs")
-def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
+def post_extraction_run(body: dict[str, Any], request: Request = None) -> dict[str, Any]:
     """Launch an exact extraction run for a committed worldbuilding source revision."""
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_native_source
     from apps.live_control_server.services.graph_preview_runner import (
         run_worldbuilding_production_extraction,
     )
@@ -243,6 +245,12 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
+    def authorize_world(world_id: str | None) -> None:
+        require_hosted_build_native_source(request, world_id or "")
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        authorize_world(record.world_id)
     if record.content_status != "committed":
         raise HTTPException(status_code=422, detail="source must be committed before extraction")
     if record.revision != expected_revision:
@@ -257,10 +265,13 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
             document_id=document_id,
             expected_revision=expected_revision,
             expected_content_sha256=expected_content_sha256,
+            authorize_world=authorize_world if hosted else None,
         )
     except SourceArtifactRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
+    if hosted:
+        authorize_world(artifact.world_id)
     if (profile_id == "worldbuilding_gazetteer_v1"
             and profile_version in {"1.5", "1.6", "1.7", "1.8", "1.9", "1.10"}):
         from apps.live_control_server.services.worldbuilding_ge_execution import (
@@ -288,6 +299,8 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
             allow_llm=True,
         )
 
+    if hosted:
+        authorize_world(artifact.world_id)
     content_sha256 = artifact.content_sha256 or expected_content_sha256.removeprefix("sha256:").strip().lower()
     return {
         "schema_version": "dmb_extraction_run_launch_v1",
