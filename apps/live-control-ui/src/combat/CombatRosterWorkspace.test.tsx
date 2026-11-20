@@ -5,6 +5,7 @@ import {afterEach, expect, it, vi} from 'vitest';
 import fixture from '../../../../tests/fixtures/statblocks/v1/exact-revision-response.json';
 import type {CombatEncounterDraft, CombatEntity, CombatMechanicsSnapshot} from './combatTypes';
 import {CombatRosterWorkspace, type CombatProjectionControl} from './CombatRosterWorkspace';
+import * as combatApi from './combatApi';
 
 afterEach(() => {cleanup(); vi.restoreAllMocks();});
 function draft(): CombatEncounterDraft {
@@ -61,6 +62,30 @@ it('keeps roster focus when Save returns an equivalent statblock snapshot', asyn
   view.rerender(board(structuredClone(initial)));
   expect(input).toHaveFocus();
   expect(screen.getByRole('complementary')).toBeVisible();
+});
+
+it('projects the exact registered corpus text independently of turn and tracker edits', async () => {
+  const value = draft();
+  const sourceId = 'artifact:worldbuilding:the-registered-source';
+  const sha = 'a'.repeat(64);
+  Object.assign(value.entities[0], {
+    source: 'imported', mechanics_snapshot: null,
+    statblock_artifact_id: sourceId, corpus_fingerprint: sha,
+  });
+  const request = vi.spyOn(combatApi, 'getWorldCombatCorpusSheet').mockResolvedValue('# Original sheet\n\nRecorded abilities');
+  const props = {disabled: false, onToggleGroup: vi.fn(), renderRow: row, corpusScope: {worldId: 'elderwyld', encounterId: 'bridge'}};
+  const view = render(<CombatRosterWorkspace draft={value} {...props}/>);
+  const trigger = screen.getByRole('button', {name: 'Project Bridge brute'});
+  await userEvent.click(trigger);
+  const panel = screen.getByRole('complementary');
+  expect(await within(panel).findByRole('heading', {name: 'Original sheet'})).toBeVisible();
+  expect(request).toHaveBeenCalledWith('elderwyld', 'bridge', 'brute', sourceId, sha, expect.any(AbortSignal));
+
+  view.rerender(<CombatRosterWorkspace draft={{...value, round: 2}} {...props}/>);
+  expect(within(panel).getByText('Recorded abilities')).toBeVisible();
+  expect(request).toHaveBeenCalledTimes(1);
+  await userEvent.click(within(panel).getByRole('button', {name: 'Close projected statblock'}));
+  expect(trigger).toHaveFocus();
 });
 
 it('retires a removed or sourceless selection and does not revive it when an ID returns',async()=>{
