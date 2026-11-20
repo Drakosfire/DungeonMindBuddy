@@ -803,6 +803,26 @@ async def resolve_hosted_manual_knowledge(request: Request) -> str:
         raise _denied()
     subject = _hosted_subject(request)
     _owned_world(subject, body.world_id)
+    if isinstance(body, GraphObjectAuthoringCommitRequest):
+        from apps.live_control_server.services.graph_object_authoring_prepare import (
+            GraphObjectAuthoringError, decode_publication_intent,
+        )
+        from apps.live_control_server.integrations.dungeonmind.historical_manual_recovery import authorize_original_binding
+
+        try:
+            intent = decode_publication_intent(body.confirm_token, allow_expired_recovery=True)
+            if (intent.get("campaign_id") != body.campaign_id
+                    or intent.get("source_run_id") != body.source_run_id):
+                raise _denied()
+            await run_in_threadpool(authorize_original_binding, body, intent,
+                                    actor=f"hosted_dms:{subject}")
+        except GraphObjectAuthoringError as exc:
+            if exc.status_code >= 500:
+                raise _unavailable() from None
+            raise _denied() from None
+        request.state.hosted_manual_knowledge_binding = (body, intent)
+        request.state.hosted_manual_knowledge_scope = (body.world_id, body.source_run_id)
+        return body.world_id
     try:
         run = await run_in_threadpool(get_extraction_run, body.source_run_id)
         artifact = await run_in_threadpool(get_source_artifact, run.source_artifact_id)
@@ -827,6 +847,17 @@ def manual_knowledge_actor(request: Request, *, world_id: str | None, run_id: st
         raise _denied()
     subject = _hosted_subject(request)
     _owned_world(subject, world_id)
+    binding = getattr(request.state, "hosted_manual_knowledge_binding", None)
+    if binding is not None:
+        from apps.live_control_server.integrations.dungeonmind.historical_manual_recovery import authorize_original_binding
+        from apps.live_control_server.services.graph_object_authoring_prepare import GraphObjectAuthoringError
+
+        try:
+            authorize_original_binding(binding[0], binding[1], actor=f"hosted_dms:{subject}")
+        except GraphObjectAuthoringError as exc:
+            if exc.status_code >= 500:
+                raise _unavailable() from None
+            raise _denied() from None
     return f"hosted_dms:{subject}"
 
 
