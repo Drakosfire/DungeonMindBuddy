@@ -79,7 +79,10 @@ def read_repository(*, verification_cache=None):
     ), verification_cache=verification_cache)
 
 
-def read_context(repo, space, revision, campaign, role="gm", *, scope_mode="campaign", parsed_cache=None):
+def read_context(
+    repo, space, revision, campaign, role="gm", *, scope_mode="campaign",
+    parsed_cache=None, prefer_verified_source_rows=False,
+):
     from graph_memory.vnext.domain_runtime import (
         DungeonBuddyVNextProjectionInput, build_dungeonbuddy_read_context,
     )
@@ -92,6 +95,7 @@ def read_context(repo, space, revision, campaign, role="gm", *, scope_mode="camp
     access = open_native_text_source_access_context(
         repository=repo, space_id=space, revision_id=revision, domain_contract=resolve_domain,
         parsed_cache=parsed_cache,
+        prefer_verified_source_rows=prefer_verified_source_rows,
         audience_labels=(GM_LABEL, PLAYER_LABEL) if role == "gm" else (PLAYER_LABEL,),
     )
     domain, profile = resolve_dungeonbuddy_descriptors(
