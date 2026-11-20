@@ -646,13 +646,9 @@ def test_old_plan_action_remains_a_closed_reader_and_current_producer_is_explici
     assert reopened.policy.action.action_version=='plan_saved_authored_pages_v2'
 
 
-@pytest.mark.parametrize("failure", [None, "early", "repeat", "wrong_attempt", "wrong_epoch", "other_question"])
-def test_build_query_settlement_requires_exact_opening_response(failure):
+def _pending_build_query():
     from dungeonmind.domain.canonical import canonical_sha256
     from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
-    from application_state.agent_conversation.native_execution import (
-        NativeBuildQuerySettledV1, effective_native_query, validate_context_binding,
-    )
     from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
 
     context, record = component("build")
@@ -666,7 +662,31 @@ def test_build_query_settlement_requires_exact_opening_response(failure):
     data["assembled_input"]["tokenizer_name"] = controller("build", record.policy).input_estimator
     data["native_query"] = pending.model_dump(mode="json", by_alias=True)
     context = type(context).model_validate_json(json.dumps(seal(data)))
-    policy = record.policy.model_copy(update={"native_query_sha256": canonical_sha256(pending.model_dump(mode="json", by_alias=True))})
+    policy = record.policy.model_copy(update={
+        "native_query_sha256": canonical_sha256(pending.model_dump(mode="json", by_alias=True)),
+    })
+    return context, policy, catalog
+
+
+def test_pending_build_query_refuses_durable_submission_before_runtime_cutover():
+    from types import SimpleNamespace
+    from application_state.agent_conversation.native_execution import validate_submission
+
+    context, policy, _catalog = _pending_build_query()
+    submission = SimpleNamespace(graph_context_receipt=context,
+        graph_context_execution=execution(context.context_receipt_sha256, policy))
+    with pytest.raises(ValueError, match="requires the owning runtime settlement"):
+        validate_submission(submission)
+
+
+@pytest.mark.parametrize("failure", [None, "early", "repeat", "wrong_attempt", "wrong_epoch", "other_question"])
+def test_build_query_settlement_requires_exact_opening_response(failure):
+    from application_state.agent_conversation.native_execution import (
+        NativeBuildQuerySettledV1, effective_native_query, validate_context_binding,
+    )
+
+    context, policy, catalog = _pending_build_query()
+    pending = context.native_query
     authorization = controller("build", policy)
     prefix = [authorization, *outcomes(authorization, 1)]
     record = execution(context.context_receipt_sha256, policy, prefix)
