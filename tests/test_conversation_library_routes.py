@@ -215,6 +215,44 @@ def test_active_messages_auth_scope_and_selector_use_the_light_owner(client):
     client.service.read_active_messages.assert_not_called()
 
 
+def test_newest_active_build_messages_warm_once_without_changing_response(client, monkeypatch):
+    from apps.live_control_server.routes import conversation_library as routes
+
+    cid = uuid4()
+    page = {
+        "active_conversation_id": str(cid),
+        "pointer_revision": 4,
+        "messages": [{
+            "turn_id": str(uuid4()),
+            "revision": 2,
+            "status": "completed",
+            "provenance": {"surface_id": "build"},
+        }],
+    }
+    client.service.read_active_messages.return_value = page
+    pointer = SimpleNamespace(active_conversation_id=cid, revision=4)
+    service = SimpleNamespace(get_world_pointer=Mock(return_value=pointer), list_build_dialogue=Mock())
+    monkeypatch.setattr(routes, "_recent_dialogue_warmup", None)
+    monkeypatch.setattr(routes, "_conversation_service", lambda request: service)
+    url = "/api/live/agent/worlds/world-one/conversations/active/messages"
+
+    assert client.client.get(url, params={"before_sequence": 12}).json() == page
+    assert client.client.get(url, params={"limit": 5}).json() == page
+    service.get_world_pointer.assert_not_called()
+    assert client.client.get(url).json() == page
+    assert client.client.get(url).json() == page
+    service.list_build_dialogue.assert_called_once_with("world-one", cid)
+
+    page["messages"][0]["revision"] = 3
+    pointer.revision = 5
+    assert client.client.get(url).json() == page
+    assert service.list_build_dialogue.call_count == 1
+
+    page["pointer_revision"] = 5
+    assert client.client.get(url).json() == page
+    assert service.list_build_dialogue.call_count == 2
+
+
 def test_retained_discussion_reports_typed_authoring_capture_requirement(client, monkeypatch):
     from application_state.agent_conversation import retry
     read=Mock(side_effect=retry.AuthoringRetryRequiredError('Authoring needs fresh page context'))
