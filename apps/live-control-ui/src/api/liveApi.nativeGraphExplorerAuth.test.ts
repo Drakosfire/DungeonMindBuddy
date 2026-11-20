@@ -175,6 +175,21 @@ it("uses only cookies for the exact hosted World list and blocks creation", asyn
   expect(fetch).toHaveBeenCalledTimes(1);
 });
 
+it("uses same-origin cookies for an exact hosted World creation request", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ world_id: "created" }));
+  const body = { name: "Carnival", request_key: "request_key_0001" };
+  await api.createWorldContainer(body);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  const [path, init] = fetch.mock.calls[0];
+  expect(path).toBe("/api/live/world-containers");
+  expect(init).toMatchObject({ method: "POST", credentials: "same-origin", redirect: "error", cache: "no-store" });
+  expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  expect(JSON.parse(String(init?.body))).toEqual(body);
+});
+
 it.each([
   "/api/live/native-graph-explorer.evil", "/api/live/native-graph-explorerExtra",
   "/api/live/native-graph-explorer/graph-extra", "/api/live/native-graph-explorer/graph/",

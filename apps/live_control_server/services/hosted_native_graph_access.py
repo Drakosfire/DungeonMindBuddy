@@ -1338,7 +1338,15 @@ def revalidate_hosted_owner_collection(request: Request) -> dict:
         ]
     except Exception:
         raise _unavailable() from None
-    return WorldContainersListResponse(records=permitted).model_dump(mode="json")
+    available = False
+    if os.environ.get("DMB_HOSTED_OWNER_CREATION_CAPABILITY", "") == "1":
+        from application_state.world_catalog.hosted_creation import creation_enabled
+        try:
+            available = creation_enabled()
+        except ApplicationStateError:
+            # Do not block existing static Worlds when creation policy is down.
+            available = False
+    return WorldContainersListResponse(records=permitted, creation_available=available).model_dump(mode="json")
 
 
 async def resolve_hosted_worldbuilding_review_context(request: Request) -> str:

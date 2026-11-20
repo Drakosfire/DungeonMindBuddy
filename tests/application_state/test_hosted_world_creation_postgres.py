@@ -4,7 +4,7 @@ import psycopg
 import pytest
 from concurrent.futures import ThreadPoolExecutor
 
-from application_state.errors import ApplicationStateConflictError, ApplicationStateError
+from application_state.errors import ApplicationStateConflictError, ApplicationStateError, ApplicationStateUnavailableError
 from application_state.world_catalog.hosted_creation import active_admitted_world_ids, create_owned_world
 from apps.live_control_server.services.hosted_auth import authorize_world_access
 from fastapi import HTTPException
@@ -172,6 +172,21 @@ def test_static_access_never_reads_dynamic_policy(application_state_dsn, monkeyp
         pytest.fail("static authorization must not read dynamic policy")
     monkeypatch.setattr(hosted_creation, "active_admitted_world_ids", forbidden)
     authorize_world_access("alice", frozenset({"existing"}), access={"existing": frozenset({"alice"})})
+
+
+def test_dynamic_policy_failure_denies_dynamic_but_preserves_static(application_state_dsn, monkeypatch):
+    from application_state.world_catalog import hosted_creation
+    from apps.live_control_server.services.hosted_native_graph_access import _owner_world_candidates
+    monkeypatch.setenv("DMB_HOSTED_OWNER_CREATION_CAPABILITY", "1")
+    monkeypatch.setenv("DMB_HOSTED_WORLD_ACCESS_JSON", '{"existing":["alice"]}')
+    def unavailable(_subject):
+        raise ApplicationStateUnavailableError("synthetic outage")
+    monkeypatch.setattr(hosted_creation, "active_admitted_world_ids", unavailable)
+    assert _owner_world_candidates("alice") == frozenset({"existing"})
+    authorize_world_access("alice", frozenset({"existing"}), access={"existing": frozenset({"alice"})})
+    with pytest.raises(HTTPException) as error:
+        authorize_world_access("alice", frozenset({"dynamic"}), access={})
+    assert error.value.status_code == 503
 
 
 def test_owner_candidates_include_only_current_dynamic_owner_and_static_grants(application_state_dsn, monkeypatch):

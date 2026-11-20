@@ -51,6 +51,7 @@ def test_hosted_create_binds_verified_owner_and_retries(hosted_client):
     assert hosted_client.post(WORLD_COLLECTION_PATH, json=body, headers=headers).json() == first.json()
     listed = hosted_client.get(WORLD_COLLECTION_PATH, headers=headers)
     assert listed.status_code == 200
+    assert listed.json()["creation_available"] is True
     assert [item["world_id"] for item in listed.json()["records"]] == [first.json()["world_id"]]
     other = hosted_client.get(WORLD_COLLECTION_PATH, headers={"x-test-subject": "bob"})
     assert other.json()["records"] == []
@@ -72,6 +73,8 @@ def test_hosted_creation_capability_is_off_by_default(hosted_client, application
     response = hosted_client.post(WORLD_COLLECTION_PATH, json={"name": "Carnival", "request_key": "request_key_0001"},
                                   headers={"Origin": ORIGIN, "x-test-subject": "alice"})
     assert response.status_code == 403
+    listed = hosted_client.get(WORLD_COLLECTION_PATH, headers={"x-test-subject": "alice"})
+    assert listed.status_code == 200 and listed.json()["creation_available"] is False
     with psycopg.connect(application_state_dsn) as conn:
         assert conn.execute("SELECT count(*) FROM workspace.managed_world").fetchone()[0] == 0
 

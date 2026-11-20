@@ -26,6 +26,20 @@ from application_state.world_catalog.types import _validate_subject
 _KEY = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
 
 
+def creation_enabled() -> bool:
+    """Read the shared enable flag; unavailable policy must not appear enabled."""
+    try:
+        with unit_of_work(load_runtime_dsn()) as conn:
+            row = conn.execute(
+                "SELECT enabled FROM workspace.hosted_world_creation_policy WHERE singleton=true"
+            ).fetchone()
+            if row is None:
+                raise ApplicationStateUnavailableError("hosted World policy unavailable")
+            return bool(row[0])
+    except psycopg.Error as exc:
+        raise ApplicationStateUnavailableError("hosted World policy unavailable") from exc
+
+
 def active_admitted_world_ids(subject: str) -> frozenset[str]:
     """Read currently enabled dynamic admissions for their current owner."""
     try:

@@ -2674,10 +2674,12 @@ export interface WorldContainerRecord {
 export interface WorldContainersListResponse {
   schema_version: "dmb_world_container_registry_v1";
   records: WorldContainerRecord[];
+  creation_available?: boolean;
 }
 
 export interface CreateWorldContainerRequest {
   name: string;
+  request_key?: string;
 }
 
 export interface CreateWorkspaceDocumentRequest {
