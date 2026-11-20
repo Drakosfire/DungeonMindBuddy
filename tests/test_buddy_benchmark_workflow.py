@@ -518,13 +518,32 @@ def test_shared_inventory_preserves_explicit_historical_routing_keys():
     class Cursor:
         def __init__(self, rows):
             self.rows = rows
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, query):
+            assert self.itersize == 1
+
+        def __iter__(self):
+            return iter(self.rows)
+
         def fetchall(self):
+            assert not hasattr(self, "itersize"), "Do not buffer table bodies"
             return self.rows
+
     class Connection:
         def execute(self, query):
             if "information_schema.tables" in str(query):
                 return Cursor([{"table_schema": "agent", "table_name": "turn"}])
+
+        def cursor(self, *, name):
+            assert name == "benchmark_inventory"
             return Cursor([{"body": '{"world_id":"w","operation_id":"op","turn_id":"t"}'}])
+
     @contextmanager
     def readonly(_):
         yield Connection()
@@ -1189,3 +1208,79 @@ def test_context_tasting_checks_actual_wire_before_http(tmp_path, monkeypatch, l
         assert seen[0]['messages'] == [{'role': 'system', 'content': 'Frozen voice'},
             {'role': 'user', 'content': 'Frozen evidence'}]
         assert (target/'A/result.json').exists()
+
+
+@pytest.mark.parametrize("changed", [False, True])
+def test_cohort_inventory_brackets_parallel_members(tmp_path, monkeypatch, changed):
+    from concurrent.futures import Future
+    from evals.buddy_benchmark import cohort_capture as cohort
+
+    before = {"dungeonmind.fixture": []}
+    pin = put(tmp_path / "native.json", before)
+    native = dict(host="127.0.0.1", port=53421, database="native", oid="10",
+                  system_identifier="42", inventory=pin)
+    members = []
+    for number in [1, 2]:
+        app = dict(native, database=f"app{number}", oid=str(number))
+        members.append(put(tmp_path / f"member{number}.json", {
+            "schema": "dmb_ordinary_benchmark_v1",
+            "cases": [{"id": f"case{number}", "question": f"Question {number}?"}],
+            "isolation": {"native": native, "app": app},
+        }))
+    manifest = put(tmp_path / "cohort.json", {
+        "schema": "dmb_context_capture_cohort_v1", "members": members,
+    })
+    monkeypatch.setenv(cohort.APP_DSN, "postgresql://127.0.0.1:53421/app")
+    monkeypatch.setenv(cohort.CORE_DSN, "postgresql://127.0.0.1:53421/native")
+    monkeypatch.setattr(cohort, "_endpoint", lambda *_: None)
+    monkeypatch.setattr(cohort, "require_read_only_core", lambda *_: None)
+
+    events = []
+    def inventory(*_, **__):
+        events.append("scan")
+        return {} if changed and events.count("scan") == 2 else before
+
+    class Executor:
+        def __init__(self, **options):
+            assert options["max_workers"] == 2 and options["max_tasks_per_child"] == 1
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def submit(self, member, manifest, output, app_dsn):
+            assert member is cohort._capture_member
+            events.append(output.name)
+            f = Future()
+            f.set_result(None)
+            return f
+
+    monkeypatch.setattr(cohort, "row_inventory", inventory)
+    monkeypatch.setattr(cohort, "ProcessPoolExecutor", Executor)
+    out = tmp_path / "result"
+    if changed:
+        with pytest.raises(ValueError, match="changed during cohort"):
+            cohort.capture_cohort(manifest["path"], out, workers=2)
+    else:
+        cohort.capture_cohort(manifest["path"], out, workers=2)
+    assert events == ["scan", "case1", "case2", "scan"]
+
+
+def test_cohort_core_rejects_a_writable_login(monkeypatch):
+    from evals.buddy_benchmark import cohort_capture as cohort
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, _):
+            return SimpleNamespace(fetchone=lambda: (True, False))
+
+    monkeypatch.setattr(cohort.psycopg, "connect", lambda _: Connection())
+    with pytest.raises(ValueError, match="dedicated non-writing login"):
+        cohort.require_read_only_core("unused")

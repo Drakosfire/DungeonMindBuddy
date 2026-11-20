@@ -139,3 +139,22 @@ citation reopening.
 
 For authoring actions, conversation-only boundaries, and Build and Ingest
 workflows, see the [Buddy actions and authoring benchmark](plan-authoring-benchmark.md).
+
+### Parallel retrieval captures
+
+Use `python -m evals.buddy_benchmark.workflow capture-context-cohort --manifest
+COHORT.json --output NEW_OUTPUT --workers 6` for independent writer-off
+retrieval cases. The cohort manifest has schema
+`dmb_context_capture_cohort_v1` and a `members` list of ordinary capture
+manifest pins, each with `path` and `sha256`. Members must have unique case
+IDs, independent prequalified App clones and the same exact Core locator and
+inventory pin. The App DSN supplies the loopback server and fixture login
+and each member supplies its database name and identity. Core requires a
+dedicated login with SELECT and schema USAGE, no role memberships or durable
+write privileges, and a session configured for read-only transactions. Grant
+access to `pg_control_system()` for the cluster identity check.
+
+The coordinator retains `native-before.json` and `native-after.json` for the
+whole cohort. Worker output and timing evidence are under `members/`.
+The end inventory must match the beginning one to qualify the run.
+Standalone capture still verifies and retains its own snapshots.
