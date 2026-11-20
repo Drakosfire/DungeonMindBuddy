@@ -489,3 +489,35 @@ def test_turn_source_preparation_distinguishes_missing_head_from_binding_changes
         plan_source_turn.prepare(
             "managed", principal, repository=lane.repo, resolve_identity=lambda _: next(changes),
         )
+
+
+def test_corpus_batches_provenance_for_verified_sources(lane, monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source as owner
+
+    receipts = (admit(lane), admit(lane, "second", body=BODY + "\nA second account.\n"))
+    prepared = prepare_native_source_context(managed_world_id="managed", principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    expected = [
+        owner.open_native_corpus_member(prepared, receipt.bindings[0].evidence_ref_id)
+        for receipt in receipts
+    ]
+    view_type = type(prepared.access.source_view)
+    original = view_type.get_provenance_snapshot
+    requests = []
+
+    def observe(view, *, artifact_ids, revision_ids):
+        requests.append((tuple(artifact_ids), tuple(revision_ids)))
+        return original(view, artifact_ids=artifact_ids, revision_ids=revision_ids)
+
+    monkeypatch.setattr(view_type, "get_provenance_snapshot", observe)
+    result = capture(lane, prepared=prepared)
+    assert requests == [
+        (tuple(sorted(r.source_artifact_id for r in receipts)),
+         tuple(sorted(r.source_revision_id for r in receipts)))
+    ]
+    assert result.members == tuple(sorted((member for member, _ in expected),
+        key=lambda member: (member.artifact.source_artifact_id, member.revision.source_revision_id)))
+    assert result.bodies == {
+        (member.artifact.source_artifact_id, member.revision.source_revision_id): text
+        for member, text in expected
+    }

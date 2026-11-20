@@ -118,16 +118,25 @@ def prepare_native_source_context(*, managed_world_id, principal, revision_id=No
 
 
 def open_native_corpus_member(prepared, evidence_ref_id):
-    """Open one exact Core member; shared by selected and corpus-search callers."""
-    authority, access = prepared.authority, prepared.access
+    """Open one exact Core member from its pinned source view."""
+    access = prepared.access
     evidence = access.parsed.get_evidence(evidence_ref_id)
     if evidence is None or evidence.source_revision_id is None:
         return None
     opened = open_admitted_native_text(access, evidence_ref_id)
     if opened.status != "available":
         return None
+    snapshot = access.source_view.get_provenance_snapshot(
+        artifact_ids=[evidence.source_artifact_id], revision_ids=[evidence.source_revision_id])
+    result = _build_native_corpus_member(prepared, evidence, opened, snapshot)
+    if prepared.resolve_identity(prepared.authority.managed_world_id) != prepared.binding:
+        raise ValueError("Native source ownership changed during opening")
+    return result
+
+
+def _build_native_corpus_member(prepared, evidence, opened, snapshot):
+    authority = prepared.authority
     pair = (evidence.source_artifact_id, evidence.source_revision_id)
-    snapshot = access.source_view.get_provenance_snapshot(artifact_ids=[pair[0]], revision_ids=[pair[1]])
     artifact, revision = snapshot.get_artifact(pair[0]), snapshot.get_revision(pair[1])
     if artifact is None or revision is None:
         raise ValueError("Authorized native corpus provenance is unavailable")
@@ -136,6 +145,8 @@ def open_native_corpus_member(prepared, evidence_ref_id):
         access_start_byte=opened.span_start_byte, access_end_byte=opened.span_end_byte,
         access_slice_sha256=opened.span_sha256, proof_epoch=opened.source_authority_epoch)
     if ((opened.source_artifact_id, opened.source_revision_id) != pair
+            or artifact.source_artifact_id != pair[0]
+            or (revision.source_artifact_id, revision.source_revision_id) != pair
             or member.proof_epoch > authority.acquisition_epoch):
         raise ValueError("Native corpus access differs from its coherent selected source")
     member.verify_body(opened.body_text)
@@ -145,8 +156,6 @@ def open_native_corpus_member(prepared, evidence_ref_id):
         (pair[0], pair[1], revision.content_sha256), ('Source name unavailable', 'unestablished', None))
     member = NativeCorpusMemberV1.model_validate(member.model_dump(mode='json') | {
         'presentation_name': name, 'session_scope': session, 'registered_campaign_id': campaign})
-    if prepared.resolve_identity(authority.managed_world_id) != prepared.binding:
-        raise ValueError("Native source ownership changed during opening")
     return member, opened.body_text
 
 
@@ -211,18 +220,28 @@ def capture_native_sources(*, managed_world_id, principal, revision_id=None,
                 and evidence.source_span_ref_id is not None
                 and evidence.can_open_source and evidence.can_highlight_span):
             pairs.setdefault((evidence.source_artifact_id, evidence.source_revision_id), []).append(evidence)
-    members, bodies, unavailable = [], {}, 0
+    opened_members = []
+    unavailable = 0
     for pair, candidates in sorted(pairs.items()):
         for evidence in sorted(candidates, key=lambda row: row.evidence_ref_id):
-            result = open_native_corpus_member(prepared, evidence.evidence_ref_id)
-            if result is None:
-                continue
-            member, text = result
-            members.append(member)
-            bodies[pair] = text
-            break
+            opened = open_admitted_native_text(access, evidence.evidence_ref_id)
+            if opened.status == "available":
+                if prepared.resolve_identity(managed_world_id) != prepared.binding:
+                    raise ValueError("Native source ownership changed during opening")
+                opened_members.append((pair, evidence, opened))
+                break
         else:
             unavailable += 1
+    members, bodies = [], {}
+    if opened_members:
+        snapshot = access.source_view.get_provenance_snapshot(
+            artifact_ids=sorted({pair[0] for pair, _, _ in opened_members}),
+            revision_ids=sorted({pair[1] for pair, _, _ in opened_members}),
+        )
+        for pair, evidence, opened in opened_members:
+            member, text = _build_native_corpus_member(prepared, evidence, opened, snapshot)
+            members.append(member)
+            bodies[pair] = text
     if prepared.resolve_identity(managed_world_id) != prepared.binding:
         raise ValueError("Native source ownership changed during capture")
     return NativeCorpusCapture(authority, tuple(members), MappingProxyType(bodies), unavailable)
