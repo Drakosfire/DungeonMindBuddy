@@ -93,6 +93,47 @@ switch. Run the repository's required exact-SHA backend/frontend verification
 and independently review the cumulative change. A verified created World is not
 evidence of source ingestion or a published native Graph.
 
+## Independent security critique
+
+Bugbot reviewed design head `85e1167dbc21273d6d005cc1a37cb49bbd0a512e`
+against local main `e39ebc2523e5dc00c47ab18e6b0325804aa36b27`. This was a
+read-only critique, without test execution. Re-anchor before implementation.
+
+1. **One creation transaction.** Current `create_world` commits its own unit of
+   work; a wrapper that inserts admission later is not atomic. World metadata,
+   native reservation, creator-bound admission and quota consumption must
+   commit together or not at all.
+2. **Recovery without adoption.** Same-owner normalized-name reconciliation can
+   return an older World. A returned record is not proof that this capability
+   created it. Never admit a historical same-name match; preserve revoked
+   admissions as tombstones so an identical retry cannot re-enable access.
+   Lost-response recovery must bind the exact request and verified principal.
+3. **One decision at all boundaries.** Middleware and owner revalidation check
+   static grants, while listing and saved-art discovery enumerate them. All
+   relevant paths need the same current, fail-closed admission decision. The
+   resolver must still derive World identity from authoritative resource state.
+4. **Define revocation semantics.** Specify whether revocation governs later
+   checks only or prevents already-admitted writes from committing. The latter
+   requires serializing the mutation and revocation through commit. A request
+   principal is not a durable permission snapshot; deployment-wide disable
+   needs an explicit multiworker propagation contract.
+5. **Bound allocation before enabling.** Creation currently locks the managed
+   World table and reads retained Worlds. Validate request size and throttle
+   before locking. Specify durable per-subject World quotas and a shared
+   multiworker request-rate limit; quota check and consumption must be atomic.
+6. **Preserve fail-closed startup.** Hosted configuration currently requires a
+   valid nonempty static access map. Decide whether self-service installations
+   still require that map; never make malformed static grants acceptable merely
+   because dynamic creation is enabled.
+
+The candidate decision is current authoritative ownership AND (existing static
+grant OR enabled, active admission for this exact creator and World). A transfer
+must not transfer creator admission. The exact hosted POST derives its owner
+from the verified DMS principal, never caller-selected identity or admission;
+it retains origin protection and exposes only the existing public projection
+with `Cache-Control: no-store`. The decision, quota, revocation and rollout
+contracts must be explicitly settled before this design grants a write lease.
+
 ## Serial successors
 
 1. Real private Apprentice import and source/Graph review, including faithful
