@@ -1,3 +1,5 @@
+import {hasPresentation,projectPresentation,hydratePresentation} from '../tiptap/pageComposer/presentation';
+import {captureProseTargetCatalog, resolveProseTarget, type ProseTargetCatalog, type ResolvedProseTarget} from '../documentEditing/proseTargetCatalog';
 import {readSavedConversationVariantTarget,savedConversationVariantHref,type SavedConversationVariantTarget} from "../statblocks/savedStatblockLocation";
 import {workPlanFence,workPlanBelongsTo,parseWorkPlanFence,workPlanIdentity,type WorkPlanReference} from '../surface/workPlans/workPlanReference';
 import { pickMediaInsertion,pickDocumentInsertion } from '../documentEditing/pickMediaInsertion';
@@ -5,7 +7,7 @@ import type { Editor } from '@tiptap/core';
 import type { WorldBuildDraftSnapshotV1 } from '../api/types';
 import { TextSelection } from '@tiptap/pm/state';
 import {pageBodyReferences,preservePageBodyReferences} from './pageBodyTarget';
-import type { BuildProposalBasis, BuildPageBodyTarget, BuildPageEndTarget } from '../api/buildDocumentProposalApi';
+import type { BuildProposalBasis, BuildPageBodyTarget, BuildPageEndTarget, BuildProseTarget } from '../api/buildDocumentProposalApi';
 import {markdownToTiptapDoc} from '../tiptap/markdown/markdownToTiptap';
 import {semanticMarkdownSerializationDiagnostics} from '../tiptap/markdown/semanticMarkdownSafety';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
@@ -16,6 +18,7 @@ export interface BuildComposeEditorState {
   visibility: 'internal' | 'player_safe'; draftGeneration: number; selectionGeneration: number; canEdit: boolean;
 }
 export interface CapturedBuildInsertion {
+  proseTarget?:BuildProseTarget;
   pageBodyOffer?:BuildPageBodyTarget; pageBodyTarget?:BuildPageBodyTarget;
   pageEndOffer?:BuildPageEndTarget; pageEndTarget?:BuildPageEndTarget;
   basis: BuildProposalBasis; draftMarkdown: string; editor: Editor; editorJson: string;
@@ -35,7 +38,16 @@ export interface ProposalInspection {
   state:'before'|'after'|'changed';
   savedProjection?:SavedProposalProjection;
 }
+export interface BuildProseNomination {
+  readonly provenance: 'host_catalog_nomination';
+  /** The actual author capture is not rewritten to impersonate a selection. */
+  readonly actualBasis: Readonly<BuildProposalBasis>;
+  readonly target: Readonly<ResolvedProseTarget>;
+}
 export interface BuildComposeBridge {
+  captureProseInsertion?: (catalog:ProseTargetCatalog,selector:string)=>Promise<CapturedBuildInsertion>;
+  captureProseTargets?: () => Promise<ProseTargetCatalog>;
+  nominateProseTarget?: (catalog: ProseTargetCatalog, selector: string) => BuildProseNomination;
   pickWorkPlanInsertion?: (options:{signal:AbortSignal;operationId:string})=>Promise<CapturedBuildInsertion>;
   observeWorkPlan?: (reference:WorkPlanReference,onPresence:(present:boolean)=>void)=>()=>void;
   prepareWorkPlan?: (captured:CapturedBuildInsertion,reference:WorkPlanReference)=>Promise<PreparedWorkPlanPlacement>;
@@ -49,7 +61,7 @@ export interface BuildComposeBridge {
   applyPrepared: (prepared: PreparedBuildProposal) => void;
   saveProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string, savedProjection?:SavedProposalProjection) => Promise<void>;
   inspectProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string) => Promise<ProposalInspection>;
-  restore: (basis: BuildProposalBasis, pageBodyTarget?:BuildPageBodyTarget, pageEndTarget?:BuildPageEndTarget) => Promise<CapturedBuildInsertion>;
+  restore: (basis: BuildProposalBasis, pageBodyTarget?:BuildPageBodyTarget, pageEndTarget?:BuildPageEndTarget,proseTarget?:BuildProseTarget) => Promise<CapturedBuildInsertion>;
   insertProposal: (captured: CapturedBuildInsertion, markdown: string) => void;
 }
 async function sha256(value: string) {
@@ -84,7 +96,7 @@ function preservePrefix(before:ReturnType<Editor['getJSON']>,after:ReturnType<Ed
     throw new Error('Page-end insertion would change existing content. Nothing was inserted.');
 }
 
-export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorState | null, changed: (editor: Editor) => void, persist?: BuildComposeBridge['saveProposal']): BuildComposeBridge {
+export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorState | null, changed: (editor: Editor) => void, persist?: BuildComposeBridge['saveProposal'], options:{allowProseTargets?:boolean;allowProseBoundaries?:boolean}={}): BuildComposeBridge {
   function savedPageMatches(current: BuildComposeEditorState, basis: BuildProposalBasis, allowExactSave = false) {
     return (current.revision === basis.registry_revision && current.contentSha256 === basis.content_sha256)
       // Only proposal recovery may cross a save of this exact captured draft.
@@ -93,7 +105,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
   }
   function assertSame(captured: CapturedBuildInsertion, originalAnchor = false) {
     const now = getCurrent(); const basis = captured.basis;
-    if (!now?.canEdit || now.editor.isDestroyed || now.editor !== captured.editor
+    if (!now?.canEdit || now.editor.isDestroyed || (captured.proseTarget && !now.editor.isEditable) || now.editor !== captured.editor
       || now.worldId !== basis.world_id || now.documentId !== basis.document_id
       || !savedPageMatches(now, basis, originalAnchor)
       || now.visibility !== basis.visibility || now.draftGeneration !== basis.draft_generation
@@ -109,7 +121,13 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       throw new Error('The selected passage changed. Nothing was replaced.');
     }
   }
+  const boundProse = new WeakSet<CapturedBuildInsertion>();
   function target(captured:CapturedBuildInsertion) {
+    if(captured.proseTarget){
+      if(!(captured.proseTarget.schema==='dmb_build_prose_boundary_target_v1'?options.allowProseBoundaries:options.allowProseTargets)||!boundProse.has(captured)||captured.basis.selection||captured.pageBodyTarget||captured.pageEndTarget)
+        throw new Error('This prose target is not admitted by this editor.');
+      return {from:captured.proseTarget.from,to:captured.proseTarget.to};
+    }
     const {basis,pageBodyTarget,pageEndTarget}=captured;
     if(pageBodyTarget&&pageEndTarget)throw new Error('Conflicting page targets. Nothing was inserted.');
     if(pageEndTarget){
@@ -128,8 +146,86 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
     }
     return basis.selection ? {from:basis.caret,to:basis.selection.end} : basis.caret;
   }
+  const proseCaptures = new WeakMap<ProseTargetCatalog, CapturedBuildInsertion>();
+  const proseState = () => {
+    const now = getCurrent();
+    return now ? {editor: now.editor, canEdit: now.canEdit, draftGeneration: now.draftGeneration,
+      scopeKey: JSON.stringify([now.worldId, now.documentId, now.revision, now.contentSha256, now.visibility])} : null;
+  };
+  async function bindProse(captured:CapturedBuildInsertion,binding:BuildProseTarget){
+    if(!(binding.schema==='dmb_build_prose_boundary_target_v1'?options.allowProseBoundaries:options.allowProseTargets)||captured.basis.selection||captured.pageBodyTarget||captured.pageEndTarget)
+      throw new Error('Prose targeting is not enabled for this captured page.');
+    const catalog=captureProseTargetCatalog(proseState);
+    const actual=resolveProseTarget(catalog,binding.alias,proseState);
+    const choice=catalog.choices.find(row=>row.selector===binding.alias);
+    const boundary=binding.schema==='dmb_build_prose_boundary_target_v1';
+    if(!choice||(!boundary&&(binding.schema!=='dmb_build_prose_target_v1'||binding.operation!=='replace_paragraph'))
+      ||boundary&&(binding.from!==binding.to||binding.from<0)
+      ||actual.operation!==binding.operation||actual.from!==binding.from||actual.to!==binding.to
+      ||binding.catalog_sha256!==await sha256(JSON.stringify(catalog.choices))
+      ||binding.before_text_sha256!==await sha256(boundary?choice.passage:captured.editor.state.doc.textBetween(actual.from,actual.to,'\n')))
+      throw new Error('The prose target differs from its exact offered occurrence.');
+    assertSame(captured,true);
+    const result={...captured,proseTarget:Object.freeze({...binding})};boundProse.add(result);return result;
+  }
+  function admitProse(captured:CapturedBuildInsertion,content:ReturnType<typeof admitMarkdownInsertion>['content']){
+    if(captured.proseTarget&&(content.length!==1||content[0]?.type!=='paragraph'
+      ||!(content[0].content??[]).every(node=>node.type==='text')))
+      throw new Error('A prose edit must be one paragraph. Nothing was changed.');
+    if(captured.proseTarget?.schema!=='dmb_build_prose_boundary_target_v1')return content;
+    if(!captured.editor.schema.nodes.paragraph?.spec.attrs?.pageBlockId)throw new Error('This editor cannot retain the new paragraph identity.');
+    const id=`page-prose-${captured.proseTarget.catalog_sha256.slice(0,32)}-${captured.proseTarget.operation}-${captured.proseTarget.from}`;
+    let collision=false;captured.editor.state.doc.descendants(node=>{if(node.attrs.pageBlockId===id||node.attrs.id===id)collision=true;});
+    if(collision)throw new Error('The new paragraph identity is already present. Nothing was changed.');
+    return [{...content[0]!,attrs:{...content[0]!.attrs,pageBlockId:id}}];
+  }
+  function preserveProseOutside(captured:CapturedBuildInsertion,result:ReturnType<Editor['getJSON']>){
+    if(!captured.proseTarget)return;
+    const before=JSON.parse(captured.editorJson).content??[],after=result.content??[];
+    const index=captured.editor.state.doc.resolve(captured.proseTarget.from).index(0);
+    if(captured.proseTarget.schema==='dmb_build_prose_boundary_target_v1'){
+      if(!hasPresentation(JSON.parse(captured.editorJson)))throw new Error('This proof requires an existing saved page composition to preserve block identities. Nothing was changed.');
+      const projection=projectPresentation(result,captured.draftMarkdown,JSON.parse(captured.editorJson));
+      const reopened=captured.editor.schema.nodeFromJSON(hydratePresentation(projection.markdown,projection.presentation)).toJSON();
+      if(JSON.stringify(reopened)!==JSON.stringify(result))throw new Error('Saving this insertion would normalize page structure or identities. Nothing was changed.');
+      if(after.length!==before.length+1||after[index]?.type!=='paragraph'
+        ||before.some((node:unknown,i:number)=>JSON.stringify(node)!==JSON.stringify(after[i<index?i:i+1])))
+        throw new Error('The insertion would change unrelated page structure. Nothing was changed.');
+      return;
+    }
+    if(before.length!==after.length||JSON.stringify(before[index]?.attrs??{})!==JSON.stringify(after[index]?.attrs??{})
+      ||before.some((node:unknown,i:number)=>i!==index&&JSON.stringify(node)!==JSON.stringify(after[i])))
+      throw new Error('The replacement would change unrelated page structure. Nothing was changed.');
+  }
   const applied = new WeakSet<CapturedBuildInsertion>();
   const bridge: BuildComposeBridge = {
+    async captureProseInsertion(catalog,selector){
+      const nomination=bridge.nominateProseTarget!(catalog,selector);
+      const captured=proseCaptures.get(catalog)!;
+      const choice=catalog.choices.find(row=>row.selector===selector)!;
+      const common={catalog_sha256:await sha256(JSON.stringify(catalog.choices)),alias:selector,
+        from:nomination.target.from,to:nomination.target.to,before_text_sha256:await sha256(choice.passage)};
+      const binding:BuildProseTarget=nomination.target.operation==='replace_paragraph'
+        ?{...common,schema:'dmb_build_prose_target_v1',operation:'replace_paragraph'}
+        :{...common,schema:'dmb_build_prose_boundary_target_v1',operation:nomination.target.operation};
+      return bindProse(captured,binding);
+    },
+    async captureProseTargets() {
+      const captured = await bridge.capture();
+      if (captured.basis.selection) throw new Error('Keep the explicitly selected passage as the target.');
+      const catalog = captureProseTargetCatalog(proseState);
+      assertSame(captured, true);
+      proseCaptures.set(catalog, captured);
+      return catalog;
+    },
+    nominateProseTarget(catalog, selector) {
+      const captured = proseCaptures.get(catalog);
+      if (!captured) throw new Error('This prose catalog belongs to another page capture.');
+      assertSame(captured, true);
+      const target = resolveProseTarget(catalog, selector, proseState);
+      return Object.freeze({provenance: 'host_catalog_nomination' as const,
+        actualBasis: Object.freeze({...captured.basis}), target});
+    },
     observeWorkPlan(reference,onPresence){
       const now=getCurrent();if(!now||!workPlanBelongsTo(reference,{worldId:now.worldId,documentId:now.documentId}))return ()=>{};
       const editor=now.editor;
@@ -206,7 +302,9 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
     async prepareProposal(captured, markdown) {
       const admitted = admitMarkdownInsertion(markdown);
       assertSame(captured, true);
-      const result = prepareReviewedMarkdownAtAnchor(captured.editor,target(captured),admitted.content,captured.editorJson);
+      const content=admitProse(captured,admitted.content);
+      const result = prepareReviewedMarkdownAtAnchor(captured.editor,target(captured),content,captured.editorJson,{preserveComposer:!!captured.proseTarget});
+      preserveProseOutside(captured,result);
       if(captured.pageBodyTarget)preservePageBodyReferences(JSON.parse(captured.editorJson),result);
       if(captured.pageEndTarget)preservePrefix(JSON.parse(captured.editorJson),result);
       const prepared = {captured, markdown: admitted.markdown, afterEditorSha256: await sha256(JSON.stringify(result)),
@@ -235,6 +333,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       applied.add(captured);changed(captured.editor);
     },
     async saveProposal(basis,afterEditor,afterDraft,savedProjection) {
+      if((options.allowProseTargets||options.allowProseBoundaries)&&!getCurrent()?.editor.isEditable)throw new Error('The page is no longer editable. Nothing was saved.');
       if(!persist)throw new Error('Page saving is unavailable. Your insertion is retained for recovery.');
       await persist(basis,afterEditor,afterDraft,savedProjection);
     },
@@ -263,7 +362,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
         &&savedPageMatches(now,basis,true))return {state:'before'};
       return {state:'changed'};
     },
-    async restore(basis,pageBodyTarget,pageEndTarget) {
+    async restore(basis,pageBodyTarget,pageEndTarget,proseTarget) {
       if (!basis.editor_sha256) throw new Error('This earlier proposal has no saved insertion anchor. Ask again where you want the new text.');
       const now = getCurrent();
       if (!now?.canEdit || now.editor.isDestroyed) throw new Error('Open the original editable Build page first.');
@@ -277,7 +376,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       }
       assertSame(captured, true);
       target(captured);
-      return captured;
+      return proseTarget?bindProse(captured,proseTarget):captured;
     },
     insertProposal(captured, markdown) {
       if (!captured.basis.editor_sha256) throw new Error('This earlier proposal has no saved insertion anchor. Ask again where you want the new text.');
@@ -285,12 +384,14 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       const admitted = admitMarkdownInsertion(markdown);
       assertSame(captured, true);
       const range=target(captured);
+      const content=admitProse(captured,admitted.content);
+      if(captured.proseTarget)preserveProseOutside(captured,prepareReviewedMarkdownAtAnchor(captured.editor,range,content,captured.editorJson,{preserveComposer:true}));
       if(captured.pageBodyTarget||captured.pageEndTarget){
         const result=prepareReviewedMarkdownAtAnchor(captured.editor,range,admitted.content,captured.editorJson);
         if(captured.pageBodyTarget)preservePageBodyReferences(JSON.parse(captured.editorJson),result);
         if(captured.pageEndTarget)preservePrefix(JSON.parse(captured.editorJson),result);
       }
-      insertReviewedMarkdownAtAnchor(captured.editor, range, admitted.content, captured.editorJson);
+      insertReviewedMarkdownAtAnchor(captured.editor, range, content, captured.editorJson,{preserveComposer:!!captured.proseTarget});
       applied.add(captured); changed(captured.editor);
     },
     async pickWorkPlanInsertion(options){

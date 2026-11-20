@@ -80,6 +80,48 @@ class BuildPageEndOffer(StrictModel):
     end: int = Field(strict=True, ge=1)
 
 
+class BuildProseTarget(StrictModel):
+    """Host-admitted occurrence binding, never a model-provided text offset."""
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True, serialize_by_alias=True)
+    schema_version: Literal["dmb_build_prose_target_v1"] = Field(default="dmb_build_prose_target_v1", alias="schema")
+    catalog_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    alias: str = Field(min_length=1, max_length=128)
+    operation: Literal["replace_paragraph"]
+    from_: int = Field(alias="from", strict=True, ge=1)
+    to: int = Field(strict=True, ge=2)
+    before_text_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def forward_range(self):
+        if self.to <= self.from_:
+            raise ValueError("Prose target requires one nonempty forward text extent")
+        return self
+
+
+class BuildProseBoundaryTarget(BuildProseTarget):
+    """Host-selected root boundary; digest describes its anchor paragraph."""
+    schema_version: Literal["dmb_build_prose_boundary_target_v1"] = Field(default="dmb_build_prose_boundary_target_v1", alias="schema")
+    operation: Literal["insert_before", "insert_after"]
+    from_: int = Field(alias="from", strict=True, ge=0)
+    to: int = Field(strict=True, ge=0)
+
+    @model_validator(mode="after")
+    def forward_range(self):
+        if self.to != self.from_:
+            raise ValueError("Prose boundary requires an exact zero-width position")
+        return self
+
+
+def admit_single_prose_paragraph(markdown: str) -> None:
+    # Deliberately narrow isolated proof: one inline Markdown paragraph, not new
+    # block authority. The mounted editor separately validates its schema/content.
+    content = markdown.strip()
+    if (not content or "\n" in content or "\r" in content
+            or re.match(r"^\s*(?:#{1,6}\s|[-+*>]\s|[0-9]+[.)]\s|```|~~~|\|)", content)
+            or "![" in content):
+        raise ValueError("Prose replacement must remain one nonempty paragraph")
+
+
 class BuildProposalReservation(StrictModel):
     idempotency_key: UUID
     conversation_id: UUID
@@ -90,9 +132,14 @@ class BuildProposalReservation(StrictModel):
     page_body_offer: BuildPageBodyOffer | None = None
     page_end_offer: BuildPageEndOffer | None = None
     reference_image_id: UUID | None = None
+    prose_target: BuildProseTarget | BuildProseBoundaryTarget | None = None
 
     @model_validator(mode="after")
     def body_requires_exact_editor(self):
+        if self.prose_target is not None and (self.basis.selection is not None
+                or not self.basis.editor_sha256 or self.page_body_offer is not None
+                or self.page_end_offer is not None or self.reference_image_id is not None):
+            raise ValueError("Prose nomination requires exact editor basis and no author selection or competing target")
         if self.reference_image_id is not None and (
             self.basis.selection is None or not self.basis.editor_sha256
             or self.page_body_offer is not None or self.page_end_offer is not None
@@ -111,6 +158,8 @@ class BuildProposalReservation(StrictModel):
             value.pop("page_end_offer", None)
         if self.reference_image_id is None:
             value.pop("reference_image_id", None)
+        if self.prose_target is None:
+            value.pop("prose_target", None)
         return value
 
     @property
@@ -152,6 +201,34 @@ class BuildGeneratedProposal(StrictModel):
         if self.target is None:
             value.pop("target", None)
         return value
+
+
+class BuildProseGeneratedProposal(BuildGeneratedProposal):
+    target: Literal["prose_target"]
+
+    @model_validator(mode="after")
+    def one_paragraph(self):
+        admit_single_prose_paragraph(self.replacement_markdown)
+        return self
+
+
+class BuildProseComposeOutput(BuildProseGeneratedProposal):
+    destination: Literal["current_page"]
+
+
+def normalize_prose_proposal_output(text):
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError("Duplicate prose output field")
+            value[key] = item
+        return value
+    wire = BuildProseComposeOutput.model_validate(json.loads(text, object_pairs_hook=unique))
+    # Reuse legacy inert-content checks, without expanding its public writer schema.
+    legacy = {**wire.model_dump(), "target": "captured"}
+    normalize_proposal_output(json.dumps(legacy))
+    return BuildProseGeneratedProposal.model_validate(wire.model_dump(exclude={"destination"}))
 
 
 class BuildComposeError(ValueError):
@@ -242,6 +319,12 @@ class BuildProposalRecord(StrictModel):
 
     @model_validator(mode="after")
     def validate_receipt(self):
+        nominated = self.reservation.prose_target is not None
+        expected_version = ("dmb_build_document_proposal_v3" if isinstance(self.reservation.prose_target, BuildProseBoundaryTarget) else "dmb_build_document_proposal_v2") if nominated else "dmb_build_document_proposal_v1"
+        if self.schema_version != expected_version:
+            raise ValueError("Prose provenance requires its explicit versioned record")
+        if self.proposal and (self.proposal.target == "prose_target") != nominated:
+            raise ValueError("Generated proposal target differs from its admitted provenance")
         if self.request_fingerprint != self.reservation.fingerprint:
             raise ValueError(
                 "Build proposal fingerprint differs from its frozen reservation"
@@ -267,6 +350,17 @@ class BuildProposalRecord(StrictModel):
                 "Only a reviewed proposal can be reported inserted in the draft"
             )
         return self
+
+
+class BuildProseProposalRecord(BuildProposalRecord):
+    """Explicit proof codec; legacy/history readers remain v1-only."""
+
+    schema_version: Literal["dmb_build_document_proposal_v2"] = "dmb_build_document_proposal_v2"
+    proposal: BuildProseGeneratedProposal | None = None
+
+
+class BuildProseBoundaryProposalRecord(BuildProseProposalRecord):
+    schema_version: Literal["dmb_build_document_proposal_v3"] = "dmb_build_document_proposal_v3"
 
 
 class BuildImageWriterProof(StrictModel):

@@ -1,0 +1,41 @@
+{
+  "sections": [
+    [
+      "Exhibition Entrance",
+      [
+        "Visitors gather beneath a banner showing the winter constellations."
+      ]
+    ],
+    [
+      "Telescope Safety",
+      [
+        "The custodian locks the solar filter in place before anyone approaches the eyepiece.",
+        "After the inspection, each visitor may look through the telescope for one minute."
+      ]
+    ],
+    [
+      "Archive Notes",
+      [
+        "The custodian locks the solar filter in place before anyone approaches the eyepiece."
+      ]
+    ]
+  ],
+  "cases": [
+    {
+      "request": "Make the filter-locking instruction in Telescope Safety clearer, preserving the safety rule.",
+      "expected": "rewrite"
+    },
+    {
+      "request": "Improve the passage about the custodian securing the solar filter.",
+      "expected": "clarify"
+    },
+    {
+      "request": "Include a reminder to verify that the filter is secure, between fitting it and allowing the timed viewing.",
+      "expected": "boundary"
+    },
+    {
+      "request": "Would the instruction about locking the filter sound too strict? Discuss only; leave the page alone.",
+      "expected": "discuss"
+    }
+  ]
+}

@@ -12,7 +12,7 @@ from pydantic import ConfigDict, Field, model_validator, model_serializer
 from psycopg.types.json import Jsonb
 
 from application_state.agent_conversation.service import _lock_pointer, _ready_dsn
-from application_state.build_proposal.types import StrictModel, BuildProposalBasis, BuildPageBodyOffer, BuildPageEndOffer
+from application_state.build_proposal.types import StrictModel, BuildProposalBasis, BuildPageBodyOffer, BuildPageEndOffer, BuildProseTarget, BuildProseBoundaryTarget, admit_single_prose_paragraph
 from application_state.build_proposal.service import _load, _save
 from application_state.errors import (
     ApplicationStateConflictError,
@@ -28,6 +28,7 @@ def digest(text):
 
 
 class ReviewApply(StrictModel):
+    prose_target: BuildProseTarget | BuildProseBoundaryTarget | None = None
     page_body_target: BuildPageBodyOffer | None = None
     page_end_target: BuildPageEndOffer | None = None
     placement_caret: int = Field(strict=True, ge=0)
@@ -42,6 +43,8 @@ class ReviewApply(StrictModel):
     @model_serializer(mode="wrap")
     def preserve_historical_apply(self, serialize):
         value = serialize(self)
+        if self.prose_target is None:
+            value.pop("prose_target", None)
         if self.page_body_target is None:
             value.pop("page_body_target", None)
         if self.page_end_target is None:
@@ -90,6 +93,7 @@ class BuildProposalReview(StrictModel):
     schema_version: Literal["dmb_build_proposal_review_v2", "dmb_build_proposal_review_v3"] = Field(
         default="dmb_build_proposal_review_v2", alias="schema"
     )
+    prose_target: BuildProseTarget | BuildProseBoundaryTarget | None = None
     world_id: str
     action_id: UUID
     reservation_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -108,21 +112,33 @@ class BuildProposalReview(StrictModel):
     @model_serializer(mode="wrap")
     def preserve_historical_review(self, serialize):
         value = serialize(self)
+        if self.prose_target is None:
+            value.pop("prose_target", None)
         if self.page_body_target is None:
             value.pop("page_body_target", None)
         if self.page_end_target is None:
             value.pop("page_end_target", None)
-        if self.schema_version == "dmb_build_proposal_review_v2":
+        if self.schema_version in {"dmb_build_proposal_review_v2", "dmb_build_proposal_review_v4", "dmb_build_proposal_review_v5"}:
             value.pop("placement", None)
             value.pop("retired_placements", None)
         return value
 
     @model_validator(mode="after")
     def validate_digest(self):
+        if self.schema_version in {"dmb_build_proposal_review_v4", "dmb_build_proposal_review_v5"}:
+            if (self.schema_version == "dmb_build_proposal_review_v5") != isinstance(self.prose_target, BuildProseBoundaryTarget):
+                raise ValueError("Prose review version differs from target operation")
+            if self.prose_target is None or self.placement is not None or self.retired_placements or self.page_body_target or self.page_end_target:
+                raise ValueError("Prose review requires its immutable distinct target")
+            admit_single_prose_paragraph(self.markdown)
+        elif self.prose_target is not None:
+            raise ValueError("Legacy review cannot acquire prose provenance")
+        if self.apply and self.apply.prose_target != self.prose_target:
+            raise ValueError("Apply differs from admitted prose target")
         if self.schema_version == "dmb_build_proposal_review_v2":
             if self.placement is not None or self.retired_placements:
                 raise ValueError("Historical review cannot carry fresh placement authority")
-        elif (self.placement is None or not self.retired_placements
+        elif self.schema_version == "dmb_build_proposal_review_v3" and (self.placement is None or not self.retired_placements
               or self.placement.basis.world_id != self.world_id
               or any(p.basis.world_id != self.world_id or p.basis.document_id != self.placement.basis.document_id for p in self.retired_placements)
               or len({p.command_id for p in self.retired_placements if p.command_id is not None}) != sum(p.command_id is not None for p in self.retired_placements)
@@ -154,7 +170,20 @@ class BuildProposalReview(StrictModel):
         return self
 
 
+class BuildProseProposalReview(BuildProposalReview):
+    """Explicit proof codec; default review readers reject v4."""
+
+    schema_version: Literal["dmb_build_proposal_review_v4"] = Field(
+        default="dmb_build_proposal_review_v4", alias="schema"
+    )
+
+
+class BuildProseBoundaryProposalReview(BuildProseProposalReview):
+    schema_version: Literal["dmb_build_proposal_review_v5"] = Field(default="dmb_build_proposal_review_v5", alias="schema")
+
+
 class BuildReviewCommand(StrictModel):
+    prose_target: BuildProseTarget | BuildProseBoundaryTarget | None = None
     operation: Literal["open", "save", "move", "discard", "prepare", "confirm", "replace_placement"]
     expected_revision: int = Field(strict=True, ge=0)
     placement_caret: int | None = Field(default=None, strict=True, ge=0)
@@ -176,6 +205,8 @@ class BuildReviewCommand(StrictModel):
             "prepare": {"apply_id", "after_editor_sha256", "after_draft_sha256"},
             "confirm": {"apply_id"},
         }.get(self.operation, set())
+        if self.operation == "prepare" and self.prose_target is not None:
+            required = required | {"prose_target"}
         if self.operation == "prepare" and self.page_body_target is not None:
             required = required | {"page_body_target"}
         if self.operation == "prepare" and self.page_end_target is not None:
@@ -184,6 +215,7 @@ class BuildReviewCommand(StrictModel):
             name
             for name in (
                 "markdown",
+                "prose_target",
                 "page_body_target",
                 "page_end_target",
                 "placement",
@@ -204,8 +236,19 @@ class BuildReviewCommand(StrictModel):
 
 
 class BuildProposalReviewService:
-    def __init__(self, validate_source=None):
+    def __init__(self, validate_source=None, *, allow_prose_targets=False, allow_prose_boundaries=False, validate_prose_target=None):
         self.validate_source = validate_source
+        self.allow_prose_targets = allow_prose_targets
+        self.allow_prose_boundaries = allow_prose_boundaries
+        self.validate_prose_target = validate_prose_target
+
+    def _read_review(self, payload):
+        if payload.get("schema", payload.get("schema_version")) == "dmb_build_proposal_review_v4" and not self.allow_prose_targets:
+            raise ApplicationStateConflictError("This prose review requires an updated reader")
+        if payload.get("schema", payload.get("schema_version")) == "dmb_build_proposal_review_v5" and not self.allow_prose_boundaries:
+            raise ApplicationStateConflictError("This boundary review requires an updated reader")
+        codec = BuildProseBoundaryProposalReview if self.allow_prose_boundaries and payload.get("schema", payload.get("schema_version")) == "dmb_build_proposal_review_v5" else BuildProseProposalReview if self.allow_prose_targets and payload.get("schema", payload.get("schema_version")) == "dmb_build_proposal_review_v4" else BuildProposalReview
+        return codec.model_validate(payload)
 
     def get(self, world_id, action_id):
         with unit_of_work(_ready_dsn()) as conn:
@@ -215,7 +258,7 @@ class BuildProposalReviewService:
             ).fetchone()
             if row is None:
                 raise ApplicationStateNotFoundError("Proposal review unavailable")
-            return BuildProposalReview.model_validate(row[0])
+            return self._read_review(row[0])
 
     def execute(self, world_id, action_id, command, *, authorize_world=None):
         with unit_of_work(_ready_dsn()) as conn:
@@ -226,15 +269,21 @@ class BuildProposalReviewService:
             ).fetchone()
             if row is None:
                 raise ApplicationStateNotFoundError("Proposal unavailable")
-            proposal = _load(row)
+            proposal = _load(row, allow_prose_targets=self.allow_prose_targets, allow_prose_boundaries=self.allow_prose_boundaries)
             row = conn.execute(
                 "SELECT payload FROM agent.build_proposal_review WHERE world_id=%s AND action_id=%s FOR UPDATE",
                 (world_id, action_id),
             ).fetchone()
-            previous = BuildProposalReview.model_validate(row[0]) if row else None
+            previous = self._read_review(row[0]) if row else None
+            expected_prose = proposal.reservation.prose_target
+            if expected_prose is not None and command.operation in {"open", "prepare"}:
+                if self.validate_prose_target is None:
+                    raise ApplicationStateConflictError("Current prose target validation is unavailable")
+                self.validate_prose_target(proposal.reservation)
             expected_body = proposal.reservation.page_body_offer if proposal.proposal and proposal.proposal.target == "page_body" else None
             expected_end = proposal.reservation.page_end_offer if proposal.proposal and proposal.proposal.target == "page_end" else None
             if previous and (previous.reservation_sha256 != proposal.request_fingerprint
+                    or previous.prose_target != expected_prose
                     or previous.page_body_target != expected_body
                     or previous.page_end_target != expected_end
                     or (expected_body is not None or expected_end is not None) and previous.placement_caret != proposal.reservation.basis.caret):
@@ -255,7 +304,9 @@ class BuildProposalReviewService:
             if command.operation == "open":
                 if proposal.inserted_in_draft:
                     raise ApplicationStateConflictError("Proposal was already inserted")
-                result = BuildProposalReview(
+                codec = BuildProseBoundaryProposalReview if isinstance(expected_prose, BuildProseBoundaryTarget) else BuildProseProposalReview if expected_prose else BuildProposalReview
+                result = codec(
+                    prose_target=expected_prose,
                     world_id=world_id,
                     action_id=action_id,
                     reservation_sha256=proposal.request_fingerprint,
@@ -283,8 +334,12 @@ class BuildProposalReviewService:
                     "Open the exact proposal review first"
                 )
             expected_body = proposal.reservation.page_body_offer if proposal.proposal.target == "page_body" else None
-            if previous.page_body_target != expected_body or previous.page_end_target != expected_end:
+            if previous.prose_target != expected_prose or previous.page_body_target != expected_body or previous.page_end_target != expected_end:
                 raise ApplicationStateConflictError("Review differs from immutable target")
+            if expected_prose and command.operation in {"move", "replace_placement"}:
+                raise ApplicationStateConflictError("Prose revision stays at its admitted snapshot target")
+            if expected_prose and previous.placement_caret != proposal.reservation.basis.caret:
+                raise ApplicationStateConflictError("Actual author caret provenance changed")
             if (expected_body is not None or expected_end is not None) and command.operation in {"move", "replace_placement"}:
                 raise ApplicationStateConflictError("Whole-page revision stays at its captured body. Request a new revision on the changed page." if expected_body else "Page-end insertion stays at its captured end. Request a new addition on the changed page.")
             if (expected_body is not None or expected_end is not None) and previous.placement_caret != proposal.reservation.basis.caret:
@@ -304,7 +359,7 @@ class BuildProposalReviewService:
                 and previous.apply.apply_id == command.apply_id
             ):
                 if command.operation == "prepare":
-                    if command.page_body_target != expected_body or command.page_end_target != expected_end:
+                    if command.prose_target != expected_prose or command.page_body_target != expected_body or command.page_end_target != expected_end:
                         raise ApplicationStateConflictError("This editor must acknowledge the exact whole-page target before applying it" if expected_body else "This editor must acknowledge the exact page-end target before applying it")
                     if (
                         previous.apply.after_editor_sha256
@@ -364,7 +419,7 @@ class BuildProposalReviewService:
             elif command.operation == "discard":
                 update["state"] = "discarded"
             elif command.operation == "prepare":
-                if command.page_body_target != expected_body or command.page_end_target != expected_end:
+                if command.prose_target != expected_prose or command.page_body_target != expected_body or command.page_end_target != expected_end:
                     raise ApplicationStateConflictError("This editor must acknowledge the exact whole-page target before applying it" if expected_body else "This editor must acknowledge the exact page-end target before applying it")
                 if previous.placement:
                     if self.validate_source is None:
@@ -377,6 +432,7 @@ class BuildProposalReviewService:
                 update.update(
                     state="applying",
                     apply=ReviewApply(
+                        prose_target=expected_prose,
                         page_body_target=previous.page_body_target,
                         page_end_target=previous.page_end_target,
                         placement_caret=previous.placement_caret,
@@ -406,10 +462,11 @@ class BuildProposalReviewService:
                         "revision": proposal.revision + 1,
                         "updated_at": now,
                     },
+                    allow_prose_targets=self.allow_prose_targets, allow_prose_boundaries=self.allow_prose_boundaries,
                 )
             else:
                 raise ApplicationStateConflictError("Unsupported review transition")
-            result = BuildProposalReview.model_validate(
+            result = self._read_review(
                 {**previous.model_dump(mode="python"), **update}
             )
             if authorize_world is not None:

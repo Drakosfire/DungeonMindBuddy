@@ -505,3 +505,29 @@ it("inserts an exact saved variant link and recognizes it after Markdown reopen"
   expect(changed).toHaveBeenCalledTimes(1);
  } finally { editor.destroy(); }
 });
+
+describe('read-only Build prose nomination provenance',()=>{
+ it('keeps the actual author caret unchanged while nominating a different paragraph',async()=>{
+  const {editor,bridge,changed}=setup();try{
+   editor.commands.setContent('<h2>Overview</h2><p>Unrelated.</p><h2>Preparation</h2><p>The scouts returned.</p>');
+   editor.commands.setTextSelection(1);
+   const before=editor.getJSON(),catalog=await bridge.captureProseTargets!();
+   const choice=catalog.choices.find(x=>x.section==='Preparation'&&x.operation==='replace_paragraph')!;
+   editor.commands.setTextSelection(editor.state.doc.content.size-1);
+   const nomination=bridge.nominateProseTarget!(catalog,choice.selector);
+   expect(nomination.provenance).toBe('host_catalog_nomination');
+   expect(nomination.actualBasis.caret).toBe(1);expect(nomination.actualBasis.selection).toBeUndefined();
+   expect(nomination.target.from).toBeGreaterThan(1);expect(editor.getJSON()).toEqual(before);expect(changed).not.toHaveBeenCalled();
+  }finally{editor.destroy();}
+ });
+ it('refuses author selection, another bridge catalog and stale scope without writes',async()=>{
+  const {editor,bridge,state,changed}=setup();try{
+   editor.commands.setTextSelection({from:1,to:3});await expect(bridge.captureProseTargets!()).rejects.toThrow('selected');
+   editor.commands.setTextSelection(1);const catalog=await bridge.captureProseTargets!();
+   const other=createBuildComposeBridge(()=>state,()=>{});
+   expect(()=>other.nominateProseTarget!(catalog,catalog.choices[0]!.selector)).toThrow('another');
+   state.revision++;expect(()=>bridge.nominateProseTarget!(catalog,catalog.choices[0]!.selector)).toThrow('changed');
+   expect(changed).not.toHaveBeenCalled();
+  }finally{editor.destroy();}
+ });
+});

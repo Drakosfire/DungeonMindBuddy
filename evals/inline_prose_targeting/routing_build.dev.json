@@ -1,0 +1,41 @@
+{
+  "sections": [
+    [
+      "Arrival",
+      [
+        "The ferry is waiting beside the customs office."
+      ]
+    ],
+    [
+      "River Crossing",
+      [
+        "The ferryman requires the bronze token before departure.",
+        "Once aboard, passengers must stay seated until the far bank."
+      ]
+    ],
+    [
+      "Local Tales",
+      [
+        "The ferryman requires the bronze token before departure."
+      ]
+    ]
+  ],
+  "cases": [
+    {
+      "request": "In River Crossing, clarify the token requirement without changing its meaning.",
+      "expected": "rewrite"
+    },
+    {
+      "request": "Rewrite the paragraph about the ferryman requiring the bronze token.",
+      "expected": "clarify"
+    },
+    {
+      "request": "Add a paragraph explaining how to hand over the bronze token after the payment requirement and before the onboard seating instructions.",
+      "expected": "boundary"
+    },
+    {
+      "request": "Explain why the token requirement matters. Do not edit anything.",
+      "expected": "discuss"
+    }
+  ]
+}

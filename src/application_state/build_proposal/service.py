@@ -7,19 +7,34 @@ from uuid import UUID, uuid5, NAMESPACE_URL
 from psycopg.types.json import Jsonb
 
 from application_state.agent_conversation.service import _lock_pointer, _ready_dsn
-from application_state.build_proposal.types import BuildProposalRecord, BuildProposalReservation, normalize_proposal_output
+from application_state.build_proposal.types import BuildProseBoundaryTarget, BuildProseBoundaryProposalRecord, BuildProseProposalRecord, BuildProposalRecord, BuildProposalReservation, normalize_proposal_output, normalize_prose_proposal_output
 from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError
 from application_state.unit_of_work import unit_of_work
 
 
-def _load(row) -> BuildProposalRecord:
-    if row[0].get('schema_version') != 'dmb_build_document_proposal_v1':
+def _require_supported_markdown_version(payload, *, allow_prose_targets=False, allow_prose_boundaries=False):
+    """Reader-first fence: future prose records are retained, never hidden as absent."""
+    version = payload.get("schema_version")
+    if (isinstance(version, str)
+            and version.startswith("dmb_build_document_proposal_")
+            and version != "dmb_build_document_proposal_v1"
+            and not (allow_prose_targets and version == "dmb_build_document_proposal_v2")
+            and not (allow_prose_boundaries and version == "dmb_build_document_proposal_v3")):
+        raise ApplicationStateConflictError("This Build proposal requires an updated reader. Nothing was changed.")
+
+
+def _load(row, *, allow_prose_targets=False, allow_prose_boundaries=False) -> BuildProposalRecord:
+    _require_supported_markdown_version(row[0], allow_prose_targets=allow_prose_targets, allow_prose_boundaries=allow_prose_boundaries)
+    if row[0].get('schema_version') not in {'dmb_build_document_proposal_v1', 'dmb_build_document_proposal_v2', 'dmb_build_document_proposal_v3'}:
         raise ApplicationStateNotFoundError('Markdown proposal unavailable')
-    return BuildProposalRecord.model_validate(row[0])
+    codec = BuildProseBoundaryProposalRecord if allow_prose_boundaries and row[0].get("schema_version") == "dmb_build_document_proposal_v3" else BuildProseProposalRecord if allow_prose_targets and row[0].get("schema_version") == "dmb_build_document_proposal_v2" else BuildProposalRecord
+    return codec.model_validate(row[0])
 
 
-def _save(conn, previous, updated):
-    checked = BuildProposalRecord.model_validate(updated)
+def _save(conn, previous, updated, *, allow_prose_targets=False, allow_prose_boundaries=False):
+    _require_supported_markdown_version(updated, allow_prose_targets=allow_prose_targets, allow_prose_boundaries=allow_prose_boundaries)
+    codec = BuildProseBoundaryProposalRecord if allow_prose_boundaries and updated.get("schema_version") == "dmb_build_document_proposal_v3" else BuildProseProposalRecord if allow_prose_targets and updated.get("schema_version") == "dmb_build_document_proposal_v2" else BuildProposalRecord
+    checked = codec.model_validate(updated)
     result = conn.execute("UPDATE agent.build_proposal SET payload=%s, revision=%s WHERE world_id=%s AND action_id=%s AND revision=%s",
         (Jsonb(checked.model_dump(mode="json")), checked.revision, checked.reservation.basis.world_id, checked.action_id, previous.revision))
     if result.rowcount != 1:
@@ -47,7 +62,17 @@ def _require_origin_claim(conn, reservation):
 
 
 class BuildProposalService:
+    def __init__(self, *, allow_prose_targets=False, allow_prose_boundaries=False, admit_prose_target=None):
+        self.allow_prose_targets = allow_prose_targets
+        self.allow_prose_boundaries = allow_prose_boundaries
+        self.admit_prose_target = admit_prose_target
+
     def reserve(self, reservation: BuildProposalReservation) -> tuple[BuildProposalRecord, bool]:
+        if reservation.prose_target is not None:
+            enabled = self.allow_prose_boundaries if isinstance(reservation.prose_target, BuildProseBoundaryTarget) else self.allow_prose_targets
+            if not enabled or self.admit_prose_target is None:
+                raise ApplicationStateConflictError("Prose nomination is not enabled for this owner")
+            self.admit_prose_target(reservation)
         world = reservation.basis.world_id
         with unit_of_work(_ready_dsn()) as conn:
             # Same World serialization also covers concurrent duplicate submissions.
@@ -55,7 +80,7 @@ class BuildProposalService:
             row = conn.execute("SELECT payload FROM agent.build_proposal WHERE world_id=%s AND idempotency_key=%s FOR UPDATE",
                 (world, reservation.idempotency_key)).fetchone()
             if row:
-                result = _load(row)
+                result = _load(row, allow_prose_targets=self.allow_prose_targets, allow_prose_boundaries=self.allow_prose_boundaries)
                 if result.request_fingerprint != reservation.fingerprint:
                     raise ApplicationStateConflictError("Build proposal key has a different request")
                 return result, False
@@ -68,7 +93,8 @@ class BuildProposalService:
                 raise ApplicationStateNotFoundError("Active World conversation is unavailable")
             _require_origin_claim(conn, reservation)
             now = datetime.now(timezone.utc)
-            result = BuildProposalRecord(action_id=reservation.idempotency_key, reservation=reservation, request_fingerprint=reservation.fingerprint,
+            codec = BuildProseBoundaryProposalRecord if isinstance(reservation.prose_target, BuildProseBoundaryTarget) else BuildProseProposalRecord if reservation.prose_target else BuildProposalRecord
+            result = codec(action_id=reservation.idempotency_key, reservation=reservation, request_fingerprint=reservation.fingerprint,
                 after_turn_sequence=conversation[0] - 1, revision=1, state="reserved", created_at=now, updated_at=now,
                 claim_expires_at=now + timedelta(seconds=180))
             conn.execute("INSERT INTO agent.build_proposal(action_id,world_id,conversation_id,idempotency_key,revision,payload) VALUES(%s,%s,%s,%s,1,%s)",
@@ -80,7 +106,7 @@ class BuildProposalService:
             row = conn.execute("SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s", (world_id, action_id)).fetchone()
         if row is None:
             raise ApplicationStateNotFoundError("Build proposal unavailable in this World")
-        return _load(row)
+        return _load(row, allow_prose_targets=self.allow_prose_targets, allow_prose_boundaries=self.allow_prose_boundaries)
 
     def list(self, world_id: str, conversation_id: UUID) -> list[BuildProposalRecord]:
         with unit_of_work(_ready_dsn()) as conn:
@@ -89,7 +115,11 @@ class BuildProposalService:
                 raise ApplicationStateNotFoundError("World conversation unavailable")
             rows = conn.execute("SELECT payload FROM agent.build_proposal WHERE world_id=%s AND conversation_id=%s ORDER BY payload->>'created_at', action_id",
                 (world_id, conversation_id)).fetchall()
-        return [_load(row) for row in rows if row[0].get("schema_version") == "dmb_build_document_proposal_v1"]
+        # Image preparations intentionally share this table. Future Markdown
+        # versions are different: omitting them could invite duplicate requests.
+        for row in rows:
+            _require_supported_markdown_version(row[0], allow_prose_targets=self.allow_prose_targets, allow_prose_boundaries=self.allow_prose_boundaries)
+        return [_load(row, allow_prose_targets=self.allow_prose_targets, allow_prose_boundaries=self.allow_prose_boundaries) for row in rows if row[0].get("schema_version") in {"dmb_build_document_proposal_v1", "dmb_build_document_proposal_v2", "dmb_build_document_proposal_v3"}]
 
     def advance(self, world_id: str, action_id: UUID, *, expected_revision: int, state: str, **fields) -> BuildProposalRecord:
         allowed = {"reserved": {"authorized", "failed"}, "authorized": {"sdk_entered", "failed"},
@@ -101,7 +131,7 @@ class BuildProposalService:
             row = conn.execute("SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s FOR UPDATE", (world_id, action_id)).fetchone()
             if row is None:
                 raise ApplicationStateNotFoundError("Build proposal unavailable in this World")
-            previous = _load(row)
+            previous = _load(row, allow_prose_targets=self.allow_prose_targets, allow_prose_boundaries=self.allow_prose_boundaries)
             if previous.revision != expected_revision or state not in allowed.get(previous.state, set()):
                 raise ApplicationStateConflictError("Build proposal transition is stale or terminal")
             if previous.authorization is not None and "authorization" in fields and fields["authorization"] != previous.authorization:
@@ -115,14 +145,14 @@ class BuildProposalService:
             if state == "proposed":
                 # The proposal owner derives its result from the acknowledged raw
                 # final. Caller-created Markdown cannot replace the writer result.
-                proposal = normalize_proposal_output(previous.raw_response,
-                    previous.reservation.page_body_offer, previous.reservation.page_end_offer)
+                proposal = (normalize_prose_proposal_output(previous.raw_response) if previous.reservation.prose_target
+                    else normalize_proposal_output(previous.raw_response, previous.reservation.page_body_offer, previous.reservation.page_end_offer))
                 if "raw_response" in fields or "proposal" in fields and fields["proposal"] != proposal:
                     raise ApplicationStateConflictError("Build proposal differs from its captured writer result")
                 fields["proposal"] = proposal
             updated = {**previous.model_dump(mode="python"), **fields, "state": state,
                 "revision": previous.revision + 1, "updated_at": datetime.now(timezone.utc)}
-            return _save(conn, previous, updated)
+            return _save(conn, previous, updated, allow_prose_targets=self.allow_prose_targets, allow_prose_boundaries=self.allow_prose_boundaries)
 
     def report_inserted(self, world_id: str, action_id: UUID, *, expected_revision: int, authorize=None) -> BuildProposalRecord:
         """Client-observed draft insertion; never a durable workspace Save receipt."""
@@ -130,7 +160,7 @@ class BuildProposalService:
             row = conn.execute("SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s FOR UPDATE", (world_id, action_id)).fetchone()
             if row is None:
                 raise ApplicationStateNotFoundError("Build proposal unavailable in this World")
-            previous = _load(row)
+            previous = _load(row, allow_prose_targets=self.allow_prose_targets, allow_prose_boundaries=self.allow_prose_boundaries)
             if previous.inserted_in_draft:
                 return previous
             if previous.state != "proposed" or previous.revision != expected_revision:
@@ -138,4 +168,4 @@ class BuildProposalService:
             if authorize is not None:
                 authorize()
             return _save(conn, previous, {**previous.model_dump(mode="python"), "inserted_in_draft": True,
-                "revision": previous.revision + 1, "updated_at": datetime.now(timezone.utc)})
+                "revision": previous.revision + 1, "updated_at": datetime.now(timezone.utc)}, allow_prose_targets=self.allow_prose_targets, allow_prose_boundaries=self.allow_prose_boundaries)
