@@ -158,9 +158,15 @@ export function SelectedWorldProvider({
           setLoaded({ scope: selectionScope, value: { kind: "error", message: "World selection is empty." } });
           return;
         }
-        const document = selection.documentId
-          ? await getWorkspaceDocumentAny(selection.documentId)
+        const parallelHostedWorldId = hosted && !selection.runId && !selection.extractionRunId
+          ? selection.worldId
           : null;
+        const [document, resolvedWorld] = parallelHostedWorldId && selection.documentId
+          ? await Promise.all([
+            getWorkspaceDocumentAny(selection.documentId),
+            getHostedWorldContainer(parallelHostedWorldId, catalogRequest.signal),
+          ])
+          : [selection.documentId ? await getWorkspaceDocumentAny(selection.documentId) : null, null] as const;
         if (cancelled) return;
         const worldOwnedPlan = document?.schema_version === "dmb_world_owned_plan_record_v2";
         // An exact Play link can arrive without a World query. Resolve the
@@ -189,9 +195,10 @@ export function SelectedWorldProvider({
           if (!cancelled) setLoaded({ scope: selectionScope, value: { kind: "legacy" } });
           return;
         }
-        const worlds = hosted && selection.worldId
-          ? [await getHostedWorldContainer(selection.worldId, catalogRequest.signal)]
-          : (await listWorldContainers(catalogRequest.signal)).records;
+        const worlds = resolvedWorld ? [resolvedWorld]
+          : hosted && selection.worldId
+            ? [await getHostedWorldContainer(selection.worldId, catalogRequest.signal)]
+            : (await listWorldContainers(catalogRequest.signal)).records;
         if (!cancelled) {
           const verified = verifyManagedWorldSelection({
             requestedWorldId: selection.worldId ?? run?.campaign_id ?? extractionCampaignId,
@@ -214,6 +221,7 @@ export function SelectedWorldProvider({
           }
         }
       } catch (error) {
+        catalogRequest.abort();
         if (!cancelled) {
           setLoaded({
             scope: selectionScope,
