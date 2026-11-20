@@ -1,6 +1,6 @@
 # Fresh source-navigation import isolation
 
-Status: COMPLETE — accepted implementation; documentation seal/merge pending.
+Status: COMPLETE — merged as PR #4236.
 Owner MIND, with operator authorization for the full optimized vNext lane's design,
 implementation, review and merge. Delivery is serial, not an unmerged stack.
 
@@ -14,8 +14,10 @@ implementation, review and merge. Delivery is serial, not an unmerged stack.
 - Last accepted predecessor:4237 source6c4d77da, seal353a7fa58, merge817354e;
   source/seal reviews5993948969/5993964656, tree equalitya922e61225b4695307dae0a07f41c56ba1e7bf11.
 - Core pin e56a3faee749ced9ac0913da5d7282da84b7cc2d and WK348c0dbf remain unchanged.
-- Remaining delivery gate: documentation delta review and short checks, then
-  guarded merge. No actual merged execution or serving deployment is claimed.
+- Seal45ddc17f02ec9c9ca5edb3480683c21963f368c6 accepted by review5994477462.
+- Actual merge6473f3134b002bc02b35308ce290bbdfbad0a518 has the identical seal tree
+  4ade320ed33998cd07b1803e6e0140db04794b5b; all three short checks passed.
+- No separate actual merged execution or serving deployment is claimed.
 
 ## Outcome and invariant
 
