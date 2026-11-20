@@ -233,49 +233,6 @@ describe("GraphReviewLiveProjectionPanel", () => {
 
   it("switches from candidate projection to committed panel after receipt adoption", async () => {
 
-    const committed: WorldGraphProjection = {
-      schema: "dmb_world_graph_projection_v1",
-      snapshot: {
-        worldId: "eldyrwild",
-        campaignId: "longmont-c2",
-        revisionId: "rev:committed",
-        headRevisionId: "rev:committed",
-        isHead: true,
-        focus: { kind: "session", sessionId: "session-23", campaignId: "longmont-c2" },
-        admissibility: "gm",
-      },
-      summary: {
-        nodeCount: 1,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [
-        {
-          nodeId: "object-1",
-          label: "Hesta Ironroot",
-          kind: "npc",
-          role: "character",
-          aliases: [],
-          sourceDomains: [],
-          anchoredToFocusSession: true,
-          evidenceBadges: [],
-          adjacency: [],
-          suggestedExpansions: [],
-          evidenceRefIds: [],
-          sourceArtifactIds: [],
-        },
-      ],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
-    };
-    vi.mocked(postWorldGraphProjection).mockResolvedValue(committed);
-
     const receipt: ExtractPromoteConfirmReceipt = {
       schema: "dmb_extract_promote_confirm_v2",
       outcome: "committed",
@@ -337,7 +294,9 @@ describe("GraphReviewLiveProjectionPanel", () => {
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-committed-projection-panel")).toBeInTheDocument();
     });
-    expect(screen.getAllByText("Hesta Ironroot").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("graph-review-committed-receipt-meta")).toHaveTextContent("rev:committed");
+    expect(screen.getByTestId("graph-review-committed-projection-error")).toHaveTextContent("Graph visualization for this saved revision is unavailable.");
+    expect(postWorldGraphProjection).not.toHaveBeenCalled();
     expect(screen.queryByText("Candidate Hesta")).toBeNull();
     expect(screen.queryByTestId("graph-review-projection-layout")).toBeNull();
   });
