@@ -1,13 +1,13 @@
 """Plan-owned actual Jev dispatch. Host bindings never enter model state."""
 from hashlib import sha256
 from contextlib import nullcontext
-
-from .agent_turn_trace import host_work_observer
 import json
 import httpx2
 from generationengine import GenerationEngineError
 from time import perf_counter
 from uuid import UUID, uuid4
+
+from .agent_turn_trace import host_work_observer
 
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation.jev_retrieval_contract import (
@@ -354,8 +354,8 @@ class PlanJevDispatch:
             async def authorize(prepared): return self.authorize(prepared)
             async def record(event): return self.record(event)
             owns_client = client is None
-            with trace.measure_host_work("plan_jev_client_setup") if detailed else nullcontext():
-                if owns_client:
+            if owns_client:
+                with trace.measure_host_work("plan_jev_client_setup") if detailed else nullcontext():
                     client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key, select_context=self.select_context,
                         on_dispatch=getattr(trace, "mark_first_jev_dispatch", None))
             started = perf_counter()
