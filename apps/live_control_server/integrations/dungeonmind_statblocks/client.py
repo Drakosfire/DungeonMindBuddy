@@ -81,18 +81,17 @@ def verify_exact_revision_mechanics_integrity(
     revision: ExactRevisionResourceV1,
 ) -> None:
     """Cryptographically bind mechanics to canonical text and declared digests."""
-    from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import (
-        canonicalize_definition_dict,
-        source_definition_digest_from_body,
-    )
+    from hashlib import sha256
+    from .definition_digest import canonicalize_definition_dict, historical_definition_canonical
 
     definition_body = revision.definition.model_dump(mode="json", exclude_none=False)
     canonical = canonicalize_definition_dict(definition_body)
-    if canonical != revision.canonical_definition:
+    if (canonical != revision.canonical_definition
+            and historical_definition_canonical(canonical) != revision.canonical_definition):
         raise downstream_unexpected(
             "exact revision canonical_definition does not match definition"
         )
-    computed_digest = source_definition_digest_from_body(definition_body)
+    computed_digest = "sha256:" + sha256(revision.canonical_definition.encode("utf-8")).hexdigest()
     if computed_digest != revision.definition_digest:
         raise downstream_unexpected(
             "exact revision definition_digest does not match definition"
