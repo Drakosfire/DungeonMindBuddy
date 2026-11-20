@@ -101,7 +101,8 @@ def prepare_native_source_context(*, managed_world_id, principal, revision_id=No
     try:
         access = open_native_text_source_access_context(repository=repo, space_id=space,
             revision_id=revision_id, domain_contract=resolve_domain,
-            audience_labels=(GM_LABEL, PLAYER_LABEL), parsed_cache=parsed_cache)
+            audience_labels=(GM_LABEL, PLAYER_LABEL), parsed_cache=parsed_cache,
+            prefer_verified_source_rows=True)
     except KnowledgeReadContextIntegrityError as exc:
         if str(exc) != "native source context revision is missing":
             raise
