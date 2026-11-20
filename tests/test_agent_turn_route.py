@@ -4922,3 +4922,47 @@ def test_pinned_build_references_reach_governed_dispatch_unchanged(
     assert len(dispatched) == 1 and _governed_build_turn(dispatched[0])
     assert dispatched[0].primary_work.model_dump(mode="json", exclude_none=True) == payload["primary_work"]
     assert dispatched[0].build_authored_references.model_dump(mode="json", by_alias=True) == payload["build_authored_references"]
+
+
+@pytest.mark.parametrize("mode", ["world", "campaign"])
+@pytest.mark.parametrize("selected", [False, True])
+def test_fresh_classic_graph_turn_retires_before_resolution(
+    tmp_path: Path, mode: str, selected: bool
+) -> None:
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentTurnServiceError,
+        execute_agent_turn,
+    )
+    from apps.live_control_server.services.hermes_session_store import HermesSessionPointerStore
+
+    graph_request = {
+        "mode": mode,
+        "campaign_id": None if mode == "world" else "campaign-a",
+        "revision_pin": None,
+        "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+    }
+    if mode == "world":
+        graph_request["world_id"] = "world-a"
+    request = AgentTurnRequest.model_validate({
+        **_payload(),
+        "graph_request": graph_request,
+        "graph_selection": {"node_id": "node-42"} if selected else None,
+    })
+
+    def unexpected(*args: Any, **kwargs: Any) -> None:
+        pytest.fail("A retired turn reached work, Graph, or runtime resolution")
+
+    with pytest.raises(AgentTurnServiceError) as exc:
+        execute_agent_turn(
+            request,
+            root=tmp_path,
+            pointer_store=HermesSessionPointerStore(tmp_path / "sessions"),
+            owner_resolver=lambda _request: None,
+            work_resolver=unexpected,
+            graph_resolver=unexpected,
+            runtime_factory=unexpected,
+        )
+
+    assert exc.value.status_code == 410
+    assert exc.value.code == "legacy_agent_graph_turn_retired"
+    assert exc.value.provider_dispatched is False
