@@ -341,3 +341,21 @@ a prototype is not a new durable authority.
 - **2026-11-14 (operator local date):** Moved release checks and maintenance follow-ups out of the root inventory, retaining each owner's open gates and [the pinned original root evidence](https://github.com/Drakosfire/DungeonMindBuddy/blob/6b2d4844fd4e0045f55042c3c88dce5c00be583b/Backlog.md). Historical hygiene notes remain at [the transfer base](https://github.com/Drakosfire/DungeonMindBuddy/blob/6b2d4844fd4e0045f55042c3c88dce5c00be583b/Backlog.md#L295-L354).
 - Preserved [layered maps](https://github.com/Drakosfire/DungeonMindBuddy/pull/2383), [campaign arcs](https://github.com/Drakosfire/DungeonMindBuddy/pull/3328), [search replay](https://github.com/Drakosfire/DungeonMindBuddy/pull/3640), and [recap contributor](https://github.com/Drakosfire/DungeonMindBuddy/pull/3655) as separate, unscheduled captures. Split [#2389](https://github.com/Drakosfire/DungeonMindBuddy/pull/2389) into delivered Build browsing, the residual hierarchy question, and the existing extraction fix lane.
 - Adopted the historical evaluation corrections from [#3186](https://github.com/Drakosfire/DungeonMindBuddy/pull/3186), preserving the current native-action controller trigger and the frozen benchmark evidence. This changes backlog ownership/discoverability only, not implementation or acceptance.
+
+## [IDEA] Edit earlier Buddy messages and fork conversations — captured 2026-11-19
+
+**Context:** The operator wants to revise an earlier message or explore a different direction from a prior point.
+**Action:** Add edit and fork actions at a saved turn. Preserve the original conversation and its downstream turns. Reopen each branch from the picker with its own subsequent messages and the appropriate saved context.
+**Surfaces when:** Conversation history, message actions, or branching work begins.
+
+## [IDEA] Audit saved Buddy conversation loading end to end — captured 2026-11-19
+
+**Context:** The operator reports that conversation loading seems broken.
+**Action:** Reproduce with existing saved conversations on hosted Buddy. Audit the picker, active conversation selection, history pagination, refresh and surface changes, and recovery of interrupted or failed turns. Trace failures from browser to durable storage, then add regressions for the confirmed cases.
+**Surfaces when:** Saved conversation loading, history display, or recovery work begins.
+
+## [IDEA] Stop a Buddy turn and exclude it from future context — captured 2026-11-19
+
+**Context:** The operator wants to interrupt a message at any point and prevent it from participating in future history.
+**Action:** Add Stop from preparation through reply streaming. Record cancellation durably, exclude the stopped user message and any partial reply from future model context, and prevent late responses, reloads, or retries from restoring the canceled turn. Show a stopped state so the user can tell what happened.
+**Surfaces when:** Conversation cancellation, turn lifecycle, or history assembly work begins.
