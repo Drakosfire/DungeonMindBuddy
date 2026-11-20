@@ -251,5 +251,5 @@ def test_cold_body_openers_avoid_historical_readers(entry):
     env.pop("PYTHONPATH", None)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     result = subprocess.run([sys.executable, "-B", "-c", script], env=env,
-                            capture_output=True, text=True, check=False)
+                            capture_output=True, text=True, check=False, timeout=60)
     assert result.returncode == 0, result.stdout + result.stderr
