@@ -79,6 +79,23 @@ def test_table_hyperlink_text_is_not_dropped(tmp_path: Path) -> None:
     assert "See the clue nearby." in docx_to_markdown(path)
 
 
+def test_nonbold_hyperlink_prevents_bold_paragraph_becoming_heading(tmp_path: Path) -> None:
+    doc = Document()
+    paragraph = doc.add_paragraph()
+    paragraph.add_run("Bold introduction ").bold = True
+    hyperlink = OxmlElement("w:hyperlink")
+    run = OxmlElement("w:r")
+    text = OxmlElement("w:t")
+    text.text = "ordinary link"
+    run.append(text)
+    hyperlink.append(run)
+    paragraph._p.append(hyperlink)
+    path = tmp_path / "paragraph.docx"
+    doc.save(path)
+
+    assert docx_to_markdown(path) == "**Bold introduction **ordinary link\n"
+
+
 @pytest.mark.parametrize("shape", ["nested", "merged"])
 def test_unsupported_table_structure_fails_without_silent_loss(tmp_path: Path, shape: str) -> None:
     doc = Document()

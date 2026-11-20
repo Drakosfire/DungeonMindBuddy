@@ -41,15 +41,16 @@ def _heading_level(style_name: str | None) -> int | None:
 
 def _is_bold_only_header(paragraph: Paragraph) -> bool:
     text = paragraph.text.strip()
-    if not text or not paragraph.runs:
+    if not text:
         return False
     has_text_run = False
-    for run in paragraph.runs:
-        if run.text.strip() == "":
-            continue
-        has_text_run = True
-        if not run.bold:
-            return False
+    for item in paragraph.iter_inner_content():
+        for run in item.runs if isinstance(item, Hyperlink) else [item]:
+            if run.text.strip() == "":
+                continue
+            has_text_run = True
+            if not run.bold:
+                return False
     return has_text_run
 
 
