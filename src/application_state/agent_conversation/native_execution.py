@@ -478,10 +478,11 @@ def validate_context_binding(context, execution) -> SurfaceNativeExecutionV1:
 def _validate_owned_context_binding(context, execution):
     """Run the complete predicate owners on APP's exclusively owned prefix.
 
-    This pure function grants no IO authority. Its sole session caller must
-    prove fresh storage equality and nonescaping prefix ownership, strictly
-    decode the new event group, and preserve the validated header/prefix. Initial
-    admission, recovery and the real writer frontier still use the full codec.
+    This pure function grants no IO authority. A session caller must prove
+    current storage equality and strictly decode any new events. Retained
+    completion checking uses an exact slice of its already validated parent.
+    Both callers preserve nonescaping ownership of the typed components.
+    Initial admission, recovery and the actual writer frontier use the full codec.
     """
     if type(context) is not SurfaceNativeContextReceiptV1 or type(execution) is not SurfaceNativeExecutionV1:
         raise ValueError('Owned native binding requires its concrete complete components')
