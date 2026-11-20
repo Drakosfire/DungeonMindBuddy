@@ -104,7 +104,7 @@ from apps.live_control_server.services.agent_runtime import (
     AgentWorldScope,
     descriptor_for_runtime,
 )
-from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder, host_work_observer
 from apps.live_control_server.services.agent_runtime_evidence import run_with_private_evidence
 from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
 from apps.live_control_server.services.agent_context_trace_projection import graph_operation_observation
@@ -1702,6 +1702,9 @@ class _ClaimFence:
                 raise ApplicationStateError('APP-STATE claim owner has stopped after a failed operation') from self.renewer._error
             current = self.renewer._turn
             session_owned = self.renewer._session is not None
+            detailed_writer = (method_name == "authorize_native_writer"
+                               and self.trace is not None and host_work_observer.get() is not None)
+            measure = self.trace.measure_host_work if detailed_writer else lambda _: nullcontext()
             try:
                 method = getattr(self.service, method_name, None)
                 if not callable(method):
@@ -1710,7 +1713,8 @@ class _ClaimFence:
                     )
                 if self.renewer._session is not None:
                     if method_name == 'authorize_native_writer':
-                        current = self.renewer._session.finish()
+                        with measure('plan_session_finish_before_writer'):
+                            current = self.renewer._session.finish()
                         self.renewer._session = None
                         self.renewer._turn = current
                     else:
@@ -1719,8 +1723,9 @@ class _ClaimFence:
                             expected_revision=current.revision, expected_attempt=current.attempt, **fields)
                         self.renewer._turn = updated
                         return updated, fresh
-                result = method(current.world_id, current.conversation_id, current.turn_id,
-                    expected_revision=current.revision, expected_attempt=current.attempt, **fields)
+                with measure("native_writer_authorization_persistence"):
+                    result = method(current.world_id, current.conversation_id, current.turn_id,
+                        expected_revision=current.revision, expected_attempt=current.attempt, **fields)
                 if method_name == "authorize_build_opening_with_prompt":
                     updated, fresh, _ = result
                 else:

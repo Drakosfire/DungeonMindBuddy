@@ -1399,7 +1399,8 @@ def test_benchmark_context_boundary_uses_actual_sdk_admission_without_writer_io(
     assert intervals and len({span['trace_id'] for span in intervals}) == 1
     assert all(detail['start_monotonic_ns'] <= span['start_monotonic_ns']
                <= span['end_monotonic_ns'] <= detail['end_monotonic_ns'] for span in intervals)
-    assert {'execution_append', 'native_source_append'} <= {span['name'] for span in intervals}
+    assert {'execution_append', 'native_source_append', 'plan_session_finish_before_writer',
+            'native_writer_authorization_persistence'} <= {span['name'] for span in intervals}
     tampered = deepcopy(transport_stop)
     tampered['transport_sink']['body_hex'] += '20'
     with pytest.raises(ValueError, match='Writer transport bytes'):
