@@ -1,0 +1,22 @@
+# INGEST: hold source-local article variants for identity review
+
+Status: ACTIVE. Human grants full ownership and authority over historical graph repair and integration. This is the first bounded runtime slice; the overall repair goal remains active. PRIME explicitly confirms no overlap with its Buddy/Core identity/mutation work. Held Plan-writer PR1764 remains outside scope.
+
+Lane: codex/historical-graph-repair, /home/drakosfire/Projects/.codex/historical-graph-repair/DungeonMindBuddy, fetched base4d3f2f1aace33496aaedea3e1ed2b86d84906803. Serial topology: one implementation PR, followed by governed historical correction and reviewed location binding slices. No primary writes, merge, deployment or service changes.
+
+Expected write lease: this handoff; apps/live_control_server/models/world_graph_mutation_context.py; tests/test_source_local_article_collision.py. Independent benchmark evidence stays in the existing benchmark lane. Ports/services unchanged; full-World native6ee636 and APP/files clone on55447 used read-only for prepare/probes.
+
+Invariant: for source-local candidate creation only, a definite-article variation of an existing active label/alias must trigger plausible-match review rather than silently create another canonical identity. It must not bind or merge, weaken cross-kind checks, activate retracted identities, broaden legacy automatic identity resolution, or conflate arbitrary substrings. Exact candidate/source/parent proof remains mandatory for later reviewed binding.
+
+Evidence: unchanged DeepSeek S10 The Grit and Grime location is created_new/default-selected against existing Grit and Grime; label-only full-context control confirms cause. Source-correct Grit remains ambiguous and requires future reviewed location binding. This slice prevents one duplicate route; it does not retire historical records or claim successful later integration.
+
+Verification: owning classifier tests for both directions, aliases, cross-kind, inactive records, unrelated names, source-local versus ordinary identity behavior; reproduce original red behavior; rerun full-World context and actual candidate prepare on exact source/runtime pins; inspect cumulative base-to-head diff. No model calls needed. Open one implementation PR after validation; no merge authority inferred.
+
+## Verification
+
+Original source: six new article/alias/cross-kind cases fail by returning created_new; four negative controls pass. Candidate6e04712ca: all18affected tests pass (10new plus exact-ID/PC compatibility); focused Ruff passes. Full-context original article-only control becomes ambiguous with no binding; exact-label and cleaned-parent cases remain ambiguous, and removed-all negative control remains created_new. Real unchanged retained Sol/DeepSeek candidates prepared at fullclone6ee636 with Core4ccd:DeepSeek loc_grit_and_grime is deferred/ambiguous instead of source_local/created_new; wrong group/item remain held. No publication/providercalls, native head unchanged. Raw candidate preparation and launcher artifacts retained at /home/drakosfire/Projects/.codex/historical-graph-repair/cache/article-collision-prepare-6e04712ca and article-collision-identity-6e04712ca.json. Owner/source/candidate hashes retained in those artifacts and original benchmark catalog. These task-owned outputs remain for review/full repair comparison; cleanup after overall repair acceptance with active-process/unique-data checks, not before. Runtime worktree retained for this active slice.
+
+Correct location still requires reviewed binding, and original unsupported canonical objects remain; this PR is recurrence prevention for one duplicate path, not completed historical correction or full-system ingestion. Current-source baseline comes from4d3f2f1aa; benchmark archive9af full-context provenance is preserved separately.
+
+
+Current-main refresh (2026-10-28): ordinary merge of main5629dcc, preserving historical commits and runtime feature bytes fromc49287ca. Current owning article/exact-ID checks14passed using the actually declared Core4ccd archive and exact GEe936 sources. Focused Ruff/diff check pass. The main-relative feature diff remains these3owned files; no UI capability was added by this lane. Later main bd201665 contains a separate UI-only change and is not falsely claimed as part of this5629dcc snapshot. No prior approval is carried forward; refreshed exact-head independent review remains required. Evidence cache/buddy-article-declared4ccd-sync-965ac20553. No primary/database mutations, model runs, merge-to-main or deployment.
