@@ -6571,7 +6571,7 @@ def test_hosted_recap_usage_requires_owned_world_and_exact_revision(hosted, monk
 
 
 def test_hosted_build_recap_recovery_requires_owned_document(hosted, monkeypatch):
-    from apps.live_control_server.routes import graph_preview
+    from apps.live_control_server.routes import build_extraction
     from apps.live_control_server.services import build_recap_launch, workspace_document_registry
 
     document_id = "00000000-0000-4000-8000-000000000001"
@@ -6585,7 +6585,7 @@ def test_hosted_build_recap_recovery_requires_owned_document(hosted, monkeypatch
         return SimpleNamespace(run_id="saved-run")
 
     monkeypatch.setattr(build_recap_launch, "recover_build_recap_launch", recover)
-    monkeypatch.setattr(graph_preview, "get_extraction_run_build_context",
+    monkeypatch.setattr(build_extraction, "get_extraction_run_build_context",
                         lambda run_id: {"document_id": document_id, "run_id": run_id})
     path = f"/api/live/graph-preview/build-recap-launches/{request_id}?document_id={document_id}"
     valid_path = path + "&managed_world_id=managed"
@@ -6597,7 +6597,7 @@ def test_hosted_build_recap_recovery_requires_owned_document(hosted, monkeypatch
     assert result.status_code == 200, result.text
     assert result.json() == {"document_id": document_id, "run_id": "saved-run"}
     assert len(calls) == 1
-    monkeypatch.setattr(graph_preview, "get_extraction_run_build_context",
+    monkeypatch.setattr(build_extraction, "get_extraction_run_build_context",
                         lambda run_id: {"document_id": request_id, "run_id": run_id})
     assert hosted.client.request("GET", valid_path).status_code == 409
 
@@ -6605,7 +6605,7 @@ def test_hosted_build_recap_recovery_requires_owned_document(hosted, monkeypatch
 def test_hosted_build_recap_launch_binds_world_before_dispatch_and_return(hosted, monkeypatch):
     from unittest.mock import Mock
 
-    from apps.live_control_server.routes import graph_preview
+    from apps.live_control_server.routes import build_extraction
     from apps.live_control_server.services import build_recap_launch, workspace_document_registry
 
     document_id = "00000000-0000-4000-8000-000000000001"
@@ -6625,7 +6625,7 @@ def test_hosted_build_recap_launch_binds_world_before_dispatch_and_return(hosted
     launch = Mock(return_value=SimpleNamespace(run_id="saved-run"))
     monkeypatch.setattr(build_recap_launch, "launch_build_recap", launch)
     monkeypatch.setattr(
-        graph_preview, "get_extraction_run_build_context", lambda run_id: {"run_id": run_id},
+        build_extraction, "get_extraction_run_build_context", lambda run_id: {"run_id": run_id},
     )
     path = "/api/live/graph-preview/build-recap-launches"
     assert hosted.client.request("POST", path, json=payload, session="other-session").status_code == 403
@@ -6644,7 +6644,7 @@ def test_hosted_build_recap_launch_binds_world_before_dispatch_and_return(hosted
         )
         return {"run_id": run_id}
 
-    monkeypatch.setattr(graph_preview, "get_extraction_run_build_context", transfer_during_read)
+    monkeypatch.setattr(build_extraction, "get_extraction_run_build_context", transfer_during_read)
     response = hosted.client.request("POST", path, json=payload)
     assert response.status_code == 403, response.text
     assert "saved-run" not in response.text
@@ -7001,3 +7001,23 @@ def test_saved_related_recap_withholds_body_after_midread_owner_transfer(hosted,
     assert response.status_code == 403, response.text
     assert len(calls) == 1
     assert (calls[0]["world_id"], calls[0]["turn_id"], calls[0]["claim_id"], calls[0]["continuation"]) == ("managed", turn_id, "claim", None)
+
+
+def test_production_app_mounts_build_extraction_without_developer_routes(monkeypatch):
+    from apps.live_control_server.main import create_app
+
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "production")
+    monkeypatch.setenv("DMB_AUTH_MODE", "hosted_dms")
+    methods_by_path = {
+        (method, route.path)
+        for route in create_app().routes
+        for method in getattr(route, "methods", ())
+    }
+
+    prefix = "/api/live/graph-preview"
+    assert ("POST", prefix + "/extraction-runs") in methods_by_path
+    assert ("GET", prefix + "/extraction-runs/{run_id}") in methods_by_path
+    assert ("GET", prefix + "/extraction-runs/{run_id}/build-context") in methods_by_path
+    assert ("GET", prefix + "/extraction-runs/{run_id}/candidate-projection") in methods_by_path
+    assert ("GET", prefix + "/gold-review/sessions") not in methods_by_path
+    assert ("GET", prefix + "/manual-review/beds") not in methods_by_path

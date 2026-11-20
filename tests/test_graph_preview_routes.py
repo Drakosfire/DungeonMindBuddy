@@ -27,6 +27,7 @@ def client(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn: str
 ) -> TestClient:
     monkeypatch.setattr("apps.live_control_server.routes.graph_preview.repo_root", lambda: tmp_path)
+    monkeypatch.setattr("apps.live_control_server.routes.build_extraction.repo_root", lambda: tmp_path)
     monkeypatch.setattr(
         "apps.live_control_server.services.workspace_document_registry.repo_root",
         lambda: tmp_path,
