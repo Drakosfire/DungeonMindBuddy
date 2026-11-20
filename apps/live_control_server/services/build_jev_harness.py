@@ -6,8 +6,9 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import json
 import logging
+import sys
 import time
-from contextlib import nullcontext
+from contextlib import ExitStack, nullcontext
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -525,9 +526,11 @@ class BuildJevHarness:
         with measure("build_first_jev_controller_stage"):
             plan, intent = driver.stage(), driver.step
         admission_failure = None
+        preparation = ExitStack()
 
         async def authorize(prepared):
             nonlocal admission_failure
+            preparation.close()
             with measure("build_first_jev_authorization"):
                 accepted = driver.authorize(prepared)
                 if accepted:
@@ -577,6 +580,7 @@ class BuildJevHarness:
         started = time.perf_counter()
         try:
             self.failure_stage = "controller_dispatch"
+            preparation.enter_context(measure("build_first_jev_request_preparation"))
             result = await client.decide(
                 DecisionRequest(
                     provider=decision_policy.PROVIDER,
@@ -633,6 +637,7 @@ class BuildJevHarness:
                     status_code=413, provider_dispatched=bool(self.calls)) from exc
             raise
         finally:
+            preparation.__exit__(*sys.exc_info())
             if pending_query is not None:
                 if pending_query.done() and not pending_query.cancelled():
                     pending_query.exception()
