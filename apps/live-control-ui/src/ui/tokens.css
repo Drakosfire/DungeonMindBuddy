@@ -1,4 +1,5 @@
 :root {
+  --ui-color-scheme: dark;
   --ui-background-app: #12141a;
   --ui-background-chrome: #171d29;
   --ui-background-paper: #f7ebd7;
