@@ -111,6 +111,15 @@ def upgrade():
         )
     """)
     op.execute("""
+        CREATE TABLE workspace.guest_release_node_binding (
+            release_id uuid NOT NULL REFERENCES workspace.guest_release(release_id) ON DELETE RESTRICT,
+            node_id uuid NOT NULL,
+            native_entity_id text NOT NULL CHECK (length(native_entity_id) > 0),
+            PRIMARY KEY (release_id, node_id),
+            UNIQUE (release_id, native_entity_id)
+        )
+    """)
+    op.execute("""
         CREATE TABLE workspace.guest_release_evidence_binding (
             release_id uuid NOT NULL REFERENCES workspace.guest_release(release_id) ON DELETE RESTRICT,
             edge_id uuid NOT NULL,
@@ -136,7 +145,7 @@ def downgrade():
     # Match the normal owner -> source -> release acquisition order before
     # taking locks that block staging. Trigger removal requires parent locks.
     op.execute("LOCK TABLE workspace.managed_world, content.work_object, content.page_metadata IN ACCESS EXCLUSIVE MODE")
-    op.execute("LOCK TABLE workspace.guest_release_pointer, workspace.guest_release_evidence_binding, workspace.guest_release_source_binding, workspace.guest_release_asset, workspace.guest_release IN ACCESS EXCLUSIVE MODE")
+    op.execute("LOCK TABLE workspace.guest_release_pointer, workspace.guest_release_evidence_binding, workspace.guest_release_node_binding, workspace.guest_release_source_binding, workspace.guest_release_asset, workspace.guest_release IN ACCESS EXCLUSIVE MODE")
     op.execute("""
         DO $$ BEGIN
             IF EXISTS (SELECT 1 FROM workspace.guest_release)
@@ -147,6 +156,7 @@ def downgrade():
     """)
     op.drop_table("guest_release_pointer", schema="workspace")
     op.drop_table("guest_release_evidence_binding", schema="workspace")
+    op.drop_table("guest_release_node_binding", schema="workspace")
     op.drop_table("guest_release_source_binding", schema="workspace")
     op.drop_table("guest_release_asset", schema="workspace")
     op.drop_table("guest_release", schema="workspace")

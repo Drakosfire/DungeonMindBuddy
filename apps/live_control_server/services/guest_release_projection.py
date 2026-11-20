@@ -6,7 +6,7 @@ binding and require explicit owner selections before calling it.
 """
 from __future__ import annotations
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from graph_memory.projection.world_projection import WorldGraphProjection
 from apps.live_control_server.services.guest_release_evidence import verify_relationship_citation
@@ -27,6 +27,7 @@ def project_selected_graph(
     citation_selections: dict | None = None,
     source_access=None,
     private_evidence_bindings: list | None = None,
+    private_node_bindings: list | None = None,
 ) -> dict:
     """Copy selected nodes and relationships without host IDs or metadata.
 
@@ -50,6 +51,8 @@ def project_selected_graph(
     if set(selections) != selected_edge_ids or (selected_edge_ids and source_access is None):
         raise GuestReleaseProjectionError("Every relationship requires verified supporting evidence")
     local_ids = {node_id: str(uuid4()) for node_id in sorted(selected_node_ids)}
+    if private_node_bindings is not None:
+        private_node_bindings.extend((UUID(local_ids[node_id]), node_id) for node_id in sorted(selected_node_ids))
     result_nodes = []
     for node_id in sorted(selected_node_ids):
         node = nodes[node_id]

@@ -75,10 +75,11 @@ def _prepare_candidate(*, world_id: str, subject: str, selection: ReleaseSelecti
         citations[relationship.edge_id] = (relationship.evidence_id, sources[relationship.source_index],
                                             bindings[relationship.source_index])
     evidence_bindings = []
+    node_bindings = []
     graph = project_selected_graph(projection, expected_world_id=binding.native_world_id,
         expected_revision=selection.graph_revision, selected_node_ids=set(selection.node_ids),
         selected_edge_ids=set(edge_ids), citation_selections=citations, source_access=access,
-        private_evidence_bindings=evidence_bindings)
+        private_evidence_bindings=evidence_bindings, private_node_bindings=node_bindings)
     assets, manifest_assets = [], []
     owner = hosted_world_media_owner(world_id)
     for asset_id in selection.asset_ids:
@@ -93,4 +94,4 @@ def _prepare_candidate(*, world_id: str, subject: str, selection: ReleaseSelecti
     return guest_release.stage(world_id=world_id, subject=subject, expected_owner_generation=generation,
         native_world_id=binding.native_world_id, native_binding_version=binding.binding_version,
         graph_revision=selection.graph_revision, manifest=manifest, assets=assets, source_bindings=bindings,
-        evidence_bindings=evidence_bindings)
+        evidence_bindings=evidence_bindings, node_bindings=node_bindings)

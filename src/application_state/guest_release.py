@@ -139,6 +139,39 @@ def review_asset(*, world_id: str, subject: str, release_id: UUID,
         return row[0], content
 
 
+def validation_material(*, world_id: str, subject: str, release_id: UUID, digest: str) -> dict:
+    """Load private candidate coordinates for fresh native proof validation.
+
+    These values must remain server-side and are never a guest or model payload.
+    Promotion repeats APP-owned checks atomically after native validation.
+    """
+    with unit_of_work(_dsn()) as conn:
+        generation = _owner(conn, world_id, subject)
+        row = conn.execute(
+            "SELECT native_world_id,native_binding_version,graph_revision,manifest,manifest_sha256 "
+            "FROM workspace.guest_release WHERE release_id=%s AND world_id=%s AND owner_subject=%s "
+            "AND owner_generation=%s AND state='candidate'", (release_id, world_id, subject, generation),
+        ).fetchone()
+        if row is None or row[4] != digest or _canonical(row[3])[1] != digest:
+            raise ApplicationStateNotFoundError("Release candidate unavailable")
+        _check_graph_binding(conn, world_id, row[0], row[1])
+        source_bindings = conn.execute(
+            "SELECT excerpt_id,work_object_id,visibility_generation,status_generation,revision_n,content_sha256,span_start,span_end,registry_revision "
+            "FROM workspace.guest_release_source_binding WHERE release_id=%s", (release_id,),
+        ).fetchall()
+        _check_sources(conn, world_id, source_bindings, row[3].get("sources", []))
+        node_bindings = conn.execute(
+            "SELECT node_id,native_entity_id FROM workspace.guest_release_node_binding WHERE release_id=%s", (release_id,),
+        ).fetchall()
+        evidence_bindings = conn.execute(
+            "SELECT edge_id,native_assertion_id,native_evidence_id,excerpt_id "
+            "FROM workspace.guest_release_evidence_binding WHERE release_id=%s", (release_id,),
+        ).fetchall()
+        return {"native_world_id": row[0], "binding_version": row[1], "graph_revision": row[2],
+                "manifest": row[3], "source_bindings": source_bindings,
+                "node_bindings": node_bindings, "evidence_bindings": evidence_bindings}
+
+
 def pointer_status(*, world_id: str, subject: str) -> tuple[UUID | None, int]:
     """Read the current CAS basis without allocating a public identifier."""
     with unit_of_work(_dsn()) as conn:
@@ -153,7 +186,7 @@ def pointer_status(*, world_id: str, subject: str) -> tuple[UUID | None, int]:
 def stage(*, world_id: str, subject: str, expected_owner_generation: int,
           native_world_id: str, native_binding_version: int, graph_revision: str, manifest: dict,
           assets: list[tuple[UUID, str, bytes]], source_bindings: list[tuple] | None = None,
-          evidence_bindings: list[tuple] | None = None) -> tuple[UUID, str]:
+          evidence_bindings: list[tuple] | None = None, node_bindings: list[tuple] | None = None) -> tuple[UUID, str]:
     """Store a fully prepared candidate; never pass unvalidated client content."""
     _, digest = _canonical(manifest)
     if len(assets) > 100:
@@ -188,10 +221,16 @@ def stage(*, world_id: str, subject: str, expected_owner_generation: int,
         raise ApplicationStateValidationError("Manifest source bindings do not match excerpts")
     graph = manifest.get("graph")
     evidence = evidence_bindings or []
+    nodes = node_bindings or []
     expected_edges = {}
+    expected_nodes = set()
     if graph is not None:
-        if not isinstance(graph, dict) or not isinstance(graph.get("edges"), list):
+        if not isinstance(graph, dict) or not isinstance(graph.get("edges"), list) or not isinstance(graph.get("nodes"), list):
             raise ApplicationStateValidationError("Invalid release Graph")
+        for node in graph["nodes"]:
+            if not isinstance(node, dict) or not isinstance(node.get("id"), str) or node["id"] in expected_nodes:
+                raise ApplicationStateValidationError("Invalid release Graph node")
+            expected_nodes.add(node["id"])
         source_ids = {item["id"] for item in sources}
         for edge in graph["edges"]:
             if (not isinstance(edge, dict) or not isinstance(edge.get("citations"), list)
@@ -201,6 +240,12 @@ def stage(*, world_id: str, subject: str, expected_owner_generation: int,
             if edge["id"] in expected_edges:
                 raise ApplicationStateValidationError("Duplicate release Graph edge")
             expected_edges[edge["id"]] = edge["citations"][0]
+    if (len(nodes) != len(expected_nodes)
+        or any(len(item) != 2 or not isinstance(item[0], UUID) or str(item[0]) not in expected_nodes
+               or not isinstance(item[1], str) or not item[1] for item in nodes)
+        or len({item[0] for item in nodes}) != len(nodes)
+        or len({item[1] for item in nodes}) != len(nodes)):
+        raise ApplicationStateValidationError("Release Graph node bindings are incomplete")
     if (len(evidence) != len(expected_edges)
         or any(len(item) != 4 or not isinstance(item[0], UUID) or not isinstance(item[1], str)
                or not item[1] or not isinstance(item[2], str) or not item[2]
@@ -232,6 +277,11 @@ def stage(*, world_id: str, subject: str, expected_owner_generation: int,
                 "(release_id,excerpt_id,work_object_id,visibility_generation,status_generation,revision_n,content_sha256,span_start,span_end,registry_revision) "
                 "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (release_id, excerpt_id, document_id, visibility_generation, status_generation, revision_n, content_sha256, start, end, registry_revision),
+            )
+        for node_id, native_entity_id in nodes:
+            conn.execute(
+                "INSERT INTO workspace.guest_release_node_binding (release_id,node_id,native_entity_id) VALUES (%s,%s,%s)",
+                (release_id, node_id, native_entity_id),
             )
         for edge_id, assertion_id, evidence_id, excerpt_id in evidence:
             conn.execute(
