@@ -9,6 +9,9 @@ from application_state.errors import ApplicationStateConflictError, ApplicationS
 from application_state.world_catalog.hosted_creation import active_admitted_world_ids, create_owned_world
 from apps.live_control_server.services.hosted_auth import authorize_world_access
 from fastapi import HTTPException
+from alembic import command
+from sqlalchemy.exc import DBAPIError
+from application_state import cli
 from application_state.world_catalog import service as catalog
 from application_state.world_catalog.service import create_world
 
@@ -37,6 +40,24 @@ def test_creation_policy_starts_disabled_and_requires_complete_positive_limits(a
                 owner_rate_limit=4, global_rate_limit=20, rate_window_seconds=60
         """)
         assert conn.execute("SELECT enabled FROM workspace.hosted_world_creation_policy").fetchone() == (True,)
+
+
+def test_empty_admission_migration_can_downgrade_and_upgrade(application_state_dsn):
+    command.downgrade(cli.alembic_config(), "20261119_0169")
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT to_regclass('workspace.hosted_world_admission')").fetchone() == (None,)
+    command.upgrade(cli.alembic_config(), "head")
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT enabled FROM workspace.hosted_world_creation_policy").fetchone() == (False,)
+
+
+def test_downgrade_refuses_to_discard_disabled_but_configured_policy(application_state_dsn):
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE workspace.hosted_world_creation_policy SET owner_world_limit=3")
+    with pytest.raises(DBAPIError, match="Cannot discard hosted World admission or creation history"):
+        command.downgrade(cli.alembic_config(), "20261119_0169")
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT enabled, owner_world_limit FROM workspace.hosted_world_creation_policy").fetchone() == (False, 3)
 
 
 def test_admission_cannot_reference_an_unregistered_world(application_state_dsn):

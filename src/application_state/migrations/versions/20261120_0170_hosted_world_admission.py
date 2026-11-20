@@ -55,12 +55,23 @@ def upgrade():
 
 
 def downgrade():
+    # Hold these locks through the checks and drops so a concurrent creator or
+    # operator cannot add admission history or configure policy after the check.
+    op.execute("""
+        LOCK TABLE workspace.hosted_world_creation_policy,
+                   workspace.hosted_world_admission,
+                   workspace.hosted_world_creation_receipt,
+                   workspace.hosted_world_creation_attempt IN ACCESS EXCLUSIVE MODE
+    """)
     op.execute("""
         DO $$ BEGIN
             IF EXISTS (SELECT 1 FROM workspace.hosted_world_admission)
                 OR EXISTS (SELECT 1 FROM workspace.hosted_world_creation_receipt)
                 OR EXISTS (SELECT 1 FROM workspace.hosted_world_creation_attempt)
-                OR EXISTS (SELECT 1 FROM workspace.hosted_world_creation_policy WHERE enabled)
+                OR EXISTS (SELECT 1 FROM workspace.hosted_world_creation_policy
+                           WHERE enabled OR owner_world_limit IS NOT NULL OR global_world_limit IS NOT NULL
+                              OR owner_rate_limit IS NOT NULL OR global_rate_limit IS NOT NULL
+                              OR rate_window_seconds IS NOT NULL)
             THEN RAISE EXCEPTION 'Cannot discard hosted World admission or creation history'; END IF;
         END $$
     """)
