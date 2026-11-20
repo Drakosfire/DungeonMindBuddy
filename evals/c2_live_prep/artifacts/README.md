@@ -74,3 +74,32 @@ replay remains five passing and one failing case (`s22-ingest-03`), owned in
 [#4194](https://github.com/Drakosfire/DungeonMindBuddy/issues/4194). Retaining its
 history does not resolve that admission mismatch or qualify current behavior.
 Remove the task-owned scratch after retaining the evidence you need.
+
+
+## Fresh outputs outside the checkout
+
+The manifest runner and evaluator accept explicit external output paths. Keep
+both generated packets and their evaluation in task-owned Projects storage:
+
+```bash
+lab_slug="c2-manifest-eval-$(date +%s)-$$"
+scripts/run_local_lab.sh "$lab_slug" bash -c '
+  set -euo pipefail
+  uv run --locked python evals/c2_live_prep/run_c2s23_manifest_context_query.py \
+    --output-dir "$TMPDIR/packets" --no-update-latest
+  uv run --locked python evals/c2_live_prep/evaluate_c2s23_context_packets.py \
+    --gold evals/c2_live_prep/benchmarks/c2s23_manifest_query_gold.json \
+    --packet-dir "$TMPDIR/packets" \
+    --packet-prefix c2s23_manifest_query_context_packet_ \
+    --summary "$TMPDIR/packets/c2s23_manifest_query_context_summary.json" \
+    --output "$TMPDIR/context-evaluation.json"
+'
+```
+
+This reads the configured campaign manifest and sources; inspect those inputs
+before running it. The manifest runner is offline and blind to evaluator gold.
+`--no-update-latest` keeps the tracked summary untouched. The explicit output
+paths keep packets and the evaluation out of the checkout; neither flag alone
+establishes that boundary. A failing admission case still produces a report and
+returns a nonzero status. External input locations are recorded as absolute paths;
+checkout-local input locations retain their relative report paths.

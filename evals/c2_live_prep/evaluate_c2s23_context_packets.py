@@ -240,7 +240,8 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
 
-    gold = load_json(args.gold.resolve())
+    gold_path = args.gold.resolve()
+    gold = load_json(gold_path)
     summary = load_json(args.summary.resolve())
     packet_dir = args.packet_dir.resolve()
 
@@ -290,8 +291,8 @@ def main() -> int:
     out = {
         "schema": "dmb_c2s23_context_packet_eval_v1",
         "generated_at": _utc_now_z(),
-        "gold_path": str(args.gold.resolve().relative_to(ROOT)),
-        "packet_dir": str(packet_dir.relative_to(ROOT)),
+        "gold_path": str(gold_path.relative_to(ROOT) if gold_path.is_relative_to(ROOT) else gold_path),
+        "packet_dir": str(packet_dir.relative_to(ROOT) if packet_dir.is_relative_to(ROOT) else packet_dir),
         "questions_total": len(rows),
         "questions_passed": passed,
         "questions_failed": failed,

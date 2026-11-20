@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import builtins
 import json
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -1024,3 +1026,55 @@ def test_world_evidence_rejected_for_play_fact_claim(tmp_path: Path) -> None:
     admitted_roles = {str(e.get("source_role") or "") for e in packet["admitted_evidence"]}
     assert "play_recap" in admitted_roles
     assert "world_evidence" not in admitted_roles
+
+
+@pytest.mark.parametrize("external_gold,external_packets", [(False, False), (False, True), (True, False), (True, True)])
+@pytest.mark.parametrize("admitted", [True, False])
+def test_context_packet_evaluator_cli_output_paths(
+    tmp_path: Path, external_gold: bool, external_packets: bool, admitted: bool
+) -> None:
+    """Real CLI preserves verdicts with checkout-local or external lab inputs."""
+    checkout = tmp_path / "checkout"
+    script = checkout / "evals/c2_live_prep/evaluate_c2s23_context_packets.py"
+    script.parent.mkdir(parents=True)
+    script.write_bytes((ROOT / "evals/c2_live_prep/evaluate_c2s23_context_packets.py").read_bytes())
+    gold_path = (tmp_path if external_gold else checkout) / "gold.json"
+    packet_dir = (tmp_path if external_packets else checkout) / "packets"
+    packet_dir.mkdir()
+    packet_path = packet_dir / "c2s23_context_packet_case.json"
+    summary_path = tmp_path / "summary.json"
+    output_path = tmp_path / "evaluation.json"
+    gold_path.write_text(json.dumps({
+        "schema": "dmb_c2s23_manifest_query_gold_v1",
+        "questions": [{"question_id": "case", "claim_expectations": [
+            {"required_authority_any": ["canon_play"]}
+        ]}],
+    }), encoding="utf-8")
+    packet_path.write_text(json.dumps({
+        "admitted_evidence": [{"authority": "canon_play"}] if admitted else [],
+    }), encoding="utf-8")
+    summary_path.write_text(json.dumps({
+        "schema": "dmb_c2s23_manifest_query_context_run_v1",
+    }), encoding="utf-8")
+    inputs = {p: p.read_bytes() for p in (gold_path, packet_path, summary_path)}
+    result = subprocess.run([
+        sys.executable, "-I", "-B", str(script),
+        "--gold", str(gold_path), "--packet-dir", str(packet_dir),
+        "--summary", str(summary_path), "--output", str(output_path),
+    ], capture_output=True, text=True, check=False)
+    assert result.returncode == (0 if admitted else 1), result.stderr
+    assert result.stderr == ""
+    report = json.loads(output_path.read_text(encoding="utf-8"))
+    assert json.loads(result.stdout) == report
+    assert report["schema"] == "dmb_c2s23_context_packet_eval_v1"
+    assert report["gold_path"] == str(gold_path if external_gold else gold_path.relative_to(checkout))
+    assert report["packet_dir"] == str(packet_dir if external_packets else packet_dir.relative_to(checkout))
+    assert report["questions_total"] == 1
+    assert report["questions_passed"] == int(admitted)
+    assert report["questions_failed"] == int(not admitted)
+    assert report["rows"] == [{
+        "question_id": "case", "passed": admitted,
+        "violations": [] if admitted else ["missing_required_authority_any:['canon_play']"],
+    }]
+    assert all(path.read_bytes() == before for path, before in inputs.items())
+    assert not (checkout / "evals/c2_live_prep/artifacts").exists()
