@@ -34,8 +34,9 @@ extract variants or the broader goal. Explicitly track deferred variants below.
    correspondence, refusal and real installed-Core SQL recovery witnesses.
 7. tests/test_extract_promote_managed_world_target.py: current/late binding,
    mounted route retirement and preserved hosting-denial/selection behavior.
-8. tests/test_candidate_graph_admission_contract.py: only necessary preserved
-   historical producer/owning-boundary assertions; no weakening for green.
+8. tests/test_reviewed_extract_confirmation.py: only its SQL fixture artifact
+   generation alignment to accepted Core SourceArtifactV2; no runtime/assertion/
+   selection/concurrency changes. Candidate-admission contract remains read-only.
 
 Read-only imports of existing fixtures are allowed; do not edit their owners.
 No Core/WK/dependency/schema/migration/UI/auth-policy/shared world_graph_writes/
@@ -219,3 +220,32 @@ Final exact-source serial backend contracts, complete dependency byte audits,
 SQL lifecycle/independent absence, official hosted/build/canonical verifier,
 independent cumulative acceptance and expected-head merge remain pending. No
 serving change, full cutover or aggregate release-green claim.
+
+
+## MIND lease rebrief — inherited SQL fixture incompatibility
+
+Before editing the newly needed test path, MIND replaces the unused candidate-
+admission-contract write slot with the reviewed-extract test file above. The
+exclusive budget stays eight paths. This is required preservation fixture
+compatibility, not a new capability or implementation of reviewed-extract recovery.
+Its current missing-receipt publishing behavior remains explicitly later work.
+
+Frozenf26683eb8e8b8bca4653ebe502e85eb53010d295 owning cohort:620pass,1fail,0skip.
+The formerly skipped reviewed-extract SQL witness writes SourceArtifactV1 while
+accepted Core requires V2 (source_artifact_schema_not_v2). Exact base
+ e89bfa6c486a4c2459de643ba0dc60007ff2e69b reproduced the identical single-test failure
+with identical uv.lock in the existing clean task checkout; branch/head restored
+clean afterward. Both owned fixture databases had zero clients before drop and
+were independently absent. Evidence:base-reviewed-sql.json/XML/log and
+backend-f26683eb.json. These remain failed evidence, not green qualification.
+
+Only the SQL fixture's artifact representation may change: same identity/domain/
+World/campaign/session/revision/status/time, converted through SourceArtifactV2
+validation before persistence. Preserve the actual repository-recreation and
+four-concurrent-retry assertions. Run the corrected real SQL witness and all
+owning/preservation contracts at a new frozen head. Production/UI/dependencies
+remain byte-identical to f266. Its official hosted1412selected pass,147filtered,
+parity/build/canonical/cleanup evidence remains attributed to f266; no relabeling.
+Independent review must assess this bounded test-only delta alongside the full
+source/evidence acceptance. No exemption, skip, Core change or hidden fixture
+truncation is authorized.
