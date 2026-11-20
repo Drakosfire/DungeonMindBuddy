@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from hashlib import sha256
 import json
-from time import perf_counter
+from time import monotonic, perf_counter
 from uuid import UUID, uuid4
 
 from generationengine.providers.openai_text import OpenAITextProvider
@@ -13,6 +13,7 @@ from application_state.agent_conversation.source_writer_output import strict_jso
 from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
 from .hermes_product_prompt import BUDDY_SYSTEM_PROMPT, IMAGE_DIRECTION_INSTRUCTIONS
 from .native_rules_capture import NativeProviderReply
+from .agent_turn_trace import host_work_observer
 from .build_jev_writer import WriterCapacityError, WriterAccountingError
 
 from application_state.agent_conversation.surface_evidence_answer import INSTRUCTIONS as EVIDENCE_INSTRUCTIONS
@@ -606,7 +607,16 @@ class PlanJevWriter:
         from generationengine.text_dispatch import TextDispatchGate
         from application_state.agent_conversation.native_build_work_view import VARIANT_PASSAGE_FORMATS
 
-        async def authorize(prepared): return self.authorize(prepared)
+        observer = host_work_observer.get()
+        trace = getattr(self.adapter, "trace", None)
+        preparation_started = None
+
+        async def authorize(prepared):
+            nonlocal preparation_started
+            if preparation_started is not None:
+                observer(trace.trace_id, "writer_sdk_preparation", preparation_started, monotonic(), False)
+                preparation_started = None
+            return self.authorize(prepared)
         async def record(event): return self.record(event)
         options = {'dispatch_gate':TextDispatchGate(authorize,record),'transport':transport}
         if api_key is not None: options['api_key'] = api_key
@@ -615,6 +625,8 @@ class PlanJevWriter:
         started = perf_counter()
         stage = self.failure_stage = "generation"
         try:
+            if observer is not None and trace is not None:
+                preparation_started = monotonic()
             result = await client.generate_structured(TextRequest(provider='openai',model=self.model,
                 user_prompt=json.dumps(self.messages,ensure_ascii=False),system_prompt=self.instructions,
                 temperature=None,reasoning_effort=self.reasoning_effort,max_output_tokens=self.output_reserve or None,

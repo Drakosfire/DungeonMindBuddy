@@ -1,12 +1,15 @@
 """Plan parent orchestration: semantic decisions, unique reads, one writer."""
+from contextlib import nullcontext
 import asyncio
 import json
 import logging
 import re
+from time import monotonic
 
 from application_state.agent_conversation.rules_authority_policy import rules_capability
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from .agent_runtime import AgentRuntimeDescriptor
+from .agent_turn_trace import host_work_observer
 from .plan_jev_dispatch import PlanJevDispatch, request_budget
 from .plan_jev_driver import PlanJevDriver
 from .plan_jev_rules_runtime import PlanRulesRuntime
@@ -92,7 +95,14 @@ class PlanJevHarness:
                 if isinstance(driver.native_sources, NativeBodyNavigation):
                     driver.native_sources.discover_initial()
             proof = asyncio.run(driver.run(transport=self.decision_transport, api_key=self.decision_api_key))
-            writer = PlanJevWriter(adapter, proof, rules)
+            trace = getattr(adapter, "trace", None)
+            observer = host_work_observer.get()
+            detailed = trace is not None and observer is not None
+            if detailed:
+                completed_at = monotonic()
+                observer(trace.trace_id, "plan_retrieval_complete", completed_at, completed_at, False)
+            with trace.measure_host_work("plan_writer_composition") if detailed else nullcontext():
+                writer = PlanJevWriter(adapter, proof, rules)
             completed = asyncio.run(writer.run(transport=self.writer_transport, api_key=self.writer_api_key))
             adapter.turn = completed.envelope if isinstance(completed, MixedCompletedTurnV1) else completed
             return completed
