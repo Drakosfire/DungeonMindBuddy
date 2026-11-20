@@ -47,7 +47,6 @@ def corpus(plan_adapter, monkeypatch):
     sources.persist_source_markdown(source_artifact_id=artifact.source_artifact_id,source_domain='worldbuilding',
         world_id='native-park',campaign_id=None,session_id=None,markdown=TEXT,lineage={})
     monkeypatch.setattr(retained_reads, 'direct_services_from_config',lambda _:services)
-    monkeypatch.setattr(agent_native_source_sections,'direct_services_from_config',lambda _:services)
     monkeypatch.setattr(agent_native_source_sections,'resolve_managed_world_binding',lambda _:SimpleNamespace(
         managed_world_id='world:one',native_world_id='native-park',binding_version=1))
     return plan_adapter, services

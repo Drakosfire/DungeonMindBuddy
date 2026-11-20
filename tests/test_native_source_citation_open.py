@@ -1,4 +1,8 @@
 """Exact citation reopen over APP bytes; fresh access precedes body loading."""
+import os
+import subprocess
+import sys
+import textwrap
 from hashlib import sha256
 from types import SimpleNamespace
 
@@ -20,7 +24,8 @@ def opened_case(native_writer,monkeypatch):
     calls = []
     monkeypatch.setattr(owner,'resolve_managed_world_binding',lambda world:SimpleNamespace(
         managed_world_id=world,native_world_id=authority.native_world_id,binding_version=authority.binding_version))
-    monkeypatch.setattr(owner,'direct_services_from_config',lambda world:('native-services',world))
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads, source_origin
+    monkeypatch.setattr(world_graph_reads,'direct_services_from_config',lambda world:('native-services',world))
     def verify(services,*,projection,donor,pin):
         calls.append('access')
         assert services == ('native-services',authority.native_world_id)
@@ -28,7 +33,7 @@ def opened_case(native_writer,monkeypatch):
         assert pin in donor.returned_source_pins and pin.source_artifact_id == citation.source_artifact_id
         return SimpleNamespace(source_artifact_id=citation.source_artifact_id,
             native_source_revision_id=citation.native_source_revision_id,content_sha256=citation.content_sha256)
-    monkeypatch.setattr(owner,'verify_native_source_origin',verify)
+    monkeypatch.setattr(source_origin,'verify_native_source_origin',verify)
     original = owner.get_source_markdown
     def read(**selectors):
         calls.append('body')
@@ -58,15 +63,16 @@ def test_reopen_uses_old_immutable_bytes_after_new_source_revision(opened_case):
 
 @pytest.mark.parametrize('change',['binding','native_denial','native_hash'])
 def test_current_access_failure_does_not_read_body(opened_case,monkeypatch,change):
+    from apps.live_control_server.integrations.dungeonmind import source_origin
     _,_,calls = opened_case
     if change == 'binding':
         monkeypatch.setattr(owner,'resolve_managed_world_binding',lambda world:SimpleNamespace(
             managed_world_id=world,native_world_id='foreign',binding_version=999))
     elif change == 'native_denial':
         def deny(*a,**kw):raise ValueError('Source retracted or visibility denied')
-        monkeypatch.setattr(owner,'verify_native_source_origin',deny)
+        monkeypatch.setattr(source_origin,'verify_native_source_origin',deny)
     else:
-        monkeypatch.setattr(owner,'verify_native_source_origin',lambda *a,**kw:SimpleNamespace(
+        monkeypatch.setattr(source_origin,'verify_native_source_origin',lambda *a,**kw:SimpleNamespace(
             source_artifact_id='foreign',native_source_revision_id='changed',content_sha256='f'*64))
     with pytest.raises(SourcePassageOpenError,match='access_unavailable'):read(opened_case)
     assert 'body' not in calls
@@ -74,6 +80,7 @@ def test_current_access_failure_does_not_read_body(opened_case,monkeypatch,chang
 
 @pytest.mark.parametrize('change',['missing','corrupt','world','revision','lineage'])
 def test_missing_or_mismatched_bytes_never_fall_back(opened_case,monkeypatch,change):
+    from apps.live_control_server.integrations.dungeonmind import source_origin
     _,_,calls = opened_case
     original = owner.get_source_markdown
     def damaged(**kw):
@@ -193,3 +200,57 @@ def test_wrong_producer_metadata_never_opens_citation_body(opened_case, monkeypa
     with pytest.raises(SourcePassageOpenError, match='bytes_unavailable'):
         read(opened_case)
     assert opened_case[2] == ['access']
+
+
+@pytest.mark.parametrize("entry", ["sections", "passages"])
+def test_cold_body_openers_avoid_historical_readers(entry):
+    blocked = (
+        "apps.live_control_server.integrations.dungeonmind.world_graph_reads",
+        "apps.live_control_server.integrations.dungeonmind.source_origin",
+        "apps.live_control_server.integrations.dungeonmind.corpus_source_inventory",
+        "dungeonmind.application.graph_snapshot",
+        "dungeonmind.application.world_graph_projection",
+        "dungeonmind.application.world_graph_retrieval",
+        "dungeonmind.application.review_publication",
+        "dungeonmind.application.contribution_review",
+        "dungeonmind.application.contribution_review_v2",
+        "dungeonmind.application.contribution_review_v3",
+        "dungeonmind.application.contribution_review_v4",
+        "dungeonmind.application.existing_world_adoption",
+        "dungeonmind.application.reviewed_world_initialization",
+        "dungeonmind.infrastructure.postgres.graph",
+        "dungeonmind.infrastructure.postgres.review_publication",
+    )
+    script = textwrap.dedent(f"""
+        import importlib
+        import importlib.abc
+        import sys
+        from types import SimpleNamespace
+        import psycopg
+        blocked = {blocked!r}
+        class RejectHistorical(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path=None, target=None):
+                if any(fullname == name or fullname.startswith(name + '.') for name in blocked):
+                    raise AssertionError('Fresh navigation loaded historical reader: ' + fullname)
+        sys.meta_path.insert(0, RejectHistorical())
+        def forbidden(*args, **kwargs):
+            raise AssertionError('Cold navigation attempted database or source IO')
+        psycopg.connect = forbidden
+        from dungeonmind.infrastructure.postgres import PostgresDatabase
+        PostgresDatabase.__init__ = forbidden
+        if {entry!r} == 'passages':
+            importlib.import_module('apps.live_control_server.services.agent_source_passages')
+        sections = importlib.import_module('apps.live_control_server.services.agent_native_source_sections')
+        passages = importlib.import_module('apps.live_control_server.services.agent_source_passages')
+        assert sections.SourcePassageOpenError is passages.SourcePassageOpenError
+        assert callable(sections.open_native_body_excerpt)
+        assert passages.SourcePassageOpenError('denied', 403).status_code == 403
+        assert not any(name == prefix or name.startswith(prefix + '.')
+                       for name in sys.modules for prefix in blocked)
+    """)
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    result = subprocess.run([sys.executable, "-B", "-c", script], env=env,
+                            capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stdout + result.stderr

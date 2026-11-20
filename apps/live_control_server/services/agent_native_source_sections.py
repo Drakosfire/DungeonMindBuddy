@@ -10,9 +10,6 @@ from application_state.agent_conversation.native_source_scope import source_scop
 from application_state.agent_conversation.build_section import exact_saved_section
 from application_state.source.service import get_source_markdown, get_source_artifact_scope
 from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding
-from apps.live_control_server.integrations.dungeonmind.world_graph_reads import direct_services_from_config
-from apps.live_control_server.integrations.dungeonmind.source_origin import verify_native_source_origin
-from dungeonmind.contracts.projection_v2 import WorldGraphProjectionRequestV2
 from .agent_source_passages import SourcePassageOpenError
 
 
@@ -42,11 +39,17 @@ def open_native_source_section(*, world_id: str, turn_id: UUID, citation_index: 
         if (binding.managed_world_id != world_id or binding.native_world_id != authority.native_world_id
                 or binding.binding_version != authority.binding_version):
             raise ValueError('Managed World binding changed')
+        from apps.live_control_server.integrations.dungeonmind.world_graph_reads import direct_services_from_config
+
         if isinstance(nav, t.NativeSourceNavigationAuthorizedV2):
             from apps.live_control_server.integrations.dungeonmind.corpus_source_inventory import verify_registry_source_origin
             current = verify_registry_source_origin(direct_services_from_config(authority.native_world_id),
                 native_world_id=authority.native_world_id, proof=original)
         else:
+            from dungeonmind.contracts.projection_v2 import WorldGraphProjectionRequestV2
+
+            from apps.live_control_server.integrations.dungeonmind.source_origin import verify_native_source_origin
+
             current = verify_native_source_origin(direct_services_from_config(authority.native_world_id),
                 projection=WorldGraphProjectionRequestV2.model_validate(original['projection']),donor=donor,pin=pin)
         if (current.source_artifact_id != citation.source_artifact_id

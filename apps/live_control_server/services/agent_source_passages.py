@@ -17,9 +17,6 @@ from application_state.agent_conversation.types import (
     PlayWorldGraphContextReceiptV1,
 )
 from apps.live_control_server.config import artifact_data_root
-from apps.live_control_server.integrations.dungeonmind import (
-    world_graph_reads as direct,
-)
 from apps.live_control_server.models.agent_turn import (
     AgentSourcePassageOpenTargetV1,
     AgentSourcePassageReadResponseV1,
@@ -98,6 +95,8 @@ def open_source_passage(
         }
     )
     try:
+        from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+
         opened = direct.read_source_anchor_direct_v2(
             direct.direct_services_from_config(authority.native_world_id),
             request,
@@ -195,6 +194,8 @@ def _open_pinned_evidence_anchor(target):
         binding = resolve_managed_world_binding(world_id)
         if (binding.native_world_id, binding.binding_version) != (target.native_world_id, target.binding_version):
             raise SourcePassageOpenError("source_passage_binding_invalid")
+        from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+
         opened = direct.read_source_anchor_direct_v2(
             direct.direct_services_from_config(target.native_world_id),
             WorldGraphSourceAnchorReadRequest.model_validate({
@@ -248,6 +249,8 @@ def open_saved_turn_related_recap(*, world_id: str, turn_id: UUID, claim_id: str
         binding = resolve_managed_world_binding(world_id)
         if (binding.native_world_id, binding.binding_version) != (target.native_world_id, target.binding_version):
             raise SourcePassageOpenError("source_passage_binding_invalid")
+        from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+
         result = direct.read_recap_context_direct_v2(
             direct.direct_services_from_config(target.native_world_id),
             RecapContextReadRequestV2.model_validate({

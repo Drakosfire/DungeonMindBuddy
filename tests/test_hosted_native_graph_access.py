@@ -4483,8 +4483,9 @@ def test_saved_turn_evidence_withholds_mismatched_native_readback(monkeypatch):
     read = Mock(return_value=opened)
     monkeypatch.setattr(agent_turn_service, "_evidence_anchor_open_targets", lambda _: [target])
     monkeypatch.setattr(managed_world_graph_projection, "resolve_managed_world_binding", lambda _: binding)
-    monkeypatch.setattr(passages.direct, "direct_services_from_config", lambda _: object())
-    monkeypatch.setattr(passages.direct, "read_source_anchor_direct_v2", read)
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as retained_reads
+    monkeypatch.setattr(retained_reads, "direct_services_from_config", lambda _: object())
+    monkeypatch.setattr(retained_reads, "read_source_anchor_direct_v2", read)
 
     selectors = dict(world_id="managed", turn_id=turn_id, claim_id="claim", anchor_id="anchor", service=service)
     assert passages.open_saved_turn_graph_evidence(**selectors) is result
@@ -4572,8 +4573,9 @@ def test_saved_turn_related_recap_binds_continuation_to_saved_revision(monkeypat
     read = Mock(return_value=result)
     monkeypatch.setattr(agent_turn_service, "project_plan_turn_context", lambda *args, **kwargs: SimpleNamespace(source_open_targets=[target]))
     monkeypatch.setattr(managed_world_graph_projection, "resolve_managed_world_binding", lambda _: binding)
-    monkeypatch.setattr(passages.direct, "direct_services_from_config", lambda _: object())
-    monkeypatch.setattr(passages.direct, "read_recap_context_direct_v2", read)
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as retained_reads
+    monkeypatch.setattr(retained_reads, "direct_services_from_config", lambda _: object())
+    monkeypatch.setattr(retained_reads, "read_recap_context_direct_v2", read)
     continuation = "recap-page:v2:" + "b" * 64 + ":26"
     selectors = dict(
         world_id="managed", turn_id=turn_id, claim_id="claim", anchor_id=target.context_anchor_id,
