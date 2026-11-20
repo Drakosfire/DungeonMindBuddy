@@ -249,6 +249,39 @@ def test_support_materialization_is_once_per_exact_ref_and_never_crosses_invocat
     assert opens == Counter({ref: 3 for ref in refs})
 
 
+def test_exact_text_batch_opens_one_ordered_unique_set_per_grant(lane, monkeypatch):
+    from apps.live_control_server.services import native_graph_reads as native
+
+    publish(lane, qualified=True)
+    context, _ = query(lane)
+    authorization = grant(context)
+    expected, unavailable = read_selected(context, authorization, GM)
+    assert expected and not unavailable
+    view_type = type(context.pinned[1].source_view)
+    requested = []
+
+    def batch(view, keys):
+        requested.append(keys)
+        return tuple(
+            view.get_native_text_source(
+                source_artifact_id=artifact, source_revision_id=revision, span_id=span
+            )
+            for artifact, revision, span in keys
+        )
+
+    def unexpected_single(*args):
+        raise AssertionError('available spans must come from the batch')
+
+    monkeypatch.setattr(view_type, 'get_native_text_sources', batch, raising=False)
+    monkeypatch.setattr(native, 'open_admitted_native_text', unexpected_single)
+    assert read_selected(context, authorization, GM) == (expected, unavailable)
+    assert len(requested) == 1
+    assert [key[2] for key in requested[0]] == list(dict.fromkeys(
+        context.pinned[1].parsed.get_evidence(span.evidence_ref_id).source_span_ref_id
+        for row in expected for span in row.spans
+    ))
+
+
 def test_support_materialization_keeps_distinct_spans_from_the_same_source(lane, monkeypatch):
     from collections import Counter
     from apps.live_control_server.services import native_graph_reads as native

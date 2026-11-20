@@ -11,8 +11,10 @@ from dataclasses import dataclass
 import json
 from dungeonmind.application.vnext import (
     SearchReadService, EntityReadService, EvidenceReadService, open_admitted_native_text,
+    open_admitted_native_text_batch,
 )
 from apps.live_control_server.integrations.dungeonmind.native_registry_source import assertion_contract
+from dungeonmind.application.vnext.errors import NativeTextSourceAccessIntegrityError
 from dungeonmind.contracts.vnext.source import EvidenceRefV3
 from application_state.agent_conversation.native_statement_input import digest
 from application_state.agent_conversation.native_plan_assertions import (
@@ -535,19 +537,48 @@ def _read_assertions(context, identities, *, matches=None):
     # cached. Every assertion still passes its own Core and closure checks.
     verified_spans = {}
     evidence_results = EvidenceReadService().get_assertions_evidence(read_context, identities)
-    for identity, result in zip(identities, evidence_results, strict=True):
-        if (result.identity.space_id, result.identity.revision_id) != (authority.native_world_id, authority.revision_id):
-            raise ValueError('Core assertion read changed pinned authority')
-        if not result.available or result.completeness.status != 'complete' or result.assertion is None:
-            unavailable.append(identity)
-            continue
-        assertion = assertion_contract(result.assertion)
-        match = inventory[identity]
-        if digest(assertion) != match.assertion_sha256 or assertion.subject_entity_id != match.subject_entity_id:
-            raise ValueError('Native assertion changed after discovery')
-        refs = tuple(EvidenceRefV3.model_validate(e, from_attributes=True) for e in result.evidence)
-        supports = [e for e in refs if e.evidence_role == 'support']
-        if not supports:
+    def admitted_supports():
+        for identity, result in zip(identities, evidence_results, strict=True):
+            if (result.identity.space_id, result.identity.revision_id) != (authority.native_world_id, authority.revision_id):
+                raise ValueError('Core assertion read changed pinned authority')
+            if not result.available or result.completeness.status != 'complete' or result.assertion is None:
+                yield identity, None, (), ()
+                continue
+            assertion = assertion_contract(result.assertion)
+            match = inventory[identity]
+            if digest(assertion) != match.assertion_sha256 or assertion.subject_entity_id != match.subject_entity_id:
+                raise ValueError('Native assertion changed after discovery')
+            refs = tuple(EvidenceRefV3.model_validate(e, from_attributes=True) for e in result.evidence)
+            supports = [e for e in refs if e.evidence_role == 'support']
+            if not supports:
+                yield identity, None, (), ()
+                continue
+            yield identity, assertion, refs, supports
+
+    selected = admitted_supports()
+    opened_in_batch = {}
+    if callable(getattr(access.source_view, 'get_native_text_sources', None)):
+        selected = tuple(selected)
+        support_ids = tuple(dict.fromkeys(
+            ref.evidence_ref_id for _, _, _, supports in selected for ref in supports
+        ))
+        # Mixed PDF/text grants retain their ordered source-specific open path.
+        if support_ids and all(not identity.startswith('pdf-region:') for identity in support_ids):
+            try:
+                batch = open_admitted_native_text_batch(access, support_ids)
+            except NativeTextSourceAccessIntegrityError:
+                # Replay the exact order so a corrupt span that earlier unavailable
+                # support would have skipped cannot change the grant's outcome.
+                pass
+            else:
+                opened_in_batch = {
+                    identity: opened
+                    for identity, opened in zip(support_ids, batch, strict=True)
+                    if opened.status == 'available'
+                }
+
+    for identity, assertion, refs, supports in selected:
+        if assertion is None:
             unavailable.append(identity)
             continue
         spans = []
@@ -569,7 +600,9 @@ def _read_assertions(context, identities, *, matches=None):
                 )
                 verified_spans[ref.evidence_ref_id] = span
             if span is None:
-                opened = open_admitted_native_text(access, ref.evidence_ref_id)
+                opened = opened_in_batch.get(ref.evidence_ref_id)
+                if opened is None:
+                    opened = open_admitted_native_text(access, ref.evidence_ref_id)
                 if opened.status != 'available':
                     break
                 # Core owns membership, visibility, identity, digests and UTF8
