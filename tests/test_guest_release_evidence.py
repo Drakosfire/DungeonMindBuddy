@@ -41,7 +41,8 @@ def test_relationship_citation_requires_exact_native_span_and_origin(monkeypatch
         evidence.verify_relationship_citation(**args)
 
 
-def test_standalone_proof_uses_fresh_core_view_and_rejects_withdrawal():
+@pytest.mark.parametrize("private_source", [False, True], ids=["public-source", "gm-only-source"])
+def test_standalone_proof_uses_fresh_core_view_and_rejects_withdrawal(private_source):
     from datetime import UTC, datetime
     from dungeonmind.application.vnext import initialize_empty_knowledge_space, publish_native_text_source_evidence
     from dungeonmind.contracts.vnext.native_source import NativeTextSourceAdmissionV1
@@ -63,24 +64,28 @@ def test_standalone_proof_uses_fresh_core_view_and_rejects_withdrawal():
         request=NativeTextSourceAdmissionV1(space_id=space, admission_id="admission:release-proof",
             expected_parent_revision_id=genesis.published_revision_id, created_at=now, body_text=body,
             expected_body_sha256=digest, source_classification="dungeonbuddy.source:worldbuilding",
-            authority="primary", visibility={"kind": "public"},
+            authority="primary", visibility=({"kind": "labels_all", "labels": ["dungeonbuddy.visibility:gm"]} if private_source else {"kind": "public"}),
             origin={"namespace": "dungeonbuddy.workspace-document-registry", "object_id": str(doc_id),
                     "revision_id": "registry-revision:4"},
             spans=[{"client_ref": "selected", "evidence_role": "support", "start_byte": len(body[:start].encode()),
                     "end_byte": len(body[:end].encode()), "expected_slice_sha256": hashlib.sha256(text.encode()).hexdigest()}]))
     graph_revision = admission.publication_receipt.published_revision_id
     evidence_id = admission.bindings[0].evidence_ref_id
-    _, access, _, _ = read_context(repo, space, graph_revision, None, role="player", scope_mode="world")
+    _, access, _, _ = read_context(repo, space, graph_revision, None, role="gm" if private_source else "player", scope_mode="world")
     excerpt_id = uuid4()
     args = dict(evidence_id=evidence_id, excerpt={"id": str(excerpt_id), "text": text},
         source_binding=(excerpt_id, doc_id, 0, 0, 1, digest, start, end, 4),
         expected_native_world_id=space, expected_graph_revision=graph_revision)
     assert evidence.verify_source_citation(access=access, **args) == str(excerpt_id)
+    if private_source:
+        _, player_access, _, _ = read_context(repo, space, graph_revision, None, role="player", scope_mode="world")
+        with pytest.raises(evidence.GuestReleaseEvidenceError):
+            evidence.verify_source_citation(access=player_access, **args)
     repo.withdraw_native_source(space_id=space, source_artifact_id=admission.source_artifact_id,
                                 source_revision_id=admission.source_revision_id)
     # A pinned view is the explicitly documented cutoff: later withdrawal is
     # observed by a newly opened view, not retroactively by the earlier view.
     assert evidence.verify_source_citation(access=access, **args) == str(excerpt_id)
-    _, fresh, _, _ = read_context(repo, space, graph_revision, None, role="player", scope_mode="world")
+    _, fresh, _, _ = read_context(repo, space, graph_revision, None, role="gm" if private_source else "player", scope_mode="world")
     with pytest.raises(evidence.GuestReleaseEvidenceError):
         evidence.verify_source_citation(access=fresh, **args)
