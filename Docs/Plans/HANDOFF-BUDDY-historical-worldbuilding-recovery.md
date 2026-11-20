@@ -59,7 +59,8 @@ retained identities, decisions and COMPLETE effect. Verify decision/effect/node 
 crosslinks and original _require_prepare_binding HMAC over plan identity, identity
 snapshot, publication binding, source admission and native vocabulary binding.
 Never trust caller-supplied digests or terminal-derived qualification as expected
-input. Preserve the original actor derivation; do not invent a new hosted actor.
+input. Original actor is str(plan.run_id); preserve it rather than inventing a
+hosted actor. Current ownership authorizes recovery, not changed attribution.
 
 Compare current managed World owner/native identity/binding version before private
 receipt I/O and again before return, without loading today's source document/run.
@@ -67,8 +68,8 @@ Derive the unchanged worldbuilding Core operation identity. Read Core247 termina
 history via bare repositories, plus the exact sealed immutable parent for original
 producer time/schema/hash/profile. No _services/current head bootstrap.
 
-Use the sealed vocabulary pair and closed historical mapping, never today's
-floating default. For accepted governs effects, verify the original extract_edge_id
+Recognize the exact sealed world-object-v6/world-property-v4 vocabulary pair and
+closed historical mapping, never today's floating default. For accepted governs effects, verify the original extract_edge_id
 and accepted decision/candidate_effect_map coverage; reproduce only deterministic
 predicate/endpoints and value additions (buddy_predicate,dm_predicate,exact sealed
 native_vocabulary_binding). Other effects stay exact. Do not call the existing
@@ -81,7 +82,10 @@ identity authority/redirects, corrections, diagnostics, scope and exact IDs.
 Reconstruct typed evidence from the authenticated value.evidence rows, not terminal
 suffixes. Require nonempty unique IDs and exact row bijection for accepted AND
 rejected assertions, exact sealed artifact/Buddy revision, Worldbuilding domain,
-nonempty span ID, and matching optional revision/hash fields.
+nonempty span ID, and matching optional revision/hash fields. Raw evidence IDs
+are operation-wide keys: repeated IDs must have identical source/span bindings;
+conflicting authenticated rows must not silently overwrite one another. Preserve
+each assertion's original evidence ordering.
 
 Build an operation-local evidence view only from those authenticated rows and the
 sealed source locator. Supply only original pair -> sealed admitted Core revision
