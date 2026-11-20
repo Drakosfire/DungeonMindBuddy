@@ -1,6 +1,6 @@
 # Relationship review — prove classic preparation retirement
 
-Status: ACTIVE. Owner MIND under the operator's full-lane authority. Two-path
+Status: IMPLEMENTED — stacked working diagnostic passes; final qualification pending. Owner MIND under the operator's full-lane authority. Two-path
 stacked test-only slice. Parent PR4222 branch
 `codex/v10-native-worldkeeper-adoption`, base
 `62b9f40752a9ae6dd1a89251756819be4b66a0d0`; checkout is the existing clean task
@@ -51,3 +51,11 @@ Keep full V10/current-public retirement, compatible deployment/rollback and V11
 open. MIND retains task checkouts/env/logs for the active full goal; no newworktree,
 manual deletion or reclaimed bytes. Approved-scoped cleanup follow-up requires
 process/mount, dirty/unique-data and unique-commit checks.
+
+Implementation checkpoint: lease `2fb96ecdc` precedes the test edit. All24 owning
+cases pass with zero skips in the installed WK348/Core90a5 environment. Exact
+prefix/suffix guards prove only the named function changed; all native cases,
+fixtures and helpers are untouched. These are working diagnostics, not final
+exact-head qualification. The removed assertions concerned a fresh classic prepare
+followed by confirm; original saved-packet receipt recovery is preserved by the
+accepted recovery-only route/service tests, not retired by this test repair.
