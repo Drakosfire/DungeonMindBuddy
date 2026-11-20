@@ -64,6 +64,10 @@ from apps.live_control_server.routes.workspace_lifecycle import (
 from apps.live_control_server.routes.world_containers import (
     router as world_containers_router,
 )
+from apps.live_control_server.routes.guest_releases import (
+    router as guest_releases_router,
+    resolve_hosted_guest_release_world,
+)
 from apps.live_control_server.routes.statblock_integration import (
     router as statblock_integration_router,
 )
@@ -228,6 +232,13 @@ PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
 PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("POST", "/api/live/worlds/{world_id}/guest-releases"): resolve_hosted_guest_release_world,
+    ("GET", "/api/live/worlds/{world_id}/guest-releases/status"): resolve_hosted_guest_release_world,
+    ("GET", "/api/live/worlds/{world_id}/guest-releases/candidates/{release_id}"): resolve_hosted_guest_release_world,
+    ("GET", "/api/live/worlds/{world_id}/guest-releases/candidates/{release_id}/assets/{asset_id}"): resolve_hosted_guest_release_world,
+    ("POST", "/api/live/worlds/{world_id}/guest-releases/candidates/{release_id}/publish"): resolve_hosted_guest_release_world,
+    ("POST", "/api/live/worlds/{world_id}/guest-releases/candidates/{release_id}/revoke"): resolve_hosted_guest_release_world,
+    ("POST", "/api/live/worlds/{world_id}/guest-releases/candidates/{release_id}/restore"): resolve_hosted_guest_release_world,
     ("POST", "/api/live/graph-authoring/native-manual/context"): resolve_hosted_native_manual,
     ("POST", "/api/live/graph-authoring/native-manual/prepare"): resolve_hosted_native_manual,
     ("POST", "/api/live/graph-authoring/native-manual/confirm"): resolve_hosted_native_manual,
@@ -583,6 +594,7 @@ def create_app() -> FastAPI:
     application.include_router(workspace_documents_router)
     application.include_router(workspace_lifecycle_router)
     application.include_router(world_containers_router)
+    application.include_router(guest_releases_router)
     application.include_router(statblock_integration_router)
     application.include_router(threat_drafts_router)
     application.include_router(threat_publication_router)
