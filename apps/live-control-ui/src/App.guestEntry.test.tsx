@@ -533,7 +533,6 @@ describe("canonical local guest entry", () => {
       "/api/live/index-graph/graph",
     ]);
 
-    await user.click(screen.getByRole("button", { name: "Open navigation" }));
     await user.click(screen.getByRole("link", { name: "Plan" }));
     await waitFor(() => expect(window.location.pathname).toBe("/plan"));
     expect(screen.queryByRole("link", { name: "Sign in with DungeonMind" })).not.toBeInTheDocument();
@@ -555,7 +554,7 @@ describe("canonical local guest entry", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "Buddy graph playground" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Plan" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan");
     expect(screen.getByRole("link", { name: "Sign in with DungeonMind" })).toHaveAttribute(
       "href", "/api/auth/login?return_to=%2Fgraph",
     );
@@ -821,7 +820,7 @@ describe("canonical local guest entry", () => {
       expect(screen.getByLabelText(/^Account:/)).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Add object" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Plan" })).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan?world=world-a");
       expect(fetchMock.mock.calls.every(([path]) => [
         "/api/auth/session", "/api/live/world-containers/lookup?managed_world_id=world-a", "/api/live/native-graph-explorer/graph",
       ].includes(String(path)))).toBe(true);
