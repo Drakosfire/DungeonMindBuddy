@@ -1,7 +1,7 @@
 import {afterEach,expect,it,vi} from 'vitest';
 const id='11111111-1111-4111-8111-111111111111';
 const meta={conversation_id:id,world_id:'world-one',title:'Work',name_revision:1,status:'archived',turn_count:2,created_at:'2026-10-24T12:00:00Z',updated_at:'2026-10-24T12:00:00Z'};
-afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();vi.resetModules();});
+afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();vi.unstubAllGlobals();vi.resetModules();});
 async function modules(base=''){vi.stubEnv('VITE_LIVE_API_BASE_URL',base);vi.resetModules();return {live:await import('./liveApi'),library:await import('./conversationLibraryApi')};}
 it.each(['list','name','turns','rename'] as const)('uses guarded bearer transport for %s',async operation=>{
  const {live,library}=await modules();live.setNativeGraphAccessToken('synthetic-library-token');
@@ -58,4 +58,30 @@ it('shares the guarded active message read and never authorizes a near-miss rout
  await Promise.all([first,second]);
  fetch.mockResolvedValue(Response.json({}));await live.authenticatedApiFetch('/api/live/agent/worlds/world-one/conversations/active/messages-extra');
  expect(new Headers(fetch.mock.calls[1][1]?.headers).has('Authorization')).toBe(false);
+});
+
+it('resumes a saved conversation over hosted same-origin transport', async () => {
+  vi.stubGlobal('window', { location: { href: 'https://buddy.example/build' }, dispatchEvent: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn() });
+  const { live, library } = await modules();
+  live.setNativeGraphAccessToken('synthetic-local-token');
+  const command = {
+    world_id: 'world-one', conversation_id: id,
+    command_id: '22222222-2222-4222-8222-222222222222',
+    expected_pointer_revision: 8, expected_active_conversation_id: null,
+  };
+  const receipt = {
+    world_id: command.world_id, conversation_id: id, command_id: command.command_id,
+    command_kind: 'reopen', active_conversation_id: id, pointer_revision: 9,
+    recorded_at: '2026-11-05T12:00:00Z',
+  };
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json(receipt));
+  const path = '/api/live/agent/worlds/world-one/conversations/' + id + '/resume';
+  await expect(library.resumeConversation(command)).resolves.toEqual(receipt);
+  expect(fetch.mock.calls[0][0]).toBe(path);
+  expect(fetch.mock.calls[0][1]).toMatchObject({ method: 'POST', credentials: 'same-origin', redirect: 'error' });
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has('Authorization')).toBe(false);
+  await expect(live.authenticatedApiFetch(path, {
+    method: 'POST', body: JSON.stringify({ ...command, world_id: 'foreign' }),
+  })).rejects.toThrow(/exact same-origin HTTPS route/);
+  expect(fetch).toHaveBeenCalledTimes(1);
 });
