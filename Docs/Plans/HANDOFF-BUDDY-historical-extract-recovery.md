@@ -1,6 +1,7 @@
 # Historical ordinary Recap extract — immutable receipt recovery
 
-Status: COMPLETE — accepted implementation; merge pending. Owner MIND. Explicit operator authorization owns this complete
+Status: COMPLETE — accepted and merged as PR4232 at
+430e43e6bac72f2e9994ed51914e80ef6d5ffa5b. Owner MIND. Explicit operator authorization owns this complete
 vNext optimization/cutover lane, design/implementation/review/merge without PRIME
 or ARCHITECTURE coordination. Serial successor to accepted PR4231 at base
  e89bfa6c486a4c2459de643ba0dc60007ff2e69b. Branch
@@ -268,3 +269,12 @@ part of the scoped recovery proof, not general cleanup. No manual artifact delet
 occurred. Cleanup follow-up: after the goal no longer uses these paths, inspect
 active tasks/processes/mounts, dirty/unique data and pushed commits, then apply only
 specifically authorized disposal. Keep unique evidence and accepted pins until then.
+
+## Consuming-slice merge settlement
+
+Accepted sealing head29764967f412b792a50b107921446751faa26e0c merged as
+430e43e6bac72f2e9994ed51914e80ef6d5ffa5b; merge tree equals reviewed sealing
+tree51f693efff5a3d2d7f1f690db352dbcd5f10e578. Actual merged commit was not
+executed. Source review5991410759, sealing review5991452980; short CI
+44722370003/44722370008 succeeded. This is bounded ordinary Recap recovery
+acceptance, not all extract-family or deployed cutover acceptance.
