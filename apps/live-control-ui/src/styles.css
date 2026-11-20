@@ -1,11 +1,11 @@
 @import "./ui/tokens.css";
 
 :root {
-  color-scheme: dark;
+  color-scheme: var(--ui-color-scheme);
   font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   line-height: 1.45;
-  background: #12141a;
-  color: #e8eaef;
+  background: var(--ui-background-app);
+  color: var(--ui-text-primary);
   /* Fallback chrome band until AppChrome publishes the rendered header edge.
      Root scope also reaches ToolHost / ProjectionHost / Author Node portals. */
   --app-chrome-top: 5.5rem;
@@ -337,7 +337,7 @@ code {
   border: 1px solid #565f89;
   border-radius: 6px;
   background: #171b24;
-  color: #e8eaef;
+  color: var(--ui-text-primary);
   font: inherit;
   font-size: 0.8rem;
   padding: 0.35rem 0.65rem;
@@ -371,7 +371,7 @@ code {
 
 .app-world-selector__menu p {
   margin: 0;
-  color: #e8eaef;
+  color: var(--ui-text-primary);
 }
 
 .app-site-nav a {
@@ -384,12 +384,12 @@ code {
 }
 
 .app-site-nav a:hover {
-  color: #e8eaef;
+  color: var(--ui-text-primary);
   border-color: #565f89;
 }
 
 .app-site-nav a.active {
-  color: #e8eaef;
+  color: var(--ui-text-primary);
   border-color: #7aa2f7;
   background: rgba(122, 162, 247, 0.08);
 }
@@ -460,7 +460,7 @@ code {
   border: 1px solid #565f89;
   border-radius: 999px;
   background: #171b24;
-  color: #e8eaef;
+  color: var(--ui-text-primary);
   cursor: pointer;
   padding: 0.35rem 0.65rem;
 }
@@ -504,7 +504,7 @@ code {
 
 .app-world-graph-status__trigger:hover {
   border-color: #565f89;
-  color: #e8eaef;
+  color: var(--ui-text-primary);
 }
 
 .app-world-graph-status__trigger--warning {

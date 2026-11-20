@@ -4,7 +4,7 @@
   --conversation-dock-foreground: var(--ui-text-primary, #e8eaef);
   --conversation-dock-muted: var(--ui-text-secondary, #b8c0ce);
   --conversation-dock-border: var(--ui-border-subtle, #343d4d);
-  --conversation-dock-color-scheme: dark;
+  --conversation-dock-color-scheme: var(--ui-color-scheme, dark);
   --conversation-dock-resize-hit-size: max(24px, 1.5rem);
   --conversation-dock-control-hit-size: max(32px, 2rem);
   color-scheme: var(--conversation-dock-color-scheme);
