@@ -80,7 +80,6 @@ def test_current_access_failure_does_not_read_body(opened_case,monkeypatch,chang
 
 @pytest.mark.parametrize('change',['missing','corrupt','world','revision','lineage'])
 def test_missing_or_mismatched_bytes_never_fall_back(opened_case,monkeypatch,change):
-    from apps.live_control_server.integrations.dungeonmind import source_origin
     _,_,calls = opened_case
     original = owner.get_source_markdown
     def damaged(**kw):
