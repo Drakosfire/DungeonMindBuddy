@@ -292,9 +292,9 @@ def test_exact_batch_failure_preserves_the_ordered_unavailable_support(lane, mon
     lane.meta = replace(lane.meta, evidence_ref_ids=(original_ref, lane.meta.evidence_ref_ids[0]))
     publish(lane, qualified=True)
     context, _ = query(lane)
-    authorization = grant(context)
-    reads, _ = read_selected(context, authorization, GM)
+    reads, _ = read_selected(context, grant(context), GM)
     account = next(row for row in reads if row.assertion.predicate == 'dnd5e:summary')
+    authorization = grant(context, ids=(account.assertion.assertion_id,))
     first, later = (item.evidence_ref_id for item in account.spans)
     original = native.open_admitted_native_text
     singles = []
