@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -125,47 +125,6 @@ function historicalProjection(
       cannotTrust: ["historical identity"],
     },
     ...overrides,
-  };
-}
-
-function completeHistoricalObject(
-  status: "complete" | "partial" = "complete",
-  relationshipCount = 15,
-) {
-  const projection = historicalProjection();
-  const baseNode = projection.nodeViews["node-1"]!;
-  return {
-    schema: "dmb_world_graph_object_projection_v1" as const,
-    found: true,
-    completeness: {
-      status,
-      reason: status === "partial" ? "relationships_truncated" : null,
-      truncatedFields: status === "partial" ? ["relationships"] : [],
-    },
-    snapshot: projection.snapshot,
-    requestedNodeId: "node-1",
-    resolvedNodeId: "node-1",
-    node: {
-      ...baseNode,
-      adjacency: Array.from({ length: relationshipCount }, (_, index) => ({
-        edgeId: `edge-${String(index + 1).padStart(2, "0")}`,
-        nodeId: `related-${index + 1}`,
-        label: `Related ${String(index + 1).padStart(2, "0")}`,
-        kind: "npc",
-        predicate: "knows",
-        direction: "outgoing" as const,
-        anchoredToFocusSession: index === relationshipCount - 1,
-        sourceDomains: ["recap"],
-        evidenceRefIds: [`evidence-${index + 1}`],
-        sessionIds: [index === relationshipCount - 1 ? "session-24" : `session-${index + 1}`],
-        campaignScope: "longmont-c2",
-        sourceExcerpt: index === relationshipCount - 1
-          ? "Provenance on the initially omitted relationship."
-          : null,
-      })),
-    },
-    relatedNodes: [],
-    semanticFingerprint: "fp-test",
   };
 }
 
@@ -836,118 +795,40 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByTestId("graph-review-exact-run-panel")).not.toBeInTheDocument();
   });
 
-  it("loads validated recap through durable World projection, not review package", async () => {
-    const user = userEvent.setup();
-    const validated = canonicalRun({ status: "validated", run_id: "er_validated" });
-    const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
-    const projectionSpy = vi
-      .spyOn(liveApi, "getHistoricalRecapWorldProjection")
-      .mockResolvedValue(
-        historicalProjection({
-          markdown: "# Heading\n\n[Bonogo](dmb-node:node-1) arrives.\n",
-        }),
-      );
-    vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue(
-      completeHistoricalObject("complete"),
-    );
-    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(validated);
-    window.history.replaceState(
-      {},
-      "",
-      "/ingest?extractionRunId=er_validated&sourceArtifactId=sa_1",
-    );
-    renderWorkbench([validated]);
+  it("shows validated run details without requesting a retired graph", async () => {
+    const run = canonicalRun({ status: "validated", run_id: "er_validated" });
+    const graph = vi.spyOn(liveApi, "getHistoricalRecapWorldProjection");
+    const review = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(run);
+    window.history.replaceState({}, "", "/ingest?extractionRunId=er_validated&sourceArtifactId=sa_1");
+    renderWorkbench([], context, { sourceReviewOnly: false });
 
-    await waitFor(
-      () => {
-        expect(projectionSpy).toHaveBeenCalledWith("er_validated");
-        expect(screen.getByTestId("graph-review-historical-recap-meta")).toHaveTextContent(
-          "validated",
-        );
-        expect(screen.getByText("Advanced details")).toBeInTheDocument();
-        expect(screen.getByText("Read-only")).toBeInTheDocument();
-        expect(document.body.textContent).toMatch(/Heading/);
-        expect(document.body.textContent).toMatch(/Bonogo/);
-      },
-      { timeout: 3000 },
+    expect(await screen.findByTestId("graph-review-historical-recap-error")).toHaveTextContent(
+      "Admitted graph visualization for this saved run is unavailable.",
     );
-    expect(reviewPackageSpy).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("graph-review-exact-run-unreviewable")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("graph-review-exact-run-review-error")).not.toBeInTheDocument();
-
-    const bonogoPill = await screen.findByRole("button", { name: "Bonogo" });
-    expect(bonogoPill).toHaveAttribute("data-graph-node-id", "node-1");
-    const bonogoGlance = bonogoPill.closest(".recap-node-token-wrap")!;
-    fireEvent.mouseEnter(bonogoGlance);
-    expect(bonogoGlance).toHaveAttribute("data-open", "true");
-    await user.click(bonogoPill);
-
-    await waitFor(() => {
-      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
-    });
-    expect(bonogoGlance).toHaveAttribute("data-open", "false");
-    expect(screen.getByLabelText("Bonogo graph object")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(8);
-    await user.click(screen.getByRole("button", { name: "Show all 15 relationships (7 more)" }));
-    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(15);
-    expect(screen.getByText(/Provenance on the initially omitted relationship\./)).toBeVisible();
-    const objectAdvanced = screen.getByText("Advanced").closest("details");
-    expect(objectAdvanced).not.toHaveAttribute("open");
-    await user.click(screen.getByText("Advanced"));
-    expect(within(objectAdvanced!).getByText("node-1")).toBeVisible();
-    expect(within(objectAdvanced!).getByText("fp-test")).toBeVisible();
-    expect(within(objectAdvanced!).getByText("ingest")).toBeVisible();
-
-    await user.click(screen.getByRole("button", { name: "Tools" }));
-    expect(screen.getByLabelText("Tools toolbar")).toBeVisible();
-    expect(screen.getByTestId("graph-object-projection-card")).not.toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Diagnostics" }));
-    expect(await screen.findByLabelText("Diagnostics projection")).toBeVisible();
-    expect(screen.getByTestId("graph-object-projection-card")).not.toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Close toolbox" }));
-    expect(screen.getByTestId("graph-object-projection-card")).toBeVisible();
-    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(15);
-    expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledWith(
-      expect.objectContaining({
-        nodeId: "node-1",
-        originSurface: "ingest",
-        worldId: "eldyrwild",
-      }),
-    );
-    expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
-    await user.click(screen.getByRole("button", { name: "Close Bonogo" }));
-    expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
-    expect(screen.getByTestId("app-peek-region")).toHaveAttribute("hidden");
+    expect(screen.getByTestId("graph-review-exact-run-banner")).toHaveTextContent("er_validated");
+    expect(screen.queryByTestId("graph-review-historical-recap-projection")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
+    expect(graph).not.toHaveBeenCalled();
+    expect(review).not.toHaveBeenCalled();
   });
 
-  it("keeps the partial warning visible while Ingest discloses every returned row", async () => {
-    const user = userEvent.setup();
-    const validated = canonicalRun({ status: "validated", run_id: "er_partial" });
-    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockResolvedValue(
-      historicalProjection({
-        runId: "er_partial",
-        markdown: "# Partial recap\n\n[Bonogo](dmb-node:node-1) arrives.\n",
-      }),
-    );
-    vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue(
-      completeHistoricalObject("partial"),
-    );
-    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(validated);
-    window.history.replaceState(
-      {},
-      "",
-      "/ingest?extractionRunId=er_partial&sourceArtifactId=sa_1",
-    );
-    renderWorkbench([validated]);
+  it("keeps prepared runs out of projection and publication", async () => {
+    const run = canonicalRun({ status: "prepared", run_id: "er_prepared" });
+    const graph = vi.spyOn(liveApi, "getHistoricalRecapWorldProjection");
+    const review = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(run);
+    window.history.replaceState({}, "", "/ingest?extractionRunId=er_prepared&sourceArtifactId=sa_1");
+    renderWorkbench([], context, { sourceReviewOnly: false });
 
-    await user.click(await screen.findByRole("button", { name: "Bonogo" }));
-    const warning = await screen.findByTestId("complete-object-partial-warning");
-    expect(warning).toHaveTextContent(/Partial World object: truncated relationships/i);
-    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(8);
-    await user.click(screen.getByRole("button", { name: "Show all 15 relationships (7 more)" }));
-    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(15);
-    expect(warning).toBeVisible();
-    expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
+    expect(await screen.findByTestId("graph-review-historical-recap-error")).toHaveTextContent(
+      "Admitted graph visualization for this saved run is unavailable.",
+    );
+    expect(screen.getByTestId("graph-review-exact-run-banner")).toHaveTextContent("er_prepared");
+    expect(screen.queryByTestId("graph-review-historical-recap-projection")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
+    expect(graph).not.toHaveBeenCalled();
+    expect(review).not.toHaveBeenCalled();
   });
 
   it("keeps a validated catalog run in ordinary legacy browse", async () => {
@@ -964,18 +845,10 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
   });
 
-  it("loads exact-handoff validated recap through historical projection without review package", async () => {
+  it("keeps a validated exact handoff out of projection and publication", async () => {
     const validated = canonicalRun({ status: "validated", run_id: "er_handoff_validated" });
     const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
-    const projectionSpy = vi
-      .spyOn(liveApi, "getHistoricalRecapWorldProjection")
-      .mockResolvedValue(
-        historicalProjection({
-          runId: "er_handoff_validated",
-          runStatus: "validated",
-          markdown: "# Handoff recap\n\n[Bonogo](dmb-node:node-1) arrives.\n",
-        }),
-      );
+    const projectionSpy = vi.spyOn(liveApi, "getHistoricalRecapWorldProjection");
     vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(validated);
     window.history.replaceState(
       {},
@@ -984,17 +857,12 @@ describe("GraphReviewWorkbenchModule", () => {
     );
     renderWorkbench([]);
 
-    await waitFor(
-      () => {
-        expect(projectionSpy).toHaveBeenCalledWith("er_handoff_validated");
-        expect(screen.getByTestId("graph-review-historical-recap-projection")).toBeInTheDocument();
-        expect(screen.getByTestId("graph-review-historical-recap-meta")).toHaveTextContent(
-          "validated",
-        );
-        expect(document.body.textContent).toMatch(/Handoff recap/);
-      },
-      { timeout: 3000 },
+    expect(await screen.findByTestId("graph-review-historical-recap-error")).toHaveTextContent(
+      "Admitted graph visualization for this saved run is unavailable.",
     );
+    expect(projectionSpy).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("graph-review-historical-recap-projection")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
     expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(screen.queryByTestId("graph-review-exact-run-review-error")).not.toBeInTheDocument();
   });
@@ -1047,20 +915,22 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByText("# Exact recap prose for catalog load")).not.toBeInTheDocument();
   });
 
-  it("rejects a historical source projection that declares a different World", async () => {
-    const run = canonicalRun({ run_id: "s27-foreign-projection", status: "validated" });
+  it("never requests a historical graph for a source-only review", async () => {
+    const run = canonicalRun({ status: "validated", run_id: "s27-foreign-projection" });
+    const graph = vi.spyOn(liveApi, "getHistoricalRecapWorldProjection");
+    const review = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
     vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(run);
-    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockResolvedValue(
-      historicalProjection({ runId: run.run_id, worldId: "other-world" }),
+    window.history.replaceState({}, "", "/ingest?extractionRunId=s27-foreign-projection&sourceArtifactId=sa_1");
+    renderWorkbench([], context, { sourceReviewOnly: true });
+
+    expect(await screen.findByTestId("graph-review-historical-recap-error")).toHaveTextContent(
+      "Admitted graph visualization for this saved run is unavailable.",
     );
-    window.history.replaceState({}, "", `/ingest?extractionRunId=${run.run_id}`);
-
-    renderWorkbench([], { ...context, campaignId: "elderwyld" }, { sourceReviewOnly: true });
-
-    expect(await screen.findByText(
-      "historical recap projection World does not match the selected target World",
-    )).toBeInTheDocument();
+    expect(screen.getByTestId("graph-review-exact-run-banner")).toHaveTextContent("s27-foreign-projection");
     expect(screen.queryByTestId("graph-review-historical-recap-projection")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
+    expect(graph).not.toHaveBeenCalled();
+    expect(review).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -1311,21 +1181,7 @@ describe("GraphReviewWorkbenchModule", () => {
       session_id: "session-17",
     });
     vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(handoffRun);
-    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockImplementation(async (runId) => {
-      if (runId === "er_stale_catalog") {
-        return historicalProjection({
-          runId: "er_stale_catalog",
-          markdown: "# Stale catalog recap A\n",
-        });
-      }
-      return historicalProjection({
-        runId: "er_handoff_b",
-        sourceArtifactId: "sa_handoff",
-        campaignId: "longmont-c1",
-        sessionId: "session-17",
-        markdown: "# Handoff recap B\n",
-      });
-    });
+    const graph = vi.spyOn(liveApi, "getHistoricalRecapWorldProjection");
     window.history.replaceState(
       {},
       "",
@@ -1338,14 +1194,14 @@ describe("GraphReviewWorkbenchModule", () => {
         expect(screen.getByTestId("graph-review-exact-run-banner")).toHaveTextContent(
           "er_handoff_b",
         );
-        expect(document.body.textContent).toMatch(/Handoff recap B/);
+        expect(screen.getByTestId("graph-review-historical-recap-error")).toHaveTextContent("Admitted graph visualization for this saved run is unavailable.");
       },
       { timeout: 3000 },
     );
     expect(screen.getByTestId("graph-review-exact-run-banner")).not.toHaveTextContent(
       "er_stale_catalog",
     );
-    expect(document.body.textContent).not.toMatch(/Stale catalog recap A/);
+    expect(graph).not.toHaveBeenCalled();
     expect(screen.getByText("Session 17 · Longmont C1")).toBeInTheDocument();
     expect(screen.queryByText("Session 23 · Longmont C2")).not.toBeInTheDocument();
   });

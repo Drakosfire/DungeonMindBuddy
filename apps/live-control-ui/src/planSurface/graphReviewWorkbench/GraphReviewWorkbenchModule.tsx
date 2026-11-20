@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getExtractionRun,
   getExtractionRunStatus,
-  getHistoricalRecapWorldProjection,
   getManualReviewBed,
   getManualReviewBeds,
   LiveApiError,
@@ -420,44 +419,9 @@ export function GraphReviewWorkbenchModule({
         setExactReviewStatus("idle");
         setExactReview(null);
         setExactReviewError(null);
-        setHistoricalRecapProjectionStatus("loading");
-        try {
-          const projection = await (managedWorldId
-            ? getHistoricalRecapWorldProjection(run.run_id, managedWorldId)
-            : getHistoricalRecapWorldProjection(run.run_id));
-          if (cancelled) return;
-          if (
-            projection.runId !== run.run_id
-            || projection.sourceArtifactId !== run.source_artifact_id
-            || projection.sourceDomain !== run.source_domain
-            || projection.campaignId !== (run.campaign_id ?? "")
-            || projection.sessionId !== (run.session_id ?? "")
-          ) {
-            throw new Error(
-              "historical recap projection identity does not match the loaded ExtractionRun",
-            );
-          }
-          if (
-            sourceReviewOnlyForCurrentRun
-            && (managedWorldId ? projection.managedWorldId !== managedWorldId
-              : projection.worldId.trim() !== context.campaignId.trim())
-          ) {
-            throw new Error(
-              "historical recap projection World does not match the selected target World",
-            );
-          }
-          setHistoricalRecapProjection(projection);
-          setHistoricalRecapProjectionStatus("ready");
-        } catch (error) {
-          if (cancelled) return;
-          setHistoricalRecapProjection(null);
-          setHistoricalRecapProjectionStatus("error");
-          setHistoricalRecapProjectionError(
-            error instanceof LiveApiError || error instanceof Error
-              ? error.message
-              : "Failed to load historical recap projection.",
-          );
-        }
+        setHistoricalRecapProjection(null);
+        setHistoricalRecapProjectionStatus("error");
+        setHistoricalRecapProjectionError("Admitted graph visualization for this saved run is unavailable.");
         return;
       }
       setExactReviewStatus("loading");

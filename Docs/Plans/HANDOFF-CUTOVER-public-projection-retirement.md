@@ -63,3 +63,12 @@ replay and verify the committed revision displayed in Build. Verify the
 historical recap object request uses its supplied pin when the legacy lens
 is unavailable. The existing Graph Lens test lease covers the transient
 channel assertion surfaced by the same run.
+
+## Delivered
+
+PR #4246 merged at c8286fe3c458c490e0ef3f3c9ce87d5d2c6e3cb5.
+Independent review 5995688979 accepted source de8f00ba. Authorization
+335 and hosted UI 1,419 passed with a successful build. Full UI reported
+8,353 passes, 103 failures and two pending. The exact base reported 8,350
+passes and the same 103 failures and two pending. The combined tree
+matched the predicted merge. Full release qualification remains open.
