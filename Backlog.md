@@ -366,3 +366,10 @@ a prototype is not a new durable authority.
 **Action:** Profile trace capture, persistence, reads, and rendering under realistic hosted turns. Remove duplicate events and synchronous work where evidence permits. Present each Luna or Jev call as one expandable step with the composed prompt, call configuration, timing, outcome, and retries. Make the pre-dispatch critical path and unmeasured gaps explicit, and keep the details panel stable during refresh. Preserve authorization, redaction, and the durable evidence needed to diagnose failures and verify dispatch fencing.
 **Verification:** Compare trace write volume, added Send-to-first-dispatch latency, and trace open time before and after. Inspect successful, failed, retried, and historical turns on hosted Buddy.
 **Surfaces when:** Trace performance, execution Details, or conversation diagnostics work begins.
+
+## [IDEA] Cut document and page loading latency across Buddy — captured 2026-11-19
+
+**Context:** Opening a saved document and navigating between Buddy surfaces can take several seconds. Corrupted Edge is a known hosted example.
+**Action:** Profile cold entry, warm navigation, and document opens from the picker and deep links across Build, Plan, Play, Graph, and Ingest. Correlate browser navigation to usable content with server timing for authentication, document snapshots, and World data. Remove duplicate reads and request waterfalls, reuse valid World and document data across surfaces, and keep the shared navigation mounted during in-app transitions.
+**Verification:** Compare p50 and p95 time to usable content before and after on hosted Buddy. Cover cold and warm loads, World changes, stale revisions, and load failures so a faster shell does not hide delayed content.
+**Surfaces when:** Document navigation, page loading, or hosted performance work begins.
