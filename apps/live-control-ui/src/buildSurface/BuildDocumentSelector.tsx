@@ -62,9 +62,10 @@ export function BuildDocumentSelector({
   onSelect,
 }: BuildDocumentSelectorProps) {
   const [query, setQuery] = useState("");
+  const [catalogRequestedFor, setCatalogRequestedFor] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<{ worldId: string; drafts: WorldThreatDraftSummary[]; published: Map<string, Set<string>>; error: boolean }>();
   useEffect(() => {
-    if (!worldId) return;
+    if (!worldId || catalogRequestedFor !== worldId) return;
     const request = new AbortController();
     Promise.all([listWorldThreatDrafts(worldId, request.signal), listWorldMechanicsAssociations(worldId)]).then(
       ([drafts, associations]) => {
@@ -81,23 +82,26 @@ export function BuildDocumentSelector({
       if (!request.signal.aborted) setCatalog({ worldId, drafts: [], published: new Map(), error: true });
     });
     return () => request.abort();
-  }, [worldId]);
+  }, [catalogRequestedFor, worldId]);
   const [reviewCatalog, setReviewCatalog] = useState<{ worldId: string; reviews: PdfStatblockReviewSummary[]; error?: boolean }>();
   useEffect(() => {
-    if (!worldId) return;
+    if (!worldId || catalogRequestedFor !== worldId) return;
     const request = new AbortController();
     listPdfStatblockReviews(worldId, request.signal).then(
       reviews => { if (!request.signal.aborted) setReviewCatalog({ worldId, reviews }); },
       () => { if (!request.signal.aborted) setReviewCatalog({ worldId, reviews: [], error: true }); },
     );
     return () => request.abort();
-  }, [worldId]);
+  }, [catalogRequestedFor, worldId]);
   const currentReviews = reviewCatalog?.worldId === worldId ? reviewCatalog : undefined;
   const currentCatalog = catalog?.worldId === worldId ? catalog : undefined;
   const filter = query.trim().toLowerCase();
   const [category, setCategory] = useState<PickerCategory>("Recent");
   const rowPrefix = useId();
   const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    setCatalogRequestedFor(dialog.current?.open ? worldId ?? null : null);
+  }, [worldId]);
   const search = useRef<HTMLInputElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const recentKey = `buddy:build:recent:${worldId ?? preferredCampaignId ?? ""}`;
@@ -118,7 +122,7 @@ export function BuildDocumentSelector({
   });
   const [pdfCatalog, setPdfCatalog] = useState<{ worldId: string; documents: RetainedPdf[]; error?: boolean }>();
   useEffect(() => {
-    if (!worldId) return;
+    if (!worldId || catalogRequestedFor !== worldId) return;
     const request = new AbortController();
     listRetainedPdfDocuments(worldId, request.signal).then(documents => {
       if (!request.signal.aborted) setPdfCatalog({ worldId, documents });
@@ -126,14 +130,14 @@ export function BuildDocumentSelector({
       if (!request.signal.aborted) setPdfCatalog({ worldId, documents: [], error: true });
     });
     return () => request.abort();
-  }, [worldId]);
+  }, [catalogRequestedFor, worldId]);
   const currentPdfCatalog = pdfCatalog?.worldId === worldId ? pdfCatalog : undefined;
   const retainedPdfs = currentPdfCatalog?.documents ?? [];
   const activePdf = retainedPdfs.find(entry => entry.locator.source_revision_id ===
     new URLSearchParams(window.location.search).get("pdf"));
   const [nativeCatalog, setNativeCatalog] = useState<{ worldId: string; sources: NativeSourceMetadata[]; error?: boolean }>();
   useEffect(() => {
-    if (!worldId) return;
+    if (!worldId || catalogRequestedFor !== worldId) return;
     const request = new AbortController();
     void loadNativeDocuments(worldId, request.signal).then(({ sources }) => {
       if (!request.signal.aborted) setNativeCatalog({ worldId, sources });
@@ -141,7 +145,7 @@ export function BuildDocumentSelector({
       if (!request.signal.aborted) setNativeCatalog({ worldId, sources: [], error: true });
     });
     return () => request.abort();
-  }, [worldId]);
+  }, [catalogRequestedFor, worldId]);
   const currentNativeCatalog = nativeCatalog?.worldId === worldId ? nativeCatalog : undefined;
   const nativeSources = currentNativeCatalog?.sources ?? [];
   const activeNativeId = new URLSearchParams(window.location.search).get("nativeDocument");
@@ -283,6 +287,7 @@ export function BuildDocumentSelector({
   }
 
   function openPicker() {
+    setCatalogRequestedFor(worldId ?? null);
     setCategory("Recent");
     setQuery("");
     setRecent(readRecent(recentKey));
