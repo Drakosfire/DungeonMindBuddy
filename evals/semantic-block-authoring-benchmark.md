@@ -9,15 +9,36 @@ use synthetic content and disposable Worlds.
 ## Fixtures and runs
 
 Create one disposable World with a saved Build page and a saved Plan. Each has
-two sections titled Arrival and Departure. Arrival describes a maintained
-boardwalk, a sealed tower, and three blue lanterns. Departure contains the
-distinct sentinel sentence “The ferryman waits beside the red gate.” Seed
-one titled Read Aloud callout, “First sight,” under Arrival, followed by a
-normal paragraph. Keep an existing table and image elsewhere in each document.
-Create a Play scene from the Plan through normal adoption and use a separate
-clone for each Play case. Ingest a plain-text copy as retained source material
-for the Ingest case. Capture exact saved and draft snapshots before each run.
-Restore fixtures and begin a fresh conversation for independent repetitions.
+sections titled Arrival and Departure. Arrival describes a maintained boardwalk,
+a sealed tower, and three blue lanterns. Departure contains the distinct sentinel
+sentence “The ferryman waits beside the red gate.” Add a titled Read Aloud callout
+called First sight under Arrival, followed by an ordinary paragraph. Add an
+unrelated table and a retained synthetic image under Departure.
+
+Prepare these overlays using the normal editing and adoption controls before
+taking the fixture snapshots:
+
+- **P02, P03, PL01, PL02:** Mark Arrival as a Playable Scene, keep First sight
+  in that scene, and add a sibling Scene called Departure. Add an Option edge
+  from Arrival to Departure through the supported authoring flow. For P03 use
+  the marked Arrival scene card itself as the selected card body. Pin both
+  scene IDs and the edge, and verify the editor exposes the selected body
+  before sending. Adopt separate copies for Play. PL02 adopts the saved P01
+  result while preserving its role markers.
+- **G01:** Create a Location called Sealed Tower in the disposable Graph
+  through its supported review flow. Pin the object identity, select that
+  exact object, and snapshot the Graph before submitting the request.
+- **X01:** Add a GM Note immediately after First sight with the private
+  sentence “Wait for the players to choose.” Seed it independently on both
+  Build and Plan before every X01 repetition.
+- **I01:** Ingest a plain-text copy of the synthetic Arrival passage and
+  pin its saved source revision and digest.
+- **C01:** Start from a disposable encounter, then record its identity and
+  saved state before submitting the request.
+
+Capture exact saved and draft snapshots after setup and before each run.
+Restore the case-specific fixture and begin a fresh conversation for independent
+repetitions. Compare identities within each repetition against its own snapshot.
 
 Use normal text requests through each surface. The harness or operator supplies
 the indicated selection or caret. Expected results stay outside model input.
