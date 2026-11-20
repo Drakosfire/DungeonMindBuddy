@@ -36,6 +36,15 @@ def read_player_graph(*, managed_world_id: str, revision_id: str):
     )
     projection = project_native_world(context, support, snapshot, access=access,
                                       managed_world_id=managed_world_id)
+    # Ordinary admitted source bodies are owner/GM-only even when an assertion
+    # is player-visible. Inspect only explicitly selected evidence with the
+    # owner's private view, without broadening the Graph projection or output.
+    _, owner_access, _, _ = native_registry_source.read_context(
+        repository, binding.native_world_id, revision_id, None,
+        role="gm", scope_mode="world",
+    )
+    if owner_access.source_view.epoch != access.source_view.epoch:
+        raise GuestNativeGraphError("Native source authority changed during read")
     if resolve_managed_world_binding(managed_world_id) != binding:
         raise GuestNativeGraphError("Native Graph binding changed during read")
-    return binding, projection, access
+    return binding, projection, owner_access

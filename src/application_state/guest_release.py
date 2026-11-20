@@ -61,7 +61,7 @@ def _check_sources(conn, world_id: str, bindings: list[tuple], sources: list[dic
     if len(bindings) > 500 or len({item[0] for item in bindings}) != len(bindings):
         raise ApplicationStateValidationError("Invalid release source bindings")
     source_text = {item["id"]: item.get("text") for item in sources}
-    for excerpt_id, document_id, visibility_generation, status_generation, revision_n, digest, start, end, registry_revision, native_evidence_id in sorted(bindings, key=lambda v: str(v[1])):
+    for excerpt_id, document_id, visibility_generation, status_generation, revision_n, digest, start, end, registry_revision, selected_visibility, native_evidence_id in sorted(bindings, key=lambda v: str(v[1])):
         row = conn.execute(
             "SELECT w.world_id,w.status,m.visibility_state,m.guest_visibility_generation,w.object_revision,w.current_revision_id "
             "FROM content.work_object w JOIN content.page_metadata m ON m.work_object_id=w.work_object_id "
@@ -71,7 +71,8 @@ def _check_sources(conn, world_id: str, bindings: list[tuple], sources: list[dic
             "SELECT generation FROM workspace.guest_source_status_generation WHERE work_object_id=%s",
             (document_id,),
         ).fetchone()
-        if (row is None or row[:4] != (world_id, "active", "player_safe", visibility_generation)
+        if (selected_visibility not in {"internal", "player_safe"}
+            or row is None or row[:4] != (world_id, "active", selected_visibility, visibility_generation)
             or (status[0] if status else 0) != status_generation):
             raise ApplicationStateConflictError("Release source eligibility changed")
         revision = conn.execute(
@@ -119,6 +120,24 @@ def review(*, world_id: str, subject: str, release_id: UUID) -> tuple[dict, str]
         return row[0], row[1]
 
 
+def review_source_visibility(*, world_id: str, subject: str, release_id: UUID) -> dict[str, str]:
+    """Owner-only release-local labels for explicit private-copy review."""
+    with unit_of_work(_dsn()) as conn:
+        generation = _owner(conn, world_id, subject)
+        candidate = conn.execute(
+            "SELECT 1 FROM workspace.guest_release WHERE release_id=%s AND world_id=%s "
+            "AND owner_subject=%s AND owner_generation=%s AND state='candidate'",
+            (release_id, world_id, subject, generation),
+        ).fetchone()
+        if candidate is None:
+            raise ApplicationStateNotFoundError("Release unavailable")
+        rows = conn.execute(
+            "SELECT excerpt_id,selected_visibility FROM workspace.guest_release_source_binding WHERE release_id=%s",
+            (release_id,),
+        ).fetchall()
+        return {str(excerpt_id): visibility for excerpt_id, visibility in rows}
+
+
 def review_asset(*, world_id: str, subject: str, release_id: UUID,
                  asset_id: UUID) -> tuple[str, bytes]:
     """Show staged asset bytes to the candidate's currently authorized owner."""
@@ -156,7 +175,7 @@ def validation_material(*, world_id: str, subject: str, release_id: UUID, digest
             raise ApplicationStateNotFoundError("Release candidate unavailable")
         _check_graph_binding(conn, world_id, row[0], row[1])
         source_bindings = conn.execute(
-            "SELECT excerpt_id,work_object_id,visibility_generation,status_generation,revision_n,content_sha256,span_start,span_end,registry_revision,native_evidence_id "
+            "SELECT excerpt_id,work_object_id,visibility_generation,status_generation,revision_n,content_sha256,span_start,span_end,registry_revision,selected_visibility,native_evidence_id "
             "FROM workspace.guest_release_source_binding WHERE release_id=%s", (release_id,),
         ).fetchall()
         _check_sources(conn, world_id, source_bindings, row[3].get("sources", []))
@@ -287,12 +306,12 @@ def stage(*, world_id: str, subject: str, expected_owner_generation: int,
                 "(release_id,asset_id,mime_type,content_sha256,content) VALUES (%s,%s,%s,%s,%s)",
                 (release_id, asset_id, mime_type, content_digest, content),
             )
-        for excerpt_id, document_id, visibility_generation, status_generation, revision_n, content_sha256, start, end, registry_revision, native_evidence_id in bindings:
+        for excerpt_id, document_id, visibility_generation, status_generation, revision_n, content_sha256, start, end, registry_revision, selected_visibility, native_evidence_id in bindings:
             conn.execute(
                 "INSERT INTO workspace.guest_release_source_binding "
-                "(release_id,excerpt_id,work_object_id,visibility_generation,status_generation,revision_n,content_sha256,span_start,span_end,registry_revision,native_evidence_id) "
-                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                (release_id, excerpt_id, document_id, visibility_generation, status_generation, revision_n, content_sha256, start, end, registry_revision, native_evidence_id),
+                "(release_id,excerpt_id,work_object_id,visibility_generation,status_generation,revision_n,content_sha256,span_start,span_end,registry_revision,selected_visibility,native_evidence_id) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (release_id, excerpt_id, document_id, visibility_generation, status_generation, revision_n, content_sha256, start, end, registry_revision, selected_visibility, native_evidence_id),
             )
         for node_id, native_entity_id in nodes:
             conn.execute(
@@ -343,7 +362,7 @@ def commit_validated_promotion(*, world_id: str, subject: str, release_id: UUID,
             raise ApplicationStateConflictError("Release manifest integrity failed")
         _check_graph_binding(conn, world_id, row[4], row[5])
         bindings = conn.execute(
-            "SELECT excerpt_id,work_object_id,visibility_generation,status_generation,revision_n,content_sha256,span_start,span_end,registry_revision,native_evidence_id "
+            "SELECT excerpt_id,work_object_id,visibility_generation,status_generation,revision_n,content_sha256,span_start,span_end,registry_revision,selected_visibility,native_evidence_id "
             "FROM workspace.guest_release_source_binding WHERE release_id=%s", (release_id,),
         ).fetchall()
         _check_sources(conn, world_id, bindings, row[6].get("sources", []))

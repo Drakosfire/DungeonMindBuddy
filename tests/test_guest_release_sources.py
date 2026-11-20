@@ -14,17 +14,17 @@ def test_excerpt_is_exact_and_omits_private_identity(monkeypatch):
     result, binding = source.selected_page_excerpt(world_id="private-world", document_id="private-document", revision_n=1,
         expected_sha256=digest, start=2, end=7, expected_excerpt="small")
     assert result["text"] == "small" and "private" not in str(result)
-    assert str(binding[0]) == result["id"] and binding[1:] == ("id", 0, 0, 1, digest, 2, 7, 8)
+    assert str(binding[0]) == result["id"] and binding[1:] == ("id", 0, 0, 1, digest, 2, 7, 8, "player_safe")
     with pytest.raises(source.GuestReleaseSourceError):
         source.selected_page_excerpt(world_id="private-world", document_id="private-document", revision_n=1,
             expected_sha256=digest, start=2, end=7, expected_excerpt="wrong")
 
 
-def test_internal_page_is_never_selected(monkeypatch):
+def test_internal_page_can_be_selected_for_private_review(monkeypatch):
     _fake_page(monkeypatch, "x", "internal")
-    with pytest.raises(source.GuestReleaseSourceError):
-        source.selected_page_excerpt(world_id="world", document_id="doc", revision_n=1,
-            expected_sha256="a" * 64, start=0, end=1, expected_excerpt="x")
+    excerpt, binding = source.selected_page_excerpt(world_id="private-world", document_id="doc", revision_n=1,
+        expected_sha256=hashlib.sha256(b"x").hexdigest(), start=0, end=1, expected_excerpt="x")
+    assert excerpt["text"] == "x" and binding[-1] == "internal"
 
 
 def _fake_page(monkeypatch, markdown, visibility):

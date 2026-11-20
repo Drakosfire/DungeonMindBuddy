@@ -81,9 +81,10 @@ def review_release(world_id: str, release_id: UUID, request: Request, response: 
     response.headers["Cache-Control"] = "no-store"
     try:
         manifest, digest = guest_release.review(world_id=world_id, subject=subject, release_id=release_id)
+        source_visibility = guest_release.review_source_visibility(world_id=world_id, subject=subject, release_id=release_id)
     except ApplicationStateError as exc:
         raise _error(exc) from exc
-    return {"manifest": manifest, "digest": digest}
+    return {"manifest": manifest, "digest": digest, "source_visibility": source_visibility}
 
 
 @router.get("/candidates/{release_id}/assets/{asset_id}")

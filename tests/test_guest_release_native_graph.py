@@ -11,16 +11,18 @@ def test_native_reader_pins_player_audience_and_rechecks_binding(monkeypatch):
     monkeypatch.setattr(reader.native_registry_source, "read_repository", lambda: SimpleNamespace(
         get_head=lambda _: SimpleNamespace(head_revision_id="head")))
     calls = []
+    access = SimpleNamespace(source_view=SimpleNamespace(epoch=7))
     def context(repo, world, revision, campaign, **kwargs):
         calls.append((world, revision, campaign, kwargs))
-        return "context", "access", None, None
+        return "context", access, None, None
     monkeypatch.setattr(reader.native_registry_source, "read_context", context)
     support = SimpleNamespace(listing=SimpleNamespace(identity=SimpleNamespace(revision_id="selected")))
     monkeypatch.setattr(reader, "EntityReadService", lambda: SimpleNamespace(list_entities_with_support=lambda _: support))
     monkeypatch.setattr(reader, "project_native_world", lambda context, support, snapshot, **kwargs: snapshot)
     actual_binding, projection, _ = reader.read_player_graph(managed_world_id="managed", revision_id="selected")
     assert actual_binding == binding and projection.admissibility == "player"
-    assert calls == [("native", "selected", None, {"role": "player", "scope_mode": "world"})]
+    assert calls == [("native", "selected", None, {"role": "player", "scope_mode": "world"}),
+                     ("native", "selected", None, {"role": "gm", "scope_mode": "world"})]
 
 
 def test_native_reader_rejects_binding_change(monkeypatch):
@@ -29,11 +31,27 @@ def test_native_reader_rejects_binding_change(monkeypatch):
     monkeypatch.setattr(reader, "resolve_managed_world_binding", lambda _: next(bindings))
     monkeypatch.setattr(reader.native_registry_source, "read_repository", lambda: SimpleNamespace(
         get_head=lambda _: SimpleNamespace(head_revision_id="selected")))
-    monkeypatch.setattr(reader.native_registry_source, "read_context", lambda *a, **k: ("context", "access", None, None))
+    access = SimpleNamespace(source_view=SimpleNamespace(epoch=7))
+    monkeypatch.setattr(reader.native_registry_source, "read_context", lambda *a, **k: ("context", access, None, None))
     support = SimpleNamespace(listing=SimpleNamespace(identity=SimpleNamespace(revision_id="selected")))
     monkeypatch.setattr(reader, "EntityReadService", lambda: SimpleNamespace(list_entities_with_support=lambda _: support))
     monkeypatch.setattr(reader, "project_native_world", lambda *a, **k: "projection")
     with pytest.raises(reader.GuestNativeGraphError):
+        reader.read_player_graph(managed_world_id="managed", revision_id="selected")
+
+
+def test_native_reader_rejects_source_epoch_change_between_audiences(monkeypatch):
+    binding = SimpleNamespace(native_world_id="native", binding_version=1)
+    monkeypatch.setattr(reader, "resolve_managed_world_binding", lambda _: binding)
+    monkeypatch.setattr(reader.native_registry_source, "read_repository", lambda: SimpleNamespace(
+        get_head=lambda _: SimpleNamespace(head_revision_id="selected")))
+    epochs = iter([7, 8])
+    monkeypatch.setattr(reader.native_registry_source, "read_context", lambda *a, **k:
+        ("context", SimpleNamespace(source_view=SimpleNamespace(epoch=next(epochs))), None, None))
+    support = SimpleNamespace(listing=SimpleNamespace(identity=SimpleNamespace(revision_id="selected")))
+    monkeypatch.setattr(reader, "EntityReadService", lambda: SimpleNamespace(list_entities_with_support=lambda _: support))
+    monkeypatch.setattr(reader, "project_native_world", lambda *a, **k: "projection")
+    with pytest.raises(reader.GuestNativeGraphError, match="authority changed"):
         reader.read_player_graph(managed_world_id="managed", revision_id="selected")
 
 

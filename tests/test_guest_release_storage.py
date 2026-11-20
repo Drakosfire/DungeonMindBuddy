@@ -117,10 +117,10 @@ def test_source_visibility_change_and_restore_invalidates_candidate(application_
     with pytest.raises(ApplicationStateConflictError):
         guest_release.stage(world_id=world, subject="owner", expected_owner_generation=generation,
             manifest={"assets": [], "sources": [{"id": str(excerpt_id), "text": "wrong"}]}, assets=[],
-            source_bindings=[(excerpt_id, document_id, 0, 0, revision.revision_n, revision.content_sha256, 0, 4, committed.page.object_revision, "native-evidence")], **graph)
+            source_bindings=[(excerpt_id, document_id, 0, 0, revision.revision_n, revision.content_sha256, 0, 4, committed.page.object_revision, "player_safe", "native-evidence")], **graph)
     release_id, digest = guest_release.stage(world_id=world, subject="owner",
         expected_owner_generation=generation, manifest={"assets": [], "sources": [{"id": str(excerpt_id), "text": "safe"}]}, assets=[],
-        source_bindings=[(excerpt_id, document_id, 0, 0, revision.revision_n, revision.content_sha256, 0, 4, committed.page.object_revision, "native-evidence")], **graph)
+        source_bindings=[(excerpt_id, document_id, 0, 0, revision.revision_n, revision.content_sha256, 0, 4, committed.page.object_revision, "player_safe", "native-evidence")], **graph)
     with psycopg.connect(application_state_dsn) as conn:
         conn.execute("UPDATE content.page_metadata SET visibility_state='internal' WHERE work_object_id=%s", (document_id,))
         conn.execute("UPDATE content.page_metadata SET visibility_state='player_safe' WHERE work_object_id=%s", (document_id,))
@@ -173,13 +173,34 @@ def test_source_status_change_and_restore_invalidates_candidate(application_stat
         expected_owner_generation=guest_release.owner_generation(world_id=world, subject="owner"),
         manifest={"assets": [], "sources": [{"id": str(excerpt_id), "text": "safe"}]}, assets=[],
         source_bindings=[(excerpt_id, page.page.work_object_id, 0, 0, revision.revision_n,
-                          revision.content_sha256, 0, 4, committed.page.object_revision, "native-evidence")], **graph)
+                          revision.content_sha256, 0, 4, committed.page.object_revision, "player_safe", "native-evidence")], **graph)
     with psycopg.connect(application_state_dsn) as conn:
         conn.execute("UPDATE content.work_object SET status='discarded' WHERE work_object_id=%s", (page.page.work_object_id,))
         conn.execute("UPDATE content.work_object SET status='active' WHERE work_object_id=%s", (page.page.work_object_id,))
     with pytest.raises(ApplicationStateConflictError):
         _promote(world_id=world, subject="owner", release_id=release_id,
                               digest=digest, expected_version=0)
+
+
+def test_internal_source_can_be_staged_privately_but_visibility_change_invalidates(application_state_dsn):
+    world = create_world(name="Private Source Fixture", owner_subject="owner").record.world_id
+    graph = _bind(application_state_dsn, world)
+    page = create_page(world_id=world, title="Private source", metadata=PageMetadata(visibility_state="internal"))
+    committed, revision = commit_page(str(page.page.work_object_id), "selected", world_id=world,
+        expected_revision=page.page.object_revision, expected_working_copy_revision=None)
+    excerpt_id = uuid4()
+    release_id, digest = guest_release.stage(world_id=world, subject="owner",
+        expected_owner_generation=guest_release.owner_generation(world_id=world, subject="owner"),
+        manifest={"assets": [], "sources": [{"id": str(excerpt_id), "text": "selected"}]}, assets=[],
+        source_bindings=[(excerpt_id, page.page.work_object_id, 0, 0, revision.revision_n,
+            revision.content_sha256, 0, 8, committed.page.object_revision, "internal", "native-evidence")], **graph)
+    assert guest_release.review(world_id=world, subject="owner", release_id=release_id)[0]["sources"][0]["text"] == "selected"
+    assert guest_release.review_source_visibility(world_id=world, subject="owner", release_id=release_id) == {str(excerpt_id): "internal"}
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE content.page_metadata SET visibility_state='player_safe' WHERE work_object_id=%s", (page.page.work_object_id,))
+        conn.execute("UPDATE content.page_metadata SET visibility_state='internal' WHERE work_object_id=%s", (page.page.work_object_id,))
+    with pytest.raises(ApplicationStateConflictError):
+        _promote(world_id=world, subject="owner", release_id=release_id, digest=digest, expected_version=0)
 
 
 def test_unused_generation_bookkeeping_does_not_prevent_deletion(application_state_dsn):
@@ -208,7 +229,7 @@ def test_promotion_observes_concurrent_visibility_withdrawal(application_state_d
         expected_owner_generation=guest_release.owner_generation(world_id=world, subject="owner"),
         manifest={"assets": [], "sources": [{"id": str(excerpt_id), "text": "safe"}]}, assets=[],
         source_bindings=[(excerpt_id, page.page.work_object_id, 0, 0, revision.revision_n,
-                          revision.content_sha256, 0, 4, committed.page.object_revision, "native-evidence")], **graph)
+                          revision.content_sha256, 0, 4, committed.page.object_revision, "player_safe", "native-evidence")], **graph)
     with ThreadPoolExecutor(max_workers=1) as pool:
         with psycopg.connect(application_state_dsn) as conn:
             conn.execute("UPDATE content.page_metadata SET visibility_state='internal' WHERE work_object_id=%s",
@@ -234,7 +255,7 @@ def test_author_edits_do_not_change_staged_or_published_excerpt(application_stat
     release_id, digest = guest_release.stage(world_id=world, subject="owner",
         expected_owner_generation=guest_release.owner_generation(world_id=world, subject="owner"),
         manifest=manifest, assets=[], source_bindings=[(excerpt_id, page.page.work_object_id, 0, 0,
-            revision.revision_n, revision.content_sha256, 0, 5, committed.page.object_revision, "native-evidence")], **graph)
+            revision.revision_n, revision.content_sha256, 0, 5, committed.page.object_revision, "player_safe", "native-evidence")], **graph)
     updated, _ = commit_page(str(page.page.work_object_id), "second version", world_id=world,
         expected_revision=committed.page.object_revision,
         expected_working_copy_revision=committed_page(str(page.page.work_object_id), world_id=world).working_copy_revision)

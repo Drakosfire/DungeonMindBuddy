@@ -18,7 +18,7 @@ def test_experimental_assembly_passes_sanitized_bytes_and_verified_bindings(monk
     monkeypatch.setattr(assembly.guest_release, "owner_generation", lambda **_: 4)
     monkeypatch.setattr(assembly, "read_player_graph", lambda **_: (SimpleNamespace(native_world_id="native", binding_version=2), "graph", "access"))
     excerpt_id, asset_id, doc_id = uuid4(), uuid4(), uuid4()
-    source_binding = (excerpt_id, doc_id, 0, 0, 1, "a" * 64, 0, 4, 3)
+    source_binding = (excerpt_id, doc_id, 0, 0, 1, "a" * 64, 0, 4, 3, "internal")
     monkeypatch.setattr(assembly, "selected_page_excerpt", lambda **_: ({"id": str(excerpt_id), "text": "safe"}, source_binding))
     monkeypatch.setattr(assembly, "verify_source_citation", lambda **_: str(excerpt_id))
     seen = {}
@@ -31,7 +31,7 @@ def test_experimental_assembly_passes_sanitized_bytes_and_verified_bindings(monk
         sources=[assembly.SourceSelection(document_id=doc_id, revision_n=1, sha256="a" * 64, start=0, end=4, excerpt="safe", evidence_id="evidence")],
         asset_ids=[asset_id])
     assembly._prepare_candidate(world_id="world", subject="owner", selection=selection)
-    assert seen["citation_selections"]["edge"][2] == source_binding
+    assert seen["citation_selections"]["edge"][2] == source_binding[:9]
     assert seen["staged"]["assets"][0][2] == b"sanitized"
     assert str(asset_id) not in str(seen["staged"]["manifest"])
     assert seen["staged"]["expected_owner_generation"] == 4

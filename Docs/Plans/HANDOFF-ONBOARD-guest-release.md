@@ -143,8 +143,8 @@ promotion can race a withdrawal committed between the two operations. APP's
 visibility and ownership generations do not observe direct Core withdrawal.
 An epoch check does not prove the earlier strict withdrawal-before-APP-commit
 rule. The owner-adopted cutoff above changes that rule explicitly; do not claim
-the stricter property. Core unavailability, incomplete proof, GM-only evidence,
-or an invalid exact native origin must fail closed. Record the native authority,
+the stricter property. Core unavailability, incomplete proof, evidence outside
+the owner's selected copy, or an invalid exact native origin must fail closed. Record the native authority,
 cutoff epoch, operation ID, principal, candidate digest, source coordinates,
 APP generations, pointer CAS basis and outcome privately. Lost responses must
 recover the committed outcome without republishing a revoked release.
@@ -174,6 +174,25 @@ therefore remains unsatisfied; do not implement the sketch as though it closes
 that interval. A stricter joint fence or a deliberate owner-adopted change to
 the withdrawal cutoff is needed. The adopted cutoff above is that explicit
 change; the stricter cross-authority guarantee is no longer claimed.
+
+## Explicit release-copy visibility decision
+
+Ordinary first-World and Worldbuilding source admissions are GM-only even when
+an individual reviewed Graph assertion is player-visible. The release cannot
+therefore require its private evidence to be player-openable without excluding
+the intended ingestion path. The owner may explicitly select exact excerpts
+from their private source, inspect the final sanitized copy and approve its
+digest for publication. This approval authorizes only that copy; it does not
+change the source's native visibility or grant guests access to the World.
+Graph assertions still come from the player-scoped projection. A separately
+authorized owner/GM source view may verify the selected evidence, but it must
+share the same pinned Graph revision and coherent Core source epoch as the player
+view. Neither view, its identifiers, nor any unselected text is guest output.
+APP source status and visibility changes after staging invalidate the candidate
+even when the original selected visibility was internal. Published copies remain
+independent until release revocation. The owner review must clearly identify
+that selected private excerpts will become public and show their exact final
+contents and assets before approval. Do not automatically release a whole source.
 
 A synchronous Core-owned guard around APP finalization is also insufficient as
 currently specified. Bugbot identified a lock-loss race: the Core connection

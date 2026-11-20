@@ -48,6 +48,7 @@ def test_owner_routes_fail_closed_and_require_owner(monkeypatch):
     assert response.headers["cache-control"] == "no-store"
     release_id, asset_id = uuid4(), uuid4()
     monkeypatch.setattr(guest_releases.guest_release, "review", lambda **_: ({"sources": []}, "a" * 64))
+    monkeypatch.setattr(guest_releases.guest_release, "review_source_visibility", lambda **_: {})
     monkeypatch.setattr(guest_releases.guest_release, "review_asset", lambda **_: ("image/png", b"image"))
     preview = f"/api/live/worlds/world/guest-releases/candidates/{release_id}"
     assert request("GET", preview, headers={"x-test-subject": "other"}).status_code == 403

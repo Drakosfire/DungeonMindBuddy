@@ -28,7 +28,7 @@ def contains_unsupported_destination(text: str) -> bool:
 def selected_page_excerpt(*, world_id: str, document_id: str, revision_n: int,
                           expected_sha256: str, start: int, end: int,
                           expected_excerpt: str) -> tuple[dict, tuple]:
-    """Copy an owner-selected exact span from a currently player-safe page."""
+    """Copy an explicitly selected span for private owner review."""
     if (type(start) is not int or type(end) is not int or start < 0 or end <= start
         or end - start > 20_000 or not isinstance(expected_excerpt, str)):
         raise GuestReleaseSourceError("Invalid source selection")
@@ -37,8 +37,8 @@ def selected_page_excerpt(*, world_id: str, document_id: str, revision_n: int,
     with unit_of_work(pages._dsn()) as conn:
         conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         state = pages._state(conn, document_id, world_id)
-        if state.page.status != "active" or state.metadata.visibility_state != "player_safe":
-            raise GuestReleaseSourceError("Source is not player-safe")
+        if state.page.status != "active" or state.metadata.visibility_state not in {"internal", "player_safe"}:
+            raise GuestReleaseSourceError("Source is unavailable")
         revision = repository.get_work_revision_by_n(conn, state.page.work_object_id, revision_n)
         if revision is None or revision.work_object_id != state.page.work_object_id or revision.world_id != world_id:
             raise GuestReleaseSourceError("Source revision unavailable")
@@ -66,4 +66,4 @@ def selected_page_excerpt(*, world_id: str, document_id: str, revision_n: int,
     excerpt_id = uuid4()
     return ({"id": str(excerpt_id), "text": expected_excerpt},
             (excerpt_id, state.page.work_object_id, generation[0], generation[1],
-             revision_n, expected_sha256, start, end, state.page.object_revision))
+             revision_n, expected_sha256, start, end, state.page.object_revision, state.metadata.visibility_state))

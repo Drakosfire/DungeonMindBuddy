@@ -42,7 +42,7 @@ def validate_candidate(*, world_id: str, subject: str, release_id: UUID, digest:
         or set(sources) != set(source_bindings)):
         raise GuestReleaseValidationError("Release binding closure failed")
     for excerpt_id, source_binding in source_bindings.items():
-        verify_source_citation(evidence_id=source_binding[9], access=access, excerpt=sources[excerpt_id],
+        verify_source_citation(evidence_id=source_binding[10], access=access, excerpt=sources[excerpt_id],
             source_binding=source_binding[:9], expected_native_world_id=binding.native_world_id,
             expected_graph_revision=material["graph_revision"])
     for local_id, native_id in node_bindings.items():

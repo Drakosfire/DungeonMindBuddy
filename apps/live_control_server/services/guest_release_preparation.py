@@ -69,7 +69,7 @@ def _prepare_candidate(*, world_id: str, subject: str, selection: ReleaseSelecti
             revision_n=source.revision_n, expected_sha256=source.sha256, start=source.start,
             end=source.end, expected_excerpt=source.excerpt)
         verify_source_citation(evidence_id=source.evidence_id, access=access, excerpt=excerpt,
-            source_binding=source_binding, expected_native_world_id=binding.native_world_id,
+            source_binding=source_binding[:9], expected_native_world_id=binding.native_world_id,
             expected_graph_revision=selection.graph_revision)
         sources.append(excerpt)
         bindings.append((*source_binding, source.evidence_id))
