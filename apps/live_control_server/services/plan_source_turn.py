@@ -9,7 +9,8 @@ import json
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation.plan_source_context import validate_source_execution_binding
 from ..integrations.dungeonmind.native_corpus_source import (
-    prepare_native_source_context, turn_parsed_revision_cache, turn_source_repository,
+    NativeSourceHeadUnavailable, prepare_native_source_context,
+    turn_parsed_revision_cache, turn_source_repository,
 )
 
 
@@ -21,25 +22,19 @@ def prepare(managed_world_id, principal, *, revision_id=None, repository=None, r
     """
     if principal is None or principal.role != "gm":
         raise ValueError("GM authority is required for Plan source inspection")
-    if resolve_identity is None:
-        from .managed_world_graph_projection import resolve_managed_source_identity
-        resolve_identity = resolve_managed_source_identity
-    bound = resolve_identity(managed_world_id)
-    if bound.managed_world_id != managed_world_id:
-        raise ValueError("Plan source identity differs from requested World")
     parsed_cache = None
     if repository is None:
         repository = turn_source_repository()
         parsed_cache = turn_parsed_revision_cache
-    head = repository.get_head(bound.native_world_id) if revision_id is None else None
-    if revision_id is None and head is None:
+    try:
+        context = prepare_native_source_context(
+            managed_world_id=managed_world_id, principal=principal,
+            revision_id=revision_id, repository=repository,
+            resolve_identity=resolve_identity, parsed_cache=parsed_cache,
+        )
+    except NativeSourceHeadUnavailable:
         return None, t.NativeCorpusUnavailableV1(managed_world_id=managed_world_id,
             failure_code="native_source_head_unavailable")
-    context = prepare_native_source_context(managed_world_id=managed_world_id,
-        principal=principal, revision_id=revision_id or head.head_revision_id,
-        repository=repository, resolve_identity=resolve_identity, parsed_cache=parsed_cache)
-    if context.binding != bound:
-        raise ValueError("Plan source ownership changed during composition")
     return context, context.authority
 
 

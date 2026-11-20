@@ -63,6 +63,10 @@ def _ref(ref, family):
             "descriptor_sha256": ref.descriptor_sha256}
 
 
+class NativeSourceHeadUnavailable(ValueError):
+    """The verified source owner has no current KnowledgeSpace revision."""
+
+
 def prepare_native_source_context(*, managed_world_id, principal, revision_id=None,
                                   repository=None, resolve_identity=None, parsed_cache=None):
     """Freeze membership in R and one coherent acquisition epoch, never latest IDs.
@@ -87,7 +91,7 @@ def prepare_native_source_context(*, managed_world_id, principal, revision_id=No
     if revision_id is None:
         head = repo.get_head(space)
         if head is None:
-            raise ValueError("Native source authority has no head")
+            raise NativeSourceHeadUnavailable("Native source authority has no head")
         revision_id = head.head_revision_id
     def resolve_domain(domain_ref, profile_ref):
         domain, _ = resolve_dungeonbuddy_descriptors(domain_ref=domain_ref, profile_ref=profile_ref)

@@ -433,7 +433,12 @@ def test_turn_source_preparation_reuses_only_immutable_revision(lane, monkeypatc
         return load(space, revision)
 
     monkeypatch.setattr(lane.repo, "get_revision", read_revision)
-    resolve = lambda _: lane.bound
+    resolutions = []
+
+    def resolve(world):
+        resolutions.append(world)
+        return lane.bound
+
     previous_principal = SimpleNamespace(role="gm", managed_world_id="managed")
     current_principal = SimpleNamespace(role="gm", managed_world_id="managed")
     first, _ = plan_source_turn.prepare("managed", previous_principal, resolve_identity=resolve)
@@ -443,6 +448,7 @@ def test_turn_source_preparation_reuses_only_immutable_revision(lane, monkeypatc
     assert first.principal is previous_principal
     assert second.principal is current_principal
     assert revision_reads == [(lane.bound.native_world_id, first.authority.revision_id)] * 2
+    assert resolutions == ["managed"] * 4
 
     evidence_id = receipt.bindings[0].evidence_ref_id
     assert open_native_corpus_member(second, evidence_id) is not None
@@ -463,3 +469,23 @@ def test_turn_source_preparation_reuses_only_immutable_revision(lane, monkeypatc
     with pytest.raises(ValueError, match="principal World"):
         plan_source_turn.prepare("managed", SimpleNamespace(role="gm", managed_world_id="foreign"),
                                  resolve_identity=resolve)
+
+
+def test_turn_source_preparation_distinguishes_missing_head_from_binding_changes(lane, monkeypatch):
+    from apps.live_control_server.services import plan_source_turn
+
+    principal = SimpleNamespace(role="gm", managed_world_id="managed")
+    admit(lane)
+    with monkeypatch.context() as patch:
+        patch.setattr(lane.repo, "get_head", lambda _: None)
+        context, authority = plan_source_turn.prepare(
+            "managed", principal, repository=lane.repo, resolve_identity=lambda _: lane.bound,
+        )
+    assert context is None
+    assert authority.failure_code == "native_source_head_unavailable"
+
+    changes = iter((lane.bound, None))
+    with pytest.raises(ValueError, match="ownership changed during context preparation"):
+        plan_source_turn.prepare(
+            "managed", principal, repository=lane.repo, resolve_identity=lambda _: next(changes),
+        )
