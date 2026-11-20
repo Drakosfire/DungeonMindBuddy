@@ -1939,3 +1939,255 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
     assert resolve_promotable_ingest_run(run_b, root=repo).data.source_bytes == source_bytes_b
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
+
+
+def _immutable_worldbuilding_plan(monkeypatch, *, mode="create"):
+    from apps.live_control_server.models.extract_promote import (
+        WorldbuildingPublicationBinding, WorldbuildingSourceAdmissionBinding,
+    )
+    from apps.live_control_server.services import worldbuilding_graph_publication as service
+
+    monkeypatch.setenv(service._PREPARE_BINDING_KEY_ENV, "immutable-worldbuilding-fixture-key")
+    context = _memory_context()
+    dispositions = _dispositions()
+    if mode == "bind":
+        target = MutationObject(object_id="npc:exact", label="Existing", kind="npc",
+                                canon_state="canonical", memory_state="graph_read_model")
+        context = _memory_context(objects={target.object_id: target})
+        dispositions[0] = {"assertion_id": "wb_node_0", "decision": "bind_existing", "target_node_id": target.object_id}
+    elif mode == "reject":
+        dispositions[2] = {"assertion_id": "wb_edge_0", "decision": "reject"}
+    elif mode == "defer":
+        dispositions[1] = {"assertion_id": "wb_node_1", "decision": "defer"}
+        dispositions[2] = {"assertion_id": "wb_edge_0", "decision": "defer"}
+    kwargs = _plan_kwargs(context, dispositions=dispositions)
+    kwargs.update(campaign_scope=None, source_revision_id="sha256:" + "ab" * 32)
+    kwargs["preview"] = replace(kwargs["preview"], campaign_id=None)
+    if mode == "governs":
+        preview = kwargs["preview"]
+        kwargs["preview"] = replace(preview,
+            nodes=(replace(preview.nodes[0], node_type="organization"), *preview.nodes[1:]),
+            edges=tuple(replace(edge, relationship_type="governs", label="governs") for edge in preview.edges))
+    if mode == "observation":
+        from graph_memory.candidate_graph_preview import CandidateSourceObservation
+        node = kwargs["preview"].nodes[0]
+        observation = CandidateSourceObservation(
+            observation_id="wb_observation_0", subject_candidate_node_id=node.node_id,
+            title="A source observation", description="A retained statement about the subject.",
+            semantic_state=node.semantic_state, evidence_refs=node.evidence_refs, confidence=node.confidence,
+        )
+        from graph_memory.extraction.worldbuilding_definition_observations import GAZETTEER_DEFINITION_OBSERVATION_PROFILE
+        kwargs["preview"] = replace(kwargs["preview"], version="0.2", source_observations=(observation,))
+        kwargs["extraction_profile"] = GAZETTEER_DEFINITION_OBSERVATION_PROFILE.qualified_id
+        dispositions.append({"assertion_id": observation.observation_id, "decision": "accept"})
+    built = build_worldbuilding_write_plan(**kwargs)
+    plan = _wrap_built_plan(built)
+    plan = plan.model_copy(update={
+        "publication_binding": WorldbuildingPublicationBinding(
+            managed_world_id="managed-history", native_world_id=plan.world_id,
+            binding_version=1, document_id="doc:retained", document_revision=1,
+            source_artifact_id=plan.source_artifact_id, source_sha256="ab" * 32,
+        ),
+        "source_admission": WorldbuildingSourceAdmissionBinding(
+            source_artifact_id=plan.source_artifact_id, source_revision_id="revision:admitted-history",
+            content_sha256="ab" * 32, buddy_source_revision_id=plan.source_revision_id,
+            source_locator="object://retained-worldbuilding-revision", artifact_uri="object://original-source",
+            catalog_fingerprint_sha256="cd" * 32,
+        ),
+    })
+    signature = service._sign_prepare_binding(
+        world_id=plan.world_id, parent_revision_id=plan.parent_revision_id,
+        plan_id=plan.plan_id, plan_digest=plan.plan_digest,
+        identity_snapshot_digest=service._identity_snapshot_digest(service._identity_snapshot_payload(plan)),
+        publication_binding=plan.publication_binding.model_dump(mode="json"),
+        source_admission=plan.source_admission.model_dump(mode="json"),
+        native_vocabulary_binding=plan.native_vocabulary_binding.model_dump(mode="json", by_alias=True),
+    )
+    return plan.model_copy(update={"prepare_binding": signature})
+
+
+def test_immutable_worldbuilding_plan_authenticates_complete_real_builder_effect(monkeypatch):
+    from graph_memory.worldbuilding_write_plan import _canonical_effect
+    from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import authenticate_original_plan
+    from apps.live_control_server.services import worldbuilding_graph_publication as service
+
+    plan = _immutable_worldbuilding_plan(monkeypatch)
+    def forbidden(*args, **kwargs):
+        pytest.fail("original plan authentication consulted mutable authority")
+    for name in ("resolve_promotable_ingest_run", "_registered_publication_binding",
+                 "_worldbuilding_native_vocabulary_binding", "_reprove_source_admission"):
+        monkeypatch.setattr(service, name, forbidden)
+    assert authenticate_original_plan(plan) == _canonical_effect(plan.effect.model_dump(mode="json", by_alias=True))
+
+
+@pytest.mark.parametrize("change", [
+    "digest", "id", "decision_digest", "effect", "identity", "admitted_revision", "binding_version",
+    "rehashed_effect", "missing_admission", "missing_identity", "legacy_schema", "legacy_version", "lost_key",
+])
+def test_immutable_worldbuilding_plan_rejects_changed_or_unsupported_original(monkeypatch, change):
+    from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import authenticate_original_plan
+    from apps.live_control_server.services import worldbuilding_graph_publication as service
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+    from graph_memory.worldbuilding_write_plan import _canonical_effect, _digest
+
+    plan = _immutable_worldbuilding_plan(monkeypatch).model_copy(deep=True)
+    if change == "digest":
+        plan.plan_digest = "sha256:" + "ef" * 32
+    elif change == "id":
+        plan.plan_id = "worldbuilding-write-plan:" + "1" * 24
+    elif change == "decision_digest":
+        plan.decision_digest = "sha256:" + "ef" * 32
+    elif change in {"effect", "rehashed_effect"}:
+        plan.effect.accepted_proposals[0].label = "Changed after prepare"
+        if change == "rehashed_effect":
+            effect = _canonical_effect(plan.effect.model_dump(mode="json", by_alias=True))
+            identity = {key: getattr(plan, key) for key in (
+                "world_id", "parent_revision_id", "run_id", "source_domain", "source_artifact_id",
+                "source_revision_id", "extraction_profile", "candidate_preview_id", "candidate_schema", "candidate_version",
+            )}
+            identity.update(decision_snapshot=effect["decision_snapshot"], effect=effect)
+            plan.plan_digest = _digest(identity)
+            plan.plan_id = "worldbuilding-write-plan:" + plan.plan_digest.removeprefix("sha256:")[:24]
+    elif change == "identity":
+        plan.effect.identity_authority.identity_redirects["old"] = "different"
+    elif change == "admitted_revision":
+        plan.source_admission.source_revision_id = "revision:foreign"
+    elif change == "binding_version":
+        plan.publication_binding.binding_version = 2
+    elif change == "missing_admission":
+        plan.source_admission = None
+    elif change == "missing_identity":
+        plan.effect.identity_authority = None
+    elif change == "legacy_schema":
+        plan.schema_ = "dmb_worldbuilding_write_plan_v1"
+    elif change == "legacy_version":
+        plan.version = 1
+    else:
+        monkeypatch.setenv(service._PREPARE_BINDING_KEY_ENV, "different-process-key")
+    with pytest.raises(ExtractPromoteError) as error:
+        authenticate_original_plan(plan)
+    assert error.value.status_code == 409
+
+
+
+def _reseal_immutable_worldbuilding_plan(plan):
+    """Sign a deliberately inconsistent effect to reach producer crosslink checks."""
+    from graph_memory.worldbuilding_write_plan import _canonical_effect, _digest
+    from apps.live_control_server.services import worldbuilding_graph_publication as service
+    effect = _canonical_effect(plan.effect.model_dump(mode="json", by_alias=True))
+    identity = {key: getattr(plan, key) for key in (
+        "world_id", "parent_revision_id", "run_id", "source_domain", "source_artifact_id",
+        "source_revision_id", "extraction_profile", "candidate_preview_id", "candidate_schema", "candidate_version",
+    )}
+    identity.update(decision_snapshot=effect["decision_snapshot"], effect=effect)
+    plan.plan_digest = _digest(identity)
+    plan.plan_id = "worldbuilding-write-plan:" + plan.plan_digest.removeprefix("sha256:")[:24]
+    plan.decision_digest = _digest(effect["decision_snapshot"])
+    plan.prepare_binding = service._sign_prepare_binding(
+        world_id=plan.world_id, parent_revision_id=plan.parent_revision_id,
+        plan_id=plan.plan_id, plan_digest=plan.plan_digest,
+        identity_snapshot_digest=service._identity_snapshot_digest(service._identity_snapshot_payload(plan)),
+        publication_binding=plan.publication_binding.model_dump(mode="json"),
+        source_admission=plan.source_admission.model_dump(mode="json"),
+        native_vocabulary_binding=plan.native_vocabulary_binding.model_dump(mode="json", by_alias=True),
+    )
+    return plan
+
+
+@pytest.mark.parametrize("mode", ["create", "bind", "defer", "observation"])
+def test_immutable_worldbuilding_real_producer_decision_shapes(monkeypatch, mode):
+    from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import authenticate_original_plan
+    plan = _immutable_worldbuilding_plan(monkeypatch, mode=mode)
+    effect = authenticate_original_plan(plan)
+    assert effect["decision_snapshot"]
+    if mode == "observation":
+        assert "wb_observation_0" not in effect["identity_outcome_snapshot"]
+    if mode == "bind":
+        assert effect["node_id_map"]["wb_node_0"] == "npc:exact"
+
+
+@pytest.mark.parametrize("change", ["new_target", "bind_target", "extra_node", "duplicate_owner", "outcome"])
+def test_immutable_worldbuilding_signed_inconsistent_crosslinks_fail(monkeypatch, change):
+    from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import authenticate_original_plan
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+    plan = _immutable_worldbuilding_plan(monkeypatch, mode="bind" if change == "bind_target" else "create")
+    if change in {"new_target", "bind_target"}:
+        plan.effect.node_id_map["wb_node_0"] = "node:forged"
+        ids = plan.effect.candidate_effect_map["wb_node_0"]
+        for assertion in plan.effect.accepted_proposals:
+            if assertion.assertion_id in ids:
+                assertion.subject_node_id = "node:forged"
+    elif change == "extra_node":
+        plan.effect.node_id_map["not-a-decision"] = "node:extra"
+    elif change == "duplicate_owner":
+        plan.effect.candidate_effect_map["wb_edge_0"] += plan.effect.candidate_effect_map["wb_node_0"]
+    else:
+        plan.effect.identity_outcome_snapshot["wb_node_0"] = "human_override"
+    plan = _reseal_immutable_worldbuilding_plan(plan)
+    with pytest.raises(ExtractPromoteError) as error:
+        authenticate_original_plan(plan)
+    assert error.value.code == "plan_verification_failed"
+
+
+@pytest.mark.parametrize("mode", ["create", "bind", "defer", "observation", "reject", "governs"])
+def test_immutable_worldbuilding_typed_mapping_uses_only_authenticated_evidence(monkeypatch, mode):
+    from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import reconstruct_original_mapping
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes as writes
+    plan = _immutable_worldbuilding_plan(monkeypatch, mode=mode)
+    def forbidden(*args, **kwargs):
+        pytest.fail("typed historical mapping reopened current source evidence")
+    monkeypatch.setattr(writes, "_recap_extraction_evidence_view", forbidden)
+    contribution, mapped = reconstruct_original_mapping(plan)
+    assert mapped.schema_version == "dm_graph_contribution_v3"
+    assert len(mapped.assertions) == len(contribution.accepted_assertions) + len(contribution.rejected_assertions)
+    for assertion in mapped.assertions:
+        for ref in assertion.evidence_refs:
+            assert ref.source_revision_id == plan.source_admission.source_revision_id
+            assert ref.source_domain_key == "worldbuilding"
+            assert ref.can_open_source and ref.can_highlight_span and ref.source_span_ref_id
+            assert ref.locator is None and ref.uri is None and ref.source_locator is None
+
+
+
+@pytest.mark.parametrize("conflict", [False, True])
+def test_immutable_worldbuilding_operation_wide_evidence_identity(monkeypatch, conflict):
+    from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import reconstruct_original_mapping
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+    plan = _immutable_worldbuilding_plan(monkeypatch)
+    first, second = plan.effect.accepted_proposals[:2]
+    row = dict(first.value["evidence"][0])
+    raw_id = row["evidence_ref_id"]
+    if conflict:
+        row["source_span_ref_id"] = "span:conflicting-retained-binding"
+    second.value["evidence"][0] = row
+    second.evidence_ref_ids[0] = raw_id
+    plan = _reseal_immutable_worldbuilding_plan(plan)
+    if conflict:
+        with pytest.raises(ExtractPromoteError) as error:
+            reconstruct_original_mapping(plan)
+        assert error.value.code == "plan_verification_failed"
+    else:
+        _, mapped = reconstruct_original_mapping(plan)
+        assert mapped.assertions
+
+
+def test_immutable_worldbuilding_governs_matches_original_qualification_without_preview_replay(monkeypatch):
+    from graph_memory.worldbuilding_write_plan import _canonical_effect, materialize_worldbuilding_contribution
+    from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import reconstruct_original_mapping
+    from apps.live_control_server.services import worldbuilding_graph_publication as service
+    plan = _immutable_worldbuilding_plan(monkeypatch, mode="governs")
+    preview = _preview()
+    preview = replace(preview, campaign_id=None,
+        nodes=(replace(preview.nodes[0], node_type="organization"), *preview.nodes[1:]),
+        edges=tuple(replace(edge, relationship_type="governs", label="governs") for edge in preview.edges))
+    expected_effect = service._qualify_worldbuilding_native_edges(
+        preview=preview, effect=_canonical_effect(plan.effect.model_dump(mode="json", by_alias=True)),
+        native_vocabulary_binding=plan.native_vocabulary_binding.model_dump(mode="json", by_alias=True),
+    )
+    expected = materialize_worldbuilding_contribution(world_id=plan.world_id, plan_digest=plan.plan_digest, effect=expected_effect)
+    monkeypatch.setattr(service, "_qualify_worldbuilding_native_edges",
+                        lambda *a, **k: pytest.fail("recovery repeated fresh preview admission"))
+    actual, mapped = reconstruct_original_mapping(plan)
+    assert actual.model_dump(mode="json") == expected.model_dump(mode="json")
+    assert any(item.predicate == "dnd5e:governs" for item in mapped.assertions)

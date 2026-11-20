@@ -77,6 +77,10 @@ qualifier with a synthetic preview: original preview/endpoint-kind checks are no
 fully retained and cannot authorize a fresh publication.
 
 Materialize the entire authenticated effect with materialize_worldbuilding_contribution.
+Apply the original pure _worldbuilding_expressible identity-outcome transport
+normalization before Core mapping, preserving contribution/assertion IDs and all
+partitions. The contribution author remains its original constant; the review
+actor remains str(plan.run_id). Neither is rewritten to the current principal.
 Preserve accepted/rejected assertions, deferred/unresolved mentions, aliases,
 identity authority/redirects, corrections, diagnostics, scope and exact IDs.
 Reconstruct typed evidence from the authenticated value.evidence rows, not terminal
@@ -137,6 +141,17 @@ DB cohorts after the prior shared-service connection-loss diagnostics. Preserve
 failures; no retrieval baseline/provider experiment or new full-discovered run
 absent an actual frontend change/concern. Independent exact cumulative source/
 evidence review and expected-head authorized merge are required.
+
+## Implementation checkpoint
+
+Pure original-plan authentication and typed effect/evidence reconstruction are
+implemented in the new helper. Working owning-file diagnostic:61pass,17retained
+warnings; changed helper/test Ruff and diff checks pass. This includes genuine
+create/bind/defer/reject/observation/governs recipes, independently signed
+inconsistent crosslinks and operation-wide evidence collisions. Full terminal
+candidate/review equality, bare SQL, mounted owner/binding integration and prepare
+retirement remain pending. Current routes have not changed in this checkpoint.
+This is draft groundwork, not final qualification, merge or deployment acceptance.
 
 ## Full goal and resources
 
