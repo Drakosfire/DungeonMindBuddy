@@ -464,24 +464,28 @@ class SurfaceNativeExecutionV1(Strict):
 
 
 def validate_context_binding(context, execution) -> SurfaceNativeExecutionV1:
-    """Validate both mutable components and return the freshly reconstructed execution.
+    """Validate both mutable components and return the reconstructed execution."""
+    _, validated = _revalidate_context_binding(context, execution)
+    return validated
 
-    Joining their real work and record owners grants no IO authority.
-    """
+
+def _revalidate_context_binding(context, execution):
+    """Return the freshly decoded pair after checking its context binding."""
     if type(context) is not SurfaceNativeContextReceiptV1 or type(execution) is not SurfaceNativeExecutionV1:
         raise ValueError("Native execution requires its concrete shared context")
     context = SurfaceNativeContextReceiptV1.model_validate(context.model_dump(mode="python", by_alias=True))
     execution = SurfaceNativeExecutionV1.model_validate(execution.model_dump(mode="python", by_alias=True))
-    return _join_context_binding(context, execution)
+    return context, _join_context_binding(context, execution)
 
 
 def _validate_owned_context_binding(context, execution):
     """Run the complete predicate owners on APP's exclusively owned prefix.
 
-    This pure function grants no IO authority. Its sole session caller must
-    prove fresh storage equality and nonescaping prefix ownership, strictly
-    decode the new event group, and preserve the validated header/prefix. Initial
-    admission, recovery and the real writer frontier still use the full codec.
+    This pure function grants no IO authority. A session caller must prove
+    current storage equality and strictly decode any new events. Retained
+    completion checking uses an exact slice of its already validated parent.
+    Both callers preserve nonescaping ownership of the typed components.
+    Initial admission, recovery and the actual writer frontier use the full codec.
     """
     if type(context) is not SurfaceNativeContextReceiptV1 or type(execution) is not SurfaceNativeExecutionV1:
         raise ValueError('Owned native binding requires its concrete complete components')
@@ -598,7 +602,7 @@ def validate_submission(submission):
 
 def validate_turn_fields(receipt, execution, provenance, intent_fingerprint, completion, assistant_text):
     """Read structural commitments without treating them as producer acceptance."""
-    validate_context_binding(receipt, execution)
+    receipt, execution = _revalidate_context_binding(receipt, execution)
     if (t.canonical_sha256(provenance) != receipt.provenance_sha256
             or t.submitted_turn_intent_fingerprint_v2(execution.policy.action.intent) != intent_fingerprint):
         raise ValueError("Stored shared native request or provenance differs from admission")

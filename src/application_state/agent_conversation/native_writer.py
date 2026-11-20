@@ -94,6 +94,10 @@ def model_frame(receipt, execution, *, schema=SCHEMA, passages_only=False):
     if (type(receipt), type(execution)) != (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1):
         raise ValueError("Native writer requires its exact shared receipt and execution")
     validate_execution_binding(receipt, execution)
+    return _model_frame_from_validated_prefix(receipt, execution, schema=schema, passages_only=passages_only)
+
+
+def _model_frame_from_validated_prefix(receipt, execution, *, schema=SCHEMA, passages_only=False):
     if any(type(event) in NATIVE_WRITER_TYPES for event in execution.events):
         raise ValueError("Native evidence projection requires the prefix before its writer")
     from .native_execution import effective_native_query
