@@ -157,8 +157,10 @@ implemented or enabled:
   exact creator and World. Ownership transfer never transfers that admission;
   revocation retains a tombstone. Revocation and disabling govern subsequent
   authoritative checks; an already-authorized operation may finish, so do not
-  promise in-flight cancellation. Every worker reads current policy at relevant
-  checks; policy lookup failure denies. Preserve owning-boundary rechecks.
+  promise in-flight cancellation. For requests relying on dynamic admission,
+  every worker reads current policy at relevant checks and policy lookup failure
+  denies; independent valid static grants remain available. Preserve
+  owning-boundary rechecks.
 - **Abuse limits:** require finite operator-supplied creation and rate limits
   before enabling. Reject malformed/oversize input and enforce shared durable
   per-subject throttling before the catalog-wide lock. Check and consume the
@@ -169,9 +171,10 @@ implemented or enabled:
   World appears in its owner's list immediately; source admission and a
   reviewed first Graph remain separate states. Failure must not claim success.
 
-Review must settle rejected-attempt accounting, rate-window clock and cleanup,
-and whether any access path bypasses the shared decision. Implementation stays
-blocked until critique and the exact write-set/migration collision audit finish.
+Review must verify no access path bypasses the shared decision. The refinements
+below settle rejected-attempt accounting and rate-window behavior. Implementation
+stays blocked until the exact write-set/migration collision audit and bounded
+implementation assignment finish.
 
 ### Admission decision refinements
 
