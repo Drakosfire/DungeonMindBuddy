@@ -29,12 +29,38 @@ Graph head, or authorize public/anonymous access.
   request manufacture or expand arbitrary access. A successful create followed
   by a permanently inaccessible World is not success. Do not silently waive the
   allowlist or modify environment configuration per request.
+- Inspection of current middleware also found an independent allowlist check
+  after route resolution, while World listing and saved-art lookup enumerate the
+  static allowlist. Updating only the create route or `_owned_world` would make
+  some actions fail and could produce inconsistent security decisions.
 - Open draft #3824 touches hosted authorization, routing and their tests. Before
   activation, inspect its current head and active write lease; serialize or use
   an explicitly agreed region split. No dependency on its draft head is implied
   merely by a file overlap.
 
 ## Proposed bounded delivery
+
+Candidate admission design for independent security review: retain the existing
+static allowlist unchanged and add a separately enabled, durable owner-created
+admission. In one database transaction create the World and a server-owned
+admission record binding its exact ID to the verified creator. Only records
+created by this narrowly authorized path qualify; pre-existing ownership alone
+must not convert older Worlds into admitted Worlds. An operator-controlled
+deployment setting is off by default and controls creation and use of this
+additional admission. Revocation or disabling it must fail closed, without
+changing existing static grants. Do not store subjects, World IDs or admissions
+in browser-controlled state as authority.
+
+The candidate requires one shared, consistent admission decision across the
+middleware, owner revalidation, World listing and resource-to-World discovery
+such as saved artwork. Check every call site rather than assuming these are the
+complete set. The migration must not backfill admissions for historical Worlds;
+atomic rollback must leave neither an admitted orphan nor a visible World when
+creation fails. Define recovery and same-name idempotence without permitting an
+existing local World to be adopted. Require bounded creation and abuse controls
+before enabling the feature; preserve a way to revoke the feature and a single
+World's admission independently. This is a design candidate, not an approved
+or implemented access policy.
 
 One implementation PR: authenticated hosted creation and owner-visible recovery
 using a code-owned exact create capability, with owner derived only from the
