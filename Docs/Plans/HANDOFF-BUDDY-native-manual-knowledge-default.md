@@ -198,3 +198,35 @@ identical; journal attempt metadata changes. Concurrent tabs with one old raw
 snapshot cannot both dispatch. Stale completion/refusal writes cannot replace
 the newer marker or clear sticky uncertainty. Later refusal preserves current
 dispatch bytes and never permits archive/fresh authoring.
+
+Parallel ownership checkpoint (same serial PR4207, no scope increase): root
+exclusively edited BuildManualKnowledge.test.tsx, BuildRunReview.test.tsx and
+liveApi.nativeGraphExplorerAuth.test.ts; worker retained implementation, new
+tests, handoff and inventory. Root's root-integration-diagnostic-1.log is a
+working-tree result: 215PASS (168 transport, 29 mounted parent, 18 dispatcher),
+Node22.23.0/Vitest3.2.4 max2 under actual shared global flock; session3265
+TERMINAL0. This is not final committed-head qualification. Dispatcher tests mock
+the native child boundary: old fresh-classic expectations were intentionally
+replaced by native dispatch/retired fresh-classic/retained original legacy packet
+recovery and fresh-selector guard proofs. The separate real Native component
+mocked-API cohort has16 tests; unchanged legacy codec tests remain required in
+combined validation, not silently removed or claimed executed here.
+
+Worker retry repair8310461e9a41a23c9ed33c66a5ed8bf4bdbb11c0 is pushed.
+Same-operation-diagnostic-3.log: 62PASS (24 API,22 recovery,16 component), working
+source before repair commit, not integrated final-head execution. Earlier
+diagnostic1/2 failures retained: whole-journal equality assumptions changed to
+exact original packet plus monotonic attempt metadata; no sticky-unknown waiver.
+No Node jobs remained at handback; root owns its separate three-file commit.
+
+Pre-integration proof closure: pending-race-diagnostic-1.log 18PASS explicitly
+exercises manual AND profile first request pending, second identical packet
+pending, first verified-zero response, reload/archive/fresh blocked, then second
+verified receipt. Worker-owning-diagnostic-5.log 67PASS (24 API,22 recovery,21
+component); application and verification tsc both exit0. Added actual component
+checks for same-name distinct endpoint selection, contradictory frozen-span
+provenance refusal and corrupt retained relationship refusal with raw retention
+and no fresh reads/dispatch. API/backend still own authoritative admission; UI
+transport mocked. Legacy-codec-diagnostic-1.log selected6 unchanged codec tests
+and18 dispatcher tests, all24PASS. Earlier red logs remain retained. These are
+pre-main-integration working-source results, not new-head execution claims.

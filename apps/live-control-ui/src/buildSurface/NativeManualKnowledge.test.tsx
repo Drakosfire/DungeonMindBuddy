@@ -1,5 +1,5 @@
 import {webcrypto} from 'node:crypto';
-import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {act,cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import {NativeManualKnowledge} from './NativeManualKnowledge';
 import * as api from '../api/nativeManualKnowledgeApi';
@@ -141,4 +141,63 @@ it('reflects a new same-scope retained packet without fresh context reads',async
  // Select a valid witness from current LF source for this external-tab fixture.
  value.operation.stage==='manual'&&(value.operation.request.witness=api.clone(context.spans[0]));if(value.operation.stage==='manual'){value.operation.witnessText=new TextDecoder().decode(new TextEncoder().encode(markdown).slice(context.spans[0].startByte,context.spans[0].endByte));value.operation.plan=await serverPlan(value.operation.request);}
  const old=await journal.store(scope,value,null);vi.mocked(api.readManualContext).mockClear();view.rerender(<NativeManualKnowledge scope={scope} initial={old} getFresh={getFresh} isCurrent={isCurrent} onRetained={vi.fn()}/>);await waitFor(()=>expect(screen.getByRole('button',{name:'Retry original confirmation'})).toBeEnabled());expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();expect(api.readManualContext).not.toHaveBeenCalled();
+});
+
+it.each(['manual','profile'] as const)('keeps %s first-pending then retry-pending ambiguity despite the first verified-zero response',async stage=>{
+ let rejectFirst!:(error:Error)=>void,resolveSecond!:(value:never)=>void;
+ const first=new Promise<never>((_resolve,reject)=>{rejectFirst=reject;});
+ const second=new Promise<never>(resolve=>{resolveSecond=resolve;});
+ const operation=stage==='manual'?{stage:'manual' as const,request:wire.request,plan:wire.plan,witnessText:wire.witnessText}:
+  {stage:'profile' as const,request:wire.profileRequest,plan:wire.profilePlan};
+ const prepared=await journal.store(scope,journal.freshRecovery(scope,operation),null);
+ if(stage==='manual')vi.mocked(api.confirmManual).mockImplementationOnce(()=>first).mockImplementationOnce(()=>second);
+ else vi.mocked(api.confirmProfile).mockImplementationOnce(()=>first).mockImplementationOnce(()=>second);
+ const a=mount(prepared),qa=within(a.container);
+ await waitFor(()=>expect(qa.getByRole('button',{name:stage==='manual'?'Confirm World change':'Confirm World capability adoption'})).toBeEnabled());
+ fireEvent.click(qa.getByRole('button',{name:stage==='manual'?'Confirm World change':'Confirm World capability adoption'}));
+ await waitFor(()=>expect(stage==='manual'?api.confirmManual:api.confirmProfile).toHaveBeenCalledTimes(1));
+ const firstPending=journal.discover(scope).native!;expect(firstPending.value.attempts).toBe(1);
+ const b=mount(firstPending),qb=within(b.container);
+ await waitFor(()=>expect(qb.getByRole('button',{name:'Retry original confirmation'})).toBeEnabled());
+ fireEvent.click(qb.getByRole('button',{name:'Retry original confirmation'}));
+ await waitFor(()=>expect(stage==='manual'?api.confirmManual:api.confirmProfile).toHaveBeenCalledTimes(2));
+ const secondPending=journal.discover(scope).native!;expect(secondPending.value.attempts).toBe(2);
+ expect(secondPending.value.operation).toEqual(prepared.value.operation);
+ await act(async()=>rejectFirst(new api.ManualApiError('first verified zero',409,'manual_parent_stale',false,true)));
+ expect(journal.discover(scope).native!.raw).toBe(secondPending.raw);
+ await expect(journal.archive(scope,secondPending)).rejects.toThrow(/uncertain/);
+ const reload=mount(journal.discover(scope).native!),qr=within(reload.container);
+ await waitFor(()=>expect(qr.getByRole('button',{name:'Retry original confirmation'})).toBeEnabled());
+ expect(qr.queryByRole('button',{name:'Set aside retained review and refresh'})).not.toBeInTheDocument();
+ expect(api.prepareManual).not.toHaveBeenCalled();expect(api.prepareProfile).not.toHaveBeenCalled();expect(getFresh).not.toHaveBeenCalled();
+ expect(api.readManualContext).not.toHaveBeenCalled();
+ const receipt=stage==='manual'?wire.receipt:wire.profileReceipt;
+ await act(async()=>resolveSecond(receipt as never));
+ await waitFor(()=>expect(journal.discover(scope).native!.value.receipt).toEqual(receipt));
+ const calls=stage==='manual'?vi.mocked(api.confirmManual).mock.calls:vi.mocked(api.confirmProfile).mock.calls;
+ expect(calls[1][0]).toEqual(calls[0][0]);expect(journal.discover(scope).native!.value.operation).toEqual(prepared.value.operation);
+});
+
+it('disambiguates same-name endpoints by kind and durable identity without conflating selection',async()=>{
+ vi.mocked(live.getNativeAuthoringIdentities).mockResolvedValue([
+ {node_id:'ent:first',label:'Same name',kind:'npc',role:'guard',summary:null,selectable:true},
+ {node_id:'ent:second',label:'Same name',kind:'npc',role:'scribe',summary:null,selectable:true}]);
+ mount();await screen.findByLabelText('Declare');fireEvent.change(screen.getByLabelText('Declare'),{target:{value:'relationship'}});
+ await waitFor(()=>expect(within(screen.getByLabelText('From')).getByRole('option',{name:'Same name · npc · ent:first'})).toBeInTheDocument());
+ expect(within(screen.getByLabelText('To')).getByRole('option',{name:'Same name · npc · ent:second'})).toHaveValue('ent:second');
+ fireEvent.change(screen.getByLabelText('From'),{target:{value:'ent:first'}});fireEvent.change(screen.getByLabelText('To'),{target:{value:'ent:second'}});
+ expect(screen.getByLabelText('From')).toHaveValue('ent:first');expect(screen.getByLabelText('To')).toHaveValue('ent:second');
+});
+it('refuses contradictory frozen span provenance before exposing a fresh authoring form',async()=>{
+ context.spans[0].sliceSha256='0'.repeat(64);mount();await screen.findByText('Frozen source interval does not match the saved bytes.');
+ expect(screen.queryByRole('button',{name:'Preview World change'})).not.toBeInTheDocument();
+ expect(api.prepareManual).not.toHaveBeenCalled();expect(api.confirmManual).not.toHaveBeenCalled();expect(localStorage.length).toBe(0);
+});
+it('blocks a corrupt retained relationship without reading fresh source or dispatching',async()=>{
+ const value=journal.freshRecovery(scope,{stage:'manual',request:wire.request,plan:null,witnessText:wire.witnessText});
+ value.operation.stage==='manual'&&(value.operation.request.operation={kind:'relationship',source:{entityId:'ent:same',name:'Same',objectKind:'npc'},target:{entityId:'ent:same',name:'Same',objectKind:'npc'},predicate:'allied_with',label:null,description:null});
+ const raw=JSON.stringify(value),key=journal.recoveryKey(scope);localStorage.setItem(key,raw);mount({key,raw,value});
+ await screen.findByRole('alert');await act(async()=>{});expect(localStorage.getItem(key)).toBe(raw);
+ expect(getFresh).not.toHaveBeenCalled();expect(api.readManualContext).not.toHaveBeenCalled();expect(api.prepareManual).not.toHaveBeenCalled();expect(api.confirmManual).not.toHaveBeenCalled();
+ expect(screen.queryByRole('button',{name:'Confirm World change'})).not.toBeInTheDocument();
 });
