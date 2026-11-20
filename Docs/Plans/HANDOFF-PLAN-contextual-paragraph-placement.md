@@ -33,6 +33,24 @@ reviews do not establish ordinary chat or release qualification.
 
 ## Authority and write boundary
 
+Clarification amendment: Alan explicitly authorized a bounded V2 Plan
+placement-clarification guidance split in
+`apps/live_control_server/services/plan_jev_writer.py`, preserving #3290/#3307's
+source compaction, retrieval ordering and citation behavior. The fresh open-PR
+file audit found those two writer overlaps; #3824's full changed-file list had
+no writer/response-prompt overlap. The lease additionally includes the task
+component in `src/application_state/agent_conversation/response_prompt.py` and
+final serialized-request assertions in the already leased
+`tests/test_plan_jev_authoring.py`. Delivery remains the current serial PR #4264.
+This addresses the same placement capability's negative acceptance case:
+actual Jev correctly selected clarification without a reservation, but the real
+writer supplied prose/evidence gaps despite receiving the generic clarification
+instruction. Select placement-specific guidance from the actual V2 catalog and
+retained work decision; do not reclassify intent in the writer or change Jev.
+Validate exact final prompt bytes and rerun the four frozen real-writer dev
+cases, keeping the independent targeting holdout sealed. Source changes require
+new exact-head contract evidence and independent review before merge.
+
 Alan authorized contextual-targeting/test splits in PlanSurfacePage.tsx,
 components/WorldPlanAgentConversation.tsx and agentEdit/planAgentEditProposal.ts,
 preserving #3824/#1014/#1188's hosted authorization, rollout and welcome behavior.

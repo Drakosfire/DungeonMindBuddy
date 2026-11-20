@@ -1280,7 +1280,15 @@ def _shared_plan_authoring_case(
 
     class Proposed(WriterWire):
         async def handle_async_request(self, request):
-            rows = json.loads(request.content)["input"]
+            payload = json.loads(request.content)
+            rows = payload["input"]
+            if routing in {"discuss", "clarify"}:
+                from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
+                from application_state.agent_conversation.response_prompt import compose_response_prompt
+                task = ("plan_placement_clarify" if routing == "clarify"
+                        and type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2
+                        else "clarify" if routing == "clarify" else "answer")
+                assert payload["instructions"] == compose_response_prompt(task=task).instructions
             if routing in {"discuss", "clarify"}:
                 [packet] = rows
                 prose = packet["content"]

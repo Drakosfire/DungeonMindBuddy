@@ -69,6 +69,15 @@ TASKS = {
     'clarify': ResponsePromptComponent('clarification_task', '1',
         'Ask focused questions needed to resolve the current request. Keep the clarification '
         'in conversation or its offered questions object; do not draft or carry out follow-up work.'),
+    'plan_placement_clarify': ResponsePromptComponent('plan_placement_clarification_task', '1',
+        'The selected task is clarification; do not draft or carry out the request yet. '
+        'For a prose placement request, use the current page and conversation to ask one '
+        'short question resolving where the text belongs. If several paragraphs fit, name the alternatives using '
+        'their headings or distinctive text. If the named target is absent, say you cannot '
+        'find it and ask the user to identify the intended paragraph. Do not supply the '
+        'requested prose, choose a location, or treat placement ambiguity as a missing fact '
+        'about the campaign. If the ambiguity concerns something else, ask the smallest '
+        'question that resolves that ambiguity. Keep the question in conversation.'),
     'scoped_discussion': ResponsePromptComponent('reviewed_discussion_task', '1',
         'The selected task in reviewed_task.task is the only assignment for this reply. '
         'Its objective and siblings are context, including deferred writing. Discuss that task '
