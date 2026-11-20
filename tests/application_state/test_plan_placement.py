@@ -13,7 +13,7 @@ from application_state.agent_conversation.plan_placement import (
     PlanPlacementCatalogV2, PlanPlacementOptionV2, paragraph_placement_label,
     decode_plan_placement_catalog,
 )
-from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
+from tests.test_plan_jev_dispatch import plan_adapter as plan_adapter
 from tests.test_plan_jev_harness import unavailable_native_sources  # noqa: F401
 
 
