@@ -44,6 +44,7 @@ def require_read_only_core(dsn):
                            WHEN c.relkind = 'S' THEN has_sequence_privilege(c.oid, 'USAGE,UPDATE')
                            WHEN c.relkind IN ('r','p','v','m','f') THEN
                                has_table_privilege(c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
+                               OR has_any_column_privilege(c.oid, 'INSERT,UPDATE')
                            ELSE false END)
                    )
                    AND NOT EXISTS (
@@ -75,11 +76,11 @@ def _endpoint(dsn, expected):
                    (SELECT system_identifier::text FROM pg_control_system()) AS system
             FROM pg_database WHERE datname = current_database()
         """).fetchone()
-    if tuple(actual.values()) != (expected["database"], expected["oid"], expected["system_identifier"]):
+    if (actual["name"], actual["oid"], actual["system"]) != (expected["database"], expected["oid"], expected["system_identifier"]):
         raise ValueError("Cohort database identity differs from its pin")
 
 
-def _capture_member(manifest, output, app_dsn):
+def _capture_member(manifest, output, app_dsn, manifest_sha256):
     from .workflow import capture
 
     scratch = output.parent / "scratch" / output.name
@@ -89,7 +90,7 @@ def _capture_member(manifest, output, app_dsn):
         directory.mkdir()
         os.environ[key] = str(directory)
     os.environ[APP_DSN] = app_dsn
-    capture(manifest, output, context_only=True, cohort_member=True)
+    capture(manifest, output, context_only=True, cohort_manifest_sha256=manifest_sha256)
 
 
 def capture_cohort(manifest_path, output, *, workers):
@@ -112,9 +113,8 @@ def capture_cohort(manifest_path, output, *, workers):
     jobs = []
     output = Path(output).resolve()
     for entry in config["members"]:
-        read_pin(entry, path.parent)
         member_path = (path.parent / entry["path"]).resolve()
-        member, base = load_manifest(member_path)
+        member, base = load_manifest(member_path, expected_sha256=entry["sha256"])
         app = member["isolation"]["app"]
         current_native = member["isolation"]["native"]
         locator = {k: v for k, v in current_native.items() if k != "inventory"}
@@ -133,7 +133,7 @@ def capture_cohort(manifest_path, output, *, workers):
         cases |= ids
         app_dsn = app_url._replace(path="/" + quote(app["database"], safe="")).geturl()
         _endpoint(app_dsn, app)
-        jobs.append((member_path, output / "members" / sorted(ids)[0], app_dsn))
+        jobs.append((member_path, output / "members" / min(ids), app_dsn, entry["sha256"]))
 
     _endpoint(core_dsn, native)
     require_read_only_core(core_dsn)

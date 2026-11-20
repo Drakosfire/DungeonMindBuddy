@@ -1250,8 +1250,9 @@ def test_cohort_inventory_brackets_parallel_members(tmp_path, monkeypatch, chang
         def __exit__(self, *_):
             return False
 
-        def submit(self, member, manifest, output, app_dsn):
+        def submit(self, member, manifest, output, app_dsn, manifest_sha256):
             assert member is cohort._capture_member
+            assert sha256(manifest.read_bytes()).hexdigest() == manifest_sha256
             events.append(output.name)
             f = Future()
             f.set_result(None)
@@ -1284,3 +1285,13 @@ def test_cohort_core_rejects_a_writable_login(monkeypatch):
     monkeypatch.setattr(cohort.psycopg, "connect", lambda _: Connection())
     with pytest.raises(ValueError, match="dedicated non-writing login"):
         cohort.require_read_only_core("unused")
+
+
+def test_cohort_member_verifies_exact_manifest_bytes_before_startup(tmp_path):
+    path = tmp_path / "member.json"
+    expected = put(path, {"schema": "dmb_ordinary_benchmark_v1", "cases": []})
+    path.write_text("{}")
+    with pytest.raises(ValueError, match="Evidence pin mismatch"):
+        w.capture(path, tmp_path / "out", context_only=True,
+                  cohort_manifest_sha256=expected["sha256"])
+    assert not (tmp_path / "out").exists()

@@ -40,7 +40,7 @@ def row_inventory(dsn, *, readonly, keys=ROW_KEYS):
 
     result = {}
     with readonly(dsn) as conn:
-        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         tables = conn.execute(
             "SELECT table_schema,table_name FROM information_schema.tables "
             "WHERE table_type='BASE TABLE' AND table_schema NOT IN "

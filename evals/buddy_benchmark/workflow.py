@@ -28,13 +28,17 @@ def read_pin(pin, base):
     return data
 
 
-def load_manifest(path, *, schema="dmb_ordinary_benchmark_v1"):
+def load_manifest(path, *, schema="dmb_ordinary_benchmark_v1", expected_sha256=None):
     path = Path(path).resolve()
+    if expected_sha256 is None:
+        data = path.read_bytes()
+    else:
+        data = read_pin({"path": str(path), "sha256": expected_sha256}, path.parent)
     if schema == "dmb_ordinary_benchmark_v1":
-        manifest = json.loads(path.read_text())
+        manifest = json.loads(data)
     else:
         from application_state.agent_conversation.source_writer_output import strict_json
-        manifest = strict_json(path.read_text())
+        manifest = strict_json(data.decode("utf-8"))
     if manifest.get("schema") != schema:
         raise ValueError("Unknown ordinary benchmark manifest")
     cases = manifest["cases"]
@@ -452,9 +456,10 @@ def verify_capture_environment(expected):
         raise ValueError("Runtime qualification changed; no question dispatched")
 
 
-def capture(manifest_path, output, *, context_only=False, cohort_member=False):
+def capture(manifest_path, output, *, context_only=False, cohort_manifest_sha256=None):
     """Explicit live entry point; never invoked by offline reporting."""
-    manifest, base = load_manifest(manifest_path)
+    manifest, base = load_manifest(manifest_path, expected_sha256=cohort_manifest_sha256)
+    cohort_member = cohort_manifest_sha256 is not None
     if os.environ.get("DMB_AGENT_GRAPH_LOCAL_PROFILE"):
         raise ValueError("Capture cannot use a hidden local profile")
     if not manifest.get("pins"):
