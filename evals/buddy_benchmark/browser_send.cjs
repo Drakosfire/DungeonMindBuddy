@@ -7,7 +7,7 @@ async function run() {
     executablePath: process.env.DMB_BENCHMARK_CHROMIUM, headless: true, args: ["--no-sandbox"],
   });
   try {
-    const context = await browser.newContext();
+    const context = await browser.newContext({ serviceWorkers: "block" });
     await context.route("**/*", route => {
       if (new URL(route.request().url()).origin !== origin) return route.abort();
       return route.continue({ headers: { ...route.request().headers(),
@@ -79,7 +79,8 @@ async function run() {
       return { click, request, preflight };
     });
     writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
-      before, after, browserMarks, status: delivered.status(),
+      before, after, browserMarks, status: delivered.status(), chromiumVersion: browser.version(),
+      playwrightVersion: require(require("node:path").join(process.env.DMB_BENCHMARK_PLAYWRIGHT, "package.json")).version,
       request: delivered.request().postDataJSON(),
     }, null, 2));
   } finally {

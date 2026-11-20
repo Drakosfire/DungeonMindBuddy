@@ -174,7 +174,8 @@ The manifest's browser_capture object supplies a bundle directory, a
 bundle_inventory file pin containing each relative asset path and SHA-256,
 and a jev_wire file pin containing the exact successful wire exchange.
 Set DMB_BENCHMARK_NODE, DMB_BENCHMARK_PLAYWRIGHT and DMB_BENCHMARK_CHROMIUM
-to the local Node executable, Playwright module and browser executable.
+to the local Node executable, Playwright package directory and browser
+executable. Use explicit local operator auth and launch without provider credentials.
 Use a disposable local App clone and a pinned Core database. The driver
 starts one loopback instance and submits from Buddy's ordinary Plan composer.
 The exact retained Jev request must match. The GenerationEngine writer

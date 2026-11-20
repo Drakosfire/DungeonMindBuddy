@@ -47,6 +47,12 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     from apps.live_control_server.services import plan_jev_dispatch
     import httpx2
 
+    if (os.environ.get("DMB_DEPLOYMENT_ENVIRONMENT"), os.environ.get("DMB_AUTH_MODE"),
+            os.environ.get("DMB_AGENT_GRAPH_AUTH_MODE"), os.environ.get("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT")) != (
+            "local", "local_operator", "local_operator", "local"):
+        raise ValueError("Browser capture requires explicit local operator auth")
+    if any(os.environ.get(key) for key in ("TYPESAFE_JEV_API_KEY", "OPENAI_API_KEY")):
+        raise ValueError("Provider-free browser capture requires a credential-free worker process")
     bundle, wire, settled = inputs
     template = manifest["request_template"]
     world = manifest["world"]
@@ -99,7 +105,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
 
         dependant.call = measured_handler
 
-    async def serve(scope, receive, send):
+    async def dispatch(scope, receive, send):
         nonlocal browser_request
         if scope["type"] != "http":
             return await application(scope, receive, send)
@@ -158,14 +164,29 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             return await application(scope, deliver_body, send)
         return await application(scope, receive, send)
 
+    async def serve(scope, receive, send):
+        from urllib.parse import urljoin, urlsplit
+
+        async def local_response(frame):
+            if frame["type"] == "http.response.start":
+                for name, value in frame.get("headers", []):
+                    if name.lower() == b"location":
+                        destination = urlsplit(urljoin(origin, value.decode("latin-1")))
+                        if (destination.scheme, destination.netloc) != ("http", sock_host):
+                            raise ValueError("Benchmark app attempted a cross-origin redirect")
+            await send(frame)
+
+        await dispatch(scope, receive, local_response)
+
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
-    origin = f"http://127.0.0.1:{sock.getsockname()[1]}"
+    sock_host = f"127.0.0.1:{sock.getsockname()[1]}"
+    origin = "http://" + sock_host
     local_env = dict(owned_env, DMB_AGENT_GRAPH_LOCAL_UI_ORIGIN=origin,
-                     DMB_AGENT_GRAPH_LOCAL_API_HOST=origin.removeprefix("http://"),
+                     DMB_AGENT_GRAPH_LOCAL_API_HOST=sock_host,
                      TYPESAFE_JEV_API_KEY="retained-jev-replay",
                      OPENAI_API_KEY="local-writer-transport-sink")
-    server = uvicorn.Server(uvicorn.Config(serve, log_level="warning", access_log=False))
+    server = uvicorn.Server(uvicorn.Config(serve, log_level="warning", access_log=False, timeout_graceful_shutdown=10))
     route = "/api/live/agent/worlds/" + world + "/conversation"
     try:
         with (patch.dict(os.environ, local_env),
@@ -181,7 +202,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     sleep(0.05)
                 if not server.started:
                     raise ValueError("Isolated browser server failed to start")
-                with httpx.Client(base_url=origin, headers={"Authorization": "Bearer " + token}, timeout=45) as client:
+                with httpx.Client(base_url=origin, headers={"Authorization": "Bearer " + token},
+                                  timeout=45, trust_env=False) as client:
                     client.get("/health/ready").raise_for_status()
                     workflow.verify_capture_environment(local_env)
                     if plan_jev_dispatch.request_budget() != manifest["provider_policy"]:
@@ -226,9 +248,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     artifacts.immutable_save(directory, "context-trace", workflow.response_envelope(trace))
             finally:
                 server.should_exit = True
-                thread.join(timeout=10)
-                if thread.is_alive():
-                    raise RuntimeError("Browser benchmark server did not stop")
+                # Keep the exact-wire and writer guards until the application
+                # has left its event loop, including on a browser timeout.
+                thread.join()
     finally:
         sock.close()
         if detail:
