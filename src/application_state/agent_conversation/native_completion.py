@@ -494,9 +494,9 @@ def verify_completion(completion, receipt, execution, authorization, **producing
 
 def validate_retained_completion(completion, receipt, execution, producer, bindings):
     """Validate stored native citations/binding; producing admission owns acceptance."""
-    from .native_execution import validate_context_binding
+    from .native_execution import _revalidate_context_binding
 
-    validate_context_binding(receipt, execution)
+    receipt, execution = _revalidate_context_binding(receipt, execution)
     _join_retained_completion(completion, receipt, execution, producer, bindings)
 
 
