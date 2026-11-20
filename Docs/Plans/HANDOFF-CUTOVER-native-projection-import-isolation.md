@@ -56,8 +56,7 @@ head08b4c8177909a6259e60d05d0b7b3ffe3e939fc1 also changes pins. MIND allocates
 the current-main Core pin and expansion helper/import region to this authorized
 cutover slice. Neither older branch is merged/adopted or rewritten. Their registry,
 existence/location semantics and old candidate dependency pins are outside scope.
-Any later adoption needs a fresh rebase and owning review. The other 56 open PRs
-files do not overlap this eight-path lease; do not infer coordination from Git conflicts.
+Any later adoption needs a fresh rebase and owning review. Files in the other 56 open PRs do not overlap this eight-path lease; do not infer coordination from Git conflicts.
 
 ## Owning proof
 
@@ -90,3 +89,15 @@ Projects UUID48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8 and executor write access veri
 Use task scratch/cache, no new worktree required. Retain exact-head evidence while
 goal active; no standing deletion. Before scoped cleanup check active processes,
 mounts, dirty worktrees and unique commits; inventory every retained path/follow-up.
+
+## Working diagnostic before frozen qualification
+
+Locked new environment uses Core e56a3fa and unchanged WK348; previous accepted
+environment is not mutated. uv generated unrelated registry upload timestamps
+and removed two greenlet platform wheel entries. Reject that churn: preserve
+all accepted artifacts and change only the exact Core pin; locked sync passes.
+Semantic audit confirms dependency versions/graph unchanged except Core source.
+The first owning diagnostic had21 passes/one new expected-DTO fixture failure
+(snake_case rank_reason vs wire rankReason). Correct that expectation and
+strengthen serialized-byte checks:22 owning cases pass, including all three
+cold boundaries. This is working-tree evidence, not frozen-head qualification.
