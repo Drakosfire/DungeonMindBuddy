@@ -489,3 +489,66 @@ def test_turn_source_preparation_distinguishes_missing_head_from_binding_changes
         plan_source_turn.prepare(
             "managed", principal, repository=lane.repo, resolve_identity=lambda _: next(changes),
         )
+
+
+def test_corpus_batches_provenance_for_verified_sources(lane, monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source as owner
+
+    receipts = (admit(lane), admit(lane, "second", body=BODY + "\nA second account.\n"))
+    prepared = prepare_native_source_context(managed_world_id="managed", principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    expected = [
+        owner.open_native_corpus_member(prepared, receipt.bindings[0].evidence_ref_id)
+        for receipt in receipts
+    ]
+    view_type = type(prepared.access.source_view)
+    original = view_type.get_provenance_snapshot
+    requests = []
+
+    def observe(view, *, artifact_ids, revision_ids):
+        requests.append((tuple(artifact_ids), tuple(revision_ids)))
+        return original(view, artifact_ids=artifact_ids, revision_ids=revision_ids)
+
+    monkeypatch.setattr(view_type, "get_provenance_snapshot", observe)
+    result = capture(lane, prepared=prepared)
+    assert requests == [
+        (tuple(sorted(r.source_artifact_id for r in receipts)),
+         tuple(sorted(r.source_revision_id for r in receipts)))
+    ]
+    assert result.members == tuple(sorted((member for member, _ in expected),
+        key=lambda member: (member.artifact.source_artifact_id, member.revision.source_revision_id)))
+    assert result.bodies == {
+        (member.artifact.source_artifact_id, member.revision.source_revision_id): text
+        for member, text in expected
+    }
+
+
+def test_corpus_uses_next_verified_witness_when_first_is_unavailable(lane, monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source as owner
+
+    receipt = admit(lane, multiple=True)
+    first, second = sorted(binding.evidence_ref_id for binding in receipt.bindings)
+    original = owner.open_admitted_native_text
+    opened_ids = []
+
+    def open_witness(access, evidence_ref_id):
+        opened_ids.append(evidence_ref_id)
+        if evidence_ref_id == first:
+            return SimpleNamespace(status="unavailable")
+        return original(access, evidence_ref_id)
+
+    monkeypatch.setattr(owner, "open_admitted_native_text", open_witness)
+    result = capture(lane)
+    assert opened_ids == [first, second]
+    assert [member.evidence_ref_id for member in result.members] == [second]
+    assert result.unavailable_source_count == 0
+
+
+def test_corpus_rejects_missing_batched_provenance(lane, monkeypatch):
+    admit(lane)
+    prepared = prepare_native_source_context(managed_world_id="managed", principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    monkeypatch.setattr(type(prepared.access.source_view), "get_provenance_snapshot",
+        lambda *args, **kwargs: SimpleNamespace(get_artifact=lambda _: None, get_revision=lambda _: None))
+    with pytest.raises(ValueError, match="Authorized native corpus provenance is unavailable"):
+        capture(lane, prepared=prepared)
