@@ -31,6 +31,15 @@ limited to this capability's exact regions. The existing
 is excluded; use new tests. If required paths exceed this expected set, resolve
 the ownership boundary before writing them.
 
+Browser-witness scope amendment: creation returned a provisioning World, but
+Home immediately offered a Graph action because `SelectedWorldContext` omitted
+the returned binding status. Include `selectedWorld/SelectedWorldContext.tsx`
+and its tests, `home/BuddyHome.tsx`, and `App.guestEntry.test.tsx` only to
+propagate the existing public binding status and present a truthful Build-first
+action for a not-yet-ready World. No new graph publication, source import, or
+general Home redesign is authorized here. Open-PR audit found no conflicting
+changes to those exact paths at the time of amendment; re-anchor at review.
+
 The coherent review map is: transactional catalog/admission + shared policy;
 hosted exact-route authentication, origin and resource checks; selector/retry
 UX; migration/rollback and mounted isolated PostgreSQL tests. The combined PR is

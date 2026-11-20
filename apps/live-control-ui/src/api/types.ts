@@ -2669,6 +2669,10 @@ export interface WorldContainerRecord {
   name: string;
   source_root_relpath: string;
   created_at: string;
+  native_graph_binding?: {
+    status: "unbound" | "active" | "inactive" | "provisioning";
+    binding_version: number;
+  };
 }
 
 export interface WorldContainersListResponse {

@@ -11,6 +11,7 @@ export interface VerifiedManagedWorld {
   worldId: string;
   name: string;
   documentId: string | null;
+  graphStatus?: NonNullable<WorldContainerRecord["native_graph_binding"]>["status"];
 }
 
 export type SelectedWorldState =
@@ -89,6 +90,7 @@ export function verifyManagedWorldSelection(input: {
     worldId: world.world_id,
     name: world.name,
     documentId: input.document?.document_id ?? null,
+    ...(world.native_graph_binding ? { graphStatus: world.native_graph_binding.status } : {}),
   };
 }
 

@@ -628,6 +628,21 @@ describe("canonical local guest entry", () => {
     expect(screen.getByText("Continue in World A.")).toBeInTheDocument();
   });
 
+  it("offers Build while a new World's graph is provisioning", async () => {
+    vi.stubEnv("PROD", true);
+    window.history.replaceState({}, "", "/?world=world-a");
+    const fallback = managedServerFetch({ authStatus: "authenticated" });
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+      String(input) === "/api/live/world-containers/lookup?managed_world_id=world-a"
+        ? Promise.resolve(Response.json({ ...managedWorldRecord("world-a", "World A"),
+          native_graph_binding: { status: "provisioning", binding_version: 1 } }))
+        : fallback(input, init)));
+    render(<App />);
+    expect(await screen.findByRole("link", { name: "Open in Build" })).toHaveAttribute("href", "/build?world=world-a");
+    expect(screen.getByText("Start with a source in World A. Your graph isn’t ready yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open your World" })).not.toBeInTheDocument();
+  });
+
   it("offers the existing World chooser on authenticated Home without a selection", async () => {
     vi.stubEnv("PROD", true);
     window.history.replaceState({}, "", "/");

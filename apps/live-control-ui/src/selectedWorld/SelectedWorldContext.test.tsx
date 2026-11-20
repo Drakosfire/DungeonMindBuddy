@@ -61,6 +61,11 @@ function RecoveryProbe() {
 afterEach(() => vi.clearAllMocks());
 
 describe("selected managed World", () => {
+  it("preserves the public graph readiness of a verified World", () => {
+    expect(verifyManagedWorldSelection({ requestedWorldId: world.world_id, document: null,
+      worlds: [{ ...world, native_graph_binding: { status: "provisioning", binding_version: 1 } }],
+    })).toMatchObject({ kind: "managed", graphStatus: "provisioning" });
+  });
   it("keeps explicit empty selection fail closed", () => {
     expect(requestedWorldSelection("/plan?world=").explicit).toBe(true);
   });

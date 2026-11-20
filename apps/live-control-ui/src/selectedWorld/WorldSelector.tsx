@@ -157,7 +157,7 @@ export function WorldSelector({ compact = false, creationPath = "/plan" }: { com
               <input value={newWorldName} maxLength={100} disabled={creatingWorld} onChange={(event) => setNewWorldName(event.target.value)} />
             </label>
             <button type="submit" disabled={!newWorldName.trim() || creatingWorld}>
-              {creatingWorld ? "Creating…" : creationPath === "/" ? "Create World and open graph" : "Create World and Plan"}
+              {creatingWorld ? "Creating…" : creationPath === "/" ? "Create World" : "Create World and Plan"}
             </button>
             {error && status !== "error" ? <p role="alert">{error}</p> : null}
           </form> : null}

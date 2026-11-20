@@ -123,7 +123,7 @@ describe("World selector", () => {
     render(<SelectedWorldProvider locationSnapshot="/"><WorldSelector compact creationPath="/" /></SelectedWorldProvider>);
     await user.click(screen.getByRole("button", { name: "Switch World: Choose" }));
     await user.type(screen.getByLabelText("New World name"), "Graph Orchard");
-    await user.click(screen.getByRole("button", { name: "Create World and open graph" }));
+    await user.click(screen.getByRole("button", { name: "Create World" }));
 
     await waitFor(() => expect(window.location.pathname + window.location.search).toBe("/?world=graph-orchard"));
     expect(window.location.pathname).not.toBe("/plan");
@@ -138,7 +138,7 @@ describe("World selector", () => {
     render(<SelectedWorldProvider locationSnapshot="/"><WorldSelector compact creationPath="/" /></SelectedWorldProvider>);
     await user.click(screen.getByRole("button", { name: "Switch World: Choose" }));
     await user.type(screen.getByLabelText("New World name"), "New World");
-    await user.click(screen.getByRole("button", { name: "Create World and open graph" }));
+    await user.click(screen.getByRole("button", { name: "Create World" }));
 
     window.history.pushState({}, "", "/?world=another-world");
     window.dispatchEvent(new PopStateEvent("popstate"));
@@ -173,7 +173,7 @@ describe("World selector", () => {
     const view = render(<SelectedWorldProvider locationSnapshot="/"><WorldSelector compact creationPath="/" /></SelectedWorldProvider>);
     await user.click(screen.getByRole("button", { name: "Switch World: Choose" }));
     await user.type(screen.getByLabelText("New World name"), world.name);
-    await user.click(screen.getByRole("button", { name: "Create World and open graph" }));
+    await user.click(screen.getByRole("button", { name: "Create World" }));
     view.unmount();
 
     created = true;
