@@ -70,6 +70,7 @@ export function BuildRunReview(props: Props) {
 
 function ExactReview({ document, currentRevision, run, handoff, sourceContentSha256, worldId, onClose, onDerivedRun, onBusyChange, isScopeCurrent, onSemanticDecision }: Props & {worldId:string; isScopeCurrent: () => boolean}) {
   const [manualOpen,setManualOpen]=useState(false),[manualMounted,setManualMounted]=useState(false);
+  const [manualBusy,setManualBusy]=useState(false);
   const [review, setReview] = useState<ExactRunReviewPackage | null>(null);
   const [catalog,setCatalog] = useState<WorldbuildingFrozenSpanCatalog|null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +95,7 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
     alive.current = true;
     return () => { alive.current = false; onBusyChange(false); };
   }, [onBusyChange]);
-  useEffect(() => { onBusyChange(correcting || confirming); }, [correcting,confirming,onBusyChange]);
+  useEffect(() => { onBusyChange(correcting || confirming || manualBusy); }, [correcting,confirming,manualBusy,onBusyChange]);
   useEffect(() => {
     let current = true; setReview(null); setCatalog(null); setError(null);
     void getExactRunReviewPackage(run.run_id).then(async result => {
@@ -173,16 +174,17 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
     finally {lock.current=false;if(alive.current)setCorrecting(false);}
   }
   return <section className="build-run-review" aria-label="Review extracted knowledge">
-    <header><h2>Review extracted knowledge · {document.title}</h2><button type="button" disabled={correcting || confirming} onClick={onClose}>Close review</button></header>
+    <header><h2>Review extracted knowledge · {document.title}</h2><button type="button" disabled={correcting || confirming || manualBusy} onClick={onClose}>Close review</button></header>
     <p>{document.title}.
       {currentRevision !== handoff.document_revision ? ' This review uses earlier saved text; the editor has newer changes.' : ' Your document remains editable above.'}</p>
     {error && <><p role="alert">{error}</p><button type="button" onClick={()=>setReload(n=>n+1)}>Retry review read</button></>}
     {!review && !error && <p role="status">Reading this exact extraction run…</p>}
-    {review && <>
       {run.source_domain==='worldbuilding'&&<><button type="button" aria-expanded={manualOpen} onClick={()=>{setManualMounted(true);setManualOpen(v=>!v);}}>Author knowledge from this source</button>
         {manualMounted&&<div hidden={!manualOpen}><BuildManualKnowledge
           worldId={worldId} document={document} run={run} handoff={handoff} review={review}
-          sourceContentSha256={sourceContentSha256} isScopeCurrent={isScopeCurrent} frozenCatalog={catalog}/></div>}</>}
+          sourceContentSha256={sourceContentSha256} isScopeCurrent={isScopeCurrent} frozenCatalog={catalog} onBusyChange={setManualBusy}/></div>}</>}
+
+    {review && <>
       {recovery !== null && !recoveryValid && <p role="alert">{recoveryStorageKey.current===legacyKey?'An earlier correction request is retained; its retired format cannot be submitted.':'Saved correction details are unavailable or do not match this run.'} Abandoning retains the request in this browser; it does not cancel a submitted correction. <button type="button" onClick={abandon}>Abandon saved request</button></p>}
       <GraphReviewExactRunProjection review={review} showSource={false}
         correctionEnabled={run.source_domain==='recap' && review.inspectionStatus === 'invalid_evidence' && !!digest(run.components?.candidate_graph?.sha256)}

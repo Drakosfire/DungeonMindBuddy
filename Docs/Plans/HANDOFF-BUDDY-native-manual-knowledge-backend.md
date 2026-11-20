@@ -1,6 +1,7 @@
 # Native source-backed manual knowledge backend
 
-ACTIVE IMPLEMENTATION. MIND adopts explicit user full-lane authority and the
+COMPLETE — PR4192 merged807e1771e8e3addc83ad5df42d4c7f56f1ad603f; final review5986967724.
+MIND adopts explicit user full-lane authority and the
 approved eleven-path serial N3a outcome. Base13ea571faffd9bdc3e909ade910be623f66e25db,
 branch codex/v10-native-manual-backend, existing task Buddy checkout. This handoff
 is committed before code. Root owns scope/broad qualification/merge; Hubble owns
@@ -186,3 +187,13 @@ zero-additional-mutation. Old348 results remain old-source identities. Root owns
 ALL updated owning/auth/preservation/frontend execution on the new combined head;
 worker runs static checks only, commits/pushes/freezes first. No fresh execution or
 acceptance claimed by this repair. Full objective and resource retention unchanged.
+
+Accepted backend settlement: exact tested5233d9c605e7344511e9a021a02f12180fea5c8d,
+96owning/315auth/376preservation PASS;1412hosted/build/canonical PASS;4CI PASS;
+8ownedSQL DBs dropped zero active connections;177 installed Core90a5 Python files
+match accepted source, WKef9 unchanged. Earlier34892/315/376/1411 remain older
+execution, not relabeled. Root normally integrated mainafb589 before tested5233;
+review5986967724 accepts that exact bounded backend. No serving or live transition.
+Successor native UI now separately activated by HANDOFF-BUDDY-native-manual-
+knowledge-default.md, not inferred complete from backend. Legacy writer retirement,
+full UI/deployment/rollback/V11 remain separate full-goal obligations.
