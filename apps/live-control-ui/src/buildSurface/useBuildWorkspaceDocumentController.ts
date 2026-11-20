@@ -385,14 +385,6 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     }
   }, [selectedWorldId]);
 
-  useEffect(() => {
-    setDocuments(null);
-    setCampaignTags([]);
-    setDocumentCursor(null);
-    void refreshDocuments();
-    void refreshManagedWorlds();
-  }, [refreshDocuments, refreshManagedWorlds]);
-
   const loadBuildDocument = useCallback(
     async (
       search: string,
@@ -526,18 +518,38 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    let historyOpen = 0;
+    let listsStarted = false;
+    setDocuments(null);
+    setCampaignTags([]);
+    setDocumentCursor(null);
+    setListStatus("loading");
+
     const sync = () => {
+      const sequence = ++historyOpen;
+      const search = window.location.search;
       createControllerRef.current.supersedePendingCreateIntent();
-      void loadBuildDocument(window.location.search, { mode: "history" });
+      const open = loadBuildDocument(search, { mode: "history" });
+      if (listsStarted) return;
+
+      const refreshLists = () => {
+        if (sequence !== historyOpen || listsStarted) return;
+        listsStarted = true;
+        void refreshDocuments();
+        void refreshManagedWorlds();
+      };
+      if (readDocumentIdFromSearch(search)) void open.then(refreshLists);
+      else refreshLists();
     };
     sync();
     window.addEventListener("popstate", sync);
     return () => {
+      historyOpen += 1;
       window.removeEventListener("popstate", sync);
       documentLoadGenerationRef.current += 1;
       selectorListGenerationRef.current += 1;
     };
-  }, [loadBuildDocument]);
+  }, [loadBuildDocument, refreshDocuments, refreshManagedWorlds]);
 
   const selectDocument = useCallback(
     async (documentId: string, isCurrent:()=>boolean = ()=>true, expected?:{worldId:string;revision:number;digest:string}) => {
