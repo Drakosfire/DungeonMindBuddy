@@ -550,10 +550,20 @@ class BuildJevHarness:
             body = json.loads(prepared.body)
             return DecisionContextMode(accounting.context_mode(body, host_phase=getattr(plan,"host_phase",None)))
 
+        prepare_deferred_query = getattr(adapter, "prepare_deferred_build_query", None)
+        pending_query = None
+
+        def dispatch_started():
+            nonlocal pending_query
+            if trace is not None:
+                trace.mark_first_jev_dispatch()
+            if prepare_deferred_query is not None and pending_query is None:
+                pending_query = asyncio.create_task(asyncio.to_thread(prepare_deferred_query))
+
         client = decision_client(
             authorize=authorize, record=record, select_context=select_context,
             transport=self.decision_transport,
-            on_dispatch=getattr(trace, "mark_first_jev_dispatch", None),
+            on_dispatch=dispatch_started,
         )
         started = time.perf_counter()
         try:
@@ -582,6 +592,11 @@ class BuildJevHarness:
                     canonical(result.model_dump(mode="json")),
                     producing_provider_attempt_id=adapter.last_provider_attempt_id,
                 )
+            if prepare_deferred_query is not None:
+                if pending_query is None:
+                    raise ValueError("Deferred Build query requires witnessed opening transport")
+                with measure("build_deferred_graph_settlement"):
+                    adapter.settle_deferred_build_query(*await pending_query)
             from .build_jev_writer_selection import WriterSelectionDriver
             self.failure_stage = "controller_validation"
             try:
@@ -609,6 +624,8 @@ class BuildJevHarness:
                     status_code=413, provider_dispatched=bool(self.calls)) from exc
             raise
         finally:
+            if pending_query is not None:
+                await asyncio.gather(pending_query, return_exceptions=True)
             await client.aclose()
 
     @staticmethod

@@ -578,8 +578,6 @@ def _join_context_binding(context, execution):
 def validate_submission(submission):
     """Join new native admission to the actual request, before any APP mutation."""
     receipt, execution = submission.graph_context_receipt, submission.graph_context_execution
-    if type(receipt.native_query) is NativeBuildQueryPendingV1:
-        raise ValueError("Deferred Build storage requires the owning runtime settlement")
     validate_context_binding(receipt, execution)
     from .native_context import validate_work_context
     validate_work_context(receipt, submission.provenance,

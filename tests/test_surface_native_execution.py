@@ -668,17 +668,6 @@ def _pending_build_query():
     return context, policy, catalog
 
 
-def test_pending_build_query_refuses_durable_submission_before_runtime_cutover():
-    from types import SimpleNamespace
-    from application_state.agent_conversation.native_execution import validate_submission
-
-    context, policy, _catalog = _pending_build_query()
-    submission = SimpleNamespace(graph_context_receipt=context,
-        graph_context_execution=execution(context.context_receipt_sha256, policy))
-    with pytest.raises(ValueError, match="requires the owning runtime settlement"):
-        validate_submission(submission)
-
-
 @pytest.mark.parametrize("failure", [None, "early", "repeat", "wrong_attempt", "wrong_epoch", "other_question"])
 def test_build_query_settlement_requires_exact_opening_response(failure):
     from application_state.agent_conversation.native_execution import (

@@ -2639,6 +2639,17 @@ class AgentConversationService:
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt, event=event, duplicate_key='event_id', authored_object_result_proof=object_result_proof, authored_prepared_request_json=prepared_request_json)
 
+    def settle_build_native_query(self, world_id, conversation_id, turn_id, *,
+                                  expected_revision, expected_attempt, settlement):
+        from .native_execution import NativeBuildQuerySettledV1
+
+        if type(settlement) is not NativeBuildQuerySettledV1:
+            raise ApplicationStateValidationError("Build Graph settlement requires its typed catalog")
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=settlement, duplicate_key="event_id",
+        )
+
     def record_build_draft_context(self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, event):
         from .types import BuildDraftContextCapturedV1

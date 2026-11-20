@@ -1832,9 +1832,40 @@ def test_native_unresolved_authoring_retry_requires_fresh_capture_and_preserves_
 
 @pytest.mark.parametrize("mode", [True, "associated", "by-name"])
 def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode):
+    from threading import Event
+    from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
+    from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+    from apps.live_control_server.services import native_graph_reads
+
+    first_wire = Event()
+    query_calls = []
+
+    def witness(adapter, provider):
+        if mode != "by-name" or provider != "typesafe" or first_wire.is_set():
+            return
+        assert isinstance(adapter.native_query, NativeBuildQueryPendingV1)
+        assert not any(isinstance(event, NativeBuildQuerySettledV1)
+                       for event in adapter.turn.graph_context_execution.events)
+        first_wire.set()
+
+    if mode == "by-name":
+        prepare = native_graph_reads.prepare_query
+
+        def wait_for_opening(*args, **kwargs):
+            assert first_wire.wait(timeout=5), "Graph preparation blocked opening transport"
+            query_calls.append(True)
+            return prepare(*args, **kwargs)
+
+        monkeypatch.setattr(native_graph_reads, "prepare_query", wait_for_opening)
+
     case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
         message="This is a challenging question, now we have to design this meat node and it's abilities, see if you can find the statblock for the meat mind.",
-        saved_statblock=mode)
+        saved_statblock=mode, before_provider=witness)
+    if mode == "by-name":
+        assert first_wire.is_set() and query_calls == [True]
+        (settlement,) = [event for event in case.turn.graph_context_execution.events
+                        if isinstance(event, NativeBuildQuerySettledV1)]
+        assert settlement.query.authority == case.turn.graph_context_receipt.native_query.authority
     root = f"/api/live/agent/worlds/{case.world}/conversations"
     response = case.client.get(root + "/active/messages")
     assert response.status_code == 200, response.text
