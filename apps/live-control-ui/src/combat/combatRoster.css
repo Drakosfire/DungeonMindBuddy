@@ -36,7 +36,7 @@
   border:1px solid var(--ui-border-subtle); border-radius:var(--ui-radius-md);
 }
 .combat-mechanics-dialog::backdrop { background:rgb(0 0 0 / 65%); }
-.combat-mechanics-dialog > header { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1rem; }
+.combat-mechanics-dialog > header { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:.7rem; margin-bottom:1rem; }
 .combat-roster-workspace { container-type:inline-size; min-width:0; --combat-host-offset:0px; }
 .native-combat-surface .combat-roster-workspace { --combat-host-offset:var(--app-chrome-top); }
 .combat-roster-workspace-layout { display:grid; gap:1rem; min-width:0; }
@@ -44,6 +44,9 @@
 .combat-statblock-projection { min-width:0; max-height:min(70dvh, max(12rem, calc(100dvh - var(--combat-host-offset) - var(--combat-turn-rail-height, 0px) - 2rem))); overflow:auto; padding:1rem; border:1px solid var(--ui-border-subtle); border-radius:var(--ui-radius-md); background:var(--ui-background-app); scroll-margin-top:calc(var(--combat-host-offset) + var(--combat-turn-rail-height, 0px) + .5rem); }
 .combat-statblock-projection > header { display:flex; flex-wrap:wrap; align-items:start; justify-content:space-between; gap:.7rem; margin-bottom:1rem; }
 .combat-statblock-projection > header p { color:var(--ui-text-secondary); margin:.3rem 0 0; font-size:.85rem; }
+:is(.combat-mechanics-dialog, .combat-statblock-projection) > header > div { min-width:0; }
+:is(.combat-mechanics-dialog, .combat-statblock-projection) > header,
+:is(.combat-mechanics-dialog, .combat-statblock-projection) .markdown-document-reader { overflow-wrap:anywhere; }
 @container (min-width: 56rem) {
   .combat-roster-workspace-layout.has-projection { grid-template-columns:minmax(0, 1fr) minmax(22rem, 28rem); align-items:start; }
   .combat-statblock-projection { grid-column:2; grid-row:1; position:sticky; top:calc(var(--combat-host-offset) + var(--combat-turn-rail-height, 0px) + .5rem); }
