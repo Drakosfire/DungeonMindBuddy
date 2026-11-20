@@ -1,6 +1,14 @@
 {
   "version": 1,
   "contracts": {
+    "native-manual-knowledge": {
+      "cwd": ".",
+      "argv": [
+        "{python}", "-m", "pytest", "-q", "--tb=short", "--show-capture=no",
+        "tests/test_native_manual_knowledge.py",
+        "tests/test_hosted_native_graph_access.py::test_hosted_native_manual_owner_and_receipt_fences"
+      ]
+    },
     "combat-manual-persistence": {
       "cwd": ".",
       "argv": [

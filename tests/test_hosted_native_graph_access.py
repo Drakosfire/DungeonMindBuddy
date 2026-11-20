@@ -17,6 +17,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
+from tests.test_native_manual_knowledge import manual_case as manual_case
 import pytest
 from pypdf import PdfWriter
 from fastapi import FastAPI
@@ -6684,3 +6685,55 @@ def test_hosted_explicit_profile_transition_scope_and_owner_fence(
 
 
 from tests.test_native_profile_transition import transition_case as transition_case  # noqa: E402
+
+
+@pytest.mark.parametrize("phase", ["context", "prepare", "confirm"])
+def test_hosted_native_manual_owner_and_receipt_fences(manual_case, monkeypatch, phase):
+    from tests.test_native_manual_knowledge import PATH, prepare_packet, snapshot
+    from apps.live_control_server.routes.graph_authoring import router
+    from apps.live_control_server.services import native_manual_knowledge as manual
+    from apps.live_control_server.main import HOSTED_WORLD_SCOPE_RESOLVERS
+
+    c = manual_case
+    request, _ = prepare_packet(c)
+    stored = catalog.get_world(c.world.world_id)
+    catalog.save_world(stored.record.model_copy(update={"owner_subject": OWNER}),
+                       expected_revision=stored.revision)
+    monkeypatch.setenv(DEPLOYMENT_ENVIRONMENT_ENV, "production")
+    monkeypatch.setenv(AUTH_MODE_ENV, "hosted_dms")
+    monkeypatch.setenv(TRUSTED_FRONTEND_ORIGINS_ENV, FRONTEND_ORIGIN)
+    monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({c.world.world_id: [OWNER, OTHER_OWNER]}))
+    app = FastAPI()
+    app.include_router(router)
+    install_hosted_request_boundary(app, world_scope_resolvers={
+        ("POST", PATH + "/" + name): HOSTED_WORLD_SCOPE_RESOLVERS[("POST", PATH + "/" + name)]
+        for name in ["context", "prepare", "confirm"]})
+    client = _OfflineClient(app)
+    prepared = client.request("POST", PATH + "/prepare", json=request)
+    assert prepared.status_code == 200, prepared.text
+    packet = {"schema": "dmb_native_manual_confirm_v1", **prepared.json()}
+    body = c.selector if phase == "context" else request if phase == "prepare" else packet
+    before = snapshot(c)
+    with monkeypatch.context() as patch:
+        def no_io(*a, **k):
+            pytest.fail("unauthorized manual request reached source/Core receipt IO")
+        patch.setattr(manual, "_source", no_io)
+        patch.setattr(manual.native, "repository", no_io)
+        patch.setattr(manual.native, "read_repository", no_io)
+        for session, status in [(None, 401), ("other-session", 403)]:
+            response = client.request("POST", PATH + "/" + phase, json=body, session=session)
+            assert response.status_code == status, response.text
+        assert client.request("POST", PATH + "/" + phase, json=body, origin=None).status_code == 403
+        assert client.request("POST", PATH + "/" + phase + "?worldId=foreign", json=body).status_code == 403
+    assert snapshot(c) == before
+    committed = client.request("POST", PATH + "/confirm", json=packet)
+    assert committed.status_code == 200, committed.text
+    stored = catalog.get_world(c.world.world_id)
+    catalog.save_world(stored.record.model_copy(update={"owner_subject": OTHER_OWNER}),
+                       expected_revision=stored.revision)
+    after = snapshot(c)
+    with monkeypatch.context() as patch:
+        patch.setattr(manual.native, "repository", lambda: pytest.fail("old owner reached receipt IO"))
+        denied = client.request("POST", PATH + "/confirm", json=packet)
+    assert denied.status_code == 403, denied.text
+    assert snapshot(c) == after

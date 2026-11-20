@@ -1599,3 +1599,27 @@ async def resolve_hosted_native_profile_transition(request: Request) -> str:
     _owned_world(subject, world)
     request.state.hosted_native_graph_world = world
     return world
+
+
+async def resolve_hosted_native_manual(request: Request) -> str:
+    """Current World owner only, before any source or immutable receipt IO."""
+    from apps.live_control_server.models.native_manual_knowledge import (
+        ManualConfirmRequest, ManualContextRequest, ManualPrepareRequest,
+    )
+
+    if request.query_params:
+        raise _denied()
+    subject = _hosted_subject(request)
+    raw = await request.json()
+    if request.url.path.endswith('/context'):
+        body = ManualContextRequest.model_validate(raw)
+        world = body.managed_world_id
+    elif request.url.path.endswith('/prepare'):
+        body = ManualPrepareRequest.model_validate(raw)
+        world = body.source.managed_world_id
+    else:
+        body = ManualConfirmRequest.model_validate(raw)
+        world = body.plan.review.source.managed_world_id
+    _owned_world(subject, world)
+    request.state.hosted_native_graph_world = world
+    return world

@@ -1,6 +1,7 @@
 # Buddy adoption of governed native source publication
 
-ACTIVE FINAL QUALIFICATION — accepted Core pin adopted; Buddy review/merge pending.
+COMPLETE — PR4188 merged13ea571faffd9bdc3e909ade910be623f66e25db from exact
+61c3dd9d7c540d259e0fb2890b555d8ed67d0ae1; final independent review5986476147.
 Owner MIND; Hubble implements, Aristotle/root independently review. Explicit user
 full-lane authority, no ARCH/PRIME gate. Branch
 codex/v10-governed-source-publication-adoption; existing task-owned Buddy checkout.
@@ -16,7 +17,7 @@ release. All10 publication runtime/schema/migration blobs matched reviewedee3;
 final source/CI and original failures retain their own execution identities.
 
 Buddy now pins actual90a5, never mutable main or a Core checkout overlay. Final
-installed provenance, qualification and independent review gate Buddy acceptance.
+installed provenance, qualification and independent review completed for this adoption.
 WK staysef9c50f2d6aa89a35e9408f83fc4d0ba47825ca2. Preserve accepted complete-entity
 batching from prior Coreb653, old extension recovery and every unrelated lock edge,
 version/source/artifact. No protected prior or serving environment is resynced.
@@ -92,12 +93,13 @@ bytes and noneditable direct_url. Full resolver regeneration resolved152 package
 complete nonartifact graph equals current-main lock except Core, and normalized
 lock preserves EVERY original registry artifact. Raw regeneration and comparisons
 are retained. WKef9, Python3.13.12, Pydantic2.13.4, psycopg3.3.4 remain recorded.
-Working accepted-pin diagnostic22PASS/0skip includes both alias families and SQL.
-Final committed-head22owning, preservation/auth, scoped Ruff/inventory/diff and CI
-must remain bound to actual final source; no new-head execution inferred from
-working results. Applicable final frontend qualification/independent review remain
-separate delivery gates. Freeze/push the final source for root; no Buddy merge
-before root accepts exact-head proof. Core242 prose settlement changes no inputs.
+Exact final61c3:22 owning/376 preservation/315 auth PASS, hosted1411/build/canonical
+PASS, scoped Ruff/inventory/diff and short CI PASS. Final source integrated main66556c8c;
+root confirmed no intervening main changes before merge. Seven accepted-pin SQL
+fixtures dropped with zero connections;177 installed Core files match accepted90a5.
+Manifest final-61c3dd9d7c.json and hosted-61c3dd9d7c-attempt1 retain actual source
+boundaries, cleanup and hashes. Earlier working/candidate runs retain their own
+identities; Core242 docs do not change runtime inputs.
 
 Earlier diagnostics remain visible: memory1 sevenPASS; owning2 thirteenPASS with
 JUnit-property warnings; owning3 eightPASS/sixFAIL from flat public search-hit
@@ -120,7 +122,9 @@ and process/mount/connection/dirty/unique-data/unique-commit checks.
 
 The full N3a design/gate remains protected atbdab1ab129af7a038de1a8175e203e7421fd13d3
 on codex/v10-native-manual-knowledge-backend-v2; earlier29ef is history. This
-adoption does not activate that backend lease or an API/UI/World transition.
+adoption itself did not activate an API/UI/World transition. Successor N3a is
+now separately authorized by HANDOFF-BUDDY-native-manual-knowledge-backend.md,
+pinned43388704a36fffc24617987d7f2121f8c88ae3bb; no backend completion inferred.
 Manual backend/UI, route retirement/history recovery, current deployment/fallback/
 rollback and V11 correctness/performance acceptance remain unfinished. No live
 upgrade, provider/ingestion experiment, serving action or frozen baseline rerun.

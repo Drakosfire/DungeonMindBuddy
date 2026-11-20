@@ -108,3 +108,44 @@ resync.32903 uniquely fixture-owned APP/Core DBs only, accepted Core migration t
 no live/provider/serving/baseline/new env/worktree. MIND retains task scratch with
 failures/evidence and cleanup follow-up after approved process/mount/unique-data
 checks; no deletion authorized. No qualification or completion claimed yet.
+
+Root invariant clarification: context bootstraps from mounted World/document UUID,
+committed revision/body digest and runID/revision only. Server derives native
+binding, APP source revisionUUID and persisted index commitments; browser needs no
+private APP lookup. Prepare retains caller operationID AND created_at across lost
+preview retries. Default role equals kind; distinct nonblank role retained in
+inspectable metadata, never substitutes for invalid kind. Context authority
+snapshots include full APP/Core storage and mutation-owner tripwires.
+
+## Implementation checkpoint and exact proof identities
+
+Draft PR4192. Public model/service/routes/hosted resolver now implemented; no
+backend acceptance claimed. Core contribution diagnostics world_context_v1 seals
+canonical manual_review_sha256, prepared_by and prepared_change_sha256. Signed
+packet retains original review; no redundant durable raw review/body copy. This
+binds normalized-equivalent different original reviews to different Core intent
+and conflicts on reused operationID. No dummy facts/evidence/new descriptor.
+
+Preintegration dirty diagnostic7 (before compact seal/final typed identity refusal):
+78PASS/8warnings143.60s with real APP, memory and SQL all13/45, actual rollback,
+reopen/recovery/withdrawal and mounted hosted auth. It is NOT final or integrated
+execution. All diagnostics1-7/catalog1-3 failures retained: saved-page normalization
+fixture, parsed descriptor wire conversion, Assertion.metadata.scope test access,
+distinct-identity vs same-kind location fixture, and stored-index corruption test
+expected409 although actual typed persistence500 was correct. Production corruption
+classification preserved; exact500/notunknown/notretry and no regeneration required.
+Ruff initial cache sandbox refusal retained; use task cache, no root fallback.
+
+Actual APP Page owner normalize_markdown replaces CRLF/CR with LF. HTTP fixtures
+bind actual committed readback bytes. Separate raw-CRLF UTF8 witness helper proof
+and accepted4188 public-Core CRLF/citation proofs remain explicitly layered, not
+claimed as CRLF-preserving Page-save HTTP. No owner normalization changed. Valid
+original-admission SUPPORT compatibility seed uses public Core admission and the
+real APP/native saved-source status verifier; ordinary current Page admission
+continues to produce CONTEXT, never relabeled by this API. Other two introduction
+families arise through actual extension/publication, with original proof epoch
+separate from current transaction epoch.
+
+Root requests normal main integration before freeze; preserve4191 Build dialogue
+reuse plus4193/4198 cleanup unchanged. Final integrated source/commands/hashes/
+SQL lifecycle results will be recorded externally; old78 execution not relabeled.
