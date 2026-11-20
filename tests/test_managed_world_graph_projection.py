@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
+import subprocess
+import sys
+import textwrap
 from types import SimpleNamespace
 
 from pydantic import ValidationError
@@ -374,3 +379,105 @@ def test_expected_managed_binding_change_refuses_before_native_io(tmp_path, monk
     with pytest.raises(WorldGraphProjectionServiceError) as error:
         managed_projection.project_managed_world_graph(_request(), root=tmp_path, expected_binding=expected)
     assert error.value.code == "native_graph_binding_changed" and error.value.status_code == 409
+
+
+@pytest.mark.parametrize("module_name", [
+    "apps.live_control_server.integrations.dungeonmind.native_projection_presentation",
+    "apps.live_control_server.integrations.dungeonmind.vnext_world_projection",
+    "apps.live_control_server.services.managed_world_graph_projection",
+])
+def test_cold_native_projection_import_does_not_load_classic_runtime(module_name):
+    blocked = (
+        "apps.live_control_server.integrations.dungeonmind.world_graph_reads",
+        "dungeonmind.application.graph_snapshot",
+        "dungeonmind.application.world_graph_projection",
+        "dungeonmind.application.world_graph_retrieval",
+        "dungeonmind.application.review_publication",
+        "dungeonmind.application.contribution_review",
+        "dungeonmind.application.contribution_review_v2",
+        "dungeonmind.application.contribution_review_v3",
+        "dungeonmind.application.contribution_review_v4",
+        "dungeonmind.application.existing_world_adoption",
+        "dungeonmind.application.reviewed_world_initialization",
+        "dungeonmind.infrastructure.postgres.graph",
+        "dungeonmind.infrastructure.postgres.review_publication",
+        "dungeonmind.infrastructure.postgres.existing_world_adoption",
+    )
+    script = textwrap.dedent(f"""
+        import importlib
+        import importlib.abc
+        import sys
+        import psycopg
+        blocked = {blocked!r}
+        class RejectClassic(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path=None, target=None):
+                if any(fullname == name or fullname.startswith(name + '.') for name in blocked):
+                    raise AssertionError('Native projection loaded classic runtime: ' + fullname)
+        sys.meta_path.insert(0, RejectClassic())
+        def forbidden(*args, **kwargs):
+            raise AssertionError('Projection import constructed or connected a database')
+        psycopg.connect = forbidden
+        from dungeonmind.infrastructure.postgres import PostgresDatabase
+        PostgresDatabase.__init__ = forbidden
+        importlib.import_module({module_name!r})
+        assert not any(name == prefix or name.startswith(prefix + '.')
+                       for name in sys.modules for prefix in blocked)
+    """)
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    result = subprocess.run([sys.executable, "-B", "-c", script], env=env,
+                            capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_native_expansion_ranking_preserves_complete_ordered_dtos_and_input():
+    from apps.live_control_server.integrations.dungeonmind.native_projection_presentation import (
+        _expansion_views,
+    )
+    from graph_memory.projection.world_projection import WorldGraphProjectionAdjacencyCandidate
+
+    def candidate(identity, label, *, focused=False, evidence=()):
+        return WorldGraphProjectionAdjacencyCandidate(
+            edge_id="edge:" + identity, node_id=identity, label=label,
+            kind="npc", predicate="knows", direction="outgoing",
+            anchored_to_focus_session=focused, evidence_ref_ids=list(evidence),
+            source_domains=["session"], session_ids=["session:exact"],
+            edge_label="Exact edge", campaign_scope="campaign:exact",
+            related_summary="Exact summary", source_excerpt="Exact cited bytes.\r\n",
+            source_excerpt_is_full_paragraph=True,
+        )
+
+    rows = [
+        candidate("sharp-s", "ß"),
+        candidate("tie-first", "Alpha"),
+        candidate("degree", "Zulu"),
+        candidate("double-s", "ss"),
+        candidate("tie-second", "alpha"),
+        candidate("evidence", "Zulu", evidence=("ev:one", "ev:one")),
+        candidate("focus", "Zulu", focused=True),
+        candidate("evidence-degree", "Zulu", evidence=("ev:one", "ev:two")),
+    ]
+    before = [row.model_dump(mode="json", by_alias=True) for row in rows]
+    degree = {"degree": 100, "evidence-degree": 3}
+    result = _expansion_views(rows, degree_by_node=degree)
+    expected_order = [6, 7, 5, 2, 1, 4, 3, 0]
+    expected_reasons = ["current session", "more evidence", "more evidence",
+                        "connected hub", "connected thread", "connected thread",
+                        "connected thread", "connected thread"]
+    expected = [dict(before[index], rank=rank, rankReason=reason)
+                for rank, (index, reason) in enumerate(zip(expected_order, expected_reasons), 1)]
+    assert [row.model_dump(mode="json", by_alias=True) for row in result] == expected
+    actual_bytes = b"[" + b",".join(row.model_dump_json(by_alias=True).encode() for row in result) + b"]"
+    assert actual_bytes == json.dumps(expected, ensure_ascii=False, separators=(",", ":")).encode()
+    assert [row.model_dump(mode="json", by_alias=True) for row in rows] == before
+    assert degree == {"degree": 100, "evidence-degree": 3}
+    assert _expansion_views([], degree_by_node={}) == []
+
+
+def test_historical_expansion_alias_is_same_presentation_function():
+    from apps.live_control_server.integrations.dungeonmind import (
+        native_projection_presentation as presentation,
+        world_graph_reads as historical,
+    )
+    assert historical._expansion_views is presentation._expansion_views

@@ -16,7 +16,9 @@ from apps.live_control_server.integrations.dungeonmind.vnext_complete_object imp
     _source_presentation,
     world_object_display_values,
 )
-from apps.live_control_server.integrations.dungeonmind.world_graph_reads import _expansion_views
+from apps.live_control_server.integrations.dungeonmind.native_projection_presentation import (
+    _expansion_views,
+)
 from apps.live_control_server.services.native_source_display import source_display_metadata
 from graph_memory.projection.world_projection import (
     WorldGraphProjection,
