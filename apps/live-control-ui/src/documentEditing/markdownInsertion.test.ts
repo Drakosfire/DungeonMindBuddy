@@ -3,7 +3,7 @@ import { afterEach, expect, it } from 'vitest';
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../tiptap/MarkdownEditorCore';
 import { markdownToTiptapDoc } from '../tiptap/markdown/markdownToTiptap';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
-import { admitMarkdownInsertion, insertReviewedMarkdown } from './markdownInsertion';
+import { admitMarkdownInsertion, insertReviewedMarkdown, insertReviewedMarkdownAtAnchor } from './markdownInsertion';
 const editors: Editor[] = [];
 afterEach(() => editors.splice(0).forEach(editor => editor.destroy()));
 function page() {
@@ -51,4 +51,30 @@ it('inserts a block table before a heading without splitting the heading', () =>
   expect(editor.getJSON().content?.slice(1)).toEqual(before.content);
   editor.commands.undo();
   expect(editor.getJSON()).toEqual(before);
+});
+
+it('reopens an inline callout rewrite with its kind, title, and neighboring GM note', () => {
+  const source = '> [!READ-ALOUD] First sight\n> Original spoken passage.\n\n> [!GM-NOTE] Pause\n> Wait for the players.\n';
+  const editor = new Editor({
+    extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
+    content: markdownToTiptapDoc(source).doc,
+  });
+  editors.push(editor);
+  const original = 'Original spoken passage.';
+  let from = -1;
+  editor.state.doc.descendants((node, position) => {
+    if (node.isText && node.text === original) from = position;
+  });
+  expect(from).toBeGreaterThan(0);
+  const replacement = '**Mist** gathers along the boardwalk.';
+  insertReviewedMarkdownAtAnchor(
+    editor,
+    { from, to: from + original.length },
+    admitMarkdownInsertion(replacement).content,
+    JSON.stringify(editor.getJSON()),
+  );
+  const saved = tiptapJsonToSemanticMarkdown(editor.getJSON());
+  const reopened = markdownToTiptapDoc(saved);
+  expect(reopened.diagnostics).toEqual([]);
+  expect(tiptapJsonToSemanticMarkdown(reopened.doc)).toBe(source.replace(original, replacement));
 });

@@ -48,6 +48,11 @@ choose unavailable with empty replacement_markdown. For unclear placement ask in
 Otherwise choose target=captured. When a captured selection is present, revise only that selected passage: its text
 is reference data and its end/start are host-owned. Return the complete replacement
 for that passage, preserving its relevant names, facts and requested formatting.
+If the selection contains only text inside an existing callout paragraph, the
+editor retains the surrounding callout and its title. Return one paragraph
+with any requested inline formatting. Do not add a blockquote, callout marker
+or title around that replacement. Use the callout marker and title when the
+entire callout is the replacement.
 Otherwise compose an addition at the captured caret. Only the offered target enum may be chosen.
 Report destination as current_page only when the current instruction requests writing
 at this captured page, including development of a newly created page that is now
