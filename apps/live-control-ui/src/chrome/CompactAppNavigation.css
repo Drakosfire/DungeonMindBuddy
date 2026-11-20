@@ -43,3 +43,36 @@
   .app-site-nav.app-site-nav--compact { flex-wrap: wrap; }
   .app-site-nav--compact .app-nav-world-context { flex-basis: 100%; justify-content: flex-end; }
 }
+
+.app-nav-appearance,
+.app-appearance button {
+  font: inherit;
+  font-size: .8rem;
+  color: var(--ui-text-primary);
+  background: var(--ui-background-chrome);
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-sm);
+  min-height: 32px;
+  padding: .35rem .55rem;
+}
+
+.app-nav-appearance:focus-visible,
+.app-appearance :is(button, input):focus-visible {
+  outline: 2px solid var(--ui-accent-action);
+  outline-offset: 2px;
+}
+
+.app-appearance {
+  width: min(24rem, calc(100% - 2rem));
+  padding: 1rem;
+  color: var(--ui-text-primary);
+  background: var(--ui-background-ops);
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-md);
+}
+
+.app-appearance h2 { margin: 0 0 .75rem; }
+.app-appearance fieldset { display: grid; gap: .5rem; border-color: var(--ui-border-subtle); }
+.app-appearance label { display: flex; gap: .5rem; align-items: center; }
+.app-appearance input { accent-color: var(--ui-accent-action); }
+.app-appearance__actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }

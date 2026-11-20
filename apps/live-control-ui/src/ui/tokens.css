@@ -32,3 +32,13 @@
   --ui-reading-width: 44rem;
   --ui-peek-width: 24rem;
 }
+
+/* Authored content keeps its paper, ink, and border tokens in both presets. */
+:root[data-buddy-theme="deep-teal"] {
+  --ui-background-app: #10252a;
+  --ui-background-chrome: #173238;
+  --ui-background-ops: #122a30;
+  --ui-accent-action: #8fdfca;
+  --ui-border-subtle: #365c63;
+  --ui-border-strong: #729fa5;
+}
