@@ -569,3 +569,159 @@ def test_managed_projection_local_authorization_precedes_projection(monkeypatch)
         assert denied.status_code == 403, denied.text
         assert denied.json()["detail"]["code"] == "graph_gm_required"
         assert calls == []
+
+
+@pytest.fixture
+def retired_projection_routes(monkeypatch):
+    import psycopg
+    from fastapi import FastAPI
+    from fastapi.routing import APIRoute
+    from fastapi.testclient import TestClient
+    from dungeonmind.infrastructure.postgres import PostgresDatabase
+    from application_state.source import service as sources
+    from apps.live_control_server.routes import world_graph_projection as route
+    from apps.live_control_server.services import agent_graph_auth as auth
+    from apps.live_control_server.services import world_graph_projection as projection
+    from apps.live_control_server.services import world_graph_recap_projection as recap
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+
+    _clear_auth_environment(monkeypatch)
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setenv(auth.AUTH_ENVIRONMENT_ENV, "local")
+    monkeypatch.setenv(auth.AUTH_MODE_ENV, "local_operator")
+    monkeypatch.setenv(auth.LOCAL_OPERATOR_TOKEN_ENV, LOCAL_OPERATOR_TOKEN)
+    calls = []
+
+    def forbidden(*args, **kwargs):
+        calls.append((args, kwargs))
+        pytest.fail("Retired projection reached legacy service/Core/source work")
+
+    monkeypatch.setattr(projection, "project_world_graph", forbidden)
+    monkeypatch.setattr(recap, "build_world_graph_recap_projection_payload", forbidden)
+    monkeypatch.setattr(recap, "project_world_graph", forbidden)
+    monkeypatch.setattr(recap, "_load_corpus_markdown", forbidden)
+    monkeypatch.setattr(direct, "direct_services_from_config", forbidden)
+    monkeypatch.setattr(direct, "project_world_graph_direct", forbidden)
+    monkeypatch.setattr(sources, "get_source_markdown", forbidden)
+    monkeypatch.setattr(PostgresDatabase, "__init__", forbidden)
+    monkeypatch.setattr(psycopg, "connect", forbidden)
+    app = FastAPI()
+    app.include_router(route.router)
+    for endpoint in ("projection", "recap-projection"):
+        path = "/api/live/world-graph/" + endpoint
+        mounted = next(row for row in app.routes if isinstance(row, APIRoute) and row.path == path)
+        assert any(d.call is auth.native_graph_gm_dependency for d in mounted.dependant.dependencies)
+    with TestClient(app, client=("127.0.0.1", 50000)) as client:
+        yield client, app, {"Authorization": "Bearer " + LOCAL_OPERATOR_TOKEN}, calls
+    assert calls == []
+
+
+def _retired_projection_body():
+    return {
+        "schema": "dmb_world_graph_projection_request_v1",
+        "worldId": "legacy-world", "campaignId": "legacy-campaign",
+        "scopeMode": "campaign", "admissibility": "gm",
+        "focus": {"kind": "session", "sessionId": "session-1"},
+    }
+
+
+@pytest.mark.parametrize("endpoint", ["projection", "recap-projection"])
+def test_retired_public_projection_returns_typed_410_without_legacy_io(
+    retired_projection_routes, endpoint
+):
+    from graph_memory.projection.world_projection import PROJECTION_ERROR_SCHEMA
+
+    client, _, headers, calls = retired_projection_routes
+    response = client.post("/api/live/world-graph/" + endpoint,
+                           headers=headers, json=_retired_projection_body())
+    assert response.status_code == 410
+    assert response.json() == {
+        "schema": PROJECTION_ERROR_SCHEMA, "code": "legacy_projection_retired",
+        "message": "Select a managed World to inspect its native graph.",
+        "statusCode": 410, "diagnostics": [],
+    }
+    assert calls == []
+
+
+@pytest.mark.parametrize("endpoint", ["projection", "recap-projection"])
+def test_retired_public_projection_keeps_real_auth_and_player_refusal(
+    retired_projection_routes, endpoint
+):
+    from apps.live_control_server.services import agent_graph_auth as auth
+
+    client, app, _, calls = retired_projection_routes
+    path = "/api/live/world-graph/" + endpoint
+    for body in (_retired_projection_body(), {}):
+        response = client.post(path, json=body)
+        assert response.status_code == 401
+        assert response.json()["detail"]["code"] == "graph_auth_required"
+    app.dependency_overrides[auth.authenticate_native_graph_principal] = lambda: auth.NativeGraphPrincipal(
+        "synthetic-player", "player", "local_operator"
+    )
+    for body in (_retired_projection_body(), {}):
+        response = client.post(path, json=body)
+        assert response.status_code == 403
+        assert response.json()["detail"]["code"] == "graph_gm_required"
+    assert calls == []
+
+
+@pytest.mark.parametrize("endpoint", ["projection", "recap-projection"])
+@pytest.mark.parametrize("change", [{"schema": "unknown"}, {"worldId": None},
+                                    {"unexpected": "not-admitted"}, {"scopeMode": "unknown"}])
+def test_retired_public_projection_preserves_model_validation(
+    retired_projection_routes, endpoint, change
+):
+    client, _, headers, calls = retired_projection_routes
+    response = client.post("/api/live/world-graph/" + endpoint,
+                           headers=headers, json=_retired_projection_body() | change)
+    assert response.status_code == 422 and response.json()["code"] == "invalid_request"
+    assert calls == []
+
+
+@pytest.mark.parametrize("endpoint", ["projection", "recap-projection"])
+def test_retired_public_projection_preserves_query_rejection(retired_projection_routes, endpoint):
+    client, _, headers, calls = retired_projection_routes
+    response = client.post("/api/live/world-graph/" + endpoint + "?world=foreign",
+                           headers=headers, json=_retired_projection_body())
+    assert response.status_code == 422 and response.json()["code"] == "invalid_request"
+    assert calls == []
+
+
+@pytest.mark.parametrize("endpoint", ["projection", "recap-projection"])
+@pytest.mark.parametrize("authenticated", [False, True])
+def test_retired_public_projection_preserves_malformed_json_precedence(
+    retired_projection_routes, endpoint, authenticated
+):
+    client, _, headers, calls = retired_projection_routes
+    response = client.post("/api/live/world-graph/" + endpoint, content="{",
+        headers={"Content-Type": "application/json", **(headers if authenticated else {})})
+    assert response.status_code == 422 and response.json()["code"] == "invalid_request"
+    assert calls == []
+
+
+def test_managed_projection_success_remains_available_beside_retired_routes(
+    retired_projection_routes, monkeypatch
+):
+    from apps.live_control_server.routes import world_graph_projection as route
+    from tests.test_managed_world_graph_projection import _native_projection
+
+    client, _, headers, legacy_calls = retired_projection_routes
+    seen = []
+
+    def managed(request):
+        seen.append((request.managed_world_id, request.revision_pin))
+        return route.ManagedWorldGraphProjectionResponse(
+            schema="dmb_managed_world_graph_projection_v1",
+            managed_world_id=request.managed_world_id, native_world_id="native-managed",
+            binding_version=1, projection=_native_projection(request.managed_world_id),
+        )
+
+    monkeypatch.setattr(route, "project_managed_world_graph", managed)
+    response = client.post("/api/live/world-graph/managed-projection", headers=headers,
+        json={"schema": "dmb_managed_world_graph_projection_request_v1",
+              "managedWorldId": "managed-world", "revisionPin": "rev:pinned"})
+    assert response.status_code == 200, response.text
+    assert seen == [("managed-world", "rev:pinned")]
+    assert response.json()["managedWorldId"] == "managed-world"
+    assert legacy_calls == []
