@@ -6623,9 +6623,35 @@ def project_plan_turn_context(
             completed=turn.status == "completed",
         )
     if type(receipt) is _app_state_graph_execution_types().SurfaceNativeContextReceiptV1:
-        from apps.live_control_server.models.agent_turn import AgentSurfaceNativeContextResponseV1
-        return AgentSurfaceNativeContextResponseV1(receipt=receipt, completion=turn.completion,
-            execution=execution_projection, delivery_replay=delivery_replay)
+        from apps.live_control_server.models.agent_turn import (
+            AgentSurfaceNativeContextResponseV1, DeferredBuildCitationMembership,
+        )
+        from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
+        from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
+        from application_state.agent_conversation.native_execution import effective_native_query
+
+        citation_membership = None
+        completion = turn.completion
+        if (type(receipt.native_query) is NativeBuildQueryPendingV1
+                and type(completion) is SurfaceNativeCompletionV1
+                and (completion.native_clause_citations or completion.native_assertion_citations)):
+            settled = effective_native_query(receipt, turn.graph_context_execution)
+            if type(settled) is NativeBuildQueryPendingV1:
+                raise ValueError("Stored Build citations require their durable Graph settlement")
+            statements = {(cite.statement_id, cite.campaign_id) for cite in completion.native_clause_citations}
+            assertions = {(cite.assertion_id, cite.assertion_sha256) for cite in completion.native_assertion_citations}
+            if (statements - {(match.statement_id, match.campaign_id) for match in settled.matches}
+                    or assertions - {(match.assertion_id, match.assertion_sha256) for match in settled.assertion_matches}):
+                raise ValueError("Stored Build citations differ from their durable Graph settlement")
+            citation_membership = DeferredBuildCitationMembership(
+                context_receipt_sha256=receipt.context_receipt_sha256,
+                producing_provider_attempt_id=completion.producing_provider_attempt_id,
+                statements=sorted(statements),
+                assertions=sorted(assertions),
+            )
+        return AgentSurfaceNativeContextResponseV1(receipt=receipt, completion=completion,
+            execution=execution_projection, delivery_replay=delivery_replay,
+            deferred_build_citations=citation_membership)
     if isinstance(receipt, _app_state_graph_execution_types().PlanSourceContextReceiptV1):
         from apps.live_control_server.models.agent_turn import AgentPlanSourceContextResponseV1, AgentPlanNativeContextResponseV1
         response_type = AgentPlanNativeContextResponseV1 if isinstance(receipt, _app_state_graph_execution_types().PlanNativeContextReceiptV1) else AgentPlanSourceContextResponseV1

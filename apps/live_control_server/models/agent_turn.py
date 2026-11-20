@@ -806,6 +806,16 @@ class AgentPlanNativeContextResponseV1(AgentPlanSourceContextResponseV1):
     completion: SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | None
 
 
+class DeferredBuildCitationMembership(BaseModel):
+    """Closed presentation of citation membership proved by the retained settlement."""
+
+    model_config = ConfigDict(extra="forbid")
+    context_receipt_sha256: str
+    producing_provider_attempt_id: UUID
+    statements: list[tuple[str, str]]
+    assertions: list[tuple[str, str]]
+
+
 class AgentSurfaceNativeContextResponseV1(BaseModel):
     model_config = ConfigDict(extra='forbid')
     schema_: Literal['dmb_agent_surface_native_context_response_v1'] = Field(
@@ -814,6 +824,9 @@ class AgentSurfaceNativeContextResponseV1(BaseModel):
     completion: SurfaceNativeCompletionV1 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
+    deferred_build_citations: DeferredBuildCitationMembership | None = Field(
+        default=None, exclude_if=lambda value: value is None,
+    )
 
 
 class AgentPlayWorldGraphContextResponseV1(BaseModel):
