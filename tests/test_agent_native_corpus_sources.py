@@ -218,16 +218,19 @@ def test_source_only_actual_rules_selection_reads_once_under_its_own_authority(s
 
 
 class SourceChoices(httpx2.AsyncBaseTransport):
-    def __init__(self, *, sections=False, direct=False):
+    def __init__(self, *, sections=False, direct=False, writer_passages=False):
         self.calls = []
         self.direct = direct
+        self.writer_passages = writer_passages
+        self.selected_kinds = []
         self.read_kind = 'Exact source section' if sections else 'Explicit full-document read'
 
     async def handle_async_request(self, request):
         body = json.loads(request.content)
         self.calls.append(body)
-        assert len(self.calls) <= 4, body['state']
+        assert len(self.calls) <= (5 if self.writer_passages else 4), body['state']
         answers = {}
+        selected_kinds = []
         for name, entry in body['questions'].items():
             choice = ('discuss' if name == 'requested_work' else
                       'finish_retrieval' if name == 'operation' else
@@ -240,11 +243,21 @@ class SourceChoices(httpx2.AsyncBaseTransport):
                 if (not self.direct and self.read_kind == 'Explicit full-document read'
                         and any(c['kind'].startswith('Navigation scan:') for c in body['state'].get('examined_subjects', []))):
                     kinds.add(direct_kind)
-                if candidate['kind'] in kinds:
+                if self.writer_passages:
+                    passage_kind = ('Select passage from inspected source' if self.direct
+                                    else 'Exact source section')
+                    selected = (self.direct and (candidate['kind'] == direct_kind
+                        or candidate['kind'].startswith('Expand to all other admitted native sources'))
+                        or candidate['kind'] == passage_kind and ' · Witness · ' in candidate['label'])
+                else:
+                    selected = candidate['kind'] in kinds
+                if selected:
                     choice = 'include'
+                    selected_kinds.append(candidate['kind'])
             assert choice in entry['criteria'], (name, choice, entry['criteria'])
             answers[name] = {'type': 'choice', 'choice': choice, 'confidence': 1.0,
                 'probabilities': {key: float(key == choice) for key in entry['criteria']}}
+        self.selected_kinds.append(tuple(selected_kinds))
         return httpx2.Response(200, request=request, json={'model': 'jev-1.14.0', 'answers': answers,
             'usage': {'input_tokens': 37, 'output_tokens': 9}})
 
@@ -487,6 +500,11 @@ def test_source_only_rules_completion_and_reload_has_no_fabricated_graph(source_
     assert AgentConversationService().inspect_turn(world_id=a.world_id, turn_id=completed.envelope.turn_id) == completed
 
 
+HTTP_PASSAGE = '# Witness\n\nÉphanna heard the guard.\n\n'
+HTTP_BODY = HTTP_PASSAGE + '# Other scene\n\nUnselected unrelated private context.\n'
+
+
+@pytest.mark.parametrize('source_adapter', [[('first', HTTP_BODY)]], indirect=True, ids=['current-plan-source'])
 @pytest.mark.parametrize("graph_available", [False, True])
 @pytest.mark.parametrize('direct',[False,True])
 def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_adapter, lane, monkeypatch, tmp_path, graph_available,direct):
@@ -526,19 +544,31 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',
         lambda *_: pytest.fail('Classic fallback in source-only Plan'))
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: lane.bound)
-    monkeypatch.setattr(native_registry_source, 'repository', lambda: lane.repo)
-    choices = SourceChoices(direct=direct)
+    def read_repository(*, verification_cache=None):
+        from apps.live_control_server.integrations.dungeonmind.native_corpus_source import _turn_revision_proof
+        assert verification_cache is None or verification_cache is _turn_revision_proof
+        return lane.repo
+    monkeypatch.setattr(native_registry_source, 'repository', read_repository)
+    choices = SourceChoices(direct=direct, writer_passages=True)
     class SourceWriter(WriterWire):
         async def handle_async_request(self, request):
-            frames = [json.loads(row['content']) for row in json.loads(request.content)['input']
-                      if row['content'] != 'Return JSON.']
-            frame = next(row for row in frames if set(row) == {
-                'input_status','user_question','native_body_evidence',
-                'native_statements','native_assertions'})
-            assert len(frames) == 3 and frames[-1] == frame
-            handle = frame['native_body_evidence']['excerpts'][0]['excerpt_handle']
+            import re
+            from application_state.agent_conversation.native_evidence_view import PLAN_EVIDENCE_HEADING
+            messages = json.loads(request.content)['input']
+            evidence = [row for row in messages if row['content'].startswith(PLAN_EVIDENCE_HEADING)]
+            assert len(evidence) == 1 and messages[-1] == evidence[0]
+            prose = evidence[0]['content']
+            assert evidence[0]['role'] == 'user'
+            handles = re.findall(r'^\[(body\d+)\] [^\n]+$', prose, re.MULTILINE)
+            assert len(handles) == 1, prose
+            handle, = handles
+            assert prose.count(HTTP_PASSAGE) == 1 and HTTP_BODY not in prose
+            assert 'Unselected unrelated private context.' not in prose
+            assert 'native_body_evidence' not in prose and 'source_artifact_id' not in prose
+            authority = self.adapter.turn.graph_context_receipt.source_authority
+            assert authority.revision_id not in prose and sha256(HTTP_BODY.encode()).hexdigest() not in prose
+            self.excerpt_handle = handle
             from application_state.agent_conversation.native_plan_assertions import POLICY
-            assert handle == 'body0'
             self.text = json.dumps({'schema': POLICY, 'limitations': [], 'requested_detail_gaps': [],
                 'answer_segments': [{'kind': 'native_body_claim', 'text': 'The source says Éphanna heard the guard.', 'excerpt_handles': [handle]}]})
             return await super().handle_async_request(request)
@@ -573,34 +603,84 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     else:
         assert receipt['native_query']['schema'] == 'dmb_native_plan_query_unavailable_v1'
     assert data['answer']['status'] == 'ok' and not data['answer']['graph_grounded']
-    assert len(wire.calls) == 1 and len(constructions) == 1 and len(choices.calls) == 2
+    assert len(wire.calls) == len(constructions) == 1
+    selection_count = len(choices.calls)
+    assert selection_count == (4 if direct else 2)
+    groups = [group for group in choices.selected_kinds if group]
+    if direct:
+        assert len(groups) == 3 and len(groups[0]) == 1
+        assert groups[0][0].startswith('Expand to all other admitted native sources')
+        assert groups[1:] == [
+            ('Explicit admitted full-source read; metadata choice, not evidence',),
+            ('Select passage from inspected source',),
+        ]
+    else:
+        assert groups == [('Exact source section',)]
     assert 'max_output_tokens' not in json.loads(wire.calls[0].content)
     turn = wire.adapter.turn
     from application_state.agent_conversation.native_corpus import (
         NativeDirectSourceAuthorizedV1, NativeDirectSourceObservedV1,
         NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1,
+        NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeBodySearchObservedV1,
     )
     events = turn.graph_context_execution.events
     # Request-owned discovery replaced the extra model search/finish rounds.
     assert sum(type(e) is NativePlanRequestSearchAuthorizedV1 for e in events) == 1
     assert not any(type(e) is NativeBodySearchAuthorizedV1 for e in events)
-    reads = [e for e in events if isinstance(e, NativeDirectSourceObservedV1)]
-    grants = [e for e in events if isinstance(e, NativeDirectSourceAuthorizedV1)]
+    read_type = NativeDirectSourceObservedV1 if direct else NativeBodyReadObservedV1
+    grant_type = NativeDirectSourceAuthorizedV1 if direct else NativeBodyReadAuthorizedV1
+    reads = [e for e in events if type(e) is read_type]
+    grants = [e for e in events if type(e) is grant_type]
     assert len(reads) == len(grants) == 1
+    assert sum(isinstance(e, NativeBodyReadObservedV1) for e in events) == 1
     assert reads[0].authorization_event_id == grants[0].event_id
     assert grants[0].sequence < reads[0].sequence
-    assert reads[0].excerpt.selector_policy == 'native_full_document_v1'
-    assert reads[0].catalog.source.artifact.source_artifact_id == grants[0].source_artifact_id
-    assert reads[0].catalog.source.revision.source_revision_id == grants[0].source_revision_id
+    if direct:
+        catalog = reads[0].catalog
+        assert reads[0].excerpt.selector_policy == 'native_full_document_v1'
+        assert catalog.source.artifact.source_artifact_id == grants[0].source_artifact_id
+        assert catalog.source.revision.source_revision_id == grants[0].source_revision_id
+    else:
+        catalogs = [c for event in events if type(event) is NativeBodySearchObservedV1
+                    for c in event.catalogs if c.catalog_sha256 == reads[0].excerpt.catalog_sha256]
+        catalog, = catalogs
+        assert reads[0].excerpt.selector_policy == 'markdown_sections_v1'
+        assert grants[0].catalog_sha256 == catalog.catalog_sha256
+    from application_state.agent_conversation.native_corpus import native_body_handle
+    from application_state.agent_conversation.native_execution import NativePlanActionV2, NativeWriterAuthorizedV1
+    from application_state.agent_conversation.native_retrieval import native_selection_types
+    assert type(turn.graph_context_execution.policy.action) is NativePlanActionV2
+    section, = [s for s in catalog.sections if s.label == 'Witness']
+    handle = native_body_handle(catalog.catalog_sha256, section.section_id)
+    assert any(handle in event.selected_handles
+               and (event.sequence > reads[0].sequence if direct else event.sequence < grants[0].sequence)
+               for event in events if isinstance(event, native_selection_types()))
+    producing, = [event for event in events if isinstance(event, NativeWriterAuthorizedV1)]
+    assert reads[0].event_id in producing.native_read_event_ids
+    completed = wire.adapter.service.inspect_turn(world_id=a.world_id, turn_id=turn.turn_id)
+    citation, = completed.completion.native_body_citations
+    assert citation.read_event_id == reads[0].event_id and citation.catalog_sha256 == catalog.catalog_sha256
+    assert citation.source_artifact_id == catalog.source.artifact.source_artifact_id
+    assert citation.native_source_revision_id == catalog.source.revision.source_revision_id
+    assert citation.content_sha256 == sha256(HTTP_BODY.encode()).hexdigest()
+    assert citation.selector_policy == reads[0].excerpt.selector_policy
+    assert citation.excerpt_sha256 == sha256(HTTP_PASSAGE.encode()).hexdigest()
+    if direct:
+        assert citation.section_id != reads[0].excerpt.section.section_id  # Derived passage, original read identity.
+    else:
+        assert citation.section_id == section.section_id
+    assert (citation.line_start, citation.line_end) == (section.line_start, section.line_end) == (1, 4)
+    assert 0 < section.byte_end - section.byte_start < catalog.body_bytes
     admit(lane, name='head-after-http-answer', body='# Later\n\nAnother event.\n')
     opened = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation/turns/{turn.turn_id}/native-body-excerpts/0')
     assert opened.status_code == 200, opened.text
-    assert opened.json()['content'] == BODY
+    assert opened.json()['content'] == HTTP_PASSAGE
+    assert opened.json()['citation'] == citation.model_dump(mode='json', by_alias=True)
     replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
     assert replay.status_code == 200, replay.text
     assert replay.json()['plan_context']['completion'] == data['plan_context']['completion']
     assert replay.json()['plan_context']['delivery_replay']
-    assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == 2
+    assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == selection_count
     assert graph_calls == [True]  # Original completion reopens without reacquiring current Graph authority.
     history = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation?include_turn_correlation=true')
     assert history.status_code == 200, history.text
@@ -611,7 +691,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     lane.bound = SimpleNamespace(**(vars(lane.bound) | {'binding_version': 2}))
     denied = client.get(target)
     assert denied.status_code == 409 and denied.json()['detail']['code'] == 'native_body_access_unavailable'
-    assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == 2
+    assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == selection_count
 
 
 @pytest.mark.parametrize('source_adapter', [[

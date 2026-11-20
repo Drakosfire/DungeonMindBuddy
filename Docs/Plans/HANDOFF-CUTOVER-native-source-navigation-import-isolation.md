@@ -151,3 +151,25 @@ on a new combined frozen head. Original red results are not relabelled green.
 Conditional Play parameters for Plan-only assertions retain documented skips;
 zero required proof omissions. No CI selectors/exclusions, providers, ingestion
 or frozen retrieval baseline run. Full cutover goal remains active.
+
+## Combined fixture diagnostics before frozen qualification
+
+Origin28 pass using real Core-returned pins from typed span evidence; APP navigation
+41 pass/one existing Plan-only Play skip with rollback-only owning0053 roundtrip.
+The rollback restores the current constraint and schema version after asserting
+historical Play JSON text unchanged. No production guard or migration is bypassed.
+
+The whole source-agent file25 pass. Current HTTP opt-in fake contrasts request-owned
+matched-section acquisition (two controller calls) and explicit expansion/full-source
+inspection followed by a subsection vote (four calls). Both reopen identical exact
+selected UTF8 bytes after head advance and preserve replay/history/auth fences.
+A covering full-source read retains its original selector/read ID; the citation
+uses selected line bounds and passage digest, not a fabricated read or whole-body
+writer evidence. Actual exposed body aliases are used. General legacy mocks stay
+on their original default behavior.
+
+Earlier HTTP diagnostic failures remain: obsolete candidate matching produced no
+body; source-name matching selected both sections; expected citation selector was
+incorrectly assumed to change for a covering acquisition. Correct the test fake
+and expectations to current contracts; no production behavior changed. These
+working diagnostics do not replace the required new combined frozen-head runs.
