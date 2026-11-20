@@ -32,6 +32,30 @@ def test_stage_rejects_graph_citation_without_release_excerpt():
             assets=[])
 
 
+def test_node_field_bindings_round_trip_and_require_both_citations(application_state_dsn):
+    world = create_world(name="Field binding fixture", owner_subject="owner").record.world_id
+    graph_binding = _bind(application_state_dsn, world)
+    page = create_page(world_id=world, title="Source", metadata=PageMetadata(visibility_state="internal"))
+    committed, revision = commit_page(str(page.page.work_object_id), "selected", world_id=world,
+        expected_revision=page.page.object_revision, expected_working_copy_revision=None)
+    excerpt_id, node_id = uuid4(), uuid4()
+    source_binding = (excerpt_id, page.page.work_object_id, 0, 0, revision.revision_n,
+        revision.content_sha256, 0, 8, committed.page.object_revision, "internal", "evidence")
+    node = {"id": str(node_id), "label": "Sizzek", "kind": "character",
+            "name_citations": [str(excerpt_id)], "kind_citations": [str(excerpt_id)]}
+    private = (node_id, "entity", "name", "evidence", str(excerpt_id), "kind", "evidence", str(excerpt_id))
+    args = dict(world_id=world, subject="owner", expected_owner_generation=guest_release.owner_generation(world_id=world, subject="owner"),
+        manifest={"assets": [], "sources": [{"id": str(excerpt_id), "text": "selected"}],
+                  "graph": {"nodes": [node], "edges": []}}, assets=[], source_bindings=[source_binding],
+        node_bindings=[private], **graph_binding)
+    release, digest = guest_release.stage(**args)
+    material = guest_release.validation_material(world_id=world, subject="owner", release_id=release, digest=digest)
+    assert material["node_bindings"] == [(node_id, "entity", "name", "evidence", excerpt_id, "kind", "evidence", excerpt_id)]
+    node["kind_citations"] = []
+    with pytest.raises(ApplicationStateValidationError):
+        guest_release.stage(**args)
+
+
 def test_release_lifecycle_isolated_and_revocation(application_state_dsn):
     world = create_world(name="Fixture World", owner_subject="owner").record.world_id
     graph = _bind(application_state_dsn, world)

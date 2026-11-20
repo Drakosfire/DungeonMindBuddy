@@ -130,3 +130,26 @@ def test_player_projection_excludes_assertions_backed_only_by_gm_source(monkeypa
     assert owner_support.listing.admitted_assertion_ids
     assert all(owner_context.parsed.get_assertion(item) is not None
                for item in owner_support.listing.admitted_assertion_ids)
+
+
+def test_owner_selection_retains_real_ingested_unknown_temporal_scope(monkeypatch):
+    from tests import test_governed_native_source_publication_adoption as fixture
+    from apps.live_control_server.services import guest_release_assertions as selections
+
+    case = fixture.setup()
+    _, receipt = fixture.exercise(case, "new_intervals", primary=False)
+    revision = receipt.publication_receipt.published_revision_id
+    monkeypatch.setattr(reader, "resolve_managed_world_binding", lambda _: SimpleNamespace(native_world_id=case.space, binding_version=1))
+    monkeypatch.setattr(reader.native_registry_source, "read_repository", lambda: case.repo)
+    _, context, support, access = reader.read_owner_graph(managed_world_id="managed", revision_id=revision)
+    assertions = [context.parsed.get_assertion(i) for i in support.listing.admitted_assertion_ids]
+    name = next(a for a in assertions if a.predicate == "dnd5e:name")
+    kind = next(a for a in assertions if a.predicate == "dnd5e:classification" and a.subject_entity_id == name.subject_entity_id)
+    monkeypatch.setattr(selections, "verify_source_citation", lambda **k: k["excerpt"]["id"])
+    def citation(assertion):
+        return assertion.metadata.evidence_ref_ids[0], {"id": "selected-excerpt"}, ()
+    public, _ = selections.select_node(context=context, admitted_ids=set(support.listing.admitted_assertion_ids),
+        entity_id=name.subject_entity_id, name_assertion_id=name.assertion_id, kind_assertion_id=kind.assertion_id,
+        name_evidence=citation(name), kind_evidence=citation(kind), access=access,
+        native_world_id=case.space, revision_id=revision)
+    assert public["name_temporal"] == "unknown" and public["kind_temporal"] == "unknown"

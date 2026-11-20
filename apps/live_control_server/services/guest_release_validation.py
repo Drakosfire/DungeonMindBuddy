@@ -4,9 +4,9 @@ from __future__ import annotations
 from uuid import UUID
 
 from application_state import guest_release
-from apps.live_control_server.services.guest_release_evidence import verify_relationship_citation, verify_source_citation
-from apps.live_control_server.services.guest_release_native_graph import read_player_graph
-from apps.live_control_server.services.guest_release_sources import contains_unsupported_destination
+from apps.live_control_server.services.guest_release_evidence import verify_source_citation
+from apps.live_control_server.services.guest_release_native_graph import read_owner_graph
+from apps.live_control_server.services.guest_release_assertions import select_node, select_relationship
 
 
 class GuestReleaseValidationError(ValueError):
@@ -14,30 +14,28 @@ class GuestReleaseValidationError(ValueError):
 
 
 def validate_candidate(*, world_id: str, subject: str, release_id: UUID, digest: str) -> int:
-    """Revalidate selected Graph and citations against one fresh player view.
+    """Revalidate explicit selections against one fresh private owner view.
 
     Return the Core source epoch for private publication accounting. The caller
     must atomically recheck APP ownership, visibility and pointer CAS afterward.
     """
     material = guest_release.validation_material(world_id=world_id, subject=subject,
                                                   release_id=release_id, digest=digest)
-    binding, projection, access = read_player_graph(managed_world_id=world_id,
-                                                     revision_id=material["graph_revision"])
+    binding, context, support, access = read_owner_graph(managed_world_id=world_id,
+                                                          revision_id=material["graph_revision"])
     if (binding.native_world_id != material["native_world_id"]
-        or binding.binding_version != material["binding_version"]
-        or projection.snapshot.admissibility != "player" or projection.summary.projection_truncated):
+        or binding.binding_version != material["binding_version"]):
         raise GuestReleaseValidationError("Native Graph binding or projection changed")
-    native_nodes = {node.node_id: node for node in projection.nodes}
-    native_edges = {edge.edge_id: edge for edge in projection.relationships}
     graph = material["manifest"].get("graph", {})
     public_nodes = {node["id"]: node for node in graph.get("nodes", [])}
     public_edges = {edge["id"]: edge for edge in graph.get("edges", [])}
     sources = {source["id"]: source for source in material["manifest"].get("sources", [])}
     source_bindings = {str(item[0]): item for item in material["source_bindings"]}
-    node_bindings = {str(local): native for local, native in material["node_bindings"]}
+    node_bindings = {str(item[0]): item for item in material["node_bindings"]}
     evidence_bindings = {str(local): (native, evidence, str(excerpt))
                          for local, native, evidence, excerpt in material["evidence_bindings"]}
-    if (len(native_nodes) != len(projection.nodes) or len(native_edges) != len(projection.relationships)
+    if (len(public_nodes) != len(graph.get("nodes", [])) or len(public_edges) != len(graph.get("edges", []))
+        or len(node_bindings) != len(material["node_bindings"]) or len(evidence_bindings) != len(material["evidence_bindings"])
         or set(public_nodes) != set(node_bindings) or set(public_edges) != set(evidence_bindings)
         or set(sources) != set(source_bindings)):
         raise GuestReleaseValidationError("Release binding closure failed")
@@ -45,27 +43,33 @@ def validate_candidate(*, world_id: str, subject: str, release_id: UUID, digest:
         verify_source_citation(evidence_id=source_binding[10], access=access, excerpt=sources[excerpt_id],
             source_binding=source_binding[:9], expected_native_world_id=binding.native_world_id,
             expected_graph_revision=material["graph_revision"])
-    for local_id, native_id in node_bindings.items():
-        native = native_nodes.get(native_id)
-        public = public_nodes[local_id]
-        if (native is None or native.label == native_id or not native.label or not native.kind
-            or contains_unsupported_destination(native.label) or contains_unsupported_destination(native.kind)
-            or public != {"id": local_id, "label": native.label, "kind": native.kind}):
+    def citation(evidence_id, excerpt_id):
+        key = str(excerpt_id)
+        if key not in sources or key not in source_bindings or source_bindings[key][10] != evidence_id:
+            raise GuestReleaseValidationError("Selected citation binding changed")
+        return evidence_id, sources[key], source_bindings[key][:9]
+
+    common = dict(context=context, admitted_ids=set(support.listing.admitted_assertion_ids), access=access,
+                  native_world_id=binding.native_world_id, revision_id=material["graph_revision"])
+    local_ids = {item[1]: local_id for local_id, item in node_bindings.items()}
+    if len(local_ids) != len(node_bindings):
+        raise GuestReleaseValidationError("Duplicate native Graph node")
+    for local_id, item in node_bindings.items():
+        _, entity, name, name_ev, name_excerpt, kind, kind_ev, kind_excerpt = item
+        expected, _ = select_node(**common, entity_id=entity, name_assertion_id=name, kind_assertion_id=kind,
+            name_evidence=citation(name_ev, name_excerpt), kind_evidence=citation(kind_ev, kind_excerpt),
+            local_id=UUID(local_id))
+        if public_nodes[local_id] != expected:
             raise GuestReleaseValidationError("Released Graph node is no longer admitted")
     for local_id, (native_id, evidence_id, excerpt_id) in evidence_bindings.items():
-        native = native_edges.get(native_id)
-        public = public_edges[local_id]
-        if native is None or excerpt_id not in sources or excerpt_id not in source_bindings:
+        native = context.parsed.get_assertion(native_id)
+        if native is None:
             raise GuestReleaseValidationError("Released relationship is no longer admitted")
-        expected_source = next((key for key, value in node_bindings.items() if value == native.source_node_id), None)
-        expected_target = next((key for key, value in node_bindings.items() if value == native.target_node_id), None)
-        if (expected_source is None or expected_target is None or contains_unsupported_destination(native.label)
-            or public != {"id": local_id, "source": expected_source, "target": expected_target,
-                          "label": native.label, "citations": [excerpt_id]}):
+        expected, _ = select_relationship(**common, assertion_id=native_id, subject_id=native.subject_entity_id,
+            predicate=native.predicate, node_ids=local_ids, evidence=citation(evidence_id, excerpt_id),
+            local_id=UUID(local_id))
+        if public_edges[local_id] != expected:
             raise GuestReleaseValidationError("Released relationship differs from native Graph")
-        verify_relationship_citation(edge=native, evidence_id=evidence_id, access=access,
-            excerpt=sources[excerpt_id], source_binding=source_bindings[excerpt_id][:9],
-            expected_native_world_id=binding.native_world_id, expected_graph_revision=material["graph_revision"])
     return access.source_view.epoch
 
 

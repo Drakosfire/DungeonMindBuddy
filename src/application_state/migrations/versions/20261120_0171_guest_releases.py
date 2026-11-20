@@ -117,8 +117,18 @@ def upgrade():
             release_id uuid NOT NULL REFERENCES workspace.guest_release(release_id) ON DELETE RESTRICT,
             node_id uuid NOT NULL,
             native_entity_id text NOT NULL CHECK (length(native_entity_id) > 0),
+            name_assertion_id text NOT NULL CHECK (length(name_assertion_id) > 0),
+            name_evidence_id text NOT NULL CHECK (length(name_evidence_id) > 0),
+            name_excerpt_id uuid NOT NULL,
+            kind_assertion_id text NOT NULL CHECK (length(kind_assertion_id) > 0),
+            kind_evidence_id text NOT NULL CHECK (length(kind_evidence_id) > 0),
+            kind_excerpt_id uuid NOT NULL,
             PRIMARY KEY (release_id, node_id),
-            UNIQUE (release_id, native_entity_id)
+            UNIQUE (release_id, native_entity_id),
+            FOREIGN KEY (release_id, name_excerpt_id)
+                REFERENCES workspace.guest_release_source_binding(release_id, excerpt_id) ON DELETE RESTRICT,
+            FOREIGN KEY (release_id, kind_excerpt_id)
+                REFERENCES workspace.guest_release_source_binding(release_id, excerpt_id) ON DELETE RESTRICT
         )
     """)
     op.execute("""

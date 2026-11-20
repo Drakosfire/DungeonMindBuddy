@@ -180,7 +180,9 @@ def validation_material(*, world_id: str, subject: str, release_id: UUID, digest
         ).fetchall()
         _check_sources(conn, world_id, source_bindings, row[3].get("sources", []))
         node_bindings = conn.execute(
-            "SELECT node_id,native_entity_id FROM workspace.guest_release_node_binding WHERE release_id=%s", (release_id,),
+            "SELECT node_id,native_entity_id,name_assertion_id,name_evidence_id,name_excerpt_id,"
+            "kind_assertion_id,kind_evidence_id,kind_excerpt_id "
+            "FROM workspace.guest_release_node_binding WHERE release_id=%s", (release_id,),
         ).fetchall()
         evidence_bindings = conn.execute(
             "SELECT edge_id,native_assertion_id,native_evidence_id,excerpt_id "
@@ -258,14 +260,19 @@ def stage(*, world_id: str, subject: str, expected_owner_generation: int,
     evidence = evidence_bindings or []
     nodes = node_bindings or []
     expected_edges = {}
-    expected_nodes = set()
+    expected_nodes = {}
     if graph is not None:
         if not isinstance(graph, dict) or not isinstance(graph.get("edges"), list) or not isinstance(graph.get("nodes"), list):
             raise ApplicationStateValidationError("Invalid release Graph")
         for node in graph["nodes"]:
-            if not isinstance(node, dict) or not isinstance(node.get("id"), str) or node["id"] in expected_nodes:
+            if (not isinstance(node, dict) or not isinstance(node.get("id"), str) or node["id"] in expected_nodes
+                or not isinstance(node.get("name_citations"), list) or len(node["name_citations"]) != 1
+                or not isinstance(node.get("kind_citations"), list) or len(node["kind_citations"]) != 1
+                or not isinstance(node["name_citations"][0], str) or not isinstance(node["kind_citations"][0], str)
+                or node["name_citations"][0] not in {item["id"] for item in sources}
+                or node["kind_citations"][0] not in {item["id"] for item in sources}):
                 raise ApplicationStateValidationError("Invalid release Graph node")
-            expected_nodes.add(node["id"])
+            expected_nodes[node["id"]] = (node["name_citations"][0], node["kind_citations"][0])
         source_ids = {item["id"] for item in sources}
         for edge in graph["edges"]:
             if (not isinstance(edge, dict) or not isinstance(edge.get("citations"), list)
@@ -276,8 +283,9 @@ def stage(*, world_id: str, subject: str, expected_owner_generation: int,
                 raise ApplicationStateValidationError("Duplicate release Graph edge")
             expected_edges[edge["id"]] = edge["citations"][0]
     if (len(nodes) != len(expected_nodes)
-        or any(len(item) != 2 or not isinstance(item[0], UUID) or str(item[0]) not in expected_nodes
-               or not isinstance(item[1], str) or not item[1] for item in nodes)
+        or any(len(item) != 8 or not isinstance(item[0], UUID) or str(item[0]) not in expected_nodes
+               or any(not isinstance(item[i], str) or not item[i] for i in (1, 2, 3, 5, 6))
+               or expected_nodes[str(item[0])] != (str(item[4]), str(item[7])) for item in nodes)
         or len({item[0] for item in nodes}) != len(nodes)
         or len({item[1] for item in nodes}) != len(nodes)):
         raise ApplicationStateValidationError("Release Graph node bindings are incomplete")
@@ -313,10 +321,13 @@ def stage(*, world_id: str, subject: str, expected_owner_generation: int,
                 "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (release_id, excerpt_id, document_id, visibility_generation, status_generation, revision_n, content_sha256, start, end, registry_revision, selected_visibility, native_evidence_id),
             )
-        for node_id, native_entity_id in nodes:
+        for node_id, native_entity_id, name_assertion, name_evidence, name_excerpt, kind_assertion, kind_evidence, kind_excerpt in nodes:
             conn.execute(
-                "INSERT INTO workspace.guest_release_node_binding (release_id,node_id,native_entity_id) VALUES (%s,%s,%s)",
-                (release_id, node_id, native_entity_id),
+                "INSERT INTO workspace.guest_release_node_binding "
+                "(release_id,node_id,native_entity_id,name_assertion_id,name_evidence_id,name_excerpt_id,"
+                "kind_assertion_id,kind_evidence_id,kind_excerpt_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (release_id, node_id, native_entity_id, name_assertion, name_evidence, UUID(str(name_excerpt)),
+                 kind_assertion, kind_evidence, UUID(str(kind_excerpt))),
             )
         for edge_id, assertion_id, evidence_id, excerpt_id in evidence:
             conn.execute(

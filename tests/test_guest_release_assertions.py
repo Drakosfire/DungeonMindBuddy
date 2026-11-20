@@ -26,7 +26,7 @@ def test_explicit_fields_require_admitted_assertions_and_their_own_evidence(monk
     node, binding = selections.select_node(**common, entity_id="entity", name_assertion_id="name",
         kind_assertion_id="kind", name_evidence=citation, kind_evidence=citation)
     assert node["label"] == "Sizzek" and node["name_citations"] == ["excerpt"]
-    assert binding[1:] == ("entity", "name", "kind")
+    assert binding[1:] == ("entity", "name", "evidence", "excerpt", "kind", "evidence", "excerpt")
     with pytest.raises(selections.GuestReleaseAssertionError, match="does not support"):
         selections.select_node(**common, entity_id="entity", name_assertion_id="name",
             kind_assertion_id="kind", name_evidence=("other", {}, ()), kind_evidence=citation)
@@ -34,6 +34,10 @@ def test_explicit_fields_require_admitted_assertions_and_their_own_evidence(monk
         selections.select_relationship(**common, assertion_id="link", subject_id="entity", predicate="dnd5e:knows",
             node_ids={"entity": node["id"]}, evidence=citation)
     assertions["name"] = replace(name, metadata=replace(metadata, temporal_scope=ParsedUnknownTemporalScope()))
+    unknown, _ = selections.select_node(**common, entity_id="entity", name_assertion_id="name",
+        kind_assertion_id="kind", name_evidence=citation, kind_evidence=citation)
+    assert unknown["name_temporal"] == "unknown" and unknown["kind_temporal"] == "timeless"
+    assertions["name"] = replace(name, metadata=replace(metadata, claim_mode="dungeonbuddy.claim:speculation"))
     with pytest.raises(selections.GuestReleaseAssertionError, match="semantics"):
         selections.select_node(**common, entity_id="entity", name_assertion_id="name",
             kind_assertion_id="kind", name_evidence=citation, kind_evidence=citation)

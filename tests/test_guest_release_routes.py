@@ -65,7 +65,7 @@ def test_owner_routes_fail_closed_and_require_owner(monkeypatch):
         json={"digest": "a" * 64, "expected_version": 0, "operation_id": str(uuid4())})
     assert publication.status_code == 409 and publication.json() == {"detail": {"code": "guest_release_validation_failed"}}
     assert request("GET", path + "?world_id=foreign", headers={"x-test-subject": "owner"}).status_code == 403
-    body = {"graph_revision": "rev", "node_ids": [], "relationships": [], "sources": [], "asset_ids": []}
+    body = {"graph_revision": "rev", "nodes": [], "relationships": [], "sources": [], "asset_ids": []}
     response = request("POST", "/api/live/worlds/world/guest-releases", json=body,
                            headers={"x-test-subject": "owner", "origin": "https://buddy.example"})
     assert response.status_code == 503

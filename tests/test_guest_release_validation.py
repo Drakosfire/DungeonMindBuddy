@@ -10,29 +10,38 @@ def test_validation_rechecks_exact_graph_and_citation(monkeypatch):
     release_id, local_node, local_edge, excerpt_id = (uuid4() for _ in range(4))
     source_binding = (excerpt_id, uuid4(), 0, 0, 1, "a" * 64, 0, 4, 2, "internal", "source-evidence")
     material = {"native_world_id": "native", "binding_version": 3, "graph_revision": "rev",
-        "manifest": {"nodes": [], "graph": {"nodes": [{"id": str(local_node), "label": "Node", "kind": "npc"}],
+        "manifest": {"nodes": [], "graph": {"nodes": [{"id": str(local_node), "label": "Node", "kind": "npc", "name_citations": [str(excerpt_id)], "kind_citations": [str(excerpt_id)], "name_temporal": "unknown", "kind_temporal": "unknown"}],
                     "edges": [{"id": str(local_edge), "source": str(local_node), "target": str(local_node),
-                               "label": "knows", "citations": [str(excerpt_id)]}]},
+                               "label": "knows", "citations": [str(excerpt_id)], "temporal": "unknown"}]},
                      "sources": [{"id": str(excerpt_id), "text": "safe"}]},
-        "node_bindings": [(local_node, "native-node")],
-        "evidence_bindings": [(local_edge, "native-edge", "evidence", excerpt_id)],
+        "node_bindings": [(local_node, "native-node", "name", "source-evidence", excerpt_id, "kind", "source-evidence", excerpt_id)],
+        "evidence_bindings": [(local_edge, "native-edge", "source-evidence", excerpt_id)],
         "source_bindings": [source_binding]}
     monkeypatch.setattr(validation.guest_release, "validation_material", lambda **_: material)
-    node = SimpleNamespace(node_id="native-node", label="Node", kind="npc")
-    edge = SimpleNamespace(edge_id="native-edge", source_node_id="native-node", target_node_id="native-node", label="knows")
-    projection = SimpleNamespace(snapshot=SimpleNamespace(admissibility="player"), summary=SimpleNamespace(projection_truncated=False),
-                                 nodes=[node], relationships=[edge])
+    edge = SimpleNamespace(subject_entity_id="native-node", predicate="dnd5e:knows")
+    context = SimpleNamespace(parsed=SimpleNamespace(get_assertion=lambda _: edge))
+    support = SimpleNamespace(listing=SimpleNamespace(admitted_assertion_ids=["name", "kind", "native-edge"]))
     binding = SimpleNamespace(native_world_id="native", binding_version=3)
     access = SimpleNamespace(source_view=SimpleNamespace(epoch=42))
-    monkeypatch.setattr(validation, "read_player_graph", lambda **_: (binding, projection, access))
+    monkeypatch.setattr(validation, "read_owner_graph", lambda **_: (binding, context, support, access))
     calls = []
-    monkeypatch.setattr(validation, "verify_relationship_citation", lambda **kwargs: calls.append(kwargs))
+    def node_selection(**kwargs):
+        calls.append(kwargs)
+        return {"id": str(kwargs["local_id"]), "label": "Node", "kind": "npc",
+                "name_citations": [str(excerpt_id)], "kind_citations": [str(excerpt_id)],
+                "name_temporal": "unknown", "kind_temporal": "unknown"}, ()
+    def edge_selection(**kwargs):
+        calls.append(kwargs)
+        return {"id": str(kwargs["local_id"]), "source": str(local_node), "target": str(local_node),
+                "label": edge.predicate.removeprefix("dnd5e:"), "citations": [str(excerpt_id)], "temporal": "unknown"}, ()
+    monkeypatch.setattr(validation, "select_node", node_selection)
+    monkeypatch.setattr(validation, "select_relationship", edge_selection)
     def verify_source(**kwargs):
         if kwargs["evidence_id"] == "withdrawn":
             raise validation.GuestReleaseValidationError("withdrawn")
     monkeypatch.setattr(validation, "verify_source_citation", verify_source)
     assert validation.validate_candidate(world_id="world", subject="owner", release_id=release_id, digest="digest") == 42
-    assert calls[0]["source_binding"] == source_binding[:9]
+    assert calls[0]["name_evidence"][2] == source_binding[:9]
     extra_id = uuid4()
     material["manifest"]["sources"].append({"id": str(extra_id), "text": "extra"})
     material["source_bindings"].append((extra_id, uuid4(), 0, 0, 1, "b" * 64, 0, 5, 2, "internal", "withdrawn"))
@@ -40,7 +49,7 @@ def test_validation_rechecks_exact_graph_and_citation(monkeypatch):
         validation.validate_candidate(world_id="world", subject="owner", release_id=release_id, digest="digest")
     material["manifest"]["sources"].pop()
     material["source_bindings"].pop()
-    edge.label = "changed"
+    edge.predicate = "dnd5e:changed"
     with pytest.raises(validation.GuestReleaseValidationError):
         validation.validate_candidate(world_id="world", subject="owner", release_id=release_id, digest="digest")
 

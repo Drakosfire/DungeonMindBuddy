@@ -5,7 +5,7 @@ does not authorize a request or publish its result.
 """
 from __future__ import annotations
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from dungeonmind.application.vnext import ParsedEntityRefValue, ParsedLiteralValue, ParsedTermRefValue
 
@@ -28,7 +28,7 @@ def _assertion(context, admitted_ids: set[str], assertion_id: str, *, subject: s
     if (assertion.metadata.standing != "established"
         or assertion.metadata.epistemic_basis != "asserted"
         or assertion.metadata.claim_mode != "dungeonbuddy.claim:fact"
-        or assertion.metadata.temporal_scope.kind != "timeless"):
+        or assertion.metadata.temporal_scope.kind not in {"timeless", "unknown"}):
         raise GuestReleaseAssertionError("Selected assertion semantics are unsupported")
     return assertion
 
@@ -50,7 +50,7 @@ def _citation(assertion, selection: tuple, *, access, native_world_id: str, revi
 
 def select_node(*, context, admitted_ids: set[str], entity_id: str, name_assertion_id: str,
                 kind_assertion_id: str, name_evidence: tuple, kind_evidence: tuple,
-                access, native_world_id: str, revision_id: str) -> tuple[dict, tuple]:
+                access, native_world_id: str, revision_id: str, local_id: UUID | None = None) -> tuple[dict, tuple]:
     """Copy one exact name and classification, with separate evidence."""
     name = _assertion(context, admitted_ids, name_assertion_id, subject=entity_id, predicate="dnd5e:name")
     kind = _assertion(context, admitted_ids, kind_assertion_id, subject=entity_id, predicate="dnd5e:classification")
@@ -60,15 +60,19 @@ def select_node(*, context, admitted_ids: set[str], entity_id: str, name_asserti
     category = _text(kind.value.term.removeprefix("dnd5e:"))
     name_citation = _citation(name, name_evidence, access=access, native_world_id=native_world_id, revision_id=revision_id)
     kind_citation = _citation(kind, kind_evidence, access=access, native_world_id=native_world_id, revision_id=revision_id)
-    node_id = uuid4()
+    node_id = local_id or uuid4()
     public = {"id": str(node_id), "label": label, "kind": category,
-              "name_citations": [name_citation], "kind_citations": [kind_citation]}
-    return public, (node_id, entity_id, name_assertion_id, kind_assertion_id)
+              "name_citations": [name_citation], "kind_citations": [kind_citation],
+              "name_temporal": name.metadata.temporal_scope.kind,
+              "kind_temporal": kind.metadata.temporal_scope.kind}
+    return public, (node_id, entity_id, name_assertion_id, name_evidence[0], name_citation,
+                    kind_assertion_id, kind_evidence[0], kind_citation)
 
 
 def select_relationship(*, context, admitted_ids: set[str], assertion_id: str,
                         subject_id: str, predicate: str, node_ids: dict[str, str],
-                        evidence: tuple, access, native_world_id: str, revision_id: str) -> tuple[dict, tuple]:
+                        evidence: tuple, access, native_world_id: str, revision_id: str,
+                        local_id: UUID | None = None) -> tuple[dict, tuple]:
     """Copy one exact relationship only when both endpoints were selected."""
     assertion = _assertion(context, admitted_ids, assertion_id, subject=subject_id, predicate=predicate)
     if not isinstance(assertion.value, ParsedEntityRefValue):
@@ -80,7 +84,7 @@ def select_relationship(*, context, admitted_ids: set[str], assertion_id: str,
     # inferred natural-language claim. The UI can render this as plain text.
     label = _text(predicate.removeprefix("dnd5e:").replace("_", " "))
     citation = _citation(assertion, evidence, access=access, native_world_id=native_world_id, revision_id=revision_id)
-    edge_id = uuid4()
+    edge_id = local_id or uuid4()
     public = {"id": str(edge_id), "source": node_ids[subject_id], "target": node_ids[target],
-              "label": label, "citations": [citation]}
+              "label": label, "citations": [citation], "temporal": assertion.metadata.temporal_scope.kind}
     return public, (edge_id, assertion_id, evidence[0], citation)

@@ -14,8 +14,8 @@ from application_state import guest_release, media
 from application_state.errors import ApplicationStateUnavailableError
 from apps.live_control_server.services.guest_release_media import sanitize_release_image
 from apps.live_control_server.services.guest_release_evidence import verify_source_citation
-from apps.live_control_server.services.guest_release_native_graph import read_player_graph
-from apps.live_control_server.services.guest_release_projection import project_selected_graph
+from apps.live_control_server.services.guest_release_native_graph import read_owner_graph
+from apps.live_control_server.services.guest_release_assertions import select_node, select_relationship
 from apps.live_control_server.services.guest_release_sources import selected_page_excerpt
 from apps.live_control_server.services.hosted_native_graph_access import hosted_world_media_owner
 
@@ -33,15 +33,26 @@ class SourceSelection(BaseModel):
 
 class RelationshipSelection(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-    edge_id: str = Field(min_length=1, max_length=255)
+    assertion_id: str = Field(min_length=1, max_length=255)
+    subject_id: str = Field(min_length=1, max_length=255)
+    predicate: str = Field(min_length=1, max_length=255)
     evidence_id: str = Field(min_length=1, max_length=255)
     source_index: int = Field(ge=0, strict=True)
+
+
+class NodeSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    entity_id: str = Field(min_length=1, max_length=255)
+    name_assertion_id: str = Field(min_length=1, max_length=255)
+    name_source_index: int = Field(ge=0, strict=True)
+    kind_assertion_id: str = Field(min_length=1, max_length=255)
+    kind_source_index: int = Field(ge=0, strict=True)
 
 
 class ReleaseSelection(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     graph_revision: str = Field(min_length=1, max_length=255)
-    node_ids: list[str] = Field(max_length=500)
+    nodes: list[NodeSelection] = Field(max_length=500)
     relationships: list[RelationshipSelection] = Field(max_length=1000)
     sources: list[SourceSelection] = Field(max_length=500)
     asset_ids: list[UUID] = Field(max_length=100)
@@ -58,9 +69,10 @@ def prepare(*, world_id: str, subject: str, selection: ReleaseSelection) -> tupl
 def _prepare_candidate(*, world_id: str, subject: str, selection: ReleaseSelection) -> tuple[UUID, str]:
     """Experimental assembly; not an authorized or mounted entry point."""
     generation = guest_release.owner_generation(world_id=world_id, subject=subject)
-    binding, projection, access = read_player_graph(managed_world_id=world_id, revision_id=selection.graph_revision)
-    edge_ids = [item.edge_id for item in selection.relationships]
-    if (len(set(selection.node_ids)) != len(selection.node_ids) or len(set(edge_ids)) != len(edge_ids)
+    binding, context, support, access = read_owner_graph(managed_world_id=world_id, revision_id=selection.graph_revision)
+    edge_ids = [item.assertion_id for item in selection.relationships]
+    node_ids = [item.entity_id for item in selection.nodes]
+    if (len(set(node_ids)) != len(node_ids) or len(set(edge_ids)) != len(edge_ids)
         or len(set(selection.asset_ids)) != len(selection.asset_ids)):
         raise ValueError("Duplicate release selection")
     sources, bindings = [], []
@@ -73,18 +85,33 @@ def _prepare_candidate(*, world_id: str, subject: str, selection: ReleaseSelecti
             expected_graph_revision=selection.graph_revision)
         sources.append(excerpt)
         bindings.append((*source_binding, source.evidence_id))
-    citations = {}
-    for relationship in selection.relationships:
-        if relationship.source_index >= len(sources):
-            raise ValueError("Relationship source selection is unavailable")
-        citations[relationship.edge_id] = (relationship.evidence_id, sources[relationship.source_index],
-                                            bindings[relationship.source_index][:9])
+    def citation(index, evidence_id=None):
+        if index >= len(sources):
+            raise ValueError("Source selection is unavailable")
+        source = selection.sources[index]
+        if evidence_id is not None and evidence_id != source.evidence_id:
+            raise ValueError("Source evidence selection differs")
+        return source.evidence_id, sources[index], bindings[index][:9]
+
     evidence_bindings = []
     node_bindings = []
-    graph = project_selected_graph(projection, expected_world_id=binding.native_world_id,
-        expected_revision=selection.graph_revision, selected_node_ids=set(selection.node_ids),
-        selected_edge_ids=set(edge_ids), citation_selections=citations, source_access=access,
-        private_evidence_bindings=evidence_bindings, private_node_bindings=node_bindings)
+    common = dict(context=context, admitted_ids=set(support.listing.admitted_assertion_ids), access=access,
+                  native_world_id=binding.native_world_id, revision_id=selection.graph_revision)
+    public_nodes, public_edges, local_ids = [], [], {}
+    for node in selection.nodes:
+        public, private = select_node(**common, entity_id=node.entity_id, name_assertion_id=node.name_assertion_id,
+            kind_assertion_id=node.kind_assertion_id, name_evidence=citation(node.name_source_index),
+            kind_evidence=citation(node.kind_source_index))
+        public_nodes.append(public)
+        node_bindings.append(private)
+        local_ids[node.entity_id] = public["id"]
+    for relationship in selection.relationships:
+        public, private = select_relationship(**common, assertion_id=relationship.assertion_id,
+            subject_id=relationship.subject_id, predicate=relationship.predicate, node_ids=local_ids,
+            evidence=citation(relationship.source_index, relationship.evidence_id))
+        public_edges.append(public)
+        evidence_bindings.append(private)
+    graph = {"nodes": public_nodes, "edges": public_edges}
     assets, manifest_assets = [], []
     owner = hosted_world_media_owner(world_id)
     for asset_id in selection.asset_ids:

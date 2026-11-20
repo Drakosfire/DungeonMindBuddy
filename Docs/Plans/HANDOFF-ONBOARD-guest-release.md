@@ -95,6 +95,18 @@ must use only the approved copy and never this private reader. This deliberately
 replaces the earlier player-projection-only restriction, which cannot represent
 the intended source path; the user chooses what becomes public.
 
+The experimental assembler now binds each selected name and classification to
+its own native assertion, evidence and release-local excerpt; publication
+validation reconstructs those fields and the selected relationships from a
+fresh owner view. Unknown and timeless scope are retained separately in the
+candidate. Other temporal scopes and non-established or non-factual claims are
+currently rejected, not converted into facts. This is not yet a usable owner
+selection or review interface, and preparation remains disabled. The real Core
+fixture confirms unknown scope is common; its selection test substitutes the
+citation verifier, so it is not an end-to-end source-proof witness. A complete
+real first-World preparation, review, publication and withdrawal test remains
+required before activation.
+
 At the pinned base the application-state migration head is `20261120_0170`.
 `media.read_staged_bytes` checks an owner ID, length and SHA-256, while the
 storage receipt also carries an HTTPS delivery URL and a public/private flag.
