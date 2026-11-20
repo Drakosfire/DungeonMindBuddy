@@ -1526,6 +1526,11 @@ class AgentTurnExecutionPersistencePort(Protocol):
         expected_revision: int, lease_seconds: int = 120,
     ) -> Any: ...
 
+    def claim_build_with_draft(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, lease_seconds: int, draft: Any,
+    ) -> tuple[Any, tuple[Any, Any] | None]: ...
+
     def authorize_provider_attempt(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, provider_attempt_event: Any,

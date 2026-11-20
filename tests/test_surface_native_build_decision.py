@@ -665,12 +665,30 @@ def test_atomic_build_claim_retains_exact_draft_or_rolls_back(
         with pytest.raises(RuntimeError, match="after final draft write"):
             owner.service.claim_build_with_draft(*args, **kwargs)
         assert owner.service.inspect_turn(world_id=owner.world_id, turn_id=accepted.turn_id) == accepted
+        assert not owner.service.list_context_trace_attempts(world_id=owner.world_id, turn_id=accepted.turn_id)
         return
-    claim, (trace, captured) = owner.service.claim_build_with_draft(*args, **kwargs)
+
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    barrier = Barrier(2)
+
+    def acquire():
+        barrier.wait(timeout=10)
+        return owner.service.claim_build_with_draft(*args, **kwargs)
+
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        results = [workers.submit(acquire) for _ in range(2)]
+        outcomes = sorted((result.result(timeout=15) for result in results),
+                          key=lambda result: result[0].disposition)
+    (claim, (trace, captured)), (pending, duplicate) = outcomes
+    assert pending.disposition == "pending" and duplicate is None
+
     assert claim.disposition == "claimed"
     assert trace.execution_start_sequence == 0 and trace.attempt == claim.turn.attempt
     (event,) = claim.turn.graph_context_execution.events
     assert event.record == captured and captured.snapshot == draft.snapshot
-    replay, duplicate = owner.service.claim_build_with_draft(*args, **kwargs)
-    assert replay.disposition == "pending" and duplicate is None
+    assert owner.service.list_context_trace_attempts(
+        world_id=owner.world_id, turn_id=accepted.turn_id,
+    ) == [trace]
     assert owner.service.inspect_turn(world_id=owner.world_id, turn_id=accepted.turn_id) == claim.turn
