@@ -1,6 +1,6 @@
 # Buddy adoption of WK native import isolation
 
-Status: ACTIVE. Owner MIND under the operator's full-lane implementation,
+Status: IMPLEMENTED — exact-head qualification/review pending. Owner MIND under the operator's full-lane implementation,
 review and merge authority. Start prerequisites accepted: Core245 checkpoint
 merge7b79fc4d1b5d5a39a3a59800fc2c0759b200221f, reviewed e50c/review5988191850,
 CI44684331642 all three successful; WK17 merge
@@ -72,3 +72,19 @@ separate from accepted envs. No manual deletion/new worktree assumed. Cleanup
 follow-up at full goal completion requires approved scope plus process/mount,
 dirty-data/unique-commit protection. Record created/retained/removed paths and
 measured reclaimed bytes only when actual approved cleanup occurs.
+
+## Implementation checkpoint
+
+Lease pin `724e2813b` precedes dependency edits. The lock is byte-identical to
+base9f479 except the three old-WK-reference occurrences. Resolver-generated
+unrelated artifact metadata was rejected and retained externally; a subsequent
+locked sync accepts the minimal lock unchanged. All package versions/artifacts,
+Core90a5 and the WK transitive metadata override are preserved.
+
+Isolated task environment uses Python3.13 with the accepted WK merge. Preflight
+cold deny-hook passes; all14 WK package files and178 Core package files (177Python
+plus the package marker) byte-match their pinned source. Origins are installed
+site-packages, direct-URL identities match and there is no runtime source overlay.
+Core checkout is only the migration script root. Accepted environments are untouched.
+Final exact-head evidence belongs to this PR and task scratch, not these preflight
+checks. The serving stack and full goal remain unchanged/active.
