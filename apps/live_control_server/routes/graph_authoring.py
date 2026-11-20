@@ -212,12 +212,13 @@ def _native_manual_call(fn, body, principal):
     from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import NativeWorldSourceAdmissionError
     from dungeonmind.application.vnext.errors import KnowledgePublicationOutcomeUnknownError
     from dungeonmind.domain.errors import PersistenceUnavailableError
+    from application_state.errors import ApplicationStateError
     from graph_memory.vnext.domain_runtime import DungeonBuddyDescriptorError
     from apps.live_control_server.models.native_manual_knowledge import ManualConfirmRequest
 
     try:
         return fn(body, principal)
-    except (manual.ManualRefused, manual.ManualOutcomeUnknown, InspectionUnavailable, GraphObjectAuthoringError, GraphRunRegistryError,
+    except (manual.ManualRefused, manual.ManualOutcomeUnknown, InspectionUnavailable, ApplicationStateError, GraphObjectAuthoringError, GraphRunRegistryError,
             SourceArtifactRegistryError, WorkspaceDocumentRegistryError,
             WorldGraphProjectionServiceError, NativeWorldSourceAdmissionError,
             DungeonBuddyDescriptorError, DungeonMindError) as exc:

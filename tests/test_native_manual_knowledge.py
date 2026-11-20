@@ -743,11 +743,13 @@ def test_receipt_first_expired_withdrawn_descendant_no_mutable_reads(
         pytest.fail("immutable replay touched mutable source/head/write")
 
     for name in (
-        "get_committed_page_snapshot",
         "load_reviewable_extraction_data",
         "get_native_world_source_status",
+        "get_extraction_run",
     ):
         monkeypatch.setattr(service, name, fail)
+    monkeypatch.setattr(service.pages, "get_page", fail)
+    monkeypatch.setattr(service.pages, "committed_page", fail)
     monkeypatch.setattr(service.sources, "get_source_markdown", fail)
     monkeypatch.setattr(c.repo, "get_head", fail)
     monkeypatch.setattr(c.repo, "open_native_source_view", fail)
@@ -841,7 +843,7 @@ def advance_head(c):
     )
 
 
-@pytest.mark.parametrize("fault", ["head", "epoch", "binding"])
+@pytest.mark.parametrize("fault", ["head", "head-disappears", "epoch", "binding"])
 def test_mid_context_drift_refuses_without_additional_mutation(
     manual_case, monkeypatch, fault
 ):
@@ -859,6 +861,8 @@ def test_mid_context_drift_refuses_without_additional_mutation(
         if calls == 2:
             if fault == "head":
                 advance_head(c)
+            elif fault == "head-disappears":
+                del c.repo._heads[c.space]
             elif fault == "epoch":
                 c.repo.withdraw_native_source(
                     space_id=c.space,
@@ -1391,7 +1395,7 @@ def test_identity_catalogue_refusal_typed_no_post_refusal_probe(
 
     def receipt(*a, **k):
         assert not refused, "receipt probe after deterministic identity refusal"
-        probes.append(True)
+        probes.append(a)
         return old(*a, **k)
 
     monkeypatch.setattr(c.repo, "get_native_source_publication_receipt", receipt)
@@ -1404,7 +1408,12 @@ def test_identity_catalogue_refusal_typed_no_post_refusal_probe(
     assert response.status_code == 409, response.text
     assert response.json()["detail"]["code"] == code
     assert not response.json()["detail"]["outcome_unknown"]
-    assert refused and bool(probes) == (phase == "confirm")
+    assert refused
+    if phase == "confirm":
+        assert (
+            c.space,
+            prepared.json()["plan"]["publication"]["publication_id"],
+        ) in probes
     assert snapshot(c) == (external[0] if external else before)
 
 
@@ -1422,3 +1431,156 @@ def test_compatible_original_admission_SUPPORT_public_lookup_and_HTTP_reuse(
     assert response.status_code == 200, response.text
     assert c.repo.open_native_source_view(c.space).epoch == before
     assert_object(c, response.json()["receipt"])
+
+
+@pytest.mark.parametrize("foreign", ["document", "run"])
+def test_real_foreign_APP_rows_refuse_before_content_or_Core_IO(
+    manual_case, monkeypatch, foreign
+):
+    from apps.live_control_server.services.world_container_registry import (
+        create_world_container,
+    )
+
+    c = manual_case
+    other = create_world_container(name="Foreign source World")
+    other, record = _committed_source(
+        service.config.artifact_data_root(),
+        world=other,
+        markdown="Foreign private saved body",
+        provisioned=True,
+    )
+    artifact = create_source_artifact_from_workspace_document(
+        service.config.artifact_data_root(),
+        document_id=record.document_id,
+        expected_revision=record.revision,
+    )
+    foreign_source = get_source_markdown(
+        source_artifact_id=artifact.source_artifact_id,
+        content_sha256=artifact.content_sha256,
+    )
+    foreign_index = build_source_span_index_for_text(
+        source_artifact_id=artifact.source_artifact_id,
+        content_sha256=artifact.content_sha256,
+        text=foreign_source.markdown,
+    )
+    index_bytes = json.dumps(source_span_index_to_dict(foreign_index)).encode()
+    candidate_bytes = b'{"held":true,"manual_facts_not_extracted":true}'
+    refs = {
+        kind: ExtractionRunComponentRef(
+            kind=kind, uri="fixture:foreign-frozen", sha256=sha256(raw).hexdigest()
+        )
+        for kind, raw in [
+            ("source_artifact", foreign_source.markdown.encode()),
+            ("candidate_graph", candidate_bytes),
+            ("source_span_index", index_bytes),
+        ]
+    }
+    foreign_run = registry.create_extraction_run(
+        service.config.artifact_data_root(),
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding",
+        campaign_id=other.world_id,
+        session_id=None,
+        profile_id="fixture:foreign",
+        status=ExtractionRunStatus.VALIDATED,
+        components=refs,
+    )
+    for kind, raw in [
+        ("candidate_graph", candidate_bytes),
+        ("source_span_index", index_bytes),
+    ]:
+        persist_component_payload(
+            run_id=foreign_run.run_id,
+            expected_revision=foreign_run.revision,
+            kind=kind,
+            payload=raw,
+        )
+    foreign_run = registry.update_extraction_run_status(
+        service.config.artifact_data_root(),
+        foreign_run.run_id,
+        status=ExtractionRunStatus.REVIEWABLE,
+        expected_revision=foreign_run.revision,
+    )
+    frozen = registry.load_reviewable_extraction_data(
+        service.config.artifact_data_root(), foreign_run.run_id
+    )
+    assert (
+        frozen.source_bytes == foreign_source.markdown.encode()
+        and frozen.span_bytes == index_bytes
+    )
+    selector = deepcopy(c.selector)
+    if foreign == "document":
+        selector.update(documentId=record.document_id, documentRevision=record.revision)
+    else:
+        selector.update(runId=str(foreign_run.run_id), runRevision=foreign_run.revision)
+
+    def forbidden(*a, **k):
+        pytest.fail("foreign metadata reached source body/component/Core IO")
+
+    monkeypatch.setattr(service.pages, "committed_page", forbidden)
+    monkeypatch.setattr(service, "load_reviewable_extraction_data", forbidden)
+    monkeypatch.setattr(service.sources, "get_source_markdown", forbidden)
+    monkeypatch.setattr(service.native, "read_repository", forbidden)
+    monkeypatch.setattr(service.native, "repository", forbidden)
+    before = (snapshot(c), rows_snapshot(c.dsn))
+    response = c.client.post(PATH + "/context", json=selector)
+    assert response.status_code == (404 if foreign == "document" else 409), (
+        response.text
+    )
+    assert (snapshot(c), rows_snapshot(c.dsn)) == before
+
+
+@pytest.mark.parametrize("manual_case", ["memory", "sql"], indirect=True)
+def test_manual_fact_exact_citation_and_fresh_withdrawal_denial(manual_case):
+    from dungeonmind.application.vnext import open_admitted_native_text
+    from dungeonmind.application.vnext.entity_reads import EntityReadService
+    from dungeonmind.application.vnext.alias_search import AliasSearchReadService
+
+    c = manual_case
+    request, plan = prepare_packet(c)
+    response = confirm_packet(c, plan)
+    assert response.status_code == 200, response.text
+    receipt = response.json()["receipt"]
+    entity = assert_object(c, receipt)
+    revision = receipt["publication_receipt"]["published_revision_id"]
+    read, access, _, _ = service.native.read_context(
+        c.repo, c.space, revision, None, scope_mode="world"
+    )
+    complete = EntityReadService().get_complete_entity(read, entity)
+    evidence_id = complete.assertions[0].metadata.evidence_ref_ids[0]
+    opened = open_admitted_native_text(access, evidence_id)
+    raw = c.text.encode()
+    witness = request["witness"]
+    assert opened.status == "available"
+    assert opened.body_text.encode() == raw
+    assert opened.body_sha256 == sha256(raw).hexdigest()
+    assert (opened.span_start_byte, opened.span_end_byte, opened.span_sha256) == (
+        witness["startByte"],
+        witness["endByte"],
+        witness["sliceSha256"],
+    )
+    assert (
+        sha256(raw[opened.span_start_byte : opened.span_end_byte]).hexdigest()
+        == opened.span_sha256
+    )
+    assert (opened.source_artifact_id, opened.source_revision_id) == (
+        c.admitted.source_artifact_id,
+        c.admitted.source_revision_id,
+    )
+    c.repo.withdraw_native_source(
+        space_id=c.space,
+        source_artifact_id=c.admitted.source_artifact_id,
+        source_revision_id=c.admitted.source_revision_id,
+    )
+    before = snapshot(c)
+    fresh, fresh_access, _, _ = service.native.read_context(
+        c.repo, c.space, revision, None, scope_mode="world"
+    )
+    assert open_admitted_native_text(fresh_access, evidence_id).status == "unavailable"
+    denied = EntityReadService().get_complete_entity(fresh, entity)
+    assert not denied.assertions and not denied.aliases
+    assert not AliasSearchReadService().search_aliases(fresh, "Traveller npc").hits
+    recovered = confirm_packet(c, plan)
+    assert recovered.status_code == 200, recovered.text
+    assert recovered.json()["receipt"] == receipt
+    assert snapshot(c) == before

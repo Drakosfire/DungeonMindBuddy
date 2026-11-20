@@ -30,6 +30,7 @@ from worldkeeper.integrations.dungeonmind.vnext_prepare import (
 )
 
 from application_state.source import service as sources
+from application_state.content import pages
 from apps.live_control_server import config
 from apps.live_control_server.integrations.dungeonmind import (
     native_registry_source as native,
@@ -57,6 +58,7 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     sign_publication_intent,
 )
 from apps.live_control_server.services.graph_run_registry import (
+    get_extraction_run,
     load_reviewable_extraction_data,
 )
 from apps.live_control_server.services.hosted_native_graph_access import (
@@ -65,8 +67,8 @@ from apps.live_control_server.services.hosted_native_graph_access import (
 from apps.live_control_server.services.native_graph_inspection import (
     authoring_identities,
 )
-from apps.live_control_server.services.workspace_document_registry import (
-    get_committed_page_snapshot,
+from apps.live_control_server.services.source_artifact_registry import (
+    get_source_artifact,
 )
 from graph_memory.vnext.domain_runtime import GM_LABEL, resolve_dungeonbuddy_descriptors
 
@@ -105,47 +107,63 @@ def _binding(principal, world, expected=None):
 def _source(selector, bound):
     """Join immutable APP owners; never register, admit, or rebuild an index."""
     root = config.artifact_data_root()
-    doc = get_committed_page_snapshot(root, str(selector.document_id))
+    # Scope metadata first. These public owners never select body/component bytes.
+    page = pages.get_page(
+        str(selector.document_id), world_id=selector.managed_world_id
+    ).page
     _require(
-        (
-            doc.record.document_id,
-            doc.record.world_id,
-            doc.record.kind,
-            doc.record.status,
-            doc.record.content_status,
-            doc.loaded_revision,
-            doc.content_sha256,
-        )
-        == (
-            str(selector.document_id),
-            selector.managed_world_id,
-            "worldbuilding_source",
-            "active",
-            "committed",
-            selector.document_revision,
-            selector.body_sha256,
-        ),
+        str(page.work_object_id) == str(selector.document_id)
+        and page.world_id == selector.managed_world_id
+        and page.campaign_id in (None, "", selector.managed_world_id)
+        and page.status == "active"
+        and page.current_revision_id is not None
+        and page.object_revision == selector.document_revision,
+        "manual_document_changed",
+    )
+    selected_run = get_extraction_run(str(selector.run_id))
+    _require(
+        str(selected_run.run_id) == str(selector.run_id)
+        and selected_run.revision == selector.run_revision,
+        "manual_run_changed",
+    )
+    _require(
+        selected_run.source_domain == "worldbuilding"
+        and selected_run.campaign_id in (None, "", selector.managed_world_id)
+        and selected_run.session_id is None,
+        "manual_run_source_mismatch",
+    )
+    selected_artifact = get_source_artifact(selected_run.source_artifact_id)
+    _require(
+        selected_artifact.world_id == selector.managed_world_id
+        and selected_artifact.source_domain == "worldbuilding"
+        and selected_artifact.workspace_document_id == str(selector.document_id)
+        and selected_artifact.workspace_document_revision == selector.document_revision
+        and selected_artifact.campaign_id == selected_run.campaign_id
+        and selected_artifact.session_id is None,
+        "manual_run_source_mismatch",
+    )
+    _require(
+        native.read_repository().get_head(bound["native_world_id"]) is not None,
+        "manual_head_missing",
+    )
+    # This public Page owner rechecks World/kind inside the same repeatable-read
+    # transaction that loads its committed revision. No unscoped fallback.
+    doc = pages.committed_page(
+        str(selector.document_id), world_id=selector.managed_world_id
+    )
+    _require(
+        doc.revision is not None
+        and doc.page.object_revision == selector.document_revision,
         "manual_document_changed",
     )
     data = load_reviewable_extraction_data(root, str(selector.run_id))
     run, artifact = data.run, data.source_artifact
     _require(
-        str(run.run_id) == str(selector.run_id)
-        and run.revision == selector.run_revision,
-        "manual_run_changed",
-    )
-    _require(
-        run.source_domain == artifact.source_domain == "worldbuilding"
-        and artifact.world_id == selector.managed_world_id
-        and run.session_id is None
-        and artifact.session_id is None
-        and run.campaign_id == artifact.campaign_id
-        and artifact.campaign_id in (None, "", selector.managed_world_id)
-        and artifact.workspace_document_id == str(selector.document_id)
-        and artifact.workspace_document_revision == selector.document_revision,
+        run == selected_run and artifact == selected_artifact,
         "manual_run_source_mismatch",
     )
-    body = doc.markdown.encode("utf-8")
+    _require(doc.revision.content_sha256 == selector.body_sha256, "manual_body_changed")
+    body = doc.revision.markdown.encode("utf-8")
     _require(
         data.source_bytes == body
         and sha256(body).hexdigest() == selector.body_sha256
@@ -227,9 +245,8 @@ def _catalog():
 def context(body, principal):
     body = ManualContextRequest.model_validate(body.model_dump(mode="json"))
     bound = _binding(principal, body.managed_world_id)
-    repo = native.read_repository()
-    _require(repo.get_head(bound["native_world_id"]) is not None, "manual_head_missing")
     sealed, raw, data, admitted = _source(body, bound)
+    repo = native.read_repository()
     coords, access = _access(repo, sealed)
     parsed = access.parsed
     domain, profile = resolve_dungeonbuddy_descriptors(
@@ -258,8 +275,10 @@ def context(body, principal):
         )
     final, _, _, final_admitted = _source(sealed, bound)
     _require(final == sealed and final_admitted == admitted, "manual_source_changed")
+    final_head = repo.get_head(sealed.native_world_id)
     _require(
-        repo.get_head(sealed.native_world_id).head_revision_id == parsed.revision_id
+        final_head is not None
+        and final_head.head_revision_id == parsed.revision_id
         and repo.open_native_source_view(sealed.native_world_id).epoch
         == coords["source_epoch"],
         "manual_authority_changed",
@@ -562,9 +581,8 @@ def prepare(body, principal):
         body.created_at <= datetime.now(UTC) <= body.created_at + PREPARE_TTL,
         "manual_review_expired",
     )
-    repo = native.read_repository()
-    _require(repo.get_head(bound["native_world_id"]) is not None, "manual_head_missing")
     source, raw, data, admitted = _source(body.source, bound)
+    repo = native.read_repository()
     _witness(raw, data, body.witness)
     coords, access = _access(repo, source)
     _require(
@@ -588,9 +606,10 @@ def prepare(body, principal):
     basis = _basis(repo, body, admitted, access)
     publication, prepared_json = _compose(repo, body, basis, domain, profile, principal)
     _source(body.source, bound)
+    final_head = repo.get_head(source.native_world_id)
     _require(
-        repo.get_head(source.native_world_id).head_revision_id
-        == body.expected_parent_revision_id
+        final_head is not None
+        and final_head.head_revision_id == body.expected_parent_revision_id
         and repo.open_native_source_view(source.native_world_id).epoch
         == body.expected_source_authority_epoch,
         "manual_authority_changed",
@@ -695,6 +714,7 @@ def confirm(body, principal):
         )
         if recovered is None:
             raise ManualOutcomeUnknown("Retry the retained exact packet") from exc
+        _binding(principal, source.managed_world_id, source)
         return dict(
             schema="dmb_native_manual_receipt_v1",
             recovered=True,

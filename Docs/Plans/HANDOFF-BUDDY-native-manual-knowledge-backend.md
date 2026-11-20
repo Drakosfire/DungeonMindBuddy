@@ -149,3 +149,25 @@ separate from current transaction epoch.
 Root requests normal main integration before freeze; preserve4191 Build dialogue
 reuse plus4193/4198 cleanup unchanged. Final integrated source/commands/hashes/
 SQL lifecycle results will be recorded externally; old78 execution not relabeled.
+
+Current source-owner precision: public pages.get_page(documentID, world_id) gates
+metadata without body/fallback; get_extraction_run and get_source_artifact metadata
+gate exact run/World/document first. Public pages.committed_page then rechecks
+World/kind coherently before loading committed Markdown. Existing scoped owners
+only, no Page API changes. Exact1e source review HOLD findings are repaired in
+successor: foreign document/run pre-read fences, final owner check after error-
+branch recovery, fresh manual-fact citation/withdrawal denial. Initial78 result
+remains older source. Compact diagnostics use only manual_review_sha256 plus
+principal/prepared SHA, signed review retained once in packet. Main146ebda49 is
+normally integrated; no concurrent Build/dialogue/history edits absorbed.
+
+Freeze readiness: normal integration commit1e056b5086c92c6fb1d032dce99bbb88744473f8
+preserves main146ebda49eb5a4f92a1984d7401b254e2fbbba80. Hubble SOURCEHOLD1e repaired
+within five existing leased paths. Repair diagnostic13PASS (memory+SQL citation/
+withdrawal, hosted transfer-on-recovery, source fences and typed identity refusal);
+strengthened actually-REVIEWABLE foreign-run diagnostic2PASS. These are dirty repair
+diagnostics, not final committed-head execution. New three-file Ruff clean; shared
+files compared against current main, inherited hosted diagnostics retained. Exact
+committed-head native-manual-knowledge command/evidence and input/module/SQL-cleanup
+manifest live externally in scratch/v9-buddy/v10-native-manual-backend; parent owns
+broad qualification/frontend and Hubble Cycle2 judgment. No final acceptance claim.

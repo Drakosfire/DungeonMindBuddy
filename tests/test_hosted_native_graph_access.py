@@ -6687,7 +6687,7 @@ def test_hosted_explicit_profile_transition_scope_and_owner_fence(
 from tests.test_native_profile_transition import transition_case as transition_case  # noqa: E402
 
 
-@pytest.mark.parametrize("phase", ["context", "prepare", "confirm"])
+@pytest.mark.parametrize("phase", ["context", "prepare", "confirm", "recovery-transfer"])
 def test_hosted_native_manual_owner_and_receipt_fences(manual_case, monkeypatch, phase):
     from tests.test_native_manual_knowledge import PATH, prepare_packet, snapshot
     from apps.live_control_server.routes.graph_authoring import router
@@ -6709,9 +6709,36 @@ def test_hosted_native_manual_owner_and_receipt_fences(manual_case, monkeypatch,
         ("POST", PATH + "/" + name): HOSTED_WORLD_SCOPE_RESOLVERS[("POST", PATH + "/" + name)]
         for name in ["context", "prepare", "confirm"]})
     client = _OfflineClient(app)
-    prepared = client.request("POST", PATH + "/prepare", json=request)
-    assert prepared.status_code == 200, prepared.text
-    packet = {"schema": "dmb_native_manual_confirm_v1", **prepared.json()}
+    manual_prepared_response = client.request("POST", PATH + "/prepare", json=request)
+    assert manual_prepared_response.status_code == 200, manual_prepared_response.text
+    packet = {"schema": "dmb_native_manual_confirm_v1", **manual_prepared_response.json()}
+    if phase == "recovery-transfer":
+        original_writer = c.repo.publish_governed_native_source_publication
+        original_recovery = manual.recover_governed_native_source_publication
+        transferred = []
+        def lost(**kwargs):
+            original_writer(**kwargs)
+            raise RuntimeError("lost exact commit acknowledgement")
+        def recovery_transfer(**kwargs):
+            result = original_recovery(**kwargs)
+            if result is not None:
+                stored = catalog.get_world(c.world.world_id)
+                catalog.save_world(stored.record.model_copy(update={"owner_subject": OTHER_OWNER}),
+                                   expected_revision=stored.revision)
+                transferred.append(snapshot(c))
+            return result
+        old_revision = c.repo.get_revision
+        def no_late_core(*a, **k):
+            assert not transferred, "Core read after owner transfer during recovery"
+            return old_revision(*a, **k)
+        monkeypatch.setattr(c.repo, "publish_governed_native_source_publication", lost)
+        monkeypatch.setattr(manual, "recover_governed_native_source_publication", recovery_transfer)
+        monkeypatch.setattr(c.repo, "get_revision", no_late_core)
+        response = client.request("POST", PATH + "/confirm", json=packet)
+        assert response.status_code == 403, response.text
+        assert len(transferred) == 1
+        assert snapshot(c) == transferred[0]
+        return
     body = c.selector if phase == "context" else request if phase == "prepare" else packet
     before = snapshot(c)
     with monkeypatch.context() as patch:
