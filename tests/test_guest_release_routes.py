@@ -29,7 +29,7 @@ def test_owner_routes_fail_closed_and_require_owner(monkeypatch):
     from apps.live_control_server.main import HOSTED_WORLD_SCOPE_RESOLVERS
     routes = {key: value for key, value in HOSTED_WORLD_SCOPE_RESOLVERS.items()
               if value is guest_releases.resolve_hosted_guest_release_world}
-    assert len(routes) == 9
+    assert len(routes) == 10
     hosted_auth.install_hosted_request_boundary(app, world_scope_resolvers=routes)
     async def principal(request):
         subject = request.headers.get("x-test-subject")
@@ -47,6 +47,13 @@ def test_owner_routes_fail_closed_and_require_owner(monkeypatch):
     assert request("GET", path, headers={"x-test-subject": "other"}).status_code == 403
     response = request("GET", path, headers={"x-test-subject": "owner"})
     assert response.status_code == 200 and response.json() == {"public_id": None, "version": 0}
+    assert response.headers["cache-control"] == "no-store"
+    options = "/api/live/worlds/world/guest-releases/selection-options"
+    monkeypatch.setattr(guest_releases, "selection_options", lambda **_: {"graph_revision": "rev", "fields": [], "sources": []})
+    assert request("GET", options).status_code == 401
+    assert request("GET", options, headers={"x-test-subject": "other"}).status_code == 403
+    response = request("GET", options, headers={"x-test-subject": "owner"})
+    assert response.status_code == 200 and response.json()["graph_revision"] == "rev"
     assert response.headers["cache-control"] == "no-store"
     listing = "/api/live/worlds/world/guest-releases/candidates"
     assert request("GET", listing).status_code == 401

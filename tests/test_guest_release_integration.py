@@ -15,9 +15,12 @@ from application_state.world_catalog.service import create_world
 from apps.live_control_server.services import guest_release_native_graph as native_reader
 from apps.live_control_server.services import guest_release_preparation as preparation
 from apps.live_control_server.services import guest_release_validation as validation
+from apps.live_control_server.services import guest_release_selection as discovery
 from apps.live_control_server.services.guest_release_evidence import GuestReleaseEvidenceError
 from apps.live_control_server.routes import guest_release_public
+from apps.live_control_server.routes import guest_releases as owner_routes
 from apps.live_control_server.services import hosted_auth
+from apps.live_control_server.services.dms_principal import DmsPrincipal
 from tests import test_governed_native_source_publication_adoption as native_fixture
 
 
@@ -44,8 +47,14 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
             "provisioning_id=NULL,initialization_revision_id=NULL WHERE world_id=%s", (case.space, graph_revision, world))
     binding = SimpleNamespace(native_world_id=case.space, binding_version=1)
     monkeypatch.setattr(native_reader, "resolve_managed_world_binding", lambda _: binding)
+    monkeypatch.setattr(discovery, "resolve_managed_world_binding", lambda _: binding)
     monkeypatch.setattr(native_reader.native_registry_source, "read_repository", lambda: case.repo)
     _, context, support, _ = native_reader.read_owner_graph(managed_world_id=world, revision_id=graph_revision)
+    options = discovery.selection_options(world_id=world)
+    assert options["graph_revision"] == graph_revision
+    assert any(item["kind"] == "name" for item in options["fields"])
+    assert options["sources"] and options["sources"][0]["visibility"] == "internal"
+    assert options["sources"][0]["excerpt"] == native_fixture.BODY[1:]
     assertions = [context.parsed.get_assertion(item) for item in support.listing.admitted_assertion_ids]
     names = {a.subject_entity_id: a for a in assertions if a.predicate == "dnd5e:name"}
     kinds = {a.subject_entity_id: a for a in assertions if a.predicate == "dnd5e:classification"}
@@ -67,10 +76,41 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
     selection = preparation.ReleaseSelection(graph_revision=graph_revision, nodes=nodes, sources=sources,
         relationships=[preparation.RelationshipSelection(assertion_id=edge.assertion_id, subject_id=edge.subject_entity_id,
             predicate=edge.predicate, evidence_id=edge.metadata.evidence_ref_ids[0], source_index=index(edge))], asset_ids=[])
-    release_id, digest = preparation._prepare_candidate(world_id=world, subject="owner", selection=selection)
+    monkeypatch.setenv(hosted_auth.DEPLOYMENT_ENVIRONMENT_ENV, "production")
+    monkeypatch.setenv(hosted_auth.AUTH_MODE_ENV, "hosted_dms")
+    monkeypatch.setenv(hosted_auth.TRUSTED_FRONTEND_ORIGINS_ENV, "https://buddy.example")
+    monkeypatch.setenv("DMB_GUEST_RELEASE_ENABLED", "1")
+    monkeypatch.setenv("DMB_GUEST_RELEASE_PREPARE_ENABLED", "1")
+    monkeypatch.setattr(hosted_auth, "hosted_world_access", lambda: {world: frozenset({"owner"})})
+    monkeypatch.setattr(owner_routes, "_owned_world", lambda subject, world_id: SimpleNamespace(world_id=world_id))
+    owner_app = FastAPI()
+    owner_app.include_router(owner_routes.router)
+    from apps.live_control_server.main import HOSTED_WORLD_SCOPE_RESOLVERS
+    owner_resolvers = {key: value for key, value in HOSTED_WORLD_SCOPE_RESOLVERS.items()
+                       if value is owner_routes.resolve_hosted_guest_release_world}
+    hosted_auth.install_hosted_request_boundary(owner_app, world_scope_resolvers=owner_resolvers)
+    async def principal(request):
+        return DmsPrincipal("owner") if request.headers.get("x-test-owner") else None
+    owner_app.state.dms_principal_resolver = principal
+    async def prepare_over_http():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=owner_app), base_url="http://test") as client:
+            url = f"/api/live/worlds/{world}/guest-releases/selection-options"
+            assert (await client.get(url)).status_code == 401
+            inventory = await client.get(url, headers={"x-test-owner": "yes"})
+            assert inventory.status_code == 200 and inventory.headers["cache-control"] == "no-store"
+            assert inventory.json()["graph_revision"] == graph_revision
+            assert any(field["assertion_id"] == edge.assertion_id for field in inventory.json()["fields"])
+            return await client.post(f"/api/live/worlds/{world}/guest-releases", json=selection.model_dump(mode="json"),
+                headers={"x-test-owner": "yes", "origin": "https://buddy.example"})
+    response = asyncio.run(prepare_over_http())
+    assert response.status_code == 200
+    from uuid import UUID
+    release_id, digest = UUID(response.json()["release_id"]), response.json()["digest"]
     pending_id, pending_digest = preparation._prepare_candidate(world_id=world, subject="owner", selection=selection)
     manifest, reviewed_digest = guest_release.review(world_id=world, subject="owner", release_id=release_id)
     assert reviewed_digest == digest and len(manifest["graph"]["nodes"]) == 2
+    assert manifest["projection_version"] == "explicit_native_assertions_v1"
+    assert manifest["image_sanitizer_version"] == "bounded_png_v1"
     assert len(manifest["graph"]["edges"]) == 1
     assert all(node["name_temporal"] == "unknown" for node in manifest["graph"]["nodes"])
     assert guest_release.review_source_visibility(world_id=world, subject="owner", release_id=release_id) == {
@@ -95,6 +135,8 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
     commit_page(str(document_id), "A later private edit", world_id=world,
         expected_revision=current.page.object_revision, expected_working_copy_revision=current.working_copy_revision)
     assert guest_release.public_manifest(public_id) == (release_id, manifest)
+    changed_options = discovery.selection_options(world_id=world)
+    assert changed_options["fields"] == [] and changed_options["sources"] == []
     case.repo.withdraw_native_source(space_id=case.space, source_artifact_id=case.root.source_artifact_id,
                                      source_revision_id=case.root.source_revision_id)
     with pytest.raises(GuestReleaseEvidenceError):

@@ -6,6 +6,7 @@ route may call this service, and its result is not published until promotion.
 from __future__ import annotations
 
 import hashlib
+import os
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -64,10 +65,11 @@ class ReleaseSelection(BaseModel):
 
 def prepare(*, world_id: str, subject: str, selection: ReleaseSelection) -> tuple[UUID, str]:
     """Copy selected authorized bytes and stage an unexposed candidate."""
-    # No classic Graph fallback: ordinary first-World initialization uses vNext.
-    # Keep unavailable until player filtering, citation closure and metadata-safe
-    # asset copying are implemented and verified together.
-    raise ApplicationStateUnavailableError("Guest release preparation is not yet available")
+    # This switch is independent of public delivery and remains off until the
+    # full owner/release qualification in the handoff has passed.
+    if os.environ.get("DMB_GUEST_RELEASE_PREPARE_ENABLED") != "1":
+        raise ApplicationStateUnavailableError("Guest release preparation is not yet available")
+    return _prepare_candidate(world_id=world_id, subject=subject, selection=selection)
 
 
 def _prepare_candidate(*, world_id: str, subject: str, selection: ReleaseSelection) -> tuple[UUID, str]:
@@ -125,7 +127,8 @@ def _prepare_candidate(*, world_id: str, subject: str, selection: ReleaseSelecti
         assets.append((release_asset_id, mime, content))
         manifest_assets.append({"id": str(release_asset_id), "mime_type": mime,
                                 "sha256": hashlib.sha256(content).hexdigest()})
-    manifest = {"schema": "buddy_guest_release_v1", "graph": graph, "sources": sources,
+    manifest = {"schema": "buddy_guest_release_v1", "projection_version": "explicit_native_assertions_v1",
+                "image_sanitizer_version": "bounded_png_v1", "graph": graph, "sources": sources,
                 "assets": sorted(manifest_assets, key=lambda item: item["id"])}
     return guest_release.stage(world_id=world_id, subject=subject, expected_owner_generation=generation,
         native_world_id=binding.native_world_id, native_binding_version=binding.binding_version,

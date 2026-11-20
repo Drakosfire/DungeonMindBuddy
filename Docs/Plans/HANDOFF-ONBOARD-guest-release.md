@@ -100,23 +100,27 @@ its own native assertion, evidence and release-local excerpt; publication
 validation reconstructs those fields and the selected relationships from a
 fresh owner view. Unknown and timeless scope are retained separately in the
 candidate. Other temporal scopes and non-established or non-factual claims are
-currently rejected, not converted into facts. This is not yet a usable owner
-selection interface, and preparation remains disabled. An initial owner review
+currently rejected, not converted into facts. An initial owner selection
+interface inventories exact eligible source spans and requires explicit field
+and evidence choices; it does not yet select images, descriptions or dated and
+uncertain claims. Preparation is independently gated by
+`DMB_GUEST_RELEASE_PREPARE_ENABLED=1` and defaults off. An initial owner review
 surface lists owned candidates, shows the Graph, excerpt visibility and selected
 images, and requires an explicit digest-bound approval. It is hidden unless
 `VITE_GUEST_RELEASE_REVIEW=1`; the backend still defaults off. The owner can
 inspect earlier approved copies, restore with pointer-version comparison, or
 confirm permanent withdrawal. A new owner can withdraw a current copy approved
-under an earlier ownership but cannot restore it. It cannot yet create a
-candidate or deliver a guest link. Browser and exact-head
+under an earlier ownership but cannot restore it. It cannot yet deliver a guest
+link. Browser and exact-head
 qualification remain outstanding. A real Core
 fixture confirms unknown scope is common. A synthetic integration fixture now
 joins a committed APP page to a private Core source, stages and reviews two
 nodes and a relationship, publishes the copy, verifies a later private edit
 does not alter it, rejects another publication after Core withdrawal, and
-revokes the published copy. It uses a private service entry point, substitutes
-the Core repository/binding, and is not an ordinary first-World or mounted
-route witness. A complete real first-World preparation, owner review,
+revokes the published copy. It now exercises owner selection inventory and
+preparation through hosted middleware, but substitutes the identity resolver,
+Core repository and binding; it is not an ordinary first-World or real sign-in
+witness. A complete real first-World preparation, owner review,
 publication and withdrawal test remains required before activation.
 
 An experimental signed-out API now exposes only the current release manifest
@@ -125,7 +129,7 @@ and `DMB_GUEST_RELEASE_PUBLIC_ENABLED=1`. The hosted exception is restricted to
 exact canonical UUID GET paths with no query or body; local loopback checks are
 unchanged. Mounted authorization tests and a synthetic Core/APP test exercise
 signed-out reads and revocation. This is not a guest page or a release gate:
-candidate selection, first-World, browser, exact-head and
+media and richer claim selection, first-World, browser, exact-head and
 independent security review evidence are still required before either switch
 can be enabled in deployment. #3824 remains open at
 `76c31187f3e9badecbc403f2d9c943994c5f5f9c` as of this change.
@@ -175,7 +179,8 @@ successor capability, not a publication-state operation.
 
 ## Cross-authority publication gap
 
-The current implementation must not enable preparation or promotion yet.
+Do not enable preparation or promotion in deployment until the remaining
+qualification gates pass.
 Bugbot verified at Core `046791d` that native source withdrawal serializes on
 Core's private global source-authority epoch lock, while its public source view
 is a closed-transaction epoch snapshot. A fresh native check followed by an APP

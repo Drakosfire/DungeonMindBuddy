@@ -8,7 +8,8 @@ from apps.live_control_server.services.guest_release_preparation import ReleaseS
 from apps.live_control_server.services import guest_release_preparation as assembly
 
 
-def test_preparation_fails_closed_until_native_release_path_is_qualified():
+def test_preparation_fails_closed_until_native_release_path_is_qualified(monkeypatch):
+    monkeypatch.delenv("DMB_GUEST_RELEASE_PREPARE_ENABLED", raising=False)
     selection = ReleaseSelection(graph_revision='revision', nodes=[], relationships=[], sources=[], asset_ids=[])
     with pytest.raises(ApplicationStateUnavailableError):
         prepare(world_id='world', subject='owner', selection=selection)

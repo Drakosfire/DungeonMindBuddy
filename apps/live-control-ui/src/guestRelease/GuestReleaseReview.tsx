@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "./guestReleaseReview.css";
+import { GuestReleaseSelection } from "./GuestReleaseSelection";
 
 type Candidate = { release_id: string; created_at: string };
 type Published = { release_id: string; published_at: string; current: boolean; reviewable: boolean };
@@ -90,6 +91,7 @@ export function GuestReleaseReview({ worldId }: { worldId: string }) {
   const sourcesReady = review?.manifest.sources.every(source => ["internal", "player_safe"].includes(review.source_visibility[source.id])) ?? false;
   return <section aria-labelledby="guest-review-heading" className="guest-release-review">
     <h2 id="guest-review-heading">Guest release review</h2>
+    <GuestReleaseSelection worldId={worldId} onPrepared={() => { setCandidates(null); setReview(null); setSelected(null); }} />
     <p>Review a prepared copy before making it available to guests.</p>
     <button type="button" onClick={load} disabled={busy}>Load prepared copies</button>
     {error && <p role="alert">{error}</p>}

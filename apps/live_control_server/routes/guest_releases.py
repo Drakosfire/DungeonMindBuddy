@@ -17,6 +17,7 @@ from apps.live_control_server.services.guest_release_assertions import GuestRele
 from apps.live_control_server.services.guest_release_sources import GuestReleaseSourceError
 from apps.live_control_server.services.guest_release_media import GuestReleaseMediaError
 from apps.live_control_server.services.guest_release_native_graph import GuestNativeGraphError
+from apps.live_control_server.services.guest_release_selection import selection_options
 from apps.live_control_server.services.hosted_native_graph_access import _hosted_subject, _owned_world
 
 router = APIRouter(prefix="/api/live/worlds/{world_id}/guest-releases", tags=["guest-releases"])
@@ -85,6 +86,18 @@ def release_status(world_id: str, request: Request, response: Response):
     except ApplicationStateError as exc:
         raise _error(exc) from exc
     return {"public_id": str(public_id) if public_id else None, "version": version}
+
+
+@router.get("/selection-options")
+def release_selection_options(world_id: str, request: Request, response: Response):
+    _owner(request, world_id)
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return selection_options(world_id=world_id)
+    except ApplicationStateError as exc:
+        raise _error(exc) from exc
+    except (GuestReleaseEvidenceError, GuestNativeGraphError, GuestReleaseAssertionError) as exc:
+        raise _invalid_selection() from exc
 
 
 @router.get("/candidates")
