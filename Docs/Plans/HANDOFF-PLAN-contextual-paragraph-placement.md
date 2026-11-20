@@ -34,6 +34,19 @@ reviews do not establish ordinary chat or release qualification.
 
 ## Authority and write boundary
 
+Alan's latest instruction grants full authority over this lane and directs no
+further routine approval requests. This supersedes the pending bounded #3307
+admission split and synthetic OpenAI/browser payload questions below. It covers
+the required scoped implementation, synthetic Jev/writer qualification, prepared
+browser witness, independent review and merge after gates. Preserve other lanes'
+retrieval/citation behavior. Production deployment and serving-pin changes remain
+outside this implementation lane. The V2 native admission guard is now applied
+before host status projection; real owner tests bypass SDK conformance only for
+an empty writer reply, proving domain rejection and unchanged V1 behavior.
+Historical pending-approval statements below record their earlier checkpoints;
+they are not current permission gates. The goal-app reactivation tool rejected
+trusted-context metadata, but this does not prevent authorized implementation.
+
 Current integration checkpoint: source52f355f passed the full query-and-answer
 contract1314/157warnings and hosted frontend1421/build/retained-validator checks.
 Those results remain52f evidence. Main then changed the owning writer boundary:

@@ -183,6 +183,80 @@ def test_current_v2_rules_fragment_excludes_host_status_without_losing_prose_or_
     assert "This answer uses partial retrieval" not in response.plan_proposal.replacement_markdown
 
 
+@pytest.mark.parametrize("version", [1, 2])
+def test_native_clarification_admission_rejects_empty_v2_even_without_sdk_conformance(
+    plan_adapter, tmp_path, monkeypatch, application_state_dsn, version,
+):
+    import generationengine.client as generation_client
+    import psycopg
+    from tests.test_plan_jev_authoring import _shared_plan_authoring_case
+    from tests.test_plan_jev_writer import WriterWire
+    from apps.live_control_server.services import agent_turn_service
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.agent_conversation.native_plan_assertions import POLICY
+    from application_state.content.service import snapshot_content
+
+    validate = generation_client.validate_against_schema
+    transport = WriterWire.handle_async_request
+    execute = agent_turn_service.execute_agent_turn
+    bypassed, sources, adapters = [], [], []
+
+    def bypass_only_writer_empty_reply(candidate, schema):
+        if (schema.get("properties", {}).get("answer_segments", {}).get("minItems") == 1
+                and candidate.get("answer_segments") == []):
+            bypassed.append(True)
+            return  # Simulate a captured provider reply lacking SDK conformance.
+        return validate(candidate, schema)
+
+    async def empty_reply(writer, request):
+        adapters.append(writer.adapter)
+        writer.text = json.dumps(dict(schema=POLICY, answer_segments=[], limitations=[], requested_detail_gaps=[]))
+        return await transport(writer, request)
+
+    def source_guard(request, **kwargs):
+        before = snapshot_content(request.plan_authoring_capture.document_id)
+        try:
+            return execute(request, **kwargs)
+        finally:
+            after = snapshot_content(request.plan_authoring_capture.document_id)
+            sources.append((before.markdown, before.work_object.object_revision)
+                == (after.markdown, after.work_object.object_revision))
+
+    monkeypatch.setattr(generation_client, "validate_against_schema", bypass_only_writer_empty_reply)
+    monkeypatch.setattr(WriterWire, "handle_async_request", empty_reply)
+    monkeypatch.setattr(agent_turn_service, "execute_agent_turn", source_guard)
+    try:
+        def run():
+            return _shared_plan_authoring_case(plan_adapter, tmp_path, monkeypatch,
+                "place1" if version == 2 else "captured", "base", routing="clarify",
+                dsn=application_state_dsn,
+                placement_factory=native_paragraph_placement_fixture if version == 2 else None)
+        if version == 2:
+            with pytest.raises(agent_turn_service.AgentTurnServiceError):
+                run()
+        else:
+            run()  # Retained V1 keeps its historical status-only normalization.
+    finally:
+        for adapter in adapters:
+            if adapter.fence is not None:
+                adapter.fence.renewer.stop_and_join()
+    service = AgentConversationService()
+    pointer = service.get_world_pointer("world:one")
+    turn = service.list_turns("world:one", pointer.active_conversation_id)[-1]
+    assert turn.status == ("interrupted" if version == 2 else "completed")
+    assert (turn.completion is None) == (version == 2)
+    assert bool(bypassed) == (version == 2)
+    if version == 2:
+        attempts = service.list_context_trace_attempts(world_id="world:one", turn_id=turn.turn_id)
+        failure_codes = [event.code for attempt in attempts for event in attempt.observations
+            if event.kind == "failure"]
+        assert "plan_writer_completion_rejected" in failure_codes
+        assert "plan_writer_generation_rejected" not in failure_codes
+    assert sources and all(sources)
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT count(*) FROM plan_action.action").fetchone()[0] == 0
+
+
 @pytest.mark.parametrize("routing", [None, "clarify", "discuss"])
 def test_current_native_caller_v2_paragraph_proposal_and_explicit_save_or_no_reservation(
     plan_adapter, tmp_path, monkeypatch, application_state_dsn, routing,

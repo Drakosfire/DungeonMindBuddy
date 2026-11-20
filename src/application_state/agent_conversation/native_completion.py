@@ -455,6 +455,15 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
         )
     if review_enabled and not segments and collaboration is None:
         raise ValueError('Empty intentional response')
+    # A host retrieval footer cannot stand in for an actual clarification.
+    from .native_execution import NATIVE_PLAN_ACTION_TYPES
+    from .plan_placement import PlanPlacementCatalogV2
+    action = execution.policy.action
+    if (isinstance(action, NATIVE_PLAN_ACTION_TYPES)
+            and type(action.placement_catalog) is PlanPlacementCatalogV2
+            and evidence.work_frame.get('requested_work') == 'clarify'
+            and not segments):
+        raise ValueError('Plan placement clarification requires nonempty reply content')
     # Missing native capability does not make an available authored page
     # unavailable. Only native claims inherit that native retrieval qualification.
     local_authored=(execution.policy.action.surface_id in {'build','plan'}
