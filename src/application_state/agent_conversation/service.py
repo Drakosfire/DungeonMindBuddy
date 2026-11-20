@@ -241,12 +241,16 @@ def _expect_pointer(command: ConversationCommand, pointer: WorldPointer) -> None
         )
 
 
-def _archive_active(conn, pointer: WorldPointer, now: datetime) -> None:
+def _archive_active(conn, pointer: WorldPointer, now: datetime, *, authorize_write=None) -> None:
     if pointer.active_conversation_id is None:
+        if authorize_write is not None:
+            authorize_write()
         return
     active = repo.lock_conversation(conn, pointer.world_id, pointer.active_conversation_id)
     if active is None or active.status != "active":
         raise ApplicationStateIntegrityError("World active pointer does not reference an active conversation")
+    if authorize_write is not None:
+        authorize_write()
     archived = repo.update_conversation_state(
         conn,
         world_id=pointer.world_id,
@@ -833,9 +837,7 @@ class AgentConversationService:
                 raise ApplicationStateNotFoundError("conversation not found in verified World")
             if target.status != "archived":
                 raise ApplicationStateConflictError("only an archived conversation can be reopened")
-            if authorize_write is not None:
-                authorize_write()
-            _archive_active(conn, pointer, now)
+            _archive_active(conn, pointer, now, authorize_write=authorize_write)
             reopened = repo.update_conversation_state(
                 conn,
                 world_id=world_id,

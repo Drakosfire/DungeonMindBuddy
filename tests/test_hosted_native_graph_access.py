@@ -3545,7 +3545,8 @@ def test_hosted_conversation_starts_and_reopens_in_exact_world(hosted, applicati
         assert hosted.client.request("GET", path, session="other-session").status_code == 403
 
 
-def test_hosted_resume_switches_to_archived_conversation(hosted, application_state_dsn, monkeypatch):
+@pytest.mark.parametrize("transfer_at", ["target", "active"])
+def test_hosted_resume_switches_to_archived_conversation(hosted, application_state_dsn, monkeypatch, transfer_at):
     from apps.live_control_server.routes import agent, conversation_library
 
     monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
@@ -3579,7 +3580,9 @@ def test_hosted_resume_switches_to_archived_conversation(hosted, application_sta
 
     def transfer_during_lock(*args, **kwargs):
         result = lock_conversation(*args, **kwargs)
-        hosted.records["managed"] = hosted.records["managed"].model_copy(update={"owner_subject": OTHER_OWNER})
+        selected = original if transfer_at == "target" else current
+        if str(result.conversation_id) == selected["conversation_id"]:
+            hosted.records["managed"] = hosted.records["managed"].model_copy(update={"owner_subject": OTHER_OWNER})
         return result
 
     owner_record = hosted.records["managed"]
