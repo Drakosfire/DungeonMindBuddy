@@ -116,6 +116,17 @@ the Core repository/binding, and is not an ordinary first-World or mounted
 route witness. A complete real first-World preparation, owner review,
 publication and withdrawal test remains required before activation.
 
+An experimental signed-out API now exposes only the current release manifest
+and assets pinned to that release, behind both `DMB_GUEST_RELEASE_ENABLED=1`
+and `DMB_GUEST_RELEASE_PUBLIC_ENABLED=1`. The hosted exception is restricted to
+exact canonical UUID GET paths with no query or body; local loopback checks are
+unchanged. Mounted authorization tests and a synthetic Core/APP test exercise
+signed-out reads and revocation. This is not a guest page or a release gate:
+candidate selection, usable revocation, first-World, browser, exact-head and
+independent security review evidence are still required before either switch
+can be enabled in deployment. #3824 remains open at
+`76c31187f3e9badecbc403f2d9c943994c5f5f9c` as of this change.
+
 At the pinned base the application-state migration head is `20261120_0170`.
 `media.read_staged_bytes` checks an owner ID, length and SHA-256, while the
 storage receipt also carries an HTTPS delivery URL and a public/private flag.

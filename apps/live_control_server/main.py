@@ -68,6 +68,7 @@ from apps.live_control_server.routes.guest_releases import (
     router as guest_releases_router,
     resolve_hosted_guest_release_world,
 )
+from apps.live_control_server.routes.guest_release_public import router as guest_release_public_router
 from apps.live_control_server.routes.statblock_integration import (
     router as statblock_integration_router,
 )
@@ -596,6 +597,7 @@ def create_app() -> FastAPI:
     application.include_router(workspace_lifecycle_router)
     application.include_router(world_containers_router)
     application.include_router(guest_releases_router)
+    application.include_router(guest_release_public_router)
     application.include_router(statblock_integration_router)
     application.include_router(threat_drafts_router)
     application.include_router(threat_publication_router)

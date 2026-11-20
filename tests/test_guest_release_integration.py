@@ -1,10 +1,13 @@
 """Exercise the experimental candidate across real Core and APP authorities."""
 from types import SimpleNamespace
 from uuid import uuid4
+import asyncio
 
+import httpx
 import psycopg
 import pytest
 from dungeonmind.application.vnext import ParsedEntityRefValue
+from fastapi import FastAPI
 
 from application_state import guest_release
 from application_state.content.pages import PageMetadata, commit_page, create_page, snapshot_page
@@ -13,6 +16,8 @@ from apps.live_control_server.services import guest_release_native_graph as nati
 from apps.live_control_server.services import guest_release_preparation as preparation
 from apps.live_control_server.services import guest_release_validation as validation
 from apps.live_control_server.services.guest_release_evidence import GuestReleaseEvidenceError
+from apps.live_control_server.routes import guest_release_public
+from apps.live_control_server.services import hosted_auth
 from tests import test_governed_native_source_publication_adoption as native_fixture
 
 
@@ -73,6 +78,19 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
     public_id, _ = validation.publish_candidate(world_id=world, subject="owner", release_id=release_id,
         digest=digest, expected_version=0, operation_id=uuid4())
     assert guest_release.public_manifest(public_id) == (release_id, manifest)
+    monkeypatch.setenv(hosted_auth.DEPLOYMENT_ENVIRONMENT_ENV, "production")
+    monkeypatch.setenv(hosted_auth.AUTH_MODE_ENV, "hosted_dms")
+    monkeypatch.setenv("DMB_GUEST_RELEASE_ENABLED", "1")
+    monkeypatch.setenv("DMB_GUEST_RELEASE_PUBLIC_ENABLED", "1")
+    app = FastAPI()
+    app.include_router(guest_release_public.router)
+    hosted_auth.install_hosted_request_boundary(app)
+    async def signed_out_read():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            return await client.get(f"/api/live/guest-releases/{public_id}")
+    public_response = asyncio.run(signed_out_read())
+    assert public_response.status_code == 200 and public_response.json()["manifest"] == manifest
+    assert public_response.headers["cache-control"] == "no-store"
     current = snapshot_page(str(document_id), world_id=world)
     commit_page(str(document_id), "A later private edit", world_id=world,
         expected_revision=current.page.object_revision, expected_working_copy_revision=current.working_copy_revision)
@@ -85,6 +103,7 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
     # Withdrawal affects new candidates, not the explicitly published copy.
     assert guest_release.public_manifest(public_id) == (release_id, manifest)
     guest_release.revoke(world_id=world, subject="owner", release_id=release_id)
+    assert asyncio.run(signed_out_read()).status_code == 404
     from application_state.errors import ApplicationStateNotFoundError
     with pytest.raises(ApplicationStateNotFoundError):
         guest_release.public_manifest(public_id)
