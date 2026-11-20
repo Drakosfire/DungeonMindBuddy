@@ -66,6 +66,8 @@ class ThreatQueryHydrationRequestV1(StrictModel):
     campaign_id: str | None = None
     scope_mode: ScopeMode = "campaign"
     revision_pin: str = Field(min_length=1)
+    expected_native_world_id: str | None = Field(default=None, min_length=1)
+    expected_binding_version: int | None = Field(default=None, ge=1, strict=True)
     query_text: str = Field(min_length=1)
     focus_node_ids: list[str] = Field(default_factory=list, max_length=8)
     relationship_predicates: list[str] = Field(default_factory=list, max_length=16)
@@ -74,13 +76,15 @@ class ThreatQueryHydrationRequestV1(StrictModel):
 
     @model_validator(mode="after")
     def _exact_campaign_scope(self):
+        if (self.expected_native_world_id is None) != (self.expected_binding_version is None):
+            raise ValueError("Expected native World and binding version must be supplied together")
         if self.scope_mode == "world" and self.campaign_id is not None:
             raise ValueError("campaignId must be null in World scope")
         if self.scope_mode == "campaign" and not self.campaign_id:
             raise ValueError("campaignId is required in campaign scope")
         return self
 
-    @field_validator("world_id", "campaign_id", "revision_pin", "query_text", mode="before")
+    @field_validator("world_id", "campaign_id", "revision_pin", "query_text", "expected_native_world_id", mode="before")
     @classmethod
     def _strip_required(cls, value: Any) -> Any:
         if isinstance(value, str):

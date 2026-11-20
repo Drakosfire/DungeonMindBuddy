@@ -308,6 +308,17 @@ export function threatSelectionTupleKey(tuple: ThreatSelectionTuple): string {
   return `${tuple.worldId}\0${tuple.scopeMode === "world" ? "" : tuple.campaignId}\0${tuple.scopeMode}\0${tuple.revisionId}\0${tuple.threatNodeId}`;
 }
 
+export function resolveManagedThreatScope(
+  scope: ExactGraphReferenceScope | null | undefined,
+  binding: { managedWorldId: string; nativeWorldId: string; bindingVersion: number } | null | undefined,
+): ExactGraphReferenceScope | null {
+  if (!validateExactGraphReferenceScope(scope) || !binding?.managedWorldId
+    || binding.nativeWorldId !== scope.worldId || binding.bindingVersion < 1) {
+    return null;
+  }
+  return { ...scope, worldId: binding.managedWorldId };
+}
+
 export function buildThreatQueryHydrationRequest(
   scope: ExactGraphReferenceScope,
   threatNodeId: string,

@@ -56,7 +56,7 @@ function threatResolution(
 function okResponse(nodeId: string, revisionId = scope.revisionId) {
   return {
     schema: "dmb_threat_query_hydration_response_v1" as const,
-    worldId: scope.worldId,
+    worldId: "managed-elderwyld",
     campaignId: null,
     scopeMode: scope.scopeMode,
     revisionId,
@@ -129,6 +129,24 @@ describe("useExactThreatMechanics", () => {
     vi.mocked(postThreatQueryHydration).mockReset();
   });
 
+  it("clears mechanics when the active binding moves to a different native World", async () => {
+    vi.mocked(postThreatQueryHydration).mockResolvedValue(okResponse("threat:tripod-null-calf"));
+    const resolution = threatResolution();
+    const view = render(<Probe resolution={resolution} />);
+    await waitFor(() => expect(screen.getByTestId("hit-id")).toHaveTextContent("threat:tripod-null-calf"));
+
+    const original = lensFixture.managedBinding;
+    try {
+      lensFixture.managedBinding = { ...original, nativeWorldId: "different-native-world", bindingVersion: 3 };
+      view.rerender(<Probe resolution={resolution} />);
+      expect(screen.getByTestId("hit-id")).toBeEmptyDOMElement();
+      expect(screen.getByTestId("load-status")).toHaveTextContent("integrity_failure");
+      expect(postThreatQueryHydration).toHaveBeenCalledTimes(1);
+    } finally {
+      lensFixture.managedBinding = original;
+    }
+  });
+
   it("requests the exact graph scope and Threat node from the resolution", async () => {
     vi.mocked(postThreatQueryHydration).mockResolvedValue(okResponse("threat:tripod-null-calf"));
     render(<Probe resolution={threatResolution()} />);
@@ -138,10 +156,12 @@ describe("useExactThreatMechanics", () => {
     });
     expect(postThreatQueryHydration).toHaveBeenCalledWith(
       expect.objectContaining({
-        worldId: scope.worldId,
+        worldId: "managed-elderwyld",
         campaignId: null,
         scopeMode: scope.scopeMode,
         revisionPin: scope.revisionId,
+        expectedNativeWorldId: "eldyrwild",
+        expectedBindingVersion: 2,
         queryText: "threat:tripod-null-calf",
         focusNodeIds: ["threat:tripod-null-calf"],
         includeMechanics: true,
@@ -205,3 +225,13 @@ describe("useExactThreatMechanics", () => {
     expect(screen.getByTestId("message")).toHaveTextContent("mechanics service unavailable");
   });
 });
+
+
+const lensFixture = vi.hoisted(() => ({
+  managedBinding: { managedWorldId: "managed-elderwyld", nativeWorldId: "eldyrwild", bindingVersion: 2 },
+}));
+
+vi.mock("../../graphLens/useWorldGraphLensProjection", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../graphLens/useWorldGraphLensProjection")>(),
+  useOptionalWorldGraphLensProjection: () => lensFixture,
+}));

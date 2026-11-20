@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
 import { LiveApiError, postThreatQueryHydration } from "../../api/liveApi";
 import type { ThreatQueryHydrationHitV1, ThreatQueryHydrationResponseV1 } from "../../api/types";
 import type { GraphReferenceResolution } from "../../graphReference/types";
@@ -7,6 +8,7 @@ import {
   buildThreatQueryHydrationRequest,
   mapHydrationResultLabelToLoadStatus,
   selectExactThreatHit,
+  resolveManagedThreatScope,
   threatSelectionTupleFromResolution,
   threatSelectionTupleKey,
   type ThreatSelectionTuple,
@@ -30,12 +32,17 @@ export function useExactThreatMechanics(
   options?: { enabled?: boolean },
 ): ExactThreatMechanicsState {
   const enabled = options?.enabled ?? true;
-  const selectionTuple = useMemo(
-    () => (enabled ? threatSelectionTupleFromResolution(resolution) : null),
-    [enabled, resolution],
-  );
-  const selectionKey = selectionTuple ? threatSelectionTupleKey(selectionTuple) : null;
+  const binding = useOptionalWorldGraphLensProjection()?.managedBinding;
+  const selectionTuple = useMemo(() => {
+    const tuple = enabled ? threatSelectionTupleFromResolution(resolution) : null;
+    const scope = resolveManagedThreatScope(tuple, binding);
+    return tuple && scope ? { ...scope, threatNodeId: tuple.threatNodeId } : null;
+  }, [enabled, resolution, binding]);
+  const selectionKey = selectionTuple && binding
+    ? JSON.stringify([binding.nativeWorldId, binding.bindingVersion, threatSelectionTupleKey(selectionTuple)])
+    : null;
 
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [hit, setHit] = useState<ThreatQueryHydrationHitV1 | null>(null);
   const [loadStatus, setLoadStatus] = useState<ThreatSheetLoadStatus>(
     enabled ? "loading" : "ready",
@@ -43,6 +50,7 @@ export function useExactThreatMechanics(
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    setLoadedKey(selectionKey);
     if (!enabled) {
       setLoadStatus("ready");
       setMessage(null);
@@ -50,9 +58,9 @@ export function useExactThreatMechanics(
       return;
     }
 
-    if (!selectionTuple || !selectionKey) {
+    if (!selectionTuple || !selectionKey || !binding) {
       setLoadStatus("integrity_failure");
-      setMessage("Exact graph scope is required for Threat Sheet projection.");
+      setMessage("A verified managed World binding is required for Threat mechanics.");
       setHit(null);
       return;
     }
@@ -72,7 +80,11 @@ export function useExactThreatMechanics(
       selectionTuple.threatNodeId,
     );
 
-    void postThreatQueryHydration(request)
+    void postThreatQueryHydration({
+      ...request,
+      expectedNativeWorldId: binding.nativeWorldId,
+      expectedBindingVersion: binding.bindingVersion,
+    })
       .then((response: ThreatQueryHydrationResponseV1) => {
         if (cancelled) return;
         const selection = selectExactThreatHit(
@@ -120,13 +132,13 @@ export function useExactThreatMechanics(
     return () => {
       cancelled = true;
     };
-  }, [enabled, selectionKey, selectionTuple]);
+  }, [enabled, selectionKey, selectionTuple, binding]);
 
   return {
     selectionTuple,
     selectionKey,
-    loadStatus,
-    hit,
-    message,
+    loadStatus: loadedKey === selectionKey ? loadStatus : "loading",
+    hit: enabled && selectionKey !== null && loadedKey === selectionKey ? hit : null,
+    message: loadedKey === selectionKey ? message : null,
   };
 }
