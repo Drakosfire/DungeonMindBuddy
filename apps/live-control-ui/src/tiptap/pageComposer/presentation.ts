@@ -163,6 +163,8 @@ export function projectPresentation(doc: JSONContent, originalMarkdown: string, 
     || (semanticMarkdownSerializationDiagnostics(originalFlat).length === 0
       && tiptapJsonToSemanticMarkdown(flat) === tiptapJsonToSemanticMarkdown(originalFlat));
   const markdown=unchanged ? originalMarkdown : preserveLeadingYamlFrontmatter(originalMarkdown,tiptapJsonToSemanticMarkdown(flat));
+  if (retainPlainIdentities && existingPresentation == null)
+    return fail('The enrolled page identity sidecar is missing. Recover the saved source before saving this draft.');
   const retainIdentities = retainPlainIdentities || (existingPresentation != null && existingPresentation.items.every(item => item.kind === 'block'));
   if (retainIdentities && existingPresentation != null) hydratePresentation(originalMarkdown, existingPresentation);
   if(!hasPresentation(doc) && !retainIdentities) return {markdown,presentation:null};

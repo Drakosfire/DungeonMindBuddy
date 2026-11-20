@@ -360,7 +360,7 @@ export function useWorkspaceDocumentAuthoring(
     const snap = snapshotRef.current;
     const retainedPlainBase = snap?.page_presentation != null && snap.page_presentation.items.every(item => item.kind === "block");
     const composing = args.kind === "worldbuilding_source" && args.surface === "build"
-      && (current.page_presentation !== undefined || hasPresentation(tiptapJson));
+      && (retainedPlainBase || current.page_presentation !== undefined || hasPresentation(tiptapJson));
     let projected: {markdown: string; presentation: PagePresentation | null} | undefined;
     let projectionError: unknown;
     try { if (composing) projected = projectPresentation(tiptapJson, current.exported_markdown, current.page_presentation_pending ? markdownToTiptapDoc(current.exported_markdown).doc : current.tiptap_json as JSONContent, current.page_presentation, retainedPlainBase); }
@@ -720,7 +720,7 @@ export function useWorkspaceDocumentAuthoring(
     let projected: {markdown: string; presentation: PagePresentation | null} | undefined;
     try {
       if (args.kind === "worldbuilding_source" && args.surface === "build"
-        && (localState.page_presentation !== undefined || hasPresentation(tiptapJson))) {
+        && (retainedPlainBase || localState.page_presentation !== undefined || hasPresentation(tiptapJson))) {
         projected = projectPresentation(tiptapJson, localState.exported_markdown, localState.page_presentation_pending ? markdownToTiptapDoc(localState.exported_markdown).doc : localState.tiptap_json as JSONContent, localState.page_presentation, retainedPlainBase);
       }
     } catch (error) {

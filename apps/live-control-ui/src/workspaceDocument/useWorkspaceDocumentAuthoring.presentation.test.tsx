@@ -6,7 +6,7 @@ import type { WorkspaceDocumentSnapshot } from '../api/types';
 import { fixtureWorkspaceDocumentRecord } from '../planSurface/config/planSessionDescriptor';
 import { markdownToTiptapDoc } from '../tiptap/markdown/markdownToTiptap';
 import { admittedPresentationBlocks, hydratePresentation, projectPresentation, presentationFingerprint, presentationSha256, type PagePresentation } from '../tiptap/pageComposer/presentation';
-import { readWorkspaceDocumentLocalState } from '../tiptap/state/tiptapLocalState';
+import { readWorkspaceDocumentLocalState, workspaceDocumentStorageKey } from '../tiptap/state/tiptapLocalState';
 import { useWorkspaceDocumentAuthoring } from './useWorkspaceDocumentAuthoring';
 vi.mock('../api/liveApi', () => ({
  NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT:'dmb:native-graph-access-token-changed', getNativeGraphAccessGeneration:vi.fn(()=>0),
@@ -120,6 +120,28 @@ describe('Page layout authoring boundary',()=>{
   await waitFor(()=>expect(h.result.current.dirty).toBe(false));h.unmount();localStorage.clear();
   const cold=mount();await waitFor(()=>expect(cold.result.current.phase).toBe('ready_clean'));
   expect(cold.result.current.editorContent).toEqual(json);cold.unmount();
+ });
+ it.each([null,undefined])('refuses an old-client dirty enrolled draft whose sidecar (%s) and reparsed JSON lost the IDs',async(missing)=>{
+  const layout:PagePresentation={schema_version:'dmb_page_presentation_v1',markdown_sha256:presentationSha256(source),
+   items:admittedPresentationBlocks(source).map((b,i)=>({kind:'block',id:`retained-${i}`,byte_start:b.byte_start,byte_end:b.byte_end,sha256:b.sha256}))};
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue({...snap(),page_presentation:layout,page_presentation_sha256:presentationFingerprint(layout)});
+  const seed=mount();await waitFor(()=>expect(seed.result.current.phase).toBe('ready_clean'));
+  const prior=readWorkspaceDocumentLocalState(localStorage,id)!;seed.unmount();
+  const draft='Old client unsaved words.\n\nSecond paragraph.\n';
+  const json=markdownToTiptapDoc(draft).doc;
+  localStorage.setItem(workspaceDocumentStorageKey(id),JSON.stringify({...prior,dirty:true,
+   page_presentation:missing,tiptap_json:json,exported_markdown:draft,page_presentation_pending:false}));
+  const h=mount();await waitFor(()=>expect(h.result.current.dirty).toBe(true));
+  expect(h.result.current.editorContent).toEqual(json);
+  const editor={getJSON:()=>json} as Editor;act(()=>h.result.current.setEditor(editor));
+  await act(()=>h.result.current.saveMarkdown());
+  expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  expect(h.result.current.dirty).toBe(true);
+  const retained=readWorkspaceDocumentLocalState(localStorage,id)!;
+  expect(retained.tiptap_json).toEqual(json);expect(retained.exported_markdown).toBe(draft);
+  expect(retained.page_presentation).toBe(missing);expect(retained.base_revision).toBe(prior.base_revision);
+  expect(retained.base_page_presentation_sha256).toBe(prior.base_page_presentation_sha256);
+  h.unmount();
  });
  it('retains resize-only draft across unmount and reopens it dirty without changing source bytes',async()=>{
   vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snap());

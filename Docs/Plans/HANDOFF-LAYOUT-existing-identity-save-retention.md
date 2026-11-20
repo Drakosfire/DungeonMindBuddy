@@ -96,3 +96,15 @@ Correction diagnostics passed all 82 focused cases and the application TypeScrip
 check. Results are retained in `focused-enrollment.json` and
 `enrollment-typecheck.log` under the existing retention evidence task. These are
 diagnostics, not a substitute for the corrected integrated exact-head verifiers.
+
+Further independent inspection identified an old-client dirty draft with a
+matching enrolled base digest but null/missing local sidecar and reparsed JSON
+without IDs. Committed retention must refuse that state before projection can
+allocate replacement IDs. Both draft and Save enter projection when the committed
+base is enrolled, even if the local sidecar field is absent. Two seeded null/
+undefined compatibility controls require no prepare/commit and unchanged raw
+draft/base identities. Recovery remains explicit; no silent ID reconstruction.
+This correction supersedes source `417f2459` for final qualification. Its running
+isolated exact-source verification is historical evidence only, not the final
+corrected-head pass. Fresh exact-source verification and cycle-2 review remain
+required after this old-client guard.
