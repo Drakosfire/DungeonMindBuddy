@@ -188,3 +188,9 @@ open PR path audit found no overlap on this added test. Reproduce on exact817
 base, retain original failure, correct typed span data before publication, and
 prove unchanged context reuse/closure and ordered durable evidence. No required
 broker proof is waived and no locator policy or production algorithm changes.
+
+Exact817 base broker reproduction fails the same returned-pin assertion. After
+fixture-local typed-span publication, all19 acquisition tests pass with original
+context-count, lifetime, operation ordering and actual returned-pin assertions.
+No general heading fixture or producer code changes. Freeze a new combined head
+and retain a2ce's retained-cohort failure as failed evidence.
