@@ -106,7 +106,8 @@ def _open_plan_clause(turn, world_id, turn_id, citation_index, principal):
         observed, read = original
         grant = next(e for e in execution.events if isinstance(e, (NativePlanStatementReadAuthorizedV1, BuildAuthoredReferenceAuthorizedV2))
             and e.event_id == observed.authorization_event_id)
-        context = reopen_context(receipt.native_query, principal)
+        from application_state.agent_conversation.native_execution import effective_native_query
+        context = reopen_context(effective_native_query(receipt, execution), principal)
         reopened = _reopen_record(context, grant, citation.statement_id, principal, assertion=False)
         if reopened != read:
             raise ValueError('Pinned native clause no longer admits the original support')
@@ -144,7 +145,9 @@ def open_assertion_source(*, world_id, turn_id, citation_index, principal, servi
             if event.event_id == citation.read_event_id and read.assertion.assertion_id == citation.assertion_id)
         grant = next(e for e in turn.graph_context_execution.events
             if isinstance(e, (NativePlanAssertionReadAuthorizedV1, BuildAuthoredReferenceAuthorizedV2)) and e.event_id == observed.authorization_event_id)
-        context = reopen_context(turn.graph_context_receipt.native_query, principal)
+        from application_state.agent_conversation.native_execution import effective_native_query
+        context = reopen_context(effective_native_query(
+            turn.graph_context_receipt, turn.graph_context_execution), principal)
         reopened = _reopen_record(context, grant, citation.assertion_id, principal, assertion=True)
         from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadV2, compact_assertion_read
         retained = compact_assertion_read(reopened) if type(read) is NativePlanAssertionReadV2 else reopened
