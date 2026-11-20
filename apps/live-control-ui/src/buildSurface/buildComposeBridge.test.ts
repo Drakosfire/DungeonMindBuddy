@@ -505,3 +505,51 @@ it("inserts an exact saved variant link and recognizes it after Markdown reopen"
   expect(changed).toHaveBeenCalledTimes(1);
  } finally { editor.destroy(); }
 });
+
+it('applies canonical Read Aloud and GM Note blocks and reopens their saved Markdown', async () => {
+  const { editor, bridge, changed } = setup();
+  const { markdownToTiptapDoc } = await import('../tiptap/markdown/markdownToTiptap');
+  try {
+    editor.commands.setContent('<h2>Arrival</h2><p>The tower remains sealed.</p><h2>Departure</h2><p>The ferryman waits beside the red gate.</p>');
+    const arrivalParagraphEnd = editor.state.doc.child(0).nodeSize + editor.state.doc.child(1).nodeSize - 1;
+    editor.commands.setTextSelection(arrivalParagraphEnd);
+    const before = editor.getJSON();
+    const target = await bridge.capture();
+    const fragment = [
+      '> [!READ-ALOUD] Crossing',
+      '> Three lanterns flicker above the boards.',
+      '',
+      '> [!GM-NOTE] Pause',
+      '> Wait for the players to choose.',
+    ].join('\n');
+    const prepared = await bridge.prepareProposal(target, fragment);
+    expect(editor.getJSON()).toEqual(before);
+    bridge.applyPrepared(prepared);
+    expect(changed).toHaveBeenCalledTimes(1);
+
+    const saved = tiptapJsonToSemanticMarkdown(editor.getJSON());
+    expect(saved).toContain('The tower remains sealed.');
+    expect(saved).toContain('## Departure\n\nThe ferryman waits beside the red gate.');
+    expect(saved.indexOf('> [!READ-ALOUD] Crossing')).toBeGreaterThan(saved.indexOf('## Arrival'));
+    expect(saved.indexOf('> [!GM-NOTE] Pause')).toBeGreaterThan(saved.indexOf('> [!READ-ALOUD] Crossing'));
+    expect(saved.indexOf('> [!GM-NOTE] Pause')).toBeLessThan(saved.indexOf('## Departure'));
+
+    const reopened = markdownToTiptapDoc(saved);
+    expect(reopened.diagnostics).toEqual([]);
+    expect(reopened.doc.content?.filter(node => node.type === 'callout')).toEqual([
+      {
+        type: 'callout',
+        attrs: { kind: 'read-aloud', label: 'Crossing' },
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Three lanterns flicker above the boards.' }] }],
+      },
+      {
+        type: 'callout',
+        attrs: { kind: 'gm-note', label: 'Pause' },
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Wait for the players to choose.' }] }],
+      },
+    ]);
+    expect(tiptapJsonToSemanticMarkdown(reopened.doc)).toBe(saved);
+  } finally {
+    editor.destroy();
+  }
+});
