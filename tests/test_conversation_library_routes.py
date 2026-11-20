@@ -232,7 +232,9 @@ def test_newest_active_build_messages_warm_once_without_changing_response(client
     client.service.read_active_messages.return_value = page
     pointer = SimpleNamespace(active_conversation_id=cid, revision=4)
     service = SimpleNamespace(get_world_pointer=Mock(return_value=pointer), list_build_dialogue=Mock())
-    monkeypatch.setattr(routes, "_recent_dialogue_warmup", None)
+    monkeypatch.setattr(routes, "_dialogue_warmup_snapshots", routes.OrderedDict())
+    clock = Mock(return_value=10)
+    monkeypatch.setattr(routes, "monotonic", clock)
     monkeypatch.setattr(routes, "_conversation_service", lambda request: service)
     url = "/api/live/agent/worlds/world-one/conversations/active/messages"
 
@@ -240,8 +242,16 @@ def test_newest_active_build_messages_warm_once_without_changing_response(client
     assert client.client.get(url, params={"limit": 5}).json() == page
     service.get_world_pointer.assert_not_called()
     assert client.client.get(url).json() == page
+    clock.return_value = 40
     assert client.client.get(url).json() == page
     service.list_build_dialogue.assert_called_once_with("world-one", cid)
+
+    pending = {"turn_id": str(uuid4()), "revision": 1, "status": "running",
+               "provenance": {"surface_id": "build"}}
+    page["messages"].append(pending)
+    assert client.client.get(url).json() == page
+    assert service.get_world_pointer.call_count == 1
+    page["messages"].pop()
 
     page["messages"][0]["revision"] = 3
     pointer.revision = 5
