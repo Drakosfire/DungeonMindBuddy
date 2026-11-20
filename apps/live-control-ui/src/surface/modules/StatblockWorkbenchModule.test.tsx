@@ -761,10 +761,14 @@ describe("World-scoped mounted Workbench", () => {
     } as NonNullable<ReturnType<typeof interaction.useOptionalAgentInteraction>>);
     const user = userEvent.setup();
     render(<StatblockWorkbenchModule />);
+    await user.click(screen.getByText(/Optional & advanced/i));
+    await user.type(screen.getByTestId("create-threat-graph-revision"), "rev:owned");
     await create(user);
     await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
     const body = h.create.mock.calls[0][0];
     expect(body).toMatchObject({ world_id: "eldyrwild", campaign_id: campaignId });
+    expect(body.graph_context_snapshot.graph_revision_id).toBe("rev:owned");
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
     expect(body).not.toHaveProperty("scope_mode");
     expect(h.drafts.get("draft-a")?.schema).toBe("dmb_threat_draft_v1");
     expect(h.generate).toHaveBeenCalledTimes(1);
@@ -3219,8 +3223,12 @@ describe("StatblockWorkbenchModule", () => {
     const ownedResponse = { ...activeResponse, source_draft_id: DRAFT_ID };
     const joinKey = scopedWorkbenchJoinKey({ mode: "campaign", worldId: "eldyrwild", campaignId: "longmont-c2" });
 
-    async function fillRequiredCreateFields(user: ReturnType<typeof userEvent.setup>) {
+    async function fillRequiredCreateFields(user: ReturnType<typeof userEvent.setup>, usePin = true) {
       await user.type(screen.getByTestId("create-threat-description"), THREAT_DESCRIPTION);
+      if (usePin) {
+        await user.click(screen.getByText(/Optional & advanced/i));
+        await user.type(screen.getByTestId("create-threat-graph-revision"), GRAPH_HEAD);
+      }
     }
 
     function mockCreatedDraft(overrides?: Partial<{ draft_id: string; version: number; name: string }>) {
@@ -3380,7 +3388,7 @@ describe("StatblockWorkbenchModule", () => {
       vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(ownedResponse);
 
       render(<StatblockWorkbenchModule />);
-      await fillRequiredCreateFields(user);
+      await fillRequiredCreateFields(user, false);
       await user.click(screen.getByTestId("create-threat-allow-freestanding"));
       await user.click(screen.getByTestId("create-and-generate-submit"));
       await waitFor(() => {
@@ -3402,14 +3410,14 @@ describe("StatblockWorkbenchModule", () => {
       const createSpy = vi.spyOn(liveApi, "createThreatDraft");
 
       render(<StatblockWorkbenchModule />);
-      await fillRequiredCreateFields(user);
+      await fillRequiredCreateFields(user, false);
       await user.click(screen.getByTestId("create-and-generate-submit"));
       await waitFor(() => {
         expect(screen.getByTestId("create-threat-error").textContent).toMatch(
-          /graph authority is unknown/i,
+          /Choose an explicit graph revision/i,
         );
       });
-      expect(screen.getByTestId("create-threat-error").textContent).toMatch(/Locked bundle failed acceptance/);
+      expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
       expect(createSpy).not.toHaveBeenCalled();
 
       await user.click(screen.getByTestId("create-threat-allow-freestanding"));
@@ -3439,11 +3447,11 @@ describe("StatblockWorkbenchModule", () => {
       const createSpy = vi.spyOn(liveApi, "createThreatDraft");
 
       render(<StatblockWorkbenchModule />);
-      await fillRequiredCreateFields(user);
+      await fillRequiredCreateFields(user, false);
       await user.click(screen.getByTestId("create-and-generate-submit"));
       await waitFor(() => {
         expect(screen.getByTestId("create-threat-error").textContent).toMatch(
-          /no head revision.*authority is incomplete/i,
+          /Choose an explicit graph revision/i,
         );
       });
       expect(createSpy).not.toHaveBeenCalled();
@@ -3457,11 +3465,11 @@ describe("StatblockWorkbenchModule", () => {
       const createSpy = vi.spyOn(liveApi, "createThreatDraft");
 
       render(<StatblockWorkbenchModule />);
-      await fillRequiredCreateFields(user);
+      await fillRequiredCreateFields(user, false);
       await user.click(screen.getByTestId("create-and-generate-submit"));
       await waitFor(() => {
         expect(screen.getByTestId("create-threat-error").textContent).toMatch(
-          /graph authority is unknown/i,
+          /Choose an explicit graph revision/i,
         );
       });
       expect(createSpy).not.toHaveBeenCalled();
@@ -3505,7 +3513,7 @@ describe("StatblockWorkbenchModule", () => {
       vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(ownedResponse);
 
       render(<StatblockWorkbenchModule />);
-      await fillRequiredCreateFields(user);
+      await fillRequiredCreateFields(user, false);
       await user.click(screen.getByText(/Optional & advanced/i));
       await user.type(screen.getByTestId("create-threat-graph-revision"), GRAPH_HEAD);
       await user.click(screen.getByTestId("create-and-generate-submit"));
@@ -3593,6 +3601,8 @@ describe("StatblockWorkbenchModule", () => {
         screen.getByTestId("create-threat-description"),
         "A Mireward Latchling is the crawling siege-form of the Shepherd’s meat, a low horror.",
       );
+      await user.click(screen.getByText(/Optional & advanced/i));
+      await user.type(screen.getByTestId("create-threat-graph-revision"), GRAPH_HEAD);
       await user.click(screen.getByTestId("create-and-generate-submit"));
 
       await waitFor(() => {
@@ -3828,6 +3838,8 @@ describe("StatblockWorkbenchModule", () => {
       const user = userEvent.setup();
       const createSpy = vi.spyOn(liveApi, "createThreatDraft");
       render(<StatblockWorkbenchModule />);
+      await user.click(screen.getByText(/Optional & advanced/i));
+      await user.type(screen.getByTestId("create-threat-graph-revision"), GRAPH_HEAD);
       await user.click(screen.getByTestId("create-and-generate-submit"));
       await waitFor(() => {
         expect(screen.getByTestId("create-threat-error").textContent).toMatch(/description/i);

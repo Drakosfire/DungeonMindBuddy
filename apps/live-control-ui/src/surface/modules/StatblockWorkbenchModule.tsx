@@ -15,7 +15,6 @@ import {
   getStatblockCandidate,
   getThreatDraft,
   LiveApiError,
-  postWorldGraphProjection,
   postManagedWorldGraphProjection,
   reconcileAcceptanceOperation,
   reviseThreatDraftCandidate,
@@ -399,26 +398,7 @@ async function resolveNativeWorldGraphHead(scope: StatblockDraftScope): Promise<
       throw new ProjectionScopeMismatch("Managed World Graph returned malformed provenance.");
     }
   }
-  const projection = await postWorldGraphProjection({
-    schema: "dmb_world_graph_projection_request_v1",
-    worldId: scope.worldId,
-    campaignId: scope.campaignId ?? "",
-    focus: { kind: "none", sessionId: null },
-    admissibility: "gm",
-    scopeMode: scope.mode,
-  });
-  if (projection.snapshot.worldId !== scope.worldId
-      || projection.snapshot.campaignId !== (scope.campaignId ?? "")
-      || projection.snapshot.scopeMode !== scope.mode) {
-    throw new ProjectionScopeMismatch("Projection identity does not match the selected scope.");
-  }
-  const head =
-    projection.snapshot.headRevisionId?.trim()
-    || projection.snapshot.revisionId?.trim()
-    || null;
-  return {
-    head,
-  };
+  return { head: null };
 }
 
 async function resolveCreateScope(
@@ -434,6 +414,14 @@ async function resolveCreateScope(
         graph_revision_id: override,
       },
     };
+  }
+
+  if (scope.mode === "campaign") {
+    return requireFreestandingOptIn(
+      fields,
+      scope,
+      "Choose an explicit graph revision or opt in to standalone creation.",
+    );
   }
 
   try {

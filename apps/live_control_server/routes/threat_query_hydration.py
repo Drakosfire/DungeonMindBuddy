@@ -30,10 +30,7 @@ def post_threat_query_hydration(
     require_threat_hydration_access(request, body)
     root = world_graph_root()
     try:
-        if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
-            response = query_threats_with_hydration(body, root=root, managed_world=True)
-        else:
-            response = query_threats_with_hydration(body, root=root)
+        response = query_threats_with_hydration(body, root=root, managed_world=True)
     except ThreatQueryHydrationError as exc:
         return JSONResponse(
             status_code=exc.status_code,

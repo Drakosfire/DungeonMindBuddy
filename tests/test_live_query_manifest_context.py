@@ -45,8 +45,10 @@ def isolated_session_23(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path
 
 
 @pytest.fixture
-def client(isolated_session_23: Path) -> TestClient:
-    return TestClient(create_app())
+def client(isolated_session_23: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    return TestClient(create_app(), client=("127.0.0.1", 50000))
 
 
 def test_context_lookup_returns_packet_with_admitted_and_rejected_evidence(client: TestClient) -> None:

@@ -3185,7 +3185,7 @@ def test_retry_graph_resolution_is_pinned_to_stored_snapshot(
     assert exc_info.value.code == "turn_already_running"
 
 
-def test_accept_race_never_dispatches_context_different_from_winner_receipt(
+def test_classic_turn_requires_winning_receipt_before_graph_resolution(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
     from apps.live_control_server.services import agent_turn_service
@@ -3369,12 +3369,12 @@ def test_accept_race_never_dispatches_context_different_from_winner_receipt(
             conversation_service=service,
         )
 
-    assert exc_info.value.code == "turn_basis_changed"
-    assert service.submissions[0].provenance.supporting_work[0].revision == "snapshot-r2"
+    assert exc_info.value.code == "legacy_agent_graph_turn_retired"
+    assert service.submissions == []
     assert winning_receipt.provenance.supporting_work[0].revision == "snapshot-r1"
     assert runtime.invocations == []
     assert service.claims == 0
-    assert graph_pins == [None]
+    assert graph_pins == []
     assert assembled_revisions == []
     assert segment_bases == []
 
@@ -3396,7 +3396,7 @@ def test_accept_race_never_dispatches_context_different_from_winner_receipt(
     )
 
     assert response.graph.revision_id == "snapshot-r1"
-    assert graph_pins == [None, "snapshot-r1"]
+    assert graph_pins == ["snapshot-r1"]
     assert service.reconciliations == 3
     assert assembled_revisions == ["snapshot-r1"]
     assert segment_bases == [winning_provenance]
@@ -4279,7 +4279,7 @@ def test_full_application_http_route_and_legacy_route_cardinality(
     assert runtime.invocations[0].context_packet.retrieval_session is None
 
 
-def test_verified_world_projection_reaches_runtime_through_full_http_route(
+def test_fresh_verified_world_graph_turn_retires_through_http(
     tmp_path: Path, monkeypatch: Any, application_state_dsn: str
 ) -> None:
     assert application_state_dsn
@@ -4368,9 +4368,10 @@ def test_verified_world_projection_reaches_runtime_through_full_http_route(
         managed_world.world_id,
     )
 
+    assert services is not None
+
     def direct_services_for_world(world_id: str) -> Any:
-        assert world_id == managed_world.world_id
-        return services
+        pytest.fail(f"Retired turn opened classic Graph services for {world_id}")
 
     monkeypatch.setattr(
         direct, "direct_services_from_config", direct_services_for_world
@@ -4407,19 +4408,10 @@ def test_verified_world_projection_reaches_runtime_through_full_http_route(
 
     response = asyncio.run(post_turn())
 
-    assert response.status_code == 200
-    body = response.json()
-    assert body["owner_scope"]["owner_id"] == managed_world.world_id
-    assert body["graph"]["status"] == "ready"
-    assert body["graph"]["revision_id"] == published.revision_id
-    assert body["graph"]["head_revision_id"] == published.revision_id
-    invocation = runtime.invocations[0]
-    assert invocation.context_packet.world_scope is not None
-    assert invocation.context_packet.world_scope.world_id == managed_world.world_id
-    assert invocation.context_packet.world_scope.revision_id == published.revision_id
-    assert invocation.context_packet.retrieval_session is not None
-    packet_text = str(invocation.context_packet.retrieval_session.packet)
-    assert "The Prancing Tavern" in packet_text
+    assert response.status_code == 410
+    assert response.json()["detail"]["code"] == "legacy_agent_graph_turn_retired"
+    assert runtime.invocations == []
+
 
 
 def test_reset_receipt_status_auth_precedes_world_and_receipt_lookup(monkeypatch):
@@ -4922,3 +4914,92 @@ def test_pinned_build_references_reach_governed_dispatch_unchanged(
     assert len(dispatched) == 1 and _governed_build_turn(dispatched[0])
     assert dispatched[0].primary_work.model_dump(mode="json", exclude_none=True) == payload["primary_work"]
     assert dispatched[0].build_authored_references.model_dump(mode="json", by_alias=True) == payload["build_authored_references"]
+
+
+@pytest.mark.parametrize("mode", ["world", "campaign"])
+@pytest.mark.parametrize("selected", [False, True])
+def test_fresh_classic_graph_turn_retires_before_resolution(
+    tmp_path: Path, mode: str, selected: bool
+) -> None:
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentTurnServiceError,
+        execute_agent_turn,
+    )
+    from apps.live_control_server.services.hermes_session_store import HermesSessionPointerStore
+
+    graph_request = {
+        "mode": mode,
+        "campaign_id": None if mode == "world" else "campaign-a",
+        "revision_pin": None,
+        "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+    }
+    if mode == "world":
+        graph_request["world_id"] = "world-a"
+    request = AgentTurnRequest.model_validate({
+        **_payload(),
+        "graph_request": graph_request,
+        "graph_selection": {"node_id": "node-42"} if selected else None,
+    })
+
+    def unexpected(*args: Any, **kwargs: Any) -> None:
+        pytest.fail("A retired turn reached work, Graph, or runtime resolution")
+
+    with pytest.raises(AgentTurnServiceError) as exc:
+        execute_agent_turn(
+            request,
+            root=tmp_path,
+            pointer_store=HermesSessionPointerStore(tmp_path / "sessions"),
+            owner_resolver=lambda _request: None,
+            work_resolver=unexpected,
+            graph_resolver=unexpected,
+            runtime_factory=unexpected,
+        )
+
+    assert exc.value.status_code == 410
+    assert exc.value.code == "legacy_agent_graph_turn_retired"
+    assert exc.value.provider_dispatched is False
+
+
+def test_pending_classic_graph_turn_without_frozen_reference_fails_closed(tmp_path: Path) -> None:
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentTurnServiceError,
+        execute_agent_turn,
+    )
+    from apps.live_control_server.services.hermes_session_store import HermesSessionPointerStore
+
+    world_id = "world-a"
+    pending = _durable_turn(world_id=world_id, status="accepted")
+
+    class ReceiptService:
+        def reconcile_turn(self, *_args: Any, **_kwargs: Any) -> Turn:
+            return pending
+
+    request = AgentTurnRequest.model_validate({
+        **_payload(),
+        "owner_scope": {"kind": "world", "world_id": world_id},
+        "graph_request": {
+            "mode": "world",
+            "world_id": world_id,
+            "campaign_id": None,
+            "revision_pin": None,
+            "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+        },
+    })
+
+    def unexpected(*args: Any, **kwargs: Any) -> None:
+        pytest.fail("Unverifiable receipt reached work, Graph, or runtime resolution")
+
+    with pytest.raises(AgentTurnServiceError) as exc:
+        execute_agent_turn(
+            request,
+            root=tmp_path,
+            pointer_store=HermesSessionPointerStore(tmp_path / "sessions"),
+            owner_resolver=lambda _request: {"kind": "world", "id": world_id},
+            work_resolver=unexpected,
+            graph_resolver=unexpected,
+            runtime_factory=unexpected,
+            conversation_service=ReceiptService(),
+        )
+
+    assert exc.value.status_code == 409
+    assert exc.value.code == "turn_receipt_unverifiable"

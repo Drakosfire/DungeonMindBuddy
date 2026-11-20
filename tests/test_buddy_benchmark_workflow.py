@@ -1042,9 +1042,9 @@ def test_context_capture_cli_is_explicit_and_does_not_select_a_response_mode(mon
     calls = []
     monkeypatch.setattr(w, 'capture', lambda *a, **kw: calls.append((a, kw)))
     w.main(['capture-context', '--manifest', 'pinned.json', '--output', 'isolated'])
-    assert calls == [(('pinned.json', 'isolated'), {'context_only': True, 'writer_transport': False})]
+    assert calls == [(('pinned.json', 'isolated'), {'context_only': True, 'writer_transport': False, 'detailed_trace': False})]
     w.main(['capture-context', '--manifest', 'pinned.json', '--output', 'isolated', '--writer-transport'])
-    assert calls[-1] == (('pinned.json', 'isolated'), {'context_only': True, 'writer_transport': True})
+    assert calls[-1] == (('pinned.json', 'isolated'), {'context_only': True, 'writer_transport': True, 'detailed_trace': False})
 
 
 @pytest.mark.parametrize('policy', ['absent', None, {}, {'policy': 'auto_plan_world'}, {

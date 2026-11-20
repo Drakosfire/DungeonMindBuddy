@@ -16,7 +16,6 @@ import {
   getNativeGraphAccessGeneration,
   NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT,
   postManagedWorldGraphProjection,
-  postWorldGraphProjection,
 } from "../api/liveApi";
 import type {
   ManagedWorldGraphProjectionResponse,
@@ -381,7 +380,7 @@ export function WorldGraphLensProjectionProvider({
           }, controller.signal);
           response = managedResponse.projection;
         } else {
-          response = await postWorldGraphProjection(loadRequest, controller.signal);
+          throw new Error("Graph Lens requires a managed World.");
         }
         if (!stillOwned()) return;
         const revisionKind = loadRequest.revisionPin ? "pinned" : "head";

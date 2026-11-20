@@ -506,8 +506,21 @@ def test_live_query_world_play_context_v2_is_world_run_and_pin_bound(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from application_state.content.service import commit_runbook, create_runbook
+    from apps.live_control_server.services.agent_play_surface_context import (
+        AgentWorldPlaySurfaceContextRequestV2,
+        WorldPlaySurfaceContextError,
+        validate_agent_play_world_surface_context_v2,
+    )
     from tests.test_play_run_reference_manifest import C2S27_SHAPED_V2_MARKDOWN
     from apps.live_control_server.services.play_run_edition_structure import structure_signature
+
+    token = "synthetic-world-play-retirement-operator-credential"
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", token)
+    world_client.headers["Authorization"] = f"Bearer {token}"
 
     world_a = create_world_container(name="Play Context Owner A")
     world_b = create_world_container(name="Play Context Owner B")
@@ -592,18 +605,11 @@ def test_live_query_world_play_context_v2_is_world_run_and_pin_bound(
     assert progress.status_code == 200, progress.text
     current_run_revision = progress.json()["run_revision"]
 
-    captured: list[object] = []
-
-    def process_stub(*_args: object, **kwargs: object) -> dict[str, object]:
-        captured.append(kwargs["surface_context"])
-        return {"accepted": True}
+    def process_stub(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Retired World Play query reached the runtime")
 
     monkeypatch.setattr(
         "apps.live_control_server.routes.live.process_live_query", process_stub
-    )
-    monkeypatch.setattr(
-        "apps.live_control_server.routes.live.enforce_native_graph_gm",
-        lambda _request: None,
     )
 
     def query(*, outer_world_id: str, context: dict[str, object]):
@@ -633,22 +639,24 @@ def test_live_query_world_play_context_v2_is_world_run_and_pin_bound(
         "run_id": world_run_id,
         "run_revision": current_run_revision,
     }
-    accepted = query(outer_world_id=world_a.world_id, context=valid_context)
-    assert accepted.status_code == 200, accepted.text
-    assert accepted.json() == {"accepted": True}
-    assert len(captured) == 1
-    assert captured[0].model_dump(by_alias=True) == valid_context
+    retired = query(outer_world_id=world_a.world_id, context=valid_context)
+    assert retired.status_code == 410, retired.text
+    assert retired.json()["code"] == "legacy_live_graph_query_retired"
 
-    stale = query(
-        outer_world_id=world_a.world_id,
-        context={**valid_context, "run_revision": current_run_revision + 1},
-    )
-    assert stale.status_code == 409, stale.text
-    assert len(captured) == 1
+    def validate(context: dict[str, object], outer_world_id: str) -> None:
+        validate_agent_play_world_surface_context_v2(
+            AgentWorldPlaySurfaceContextRequestV2.model_validate(context),
+            root=tmp_path,
+            outer_world_id=outer_world_id,
+        )
 
-    foreign = query(outer_world_id=world_b.world_id, context=valid_context)
-    assert foreign.status_code == 422, foreign.text
-    assert len(captured) == 1
+    validate(valid_context, world_a.world_id)
+    with pytest.raises(WorldPlaySurfaceContextError) as stale:
+        validate({**valid_context, "run_revision": current_run_revision + 1}, world_a.world_id)
+    assert stale.value.status_code == 409
+    with pytest.raises(WorldPlaySurfaceContextError) as foreign:
+        validate(valid_context, world_b.world_id)
+    assert foreign.value.status_code == 409
 
     unscoped = world_client.post(
         "/api/live/query",
@@ -661,7 +669,6 @@ def test_live_query_world_play_context_v2_is_world_run_and_pin_bound(
         },
     )
     assert unscoped.status_code == 422, unscoped.text
-    assert len(captured) == 1
 
     # A campaign-owned Runbook and Run using the same string as World A cannot
     # satisfy the explicit World V2 owner lookup.
@@ -683,16 +690,9 @@ def test_live_query_world_play_context_v2_is_world_run_and_pin_bound(
         },
     )
     assert campaign_run.status_code == 200, campaign_run.text
-    matched_string = query(
-        outer_world_id=world_a.world_id,
-        context={
-            **valid_context,
-            "run_id": campaign_run_id,
-            "run_revision": 1,
-        },
-    )
-    assert matched_string.status_code == 409, matched_string.text
-    assert len(captured) == 1
+    with pytest.raises(WorldPlaySurfaceContextError) as matched_string:
+        validate({**valid_context, "run_id": campaign_run_id, "run_revision": 1}, world_a.world_id)
+    assert matched_string.value.status_code == 409
 
     # Stored corruption blocks World reads and Play context before inference.
     corrupt_manifest = seal.json()
@@ -708,9 +708,9 @@ def test_live_query_world_play_context_v2_is_world_run_and_pin_bound(
     assert world_client.get(
         manifest_path, params={"world_id": world_a.world_id}
     ).status_code == 500
-    rejected = query(outer_world_id=world_a.world_id, context=valid_context)
-    assert rejected.status_code == 409, rejected.text
-    assert len(captured) == 1
+    with pytest.raises(WorldPlaySurfaceContextError) as rejected:
+        validate(valid_context, world_a.world_id)
+    assert rejected.value.status_code == 409
     assert (
         fetch_play_runtime_state(application_state_dsn, world_run_id)
         == corrupted_state

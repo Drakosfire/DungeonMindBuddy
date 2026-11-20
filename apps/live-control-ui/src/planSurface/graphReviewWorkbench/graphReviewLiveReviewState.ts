@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getGoldGraphProjection,
   getGoldReviewEvidence,
-  postWorldGraphProjection,
   LiveApiError,
 } from "../../api/liveApi";
 import type {
@@ -17,7 +16,6 @@ import type {
   ManualReviewBedSummary,
   UnionSupergraphProjectionResponse,
   WorldGraphProjection,
-  WorldGraphProjectionRequest,
 } from "../../api/types";
 import { buildGraphReviewCommittedProjectionRequest } from "../../worldGraph/worldGraphSurfaceContext";
 import { useGraphReviewAuthorDraftWorkflow } from "./useGraphReviewAuthorDraftWorkflow";
@@ -25,8 +23,6 @@ import {
   committedBindingsEqual,
   isTerminalConfirmOutcome,
   normalizeAffectedObjectIds,
-  selectFirstPresentCommittedObjectId,
-  validateCommittedProjectionResponse,
   validateCommittedReceiptAdoption,
   type GraphReviewCommittedBinding,
   type GraphReviewCommittedPhase,
@@ -166,15 +162,11 @@ export function useGraphReviewLiveReviewState({
   const [committedError, setCommittedError] = useState<string | null>(null);
   const [committedBindingState, setCommittedBindingState] =
     useState<GraphReviewCommittedBinding | null>(null);
-  const [committedRequest, setCommittedRequest] =
-    useState<WorldGraphProjectionRequest | null>(null);
-  const committedGenerationRef = useRef(0);
+
   const committedBindingRef = useRef<GraphReviewCommittedBinding | null>(
     committedBinding,
   );
   committedBindingRef.current = committedBinding;
-  const committedRequestRef = useRef<WorldGraphProjectionRequest | null>(null);
-  committedRequestRef.current = committedRequest;
   const previousCommittedBindingRef = useRef<GraphReviewCommittedBinding | null>(
     committedBinding,
   );
@@ -184,14 +176,12 @@ export function useGraphReviewLiveReviewState({
     : "";
 
   const clearCommittedAuthority = useCallback(() => {
-    committedGenerationRef.current += 1;
     setCommittedPhase("candidate");
     setCommittedReceipt(null);
     setCommittedProjection(null);
     setCommittedAffectedObjectIds([]);
     setCommittedSelectedObjectId(null);
     setCommittedError(null);
-    setCommittedRequest(null);
   }, []);
 
   useEffect(() => {
@@ -250,7 +240,6 @@ export function useGraphReviewLiveReviewState({
     async (
       nextReceipt: ExtractPromoteConfirmReceipt,
       prepared?: CommittedPreparedIdentity | null,
-      frozenRequest?: WorldGraphProjectionRequest | null,
       frozenBinding?: GraphReviewCommittedBinding | null,
     ): Promise<void> => {
       const activeBinding = committedBindingRef.current;
@@ -289,7 +278,6 @@ export function useGraphReviewLiveReviewState({
           setCommittedBindingState(adoptBinding);
           setCommittedProjection(null);
           setCommittedSelectedObjectId(null);
-          setCommittedRequest(null);
           setCommittedPhase("error");
           setCommittedError(adoption.reason);
         }
@@ -310,20 +298,17 @@ export function useGraphReviewLiveReviewState({
         setCommittedBindingState(adoptBinding);
         setCommittedProjection(null);
         setCommittedSelectedObjectId(null);
-        setCommittedRequest(null);
         setCommittedPhase("error");
         setCommittedError(reason);
         throw new Error(reason);
       }
 
-      const request =
-        frozenRequest
-        ?? buildGraphReviewCommittedProjectionRequest({
-          campaignId: trimmedCampaign,
-          sessionId,
-          receipt: adoption.receipt,
-          verifiedWorldId: committedWorldId,
-        });
+      const request = buildGraphReviewCommittedProjectionRequest({
+        campaignId: trimmedCampaign,
+        sessionId,
+        receipt: adoption.receipt,
+        verifiedWorldId: committedWorldId,
+      });
       if (!request) {
         if (!committedBindingsEqual(adoptBinding, committedBindingRef.current)) {
           throw new Error(
@@ -337,7 +322,6 @@ export function useGraphReviewLiveReviewState({
         setCommittedBindingState(adoptBinding);
         setCommittedProjection(null);
         setCommittedSelectedObjectId(null);
-        setCommittedRequest(null);
         setCommittedPhase("error");
         setCommittedError(reason);
         throw new Error(reason);
@@ -349,62 +333,13 @@ export function useGraphReviewLiveReviewState({
         );
       }
 
-      const generation = ++committedGenerationRef.current;
       setCommittedReceipt(adoption.receipt);
       setCommittedAffectedObjectIds(adoption.affectedObjectIds);
       setCommittedBindingState(adoptBinding);
-      setCommittedRequest(request);
-      setCommittedPhase("loading");
-      setCommittedError(null);
-
-      try {
-        const response = await postWorldGraphProjection(request);
-        if (generation !== committedGenerationRef.current) return;
-        if (!committedBindingsEqual(adoptBinding, committedBindingRef.current)) {
-          return;
-        }
-
-        const validated = validateCommittedProjectionResponse({
-          projection: response,
-          receipt: adoption.receipt,
-          request,
-        });
-        if (!validated.ok) {
-          // Preserve receipt + frozen request for retry; clear projection only.
-          setCommittedProjection(null);
-          setCommittedSelectedObjectId(null);
-          setCommittedPhase("error");
-          setCommittedError(validated.reason);
-          throw new Error(validated.reason);
-        }
-
-        const selectedId = selectFirstPresentCommittedObjectId({
-          affectedObjectIds: adoption.affectedObjectIds,
-          projection: response,
-        });
-        setCommittedProjection(response);
-        setCommittedSelectedObjectId(selectedId);
-        setCommittedPhase("ready");
-        setCommittedError(
-          selectedId
-            ? null
-            : adoption.affectedObjectIds.length
-              ? "Committed revision loaded, but none of the affected object ids are present in the pinned projection."
-              : null,
-        );
-      } catch (error) {
-        if (generation !== committedGenerationRef.current) return;
-        if (!committedBindingsEqual(adoptBinding, committedBindingRef.current)) {
-          return;
-        }
-        const message = friendlyProjectionError(error);
-        // Preserve receipt + frozen request on request/integrity failures for retry.
-        setCommittedProjection(null);
-        setCommittedSelectedObjectId(null);
-        setCommittedPhase("error");
-        setCommittedError(message);
-        throw error instanceof Error ? error : new Error(message);
-      }
+      setCommittedProjection(null);
+      setCommittedSelectedObjectId(null);
+      setCommittedPhase("error");
+      setCommittedError("Graph visualization for this saved revision is unavailable.");
     },
     [campaignId, sessionId, committedWorldId],
   );
@@ -418,24 +353,11 @@ export function useGraphReviewLiveReviewState({
       await installCommittedAuthority(
         nextReceipt,
         prepared,
-        null,
         frozenBinding,
       );
     },
     [installCommittedAuthority],
   );
-
-  const reloadCommittedAuthority = useCallback(async (): Promise<void> => {
-    if (!committedReceipt) {
-      throw new Error("No committed receipt is available to reload.");
-    }
-    await installCommittedAuthority(
-      committedReceipt,
-      null,
-      committedRequestRef.current,
-      committedBindingRef.current,
-    );
-  }, [committedReceipt, installCommittedAuthority]);
 
   const setCommittedSelectedObjectIdExact = useCallback(
     (objectId: string | null) => {
@@ -715,7 +637,6 @@ export function useGraphReviewLiveReviewState({
     projectionError,
     reloadLiveProjection,
     adoptCommittedReceipt,
-    reloadCommittedAuthority,
     clearCommittedAuthority,
     committedPhase,
     committedReceipt,

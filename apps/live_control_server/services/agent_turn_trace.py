@@ -15,6 +15,7 @@ import time
 from threading import Lock
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
+from contextvars import ContextVar
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any, Iterator, Literal
@@ -602,6 +603,11 @@ def emit_baseline_trace_log(trace: Mapping[str, Any]) -> None:
     LOGGER.info("%s %s", LOG_EVENT, trace_json_bytes(retained_trace_payload(trace)))
 
 
+# Evaluator-only subscriber. Context propagation limits detailed observation
+# to the selected ordinary request, including its synchronous route worker.
+host_work_observer = ContextVar("host_work_observer", default=None)
+
+
 class AgentTurnTraceBuilder:
     """Accumulate one DungeonBuddy-owned turn trace."""
 
@@ -640,6 +646,10 @@ class AgentTurnTraceBuilder:
         if self._first_jev_dispatch_recorded or not self.turn_id:
             return
         self._first_jev_dispatch_recorded = True
+        observer = host_work_observer.get()
+        if observer is not None:
+            dispatched = time.monotonic()
+            observer(self.trace_id, "first_jev_transport_entry", dispatched, dispatched, False)
         LOGGER.info(
             "buddy_first_jev_dispatch turn_id=%s trace_id=%s unix_ms=%d server_elapsed_ms=%.1f",
             self.turn_id, self.trace_id, time.time_ns() // 1_000_000,
@@ -663,6 +673,7 @@ class AgentTurnTraceBuilder:
         execution authority and failures propagate unchanged.
         """
         started_at, started = utc_now_z(), time.monotonic()
+        observer = host_work_observer.get()
         failed = False
         try:
             yield
@@ -670,7 +681,10 @@ class AgentTurnTraceBuilder:
             failed = True
             raise
         finally:
-            duration = max(0.0, (time.monotonic() - started) * 1000)
+            ended = time.monotonic()
+            duration = max(0.0, (ended - started) * 1000)
+            if observer is not None:
+                observer(self.trace_id, name, started, ended, failed)
             with self._host_work_lock:
                 span = self._host_work_spans.get(name)
                 if span is None:
@@ -730,6 +744,10 @@ class AgentTurnTraceBuilder:
         if attributes:
             merged_attributes.update(dict(attributes))
         completed_mono = time.monotonic()
+        observer = host_work_observer.get()
+        if observer is not None:
+            observer(self.trace_id, open_span["name"], open_span["started_mono"],
+                     completed_mono, status == "error")
         self._phase_offsets[span_id] = {
             "start_offset_ms": (open_span["started_mono"] - self._started_mono) * 1000,
             "end_offset_ms": (completed_mono - self._started_mono) * 1000,

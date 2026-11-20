@@ -7,7 +7,6 @@ import {SessionEvidencePicker} from "../playSurface/review/SessionEvidencePicker
 import type {SessionEvidenceRef} from "../playSurface/review/sessionEvidenceApi";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { getHistoricalRecapWorldProjection } from "../api/liveApi";
 import { getSavedRecapRuns, getSavedRecapSource, type SavedRecapRun, type SavedRecapRuns, type SavedRecapSource } from "../api/savedRecapRunsApi";
 import { WorldPlanAgentAnswer } from "../planSurface/components/WorldPlanAgentAnswer";
 import { postRecapNameReview, type RecapNameReview as NameReviewResult, postRecapIngest } from "../api/recapIngestApi";
@@ -15,8 +14,8 @@ import type {
   RecapGraphPreviewReport,
   RecapIngestStatus,
   HistoricalRecapWorldProjectionResponse,
-  WorldGraphProjection,
-  WorldGraphProjectionRequest,
+
+
 } from "../api/types";
 import {
   recapSessionNumber,
@@ -31,7 +30,6 @@ import { GraphReviewHistoricalRecapProjection } from "../planSurface/graphReview
 import { GraphReviewCandidateRecapProjection } from "../planSurface/graphReviewWorkbench/GraphReviewCandidateRecapProjection";
 import { getExactRunCandidateProjection, type ExactRunCandidateProjection } from "../api/exactRunCandidateProjectionApi";
 
-import { verifyWorldGraphProjectionResponse } from "../worldGraph/verifyWorldGraphProjectionResponse";
 
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 
@@ -1242,64 +1240,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         }
         setReviewSource({identity,session:capturedSession,nodes:candidate.nodes.length,edges:candidate.edges.length,runId,projection:candidate});
       } else {
-        // A selected extraction run is an exact source identity. Never replace
-        // it with the another source for the same session.
-        if (!capturedManagedWorldId) {
-          throw new Error("Select a managed World before opening this exact recap projection.");
-        }
-        const historical = await getHistoricalRecapWorldProjection(runId, capturedManagedWorldId);
-        if (!isCurrent()) return;
-        if (
-          historical.runId !== runId ||
-          historical.sourceDomain !== "recap" ||
-          historical.campaignId !== ingestCampaignId ||
-          historical.sessionId !== `session-${capturedSession}` || historical.sourceArtifactId !== record.sourceArtifactId
-          || historical.sourceSha256 !== `sha256:${record.sourceSha256}`
-        ) {
-          throw new Error("Historical recap projection does not match the selected extraction run.");
-        }
-        if (historical.sourceStatus !== "available" || historical.graphStatus !== "available") {
-          throw new Error("The exact extraction run does not have both a durable source and a World Graph projection.");
-        }
-        if (
-          !historical.sourceArtifactId ||
-          !historical.sourceRevisionId ||
-          !historical.sourceSha256.startsWith("sha256:")
-        ) {
-          throw new Error("The exact extraction run is missing its source revision or content digest.");
-        }
-        if (
-          historical.managedWorldId !== capturedManagedWorldId ||
-          historical.worldId !== savedRunScope.nativeWorldId ||
-          historical.bindingVersion !== savedRunScope.bindingVersion
-        ) {
-          throw new Error("Historical recap projection does not match the selected managed World binding.");
-        }
-        const request: WorldGraphProjectionRequest = {
-          schema: "dmb_world_graph_projection_request_v1",
-          worldId: historical.worldId,
-          campaignId: ingestCampaignId,
-          scopeMode: "campaign",
-          focus: {
-            kind: "session",
-            sessionId: `session-${capturedSession}`,
-            campaignId: ingestCampaignId,
-          },
-          admissibility: "gm",
-        };
-        if (historical.snapshot.worldId !== historical.worldId) {
-          throw new Error("Historical recap projection does not match the selected World.");
-        }
-        if (!historical.snapshot.revisionId || !historical.snapshot.headRevisionId) {
-          throw new Error("Historical recap projection has no verified World revision identity.");
-        }
-        const integrityError = verifyWorldGraphProjectionResponse({
-          request,
-          response: historical as unknown as WorldGraphProjection,
-          revisionKind: "head",
-        });
-        if (integrityError) throw new Error(integrityError);
-        setReviewSource({ identity, session: capturedSession, nodes, edges, runId, projection: historical });
+        throw new Error("Admitted graph visualization for this saved run is unavailable. Open its saved source or extracted candidates.");
       }
     } catch (error) {
       if (isCurrent()) setReviewError(error instanceof Error ? error.message : "Unable to open saved source.");
@@ -1599,8 +1540,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                     }}>View saved source</button>
                     <button type="button" disabled={reviewLoading || !loadedRun || !["reviewable", "promoted"].includes(loadedRun.runStatus) || reviewSource.projection?.schema === "dmb_exact_run_candidate_projection_v1"}
                       onClick={() => void reviewSavedSource(false,true,false)}>View extracted candidates</button>
-                    <button type="button" disabled={reviewLoading || reviewSource.projection?.schema === "dmb_historical_recap_world_projection_v1"}
-                      onClick={() => void reviewSavedSource(false,true,true)}>View admitted memory</button>
+
               </div> : null}
               {savedSource?.identity === reviewIdentity ? <>
                 <RecapSourceAdmission source={savedSource.source}/>

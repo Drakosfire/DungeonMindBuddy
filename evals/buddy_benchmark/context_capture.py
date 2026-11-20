@@ -11,6 +11,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 from time import monotonic_ns
+from threading import Lock
 from unittest.mock import patch
 
 import httpx
@@ -102,19 +103,62 @@ def validate_context_packet(ready, request, terminal, *, writer_transport=None):
             "request_to_transport_ms": request_to_transport_ms, "prepared_bytes": len(body)}
 
 
+def summarize_host_trace(detail, ready, terminal):
+    start = ready["request_started_monotonic_ns"]
+    end = terminal.get("transport_sink", {}).get("monotonic_ns", ready["ready_monotonic_ns"])
+    if not isinstance(detail, dict):
+        raise ValueError("Invalid detailed host trace")
+    trace_id = ready.get("host_trace_id")
+    intervals = detail.get("intervals")
+    if (detail.get("schema") != "dmb_benchmark_host_intervals_v1"
+            or type(start) is not int or type(end) is not int
+            or (detail.get("start_monotonic_ns"), detail.get("end_monotonic_ns")) != (start, end)
+            or type(detail.get("truncated")) is not bool
+            or not isinstance(trace_id, str) or detail.get("trace_id") != trace_id
+            or not isinstance(intervals, list) or len(intervals) > 4096
+            or any(not isinstance(span, dict)
+                   or type(span.get("start_monotonic_ns")) is not int
+                   or type(span.get("end_monotonic_ns")) is not int
+                   or not start <= span["start_monotonic_ns"] <= span["end_monotonic_ns"] <= end
+                   or type(span.get("partial")) is not bool
+                   or span.get("trace_id") != trace_id
+                   or type(span.get("failed")) is not bool
+                   or not isinstance(span.get("name"), str) for span in intervals)):
+        raise ValueError("Invalid detailed host trace")
+    return {"interval_count": len(intervals), "truncated": detail["truncated"],
+            "partial_intervals": sum(span["partial"] for span in intervals)}
+
+
 class ContextCapture:
-    def __init__(self, directory, *, writer_transport=False):
+    def __init__(self, directory, *, writer_transport=False, detailed_trace=False):
         self.directory = Path(directory)
         self.writer_transport = writer_transport
+        self.detailed_trace = detailed_trace
+        self.host_intervals = []
+        self.host_intervals_lock = Lock()
+        self.trace_truncated = False
         self.transport_sink = None
         self.ready = self.request = None
         self.authorization_calls = self.guard_hits = 0
         self.stop_issued = False
         self.request_started_monotonic_ns = None
 
+    def record_host_interval(self, trace_id, name, start, end, failed):
+        with self.host_intervals_lock:
+            if len(self.host_intervals) >= 4096:
+                self.trace_truncated = True
+                return
+            self.host_intervals.append({
+                "trace_id": trace_id, "name": name,
+                "start_monotonic_ns": round(start * 1_000_000_000),
+                "end_monotonic_ns": round(end * 1_000_000_000),
+                "failed": failed,
+            })
+
     @contextmanager
     def install(self):
         from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+        from apps.live_control_server.services.agent_turn_trace import host_work_observer
 
         owner = self
         original_authorize, original_run = PlanJevWriter.authorize, PlanJevWriter.run
@@ -157,6 +201,7 @@ class ContextCapture:
                 "ready_at": now.isoformat(), "ready_monotonic_ns": tick,
                 "request_started_monotonic_ns": owner.request_started_monotonic_ns,
                 "host_spans": deepcopy(trace.spans) if trace is not None else None,
+                "host_trace_id": trace.trace_id if trace is not None else None,
             }
             owner.request = {
                 "provider": prepared.provider, "model": prepared.model, "api_mode": prepared.api_mode,
@@ -174,7 +219,12 @@ class ContextCapture:
             return await original_run(writer, transport=guard, api_key=api_key)
 
         with patch.object(PlanJevWriter, "authorize", authorize), patch.object(PlanJevWriter, "run", run):
-            yield self
+            token = host_work_observer.set(self.record_host_interval) if self.detailed_trace else None
+            try:
+                yield self
+            finally:
+                if token is not None:
+                    host_work_observer.reset(token)
 
     def finalize(self, turn):
         terminal = {"status": "captured", "authorization_calls": self.authorization_calls,
@@ -195,5 +245,23 @@ class ContextCapture:
             terminal.update(status="incomplete", error_type=type(exc).__name__)
             immutable_save(self.directory, "context-stop", terminal)
             raise
+        if self.detailed_trace:
+            end = (self.transport_sink["monotonic_ns"] if self.transport_sink is not None
+                   else ready["ready_monotonic_ns"])
+            start = ready["request_started_monotonic_ns"]
+            with self.host_intervals_lock:
+                intervals = [dict(span, start_monotonic_ns=max(start, span["start_monotonic_ns"]),
+                                  end_monotonic_ns=min(end, span["end_monotonic_ns"]),
+                                  partial=span["start_monotonic_ns"] < start or span["end_monotonic_ns"] > end)
+                             for span in self.host_intervals
+                             if span["start_monotonic_ns"] < end and span["end_monotonic_ns"] > start]
+                detail = {
+                    "schema": "dmb_benchmark_host_intervals_v1",
+                    "start_monotonic_ns": start, "end_monotonic_ns": end,
+                    "truncated": self.trace_truncated, "intervals": intervals,
+                    "trace_id": ready["host_trace_id"],
+                }
+            summarize_host_trace(detail, ready, terminal)
+            immutable_save(self.directory, "detailed-host-trace", detail)
         immutable_save(self.directory, "context-stop", terminal)
 

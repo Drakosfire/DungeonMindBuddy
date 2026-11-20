@@ -481,3 +481,120 @@ def test_historical_expansion_alias_is_same_presentation_function():
         world_graph_reads as historical,
     )
     assert historical._expansion_views is presentation._expansion_views
+
+
+@pytest.mark.parametrize("scope_mode,campaign", [("world", None), ("campaign", "campaign-a")])
+def test_internal_scoped_projection_reads_exact_native_context(monkeypatch, tmp_path, scope_mode, campaign):
+    """Real orchestration/read helper; Core context and presentation are explicit seams."""
+    from dungeonmind.application.vnext import EntityReadService
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source
+    from apps.live_control_server.integrations.dungeonmind import vnext_world_projection as adapter
+    from apps.live_control_server.services import world_graph_projection as classic
+
+    managed = create_world_container(name="The Glass Orchard")
+    record = _record_with_binding(managed, native_world_id="distinct-native-space", binding_version=7)
+    monkeypatch.setattr(managed_projection, "get_world_container", lambda _: record)
+    context, access = object(), object()
+    support = SimpleNamespace(listing=SimpleNamespace(identity=SimpleNamespace(revision_id="rev:old")))
+    calls = []
+    repository = SimpleNamespace(get_head=lambda space: (
+        calls.append(("head", space)) or SimpleNamespace(head_revision_id="rev:advanced")))
+
+    def read_context(repo, space, revision, selected_campaign, *, scope_mode, parsed_cache):
+        assert repo is repository and parsed_cache is not None
+        calls.append(("context", space, revision, scope_mode, selected_campaign))
+        return context, access, None, None
+
+    def list_entities(self, actual):
+        assert actual is context
+        return support
+
+    def project(actual, selected, snapshot, *, access: object, managed_world_id):
+        assert actual is context and selected is support
+        assert managed_world_id == managed.world_id
+        assert access is source_access
+        projection = _native_projection(snapshot.world_id)
+        projection.snapshot = snapshot
+        return projection
+
+    source_access = access
+    monkeypatch.setattr(managed_projection.config, "world_graph_authority_database_url", lambda: "postgresql://fixture/not-opened")
+    monkeypatch.setattr(native_registry_source, "read_repository", lambda: repository)
+    monkeypatch.setattr(native_registry_source, "read_context", read_context)
+    monkeypatch.setattr(EntityReadService, "list_entities_with_support", list_entities)
+    monkeypatch.setattr(adapter, "project_native_world", project)
+    monkeypatch.setattr(classic, "project_world_graph", lambda *_a, **_k: pytest.fail("classic projection fallback"))
+    result = managed_projection.project_managed_scoped_graph(
+        managed_world_id=managed.world_id, revision_pin="rev:old", scope_mode=scope_mode,
+        campaign_id=campaign, query_text="keeper", root=tmp_path,
+    )
+    assert calls == [("head", "distinct-native-space"),
+                     ("context", "distinct-native-space", "rev:old", scope_mode, campaign)]
+    assert (result.managed_world_id, result.native_world_id, result.binding_version) == (
+        managed.world_id, "distinct-native-space", 7)
+    snapshot = result.projection.snapshot
+    assert (snapshot.world_id, snapshot.revision_id, snapshot.head_revision_id, snapshot.is_head) == (
+        "distinct-native-space", "rev:old", "rev:advanced", False)
+    assert (snapshot.scope_mode, snapshot.campaign_id) == (scope_mode, campaign or "")
+    assert snapshot.focus.kind == "none" and snapshot.admissibility == "gm"
+    assert result.projection.query_context.query_text == "keeper"
+
+
+@pytest.mark.parametrize("changes", [
+    {"managed_world_id": ""}, {"managed_world_id": " managed"},
+    {"revision_pin": ""}, {"revision_pin": " rev:old"},
+    {"scope_mode": "other"}, {"scope_mode": "campaign", "campaign_id": None},
+    {"scope_mode": "campaign", "campaign_id": ""},
+    {"scope_mode": "campaign", "campaign_id": " campaign"},
+    {"scope_mode": "world", "campaign_id": "campaign"},
+])
+def test_internal_scoped_projection_rejects_invalid_scope_before_io(monkeypatch, changes):
+    monkeypatch.setattr(managed_projection, "resolve_managed_world_binding",
+                        lambda *_a, **_k: pytest.fail("invalid scope reached binding IO"))
+    args = dict(managed_world_id="managed", revision_pin="rev:old", scope_mode="world", campaign_id=None)
+    args.update(changes)
+    with pytest.raises(WorldGraphProjectionServiceError) as error:
+        managed_projection.project_managed_scoped_graph(**args)
+    assert (error.value.code, error.value.status_code) == ("native_graph_scope_invalid", 422)
+
+
+@pytest.mark.parametrize("scope_mode,campaign", [("world", None), ("campaign", "campaign-a")])
+@pytest.mark.parametrize("phase", ["before", "during"])
+def test_internal_scoped_projection_preserves_binding_fences(monkeypatch, tmp_path, scope_mode, campaign, phase):
+    from apps.live_control_server.integrations.dungeonmind import vnext_world_projection as adapter
+
+    initial = managed_projection.VerifiedManagedWorldBinding("managed", "native", 1, "source")
+    changed = managed_projection.VerifiedManagedWorldBinding("managed", "native", 2, "source")
+    resolutions = iter([changed] if phase == "before" else [initial, changed])
+    monkeypatch.setattr(managed_projection, "resolve_managed_world_binding", lambda *_a, **_k: next(resolutions))
+    reads = []
+
+    def read(*args, **kwargs):
+        reads.append((args, kwargs))
+        return "rev:head", None, None, SimpleNamespace(listing=SimpleNamespace(identity=SimpleNamespace(revision_id="rev:old")))
+
+    def project(_context, _support, snapshot, **_kwargs):
+        projection = _native_projection(snapshot.world_id)
+        projection.snapshot = snapshot
+        return projection
+
+    monkeypatch.setattr(managed_projection, "_read_native_projection_support", read)
+    monkeypatch.setattr(adapter, "project_native_world", project)
+    with pytest.raises(WorldGraphProjectionServiceError) as error:
+        managed_projection.project_managed_scoped_graph(
+            managed_world_id="managed", revision_pin="rev:old", scope_mode=scope_mode,
+            campaign_id=campaign, expected_binding=initial, root=tmp_path,
+        )
+    assert (error.value.code, error.value.status_code) == ("native_graph_binding_changed", 409)
+    assert len(reads) == (0 if phase == "before" else 1)
+
+
+def test_internal_scoped_projection_rejects_substituted_revision(monkeypatch, tmp_path):
+    binding = managed_projection.VerifiedManagedWorldBinding("managed", "native", 1, "source")
+    monkeypatch.setattr(managed_projection, "resolve_managed_world_binding", lambda *_a, **_k: binding)
+    monkeypatch.setattr(managed_projection, "_read_native_projection_support", lambda *_a, **_k: (
+        "rev:head", None, None, SimpleNamespace(listing=SimpleNamespace(identity=SimpleNamespace(revision_id="rev:other")))))
+    with pytest.raises(WorldGraphProjectionServiceError) as error:
+        managed_projection.project_managed_scoped_graph(
+            managed_world_id="managed", revision_pin="rev:old", scope_mode="campaign", campaign_id="campaign", root=tmp_path)
+    assert (error.value.code, error.value.status_code) == ("native_graph_revision_mismatch", 500)

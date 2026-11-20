@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -125,47 +125,6 @@ function historicalProjection(
       cannotTrust: ["historical identity"],
     },
     ...overrides,
-  };
-}
-
-function completeHistoricalObject(
-  status: "complete" | "partial" = "complete",
-  relationshipCount = 15,
-) {
-  const projection = historicalProjection();
-  const baseNode = projection.nodeViews["node-1"]!;
-  return {
-    schema: "dmb_world_graph_object_projection_v1" as const,
-    found: true,
-    completeness: {
-      status,
-      reason: status === "partial" ? "relationships_truncated" : null,
-      truncatedFields: status === "partial" ? ["relationships"] : [],
-    },
-    snapshot: projection.snapshot,
-    requestedNodeId: "node-1",
-    resolvedNodeId: "node-1",
-    node: {
-      ...baseNode,
-      adjacency: Array.from({ length: relationshipCount }, (_, index) => ({
-        edgeId: `edge-${String(index + 1).padStart(2, "0")}`,
-        nodeId: `related-${index + 1}`,
-        label: `Related ${String(index + 1).padStart(2, "0")}`,
-        kind: "npc",
-        predicate: "knows",
-        direction: "outgoing" as const,
-        anchoredToFocusSession: index === relationshipCount - 1,
-        sourceDomains: ["recap"],
-        evidenceRefIds: [`evidence-${index + 1}`],
-        sessionIds: [index === relationshipCount - 1 ? "session-24" : `session-${index + 1}`],
-        campaignScope: "longmont-c2",
-        sourceExcerpt: index === relationshipCount - 1
-          ? "Provenance on the initially omitted relationship."
-          : null,
-      })),
-    },
-    relatedNodes: [],
-    semanticFingerprint: "fp-test",
   };
 }
 
@@ -378,7 +337,7 @@ describe("GraphReviewWorkbenchModule", () => {
     window.history.replaceState({}, "", "/ingest");
   });
 
-  it("loads published recap from Campaign and Focus session without Load recap tooling", async () => {
+  it("keeps campaign and session controls when legacy recap visualization is unavailable", async () => {
     window.history.replaceState({}, "", "/ingest");
     renderWorkbench();
 
@@ -391,7 +350,7 @@ describe("GraphReviewWorkbenchModule", () => {
       screen.queryByText(/Load a session recap from the published World Graph/i),
     ).not.toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
+      expect(screen.getByText("Recap graph visualization requires a managed World.")).toBeInTheDocument(),
     );
     expect(screen.queryByTestId("graph-review-union-preview-retired")).not.toBeInTheDocument();
     await waitFor(() =>
@@ -413,15 +372,15 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByRole("button", { name: "Ingest Recap" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Diagnostics" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Author Draft" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Author Node" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Author Node" })).not.toBeInTheDocument();
   });
 
-  it("loads the URL session recap without a catalog Load dialog", async () => {
+  it("preserves the URL session without opening a legacy recap", async () => {
     window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-23");
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
+      expect(screen.getByText("Recap graph visualization requires a managed World.")).toBeInTheDocument(),
     );
     expect(screen.getByLabelText("Campaign")).toBeInTheDocument();
     expect(screen.getByLabelText("Focus session")).toHaveValue("session-23");
@@ -429,7 +388,7 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByTestId("graph-review-union-preview-retired")).not.toBeInTheDocument();
   });
 
-  it("W9: vanished explicit run_id does not block published recap", async () => {
+  it("W9: vanished explicit run_id leaves the legacy recap browse shell available", async () => {
     window.history.replaceState(
       {},
       "",
@@ -438,7 +397,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench([canonicalRun({ run_id: "er_other" })]);
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
+      expect(screen.getByText("Recap graph visualization requires a managed World.")).toBeInTheDocument(),
     );
     expect(screen.queryByTestId("graph-review-selected-run-missing")).not.toBeInTheDocument();
     expect(screen.queryByText(/er_vanished/)).not.toBeInTheDocument();
@@ -450,19 +409,19 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
+      expect(screen.getByText("Recap graph visualization requires a managed World.")).toBeInTheDocument(),
     );
     expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-exact-run-banner")).not.toBeInTheDocument();
   });
 
-  it("loads the published World Graph recap from campaign and session pickers", async () => {
+  it("shows the legacy retirement notice beside campaign and session pickers", async () => {
     const reviewPackageSpy = mockExactRunReviewPackage();
     window.history.replaceState({}, "", "/ingest");
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
+      expect(screen.getByText("Recap graph visualization requires a managed World.")).toBeInTheDocument(),
     );
     expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Campaign")).toBeInTheDocument();
@@ -472,12 +431,12 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByTestId("graph-review-exact-run-panel")).not.toBeInTheDocument();
   });
 
-  it("keeps the published recap after a remount that simulates browser refresh", async () => {
+  it("keeps the selected recap session after a browser refresh", async () => {
     window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-23");
     const first = renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
+      expect(screen.getByText("Recap graph visualization requires a managed World.")).toBeInTheDocument(),
     );
 
     const restoredUrl = `${window.location.pathname}${window.location.search}`;
@@ -486,7 +445,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
+      expect(screen.getByText("Recap graph visualization requires a managed World.")).toBeInTheDocument(),
     );
     expect(screen.getByLabelText("Focus session")).toHaveValue("session-23");
   });
@@ -523,7 +482,7 @@ describe("GraphReviewWorkbenchModule", () => {
   it("mounts published Memory without catalog or Gold comparison acquisition", async () => {
     window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-27");
     renderWorkbench();
-    await screen.findByLabelText("Working recap");
+    await screen.findByText("Recap graph visualization requires a managed World.");
     expect(liveApi.getGoldReviewSessions).not.toHaveBeenCalled();
     expect(liveApi.getGoldReviewCompare).not.toHaveBeenCalled();
     expect(vi.mocked(globalThis.fetch).mock.calls.some(([url]) => String(url).split("?")[0].endsWith("/graph-preview/extraction-runs"))).toBe(false);
@@ -536,7 +495,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench([]);
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
+      expect(screen.getByText("Recap graph visualization requires a managed World.")).toBeInTheDocument(),
     );
     expect(screen.queryByText(/No canonical ExtractionRuns are stored yet/i)).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-catalog-error")).not.toBeInTheDocument();
@@ -546,7 +505,7 @@ describe("GraphReviewWorkbenchModule", () => {
 
 
 
-  it("opens published-local Author Node from a stale persisted catalog run without write authority", async () => {
+  it("keeps legacy recap authoring unavailable after restoring a stale catalog selection", async () => {
     window.sessionStorage.setItem(
       "dmb.graph-review.applied-selection.v2",
       JSON.stringify({
@@ -561,20 +520,15 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
+      expect(screen.getByText("Recap graph visualization requires a managed World.")).toBeInTheDocument(),
     );
     expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute(
       "data-write-authority",
       "none",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Author Node" }));
-    expect(await screen.findByTestId("graph-review-published-local-author-node-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("graph-object-authoring-surface")).toHaveAttribute(
-      "data-local-stage-only",
-      "true",
-    );
-    expect(screen.getByLabelText("Working recap")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Author Node" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-published-local-author-node-panel")).not.toBeInTheDocument();
     expect(prepareSpy).not.toHaveBeenCalled();
     expect(authorPrepareSpy).not.toHaveBeenCalled();
   });
@@ -606,7 +560,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
+      expect(screen.getByText("Recap graph visualization requires a managed World.")).toBeInTheDocument(),
     );
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
@@ -623,7 +577,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
+      expect(screen.getByText("Recap graph visualization requires a managed World.")).toBeInTheDocument(),
     );
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
@@ -704,16 +658,13 @@ describe("GraphReviewWorkbenchModule", () => {
     ]);
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
+      expect(screen.getByText("Recap graph visualization requires a managed World.")).toBeInTheDocument(),
     );
 
-    const projectionRequestCount = vi.mocked(
-      liveApi.postWorldGraphRecapProjection,
-    ).mock.calls.length;
     await user.selectOptions(screen.getByLabelText("Focus session"), "session-22");
     expect(window.location.search).toContain("session=session-23");
     expect(window.location.search).toContain("tool=graph-review-diagnostics");
-    expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledTimes(projectionRequestCount);
+    expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Load" }));
 
@@ -721,14 +672,7 @@ describe("GraphReviewWorkbenchModule", () => {
       expect(window.location.search).toContain("session=session-22"),
     );
     expect(window.location.search).toContain("tool=graph-review-diagnostics");
-    await waitFor(() =>
-      expect(liveApi.postWorldGraphRecapProjection).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          campaignId: "longmont-c2",
-          focus: expect.objectContaining({ sessionId: "session-22" }),
-        }),
-      ),
-    );
+    expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
   });
 
   it("loads a run-only session without calling gold compare", async () => {
@@ -757,13 +701,13 @@ describe("GraphReviewWorkbenchModule", () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
+      expect(screen.getByText("Recap graph visualization requires a managed World.")).toBeInTheDocument(),
     );
     expect(compareSpy).not.toHaveBeenCalled();
     expect(screen.queryByText(/Loading gold fixture projection/i)).not.toBeInTheDocument();
   });
 
-  it("W10: catalog recap reads published World Graph without extract-promote", async () => {
+  it("W10: ordinary legacy recap browse dispatches neither projection nor extract-promote", async () => {
     const ingestRunsSpy = vi.spyOn(liveApi, "getGraphIngestRuns");
     const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockRejectedValue(
       new ExtractPromoteApiError("Exact-run review package unavailable", 404, "run_not_promotable"),
@@ -772,11 +716,11 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
+      expect(screen.getByText("Recap graph visualization requires a managed World.")).toBeInTheDocument(),
     );
     expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(ingestRunsSpy).not.toHaveBeenCalled();
-    expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalled();
+    expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
   });
 
@@ -832,7 +776,7 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByTestId("graph-review-exact-run-panel")).not.toBeInTheDocument();
   });
 
-  it("loads a catalog PROMOTED run as published World Graph recap", async () => {
+  it("keeps a promoted catalog run in ordinary legacy browse", async () => {
     const promoted = canonicalRun({ status: "promoted", run_id: "er_promoted" });
     const reviewPackageSpy = mockExactRunReviewPackage(promoted);
     window.history.replaceState(
@@ -843,7 +787,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench([promoted]);
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
+      expect(screen.getByText("Recap graph visualization requires a managed World.")).toBeInTheDocument(),
     );
     expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(liveApi.getHistoricalRecapWorldProjection).not.toHaveBeenCalled();
@@ -851,146 +795,60 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByTestId("graph-review-exact-run-panel")).not.toBeInTheDocument();
   });
 
-  it("loads validated recap through durable World projection, not review package", async () => {
-    const user = userEvent.setup();
-    const validated = canonicalRun({ status: "validated", run_id: "er_validated" });
-    const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
-    const projectionSpy = vi
-      .spyOn(liveApi, "getHistoricalRecapWorldProjection")
-      .mockResolvedValue(
-        historicalProjection({
-          markdown: "# Heading\n\n[Bonogo](dmb-node:node-1) arrives.\n",
-        }),
-      );
-    vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue(
-      completeHistoricalObject("complete"),
-    );
-    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(validated);
-    window.history.replaceState(
-      {},
-      "",
-      "/ingest?extractionRunId=er_validated&sourceArtifactId=sa_1",
-    );
-    renderWorkbench([validated]);
+  it("shows validated run details without requesting a retired graph", async () => {
+    const run = canonicalRun({ status: "validated", run_id: "er_validated" });
+    const graph = vi.spyOn(liveApi, "getHistoricalRecapWorldProjection");
+    const review = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(run);
+    window.history.replaceState({}, "", "/ingest?extractionRunId=er_validated&sourceArtifactId=sa_1");
+    renderWorkbench([], context, { sourceReviewOnly: false });
 
-    await waitFor(
-      () => {
-        expect(projectionSpy).toHaveBeenCalledWith("er_validated");
-        expect(screen.getByTestId("graph-review-historical-recap-meta")).toHaveTextContent(
-          "validated",
-        );
-        expect(screen.getByText("Advanced details")).toBeInTheDocument();
-        expect(screen.getByText("Read-only")).toBeInTheDocument();
-        expect(document.body.textContent).toMatch(/Heading/);
-        expect(document.body.textContent).toMatch(/Bonogo/);
-      },
-      { timeout: 3000 },
+    expect(await screen.findByTestId("graph-review-historical-recap-error")).toHaveTextContent(
+      "Admitted graph visualization for this saved run is unavailable.",
     );
-    expect(reviewPackageSpy).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("graph-review-exact-run-unreviewable")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("graph-review-exact-run-review-error")).not.toBeInTheDocument();
-
-    const bonogoPill = await screen.findByRole("button", { name: "Bonogo" });
-    expect(bonogoPill).toHaveAttribute("data-graph-node-id", "node-1");
-    const bonogoGlance = bonogoPill.closest(".recap-node-token-wrap")!;
-    fireEvent.mouseEnter(bonogoGlance);
-    expect(bonogoGlance).toHaveAttribute("data-open", "true");
-    await user.click(bonogoPill);
-
-    await waitFor(() => {
-      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
-    });
-    expect(bonogoGlance).toHaveAttribute("data-open", "false");
-    expect(screen.getByLabelText("Bonogo graph object")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(8);
-    await user.click(screen.getByRole("button", { name: "Show all 15 relationships (7 more)" }));
-    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(15);
-    expect(screen.getByText(/Provenance on the initially omitted relationship\./)).toBeVisible();
-    const objectAdvanced = screen.getByText("Advanced").closest("details");
-    expect(objectAdvanced).not.toHaveAttribute("open");
-    await user.click(screen.getByText("Advanced"));
-    expect(within(objectAdvanced!).getByText("node-1")).toBeVisible();
-    expect(within(objectAdvanced!).getByText("fp-test")).toBeVisible();
-    expect(within(objectAdvanced!).getByText("ingest")).toBeVisible();
-
-    await user.click(screen.getByRole("button", { name: "Tools" }));
-    expect(screen.getByLabelText("Tools toolbar")).toBeVisible();
-    expect(screen.getByTestId("graph-object-projection-card")).not.toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Diagnostics" }));
-    expect(await screen.findByLabelText("Diagnostics projection")).toBeVisible();
-    expect(screen.getByTestId("graph-object-projection-card")).not.toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Close toolbox" }));
-    expect(screen.getByTestId("graph-object-projection-card")).toBeVisible();
-    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(15);
-    expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledWith(
-      expect.objectContaining({
-        nodeId: "node-1",
-        originSurface: "ingest",
-        worldId: "eldyrwild",
-      }),
-    );
-    expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
-    await user.click(screen.getByRole("button", { name: "Close Bonogo" }));
-    expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
-    expect(screen.getByTestId("app-peek-region")).toHaveAttribute("hidden");
+    expect(screen.getByTestId("graph-review-exact-run-banner")).toHaveTextContent("er_validated");
+    expect(screen.queryByTestId("graph-review-historical-recap-projection")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
+    expect(graph).not.toHaveBeenCalled();
+    expect(review).not.toHaveBeenCalled();
   });
 
-  it("keeps the partial warning visible while Ingest discloses every returned row", async () => {
-    const user = userEvent.setup();
-    const validated = canonicalRun({ status: "validated", run_id: "er_partial" });
-    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockResolvedValue(
-      historicalProjection({
-        runId: "er_partial",
-        markdown: "# Partial recap\n\n[Bonogo](dmb-node:node-1) arrives.\n",
-      }),
-    );
-    vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue(
-      completeHistoricalObject("partial"),
-    );
-    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(validated);
-    window.history.replaceState(
-      {},
-      "",
-      "/ingest?extractionRunId=er_partial&sourceArtifactId=sa_1",
-    );
-    renderWorkbench([validated]);
+  it("keeps prepared runs out of projection and publication", async () => {
+    const run = canonicalRun({ status: "prepared", run_id: "er_prepared" });
+    const graph = vi.spyOn(liveApi, "getHistoricalRecapWorldProjection");
+    const review = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(run);
+    window.history.replaceState({}, "", "/ingest?extractionRunId=er_prepared&sourceArtifactId=sa_1");
+    renderWorkbench([], context, { sourceReviewOnly: false });
 
-    await user.click(await screen.findByRole("button", { name: "Bonogo" }));
-    const warning = await screen.findByTestId("complete-object-partial-warning");
-    expect(warning).toHaveTextContent(/Partial World object: truncated relationships/i);
-    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(8);
-    await user.click(screen.getByRole("button", { name: "Show all 15 relationships (7 more)" }));
-    expect(screen.getAllByRole("button", { name: /Open related object/ })).toHaveLength(15);
-    expect(warning).toBeVisible();
-    expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
+    expect(await screen.findByTestId("graph-review-historical-recap-error")).toHaveTextContent(
+      "Admitted graph visualization for this saved run is unavailable.",
+    );
+    expect(screen.getByTestId("graph-review-exact-run-banner")).toHaveTextContent("er_prepared");
+    expect(screen.queryByTestId("graph-review-historical-recap-projection")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
+    expect(graph).not.toHaveBeenCalled();
+    expect(review).not.toHaveBeenCalled();
   });
 
-  it("ordinary catalog recap of a validated run uses published World Graph recap", async () => {
+  it("keeps a validated catalog run in ordinary legacy browse", async () => {
     const validated = canonicalRun({ status: "validated", run_id: "er_load_validated" });
     const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
     window.history.replaceState({}, "", "/ingest");
     renderWorkbench([validated]);
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Working recap")).toBeInTheDocument();
+      expect(screen.getByText("Recap graph visualization requires a managed World.")).toBeInTheDocument();
     });
     expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(liveApi.getHistoricalRecapWorldProjection).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
   });
 
-  it("loads exact-handoff validated recap through historical projection without review package", async () => {
+  it("keeps a validated exact handoff out of projection and publication", async () => {
     const validated = canonicalRun({ status: "validated", run_id: "er_handoff_validated" });
     const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
-    const projectionSpy = vi
-      .spyOn(liveApi, "getHistoricalRecapWorldProjection")
-      .mockResolvedValue(
-        historicalProjection({
-          runId: "er_handoff_validated",
-          runStatus: "validated",
-          markdown: "# Handoff recap\n\n[Bonogo](dmb-node:node-1) arrives.\n",
-        }),
-      );
+    const projectionSpy = vi.spyOn(liveApi, "getHistoricalRecapWorldProjection");
     vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(validated);
     window.history.replaceState(
       {},
@@ -999,17 +857,12 @@ describe("GraphReviewWorkbenchModule", () => {
     );
     renderWorkbench([]);
 
-    await waitFor(
-      () => {
-        expect(projectionSpy).toHaveBeenCalledWith("er_handoff_validated");
-        expect(screen.getByTestId("graph-review-historical-recap-projection")).toBeInTheDocument();
-        expect(screen.getByTestId("graph-review-historical-recap-meta")).toHaveTextContent(
-          "validated",
-        );
-        expect(document.body.textContent).toMatch(/Handoff recap/);
-      },
-      { timeout: 3000 },
+    expect(await screen.findByTestId("graph-review-historical-recap-error")).toHaveTextContent(
+      "Admitted graph visualization for this saved run is unavailable.",
     );
+    expect(projectionSpy).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("graph-review-historical-recap-projection")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
     expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(screen.queryByTestId("graph-review-exact-run-review-error")).not.toBeInTheDocument();
   });
@@ -1062,20 +915,22 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByText("# Exact recap prose for catalog load")).not.toBeInTheDocument();
   });
 
-  it("rejects a historical source projection that declares a different World", async () => {
-    const run = canonicalRun({ run_id: "s27-foreign-projection", status: "validated" });
+  it("never requests a historical graph for a source-only review", async () => {
+    const run = canonicalRun({ status: "validated", run_id: "s27-foreign-projection" });
+    const graph = vi.spyOn(liveApi, "getHistoricalRecapWorldProjection");
+    const review = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
     vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(run);
-    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockResolvedValue(
-      historicalProjection({ runId: run.run_id, worldId: "other-world" }),
+    window.history.replaceState({}, "", "/ingest?extractionRunId=s27-foreign-projection&sourceArtifactId=sa_1");
+    renderWorkbench([], context, { sourceReviewOnly: true });
+
+    expect(await screen.findByTestId("graph-review-historical-recap-error")).toHaveTextContent(
+      "Admitted graph visualization for this saved run is unavailable.",
     );
-    window.history.replaceState({}, "", `/ingest?extractionRunId=${run.run_id}`);
-
-    renderWorkbench([], { ...context, campaignId: "elderwyld" }, { sourceReviewOnly: true });
-
-    expect(await screen.findByText(
-      "historical recap projection World does not match the selected target World",
-    )).toBeInTheDocument();
+    expect(screen.getByTestId("graph-review-exact-run-banner")).toHaveTextContent("s27-foreign-projection");
     expect(screen.queryByTestId("graph-review-historical-recap-projection")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
+    expect(graph).not.toHaveBeenCalled();
+    expect(review).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -1326,21 +1181,7 @@ describe("GraphReviewWorkbenchModule", () => {
       session_id: "session-17",
     });
     vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(handoffRun);
-    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockImplementation(async (runId) => {
-      if (runId === "er_stale_catalog") {
-        return historicalProjection({
-          runId: "er_stale_catalog",
-          markdown: "# Stale catalog recap A\n",
-        });
-      }
-      return historicalProjection({
-        runId: "er_handoff_b",
-        sourceArtifactId: "sa_handoff",
-        campaignId: "longmont-c1",
-        sessionId: "session-17",
-        markdown: "# Handoff recap B\n",
-      });
-    });
+    const graph = vi.spyOn(liveApi, "getHistoricalRecapWorldProjection");
     window.history.replaceState(
       {},
       "",
@@ -1353,14 +1194,14 @@ describe("GraphReviewWorkbenchModule", () => {
         expect(screen.getByTestId("graph-review-exact-run-banner")).toHaveTextContent(
           "er_handoff_b",
         );
-        expect(document.body.textContent).toMatch(/Handoff recap B/);
+        expect(screen.getByTestId("graph-review-historical-recap-error")).toHaveTextContent("Admitted graph visualization for this saved run is unavailable.");
       },
       { timeout: 3000 },
     );
     expect(screen.getByTestId("graph-review-exact-run-banner")).not.toHaveTextContent(
       "er_stale_catalog",
     );
-    expect(document.body.textContent).not.toMatch(/Stale catalog recap A/);
+    expect(graph).not.toHaveBeenCalled();
     expect(screen.getByText("Session 17 · Longmont C1")).toBeInTheDocument();
     expect(screen.queryByText("Session 23 · Longmont C2")).not.toBeInTheDocument();
   });
@@ -1541,7 +1382,7 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     const { rerender } = render(<BindingHost liveRunId="run-a" />);
     fireEvent.click(screen.getByTestId("probe-adopt"));
     await waitFor(() =>
-      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("error"),
     );
     expect(screen.getByTestId("probe-receipt")).toHaveTextContent("rev:committed");
 
@@ -1550,6 +1391,7 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
       expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate"),
     );
     expect(screen.getByTestId("probe-receipt")).toHaveTextContent("none");
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
   });
 
   it("preserves committed authority on same-binding refresh remount", async () => {
@@ -1588,7 +1430,7 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     const first = render(<BindingHost />);
     fireEvent.click(screen.getByTestId("probe-adopt"));
     await waitFor(() =>
-      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("error"),
     );
     first.unmount();
 
@@ -1598,24 +1440,16 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate");
     fireEvent.click(screen.getByTestId("probe-adopt"));
     await waitFor(() =>
-      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("error"),
     );
     second.rerender(<BindingHost />);
-    expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready");
+    expect(screen.getByTestId("probe-phase")).toHaveTextContent("error");
     expect(screen.getByTestId("probe-receipt")).toHaveTextContent("rev:committed");
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
   });
 
-  it("suppresses stale deferred committed loads via generation counter", async () => {
-    let resolveFirst!: (value: WorldGraphProjection) => void;
-    let resolveSecond!: (value: WorldGraphProjection) => void;
-    const firstDeferred = new Promise<WorldGraphProjection>((resolve) => {
-      resolveFirst = resolve;
-    });
-    const secondDeferred = new Promise<WorldGraphProjection>((resolve) => {
-      resolveSecond = resolve;
-    });
+  it("retains the receipt during repeated adoption without reading a classic graph", async () => {
     const postSpy = vi.spyOn(liveApi, "postWorldGraphProjection");
-    postSpy.mockReturnValueOnce(firstDeferred).mockReturnValueOnce(secondDeferred);
 
     function BindingHost() {
       return (
@@ -1648,29 +1482,16 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     render(<BindingHost />);
     fireEvent.click(screen.getByTestId("probe-adopt"));
     await waitFor(() =>
-      expect(screen.getByTestId("probe-phase")).toHaveTextContent("loading"),
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("error"),
     );
     fireEvent.click(screen.getByTestId("probe-adopt"));
-    await waitFor(() => expect(postSpy).toHaveBeenCalledTimes(2));
-
-    resolveFirst(committedProjection("Stale Label", "rev:committed"));
-    resolveSecond(committedProjection("Hesta Ironroot", "rev:committed"));
-
-    await waitFor(() =>
-      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
-    );
-    expect(screen.getByTestId("probe-selected")).toHaveTextContent("object-1");
-    // Durable second response wins; stale first must not leave conflicting UI.
-    expect(screen.queryByText("Stale Label")).toBeNull();
+    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("rev:committed");
+    expect(screen.getByTestId("probe-selected")).toHaveTextContent("none");
+    expect(postSpy).not.toHaveBeenCalled();
   });
 
-  it("discards deferred run-A projection after switching committedBinding to run B", async () => {
-    let resolveA!: (value: WorldGraphProjection) => void;
-    const deferredA = new Promise<WorldGraphProjection>((resolve) => {
-      resolveA = resolve;
-    });
+  it("clears the adopted run A receipt when the review switches to run B", async () => {
     const postSpy = vi.spyOn(liveApi, "postWorldGraphProjection");
-    postSpy.mockReturnValueOnce(deferredA);
 
     function BindingHost({ runId }: { runId: string }) {
       return (
@@ -1703,11 +1524,11 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     const { rerender } = render(<BindingHost runId="run-a" />);
     fireEvent.click(screen.getByTestId("probe-adopt"));
     await waitFor(() =>
-      expect(screen.getByTestId("probe-phase")).toHaveTextContent("loading"),
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("error"),
     );
-    expect(postSpy).toHaveBeenCalledTimes(1);
+    expect(postSpy).not.toHaveBeenCalled();
 
-    // Switch binding while run-A projection is still in flight.
+    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("rev:committed");
     rerender(<BindingHost runId="run-b" />);
     await waitFor(() =>
       expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate"),
@@ -1715,16 +1536,6 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     expect(screen.getByTestId("probe-receipt")).toHaveTextContent("none");
     expect(screen.getByTestId("probe-selected")).toHaveTextContent("none");
 
-    resolveA(committedProjection("Run A Only Label", "rev:run-a"));
-
-    // Allow any late resolution microtasks to flush; authority must stay clear of A.
-    await waitFor(() =>
-      expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate"),
-    );
-    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("none");
-    expect(screen.getByTestId("probe-selected")).toHaveTextContent("none");
-    expect(screen.queryByText("Run A Only Label")).toBeNull();
-    expect(postSpy).toHaveBeenCalledTimes(1);
   });
 
   it("clears committed authority when exact-run session scope changes for same run+artifact", async () => {
@@ -1773,7 +1584,7 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     const { rerender } = render(<ExactBindingHost sessionId="session-22" />);
     fireEvent.click(screen.getByTestId("probe-adopt"));
     await waitFor(() =>
-      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("error"),
     );
 
     rerender(<ExactBindingHost sessionId="session-23" />);
@@ -1781,6 +1592,7 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
       expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate"),
     );
     expect(screen.getByTestId("probe-receipt")).toHaveTextContent("none");
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
   });
 
   it("hides exact-run candidate prose and assertions after committed authority is adopted", async () => {
@@ -1889,7 +1701,8 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     expect(
       screen.queryByTestId("graph-review-exact-run-assertion-a-candidate"),
     ).toBeNull();
-    expect(screen.getAllByText("Hesta Ironroot").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("graph-review-committed-projection-error")).toHaveTextContent("Graph visualization for this saved revision is unavailable.");
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
   });
 });
 
@@ -2096,6 +1909,7 @@ describe("GraphReviewWorkbenchModule exact-run primary after confirm", () => {
     expect(
       screen.queryByTestId("graph-review-exact-run-assertion-a-exact"),
     ).toBeNull();
-    expect(screen.getAllByText("Hesta Ironroot").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("graph-review-committed-projection-error")).toHaveTextContent("Graph visualization for this saved revision is unavailable.");
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
   });
 });
