@@ -425,10 +425,8 @@ def test_editions_and_receipts_participate_in_recovery_parity(application_state_
     )
 
 
-def test_real_dump_restore_retains_edition_fingerprint(application_state_dsn):
-    """Use the existing fixture container's pg tools; only fresh test DBs mutate."""
-    import subprocess
-    from urllib.parse import urlparse
+def test_real_dump_restore_retains_edition_fingerprint(application_state_dsn, tmp_path):
+    """Rehearse public backup/restore with owned clones and pg clients on PATH."""
     from uuid import uuid4
     from tests.application_state.test_play_run_editions_postgres import (
         create_source_run,
@@ -442,35 +440,21 @@ def test_real_dump_restore_retains_edition_fingerprint(application_state_dsn):
     save(run.run.run_id, request_for(read(run.run.run_id)))
     save(run.run.run_id, request_for(read(run.run.run_id), "second"))
     expected = compute_fingerprint(application_state_dsn)
-    dsn = urlparse(application_state_dsn)
-    assert dsn.hostname == "127.0.0.1" and dsn.port == 54329
+    backup_path = tmp_path / "edition.dump"
+    backup = authority.backup_authority(source_dsn=application_state_dsn, out_path=backup_path)
+    assert backup.fingerprint.digest == expected.digest
+    assert verify_backup_digest(backup_path) == backup.backup_sha256
     name = "dungeonbuddy_app_state_test_" + uuid4().hex[:12]
     target = _replace_database(application_state_dsn, name)
     admin = _replace_database(application_state_dsn, "postgres")
     _create_database(admin, name)
     try:
-        prefix = [
-            "docker",
-            "exec",
-            "-i",
-            "-e",
-            f"PGUSER={dsn.username}",
-            "-e",
-            f"PGPASSWORD={dsn.password}",
-            "dungeonbuddy-review-fixture-pg",
-        ]
-        dump = subprocess.run(
-            prefix
-            + ["pg_dump", "--format=custom", "--no-owner", "--dbname", dsn.path[1:]],
-            capture_output=True,
-            check=True,
-        ).stdout
-        subprocess.run(
-            prefix + ["pg_restore", "--no-owner", "--no-privileges", "--dbname", name],
-            input=dump,
-            capture_output=True,
-            check=True,
+        report = restore_authority(
+            source_dsn=application_state_dsn,
+            target_dsn=target,
+            backup_path=backup_path,
         )
+        assert report.ready and not report.mismatches
         restored = compute_fingerprint(target)
         assert compare_fingerprints(expected, restored) == []
         assert expected.digest == restored.digest
