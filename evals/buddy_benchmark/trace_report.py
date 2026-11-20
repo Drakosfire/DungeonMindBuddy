@@ -105,7 +105,8 @@ def build(root, case, *, world, question):
     for name, first, last in host_spans + spans[measured_host_count:]:
         durations[name].append(last - first)
     operations = [
-        {"name": name, "calls": len(samples), "inclusive_ms": sum(samples) / 1e6,
+        {"name": name, "calls": sum(value > 0 for value in samples), "markers": samples.count(0),
+         "inclusive_ms": sum(samples) / 1e6,
          "max_call_ms": max(samples) / 1e6, "exclusive_ms": exclusive[name] / 1e6,
          "wrapper_excluded": name in WRAPPERS}
         for name, samples in durations.items()
@@ -141,7 +142,7 @@ def render(report):
         label = escape(operation["name"])
         if operation["wrapper_excluded"]:
             label += " (wrapper)"
-        operations.append(f'<tr><th scope="row">{label}</th><td>{operation["calls"]}</td>'
+        operations.append(f'<tr><th scope="row">{label}</th><td>{operation["calls"]}</td><td>{operation["markers"]}</td>'
                           f'<td>{operation["inclusive_ms"]:,.2f}</td><td>{operation["exclusive_ms"]:,.2f}</td>'
                           f'<td>{operation["max_call_ms"]:,.2f}</td></tr>')
     case = escape(report["case"])
@@ -159,7 +160,7 @@ def render(report):
         f'{report["observed_duration_percent"]:.2f}% attributed</p><p><a href="trace-report.json">'
         'Machine-readable report</a></p><h2>Operation totals</h2>'
         '<p>Inclusive times can overlap. Exclusive times exclude wrappers and time shared by different operations.</p>'
-        '<table><thead><tr><th>Operation</th><th>Calls</th><th>Inclusive (ms)</th><th>Exclusive (ms)</th>'
+        '<table><thead><tr><th>Operation</th><th>Calls</th><th>Markers</th><th>Inclusive (ms)</th><th>Exclusive (ms)</th>'
         '<th>Max call (ms)</th></tr></thead><tbody>' + "".join(operations) +
         '</tbody></table><h2>Waterfall</h2><table><thead><tr><th>Operation</th><th>Relative time</th>'
         '<th>Start (ms)</th><th>Duration (ms)</th></tr></thead><tbody>' + "".join(rows) + "</tbody></table></html>\n"
