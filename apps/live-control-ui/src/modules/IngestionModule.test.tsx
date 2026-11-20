@@ -145,6 +145,22 @@ it("opens the exact Process candidate and carries the same run into Graph Review
  await waitFor(()=>expect(screen.getByRole("button",{name:"Open Graph Review"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"Open Graph Review"}));
  expect(new URLSearchParams(window.location.search).get("extractionRunId")).toBe("run-session-22");expect(new URLSearchParams(window.location.search).get("world")).toBe("elderwyld");
 });
+it("opens candidates for the same run only on request after restoring an admitted link", async () => {
+  const runId = "run-session-22";
+  offerSavedRun(runId, 22);
+  const historical = vi.spyOn(liveApi, "getHistoricalRecapWorldProjection");
+  window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22&view=recap&recapReviewRunId=run-session-22&recapProjection=admitted");
+  render(<IngestionModule campaignId="longmont-c2" session={23} managedWorldId="elderwyld" initialSourceSession={22} />);
+
+  expect(await screen.findByText(/Admitted graph visualization for this saved run is unavailable/)).toBeInTheDocument();
+  expect(candidateApi.getExactRunCandidateProjection).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "View extracted candidates" }));
+  await waitFor(() => expect(candidateApi.getExactRunCandidateProjection).toHaveBeenCalledExactlyOnceWith(runId, "elderwyld"));
+  expect(await screen.findByRole("button", { name: /Mireward/i })).toBeInTheDocument();
+  expect(historical).not.toHaveBeenCalled();
+  expect(rawApi.postRecapIngest).not.toHaveBeenCalled();
+});
+
 it("preserves the submitted draft after Process navigation and Return to draft",async()=>{
  mount();await input("Recover this original recap.");await process();await screen.findByRole("button",{name:"Return to draft"});fireEvent.click(screen.getByRole("button",{name:"Return to draft"}));
  expect(await screen.findByRole("textbox",{name:/Write or paste a recap/})).toHaveValue("Recover this original recap.");
