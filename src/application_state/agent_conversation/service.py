@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from contextlib import nullcontext
+from contextlib import ExitStack, contextmanager, nullcontext
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 from typing import TYPE_CHECKING
@@ -265,6 +265,18 @@ def _ready_dsn() -> str:
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     return dsn
+
+
+@contextmanager
+def _measure_provider_append_transaction(measure):
+    with ExitStack() as stack:
+        with measure("first_jev_send_schema_check"):
+            dsn = _ready_dsn()
+        with measure("first_jev_send_transaction_open"):
+            conn = stack.enter_context(unit_of_work(dsn))
+        yield conn
+        with measure("first_jev_send_commit_and_close"):
+            stack.close()
 
 
 def _ordinary_mutation_turn(turn: TurnReadModel | None, conversation_id: UUID) -> Turn | None:
@@ -1660,14 +1672,22 @@ class AgentConversationService:
         native_writer_proof=None,
         opening_authorization=None,
         _connection=None,
+        _measure=None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         from .plan_authoring import lock_authoring_writer,validate_authoring_writer
-        transaction = unit_of_work(_ready_dsn()) if _connection is None else nullcontext(_connection)
+        measure = _measure or (lambda _name: nullcontext())
+        if _connection is not None:
+            transaction = nullcontext(_connection)
+        elif _measure is not None:
+            transaction = _measure_provider_append_transaction(measure)
+        else:
+            transaction = unit_of_work(_ready_dsn())
         with transaction as conn:
             action=(lock_authoring_writer(conn,plan_authoring_reservation,world_id=world_id,
                 conversation_id=conversation_id,turn_id=turn_id) if plan_authoring_reservation is not None else None)
-            turn = self._lock_execution_append_turn(conn, world_id, turn_id)
+            with measure("first_jev_send_locked_turn_read"):
+                turn = self._lock_execution_append_turn(conn, world_id, turn_id)
             turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
@@ -1748,7 +1768,8 @@ class AgentConversationService:
                 raise ApplicationStateValidationError("turn has no Graph execution policy")
             if turn.status != "running" or turn.revision != expected_revision or turn.attempt != expected_attempt:
                 raise ApplicationStateConflictError("Graph execution append is fenced by a stale claim")
-            now = repo.database_clock(conn)
+            with measure("first_jev_send_claim_clock"):
+                now = repo.database_clock(conn)
             if turn.claim_expires_at is None or turn.claim_expires_at <= now:
                 raise ApplicationStateConflictError("Graph execution claim has expired")
             if native_writer:
@@ -2184,8 +2205,9 @@ class AgentConversationService:
                 *([play_body_inclusion] if play_body_inclusion is not None else [])]
             try:
                 if isinstance(execution, SurfaceNativeExecutionV1):
-                    updated_execution = self._bind_execution_append(turn.graph_context_receipt,
-                        execution.model_copy(update={"events": events}))
+                    with measure("first_jev_send_prospective_validation"):
+                        updated_execution = self._bind_execution_append(turn.graph_context_receipt,
+                            execution.model_copy(update={"events": events}))
                 else:
                     execution_type = type(execution)
                     updated_execution = execution_type.model_validate_json(json.dumps(
@@ -2199,10 +2221,11 @@ class AgentConversationService:
                         validate_selected_source_binding(turn.graph_context_receipt, updated_execution)
             except ValueError as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
-            updated = self._persist_execution_append(
-                conn, world_id=world_id, turn_id=turn_id,
-                expected_revision=expected_revision, execution=updated_execution,
-            )
+            with measure("first_jev_send_update_and_readback"):
+                updated = self._persist_execution_append(
+                    conn, world_id=world_id, turn_id=turn_id,
+                    expected_revision=expected_revision, execution=updated_execution,
+                )
             if (
                 updated is not None and isinstance(event, ValidatedSourceReadEventV2)
                 and trace_active and source_observations
@@ -2358,11 +2381,12 @@ class AgentConversationService:
         expected_revision: int, expected_attempt: int,
         outcome: ProviderOutcomeEventV1,
         opening_authorization=None,
+        measure=None,
     ) -> tuple[Turn, bool]:
         return self._append_graph_execution_event(
             world_id, conversation_id, turn_id, expected_revision=expected_revision,
             expected_attempt=expected_attempt, event=outcome, duplicate_key="event_id",
-            opening_authorization=opening_authorization,
+            opening_authorization=opening_authorization, _measure=measure,
         )
 
     def record_build_section_inclusion(
