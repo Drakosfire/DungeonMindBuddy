@@ -432,7 +432,25 @@ def authorize_world_access(
             status_code=403,
             detail={"code": "hosted_world_context_required"},
         )
-    if any(subject not in access.get(world_id, frozenset()) for world_id in world_ids):
+    missing = {world_id for world_id in world_ids if subject not in access.get(world_id, frozenset())}
+    if not missing:
+        return
+    # An explicit deployment capability gate protects existing installations;
+    # shared DB policy remains the authoritative multiworker enable/revoke gate.
+    if os.environ.get("DMB_HOSTED_OWNER_CREATION_CAPABILITY", "") != "1":
+        raise HTTPException(status_code=403, detail={"code": "hosted_world_forbidden"})
+    # The legacy static path does not depend on dynamic policy availability.
+    # Dynamic admission is a separate, current, creator-and-owner-bound grant.
+    from application_state.errors import ApplicationStateError
+    from application_state.world_catalog.hosted_creation import active_admitted_world_ids
+
+    try:
+        admitted = active_admitted_world_ids(subject)
+    except ApplicationStateError as exc:
+        raise HTTPException(
+            status_code=503, detail={"code": "world_authorization_unavailable"}
+        ) from exc
+    if not missing.issubset(admitted):
         raise HTTPException(
             status_code=403,
             detail={"code": "hosted_world_forbidden"},

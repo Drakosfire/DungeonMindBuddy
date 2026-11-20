@@ -11,11 +11,13 @@ from collections.abc import Callable
 
 from dataclasses import dataclass
 import logging
+import os
 from threading import Lock
 from time import monotonic
 from uuid import UUID
 
 from fastapi import BackgroundTasks, HTTPException, Request
+from application_state.errors import ApplicationStateError
 from pydantic import TypeAdapter
 from starlette.concurrency import run_in_threadpool
 
@@ -104,6 +106,27 @@ def _hosted_subject(request: Request) -> str:
     if not isinstance(principal, DmsPrincipal) or not principal.subject.strip():
         raise HTTPException(status_code=401, detail={"code": "authentication_required"})
     return principal.subject
+
+
+def _owner_world_candidates(subject: str) -> frozenset[str]:
+    """Combine existing static candidates with current owner-created grants."""
+    static_ids = frozenset(
+        world_id for world_id, subjects in hosted_auth.hosted_world_access().items()
+        if subject in subjects
+    )
+    if os.environ.get("DMB_HOSTED_OWNER_CREATION_CAPABILITY", "") != "1":
+        return static_ids
+    from application_state.world_catalog.hosted_creation import active_admitted_world_ids
+
+    try:
+        return static_ids | active_admitted_world_ids(subject)
+    except ApplicationStateError:
+        # Existing statically admitted Worlds remain available if the dynamic
+        # policy store is unavailable. A user with no static fallback sees an
+        # unavailable response rather than a falsely empty list.
+        if static_ids:
+            return static_ids
+        raise _unavailable() from None
 
 
 def _owned_world(subject: str, managed_world_id: str):
@@ -1047,9 +1070,7 @@ async def resolve_hosted_saved_artwork(request: Request) -> str:
     except ValueError:
         raise _denied() from None
 
-    for world_id, subjects in hosted_auth.hosted_world_access().items():
-        if subject not in subjects:
-            continue
+    for world_id in sorted(_owner_world_candidates(subject)):
         try:
             await run_in_threadpool(media.get_asset, asset_id, hosted_world_media_owner(world_id))
         except ApplicationStateNotFoundError:
@@ -1291,9 +1312,8 @@ async def hosted_owner_collection(request: Request) -> dict:
 def revalidate_hosted_owner_collection(request: Request) -> dict:
     """Read current owner-filtered metadata after collection request admission."""
     subject = _hosted_subject(request)
-    access = hosted_auth.hosted_world_access()
     try:
-        allowed_ids = [world_id for world_id, subjects in access.items() if subject in subjects]
+        allowed_ids = list(_owner_world_candidates(subject))
         records = sorted(
             (stored.record for stored in catalog.list_owned_worlds(subject, allowed_ids)),
             key=lambda record: (record.name.casefold(), record.world_id),
@@ -1302,7 +1322,6 @@ def revalidate_hosted_owner_collection(request: Request) -> dict:
             WorldContainerPublicRecord.from_record(world)
             for world in records
             if world.owner_subject == subject
-            and subject in access.get(world.world_id, ())
         ]
     except Exception:
         raise _unavailable() from None

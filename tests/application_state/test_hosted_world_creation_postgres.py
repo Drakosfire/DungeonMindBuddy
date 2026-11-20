@@ -5,7 +5,9 @@ import pytest
 from concurrent.futures import ThreadPoolExecutor
 
 from application_state.errors import ApplicationStateConflictError, ApplicationStateError
-from application_state.world_catalog.hosted_creation import create_owned_world
+from application_state.world_catalog.hosted_creation import active_admitted_world_ids, create_owned_world
+from apps.live_control_server.services.hosted_auth import authorize_world_access
+from fastapi import HTTPException
 from application_state.world_catalog import service as catalog
 from application_state.world_catalog.service import create_world
 
@@ -142,3 +144,45 @@ def test_global_rate_limit_applies_across_subjects(application_state_dsn):
     assert error.value.status_code == 429
     with psycopg.connect(application_state_dsn) as conn:
         assert conn.execute("SELECT count(*) FROM workspace.hosted_world_admission").fetchone()[0] == 1
+
+
+def test_dynamic_access_rechecks_owner_revocation_and_policy(application_state_dsn, monkeypatch):
+    _enable(application_state_dsn)
+    monkeypatch.setenv("DMB_HOSTED_OWNER_CREATION_CAPABILITY", "1")
+    created = create_owned_world(subject="alice", name="Carnival", request_key="request_key_0001")
+    world_id = created.record.world_id
+    assert active_admitted_world_ids("alice") == frozenset({world_id})
+    authorize_world_access("alice", frozenset({world_id}), access={})
+    with pytest.raises(HTTPException) as foreign:
+        authorize_world_access("bob", frozenset({world_id}), access={})
+    assert foreign.value.status_code == 403
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE workspace.hosted_world_admission SET revoked_at=now() WHERE world_id=%s", (world_id,))
+    with pytest.raises(HTTPException) as revoked:
+        authorize_world_access("alice", frozenset({world_id}), access={})
+    assert revoked.value.status_code == 403
+    # An independent static grant remains valid when dynamic admission is revoked.
+    authorize_world_access("alice", frozenset({world_id}), access={world_id: frozenset({"alice"})})
+
+
+def test_static_access_never_reads_dynamic_policy(application_state_dsn, monkeypatch):
+    from application_state.world_catalog import hosted_creation
+    monkeypatch.setenv("DMB_HOSTED_OWNER_CREATION_CAPABILITY", "1")
+    def forbidden(_subject):
+        pytest.fail("static authorization must not read dynamic policy")
+    monkeypatch.setattr(hosted_creation, "active_admitted_world_ids", forbidden)
+    authorize_world_access("alice", frozenset({"existing"}), access={"existing": frozenset({"alice"})})
+
+
+def test_owner_candidates_include_only_current_dynamic_owner_and_static_grants(application_state_dsn, monkeypatch):
+    from apps.live_control_server.services.hosted_native_graph_access import _owner_world_candidates
+    _enable(application_state_dsn)
+    monkeypatch.setenv("DMB_HOSTED_OWNER_CREATION_CAPABILITY", "1")
+    monkeypatch.setenv("DMB_HOSTED_WORLD_ACCESS_JSON", '{"existing":["alice"]}')
+    created = create_owned_world(subject="alice", name="Carnival", request_key="request_key_0001")
+    world_id = created.record.world_id
+    assert _owner_world_candidates("alice") == frozenset({"existing", world_id})
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE workspace.managed_world SET owner_subject='bob' WHERE world_id=%s", (world_id,))
+    assert _owner_world_candidates("alice") == frozenset({"existing"})
+    assert _owner_world_candidates("bob") == frozenset()

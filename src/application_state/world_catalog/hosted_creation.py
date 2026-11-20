@@ -17,12 +17,41 @@ from application_state.errors import (
     ApplicationStateConflictError,
     ApplicationStateError,
     ApplicationStateValidationError,
+    ApplicationStateUnavailableError,
 )
 from application_state.unit_of_work import unit_of_work
 from application_state.world_catalog import service as catalog
 from application_state.world_catalog.types import _validate_subject
 
 _KEY = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
+
+
+def active_admitted_world_ids(subject: str) -> frozenset[str]:
+    """Read currently enabled dynamic admissions for their current owner."""
+    try:
+        subject = _validate_subject(subject)
+    except ValueError as exc:
+        raise ApplicationStateValidationError("invalid authenticated subject") from exc
+    if not subject:
+        raise ApplicationStateValidationError("invalid authenticated subject")
+    try:
+        with unit_of_work(load_runtime_dsn()) as conn:
+            row = conn.execute(
+                "SELECT enabled FROM workspace.hosted_world_creation_policy WHERE singleton=true"
+            ).fetchone()
+            if row is None:
+                raise ApplicationStateUnavailableError("hosted World policy unavailable")
+            if not row[0]:
+                return frozenset()
+            rows = conn.execute(
+                "SELECT a.world_id FROM workspace.hosted_world_admission a "
+                "JOIN workspace.managed_world w ON w.world_id = a.world_id "
+                "WHERE a.creator_subject = %s AND w.owner_subject = %s AND a.revoked_at IS NULL",
+                (subject, subject),
+            ).fetchall()
+            return frozenset(row[0] for row in rows)
+    except psycopg.Error as exc:
+        raise ApplicationStateUnavailableError("hosted World policy unavailable") from exc
 
 
 def _validated_input(subject: str, name: str, request_key: str) -> tuple[str, str, str]:

@@ -180,6 +180,9 @@ implemented or enabled:
   and request-rate parameters. Enabling requires explicit finite positive
   limits and a healthy policy store. Retain the valid nonempty static-map
   startup requirement; this slice does not bootstrap an empty installation.
+  A per-process `DMB_HOSTED_OWNER_CREATION_CAPABILITY=1` is also required to
+  activate dynamic code after deployment; the shared DB policy, not this flag,
+  is the multiworker enable/revocation authority. Missing flags fail closed.
 - **Creation and retry:** accept a bounded World name and client-generated
   idempotency key under the authenticated subject. Persist a normalized request
   fingerprint and outcome, and create World metadata, native reservation,
