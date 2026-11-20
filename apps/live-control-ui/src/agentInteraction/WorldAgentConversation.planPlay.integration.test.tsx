@@ -3550,6 +3550,43 @@ describe("one App-level World conversation host across Plan and Play", () => {
     }finally{spy?.mockRestore();}
   });
 
+it("sends a text revision with the saved image above the selection", async () => {
+  const assetId = "22222222-2222-4222-8222-222222222222";
+  const { markdownToTiptapDoc } = await import("../tiptap/markdown/markdownToTiptap");
+  const editor = new Editor({
+    extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
+    content: markdownToTiptapDoc(`![Saved map](dmb-media:${assetId})\n\nOriginal layout.`).doc,
+  });
+  const bridge = createBuildComposeBridge(() => ({
+    editor, worldId: WORLD, documentId: "source-one", revision: 2, contentSha256: SHA,
+    visibility: "internal", draftGeneration: 0, selectionGeneration: 0, canEdit: true,
+  }), () => undefined);
+  vi.mocked(postWorldBuildAgentTurn).mockImplementation(() => new Promise(() => {}));
+  const view = render(<Harness initial="build" buildBridge={bridge} />);
+  try {
+    screen.getByRole("region", { name: "Build workspace" }).append(editor.view.dom);
+    editor.state.doc.descendants((node, position) => {
+      if (node.isTextblock && node.textContent === "Original layout.") {
+        editor.commands.setTextSelection({ from: position + 1, to: position + 1 + node.textContent.length });
+      }
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Open", exact: true }));
+    const input = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, { target: { value: "Revise this passage using the image above." } });
+    expect(screen.queryByRole("button", { name: "Revise with image above" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0]).toMatchObject({
+      message: "Revise this passage using the image above.",
+      build_write_capability: { reference_image_id: assetId, basis: { selection: { text: "Original layout." } } },
+    });
+  } finally {
+    view.unmount();
+    editor.destroy();
+  }
+});
+
 describe('first visible construction hands attention to the page',()=>{
  it.each(['prose','table','plan','newer-draft'] as const)('uses actual %s stream visibility without losing a newer composer',async(kind)=>{
   const editor=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:'<p>Author page</p>'});

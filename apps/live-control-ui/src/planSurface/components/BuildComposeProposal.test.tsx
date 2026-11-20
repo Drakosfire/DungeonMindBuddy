@@ -360,8 +360,12 @@ it('captures the nearest saved image above selected text and offers only the pas
     });
     editor.commands.setTextSelection({from:positions.get('Map plan')!,
       to:positions.get('Original layout.')! + 'Original layout.'.length});
-    const prepared = await hook.result.current.prepareHarnessTurn('33333333-3333-4333-8333-333333333333', false, false, true);
+    const prepared = await hook.result.current.prepareHarnessTurn('33333333-3333-4333-8333-333333333333', false, false, 'Revise this passage using the image above.');
     expect(prepared.capability?.reference_image_id).toBe(map);
+    const ordinary = await hook.result.current.prepareHarnessTurn(
+      '44444444-4444-4444-8444-444444444444', false, false, 'Make the opening shorter.',
+    );
+    expect(ordinary.capability?.reference_image_id).toBeUndefined();
     expect(prepared.capability?.basis.selection?.text).toBe('Map plan\nOriginal layout.');
     expect(prepared.capability?.page_body_offer).toBeUndefined();
     expect(prepared.capability?.page_end_offer).toBeUndefined();

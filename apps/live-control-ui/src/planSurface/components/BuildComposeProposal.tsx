@@ -98,7 +98,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, readHistory
       return false;
     } finally { running.current = false; if (mounted.current) setBusy(false); }
   }
-  async function prepareHarnessTurn(turnId:string,discussionOnly=false,requirePassage=false,useImageAbove=false,expectedReferenceImageId?:string) {
+  async function prepareHarnessTurn(turnId:string,discussionOnly=false,requirePassage=false,message="",expectedReferenceImageId?:string) {
     const start=current.current;
     if(!start.enabled||!start.bridge||!start.history)throw new Error('Open the current page and conversation before sending.');
     const snapshot=await start.bridge.captureContext();
@@ -111,6 +111,9 @@ export function useBuildCompose({ worldId, history, bridge, enabled, readHistory
         ||captured.basis.visibility!==snapshot.visibility||captured.basis.draft_sha256!==snapshot.draft_sha256
         ||captured.basis.editor_sha256!==snapshot.editor_sha256||captured.basis.draft_generation!==snapshot.draft_generation)throw new Error('The page changed while preparing this request. Send again.');
     }
+    // Resolve the explicit spatial reference here. Jev still decides the operation.
+    const useImageAbove = Boolean(expectedReferenceImageId)
+      || (!discussionOnly && /\b(?:image|picture|illustration|artwork)\s+(?:(?:right|directly|immediately)\s+)?above\b/i.test(message));
     if((requirePassage||useImageAbove)&&!captured?.basis.selection?.text.trim())
       return {placementError:'Select the passage on the page before continuing. Nothing was sent.'};
     let referenceImageId: string | undefined;
