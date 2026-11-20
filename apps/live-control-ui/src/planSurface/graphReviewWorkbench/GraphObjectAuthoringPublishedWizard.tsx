@@ -510,7 +510,9 @@ export function GraphObjectAuthoringPublishedWizard({
           >
             <strong>Local review complete</strong>
             <span>
-              Review the staged local draft below. Publication is a separate explicit confirmation.
+              {onCommittedProposals
+                ? "Review the staged local draft below. Publication is a separate explicit confirmation."
+                : "Review the staged local draft below. It stays local; publishing is unavailable here."}
             </span>
           </div>
         ) : null}

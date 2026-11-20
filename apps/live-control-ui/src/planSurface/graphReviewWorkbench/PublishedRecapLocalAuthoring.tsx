@@ -331,9 +331,6 @@ export function PublishedRecapLocalAuthoring({
       sessionId={sessionId}
       worldId={worldId}
       recapArtifactId={recapRecord?.artifact_id ?? null}
-      onCommittedProposals={
-        recapRecord?.artifact_id ? draft.clearCommittedProposals : undefined
-      }
       onRefreshProjection={onRefreshProjection}
       existingNodes={existingNodes}
       laneRole="live"
@@ -388,7 +385,7 @@ export function PublishedRecapLocalAuthoring({
     <div
       className="published-recap-local-authoring"
       data-testid="published-recap-local-authoring"
-      data-write-authority={recapRecord?.artifact_id ? "governed-world" : "none"}
+      data-write-authority="local-draft-only"
       data-campaign-id={campaignId}
       data-session-id={sessionId}
       data-source-artifact-id={nullableAttr(authoringContext.sourceArtifactId)}
@@ -414,6 +411,7 @@ export function PublishedRecapLocalAuthoring({
               <strong>Working projection</strong>
               <span>Source: Published recap.</span>
               <span>Node changes are local and uncommitted. The canonical recap and World memory are unchanged.</span>
+              <span>Publishing from this historical recap is no longer available. Your draft stays local.</span>
               {workingProjection.diagnostics.length ? (
                 <span data-testid="published-recap-working-projection-diagnostics">
                   {workingProjection.diagnostics[0]}

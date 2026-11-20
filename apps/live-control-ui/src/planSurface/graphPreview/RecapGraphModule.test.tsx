@@ -230,7 +230,7 @@ describe("RecapGraphModule", () => {
     render(<RecapGraphModule context={context} />);
 
     const host = await screen.findByTestId("published-recap-local-authoring");
-    expect(host).toHaveAttribute("data-write-authority", "governed-world");
+    expect(host).toHaveAttribute("data-write-authority", "local-draft-only");
     expect(host).toHaveAttribute("data-source-artifact-id", "null");
     expect(host).toHaveAttribute("data-source-artifact-path", artifactRecord(24).source_recap_path);
     expect(host).toHaveAttribute("data-source-artifact-sha256", "sha256:session-24");
@@ -602,6 +602,8 @@ it.each([false, true])("drills into a native recap object and renders only its m
     scoped.mockResolvedValueOnce({ kind: "complete", detail: result });
   }
   const classic = vi.spyOn(liveApi, "postWorldGraphRecapProjection");
+  const classicPrepare = vi.spyOn(liveApi, "prepareGraphObjectAuthoringWrite").mockRejectedValue(new Error("Classic preparation forbidden"));
+  const classicCommit = vi.spyOn(liveApi, "commitGraphObjectAuthoringWrite").mockRejectedValue(new Error("Classic publication forbidden"));
   render(<SelectedWorldProvider locationSnapshot={window.location.href}>
     <RecapGraphModule context={context} />
   </SelectedWorldProvider>);
@@ -619,4 +621,7 @@ it.each([false, true])("drills into a native recap object and renders only its m
     expect(scoped).not.toHaveBeenCalled();
   }
   expect(classic).not.toHaveBeenCalled();
+  expect(classicPrepare).not.toHaveBeenCalled();
+  expect(classicCommit).not.toHaveBeenCalled();
+  expect(screen.queryByTestId("published-recap-local-authoring")).not.toBeInTheDocument();
 });

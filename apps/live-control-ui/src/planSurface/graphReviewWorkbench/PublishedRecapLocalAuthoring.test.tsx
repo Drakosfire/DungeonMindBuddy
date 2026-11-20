@@ -113,7 +113,7 @@ async function expectPersistedRecapIdentity(
 
 function renderHost(overrides: Partial<Parameters<typeof PublishedRecapLocalAuthoring>[0]> = {}) {
   const onInspectNode = vi.fn();
-  render(
+  const view = render(
     <PublishedRecapLocalAuthoring
       campaignId="longmont-c2"
       sessionId="session-27"
@@ -126,7 +126,7 @@ function renderHost(overrides: Partial<Parameters<typeof PublishedRecapLocalAuth
     />,
   );
   fireEvent.click(screen.getByRole("button", { name: "Author Node" }));
-  return { onInspectNode };
+  return { ...view, onInspectNode };
 }
 
 describe("PublishedRecapLocalAuthoring", () => {
@@ -135,11 +135,11 @@ describe("PublishedRecapLocalAuthoring", () => {
     sessionStorage.clear();
   });
 
-  it("preserves exact recap source identity and exposes governed publish only after review", async () => {
+  it("preserves exact historical recap identity with explicitly local-only staging", async () => {
     renderHost();
 
     const host = await screen.findByTestId("published-recap-local-authoring");
-    expect(host).toHaveAttribute("data-write-authority", "governed-world");
+    expect(host).toHaveAttribute("data-write-authority", "local-draft-only");
     expect(host).toHaveAttribute("data-source-artifact-id", "artifact:recap:longmont-c2:session-27");
     expect(host).toHaveAttribute(
       "data-source-artifact-path",
@@ -229,7 +229,7 @@ describe("PublishedRecapLocalAuthoring", () => {
     expect(screen.getByTestId("graph-object-authoring-wizard-final-state")).toHaveTextContent(
       "Local review complete",
     );
-    expect(screen.getByTestId("graph-object-authoring-prepare-commit-panel")).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-object-authoring-prepare-commit-panel")).not.toBeInTheDocument();
     fireEvent.click(within(staged).getByRole("button", { name: "Remove" }));
     expect(document.querySelector('button[data-graph-node-id^="local-authoring:"]')).toBeNull();
     expect(prepareGraphObjectAuthoringWrite).not.toHaveBeenCalled();
@@ -488,7 +488,7 @@ describe("PublishedRecapLocalAuthoring", () => {
       "Local review complete",
     );
     expect(screen.getByTestId("graph-object-authoring-wizard-final-state")).toHaveTextContent(
-      "explicit confirmation",
+      "publishing is unavailable here",
     );
     expect(screen.getByRole("list", { name: "Authoring steps (status only)" })).toHaveAttribute(
       "data-step-indicator",
@@ -509,4 +509,40 @@ describe("PublishedRecapLocalAuthoring", () => {
 
     await expectPersistedRecapIdentity({ ...recapRecord, source_artifact_id: null }, "object");
   });
+});
+
+
+describe("local draft retention after classic publication retirement", () => {
+  beforeEach(() => { vi.clearAllMocks(); sessionStorage.clear(); });
+it.each(["object", "relationship"] as const)("retains a local %s draft across remount with inspection and no publisher", async kind => {
+  const first = renderHost();
+  if (kind === "object") {
+    fireEvent.click(screen.getByTestId("graph-object-authoring-start-manual-draft-button"));
+    fireEvent.change(screen.getByLabelText("Label"), {target:{value:"Retained local object"}});
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
+    fireEvent.click(screen.getByTestId("graph-object-authoring-skip-relationship"));
+  } else {
+    fireEvent.click(screen.getByTestId("graph-object-authoring-wizard-relationship"));
+    fireEvent.change(screen.getByLabelText("Source object"), {target:{value:"existing_node:pc_caelynn"}});
+    fireEvent.change(screen.getByLabelText("Relationship type"), {target:{value:"located_in"}});
+    fireEvent.change(screen.getByLabelText("Target object"), {target:{value:"existing_node:loc_mirathorn"}});
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-relationship-button"));
+  }
+  await expectPersistedRecapIdentity(recapRecord, kind);
+  const original = JSON.parse(sessionStorage.getItem(STAGED_STORAGE_KEY)!);
+  expect(screen.getByTestId("graph-object-authoring-wizard-final-state")).toHaveTextContent("publishing is unavailable here");
+  expect(screen.queryByTestId("graph-object-authoring-prepare-commit-panel")).not.toBeInTheDocument();
+  first.unmount();
+  const second = renderHost();
+  expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute("data-local-proposal-count", "1");
+  expect(JSON.parse(sessionStorage.getItem(STAGED_STORAGE_KEY)!)).toEqual(original);
+  const pill = await waitFor(() => {
+    const found=screen.getAllByRole("button",{name:"Caelynn"}).find(x=>x.classList.contains("recap-node-token"));
+    expect(found).toBeTruthy();return found!;
+  });
+  fireEvent.click(pill);expect(second.onInspectNode).toHaveBeenCalledWith("pc_caelynn");
+  expect(screen.queryByTestId("graph-object-authoring-prepare-commit-panel")).not.toBeInTheDocument();
+  expect(prepareGraphObjectAuthoringWrite).not.toHaveBeenCalled();expect(commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
+});
+
 });
