@@ -10,13 +10,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from apps.live_control_server.models.threat_query_hydration import (
-    ThreatQueryHydrationRequestV1,
-)
-from apps.live_control_server.services.threat_query_hydration import (
-    ThreatQueryHydrationError,
-    query_threats_with_hydration,
-)
 from graph_memory.interaction.expansion_executor import (
     ExpandGraphRetrievalRequest,
     ReadGraphSourceRequest,
@@ -322,68 +315,13 @@ def execute_query_threat_mechanics_hydration(
     *,
     root: Path | None = None,
 ) -> dict[str, Any]:
-    world_id = str(arguments.get("worldId") or arguments.get("world_id") or "").strip()
-    campaign_id = str(
-        arguments.get("campaignId") or arguments.get("campaign_id") or ""
-    ).strip()
-    revision_pin = str(
-        arguments.get("revisionPin") or arguments.get("revision_pin") or ""
-    ).strip()
-    query_text = str(
-        arguments.get("queryText") or arguments.get("query_text") or ""
-    ).strip()
-    scope_mode = arguments.get("scopeMode", arguments.get("scope_mode", "campaign"))
-    if (
-        not world_id or not revision_pin
-        or scope_mode not in ("world", "campaign")
-        or (scope_mode == "campaign") != bool(campaign_id)
-    ):
-        return {
-            "schema": "dmb_threat_query_hydration_error_v1",
-            "resultLabel": "threat_query_hydration_unavailable",
-            "message": (
-                "exact worldId, scopeMode, and revisionPin are required, with campaignId for campaign scope "
-                "(server-injected from turn scope)"
-            ),
-            "diagnostics": ["missing_exact_scope"],
-        }
-    if not query_text:
-        return {
-            "schema": "dmb_threat_query_hydration_error_v1",
-            "resultLabel": "threat_query_hydration_unavailable",
-            "message": "queryText is required",
-            "diagnostics": ["missing_query_text"],
-        }
-    focus_raw = arguments.get("focusNodeIds", arguments.get("focus_node_ids", []))
-    predicates_raw = arguments.get(
-        "relationshipPredicates", arguments.get("relationship_predicates", [])
-    )
-    max_hits = arguments.get("maxHits", arguments.get("max_hits", 16))
-    include_mechanics = arguments.get(
-        "includeMechanics", arguments.get("include_mechanics", True)
-    )
-    request = ThreatQueryHydrationRequestV1(
-        schema="dmb_threat_query_hydration_request_v1",
-        world_id=world_id,
-        campaign_id=campaign_id or None,
-        scope_mode=scope_mode,
-        revision_pin=revision_pin,
-        query_text=query_text,
-        focus_node_ids=list(focus_raw or []),
-        relationship_predicates=list(predicates_raw or []),
-        max_hits=int(max_hits),
-        include_mechanics=bool(include_mechanics),
-    )
-    try:
-        response = query_threats_with_hydration(request, root=root)
-    except ThreatQueryHydrationError as exc:
-        return {
-            "schema": "dmb_threat_query_hydration_error_v1",
-            "resultLabel": exc.result_label,
-            "message": str(exc),
-            "diagnostics": exc.diagnostics,
-        }
-    return response.model_dump(mode="json", by_alias=True)
+    """Report that classic graph invocations cannot hydrate native Threat mechanics."""
+    return {
+        "schema": "dmb_threat_query_hydration_error_v1",
+        "resultLabel": "threat_query_hydration_unavailable",
+        "message": "Threat mechanics hydration is unavailable in this legacy graph context.",
+        "diagnostics": ["legacy_threat_hydration_retired"],
+    }
 
 
 def execute_hermes_graph_interaction_tool_json(

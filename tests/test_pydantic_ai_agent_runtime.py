@@ -773,12 +773,16 @@ def test_world_threat_hydration_uses_authoritative_scope_without_campaign(monkey
         invocation,
     )
 
-    def query(request, *, root):
-        assert request.scope_mode == "world"
-        assert request.campaign_id is None
-        assert request.world_id == scope.world_id
-        assert request.revision_pin == scope.revision_id
-        return type("Result", (), {"model_dump": lambda self, **kwargs: {"checked": True}})()
+    from apps.live_control_server.services import threat_query_hydration
 
-    monkeypatch.setattr(tools, "query_threats_with_hydration", query)
-    assert tools.execute_query_threat_mechanics_hydration(args) == {"checked": True}
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("Retired tool dispatched Threat hydration")
+
+    monkeypatch.setattr(threat_query_hydration, "query_threats_with_hydration", forbidden)
+    assert args["scopeMode"] == "world"
+    assert args["campaignId"] is None
+    assert args["worldId"] == scope.world_id
+    assert args["revisionPin"] == scope.revision_id
+    result = tools.execute_query_threat_mechanics_hydration(args)
+    assert result["resultLabel"] == "threat_query_hydration_unavailable"
+    assert result["diagnostics"] == ["legacy_threat_hydration_retired"]
