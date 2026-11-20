@@ -148,6 +148,19 @@ export function BuildDocumentSelector({
   }, [catalogRequestedFor, worldId]);
   const currentNativeCatalog = nativeCatalog?.worldId === worldId ? nativeCatalog : undefined;
   const nativeSources = currentNativeCatalog?.sources ?? [];
+  const orderedNativeSources = [
+    ...nativeSources.filter(source => source.navigation.kind === "recap").sort((a, b) => {
+      const left = a.navigation.session_id;
+      const right = b.navigation.session_id;
+      if (left && right) {
+        const order = right.localeCompare(left, undefined, { numeric: true });
+        if (order) return order;
+      } else if (left || right) return left ? -1 : 1;
+      return (a.navigation.label ?? "").localeCompare(b.navigation.label ?? "")
+        || a.source_revision.source_revision_id.localeCompare(b.source_revision.source_revision_id);
+    }),
+    ...nativeSources.filter(source => source.navigation.kind !== "recap"),
+  ];
   const activeNativeId = new URLSearchParams(window.location.search).get("nativeDocument");
   const activeNative = nativeSources.find(source => source.source_revision.source_revision_id === activeNativeId);
   const activeStatblock = readSavedStatblockTarget(window.location.href);
@@ -243,7 +256,7 @@ export function BuildDocumentSelector({
       id: retainedPdfBuildHref(worldId, entry), label: entry.name, category: "PDFs" as const,
       withdrawal: { kind: "pdf" as const, revision_id: entry.locator.source_revision_id },
     })) : []),
-    ...(worldId ? nativeSources.map(source => ({
+    ...(worldId ? orderedNativeSources.map(source => ({
       id: nativeDocumentHref(worldId, source), label: source.navigation.label ?? "Unnamed document",
       withdrawal: { kind: "text" as const, revision_id: source.source_revision.source_revision_id },
       category: source.navigation.kind === "recap" ? "Recaps" as const : "Ingested text" as const,
