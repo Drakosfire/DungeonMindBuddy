@@ -466,7 +466,8 @@ def verify_capture_environment(expected):
         raise ValueError("Runtime qualification changed; no question dispatched")
 
 
-def capture(manifest_path, output, *, context_only=False, writer_transport=False, detailed_trace=False):
+def capture(manifest_path, output, *, context_only=False, writer_transport=False, detailed_trace=False,
+            browser_case=None):
     """Explicit live entry point; never invoked by offline reporting."""
     manifest, base = load_manifest(manifest_path)
     if os.environ.get("DMB_AGENT_GRAPH_LOCAL_PROFILE"):
@@ -480,6 +481,17 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
         raise ValueError("Unknown benchmark conversation mode")
     build_sequence = mode == "build_sequence"
     validate_template(template, manifest["world"], context_only=context_only, build_sequence=build_sequence)
+    browser = None
+    if browser_case is not None:
+        if not (context_only and writer_transport and not build_sequence
+                and template["surface"]["surface_id"] == "plan"):
+            raise ValueError("Browser capture requires ordinary Plan and the writer transport sink")
+        selected = next((case for case in manifest["cases"] if case["id"] == browser_case), None)
+        if selected is None:
+            raise ValueError("Browser case is absent from the manifest")
+        manifest["cases"] = [selected]
+        from . import browser_capture as browser
+        browser_inputs = browser.browser_inputs(manifest, base)
     editor_snapshot = None
     if "build_editor_snapshot" in manifest:
         if not build_sequence:
@@ -561,6 +573,10 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
     if Path(application.__file__).resolve() != Path(__file__).resolve().parents[2] / "apps/live_control_server/main.py":
         raise ValueError("Application import differs from qualified source")
     try:
+        if browser is not None:
+            browser.browser_capture(application.create_app(), manifest, selected, output, token,
+                                    browser_inputs, owned_env, detail=detailed_trace)
+            return
         with TestClient(application.create_app(), client=("127.0.0.1", 43021),
             headers={"Authorization": "Bearer " + token}, raise_server_exceptions=False) as client:
             if client.get("/health/ready").status_code != 200:
@@ -1227,7 +1243,7 @@ def main(argv=None):
                         help="Capture the serialized writer request at a local transport sink")
     parser.add_argument("--detailed-trace", action="store_true", help="Retain individual host timing intervals")
     parser.add_argument("--trace-input", type=Path, help="Retained detailed capture directory")
-    parser.add_argument("--case", help="Manifest case ID for trace-report")
+    parser.add_argument("--case", help="Manifest case ID for trace-report or isolated browser capture")
     args = parser.parse_args(argv)
     if args.detailed_trace and args.mode != "capture-context":
         parser.error("--detailed-trace requires capture-context")
@@ -1245,8 +1261,10 @@ def main(argv=None):
         from .trace_report import write_report
         write_report(args.trace_input, args.case, Path(args.output), world=manifest["world"], question=case["question"])
         return
-    if args.trace_input is not None or args.case is not None:
-        parser.error("--trace-input and --case require trace-report")
+    if args.trace_input is not None:
+        parser.error("--trace-input requires trace-report")
+    if args.case is not None and not (args.mode == "capture-context" and args.writer_transport):
+        parser.error("--case requires trace-report or capture-context --writer-transport")
     if args.mode == "report":
         immutable_save(Path(args.output), "report", report(args.manifest, oracle=args.oracle, citation_readback=args.citation_readback))
     elif args.mode == "action-report":
@@ -1254,8 +1272,9 @@ def main(argv=None):
     elif args.mode == "capture":
         capture(args.manifest, args.output)
     elif args.mode == "capture-context":
+        options = {"browser_case": args.case} if args.case is not None else {}
         capture(args.manifest, args.output, context_only=True, writer_transport=args.writer_transport,
-                detailed_trace=args.detailed_trace)
+                detailed_trace=args.detailed_trace, **options)
     elif args.mode == "writer-prepare":
         writer_prepare(args.manifest, args.output)
     elif args.mode == "context-tasting":
