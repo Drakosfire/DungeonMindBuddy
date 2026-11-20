@@ -172,8 +172,8 @@ body.surface-projection-open .plan-agent-shell {
 
 .plan-agent-bar {
   display: block;
-  --buddy-launcher-size: 3.5rem;
-  --buddy-launcher-avatar-size: 3rem;
+  --buddy-launcher-size: 108px;
+  --buddy-launcher-avatar-size: 100px;
   inline-size: var(--buddy-launcher-size);
   block-size: var(--buddy-launcher-size);
 }
