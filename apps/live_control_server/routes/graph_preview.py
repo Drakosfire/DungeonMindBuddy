@@ -323,11 +323,7 @@ def get_extraction_run_recap_projection(
     request: Request,
     response_context: Response,
 ) -> dict[str, Any]:
-    """Project exact durable recap text onto the current governed World.
-
-    An optional managed_world_id constrains the current managed World selected
-    by the caller. It never supplies native Graph authority.
-    """
+    """Retired visualization; saved source/candidate and receipt APIs remain."""
     allowed_query_names = {"managed_world_id"}
     unknown_query_names = sorted(set(request.query_params.keys()) - allowed_query_names)
     if unknown_query_names:
@@ -343,37 +339,19 @@ def get_extraction_run_recap_projection(
             detail="exact-run route accepts one managed_world_id selector",
         )
     managed_world_id = managed_world_ids[0] if managed_world_ids else None
-    from apps.live_control_server.services.historical_recap_world_projection import (
-        HistoricalRecapProjectionError,
-        build_historical_recap_world_projection,
-    )
-
     from apps.live_control_server.services import hosted_auth
     from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
 
     hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
     if hosted:
         require_saved_recap_access(request, managed_world_id or "")
-    try:
-        response = build_historical_recap_world_projection(
-            repo_root(),
-            run_id,
-            managed_world_id=managed_world_id,
-        )
-    except HistoricalRecapProjectionError as exc:
-        raise HTTPException(
-            status_code=exc.status_code,
-            detail={
-                "code": exc.code,
-                "message": str(exc),
-                "diagnostics": [item.model_dump(mode="json") for item in exc.diagnostics],
-            },
-        ) from exc
-    result = response.model_dump(mode="json", by_alias=True)
-    if hosted:
-        require_saved_recap_access(request, response.managed_world_id or "")
-        response_context.headers["Cache-Control"] = "no-store"
-    return result
+    raise HTTPException(
+        status_code=410,
+        detail={
+            "code": "exact_run_graph_retired",
+            "message": "Historical graph visualization is retired. Open the saved source or extracted candidates.",
+        },
+    )
 
 
 @router.get("/extraction-runs/{run_id}/build-context")

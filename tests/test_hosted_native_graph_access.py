@@ -5505,34 +5505,37 @@ def test_hosted_recap_semantic_decision_uses_world_owner(hosted, monkeypatch):
     assert calls == [("saved", "accepted", "hosted_dms:synthetic-owner-alpha")]
 
 
-def test_hosted_historical_recap_projection_rejects_foreign_result(hosted, monkeypatch):
+def test_hosted_historical_recap_projection_retirement_preserves_owner_and_validation(hosted, monkeypatch):
+    from application_state.source import service as source
     from apps.live_control_server.services import historical_recap_world_projection as historical
+    from apps.live_control_server.services import graph_run_registry
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads
 
-    calls = []
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("Retired projection must not load run/source/Core authority")
 
-    def project(_root, run_id, *, managed_world_id):
-        calls.append((run_id, managed_world_id))
-        return SimpleNamespace(managed_world_id="foreign", model_dump=lambda **_: {})
-
-    monkeypatch.setattr(historical, "build_historical_recap_world_projection", project)
+    monkeypatch.setattr(historical, "build_historical_recap_world_projection", forbidden)
+    monkeypatch.setattr(historical, "get_extraction_run", forbidden)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", forbidden)
+    monkeypatch.setattr(source, "get_source_markdown", forbidden)
+    monkeypatch.setattr(historical, "direct_services_from_config", forbidden)
+    monkeypatch.setattr(historical, "project_world_graph", forbidden)
+    monkeypatch.setattr(world_graph_reads, "direct_services_from_config", forbidden)
     path = "/api/live/graph-preview/extraction-runs/saved/recap-projection"
+    assert hosted.client.request("GET", path, session=None).status_code == 401
     assert hosted.client.request("GET", path).status_code == 403
     assert hosted.client.request("GET", path + "?managed_world_id=managed", session="other-session").status_code == 403
-    assert calls == []
+    assert hosted.client.request("GET", path + "?managed_world_id=foreign").status_code == 403
+    # Hosted middleware rejects malformed selectors before handler validation (local 422).
+    assert hosted.client.request("GET", path + "?managed_world_id=managed&session_id=session-99").status_code == 403
+    assert hosted.client.request("GET", path + "?managed_world_id=managed&managed_world_id=managed").status_code == 403
+    response = hosted.client.request("GET", path + "?managed_world_id=managed")
+    assert response.status_code == 410, response.text
+    assert response.json()["detail"]["code"] == "exact_run_graph_retired"
+    hosted.records["managed"] = hosted.records["managed"].model_copy(update={"owner_subject": OTHER_OWNER})
     assert hosted.client.request("GET", path + "?managed_world_id=managed").status_code == 403
-    assert calls == [("saved", "managed")]
 
-    def transfer_during_serialization(**_kwargs):
-        hosted.records["managed"] = hosted.records["managed"].model_copy(
-            update={"owner_subject": OTHER_OWNER},
-        )
-        return {"private": "Historical recap text"}
 
-    monkeypatch.setattr(historical, "build_historical_recap_world_projection", lambda *_args, **_kwargs:
-        SimpleNamespace(managed_world_id="managed", model_dump=transfer_during_serialization))
-    denied = hosted.client.request("GET", path + "?managed_world_id=managed")
-    assert denied.status_code == 403, denied.text
-    assert "Historical recap text" not in denied.text
 def test_hosted_connected_page_origin_reads_exact_saved_turn(hosted, monkeypatch):
     from unittest.mock import Mock
 
