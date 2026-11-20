@@ -196,7 +196,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         raise ValueError("Browser fixture conversation was not empty")
                     runtime = output / "runtime-artifacts"
                     env = {
-                        "PATH": os.defpath, "HOME": str(runtime), "TMPDIR": str(runtime),
+                        "PATH": os.defpath, "HOME": str(runtime), "TMPDIR": str(output.parent),
                         "DMB_BENCHMARK_BROWSER_ORIGIN": origin, "DMB_BENCHMARK_BROWSER_TOKEN": token,
                         "DMB_BENCHMARK_DOCUMENT_ID": work["object_id"], "DMB_BENCHMARK_WORLD": world,
                         "DMB_BENCHMARK_QUESTION": case["question"], "DMB_BENCHMARK_PANE_SETTLED": "1" if settled else "0",

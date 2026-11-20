@@ -1283,3 +1283,38 @@ def test_trace_report_binds_browser_clock_to_durable_turn(tmp_path, monkeypatch)
     turn.idempotency_key = _turn_idempotency_key("world", "browser-turn")
     with pytest.raises(ValueError, match="outside Send preparation"):
         trace_report.build(tmp_path, "example", world="world", question="Question")
+
+
+def test_context_capture_selects_browser_case_only_at_writer_sink(monkeypatch):
+    calls = []
+    monkeypatch.setattr(w, "capture", lambda *args, **kwargs: calls.append((args, kwargs)))
+    argv = ["capture-context", "--manifest", "pinned.json", "--output", "isolated", "--case", "D05"]
+    with pytest.raises(SystemExit):
+        w.main(argv)
+    assert not calls
+    w.main(argv + ["--writer-transport"])
+    assert calls == [(("pinned.json", "isolated"), {
+        "context_only": True, "writer_transport": True, "detailed_trace": False, "browser_case": "D05",
+    })]
+
+
+def test_browser_inputs_rejects_bundle_drift_before_replay(tmp_path):
+    from evals.buddy_benchmark.browser_capture import browser_inputs
+
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    index = bundle / "index.html"
+    index.write_text("Pinned UI")
+    inventory = tmp_path / "bundle.json"
+    inventory.write_text(json.dumps({"index.html": sha256(index.read_bytes()).hexdigest()}))
+    tape = tmp_path / "wire.json"
+    tape.write_text(json.dumps([{"method": "POST", "response_status": 200,
+                                "request_hex": "7b7d", "response_hex": "7b7d"}]))
+    def pin(path):
+        return {"path": path.name, "sha256": sha256(path.read_bytes()).hexdigest()}
+    manifest = {"browser_capture": {"bundle": bundle.name, "bundle_inventory": pin(inventory),
+                                    "jev_wire": pin(tape)}}
+    assert browser_inputs(manifest, tmp_path)[0] == bundle
+    index.write_text("Changed UI")
+    with pytest.raises(ValueError, match="bundle differs"):
+        browser_inputs(manifest, tmp_path)
