@@ -55,3 +55,11 @@ MIND also owns removal of the graph-only reload button in
 GraphReviewExtractPromoteSheet.tsx. It called the same retired projection
 through the committed receipt state. Receipt adoption, adoption errors
 and exact confirmation retry stay in scope for regression verification.
+
+The full UI run exposed two downstream test expectations for the retired
+API. MIND owns BuildRecapPublication.test.tsx and
+WorldGraphRecapProjection.test.tsx for these updates. Preserve exact-confirm
+replay and verify the committed revision displayed in Build. Verify the
+historical recap object request uses its supplied pin when the legacy lens
+is unavailable. The existing Graph Lens test lease covers the transient
+channel assertion surfaced by the same run.
