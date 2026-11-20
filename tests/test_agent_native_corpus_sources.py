@@ -639,3 +639,35 @@ def test_actual_controller_full_document_offers_keep_distinctive_query_matches(s
     reads = selected_body_reads(a.fence.turn.graph_context_execution)
     assert len(reads) == 2
     assert all(read.excerpt.selector_policy == 'native_full_document_v1' for read in reads)
+
+
+@pytest.mark.parametrize("family", ["plan-v1", "plan-v2", "build"])
+@pytest.mark.parametrize("covered", [False, True])
+def test_batch_coverage_preserves_exact_native_plan_passage_requirement(monkeypatch, family, covered):
+    from application_state.agent_conversation import native_corpus, plan_jev_decision
+    from application_state.agent_conversation.native_execution import NativePlanActionV2
+    from apps.live_control_server.services.corpus_source_navigation import NativeBodyNavigation
+    from tests.test_surface_native_execution import component
+
+    _, record = component("build" if family == "build" else "plan", unavailable=True)
+    policy = record.policy
+    if family == "plan-v2":
+        previous = policy.action.model_dump(mode="python", by_alias=True)
+        previous.pop("action_version", None)
+        action = NativePlanActionV2(**previous, related_page_catalog=())
+        policy = type(policy).model_validate(policy.model_dump(mode="python") | {"action": action})
+    execution = SimpleNamespace(policy=policy)
+    turn = SimpleNamespace(graph_context_execution=execution)
+    selection = object()
+    monkeypatch.setattr(plan_jev_decision, "current_selection", lambda actual: selection if actual is turn else None)
+    calls = []
+    def covering(actual_execution, actual_selection, handle, *, require_passage):
+        assert actual_execution is execution and actual_selection is selection
+        assert handle == "native-body:exact"
+        calls.append(require_passage)
+        return (uuid4(),) if covered else ()
+    monkeypatch.setattr(native_corpus, "selected_batch_covering_reads", covering)
+    navigator = object.__new__(NativeBodyNavigation)
+    navigator.adapter = SimpleNamespace(fence=SimpleNamespace(turn=turn))
+    assert navigator._fulfilled_in_current_selection("native-body:exact") is covered
+    assert calls == [family == "plan-v2"]

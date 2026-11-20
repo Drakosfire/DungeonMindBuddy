@@ -23,9 +23,9 @@ Use family-safe action access; no broad exception catch or fallback authority.
    policy-action access in _fulfilled_in_current_selection; no import movement
    or selected_batch_covering_reads algorithm change.
 3. tests/test_agent_native_corpus_sources.py: focused valid-policy classification
-   regression plus existing actual SDK legacy path; update repository test lambda
-   to accept/check verification_cache, matching the unchanged production interface.
-   Preserve HTTP/auth/exact citation/inclusion/reload assertions.
+   regression plus existing actual SDK legacy path. Preserve all original tests.
+   HTTP fixture modernization is a separately queued test correction, not runtime
+   behavior for this optional-action guard.
 
 No Core/WK/pin/model/DTO/source-admission/migration/UI/provider/deployment change.
 No source_origin or old heading-fixture correction here; no downgrade guard bypass.
@@ -48,7 +48,9 @@ and branches remain unmerged/unmodified; later adoption requires rebase/review.
 - Real native policy variants select strict passage coverage only for exact
   NativePlanActionV2; current Plan V2 writer/selection regressions remain intact.
   Correspondence/selection authority checks are not stubbed in end-to-end proof.
-- Whole affected source-agent test file, native writer/selection fixtures and
+- Run the whole affected source-agent file and retain its unrelated HTTP fixture
+  failures honestly; require the actual legacy SDK/citation path and new policy
+  regressions to pass. Current native writer/selection fixtures and
   affected retained navigation tests. Isolated real APP PostgreSQL fixtures,
   in-memory Core where applicable, zero required skips.
 - Installed Core219/WK14 before/after audited unchanged in existing qualified
@@ -71,3 +73,17 @@ commits before any specifically authorized cleanup. No standing manual deletion.
 Still false:4236 backend origin/migration proof and import-isolation acceptance;
 saved-section/whole-server quarantine, public legacy retirement, serving rollout,
 later-write-safe rollback and deployed V11 acceptance. Full cutover goal stays active.
+
+## Verification scope checkpoint
+
+The guard cleared the legacy writer crash. Temporary HTTP fake adaptations then
+exposed a different test migration: current Plan emits prose and requires selected
+writer passages, while the old HTTP test expects full-document writer evidence.
+MIND removes those uncommitted fake adaptations from this runtime prerequisite;
+the original HTTP tests are byte-identical to base. Their known verification_cache
+fixture failures remain red here and must be fixed in a separate bounded fixture
+correction before queued4236 can be accepted. No current Plan passage requirement
+is relaxed and no original HTTP assertion is deleted. Original working logs remain.
+This split preserves the full goal and avoids folding an independently reviewable
+current-Plan fixture migration into a retained-policy guard. Independent review
+must assess this explicit proof boundary; no full suite/release claim is made.
