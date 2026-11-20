@@ -1236,7 +1236,7 @@ def test_trace_report_counts_overlapping_spans_once(tmp_path, monkeypatch):
             {"name": name, "start_monotonic_ns": start * 1_000_000,
              "end_monotonic_ns": end * 1_000_000}
             for name, start, end in (("runtime_dispatch", 1, 31),
-                                     ("read", 1, 11), ("bind <evidence>", 6, 21))
+                                     ("read", 1, 11), ("bind <evidence>", 6, 21), ("dispatch_point", 16, 16))
         ],
     })
     monkeypatch.setattr(trace_report, "validate_context_packet", lambda *args: {
@@ -1249,6 +1249,13 @@ def test_trace_report_counts_overlapping_spans_once(tmp_path, monkeypatch):
         "read": 5, "bind <evidence> / read": 5, "bind <evidence>": 10, "Unattributed": 10,
     }
     assert report["observed_duration_percent"] == pytest.approx(200 / 3)
+    operations = {row["name"]: row for row in report["operations"]}
+    assert operations["read"] == {"name": "read", "calls": 1, "markers": 0, "inclusive_ms": 10,
+                                  "max_call_ms": 10, "exclusive_ms": 5, "wrapper_excluded": False}
+    assert operations["dispatch_point"]["calls"] == 0
+    assert operations["dispatch_point"]["markers"] == 1
+    assert operations["runtime_dispatch"]["wrapper_excluded"] is True
+    assert operations["runtime_dispatch"]["exclusive_ms"] == 0
     assert report["start_boundary"] == "request_start"
     assert report["end_boundary"] == "writer_ready"
     rendered = trace_report.render(report)
