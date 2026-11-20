@@ -361,7 +361,7 @@ export function useWorkspaceDocumentAuthoring(
       && (current.page_presentation !== undefined || hasPresentation(tiptapJson));
     let projected: {markdown: string; presentation: PagePresentation | null} | undefined;
     let projectionError: unknown;
-    try { if (composing) projected = projectPresentation(tiptapJson, current.exported_markdown, current.page_presentation_pending ? markdownToTiptapDoc(current.exported_markdown).doc : current.tiptap_json as JSONContent); }
+    try { if (composing) projected = projectPresentation(tiptapJson, current.exported_markdown, current.page_presentation_pending ? markdownToTiptapDoc(current.exported_markdown).doc : current.tiptap_json as JSONContent, current.page_presentation); }
     catch (error) { projectionError = error; }
     const serializationUnsafe = semanticMarkdownSerializationDiagnostics(flattenPresentation(tiptapJson)).length > 0;
     const projectionPending = Boolean(projectionError) && !serializationUnsafe;
@@ -719,7 +719,7 @@ export function useWorkspaceDocumentAuthoring(
     try {
       if (args.kind === "worldbuilding_source" && args.surface === "build"
         && (localState.page_presentation !== undefined || hasPresentation(tiptapJson))) {
-        projected = projectPresentation(tiptapJson, localState.exported_markdown, localState.page_presentation_pending ? markdownToTiptapDoc(localState.exported_markdown).doc : localState.tiptap_json as JSONContent);
+        projected = projectPresentation(tiptapJson, localState.exported_markdown, localState.page_presentation_pending ? markdownToTiptapDoc(localState.exported_markdown).doc : localState.tiptap_json as JSONContent, localState.page_presentation);
       }
     } catch (error) {
       dispatch({type: "SAVE_FAILED", message: error instanceof Error ? error.message : "Layout cannot be saved safely. Your draft was kept."});

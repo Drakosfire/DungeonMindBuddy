@@ -156,18 +156,31 @@ export function hydratePresentation(markdown: string, presentation: PagePresenta
   return {type:"doc",content};
 }
 
-export function projectPresentation(doc: JSONContent, originalMarkdown: string, originalDoc: JSONContent): {markdown: string; presentation: PagePresentation | null} {
+export function projectPresentation(doc: JSONContent, originalMarkdown: string, originalDoc: JSONContent, existingPresentation?: PagePresentation | null): {markdown: string; presentation: PagePresentation | null} {
   const flat=flattenPresentation(doc), originalFlat=flattenPresentation(originalDoc);
   if(semanticMarkdownSerializationDiagnostics(flat).length) return fail("unsupported editor structure");
   const unchanged=presentationCanonicalJson(flat)===presentationCanonicalJson(originalFlat)
     || (semanticMarkdownSerializationDiagnostics(originalFlat).length === 0
       && tiptapJsonToSemanticMarkdown(flat) === tiptapJsonToSemanticMarkdown(originalFlat));
   const markdown=unchanged ? originalMarkdown : preserveLeadingYamlFrontmatter(originalMarkdown,tiptapJsonToSemanticMarkdown(flat));
-  if(!hasPresentation(doc)) return {markdown,presentation:null};
+  const retainIdentities = existingPresentation != null && existingPresentation.items.every(item => item.kind === 'block');
+  if (retainIdentities) hydratePresentation(originalMarkdown, existingPresentation);
+  if(!hasPresentation(doc) && !retainIdentities) return {markdown,presentation:null};
   const admitted=admittedPresentationBlocks(markdown);
   if(admitted.length !== flat.content?.length) return fail("edited block boundaries cannot be preserved");
   const used=new Set<string>();let serial=0,cursor=0;
-  const identity=(candidate:unknown,prefix:string):string => {if(typeof candidate==='string' && identifier.test(candidate) && !used.has(candidate)){used.add(candidate);return candidate;}let id:string;do{id=`${prefix}-${serial++}`;}while(used.has(id));used.add(id);return id;};
+  // New blocks must not consume an identity belonging to a later existing block.
+  const reserved = new Set<string>(retainIdentities ? existingPresentation!.items.map(item => item.id) : []);
+  const reserve = (node: JSONContent) => {
+    if (typeof node.attrs?.pageBlockId === 'string') reserved.add(node.attrs.pageBlockId);
+    node.content?.forEach(reserve);
+  };
+  if (retainIdentities) reserve(doc);
+  const identity=(candidate:unknown,prefix:string):string => {
+    if(typeof candidate==='string' && identifier.test(candidate) && !used.has(candidate)){used.add(candidate);return candidate;}
+    if(retainIdentities && candidate != null) return fail('duplicate or invalid retained block identity');
+    let id:string;do{id=`${prefix}-${serial++}`;}while(used.has(id) || reserved.has(id));used.add(id);return id;
+  };
   const bind=(node:JSONContent):PageBlockBinding=>{const b=admitted[cursor++];if(!b) return fail("missing edited block");return {kind:"block",id:identity(node.attrs?.pageBlockId,"block"),byte_start:b.byte_start,byte_end:b.byte_end,sha256:b.sha256};};
   const block=(node:JSONContent):PageSlotBlock=>{
     if(node.type!=="pageImageText")return bind(node);
