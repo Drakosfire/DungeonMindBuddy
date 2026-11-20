@@ -84,10 +84,14 @@ def test_release_lifecycle_isolated_and_revocation(application_state_dsn):
     public_id, version = _promote(world_id=world, subject="owner", release_id=release_id,
                                                 digest=digest, expected_version=0)
     assert guest_release.list_candidates(world_id=world, subject="owner") == []
+    assert guest_release.list_published(world_id=world, subject="owner")[0] | {"published_at": "time"} == {
+        "release_id": str(release_id), "published_at": "time", "current": True, "reviewable": True}
+    assert guest_release.review(world_id=world, subject="owner", release_id=release_id)[1] == digest
     assert guest_release.pointer_status(world_id=world, subject="owner") == (public_id, version)
     assert guest_release.public_manifest(public_id) == (release_id, manifest)
     assert guest_release.public_asset(public_id, release_id, asset_id) == ("image/png", b"synthetic")
     guest_release.revoke(world_id=world, subject="owner", release_id=release_id)
+    assert guest_release.list_published(world_id=world, subject="owner") == []
     with pytest.raises(ApplicationStateNotFoundError):
         guest_release.public_manifest(public_id)
     with pytest.raises(ApplicationStateNotFoundError):
@@ -111,6 +115,23 @@ def test_transfer_away_and_back_invalidates_candidate(application_state_dsn):
                               digest=digest, expected_version=0)
 
 
+def test_new_owner_can_revoke_current_copy_but_cannot_restore_old_approval(application_state_dsn):
+    world = create_world(name="Transferred release", owner_subject="owner").record.world_id
+    graph = _bind(application_state_dsn, world)
+    release_id, digest = guest_release.stage(world_id=world, subject="owner", expected_owner_generation=0,
+        manifest={"assets": []}, assets=[], **graph)
+    public_id, version = _promote(world_id=world, subject="owner", release_id=release_id, digest=digest, expected_version=0)
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE workspace.managed_world SET owner_subject='new-owner' WHERE world_id=%s", (world,))
+    history = guest_release.list_published(world_id=world, subject="new-owner")
+    assert len(history) == 1 and history[0]["current"] and not history[0]["reviewable"]
+    with pytest.raises(ApplicationStateNotFoundError):
+        guest_release.restore(world_id=world, subject="new-owner", release_id=release_id, expected_version=version)
+    guest_release.revoke(world_id=world, subject="new-owner", release_id=release_id)
+    with pytest.raises(ApplicationStateNotFoundError):
+        guest_release.public_manifest(public_id)
+
+
 def test_asset_request_never_crosses_pointer_promotion(application_state_dsn):
     world = create_world(name="Pointer Fixture", owner_subject="owner").record.world_id
     graph = _bind(application_state_dsn, world)
@@ -128,6 +149,13 @@ def test_asset_request_never_crosses_pointer_promotion(application_state_dsn):
     second, second_digest = stage(b"second")
     _promote(world_id=world, subject="owner", release_id=second,
                           digest=second_digest, expected_version=version)
+    history = {item["release_id"]: item for item in guest_release.list_published(world_id=world, subject="owner")}
+    assert not history[str(first)]["current"] and history[str(second)]["current"]
+    with pytest.raises(ApplicationStateConflictError):
+        guest_release.restore(world_id=world, subject="owner", release_id=first, expected_version=version)
+    guest_release.restore(world_id=world, subject="owner", release_id=first, expected_version=version + 1)
+    assert guest_release.public_asset(public_id, first, asset_id) == ("image/png", b"first")
+    guest_release.restore(world_id=world, subject="owner", release_id=second, expected_version=version + 2)
     with pytest.raises(ApplicationStateNotFoundError):
         guest_release.public_asset(public_id, first, asset_id)
     assert guest_release.public_asset(public_id, second, asset_id) == ("image/png", b"second")

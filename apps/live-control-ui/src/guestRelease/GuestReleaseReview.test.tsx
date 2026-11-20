@@ -12,6 +12,7 @@ it("shows the exact staged copy and requires explicit approval before publicatio
     let body: unknown;
     if (init?.method === "POST") body = { public_id: "public", version: 1 };
     else if (url.endsWith("/candidates")) body = { candidates: [{ release_id: "copy", created_at: "2026-11-20T00:00:00Z" }] };
+    else if (url.endsWith("/published")) body = { releases: [] };
     else if (url.endsWith("/status")) body = { public_id: null, version: 0 };
     else body = { digest, source_visibility: { source: "internal" }, manifest: {
       nodes: [], graph: { nodes: [{ id: "n", label: "Sizzek", kind: "character", name_citations: ["source"],
@@ -31,7 +32,7 @@ it("shows the exact staged copy and requires explicit approval before publicatio
   expect(publish).toBeDisabled();
   await user.click(screen.getByRole("checkbox", { name: /I reviewed this copy/ }));
   await user.click(publish);
-  expect(await screen.findByRole("status")).toHaveTextContent("Guest delivery is not yet available");
+  expect(await screen.findByRole("status")).toHaveTextContent("Guest page delivery is not yet available");
   const posted = fetchMock.mock.calls.find(([, init]) => init?.method === "POST");
   expect(JSON.parse(String(posted?.[1]?.body))).toMatchObject({ digest, expected_version: 0 });
 });
@@ -40,6 +41,7 @@ it("does not permit approval until the selected image has loaded", async () => {
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     const body = url.endsWith("/candidates") ? { candidates: [{ release_id: "copy", created_at: "2026-11-20T00:00:00Z" }] }
+      : url.endsWith("/published") ? { releases: [] }
       : url.endsWith("/status") ? { version: 0 }
       : { digest: "a".repeat(64), source_visibility: {}, manifest: { graph: { nodes: [], edges: [] }, sources: [], assets: [{ id: "image" }] } };
     return new Response(JSON.stringify(body), { status: 200 });
@@ -55,4 +57,32 @@ it("does not permit approval until the selected image has loaded", async () => {
   expect(approval).toBeEnabled();
   fireEvent.error(image);
   expect(approval).toBeDisabled();
+});
+
+it("requires confirmation to revoke and uses the observed pointer version to restore", async () => {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith("/revoke")) return new Response(null, { status: 204 });
+    const body = init?.method === "POST" ? { public_id: "public", version: 5 }
+      : url.endsWith("/candidates") ? { candidates: [] }
+      : url.endsWith("/published") ? { releases: [{ release_id: "earlier", published_at: "2026-11-20T00:00:00Z", current: false, reviewable: true }] }
+      : url.endsWith("/status") ? { version: 4 }
+      : { digest: "a".repeat(64), source_visibility: {}, manifest: { graph: { nodes: [], edges: [] }, sources: [], assets: [] } };
+    return new Response(JSON.stringify(body), { status: 200 });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const user = userEvent.setup();
+  render(<GuestReleaseReview worldId="world" />);
+  await user.click(screen.getByRole("button", { name: "Load prepared copies" }));
+  await user.click(await screen.findByRole("button", { name: "Review earlier copy" }));
+  await user.click(await screen.findByRole("checkbox", { name: /I reviewed this copy/ }));
+  await user.click(screen.getByRole("button", { name: "Restore this copy" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Copy restored");
+  const restored = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/restore"));
+  expect(JSON.parse(String(restored?.[1]?.body))).toEqual({ expected_version: 4 });
+  await user.click(screen.getByRole("button", { name: "Withdraw this copy" }));
+  expect(screen.getByRole("button", { name: "Confirm withdrawal" })).toBeDisabled();
+  await user.click(screen.getByRole("checkbox", { name: "I want to revoke this copy." }));
+  await user.click(screen.getByRole("button", { name: "Confirm withdrawal" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Copy revoked");
 });

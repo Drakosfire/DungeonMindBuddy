@@ -104,8 +104,11 @@ currently rejected, not converted into facts. This is not yet a usable owner
 selection interface, and preparation remains disabled. An initial owner review
 surface lists owned candidates, shows the Graph, excerpt visibility and selected
 images, and requires an explicit digest-bound approval. It is hidden unless
-`VITE_GUEST_RELEASE_REVIEW=1`; the backend still defaults off. It cannot yet
-create a candidate, revoke one, or deliver a guest link. Browser and exact-head
+`VITE_GUEST_RELEASE_REVIEW=1`; the backend still defaults off. The owner can
+inspect earlier approved copies, restore with pointer-version comparison, or
+confirm permanent withdrawal. A new owner can withdraw a current copy approved
+under an earlier ownership but cannot restore it. It cannot yet create a
+candidate or deliver a guest link. Browser and exact-head
 qualification remain outstanding. A real Core
 fixture confirms unknown scope is common. A synthetic integration fixture now
 joins a committed APP page to a private Core source, stages and reviews two
@@ -122,7 +125,7 @@ and `DMB_GUEST_RELEASE_PUBLIC_ENABLED=1`. The hosted exception is restricted to
 exact canonical UUID GET paths with no query or body; local loopback checks are
 unchanged. Mounted authorization tests and a synthetic Core/APP test exercise
 signed-out reads and revocation. This is not a guest page or a release gate:
-candidate selection, usable revocation, first-World, browser, exact-head and
+candidate selection, first-World, browser, exact-head and
 independent security review evidence are still required before either switch
 can be enabled in deployment. #3824 remains open at
 `76c31187f3e9badecbc403f2d9c943994c5f5f9c` as of this change.

@@ -110,7 +110,7 @@ def review(*, world_id: str, subject: str, release_id: UUID) -> tuple[dict, str]
         row = conn.execute(
             "SELECT manifest,manifest_sha256 FROM workspace.guest_release "
             "WHERE release_id=%s AND world_id=%s AND owner_subject=%s "
-            "AND owner_generation=%s AND state='candidate'",
+            "AND owner_generation=%s AND state IN ('candidate','published')",
             (release_id, world_id, subject, generation),
         ).fetchone()
         if row is None:
@@ -133,13 +133,31 @@ def list_candidates(*, world_id: str, subject: str) -> list[dict]:
                 for release_id, created_at in rows]
 
 
+def list_published(*, world_id: str, subject: str) -> list[dict]:
+    """List restorable copies plus the current copy the owner may revoke."""
+    with unit_of_work(_dsn()) as conn:
+        generation = _owner(conn, world_id, subject)
+        rows = conn.execute(
+            "SELECT r.release_id,r.published_at,(p.release_id=r.release_id) AS current,"
+            "(r.owner_subject=%s AND r.owner_generation=%s) AS reviewable "
+            "FROM workspace.guest_release r LEFT JOIN workspace.guest_release_pointer p ON p.world_id=r.world_id "
+            "WHERE r.world_id=%s AND r.state='published' AND "
+            "((r.owner_subject=%s AND r.owner_generation=%s) OR p.release_id=r.release_id) "
+            "ORDER BY r.published_at DESC,r.release_id DESC LIMIT 100",
+            (subject, generation, world_id, subject, generation),
+        ).fetchall()
+        return [{"release_id": str(release_id), "published_at": published_at.isoformat(),
+                 "current": bool(current), "reviewable": bool(reviewable)}
+                for release_id, published_at, current, reviewable in rows]
+
+
 def review_source_visibility(*, world_id: str, subject: str, release_id: UUID) -> dict[str, str]:
     """Owner-only release-local labels for explicit private-copy review."""
     with unit_of_work(_dsn()) as conn:
         generation = _owner(conn, world_id, subject)
         candidate = conn.execute(
             "SELECT 1 FROM workspace.guest_release WHERE release_id=%s AND world_id=%s "
-            "AND owner_subject=%s AND owner_generation=%s AND state='candidate'",
+            "AND owner_subject=%s AND owner_generation=%s AND state IN ('candidate','published')",
             (release_id, world_id, subject, generation),
         ).fetchone()
         if candidate is None:
@@ -160,7 +178,7 @@ def review_asset(*, world_id: str, subject: str, release_id: UUID,
             "SELECT a.mime_type,a.content,a.content_sha256 "
             "FROM workspace.guest_release r JOIN workspace.guest_release_asset a "
             "ON a.release_id=r.release_id WHERE r.release_id=%s AND r.world_id=%s "
-            "AND r.owner_subject=%s AND r.owner_generation=%s AND r.state='candidate' AND a.asset_id=%s",
+            "AND r.owner_subject=%s AND r.owner_generation=%s AND r.state IN ('candidate','published') AND a.asset_id=%s",
             (release_id, world_id, subject, generation, asset_id),
         ).fetchone()
         if row is None:

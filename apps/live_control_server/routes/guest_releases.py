@@ -97,6 +97,16 @@ def list_candidates(world_id: str, request: Request, response: Response):
         raise _error(exc) from exc
 
 
+@router.get("/published")
+def list_published(world_id: str, request: Request, response: Response):
+    subject = _owner(request, world_id)
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return {"releases": guest_release.list_published(world_id=world_id, subject=subject)}
+    except ApplicationStateError as exc:
+        raise _error(exc) from exc
+
+
 @router.get("/candidates/{release_id}")
 def review_release(world_id: str, release_id: UUID, request: Request, response: Response):
     subject = _owner(request, world_id)
