@@ -1860,105 +1860,12 @@ def confirm(
             ],
         )
 
-    _assert_current_publication_target(request.review_package)
-    effect = (request.review_package or {}).get("effect") or {}
-    recap_context = effect.get(_RECAP_CONTEXT_KEY) if isinstance(effect, dict) else None
-    if isinstance(recap_context, dict):
-        managed_world_id = str(recap_context.get("managed_world_id") or "")
-        campaign_id = str(recap_context.get("campaign_id") or "")
-        _assert_current_recap_ingest_context(
-            recap_context,
-            managed_world_id=managed_world_id,
-            campaign_id=campaign_id,
-        )
-
-
-    normalized_assertion_ids = tuple(request.assertion_ids)
-    world_root = world_graph_root()
-
-
     from apps.live_control_server import config as _config
-
-
-    if (
-        _config.world_graph_authority_mode()
-        == _config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
-    ):
-        from apps.live_control_server.integrations.dungeonmind import (
-            world_graph_writes,
-        )
-
-
-        try:
-            from apps.live_control_server.services.candidate_graph_admission import (
-                confirm_candidate_graph_admission,
-            )
-
-            try:
-                data = load_bound_extraction_run(request.review_package, root=_artifact_root())
-            except PromotableIngestRunError as exc:
-                raise _promotable_run_error(exc) from exc
-            if _is_worldbuilding_inspect_only(data.run):
-                raise _worldbuilding_inspect_only_error()
-            candidate_payload = json.loads(data.candidate_bytes)
-            _assert_candidate_scope_matches_run(candidate_payload,
-                campaign_id=data.run.campaign_id or "", session_id=data.run.session_id or "")
-            _assert_and_project_candidate_evidence(
-                candidate_payload=candidate_payload, source_prose=data.source_bytes.decode("utf-8"),
-                source_artifact_id=data.run.source_artifact_id, span_index=data.span_index,
-            )
-
-            def _governed_confirm():
-                _assert_recap_semantics_at_confirm(request.review_package)
-                _assert_current_publication_target(request.review_package)
-                return world_graph_writes.confirm_extract_promote_via_dungeonmind(
-                    request,
-                    database_url=_config.world_graph_authority_database_url() or "",
-                    confirming_principal=SERVER_CONFIRMING_PRINCIPAL,
-                    assertion_ids=normalized_assertion_ids,
-                    repo_root=_artifact_root(),
-                    candidate_graph=candidate_payload,
-                )
-
-            payload = confirm_candidate_graph_admission(
-                review_package=request.review_package,
-                candidate_graph=candidate_payload,
-                governed_confirm=_governed_confirm,
-            )
-        except CandidateGraphMappingError as exc:
-            raise ExtractPromoteError(
-                str(exc),
-                code="candidate_binding_invalid",
-                status_code=409,
-                diagnostics=[_diagnostic("candidate_binding_invalid", str(exc))],
-            ) from None
-        except world_graph_writes.WorldGraphWriteError as exc:
-            raise ExtractPromoteError(
-                str(exc),
-                code=exc.code,
-                status_code=exc.status_code,
-                diagnostics=[_diagnostic(exc.code, str(exc))],
-            ) from None
-        return _build_confirm_receipt(
-            request=request,
-            normalized_assertion_ids=normalized_assertion_ids,
-            result_ok=True,
-            payload=payload,
-            world_root=world_root,
-        )
-
-
-    raise ExtractPromoteError(
-        "Buddy filesystem extract-promote confirm is retired; DungeonMind authority is required",
-        code="authority_unavailable",
-        status_code=409,
-        diagnostics=[
-            _diagnostic(
-                "authority_unavailable",
-                "Buddy filesystem extract-promote confirm is retired",
-            )
-        ],
-    )
+    if _config.world_graph_authority_mode() != _config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND:
+        raise ExtractPromoteError("Historical extract requires DungeonMind authority; retain the request.",
+            code="authority_unavailable", status_code=409)
+    from apps.live_control_server.integrations.dungeonmind.historical_extract_recovery import recover_original_confirmation
+    return recover_original_confirmation(request)
 
 
 def prepare_first_world(

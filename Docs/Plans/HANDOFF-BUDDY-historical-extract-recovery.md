@@ -71,13 +71,17 @@ explicit selected source-local assertions, original identity-ledger/source-local
 basis and complete source_admission. Version2 or version3 with exactly one slice
 may qualify; predicates, not version ordering, choose support. Validate canonical
 candidate-admission/source/World/campaign coordinates carried in the effect.
-The effect's world_campaign_ingest_context/semantic commitments remain part of
-complete correspondence; never re-query mutable APP context. If original required
+The effect's world_campaign_ingest_context is explicitly supported as retained
+historical coordinates matching target, campaign scope and exact parent; its
+complete bytes stay terminal-bound. This does not renew current membership or
+semantic acceptance. Semantic-corrected children are deferred as a separate
+recipe. Never re-query mutable APP context. If original required
 coordinates are unavailable, retain the packet and refuse unsupported history.
 
 Defer/refuse multi-slice standing-context composition, reviewed-corpus/canonical
 identity binding, guarded review, source-proven endpoints, Recap observations,
-independent semantic_binding/reviewed-extract and pre-source-local/unknown recipes.
+Recap semantic-correction disposition carriers, independent semantic_binding/
+reviewed-extract and pre-source-local/unknown recipes.
 These need their own immutable proof matrices. Their refusal cannot fall back to
 fresh publication, discard submitted/unknown state or count as completed recovery.
 Keep the independent reviewed-extract function behavior outside this write lease;
@@ -94,8 +98,12 @@ accepted/rejected/diagnostics and identity outcomes completely.
 
 Use only original source_admission for artifact/Buddy-token -> exact Core revision
 mapping, locator and provenance; no current artifact status/domain/body/catalog
-scan or guess an equivalent ID. For this Recap recipe source domain must be proved
-by retained rows/coordinates; missing facts refuse support. If needed, exact
+scan or guess an equivalent ID. For this Recap recipe construct the expected domain from retained rows/coordinates,
+then prove complete correspondence with the original committed review. This proves
+historical publication correspondence, not renewed source-domain/admission
+authority. The real original admission must independently classify the fixture as
+SESSION_RECAP; a non-Recap control must be refused before publication. Missing
+retained facts refuse support. If needed, exact
 immutable SourceRevision metadata may be read by its retained ID, but its use must
 be explicit and bounded. Historical mapping uses span in locator and admitted
 revision locator in uri, not Worldbuilding typedV3 evidence. Preserve exact byte
@@ -159,17 +167,55 @@ cleanup follow-up must check active processes/mounts/dirty data/unique commits a
 specific deletion authorization. No standing manual deletion permission.
 
 
-## Proof-first checkpoint
+## Implementation checkpoint — frozen qualification pending
 
 Independent Hubble readiness PASS on pinned2b52aabb530c91db7b1b87fd9c761627caf8a714;
 this is design readiness, not source/evidence acceptance. Draft PR4232 is open.
-Pure packet/selection integrity groundwork is implemented without route wiring.
-It validates original proposal/source-local/ledger/admission/target consistency and
-derives the historical selection operation, explicitly without claiming that an
-unkeyed digest authenticates history. Real-producer tests exercise empty/foreign/
-duplicate selections, changed effect before/after public digest recomputation and
-malformed ledger classification. Complete correspondence, Recap-domain proof,
-evidence mapping, reader composition, binding fences, route retirement andSQL
-remain pending. No current runtime behavior changed at this checkpoint.
-Retain packet-working-1 and owning-groundwork-1 failures: canonical target-key
-mistake and ledger validation order, corrected before passing qualification.
+MIND adopted the explicit historical campaign/semantic and domain interpretation
+above after independent Aristotle WIP critique; no new path/capability/owner.
+
+Complete original candidate/review derivation, bare terminal/parent/immutable-source
+readers, typed failures, current/late target fences and original receipt shaping
+are implemented. Classic service confirm is receipt-only; classic prepare returns
+410 after explicit target admission. Hosted403 remains unchanged through real
+middleware. Separate reviewed-extract helpers remain untouched and pending later.
+
+Working diagnostics: wired58pass including5SQL cases; broad owning/candidate/
+reviewed-extract preservation98pass1skip before final test additions. The skip
+requires a distinct unused dmb_reviewed_extract_test_ database, not a general
+service. Final qualification will create/migrate/zero-client-drop/verify absence
+of its own fixture rather than use shared/operator data. Subsequent focused
+closure15pass and hosted2pass include V3-single-slice, actual Core guardedV2 record
+refusal, explicit semantic correction/reviewed-extract deferral, coherent evidence
+ordering negatives, source-local edges/aliases, partial selection and explicit
+rejected-attribute/multi-span public-sealer recipes. Rejected recipes use the
+original sealer with Core's absent-attribute-predicate shape; no mounted rejected
+UI preparation claim. Changed helper/service/owning tests Ruff and diff checks pass;
+route's unrelated native_graph_gm_dependency F401 remains inherited.
+
+Real SQL positives execute actual source admission and public ordinary publication
+at the repository-bootstrap seam (not the full former mounted prepare pipeline),
+advance a descendant, withdraw the catalog source consistently, remove the exact
+fixture body/candidate files, then call real service confirm twice with fresh bare
+readers. Full receipt parity and all APP/Core row counts/hashes stay unchanged.
+Missing receipt/corrupt child refuse. Actual admitted artifact domain is asserted
+SESSION_RECAP. A non-Recap original artifact is refused before admission with zero
+mutation; no impossible non-Recap historical publication is fabricated. A valid
+Core source-revision model substituted with the wrong ID also fails closed.
+Run/Page/current body/catalog/head/finalize/publish accesses are tripwired.
+
+Evidence ownerMIND: task scratch/v10-historical-extract-recovery. Retain initial
+packet-key/ledger-order failures; owning-reconstruction-1 used an unmapped edge
+fixture, corrected to the genuinely admitted located_in predicate. sql-working-2
+recorded original non-Recap admission refusal, then the control was corrected to
+assert that owning boundary. recipe-working-1 rejected attribute predicates were
+invalid under the original Core contract, corrected in public-sealer fixture.
+boundary-working-1 used the wrong expected denial-code spelling; canonical existing
+constant is now used. No production invariant was weakened for those corrections.
+The tail command after owning-preservation-working-1 used a misspelled output path;
+XML/log establish98pass1skip, but this diagnostic is not qualifying exact-head proof.
+
+Final exact-source serial backend contracts, complete dependency byte audits,
+SQL lifecycle/independent absence, official hosted/build/canonical verifier,
+independent cumulative acceptance and expected-head merge remain pending. No
+serving change, full cutover or aggregate release-green claim.
