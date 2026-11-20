@@ -11,12 +11,12 @@ Preserve an existing wrapper-free all-block PagePresentation through ordinary
 frontend draft persistence and Save. Do not enroll a sidecar-free page, expose
 another Save owner or enable agent dispatch.
 
-Parent: PR #4243, exact head `6da4b530aa2fdefc41ca281b4a3fb6e05d827eeb`.
+Parent: PR #4243, reviewed head `6da4b530aa2fdefc41ca281b4a3fb6e05d827eeb`,
+merged as `08d23da86a079121b7b31812e93db1857df17864` after independent cycle-1 PASS.
 Branch: `codex/contextual-layout-save-retention` in
 `/home/drakosfire/Projects/.codex/bf5b/DungeonMindBuddy`.
-Merge order: #4243, then this successor after rebasing onto its merged result
-and verifying the integrated exact head. The predecessor is open and unreviewed;
-do not record it as merged or complete.
+Merge order: #4243, then this successor. The successor was rebased onto the
+parent's actual merged result; verify and review its corrected integrated head.
 
 Expected exclusive write lease: this handoff and these four frontend files:
 `tiptap/pageComposer/presentation.ts`, its `presentation.test.ts`,
@@ -25,6 +25,8 @@ Expected exclusive write lease: this handoff and these four frontend files:
 `apps/live-control-ui/src/`. Current filename audit checked 62 returned open PRs
 and found no overlaps. No Plan owner, BuildSurfaceShell, backend, schema,
 lockfile, shared runtime, real data or provider changes.
+The consuming lease also includes truthful predecessor settlement in
+`HANDOFF-LAYOUT-plain-page-save-safety.md` now that its actual merge is known.
 
 ## Failure critique and validation
 
@@ -73,3 +75,24 @@ mismatch enters conflict and retains the draft. The new owning-hook regression
 requires this refusal and unchanged local base/IDs. The earlier queued verifier
 was explicitly cancelled while still awaiting the resource lock; it is not
 passing evidence. Verify the corrected full commit, not the earlier head.
+
+## Independent review cycle 1 — enrollment transition HOLD
+
+Independent review passed #4243 at its exact reviewed head and held this PR at
+`e40de90b65dd4f8f63602456bd7e340c676c2fdb` for one P2 finding: a committed
+identity-only page could lose its local retention signal when wrapped and then
+unwrapped/undone before Save. Ordinary Save then sent null and was refused.
+
+The correction derives plain retention from the committed snapshot as well as
+the current local sidecar. It validates the latest sidecar against its own latest
+source, so text edits while wrapped do not require a stale snapshot digest.
+Receipt checks use that same committed-enrollment basis. Legacy plain pages and
+intentional unwrap of a committed visual page keep their existing behavior.
+Two parameterized owning-hook regressions exercise wrap/unwrapping with and
+without text edits while wrapped, a later plain edit, Save and cold reopen.
+Fresh focused/exact-source evidence and independent cycle-2 review are required.
+
+Correction diagnostics passed all 82 focused cases and the application TypeScript
+check. Results are retained in `focused-enrollment.json` and
+`enrollment-typecheck.log` under the existing retention evidence task. These are
+diagnostics, not a substitute for the corrected integrated exact-head verifiers.

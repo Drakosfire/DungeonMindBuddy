@@ -156,21 +156,21 @@ export function hydratePresentation(markdown: string, presentation: PagePresenta
   return {type:"doc",content};
 }
 
-export function projectPresentation(doc: JSONContent, originalMarkdown: string, originalDoc: JSONContent, existingPresentation?: PagePresentation | null): {markdown: string; presentation: PagePresentation | null} {
+export function projectPresentation(doc: JSONContent, originalMarkdown: string, originalDoc: JSONContent, existingPresentation?: PagePresentation | null, retainPlainIdentities = false): {markdown: string; presentation: PagePresentation | null} {
   const flat=flattenPresentation(doc), originalFlat=flattenPresentation(originalDoc);
   if(semanticMarkdownSerializationDiagnostics(flat).length) return fail("unsupported editor structure");
   const unchanged=presentationCanonicalJson(flat)===presentationCanonicalJson(originalFlat)
     || (semanticMarkdownSerializationDiagnostics(originalFlat).length === 0
       && tiptapJsonToSemanticMarkdown(flat) === tiptapJsonToSemanticMarkdown(originalFlat));
   const markdown=unchanged ? originalMarkdown : preserveLeadingYamlFrontmatter(originalMarkdown,tiptapJsonToSemanticMarkdown(flat));
-  const retainIdentities = existingPresentation != null && existingPresentation.items.every(item => item.kind === 'block');
-  if (retainIdentities) hydratePresentation(originalMarkdown, existingPresentation);
+  const retainIdentities = retainPlainIdentities || (existingPresentation != null && existingPresentation.items.every(item => item.kind === 'block'));
+  if (retainIdentities && existingPresentation != null) hydratePresentation(originalMarkdown, existingPresentation);
   if(!hasPresentation(doc) && !retainIdentities) return {markdown,presentation:null};
   const admitted=admittedPresentationBlocks(markdown);
   if(admitted.length !== flat.content?.length) return fail("edited block boundaries cannot be preserved");
   const used=new Set<string>();let serial=0,cursor=0;
   // New blocks must not consume an identity belonging to a later existing block.
-  const reserved = new Set<string>(retainIdentities ? existingPresentation!.items.map(item => item.id) : []);
+  const reserved = new Set<string>(retainIdentities ? (existingPresentation?.items.map(item => item.id) ?? []) : []);
   const reserve = (node: JSONContent) => {
     if (typeof node.attrs?.pageBlockId === 'string') reserved.add(node.attrs.pageBlockId);
     node.content?.forEach(reserve);

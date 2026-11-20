@@ -1,6 +1,9 @@
 # Plain-page identity Save safety
 
-Status: ACTIVE. The active contextual-layout goal authorizes the serial Save-safety
+Status: MERGED. PR #4243 merged as
+`08d23da86a079121b7b31812e93db1857df17864` after independent source review cycle 1
+PASS at `6da4b530aa2fdefc41ca281b4a3fb6e05d827eeb`. This implementation lease
+has ended. The active contextual-layout goal authorized the serial Save-safety
 slice from `/home/drakosfire/Downloads/Buddy-Contextual-Layout-Handoff.md`.
 On November 20, 2026 Alan also explicitly authorized the bounded Save-forwarding
 split in BuildSurfaceShell.tsx, preserving #3824's hosted-authorization work.
@@ -19,7 +22,8 @@ Serial first slice, based on origin/main
 `/home/drakosfire/Projects/.codex/bf5b/DungeonMindBuddy`.
 No unmerged implementation dependency. Draft #3867 remains the preserved
 contextual-placement benchmark, not evidence of ordinary routing acceptance.
-Do not merge or deploy either lane.
+The original assignment withheld merge and deployment authority. Alan's updated
+goal subsequently granted merge authority; deployment remains unauthorized.
 
 Exclusive expected write set: this handoff,
 `src/application_state/content/page_presentation.py`, and
@@ -30,7 +34,7 @@ providers, runtime pins or real Worlds. Return for a split before expanding.
 
 ## Failure critique and proof
 
-Omission currently refuses an existing sidecar, but explicit null strips it.
+Before this implementation, omission refused an existing sidecar, but explicit null stripped it.
 The wrapper-free frontend projection emits null, so v1 read compatibility does
 not prove writer compatibility. Refusal must apply at both prepare and actual
 commit, including a direct database-owner call; stale tokens cannot bypass it.

@@ -83,6 +83,44 @@ describe('Page layout authoring boundary',()=>{
   expect(readWorkspaceDocumentLocalState(localStorage,id)?.page_presentation?.items.map(item=>item.id)).toEqual(['retained-0','retained-1']);
   h.unmount();
  });
+ it.each([false,true])('retains committed plain enrollment after an unsaved wrap and unwrap (edit while wrapped: %s)',async(editWhileWrapped)=>{
+  const layout:PagePresentation={schema_version:'dmb_page_presentation_v1',markdown_sha256:presentationSha256(source),
+   items:admittedPresentationBlocks(source).map((b,i)=>({kind:'block',id:`retained-${i}`,byte_start:b.byte_start,byte_end:b.byte_end,sha256:b.sha256}))};
+  const initial={...snap(),page_presentation:layout,page_presentation_sha256:presentationFingerprint(layout)};
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(initial);
+  const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const original=hydratePresentation(source,layout);
+  let json:JSONContent={type:'doc',content:[{type:'pageRow',attrs:{id:'unsaved-row',min_height:0,line_mode:'guide'},
+   content:[{type:'pageSlot',attrs:{id:'unsaved-slot',width:12},content:structuredClone(original.content)}]}]};
+  const editor={getJSON:()=>json} as Editor;
+  act(()=>{h.result.current.setEditor(editor);h.result.current.handleEditorUpdate(json,editor,{programmatic:false});});
+  await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,id)?.page_presentation?.items[0].kind).toBe('row'));
+  if(editWhileWrapped){
+   json=structuredClone(json);json.content![0].content![0].content![0].content=[{type:'text',text:'Edited while wrapped.'}];
+   act(()=>h.result.current.handleEditorUpdate(json,editor,{programmatic:false}));
+   await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,id)?.exported_markdown).toContain('Edited while wrapped.'));
+  }
+  json={type:'doc',content:structuredClone(json.content![0].content![0].content)};
+  act(()=>h.result.current.handleEditorUpdate(json,editor,{programmatic:false}));
+  await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,id)?.page_presentation?.items.map(item=>item.id)).toEqual(['retained-0','retained-1']));
+  expect(h.result.current.dirty).toBe(editWhileWrapped);
+  json=structuredClone(json);json.content![1].content=[{type:'text',text:'Edit after unwrapping.'}];
+  act(()=>h.result.current.handleEditorUpdate(json,editor,{programmatic:false}));
+  await waitFor(()=>expect(h.result.current.saveDisabled).toBe(false));
+  const local=readWorkspaceDocumentLocalState(localStorage,id)!;
+  const saved={...initial,markdown:local.exported_markdown,content_sha256:presentationSha256(local.exported_markdown),
+   loaded_revision:2,record:{...initial.record,revision:2},page_presentation:local.page_presentation,
+   page_presentation_sha256:presentationFingerprint(local.page_presentation)};
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(saved);
+  vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({writer_ok:true,writer_confirm_token:'token'} as never);
+  vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue({document_id:id,committed_revision:2,committed_record:saved.record,
+   normalized_content_sha256:saved.content_sha256,file_fingerprint:'postgres',writer_ok:true,page_presentation_sha256:saved.page_presentation_sha256} as never);
+  await act(()=>h.result.current.saveMarkdown());
+  expect(commitTiptapMarkdownWrite).toHaveBeenCalledWith(expect.objectContaining({page_presentation:saved.page_presentation,markdown:saved.markdown}));
+  await waitFor(()=>expect(h.result.current.dirty).toBe(false));h.unmount();localStorage.clear();
+  const cold=mount();await waitFor(()=>expect(cold.result.current.phase).toBe('ready_clean'));
+  expect(cold.result.current.editorContent).toEqual(json);cold.unmount();
+ });
  it('retains resize-only draft across unmount and reopens it dirty without changing source bytes',async()=>{
   vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snap());
   const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
