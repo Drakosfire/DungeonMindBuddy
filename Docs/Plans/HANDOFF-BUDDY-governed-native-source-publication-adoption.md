@@ -142,3 +142,63 @@ verify actual Projects UUID/writability before new environment/evidence allocati
 then implement through a draft PR and freeze for independent review. No Buddy
 production service, manual endpoint or UI implementation is part of this adoption.
 Keep every out-of-lease prerequisite visible rather than silently implementing it.
+
+
+## Adopted implementation checkpoint — candidate diagnostic, NOT final acceptance
+
+Hubble consumed activationa2fd6f780520d720c56392100bd0c9f2274045f3 before edits.
+Actual escalated executor verified Projects UUID48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8
+and writable cache/scratch parents. New isolated environment:
+cache/v10-governed-source-publication-buddy. New evidence:
+scratch/v9-buddy/v10-governed-source-publication-adoption. Protected prior Buddy
+and serving environments remain unsynced. No Core runtime overlay or source edit.
+
+Fresh fetch observed main d50501b955f8ae6f832f1de55e297aea183e389c; its sole delta
+from integratedcc0ca06bb197c64724fded178d7ec545654b06ec deletes a completed toolbox
+plan. No six-path overlap or runtime-input change. Open4181/3867 lists remain
+disjoint. Historical1868 names pyproject/uv and CI drafts3824/2302/2299/2298/2288
+name classification; root's explicit current lease adopts only this exact Core pin
+and one new domain-integration module entry, not any old draft semantics/closure.
+
+Full resolver regeneration resolved152 packages; complete nonartifact graph equals
+baseline except exact Core candidateee3. Normalization restores EVERY baseline
+registry artifact entry; WKef9 and other sources/versions/dependency edges remain
+unchanged. Raw full resolver output and comparison proof are retained. New env
+installed ee3 noneditable; direct_url and177 installed Core Python file bytes match
+that exact Git object. Python3.13.12/Pydantic2.13.4/psycopg3.3.4; no shared env sync.
+These are candidate provenance facts, not an accepted release pin.
+
+Owning tests use public Core preview/lookup/publication/recovery and public WK
+preparation/compiler. A test-only public preparation authority transports actual
+Core-preview evidence witnesses; it never guesses IDs or bypasses WK validation.
+Real Buddy domain2/profile4, all13 kinds/45 mapping inputs, endpoint admission,
+nonidentical creature/npc belongs_to reversal, name/summary/metadata, authorized
+aliases/search/batch and exact UTF8/nonBMP/CRLF citations are checked in both modes.
+Scope/player exclusion, source withdrawal, rejected intent and optional aliases,
+metadata-only recovery and registered-interval-free SUPPORT reuse remain separate
+checks. Synthetic source/operation fixtures are NOT a current manual UI/HTTP,
+real APP source selection, owner-before-IO or extraction-quality acceptance claim.
+
+Root released the stable Core239 migration tree atf480ebb108c5d99df0dd3bb326a1504aa0cc7430.
+SQL fixtures use only its Alembic script directory, uniquely owned32903 DBs and
+installed candidate runtime. Before/after module origins, exact package commit,
+migration hashes/observed heads and zero-connection drops are recorded. No live
+54330/54331, serving process, provider or frozen baseline is touched. Public SQL
+reopen/lookup covers admission, extension and publication introductions; old extension
+metadata recovery remains exercised after new composed descendants/withdrawal.
+Fault injection fires after actual companion receipt insertion and checks rollback
+of head/event/epoch/rows before exact successful retry.
+
+Working diagnostics: memory1 sevenPASS; owning2 thirteenPASS/4JUnit-property warnings;
+owning3 eightPASS/sixFAIL from test-only flat SearchHit field access, retained and
+corrected to public hit.entity/hit.alias; owning4 fourteenPASS; owning5 eighteenPASS.
+The initial non-escalated Ruff cache-write refusal and one unused import diagnostic
+remain retained/identified; scoped --no-cache Ruff subsequently passes. Final
+source/controls/independent review/accepted-pin qualification remain pending.
+No source-functional acceptance or all-green/release claim follows from this checkpoint.
+
+Resource owner MIND retains new environment/scratch and source refs for parent
+retarget, final qualification and N3a follow-up. No manual deletion/reclaimed-byte
+claim. Fixture-owned SQL DBs drop only at zero active connections; unresolved use
+fails closed and must be retained/reported. Later environment/scratch cleanup
+requires explicit approved scope plus process/mount/dirty/unique-data checks.
