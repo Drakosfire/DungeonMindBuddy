@@ -1265,6 +1265,14 @@ class AgentConversationService:
         )
         return turns
 
+    def list_build_dialogue(self, world_id: str, conversation_id: UUID) -> list[dict[str, Any]]:
+        """Exact dialogue from the newest six owned turn slots."""
+        world_id = _world_id(world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            if repo.get_conversation(conn, world_id, conversation_id) is None:
+                raise ApplicationStateNotFoundError("conversation not found in verified World")
+            return repo.list_build_dialogue(conn, world_id, conversation_id)
+
     def list_turn_page(
         self,
         world_id: str,

@@ -12,7 +12,6 @@ from dataclasses import asdict, dataclass
 
 from application_state.agent_conversation import types as ledger
 from application_state.agent_conversation.dialogue_projection import project_dialogue, dialogue_rule
-from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from apps.live_control_server.models.world_graph_object_projection import (
     WorldGraphObjectReviewedSourceObservation,
 )
@@ -114,22 +113,9 @@ def freeze_interaction(adapter):
         from .agent_turn_service import AgentTurnServiceError
         raise AgentTurnServiceError("The conversation changed while the working draft was captured. Send again.",
             code="build_editor_context_changed", status_code=409, provider_dispatched=False)
-    rows = adapter.service.list_turns(adapter.world_id, conversation_id, limit=6) if conversation_id else []
-    history = []
-    for row in reversed(rows):
-        # A mixed answer has an explicit lifecycle envelope and full visible text.
-        # Its approved base is only a subsequence, never the historical answer.
-        envelope = row.envelope if isinstance(row, MixedCompletedTurnV1) else row
-        collaboration = getattr(getattr(envelope, 'completion', None), 'collaboration', None)
-        object_only = (getattr(getattr(envelope, 'completion', None), 'schema_', None) in {'dmb_build_intentional_response_completion_v1','dmb_build_intentional_response_completion_v2','dmb_build_intentional_response_completion_v3','dmb_surface_native_completion_v1'} and collaboration is not None)
-        if envelope.status != "completed" or (not row.assistant_text and not object_only):
-            continue
-        history.append({"turn_id": str(envelope.turn_id), "user": envelope.user_text,
-            "assistant": row.assistant_text,
-            "user_sha256": hashlib.sha256(envelope.user_text.encode()).hexdigest(),
-            "assistant_sha256": hashlib.sha256(row.assistant_text.encode()).hexdigest(),
-            **({'collaboration': collaboration.model_dump(mode='json'), 'collaboration_sha256': digest(collaboration.model_dump(mode='json'))} if object_only else {})})
-    history = project_dialogue(list(reversed(history)))
+    history = project_dialogue(
+        adapter.service.list_build_dialogue(adapter.world_id, conversation_id) if conversation_id else [],
+    )
     from application_state.agent_conversation.authored_graph_references import provider_references
     related=(adapter.budget.get("buildJevActions") or {}).get("related_page_catalog")
     return {**({"authored_graph_references": {"status": "selected_unread", "input": provider_references(adapter.request.build_authored_references)}} if adapter.request.build_authored_references is not None else {}), **({"related_page_catalog":related} if related is not None else {}), "allowed_operations": (adapter.budget.get("buildJevActions") or {}).get("allowed_surface_operations", ["answer_from_sources"] + (["propose_build_insertion"] if capability else [])),
