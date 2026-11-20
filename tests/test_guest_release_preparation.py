@@ -20,6 +20,7 @@ def test_experimental_assembly_passes_sanitized_bytes_and_verified_bindings(monk
     excerpt_id, asset_id, doc_id = uuid4(), uuid4(), uuid4()
     source_binding = (excerpt_id, doc_id, 0, 0, 1, "a" * 64, 0, 4, 3)
     monkeypatch.setattr(assembly, "selected_page_excerpt", lambda **_: ({"id": str(excerpt_id), "text": "safe"}, source_binding))
+    monkeypatch.setattr(assembly, "verify_source_citation", lambda **_: str(excerpt_id))
     seen = {}
     monkeypatch.setattr(assembly, "project_selected_graph", lambda *a, **k: seen.update(k) or {"nodes": [], "edges": []})
     monkeypatch.setattr(assembly.media, "read_staged_bytes", lambda *a: b"original")
@@ -27,10 +28,11 @@ def test_experimental_assembly_passes_sanitized_bytes_and_verified_bindings(monk
     monkeypatch.setattr(assembly.guest_release, "stage", lambda **k: seen.update(staged=k) or (uuid4(), "digest"))
     selection = assembly.ReleaseSelection(graph_revision="revision", node_ids=["node"],
         relationships=[assembly.RelationshipSelection(edge_id="edge", evidence_id="evidence", source_index=0)],
-        sources=[assembly.SourceSelection(document_id=doc_id, revision_n=1, sha256="a" * 64, start=0, end=4, excerpt="safe")],
+        sources=[assembly.SourceSelection(document_id=doc_id, revision_n=1, sha256="a" * 64, start=0, end=4, excerpt="safe", evidence_id="evidence")],
         asset_ids=[asset_id])
     assembly._prepare_candidate(world_id="world", subject="owner", selection=selection)
     assert seen["citation_selections"]["edge"][2] == source_binding
     assert seen["staged"]["assets"][0][2] == b"sanitized"
     assert str(asset_id) not in str(seen["staged"]["manifest"])
     assert seen["staged"]["expected_owner_generation"] == 4
+    assert seen["staged"]["source_bindings"][0][-1] == "evidence"

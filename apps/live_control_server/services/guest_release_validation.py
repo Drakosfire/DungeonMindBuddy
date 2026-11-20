@@ -4,7 +4,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from application_state import guest_release
-from apps.live_control_server.services.guest_release_evidence import verify_relationship_citation
+from apps.live_control_server.services.guest_release_evidence import verify_relationship_citation, verify_source_citation
 from apps.live_control_server.services.guest_release_native_graph import read_player_graph
 from apps.live_control_server.services.guest_release_sources import contains_unsupported_destination
 
@@ -41,10 +41,10 @@ def validate_candidate(*, world_id: str, subject: str, release_id: UUID, digest:
         or set(public_nodes) != set(node_bindings) or set(public_edges) != set(evidence_bindings)
         or set(sources) != set(source_bindings)):
         raise GuestReleaseValidationError("Release binding closure failed")
-    # Until standalone source proof bindings exist, never silently publish an
-    # excerpt that lacks fresh Core eligibility validation via an admitted edge.
-    if set(sources) != {item[2] for item in evidence_bindings.values()}:
-        raise GuestReleaseValidationError("Standalone release source has no native proof")
+    for excerpt_id, source_binding in source_bindings.items():
+        verify_source_citation(evidence_id=source_binding[9], access=access, excerpt=sources[excerpt_id],
+            source_binding=source_binding[:9], expected_native_world_id=binding.native_world_id,
+            expected_graph_revision=material["graph_revision"])
     for local_id, native_id in node_bindings.items():
         native = native_nodes.get(native_id)
         public = public_nodes[local_id]
@@ -64,7 +64,7 @@ def validate_candidate(*, world_id: str, subject: str, release_id: UUID, digest:
                           "label": native.label, "citations": [excerpt_id]}):
             raise GuestReleaseValidationError("Released relationship differs from native Graph")
         verify_relationship_citation(edge=native, evidence_id=evidence_id, access=access,
-            excerpt=sources[excerpt_id], source_binding=source_bindings[excerpt_id],
+            excerpt=sources[excerpt_id], source_binding=source_bindings[excerpt_id][:9],
             expected_native_world_id=binding.native_world_id, expected_graph_revision=material["graph_revision"])
     return access.source_view.epoch
 

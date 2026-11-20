@@ -117,10 +117,10 @@ def test_source_visibility_change_and_restore_invalidates_candidate(application_
     with pytest.raises(ApplicationStateConflictError):
         guest_release.stage(world_id=world, subject="owner", expected_owner_generation=generation,
             manifest={"assets": [], "sources": [{"id": str(excerpt_id), "text": "wrong"}]}, assets=[],
-            source_bindings=[(excerpt_id, document_id, 0, 0, revision.revision_n, revision.content_sha256, 0, 4, committed.page.object_revision)], **graph)
+            source_bindings=[(excerpt_id, document_id, 0, 0, revision.revision_n, revision.content_sha256, 0, 4, committed.page.object_revision, "native-evidence")], **graph)
     release_id, digest = guest_release.stage(world_id=world, subject="owner",
         expected_owner_generation=generation, manifest={"assets": [], "sources": [{"id": str(excerpt_id), "text": "safe"}]}, assets=[],
-        source_bindings=[(excerpt_id, document_id, 0, 0, revision.revision_n, revision.content_sha256, 0, 4, committed.page.object_revision)], **graph)
+        source_bindings=[(excerpt_id, document_id, 0, 0, revision.revision_n, revision.content_sha256, 0, 4, committed.page.object_revision, "native-evidence")], **graph)
     with psycopg.connect(application_state_dsn) as conn:
         conn.execute("UPDATE content.page_metadata SET visibility_state='internal' WHERE work_object_id=%s", (document_id,))
         conn.execute("UPDATE content.page_metadata SET visibility_state='player_safe' WHERE work_object_id=%s", (document_id,))
@@ -173,7 +173,7 @@ def test_source_status_change_and_restore_invalidates_candidate(application_stat
         expected_owner_generation=guest_release.owner_generation(world_id=world, subject="owner"),
         manifest={"assets": [], "sources": [{"id": str(excerpt_id), "text": "safe"}]}, assets=[],
         source_bindings=[(excerpt_id, page.page.work_object_id, 0, 0, revision.revision_n,
-                          revision.content_sha256, 0, 4, committed.page.object_revision)], **graph)
+                          revision.content_sha256, 0, 4, committed.page.object_revision, "native-evidence")], **graph)
     with psycopg.connect(application_state_dsn) as conn:
         conn.execute("UPDATE content.work_object SET status='discarded' WHERE work_object_id=%s", (page.page.work_object_id,))
         conn.execute("UPDATE content.work_object SET status='active' WHERE work_object_id=%s", (page.page.work_object_id,))
@@ -208,7 +208,7 @@ def test_promotion_observes_concurrent_visibility_withdrawal(application_state_d
         expected_owner_generation=guest_release.owner_generation(world_id=world, subject="owner"),
         manifest={"assets": [], "sources": [{"id": str(excerpt_id), "text": "safe"}]}, assets=[],
         source_bindings=[(excerpt_id, page.page.work_object_id, 0, 0, revision.revision_n,
-                          revision.content_sha256, 0, 4, committed.page.object_revision)], **graph)
+                          revision.content_sha256, 0, 4, committed.page.object_revision, "native-evidence")], **graph)
     with ThreadPoolExecutor(max_workers=1) as pool:
         with psycopg.connect(application_state_dsn) as conn:
             conn.execute("UPDATE content.page_metadata SET visibility_state='internal' WHERE work_object_id=%s",
@@ -234,7 +234,7 @@ def test_author_edits_do_not_change_staged_or_published_excerpt(application_stat
     release_id, digest = guest_release.stage(world_id=world, subject="owner",
         expected_owner_generation=guest_release.owner_generation(world_id=world, subject="owner"),
         manifest=manifest, assets=[], source_bindings=[(excerpt_id, page.page.work_object_id, 0, 0,
-            revision.revision_n, revision.content_sha256, 0, 5, committed.page.object_revision)], **graph)
+            revision.revision_n, revision.content_sha256, 0, 5, committed.page.object_revision, "native-evidence")], **graph)
     updated, _ = commit_page(str(page.page.work_object_id), "second version", world_id=world,
         expected_revision=committed.page.object_revision,
         expected_working_copy_revision=committed_page(str(page.page.work_object_id), world_id=world).working_copy_revision)

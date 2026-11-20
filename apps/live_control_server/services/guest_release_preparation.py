@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from application_state import guest_release, media
 from application_state.errors import ApplicationStateUnavailableError
 from apps.live_control_server.services.guest_release_media import sanitize_release_image
+from apps.live_control_server.services.guest_release_evidence import verify_source_citation
 from apps.live_control_server.services.guest_release_native_graph import read_player_graph
 from apps.live_control_server.services.guest_release_projection import project_selected_graph
 from apps.live_control_server.services.guest_release_sources import selected_page_excerpt
@@ -27,6 +28,7 @@ class SourceSelection(BaseModel):
     start: int = Field(ge=0, strict=True)
     end: int = Field(gt=0, strict=True)
     excerpt: str = Field(min_length=1, max_length=20_000)
+    evidence_id: str = Field(min_length=1, max_length=255)
 
 
 class RelationshipSelection(BaseModel):
@@ -66,14 +68,17 @@ def _prepare_candidate(*, world_id: str, subject: str, selection: ReleaseSelecti
         excerpt, source_binding = selected_page_excerpt(world_id=world_id, document_id=str(source.document_id),
             revision_n=source.revision_n, expected_sha256=source.sha256, start=source.start,
             end=source.end, expected_excerpt=source.excerpt)
+        verify_source_citation(evidence_id=source.evidence_id, access=access, excerpt=excerpt,
+            source_binding=source_binding, expected_native_world_id=binding.native_world_id,
+            expected_graph_revision=selection.graph_revision)
         sources.append(excerpt)
-        bindings.append(source_binding)
+        bindings.append((*source_binding, source.evidence_id))
     citations = {}
     for relationship in selection.relationships:
         if relationship.source_index >= len(sources):
             raise ValueError("Relationship source selection is unavailable")
         citations[relationship.edge_id] = (relationship.evidence_id, sources[relationship.source_index],
-                                            bindings[relationship.source_index])
+                                            bindings[relationship.source_index][:9])
     evidence_bindings = []
     node_bindings = []
     graph = project_selected_graph(projection, expected_world_id=binding.native_world_id,

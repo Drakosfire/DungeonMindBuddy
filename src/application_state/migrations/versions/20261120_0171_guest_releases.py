@@ -107,6 +107,7 @@ def upgrade():
             span_start integer NOT NULL CHECK (span_start >= 0),
             span_end integer NOT NULL CHECK (span_end > span_start),
             registry_revision bigint NOT NULL CHECK (registry_revision > 0),
+            native_evidence_id text NOT NULL CHECK (length(native_evidence_id) > 0),
             PRIMARY KEY (release_id, excerpt_id)
         )
     """)

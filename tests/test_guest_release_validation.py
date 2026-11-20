@@ -8,7 +8,7 @@ from apps.live_control_server.services import guest_release_validation as valida
 
 def test_validation_rechecks_exact_graph_and_citation(monkeypatch):
     release_id, local_node, local_edge, excerpt_id = (uuid4() for _ in range(4))
-    source_binding = (excerpt_id, uuid4(), 0, 0, 1, "a" * 64, 0, 4, 2)
+    source_binding = (excerpt_id, uuid4(), 0, 0, 1, "a" * 64, 0, 4, 2, "source-evidence")
     material = {"native_world_id": "native", "binding_version": 3, "graph_revision": "rev",
         "manifest": {"nodes": [], "graph": {"nodes": [{"id": str(local_node), "label": "Node", "kind": "npc"}],
                     "edges": [{"id": str(local_edge), "source": str(local_node), "target": str(local_node),
@@ -27,12 +27,16 @@ def test_validation_rechecks_exact_graph_and_citation(monkeypatch):
     monkeypatch.setattr(validation, "read_player_graph", lambda **_: (binding, projection, access))
     calls = []
     monkeypatch.setattr(validation, "verify_relationship_citation", lambda **kwargs: calls.append(kwargs))
+    def verify_source(**kwargs):
+        if kwargs["evidence_id"] == "withdrawn":
+            raise validation.GuestReleaseValidationError("withdrawn")
+    monkeypatch.setattr(validation, "verify_source_citation", verify_source)
     assert validation.validate_candidate(world_id="world", subject="owner", release_id=release_id, digest="digest") == 42
-    assert calls[0]["source_binding"] == source_binding
+    assert calls[0]["source_binding"] == source_binding[:9]
     extra_id = uuid4()
     material["manifest"]["sources"].append({"id": str(extra_id), "text": "extra"})
-    material["source_bindings"].append((extra_id, uuid4(), 0, 0, 1, "b" * 64, 0, 5, 2))
-    with pytest.raises(validation.GuestReleaseValidationError, match="Standalone"):
+    material["source_bindings"].append((extra_id, uuid4(), 0, 0, 1, "b" * 64, 0, 5, 2, "withdrawn"))
+    with pytest.raises(validation.GuestReleaseValidationError, match="withdrawn"):
         validation.validate_candidate(world_id="world", subject="owner", release_id=release_id, digest="digest")
     material["manifest"]["sources"].pop()
     material["source_bindings"].pop()

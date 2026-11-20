@@ -10,17 +10,16 @@ class GuestReleaseEvidenceError(ValueError):
     """Native evidence does not prove the selected release citation."""
 
 
-def verify_relationship_citation(*, edge, evidence_id: str, access, excerpt: dict, source_binding: tuple,
-                                 expected_native_world_id: str, expected_graph_revision: str) -> str:
-    """Return a release-local excerpt ID only for the exact admitted evidence.
+def verify_source_citation(*, evidence_id: str, access, excerpt: dict, source_binding: tuple,
+                           expected_native_world_id: str, expected_graph_revision: str) -> str:
+    """Return a release-local excerpt ID only for exact admitted supporting evidence.
 
     The caller supplies a player-scoped access context from the same exact Graph
     revision as the edge, and the private binding produced during page selection.
     No host identity or native evidence identifier is returned to the guest.
     """
-    if (access.space_id != expected_native_world_id or access.revision_id != expected_graph_revision
-        or evidence_id not in edge.evidence_ref_ids):
-        raise GuestReleaseEvidenceError("Evidence does not support the relationship")
+    if access.space_id != expected_native_world_id or access.revision_id != expected_graph_revision:
+        raise GuestReleaseEvidenceError("Evidence Graph identity differs")
     native_evidence = access.parsed.get_evidence(evidence_id)
     if native_evidence is None or native_evidence.evidence_role != "support":
         raise GuestReleaseEvidenceError("Native evidence is not supporting evidence")
@@ -53,3 +52,12 @@ def verify_relationship_citation(*, edge, evidence_id: str, access, excerpt: dic
         or opened.span_sha256 != hashlib.sha256(text.encode("utf-8")).hexdigest()):
         raise GuestReleaseEvidenceError("Release excerpt differs from admitted evidence span")
     return str(excerpt_id)
+
+
+def verify_relationship_citation(*, edge, evidence_id: str, access, excerpt: dict, source_binding: tuple,
+                                 expected_native_world_id: str, expected_graph_revision: str) -> str:
+    if evidence_id not in edge.evidence_ref_ids:
+        raise GuestReleaseEvidenceError("Evidence does not support the relationship")
+    return verify_source_citation(evidence_id=evidence_id, access=access, excerpt=excerpt,
+        source_binding=source_binding, expected_native_world_id=expected_native_world_id,
+        expected_graph_revision=expected_graph_revision)
