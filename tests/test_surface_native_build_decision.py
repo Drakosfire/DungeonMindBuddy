@@ -285,7 +285,8 @@ class _DurableBuildOwner:
     def lifecycle(self, event):
         self.turn, fresh = self.service.record_provider_outcome(self.world_id,self.conversation_id,
             self.turn.turn_id,expected_revision=self.turn.revision,expected_attempt=self.turn.attempt,
-            outcome=event)
+            outcome=event, **({"measure": self.measure_send}
+                if event.outcome == "sdk_entered" and hasattr(self, "measure_send") else {}))
         assert fresh
 
     def select(self,event,proof,trace):
@@ -692,3 +693,29 @@ def test_atomic_build_claim_retains_exact_draft_or_rolls_back(
         world_id=owner.world_id, turn_id=accepted.turn_id,
     ) == [trace]
     assert owner.service.inspect_turn(world_id=owner.world_id, turn_id=accepted.turn_id) == claim.turn
+
+
+def test_first_build_send_measures_existing_transaction_before_transport(application_state_dsn):
+    from contextlib import contextmanager
+
+    owner = _DurableBuildOwner()
+    stages = []
+
+    @contextmanager
+    def measure(stage):
+        assert not owner.sent
+        yield
+        stages.append(stage)
+
+    owner.measure_send = measure
+    sdk_case(owner=owner)
+    assert len(owner.sent) == 1
+    assert stages == [
+        "first_jev_send_schema_check",
+        "first_jev_send_transaction_open",
+        "first_jev_send_locked_turn_read",
+        "first_jev_send_claim_clock",
+        "first_jev_send_prospective_validation",
+        "first_jev_send_update_and_readback",
+        "first_jev_send_commit_and_close",
+    ]
