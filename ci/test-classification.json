@@ -1526,6 +1526,7 @@
       "tests/test_threat_draft_routes.py",
       "tests/test_threat_draft_store.py",
       "tests/test_threat_publication_commit_models.py",
+      "tests/test_classic_threat_retirement.py",
       "tests/test_threat_publication_identity_routes.py",
       "tests/test_threat_publication_proposal_models.py",
       "tests/test_threat_query_hydration_api.py",

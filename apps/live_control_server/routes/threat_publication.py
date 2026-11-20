@@ -21,11 +21,7 @@ from apps.live_control_server.models.threat_publication import (
 )
 from apps.live_control_server.services.threat_publication_operations import (
     PublicationOperationOutcome,
-    begin_publication_operation,
-    cancel_publication_operation,
     read_publication_operation,
-    refresh_publication_operation,
-    retry_publication_operation,
 )
 
 router = APIRouter(prefix="/api/live/threat-drafts", tags=["threat-publication"])
@@ -99,9 +95,12 @@ def _validated_operation_id(operation_id: str) -> str:
 def post_begin_publication_operation(
     draft_id: str, body: BeginThreatPublicationOperationRequestV1
 ) -> JSONResponse:
-    safe_draft = _validated_draft_id(draft_id)
-    outcome = begin_publication_operation(statblock_data_root(repo_root()), safe_draft, body)
-    return _json(outcome)
+    _validated_draft_id(draft_id)
+    # Retain admission above, but never enter the historical write lifecycle.
+    raise HTTPException(
+        status_code=410,
+        detail="Classic Threat publication is retired; retained history is read-only.",
+    )
 
 
 @router.get("/{draft_id}/publication-operations/{operation_id}")
@@ -114,27 +113,36 @@ def get_publication_operation(draft_id: str, operation_id: str) -> JSONResponse:
 
 @router.post("/{draft_id}/publication-operations/{operation_id}/refresh")
 def post_refresh_publication_operation(draft_id: str, operation_id: str) -> JSONResponse:
-    safe_draft = _validated_draft_id(draft_id)
-    safe_op = _validated_operation_id(operation_id)
-    outcome = refresh_publication_operation(statblock_data_root(repo_root()), safe_draft, safe_op)
-    return _json(outcome)
+    _validated_draft_id(draft_id)
+    _validated_operation_id(operation_id)
+    # Retain admission above, but never enter the historical write lifecycle.
+    raise HTTPException(
+        status_code=410,
+        detail="Classic Threat publication is retired; retained history is read-only.",
+    )
 
 
 @router.post("/{draft_id}/publication-operations/{operation_id}/cancel")
 def post_cancel_publication_operation(
     draft_id: str, operation_id: str, body: CancelThreatPublicationOperationRequestV1
 ) -> JSONResponse:
-    safe_draft = _validated_draft_id(draft_id)
-    safe_op = _validated_operation_id(operation_id)
-    outcome = cancel_publication_operation(statblock_data_root(repo_root()), safe_draft, safe_op, body)
-    return _json(outcome)
+    _validated_draft_id(draft_id)
+    _validated_operation_id(operation_id)
+    # Retain admission above, but never enter the historical write lifecycle.
+    raise HTTPException(
+        status_code=410,
+        detail="Classic Threat publication is retired; retained history is read-only.",
+    )
 
 
 @router.post("/{draft_id}/publication-operations/{operation_id}/retry")
 def post_retry_publication_operation(
     draft_id: str, operation_id: str, body: RetryThreatPublicationOperationRequestV1
 ) -> JSONResponse:
-    safe_draft = _validated_draft_id(draft_id)
-    safe_op = _validated_operation_id(operation_id)
-    outcome = retry_publication_operation(statblock_data_root(repo_root()), safe_draft, safe_op, body)
-    return _json(outcome)
+    _validated_draft_id(draft_id)
+    _validated_operation_id(operation_id)
+    # Retain admission above, but never enter the historical write lifecycle.
+    raise HTTPException(
+        status_code=410,
+        detail="Classic Threat publication is retired; retained history is read-only.",
+    )

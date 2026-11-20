@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.routes.statblock_storage import statblock_data_root
-from apps.live_control_server.config import repo_root, world_graph_root
+from apps.live_control_server.config import repo_root
 from apps.live_control_server.models.threat_draft import require_draft_id
 from apps.live_control_server.models.threat_publication import validate_publication_operation_id
 from apps.live_control_server.models.threat_publication_commit import (
@@ -16,7 +16,6 @@ from apps.live_control_server.models.threat_publication_commit import (
 from apps.live_control_server.models.threat_publication_proposal import validate_proposal_id
 from apps.live_control_server.services.threat_publication_commits import (
     CommitOutcome,
-    confirm_threat_publication,
     read_threat_publication_commit,
 )
 
@@ -112,18 +111,14 @@ def post_confirm_publication_commit(
     proposal_id: str,
     body: ConfirmThreatPublicationRequestV1,
 ) -> JSONResponse:
-    safe_draft = _validated_draft_id(draft_id)
-    safe_op = _validated_operation_id(operation_id)
-    safe_proposal = _validated_proposal_id(proposal_id)
-    outcome = confirm_threat_publication(
-        statblock_data_root(repo_root()),
-        safe_draft,
-        safe_op,
-        safe_proposal,
-        body,
-        world_root=world_graph_root(),
+    _validated_draft_id(draft_id)
+    _validated_operation_id(operation_id)
+    _validated_proposal_id(proposal_id)
+    # Retain admission above, but never enter the historical write lifecycle.
+    raise HTTPException(
+        status_code=410,
+        detail="Classic Threat publication is retired; retained history is read-only.",
     )
-    return _json(outcome)
 
 
 @router.get(

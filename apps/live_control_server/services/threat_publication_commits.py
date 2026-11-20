@@ -3495,6 +3495,7 @@ def read_threat_publication_commit(
                 safe_commit,
                 _label_for_state(record),
                 commit=record,
-                retry_allowed=_retry_allowed(record),
+                # Historical inspection never authorizes publication retry.
+                retry_allowed=False,
             )
         )
