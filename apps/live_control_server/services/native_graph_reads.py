@@ -16,6 +16,7 @@ from dungeonmind.application.vnext import (
 from apps.live_control_server.integrations.dungeonmind.native_registry_source import assertion_contract
 from dungeonmind.application.vnext.errors import NativeTextSourceAccessIntegrityError
 from dungeonmind.contracts.vnext.source import EvidenceRefV3
+from dungeonmind.domain.errors import PersistenceUnavailableError
 from application_state.agent_conversation.native_statement_input import digest
 from application_state.agent_conversation.native_plan_assertions import (
     NativePlanAssertionMatchV1, NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1,
@@ -566,8 +567,8 @@ def _read_assertions(context, identities, *, matches=None):
         if support_ids and all(not identity.startswith('pdf-region:') for identity in support_ids):
             try:
                 batch = open_admitted_native_text_batch(access, support_ids)
-            except NativeTextSourceAccessIntegrityError:
-                # Replay the exact order so a corrupt span that earlier unavailable
+            except (NativeTextSourceAccessIntegrityError, PersistenceUnavailableError):
+                # Replay the exact order so a failure that earlier unavailable
                 # support would have skipped cannot change the grant's outcome.
                 pass
             else:

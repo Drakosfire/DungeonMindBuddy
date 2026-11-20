@@ -282,6 +282,50 @@ def test_exact_text_batch_opens_one_ordered_unique_set_per_grant(lane, monkeypat
     ))
 
 
+def test_exact_batch_failure_preserves_the_ordered_unavailable_support(lane, monkeypatch):
+    from apps.live_control_server.services import native_graph_reads as native
+    from dungeonmind.contracts.vnext.native_source import NativeTextSourceAccessV1
+    from dungeonmind.domain.errors import PersistenceUnavailableError
+
+    original_ref = lane.meta.evidence_ref_ids[0]
+    select_extension_support(lane)
+    lane.meta = replace(lane.meta, evidence_ref_ids=(original_ref, lane.meta.evidence_ref_ids[0]))
+    publish(lane, qualified=True)
+    context, _ = query(lane)
+    authorization = grant(context)
+    reads, _ = read_selected(context, authorization, GM)
+    account = next(row for row in reads if row.assertion.predicate == 'dnd5e:summary')
+    first, later = (item.evidence_ref_id for item in account.spans)
+    original = native.open_admitted_native_text
+    singles = []
+
+    def ordered_open(access, identity):
+        singles.append(identity)
+        if identity == first:
+            return NativeTextSourceAccessV1(status='unavailable')
+        if identity == later:
+            raise PersistenceUnavailableError('later span source failed')
+        return original(access, identity)
+
+    monkeypatch.setattr(native, 'open_admitted_native_text', ordered_open)
+    expected = read_selected(context, authorization, GM)
+    assert account.assertion.assertion_id in expected[1] and later not in singles
+    previous_singles = tuple(singles)
+    singles.clear()
+    attempts = []
+
+    def failed_batch(access, identities):
+        assert identities.index(first) < identities.index(later)
+        attempts.append(identities)
+        raise PersistenceUnavailableError('later span source failed')
+
+    monkeypatch.setattr(type(context.pinned[1].source_view), 'get_native_text_sources',
+                        lambda *_: None, raising=False)
+    monkeypatch.setattr(native, 'open_admitted_native_text_batch', failed_batch)
+    assert read_selected(context, authorization, GM) == expected
+    assert len(attempts) == 1 and tuple(singles) == previous_singles
+
+
 def test_support_materialization_keeps_distinct_spans_from_the_same_source(lane, monkeypatch):
     from collections import Counter
     from apps.live_control_server.services import native_graph_reads as native
