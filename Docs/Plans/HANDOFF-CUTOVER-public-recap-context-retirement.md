@@ -1,6 +1,6 @@
 # Public legacy recap-context retirement
 
-Status: COMPLETE for implementation and source review. Merge pending. Owner MIND. Operator authorizes full optimized Elderwyld vNext
+Status: COMPLETE. Merged as PR #4242. Owner MIND. Operator authorizes full optimized Elderwyld vNext
 cutover design, implementation, independent review and merge. Serial delivery.
 
 ## Current anchor and outcome
@@ -100,3 +100,7 @@ MIND retains task scratch and cache for review and cutover. Evidence includes
 discovered-comparison.json, both UI inventories, the backend and frontend
 ledgers and the Core fixture cleanup receipt. Check active use, mounts and
 unique evidence before authorized cleanup. No manual disposal occurred.
+
+Final documentation review 5995269910 accepted seal 2f6323a22. Both short checks
+passed. Merge 9cddc3c38d7016f6cda093889a07566d54e45b5f matched the predicted
+combined tree 1f8e8cd17991563caabed760a1933ddfe596348f.
