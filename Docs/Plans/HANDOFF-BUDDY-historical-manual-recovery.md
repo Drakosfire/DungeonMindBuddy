@@ -1,13 +1,13 @@
 # Historical manual confirmation — exact immutable recovery
 
-Status: ACTIVE. Owner MIND under the operator's full-lane design, implementation,
-review and merge authority. Existing clean task Buddy checkout on
-`codex/v10-historical-manual-recovery`, base
-`92d5868b2` (fresh fetched main; record full ref at implementation). This assignment
-is pinned before runtime/dependency edits. Core247 accepted merge
-`d206e56a9aa34ae6eb6cc7ac61980a7ac8919c4d`, exact6987087/review5988872233,
-CI44692015442 all3green,172 installed-wheel cases pass. It supplies the read-only
-terminal aggregate, not complete Buddy original-request equivalence.
+Status: COMPLETE for this bounded recovery slice. Owner MIND under the operator's
+full-lane authority. Accepted PR4230 exact head
+`38b84085e696cda712473802fa165e97d59d2a42`, independent Hubble Cycle1 review
+`5989552938`, merged at `744b3971d0105b5ce64483f9d049a0221f938f63`.
+The tested and merged trees are identical; the merged commit itself was not
+executed. Original assignment was pinned before implementation at `537c6ef8b`.
+Core247 remains pinned at `d206e56a9aa34ae6eb6cc7ac61980a7ac8919c4d`, WK at348c.
+This completion does not complete V10, deploy a serving build or finish cutover.
 
 ## Outcome and topology
 
@@ -20,7 +20,7 @@ mounted service/auth integration and proofs belong together. Other Worldbuilding
 extract/Recap/reviewed-extract/Threat families and shared adapter remain separate.
 No ingestion, bridge, serving change or fullV10/deployment/V11 completion.
 
-## Exact nine-path write lease
+## Completed nine-path write set
 
 1. This handoff: portable contract, proof matrix and honest current state.
 2. pyproject.toml: exact Core247 merge pin, corresponding source override/comment.
@@ -125,29 +125,31 @@ flock and pinnedNode22. No retrieval baseline or new full-discovered rerun absen
 concrete concern; retained broad diagnostics stay explicit. Obtain independent
 exact cumulative source/evidence review and expected-head merge.
 
-## Draft implementation checkpoint
+## Accepted evidence and limits
 
-Core247/WK348 are installed from exact Git pins in a new retained Python3.13
-environment; all218Core and14WK production files match pinned Git archives.
-The current commit family diagnostic passes60cases, including valid V2 and guarded
-V3 unsupported-generation refusals before parent lookup. Changed runtime/family/
-SQL-test Ruff passes; hosted test retains11F811 failures reproduced on exact base.
+Exact38b qualification:468owning,96native-manual,376preservation,316auth pass with
+zero failures/errors/skips. Official hosted verifier:1412selected pass,147filtered;
+collection parity, build, canonical validation and cleanup pass. All218Core and14WK
+production files match exact Git pins before/after SQL; all152lock packages remain.
+Three short exact-head GitHub workflows pass. Independent review accepted scope.
 
-The real SQL matrix passes3cases: original typed-V3 publication, descendant,
-fixture-only consistent catalog withdrawal, original once-signed expired packet,
-and fresh bare recovery twice. Absent receipt/corrupt child fail closed. All APP/
-Core rows are count-and-hash checked; mutable APP/Core artifact/head/writers are
-tripwired. Each owned matrix DB reached0023, had zero clients before drop, and was
-verified absent. The local witness retains the inherited admitted-span presentation/
-context stubs; hosted managed authorization is separate. Parent-decoder storage
-faults are unit/composition proof, not a claimed SQL race.
+Real SQL recovery returns the original publication twice after a descendant and
+source withdrawal with the once-signed expired packet; absent/corrupt terminals
+refuse and every APP/Core row fingerprint remains unchanged. Mutable APP/Core
+artifact/head/writer reads are tripwired. All11audited Core fixture databases
+had zero clients before cleanup and were independently verified absent.
 
-The first frozenb037 run passed auth316 and completed the hosted verifier, but
-concurrent database cohorts lost32903connections: owning2errors, native1failure/
-55errors, preservation33errors. Retain those failed diagnostics; service is healthy
-without restart/configuration change. Final updated-head serial owning/auth/native/
-preservation, official hosted/build validation and independent acceptance remain
-pending. ACTIVE draft, not merge-ready; no baseline rerun, deployment or cutover.
+Limits: SQL setup retains admitted-span presentation/context/bootstrap seams;
+parent-decoder storage faults are unit/composition coverage. Hosted test retains
+11inheritedF811 lint diagnostics. Prior concurrent database runs failed with
+connection loss, cause unproven; final serialized runs pass. Broader frontend
+qualification remains unproved; no baseline rerun, provider experiment or deployment.
+Detailed evidence/history belongs to PR4230 and retained task scratch
+`v10-historical-manual-recovery/qualification-38b84085.json`, not this file.
+
+Next: signed Worldbuilding-v2 immutable receipt recovery and classic prepare
+retirement, under its separate handoff. Other legacy families and actual Core
+writer retirement remain open. Original unknown packets must remain retained.
 
 ## Remaining work and resources
 

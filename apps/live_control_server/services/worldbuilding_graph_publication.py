@@ -19,14 +19,8 @@ from types import SimpleNamespace
 from typing import Any, Mapping
 
 from apps.live_control_server import config as live_config
-from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
-    worldbuilding_authority_operation_id,
-)
 from apps.live_control_server.models.extract_promote import (
-    PRODUCT_CONFIRM_ALLOW_LIVE_WORLD,
-    PRODUCT_CONFIRM_DRY_RUN,
     WORLD_BUILDING_WRITE_PLAN_SCHEMA,
-    WORLD_BUILDING_WRITE_PLAN_SCHEMA_V1,
     ConfirmAuditStatus,
     WorldbuildingWritePlanConfirmReceipt,
     WorldbuildingWritePlanConfirmRequest,
@@ -40,7 +34,6 @@ from apps.live_control_server.ports.world_graph_authority import (
     WorldGraphAuthority,
     WorldGraphAuthorityError,
     WorldGraphPublicationReceipt,
-    WorldGraphPublishRequest,
 )
 from apps.live_control_server.ports.world_graph_authority_access import (
     get_world_graph_authority,
@@ -59,7 +52,6 @@ from graph_memory.worldbuilding_write_plan import (
     WorldbuildingWritePlanError,
     WorldbuildingWritePlanVerificationContext,
     build_worldbuilding_write_plan,
-    materialize_worldbuilding_contribution,
     verify_worldbuilding_write_plan,
 )
 
@@ -873,221 +865,11 @@ def confirm_worldbuilding(
     request: WorldbuildingWritePlanConfirmRequest,
     *, authorize_write: Callable[[], None] | None = None,
 ) -> WorldbuildingWritePlanConfirmReceipt:
-    """Rebuild-verify a v2 plan and publish or recover one DungeonMind child."""
-    plan = request.plan
-    if (
-        plan.schema_ == WORLD_BUILDING_WRITE_PLAN_SCHEMA_V1
-        or plan.version == 1
-        or plan.effect.identity_authority is None
-    ):
-        raise _legacy_reprepare_error()
+    """Recover the original classic packet; new publication uses the native flow."""
+    from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import recover_original_publication
 
-    world_root = live_config.world_graph_root()
-    if (
-        world_root.resolve() == live_config.live_world_graph_root().resolve()
-        and not PRODUCT_CONFIRM_ALLOW_LIVE_WORLD
-    ):
-        raise ExtractPromoteError(
-            "refusing to mutate live world root without allow_live_world",
-            code="live_world_refused",
-            status_code=403,
-            diagnostics=[_diagnostic("live_world_refused", "live world refused")],
-        )
+    return recover_original_publication(request.plan, authorize_write=authorize_write)
 
-    try:
-        resolved = resolve_promotable_ingest_run(plan.run_id, root=live_config.repo_root())
-    except PromotableIngestRunError as exc:
-        raise _promotable_run_error(exc) from exc
-
-    publication_input = _load_worldbuilding_publication_input(resolved)
-    typed_preview, expected_profile = publication_input.preview, publication_input.profile_id
-    publication_binding = _registered_publication_binding(resolved)
-    native_vocabulary_binding = _worldbuilding_native_vocabulary_binding()
-    typed_preview = _world_scoped_preview(typed_preview, publication_binding)
-    native_world_id = publication_binding.native_world_id
-    if plan.publication_binding is None or plan.publication_binding != publication_binding:
-        raise ExtractPromoteError("World/source binding changed; prepare again",
-                                 code="worldbuilding_source_binding_changed", status_code=409)
-    if (
-        plan.native_vocabulary_binding is None
-        or plan.native_vocabulary_binding.model_dump(mode="json", by_alias=True)
-        != native_vocabulary_binding
-    ):
-        raise ExtractPromoteError(
-            "Worldbuilding vocabulary changed; prepare again",
-            code="worldbuilding_native_vocabulary_changed",
-            status_code=409,
-            diagnostics=[
-                _diagnostic(
-                    "worldbuilding_native_vocabulary_changed",
-                    "prepared World vocabulary refs do not match the current pinned pair",
-                )
-            ],
-        )
-    verify_context = WorldbuildingWritePlanVerificationContext(
-        world_id=native_world_id,
-        parent_revision_id=plan.parent_revision_id,
-        run_id=resolved.run_id,
-        source_artifact_id=resolved.source_artifact_id,
-        source_revision_id=resolved.source_revision_id,
-        source_uri=resolved.sealed_source_uri,
-        extraction_profile=expected_profile,
-        campaign_scope=None,
-    )
-    authority = get_world_graph_authority()
-    snapshot = _identity_snapshot_payload(plan)
-    _require_prepare_binding(plan, snapshot)
-    _reprove_source_admission(plan)
-    try:
-        mutation_context = authority.mutation_context(
-            native_world_id,
-            plan.parent_revision_id,
-            sealed_identity_snapshot=snapshot,
-        )
-    except WorldGraphAuthorityError as exc:
-        raise _authority_error(exc) from exc
-
-    try:
-        verified = verify_worldbuilding_write_plan(
-            plan.model_dump(mode="json", by_alias=True),
-            preview=typed_preview,
-            mutation_context=mutation_context,
-            context=verify_context,
-            require_current_head=False,
-        )
-        native_effect = _qualify_worldbuilding_native_edges(
-            preview=typed_preview,
-            effect=verified["effect"],
-            native_vocabulary_binding=native_vocabulary_binding,
-        )
-        contribution = materialize_worldbuilding_contribution(
-            world_id=verified["world_id"],
-            plan_digest=verified["plan_digest"],
-            effect=native_effect,
-        )
-    except WorldbuildingWritePlanError as exc:
-        raise _write_plan_error(exc) from exc
-
-    if PRODUCT_CONFIRM_DRY_RUN:
-        raise ExtractPromoteError(
-            "worldbuilding confirm dry_run is not supported",
-            code="invalid_request",
-            status_code=422,
-            diagnostics=[_diagnostic("invalid_request", "dry_run not supported")],
-        )
-
-    materialized_accepted = [
-        assertion.assertion_id for assertion in contribution.accepted_assertions
-    ]
-    materialized_rejected = [
-        assertion.assertion_id for assertion in contribution.rejected_assertions
-    ]
-    parent = str(verified["parent_revision_id"])
-    operation_id = worldbuilding_authority_operation_id(
-        world_id=str(verified["world_id"]),
-        plan_id=str(verified["plan_id"]),
-        plan_digest=str(verified["plan_digest"]),
-    )
-    actor = str(plan.run_id)
-    recovered: WorldGraphPublicationReceipt | None
-    try:
-        recovered = authority.recover(
-            str(verified["world_id"]),
-            operation_id,
-            expected_parent_revision_id=parent,
-            contribution=contribution,
-            actor=actor,
-            operation_namespace="worldbuilding",
-        )
-    except WorldGraphAuthorityError as exc:
-        raise _authority_error(exc) from exc
-
-    if recovered is not None:
-        return _receipt_from_publication(
-            receipt=recovered,
-            verified=verified,
-            resolved=resolved, publication_binding=publication_binding,
-            contribution=contribution,
-            parent=parent,
-            materialized_accepted=materialized_accepted,
-            materialized_rejected=materialized_rejected,
-            authority=authority,
-            outcome="already_applied",
-        )
-
-    try:
-        head = authority.current_head(str(verified["world_id"]))
-    except WorldGraphAuthorityError as exc:
-        raise _authority_error(exc) from exc
-    if head.revision_id != parent:
-        raise ExtractPromoteError(
-            "expected parent revision is not the current World Graph head",
-            code="stale_parent_revision",
-            status_code=409,
-            diagnostics=[
-                _diagnostic(
-                    "stale_parent_revision",
-                    "expected parent revision is not the current World Graph head",
-                )
-            ],
-        )
-
-    publish_request = WorldGraphPublishRequest(
-        world_id=str(verified["world_id"]),
-        expected_parent_revision_id=parent,
-        authority_operation_id=operation_id,
-        actor=actor,
-        contribution=contribution,
-        accepted_assertion_ids=tuple(materialized_accepted),
-        operation_namespace="worldbuilding",
-    )
-    if _registered_publication_binding(resolved) != publication_binding:
-        raise ExtractPromoteError("World/source binding changed before publication",
-                                 code="worldbuilding_source_binding_changed", status_code=409)
-    if authorize_write is not None:
-        authorize_write()
-    try:
-        receipt = authority.publish(publish_request)
-    except WorldGraphAuthorityError as exc:
-        if exc.code == "stale_parent":
-            raise _authority_error(exc) from exc
-        try:
-            recovered = authority.recover(
-                str(verified["world_id"]),
-                operation_id,
-                expected_parent_revision_id=parent,
-                contribution=contribution,
-                actor=actor,
-                operation_namespace="worldbuilding",
-            )
-        except WorldGraphAuthorityError as recover_exc:
-            raise _authority_error(recover_exc) from recover_exc
-        if recovered is not None:
-            return _receipt_from_publication(
-                receipt=recovered,
-                verified=verified,
-            resolved=resolved, publication_binding=publication_binding,
-                contribution=contribution,
-                parent=parent,
-                materialized_accepted=materialized_accepted,
-                materialized_rejected=materialized_rejected,
-                authority=authority,
-                outcome="already_applied",
-                extra_warnings=[f"publish_uncertain:{exc.code}"],
-            )
-        raise _authority_error(exc) from exc
-
-    return _receipt_from_publication(
-        receipt=receipt,
-        verified=verified,
-            resolved=resolved, publication_binding=publication_binding,
-        contribution=contribution,
-        parent=parent,
-        materialized_accepted=materialized_accepted,
-        materialized_rejected=materialized_rejected,
-        authority=authority,
-        outcome="already_applied" if receipt.outcome == "already_applied" else "committed",
-    )
 
 
 def _receipt_from_publication(
