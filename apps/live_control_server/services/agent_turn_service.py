@@ -2120,9 +2120,11 @@ class _PolicyExecutionAdapter:
                     provenance=provenance,submitted_intent=self.submitted_intent,parent=plan_jev_request)
             elif plan_request_dialogue is not None:
                 from .plan_source_turn import freeze_plan_request
-                receipt, execution, membership = freeze_plan_request(self.request, self.work, self.playable_target,
-                    self.budget, authority=self.native_source_authority, native_query=self.native_query,
-                    provenance=provenance, submitted_intent=self.submitted_intent, dialogue=plan_request_dialogue)
+                detailed = self.trace is not None and host_work_observer.get() is not None
+                with self.trace.measure_host_work("plan_request_receipt_preparation") if detailed else nullcontext():
+                    receipt, execution, membership = freeze_plan_request(self.request, self.work, self.playable_target,
+                        self.budget, authority=self.native_source_authority, native_query=self.native_query,
+                        provenance=provenance, submitted_intent=self.submitted_intent, dialogue=plan_request_dialogue)
             elif self.native_source_authority is not None:
                 from .plan_source_turn import freeze
                 graph_receipt = graph_execution = None
@@ -2226,7 +2228,6 @@ class _PolicyExecutionAdapter:
             list(receipt.assembled_input.dispatched_evidence_ref_ids),
         ))
         assert self.turn is not None
-        from contextlib import nullcontext
         from application_state.agent_conversation.native_context import is_semantic_build_input
 
         capture = None
