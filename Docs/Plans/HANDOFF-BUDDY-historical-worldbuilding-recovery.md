@@ -142,34 +142,55 @@ failures; no retrieval baseline/provider experiment or new full-discovered run
 absent an actual frontend change/concern. Independent exact cumulative source/
 evidence review and expected-head authorized merge are required.
 
-## Implementation checkpoint
+## Implementation checkpoint and acceptance evidence
 
-Receipt-only confirmation, complete original candidate/review derivation, bare
-immutable SQL readers, current/late owner and binding fences, and authenticated
-prepare retirement are implemented. Working owning diagnostic:105pass,0fail/error/
-skip (owning-working-9.xml); hosted focused fences:4pass. These are working-tree
-diagnostics, not exact committed-head release acceptance. All original pure
-producer and full typed mapping checks remain; old confirm-as-fresh-publication
-expectations now explicitly seed typed original history before recovery.
+Implementation is complete; disposition IMPLEMENTED_AWAITING_INDEPENDENT_REVIEW.
+Signed v2 confirmation is receipt-only, with full independent candidate/review
+correspondence and current/late owner and binding fences. Classic prepare returns
+410 after existing authorization. No current mutable source/head preflight or
+absent-to-publish fallback remains in classic confirmation.
 
-Real loopback PostgreSQL witnesses execute public V6 seed, actual source admission,
+Frozen production head5e646eef8ffd6c0922ed692f7bac7838a1b004af:
+- owning575, native96, preservation376, auth316: all pass,0failure/error/skip;
+  each serial cohort recorded unchanged clean source before/after;
+- official Node22.23.0/npm10.9.8 hosted verifier:1412selected pass,147filtered,
+  collection parity, build and canonical validation pass; temporary verification
+  root absent after verifier cleanup. Full default frontend remains unqualified;
+- installed Core d206e56a9aa34ae6eb6cc7ac61980a7ac8919c4d production218files and
+  WorldKeeper348c0dbf5156e7e7d5d951de90b9086501fc834f production14files match exact
+  Git archives. No dependency resync/overlay/repin.
+
+Subsequent delta is owning tests and this evidence only: no production/UI/contract/
+dependency changes. Working111pass adds genuine CoreV2 and guardedV3 terminal
+refusals before parent lookup, explicitly ordered accepted/rejected multi-span
+producer/mapping/review proof with coherent reordered-history refusal, and full
+original SQL receipt fields. Independent expected governs endpoints and exact
+parsed alias/evidence binding assertions remain. Freeze and execute this owning
+cohort at the final committed review head; broad5e evidence retains its exact
+scope instead of being relabeled as final-head execution.
+
+Real loopback PostgreSQL witnesses execute publicV6 seed, actual source admission,
 original pure producer plus actual Core finalize/publication, later descendant and
 catalog-consistent source withdrawal. Original packets recover twice through fresh
 bare readers with unchanged full APP/Core row counts and hashes. Missing receipt
-refuses without publication; corrupt child returns publication_integrity_failure.
-Historical preparation uses an empty fake mutation port only; admission, review,
-publication and recovery are real SQL. Fixtures require zero clients before drop
-and independent absence afterward. SQL-working-1 retained a test expectation error
-for the typed integrity code; corrected in the passing owning diagnostic. Earlier
-owning-working-7 also retains test-scaffolding failures, corrected before passing.
+refuses; corrupt child returns publication_integrity_failure. Original plan/digest/
+decision IDs, contribution, accepted/rejected/unresolved IDs, head_advanced and
+audit disposition are checked. Historical preparation uses an explicitly empty
+fake mutation port; no end-to-end hosted original publication claim. Mutable
+run/Page/body/index loaders and source/catalog/head/publish/finalize access are
+tripwired; actual deletion was not exercised. Fixtures require zero clients/drop/
+independent absence. FinalSQL is bracketed by complete installed-source audits.
 
-Full frozen-head auth/native/preservation, official hosted/build/canonical checks,
-installed dependency origin audit, independent cumulative acceptance and merge
-remain pending. No serving rollout or full V10/V11 acceptance is claimed. Missing
-mutable run/Page/body/index access is tripwired; explicit fixture removal and
-original receipt/evidence assertions remain subject to final proof review.
-Changed production/owning tests Ruff is clean;11 unrelated existing hosted F811
-findings and route F401 remain inherited. Remote main revalidated at744b3971d.
+Evidence ownerMIND: Projects/.codex/v7-elderwyld-scope/scratch/
+v10-historical-worldbuilding-recovery. backend-5e646eef.json and cohortXML/logs,
+hosted-5e646eef/evidence.json, review-proof-working.xml/log and before/after-final-
+SQL source audits. Retained diagnostic failures:SQL-working-1 expected a different
+integrity error spelling; owning-working-7 had test-scaffolding migration errors.
+Both are corrected, not deleted. Changed production/owning tests Ruff is clean;
+11 unrelated hostedF811 and inherited routeF401 remain outside this repair.
+
+Independent exact cumulative source/evidence acceptance and expected-head merge
+remain pending. No serving rollout, fullV10/V11 or aggregate release-green claim.
 
 ## Full goal and resources
 

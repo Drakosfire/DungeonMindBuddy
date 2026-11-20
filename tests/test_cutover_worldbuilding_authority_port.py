@@ -1949,6 +1949,8 @@ def _immutable_worldbuilding_plan(monkeypatch, *, mode="create", with_producer_i
     elif mode == "reject_node":
         dispositions[0] = {"assertion_id": "wb_node_0", "decision": "reject"}
         dispositions[2] = {"assertion_id": "wb_edge_0", "decision": "defer"}
+    elif mode == "multispan":
+        dispositions[2] = {"assertion_id": "wb_edge_0", "decision": "reject"}
     elif mode == "reject":
         dispositions[2] = {"assertion_id": "wb_edge_0", "decision": "reject"}
     elif mode == "defer":
@@ -1978,6 +1980,17 @@ def _immutable_worldbuilding_plan(monkeypatch, *, mode="create", with_producer_i
         kwargs["preview"] = replace(kwargs["preview"], version="0.2", source_observations=(observation,))
         kwargs["extraction_profile"] = GAZETTEER_DEFINITION_OBSERVATION_PROFILE.qualified_id
         dispositions.append({"assertion_id": observation.observation_id, "decision": "accept"})
+    if mode == "multispan":
+        preview = kwargs["preview"]
+        def two_spans(refs):
+            ref = refs[0]
+            return tuple(replace(ref, source_ref_id="ref:multi:" + suffix,
+                source_span_ref_id="span:multi:" + suffix,
+                source_anchor_id="anchor:multi:" + suffix,
+                anchor_quotes=("Exact quotation " + suffix,)) for suffix in ("z", "a"))
+        kwargs["preview"] = replace(preview,
+            nodes=tuple(replace(node, evidence_refs=two_spans(node.evidence_refs)) for node in preview.nodes),
+            edges=tuple(replace(edge, evidence_refs=two_spans(edge.evidence_refs)) for edge in preview.edges))
     built = build_worldbuilding_write_plan(**kwargs)
     plan = _wrap_built_plan(built)
     plan = plan.model_copy(update={
@@ -2128,7 +2141,7 @@ def test_immutable_worldbuilding_signed_inconsistent_crosslinks_fail(monkeypatch
     assert error.value.code == "plan_verification_failed"
 
 
-@pytest.mark.parametrize("mode", ["create", "bind", "bind_alias", "defer", "observation", "reject", "reject_node", "governs"])
+@pytest.mark.parametrize("mode", ["create", "bind", "bind_alias", "defer", "observation", "reject", "reject_node", "governs", "multispan"])
 def test_immutable_worldbuilding_typed_mapping_uses_only_authenticated_evidence(monkeypatch, mode):
     from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import reconstruct_original_mapping
     from apps.live_control_server.integrations.dungeonmind import world_graph_writes as writes
@@ -2214,7 +2227,7 @@ def test_immutable_worldbuilding_signed_candidate_kind_ownership(monkeypatch, ch
     assert "decision/effect ownership" in str(error.value)
 
 
-@pytest.mark.parametrize("mode", ["create", "bind", "bind_alias", "defer", "observation", "reject", "reject_node", "governs"])
+@pytest.mark.parametrize("mode", ["create", "bind", "bind_alias", "defer", "observation", "reject", "reject_node", "governs", "multispan"])
 def test_immutable_worldbuilding_complete_typed_mapping_matches_original_producer(monkeypatch, mode):
     from graph_memory.worldbuilding_write_plan import _canonical_effect, materialize_worldbuilding_contribution
     from apps.live_control_server.services import worldbuilding_graph_publication as service
@@ -2281,10 +2294,14 @@ def _immutable_worldbuilding_original_staging(monkeypatch, *, mode="create", mut
         _worldbuilding_expressible(original), context=inputs["mutation_context"],
         pair_to_dm=pairs, produced_at=review_time, sources=sources,
     )
-    if mutation in {"value", "evidence", "extra_assertion"}:
+    if mutation in {"value", "evidence", "extra_assertion", "reordered_evidence"}:
         items = list(candidate.assertions)
         item = items[0]
-        if mutation == "value":
+        if mutation == "reordered_evidence":
+            value = json.loads(item.value)
+            value["evidence"] = list(reversed(value["evidence"]))
+            items[0] = item.model_copy(update={"value": canonical_json(value), "evidence_refs": list(reversed(item.evidence_refs))})
+        elif mutation == "value":
             value = json.loads(item.value)
             value["summary"] = "An alternate coherent meaning"
             items[0] = item.model_copy(update={"value": canonical_json(value)})
@@ -2348,7 +2365,7 @@ def _immutable_worldbuilding_original_staging(monkeypatch, *, mode="create", mut
     return plan, original, candidate, states, history, parent, operation
 
 
-@pytest.mark.parametrize("mode", ["create", "bind", "bind_alias", "defer", "observation", "reject", "reject_node", "governs"])
+@pytest.mark.parametrize("mode", ["create", "bind", "bind_alias", "defer", "observation", "reject", "reject_node", "governs", "multispan"])
 def test_immutable_worldbuilding_complete_candidate_and_review_match_original_producer(monkeypatch, mode):
     from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import (
         reconstruct_original_mapping, reconstruct_candidate, verify_review_correspondence,
@@ -2655,6 +2672,13 @@ def test_real_postgres_worldbuilding_history_after_descendant_and_withdrawal(
             assert receipt.outcome == "already_applied"
             assert (receipt.world_id, receipt.parent_revision_id, receipt.committed_revision_id) == (world, parent.revision_id, child_id)
             assert receipt.committed_revision_id != descendant.revision_id
+            assert (receipt.plan_id, receipt.plan_digest, receipt.decision_digest) == (plan.plan_id, plan.plan_digest, plan.decision_digest)
+            assert receipt.contribution_id == original.contribution_id
+            assert receipt.accepted_assertion_ids == [item.assertion_id for item in original.accepted_assertions]
+            assert receipt.rejected_assertion_ids == [item.assertion_id for item in original.rejected_assertions]
+            assert receipt.unresolved_mention_ids == [item.mention_id for item in original.unresolved_mentions]
+            assert receipt.head_advanced is True
+            assert receipt.audit_status == "ok"
         else:
             with pytest.raises(service.ExtractPromoteError) as error:
                 service.confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
@@ -2662,3 +2686,36 @@ def test_real_postgres_worldbuilding_history_after_descendant_and_withdrawal(
         assert plan.model_dump(mode="json", by_alias=True) == original_packet
         assert (_database_rows_fingerprint(dsn, core=True), _database_rows_fingerprint(application_state_dsn)) == before
     assert authority.publish_calls == 0
+
+
+@pytest.mark.parametrize("generation", ["v2", "guarded_v3"])
+def test_worldbuilding_unsupported_real_terminal_generation_precedes_parent(monkeypatch, generation):
+    from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import recover_original_publication
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+    from tests.test_graph_object_authoring_commit import _coherent_historical_manual_review
+    plan, _, _, _, calls = _immutable_worldbuilding_reader_case(monkeypatch)
+    history = _coherent_historical_manual_review(generation=generation)["history"]
+    assert type(history.review).model_validate(history.review.model_dump(mode="json")) == history.review
+    monkeypatch.setattr("dungeonmind.application.compatibility.read_historical_finalized_publication", lambda *args, **kwargs: history)
+    packet = plan.model_dump(mode="json", by_alias=True)
+    with pytest.raises(ExtractPromoteError) as error:
+        recover_original_publication(plan)
+    assert (error.value.code, error.value.status_code) == ("publication_history_unsupported", 409)
+    assert calls == ["binding"]  # No parent lookup or mutable/publish fallback.
+    assert plan.model_dump(mode="json", by_alias=True) == packet
+
+
+def test_worldbuilding_multispan_order_and_rejected_evidence_are_exact(monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import reconstruct_original_mapping, verify_review_correspondence
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+    plan, original, candidate, states, history, parent, operation = _immutable_worldbuilding_original_staging(monkeypatch, mode="multispan")
+    assert original.accepted_assertions and original.rejected_assertions
+    for item in candidate.assertions:
+        assert [ref.source_span_ref_id for ref in item.evidence_refs] == ["span:multi:z", "span:multi:a"]
+    raw, mapped = reconstruct_original_mapping(plan)
+    verify_review_correspondence(plan, original=raw, mapped=mapped, history=history, parent=parent, operation_id=operation)
+    plan, _, _, _, changed, parent, operation = _immutable_worldbuilding_original_staging(monkeypatch, mode="multispan", mutation="reordered_evidence")
+    raw, mapped = reconstruct_original_mapping(plan)
+    with pytest.raises(ExtractPromoteError) as error:
+        verify_review_correspondence(plan, original=raw, mapped=mapped, history=changed, parent=parent, operation_id=operation)
+    assert error.value.code == "publication_integrity_failure"
