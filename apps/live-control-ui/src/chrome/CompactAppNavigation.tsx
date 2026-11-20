@@ -2,7 +2,7 @@ import {useGuidedTour} from '../guidedTour/GuidedTour';
 import { useCampaignTrashScope } from "../workspaceLifecycle/campaignTrashScope";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
 import { useHostedAuthStatus } from "../auth/HostedAuthGate";
-import { useId, useRef, useState, type KeyboardEvent } from "react";
+import { useLayoutEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { APP_NAV_ITEMS, type AppRouteKey } from "./appChromeConfig";
 import { interceptPrimaryNavigationClick } from "./appNavigation";
 import { AppChromeWorldGraphStatus } from "./AppChromeWorldGraphStatus";
@@ -36,6 +36,27 @@ export function CompactAppNavigation({ activeRoute, localOnly = false, primaryAc
   const [expanded, setExpanded] = useState(true);
   const routesId = useId();
   const launcher = useRef<HTMLButtonElement>(null);
+  const routes = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const strip = routes.current;
+    const active = strip?.querySelector('[aria-current="page"]');
+    if (!expanded || !strip || !active) return;
+
+    const revealActiveRoute = () => {
+      const visible = strip.getBoundingClientRect();
+      const link = active.getBoundingClientRect();
+      if (link.left < visible.left) strip.scrollLeft += link.left - visible.left;
+      else if (link.right > visible.right) strip.scrollLeft += link.right - visible.right;
+    };
+
+    revealActiveRoute();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(revealActiveRoute);
+    observer.observe(strip);
+    observer.observe(active);
+    return () => observer.disconnect();
+  }, [activeRoute, expanded]);
   const current = APP_NAV_ITEMS.find((item) => item.route === activeRoute)?.label ?? "Buddy";
   const dismiss = (event: KeyboardEvent) => {
     if (event.key !== "Escape" || !expanded) return;
@@ -62,7 +83,7 @@ export function CompactAppNavigation({ activeRoute, localOnly = false, primaryAc
       </svg>
     </button>
     {!expanded ? <span className="app-nav-current">{current}</span> : null}
-    <div id={routesId} className="app-site-nav__routes" hidden={!expanded} onKeyDown={dismiss}>
+    <div id={routesId} ref={routes} className="app-site-nav__routes" hidden={!expanded} onKeyDown={dismiss}>
       {APP_NAV_ITEMS.map((item) => <a key={item.href}
         href={item.route && world.kind === "managed" ? worldScopedSurfaceHref(item.href, world.worldId) : item.href}
         className={item.route === activeRoute ? "active" : undefined} aria-current={item.route === activeRoute ? "page" : undefined}

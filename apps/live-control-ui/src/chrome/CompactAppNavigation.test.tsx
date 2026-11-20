@@ -30,6 +30,24 @@ describe("compact command-board navigation", () => {
     expect(screen.getByRole("button", { name: "World graph: Elderwyld · Ready" })).toBeVisible();
     expect(screen.getByRole("button", { name: "World graph: Elderwyld · Ready" })).toHaveAttribute("data-active-route", "plan");
   });
+  it("scrolls only the route strip to reveal an offscreen active route", () => {
+    const geometry = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains("app-site-nav__routes")) return new DOMRect(0, 0, 180, 32);
+      return new DOMRect(this.textContent === "Combat Tracker" ? 280 : 0, 0, 100, 32);
+    });
+    try {
+      const view = render(<CompactAppNavigation activeRoute="combat" />);
+      const strip = screen.getByRole("link", { name: "Combat Tracker" }).parentElement!;
+      expect(strip.scrollLeft).toBe(200);
+      const toggle = screen.getByRole("button", { name: "Close navigation" });
+      toggle.focus();
+      view.rerender(<CompactAppNavigation activeRoute="plan" />);
+      expect(screen.getByRole("link", { name: "Plan" })).toHaveAttribute("aria-current", "page");
+      expect(toggle).toHaveFocus();
+    } finally {
+      geometry.mockRestore();
+    }
+  });
   it("passes the graph route so the graph control targets its loaded canvas", () => {
     render(<CompactAppNavigation activeRoute="graph" />);
     expect(screen.getByRole("button", { name: "World graph: Elderwyld · Ready" })).toHaveAttribute("data-active-route", "graph");
