@@ -140,3 +140,53 @@ new worktree/root-backed node_modules. New scratch/v9-buddy/v10-native-manual-ui
 MIND retains diagnostic logs/evidence; cleanup follow-up after approved process/
 mount/unique-data checks. No deletions authorized. No serving/provider/live World/
 frozen baseline changes. Full current-route retirement/deployment/rollback/V11 open.
+
+## First implementation checkpoint (not qualification)
+
+API actual-wire diagnostic24PASS; API+recovery43PASS under shared flock, logs
+api-diagnostic-1.log/api-recovery-diagnostic-2.log. Native component initial16 cases:
+14PASS2FAIL from disabled-control timing in explicit draft edit and an expected
+option appearing in BOTH endpoint selectors; first log retained. Core/Pydantic
+wire snapshot generated through accepted installed90a5/WKef9 and actual backend
+models without DB/provider; synthetic APP coordinates/test opaque tokens, not APP
+authority or HMAC proof. Test-local snapshots stay inside16paths; proposed extra
+helper was NOT created. Application type diagnostic1 errors corrected; diagnostic2
+wrong cwd retained, diagnostic3PASS before subsequent work. No final-head claim.
+
+Timestamp exact UTC microsecond normalization accepts3/6fractiondigits and zero
+fraction, rejectsdifferentmicroseconds (not Date.parse equality). Receipt validators
+shared network/journal; invalid receipt cannot resolve unknown. Original review/
+prepared SHA checked asynchronously. Foreign-World scoped-key corruption filtered
+before raw parsing; selected-World corruption blocks. Case-distinct aliases retained.
+Admission dispatch consumes status freshness, unknown requires new matching status
+read before operator retry. Identity hints cached INCLUDING empty by binding/head/
+epoch/authgeneration; refreshed after actual context-coordinate changes. Explicit
+source refresh preserves draft and never runs on pending records. Dispatcher keyed
+by World/document; storage-event sync validates new records without fresh-context
+loop, blocks conflicting/inflight unknown replacement/removal. Sticky unknown stays
+byte-identical on later refusals; store cannot replace immutable operation/plan.
+
+Remaining before freeze: dispatcher legacy compatibility/current-protocol test
+updates, narrow transport regressions, mounted parent recovery test, scoped whole
+cohort/types/inventory/diff and actual fresh-main integration. Root full-discovered/
+hosted/broader qualification separate. Original102 baseline failures stay visible.
+
+Cross-document coordination clarification (Hubble WIP): document locks alone do
+not serialize World-scoped profile work. Every discovery/mutation critical section
+now also acquires the shared World coordination WebLock in globally sorted order,
+retaining actual old legacy/document locks. Profile reservation refuses any active
+same-World journal; manual/admission refuses active same-World profile work.
+Other document journals are metadata conflicts, never authority to replay another
+source. Two-document concurrency tests prove only one conflicting reservation and
+original discovery; backend remains authoritative, no DB-fence claim. Component
+initial diagnostic3 corrected explicit enabled-control timing/dual-selector count:
+16PASS. Diagnostic2 was prestart wrong cwd, not tests; log retained.
+
+First reviewable code checkpoint: new-owning-diagnostic-4 TERMINAL61PASS
+(24actual-wire API +21journal +16native component) and application tsc exit0 under
+one actual shared lock, existing task Node22.23.0/dependencies. Working-source
+proof, not final-head qualification. World-lock Hubble WIP re-review closes race
+at recoverySHA753bfb2873b97fa1b221de484ca8d4637f50e36d89bd7c4c99c44e28efae9a4b.
+Draft4207 remains WIP until existing dispatcher/transport/parent tests updated,
+fresh main integrated and cumulative proof complete; old102 discovered baseline
+failures retained, no global green claim. No worker job remains at checkpoint.

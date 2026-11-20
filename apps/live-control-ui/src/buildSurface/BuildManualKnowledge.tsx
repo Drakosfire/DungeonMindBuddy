@@ -1,166 +1,75 @@
-import type {NativeAuthoringIdentity} from '../api/liveApi';
 import {useEffect,useRef,useState} from 'react';
-import {LiveApiError,getGraphObjectAuthoringKinds,commitGraphObjectAuthoringWrite,getNativeAuthoringIdentities,prepareGraphObjectAuthoringWrite} from '../api/liveApi';
-import {getWorldbuildingFrozenSpans} from '../api/extractPromoteApi';
-import type {ExactRunReviewPackage,ExtractionRunRecord,GraphObjectAuthoringProposalPayload,GraphReviewHandoffPayload,WorkspaceDocumentRecord,WorldbuildingFrozenSpanCatalog} from '../api/types';
+import {commitGraphObjectAuthoringWrite} from '../api/liveApi';
+import type {ExactRunReviewPackage,ExtractionRunRecord,GraphReviewHandoffPayload,WorkspaceDocumentRecord,WorldbuildingFrozenSpanCatalog} from '../api/types';
 import {useMarkdownCanvasSession} from '../markdownCanvas/MarkdownCanvasSession';
-import {buildGraphObjectAuthoringProposal,buildGraphObjectAuthoringRelationshipProposal,buildObjectRefFromInspectedNode,
-  createDefaultGraphObjectAuthoringFormState,createDefaultGraphObjectAuthoringRelationshipFormState,
-  serializeGraphObjectAuthoringProposalForApi} from '../planSurface/graphReviewWorkbench/graphObjectAuthoringDraft';
-import type {GraphAuthoringSelection} from '../planSurface/graphReviewWorkbench/graphAuthoringSelection';
-import {validFrozenCatalog} from './WorldbuildingEvidenceCorrection';
-import {knowledgeKey,readKnowledgeRecovery,selectionForFrozenText,type ManualKnowledgeRecovery,type ManualKnowledgeScope} from './buildManualKnowledge';
+import {readKnowledgeRecovery} from './buildManualKnowledge';
+import {NativeManualKnowledge,type FreshManualSource} from './NativeManualKnowledge';
+import {archive,discover,legacyTransaction,type LegacyLocated,type Located,type Scope} from './nativeManualKnowledgeRecovery';
 
 type Props={worldId:string;document:WorkspaceDocumentRecord;run:ExtractionRunRecord;handoff:GraphReviewHandoffPayload;
-  review:ExactRunReviewPackage;sourceContentSha256:string;isScopeCurrent:()=>boolean;frozenCatalog?:WorldbuildingFrozenSpanCatalog|null};
-const message=(e:unknown)=>e instanceof Error?e.message:'Manual knowledge could not be prepared.';
+  review?:ExactRunReviewPackage|null;sourceContentSha256:string;isScopeCurrent:()=>boolean;
+  frozenCatalog?:WorldbuildingFrozenSpanCatalog|null;onBusyChange?:(busy:boolean)=>void};
+const message=(e:unknown)=>e instanceof Error?e.message:'Saved manual authoring could not be read.';
 
-/** Build adapter only: shared proposal grammar and the governed prepare/confirm owner do the writing. */
+/** Recovery routing never reinterprets classic packets as native requests. */
 export function BuildManualKnowledge(props:Props){
+  return <ScopedManualKnowledge key={JSON.stringify([props.worldId,props.document.document_id])} {...props}/>;
+}
+function ScopedManualKnowledge(props:Props){
   const session=useMarkdownCanvasSession();
-  const scope:ManualKnowledgeScope={worldId:props.worldId,documentId:props.document.document_id,
-    revision:props.handoff.document_revision,hash:props.sourceContentSha256.replace(/^sha256:/,''),
-    runId:props.run.run_id,artifactId:props.run.source_artifact_id};
-  const key=knowledgeKey(scope),alive=useRef(true),busyRef=useRef(false),rawRef=useRef<string|null>(null);
-  const [catalog,setCatalog]=useState<WorldbuildingFrozenSpanCatalog|null>(null);
-  const frozenCache=useRef<{key:string;value:WorldbuildingFrozenSpanCatalog}|null>(null);
-  const [kinds,setKinds]=useState<string[]>([]),[editableRefusal,setEditableRefusal]=useState(false);
-  const [nodes,setNodes]=useState<NativeAuthoringIdentity[]>([]),[error,setError]=useState('');
-  const [busy,setBusy]=useState(false),[reload,setReload]=useState(0);
-  const [recovery,setRecovery]=useState<ManualKnowledgeRecovery|null>(()=>{
-    try{const raw=localStorage.getItem(key);rawRef.current=raw;return readKnowledgeRecovery(raw,scope);}
-    catch{return null;}
-  });
-  const [storageError]=useState(()=>{try{readKnowledgeRecovery(localStorage.getItem(key),scope);return '';}catch(e){return message(e);}});
-  const [selection,setSelection]=useState<GraphAuthoringSelection|null>(null);
-  const [passagesOpen,setPassagesOpen]=useState(false);
-  const [mode,setMode]=useState('object'),[label,setLabel]=useState(''),[kind,setKind]=useState('npc'),[summary,setSummary]=useState('');
-  const [source,setSource]=useState(''),[target,setTarget]=useState(''),[predicate,setPredicate]=useState('located_in');
-  const current=useRef({session,props,scope,key});current.current={session,props,scope,key};
-  function exact(){const c=current.current,s=c.session;
-    return alive.current&&c.key===key&&c.props.isScopeCurrent()&&!s.dirty&&['ready_clean','committed'].includes(s.phase)
-      &&s.record?.document_id===scope.documentId&&s.record.world_id===scope.worldId&&s.record.kind==='worldbuilding_source'
-      &&s.snapshot?.loaded_revision===scope.revision&&s.snapshot.content_sha256?.replace(/^sha256:/,'')===scope.hash
-      &&props.run.status==='reviewable'&&props.run.source_domain==='worldbuilding'
-      &&props.handoff.extraction_run_id===scope.runId&&props.handoff.source_artifact_id===scope.artifactId
-      &&props.handoff.document_id===scope.documentId;
+  const scope:Scope={worldId:props.worldId,documentId:props.document.document_id};
+  const scopeKey=JSON.stringify(scope),alive=useRef(true),busyRef=useRef(false),current=useRef({props,session,scopeKey});
+  current.current={props,session,scopeKey};
+  const [state,setState]=useState(()=>{try{return {...discover(scope),error:''};}catch(e){return {native:null,legacy:null,error:message(e)};}});
+  const [busy,setBusy]=useState(false),[error,setError]=useState('');
+  function isCurrent(){return alive.current&&current.current.scopeKey===scopeKey&&current.current.props.isScopeCurrent();}
+  function refresh(){try{setState({...discover(scope),error:''});}catch(e){setState({native:null,legacy:null,error:message(e)});}}
+  useEffect(()=>{alive.current=true;const changed=()=>refresh();window.addEventListener('storage',changed);
+    return()=>{alive.current=false;window.removeEventListener('storage',changed);};},[scopeKey]);
+  function getFresh():FreshManualSource{
+    const c=current.current,p=c.props,s=c.session;
+    if(!isCurrent()||s.dirty||!['ready_clean','committed'].includes(s.phase)||s.record?.document_id!==scope.documentId
+      ||s.record.world_id!==scope.worldId||s.record.kind!=='worldbuilding_source'||!s.snapshot
+      ||s.snapshot.loaded_revision!==p.handoff.document_revision||p.handoff.document_id!==scope.documentId
+      ||p.handoff.extraction_run_id!==p.run.run_id||p.handoff.source_artifact_id!==p.run.source_artifact_id
+      ||p.run.source_domain!=='worldbuilding'||p.run.status!=='reviewable'||typeof p.run.revision!=='number'||!Number.isSafeInteger(p.run.revision)||p.run.revision<1
+      ||s.snapshot.content_sha256.replace(/^sha256:/,'')!==p.sourceContentSha256.replace(/^sha256:/,''))
+      throw new Error('Save the source and reopen its exact extraction before fresh authoring. Saved recovery remains available.');
+    return {selector:{schema:'dmb_native_manual_context_v1',managedWorldId:scope.worldId,documentId:scope.documentId,
+      documentRevision:p.handoff.document_revision,bodySha256:p.sourceContentSha256.replace(/^sha256:/,''),runId:p.run.run_id,runRevision:p.run.revision},
+      markdown:s.snapshot.markdown};
   }
-  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
-  useEffect(()=>{let active=true;setCatalog(null);setNodes([]);setKinds([]);setError('');
-    const cached=frozenCache.current?.key===key?frozenCache.current.value:props.frozenCatalog;
-    const spansRead=cached&&validFrozenCatalog(cached,props.review,props.run,scope.worldId)?Promise.resolve(cached):getWorldbuildingFrozenSpans(scope.runId);
-    void Promise.all([getGraphObjectAuthoringKinds(scope.worldId),spansRead,getNativeAuthoringIdentities(scope.worldId)]).then(([capabilities,spans,graph])=>{
-      if(!active||!props.isScopeCurrent())return;
-      if(!validFrozenCatalog(spans,props.review,props.run,scope.worldId))throw new Error('Frozen source does not match this review.');
-      if(!Array.isArray(capabilities.objectKinds)||!capabilities.objectKinds.length||capabilities.objectKinds.some(k=>typeof k!=='string'||!k.trim()))throw new Error('World object kinds are unavailable.');
-      setKinds(capabilities.objectKinds);frozenCache.current={key,value:spans};setCatalog(spans);setNodes(graph);
-    }).catch(e=>{if(active)setError(message(e));});return()=>{active=false;};
-  },[key,reload]);
-  async function store(next:ManualKnowledgeRecovery|null,requireCurrent=true){
-    if(!navigator.locks)throw new Error('This browser cannot safely retain manual authoring across tabs. No request was sent.');
-    await navigator.locks.request(key,()=>{
-      if((requireCurrent&&!exact())||localStorage.getItem(key)!==rawRef.current)throw new Error('The source or saved authoring changed. Reopen this review; the request is retained.');
-      const raw=next===null?null:JSON.stringify(next);
-      readKnowledgeRecovery(raw,scope);
-      if(raw===null)localStorage.removeItem(key);else localStorage.setItem(key,raw);
-      if(localStorage.getItem(key)!==raw)throw new Error('The authoring request could not be retained. No request was sent.');
-      rawRef.current=raw;
-    });
-    if(alive.current&&current.current.key===key)setRecovery(next);
+  async function legacyRetry(located:LegacyLocated){
+    if(busyRef.current)return;busyRef.current=true;setBusy(true);props.onBusyChange?.(true);setError('');
+    try{if(!isCurrent()||!located.value.submitted||!located.value.prepared||located.value.receipt)throw new Error('Only the original submitted classic packet may be retried.');
+      await legacyTransaction(scope,located,async()=>{
+        if(!isCurrent())throw new Error('The selected World changed.');
+        const old=located.value;
+        const receipt=await commitGraphObjectAuthoringWrite({...old.request,confirmToken:old.prepared!.confirm_token!,currentOverlayToken:old.prepared!.current_overlay_token});
+        if(!isCurrent())throw new Error('The original result is retained for recovery in its World.');
+        const next={...old,receipt};const raw=JSON.stringify(next);readKnowledgeRecovery(raw,old.scope);
+        if(localStorage.getItem(located.key)!==located.raw)throw new Error('Another tab changed this classic record.');
+        localStorage.setItem(located.key,raw);if(localStorage.getItem(located.key)!==raw)throw new Error('The original result could not be retained.');
+      });refresh();
+    }catch(e){if(alive.current)setError(message(e)+' The exact classic packet is retained.');}
+    finally{busyRef.current=false;if(alive.current)setBusy(false);props.onBusyChange?.(false);}
   }
-  function choose(text:string){try{if(!exact()||!catalog)throw new Error('Save the current document and open its matching extraction first.');
-    const selected=selectionForFrozenText(scope,catalog,text);setSelection(selected);setLabel(selected.normalizedSelectedText);setError('');
-  }catch(e){setError(message(e));}}
-  async function prepare(){if(busyRef.current)return;busyRef.current=true;setBusy(true);setError('');
-    try{if(!exact()||!catalog)throw new Error('Save the document and reopen its exact extraction.');
-      let retained=recovery;
-      if(!retained){if(!selection)throw new Error('Choose source text first.');
-        const selected=selectionForFrozenText(scope,catalog,selection.selectedText);
-        let proposal;
-        if(mode==='object'){if(!label.trim())throw new Error('Give the object a name.');
-          proposal=buildGraphObjectAuthoringProposal(selected,{...createDefaultGraphObjectAuthoringFormState(selected),label,kind,summary});
-        }else{const from=nodes.find(n=>n.node_id===source),to=nodes.find(n=>n.node_id===target);
-          if(!from||!to||source===target)throw new Error('Choose two different current World objects.');
-          const ref=(n:NativeAuthoringIdentity)=>buildObjectRefFromInspectedNode({node_id:n.node_id,label:n.label,kind:n.kind,role:n.role});
-          proposal=buildGraphObjectAuthoringRelationshipProposal({...createDefaultGraphObjectAuthoringRelationshipFormState(),
-            sourceObjectRef:ref(from),targetObjectRef:ref(to),relationshipType:predicate,summary},selected);
-          if(!proposal)throw new Error('Choose a valid relationship.');
-        }
-        retained={schema:'dmb_build_manual_knowledge_v1',scope,request:{worldId:scope.worldId,campaignId:scope.worldId,sourceRunId:scope.runId,
-          proposals:[serializeGraphObjectAuthoringProposalForApi(proposal) as unknown as GraphObjectAuthoringProposalPayload]},prepared:null,submitted:false,receipt:null};
-        await store(retained);
-      }
-      if(retained.submitted||retained.receipt)throw new Error('Recover the retained confirmation instead of preparing another request.');
-      if(!exact())throw new Error('The source changed before preview. The request is retained.');
-      const result=await prepareGraphObjectAuthoringWrite(retained.request);
-      if(result.expressibility!=='EXPRESSIBLE'||!result.confirm_token)throw new Error('This proposal cannot be published.');
-      await store({...retained,prepared:result},false);
-    }catch(e){if(alive.current)setError(message(e));}finally{busyRef.current=false;if(alive.current)setBusy(false);}
+  async function archiveLegacy(located:LegacyLocated){
+    if(busyRef.current)return;busyRef.current=true;setBusy(true);setError('');
+    try{if(!isCurrent())throw new Error('Select the original World/document.');await archive(scope,located);refresh();}
+    catch(e){setError(message(e));}finally{busyRef.current=false;setBusy(false);}
   }
-  async function confirm(){if(busyRef.current||!recovery?.prepared||recovery.receipt)return;busyRef.current=true;setBusy(true);setError('');setEditableRefusal(false);
-    try{if(!exact())throw new Error('Save the document and reopen its exact extraction before confirming.');
-      const retained={...recovery,submitted:true};await store(retained);
-      if(!exact())throw new Error('The source changed before confirmation. The request is retained.');
-      const result=await commitGraphObjectAuthoringWrite({...retained.request,confirmToken:retained.prepared!.confirm_token,currentOverlayToken:retained.prepared!.current_overlay_token});
-      if(!result.committed)throw new Error('Publication was not acknowledged. The exact request is retained.');
-      await store({...retained,receipt:result},false);if(alive.current&&props.isScopeCurrent())setReload(n=>n+1);
-    }catch(e){if(alive.current){setEditableRefusal(e instanceof LiveApiError&&e.status===409&&e.code==='authoring_kind_unsupported');setError(message(e)+' The exact request is retained for retry.');}}finally{busyRef.current=false;if(alive.current)setBusy(false);}
+  if(state.error)return <section aria-label="Author World knowledge"><h3>Author World knowledge</h3><p role="alert">{state.error}</p><p>All saved bytes are retained. Fresh authoring is blocked.</p></section>;
+  if(state.legacy){const l=state.legacy;
+    return <section aria-label="Author World knowledge"><h3>Retained classic manual review</h3>
+      <p>This original classic protocol is transitional. It will not be converted to native authoring.</p>{error&&<p role="alert">{error}</p>}
+      <blockquote>{String(l.value.request.proposals[0].selection?.selectedText??'')}</blockquote>
+      {l.value.receipt?<><p role="status">Original classic confirmation acknowledged.</p><button disabled={busy} onClick={()=>void archiveLegacy(l)}>Retain receipt and open native authoring</button></>:
+        l.value.submitted?<><p>An earlier classic request may have committed. Only its original confirmation can be retried.</p><button disabled={busy} onClick={()=>void legacyRetry(l)}>Retry original classic confirmation</button></>:
+        <><p>This old review was not submitted. No classic preparation or confirmation will be sent.</p><button disabled={busy} onClick={()=>void archiveLegacy(l)}>Archive unsubmitted classic review and refresh</button></>}
+    </section>;
   }
-  async function editProposal(){
-    if(busyRef.current||!recovery||recovery.receipt||(recovery.submitted&&!editableRefusal))return;
-    busyRef.current=true;setBusy(true);
-    try{
-      if(!exact()||!catalog)throw new Error('Reopen the matching saved source before editing.');
-      const proposal=recovery.request.proposals[0];
-      const selected=selectionForFrozenText(scope,catalog,String(proposal.selection?.selectedText??''));
-      await store(null);
-      setSelection(selected);setMode(proposal.proposalKind==='relationship'?'relationship':'object');
-      setLabel(String(proposal.objectRef?.label??''));setKind(String(proposal.objectRef?.kind??'npc'));
-      setSummary(String(proposal.objectRef?.summary??proposal.summary??''));
-      setSource(String(proposal.sourceObjectRef?.nodeId??''));setTarget(String(proposal.targetObjectRef?.nodeId??''));
-      setPredicate(String(proposal.relationshipType??'located_in'));setEditableRefusal(false);setError('');
-    }catch(e){if(alive.current)setError(message(e));}finally{busyRef.current=false;if(alive.current)setBusy(false);}
-  }
-  function nodeCaption(node:NativeAuthoringIdentity){
-    const detail=[node.kind,node.role!==node.kind?node.role:null,node.summary].filter(Boolean).join(' · ');
-    return node.label+(detail?' · '+detail:'')+(nodes.filter(n=>n.label===node.label).length>1?' · '+node.node_id:'');
-  }
-  function endpointCaption(ref:Record<string,unknown>|null|undefined){
-    const node=nodes.find(n=>n.node_id===ref?.nodeId);
-    return node?nodeCaption(node):String(ref?.label??'Unavailable object')+' · '+String(ref?.nodeId??'');
-  }
-  const ready=exact()&&!storageError&&!busy&&!!catalog&&kinds.length>0;
-  return <section aria-label="Author World knowledge" className="graph-object-authoring-surface">
-    <h3>Author World knowledge</h3><p>Choose saved source text, declare an object or relationship, then review and confirm it.</p>
-    {!exact()&&<p role="status">Save the document and reopen the extraction matching its current saved revision before authoring.</p>}
-    {storageError&&<p role="alert">{storageError}</p>}{error&&<p role="alert">{error}</p>}
-    {!catalog&&!error&&<p role="status">Reading frozen source passages…</p>}
-    {!recovery&&<fieldset disabled={!ready}><legend>Source and assertion</legend>
-      <button type="button" onClick={()=>{const editor=session.editor;choose(editor?editor.state.doc.textBetween(editor.state.selection.from,editor.state.selection.to,' '):'');}}>Use selected document text</button>
-      <details onToggle={e=>setPassagesOpen(e.currentTarget.open)}><summary>Choose a saved passage</summary>{passagesOpen&&catalog?.spans.map(span=><div key={span.sourceSpanRefId}>
-        <p>{span.paragraphText}</p><button type="button" onClick={()=>choose(span.paragraphText)}>Use passage · lines {span.startLine}–{span.endLine}</button></div>)}</details>
-      {selection&&<blockquote>{selection.selectedText}</blockquote>}
-      <label>Declare <select value={mode} onChange={e=>setMode(e.target.value)}><option value="object">Object</option><option value="relationship">Relationship</option></select></label>
-      {mode==='object'?<><label>Name<input value={label} onChange={e=>setLabel(e.target.value)}/></label>
-        <label>Kind<select value={kind} onChange={e=>setKind(e.target.value)}>{!kinds.includes(kind)&&<option value={kind} disabled>Choose a supported kind (previously {kind})</option>}{kinds.map(k=><option key={k}>{k}</option>)}</select></label></>
-      :<><label>From<select value={source} onChange={e=>setSource(e.target.value)}><option value="">Choose object</option>{nodes.map(n=><option key={n.node_id} value={n.node_id} disabled={n.selectable === false}>{nodeCaption(n)}</option>)}</select></label>
-        <label>Relationship<input value={predicate} onChange={e=>setPredicate(e.target.value)}/></label>
-        <label>To<select value={target} onChange={e=>setTarget(e.target.value)}><option value="">Choose object</option>{nodes.map(n=><option key={n.node_id} value={n.node_id} disabled={n.selectable === false}>{nodeCaption(n)}</option>)}</select></label></>}
-      <label>Description<textarea value={summary} onChange={e=>setSummary(e.target.value)}/></label>
-      <button type="button" disabled={!selection||(mode==='object'&&!kinds.includes(kind))} onClick={()=>void prepare()}>Preview World change</button>
-    </fieldset>}
-    {recovery&&!recovery.receipt&&<><blockquote>{String(recovery.request.proposals[0].selection?.selectedText??'')}</blockquote>
-      {recovery.prepared?<>{recovery.request.proposals[0].proposalKind==='relationship'&&<dl>
-        <dt>From</dt><dd>{endpointCaption(recovery.request.proposals[0].sourceObjectRef)}</dd>
-        <dt>Relationship</dt><dd>{recovery.request.proposals[0].relationshipType}</dd>
-        <dt>To</dt><dd>{endpointCaption(recovery.request.proposals[0].targetObjectRef)}</dd></dl>}
-        <ul>{recovery.prepared.assertions_preview.map(row=><li key={row.assertion_id}>{row.summary}</li>)}</ul>
-        <p>Confirming publishes this reviewed assertion to the World. Your source document stays unchanged.</p>
-        <button type="button" disabled={!ready} onClick={()=>void confirm()}>{recovery.submitted?'Retry exact confirmation':'Confirm World change'}</button></>
-        :<button type="button" disabled={!ready} onClick={()=>void prepare()}>Retry exact preview</button>}
-      {(!recovery.submitted||editableRefusal)&&<button type="button" disabled={!ready} onClick={()=>void editProposal()}>Edit proposal</button>}
-    </>}
-    {recovery?.receipt&&<><p role="status">World knowledge published. It is available for cited retrieval.</p>
-      <button type="button" disabled={!ready} onClick={()=>void store(null).then(()=>{setSelection(null);setSummary('');}).catch(e=>setError(message(e)))}>Author another assertion</button></>}
-  </section>;
+  return <NativeManualKnowledge key={scopeKey} scope={scope} initial={state.native} getFresh={getFresh} isCurrent={isCurrent}
+    getSelectedText={()=>{const e=current.current.session.editor;return e?e.state.doc.textBetween(e.state.selection.from,e.state.selection.to,' '):'';}}
+    onBusyChange={props.onBusyChange} onRetained={(native:Located|null)=>setState({native,legacy:null,error:''})}/>;
 }

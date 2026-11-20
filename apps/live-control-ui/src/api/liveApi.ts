@@ -348,8 +348,44 @@ function isNativeEvidenceExtensionBody(body: Record<string, unknown> | null): bo
       && typeof span.expected_slice_sha256 === "string" && /^[a-f0-9]{64}$/.test(span.expected_slice_sha256));
 }
 
+// Dedicated exact native-manual/profile transport regions; no legacy fallback.
+function isNativeManualTransport(path: string, body: Record<string, unknown> | null): boolean {
+  if (!body) return false;
+  const nonblank = (v: unknown) => typeof v === "string" && !!v.trim();
+  const id = (v: unknown) => typeof v === "string" && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(v);
+  const pos = (v: unknown) => Number.isSafeInteger(v) && Number(v) > 0;
+  const hash = (v: unknown) => typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
+  const source = (v: unknown) => isRecord(v) && nonblank(v.managedWorldId) && nonblank(v.nativeWorldId)
+    && pos(v.bindingVersion) && id(v.documentId) && pos(v.documentRevision) && hash(v.bodySha256)
+    && id(v.runId) && pos(v.runRevision) && nonblank(v.appSourceArtifactId) && id(v.appSourceRevisionId) && hash(v.spanIndexSha256);
+  if (path === "/api/live/graph-authoring/native-manual/context") return body.schema === "dmb_native_manual_context_v1"
+    && nonblank(body.managedWorldId) && id(body.documentId) && pos(body.documentRevision) && hash(body.bodySha256)
+    && id(body.runId) && pos(body.runRevision);
+  if (path === "/api/live/graph-authoring/native-manual/prepare") return body.schema === "dmb_native_manual_prepare_v1"
+    && source(body.source) && id(body.operationId) && typeof body.createdAt === "string" && Number.isFinite(Date.parse(body.createdAt))
+    && nonblank(body.expectedParentRevisionId) && Number.isSafeInteger(body.expectedSourceAuthorityEpoch) && Number(body.expectedSourceAuthorityEpoch) >= 0
+    && isRecord(body.witness) && isRecord(body.operation) && ["object", "relationship"].includes(String(body.operation.kind));
+  if (path === "/api/live/graph-authoring/native-manual/confirm") return body.schema === "dmb_native_manual_confirm_v1"
+    && isRecord(body.plan) && body.plan.schema === "dmb_native_manual_plan_v1" && nonblank(body.plan.token)
+    && isRecord(body.plan.review) && isRecord(body.plan.review.source) && source(body.plan.review.source) && isRecord(body.plan.publication)
+    && body.plan.publication.space_id === body.plan.review.source.nativeWorldId
+    && body.plan.publication.publication_id === body.plan.review.operationId;
+  if (path === "/api/live/graph-authoring/native-profile-transition/prepare") return body.schema === "dmb_native_profile_transition_prepare_v1"
+    && nonblank(body.managedWorldId) && nonblank(body.expectedNativeWorldId) && pos(body.expectedBindingVersion)
+    && nonblank(body.expectedParentRevisionId) && nonblank(body.publicationId);
+  if (path === "/api/live/graph-authoring/native-profile-transition/confirm") return body.schema === "dmb_native_profile_transition_confirm_v1"
+    && isRecord(body.plan) && body.plan.schema === "dmb_native_profile_transition_plan_v1" && nonblank(body.plan.token)
+    && nonblank(body.plan.managedWorldId) && nonblank(body.plan.nativeWorldId) && pos(body.plan.bindingVersion)
+    && isRecord(body.plan.request) && body.plan.request.space_id === body.plan.nativeWorldId
+    && nonblank(body.plan.request.publication_id) && nonblank(body.plan.request.expected_parent_revision_id);
+  return false;
+}
+
 function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | undefined): boolean {
   const pathname = path.split("?", 1)[0];
+  if (/^\/api\/live\/graph-authoring\/(?:native-manual|native-profile-transition)\/(?:context|prepare|confirm)$/.test(path)) {
+    return isNativeManualTransport(path, requestBodyRecord(body));
+  }
   if ([
     "/api/live/native-graph-inspection/complete-object",
     "/api/live/native-graph-inspection/authoring-identities",
@@ -471,6 +507,9 @@ const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (path.startsWith("/api/live/graph-authoring/native-manual") || path.startsWith("/api/live/graph-authoring/native-profile-transition")) {
+    return method === "POST" && isNativeManualTransport(path, requestBodyRecord(init?.body));
+  }
   if (path === "/api/live/tiptap/markdown-write/prepare" || path === "/api/live/tiptap/markdown-write/commit") {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && typeof body?.document_id === "string" && Boolean(body.document_id)
@@ -1251,7 +1290,13 @@ function apiRequestTarget(
   const pageUrl = typeof window === "undefined" ? undefined : window.location.href;
   let normalizedPath = path;
   try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
-  const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
+  const manualNativeFamily = normalizedPath.startsWith("/api/live/graph-authoring/native-manual")
+    || normalizedPath.startsWith("/api/live/graph-authoring/native-profile-transition");
+  if (manualNativeFamily && ((init?.method ?? "GET").toUpperCase() !== "POST"
+    || !isNativeManualTransport(path, requestBodyRecord(init?.body)))) {
+    throw new LiveApiError("Native manual requests require an exact relative path and matching original packet.", 0);
+  }
+  const graphSurface = manualNativeFamily || /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
     || normalizedPath.startsWith("/api/live/extract-promote/native-recap-context")
     || normalizedPath.startsWith("/api/live/source-statements/extend-evidence")
     || normalizedPath === "/api/live/workspace-documents/world-runbooks"
@@ -1488,6 +1533,9 @@ function canRetryLocalSessionRequest(path: string, init?: RequestInit): boolean 
   if (pathname === "/api/live/agent/turn") {
     return typeof body?.client_thread_id === "string" && Boolean(body.client_thread_id)
       && typeof body.turn_id === "string" && Boolean(body.turn_id);
+  }
+  if (path === "/api/live/graph-authoring/native-manual/context") {
+    return isNativeManualTransport(path, body);
   }
   if (path === "/api/live/extract-promote/native-recap-context") {
     return isNativeRecapContextBody(body);
