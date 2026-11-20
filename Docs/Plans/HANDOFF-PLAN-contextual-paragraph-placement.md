@@ -1,9 +1,12 @@
 # Ordinary Plan contextual paragraph placement
 
-Status: ACTIVE for inert catalog/codec and test preparation. Production V2
-admission, V2 producer activation and the reader-fence file are gated on #4240
-landing its reserved 0170 migration. Alan explicitly chose: wait for #4240,
-then add 0171 after 0170. No production migration execution or deployment.
+Status: ACTIVE. The initial inert preparation gate on #4240 is resolved: that PR
+merged, and this lane rebased onto current main6f8af81e6dd47ec92b5ef9a0180e2e34ffd104c4
+containing its actual 0170 migration. Alan explicitly chose #4240 first, then
+0171 after0170. The authorized fence is now allocated as
+`20261120_0171_plan_paragraph_placement_reader_fence.py`, down_revision0170.
+No production migration execution or deployment. V2 public admission/producer
+activation remains unfinished until its whole owner chain and evidence are ready.
 
 ## Outcome and delivery
 
@@ -38,6 +41,8 @@ Initial exclusive expected writes: this handoff,
 open PRs and found no overlap on these implementation/test paths.
 The lease includes truthful merged-predecessor settlement in
 `HANDOFF-LAYOUT-existing-identity-save-retention.md`.
+The lease now includes the single authorized fence migration above, after a
+fresh 60-open-PR reservation audit found no0171+ migration collision.
 Expand this lease with exact paths and a fresh audit before wiring consumers.
 The remaining planned owner chain is the frontend catalog/compiler and API
 catalog union, backend turn input, retained native action/selection decoders,
@@ -119,3 +124,20 @@ two previously recorded E701 errors. Evidence: `plan-catalog-label-fix.log` unde
 the existing external task. This is still inert preparation, not ordinary-path
 or migration qualification. V1 definitions and current public consumers remain
 unchanged. Independent reinspection is requested before relying on the V2 shape.
+
+## Reader-fence prerequisite settlement
+
+#4240 is merged and current main contains its0170. The new0171 is chained directly
+to that revision; no independent Alembic head or competing-slot reassignment.
+The fence uses the existing forward-only schema-version mechanism, with a
+disposable-database test for an older170 application's refusal and failed
+downgrade preserving the171 schema version. SQL admission of actual retained V2
+native records remains a required integration proof; a fence-only test does not
+establish it. Default/public V2 production paths are still not wired.
+
+All 59 owning placement/fence tests pass after chaining0171 onto the merged0170.
+The initial fence-test diagnostic queried the wrong version table and failed;
+the corrected test uses `application_state.schema_migrations`. Both attempts
+are retained separately as `plan-fence-working.log` and
+`plan-fence-corrected.log`. Backend module and new fence pass Ruff. These are
+working-tree diagnostics and do not qualify the unfinished ordinary path.

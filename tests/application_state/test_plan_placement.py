@@ -191,6 +191,30 @@ def test_v2_captured_caret_cannot_be_labeled_as_a_different_semantic_destination
         changed.require_original(original)
 
 
+def test_v2_reader_fence_refuses_older_application_and_downgrade_without_schema_mutation(
+    application_state_dsn, monkeypatch,
+):
+    import psycopg
+    from alembic import command
+    from application_state import cli
+    from application_state.errors import ApplicationStateMigrationError
+
+    def version():
+        with psycopg.connect(application_state_dsn) as conn:
+            return conn.execute("SELECT version_num FROM application_state.schema_migrations").fetchone()[0]
+
+    assert version() == "20261120_0171"
+    with monkeypatch.context() as patch:
+        patch.setattr(cli, "_alembic_head", lambda: "20261120_0170")
+        with pytest.raises(ApplicationStateMigrationError):
+            cli.assert_at_head(dsn=application_state_dsn)
+    assert version() == "20261120_0171"
+    with pytest.raises(RuntimeError, match="forward recovery"):
+        command.downgrade(cli.alembic_config(), "20261120_0170")
+    assert version() == "20261120_0171"
+    cli.assert_at_head(dsn=application_state_dsn)
+
+
 def test_frozen_catalog_resolves_host_target_without_overwriting_original_caret():
     original = original_capture()
     catalog = catalog_for(original)
