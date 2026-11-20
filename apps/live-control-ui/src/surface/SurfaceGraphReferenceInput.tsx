@@ -19,6 +19,11 @@ export function SurfaceGraphReferenceInput({worldId,value,onChange,disabled=fals
  const [selectedKind,setKind]=useState<'objects'|'sources'>('objects');
  const kind=sourceOnly?'sources':selectedKind;
  const [open,setOpen]=useState(false),[error,setError]=useState<string|null>(null);
+ const [objectsLoadedWorld,setObjectsLoadedWorld]=useState<string|null>(null);
+ const objectsActive=open&&kind==='objects';
+ useEffect(()=>{
+  setObjectsLoadedWorld(loadedWorld => objectsActive||loadedWorld===worldId ? worldId : null);
+ },[objectsActive,worldId]);
  function choose(pin:InspectionPin,entityId:string,label:string){
   if(sourceOnly||disabled||readOnly||pin.managed_world_id!==worldId)return;
   try{onChange(mergeAuthoredReferences(value,[{schema:'dmb_authored_graph_reference_v1',managed_world_id:worldId,native_world_id:pin.native_world_id,binding_version:pin.binding_version,graph_revision:pin.revision_id,node_id:entityId,label}]));setError(null);setOpen(false);}catch(e){setError(String(e));}
@@ -33,7 +38,7 @@ export function SurfaceGraphReferenceInput({worldId,value,onChange,disabled=fals
   {error&&<p role="alert">{error}</p>}
   {!readOnly&&<div id={pickerId} hidden={!open} className="surface-graph-reference-input__picker">
    <div role="group" aria-label="Reference type">{!sourceOnly&&<button type="button" aria-pressed={kind==='objects'} onClick={()=>setKind('objects')}>Objects</button>}<button type="button" aria-pressed={kind==='sources'} onClick={()=>setKind('sources')}>Sources</button></div>
-   {!sourceOnly&&<div hidden={kind!=='objects'}><NativeGraphInspection key={worldId} worldId={worldId} onChoose={choose} disabled={disabled}/></div>}
+   {!sourceOnly&&(objectsActive||objectsLoadedWorld===worldId)&&<div hidden={kind!=='objects'}><NativeGraphInspection key={worldId} worldId={worldId} onChoose={choose} disabled={disabled}/></div>}
    <div hidden={kind!=='sources'}><NativeSourceInspection key={worldId} worldId={worldId} disabled={disabled} onChoose={ref=>{if(disabled||readOnly||ref.managed_world_id!==worldId)return;try{onChange(mergeAuthoredReferences(value,[ref]));setError(null);setOpen(false);}catch(e){setError(String(e));}}}/></div>
   </div>}
  </section>;
