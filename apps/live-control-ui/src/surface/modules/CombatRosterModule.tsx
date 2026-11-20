@@ -141,9 +141,9 @@ function RosterRow({
           {entity.world_identity ? `World: ${entity.world_identity.label} · Manual stats` : entity.statblock_title ?? entity.statblock_artifact_id ?? entity.source}
         </div>
         {entity.mechanics_snapshot && <CombatMechanicsInspection snapshot={entity.mechanics_snapshot} presentation="dialog" />}
-        {entity.mechanics_snapshot && <button type="button" aria-label={`Keep statblock open for ${entity.name}`}
+        {projection.available && <button type="button" aria-label={entity.mechanics_snapshot ? `Keep statblock open for ${entity.name}` : `Open corpus sheet for ${entity.name}`}
           aria-pressed={projection.selected} aria-controls={projection.selected ? projection.regionId : undefined}
-          onClick={event => projection.open(event.currentTarget)}>Keep statblock open</button>}
+          onClick={event => projection.open(event.currentTarget)}>{entity.mechanics_snapshot ? 'Keep statblock open' : 'Open corpus sheet'}</button>}
         <div className="combat-roster-team">
         <select
           aria-label={`Team for ${entity.name}`}
@@ -785,6 +785,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
               ) : (
                 <CombatRosterWorkspace key={JSON.stringify([worldId, visibleRecord.encounter_id, scope?.runScope?.runId, scope?.runScope?.sceneId])}
                   draft={visibleDraft} disabled={replacingDraft}
+                  corpusScope={scope?.runScope ? undefined : {worldId, encounterId: visibleRecord.encounter_id}}
                   onToggleGroup={key => updateDraft(current => ({...current,
                     groups: current.groups.map(group => group.group_key === key ? {...group, collapsed: !group.collapsed} : group),
                   }))}

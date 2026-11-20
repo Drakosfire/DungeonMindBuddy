@@ -23,9 +23,15 @@ from application_state.combat_encounters.types import (
 from application_state.combat_encounters.manual_encounters import (AnyCombatRecord, AnyCreateEncounterRequest, AnySaveEncounterRequest, ManualEncounterRecord)
 from application_state.errors import (
     ApplicationStateConflictError,
+    ApplicationStateNotFoundError,
     ApplicationStateValidationError,
 )
 from apps.live_control_server.config import artifact_data_root, repo_root, session_dir
+from apps.live_control_server.services.combat_corpus_sheets import (
+    CombatCorpusSheet,
+    claims_registered_sheet,
+    read_attached_sheet,
+)
 from apps.live_control_server.services.statblock_view import (
     StatblockViewError,
     read_generated_statblock,
@@ -48,6 +54,15 @@ def get_world_combat_encounter(
     return encounter_state.get_encounter(world_id=world_id, encounter_id=encounter_id, scope=scope)
 
 
+def get_world_combat_corpus_sheet(*, world_id: str, encounter_id: str, participant_id: str) -> CombatCorpusSheet:
+    record = get_world_combat_encounter(world_id=world_id, encounter_id=encounter_id)
+    if isinstance(record, CombatEncounterRecord):
+        participant = next((entity for entity in record.draft.entities if entity.id == participant_id), None)
+        if participant is not None:
+            return read_attached_sheet(world_id=world_id, entity=participant)
+    raise ApplicationStateNotFoundError("Participant corpus sheet is unavailable")
+
+
 def save_world_combat_encounter(
     *, world_id: str, encounter_id: str, request: AnySaveEncounterRequest, scope=None, authorize=None
 ) -> AnyCombatRecord:
@@ -55,6 +70,10 @@ def save_world_combat_encounter(
     if before.revision != request.expected_revision:
         raise ApplicationStateConflictError("Combat encounter changed since it was opened; reload before saving")
     prior_ids = {entity.id for entity in before.draft.entities}
+    if isinstance(request, SaveCombatEncounterRequest):
+        for entity in request.draft.entities:
+            if entity.id not in prior_ids and claims_registered_sheet(entity):
+                read_attached_sheet(world_id=world_id, entity=entity)
     creature_views = {}
     verified = {}
     snapshots = {}

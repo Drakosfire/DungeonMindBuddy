@@ -1079,6 +1079,8 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "POST" && (!suffix || suffix === ":cancel") && !!requestBodyRecord(init?.body)
       && path === combatAdoption[0] + exact;
   }
+  const corpusSheet = /^\/api\/live\/combat\/encounters\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/participants\/[^/?#]+\/corpus-sheet\?world_id=[a-z][a-z0-9_-]{0,62}$/.test(path);
+  if (corpusSheet) return method === "GET" && init?.body == null;
   const combatEncounter = /^\/api\/live\/combat\/encounters(\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?/.exec(path);
   if (combatEncounter) {
     const worldId = new URLSearchParams(path.slice(combatEncounter[0].length)).get("world_id");

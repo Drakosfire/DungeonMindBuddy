@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 
 from application_state.combat_encounters.types import (
     AddGeneratedStatblockRequest,
@@ -20,6 +20,7 @@ from application_state.combat_encounters.manual_encounters import AnyCombatRecor
 from application_state.errors import ApplicationStateError
 from apps.live_control_server.config import managed_world_data_root, repo_root
 from apps.live_control_server.services import combat_encounters, combat_mechanics
+from apps.live_control_server.services.combat_corpus_sheets import CombatCorpusSheet
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import StatblockIntegrationError
 from apps.live_control_server.services.managed_world_graph_projection import (
     WorldGraphProjectionServiceError,
@@ -91,6 +92,25 @@ def get_encounter_route(
         return combat_encounters.get_world_combat_encounter(
             world_id=owner, encounter_id=encounter_id
         ).model_dump(mode="json")
+    except ApplicationStateError as exc:
+        _raise_state_error(exc)
+
+
+@router.get("/{encounter_id}/participants/{participant_id}/corpus-sheet", response_model=CombatCorpusSheet)
+def get_encounter_corpus_sheet_route(
+    encounter_id: str,
+    participant_id: Annotated[str, Path(min_length=1, max_length=128)],
+    world_id: Annotated[str, Query(min_length=1, max_length=63)],
+    request: Request,
+    response: Response,
+) -> CombatCorpusSheet:
+    require_combat_encounter_access(request, world_id)
+    owner = _verified_world(world_id)
+    response.headers["Cache-Control"] = "private, no-store"
+    try:
+        return combat_encounters.get_world_combat_corpus_sheet(
+            world_id=owner, encounter_id=encounter_id, participant_id=participant_id,
+        )
     except ApplicationStateError as exc:
         _raise_state_error(exc)
 

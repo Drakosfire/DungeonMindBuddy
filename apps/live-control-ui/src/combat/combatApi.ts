@@ -15,6 +15,21 @@ async function fetchCombat(path: string, init?: RequestInit): Promise<Response> 
   return (await authenticatedApiFetch(path, init)).response;
 }
 
+export async function getWorldCombatCorpusSheet(
+  worldId: string, encounterId: string, participantId: string,
+  sourceId: string, sha256: string, signal: AbortSignal,
+): Promise<string> {
+  const path = scopedPath(worldId, `/${encodeURIComponent(encounterId)}/participants/${encodeURIComponent(participantId)}/corpus-sheet`);
+  const sheet = await readJson<{
+    participant_id?: string; source_artifact_id?: string; content_sha256?: string; markdown?: string;
+  }>(await fetchCombat(path, {signal}));
+  if (sheet?.participant_id !== participantId || sheet.source_artifact_id !== sourceId ||
+    sheet.content_sha256 !== sha256 || typeof sheet.markdown !== 'string') {
+    throw new Error('Combat returned a different corpus sheet than the saved participant.');
+  }
+  return sheet.markdown;
+}
+
 async function readJson<T>(response: Response): Promise<T> {
   const body = await response.text();
   let parsed: unknown;
