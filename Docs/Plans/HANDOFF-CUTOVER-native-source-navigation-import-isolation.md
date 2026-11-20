@@ -51,8 +51,11 @@ server may still explicitly load historical adapters and is outside this claim.
     assumption, weakened Plan V2 filter or removed four parametrized cases.
 11. Docs/Plans/HANDOFF-CUTOVER-retained-plan-batch-coverage.md: settle4237 merge.
 
-MIND owns all docs/tests; the two runtime import edits are already implemented.
-Hubble may inspect fixture design read-only; no concurrent edit lease.
+MIND owns docs and all tests except the two explicitly delegated fixture paths.
+The runtime import edits are already implemented. Hubble owns exclusively
+tests/test_native_source_origin.py and tests/application_state/test_native_source_navigation_postgres.py
+for the scoped fixture repairs; MIND owns the current HTTP fixture file. No shared
+file edit lease; verification must freeze only after both workers report ready.
 Aristotle independently reviews. The seventh path was identified before dispatch:
 the real APP replay proof also patches the old module global. No new test file
 or CI inventory/selector changes. No Core/WK/dependency/policy/DTO/route/UI/profile/
