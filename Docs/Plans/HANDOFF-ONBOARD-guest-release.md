@@ -30,8 +30,22 @@ Promotion rechecks current owner and candidate validity and atomically records
 approval and compares and swaps the stable pointer in application state. It
 must not hold a database transaction open across native-authority calls. Head
 changes do not alone invalidate a complete approved historical candidate; an
-ownership change, withdrawal or explicit invalidation does. Public reads use
+ownership change, APP source visibility/status withdrawal or explicit invalidation
+does. Native source withdrawal follows the cutoff below. Public reads use
 only copied release data and must not fall through to private APIs.
+
+Owner-adopted cutoff clarification: the owner is approving a copied snapshot,
+and the native source eligibility cutoff is one freshly opened, coherent Core
+source-authority view for the explicit publish attempt. A native withdrawal
+before that view must fail publication; one after that cutoff does not cancel
+the already approved copy, even if it occurs before the APP pointer commit.
+APP ownership and page-visibility/status generations must still be checked
+atomically at pointer commit. Published copies are withdrawn using release
+revocation. The owner interface must state this distinction. This intentionally
+replaces the earlier proposed rule that every native withdrawal before APP
+commit cancels a pending candidate; it avoids a distributed commit dependency
+while preserving the requested independently controlled snapshot. Bugbot
+critiqued this change and identified audit, retry and disclosure requirements.
 
 The state machine distinguishes private candidate, published, revoked and
 invalidated states. Only a current owner can approve the staged candidate and
@@ -127,12 +141,13 @@ Core's private global source-authority epoch lock, while its public source view
 is a closed-transaction epoch snapshot. A fresh native check followed by an APP
 promotion can race a withdrawal committed between the two operations. APP's
 visibility and ownership generations do not observe direct Core withdrawal.
-This handoff requires withdrawal to invalidate a staged candidate, so an epoch
-check alone is insufficient. Do not use Core's private SQL lock as an implicit
-cross-database protocol. The cross-owner contract needs a durable publication
-fence, withdrawal interaction, crash recovery and a defined linearization point;
-its owner is the DungeonOverMind/Core boundary. A different independent-copy
-policy would be a design change and must be explicit, not silently substituted.
+An epoch check does not prove the earlier strict withdrawal-before-APP-commit
+rule. The owner-adopted cutoff above changes that rule explicitly; do not claim
+the stricter property. Core unavailability, incomplete proof, GM-only evidence,
+or an invalid exact native origin must fail closed. Record the native authority,
+cutoff epoch, operation ID, principal, candidate digest, source coordinates,
+APP generations, pointer CAS basis and outcome privately. Lost responses must
+recover the committed outcome without republishing a revoked release.
 
 ### Candidate cross-owner protocol for critique
 
@@ -150,14 +165,15 @@ APP pointer through an idempotent, recoverable operation; intermediate states
 must fail closed. A crash between either store's commits may make the release
 temporarily unavailable, never anonymously expose an unapproved candidate.
 
-This is a proposed cross-owner contract, not an available Core API. Bugbot's
+This is a historical candidate cross-owner contract, not an available Core API. Bugbot's
 critique found that this optimistic protocol does **not** meet the currently
 required withdrawal rule: Core authorization is only a source-validation
 cutoff, not public publication. A native withdrawal after that authorization but
 before APP finalization would still permit publication. The current contract
 therefore remains unsatisfied; do not implement the sketch as though it closes
 that interval. A stricter joint fence or a deliberate owner-adopted change to
-the withdrawal cutoff is needed.
+the withdrawal cutoff is needed. The adopted cutoff above is that explicit
+change; the stricter cross-authority guarantee is no longer claimed.
 
 A synchronous Core-owned guard around APP finalization is also insufficient as
 currently specified. Bugbot identified a lock-loss race: the Core connection

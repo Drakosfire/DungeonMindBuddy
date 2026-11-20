@@ -111,6 +111,18 @@ def upgrade():
         )
     """)
     op.execute("""
+        CREATE TABLE workspace.guest_release_evidence_binding (
+            release_id uuid NOT NULL REFERENCES workspace.guest_release(release_id) ON DELETE RESTRICT,
+            edge_id uuid NOT NULL,
+            native_assertion_id text NOT NULL CHECK (length(native_assertion_id) > 0),
+            native_evidence_id text NOT NULL CHECK (length(native_evidence_id) > 0),
+            excerpt_id uuid NOT NULL,
+            PRIMARY KEY (release_id, edge_id),
+            FOREIGN KEY (release_id, excerpt_id)
+                REFERENCES workspace.guest_release_source_binding(release_id, excerpt_id) ON DELETE RESTRICT
+        )
+    """)
+    op.execute("""
         CREATE TABLE workspace.guest_release_pointer (
             world_id text PRIMARY KEY REFERENCES workspace.managed_world(world_id) ON DELETE RESTRICT,
             public_id uuid NOT NULL UNIQUE,
@@ -124,7 +136,7 @@ def downgrade():
     # Match the normal owner -> source -> release acquisition order before
     # taking locks that block staging. Trigger removal requires parent locks.
     op.execute("LOCK TABLE workspace.managed_world, content.work_object, content.page_metadata IN ACCESS EXCLUSIVE MODE")
-    op.execute("LOCK TABLE workspace.guest_release_pointer, workspace.guest_release_source_binding, workspace.guest_release_asset, workspace.guest_release IN ACCESS EXCLUSIVE MODE")
+    op.execute("LOCK TABLE workspace.guest_release_pointer, workspace.guest_release_evidence_binding, workspace.guest_release_source_binding, workspace.guest_release_asset, workspace.guest_release IN ACCESS EXCLUSIVE MODE")
     op.execute("""
         DO $$ BEGIN
             IF EXISTS (SELECT 1 FROM workspace.guest_release)
@@ -134,6 +146,7 @@ def downgrade():
         END $$
     """)
     op.drop_table("guest_release_pointer", schema="workspace")
+    op.drop_table("guest_release_evidence_binding", schema="workspace")
     op.drop_table("guest_release_source_binding", schema="workspace")
     op.drop_table("guest_release_asset", schema="workspace")
     op.drop_table("guest_release", schema="workspace")

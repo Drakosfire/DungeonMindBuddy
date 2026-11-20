@@ -26,6 +26,7 @@ def project_selected_graph(
     selected_edge_ids: set[str],
     citation_selections: dict | None = None,
     source_access=None,
+    private_evidence_bindings: list | None = None,
 ) -> dict:
     """Copy selected nodes and relationships without host IDs or metadata.
 
@@ -69,7 +70,10 @@ def project_selected_graph(
         citation = verify_relationship_citation(edge=edge, evidence_id=evidence_id, access=source_access,
             excerpt=excerpt, source_binding=source_binding, expected_native_world_id=expected_world_id,
             expected_graph_revision=expected_revision)
-        result_edges.append({"id": str(uuid4()), "source": local_ids[edge.source_node_id],
+        local_edge_id = uuid4()
+        if private_evidence_bindings is not None:
+            private_evidence_bindings.append((local_edge_id, edge_id, evidence_id, citation))
+        result_edges.append({"id": str(local_edge_id), "source": local_ids[edge.source_node_id],
                              "target": local_ids[edge.target_node_id], "label": edge.label,
                              "citations": [citation]})
     return {"nodes": result_nodes, "edges": result_edges}

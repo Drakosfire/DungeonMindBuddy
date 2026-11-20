@@ -152,7 +152,8 @@ def pointer_status(*, world_id: str, subject: str) -> tuple[UUID | None, int]:
 
 def stage(*, world_id: str, subject: str, expected_owner_generation: int,
           native_world_id: str, native_binding_version: int, graph_revision: str, manifest: dict,
-          assets: list[tuple[UUID, str, bytes]], source_bindings: list[tuple] | None = None) -> tuple[UUID, str]:
+          assets: list[tuple[UUID, str, bytes]], source_bindings: list[tuple] | None = None,
+          evidence_bindings: list[tuple] | None = None) -> tuple[UUID, str]:
     """Store a fully prepared candidate; never pass unvalidated client content."""
     _, digest = _canonical(manifest)
     if len(assets) > 100:
@@ -186,14 +187,26 @@ def stage(*, world_id: str, subject: str, expected_owner_generation: int,
         or len(sources) != len(bindings)):
         raise ApplicationStateValidationError("Manifest source bindings do not match excerpts")
     graph = manifest.get("graph")
+    evidence = evidence_bindings or []
+    expected_edges = {}
     if graph is not None:
         if not isinstance(graph, dict) or not isinstance(graph.get("edges"), list):
             raise ApplicationStateValidationError("Invalid release Graph")
         source_ids = {item["id"] for item in sources}
         for edge in graph["edges"]:
             if (not isinstance(edge, dict) or not isinstance(edge.get("citations"), list)
-                or not edge["citations"] or any(not isinstance(c, str) or c not in source_ids for c in edge["citations"])):
+                or not isinstance(edge.get("id"), str) or len(edge["citations"]) != 1
+                or any(not isinstance(c, str) or c not in source_ids for c in edge["citations"])):
                 raise ApplicationStateValidationError("Release Graph citation is not closed")
+            if edge["id"] in expected_edges:
+                raise ApplicationStateValidationError("Duplicate release Graph edge")
+            expected_edges[edge["id"]] = edge["citations"][0]
+    if (len(evidence) != len(expected_edges)
+        or any(len(item) != 4 or not isinstance(item[0], UUID) or not isinstance(item[1], str)
+               or not item[1] or not isinstance(item[2], str) or not item[2]
+               or expected_edges.get(str(item[0])) != str(item[3]) for item in evidence)
+        or len({item[0] for item in evidence}) != len(evidence)):
+        raise ApplicationStateValidationError("Release Graph evidence bindings are incomplete")
     release_id = uuid4()
     with unit_of_work(_dsn()) as conn:
         generation = _owner(conn, world_id, subject)
@@ -219,6 +232,12 @@ def stage(*, world_id: str, subject: str, expected_owner_generation: int,
                 "(release_id,excerpt_id,work_object_id,visibility_generation,status_generation,revision_n,content_sha256,span_start,span_end,registry_revision) "
                 "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (release_id, excerpt_id, document_id, visibility_generation, status_generation, revision_n, content_sha256, start, end, registry_revision),
+            )
+        for edge_id, assertion_id, evidence_id, excerpt_id in evidence:
+            conn.execute(
+                "INSERT INTO workspace.guest_release_evidence_binding "
+                "(release_id,edge_id,native_assertion_id,native_evidence_id,excerpt_id) VALUES (%s,%s,%s,%s,%s)",
+                (release_id, edge_id, assertion_id, evidence_id, UUID(str(excerpt_id))),
             )
     return release_id, digest
 
