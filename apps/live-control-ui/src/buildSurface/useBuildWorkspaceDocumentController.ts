@@ -518,29 +518,33 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    let active = true;
+    let historyOpen = 0;
+    let listsStarted = false;
     setDocuments(null);
     setCampaignTags([]);
     setDocumentCursor(null);
     setListStatus("loading");
 
     const sync = () => {
+      const sequence = ++historyOpen;
+      const search = window.location.search;
       createControllerRef.current.supersedePendingCreateIntent();
-      return loadBuildDocument(window.location.search, { mode: "history" });
-    };
-    const refreshLists = () => {
-      if (!active) return;
-      void refreshDocuments();
-      void refreshManagedWorlds();
-    };
-    const openingDocument = readDocumentIdFromSearch(window.location.search);
-    const initialOpen = sync();
-    if (openingDocument) void initialOpen.then(refreshLists);
-    else refreshLists();
+      const open = loadBuildDocument(search, { mode: "history" });
+      if (listsStarted) return;
 
+      const refreshLists = () => {
+        if (sequence !== historyOpen || listsStarted) return;
+        listsStarted = true;
+        void refreshDocuments();
+        void refreshManagedWorlds();
+      };
+      if (readDocumentIdFromSearch(search)) void open.then(refreshLists);
+      else refreshLists();
+    };
+    sync();
     window.addEventListener("popstate", sync);
     return () => {
-      active = false;
+      historyOpen += 1;
       window.removeEventListener("popstate", sync);
       documentLoadGenerationRef.current += 1;
       selectorListGenerationRef.current += 1;

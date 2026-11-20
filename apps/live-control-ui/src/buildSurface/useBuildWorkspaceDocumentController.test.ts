@@ -187,6 +187,23 @@ describe("useBuildWorkspaceDocumentController", () => {
     expect(liveApi.listWorldContainers).toHaveBeenCalledTimes(1);
   });
 
+  it("starts lists when history leaves a pending deep link for blank Build", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockReturnValueOnce(new Promise(() => {}));
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    expect(liveApi.listWorkspacePageInventory).not.toHaveBeenCalled();
+
+    act(() => {
+      window.history.replaceState({}, "", "/build");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+    expect(result.current.loadStatus).toBe("empty");
+    expect(liveApi.listWorkspacePageInventory).toHaveBeenCalledTimes(1);
+    expect(liveApi.listWorldContainers).toHaveBeenCalledTimes(1);
+  });
+
   it("admits document from URL and canonicalizes campaign", async () => {
     vi.mocked(liveApi.getCommittedPageSnapshot).mockResolvedValue(
       mockSnapshot(DOC_A, { campaign_id: "longmont-c1" }),
