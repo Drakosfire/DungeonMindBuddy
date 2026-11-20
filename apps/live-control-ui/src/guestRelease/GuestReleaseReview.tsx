@@ -27,6 +27,7 @@ export function GuestReleaseReview({ worldId }: { worldId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [published, setPublished] = useState(false);
+  const [publicId, setPublicId] = useState<string | null>(null);
   const [operationId, setOperationId] = useState<string | null>(null);
   const [loadedAssets, setLoadedAssets] = useState<Set<string>>(new Set());
   const [revokeId, setRevokeId] = useState<string | null>(null);
@@ -35,19 +36,20 @@ export function GuestReleaseReview({ worldId }: { worldId: string }) {
   const base = `/api/live/worlds/${encodeURIComponent(worldId)}/guest-releases`;
 
   async function load() {
-    setBusy(true); setError(null); setNotice(null); setReview(null); setSelected(null); setApproved(false); setPublished(false); setLoadedAssets(new Set()); setRevokeId(null); setRevokeConfirmed(false);
+    setBusy(true); setError(null); setNotice(null); setReview(null); setSelected(null); setApproved(false); setPublished(false); setPublicId(null); setLoadedAssets(new Set()); setRevokeId(null); setRevokeConfirmed(false);
     try {
-      const [drafts, history] = await Promise.all([
+      const [drafts, history, status] = await Promise.all([
         readJson<{ candidates: Candidate[] }>(`${base}/candidates`),
         readJson<{ releases: Published[] }>(`${base}/published`),
+        readJson<{ public_id: string | null }>(`${base}/status`),
       ]);
-      setCandidates(drafts.candidates); setReleases(history.releases);
+      setCandidates(drafts.candidates); setReleases(history.releases); setPublicId(status.public_id);
     }
     catch { setError("Guest release is unavailable. Try again later."); }
     finally { setBusy(false); }
   }
   async function inspect(id: string, kind: "candidate" | "published") {
-    setBusy(true); setError(null); setReview(null); setSelected(null); setApproved(false); setPublished(false); setOperationId(null); setLoadedAssets(new Set());
+    setBusy(true); setError(null); setReview(null); setSelected(null); setApproved(false); setPublished(false); setPublicId(null); setOperationId(null); setLoadedAssets(new Set());
     try {
       const [candidate, status] = await Promise.all([
         readJson<Review>(`${base}/candidates/${encodeURIComponent(id)}`),
@@ -63,11 +65,11 @@ export function GuestReleaseReview({ worldId }: { worldId: string }) {
     const op = operationId ?? crypto.randomUUID();
     setOperationId(op);
     try {
-      await readJson(`${base}/candidates/${encodeURIComponent(selected)}/${selectedKind === "candidate" ? "publish" : "restore"}`, {
+      const result = await readJson<{ public_id: string }>(`${base}/candidates/${encodeURIComponent(selected)}/${selectedKind === "candidate" ? "publish" : "restore"}`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(selectedKind === "candidate" ? { digest: review.digest, expected_version: version, operation_id: op } : { expected_version: version }),
       });
-      setPublished(true); setApproved(false);
+      setPublished(true); setPublicId(result.public_id); setApproved(false);
     } catch { setError(selectedKind === "candidate" ? "Publication could not be confirmed. Retry this same request or reload to review again." : "Restore could not be confirmed. Reload to check the current release."); }
     finally { setBusy(false); }
   }
@@ -101,6 +103,7 @@ export function GuestReleaseReview({ worldId }: { worldId: string }) {
       <button type="button" disabled={busy} onClick={() => inspect(candidate.release_id, "candidate")}>Review copy from {new Date(candidate.created_at).toLocaleString()}</button>
     </li>)}</ul>}
     {releases && <div><h3>Published copies</h3>
+      {import.meta.env.VITE_GUEST_RELEASE_PAGE === "1" && releases.some(release => release.current) && publicId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(publicId) && <a href={`/visit/${publicId}`}>Open current guest link</a>}
       {releases.length === 0 ? <p>No published copies.</p> : <ul>{releases.map(release => <li key={release.release_id}>
         <span>{release.current ? "Current copy" : "Earlier copy"} · {new Date(release.published_at).toLocaleString()}</span>{" "}
         {release.reviewable && !release.current && <button type="button" disabled={busy} onClick={() => inspect(release.release_id, "published")}>Review earlier copy</button>}{" "}
@@ -122,7 +125,7 @@ export function GuestReleaseReview({ worldId }: { worldId: string }) {
       {!sourcesReady && <p>Source visibility must be available before approval.</p>}
       <p>Snapshot digest: <code>{review.digest}</code></p>
       {!published && <><label><input type="checkbox" checked={approved} onChange={event => setApproved(event.target.checked)} disabled={busy || !imagesReady || !sourcesReady} /> I reviewed this copy and approve making these exact contents available to guests.</label><br /><button type="button" disabled={!approved || busy || !imagesReady || !sourcesReady} onClick={publish}>{selectedKind === "candidate" ? "Publish this copy" : "Restore this copy"}</button></>}
-      {published && <p role="status">Copy {selectedKind === "candidate" ? "published" : "restored"}. Guest page delivery is not yet available on this deployment. Reload to check the current copy.</p>}
+      {published && <div role="status"><p>Copy {selectedKind === "candidate" ? "published" : "restored"}. Reload to check the current copy.</p>{import.meta.env.VITE_GUEST_RELEASE_PAGE === "1" && publicId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(publicId) ? <a href={`/visit/${publicId}`}>Open guest link</a> : <p>Guest page delivery is not yet available on this deployment.</p>}</div>}
     </div>}
   </section>;
 }

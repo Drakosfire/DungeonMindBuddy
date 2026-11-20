@@ -8,6 +8,15 @@ const SharedBuddyApp = deferredComponent(
   () => import("./BuddyApp").then(module => ({ default: module.BuddyApp })),
   "Buddy",
 );
+const GuestReleasePage = deferredComponent(
+  () => import("./guestRelease/GuestReleasePage").then(module => ({ default: module.GuestReleasePage })),
+  "shared World",
+);
+
+function guestReleaseId(locationSnapshot: string): string | null {
+  const match = /^\/visit\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/.exec(locationSnapshot);
+  return match?.[1] ?? null;
+}
 
 function subscribeSelectedWorldLocation(onChange: () => void): () => void {
   const unsubscribe = subscribeAppLocation(onChange);
@@ -34,6 +43,8 @@ export function App() {
     getAppLocationSnapshot,
     getAppLocationSnapshot,
   );
+  const guestId = guestReleaseId(locationSnapshot);
+  if (guestId && import.meta.env.VITE_GUEST_RELEASE_PAGE === "1") return <GuestReleasePage publicId={guestId} />;
   return (
     <HostedAuthGate
       enabled={import.meta.env.PROD}
