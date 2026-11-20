@@ -64,11 +64,24 @@ def test_owner_routes_fail_closed_and_require_owner(monkeypatch):
         headers={"x-test-subject": "owner", "origin": "https://buddy.example"},
         json={"digest": "a" * 64, "expected_version": 0, "operation_id": str(uuid4())})
     assert publication.status_code == 409 and publication.json() == {"detail": {"code": "guest_release_validation_failed"}}
+    assert publication.headers["cache-control"] == "no-store"
+    def invalid_assertion(**_):
+        raise guest_releases.GuestReleaseAssertionError("private assertion identity")
+    monkeypatch.setattr(guest_releases, "publish_candidate", invalid_assertion)
+    publication = request("POST", preview + "/publish",
+        headers={"x-test-subject": "owner", "origin": "https://buddy.example"},
+        json={"digest": "a" * 64, "expected_version": 0, "operation_id": str(uuid4())})
+    assert publication.status_code == 409 and "private assertion identity" not in publication.text
     assert request("GET", path + "?world_id=foreign", headers={"x-test-subject": "owner"}).status_code == 403
     body = {"graph_revision": "rev", "nodes": [], "relationships": [], "sources": [], "asset_ids": []}
     response = request("POST", "/api/live/worlds/world/guest-releases", json=body,
                            headers={"x-test-subject": "owner", "origin": "https://buddy.example"})
     assert response.status_code == 503
+    monkeypatch.setattr(guest_releases, "prepare", invalid_assertion)
+    response = request("POST", "/api/live/worlds/world/guest-releases", json=body,
+                       headers={"x-test-subject": "owner", "origin": "https://buddy.example"})
+    assert response.status_code == 409 and response.headers["cache-control"] == "no-store"
+    assert "private assertion identity" not in response.text
     assert request("POST", "/api/live/worlds/world/guest-releases", json=body,
                        headers={"x-test-subject": "owner", "origin": "https://evil.example"}).status_code == 403
     assert request("GET", "/api/live/guest-releases/anything").status_code == 401

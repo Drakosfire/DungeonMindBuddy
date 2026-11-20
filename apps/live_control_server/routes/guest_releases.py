@@ -10,9 +10,12 @@ from starlette.concurrency import run_in_threadpool
 
 from application_state import guest_release
 from application_state.errors import ApplicationStateError
-from apps.live_control_server.services.guest_release_preparation import ReleaseSelection, prepare
+from apps.live_control_server.services.guest_release_preparation import ReleaseSelection, GuestReleasePreparationError, prepare
 from apps.live_control_server.services.guest_release_validation import GuestReleaseValidationError, publish_candidate
 from apps.live_control_server.services.guest_release_evidence import GuestReleaseEvidenceError
+from apps.live_control_server.services.guest_release_assertions import GuestReleaseAssertionError
+from apps.live_control_server.services.guest_release_sources import GuestReleaseSourceError
+from apps.live_control_server.services.guest_release_media import GuestReleaseMediaError
 from apps.live_control_server.services.guest_release_native_graph import GuestNativeGraphError
 from apps.live_control_server.services.hosted_native_graph_access import _hosted_subject, _owned_world
 
@@ -50,7 +53,13 @@ def _owner(request: Request, world_id: str) -> str:
 
 
 def _error(exc: ApplicationStateError) -> HTTPException:
-    return HTTPException(status_code=exc.status_code, detail={"code": "guest_release_unavailable"})
+    return HTTPException(status_code=exc.status_code, detail={"code": "guest_release_unavailable"},
+                         headers={"Cache-Control": "no-store"})
+
+
+def _invalid_selection() -> HTTPException:
+    return HTTPException(status_code=409, detail={"code": "guest_release_validation_failed"},
+                         headers={"Cache-Control": "no-store"})
 
 
 @router.post("")
@@ -61,6 +70,9 @@ def prepare_release(world_id: str, body: ReleaseSelection, request: Request, res
         release_id, digest = prepare(world_id=world_id, subject=subject, selection=body)
     except ApplicationStateError as exc:
         raise _error(exc) from exc
+    except (GuestReleaseAssertionError, GuestReleaseEvidenceError, GuestNativeGraphError,
+            GuestReleasePreparationError, GuestReleaseSourceError, GuestReleaseMediaError) as exc:
+        raise _invalid_selection() from exc
     return {"release_id": str(release_id), "digest": digest}
 
 
@@ -107,8 +119,8 @@ def publish_release(world_id: str, release_id: UUID, body: PublishRequest, reque
             digest=body.digest, expected_version=body.expected_version, operation_id=body.operation_id)
     except ApplicationStateError as exc:
         raise _error(exc) from exc
-    except (GuestReleaseValidationError, GuestReleaseEvidenceError, GuestNativeGraphError) as exc:
-        raise HTTPException(status_code=409, detail={"code": "guest_release_validation_failed"}) from exc
+    except (GuestReleaseValidationError, GuestReleaseEvidenceError, GuestNativeGraphError, GuestReleaseAssertionError) as exc:
+        raise _invalid_selection() from exc
     return {"public_id": str(public_id), "version": version}
 
 

@@ -20,6 +20,10 @@ from apps.live_control_server.services.guest_release_sources import selected_pag
 from apps.live_control_server.services.hosted_native_graph_access import hosted_world_media_owner
 
 
+class GuestReleasePreparationError(ValueError):
+    """An owner selection cannot be assembled into a release."""
+
+
 class SourceSelection(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     document_id: UUID
@@ -74,7 +78,7 @@ def _prepare_candidate(*, world_id: str, subject: str, selection: ReleaseSelecti
     node_ids = [item.entity_id for item in selection.nodes]
     if (len(set(node_ids)) != len(node_ids) or len(set(edge_ids)) != len(edge_ids)
         or len(set(selection.asset_ids)) != len(selection.asset_ids)):
-        raise ValueError("Duplicate release selection")
+        raise GuestReleasePreparationError("Duplicate release selection")
     sources, bindings = [], []
     for source in selection.sources:
         excerpt, source_binding = selected_page_excerpt(world_id=world_id, document_id=str(source.document_id),
@@ -87,10 +91,10 @@ def _prepare_candidate(*, world_id: str, subject: str, selection: ReleaseSelecti
         bindings.append((*source_binding, source.evidence_id))
     def citation(index, evidence_id=None):
         if index >= len(sources):
-            raise ValueError("Source selection is unavailable")
+            raise GuestReleasePreparationError("Source selection is unavailable")
         source = selection.sources[index]
         if evidence_id is not None and evidence_id != source.evidence_id:
-            raise ValueError("Source evidence selection differs")
+            raise GuestReleasePreparationError("Source evidence selection differs")
         return source.evidence_id, sources[index], bindings[index][:9]
 
     evidence_bindings = []

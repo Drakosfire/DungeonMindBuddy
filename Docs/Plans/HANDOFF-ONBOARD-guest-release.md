@@ -101,9 +101,10 @@ validation reconstructs those fields and the selected relationships from a
 fresh owner view. Unknown and timeless scope are retained separately in the
 candidate. Other temporal scopes and non-established or non-factual claims are
 currently rejected, not converted into facts. This is not yet a usable owner
-selection or review interface, and preparation remains disabled. The real Core
-fixture confirms unknown scope is common; its selection test substitutes the
-citation verifier, so it is not an end-to-end source-proof witness. A complete
+selection or review interface, and preparation remains disabled. A real Core
+fixture confirms unknown scope is common and separately checks selected name
+and classification citations against a private native source, including
+withdrawal. It does not exercise APP storage or the mounted route. A complete
 real first-World preparation, review, publication and withdrawal test remains
 required before activation.
 

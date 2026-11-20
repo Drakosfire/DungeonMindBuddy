@@ -153,3 +153,41 @@ def test_owner_selection_retains_real_ingested_unknown_temporal_scope(monkeypatc
         name_evidence=citation(name), kind_evidence=citation(kind), access=access,
         native_world_id=case.space, revision_id=revision)
     assert public["name_temporal"] == "unknown" and public["kind_temporal"] == "unknown"
+
+
+def test_owner_selection_checks_real_private_source_proof_and_withdrawal(monkeypatch):
+    from hashlib import sha256
+    from uuid import uuid4
+    from tests import test_governed_native_source_publication_adoption as fixture
+    from apps.live_control_server.services import guest_release_assertions as selections
+    from apps.live_control_server.services.guest_release_evidence import GuestReleaseEvidenceError
+
+    document_id, excerpt_id = uuid4(), uuid4()
+    admission_type = fixture.NativeTextSourceAdmissionV1
+    monkeypatch.setattr(fixture, "NativeTextSourceAdmissionV1", lambda **kwargs: admission_type(
+        **kwargs, origin={"namespace": "dungeonbuddy.workspace-document-registry", "object_id": str(document_id),
+                          "revision_id": "registry-revision:7"}))
+    case = fixture.setup()
+    _, receipt = fixture.exercise(case, "new_intervals", primary=False)
+    revision = receipt.publication_receipt.published_revision_id
+    monkeypatch.setattr(reader, "resolve_managed_world_binding", lambda _: SimpleNamespace(native_world_id=case.space, binding_version=1))
+    monkeypatch.setattr(reader.native_registry_source, "read_repository", lambda: case.repo)
+    _, context, support, access = reader.read_owner_graph(managed_world_id="managed", revision_id=revision)
+    assertions = [context.parsed.get_assertion(i) for i in support.listing.admitted_assertion_ids]
+    name = next(a for a in assertions if a.predicate == "dnd5e:name")
+    kind = next(a for a in assertions if a.predicate == "dnd5e:classification" and a.subject_entity_id == name.subject_entity_id)
+    source_binding = (excerpt_id, document_id, 0, 0, 1, sha256(fixture.RAW).hexdigest(), 1, len(fixture.BODY), 7)
+    excerpt = {"id": str(excerpt_id), "text": fixture.BODY[1:]}
+    def select(current_access):
+        return selections.select_node(context=context, admitted_ids=set(support.listing.admitted_assertion_ids),
+            entity_id=name.subject_entity_id, name_assertion_id=name.assertion_id, kind_assertion_id=kind.assertion_id,
+            name_evidence=(name.metadata.evidence_ref_ids[0], excerpt, source_binding),
+            kind_evidence=(kind.metadata.evidence_ref_ids[0], excerpt, source_binding), access=current_access,
+            native_world_id=case.space, revision_id=revision)
+    public, _ = select(access)
+    assert public["name_citations"] == [str(excerpt_id)]
+    case.repo.withdraw_native_source(space_id=case.space, source_artifact_id=case.root.source_artifact_id,
+                                     source_revision_id=case.root.source_revision_id)
+    _, _, _, fresh = reader.read_owner_graph(managed_world_id="managed", revision_id=revision)
+    with pytest.raises(GuestReleaseEvidenceError):
+        select(fresh)
