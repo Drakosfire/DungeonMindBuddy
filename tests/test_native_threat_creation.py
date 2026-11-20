@@ -544,7 +544,7 @@ def test_postgres_world_draft_admits_older_native_pin_without_core_mutation(
         semantic_profile_ref=snapshot.revision.semantic_profile_ref,
         created_at=datetime.now(UTC),
     ))
-    assert repo.get_head(space).head_revision_id == later.revision_id != pin
+    assert repo.get_head(space).head_revision_id == later.revision.revision_id != pin
     world = create_world_container(name="Native-only draft pin fixture")
     store_world(world.model_copy(update={"native_graph_binding": {
         "status": "active", "native_world_id": space, "binding_version": 1,
