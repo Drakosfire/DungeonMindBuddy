@@ -1,0 +1,92 @@
+import { useState } from "react";
+import "./guestReleaseReview.css";
+
+type Candidate = { release_id: string; created_at: string };
+type Source = { id: string; text: string };
+type Node = { id: string; label: string; kind: string; name_citations: string[]; kind_citations: string[]; name_temporal: string; kind_temporal: string };
+type Edge = { id: string; source: string; target: string; label: string; citations: string[]; temporal: string };
+type Review = { digest: string; source_visibility: Record<string, string>; manifest: { graph: { nodes: Node[]; edges: Edge[] }; sources: Source[]; assets: { id: string }[] } };
+
+async function readJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, { credentials: "same-origin", cache: "no-store", ...init });
+  if (!response.ok) throw new Error("Guest release is unavailable or changed. Try again.");
+  return response.json() as Promise<T>;
+}
+
+/** Owner-only review of server-staged bytes. Rendered text is never interpreted as HTML. */
+export function GuestReleaseReview({ worldId }: { worldId: string }) {
+  const [candidates, setCandidates] = useState<Candidate[] | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [review, setReview] = useState<Review | null>(null);
+  const [version, setVersion] = useState<number | null>(null);
+  const [approved, setApproved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [published, setPublished] = useState(false);
+  const [operationId, setOperationId] = useState<string | null>(null);
+  const [loadedAssets, setLoadedAssets] = useState<Set<string>>(new Set());
+  const base = `/api/live/worlds/${encodeURIComponent(worldId)}/guest-releases`;
+
+  async function load() {
+    setBusy(true); setError(null); setReview(null); setSelected(null); setApproved(false); setPublished(false); setLoadedAssets(new Set());
+    try { setCandidates((await readJson<{ candidates: Candidate[] }>(`${base}/candidates`)).candidates); }
+    catch { setError("Guest release is unavailable. Try again later."); }
+    finally { setBusy(false); }
+  }
+  async function inspect(id: string) {
+    setBusy(true); setError(null); setReview(null); setSelected(null); setApproved(false); setPublished(false); setOperationId(null); setLoadedAssets(new Set());
+    try {
+      const [candidate, status] = await Promise.all([
+        readJson<Review>(`${base}/candidates/${encodeURIComponent(id)}`),
+        readJson<{ version: number }>(`${base}/status`),
+      ]);
+      setReview(candidate); setVersion(status.version); setSelected(id);
+    } catch { setError("This candidate is unavailable or changed. Reload the list."); }
+    finally { setBusy(false); }
+  }
+  async function publish() {
+    if (!approved || !review || !selected || version === null || !imagesReady || !sourcesReady) return;
+    setBusy(true); setError(null);
+    const op = operationId ?? crypto.randomUUID();
+    setOperationId(op);
+    try {
+      await readJson(`${base}/candidates/${encodeURIComponent(selected)}/publish`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ digest: review.digest, expected_version: version, operation_id: op }),
+      });
+      setPublished(true); setApproved(false);
+    } catch { setError("Publication could not be confirmed. Retry this same request or reload to review again."); }
+    finally { setBusy(false); }
+  }
+  const names = new Map(review?.manifest.graph.nodes.map(node => [node.id, node.label]) ?? []);
+  const sourceNumbers = new Map(review?.manifest.sources.map((source, index) => [source.id, index + 1]) ?? []);
+  const citations = (ids: string[]) => ids.map(id => `excerpt ${sourceNumbers.get(id) ?? "unavailable"}`).join(", ");
+  const imagesReady = review?.manifest.assets.every(asset => loadedAssets.has(asset.id)) ?? false;
+  const sourcesReady = review?.manifest.sources.every(source => ["internal", "player_safe"].includes(review.source_visibility[source.id])) ?? false;
+  return <section aria-labelledby="guest-review-heading" className="guest-release-review">
+    <h2 id="guest-review-heading">Guest release review</h2>
+    <p>Review a prepared copy before making it available to guests.</p>
+    <button type="button" onClick={load} disabled={busy}>Load prepared copies</button>
+    {error && <p role="alert">{error}</p>}
+    {candidates && candidates.length === 0 && <p>No prepared copies yet.</p>}
+    {candidates && candidates.length > 0 && <ul>{candidates.map(candidate => <li key={candidate.release_id}>
+      <button type="button" disabled={busy} onClick={() => inspect(candidate.release_id)}>Review copy from {new Date(candidate.created_at).toLocaleString()}</button>
+    </li>)}</ul>}
+    {review && selected && <div>
+      <h3>Review everything guests will see</h3>
+      <p>This copy can include private source material you select for release. Later private edits do not update it. If a source is withdrawn after the publication check begins, it may still appear in the copy; revoke the release to withdraw the copy.</p>
+      <h4>Graph</h4>
+      <ul>{review.manifest.graph.nodes.map(node => <li key={node.id}>{node.label} · {node.kind} (name: {node.name_temporal}, {citations(node.name_citations)}; classification: {node.kind_temporal}, {citations(node.kind_citations)})</li>)}</ul>
+      <ul>{review.manifest.graph.edges.map(edge => <li key={edge.id}>{names.get(edge.source)} — {edge.label} → {names.get(edge.target)} ({edge.temporal}, {citations(edge.citations)})</li>)}</ul>
+      <h4>Source excerpts</h4>
+      {review.manifest.sources.map((source, index) => <section key={source.id}><h5>Excerpt {index + 1} · {review.source_visibility[source.id] === "internal" ? "private source" : review.source_visibility[source.id] === "player_safe" ? "player-safe source" : "source visibility unavailable"}</h5><p style={{ whiteSpace: "pre-wrap" }}>{source.text}</p></section>)}
+      <h4>Images</h4>
+      {review.manifest.assets.length === 0 ? <p>No images selected.</p> : review.manifest.assets.map((asset, index) => <img key={asset.id} src={`${base}/candidates/${encodeURIComponent(selected)}/assets/${encodeURIComponent(asset.id)}`} alt={`Selected release image ${index + 1}`} style={{ maxWidth: "100%" }} onLoad={() => setLoadedAssets(previous => new Set(previous).add(asset.id))} onError={() => { setLoadedAssets(previous => { const next = new Set(previous); next.delete(asset.id); return next; }); setApproved(false); setError("An image could not be loaded. Reload this copy before approving it."); }} />)}
+      {!imagesReady && <p>All selected images must load before approval.</p>}
+      {!sourcesReady && <p>Source visibility must be available before approval.</p>}
+      <p>Snapshot digest: <code>{review.digest}</code></p>
+      {!published && <><label><input type="checkbox" checked={approved} onChange={event => setApproved(event.target.checked)} disabled={busy || !imagesReady || !sourcesReady} /> I reviewed this copy and approve making these exact contents available to guests.</label><br /><button type="button" disabled={!approved || busy || !imagesReady || !sourcesReady} onClick={publish}>Publish this copy</button></>}
+      {published && <p role="status">Copy published. Guest delivery is not yet available on this deployment.</p>}
+    </div>}
+  </section>;
+}

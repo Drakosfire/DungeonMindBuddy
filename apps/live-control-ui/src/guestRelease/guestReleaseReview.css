@@ -1,0 +1,18 @@
+.guest-release-review {
+  box-sizing: border-box;
+  margin: 1.5rem auto;
+  padding: clamp(1rem, 3vw, 2rem);
+  width: min(100%, 60rem);
+  color: var(--ui-text-primary, #eee9de);
+  background: var(--ui-background-chrome, #25241f);
+  border: 1px solid #d9a44166;
+  border-radius: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.guest-release-review h2, .guest-release-review h3 { font-family: Georgia, serif; color: var(--ui-accent-action, #e9c382); }
+.guest-release-review button { padding: .55rem .9rem; margin: .35rem 0; cursor: pointer; }
+.guest-release-review button:disabled { cursor: not-allowed; }
+.guest-release-review :is(button, input):focus-visible { outline: 3px solid var(--ui-accent-action, #d9a441); outline-offset: 3px; }
+.guest-release-review img { display: block; max-height: 24rem; width: auto; margin: 1rem 0; object-fit: contain; }
+.guest-release-review code { font-size: .75rem; }

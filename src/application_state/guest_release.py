@@ -120,6 +120,19 @@ def review(*, world_id: str, subject: str, release_id: UUID) -> tuple[dict, str]
         return row[0], row[1]
 
 
+def list_candidates(*, world_id: str, subject: str) -> list[dict]:
+    """List only this owner's current private candidates, newest first."""
+    with unit_of_work(_dsn()) as conn:
+        generation = _owner(conn, world_id, subject)
+        rows = conn.execute(
+            "SELECT release_id,created_at FROM workspace.guest_release "
+            "WHERE world_id=%s AND owner_subject=%s AND owner_generation=%s AND state='candidate' "
+            "ORDER BY created_at DESC,release_id DESC LIMIT 100", (world_id, subject, generation),
+        ).fetchall()
+        return [{"release_id": str(release_id), "created_at": created_at.isoformat()}
+                for release_id, created_at in rows]
+
+
 def review_source_visibility(*, world_id: str, subject: str, release_id: UUID) -> dict[str, str]:
     """Owner-only release-local labels for explicit private-copy review."""
     with unit_of_work(_dsn()) as conn:

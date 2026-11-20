@@ -67,6 +67,9 @@ def test_release_lifecycle_isolated_and_revocation(application_state_dsn):
         world_id=world, subject="owner", expected_owner_generation=generation,
         manifest=manifest, assets=[(asset_id, "image/png", b"synthetic")], **graph,
     )
+    assert [item["release_id"] for item in guest_release.list_candidates(world_id=world, subject="owner")] == [str(release_id)]
+    with pytest.raises(ApplicationStateNotFoundError):
+        guest_release.list_candidates(world_id=world, subject="other")
     with pytest.raises(ApplicationStateNotFoundError):
         guest_release.review(world_id=world, subject="other", release_id=release_id)
     assert guest_release.review(world_id=world, subject="owner", release_id=release_id)[1] == digest
@@ -80,6 +83,7 @@ def test_release_lifecycle_isolated_and_revocation(application_state_dsn):
                               digest="0" * 64, expected_version=0)
     public_id, version = _promote(world_id=world, subject="owner", release_id=release_id,
                                                 digest=digest, expected_version=0)
+    assert guest_release.list_candidates(world_id=world, subject="owner") == []
     assert guest_release.pointer_status(world_id=world, subject="owner") == (public_id, version)
     assert guest_release.public_manifest(public_id) == (release_id, manifest)
     assert guest_release.public_asset(public_id, release_id, asset_id) == ("image/png", b"synthetic")

@@ -234,6 +234,7 @@ PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/worlds/{world_id}/guest-releases"): resolve_hosted_guest_release_world,
     ("GET", "/api/live/worlds/{world_id}/guest-releases/status"): resolve_hosted_guest_release_world,
+    ("GET", "/api/live/worlds/{world_id}/guest-releases/candidates"): resolve_hosted_guest_release_world,
     ("GET", "/api/live/worlds/{world_id}/guest-releases/candidates/{release_id}"): resolve_hosted_guest_release_world,
     ("GET", "/api/live/worlds/{world_id}/guest-releases/candidates/{release_id}/assets/{asset_id}"): resolve_hosted_guest_release_world,
     ("POST", "/api/live/worlds/{world_id}/guest-releases/candidates/{release_id}/publish"): resolve_hosted_guest_release_world,

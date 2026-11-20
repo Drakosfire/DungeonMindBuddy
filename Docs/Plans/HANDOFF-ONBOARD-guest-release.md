@@ -101,7 +101,12 @@ validation reconstructs those fields and the selected relationships from a
 fresh owner view. Unknown and timeless scope are retained separately in the
 candidate. Other temporal scopes and non-established or non-factual claims are
 currently rejected, not converted into facts. This is not yet a usable owner
-selection or review interface, and preparation remains disabled. A real Core
+selection interface, and preparation remains disabled. An initial owner review
+surface lists owned candidates, shows the Graph, excerpt visibility and selected
+images, and requires an explicit digest-bound approval. It is hidden unless
+`VITE_GUEST_RELEASE_REVIEW=1`; the backend still defaults off. It cannot yet
+create a candidate, revoke one, or deliver a guest link. Browser and exact-head
+qualification remain outstanding. A real Core
 fixture confirms unknown scope is common. A synthetic integration fixture now
 joins a committed APP page to a private Core source, stages and reviews two
 nodes and a relationship, publishes the copy, verifies a later private edit
