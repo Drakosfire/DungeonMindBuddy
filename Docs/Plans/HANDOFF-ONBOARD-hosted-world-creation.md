@@ -21,7 +21,8 @@ Exclusive expected write set for this single capability: this handoff; new
 hosted-admission migration and application-state catalog/admission modules;
 `apps/live_control_server/main.py`, `routes/world_containers.py`,
 `services/hosted_auth.py`, `services/hosted_native_graph_access.py`, and a new
-hosted-creation service; `apps/live-control-ui/src/selectedWorld/WorldSelector.tsx`
+hosted-creation service; `services/world_container_registry.py` only for the
+shared create-request model; `apps/live-control-ui/src/selectedWorld/WorldSelector.tsx`
 and its owning tests, plus the smallest existing API transport/types files and
 tests needed for exact hosted creation; new isolated backend owner/authorization
 and migration tests and their required CI classification. Shared files are

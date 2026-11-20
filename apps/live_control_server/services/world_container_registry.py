@@ -98,6 +98,7 @@ class CreateWorldContainerRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str
+    request_key: str | None = None
 
 
 def _validate_world_id(world_id: str) -> str:

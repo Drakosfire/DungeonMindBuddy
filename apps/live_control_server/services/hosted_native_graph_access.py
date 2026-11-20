@@ -1309,6 +1309,19 @@ async def hosted_owner_collection(request: Request) -> dict:
     return await run_in_threadpool(revalidate_hosted_owner_collection, request)
 
 
+async def hosted_owner_creation(request: Request) -> dict:
+    """Authorize only the exact owner-create entry point, not a World selector."""
+    _hosted_subject(request)
+    if (
+        os.environ.get("DMB_HOSTED_OWNER_CREATION_CAPABILITY", "") != "1"
+        or request.method != "POST"
+        or request.url.path != WORLD_COLLECTION_PATH
+        or request.query_params
+    ):
+        raise _denied()
+    return {"owner_creation": True}
+
+
 def revalidate_hosted_owner_collection(request: Request) -> dict:
     """Read current owner-filtered metadata after collection request admission."""
     subject = _hosted_subject(request)
