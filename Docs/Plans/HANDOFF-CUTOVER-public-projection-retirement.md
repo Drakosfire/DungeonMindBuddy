@@ -50,3 +50,8 @@ Hubble's server lease remains exclusive until final report. Aristotle owns
 only the two Graph Lens test files named above. MIND owns the other UI files.
 The diagnostic artifacts are retained in task scratch under
 v10-public-projection-retirement.
+
+MIND also owns removal of the graph-only reload button in
+GraphReviewExtractPromoteSheet.tsx. It called the same retired projection
+through the committed receipt state. Receipt adoption, adoption errors
+and exact confirmation retry stay in scope for regression verification.
