@@ -341,3 +341,42 @@ a prototype is not a new durable authority.
 - **2026-11-14 (operator local date):** Moved release checks and maintenance follow-ups out of the root inventory, retaining each owner's open gates and [the pinned original root evidence](https://github.com/Drakosfire/DungeonMindBuddy/blob/6b2d4844fd4e0045f55042c3c88dce5c00be583b/Backlog.md). Historical hygiene notes remain at [the transfer base](https://github.com/Drakosfire/DungeonMindBuddy/blob/6b2d4844fd4e0045f55042c3c88dce5c00be583b/Backlog.md#L295-L354).
 - Preserved [layered maps](https://github.com/Drakosfire/DungeonMindBuddy/pull/2383), [campaign arcs](https://github.com/Drakosfire/DungeonMindBuddy/pull/3328), [search replay](https://github.com/Drakosfire/DungeonMindBuddy/pull/3640), and [recap contributor](https://github.com/Drakosfire/DungeonMindBuddy/pull/3655) as separate, unscheduled captures. Split [#2389](https://github.com/Drakosfire/DungeonMindBuddy/pull/2389) into delivered Build browsing, the residual hierarchy question, and the existing extraction fix lane.
 - Adopted the historical evaluation corrections from [#3186](https://github.com/Drakosfire/DungeonMindBuddy/pull/3186), preserving the current native-action controller trigger and the frozen benchmark evidence. This changes backlog ownership/discoverability only, not implementation or acceptance.
+
+## [IDEA] Edit earlier Buddy messages and fork conversations — captured 2026-11-19
+
+**Context:** The operator wants to revise an earlier message or explore a different direction from a prior point.
+**Action:** Add edit and fork actions at a saved turn. Preserve the original conversation and its downstream turns. Reopen each branch from the picker with its own subsequent messages and the appropriate saved context.
+**Surfaces when:** Conversation history, message actions, or branching work begins.
+
+## [IDEA] Audit saved Buddy conversation loading end to end — captured 2026-11-19
+
+**Context:** The operator reports that conversation loading seems broken.
+**Action:** Reproduce with existing saved conversations on hosted Buddy. Audit the picker, active conversation selection, history pagination, refresh and surface changes, and recovery of interrupted or failed turns. Trace failures from browser to durable storage, then add regressions for the confirmed cases.
+**Surfaces when:** Saved conversation loading, history display, or recovery work begins.
+
+## [IDEA] Stop a Buddy turn and exclude it from future context — captured 2026-11-19
+
+**Context:** The operator wants to interrupt a message at any point and prevent it from participating in future history.
+**Action:** Add Stop from preparation through reply streaming. Record cancellation durably, exclude the stopped user message and any partial reply from future model context, and prevent late responses, reloads, or retries from restoring the canceled turn. Show a stopped state so the user can tell what happened.
+**Surfaces when:** Conversation cancellation, turn lifecycle, or history assembly work begins.
+
+## [IDEA] Optimize Buddy trace collection and presentation — captured 2026-11-19
+
+**Context:** Hosted Buddy traces are valuable for debugging, but the request setup is noisy and critical-path timing still has gaps.
+**Action:** Profile trace capture, persistence, reads, and rendering under realistic hosted turns. Remove duplicate events and synchronous work where evidence permits. Present each Luna or Jev call as one expandable step with the composed prompt, call configuration, timing, outcome, and retries. Make the pre-dispatch critical path and unmeasured gaps explicit, and keep the details panel stable during refresh. Preserve authorization, redaction, and the durable evidence needed to diagnose failures and verify dispatch fencing.
+**Verification:** Compare trace write volume, added Send-to-first-dispatch latency, and trace open time before and after. Inspect successful, failed, retried, and historical turns on hosted Buddy.
+**Surfaces when:** Trace performance, execution Details, or conversation diagnostics work begins.
+
+## [IDEA] Cut document and page loading latency across Buddy — captured 2026-11-19
+
+**Context:** Opening a saved document and navigating between Buddy surfaces can take several seconds. Corrupted Edge is a known hosted example.
+**Action:** Profile cold entry, warm navigation, and document opens from the picker and deep links across Build, Plan, Play, Graph, and Ingest. Correlate browser navigation to usable content with server timing for authentication, document snapshots, and World data. Remove duplicate reads and request waterfalls, reuse valid World and document data across surfaces, and keep the shared navigation mounted during in-app transitions.
+**Verification:** Compare p50 and p95 time to usable content before and after on hosted Buddy. Cover cold and warm loads, World changes, stale revisions, and load failures so a faster shell does not hide delayed content.
+**Surfaces when:** Document navigation, page loading, or hosted performance work begins.
+
+## [IDEA] Benchmark page element targeting in Buddy — captured 2026-11-19
+
+**Context:** Using a saved page image through normal Send still requires selecting nearby text. Users should be able to refer to page elements naturally.
+**Action:** Build a benchmark suite with saved pages containing images, passages, headings, tables, and statblocks. Label the intended element or the expected clarification for requests that refer to position, captions, names, prior context, or the current selection. Include requests with no selection, duplicate labels, nested layouts, ambiguous targets, and missing targets.
+**Verification:** Report correct target selection, unnecessary clarifications, confident wrong-target choices, and latency. Check that Buddy can use the intended element through normal Send and that a missing or ambiguous target cannot silently become an edit to a different element.
+**Surfaces when:** Build or shared page-context selection, image references, or agent authoring benchmarks begin.
