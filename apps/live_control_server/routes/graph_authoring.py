@@ -9,7 +9,7 @@ from uuid import UUID
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, ConfigDict
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.services.graph_document_relationship import (
@@ -35,6 +35,11 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphObjectAuthoringPrepareResponse,
     prepare_graph_object_authoring_write,
     graph_review_supported_object_kinds,
+)
+
+from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency
+from apps.live_control_server.models.native_manual_knowledge import (
+    ManualContextRequest, ManualPrepareRequest, ManualConfirmRequest,
 )
 
 router = APIRouter(prefix="/api/live/graph-authoring", tags=["graph-authoring"])
@@ -198,3 +203,48 @@ def post_graph_merge_reconciliation_apply(
     _body: dict[str, Any] | None = None,
 ) -> JSONResponse:
     return JSONResponse(status_code=410, content={"detail": _STORE_RETIRED})
+
+
+# Native manual authoring is an additive protocol; retained classic routes stay intact.
+def _native_manual_call(fn, body, principal):
+    from apps.live_control_server.services import native_manual_knowledge as manual
+    from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError
+    from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import NativeWorldSourceAdmissionError
+    from dungeonmind.application.vnext.errors import KnowledgePublicationOutcomeUnknownError
+    from dungeonmind.domain.errors import PersistenceUnavailableError
+    from application_state.errors import ApplicationStateError
+    from graph_memory.vnext.domain_runtime import DungeonBuddyDescriptorError
+    from apps.live_control_server.models.native_manual_knowledge import ManualConfirmRequest
+
+    try:
+        return fn(body, principal)
+    except (manual.ManualRefused, manual.ManualOutcomeUnknown, InspectionUnavailable, ApplicationStateError, GraphObjectAuthoringError, GraphRunRegistryError,
+            SourceArtifactRegistryError, WorkspaceDocumentRegistryError,
+            WorldGraphProjectionServiceError, NativeWorldSourceAdmissionError,
+            DungeonBuddyDescriptorError, DungeonMindError) as exc:
+        unknown = isinstance(exc, (KnowledgePublicationOutcomeUnknownError, manual.ManualOutcomeUnknown))
+        unavailable = isinstance(exc, PersistenceUnavailableError) or getattr(exc, 'status_code', None) == 503
+        raise HTTPException(503 if unknown or unavailable else getattr(exc, 'status_code', 409), detail={
+            'code': getattr(exc, 'code', 'manual_authority_unavailable' if unavailable else 'manual_integrity_error'),
+            'outcome_unknown': unknown,
+            'retry_original_packet': isinstance(body, ManualConfirmRequest) and (unknown or unavailable),
+            'message': 'The exact manual review could not be completed.',
+        }) from None
+
+
+@router.post('/native-manual/context')
+def native_manual_context(body: ManualContextRequest, principal=Depends(native_graph_explorer_dependency)):
+    from apps.live_control_server.services.native_manual_knowledge import context
+    return _native_manual_call(context, body, principal)
+
+
+@router.post('/native-manual/prepare')
+def native_manual_prepare(body: ManualPrepareRequest, principal=Depends(native_graph_explorer_dependency)):
+    from apps.live_control_server.services.native_manual_knowledge import prepare
+    return _native_manual_call(prepare, body, principal)
+
+
+@router.post('/native-manual/confirm')
+def native_manual_confirm(body: ManualConfirmRequest, principal=Depends(native_graph_explorer_dependency)):
+    from apps.live_control_server.services.native_manual_knowledge import confirm
+    return _native_manual_call(confirm, body, principal)

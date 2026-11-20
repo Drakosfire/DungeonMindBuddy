@@ -137,6 +137,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_worldbuilding_review_context,
     resolve_hosted_recap_review_context,
     resolve_hosted_native_profile_transition,
+    resolve_hosted_native_manual,
     resolve_hosted_worldbuilding_evidence_correction,
     resolve_hosted_exact_extraction_read,
     resolve_hosted_build_recap_recovery,
@@ -225,6 +226,9 @@ PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
 PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("POST", "/api/live/graph-authoring/native-manual/context"): resolve_hosted_native_manual,
+    ("POST", "/api/live/graph-authoring/native-manual/prepare"): resolve_hosted_native_manual,
+    ("POST", "/api/live/graph-authoring/native-manual/confirm"): resolve_hosted_native_manual,
     ("POST", "/api/live/graph-authoring/native-profile-transition/prepare"): resolve_hosted_native_profile_transition,
     ("POST", "/api/live/graph-authoring/native-profile-transition/confirm"): resolve_hosted_native_profile_transition,
     ("POST", "/api/live/extract-promote/runs/{run_id}/selection-context"): resolve_hosted_recap_selection,
