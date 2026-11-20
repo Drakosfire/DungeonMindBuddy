@@ -178,7 +178,18 @@ def resume(world_id: str, conversation_id: UUID, body: ReopenCommand, request: R
     world = scope(request, world_id, ())
     if body.world_id != world or body.conversation_id != conversation_id:
         raise HTTPException(422, detail="Resume command differs from this World or conversation")
-    return call(_conversation_service(request).reopen_conversation, body)
+    from apps.live_control_server.services import hosted_auth
+
+    service = _conversation_service(request)
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return call(service.reopen_conversation, body)
+
+    def recheck_owner():
+        require_conversation_access(request, world, authorize_local=enforce_native_graph_gm)
+
+    result = call(service.reopen_conversation, body, authorize_write=recheck_owner)
+    recheck_owner()
+    return result
 
 
 @router.post("/{conversation_id}/trash", response_model=ConversationCommandReceipt)

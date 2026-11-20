@@ -3573,6 +3573,21 @@ def test_hosted_resume_switches_to_archived_conversation(hosted, application_sta
     assert hosted.client.request("POST", path + "?extra=1", json=command).status_code == 403
     mismatch = command | {"conversation_id": current["conversation_id"]}
     assert hosted.client.request("POST", path, json=mismatch).status_code == 422
+    from application_state.agent_conversation import repository
+
+    lock_conversation = repository.lock_conversation
+
+    def transfer_during_lock(*args, **kwargs):
+        result = lock_conversation(*args, **kwargs)
+        hosted.records["managed"] = hosted.records["managed"].model_copy(update={"owner_subject": OTHER_OWNER})
+        return result
+
+    owner_record = hosted.records["managed"]
+    with monkeypatch.context() as scoped:
+        scoped.setattr(repository, "lock_conversation", transfer_during_lock)
+        assert hosted.client.request("POST", path, json=command).status_code == 403
+    hosted.records["managed"] = owner_record
+    assert hosted.client.request("GET", base).json()["conversation_id"] == current["conversation_id"]
     resumed = hosted.client.request("POST", path, json=command)
     assert resumed.status_code == 200, resumed.text
     assert resumed.json()["active_conversation_id"] == original["conversation_id"]

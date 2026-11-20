@@ -814,7 +814,7 @@ class AgentConversationService:
                 recorded_at=now,
             )
 
-    def reopen_conversation(self, command: ReopenCommand) -> ConversationCommandReceipt:
+    def reopen_conversation(self, command: ReopenCommand, *, authorize_write=None) -> ConversationCommandReceipt:
         world_id = _world_id(command.world_id)
         dsn = _ready_dsn()
         now = _now()
@@ -824,6 +824,8 @@ class AgentConversationService:
                 raise ApplicationStateConflictError("command ID is retired")
             replay = _receipt_replay(conn, command, command_kind="reopen")
             if replay is not None:
+                if authorize_write is not None:
+                    authorize_write()
                 return replay
             _expect_pointer(command, pointer)
             target = repo.lock_conversation(conn, world_id, command.conversation_id)
@@ -831,6 +833,8 @@ class AgentConversationService:
                 raise ApplicationStateNotFoundError("conversation not found in verified World")
             if target.status != "archived":
                 raise ApplicationStateConflictError("only an archived conversation can be reopened")
+            if authorize_write is not None:
+                authorize_write()
             _archive_active(conn, pointer, now)
             reopened = repo.update_conversation_state(
                 conn,
