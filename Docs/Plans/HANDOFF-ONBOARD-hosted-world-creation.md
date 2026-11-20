@@ -173,6 +173,41 @@ Review must settle rejected-attempt accounting, rate-window clock and cleanup,
 and whether any access path bypasses the shared decision. Implementation stays
 blocked until critique and the exact write-set/migration collision audit finish.
 
+### Admission decision refinements
+
+Bugbot's read-only critique of `6314003c46154103c19855a0f171d7dd8eb5937b`
+accepts the earlier atomicity and revocation direction but requires these
+additional explicit rules before activation:
+
+- Bound bytes before parsing. Charge every well-formed authenticated attempt,
+  including retries and conflicts, to a shared durable rate window before it can
+  take the catalog lock. Commit the rate charge separately so a failed World
+  transaction cannot refund it. Use database time, atomic counters, and bounded
+  expiration cleanup. Malformed or oversized requests are rejected before the
+  creation path; deployment edge controls handle abusive unauthenticated input.
+- Require finite global retained-allocation and creation-rate limits as well as
+  per-subject limits. Check and consume global and subject allocation quota in
+  the same creation transaction. Count retained created Worlds even after their
+  admission is revoked; there is no automatic quota refund in this slice.
+- Enforce unique `(subject, idempotency_key)` and bounded key length. Retain
+  successful receipts and revocation tombstones for the retained World's
+  lifetime. Concurrent identical requests converge on one result; a conflicting
+  fingerprint refuses. A retry never grants access merely because it has a
+  receipt: recheck current ownership and applicable admission before returning
+  metadata, and deny former owners and disabled/revoked dynamic admissions.
+- First prove authoritative current ownership and a valid static grant. That
+  path remains available even if dynamic policy is disabled or unavailable.
+  Only a request relying on owner-created admission requires a healthy enabled
+  dynamic policy and active exact creator/World admission; failures deny.
+- Revoking owner-created admission revokes that admission only. It does not
+  override an independent valid static grant. Total World suspension is a
+  separate policy and is not implied by this slice.
+
+Tests must prove aggregate and per-subject limits under concurrency, charged
+failed/conflicting/retried attempts, same-key convergence, retention and
+revocation, account transfer, static access during dynamic-policy failure, and
+all remaining resolver and mutation-boundary checks above.
+
 ## Serial successors
 
 1. Real private Apprentice import and source/Graph review, including faithful
