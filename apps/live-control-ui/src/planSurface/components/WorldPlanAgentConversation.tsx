@@ -7521,7 +7521,7 @@ export function WorldPlanAgentConversation({
             </details>
           ) : null}
           {isBuild && useWorldGraphForAsk && buildMode?.composeBridge && composerMessage.trim() &&
-            <button type="button" disabled={composerBusy}
+            <button type="button" className="world-plan-agent-conversation__image-revision" disabled={composerBusy}
               onClick={() => { void submitPlay(undefined,false,undefined,undefined,undefined,true); }}>
               Revise with image above
             </button>}
@@ -7536,12 +7536,16 @@ export function WorldPlanAgentConversation({
             {sending || composing || buildCompose.busy || playCompose.busy ? "Working…" : saveInFlight ? "Saving…" : "Send"}
           </button>
         </div>
-        {error && !authorizationBlocked && !hasUncertainPlanNotice && !hasUncertainPlayNotice ? <p role="alert">{error}</p> : null}
-        {editError && !authorizationBlocked ? <p role="alert">{editError}</p> : null}
         {!isReadOnly && detectedComposerIntent === "propose" && !editBridge ? (
           <p className="world-plan-agent-conversation__context" role="note">Plan changes are unavailable on this surface.</p>
         ) : null}
       </form>
+      {error && !authorizationBlocked && !hasUncertainPlanNotice && !hasUncertainPlayNotice ? (
+        <p className="world-plan-agent-conversation__composer-error" role="alert">{error}</p>
+      ) : null}
+      {editError && !authorizationBlocked ? (
+        <p className="world-plan-agent-conversation__composer-error" role="alert">{editError}</p>
+      ) : null}
     </section>
   );
   if (isReadOnly && !presentationHosts) {

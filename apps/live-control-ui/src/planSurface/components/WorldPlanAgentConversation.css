@@ -834,6 +834,20 @@
   margin: 0;
 }
 
+/* Keep status and secondary actions out of the input/Send column sizing. */
+.world-plan-agent-conversation__composer > .world-plan-agent-conversation__composer-error {
+  margin: 0.4rem 0 0;
+  padding: 0.35rem 0.6rem;
+  border-inline-start: 2px solid currentColor;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.plan-conversation-dock .world-plan-agent-conversation__image-revision {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
 .world-plan-agent-conversation [role="alert"] {
   color: var(--ui-text-danger, #ffb6a6);
 }
