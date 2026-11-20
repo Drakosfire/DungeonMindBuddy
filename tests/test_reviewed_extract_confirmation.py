@@ -968,6 +968,11 @@ def test_postgres_recovers_exact_finalized_review_after_repository_recreation(
     # contract. Preserve every fixture fact; change only its schema generation.
     artifact_payload = original_artifact.model_dump(mode="json")
     artifact_payload["schema_version"] = SourceArtifactV2.model_fields["schema_version"].default
+    artifact_payload["source_domain_key"] = original_artifact.source_domain.value
+    # V1 did not carry these provenance facts. Represent unknown explicitly;
+    # do not invent a review, document classification or update timestamp.
+    artifact_payload.update(artifact_kind=None, document_class=None, review_state=None,
+        source_visibility_state=None, workspace_document_ref=None, updated_at=None)
     bundle.sources.put_artifact(SourceArtifactV2.model_validate(artifact_payload))
     bundle.sources.put_revision(
         case["sources"].get_revision(case["review"].source_revision_id)
