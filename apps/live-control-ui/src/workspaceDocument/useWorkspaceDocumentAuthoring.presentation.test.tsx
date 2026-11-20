@@ -5,8 +5,8 @@ import { commitTiptapMarkdownWrite, getWorkspaceDocumentSnapshot, prepareTiptapM
 import type { WorkspaceDocumentSnapshot } from '../api/types';
 import { fixtureWorkspaceDocumentRecord } from '../planSurface/config/planSessionDescriptor';
 import { markdownToTiptapDoc } from '../tiptap/markdown/markdownToTiptap';
-import { projectPresentation, presentationFingerprint } from '../tiptap/pageComposer/presentation';
-import { readWorkspaceDocumentLocalState } from '../tiptap/state/tiptapLocalState';
+import { admittedPresentationBlocks, hydratePresentation, projectPresentation, presentationFingerprint, presentationSha256, type PagePresentation } from '../tiptap/pageComposer/presentation';
+import { readWorkspaceDocumentLocalState, workspaceDocumentStorageKey } from '../tiptap/state/tiptapLocalState';
 import { useWorkspaceDocumentAuthoring } from './useWorkspaceDocumentAuthoring';
 vi.mock('../api/liveApi', () => ({
  NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT:'dmb:native-graph-access-token-changed', getNativeGraphAccessGeneration:vi.fn(()=>0),
@@ -23,6 +23,126 @@ function snap(width=6,revision=1):WorkspaceDocumentSnapshot {
 function mount(){return renderHook(()=>useWorkspaceDocumentAuthoring({documentId:id,kind:'worldbuilding_source',surface:'build'}));}
 beforeEach(()=>{vi.clearAllMocks();localStorage.clear();});
 describe('Page layout authoring boundary',()=>{
+ it('does not enroll a legacy plain page during ordinary Save',async()=>{
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue({...snap(),page_presentation:null,page_presentation_sha256:null});
+  vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({writer_ok:false,warnings:[],diagnostics:[]} as never);
+  const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const edited=structuredClone(plain);edited.content![0].content=[{type:'text',text:'Ordinary edit.'}];
+  const editor={getJSON:()=>edited} as Editor;
+  act(()=>{h.result.current.setEditor(editor);h.result.current.handleEditorUpdate(edited,editor,{programmatic:false});});
+  await waitFor(()=>expect(h.result.current.saveDisabled).toBe(false));await act(()=>h.result.current.saveMarkdown());
+  expect(prepareTiptapMarkdownWrite).toHaveBeenCalled();
+  expect(vi.mocked(prepareTiptapMarkdownWrite).mock.calls[0][0].page_presentation ?? null).toBeNull();
+  h.unmount();
+ });
+ it('retains existing plain identities through draft reopen, both Save phases and a fresh server reopen',async()=>{
+  const layout:PagePresentation={schema_version:'dmb_page_presentation_v1',markdown_sha256:presentationSha256(source),
+   items:admittedPresentationBlocks(source).map((b,i)=>({kind:'block',id:`retained-${i}`,byte_start:b.byte_start,byte_end:b.byte_end,sha256:b.sha256}))};
+  const initial={...snap(),page_presentation:layout,page_presentation_sha256:presentationFingerprint(layout)};
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(initial);
+  const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const original=hydratePresentation(source,layout),edited=structuredClone(original);
+  edited.content![0].content=[{type:'text',text:'Updated paragraph.'}];
+  act(()=>h.result.current.handleEditorUpdate(edited,{} as Editor,{programmatic:false}));
+  await waitFor(()=>expect(h.result.current.dirty).toBe(true));
+  const retained=readWorkspaceDocumentLocalState(localStorage,id)!;
+  expect(retained.page_presentation!.items.map(item=>item.id)).toEqual(['retained-0','retained-1']);
+  h.unmount();const r=mount();await waitFor(()=>expect(r.result.current.dirty).toBe(true));
+  expect(r.result.current.editorContent).toEqual(edited);
+  const saved={...initial,markdown:retained.exported_markdown,content_sha256:presentationSha256(retained.exported_markdown),
+   loaded_revision:2,record:{...initial.record,revision:2},page_presentation:retained.page_presentation,
+   page_presentation_sha256:presentationFingerprint(retained.page_presentation)};
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(saved);
+  vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({writer_ok:true,writer_confirm_token:'token'} as never);
+  vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue({document_id:id,committed_revision:2,committed_record:saved.record,
+   normalized_content_sha256:saved.content_sha256,file_fingerprint:'postgres',writer_ok:true,page_presentation_sha256:saved.page_presentation_sha256} as never);
+  act(()=>r.result.current.setEditor({getJSON:()=>edited} as Editor));
+  await waitFor(()=>expect(r.result.current.saveDisabled).toBe(false));await act(()=>r.result.current.saveMarkdown());
+  for(const write of [prepareTiptapMarkdownWrite,commitTiptapMarkdownWrite])
+   expect(write).toHaveBeenCalledWith(expect.objectContaining({markdown:saved.markdown,page_presentation:saved.page_presentation}));
+  await waitFor(()=>expect(r.result.current.dirty).toBe(false));r.unmount();localStorage.clear();
+  const cold=mount();await waitFor(()=>expect(cold.result.current.phase).toBe('ready_clean'));
+  expect(cold.result.current.editorContent).toEqual(edited);cold.unmount();
+ });
+ it('keeps the identity-only draft dirty when the commit receipt loses its sidecar',async()=>{
+  const layout:PagePresentation={schema_version:'dmb_page_presentation_v1',markdown_sha256:presentationSha256(source),
+   items:admittedPresentationBlocks(source).map((b,i)=>({kind:'block',id:`retained-${i}`,byte_start:b.byte_start,byte_end:b.byte_end,sha256:b.sha256}))};
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue({...snap(),page_presentation:layout,page_presentation_sha256:presentationFingerprint(layout)});
+  vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({writer_ok:true,writer_confirm_token:'token'} as never);
+  vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue({document_id:id,committed_revision:2,committed_record:snap().record,
+   normalized_content_sha256:'same-source',file_fingerprint:'postgres',writer_ok:true,page_presentation_sha256:null} as never);
+  const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const edited=hydratePresentation(source,layout);edited.content![0].content=[{type:'text',text:'Keep this draft.'}];
+  const editor={getJSON:()=>edited} as Editor;
+  act(()=>{h.result.current.setEditor(editor);h.result.current.handleEditorUpdate(edited,editor,{programmatic:false});});
+  await waitFor(()=>expect(h.result.current.saveDisabled).toBe(false));await act(()=>h.result.current.saveMarkdown());
+  await waitFor(()=>expect(h.result.current.phase).toBe('conflict'));
+  expect(h.result.current.dirty).toBe(true);
+  expect(readWorkspaceDocumentLocalState(localStorage,id)?.base_revision).toBe(1);
+  expect(readWorkspaceDocumentLocalState(localStorage,id)?.tiptap_json).toEqual(edited);
+  expect(readWorkspaceDocumentLocalState(localStorage,id)?.page_presentation?.items.map(item=>item.id)).toEqual(['retained-0','retained-1']);
+  h.unmount();
+ });
+ it.each([false,true])('retains committed plain enrollment after an unsaved wrap and unwrap (edit while wrapped: %s)',async(editWhileWrapped)=>{
+  const layout:PagePresentation={schema_version:'dmb_page_presentation_v1',markdown_sha256:presentationSha256(source),
+   items:admittedPresentationBlocks(source).map((b,i)=>({kind:'block',id:`retained-${i}`,byte_start:b.byte_start,byte_end:b.byte_end,sha256:b.sha256}))};
+  const initial={...snap(),page_presentation:layout,page_presentation_sha256:presentationFingerprint(layout)};
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(initial);
+  const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const original=hydratePresentation(source,layout);
+  let json:JSONContent={type:'doc',content:[{type:'pageRow',attrs:{id:'unsaved-row',min_height:0,line_mode:'guide'},
+   content:[{type:'pageSlot',attrs:{id:'unsaved-slot',width:12},content:structuredClone(original.content)}]}]};
+  const editor={getJSON:()=>json} as Editor;
+  act(()=>{h.result.current.setEditor(editor);h.result.current.handleEditorUpdate(json,editor,{programmatic:false});});
+  await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,id)?.page_presentation?.items[0].kind).toBe('row'));
+  if(editWhileWrapped){
+   json=structuredClone(json);json.content![0].content![0].content![0].content=[{type:'text',text:'Edited while wrapped.'}];
+   act(()=>h.result.current.handleEditorUpdate(json,editor,{programmatic:false}));
+   await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,id)?.exported_markdown).toContain('Edited while wrapped.'));
+  }
+  json={type:'doc',content:structuredClone(json.content![0].content![0].content)};
+  act(()=>h.result.current.handleEditorUpdate(json,editor,{programmatic:false}));
+  await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,id)?.page_presentation?.items.map(item=>item.id)).toEqual(['retained-0','retained-1']));
+  expect(h.result.current.dirty).toBe(editWhileWrapped);
+  json=structuredClone(json);json.content![1].content=[{type:'text',text:'Edit after unwrapping.'}];
+  act(()=>h.result.current.handleEditorUpdate(json,editor,{programmatic:false}));
+  await waitFor(()=>expect(h.result.current.saveDisabled).toBe(false));
+  const local=readWorkspaceDocumentLocalState(localStorage,id)!;
+  const saved={...initial,markdown:local.exported_markdown,content_sha256:presentationSha256(local.exported_markdown),
+   loaded_revision:2,record:{...initial.record,revision:2},page_presentation:local.page_presentation,
+   page_presentation_sha256:presentationFingerprint(local.page_presentation)};
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(saved);
+  vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({writer_ok:true,writer_confirm_token:'token'} as never);
+  vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue({document_id:id,committed_revision:2,committed_record:saved.record,
+   normalized_content_sha256:saved.content_sha256,file_fingerprint:'postgres',writer_ok:true,page_presentation_sha256:saved.page_presentation_sha256} as never);
+  await act(()=>h.result.current.saveMarkdown());
+  expect(commitTiptapMarkdownWrite).toHaveBeenCalledWith(expect.objectContaining({page_presentation:saved.page_presentation,markdown:saved.markdown}));
+  await waitFor(()=>expect(h.result.current.dirty).toBe(false));h.unmount();localStorage.clear();
+  const cold=mount();await waitFor(()=>expect(cold.result.current.phase).toBe('ready_clean'));
+  expect(cold.result.current.editorContent).toEqual(json);cold.unmount();
+ });
+ it.each([null,undefined])('refuses an old-client dirty enrolled draft whose sidecar (%s) and reparsed JSON lost the IDs',async(missing)=>{
+  const layout:PagePresentation={schema_version:'dmb_page_presentation_v1',markdown_sha256:presentationSha256(source),
+   items:admittedPresentationBlocks(source).map((b,i)=>({kind:'block',id:`retained-${i}`,byte_start:b.byte_start,byte_end:b.byte_end,sha256:b.sha256}))};
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue({...snap(),page_presentation:layout,page_presentation_sha256:presentationFingerprint(layout)});
+  const seed=mount();await waitFor(()=>expect(seed.result.current.phase).toBe('ready_clean'));
+  const prior=readWorkspaceDocumentLocalState(localStorage,id)!;seed.unmount();
+  const draft='Old client unsaved words.\n\nSecond paragraph.\n';
+  const json=markdownToTiptapDoc(draft).doc;
+  localStorage.setItem(workspaceDocumentStorageKey(id),JSON.stringify({...prior,dirty:true,
+   page_presentation:missing,tiptap_json:json,exported_markdown:draft,page_presentation_pending:false}));
+  const h=mount();await waitFor(()=>expect(h.result.current.dirty).toBe(true));
+  expect(h.result.current.editorContent).toEqual(json);
+  const editor={getJSON:()=>json} as Editor;act(()=>h.result.current.setEditor(editor));
+  await act(()=>h.result.current.saveMarkdown());
+  expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  expect(h.result.current.dirty).toBe(true);
+  const retained=readWorkspaceDocumentLocalState(localStorage,id)!;
+  expect(retained.tiptap_json).toEqual(json);expect(retained.exported_markdown).toBe(draft);
+  expect(retained.page_presentation).toBe(missing);expect(retained.base_revision).toBe(prior.base_revision);
+  expect(retained.base_page_presentation_sha256).toBe(prior.base_page_presentation_sha256);
+  h.unmount();
+ });
  it('retains resize-only draft across unmount and reopens it dirty without changing source bytes',async()=>{
   vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snap());
   const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));

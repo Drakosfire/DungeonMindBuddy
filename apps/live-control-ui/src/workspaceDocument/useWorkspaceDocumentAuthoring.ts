@@ -357,15 +357,16 @@ export function useWorkspaceDocumentAuthoring(
   const persistEditorState = useCallback((tiptapJson: JSONContent) => {
     const current = localStateRef.current;
     if (!current) return;
+    const snap = snapshotRef.current;
+    const retainedPlainBase = snap?.page_presentation != null && snap.page_presentation.items.every(item => item.kind === "block");
     const composing = args.kind === "worldbuilding_source" && args.surface === "build"
-      && (current.page_presentation !== undefined || hasPresentation(tiptapJson));
+      && (retainedPlainBase || current.page_presentation !== undefined || hasPresentation(tiptapJson));
     let projected: {markdown: string; presentation: PagePresentation | null} | undefined;
     let projectionError: unknown;
-    try { if (composing) projected = projectPresentation(tiptapJson, current.exported_markdown, current.page_presentation_pending ? markdownToTiptapDoc(current.exported_markdown).doc : current.tiptap_json as JSONContent); }
+    try { if (composing) projected = projectPresentation(tiptapJson, current.exported_markdown, current.page_presentation_pending ? markdownToTiptapDoc(current.exported_markdown).doc : current.tiptap_json as JSONContent, current.page_presentation, retainedPlainBase); }
     catch (error) { projectionError = error; }
     const serializationUnsafe = semanticMarkdownSerializationDiagnostics(flattenPresentation(tiptapJson)).length > 0;
     const projectionPending = Boolean(projectionError) && !serializationUnsafe;
-    const snap = snapshotRef.current;
     const sourceHasBlockingImport = snap != null && hasBlockingMarkdownImportDiagnostics(snap.markdown);
     // When editor JSON is outside the supported Markdown grammar, or the loaded
     // source already has blocking import diagnostics, preserve authoritative
@@ -705,6 +706,7 @@ export function useWorkspaceDocumentAuthoring(
       return;
     }
 
+    const retainedPlainBase = snapshot.page_presentation != null && snapshot.page_presentation.items.every(item => item.kind === "block");
     const tiptapJson = editor.getJSON();
     const serializationDiagnostics = semanticMarkdownSerializationDiagnostics(flattenPresentation(tiptapJson));
     if (serializationDiagnostics.length > 0) {
@@ -718,8 +720,8 @@ export function useWorkspaceDocumentAuthoring(
     let projected: {markdown: string; presentation: PagePresentation | null} | undefined;
     try {
       if (args.kind === "worldbuilding_source" && args.surface === "build"
-        && (localState.page_presentation !== undefined || hasPresentation(tiptapJson))) {
-        projected = projectPresentation(tiptapJson, localState.exported_markdown, localState.page_presentation_pending ? markdownToTiptapDoc(localState.exported_markdown).doc : localState.tiptap_json as JSONContent);
+        && (retainedPlainBase || localState.page_presentation !== undefined || hasPresentation(tiptapJson))) {
+        projected = projectPresentation(tiptapJson, localState.exported_markdown, localState.page_presentation_pending ? markdownToTiptapDoc(localState.exported_markdown).doc : localState.tiptap_json as JSONContent, localState.page_presentation, retainedPlainBase);
       }
     } catch (error) {
       dispatch({type: "SAVE_FAILED", message: error instanceof Error ? error.message : "Layout cannot be saved safely. Your draft was kept."});
@@ -763,6 +765,11 @@ export function useWorkspaceDocumentAuthoring(
       });
       if (saveGeneration !== saveGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
       setLastCommitReceipt(committed);
+      if (projected && (retainedPlainBase || localState.page_presentation?.items.every(item => item.kind === 'block'))
+        && presentationFingerprint(projected.presentation) !== (committed.page_presentation_sha256 ?? null)) {
+        dispatch({type: "VERIFICATION_MISMATCH", reason: "The Save receipt does not retain the submitted page presentation. Your local draft was kept."});
+        return;
+      }
       const receiptForThisSave = committed;
       const verificationGeneration = ++verificationGenerationRef.current;
       let editedDuringSave = editorMutationGenerationRef.current !== mutationGenerationAtSaveStart;
