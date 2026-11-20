@@ -95,7 +95,10 @@ export function BuildSurfacePage() {
         }
       }}>
       {pdfReviewId && reviewWorldId ? (
-        <BuildPdfStatblockReview key={`${reviewWorldId}:${pdfReviewId}`} worldId={reviewWorldId} reviewId={pdfReviewId} toolbarHost={reviewToolbar} />
+        <>
+          <BuildSurfaceContext {...controller} />
+          <BuildPdfStatblockReview key={`${reviewWorldId}:${pdfReviewId}`} worldId={reviewWorldId} reviewId={pdfReviewId} toolbarHost={reviewToolbar} />
+        </>
       ) : statblock && statblock.worldId === worldId ? (
         <>
           <BuildSurfaceContext {...controller} primaryActionsHost={primaryActions} />
