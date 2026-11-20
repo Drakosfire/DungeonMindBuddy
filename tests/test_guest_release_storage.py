@@ -7,7 +7,7 @@ import psycopg
 import pytest
 
 from application_state import guest_release
-from application_state.content.pages import PageMetadata, commit_page, create_page
+from application_state.content.pages import PageMetadata, commit_page, committed_page, create_page
 from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError, ApplicationStateValidationError
 from application_state.world_catalog.service import create_world
 
@@ -197,3 +197,26 @@ def test_promotion_observes_concurrent_visibility_withdrawal(application_state_d
         with pytest.raises(ApplicationStateConflictError):
             future.result(timeout=5)
     assert guest_release.pointer_status(world_id=world, subject="owner") == (None, 0)
+
+
+def test_author_edits_do_not_change_staged_or_published_excerpt(application_state_dsn):
+    world = create_world(name="Immutable Release", owner_subject="owner").record.world_id
+    graph = _bind(application_state_dsn, world)
+    page = create_page(world_id=world, title="Source", metadata=PageMetadata(visibility_state="player_safe"))
+    committed, revision = commit_page(str(page.page.work_object_id), "first safe text", world_id=world,
+        expected_revision=page.page.object_revision, expected_working_copy_revision=None)
+    excerpt_id = uuid4()
+    manifest = {"assets": [], "sources": [{"id": str(excerpt_id), "text": "first"}]}
+    release_id, digest = guest_release.stage(world_id=world, subject="owner",
+        expected_owner_generation=guest_release.owner_generation(world_id=world, subject="owner"),
+        manifest=manifest, assets=[], source_bindings=[(excerpt_id, page.page.work_object_id, 0, 0,
+            revision.revision_n, revision.content_sha256, 0, 5, committed.page.object_revision)], **graph)
+    updated, _ = commit_page(str(page.page.work_object_id), "second version", world_id=world,
+        expected_revision=committed.page.object_revision,
+        expected_working_copy_revision=committed_page(str(page.page.work_object_id), world_id=world).working_copy_revision)
+    public_id, _ = guest_release.promote(world_id=world, subject="owner", release_id=release_id,
+                                         digest=digest, expected_version=0)
+    commit_page(str(page.page.work_object_id), "third version", world_id=world,
+        expected_revision=updated.page.object_revision,
+        expected_working_copy_revision=committed_page(str(page.page.work_object_id), world_id=world).working_copy_revision)
+    assert guest_release.public_manifest(public_id) == (release_id, manifest)
