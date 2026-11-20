@@ -24,6 +24,26 @@ companion_targets:
 
 # Surface Interaction Layer — Architecture Authority
 
+## Appearance and authored content
+
+Buddy loads its shared [semantic tokens](../../apps/live-control-ui/src/ui/tokens.css) from the entry stylesheet. Components read tokens for their role. Presets set token values at the root, so a component works in both palettes through the same stylesheet.
+
+| UI role | Tokens |
+|---|---|
+| Workspace, navigation, and dock backgrounds | `--ui-background-app`, `--ui-background-chrome`, `--ui-background-ops` |
+| Text and supporting labels | `--ui-text-primary`, `--ui-text-secondary`, `--ui-text-quiet` |
+| Action and keyboard focus | `--ui-accent-action` |
+| Quiet and strong borders | `--ui-border-subtle`, `--ui-border-strong` |
+| Authored paper, ink, and borders | `--ui-background-paper`, `--ui-text-on-paper`, `--ui-border-paper` |
+
+Authored document, table, and statblock styles own their palette and typography. Keep authored colors out of preset and accent overrides, including when an authored preview is rendered inside chat.
+
+[Appearance settings](../../apps/live-control-ui/src/ui/appearanceSettings.ts) support the Buddy and Deep Teal presets and either the preset accent or Sky blue. Preferences are browser-local and apply across Worlds. The entry HTML restores the allowlisted values before rendering. When adding a setting, keep the entry bootstrap and runtime contract aligned. Preview applies temporary values to the root. Apply saves them, Cancel restores the prior values, and Reset previews the defaults until confirmed.
+
+For a new component, start with the shared surface host and existing tokens. For example, Build and Plan both use the [conversation dock stylesheet](../../apps/live-control-ui/src/ui/ConversationDock.css). It takes its shell background and text from the shared tokens and uses the action token for keyboard focus. A new button in the dock inherits the focus rule. A new preset supplies values for these roles once in the token file, and both surfaces pick them up.
+
+Check text, controls, keyboard focus, selection and status in both presets. Verify that preview and cancel preserve the saved preference and that a reload restores it. Compare an authored artifact before and after the change. For loading checks, record route, action, visible completion marker, cache condition, timed-out runs, app revision, and compressed CSS bytes. Keep cold entry, warm navigation, and saved document opens as separate workloads.
+
 ## Status and scope
 
 This document is the **neutral architecture authority** for how DungeonBuddy surfaces compose shared chrome (Nav Bar, Agent Bar, Tool Bar, Edit Bar, Projection Pane hosts) around an independent **Canvas** / active work object.
