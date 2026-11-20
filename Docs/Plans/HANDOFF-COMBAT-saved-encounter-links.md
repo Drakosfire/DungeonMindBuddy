@@ -16,7 +16,9 @@ and VTT read boundary. Keep that boundary private to Combat access.
 Write lease: this handoff, Docs/Guides/GUIDE-combat-encounter-links.md,
 apps/live-control-ui/src/combat/{CombatSurfacePage.tsx,
 CombatSurfacePage.test.tsx,combatEncounterLocation.ts}, and
-apps/live-control-ui/src/surface/modules/CombatRosterModule.tsx. No backend,
+apps/live-control-ui/src/surface/modules/CombatRosterModule.tsx. The required
+CI inventory entry for CombatSurfacePage.test.tsx is the only write in
+ci/test-classification.json. No backend,
 auth, routing registry, schema, provider, storage, live state or deployment
 writes. Open #3824 and #3716 remain read-only. Historical source publication is
 the next serial slice and can use the resulting direct link.
