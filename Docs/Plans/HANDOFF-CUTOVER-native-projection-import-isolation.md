@@ -1,6 +1,6 @@
 # Native projection import isolation and accepted Core adoption
 
-Status: COMPLETE — accepted implementation; merge pending. Core #248 accepted and merged. Design owner MIND under explicit
+Status: COMPLETE — accepted and merged as PR #4235. Core #248 accepted and merged. Design owner MIND under explicit
 operator authorization for full vNext design, implementation, review and merge.
 Serial successor to Buddy #4234 at e4829505224a29ea9b4d3688ac22762588d60b05.
 Existing task Buddy checkout; branch codex/v10-native-projection-import-isolation.
@@ -107,8 +107,11 @@ cold boundaries. This is working-tree evidence, not frozen-head qualification.
 Accepted source `f92fdff5a58f7ecdcc9ac29852c41d8972ef6c22`, base
 `e4829505224a29ea9b4d3688ac22762588d60b05`; PR #4235. Independent
 COMMENT [review5993479648](https://github.com/Drakosfire/DungeonMindBuddy/pull/4235#pullrequestreview-5993479648)
-accepts cumulative source and evidence. The documentation seal still needs delta
-review and short checks before guarded merge. No runtime/test/pin change in seal.
+accepts cumulative source and evidence. Documentation seal2c0a114275c5390dec8e8a8003682f728336f49d was accepted by
+review5993509117; all four short checks passed before guarded merge. Actual merge
+052bea94cac45895184526e10dd6efcc4834624b equals seal tree
+5ce3d18601431ef7cc337a21c09a9fbfb98b9d51. No runtime/test/pin change in seal;
+actual merged commit was not separately executed and serving did not change.
 
 Exact-source qualification:
 
