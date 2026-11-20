@@ -1042,7 +1042,9 @@ def test_context_capture_cli_is_explicit_and_does_not_select_a_response_mode(mon
     calls = []
     monkeypatch.setattr(w, 'capture', lambda *a, **kw: calls.append((a, kw)))
     w.main(['capture-context', '--manifest', 'pinned.json', '--output', 'isolated'])
-    assert calls == [(('pinned.json', 'isolated'), {'context_only': True})]
+    assert calls == [(('pinned.json', 'isolated'), {'context_only': True, 'writer_transport': False})]
+    w.main(['capture-context', '--manifest', 'pinned.json', '--output', 'isolated', '--writer-transport'])
+    assert calls[-1] == (('pinned.json', 'isolated'), {'context_only': True, 'writer_transport': True})
 
 
 @pytest.mark.parametrize('policy', ['absent', None, {}, {'policy': 'auto_plan_world'}, {
@@ -1089,6 +1091,30 @@ def test_context_network_guard_is_below_sdk_preparation_and_restored(tmp_path, m
     assert PlanJevWriter.run is direct_run and PlanJevWriter.authorize is original
 
 
+def test_transport_capture_intercepts_exact_bytes_and_never_delegates(tmp_path, monkeypatch):
+    import asyncio
+    import httpx
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from evals.buddy_benchmark.context_capture import ContextCapture, ContextReadyStop
+
+    url = 'https://api.openai.com/v1/responses'
+    body = b'{"input":"exact bytes"}'
+    async def direct_run(writer, *, transport=None, api_key=None):
+        await transport.handle_async_request(httpx.Request('POST', url, content=body))
+
+    monkeypatch.setattr(PlanJevWriter, 'run', direct_run)
+    stop = ContextCapture(tmp_path, writer_transport=True)
+    stop.request = {'body_hex': body.hex()}
+    delegated = []
+    supplied = httpx.MockTransport(lambda request: delegated.append(request))
+    with stop.install(), pytest.raises(ContextReadyStop):
+        asyncio.run(PlanJevWriter.run(SimpleNamespace(), transport=supplied))
+    assert stop.guard_hits == 1 and stop.stop_issued and not delegated
+    assert stop.transport_sink['url'] == url
+    assert stop.transport_sink['body_hex'] == body.hex()
+    assert not list(tmp_path.iterdir())
+
+
 @pytest.mark.parametrize('failure', [False, ValueError('rejected input')])
 def test_failed_context_authorization_cannot_emit_a_ready_packet(tmp_path, monkeypatch, failure):
     from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
@@ -1108,11 +1134,13 @@ def test_failed_context_authorization_cannot_emit_a_ready_packet(tmp_path, monke
     assert not stop.stop_issued and not list(tmp_path.iterdir())
 
 
-def test_context_artifact_failure_cannot_be_reported_as_an_issued_stop(tmp_path, monkeypatch):
+def test_context_artifact_failure_cannot_be_reported_as_a_success(tmp_path, monkeypatch):
     from datetime import datetime, timezone
     from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
     from evals.buddy_benchmark import context_capture as cc
-    prepared = object()
+    prepared = SimpleNamespace(provider='openai', model='test', api_mode='responses',
+        method='POST', url='https://api.openai.com/v1/responses', body=b'{}',
+        body_size=2, body_sha256=sha256(b'{}').hexdigest())
     turn = SimpleNamespace(world_id='world', conversation_id=uuid4(), turn_id=uuid4(), attempt=1,
         accepted_at=datetime.now(timezone.utc), graph_context_receipt=SimpleNamespace(
             context_receipt_sha256='a'*64, work_context=SimpleNamespace(surface_id='plan')))
@@ -1123,9 +1151,13 @@ def test_context_artifact_failure_cannot_be_reported_as_an_issued_stop(tmp_path,
         raise OSError('capture storage unavailable')
     monkeypatch.setattr(cc, 'immutable_save', fail_write)
     stop = cc.ContextCapture(tmp_path)
-    with stop.install(), pytest.raises(OSError, match='storage unavailable'):
+    with stop.install(), pytest.raises(cc.ContextReadyStop):
         PlanJevWriter.authorize(writer, prepared)
-    assert stop.authorization_calls == 1 and not stop.stop_issued and not list(tmp_path.iterdir())
+    assert stop.authorization_calls == 1 and stop.stop_issued and not list(tmp_path.iterdir())
+    turn.model_dump = lambda **kwargs: {}
+    with pytest.raises(OSError, match='storage unavailable'):
+        stop.finalize(turn)
+    assert not list(tmp_path.iterdir())
 
 
 def _native_order_schema():

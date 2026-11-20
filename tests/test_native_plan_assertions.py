@@ -1368,10 +1368,20 @@ def test_benchmark_context_boundary_uses_actual_sdk_admission_without_writer_io(
         'graph_request', 'graph_selection', 'plan_context_policy'}
     second = directory / 'next-case'
     workflow.capture_case(client, observed['world'], {k:v for k,v in observed['request'].items() if k in fields},
-        {'id':'next-context', 'question':'Which details are established about B?'}, second, context_only=True)
+        {'id':'next-context', 'question':'Which details are established about B?'}, second,
+        context_only=True, writer_transport=True)
     fresh = json.loads((second / 'history-after.json').read_text())['body']['turns']
     assert len(fresh) == 1 and fresh[0]['turn_id'] != str(turn.turn_id)
     assert fresh[0]['lifecycle_status'] == 'interrupted' and not fresh[0]['assistant_text']
+    transport_ready = json.loads((second / 'context-ready.json').read_text())
+    transport_request = json.loads((second / 'context-request.json').read_text())
+    transport_stop = json.loads((second / 'context-stop.json').read_text())
+    packet = validate_context_packet(transport_ready, transport_request, transport_stop)
+    assert packet['request_to_transport_ms'] >= packet['request_to_ready_ms'] >= 0
+    tampered = deepcopy(transport_stop)
+    tampered['transport_sink']['body_hex'] += '20'
+    with pytest.raises(ValueError, match='Writer transport bytes'):
+        validate_context_packet(transport_ready, transport_request, tampered)
 
     ready = json.loads((directory / 'context-ready.json').read_text())
     request = json.loads((directory / 'context-request.json').read_text())

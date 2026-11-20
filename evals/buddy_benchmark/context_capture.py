@@ -1,7 +1,8 @@
 """Evaluation-only stop at the real admitted Plan writer-input boundary.
 
 No replacement input producer or response is supplied. The ordinary SDK prepares
-its request, APP/Rules authorize it, and GE records known_not_sent on our stop.
+its request and APP/Rules authorize it. The default stops before dispatch.
+The opt-in mode instead terminates in a local sink below the dispatch gate.
 """
 from contextlib import contextmanager
 from copy import deepcopy
@@ -30,12 +31,14 @@ def validate_context_packet(ready, request, terminal):
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_execution import NativeWriterAuthorizedV1
 
+    sink = terminal.get("transport_sink")
+    expected_hits = 1 if sink is not None else 0
     if (ready.get("schema") != "dmb_benchmark_context_ready_v1"
             or terminal.get("status") != "captured"
             or type(terminal.get("authorization_calls")) is not int
             or type(terminal.get("writer_io_guard_hits")) is not int
             or terminal.get("authorization_calls") != 1
-            or terminal.get("writer_io_guard_hits") != 0
+            or terminal.get("writer_io_guard_hits") != expected_hits
             or terminal.get("stop_issued") is not True):
         raise ValueError("Context stop or zero-writer-IO proof is incomplete")
     body = bytes.fromhex(request["body_hex"])
@@ -62,8 +65,9 @@ def validate_context_packet(ready, request, terminal):
     outcomes = [event.outcome for event in execution.events
                 if isinstance(event, t.ProviderOutcomeEventV1)
                 and event.provider_attempt_id == authorization.provider_attempt_id]
-    if outcomes != ["known_not_sent"]:
-        raise ValueError("Writer lifecycle does not prove known_not_sent")
+    expected_outcomes = ["sdk_entered", "outcome_unknown"] if sink is not None else ["known_not_sent"]
+    if outcomes != expected_outcomes:
+        raise ValueError("Writer lifecycle differs from the captured boundary")
     accepted = turn.accepted_at
     observed_accepted = datetime.fromisoformat(ready["accepted_at"])
     observed_ready = datetime.fromisoformat(ready["ready_at"])
@@ -80,14 +84,28 @@ def validate_context_packet(ready, request, terminal):
     if (request["provider"], request["model"], request["api_mode"], request["method"], request["url"]) != (
             "openai", authorization.model, "responses", "POST", "https://api.openai.com/v1/responses"):
         raise ValueError("Context request provider identity differs")
+    request_to_transport_ms = None
+    if sink is not None:
+        if not isinstance(sink, dict):
+            raise ValueError("Writer transport receipt must be an object")
+        sink_tick = sink.get("monotonic_ns")
+        if (type(sink_tick) is not int or sink_tick < ready["ready_monotonic_ns"]
+                or (sink.get("method"), sink.get("url"), sink.get("body_hex"))
+                != (request["method"], request["url"], request["body_hex"])):
+            raise ValueError("Writer transport bytes or clock differs from authorization")
+        if request_started is not None:
+            request_to_transport_ms = (sink_tick - request_started) / 1_000_000
     return {"turn": turn, "authorization": authorization, "payload": payload,
             "elapsed_ms": elapsed_ms, "request_to_ready_ms": request_to_ready_ms,
-            "prepared_bytes": len(body)}
+            "request_to_transport_ms": request_to_transport_ms, "prepared_bytes": len(body)}
 
 
 class ContextCapture:
-    def __init__(self, directory):
+    def __init__(self, directory, *, writer_transport=False):
         self.directory = Path(directory)
+        self.writer_transport = writer_transport
+        self.transport_sink = None
+        self.ready = self.request = None
         self.authorization_calls = self.guard_hits = 0
         self.stop_issued = False
         self.request_started_monotonic_ns = None
@@ -102,6 +120,12 @@ class ContextCapture:
         class DenyWriterIO(httpx.AsyncBaseTransport):
             async def handle_async_request(self, request):
                 owner.guard_hits += 1
+                if owner.writer_transport and owner.guard_hits == 1 and owner.request is not None:
+                    tick = monotonic_ns()
+                    owner.transport_sink = {"monotonic_ns": tick, "method": request.method,
+                                            "url": str(request.url), "body_hex": request.content.hex()}
+                    owner.stop_issued = True
+                    raise ContextReadyStop("Writer captured at the local transport sink")
                 raise WriterIODenied("Writing-provider IO is disabled in context capture")
 
         guard = DenyWriterIO()
@@ -121,7 +145,7 @@ class ContextCapture:
             if turn.graph_context_receipt.work_context.surface_id != "plan":
                 raise ContextReadyStop("Context capture requires the ordinary Plan owner")
             trace = getattr(writer.adapter, "trace", None)
-            immutable_save(owner.directory, "context-ready", {
+            owner.ready = {
                 "schema": "dmb_benchmark_context_ready_v1", "world_id": turn.world_id,
                 "conversation_id": str(turn.conversation_id), "turn_id": str(turn.turn_id),
                 "attempt": turn.attempt, "authorization_event_id": str(event.event_id),
@@ -131,12 +155,14 @@ class ContextCapture:
                 "ready_at": now.isoformat(), "ready_monotonic_ns": tick,
                 "request_started_monotonic_ns": owner.request_started_monotonic_ns,
                 "host_spans": deepcopy(trace.spans) if trace is not None else None,
-            })
-            immutable_save(owner.directory, "context-request", {
+            }
+            owner.request = {
                 "provider": prepared.provider, "model": prepared.model, "api_mode": prepared.api_mode,
                 "method": prepared.method, "url": prepared.url, "body_hex": prepared.body.hex(),
                 "body_size": prepared.body_size, "body_sha256": prepared.body_sha256,
-            })
+            }
+            if owner.writer_transport:
+                return True
             owner.stop_issued = True
             raise ContextReadyStop("Admitted context captured; no response requested")
 
@@ -153,6 +179,13 @@ class ContextCapture:
                     "writer_io_guard_hits": self.guard_hits, "stop_issued": self.stop_issued,
                     "turn": turn.model_dump(mode="json", by_alias=True)}
         try:
+            if self.writer_transport:
+                if self.transport_sink is None:
+                    raise ValueError("Writer transport sink was not reached")
+                terminal["transport_sink"] = self.transport_sink
+            for name, value in (("context-ready", self.ready), ("context-request", self.request)):
+                if value is not None:
+                    immutable_save(self.directory, name, value)
             ready = json.loads((self.directory / "context-ready.json").read_text())
             request = json.loads((self.directory / "context-request.json").read_text())
             validate_context_packet(ready, request, terminal)

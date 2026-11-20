@@ -256,6 +256,7 @@ def report_case(case, base):
             "capture_boundary": "context_ready", "durable_turn_id": turn["turn_id"], "boundaries": boundaries,
             "context": {"status": "captured", "accepted_to_ready_ms": context_packet["elapsed_ms"],
                 "request_to_ready_ms": context_packet["request_to_ready_ms"],
+                "request_to_transport_ms": context_packet["request_to_transport_ms"],
                 "request_timing_basis": ("Same-process monotonic clock from ordinary request dispatch to post-authorization context-ready; includes bootstrap, excludes capture installation, artifact IO and cleanup"
                     if context_packet["request_to_ready_ms"] is not None else "Unknown: historical request-start tick was not retained"),
                 "prepared_request_bytes": context_packet["prepared_bytes"],
@@ -305,7 +306,7 @@ def report(manifest_path, *, oracle=None, citation_readback=None):
             "Billing and missing measurements remain unknown; no estimated price is billed cost."]}
 
 
-def capture_case(client, world, template, case, directory, *, context_only=False,
+def capture_case(client, world, template, case, directory, *, context_only=False, writer_transport=False,
                  build_thread_id=None, expected_conversation_id=None, build_editor_snapshot=None):
     """The single ordinary route sequence, shared by all question fixtures."""
     build_sequence = build_thread_id is not None
@@ -370,7 +371,7 @@ def capture_case(client, world, template, case, directory, *, context_only=False
     error, known_response = None, False
     from contextlib import nullcontext
     from .context_capture import ContextCapture
-    context_stop = ContextCapture(directory) if context_only else None
+    context_stop = ContextCapture(directory, writer_transport=writer_transport) if context_only else None
     try:
         with context_stop.install() if context_stop is not None else nullcontext():
             if context_stop is not None:
@@ -452,7 +453,7 @@ def verify_capture_environment(expected):
         raise ValueError("Runtime qualification changed; no question dispatched")
 
 
-def capture(manifest_path, output, *, context_only=False):
+def capture(manifest_path, output, *, context_only=False, writer_transport=False):
     """Explicit live entry point; never invoked by offline reporting."""
     manifest, base = load_manifest(manifest_path)
     if os.environ.get("DMB_AGENT_GRAPH_LOCAL_PROFILE"):
@@ -560,7 +561,7 @@ def capture(manifest_path, output, *, context_only=False):
                 verify_capture_environment(owned_env)
                 directory = output / case["id"]
                 response = capture_case(client, manifest["world"], template, case, directory,
-                    context_only=context_only, build_thread_id=build_thread_id,
+                    context_only=context_only, writer_transport=writer_transport, build_thread_id=build_thread_id,
                     expected_conversation_id=conversation_id, build_editor_snapshot=editor_snapshot)
                 if build_sequence:
                     if response.status_code != 200:
@@ -1208,7 +1209,11 @@ def main(argv=None):
     parser.add_argument("--output", required=True)
     parser.add_argument("--oracle", help="Private Gold JSON for offline report mode")
     parser.add_argument("--citation-readback", help="Retained excerpt citation readback JSONL")
+    parser.add_argument("--writer-transport", action="store_true",
+                        help="Capture the serialized writer request at a local transport sink")
     args = parser.parse_args(argv)
+    if args.writer_transport and args.mode != "capture-context":
+        parser.error("--writer-transport requires capture-context")
     if args.mode != "report" and (args.oracle or args.citation_readback):
         parser.error("Oracle and citation readback are available only in report mode")
     if args.mode == "report":
@@ -1218,7 +1223,7 @@ def main(argv=None):
     elif args.mode == "capture":
         capture(args.manifest, args.output)
     elif args.mode == "capture-context":
-        capture(args.manifest, args.output, context_only=True)
+        capture(args.manifest, args.output, context_only=True, writer_transport=args.writer_transport)
     elif args.mode == "writer-prepare":
         writer_prepare(args.manifest, args.output)
     elif args.mode == "context-tasting":
