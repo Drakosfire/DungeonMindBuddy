@@ -80,7 +80,15 @@ SUPERSEDED stored-candidate lifecycle distinction; verify their distinct digests
 Derive exact identity proposals/verdicts and assertion verdict coverage, then the
 reviewed successor with public Core derivations and original actor/review time.
 Compare its whole payload. Recompute review intent, review/confirmation IDs and
-existing plan/contribution/source-input formulas. Reject extra assertions,
+existing plan/contribution/source-input formulas. Read the exact sealed immutable
+parent through the bare public graph repository after terminal lookup; verify
+World/ID/status/schema/hash/profile and use its created_at as the producer time.
+Core247 verifies parent correspondence but does not enforce Buddy
+reviewed_at == parent.created_at. Never substitute recorded review time as the
+expected answer. This read performs no current-head/source/admission work and
+requires no additional path or Core API; missing/corrupt parent is integrity,
+unavailable storage stays unavailable. Prove coherent alternate review/child
+time rejection against an unchanged parent, and missing/substituted parent cases. Reject extra assertions,
 rejected effects, diagnostics, corrections, scope, identity decisions or unexpected
 fields. This must reject self-consistent Core history with changed effects under
 reused outer claims, not merely malformed rows. No finalize or materialization.
@@ -116,6 +124,18 @@ Use final exact-source hosted/build/canonical verification with global frontend
 flock and pinnedNode22. No retrieval baseline or new full-discovered rerun absent
 concrete concern; retained broad diagnostics stay explicit. Obtain independent
 exact cumulative source/evidence review and expected-head merge.
+
+## Draft implementation checkpoint
+
+Core247/WK348 are installed from their exact pinned Git revisions in a new retained
+Python3.13 environment. Working-tree diagnostics: commit family58pass;
+focused history/hosted41pass; an earlier two-file owning snapshot451pass with no
+failure/error/skip (predates the last four parent-decoder regressions). These are
+not final exact-source qualification. Changed runtime/commit-test Ruff passes;
+hosted test file retains11F811 failures reproduced on the exact base.
+Real Core PostgreSQL recovery/withdrawal/descendant proof, final frozen hosted/
+build/canonical verification, full preservation and independent acceptance remain
+pending. No baseline rerun or deployment; ACTIVE, draft, not merge-ready.
 
 ## Remaining work and resources
 

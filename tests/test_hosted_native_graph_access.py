@@ -4751,6 +4751,17 @@ def test_hosted_manual_knowledge_checks_build_source_and_actor(hosted, monkeypat
         calls.append((body.source_run_id, authenticated_actor))
         raise graph_authoring.GraphObjectAuthoringError("Reached authoring.", code="probe", status_code=409)
 
+    monkeypatch.setenv("DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY", "hosted-manual-history-test-key")
+    from apps.live_control_server.services import managed_world_graph_projection
+    monkeypatch.setattr(managed_world_graph_projection, "resolve_managed_world_binding", lambda world: SimpleNamespace(
+        managed_world_id=world, native_world_id="native-managed", binding_version=1,
+    ))
+    token = graph_object_authoring_prepare.sign_publication_intent({
+        "campaign_id": "managed", "source_run_id": "owned", "world_id": "native-managed",
+        "actor": f"hosted_dms:{OWNER}", "publication_binding": {
+            "managed_world_id": "managed", "native_world_id": "native-managed", "binding_version": 1,
+        },
+    })
     calls = []
     monkeypatch.setattr(access, "_owned_build_page", owned_page)
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda run: SimpleNamespace(
@@ -4766,7 +4777,7 @@ def test_hosted_manual_knowledge_checks_build_source_and_actor(hosted, monkeypat
     payload = {"worldId": "managed", "campaignId": "managed", "sourceRunId": "owned", "proposals": [object_proposal()]}
     for phase in ("prepare", "commit"):
         path = f"/api/live/graph-authoring/{phase}"
-        body = {**payload, "confirmToken": "token", "currentOverlayToken": "overlay"} if phase == "commit" else payload
+        body = {**payload, "confirmToken": token, "currentOverlayToken": "overlay"} if phase == "commit" else payload
         assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
         assert hosted.client.request("POST", path, json={**body, "sourceRunId": "foreign"}).status_code == 403
         response = hosted.client.request("POST", path, json=body)
@@ -4786,7 +4797,7 @@ def test_hosted_manual_knowledge_checks_build_source_and_actor(hosted, monkeypat
         hosted.records["managed"] = hosted.records["managed"].model_copy(update={"owner_subject": OTHER_OWNER})
         return graph_authoring.GraphObjectAuthoringCommitResponse(committed=True, campaign_id="managed", published_revision_id="private-receipt")
     monkeypatch.setattr(graph_authoring, "commit_graph_object_authoring_write", transfer_before_receipt)
-    response = hosted.client.request("POST", "/api/live/graph-authoring/commit", json={**payload, "confirmToken": "token", "currentOverlayToken": "overlay"})
+    response = hosted.client.request("POST", "/api/live/graph-authoring/commit", json={**payload, "confirmToken": token, "currentOverlayToken": "overlay"})
     assert response.status_code == 403
     assert "private-receipt" not in response.text
 
@@ -6876,3 +6887,56 @@ def test_hosted_catalog_authorizers_run_blocking_reads_off_event_loop(monkeypatc
         assert all(thread != event_loop_thread for thread in catalog_threads)
 
     asyncio.run(run())
+
+
+
+@pytest.mark.parametrize("change", [None, "actor", "native", "version", "selector", "late_version"])
+def test_hosted_historical_manual_commit_binding_without_run_or_page(hosted, monkeypatch, change):
+    from apps.live_control_server.routes import graph_authoring
+    from apps.live_control_server.services import (
+        graph_object_authoring_prepare as owner, managed_world_graph_projection,
+        graph_run_registry, source_artifact_registry,
+    )
+    from tests.test_graph_object_authoring_prepare import object_proposal
+
+    monkeypatch.setenv(owner.GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, "hosted-history-binding-tests")
+    current = SimpleNamespace(managed_world_id="managed", native_world_id="native-managed", binding_version=1)
+    monkeypatch.setattr(managed_world_graph_projection, "resolve_managed_world_binding", lambda world: current)
+    def forbidden(*args, **kwargs):
+        pytest.fail("historical commit opened withdrawn run/artifact/Page")
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", forbidden)
+    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", forbidden)
+    monkeypatch.setattr(access, "_owned_build_page", forbidden)
+    intent = dict(campaign_id="managed", source_run_id="deleted-run", world_id="native-managed",
+                  actor=f"hosted_dms:{OWNER}", publication_binding=dict(
+                      managed_world_id="managed", native_world_id="native-managed", binding_version=1),
+                  expires_at="2000-01-01T00:00:00+00:00")
+    if change == "actor":
+        intent["actor"] = f"hosted_dms:{OTHER_OWNER}"
+    elif change == "native":
+        intent["publication_binding"]["native_world_id"] = "foreign-native"
+    elif change == "version":
+        intent["publication_binding"]["binding_version"] = 2
+    elif change == "selector":
+        intent["source_run_id"] = "other-run"
+    calls = []
+    def recover(body, *, authenticated_actor, authorize_world, recovery_only):
+        assert recovery_only and authenticated_actor == f"hosted_dms:{OWNER}"
+        authorize_world()
+        calls.append("receipt")
+        if change == "late_version":
+            current.binding_version = 2
+        return graph_authoring.GraphObjectAuthoringCommitResponse(
+            committed=True, campaign_id="managed", published_revision_id="private-receipt",
+        )
+    monkeypatch.setattr(graph_authoring, "commit_graph_object_authoring_write", recover)
+    payload = dict(worldId="managed", campaignId="managed", sourceRunId="deleted-run",
+                   proposals=[object_proposal()], confirmToken=owner.sign_publication_intent(intent))
+    response = hosted.client.request("POST", "/api/live/graph-authoring/commit", json=payload)
+    if change is None:
+        assert response.status_code == 200, response.text
+        assert calls == ["receipt"]
+    else:
+        assert response.status_code == 403, response.text
+        assert "private-receipt" not in response.text
+        assert calls == (["receipt"] if change == "late_version" else [])
