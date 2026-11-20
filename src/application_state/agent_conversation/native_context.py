@@ -14,7 +14,7 @@ from pydantic import Field, model_validator
 
 from .native_corpus import NativeCorpusAuthorityV1
 from .native_plan_assertions import NativePlanQueryV2, NativeGraphQueryV3, NativeGraphQueryV4
-from .native_plan_statements import NativePlanQueryUnavailableV1
+from .native_plan_statements import NativePlanQueryAuthorityV1, NativePlanQueryUnavailableV1
 from .native_statement_input import Strict
 from .rules_authority_types import canonical_sha256
 from .types import (
@@ -123,6 +123,14 @@ NativeInitialInput = Annotated[
 ]
 
 
+class NativeBuildQueryPendingV1(Strict):
+    """Pinned Graph inputs for a fresh Build decision before catalog assembly."""
+    schema_: Literal["dmb_native_build_query_pending_v1"] = Field(
+        default="dmb_native_build_query_pending_v1", alias="schema")
+    authority: NativePlanQueryAuthorityV1
+    question: str = Field(min_length=1)
+
+
 class SurfaceNativeContextReceiptV1(Strict):
     schema_: Literal["dmb_surface_native_context_receipt_v1"] = Field(
         default="dmb_surface_native_context_receipt_v1", alias="schema")
@@ -131,7 +139,7 @@ class SurfaceNativeContextReceiptV1(Strict):
     provenance_sha256: Digest
     work_context: SurfaceWorkContext
     source_authority: NativeCorpusAuthorityV1 | NativeCorpusUnavailableV1
-    native_query: NativeGraphQueryV4 | NativeGraphQueryV3 | NativePlanQueryV2 | NativePlanQueryUnavailableV1
+    native_query: NativeGraphQueryV4 | NativeGraphQueryV3 | NativePlanQueryV2 | NativePlanQueryUnavailableV1 | NativeBuildQueryPendingV1
     assembled_input: NativeInitialInput
 
     @model_validator(mode="after")
@@ -144,10 +152,20 @@ class SurfaceNativeContextReceiptV1(Strict):
         if isinstance(self.assembled_input, NativePlanRequestAdmissionV1) and not isinstance(self.work_context, PlanWorkContextV1):
             raise ValueError('Plan request admission requires actual Plan work')
         query = self.native_query
-        authority = query.authority if isinstance(query, NativePlanQueryV2) else query
+        if isinstance(query, NativeBuildQueryPendingV1) and (
+            type(self.work_context) is not BuildWorkContextV1
+            or type(self.assembled_input) is not NativeBuildProviderInputV2
+            or type(self.source_authority) is not NativeCorpusAuthorityV1
+            or query.authority.scope_mode != "world"
+            or query.authority.campaign_id is not None
+            or query.authority.session_id is not None
+        ):
+            raise ValueError("Pending Graph query requires pinned ordinary Build authority")
+        has_query_pin = isinstance(query, (NativePlanQueryV2, NativeBuildQueryPendingV1))
+        authority = query.authority if has_query_pin else query
         if self.source_authority.managed_world_id != world or authority.managed_world_id != world:
             raise ValueError("Native capabilities differ from their actual work World")
-        if isinstance(self.source_authority, NativeCorpusAuthorityV1) and isinstance(query, NativePlanQueryV2):
+        if isinstance(self.source_authority, NativeCorpusAuthorityV1) and has_query_pin:
             if any(getattr(self.source_authority, key) != getattr(authority, key) for key in (
                     "native_world_id", "binding_version", "revision_id", "domain_ref",
                     "profile_ref", "acquisition_epoch")):

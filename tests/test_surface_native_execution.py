@@ -644,3 +644,73 @@ def test_old_plan_action_remains_a_closed_reader_and_current_producer_is_explici
     reopened=type(current).model_validate_json(current.model_dump_json(by_alias=True))
     assert type(reopened.policy.action) is NativePlanActionV2
     assert reopened.policy.action.action_version=='plan_saved_authored_pages_v2'
+
+
+def _pending_build_query():
+    from dungeonmind.domain.canonical import canonical_sha256
+    from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
+    from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
+
+    context, record = component("build")
+    catalog = NativeGraphQueryV4.model_validate_json(json.dumps(
+        context.native_query.model_dump(mode="json", by_alias=True) | {
+            "schema": "dmb_native_graph_query_v4", "object_matches": [], "authored_targets": [],
+        }))
+    pending = NativeBuildQueryPendingV1(authority=catalog.authority, question=catalog.question)
+    data = context.model_dump(mode="json", by_alias=True)
+    data["assembled_input"]["assembler_version"] = "native_build_semantic_initial_v2"
+    data["assembled_input"]["tokenizer_name"] = controller("build", record.policy).input_estimator
+    data["native_query"] = pending.model_dump(mode="json", by_alias=True)
+    context = type(context).model_validate_json(json.dumps(seal(data)))
+    policy = record.policy.model_copy(update={
+        "native_query_sha256": canonical_sha256(pending.model_dump(mode="json", by_alias=True)),
+    })
+    return context, policy, catalog
+
+
+def test_pending_build_query_refuses_durable_submission_before_runtime_cutover():
+    from types import SimpleNamespace
+    from application_state.agent_conversation.native_execution import validate_submission
+
+    context, policy, _catalog = _pending_build_query()
+    submission = SimpleNamespace(graph_context_receipt=context,
+        graph_context_execution=execution(context.context_receipt_sha256, policy))
+    with pytest.raises(ValueError, match="requires the owning runtime settlement"):
+        validate_submission(submission)
+
+
+@pytest.mark.parametrize("failure", [None, "early", "repeat", "wrong_attempt", "wrong_epoch", "other_question"])
+def test_build_query_settlement_requires_exact_opening_response(failure):
+    from application_state.agent_conversation.native_execution import (
+        NativeBuildQuerySettledV1, effective_native_query, validate_context_binding,
+    )
+
+    context, policy, catalog = _pending_build_query()
+    pending = context.native_query
+    authorization = controller("build", policy)
+    prefix = [authorization, *outcomes(authorization, 1)]
+    record = execution(context.context_receipt_sha256, policy, prefix)
+    validate_context_binding(context, record)
+    assert effective_native_query(context, record) == pending
+    if failure == "early":
+        prefix.pop()
+    if failure == "wrong_epoch":
+        catalog = catalog.model_copy(update={"authority": catalog.authority.model_copy(
+            update={"acquisition_epoch": catalog.authority.acquisition_epoch + 1})})
+    if failure == "other_question":
+        catalog = catalog.model_copy(update={"question": "A different question?"})
+    settled = NativeBuildQuerySettledV1(
+        event_id=uuid4(), sequence=len(prefix),
+        controller_attempt_id=uuid4() if failure == "wrong_attempt" else authorization.provider_attempt_id,
+        query=catalog,
+    )
+    events = [*prefix, settled]
+    if failure == "repeat":
+        events.append(settled.model_copy(update={"event_id": uuid4(), "sequence": len(events)}))
+    candidate = execution(context.context_receipt_sha256, policy, events)
+    if failure is not None:
+        with pytest.raises(ValueError, match="settle|Settled"):
+            validate_context_binding(context, candidate)
+    else:
+        bound = validate_context_binding(context, candidate)
+        assert effective_native_query(context, bound) == catalog
