@@ -711,10 +711,14 @@ def test_managed_projection_success_remains_available_beside_retired_routes(
 
     def managed(request):
         seen.append((request.managed_world_id, request.revision_pin))
+        projection = _native_projection("native-managed")
+        projection.snapshot = projection.snapshot.model_copy(
+            update={"revision_id": request.revision_pin, "is_head": False},
+        )
         return route.ManagedWorldGraphProjectionResponse(
             schema="dmb_managed_world_graph_projection_v1",
             managed_world_id=request.managed_world_id, native_world_id="native-managed",
-            binding_version=1, projection=_native_projection(request.managed_world_id),
+            binding_version=1, projection=projection,
         )
 
     monkeypatch.setattr(route, "project_managed_world_graph", managed)
@@ -723,5 +727,10 @@ def test_managed_projection_success_remains_available_beside_retired_routes(
               "managedWorldId": "managed-world", "revisionPin": "rev:pinned"})
     assert response.status_code == 200, response.text
     assert seen == [("managed-world", "rev:pinned")]
-    assert response.json()["managedWorldId"] == "managed-world"
+    payload = response.json()
+    assert payload["managedWorldId"] == "managed-world"
+    assert payload["nativeWorldId"] == "native-managed"
+    assert payload["projection"]["snapshot"]["worldId"] == "native-managed"
+    assert payload["projection"]["snapshot"]["revisionId"] == "rev:pinned"
+    assert payload["projection"]["snapshot"]["isHead"] is False
     assert legacy_calls == []
