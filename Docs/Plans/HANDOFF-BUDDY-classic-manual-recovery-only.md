@@ -1,6 +1,6 @@
 # Classic manual publication: original recovery only
 
-Status: ACTIVE implementation. Owner: MIND under the operator's explicit full-lane implementation, review and merge authority. No ARCHITECTURE/PRIME coordination gate. This ten-path assignment is committed before runtime edits.
+Status: ACTIVE implementation. Owner: MIND under the operator's explicit full-lane implementation, review and merge authority. No ARCHITECTURE/PRIME coordination gate. This eleven-path assignment is committed before runtime edits.
 Serial predecessors accepted: Buddy4207 merge
 `e3e9304e7e7397a0e6950c285e56d399cc4e6cd3`, reviewed45b, review5987678478;
 Core244 checkpoint merge `e83ab2664f6c953f4a8726ff053b24703440452a`, reviewed
@@ -10,7 +10,7 @@ all three jobs successful. Existing task Buddy checkout, branch
 `955b3e6a990d1de5c714c38dd6025e619f2703cd`. One coherent serial Buddy PR.
 
 Current main includes4211/4212 shell-token/appearance changes in eight UI paths;
-these do not overlap the ten-path write set and must be preserved. Accepted45b is
+these do not overlap the eleven-path write set and must be preserved. Accepted45b is
 retained failure-attribution evidence, not proof that later main changes are inert.
 Any new failing identity or collection omission requires source-backed attribution
 and scoped resolution or explicit independent disposition; never call it inherited
@@ -23,7 +23,7 @@ Remove fresh classic manual publication from current public endpoints and the ex
 
 Native Worldbuilding manual publication is not a Recap adapter: never relabel Recap source identities or translate saved classic packets into new native operations. Managed Plan/Build/Play recap reading already uses native authority. The legacy published-Recap fresh write action is explicitly retired; local staging remains available with meaningful product copy.
 
-## Exact ten-path write lease
+## Exact eleven-path write lease
 
 1. Docs/Plans/HANDOFF-BUDDY-classic-manual-recovery-only.md — new pinned successor contract.
 2. Docs/Plans/HANDOFF-BUDDY-native-manual-knowledge-default.md — COMPLETE4207 settlement; replace stale work-in-progress proof with accepted facts, preserve durable contract and honest remaining gates.
@@ -35,6 +35,7 @@ Native Worldbuilding manual publication is not a Recap adapter: never relabel Re
 8. tests/test_graph_object_authoring_commit.py — existing original-packet recovery/absent-receipt/expired/tampered/actor/zero-publication proof; no service runtime edits.
 9. tests/test_graph_object_authoring_published_recap_write.py — preserve explicitly historical service composition and seed committed receipt before recovery-only replay; do not claim this direct historical writer is current mounted authority.
 10. tests/test_hosted_native_graph_access.py — old classic manual prepare retirement/commit recovery-only ownership fence case only; preserve unrelated auth/product tests.
+11. apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringPublishedWizard.tsx — final-state hint only: keep existing publication text when its publisher exists; explicitly local-only text when it does not. No prop, state-machine, control or layout change. Existing mounted PublishedRecap tests own this conditional hint proof.
 
 Actual changed-file audits: Buddy3824 overlaps3/6/7/8/10. MIND, under the operator's full-lane authority, explicitly allocates only the named classic-retirement handlers and owning proof regions; preserve all other hosted/product changes, no absorption/closure. Core158 excludes the dedicated checkpoint, settled by accepted Core244. Newer4211 theme and4206 composer slices do not own these runtime regions. Do not infer ownership from keyword absence.
 
@@ -50,7 +51,7 @@ Never delete original browser records, historical codecs, database/migration his
 
 ## Required validation
 
-Independent Hubble readiness review: ready within ten paths, no missing Core capability or service-runtime edit. Mandatory mounted-route proof uses the unchanged service with injected historical fixture authority: absent receipt never calls publish/advances head; seeded exact original receipt recovers. Mocking only the recovery_only argument is insufficient. Preserve unauthorized/malformed-request precedence over410 and hosted owner-transfer denial, without exposing ownership. Update the old governed-world DOM marker and product copy to local-only staging. Prove object AND relationship drafts survive remount, continued inspection works, and publication controls remain absent after staging. Direct service fresh-write tests are explicitly historical fixture composition, not current HTTP or fullV10 authority.
+Independent Hubble readiness review: ready within eleven paths, no missing Core capability or service-runtime edit. Mandatory mounted-route proof uses the unchanged service with injected historical fixture authority: absent receipt never calls publish/advances head; seeded exact original receipt recovers. Mocking only the recovery_only argument is insufficient. Preserve unauthorized/malformed-request precedence over410 and hosted owner-transfer denial, without exposing ownership. Update the old governed-world DOM marker and product copy to local-only staging. Prove object AND relationship drafts survive remount, continued inspection works, and publication controls remain absent after staging. Direct service fresh-write tests are explicitly historical fixture composition, not current HTTP or fullV10 authority.
 
 Mounted published-Recap tests prove fresh publication controls are absent while local drafts and inspection remain, and managed native recap behavior is unchanged. Route tests tripwire preparation and publish, exercise both actor/local dispatch, present/absent original receipts, foreign/tampered/expired packets, ownership changes and unchanged authority storage. Inspect existing tests before adding implementation-mirroring tests; keep direct service historical writer tests explicitly labeled if still necessary for historical reconstruction.
 
@@ -58,7 +59,7 @@ Run the owning route/commit/historical-recap and affected hosted-owner tests, ac
 
 ## Evidence and next boundary
 
-Source-backed chain and independent Hubble audit: classic-recap-fresh-write-call-chain.json alongside this draft. Read-only static import inventory remains partial, not full current/public retirement proof. No service-runtime, Core, WorldKeeper, dependency, migration, CI contract or new test path edits are authorized. If the existing recovery-only capability fails a required invariant, rebrief that exact boundary before editing outside these ten paths.
+Source-backed chain and independent Hubble audit: classic-recap-fresh-write-call-chain.json alongside this draft. Read-only static import inventory remains partial, not full current/public retirement proof. No service-runtime, Core, WorldKeeper, dependency, migration, CI contract or new test path edits are authorized. If the existing recovery-only capability fails a required invariant, rebrief that exact boundary before editing outside these eleven paths.
 
 After this slice: audit remaining Core public current APIs and actual Buddy/WorldKeeper consumers, then compatible primary/fallback deployment, later-write-safe rollback and V11 acceptance.
 
@@ -95,3 +96,14 @@ separately, protect unique data/commits, and require approved scoped cleanup aft
 active-process/mount/connection/dirty checks. Full goal remains ACTIVE after this
 slice; public Core/Buddy/WorldKeeper retirement, compatible rollout/rollback and
 V11 still require their own evidence.
+
+## Bounded rebrief before the eleventh path
+
+Source discovery after the first ten-path pin found a nested final-state hint still
+advertising separate publication even when the owning Recap workspace removes its
+publisher. This copy would contradict the explicit retirement notice. MIND expands
+only the shared wizard's final-state hint, with tests inside the already leased
+PublishedRecapLocalAuthoring.test.tsx. This is inseparable from truthful retirement
+UX, not an additional capability. Public props, active publisher behavior, controls
+and all unrelated wizard work stay unchanged. Commit this rebrief before editing
+that eleventh path; prior runtime work remains within the original ten paths.
