@@ -15,6 +15,7 @@ import time
 from threading import Lock
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
+from contextvars import ContextVar
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any, Iterator, Literal
@@ -602,6 +603,11 @@ def emit_baseline_trace_log(trace: Mapping[str, Any]) -> None:
     LOGGER.info("%s %s", LOG_EVENT, trace_json_bytes(retained_trace_payload(trace)))
 
 
+# Evaluator-only subscriber. Context propagation limits detailed observation
+# to the selected ordinary request, including its synchronous route worker.
+host_work_observer = ContextVar("host_work_observer", default=None)
+
+
 class AgentTurnTraceBuilder:
     """Accumulate one DungeonBuddy-owned turn trace."""
 
@@ -663,6 +669,7 @@ class AgentTurnTraceBuilder:
         execution authority and failures propagate unchanged.
         """
         started_at, started = utc_now_z(), time.monotonic()
+        observer = host_work_observer.get()
         failed = False
         try:
             yield
@@ -670,7 +677,10 @@ class AgentTurnTraceBuilder:
             failed = True
             raise
         finally:
-            duration = max(0.0, (time.monotonic() - started) * 1000)
+            ended = time.monotonic()
+            duration = max(0.0, (ended - started) * 1000)
+            if observer is not None:
+                observer(self.trace_id, name, started, ended, failed)
             with self._host_work_lock:
                 span = self._host_work_spans.get(name)
                 if span is None:
