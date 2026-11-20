@@ -612,6 +612,8 @@ def test_v2_heading_guidance_uses_actual_opaque_choice_in_prepared_wire():
     assert "write:place1" in serialized
     assert "under:" not in serialized
     assert "Use the opaque selector offered with the matching" in serialized
+    assert "match the requested side, paragraph passage, and any named section" in serialized
+    assert "choose clarify. Do not break that tie using document order" in serialized
     assert "source_root_index" not in serialized
 
 

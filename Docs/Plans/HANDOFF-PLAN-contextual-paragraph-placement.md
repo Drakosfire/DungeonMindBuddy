@@ -207,3 +207,40 @@ template/per-test clones. No operator data or providers used by these diagnostic
 Exact-SHA verifier/review, broader discovery comparison and a joined ordinary
 real-model/browser/Save/reopen witness remain required before merge. The fresh
 held-out oracle is unread. No release, cross-surface or full-goal completion claim.
+
+## Real Jev development and discovery evidence
+
+Exact95ee hosted verifier: 1421 tests and build pass; evidence validator passes
+at `plan-95ee-hosted/evidence.json`. Discovery remains red: head8375pass/104fail/
+2pending, exact base6f8 8371pass/103fail/2pending. The original103 IDs and primary
+failure lines match, with no missing tests and five added passes. Additional
+Recap Load-button failure is a baseline-existing readiness race: controlled
+deferred C2-read diagnostics reproduce session16 plus disabled Loading/no Load
+on both exact source sets, then preserve original campaign/session assertions
+after release. Independent review verified source/import/dependency and diagnostic
+integrity. Unmodified focused head failed and unmodified focused base passed;
+do not claim identical104 failures or a green diagnostic. Artifacts:
+`plan-discovered-base-comparison.json`, `recap-race-diagnostic/results.json`.
+
+The frozen eight dev documents were exported by the actual ordinary TS compiler,
+then cross-validated against Python. Actual native Jev opening/retrieval dispatch
+with a separately scripted writer scored6/8: four of five target cases correct,
+one of two clarification cases correct, discussion1/1. Incorrect before-paragraph
+chose before-heading; ambiguous duplicate passage guessed a paragraph and reserved
+an action. All sources unchanged, no Save. This is failed dev targeting acceptance,
+not success inferred from the eight harness tests passing. Exact model/config and
+all requests/responses/observations are retained under `plan-ordinary-dev`, with
+`nomination-native-score.json` and frozen runner/input hashes.
+
+V2 guidance is now being refined only on dev: match paragraph passage, requested
+side and section; use heading choices for heading requests; unresolved duplicate
+paragraphs clarify without order/caret tie-breaking. Preserve exact V1 guidance.
+Fresh held-out22-case oracle remains unread; do not consume until configuration
+is frozen. Real writer and joined browser/persistence qualification remain
+separate; the current benchmark uses real Jev nomination and scripted prose.
+Two earlier harness failures (dotenv fixture binding and HTTP client mismatch)
+are retained; credential loading now precedes fixtures with nested reloads aimed
+at an empty owned root and exact disposable-DSN guards. Actual writer attempt
+returned401; no page creation/write followed its failed reply. The user's one-shot
+Jev-versus-writer question is answered and marked handled in external continuation
+notes; do not repeat the credential request during targeting work.

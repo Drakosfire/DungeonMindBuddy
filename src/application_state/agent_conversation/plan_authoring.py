@@ -448,6 +448,12 @@ def _prepare_requested_work_only(request: PlanRequestedWorkInputV1):
         "available location choose write_unavailable, never discuss. "
         if isinstance(request, PlanRequestedWorkInputV7) else
         "When no page location is available, requested writing is write_unavailable, never ordinary discussion. ") +
+        ("For a request before or after a paragraph, match the requested side, paragraph passage, and any named section "
+        "to an offered paragraph location. A paragraph in a section is not its heading or the entire section. "
+        "Use a heading location only when the request names the heading as the destination. "
+        "If a passage matches paragraphs in multiple sections and the request or dialogue does not distinguish them, "
+        "choose clarify. Do not break that tie using document order, the first match, or the incidental caret. "
+        if isinstance(request.placement_catalog, PlanPlacementCatalogV2) else "") +
         "This selection does not Save or execute deferred work." + (
             (" Directly below a heading means inside that section before its existing body, not before the heading "
             "or after its entire section. Use the opaque selector offered with the matching "
