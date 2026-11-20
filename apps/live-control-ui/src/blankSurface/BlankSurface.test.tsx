@@ -68,7 +68,6 @@ it("navigates the current landing through Build and Back/Forward with isolated c
   expect(screen.queryByTestId("agent-interaction-chrome")).not.toBeInTheDocument();
   expect(screen.queryByTestId("authoring-host-probe")).not.toBeInTheDocument();
   const nav = screen.getByRole("navigation", { name: "Command board navigation" });
-  fireEvent.click(within(nav).getByRole("button", { name: "Open navigation" }));
   const build = within(nav).getByRole("link", { name: "Build" });
   const modified = new MouseEvent("click", { bubbles: true, cancelable: true, ctrlKey: true });
   const push = vi.spyOn(window.history, "pushState");

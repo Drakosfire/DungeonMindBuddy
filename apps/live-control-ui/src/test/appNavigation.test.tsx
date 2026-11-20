@@ -142,8 +142,6 @@ describe("appNavigation helpers", () => {
 
 function commandBoardNav() {
   const nav = screen.getByRole("navigation", { name: "Command board navigation" });
-  const toggle = within(nav).queryByRole("button", { name: "Open navigation" });
-  if (toggle) fireEvent.click(toggle);
   return nav;
 }
 
