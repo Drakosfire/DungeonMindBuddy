@@ -1,5 +1,9 @@
 """Parent navigator and real APP read ownership; synthetic source/access only."""
 import json
+import os
+import subprocess
+import sys
+import textwrap
 from types import SimpleNamespace
 from uuid import uuid4
 from hashlib import sha256
@@ -12,6 +16,9 @@ from apps.live_control_server.services.agent_turn_service import _ClaimFence
 from apps.live_control_server.services.native_source_navigation import NativeSourceNavigator,NativeSourceUnavailable,BROWSE,READ
 from apps.live_control_server.services.native_rules_capture import NativeToolReply
 from tests.application_state.test_native_source_navigation_postgres import nav_case  # noqa:F401
+from apps.live_control_server.integrations.dungeonmind import (
+    world_graph_reads as retained_reads, source_origin as retained_origin,
+)
 from tests.test_native_source_activation import synthetic_access,TEXT
 from tests.application_state.test_native_source_input_postgres import input_case,prepare,admit  # noqa:F401
 
@@ -402,8 +409,8 @@ def test_changed_active_binding_refuses_before_metadata_and_catalog_body(parent,
     monkeypatch.setattr(NativeSourceNavigator, '_bound_authority', _BOUND_AUTHORITY)
     monkeypatch.setattr(NativeSourceNavigator, '_access', _ACCESS)
     monkeypatch.setattr(runtime, 'resolve_managed_world_binding', lambda world: binding)
-    monkeypatch.setattr(runtime, 'direct_services_from_config', lambda world: None)
-    monkeypatch.setattr(runtime, 'verify_native_source_origin',
+    monkeypatch.setattr(retained_reads, 'direct_services_from_config', lambda world: None)
+    monkeypatch.setattr(retained_origin, 'verify_native_source_origin',
         lambda services, **kw: synthetic_access(owner, (kw['donor'], kw['pin'], 'Synthetic adventure')))
     handle = owner.offered()[0].handle
     setattr(binding, {'managed':'managed_world_id','native':'native_world_id','version':'binding_version'}[drift],
@@ -478,3 +485,71 @@ def test_binding_change_after_navigation_authorization_prevents_materialization(
     with pytest.raises(NativeSourceUnavailable):
         owner.browse(handle)
     assert authorized and not owner.catalogs and not owner.materials
+
+
+@pytest.mark.parametrize("entry", ["native", "corpus", "fresh-dispatch"])
+def test_cold_fresh_navigation_avoids_historical_readers(entry):
+    blocked = (
+        "apps.live_control_server.integrations.dungeonmind.world_graph_reads",
+        "apps.live_control_server.integrations.dungeonmind.source_origin",
+        "apps.live_control_server.integrations.dungeonmind.corpus_source_inventory",
+        "dungeonmind.application.graph_snapshot",
+        "dungeonmind.application.world_graph_projection",
+        "dungeonmind.application.world_graph_retrieval",
+        "dungeonmind.application.review_publication",
+        "dungeonmind.application.contribution_review",
+        "dungeonmind.application.contribution_review_v2",
+        "dungeonmind.application.contribution_review_v3",
+        "dungeonmind.application.contribution_review_v4",
+        "dungeonmind.application.existing_world_adoption",
+        "dungeonmind.application.reviewed_world_initialization",
+        "dungeonmind.infrastructure.postgres.graph",
+        "dungeonmind.infrastructure.postgres.review_publication",
+    )
+    script = textwrap.dedent(f"""
+        import importlib
+        import importlib.abc
+        import sys
+        from types import SimpleNamespace
+        import psycopg
+        blocked = {blocked!r}
+        class RejectHistorical(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path=None, target=None):
+                if any(fullname == name or fullname.startswith(name + '.') for name in blocked):
+                    raise AssertionError('Fresh navigation loaded historical reader: ' + fullname)
+        sys.meta_path.insert(0, RejectHistorical())
+        def forbidden(*args, **kwargs):
+            raise AssertionError('Cold navigation attempted database or source IO')
+        psycopg.connect = forbidden
+        from dungeonmind.infrastructure.postgres import PostgresDatabase
+        PostgresDatabase.__init__ = forbidden
+        if {entry!r} == 'native':
+            importlib.import_module('apps.live_control_server.services.native_source_navigation')
+        elif {entry!r} == 'corpus':
+            importlib.import_module('apps.live_control_server.services.corpus_source_navigation')
+        else:
+            from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
+            from apps.live_control_server.integrations.dungeonmind.native_corpus_source import NativeCorpusContext
+            from apps.live_control_server.services.native_source_navigation import navigator
+            from apps.live_control_server.services.corpus_source_navigation import NativeBodyNavigation
+            authority = NativeCorpusAuthorityV1(
+                managed_world_id='managed:test', native_world_id='space:test', binding_version=1,
+                revision_id='rev:test', acquisition_epoch=0,
+                domain_ref=dict(authority_id='domain:test', revision='1', descriptor_sha256='a'*64),
+                profile_ref=dict(authority_id='profile:test', revision='1', descriptor_sha256='b'*64))
+            # Real validated authority and matching context; no source-capable objects.
+            context = NativeCorpusContext(authority, object(), object(), forbidden, object(), object())
+            adapter = SimpleNamespace(fence=None, native_source_authority=authority,
+                                      native_corpus_context=context)
+            selected = navigator(adapter)
+            assert type(selected) is NativeBodyNavigation
+            assert selected.adapter is adapter and navigator(adapter) is selected
+        assert not any(name == prefix or name.startswith(prefix + '.')
+                       for name in sys.modules for prefix in blocked)
+    """)
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    result = subprocess.run([sys.executable, "-B", "-c", script], env=env,
+                            capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stdout + result.stderr

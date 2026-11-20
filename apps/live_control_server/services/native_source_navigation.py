@@ -9,9 +9,6 @@ from application_state.agent_conversation.jev_retrieval_contract import Retrieva
 from application_state.agent_conversation.native_source_input import section_row, CAPABILITIES
 from application_state.agent_conversation.source_writer_output import strict_json
 from .managed_world_graph_projection import resolve_managed_world_binding
-from ..integrations.dungeonmind.world_graph_reads import direct_services_from_config
-from ..integrations.dungeonmind.source_origin import verify_native_source_origin
-from dungeonmind.contracts.projection_v2 import WorldGraphProjectionRequestV2
 
 BROWSE = 'browse_native_source_sections'
 READ = 'read_native_source_sections'
@@ -172,6 +169,11 @@ class NativeSourceNavigator:
             handle = next(h for h, e in self.sources.items() if e is entry)
             return self.corpus.access(handle)
         authority = self._bound_authority()
+        from dungeonmind.contracts.projection_v2 import WorldGraphProjectionRequestV2
+
+        from ..integrations.dungeonmind.source_origin import verify_native_source_origin
+        from ..integrations.dungeonmind.world_graph_reads import direct_services_from_config
+
         projection = WorldGraphProjectionRequestV2.model_validate({'world_id':authority.native_world_id,
             'campaign_id':None,'admissibility':'gm','scope_mode':'world_cross_campaign',
             'focus':{'kind':'none','session_id':None},'revision_pin':authority.graph_revision})
