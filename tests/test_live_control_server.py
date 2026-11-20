@@ -398,7 +398,16 @@ def test_query_hermes_cli_env_does_not_invoke_subprocess(
     assert (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8") == ""
 
 
-def test_invalid_campaign_returns_400(client: TestClient) -> None:
+def test_invalid_campaign_returns_400(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from apps.live_control_server.routes import live as live_route
+
+    def unknown_world(world_id: str) -> None:
+        assert world_id == "wrong-campaign"
+        raise live_route.WorldContainerRegistryError("World not found")
+
+    monkeypatch.setattr(live_route, "get_world_container", unknown_world)
     response = client.post(
         "/api/live/query",
         json={
@@ -1338,7 +1347,6 @@ def test_world_graph_unavailable_allows_corpus_path(
 
 
 def test_invalid_revision_pin_fails_without_backend(
-    client: TestClient,
     isolated_session: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1373,24 +1381,19 @@ def test_invalid_revision_pin_fails_without_backend(
 
     nested = dict(_GRAPH_NESTED)
     nested["revision_pin"] = "not a safe pin!!!"
-    response = client.post(
-        "/api/live/query",
-        json={
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "mode": "live",
-            "text": "Tripod?",
-            "world_graph_context": nested,
-        },
-    )
-    assert response.status_code == 422
-    body = response.json()
-    assert body["code"] == "invalid_request"
+    with pytest.raises(AgentWorldGraphQueryContextError) as exc:
+        live_agent_loop.process_live_query(
+            "Tripod?",
+            base=isolated_session,
+            outer_campaign_id="longmont-c2",
+            world_graph_context=AgentWorldGraphQueryContextRequest.model_validate(nested),
+        )
+    assert exc.value.status_code == 422
+    assert exc.value.response_body()["code"] == "invalid_request"
     assert backend_called["live"] is False
 
 
 def test_revision_not_found_fails_without_backend(
-    client: TestClient,
     isolated_session: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1425,18 +1428,15 @@ def test_revision_not_found_fails_without_backend(
 
     nested = dict(_GRAPH_NESTED)
     nested["revision_pin"] = "rev:" + ("a" * 32)
-    response = client.post(
-        "/api/live/query",
-        json={
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "mode": "live",
-            "text": "Tripod?",
-            "world_graph_context": nested,
-        },
-    )
-    assert response.status_code == 404
-    assert response.json()["code"] == "revision_not_found"
+    with pytest.raises(AgentWorldGraphQueryContextError) as exc:
+        live_agent_loop.process_live_query(
+            "Tripod?",
+            base=isolated_session,
+            outer_campaign_id="longmont-c2",
+            world_graph_context=AgentWorldGraphQueryContextRequest.model_validate(nested),
+        )
+    assert exc.value.status_code == 404
+    assert exc.value.response_body()["code"] == "revision_not_found"
     assert backend_called["live"] is False
 
 
@@ -1523,7 +1523,6 @@ def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
 
 
 def test_hermes_history_accepts_valid_wire_shape(
-    client: TestClient,
     isolated_session: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1592,28 +1591,20 @@ def test_hermes_history_accepts_valid_wire_shape(
     monkeypatch.setattr(hermes_agent_runtime_mod, "get_hermes_graph_agent_host", lambda: _Host())
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
-    response = client.post(
-        "/api/live/query",
-        json={
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "mode": "live",
-            "query_backend": "hermes",
-            "text": "What is it connected to?",
-            "world_graph_context": _GRAPH_NESTED,
-            "conversation_history": [
-                {
-                    "role": "user",
-                    "content": "What do we know about Tripod Null-Calf at the North Gate?",
-                },
-                {
-                    "role": "assistant",
-                    "content": "Tripod Null-Calf is a siege scout.",
-                },
-            ],
-        },
+    live_agent_loop.process_live_query(
+        "What is it connected to?",
+        base=isolated_session,
+        outer_campaign_id="longmont-c2",
+        query_backend="hermes",
+        world_graph_context=AgentWorldGraphQueryContextRequest.model_validate(_GRAPH_NESTED),
+        conversation_history=[
+            {
+                "role": "user",
+                "content": "What do we know about Tripod Null-Calf at the North Gate?",
+            },
+            {"role": "assistant", "content": "Tripod Null-Calf is a siege scout."},
+        ],
     )
-    assert response.status_code == 200
     assert captured["history"] == [
         {
             "role": "user",
@@ -1725,7 +1716,6 @@ def test_hermes_history_invalid_returns_422_without_execution(
             "mode": "live",
             "query_backend": "hermes",
             "text": "follow-up",
-            "world_graph_context": _GRAPH_NESTED,
             "conversation_history": history,
         },
     )
@@ -1776,7 +1766,6 @@ def test_hermes_null_or_empty_history_does_not_422_as_invalid(
         "mode": "live",
         "query_backend": "hermes",
         "text": "follow-up",
-        "world_graph_context": _GRAPH_NESTED,
     }
     if history is not None:
         payload["conversation_history"] = history
@@ -2101,7 +2090,6 @@ def test_live_query_http_passes_surface_context_to_process_live_query(
             "mode": "live",
             "query_backend": "hermes",
             "text": question,
-            "world_graph_context": _GRAPH_NESTED,
             "surface_context": surface,
         },
     )
@@ -2125,7 +2113,6 @@ def test_live_query_http_passes_surface_context_to_process_live_query(
             "mode": "live",
             "query_backend": "hermes",
             "text": question,
-            "world_graph_context": _GRAPH_NESTED,
         },
     )
     assert response.status_code == 200
