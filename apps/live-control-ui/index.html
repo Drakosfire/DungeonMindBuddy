@@ -3,6 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      try {
+        if (localStorage.getItem("buddy.appearance.preset") === "deep-teal") {
+          document.documentElement.dataset.buddyTheme = "deep-teal";
+        }
+      } catch {
+        // Storage is optional. The default palette is defined in CSS.
+      }
+    </script>
     <title>DungeonMind — Live Control</title>
   </head>
   <body>
