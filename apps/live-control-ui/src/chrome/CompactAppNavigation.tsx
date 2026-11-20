@@ -49,10 +49,17 @@ export function CompactAppNavigation({ activeRoute, localOnly = false, primaryAc
       aria-expanded={expanded} aria-controls={routesId} title={expanded ? "Close navigation" : "Navigate Buddy"}
       onClick={() => setExpanded((open) => !open)} onKeyDown={dismiss}>
       <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
-        <circle cx="16" cy="16" r="12" fill="none" stroke="currentColor" strokeWidth="1.3" />
-        <path d="M20 8 18 18 8 24 14 14Z" fill="currentColor" />
-        <circle cx="16" cy="16" r="2" fill="#151b22" />
-        <path d="M16 1v3m0 24v3M1 16h3m24 0h3" stroke="currentColor" strokeWidth="1.3" />
+        <g className="app-nav-symbol__compass">
+          <circle cx="16" cy="16" r="12" fill="none" stroke="currentColor" strokeWidth="1.3" />
+          <path d="M20 8 18 18 8 24 14 14Z" fill="currentColor" />
+          <circle cx="16" cy="16" r="2" fill="#151b22" />
+          <path d="M16 1v3m0 24v3M1 16h3m24 0h3" stroke="currentColor" strokeWidth="1.3" />
+        </g>
+        <g className="app-nav-symbol__reticle" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="16" cy="16" r="9" />
+          <path d="M16 2v8m0 12v8M2 16h8m12 0h8" />
+          <circle cx="16" cy="16" r="1.5" />
+        </g>
       </svg>
     </button>
     {!expanded ? <span className="app-nav-current">{current}</span> : null}

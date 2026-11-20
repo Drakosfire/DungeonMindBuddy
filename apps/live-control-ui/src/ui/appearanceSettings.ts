@@ -1,4 +1,4 @@
-export type AppearancePreset = "default" | "deep-teal";
+export type AppearancePreset = "default" | "deep-teal" | "wayfinder";
 export type AppearanceAccent = "preset" | "sky";
 
 export interface AppearanceSettings {
@@ -13,7 +13,7 @@ const LEGACY_PRESET_KEY = "buddy.appearance.preset";
 export function readDisplayedAppearance(): AppearanceSettings {
   const { buddyTheme, buddyAccent } = document.documentElement.dataset;
   return {
-    preset: buddyTheme === "deep-teal" ? "deep-teal" : "default",
+    preset: buddyTheme === "deep-teal" || buddyTheme === "wayfinder" ? buddyTheme : "default",
     accent: buddyAccent === "sky" ? "sky" : "preset",
   };
 }

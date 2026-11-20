@@ -43,6 +43,30 @@
   --ui-border-strong: #729fa5;
 }
 
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("./fonts/ibm-plex-sans-latin.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root[data-buddy-theme="wayfinder"] {
+  --ui-background-app: #0b111a;
+  --ui-background-chrome: #111b28;
+  --ui-background-ops: #152332;
+  --ui-text-primary: #e7eff7;
+  --ui-text-secondary: #aabbcf;
+  --ui-text-quiet: #aabbcf;
+  --ui-accent-action: #83ecd4;
+  --ui-border-subtle: #385167;
+  --ui-border-strong: #7293ad;
+  --ui-radius-sm: 0.1875rem;
+  --ui-radius-md: 0.375rem;
+  --ui-font-body: "IBM Plex Sans", system-ui, sans-serif;
+}
+
 :root[data-buddy-accent="sky"] {
   --ui-accent-action: #8dc8ff;
 }
