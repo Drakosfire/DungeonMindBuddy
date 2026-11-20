@@ -5088,7 +5088,7 @@ describe("StatblockWorkbenchModule", () => {
     });
   });
 
-  describe("Threat publication entry (MAGIC-D3)", () => {
+  describe("Retired classic Threat publication history", () => {
     const DRAFT_ID = "00000000-0000-4000-8000-000000000099";
     const DRAFT_B_ID = "11111111-1111-4111-8111-111111111133";
     const GRAPH_HEAD = "rev:5cadc9798562862cdde22350d8a3b56c";
@@ -5155,9 +5155,6 @@ describe("StatblockWorkbenchModule", () => {
       };
     }
 
-    function mockBootstrapHead(head: string | null = GRAPH_HEAD) {
-      return vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(legacyProjectionFixture(head));
-    }
 
     function activeWithDraft(draftId = DRAFT_ID): ReadStatblockCandidateResponseV1 {
       return {
@@ -5168,175 +5165,135 @@ describe("StatblockWorkbenchModule", () => {
       };
     }
 
-    async function loadMechanicsSavedDraft(
-      draftOverrides: Partial<import("../../api/types").ThreatDraftV1> = {},
-    ) {
-      mockBootstrapHead();
+    const OPERATION_ID = "22222222-2222-4222-8222-222222222222";
+    const pointerKey = (id = DRAFT_ID) => `dmb.statblock.threat-publication.v1:${id}`;
+    function retainPointer(id = DRAFT_ID) {
+      const raw = JSON.stringify({schema: "dmb_threat_publication_workbench_session_v1", draft_id: id,
+        draft_version: 2, operation_id: OPERATION_ID, resolution_id: null, proposal_id: null,
+        commit_id: null, stage: "operation", updated_at: "2026-01-01T00:00:00Z", extension: "preserved"}, null, 2);
+      sessionStorage.setItem(pointerKey(id), raw);
+      return raw;
+    }
+    function recordedOperation(draft = threatDraftFixture(), state: "ready" | "cancelled" = "ready"): import("../../api/types").ThreatPublicationOperationResponseV1 {
+      return {schema: "dmb_threat_publication_operation_response_v1", draft_id: draft.draft_id,
+        result_label: state === "cancelled" ? "publication_cancelled" : "publication_ready",
+        operation: {schema: "dmb_threat_publication_operation_v1", operation_id: OPERATION_ID,
+          request_digest: "request:original", source_digest: "source:original", expected_parent_revision_id: GRAPH_HEAD,
+          source_snapshot: {...draft, schema: "dmb_threat_publication_source_v1",
+            draft_version: 2, accepted_mechanics_ref: mechanicsSavedRef()},
+          state, stale_reasons: [], created_by: "gm", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z"}};
+    }
+    function forbidClassicWrites() {
+      return ["beginThreatPublicationOperation", "refreshThreatPublicationOperation", "cancelThreatPublicationOperation",
+        "retryThreatPublicationOperation", "prepareThreatIdentityCandidates", "createThreatIdentityResolution",
+        "prepareThreatPublicationProposal", "confirmThreatPublicationCommit"].map(name =>
+          vi.spyOn(liveApi, name as "beginThreatPublicationOperation").mockRejectedValue(new Error("Retired write dispatched")));
+    }
+    async function loadHistoricalDraft(overrides: Partial<ThreatDraftV1> = {}) {
       vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
-      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
-        threatDraftFixture({
-          workflow_state: "mechanics_saved",
-          accepted_mechanics_ref: mechanicsSavedRef(),
-          ...draftOverrides,
-        }),
-      );
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(threatDraftFixture({
+        workflow_state: "mechanics_saved", accepted_mechanics_ref: mechanicsSavedRef(), ...overrides,
+      }));
       const user = userEvent.setup();
       render(<StatblockWorkbenchModule />);
       await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
-      await user.click(screen.getByRole("button", { name: "Load candidate" }));
-      await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
-      await waitFor(() => expect(screen.getByTestId("threat-publication-panel")).toBeTruthy());
+      await user.click(screen.getByRole("button", {name: "Load candidate"}));
+      await screen.findByTestId("statblock-definition-editor");
+      await screen.findByTestId("threat-publication-panel");
       return user;
     }
 
-    it("shows Publish Threat for mechanics_saved draft when bootstrap head resolves", async () => {
-      await loadMechanicsSavedDraft();
+    it("keeps saved mechanics and historical inspection available without any head lookup", async () => {
+      const classic = forbidClassicWrites();
+      const head = vi.spyOn(liveApi, "postWorldGraphProjection").mockRejectedValue(new Error("No current head"));
+      const nativeHead = vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockRejectedValue(new Error("No native head"));
+      await loadHistoricalDraft();
+      await within(screen.getByTestId("threat-publication-panel")).findByText("No retained publication pointer in this browser.");
+      expect(screen.getByTestId("revise-mechanics-saved-boundary")).toBeTruthy();
+      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       await waitFor(() => expect(screen.getByTestId("publication-dock-status")).toBeTruthy());
-      const dock = screen.getByTestId("workbench-edit-dock");
-      expect(within(dock).getByTestId("publish")).toBeTruthy();
-      expect(within(dock).getByRole("button", { name: /Publish Threat/i })).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+      expect(within(screen.getByTestId("workbench-edit-dock")).getByRole("button", {name: "Re-read history"})).toBeTruthy();
+      expect(screen.queryByTestId("publish")).toBeNull();
+      expect(head).not.toHaveBeenCalled(); expect(nativeHead).not.toHaveBeenCalled();
+      for (const fn of classic) expect(fn).not.toHaveBeenCalled();
     });
 
-    it("refreshes ThreatDraft after Accept mechanics_saved so Publish mounts in-session", async () => {
-      mockBootstrapHead();
+    it("preserves V1 Accept/Save mechanics and refreshes its draft without creating publication", async () => {
+      const classic = forbidClassicWrites();
       vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
-      const getDraft = vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
-        threatDraftFixture({ workflow_state: "candidate_ready" }),
-      );
+      const getDraft = vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(threatDraftFixture());
       vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
       vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockResolvedValue({
-        schema: "dmb_accept_threat_draft_mechanics_response_v1",
-        draft_id: DRAFT_ID,
-        operation_id: "op_publish_refresh",
-        result_label: "mechanics_saved",
-        locator: {
-          provider: "dungeonmind",
-          statblock_id: "sb_1",
-          revision_id: "rev_1",
-          contract: "dungeonbuddy-statblocks-v1",
-          contract_version: "1",
-          definition_digest: PREVIEW_DIGEST,
-        },
+        schema: "dmb_accept_threat_draft_mechanics_response_v1", draft_id: DRAFT_ID, operation_id: "op_mechanics_only",
+        result_label: "mechanics_saved", locator: {provider: "dungeonmind", statblock_id: "sb_1", revision_id: "rev_1",
+          contract: "dungeonbuddy-statblocks-v1", contract_version: "1", definition_digest: PREVIEW_DIGEST},
       });
-
-      const user = userEvent.setup();
-      render(<StatblockWorkbenchModule />);
+      const user = userEvent.setup(); render(<StatblockWorkbenchModule />);
       await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
-      await user.click(screen.getByRole("button", { name: "Load candidate" }));
-      await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
-      expect(screen.queryByTestId("workbench-publication-entry")).toBeNull();
-
-      getDraft.mockResolvedValue(
-        threatDraftFixture({
-          workflow_state: "mechanics_saved",
-          accepted_mechanics_ref: mechanicsSavedRef(),
-        }),
-      );
+      await user.click(screen.getByRole("button", {name: "Load candidate"}));
+      await screen.findByTestId("statblock-definition-editor");
+      expect(screen.getByTestId("threat-publication-panel")).toBeTruthy();
+      getDraft.mockResolvedValue(threatDraftFixture({workflow_state: "mechanics_saved", accepted_mechanics_ref: mechanicsSavedRef()}));
       await validateWorkingCopy(user);
-      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
-
-      await waitFor(() => {
-        expect(screen.getByTestId("threat-publication-panel")).toBeTruthy();
-        expect(within(screen.getByTestId("workbench-edit-dock")).getByTestId("publish")).toBeTruthy();
-      });
+      await user.click(screen.getByRole("button", {name: "Accept/Save mechanics"}));
+      await screen.findByTestId("revise-mechanics-saved-boundary");
       expect(getDraft.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByTestId("threat-publication-panel")).toBeTruthy();
+      for (const fn of classic) expect(fn).not.toHaveBeenCalled();
     });
 
-    it("does not show Publish Threat for non-mechanics_saved draft", async () => {
-      mockBootstrapHead();
-      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
-      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(threatDraftFixture());
-      await loadId("cand_fixture1");
-      await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
-      expect(screen.queryByTestId("workbench-publication-entry")).toBeNull();
-      expect(screen.queryByTestId("threat-publication-panel")).toBeNull();
+    it("keeps old history reachable after the V1 draft leaves mechanics_saved", async () => {
+      const raw = retainPointer(), reads = vi.spyOn(liveApi, "getThreatPublicationOperation").mockResolvedValue(recordedOperation());
+      const classic = forbidClassicWrites();
+      await loadHistoricalDraft({version: 8, workflow_state: "candidate_ready", accepted_mechanics_ref: null});
+      await screen.findByTestId("publication-history-records");
+      expect(screen.getByText(/Retained draft version: 2/)).toBeTruthy();
+      expect(screen.getByRole("button", {name: "Validate working copy"})).toBeTruthy();
+      expect(within(screen.getByTestId("threat-publication-panel")).getByRole("button", {name: "Re-read history"})).toBeTruthy();
+      expect(reads).toHaveBeenCalledExactlyOnceWith(DRAFT_ID, OPERATION_ID);
+      expect(sessionStorage.getItem(pointerKey())).toBe(raw);
       expect(screen.queryByTestId("publish")).toBeNull();
+      for (const fn of classic) expect(fn).not.toHaveBeenCalled();
     });
 
-    it("shows unavailable publication status without head and never begins publication", async () => {
-      mockBootstrapHead(null);
-      const beginSpy = vi.spyOn(liveApi, "beginThreatPublicationOperation");
-      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
-      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
-        threatDraftFixture({
-          workflow_state: "mechanics_saved",
-          accepted_mechanics_ref: mechanicsSavedRef(),
-        }),
-      );
-      await loadId("cand_fixture1");
-      await waitFor(() => expect(screen.getByTestId("publication-head-unavailable")).toBeTruthy());
-      expect(screen.getByTestId("publication-head-unavailable").textContent).toMatch(
-        /Publication is disabled until the current World Graph head is readable/i,
-      );
-      expect(screen.queryByTestId("threat-publication-panel")).toBeNull();
-      expect(screen.queryByTestId("publish")).toBeNull();
-      expect(beginSpy).not.toHaveBeenCalled();
-    });
-
-    it("keeps editor chrome and updates the floating dock after beginning publish", async () => {
-      vi.spyOn(liveApi, "beginThreatPublicationOperation").mockResolvedValue({
-        schema: "dmb_threat_publication_operation_response_v1",
-        draft_id: DRAFT_ID,
-        result_label: "publication_busy",
-        operation: null,
-        message: "Publication operation state unknown.",
-      });
-      const user = await loadMechanicsSavedDraft();
-      expect(screen.getByTestId("revise-mechanics-saved-boundary")).toBeTruthy();
-      expect(screen.getByText("These mechanics are saved. Editing this candidate does not change a saved version.")).toBeTruthy();
+    it.each(["recorded", "cancelled", "missing", "outage"])("preserves the pointer and editor for %s history with no head", async (state) => {
+      const raw = retainPointer(), classic = forbidClassicWrites();
+      const head = vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(legacyProjectionFixture(null));
+      const reads = vi.spyOn(liveApi, "getThreatPublicationOperation");
+      if (state === "outage") reads.mockRejectedValue(new Error("Historical storage unavailable"));
+      else if (state === "missing") reads.mockResolvedValue({...recordedOperation(), result_label: "publication_not_found", operation: null});
+      else reads.mockResolvedValue(recordedOperation(threatDraftFixture(), state === "cancelled" ? "cancelled" : "ready"));
+      await loadHistoricalDraft();
+      if (state === "missing" || state === "outage") await within(screen.getByTestId("threat-publication-panel")).findByText(/original session remains unchanged and unresolved/i);
+      else await screen.findByTestId("publication-history-records");
+      expect(sessionStorage.getItem(pointerKey())).toBe(raw);
       expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
-      await waitFor(() => expect(screen.getByTestId("publication-dock-status")).toBeTruthy());
-      expect(screen.getByRole("button", { name: /Publish Threat/i })).toBeTruthy();
-      await user.click(screen.getByTestId("publish"));
-      await waitFor(() => {
-        expect(screen.queryByTestId("publish")).toBeNull();
-        expect(screen.getByTestId("publication-dock-status").textContent).toMatch(
-          /another publication is active/i,
-        );
-      });
-      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
-      expect(screen.getByTestId("revise-mechanics-saved-boundary")).toBeTruthy();
+      expect(screen.queryByTestId("publication-head-unavailable")).toBeNull();
+      expect(head).not.toHaveBeenCalled();
+      for (const fn of classic) expect(fn).not.toHaveBeenCalled();
     });
 
-    it("removes publication panel when switching away from mechanics_saved draft", async () => {
-      const user = await loadMechanicsSavedDraft();
-      await waitFor(() => expect(screen.getByTestId("publish")).toBeTruthy());
-
-      const candB = "cand_draft_b";
-      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue({
-        ...activeResponse,
-        candidate_id: candB,
-        candidate: { ...candidate, candidate_id: candB },
-        source_draft_id: DRAFT_B_ID,
-        source_draft_version: 1,
-        source_draft_name: "Draft B Threat",
-      });
-      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
-        threatDraftFixture({
-          draft_id: DRAFT_B_ID,
-          version: 1,
-          name: "Draft B Threat",
-          workflow_state: "candidate_ready",
-          accepted_mechanics_ref: null,
-          candidate_refs: [
-            {
-              candidate_id: candB,
-              generated_from_draft_version: 1,
-              request_id: "gen-req-b",
-              created_at: "2026-01-02T00:00:00Z",
-              status: "active",
-              lineage: null,
-            },
-          ],
-        }),
-      );
+    it("switches retained draft scope without erasing old history or displaying a delayed old record", async () => {
+      const rawA = retainPointer(), rawB = retainPointer(DRAFT_B_ID), classic = forbidClassicWrites();
+      let finish!: (value: import("../../api/types").ThreatPublicationOperationResponseV1) => void;
+      const reads = vi.spyOn(liveApi, "getThreatPublicationOperation").mockReturnValueOnce(new Promise(resolve => {finish = resolve;}))
+        .mockResolvedValueOnce(recordedOperation(threatDraftFixture({draft_id: DRAFT_B_ID, name: "Draft B"})));
+      const user = await loadHistoricalDraft();
+      await waitFor(() => expect(reads).toHaveBeenCalledTimes(1));
+      vi.mocked(liveApi.getStatblockCandidate).mockResolvedValue({...activeResponse, candidate_id: "cand_draft_b",
+        candidate: {...candidate, candidate_id: "cand_draft_b"}, source_draft_id: DRAFT_B_ID, source_draft_version: 2});
+      vi.mocked(liveApi.getThreatDraft).mockResolvedValue(threatDraftFixture({draft_id: DRAFT_B_ID, workflow_state: "candidate_ready", accepted_mechanics_ref: null}));
       await user.clear(screen.getByPlaceholderText("cand_…"));
-      await user.type(screen.getByPlaceholderText("cand_…"), candB);
-      await user.click(screen.getByRole("button", { name: "Load candidate" }));
-      await waitFor(() => expect(screen.queryByTestId("publish")).toBeNull());
-      expect(screen.queryByTestId("threat-publication-panel")).toBeNull();
-      expect(screen.queryByTestId("workbench-publication-entry")).toBeNull();
+      await user.type(screen.getByPlaceholderText("cand_…"), "cand_draft_b");
+      await user.click(screen.getByRole("button", {name: "Load candidate"}));
+      await waitFor(() => expect(reads).toHaveBeenCalledTimes(2));
+      await screen.findByTestId("publication-history-records");
+      await act(async () => {finish(recordedOperation(threatDraftFixture(), "cancelled"));});
+      expect(screen.queryByText("Recorded operation state: cancelled")).toBeNull();
+      expect(sessionStorage.getItem(pointerKey())).toBe(rawA);
+      expect(sessionStorage.getItem(pointerKey(DRAFT_B_ID))).toBe(rawB);
+      expect(screen.getByTestId("threat-publication-panel")).toBeTruthy();
+      for (const fn of classic) expect(fn).not.toHaveBeenCalled();
     });
   });
 });
