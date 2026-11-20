@@ -1780,6 +1780,7 @@ def test_cached_anchor_follows_visible_revision_and_restores_historical_content(
 
     x = inspection
     old_query, counts = _shared_anchor_reuse_fixture(x, monkeypatch)
+    monkeypatch.setattr(service, "_shared_parsed_cache", service._ParsedRevisionPool())
     route = "/api/live/world-graph/retrieval/neighborhood"
     first = x.client.post(route, json=old_query)
     assert first.status_code == 200
@@ -1808,13 +1809,15 @@ def test_cached_anchor_follows_visible_revision_and_restores_historical_content(
     assert "New reachable location" not in [row["label"] for row in old_expected["nodes"]]
     assert "New reachable location" in [row["label"] for row in new_expected["nodes"]]
     before = counts["parse"]
-    for query, expected in ((new_query, new_expected), (old_query, old_expected)):
+    for query, expected in (
+        (new_query, new_expected), (old_query, old_expected), (new_query, new_expected),
+    ):
         response = x.client.post(route, json=query)
         assert response.status_code == 200 and response.json() == expected
         opened = _open_shared_anchor(x, query, expected)
         assert opened.status_code == 200, opened.text
         assert opened.json()["content"] == x.lane.text.splitlines(keepends=True)[0]
-    assert counts["parse"] == before + 2
+    assert counts["parse"] == before + 1
 
 
 def test_selected_neighborhood_and_anchor_share_explicit_source_proof_owner(inspection, monkeypatch):
@@ -2368,3 +2371,32 @@ def test_installed_core_alias_search_reauthorizes_published_alias(inspection, mo
     assert index_cache.entry_count == 1  # structural reuse grants no cached admission
     assert repo.get_head(selected.space) == head and repo.head_events(selected.space) == events
     assert repo.open_native_source_view(selected.space).epoch == withdrawn_epoch
+
+
+def test_parsed_revision_pool_reuses_exact_content_and_evicts_least_recent_pin():
+    from concurrent.futures import ThreadPoolExecutor
+
+    def stored(space, revision, payload="{}"):
+        return SimpleNamespace(
+            revision=SimpleNamespace(
+                space_id=space, revision_id=revision,
+                model_dump=lambda **_: {"space_id": space, "revision_id": revision},
+            ),
+            graph_payload_sha256="digest",
+            _payload_json=payload,
+        )
+
+    pool = service._ParsedRevisionPool()
+    a = stored("space:a", "rev:a")
+    b = stored("space:a", "rev:b")
+    other = stored("space:b", "rev:a")
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(lambda i: pool._parse_using((a, b)[i % 2], object), range(32)))
+    assert all(value is results[i % 2] for i, value in enumerate(results))
+    assert results[0] is not results[1]
+    assert pool._parse_using(a, object) is results[0]
+    assert pool._parse_using(other, object) is not results[0]
+    assert pool._parse_using(a, object) is results[0]
+    assert pool._parse_using(b, object) is not results[1]
+    assert pool._parse_using(stored("space:a", "rev:a", "[]"), object) is not results[0]
+    assert len(pool._entries) == 2

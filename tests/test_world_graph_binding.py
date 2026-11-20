@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+from dungeonmind.application.vnext.materialization import NATIVE_VNEXT_GRAPH_SCHEMA
 from fastapi import HTTPException
 import pytest
 from starlette.requests import Request
@@ -51,21 +52,21 @@ class _Authority:
         stored_revision_id: str | None = None,
         revision_exists: bool = True,
     ) -> None:
-        self.binding = SimpleNamespace(
-            world_id=world_id,
-            dungeonmind_head_revision_id=revision_id,
-        )
+        self.head = SimpleNamespace(space_id=world_id, head_revision_id=revision_id)
         self.get_revision_calls: list[tuple[str, str]] = []
         if revision_exists:
             self.revision = SimpleNamespace(
-                world_id=stored_world_id if stored_world_id is not None else world_id,
+                space_id=stored_world_id if stored_world_id is not None else world_id,
+                graph_schema=NATIVE_VNEXT_GRAPH_SCHEMA,
                 revision_id=(
                     stored_revision_id if stored_revision_id is not None else revision_id
                 ),
             )
         else:
             self.revision = None
-        self.bundle = SimpleNamespace(world_graph=self)
+
+    def get_head(self, world_id: str) -> Any:
+        return self.head
 
     def get_revision(self, world_id: str, revision_id: str) -> Any:
         self.get_revision_calls.append((world_id, revision_id))
@@ -390,7 +391,7 @@ def _call_binding_route_without_auth(
             lambda *_args, **_kwargs: pytest.fail("auth denial must precede binding access"),
         )
     monkeypatch.setattr(
-        "apps.live_control_server.services.world_graph_binding._validate_with_mind",
+        "apps.live_control_server.services.world_graph_binding._open_native_binding_repository",
         lambda _world_id: pytest.fail("auth denial must happen before MIND access"),
     )
     if operation == "bind":
@@ -462,14 +463,22 @@ def test_successful_bind_route_returns_redacted_status_and_deactivation_skips_mi
     root: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from apps.live_control_server.integrations.dungeonmind import (
+        native_registry_source,
+        world_graph_reads,
+    )
     from apps.live_control_server.routes import world_containers
 
     _enable_local_auth(monkeypatch)
     managed = _existing_unbound_world(root, name="Route World")
     authority = _Authority()
     monkeypatch.setattr(
-        "apps.live_control_server.services.world_graph_binding._validate_with_mind",
-        lambda _world_id: authority,
+        native_registry_source, "read_repository", lambda: authority,
+    )
+    monkeypatch.setattr(
+        world_graph_reads,
+        "direct_services_from_config",
+        lambda *_args: pytest.fail("Binding opened classic Graph authority"),
     )
     put_result = world_containers.put_native_graph_binding(
         managed_world_id=managed.world_id,
@@ -484,6 +493,7 @@ def test_successful_bind_route_returns_redacted_status_and_deactivation_skips_mi
 
     public_binding = put_result.model_dump(mode="json")["native_graph_binding"]
     assert public_binding == {"status": "active", "binding_version": 1}
+    assert authority.get_revision_calls == [(NATIVE_ID, "rev:head-1")]
     body_text = repr(put_result)
     assert NATIVE_ID not in body_text
     assert "rev:head-1" not in body_text
@@ -491,7 +501,7 @@ def test_successful_bind_route_returns_redacted_status_and_deactivation_skips_mi
     assert "MIND receipt" not in body_text
 
     monkeypatch.setattr(
-        "apps.live_control_server.services.world_graph_binding._validate_with_mind",
+        "apps.live_control_server.services.world_graph_binding._open_native_binding_repository",
         lambda _world_id: pytest.fail("list/deactivation must not contact MIND"),
     )
     list_result = world_containers.get_world_containers().model_dump(mode="json")
@@ -538,10 +548,35 @@ def test_corrupt_database_metadata_fails_before_native_validation_without_privat
     with psycopg.connect(application_state_dsn) as conn:
         conn.execute("UPDATE workspace.managed_world SET owner_subject=NULL WHERE world_id=%s", (world.world_id,))
     _enable_local_auth(monkeypatch)
-    monkeypatch.setattr("apps.live_control_server.services.world_graph_binding._validate_with_mind", lambda _: pytest.fail("corrupt metadata reached native validation"))
+    monkeypatch.setattr("apps.live_control_server.services.world_graph_binding._open_native_binding_repository", lambda _: pytest.fail("corrupt metadata reached native validation"))
     with pytest.raises(HTTPException) as error:
         world_containers.put_native_graph_binding(world.world_id, BindNativeGraphRequest(native_world_id="private-native-marker", expected_binding_version=0), _valid_request("/api/live/world-containers/"+world.world_id+"/native-graph-binding"))
     assert error.value.status_code == 500
     assert error.value.detail == "Stored World metadata is invalid."
     assert "subject:" not in error.value.detail
     assert "private-native" not in error.value.detail
+
+
+@pytest.mark.parametrize(("missing_head", "expected_status"), [(True, 404), (False, 502)])
+def test_missing_or_non_native_head_does_not_write_binding(
+    root: Path, missing_head: bool, expected_status: int
+) -> None:
+    managed = _existing_unbound_world(root, name="Invalid Native Head")
+    authority = _Authority()
+    if missing_head:
+        authority.head = None
+    else:
+        authority.revision.graph_schema = "dm_union_graph_v6"
+    before = world_snapshot()
+
+    with pytest.raises(WorldGraphBindingError) as exc:
+        bind_native_graph(
+            managed.world_id,
+            native_world_id=NATIVE_ID,
+            expected_binding_version=0,
+            authority_validator=lambda _world_id: authority,
+        )
+
+    assert exc.value.status_code == expected_status
+    assert world_snapshot() == before
+    assert authority.get_revision_calls == ([] if missing_head else [(NATIVE_ID, "rev:head-1")])

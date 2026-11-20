@@ -1,12 +1,15 @@
 """Plan parent orchestration: semantic decisions, unique reads, one writer."""
+from contextlib import nullcontext
 import asyncio
 import json
 import logging
 import re
+from time import monotonic
 
 from application_state.agent_conversation.rules_authority_policy import rules_capability
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from .agent_runtime import AgentRuntimeDescriptor
+from .agent_turn_trace import host_work_observer
 from .plan_jev_dispatch import PlanJevDispatch, request_budget
 from .plan_jev_driver import PlanJevDriver
 from .plan_jev_rules_runtime import PlanRulesRuntime
@@ -39,6 +42,10 @@ class PlanJevHarness:
         rules = PlanRulesRuntime(adapter, rules_capability(graph=True))
         driver = writer = None
         primary_error = False
+        trace = getattr(adapter, "trace", None)
+        observer = host_work_observer.get()
+        detailed = trace is not None and observer is not None
+        measure = trace.measure_host_work if detailed else lambda _: nullcontext()
         try:
             from application_state.agent_conversation import types as t
             from application_state.agent_conversation.native_context import NativeProviderInputV1
@@ -58,7 +65,8 @@ class PlanJevHarness:
                 acquire(adapter)
                 driver = PlanJevDriver(adapter, dialogue=dialogue, rules=rules, retained_navigation=retained_navigation)
                 driver.native_sources.discover_initial()
-                semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title, **driver.decision_arguments())
+                with measure("plan_opening_candidate_preparation"):
+                    semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title, **driver.decision_arguments())
             selected, _ = asyncio.run(semantic.run(transport=self.decision_transport, api_key=self.decision_api_key))
             if selected == 'different_destination':
                 raise AgentTurnServiceError('This request needs another page or object. The request is retained; choose that destination before generating.',
@@ -82,7 +90,8 @@ class PlanJevHarness:
                         code='plan_authoring_target_changed', status_code=409) from exc
                 rules.authoring = (action, capture)
             if not retained_sdk and semantic.selection_event.operation is not None:
-                driver.apply_opening(semantic)
+                with measure("plan_opening_selection_apply"):
+                    driver.apply_opening(semantic)
             else:
                 if retained_sdk and type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
                     from .native_authored_references import acquire
@@ -92,7 +101,11 @@ class PlanJevHarness:
                 if isinstance(driver.native_sources, NativeBodyNavigation):
                     driver.native_sources.discover_initial()
             proof = asyncio.run(driver.run(transport=self.decision_transport, api_key=self.decision_api_key))
-            writer = PlanJevWriter(adapter, proof, rules)
+            if detailed:
+                completed_at = monotonic()
+                observer(trace.trace_id, "plan_retrieval_complete", completed_at, completed_at, False)
+            with trace.measure_host_work("plan_writer_composition") if detailed else nullcontext():
+                writer = PlanJevWriter(adapter, proof, rules)
             completed = asyncio.run(writer.run(transport=self.writer_transport, api_key=self.writer_api_key))
             adapter.turn = completed.envelope if isinstance(completed, MixedCompletedTurnV1) else completed
             return completed
