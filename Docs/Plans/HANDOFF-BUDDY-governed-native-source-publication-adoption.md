@@ -1,27 +1,41 @@
 # Buddy adoption of governed native source publication
 
-BLOCKED successor design, not an implementation dispatch or active write lease.
-Owner MIND under explicit operator full-lane design/implementation/review/merge
+ACTIVE dependent-stack implementation; merge remains gated on accepted Kernel adoption.
+Owner MIND; Hubble implements Buddy, Aristotle/root independently review. Explicit operator full-lane design/implementation/review/merge
 and cutover-goal authority. No ARCH/PRIME gate. Design base
  aa6aaa9795b0cb076854a81c82ad21e8e4a356c2; existing task Buddy checkout on
-codex/v10-governed-source-publication-adoption. Only this design document may be
-written now. Commit/push pins it before any dependency/runtime edits.
+codex/v10-governed-source-publication-adoption. The six-path lease below is now active after this amended handoff is committed/pushed.
+The earlier blocked design26fc13979a673b817afe485dca9c0adaaa3f1579 remains history.
 
 ## One outcome and serial prerequisites
 
 Adopt the exact accepted Kernel source-authorized atomic facts/aliases capability
 and prove it through installed public Core/WK with Buddy domain2/manual profile4.
-Core239 candidateee3eb3f945cc7c91902ec983d15402070f79ac7c has independent source
-PASS, not final acceptance. Its static CI prerequisite is a separate owning Core
-repair. Wait for both accepted merges, then fetch/re-anchor this brief and record
-the actual accepted Core merge as the only dependency target. Do not pin the draft
-candidate or treat current source PASS as merge/release acceptance.
+Cross-repository behavioral parent: CorePR239 exact candidate
+ ee3eb3f945cc7c91902ec983d15402070f79ac7c, with independent SOURCE PASS and bounded
+functional qualification ACCEPTED (review5985803881),257 owning unit/read,91owning
+SQL and586 full integration passes/1 historical-dump skip. The previous full-unit
+and static failures remain recorded, not relabeled green. Core240 static repair
+is now accepted at757cc986a55aaba7013e27724e42ef50f814804c; Core241 test-only cache
+repair is separately reviewed and awaiting CI/merge. The public publication API
+itself is stable and independently exercised, making consumer pressure useful
+before its final release. This explicit root rebrief replaces the conservative
+start gate; it does not waive Kernel acceptance before Buddy merge.
 
-Delivery order: Core static repair -> Core239 re-anchor/qualification/acceptance
--> this Buddy dependency adoption -> complete N3a native manual backend -> N3b UI
+Implementation may initially pin/install exactee3 as a diagnostic parent artifact,
+never as an accepted/released pin. As239 integrates its accepted quality parents,
+re-anchor the dependency only at root's named exact head. Before final Buddy
+qualification/merge, retarget to the actual accepted Core merge, verify installed
+provenance and preserved package graph again. Source equivalence is not new-head
+execution. No mutable main dependency or Core runtime overlay is permitted.
+
+Merge order: Core240 accepted -> Core241 accepted -> Core239 re-anchor/acceptance
+-> this Buddy retarget/final qualification/merge -> complete N3a backend -> N3b UI
 -> fresh-classic route retirement -> compatible serving/rollback/V11 acceptance.
-No stacked unmerged behavioral parent or parallel implementation in this lane.
-The operator authorizes continuation when these named prerequisites resolve; no
+This is an explicit dependent stack on the pinned unmerged cross-repository parent,
+not parallel-independent work. Core owns its checkout; Buddy owns its separate
+checkout/new environment; neither edits the other repository. The operator authorizes
+continuation through these named gates without routine confirmation; no
 routine confirmation or separate handoff-main merge is required.
 
 ## Current pressure and preserved truth
@@ -39,9 +53,9 @@ composition with current-source fencing. No partial manual API was accepted.
 Profile4 declaration/capabilities and explicit1/2/3->4 API are accepted separately;
 none of those changes automatically upgrades Elderwyld or dispatches manual code.
 
-## Prospective exact six-path implementation lease (INACTIVE)
+## Exact six-path implementation lease (ACTIVE)
 
-1. This handoff: activate/re-anchor, pin accepted merge and truthful evidence.
+1. This handoff: re-anchor, distinguish staged parent from final accepted pin/evidence.
 2. pyproject.toml: exact Core direct dependency and matching UV source only.
 3. uv.lock: resolver-owned Core retarget; preserve unrelated package/artifact truth.
 4. NEW tests/test_governed_native_source_publication_adoption.py: owning installed
@@ -60,7 +74,8 @@ runtime collision, additional paths, or any newly required public capability.
 
 ## Required proof at the consumer boundary
 
-Install the exact accepted Core artifact into a NEW task-owned Buddy environment;
+Install the exact named parent artifact into a NEW task-owned Buddy environment;
+the final accepted artifact must replace the staged candidate before final qualification.
 verify direct_url/module/version/source provenance. No Core PYTHONPATH overlay,
 private planner/allocator, raw alias index authority or predicted entity IDs. Reuse
 existing task-owned Node and tools where appropriate; never resync the protected
@@ -82,7 +97,10 @@ same-ID conflict and exact descendant/withdrawn metadata recovery. Recovery gran
 no current source-opening authority. Preserve fail-closed accepted-destructive
 refusal and owner-before-IO responsibility; this test cannot claim a new HTTP
 owner gate that has not been implemented. At least one real fixture-owned SQL
-consumer chain must complement memory/public composition proof.
+consumer chain must complement memory/public composition proof. SQL diagnostics
+wait until root makes the Core239 migration tree stable in the task checkout;
+current Core test-repair checkout lacks0023. Do not add skips or run against an
+older schema to claim completion. Memory/contract/lock work may proceed meanwhile.
 
 Keep prior extension receipt recovery and batching capabilities exercised. Run
 owning consumer test plus relevant native/FirstWorld/profile/Recap controls,
@@ -114,3 +132,13 @@ Native manual backend/UI, explicit legacy fresh-publication retirement with
 historical receipt/source-page recovery, compatible primary/fallback deployment,
 rehearsed rollback and V11 serving correctness/performance remain unfinished.
 A dependency adoption can satisfy only this bounded outcome, never the full goal.
+
+
+## Activation checkpoint
+
+Current fetched Buddy main at activation: cc0ca06bb197c64724fded178d7ec545654b06ec.
+Root owns topology and merge gates. Hubble must read/adopt this pinned handoff,
+verify actual Projects UUID/writability before new environment/evidence allocation,
+then implement through a draft PR and freeze for independent review. No Buddy
+production service, manual endpoint or UI implementation is part of this adoption.
+Keep every out-of-lease prerequisite visible rather than silently implementing it.
