@@ -10,7 +10,9 @@
           ? { preset: localStorage.getItem("buddy.appearance.preset") }
           : JSON.parse(raw);
         const root = document.documentElement;
-        if (settings?.preset === "deep-teal") root.dataset.buddyTheme = "deep-teal";
+        if (settings?.preset === "deep-teal" || settings?.preset === "wayfinder") {
+          root.dataset.buddyTheme = settings.preset;
+        }
         if (settings?.accent === "sky") root.dataset.buddyAccent = "sky";
       } catch {
         // Storage is optional. The default palette is defined in CSS.
