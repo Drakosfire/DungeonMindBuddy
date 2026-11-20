@@ -14,7 +14,8 @@ afterEach(cleanup);
 async function open(){fireEvent.click(screen.getByRole('button',{name:'@ Reference'}));return screen.findByRole('searchbox',{name:'Find an object'});}
 it('finds Fellinor without a projection provider and selects the exact native revision without reading',async()=>{
  const change=vi.fn();render(<SurfaceGraphReferenceInput worldId="quarry" value={[]} onChange={change}/>);
- expect(getNativeGraphCatalog).toHaveBeenCalledTimes(1);fireEvent.change(await open(),{target:{value:'FELLINOR'}});
+ expect(getNativeGraphCatalog).not.toHaveBeenCalled();expect(getNativeSourceCatalog).toHaveBeenCalledTimes(1);
+ fireEvent.change(await open(),{target:{value:'FELLINOR'}});expect(getNativeGraphCatalog).toHaveBeenCalledTimes(1);
  fireEvent.click(screen.getByRole('button',{name:'Use Fellinor as context'}));
  expect(change).toHaveBeenCalledWith([{...reference,node_id:'fellinor',label:'Fellinor'}]);expect(inspectNativeGraph).not.toHaveBeenCalled();expect(screen.queryByRole('searchbox')).toBeNull();
  expect(getNativeGraphCatalog).toHaveBeenCalledWith({managed_world_id:'quarry',scope_mode:'world',campaign_id:null},expect.any(AbortSignal));
@@ -80,10 +81,12 @@ it('uses the toolbar trigger with the existing picker and retains selected chips
  const host=document.createElement('span');document.body.append(host);const change=vi.fn();
  const view=render(<SurfaceGraphReferenceInput worldId="quarry" label="Composer references" value={[]} onChange={change} triggerHost={host}/>);
  const trigger=within(host).getByRole('button',{name:'@ Reference'});expect(trigger).toHaveTextContent('@');
- expect(screen.queryByRole('region',{name:'Composer references'})).toBeNull();expect(getNativeGraphCatalog).toHaveBeenCalledTimes(1);
+ expect(screen.queryByRole('region',{name:'Composer references'})).toBeNull();expect(getNativeGraphCatalog).not.toHaveBeenCalled();
  fireEvent.click(trigger);expect(await screen.findByRole('searchbox',{name:'Find an object'})).toBeVisible();
  expect(document.getElementById(trigger.getAttribute('aria-controls')!)).toContainElement(screen.getByRole('searchbox',{name:'Find an object'}));
  fireEvent.click(screen.getByRole('button',{name:'Use Fellinor as context'}));expect(change).toHaveBeenCalledWith([{...reference,node_id:'fellinor',label:'Fellinor'}]);
+ fireEvent.click(trigger);expect(await screen.findByRole('searchbox',{name:'Find an object'})).toBeVisible();
+ expect(getNativeGraphCatalog).toHaveBeenCalledTimes(1);fireEvent.click(trigger);
  view.rerender(<SurfaceGraphReferenceInput worldId="quarry" label="Composer references" value={[reference]} onChange={change} triggerHost={host} disabled/>);
  expect(screen.getByRole('region',{name:'Composer references'})).toHaveTextContent('@Cedar box');expect(within(host).getByRole('button')).toBeDisabled();expect(screen.queryByRole('searchbox')).toBeNull();
  view.unmount();host.remove();
