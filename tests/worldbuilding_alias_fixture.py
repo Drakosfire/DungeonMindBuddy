@@ -1,6 +1,5 @@
 """Adapt legacy host-ID fixture replies to the model-facing alias contract."""
 
-from copy import deepcopy
 import json
 
 from graph_memory.extraction.category_candidate_graph_extractor import FixtureCategoryGraphPassClient
@@ -20,7 +19,7 @@ def install_alias_fixture(monkeypatch):
         aliases = current.get("aliases")
         if aliases is None:
             return payload
-        value = deepcopy(payload)
+        value = json.loads(json.dumps(payload))
         edge_to_handle = {value: key for key, value in aliases._handle_to_edge.items()}
 
         def visit(item):

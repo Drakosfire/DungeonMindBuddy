@@ -37,6 +37,8 @@ Worldbuilding prompt-alias construction and response resolution regions of
 `src/graph_memory/extraction/worldbuilding_edge_review.py`, a new host-only
 alias helper if needed, focused owning tests (including existing Worldbuilding
 profile and edge-review fixtures where their model outputs must use aliases),
+including the shared extractor and Worldbuilding correction-parent fixtures
+identified by the ingestion contract,
 this handoff, and the truthful
 predecessor status sync. #2087 retains known-character context and its
 actor-pass injection; do not edit its feature regions or tests. Open extractor
