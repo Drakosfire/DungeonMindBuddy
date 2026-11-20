@@ -202,15 +202,18 @@ def test_native_clarification_admission_rejects_empty_v2_even_without_sdk_confor
     bypassed, sources, adapters = [], [], []
 
     def bypass_only_writer_empty_reply(candidate, schema):
-        if (schema.get("properties", {}).get("answer_segments", {}).get("minItems") == 1
-                and candidate.get("answer_segments") == []):
+        if ((schema.get("properties", {}).get("answer_segments", {}).get("minItems") == 1
+                and candidate.get("answer_segments") == [])
+                or (schema.get("properties", {}).get("question", {}).get("minLength") == 1
+                    and candidate.get("question") == "")):
             bypassed.append(True)
             return  # Simulate a captured provider reply lacking SDK conformance.
         return validate(candidate, schema)
 
     async def empty_reply(writer, request):
         adapters.append(writer.adapter)
-        writer.text = json.dumps(dict(schema=POLICY, answer_segments=[], limitations=[], requested_detail_gaps=[]))
+        writer.text = json.dumps(dict(question="") if json.loads(request.content)['text']['format']['name'] == 'plan_contextual_question_v1'
+            else dict(schema=POLICY, answer_segments=[], limitations=[], requested_detail_gaps=[]))
         return await transport(writer, request)
 
     def source_guard(request, **kwargs):

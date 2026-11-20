@@ -348,8 +348,20 @@ class PlanRequestedWorkInputV8(PlanRequestedWorkInputV7):
         default="dmb_plan_requested_work_input_v8", alias="schema")
 
 
-def work_choice(request: PlanRequestedWorkInputV2, selected: str):
+class PlanRequestedWorkInputV9(PlanRequestedWorkInputV8):
+    """Intent and the complete compatible-location set are separate judgments."""
+    schema_: Literal["dmb_plan_requested_work_input_v9"] = Field(
+        default="dmb_plan_requested_work_input_v9", alias="schema")
+
+
+def work_choice(request: PlanRequestedWorkInputV2, selected: str, *, compatible_selectors=None):
     """Decode only offered choices; the selected target digest stays host-owned."""
+    if isinstance(request, PlanRequestedWorkInputV9):
+        from .plan_contextual_targets import resolve_targets
+        if compatible_selectors is None:
+            raise ValueError("Contextual intent requires its complete location judgment")
+        return resolve_targets(request.original_capture, request.placement_catalog,
+            selected, compatible_selectors)
     if selected == 'review_connected_page':
         if not isinstance(request, PlanRequestedWorkInputV8) or request.plan_requested_operation is not None:
             raise ValueError('Connected-page review was not offered for this operation')

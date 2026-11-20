@@ -52,13 +52,13 @@ NATIVE_RETRIEVAL_SELECTION_TYPES = (NativeRetrievalSelectedV1, NativeRetrievalSe
 
 def native_selection_types():
     """Closed native acquisition selections, including the real opening batch."""
-    from .native_execution import NativePlanOpeningSelectedV1
-    return (*NATIVE_RETRIEVAL_SELECTION_TYPES, NativePlanOpeningSelectedV1)
+    from .native_execution import NATIVE_PLAN_OPENING_SELECTION_TYPES
+    return (*NATIVE_RETRIEVAL_SELECTION_TYPES, *NATIVE_PLAN_OPENING_SELECTION_TYPES)
 
 
 def prospective_selection_types():
-    from .native_execution import NativePlanOpeningSelectedV1
-    return (NativeRetrievalSelectedV2, NativePlanOpeningSelectedV1)
+    from .native_execution import NATIVE_PLAN_OPENING_SELECTION_TYPES
+    return (NativeRetrievalSelectedV2, *NATIVE_PLAN_OPENING_SELECTION_TYPES)
 
 
 class NativeReadBatchConcludedV1(t.StrictModel):
@@ -458,6 +458,10 @@ def validate_decision_phases(execution):
                     "Plan controller must settle its decision before another provider"
                 )
             if identity == execution.policy.provider_roles.controller.identity():
+                from .native_execution import NativePlanActionV3, NativePlanOpeningSelectedV2
+                if (type(native_action) is NativePlanActionV3 and type(intent) is NativePlanOpeningSelectedV2
+                        and intent.requested_work == 'clarify'):
+                    raise ValueError('Question-only Plan work cannot open factual retrieval')
                 if native_build and type(event) is t.ProviderAttemptAuthorizedEventV5:
                     if (
                         writer is not None
@@ -522,13 +526,16 @@ def validate_decision_phases(execution):
                     if native_action is not None
                     else t.PlanJevWriterAuthorizedV1
                 )
+                from .native_execution import NativePlanActionV3, NativePlanOpeningSelectedV2
+                question_only = (type(native_action) is NativePlanActionV3
+                    and type(intent) is NativePlanOpeningSelectedV2 and intent.requested_work == 'clarify')
                 if (
                     not isinstance(event, writer_type)
                     or pending_author_nodes or pending_author_sources
                     or pending_sources
                     or retrieval_started
                     and not retrieval_finished
-                    or not native_build and not retrieval_finished
+                    or not native_build and not retrieval_finished and not question_only
                 ):
                     raise ValueError(
                         "Native writer requires an explicit completed retrieval finish and settled reads"
@@ -572,8 +579,8 @@ def validate_decision_phases(execution):
                     "Plan destination lacks its unique acknowledged controller and frozen target"
                 )
             intent = event
-            from .native_execution import NativePlanOpeningSelectedV1
-            if type(event) is NativePlanOpeningSelectedV1:
+            from .native_execution import NATIVE_PLAN_OPENING_SELECTION_TYPES
+            if type(event) in NATIVE_PLAN_OPENING_SELECTION_TYPES:
                 if type(auth) is not NativePlanOpeningAuthorizedV1:
                     raise ValueError('Opening selection requires its actual dual-purpose provider')
                 if event.operation is not None:

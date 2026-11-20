@@ -47,11 +47,14 @@ def _plan_basis(work):
 
 def _native_plan_parts(request, basis, playable_target, submitted_intent):
     from application_state.agent_conversation.native_context import PlanWorkContextV1
-    from application_state.agent_conversation.native_execution import NativePlanActionV2
+    from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
+    from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
     from .build_related_pages import discover
+    action_type = (NativePlanActionV3 if type(request.plan_placement_catalog) is PlanPlacementCatalogV2
+        and request.plan_authoring_capture.target_kind in {'insert_at_caret', 'replace_selection'} else NativePlanActionV2)
     return (PlanWorkContextV1(plan_basis=basis, plan_context_policy=request.plan_context_policy,
             playable_target=playable_target),
-        NativePlanActionV2(intent=submitted_intent, authoring_capture=request.plan_authoring_capture,
+        action_type(intent=submitted_intent, authoring_capture=request.plan_authoring_capture,
             placement_catalog=request.plan_placement_catalog, related_page_catalog=discover(request)))
 
 

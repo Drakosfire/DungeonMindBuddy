@@ -8,13 +8,21 @@ from typing import Literal
 from pydantic import Field
 
 from . import types as t
-from .plan_placement import PlanRequestedWorkInputV8
+from .plan_placement import PlanRequestedWorkInputV8, PlanRequestedWorkInputV9
 from .jev_retrieval_contract import NativePlanBatchDecisionInputV3
 
 
 class NativePlanOpeningInputV1(PlanRequestedWorkInputV8, NativePlanBatchDecisionInputV3):
     schema_: Literal['dmb_native_plan_opening_input_v1'] = Field(
         default='dmb_native_plan_opening_input_v1', alias='schema')
+
+
+class NativePlanOpeningInputV2(PlanRequestedWorkInputV9, NativePlanOpeningInputV1):
+    schema_: Literal['dmb_native_plan_opening_input_v2'] = Field(
+        default='dmb_native_plan_opening_input_v2', alias='schema')
+
+
+NATIVE_PLAN_OPENING_INPUT_TYPES = (NativePlanOpeningInputV1, NativePlanOpeningInputV2)
 
 
 def opening_dialogue_sha256(dialogue):
@@ -25,10 +33,10 @@ def opening_dialogue_sha256(dialogue):
 
 def opening_metadata_available(context, execution):
     from .native_context import NativePlanRequestAdmissionV1, SurfaceNativeContextReceiptV1
-    from .native_execution import NativePlanActionV2
+    from .native_execution import NativePlanActionV2, NativePlanActionV3
     return (type(context) is SurfaceNativeContextReceiptV1
         and type(context.assembled_input) is NativePlanRequestAdmissionV1
-        and type(execution.policy.action) is NativePlanActionV2
+        and type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3)
         and not any(isinstance(e, t.PlanRequestedWorkSelectedV1) for e in execution.events))
 
 
@@ -51,6 +59,12 @@ def prepare_opening_decision(request):
         'Judge relevance within that declared applicability, not general background. '
         'Fallback applies only when all applicable candidate votes exclude. '
         'An inactive vote grants no read and never counts toward successful completion.')
+    if type(request) is NativePlanOpeningInputV2:
+        state['conditional_read_plan_policy'] = (
+            'Only resolved discussion uses the navigation votes. Writing, location/content '
+            'clarification, another destination and connected-page review keep these votes '
+            'inactive. A clarification asks a question from captured context, not an evidence '
+            'answer. Inactive votes grant no reads or fallback.')
     questions = tuple(q.model_copy(update={'question': q.question.replace(
         'all independent candidate relevance votes exclude', 'all applicable candidate relevance votes exclude')})
         if q.name == 'operation' else q for q in navigation.questions)
@@ -64,9 +78,17 @@ def decode_opening_decision(request, result):
     from .plan_placement import work_choice
     expected = {'requested_work', 'operation', 'post_read_plan',
         *(f'candidate_{i}' for i in range(len(request.candidates)))}
+    if type(request) is NativePlanOpeningInputV2:
+        expected.update(f'target_{i}' for i in range(len(request.placement_catalog.entries)))
     answers = validated_choice_answers(result, expected)
     selected_work = requested_work_choice(request, answers['requested_work'])
-    actual_work = work_choice(request, selected_work)['requested_work']
+    from .plan_contextual_targets import compatible_selectors
+    actual_work = work_choice(request, selected_work, **(
+        {'compatible_selectors': compatible_selectors(request, answers)}
+        if type(request) is NativePlanOpeningInputV2 else {}))['requested_work']
+    if type(request) is NativePlanOpeningInputV2 and actual_work != 'discuss':
+        _validate_selection_choices(request, answers)
+        return selected_work, None
     if actual_work not in {'discuss', 'clarify'}:
         _validate_selection_choices(request, answers)
         return selected_work, None
@@ -79,7 +101,10 @@ def validate_opening_parent(context, execution, parent, authorization):
     from .native_context import NativePlanRequestAdmissionV1
     from .native_retrieval import NativePlanOpeningAuthorizedV1
     from .plan_jev_decision import _source_pins
-    if (type(parent) is not NativePlanOpeningInputV1
+    from .native_execution import NativePlanActionV3
+    if (type(execution.policy.action) is NativePlanActionV3) != (type(parent) is NativePlanOpeningInputV2):
+        raise ValueError('Opening input differs from the actual target-resolution contract')
+    if (type(parent) not in NATIVE_PLAN_OPENING_INPUT_TYPES
             or type(authorization) is not NativePlanOpeningAuthorizedV1
             or type(context.assembled_input) is not NativePlanRequestAdmissionV1
             or opening_dialogue_sha256(parent.dialogue) != context.assembled_input.dialogue_sha256
@@ -141,12 +166,12 @@ def request_manifest(*, action, work_context, source_authority_sha256, native_qu
 
 def validate_request_admission(context, execution):
     from .native_context import NativePlanRequestAdmissionV1, PlanWorkContextV1
-    from .native_execution import NativePlanActionV2
+    from .native_execution import NativePlanActionV2, NativePlanActionV3
     admission = context.assembled_input
     action = execution.policy.action
     if (type(admission) is not NativePlanRequestAdmissionV1
             or type(context.work_context) is not PlanWorkContextV1
-            or type(action) is not NativePlanActionV2
+            or type(action) not in (NativePlanActionV2, NativePlanActionV3)
             or type(context.work_context.plan_context_policy) is not t.PlanContextPolicyV2
             or admission.tokenizer_name != execution.policy.provider_input_accounting.estimator
             or admission.submitted_intent_sha256 != t.canonical_sha256(action.intent)):

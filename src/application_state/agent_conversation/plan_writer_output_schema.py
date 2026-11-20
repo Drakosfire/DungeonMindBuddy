@@ -261,6 +261,14 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
     if (frame.get('schema') not in {SCHEMA, LEGACY_SCHEMA} or frame.get('answer_policy') != ASSERTION_POLICY
             or not isinstance(rules, (PlanRulesEvidenceFrameV1, ModelRulesFrame))):
         raise ValueError('Shared native output requires its actual evidence and Rules frames')
+    if execution is not None:
+        from .plan_contextual_questions import output_format as question_format
+        question = question_format(execution)
+        if question is not None:
+            from .plan_jev_graph_packet import NATIVE_WORK_SCHEMA
+            if rules.lookups or work_frame.get('schema') != NATIVE_WORK_SCHEMA or work_frame.get('requested_work') != 'clarify':
+                raise ValueError('Question-only Plan work cannot carry a factual Rules answer')
+            return question
     prose = {'type': 'string', 'minLength': 1}
     variants = _native_variants(ASSERTION_POLICY, prose,
         statement_rows=frame['native_statements']['statements'],

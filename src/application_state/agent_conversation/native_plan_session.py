@@ -19,7 +19,7 @@ from application_state.errors import ApplicationStateConflictError, ApplicationS
 from application_state.unit_of_work import unit_of_work
 from . import repository as repo
 from .native_execution import (
-    NativePlanActionV2, NATIVE_PLAN_WORK_SELECTION_TYPES, SurfaceNativeEvent,
+    NativePlanActionV2, NativePlanActionV3, NATIVE_PLAN_WORK_SELECTION_TYPES, SurfaceNativeEvent,
     SurfaceNativeExecutionV1, _join_turn_fields, _join_turn_lifecycle,
     _validate_owned_context_binding,
 )
@@ -60,10 +60,13 @@ def _owned_event(event):
 def eligible(turn):
     from .types import PlanRequestedWorkSelectedV2
     execution = getattr(turn, 'graph_context_execution', None)
+    from .plan_contextual_targets import is_question
+    if type(execution) is SurfaceNativeExecutionV1 and is_question(execution):
+        return False
     choices = ([] if type(execution) is not SurfaceNativeExecutionV1 else
         [e for e in execution.events if isinstance(e, PlanRequestedWorkSelectedV2)])
     return (type(execution) is SurfaceNativeExecutionV1
-        and type(execution.policy.action) is NativePlanActionV2
+        and type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3)
         and turn.status == 'running'
         and len(choices) == 1 and type(choices[0]) in NATIVE_PLAN_WORK_SELECTION_TYPES
         and choices[0].requested_work in {'discuss', 'clarify'})

@@ -316,18 +316,18 @@ class NativePlanRequestSearchAuthorizedV1(NativeBodyEvent):
 
 def request_source_discovery_enabled(context, execution):
     from .native_context import NativePlanRequestAdmissionV1, SurfaceNativeContextReceiptV1
-    from .native_execution import NativePlanActionV2
+    from .native_execution import NativePlanActionV2, NativePlanActionV3
     return (type(context) is SurfaceNativeContextReceiptV1
         and type(context.assembled_input) is NativePlanRequestAdmissionV1
-        and type(execution.policy.action) is NativePlanActionV2)
+        and type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3))
 
 
 def validate_request_source_search(execution, grant):
     from . import types as t
-    from .native_execution import NativePlanActionV2
+    from .native_execution import NativePlanActionV2, NativePlanActionV3
     prefix = execution.events[:grant.sequence]
     action = execution.policy.action
-    if (type(action) is not NativePlanActionV2
+    if (type(action) not in (NativePlanActionV2, NativePlanActionV3)
             or grant.context_receipt_sha256 != execution.context_receipt_sha256
             or grant.execution_policy_sha256 != execution.execution_policy_sha256
             or t.canonical_sha256(grant.authority) != execution.policy.source_authority_sha256
@@ -338,20 +338,23 @@ def validate_request_source_search(execution, grant):
 
 
 def initial_source_discovery_enabled(execution):
-    from .native_execution import NativePlanActionV2, NATIVE_PLAN_WORK_SELECTION_TYPES, SurfaceNativeExecutionV1
+    from .plan_contextual_targets import is_question
+    if is_question(execution):
+        return False
+    from .native_execution import NativePlanActionV2, NativePlanActionV3, NATIVE_PLAN_WORK_SELECTION_TYPES, SurfaceNativeExecutionV1
     return (type(execution) is SurfaceNativeExecutionV1
-        and type(execution.policy.action) is NativePlanActionV2
+        and type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3)
         and any(type(event) in NATIVE_PLAN_WORK_SELECTION_TYPES
             and event.requested_work in {"discuss", "clarify"} for event in execution.events))
 
 
 def validate_initial_source_search(execution, grant):
-    from .native_execution import NativePlanActionV2, NativePlanRequestedWorkSelectedV3
+    from .native_execution import NativePlanActionV2, NativePlanActionV3, NativePlanRequestedWorkSelectedV3
     from .native_retrieval import NativeRetrievalAuthorizedV1
     action = execution.policy.action
     prefix = execution.events[:grant.sequence]
     work = next((event for event in prefix if event.event_id == grant.work_selection_event_id), None)
-    if (type(action) is not NativePlanActionV2
+    if (type(action) not in (NativePlanActionV2, NativePlanActionV3)
             or type(work) is not NativePlanRequestedWorkSelectedV3
             or work.requested_work not in {"discuss", "clarify"}
             or grant.context_receipt_sha256 != execution.context_receipt_sha256
@@ -672,9 +675,9 @@ def selected_batch_covering_reads(execution, selection, handle, *, before_sequen
         return ()
     events = execution.events if before_sequence is None else execution.events[:before_sequence]
     searches = [e for e in events if isinstance(e, NativeBodySearchObservedV1)]
-    from .native_execution import NativePlanActionV2
+    from .native_execution import NativePlanActionV2, NativePlanActionV3
 
-    plan = type(getattr(getattr(execution, "policy", None), "action", None)) is NativePlanActionV2
+    plan = type(getattr(getattr(execution, "policy", None), "action", None)) in (NativePlanActionV2, NativePlanActionV3)
     catalogs = acquired_body_catalogs(execution)
     candidates = searches[0].catalogs if searches else ()
     if plan:

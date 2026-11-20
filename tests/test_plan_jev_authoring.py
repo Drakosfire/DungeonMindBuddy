@@ -76,8 +76,9 @@ def test_foreign_or_stale_plan_capture_is_rejected_before_provider_dispatch(chan
 
 
 class SemanticWire(httpx2.AsyncBaseTransport):
-    def __init__(self, adapter, choice):
+    def __init__(self, adapter, choice, compatible_selectors=None):
         self.adapter, self.choice = adapter, choice
+        self.compatible_selectors = compatible_selectors
 
     async def handle_async_request(self, request):
         body = json.loads(request.content)
@@ -97,6 +98,9 @@ class SemanticWire(httpx2.AsyncBaseTransport):
         }
         if opening:
             expected_state |= {"candidates", "examined_subjects", "relevance_guidance", "conditional_read_plan_policy"}
+        contextual = any(name.startswith("target_") for name in body["questions"])
+        if contextual:
+            expected_state.add("focused_edit_target")
         assert set(body["state"]) == expected_state
         assert body["state"]["user_request"] == self.adapter.request.message
         assert body["state"]["edit_target_available"] == (
@@ -105,18 +109,29 @@ class SemanticWire(httpx2.AsyncBaseTransport):
         from application_state.agent_conversation import types as t
         from application_state.agent_conversation.plan_authoring import QUESTION_FIRST_INTENT_POLICY,CONNECTED_PAGE_INTENT_POLICY
         expected=CONNECTED_PAGE_INTENT_POLICY if isinstance(self.adapter.request.plan_context_policy,t.PlanContextPolicyV2) else QUESTION_FIRST_INTENT_POLICY
-        assert body["state"]["intent_policy"] == expected
+        if contextual:
+            assert body["state"]["intent_policy"].startswith(expected)
+        else:
+            assert body["state"]["intent_policy"] == expected
         expected_questions = {"requested_work"}
         if opening:
             expected_questions |= {"operation", "post_read_plan", *(f"candidate_{i}" for i in range(len(body["state"]["candidates"])))}
+        if contextual:
+            expected_questions |= {f"target_{i}" for i in range(len(body["state"]["offered_page_locations"]))}
         assert set(body["questions"]) == expected_questions
         assert current.graph_context_execution.events[-1].outcome == "sdk_entered"
         choice = self.choice
         if choice == "write_current_page":
             choice = "write:captured" if self.adapter.request.plan_authoring_capture is not None else "write_unavailable"
+        target = choice.removeprefix("write:") if choice.startswith("write:") else None
+        if contextual and choice.startswith("write:"):
+            choice = "write_current_page"
         answers = {}
         for name, question in body["questions"].items():
-            selected = (choice if name == "requested_work" else
+            selected = ("include" if contextual and name.startswith("target_")
+                and body["state"]["offered_page_locations"][int(name.removeprefix("target_"))]["selector"]
+                    in (self.compatible_selectors if self.compatible_selectors is not None else (target,))
+                else "exclude" if name.startswith("target_") else choice if name == "requested_work" else
                 "finish_retrieval" if name == "operation" else
                 "review_after_reads" if name == "post_read_plan" else "exclude")
             assert selected in question["criteria"]
@@ -1141,7 +1156,7 @@ def test_current_authorization_rejects_parent_contract_substitution(plan_adapter
 
 def _shared_plan_authoring_case(
     plan_adapter, tmp_path, monkeypatch, placement, mode, failure=None, *, routing=None, dsn=None,
-    placement_factory=None,
+    placement_factory=None, semantic_intent=None, semantic_compatible=None,
 ):
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_plan_statements import (
@@ -1240,8 +1255,8 @@ def _shared_plan_authoring_case(
             if "requested_work" in json.loads(request.content)["questions"]:
                 self.calls.append(request)
                 return await SemanticWire(
-                    wire.adapter, ("write_current_page" if routing == "write_without_capture" else routing)
-                    if routing else "write:" + placement
+                    wire.adapter, semantic_intent or (("write_current_page" if routing == "write_without_capture" else routing)
+                    if routing else "write:" + placement), compatible_selectors=semantic_compatible,
                 ).handle_async_request(request)
             if mode != "base":
                 body = json.loads(request.content)
@@ -1285,14 +1300,20 @@ def _shared_plan_authoring_case(
             if routing in {"discuss", "clarify"}:
                 from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
                 from application_state.agent_conversation.response_prompt import compose_response_prompt
-                task = ("plan_placement_clarify" if routing == "clarify"
+                question_field = payload["text"]["format"]["schema"]["properties"].get("question", {})
+                task = (("contextual_target_question" if 'enum' in question_field else "contextual_request_question")
+                        if payload["text"]["format"]["name"] == "plan_contextual_question_v1"
+                        else "plan_placement_clarify" if routing == "clarify"
                         and type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2
                         else "clarify" if routing == "clarify" else "answer")
                 assert payload["instructions"] == compose_response_prompt(task=task).instructions
                 schema = payload["text"]["format"]["schema"]
                 base = schema.get("$defs", {}).get("Base", schema)
-                assert base["properties"]["answer_segments"].get("minItems", 0) == (
-                    1 if task == "plan_placement_clarify" else 0)
+                if task in {"contextual_request_question", "contextual_target_question"}:
+                    assert base["properties"]["question"]["minLength"] == 1
+                else:
+                    assert base["properties"]["answer_segments"].get("minItems", 0) == (
+                        1 if task == "plan_placement_clarify" else 0)
             if routing in {"discuss", "clarify"}:
                 [packet] = rows
                 prose = packet["content"]
@@ -1357,6 +1378,9 @@ def _shared_plan_authoring_case(
                 limitations=[],
                 requested_detail_gaps=[],
             )
+            if payload['text']['format']['name'] == 'plan_contextual_question_v1':
+                candidate = dict(question=payload['text']['format']['schema']['properties']['question'].get(
+                    'enum', ['Which part of the request should I clarify?'])[0])
             if mode != "base":
                 rules = json.loads(rows[1]["content"])
                 support = rules["supports"][0]

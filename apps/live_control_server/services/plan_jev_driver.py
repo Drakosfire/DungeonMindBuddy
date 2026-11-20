@@ -224,11 +224,11 @@ class PlanJevDriver:
         return self._apply_admitted(dispatch, dispatch.selection)
 
     def apply_opening(self, dispatch):
-        from application_state.agent_conversation.native_plan_opening import NativePlanOpeningInputV1
-        from application_state.agent_conversation.native_execution import NativePlanOpeningSelectedV1
+        from application_state.agent_conversation.native_plan_opening import NATIVE_PLAN_OPENING_INPUT_TYPES
+        from application_state.agent_conversation.native_execution import NATIVE_PLAN_OPENING_SELECTION_TYPES
         event = dispatch.selection_event
-        if (self.finished or self.current is not None or type(dispatch.parent) is not NativePlanOpeningInputV1
-                or type(event) is not NativePlanOpeningSelectedV1 or event.operation is None
+        if (self.finished or self.current is not None or type(dispatch.parent) not in NATIVE_PLAN_OPENING_INPUT_TYPES
+                or type(event) not in NATIVE_PLAN_OPENING_SELECTION_TYPES or event.operation is None
                 or current_selection(self.adapter.fence.turn).event_id != event.event_id):
             raise ValueError('Opening acquisition requires its actual active atomic selection')
         self._refresh_related_catalog()  # Actual work now narrows conditional metadata.
@@ -789,6 +789,12 @@ class PlanJevDriver:
             examined_candidates=examined, allowed_operations=operations)
 
     async def run(self, *, transport=None, api_key=None):
+        from application_state.agent_conversation.plan_contextual_targets import is_question
+        if is_question(self.adapter._broker_execution()):
+            if self.current is not None:
+                raise ValueError('Question-only work cannot carry an active retrieval dispatch')
+            self.finished = True
+            return self.proof()
         if self.finished:
             return self.proof()
         trace = getattr(self.adapter, "trace", None)

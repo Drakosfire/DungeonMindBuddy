@@ -247,16 +247,20 @@ def capture_native_reply(adapter,rules,prepared,received,raw):
 def _conversation_response_task(execution):
     """An actual work decision selects response guidance; prompt text never does."""
     from application_state.agent_conversation.native_execution import (
-        SurfaceNativeExecutionV1, NativePlanActionV1, NativePlanActionV2,
+        SurfaceNativeExecutionV1, NativePlanActionV1, NativePlanActionV2, NativePlanActionV3,
         NativePlayActionV1, NativeBuildActionV1, NATIVE_PLAN_WORK_SELECTION_TYPES)
     if type(execution) is not SurfaceNativeExecutionV1:
         return None
+    from application_state.agent_conversation.plan_contextual_questions import response_task
+    question_task = response_task(execution)
+    if question_task is not None:
+        return question_task
     action = execution.policy.action
     if type(action) is NativePlayActionV1:
         return 'answer'  # This action owns only a read-only Run question.
-    if type(action) in (NativePlanActionV1, NativePlanActionV2):
+    if type(action) in (NativePlanActionV1, NativePlanActionV2, NativePlanActionV3):
         choices = [e for e in execution.events if isinstance(e, t.PlanRequestedWorkSelectedV2)]
-        accepted = NATIVE_PLAN_WORK_SELECTION_TYPES if type(action) is NativePlanActionV2 else (t.PlanRequestedWorkSelectedV2,)
+        accepted = NATIVE_PLAN_WORK_SELECTION_TYPES if type(action) in (NativePlanActionV2, NativePlanActionV3) else (t.PlanRequestedWorkSelectedV2,)
         if len(choices) != 1 or type(choices[0]) not in accepted:
             return None
         if choices[0].requested_work == 'clarify':
@@ -314,8 +318,8 @@ class PlanJevWriter:
             from application_state.agent_conversation.native_evidence_view import semantic_frame,output_frame
             from application_state.agent_conversation.plan_writer_output_schema import native_output_format
             turn=adapter.fence.turn
-            from application_state.agent_conversation.native_execution import NativePlanActionV2
-            plan_prose = (type(turn.graph_context_execution.policy.action) is NativePlanActionV2
+            from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
+            plan_prose = (type(turn.graph_context_execution.policy.action) in (NativePlanActionV2, NativePlanActionV3)
                           and getattr(rules, 'authoring', None) is None)
             self.frame=model_frame(turn.graph_context_receipt,turn.graph_context_execution,
                                    passages_only=plan_prose)
@@ -369,8 +373,8 @@ class PlanJevWriter:
             frames=(self.frame,rule_frame)
         self.messages=[{'role':'user','content':canonical_bytes(frame).decode()} for frame in frames]
         if self.shared and getattr(rules, 'authoring', None) is None:
-            from application_state.agent_conversation.native_execution import NativePlanActionV2
-            if type(turn.graph_context_execution.policy.action) is NativePlanActionV2:
+            from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
+            if type(turn.graph_context_execution.policy.action) in (NativePlanActionV2, NativePlanActionV3):
                 from application_state.agent_conversation.native_evidence_view import render_plan_evidence
                 from application_state.agent_conversation.rules_authority_plan_packet import render_plan_rules
                 self.messages = (
@@ -450,6 +454,10 @@ class PlanJevWriter:
 
                 if not explicit_blank_lore_page(destination["instruction"]):
                     instructions += "\n" + LORE_PROPOSAL_GUIDANCE
+            if self.shared:
+                fragment_scope = self.work_frame.get('focused_edit_target', {}).get('fragment_scope')
+                if fragment_scope is not None:
+                    instructions += '\n' + fragment_scope['instruction']
             self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
                 RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if self.shared or getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
             if single_variant_base:

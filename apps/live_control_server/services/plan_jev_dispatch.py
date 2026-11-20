@@ -155,11 +155,14 @@ class PlanJevDispatch:
         operation = adapter.request.plan_requested_operation
         parent_type = PlanRequestedWorkInputV8 if isinstance(adapter.request.plan_context_policy,t.PlanContextPolicyV2) else PlanRequestedWorkInputV7
         from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1
-        from application_state.agent_conversation.native_plan_opening import NativePlanOpeningInputV1
+        from application_state.agent_conversation.native_plan_opening import NativePlanOpeningInputV1, NativePlanOpeningInputV2
+        from application_state.agent_conversation.native_execution import NativePlanActionV3
         from application_state.agent_conversation.native_retrieval import source_pins
         opening = adapter.fence is not None and type(adapter.fence.turn.graph_context_receipt.assembled_input) is NativePlanRequestAdmissionV1
         if opening:
-            parent_type = NativePlanOpeningInputV1
+            parent_type = (NativePlanOpeningInputV2
+                if type(adapter.fence.turn.graph_context_execution.policy.action) is NativePlanActionV3
+                else NativePlanOpeningInputV1)
         navigation = dict(candidates=tuple(candidates), examined_candidates=tuple(examined_candidates),
             allowed_operations=tuple(allowed_operations), **source_pins(adapter.fence.turn.graph_context_receipt)) if opening else {}
         dispatch.parent = parent_type(
@@ -242,8 +245,8 @@ class PlanJevDispatch:
             if not native_build and a.budget["contextLimitTokens"] is not None and estimate + a.budget["outputReserveTokens"] > a.budget["contextLimitTokens"]:
                 raise ValueError("Plan Jev actual request exceeds the existing provider context allowance")
             from application_state.agent_conversation.native_retrieval import NativeRetrievalAuthorizedV1, NativePlanOpeningAuthorizedV1
-            from application_state.agent_conversation.native_plan_opening import NativePlanOpeningInputV1
-            opening = type(self.parent) is NativePlanOpeningInputV1
+            from application_state.agent_conversation.native_plan_opening import NATIVE_PLAN_OPENING_INPUT_TYPES
+            opening = type(self.parent) in NATIVE_PLAN_OPENING_INPUT_TYPES
             auth_type = NativePlanOpeningAuthorizedV1 if opening else t.PlanRequestedWorkAuthorizedV2 if isinstance(self.parent, PlanRequestedWorkInputV2) else t.PlanRequestedWorkAuthorizedV1 if semantic else NativeRetrievalAuthorizedV1 if native else t.PlanJevProviderAuthorizedV1
             build_context = dict(context_mode=view["contextMode"],context_phase=view["contextPhase"],
                 max_question_input_tokens=view["maxQuestionInputTokens"],dispatch_identity_sha256=view["dispatchIdentitySha256"]) if native_build else None
@@ -297,8 +300,9 @@ class PlanJevDispatch:
                 "item_id": f"{capture_name}:{self.authorization.provider_attempt_id}",
                 "state": "model_context", "role": "assistant", "text": raw}]})
             semantic = isinstance(self.parent, PlanRequestedWorkInputV1)
-            from application_state.agent_conversation.native_plan_opening import NativePlanOpeningInputV1, decode_opening_decision
-            opening = type(self.parent) is NativePlanOpeningInputV1
+            from application_state.agent_conversation.native_plan_opening import NATIVE_PLAN_OPENING_INPUT_TYPES, NativePlanOpeningInputV2, decode_opening_decision
+            opening = type(self.parent) in NATIVE_PLAN_OPENING_INPUT_TYPES
+            contextual = type(self.parent) is NativePlanOpeningInputV2
             if opening:
                 selected, first_batch = decode_opening_decision(self.parent, result)
             else:
@@ -306,13 +310,17 @@ class PlanJevDispatch:
             turn = a.fence.turn
             execution = turn.graph_context_execution
             placement = isinstance(self.parent, PlanRequestedWorkInputV2)
-            selected_fields = (work_choice(self.parent, selected) | {
+            from application_state.agent_conversation.plan_contextual_targets import compatible_selectors
+            resolved = (work_choice(self.parent, selected, **({'compatible_selectors': compatible_selectors(
+                self.parent, {k: v.selected for k, v in result.answers.items()})} if contextual else {}))
+                if placement else {})
+            selected_fields = (resolved | {
                 'original_capture_sha256': self.parent.target_capture_sha256,
                 'original_capture': self.parent.original_capture.model_dump(mode='json',by_alias=True) if self.parent.original_capture is not None else None,
                 'placement_catalog': self.parent.placement_catalog.model_dump(mode='json',by_alias=True) if self.parent.placement_catalog is not None else None,
                 'placement_catalog_sha256': self.parent.placement_catalog.sha256 if self.parent.placement_catalog is not None else None,
             }) if placement else {'requested_work': selected, 'target_capture_sha256': self.parent.target_capture_sha256} if semantic else {'operation': selected.operation, 'selected_handles': list(selected.selected_handles)}
-            from application_state.agent_conversation.native_execution import NativePlanRequestedWorkSelectedV3, NativePlanOpeningSelectedV1
+            from application_state.agent_conversation.native_execution import NativePlanRequestedWorkSelectedV3, NativePlanOpeningSelectedV1, NativePlanOpeningSelectedV2
             from application_state.agent_conversation.jev_retrieval_contract import NativePlanBatchDecisionInputV3
             planned = type(self.parent) is NativePlanBatchDecisionInputV3
             if planned:
@@ -327,8 +335,8 @@ class PlanJevDispatch:
                     self.parent, result, requested_work=selected_fields.get("requested_work") if opening else None,
                 )
             current_work = isinstance(self.parent, PlanRequestedWorkInputV8)
-            event_type = NativePlanOpeningSelectedV1 if opening else NativePlanRequestedWorkSelectedV3 if current_work else t.PlanRequestedWorkSelectedV2 if placement else t.PlanRequestedWorkSelectedV1 if semantic else NativeRetrievalSelectedV2 if planned else NativeRetrievalSelectedV1 if native else t.PlanJevRetrievalSelectionV1
-            event = event_type(kind='native_plan_opening_selected_v1' if opening else 'plan_requested_work_selected_v3' if current_work else 'plan_requested_work_selected_v2' if placement else 'plan_requested_work_selected_v1' if semantic else 'native_retrieval_selected_v2' if planned else 'native_retrieval_selected_v1' if native else 'plan_jev_retrieval_selected_v1', event_id=uuid4(),
+            event_type = NativePlanOpeningSelectedV2 if contextual else NativePlanOpeningSelectedV1 if opening else NativePlanRequestedWorkSelectedV3 if current_work else t.PlanRequestedWorkSelectedV2 if placement else t.PlanRequestedWorkSelectedV1 if semantic else NativeRetrievalSelectedV2 if planned else NativeRetrievalSelectedV1 if native else t.PlanJevRetrievalSelectionV1
+            event = event_type(kind='native_plan_opening_selected_v2' if contextual else 'native_plan_opening_selected_v1' if opening else 'plan_requested_work_selected_v3' if current_work else 'plan_requested_work_selected_v2' if placement else 'plan_requested_work_selected_v1' if semantic else 'native_retrieval_selected_v2' if planned else 'native_retrieval_selected_v1' if native else 'plan_jev_retrieval_selected_v1', event_id=uuid4(),
                 sequence=len(execution.events), context_receipt_sha256=execution.context_receipt_sha256,
                 execution_policy_sha256=execution.execution_policy_sha256,
                 controller_attempt_id=self.authorization.provider_attempt_id, decision_request_id=self.parent.request_id,

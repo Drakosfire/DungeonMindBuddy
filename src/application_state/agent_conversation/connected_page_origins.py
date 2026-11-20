@@ -82,8 +82,8 @@ def execution_rows(execution, basis, attempt_id):
     auth = auths[0]
     from .native_execution import SurfaceNativeExecutionV1,NativeBuildActionV1,NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
     if type(execution) is SurfaceNativeExecutionV1:
-        from .native_execution import NativePlanActionV2
-        if type(execution.policy.action) is NativePlanActionV2:
+        from .native_execution import NativePlanActionV2, NativePlanActionV3
+        if type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3):
             from .plan_jev_decision import connected_page_review_enabled
             from .build_related_pages import records
             if type(auth) is not NativeWriterAuthorizedV1 or not connected_page_review_enabled(execution):

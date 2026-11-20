@@ -34,6 +34,54 @@ reviews do not establish ordinary chat or release qualification.
 
 ## Authority and write boundary
 
+IN PROGRESS contract amendment after4c9dd6b5: the single fresh24 actual-model run
+remains RED (nomination23/24; one ambiguous request reserved/proposed; functional
+questions3/6; clean intended insertions11/12). Editable host-footer contamination
+is fixed. The first actual browser witness passed placement/Save/Undo/Redo/cold
+reopen/390px and ambiguous refusal, but deliberately selected replacement was
+misclassified as clarification. Keep both runs and their private oracle frozen.
+
+This same serial plain-Plan capability now separates intent from the complete
+set of compatible locations. `NativePlanActionV3`, requested-work InputV9,
+opening InputV2 and opening selection V2 bind the new interpretation; old action,
+input and event codecs remain historical.
+The new work input is admitted only through the combined opening V2 route;
+there is no standalone V9 selected-work event or authority path.
+Host resolution deduplicates derived capture hashes and writes only for one distinct target. Deliberate selection is
+explicit semantic context, never model-visible positions/identities/hashes.
+Current clarification uses a dedicated question-only SDK output. Target questions
+are derived from the retained set; content questions remain model-authored.
+Question mode has no factual retrieval or evidence-answer citation authority.
+Actual captured question bytes are normalized by their own decoder; no synthetic
+SDK result or rewritten ordinary-answer envelope is manufactured. Authoring
+input separately identifies new insertion versus captured replacement, preserving
+existing anchor text unless restatement was explicitly requested.
+
+Twenty dev cases (eight earlier dev plus twelve new controls) were frozen before
+this revision under external `compatible-set-dev`; no private heldout answers
+are used for tuning. This is still PR4264, with no parallel successor or new
+capability. The unreleased0171 reader fence covers the versioned native JSON;
+no production migration is run and no additional fence is allocated here.
+Fresh open-PR audit found bounded overlaps with #2225/#2462/#3290/#3307;
+Alan's full-lane authorization covers these contextual-only splits. Preserve
+their historical codecs, retrieval ordering outside the new question mode,
+source attribution, authorization and other-surface behavior. The expanded lease
+includes `plan_source_turn.py`, `plan_jev_dispatch.py`, `plan_jev_driver.py`,
+`plan_jev_writer.py`, `corpus_source_navigation.py`; and agent_conversation `native_execution.py`,
+`native_plan_opening.py`, `native_retrieval.py`, `jev_retrieval_contract.py`,
+`plan_jev_decision.py`, `native_writer.py`, `native_plan_session.py`,
+`native_corpus.py`, `build_related_pages.py`, `connected_page_origins.py`,
+`plan_placement.py`, `plan_authoring.py`, `plan_jev_graph_packet.py`,
+`native_plan_work_view.py`, `plan_writer_output_schema.py`, `response_prompt.py`,
+`native_completion.py`, new `plan_contextual_targets.py` and
+`plan_contextual_questions.py`, and their owning native/domain tests.
+The existing CI contract and test-classification registries include the new
+owning test module; no workflow or selector changes are included.
+Validate the resolver algebra, real admission/replay/negative effects, V1 bytes,
+and captured selection before paid dev evaluation. Freeze the completed contract
+before another independent writer qualification. Earlier passing SHA evidence
+is not final qualification of this in-progress revision.
+
 Alan's latest instruction grants full authority over this lane and directs no
 further routine approval requests. This supersedes the pending bounded #3307
 admission split and synthetic OpenAI/browser payload questions below. It covers

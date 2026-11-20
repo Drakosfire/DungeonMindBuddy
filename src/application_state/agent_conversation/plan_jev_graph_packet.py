@@ -167,9 +167,20 @@ def project_native_plan_work(receipt, execution, provenance, submission_idempote
             capture.base_revision,capture.base_content_sha256) != (provenance.world_id,conversation_id,
                 basis.document_id,basis.object_revision,basis.content_sha256):
         raise ValueError('Native Plan working draft differs from its actual conversation and saved basis')
-    return {**project_work_records(basis,provenance,submission_idempotency_key,
+    frame = {**project_work_records(basis,provenance,submission_idempotency_key,
         markdown=proof['plan_markdown'],sessions=proof['session_evidence'],dialogue=proof['dialogue'],
         capture=capture,placement_label=label), 'requested_work':choices[0].requested_work}
+    from .native_execution import NativePlanActionV3
+    if type(action) is NativePlanActionV3 and choices[0].requested_work == 'write_current_page':
+        replace = capture.target_kind == 'replace_selection'
+        frame['focused_edit_target']['fragment_scope'] = dict(
+            operation='replace_selected_text' if replace else 'insert_new_content',
+            instruction=("Rewrite only the captured selected text. Retain its words when the user "
+                "asks to keep them. Do not repeat unselected surrounding context."
+                if replace else "Only the new fragment is inserted. The named anchor paragraph "
+                "remains in the page. Do not copy it as context or repeat it unless the user "
+                "explicitly requests restatement. Return only the requested new content."))
+    return frame
 
 
 def project(turn, proof, trace):

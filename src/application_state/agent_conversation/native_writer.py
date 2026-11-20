@@ -249,12 +249,12 @@ def _input_frames(raw,execution,work_schema, *, prose_frame=None, prose_work=Non
             work = play_frame(strict_json(raw))
         elif work_schema == PLAN_WORK_SCHEMA:
             work = frame_in_request(strict_json(raw))
-            from .native_execution import NativePlanActionV2
+            from .native_execution import NativePlanActionV2, NativePlanActionV3
             if prose_work is not None:
                 if work is not None:
                     raise ValueError('Ambiguous Plan writer work')
                 work = prose_work
-            if type(execution.policy.action) is NativePlanActionV2 and work is None:
+            if type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3) and work is None:
                 raise ValueError('Current Plan saved-page work requires its semantic producer frame')
         else:
             from .native_build_work_view import frame_in_request as build_frame
@@ -312,11 +312,11 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         play_context_receipt=play_context_receipt)
     from .build_proposal_input import proposal_packet_text
     from .native_evidence_view import PLAN_EVIDENCE_HEADING, render_plan_evidence, semantic_frame
-    from .native_execution import NativePlanActionV2
+    from .native_execution import NativePlanActionV2, NativePlanActionV3
     body = strict_json(raw)
     messages = body.get('input')
     prose_host = prose_frame = prose_work = None
-    if type(prefix.policy.action) is NativePlanActionV2 and isinstance(messages, list):
+    if type(prefix.policy.action) in (NativePlanActionV2, NativePlanActionV3) and isinstance(messages, list):
         prose = [message.get('content') for message in messages
                  if isinstance(message, dict) and isinstance(message.get('content'), str)
                  and message['content'].startswith(PLAN_EVIDENCE_HEADING)]

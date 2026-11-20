@@ -413,13 +413,17 @@ CONNECTED_PAGE_INTENT_POLICY = (
 
 
 def prepare_requested_work_decision(request: PlanRequestedWorkInputV1):
-    from .native_plan_opening import NativePlanOpeningInputV1, prepare_opening_decision
-    if type(request) is NativePlanOpeningInputV1:
+    from .native_plan_opening import NATIVE_PLAN_OPENING_INPUT_TYPES, prepare_opening_decision
+    if type(request) in NATIVE_PLAN_OPENING_INPUT_TYPES:
         return prepare_opening_decision(request)
     return _prepare_requested_work_only(request)
 
 
 def _prepare_requested_work_only(request: PlanRequestedWorkInputV1):
+    from .plan_placement import PlanRequestedWorkInputV9
+    if isinstance(request, PlanRequestedWorkInputV9):
+        from .plan_contextual_targets import prepare_contextual_work
+        return prepare_contextual_work(request)
     from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
     from .jev_retrieval_contract import MODEL, PROVIDER
 
@@ -517,8 +521,8 @@ def _prepare_requested_work_only(request: PlanRequestedWorkInputV1):
 
 
 def decode_requested_work_decision(request: PlanRequestedWorkInputV1, result):
-    from .native_plan_opening import NativePlanOpeningInputV1, decode_opening_decision
-    if type(request) is NativePlanOpeningInputV1:
+    from .native_plan_opening import NATIVE_PLAN_OPENING_INPUT_TYPES, decode_opening_decision
+    if type(request) in NATIVE_PLAN_OPENING_INPUT_TYPES:
         return decode_opening_decision(request, result)[0]
     from .jev_retrieval_contract import validated_choice_answers
     try:

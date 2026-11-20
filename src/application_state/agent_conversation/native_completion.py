@@ -370,6 +370,20 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     Mixed Rules responses have one captured outer body. Their base partition
     uses this same algorithm without manufacturing a second provider response.
     """
+    from .plan_contextual_targets import is_question
+    if is_question(execution):
+        from .plan_contextual_questions import decode_question
+        text = decode_question(candidate, execution)
+        segment = t.PlanWorldGraphProposalSegmentV1(kind='proposal', label='invented_idea', text=text)
+        completion = SurfaceNativeCompletionV1(surface_id='plan',
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            producing_provider_attempt_id=authorization.provider_attempt_id,
+            answer_context_status=status_for([segment]), answer_segments=[segment], collaboration=None,
+            saved_source_citations=[], native_body_citations=[], native_clause_citations=[], native_assertion_citations=[])
+        _validate_citations(completion, receipt, execution, authorization, evidence)
+        from .surface_evidence_answer import validate_authored_owners
+        validate_authored_owners(completion, receipt)
+        return completion
     from .build_intentional_response import native_review_enabled, normalize_native_review
     from .plan_jev_decision import connected_page_review_enabled
     plan_review=connected_page_review_enabled(execution)
