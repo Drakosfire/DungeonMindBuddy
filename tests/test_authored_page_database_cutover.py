@@ -495,6 +495,133 @@ def save_composed(root, record, text, layout):
     return commit_tiptap_markdown_write(root=root, request=request), request
 
 
+def identity_presentation_for(text):
+    """Use the existing v1 grammar without introducing a visual wrapper."""
+    layout = presentation_for(text)
+    layout["items"] = [
+        block for slot in layout["items"][0]["slots"] for block in slot["blocks"]
+    ]
+    return layout
+
+
+@pytest.mark.parametrize("explicit_null", [False, True], ids=["omitted", "null"])
+def test_plain_page_old_writer_remains_sidecar_free(tmp_path, page, explicit_null):
+    text = "Preparation\n\nThe gate is locked.\n"
+    fields = {"page_presentation": None} if explicit_null else {}
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=page.document_id, markdown=text,
+            expected_revision=page.revision, **fields,
+        ),
+    )
+    assert prepared.writer_ok
+    request = TiptapMarkdownWriteCommitRequest(
+        document_id=page.document_id, markdown=text,
+        expected_revision=page.revision,
+        writer_confirm_token=prepared.writer_confirm_token, **fields,
+    )
+    receipt = commit_tiptap_markdown_write(root=tmp_path, request=request)
+    assert commit_tiptap_markdown_write(root=tmp_path, request=request) == receipt
+    cold = pages.committed_page(page.document_id, world_id=page.world_id)
+    assert cold.revision.markdown == text and cold.presentation is None
+    assert receipt.page_presentation_sha256 is None
+
+
+@pytest.mark.parametrize("explicit_null", [False, True], ids=["omitted", "null"])
+def test_identity_only_page_old_writer_refuses_without_mutation(
+    tmp_path, page, explicit_null,
+):
+    from apps.live_control_server.services.tiptap_markdown_write import TiptapMarkdownWriteError
+
+    text = "Preparation\n\nThe gate is locked.\n"
+    first, retaining_request = save_composed(
+        tmp_path, page, text, identity_presentation_for(text)
+    )
+    before = pages.snapshot_page(page.document_id, world_id=page.world_id)
+    fields = {"page_presentation": None} if explicit_null else {}
+    with pytest.raises(TiptapMarkdownWriteError, match="explicit presentation"):
+        prepare_tiptap_markdown_write(
+            root=tmp_path,
+            request=TiptapMarkdownWritePrepareRequest(
+                document_id=page.document_id, markdown=text,
+                expected_revision=first.committed_revision, **fields,
+            ),
+        )
+    with pytest.raises(TiptapMarkdownWriteError, match="explicit presentation"):
+        commit_tiptap_markdown_write(
+            root=tmp_path,
+            request=TiptapMarkdownWriteCommitRequest(
+                document_id=page.document_id, markdown=text,
+                expected_revision=first.committed_revision,
+                writer_confirm_token=retaining_request.writer_confirm_token,
+                **fields,
+            ),
+        )
+    from application_state.content import page_presentation
+    with pytest.raises(ApplicationStateValidationError, match="explicit presentation"):
+        pages.commit_page(
+            page.document_id, text, world_id=page.world_id,
+            expected_revision=before.page.object_revision,
+            expected_working_copy_revision=before.working_copy_revision,
+            page_presentation=None if explicit_null else page_presentation.UNSET,
+        )
+    assert pages.snapshot_page(page.document_id, world_id=page.world_id) == before
+    cold = pages.committed_page(page.document_id, world_id=page.world_id)
+    assert cold.revision.markdown == text
+    assert cold.presentation.model_dump() == identity_presentation_for(text)
+    assert cold.presentation.fingerprint() == first.page_presentation_sha256
+
+
+def test_identity_only_page_save_retry_stale_and_rollback(tmp_path, page, monkeypatch):
+    from application_state.content import page_presentation
+
+    text = "Preparation\n\nThe gate is locked.\n"
+    first, lost_ack = save_composed(tmp_path, page, text, identity_presentation_for(text))
+    before = pages.snapshot_page(page.document_id, world_id=page.world_id)
+    assert commit_tiptap_markdown_write(root=tmp_path, request=lost_ack) == first
+    assert pages.snapshot_page(page.document_id, world_id=page.world_id) == before
+    updated = text + "\nBring the key.\n"
+    second, _ = save_composed(
+        tmp_path, first.committed_record, updated, identity_presentation_for(updated)
+    )
+    with pytest.raises(TiptapMarkdownWriteConflictError):
+        commit_tiptap_markdown_write(root=tmp_path, request=lost_ack)
+    before_failure = pages.snapshot_page(page.document_id, world_id=page.world_id)
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("identity-only atomic rollback")
+
+    monkeypatch.setattr(page_presentation, "insert", fail)
+    with pytest.raises(RuntimeError, match="identity-only atomic rollback"):
+        next_text = updated + "\nProceed carefully.\n"
+        save_composed(
+            tmp_path, second.committed_record, next_text,
+            identity_presentation_for(next_text),
+        )
+    assert pages.snapshot_page(page.document_id, world_id=page.world_id) == before_failure
+    cold = pages.committed_page(page.document_id, world_id=page.world_id)
+    assert cold.revision.markdown == updated
+    assert cold.presentation.model_dump() == identity_presentation_for(updated)
+    assert cold.presentation.fingerprint() == second.page_presentation_sha256
+
+
+def test_identity_only_page_old_reader_fence_preserves_saved_state(tmp_path, page, monkeypatch):
+    from application_state import cli
+    from application_state.errors import ApplicationStateMigrationError
+
+    text = "Preparation\n\nThe gate is locked.\n"
+    save_composed(tmp_path, page, text, identity_presentation_for(text))
+    before = pages.snapshot_page(page.document_id, world_id=page.world_id)
+    # The reader predating PagePresentation must fail closed at the existing
+    # schema fence, rather than loading and resaving a sidecar-free snapshot.
+    with monkeypatch.context() as patch:
+        patch.setattr(cli, "_alembic_head", lambda: "20261112_0157")
+        with pytest.raises(ApplicationStateMigrationError):
+            pages.committed_page(page.document_id, world_id=page.world_id)
+    assert pages.snapshot_page(page.document_id, world_id=page.world_id) == before
+
+
 def test_layout_only_revision_exact_retry_noop_and_source_continuity(tmp_path, page):
     text = "Café 🌲\n\nAnother paragraph.\n"
     first, _ = save(tmp_path, page, text)
