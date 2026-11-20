@@ -2,6 +2,7 @@
 
 import psycopg
 import pytest
+import re
 from concurrent.futures import ThreadPoolExecutor
 
 from application_state.errors import ApplicationStateConflictError, ApplicationStateError, ApplicationStateUnavailableError
@@ -94,6 +95,17 @@ def test_historical_same_name_is_not_adopted(application_state_dsn):
     with psycopg.connect(application_state_dsn) as conn:
         assert conn.execute("SELECT count(*) FROM workspace.hosted_world_admission").fetchone()[0] == 0
         assert conn.execute("SELECT count(*) FROM workspace.hosted_world_creation_attempt").fetchone()[0] == 1
+
+
+def test_foreign_names_and_slug_collisions_do_not_affect_hosted_ids(application_state_dsn):
+    _enable(application_state_dsn)
+    create_world(name="Secret Carnival", owner_subject="bob")
+    same_name = create_owned_world(subject="alice", name="Secret Carnival", request_key="request_key_0001")
+    same_slug = create_owned_world(subject="alice", name="Secret-Carnival", request_key="request_key_0002")
+    for created in (same_name, same_slug):
+        assert re.fullmatch(r"world-[0-9a-f]{32}", created.record.world_id)
+        assert created.record.owner_subject == "alice"
+    assert same_name.record.world_id != same_slug.record.world_id
 
 
 def test_retry_denied_after_ownership_change(application_state_dsn):

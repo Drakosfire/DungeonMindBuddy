@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from uuid import uuid4
 
 import psycopg
 
@@ -152,10 +153,9 @@ def create_owned_world(*, subject: str, name: str, request_key: str) -> catalog.
             comparison = catalog.normalize_world_name_for_compare(display)
             if any(r.record.owner_subject == subject and catalog.normalize_world_name_for_compare(r.record.name) == comparison for r in records):
                 raise ApplicationStateConflictError("World name already exists for this owner")
-            world_id = catalog._world_id_for_owner(
-                [r.record for r in records], base_world_id=catalog.derive_world_id_from_name(display),
-                owner_subject=subject, compare_name=comparison,
-            )
+            # A name-derived slug would disclose whether a foreign owner's World
+            # occupied that name or slug. Hosted identities are always opaque.
+            world_id = f"world-{uuid4().hex}"
             record = catalog._validated_record(catalog._new_world_record(world_id, name=display, owner_subject=subject))
             catalog._write(conn, record, revision=1)
             conn.execute("INSERT INTO workspace.hosted_world_admission (world_id, creator_subject) VALUES (%s, %s)", (world_id, subject))
