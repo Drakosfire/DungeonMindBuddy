@@ -1369,7 +1369,7 @@ def test_benchmark_context_boundary_uses_actual_sdk_admission_without_writer_io(
     second = directory / 'next-case'
     workflow.capture_case(client, observed['world'], {k:v for k,v in observed['request'].items() if k in fields},
         {'id':'next-context', 'question':'Which details are established about B?'}, second,
-        context_only=True, writer_transport=True)
+        context_only=True, writer_transport=True, detailed_trace=True)
     fresh = json.loads((second / 'history-after.json').read_text())['body']['turns']
     assert len(fresh) == 1 and fresh[0]['turn_id'] != str(turn.turn_id)
     assert fresh[0]['lifecycle_status'] == 'interrupted' and not fresh[0]['assistant_text']
@@ -1377,15 +1377,29 @@ def test_benchmark_context_boundary_uses_actual_sdk_admission_without_writer_io(
     transport_request = json.loads((second / 'context-request.json').read_text())
     transport_stop = json.loads((second / 'context-stop.json').read_text())
     transport_case = dict(case, question='Which details are established about B?',
-        capture_dir=str(second), capture_boundary='writer_transport')
+        capture_dir=str(second), capture_boundary='writer_transport', detailed_trace=True)
     transport_report = workflow.report_case(transport_case, Path('.'))
     assert transport_report['capture_boundary'] == 'writer_transport'
+    assert transport_report['context']['detailed_host_trace']['interval_count'] > 0
+    missing_detail = workflow.report_case(dict(case, detailed_trace=True), Path('.'))
+    assert 'detailed-host-trace' in missing_detail['missing_artifacts']
+    with pytest.raises(ValueError, match='requested mode'):
+        workflow.report_case(dict(transport_case, detailed_trace=False), Path('.'))
     with pytest.raises(ValueError, match='requested boundary'):
         workflow.report_case(dict(case, capture_boundary='writer_transport'), Path('.'))
     with pytest.raises(ValueError, match='requested boundary'):
         workflow.report_case(dict(transport_case, capture_boundary='context_ready'), Path('.'))
     packet = validate_context_packet(transport_ready, transport_request, transport_stop)
     assert packet['request_to_transport_ms'] >= packet['request_to_ready_ms'] >= 0
+    assert not (directory / 'detailed-host-trace.json').exists()
+    detail = json.loads((second / 'detailed-host-trace.json').read_text())
+    assert not detail['truncated']
+    assert detail['end_monotonic_ns'] == transport_stop['transport_sink']['monotonic_ns']
+    intervals = detail['intervals']
+    assert intervals and len({span['trace_id'] for span in intervals}) == 1
+    assert all(detail['start_monotonic_ns'] <= span['start_monotonic_ns']
+               <= span['end_monotonic_ns'] <= detail['end_monotonic_ns'] for span in intervals)
+    assert {'execution_append', 'native_source_append'} <= {span['name'] for span in intervals}
     tampered = deepcopy(transport_stop)
     tampered['transport_sink']['body_hex'] += '20'
     with pytest.raises(ValueError, match='Writer transport bytes'):
