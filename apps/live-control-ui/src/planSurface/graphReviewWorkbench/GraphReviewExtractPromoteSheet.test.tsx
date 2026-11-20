@@ -453,15 +453,11 @@ describe("GraphReviewExtractPromoteSheet", () => {
     });
 
     expect(screen.queryByTestId("graph-review-extract-promote-merge-cta")).toBeNull();
-    expect(
-      screen.getByTestId("graph-review-extract-promote-reload-revision"),
-    ).toBeInTheDocument();
-    await waitFor(() => {
-      expect(postWorldGraphProjection).toHaveBeenCalled();
-    });
+    expect(screen.queryByTestId("graph-review-extract-promote-reload-revision")).not.toBeInTheDocument();
+    expect(postWorldGraphProjection).not.toHaveBeenCalled();
   });
 
-  it("post-confirm shows durable World Graph label over conflicting candidate label", async () => {
+  it("post-confirm shows saved receipt and retired graph notice instead of candidate content", async () => {
     vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(
       confirmReceipt({ affectedObjectIds: ["object-1"] }),
     );
@@ -482,11 +478,13 @@ describe("GraphReviewExtractPromoteSheet", () => {
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-committed-projection-panel")).toBeInTheDocument();
     });
-    expect(screen.getAllByText("Hesta Ironroot").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("graph-review-committed-receipt-meta")).toBeInTheDocument();
+    expect(screen.getByTestId("graph-review-committed-projection-error")).toHaveTextContent("Graph visualization for this saved revision is unavailable.");
+    expect(postWorldGraphProjection).not.toHaveBeenCalled();
     expect(screen.queryByText("Candidate Hesta")).toBeNull();
   });
 
-  it("reload after terminal receipt reloads committed authority without re-confirming", async () => {
+  it("keeps the confirm receipt without a classic graph reload", async () => {
     vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(
       confirmReceipt({ affectedObjectIds: ["object-1"] }),
     );
@@ -498,16 +496,8 @@ describe("GraphReviewExtractPromoteSheet", () => {
       expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
     });
     expect(extractPromoteApi.confirmExtractPromote).toHaveBeenCalledTimes(1);
-    const projectionCallsAfterConfirm = vi.mocked(postWorldGraphProjection).mock.calls.length;
-    expect(projectionCallsAfterConfirm).toBeGreaterThan(0);
-
-    fireEvent.click(screen.getByTestId("graph-review-extract-promote-reload-revision"));
-    await waitFor(() => {
-      expect(vi.mocked(postWorldGraphProjection).mock.calls.length).toBeGreaterThan(
-        projectionCallsAfterConfirm,
-      );
-    });
-    expect(extractPromoteApi.confirmExtractPromote).toHaveBeenCalledTimes(1);
+    expect(postWorldGraphProjection).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("graph-review-extract-promote-reload-revision")).not.toBeInTheDocument();
   });
 
   it("records terminal receipt without a catalog refresh dependency", async () => {
@@ -522,7 +512,7 @@ describe("GraphReviewExtractPromoteSheet", () => {
     });
   });
 
-  it("keeps receipt phase when post-commit projection fails; reload retries projection only", async () => {
+  it("keeps terminal receipt even when the retired reader would fail", async () => {
     vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(
       confirmReceipt({ affectedObjectIds: ["object-1"] }),
     );
@@ -539,89 +529,22 @@ describe("GraphReviewExtractPromoteSheet", () => {
     expect(
       screen.queryByTestId("graph-review-extract-promote-retry-exact-confirm"),
     ).toBeNull();
-    expect(
-      screen.getByTestId("graph-review-extract-promote-reload-revision"),
-    ).toBeInTheDocument();
+    expect(postWorldGraphProjection).not.toHaveBeenCalled();
     expect(extractPromoteApi.confirmExtractPromote).toHaveBeenCalledTimes(1);
-    await waitFor(() => {
-      expect(
-        screen.getByTestId("graph-review-extract-promote-reload-error"),
-      ).toBeInTheDocument();
-    });
-    const projectionCallsAfterConfirm = vi.mocked(postWorldGraphProjection).mock.calls.length;
-    expect(projectionCallsAfterConfirm).toBeGreaterThan(0);
-
-    fireEvent.click(screen.getByTestId("graph-review-extract-promote-reload-revision"));
-    await waitFor(() => {
-      expect(vi.mocked(postWorldGraphProjection).mock.calls.length).toBeGreaterThan(
-        projectionCallsAfterConfirm,
-      );
-    });
-    expect(extractPromoteApi.confirmExtractPromote).toHaveBeenCalledTimes(1);
-    expect(
-      screen.queryByTestId("graph-review-extract-promote-retry-exact-confirm"),
-    ).toBeNull();
-    expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
   });
 
   it("adopts committed authority and retains the terminal receipt", async () => {
-    const order: string[] = [];
     vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(
       confirmReceipt({ affectedObjectIds: ["object-1"] }),
     );
-    vi.mocked(postWorldGraphProjection).mockImplementation(async () => {
-      order.push("adopt");
-      return {
-        schema: "dmb_world_graph_projection_v1",
-        snapshot: {
-          worldId: "eldyrwild",
-          campaignId: "longmont-c2",
-          revisionId: "rev:committed",
-          headRevisionId: "rev:committed",
-          isHead: true,
-          focus: { kind: "session", sessionId: "session-25", campaignId: "longmont-c2" },
-          admissibility: "gm",
-        },
-        summary: {
-          nodeCount: 1,
-          relationshipCount: 0,
-          attributeCount: 0,
-          evidenceCount: 0,
-          sourceArtifactCount: 0,
-          projectionTruncated: false,
-        },
-        nodes: [
-          {
-            nodeId: "object-1",
-            label: "Hesta Ironroot",
-            kind: "npc",
-            role: "character",
-            aliases: [],
-            sourceDomains: [],
-            anchoredToFocusSession: true,
-            evidenceBadges: [],
-            adjacency: [],
-            suggestedExpansions: [],
-            evidenceRefIds: [],
-            sourceArtifactIds: [],
-          },
-        ],
-        relationships: [],
-        attributes: [],
-        evidence: [],
-        sourceArtifacts: [],
-        diagnostics: [],
-      };
-    });
     renderSheet(prepareResponse());
     fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
 
     await waitFor(() => {
-      expect(order).toContain("adopt");
+      expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
     });
     expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
-    // Committed projection is adopted as part of terminal receipt handling.
-    expect(postWorldGraphProjection).toHaveBeenCalled();
+    expect(postWorldGraphProjection).not.toHaveBeenCalled();
 
     expect(extractPromoteApi.confirmExtractPromote).toHaveBeenCalledTimes(1);
   });

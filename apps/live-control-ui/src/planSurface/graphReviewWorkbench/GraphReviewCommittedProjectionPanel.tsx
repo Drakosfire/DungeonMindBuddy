@@ -36,7 +36,6 @@ export interface GraphReviewCommittedProjectionPanelProps {
   selectedObjectId?: string | null;
   affectedObjectIds?: string[];
   error?: string | null;
-  onRetry?: () => void | Promise<void>;
   onSelectObjectId?: (objectId: string) => void;
 }
 
@@ -52,7 +51,6 @@ export function GraphReviewCommittedProjectionPanel(
   const affectedObjectIds =
     props.affectedObjectIds ?? live.committedAffectedObjectIds;
   const error = props.error ?? live.committedError;
-  const onRetry = props.onRetry ?? live.reloadCommittedAuthority;
   const onSelectObjectId =
     props.onSelectObjectId ?? live.setCommittedSelectedObjectId;
 
@@ -62,7 +60,6 @@ export function GraphReviewCommittedProjectionPanel(
   const [unresolvedExactTargetId, setUnresolvedExactTargetId] = useState<
     string | null
   >(null);
-  const [retrying, setRetrying] = useState(false);
 
   const nodeViews = useMemo(
     () => (projection ? adaptProjectionNodeMap(projection) : {}),
@@ -99,14 +96,7 @@ export function GraphReviewCommittedProjectionPanel(
     [nodeViews, onSelectObjectId],
   );
 
-  const handleRetry = async () => {
-    setRetrying(true);
-    try {
-      await onRetry();
-    } finally {
-      setRetrying(false);
-    }
-  };
+
 
   if (phase === "candidate") {
     return null;
@@ -182,15 +172,7 @@ export function GraphReviewCommittedProjectionPanel(
           <p data-testid="graph-review-committed-projection-error">
             {error ?? "Failed to load committed World Graph revision."}
           </p>
-          <button
-            type="button"
-            className="secondary"
-            data-testid="graph-review-committed-projection-retry"
-            disabled={retrying}
-            onClick={() => void handleRetry()}
-          >
-            {retrying ? "Retrying…" : "Retry committed load"}
-          </button>
+
         </div>
       ) : null}
 

@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi, type ReactNode } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type ReactNode } from "vitest";
 import { createElement } from "react";
 
 import * as liveApi from "../api/liveApi";
@@ -10,7 +10,6 @@ import {
   WorldGraphLensProjectionProvider as ProjectionProvider,
   useWorldGraphLensProjectionDemand,
   useOptionalWorldGraphLensInformationChannel,
-  useWorldGraphLens,
   useWorldGraphLensProjection,
 } from "./index";
 
@@ -30,13 +29,13 @@ function headProjection(
     schema: "dmb_world_graph_projection_v1",
     snapshot: {
       worldId: "eldyrwild",
-      campaignId: "longmont-c2",
+      campaignId: "",
       revisionId: "rev-head",
       headRevisionId: "rev-head",
       isHead: true,
       focus: { kind: "none", sessionId: null },
       admissibility: "gm",
-      scopeMode: "campaign",
+      scopeMode: "world",
       ...snapshotOverrides,
     },
     summary: {
@@ -57,101 +56,101 @@ function headProjection(
   };
 }
 
+const worldRecord = (worldId: string) => ({
+  schema_version: "dmb_world_container_record_v1" as const, world_id: worldId,
+  name: worldId, source_root_relpath: `corpus/${worldId}`, created_at: "2026-01-01T00:00:00Z",
+});
+function managedProjection(
+  snapshot: Partial<WorldGraphProjection["snapshot"]> = {},
+  projection: Partial<WorldGraphProjection> = {},
+): ManagedWorldGraphProjectionResponse {
+  return { schema: "dmb_managed_world_graph_projection_v1", managedWorldId: "managed",
+    nativeWorldId: "eldyrwild", bindingVersion: 1, projection: headProjection(snapshot, projection) };
+}
+let location = "http://localhost/plan?world=managed";
+let refreshGeneration = "initial";
 function wrapper({ children }: { children: ReactNode }) {
-  return createElement(
-    WorldGraphLensProvider,
-    { planCampaignId: "longmont-c2" },
-    createElement(
-      WorldGraphLensProjectionProvider,
-      { defaultCampaignId: "longmont-c2" },
-      children,
-    ),
-  );
+  return createElement(SelectedWorldProvider, { locationSnapshot: location },
+    createElement(WorldGraphLensProvider, { planCampaignId: "longmont-c2" },
+      createElement(WorldGraphLensProjectionProvider,
+        { defaultCampaignId: "longmont-c2", revisionRefreshToken: refreshGeneration }, children)));
+}
+function withSelection(children: ReactNode) {
+  return createElement(SelectedWorldProvider, { locationSnapshot: "http://localhost/plan?world=managed" }, children);
 }
 
 describe("WorldGraphLensProjectionProvider", () => {
+  afterEach(() => expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled());
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockRejectedValue(new Error("Retired projection must not be called"));
+    location = "http://localhost/plan?world=managed";
+    refreshGeneration = "initial";
+    vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[worldRecord("managed"),worldRecord("other-managed")]});
     liveApi.setNativeGraphAccessToken(null);
     window.history.pushState({}, "", "/plan");
     vi.spyOn(liveApi, "getSourceSessions").mockResolvedValue([]);
   });
 
-  it("marks verified head responses ready", async () => {
-    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(headProjection());
-
+  it("marks verified managed head responses ready without a raw projection request", async () => {
+    const raw = vi.spyOn(liveApi, "postWorldGraphProjection");
+    const managed = vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue(managedProjection());
     const { result } = renderHook(() => useWorldGraphLensProjection(), { wrapper });
-
     await waitFor(() => expect(result.current.projectionState).toBe("ready"));
     expect(result.current.projection?.snapshot.revisionId).toBe("rev-head");
     expect(result.current.projectionError).toBeNull();
-    expect(result.current.managedBinding).toBeNull();
+    expect(result.current.managedBinding).toEqual({managedWorldId:"managed",nativeWorldId:"eldyrwild",bindingVersion:1});
+    expect(managed).toHaveBeenCalledTimes(1);
+    expect(raw).not.toHaveBeenCalled();
   });
 
-  it("fails closed when response identity does not match the request", async () => {
-    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(
-      headProjection({ campaignId: "longmont-c1" }),
-    );
-
+  it("fails closed when response campaign identity does not match the managed request", async () => {
+    vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue(managedProjection({ campaignId: "longmont-c1" }));
     const { result } = renderHook(() => useWorldGraphLensProjection(), { wrapper });
-
     await waitFor(() => expect(result.current.projectionState).toBe("error"));
     expect(result.current.projection).toBeNull();
     expect(result.current.managedBinding).toBeNull();
-    expect(result.current.projectionError).toMatch(/campaign longmont-c1 does not match requested campaign longmont-c2/);
+    expect(result.current.projectionError).toMatch(/campaign longmont-c1 does not match requested campaign/);
   });
 
-  it("treats Ingest recap ?campaign= as recap identity while World defaults to union", async () => {
-    window.history.pushState({}, "", "/ingest?campaign=longmont-c1&session=session-2");
-    const spy = vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(async (request) =>
-      headProjection({
-        campaignId: request.campaignId,
-        scopeMode: request.scopeMode,
-        focus:
-          request.focus.kind === "session"
-            ? {
-                kind: "session",
-                sessionId: request.focus.sessionId,
-                campaignId: request.focus.campaignId ?? null,
-              }
-            : { kind: "none", sessionId: null },
-      }),
-    );
+  it.each(["/plan", "/ingest?campaign=longmont-c1&session=session-2", "/plan?campaigns=longmont-c1,longmont-c2"])(
+    "refuses legacy projection demand without network IO at %s", async (path) => {
+      location = `http://localhost${path}`;
+      const raw = vi.spyOn(liveApi, "postWorldGraphProjection");
+      const managed = vi.spyOn(liveApi, "postManagedWorldGraphProjection");
+      const { result } = renderHook(() => ({projection:useWorldGraphLensProjection(),channel:useOptionalWorldGraphLensInformationChannel()}), { wrapper });
+      await waitFor(() => expect(result.current.projection.projectionState).toBe("error"));
+      expect(result.current.projection).toMatchObject({projection:null,managedBinding:null,nodeCount:0});
+      expect(result.current.channel?.getSnapshot().state.status).toBe("unavailable");
+      expect(raw).not.toHaveBeenCalled(); expect(managed).not.toHaveBeenCalled();
+    },
+  );
 
+  it("ignores recap campaign selectors for a selected managed World", async () => {
+    location = "http://localhost/ingest?world=managed&campaign=longmont-c1&session=session-2";
+    const managed = vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue(managedProjection());
+    const raw = vi.spyOn(liveApi, "postWorldGraphProjection");
     const { result } = renderHook(() => useWorldGraphLensProjection(), { wrapper });
-
     await waitFor(() => expect(result.current.projectionState).toBe("ready"));
-    expect(spy.mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({
-        campaignId: "longmont-c2",
-        scopeMode: "world",
-        focus: { kind: "none", sessionId: null },
-      }),
-    );
-    expect(spy.mock.calls.some((call) => call[0].scopeMode === "campaign")).toBe(false);
-    expect(result.current.projectionError).toBeNull();
+    expect(managed).toHaveBeenCalledWith({schema:"dmb_managed_world_graph_projection_request_v1",managedWorldId:"managed",queryText:null,revisionPin:null},expect.any(AbortSignal));
+    expect(result.current.request).toMatchObject({worldId:"managed",campaignId:"",scopeMode:"world",focus:{kind:"none",sessionId:null}});
+    expect(raw).not.toHaveBeenCalled();
   });
 
-  it("accepts C1+C2 world-union snapshots that omit campaignId", async () => {
-    window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
-    const spy = vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(
-      headProjection({
-        campaignId: "",
-        scopeMode: "world",
-        focus: { kind: "none", sessionId: null },
-      }),
-    );
-
-    const { result } = renderHook(() => useWorldGraphLensProjection(), { wrapper });
-
-    await waitFor(() => expect(result.current.projectionState).toBe("ready"));
-    expect(spy.mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({
-        campaignId: "longmont-c2",
-        scopeMode: "world",
-      }),
-    );
-    expect(result.current.projectionError).toBeNull();
+  it("clears ready managed bytes and retires its channel when selection becomes legacy", async () => {
+    const managed = vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue(managedProjection({}, {nodes:[glowkindle]}));
+    const raw = vi.spyOn(liveApi, "postWorldGraphProjection");
+    const { result, rerender } = renderHook(() => useProjectionAndChannel(), { wrapper });
+    await waitFor(() => expect(result.current.projection.projectionState).toBe("ready"));
+    const retired = result.current.channel!;
+    expect(result.current.projection.nodeCount).toBe(1);
+    location = "http://localhost/plan"; rerender();
+    expect(result.current.projection).toMatchObject({projection:null,managedBinding:null,nodeCount:0});
+    expect(result.current.channel).not.toBe(retired);
+    await waitFor(() => expect(result.current.projection.projectionState).toBe("error"));
+    expect(result.current.channel?.getSnapshot().state).not.toHaveProperty("value");
+    expect(retired.getSnapshot().state).not.toHaveProperty("value");
+    expect(managed).toHaveBeenCalledTimes(1); expect(raw).not.toHaveBeenCalled();
   });
 
   it("requests a managed World without fabricating a campaign", async () => {
@@ -304,8 +303,8 @@ describe("WorldGraphLensProjectionProvider", () => {
   });
 
   it("fails closed when head claim is inconsistent", async () => {
-    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(
-      headProjection({ isHead: true, revisionId: "rev-a", headRevisionId: "rev-b" }),
+    vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue(
+      managedProjection({ isHead: true, revisionId: "rev-a", headRevisionId: "rev-b" }),
     );
 
     const { result } = renderHook(() => useWorldGraphLensProjection(), { wrapper });
@@ -317,15 +316,16 @@ describe("WorldGraphLensProjectionProvider", () => {
   });
 
   it("exposes exact request identity for consumers", async () => {
-    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(headProjection());
+    vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue(managedProjection());
 
     const { result } = renderHook(() => useWorldGraphLensProjection(), { wrapper });
 
     await waitFor(() => expect(result.current.projectionState).toBe("ready"));
     expect(result.current.request).toEqual(
       expect.objectContaining({
-        campaignId: "longmont-c2",
-        scopeMode: "campaign",
+        worldId: "managed",
+        campaignId: "",
+        scopeMode: "world",
         admissibility: "gm",
       }),
     );
@@ -333,18 +333,18 @@ describe("WorldGraphLensProjectionProvider", () => {
   });
 
   it("clears ready bytes synchronously when revision refresh generation changes", async () => {
-    let resolveSecond!: (value: WorldGraphProjection) => void;
-    const secondDeferred = new Promise<WorldGraphProjection>((resolve) => {
+    let resolveSecond!: (value: ManagedWorldGraphProjectionResponse) => void;
+    const secondDeferred = new Promise<ManagedWorldGraphProjectionResponse>((resolve) => {
       resolveSecond = resolve;
     });
-    vi.spyOn(liveApi, "postWorldGraphProjection")
-      .mockResolvedValueOnce(headProjection({ revisionId: "rev-1", headRevisionId: "rev-1" }))
+    vi.spyOn(liveApi, "postManagedWorldGraphProjection")
+      .mockResolvedValueOnce(managedProjection({ revisionId: "rev-1", headRevisionId: "rev-1" }))
       .mockReturnValueOnce(secondDeferred);
 
     let refreshToken = "r0";
     const { result, rerender } = renderHook(() => useWorldGraphLensProjection(), {
       wrapper: ({ children }: { children: ReactNode }) =>
-        createElement(
+        withSelection(createElement(
           WorldGraphLensProvider,
           { planCampaignId: "longmont-c2" },
           createElement(
@@ -355,7 +355,7 @@ describe("WorldGraphLensProjectionProvider", () => {
             },
             children,
           ),
-        ),
+        )),
     });
 
     await waitFor(() => expect(result.current.projectionState).toBe("ready"));
@@ -371,7 +371,7 @@ describe("WorldGraphLensProjectionProvider", () => {
     expect(result.current.managedBinding).toBeNull();
 
     await act(async () => {
-      resolveSecond(headProjection({ revisionId: "rev-2", headRevisionId: "rev-2" }));
+      resolveSecond(managedProjection({ revisionId: "rev-2", headRevisionId: "rev-2" }));
     });
     await waitFor(() => expect(result.current.projectionState).toBe("ready"));
     expect(result.current.projection?.snapshot.revisionId).toBe("rev-2");
@@ -395,35 +395,32 @@ describe("WorldGraphLensProjectionProvider", () => {
   };
 
   function useProjectionAndChannel() {
-    const lens = useWorldGraphLens();
     return {
       projection: useWorldGraphLensProjection(),
       channel: useOptionalWorldGraphLensInformationChannel(),
-      setSelectedCampaignIds: lens.setSelectedCampaignIds,
     };
   }
 
   it("publishes one Surface Information channel per exact request and disposes it on replacement", async () => {
-    const spy = vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(async (request) =>
-      headProjection({
-        campaignId: request.campaignId,
+    const spy = vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockImplementation(async (request) =>
+      ({...managedProjection({
+        campaignId: "",
         worldId: "eldyrwild",
-        revisionId: `rev-${request.campaignId}`,
-        headRevisionId: `rev-${request.campaignId}`,
-      }),
+        revisionId: "rev-managed",
+        headRevisionId: "rev-managed",
+      }),managedWorldId:request.managedWorldId}),
     );
 
-    const { result } = renderHook(() => useProjectionAndChannel(), { wrapper });
+    const { result, rerender } = renderHook(() => useProjectionAndChannel(), { wrapper });
 
     await waitFor(() => expect(result.current.channel).not.toBeNull());
     const first = result.current.channel!;
     expect(first.descriptor.authority).toBe("dungeonmind");
     expect(first.descriptor.providerId).toBe("world_graph_lens_projection");
-    expect(first.descriptor.subject).toEqual({ kind: "world", id: "eldyrwild" });
+    expect(first.descriptor.subject).toEqual({ kind: "world", id: "managed" });
     expect(first.descriptor.scope).toEqual(
       expect.arrayContaining([
-        { kind: "campaign", id: "longmont-c2" },
-        { kind: "scope_mode", id: "campaign" },
+        { kind: "scope_mode", id: "world" },
         { kind: "admissibility", id: "gm" },
       ]),
     );
@@ -433,23 +430,27 @@ describe("WorldGraphLensProjectionProvider", () => {
       expect(status === "empty" || status === "ready").toBe(true);
     });
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy.mock.calls[0]?.[0].campaignId).toBe("longmont-c2");
+    expect(spy.mock.calls[0]?.[0].managedWorldId).toBe("managed");
 
     const staleTicket = first.beginObservation({ publishLoading: false });
     act(() => {
-      result.current.setSelectedCampaignIds(["longmont-c1"]);
+      location = "http://localhost/plan?world=other-managed";
+      rerender();
     });
-    await waitFor(() => expect(result.current.channel).not.toBe(first));
-    expect(result.current.channel).not.toBeNull();
+    await waitFor(() => {
+      expect(result.current.channel).not.toBeNull();
+      expect(result.current.channel).not.toBe(first);
+    });
     expect(result.current.channel!.descriptor.scope).toEqual(
-      expect.arrayContaining([{ kind: "campaign", id: "longmont-c1" }]),
+      expect.arrayContaining([{ kind: "scope_mode", id: "world" }]),
     );
     await waitFor(() => {
       const status = result.current.channel?.getSnapshot().state.status;
       expect(status === "empty" || status === "ready").toBe(true);
     });
     expect(spy).toHaveBeenCalledTimes(2);
-    expect(spy.mock.calls[1]?.[0].campaignId).toBe("longmont-c1");
+    expect(spy.mock.calls[1]?.[0].managedWorldId).toBe("other-managed");
+    expect(result.current.channel!.descriptor.subject).toEqual({kind:"world",id:"other-managed"});
     expect(
       first.commit(staleTicket!, {
         status: "ready",
@@ -463,29 +464,30 @@ describe("WorldGraphLensProjectionProvider", () => {
   });
 
   it("does not fetch World Graph on a disposed channel during descriptor replacement", async () => {
-    let resolveFirst!: (value: WorldGraphProjection) => void;
-    const firstDeferred = new Promise<WorldGraphProjection>((resolve) => {
+    let resolveFirst!: (value: ManagedWorldGraphProjectionResponse) => void;
+    const firstDeferred = new Promise<ManagedWorldGraphProjectionResponse>((resolve) => {
       resolveFirst = resolve;
     });
-    const spy = vi.spyOn(liveApi, "postWorldGraphProjection")
+    const spy = vi.spyOn(liveApi, "postManagedWorldGraphProjection")
       .mockReturnValueOnce(firstDeferred)
       .mockImplementation(async (request) =>
-        headProjection({
-          campaignId: request.campaignId,
+        ({...managedProjection({
+          campaignId: "",
           worldId: "eldyrwild",
-          revisionId: `rev-${request.campaignId}`,
-          headRevisionId: `rev-${request.campaignId}`,
-        }),
+          revisionId: "rev-managed",
+          headRevisionId: "rev-managed",
+        }),managedWorldId:request.managedWorldId}),
       );
 
-    const { result } = renderHook(() => useProjectionAndChannel(), { wrapper });
+    const { result, rerender } = renderHook(() => useProjectionAndChannel(), { wrapper });
     await waitFor(() => expect(result.current.channel).not.toBeNull());
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy.mock.calls[0]?.[0].campaignId).toBe("longmont-c2");
+    expect(spy.mock.calls[0]?.[0].managedWorldId).toBe("managed");
     const first = result.current.channel!;
 
     act(() => {
-      result.current.setSelectedCampaignIds(["longmont-c1"]);
+      location = "http://localhost/plan?world=other-managed";
+      rerender();
     });
     await waitFor(() => expect(result.current.channel).not.toBe(first));
     await waitFor(() => {
@@ -493,12 +495,13 @@ describe("WorldGraphLensProjectionProvider", () => {
       expect(status === "empty" || status === "ready").toBe(true);
     });
     expect(spy).toHaveBeenCalledTimes(2);
-    expect(spy.mock.calls[1]?.[0].campaignId).toBe("longmont-c1");
+    expect(spy.mock.calls[1]?.[0].managedWorldId).toBe("other-managed");
+    expect(result.current.channel!.descriptor.subject).toEqual({kind:"world",id:"other-managed"});
 
     await act(async () => {
       resolveFirst(
-        headProjection({
-          campaignId: "longmont-c2",
+        managedProjection({
+          campaignId: "",
           revisionId: "rev-late-c2",
           headRevisionId: "rev-late-c2",
         }),
@@ -508,27 +511,27 @@ describe("WorldGraphLensProjectionProvider", () => {
     const live = result.current.channel!.getSnapshot();
     expect(live.state.status === "empty" || live.state.status === "ready").toBe(true);
     if (live.state.status === "empty" || live.state.status === "ready") {
-      expect(live.state.revision).toEqual({ kind: "exact", value: "rev-longmont-c1" });
+      expect(live.state.revision).toEqual({ kind: "exact", value: "rev-managed" });
     }
   });
 
   it("rejects a late same-scope response on the Surface Information channel", async () => {
-    let resolveA!: (value: WorldGraphProjection) => void;
-    let resolveB!: (value: WorldGraphProjection) => void;
-    const deferredA = new Promise<WorldGraphProjection>((resolve) => {
+    let resolveA!: (value: ManagedWorldGraphProjectionResponse) => void;
+    let resolveB!: (value: ManagedWorldGraphProjectionResponse) => void;
+    const deferredA = new Promise<ManagedWorldGraphProjectionResponse>((resolve) => {
       resolveA = resolve;
     });
-    const deferredB = new Promise<WorldGraphProjection>((resolve) => {
+    const deferredB = new Promise<ManagedWorldGraphProjectionResponse>((resolve) => {
       resolveB = resolve;
     });
-    vi.spyOn(liveApi, "postWorldGraphProjection")
+    vi.spyOn(liveApi, "postManagedWorldGraphProjection")
       .mockReturnValueOnce(deferredA)
       .mockReturnValueOnce(deferredB);
 
     let refreshToken = "r0";
     const { result, rerender } = renderHook(() => useProjectionAndChannel(), {
       wrapper: ({ children }: { children: ReactNode }) =>
-        createElement(
+        withSelection(createElement(
           WorldGraphLensProvider,
           { planCampaignId: "longmont-c2" },
           createElement(
@@ -539,7 +542,7 @@ describe("WorldGraphLensProjectionProvider", () => {
             },
             children,
           ),
-        ),
+        )),
     });
 
     await waitFor(() => expect(result.current.channel).not.toBeNull());
@@ -553,9 +556,9 @@ describe("WorldGraphLensProjectionProvider", () => {
     const descriptor = channel.descriptor;
 
     await act(async () => {
-      const campaignId = result.current.projection.request?.campaignId ?? "longmont-c2";
+      const campaignId = result.current.projection.request?.campaignId ?? "";
       resolveB(
-        headProjection(
+        managedProjection(
           { campaignId, revisionId: "rev-B", headRevisionId: "rev-B" },
           { nodes: [glowkindle] },
         ),
@@ -568,9 +571,9 @@ describe("WorldGraphLensProjectionProvider", () => {
     }
 
     await act(async () => {
-      const campaignId = result.current.projection.request?.campaignId ?? "longmont-c2";
+      const campaignId = result.current.projection.request?.campaignId ?? "";
       resolveA(
-        headProjection(
+        managedProjection(
           { campaignId, revisionId: "rev-A", headRevisionId: "rev-A" },
           { nodes: [glowkindle] },
         ),
@@ -583,16 +586,16 @@ describe("WorldGraphLensProjectionProvider", () => {
   });
 
   it("treats an equivalent verified refresh as a new observation generation", async () => {
-    const payload = headProjection(
+    const payload = managedProjection(
       { revisionId: "rev-same", headRevisionId: "rev-same" },
       { nodes: [glowkindle] },
     );
-    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(payload);
+    vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue(payload);
 
     let refreshToken = "r0";
     const { result, rerender } = renderHook(() => useProjectionAndChannel(), {
       wrapper: ({ children }: { children: ReactNode }) =>
-        createElement(
+        withSelection(createElement(
           WorldGraphLensProvider,
           { planCampaignId: "longmont-c2" },
           createElement(
@@ -603,7 +606,7 @@ describe("WorldGraphLensProjectionProvider", () => {
             },
             children,
           ),
-        ),
+        )),
     });
 
     await waitFor(() => expect(result.current.channel?.getSnapshot().state.status).toBe("ready"));
@@ -618,8 +621,8 @@ describe("WorldGraphLensProjectionProvider", () => {
   });
 
   it("does not introduce a second World Graph request path", async () => {
-    const spy = vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(headProjection());
-    const { result } = renderHook(() => useProjectionAndChannel(), { wrapper });
+    const spy = vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue(managedProjection());
+    const { result, rerender } = renderHook(() => useProjectionAndChannel(), { wrapper });
     await waitFor(() => expect(result.current.projection.projectionState).toBe("ready"));
     expect(spy).toHaveBeenCalledTimes(1);
   });
