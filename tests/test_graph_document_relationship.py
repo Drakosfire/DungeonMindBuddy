@@ -32,25 +32,24 @@ def graph(case,monkeypatch):
     return nodes
 
 
-def test_request_preview_and_explicit_confirmation_reuse_existing_writer(case,graph):
+def test_review_request_preserves_source_but_classic_preparation_is_retired(case,graph):
     original=page_text(case.root, case.record.document_id).encode("utf-8")
     response=case.client.post('/api/live/graph-authoring/document-relationship/request',json=intent(case))
     assert response.status_code==200,response.text
     request=response.json()
-    assert case.authority.publish_calls==0
-    preview=case.client.post('/api/live/graph-authoring/prepare',json=request)
-    assert preview.status_code==200,preview.text
-    assert case.authority.publish_calls==0
-    confirmed={**request,'confirmToken':preview.json()['confirm_token']}
-    for _ in range(2):
-        receipt=case.client.post('/api/live/graph-authoring/commit',json=confirmed)
-        assert receipt.status_code==200,receipt.text
-    assert case.authority.publish_calls==1
-    assert page_text(case.root, case.record.document_id).encode("utf-8")==original
+    assert request['worldId']==intent(case)['world_id']
+    assert request['campaignId']==intent(case)['world_id']
+    assert request['documentSource']==case.selector.model_dump(by_alias=True)
     assert request['proposals'][-1]['summary']==intent(case)['context']
     assert request['proposals'][-1]['relationshipLabel']=='owns — '+intent(case)['context']
-    edge=next(a for a in case.authority.published_requests[0].contribution.accepted_assertions if a.assertion_kind=='edge')
-    assert edge.label==request['proposals'][-1]['relationshipLabel']
+    assert case.authority.publish_calls==0
+    preview=case.client.post('/api/live/graph-authoring/prepare',json=request)
+    assert preview.status_code==410,preview.text
+    assert preview.json()['detail']['code']=='classic_manual_prepare_retired'
+    assert 'confirm_token' not in preview.json()
+    assert case.authority.publish_calls==0
+    assert case.authority.published_requests==[]
+    assert page_text(case.root, case.record.document_id).encode("utf-8")==original
 
 
 @pytest.mark.parametrize('mutation',['quote','revision','world','self','predicate'])
