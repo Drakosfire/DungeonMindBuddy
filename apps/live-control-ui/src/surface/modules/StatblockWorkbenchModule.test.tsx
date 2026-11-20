@@ -4,7 +4,7 @@ import {GuidedTourProvider} from '../../guidedTour/GuidedTour';
 import {GenerationPlanProvider} from '../../guidedTour/GenerationObservations';
 import {createWalkthrough,reduceTour,type TargetPin} from '../../guidedTour/protocol';
 import {readWalkthrough,writeWalkthrough} from '../../guidedTour/storage';
-import { act, render as renderWithoutHost, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render as renderWithoutHost, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -1983,7 +1983,7 @@ describe("StatblockWorkbenchModule", () => {
       );
     });
 
-    it("keeps an explicit movement repair exact through preview and Accept/Save", async () => {
+    it("keeps an explicit movement repair exact through preview, Accept/Save, and reload", async () => {
       const candidateId = "cand_movement_repair";
       const draftId = "td_movement_repair";
       const sourceCandidate = movementCandidate(candidateId);
@@ -2058,6 +2058,38 @@ describe("StatblockWorkbenchModule", () => {
       expect(acceptSpy.mock.calls[0][1].definition).toEqual(acceptedDefinition);
       expect(acceptSpy.mock.calls[0][1].validation_receipt.status).toBe("valid");
       await waitFor(() => expect(screen.getByText(/Mechanics saved; not published/i)).toBeTruthy());
+
+      const [savedDraft, savedRequest] = acceptSpy.mock.calls[0];
+      const saved = await acceptSpy.mock.results[0].value;
+      const readSavedOperation = vi.spyOn(liveApi, "getAcceptanceOperation").mockResolvedValue({
+        schema: "dmb_read_acceptance_operation_response_v1",
+        draft_id: savedDraft,
+        result_label: "mechanics_saved",
+        operation: {
+          schema: "dmb_statblock_acceptance_operation_v1",
+          operation_id: saved.operation_id,
+          idempotency_key: "idem_movement_repair",
+          create_request_digest: PREVIEW_DIGEST,
+          request_body: savedRequest,
+          source_draft_id: savedDraft,
+          source_draft_version: 1,
+          validation_receipt_digest: PREVIEW_DIGEST,
+          authority_state: "reconciled",
+          locator: saved.locator,
+          materialization: { draft_ref: "attached" },
+          created_at: "2026-07-25T00:00:00Z",
+          updated_at: "2026-07-25T00:00:00Z",
+        },
+      });
+
+      cleanup();
+      await loadId(candidateId);
+      await waitFor(() => expect(screen.getByText(/Mechanics saved; not published/i)).toBeTruthy());
+      expect(readSavedOperation).toHaveBeenCalledWith(savedDraft, saved.operation_id);
+      const locator = screen.getByTestId("accept-mechanics-locator");
+      expect(locator.textContent).toContain("rev_movement_repair");
+      expect(locator.textContent).toContain(PREVIEW_DIGEST);
+      expect(acceptSpy).toHaveBeenCalledTimes(1);
     });
 
     it("shows mechanics_saved locator and not-published wording", async () => {
