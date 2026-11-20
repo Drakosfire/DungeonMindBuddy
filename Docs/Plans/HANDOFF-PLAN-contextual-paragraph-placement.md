@@ -1,14 +1,18 @@
 # Ordinary Plan contextual paragraph placement
 
 Status: ACTIVE. The initial inert preparation gate on #4240 is resolved: that PR
-merged, and this lane rebased onto current main6f8af81e6dd47ec92b5ef9a0180e2e34ffd104c4
-containing its actual 0170 migration. Alan explicitly chose #4240 first, then
+merged, and the first integration used main6f8af81e6dd47ec92b5ef9a0180e2e34ffd104c4
+containing its actual 0170 migration. This lane now consumes main
+cf89e86624231a5e373d0afddc4d1be48e2af5de, preserving the merged tracing changes and
+DungeonMind046791d verified-row pin/opt-in. Alan explicitly chose #4240 first, then
 0171 after0170. The authorized fence is now allocated as
 `20261120_0171_plan_paragraph_placement_reader_fence.py`, down_revision0170.
 No production migration execution or deployment. V2 public admission/producer
-wiring is in progress in draft #4264; ordinary-model acceptance and exact-source
-qualification remain unfinished. Historical inert checkpoints below describe
-their recorded heads, not the current working-tree wiring.
+wiring is implemented in draft #4264. Real Jev targeting and the browser/native
+Save witness passed at c274197a before rebase; exact-current integrated verification
+and final independent review remain pending. Scripted prose is not real-writer
+quality or hosted/release qualification. Historical checkpoints below describe
+their recorded heads, not an instruction to leave consumers inert.
 
 ## Outcome and delivery
 
@@ -232,7 +236,7 @@ not success inferred from the eight harness tests passing. Exact model/config an
 all requests/responses/observations are retained under `plan-ordinary-dev`, with
 `nomination-native-score.json` and frozen runner/input hashes.
 
-V2 guidance is now being refined only on dev: match paragraph passage, requested
+V2 guidance was refined only on dev: match paragraph passage, requested
 side and section; use heading choices for heading requests; unresolved duplicate
 paragraphs clarify without order/caret tie-breaking. Preserve exact V1 guidance.
 Fresh held-out22-case oracle remains unread; do not consume until configuration
@@ -244,3 +248,85 @@ at an empty owned root and exact disposable-DSN guards. Actual writer attempt
 returned401; no page creation/write followed its failed reply. The user's one-shot
 Jev-versus-writer question is answered and marked handled in external continuation
 notes; do not repeat the credential request during targeting work.
+
+## Frozen nomination and joined browser evidence
+
+At c274197af9241485c78cb3615b2ff6172c16f17d, the corrected frozen dev run scored
+8/8 (five target, two clarification, one discussion), after the retained 6/8 run.
+The configuration was frozen before the independently authored 22-case holdout.
+Independent evaluation scored 22/22: 12 target, 6 clarify, 4 discuss; no wrong
+target, missed/unnecessary clarification, negative reservation/proposal, or source
+mutation. All 12 proposal captures passed boundary/selection/digest/basis checks.
+Actual Jev 1.14.0/typesafe made 34 calls. The 22 scripted shared-writer calls were
+12 authoring and 10 conversation calls, with no negative authoring-mode call.
+Producer/root never opened the private oracle. No tuning/provider rerun followed
+scoring. The aggregate report under the external task is
+`plan-heldout-review/execution/evaluator/summary-v2.json`, SHA256
+1200d554bee9d2f140c045f3fc3c524ffd61aac2bd7180634d864f89e39a2959.
+The provisional evaluator output remains with its documented shared-writer
+interpretation correction; it is not another model evaluation.
+
+The joined witness is `plan-browser/attempt-qdlwhhl6`, source c274197a with clean
+Git state. It uses the production UI bundle, actual browser Send/capture/catalog,
+real Jev, native turn/review owners, and disposable PostgreSQL templates/clones.
+It fabricates no proposal receipt and does not retarget a returned action.
+Auth/principal/readiness/World registry are fixture-controlled; prose is scripted.
+The passing flow proves:
+
+- An unrelated collapsed caret at 1 and duplicate prose elsewhere do not override
+  Preparation's after-paragraph boundary 3. The original editor and committed
+  revision remain unchanged while the inline proposal is displayed.
+- Keyboard Save confirms the real retained application. The entire inserted
+  payload matches the suggestion and sealed after-editor JSON; every unrelated
+  root is exact. The fragment includes both warning and partial-retrieval
+  disclosure; this is not warning-only insertion.
+- Native keyboard Undo/Redo compares complete editor JSON. A new browser context
+  with empty storage reads immutable committed Markdown, digest, revision_n and
+  WorkRevision identity matching the confirmed application.
+- A fresh-conversation ambiguous request sends only its normal Agent turn: no
+  Save/review/create request, editor change, proposal or authoring reservation.
+- Closing conversation, selecting the paragraph with Home/Shift+End, and sending
+  an explicit selected-text rewrite recovers through captured-only replacement
+  and native Save. Unrelated roots remain exact. One native empty parent-boundary
+  paragraph is retained; no normalization is performed.
+- The 390px proposal layout has no horizontal overflow. Screenshots and all
+  mutation requests are retained. Read-only Graph/source catalog POSTs are
+  separately recorded unavailable fixtures. Denied mutations are visible; none
+  occurred in the passing witness.
+
+Independent fixture review verified hashes, immutable reads, exact normal Send
+with null explicit operation, payload scope, no hidden denied mutations, loopback
+Host/same-Origin admission and resolved static-file containment. This is not
+hosted authorization, real-writer/minimum-question quality or deployment proof.
+Earlier fixture/probe failures remain retained separately.
+
+Reproduce from external task root
+`/home/drakosfire/Projects/.codex/buddy-check.A0jV7T`: use Node 22 and the frontend
+flock; run `plan-browser/test_browser_native.py` with `DMB_BROWSER_PHASE=joined`,
+its exact source guard, the owning locked Python environment and a task-owned
+`DMB_APPLICATION_STATE_TEST_DATABASE_URL`. The fixture records imported source
+paths, clean Git SHA, harness/bundle hashes and model wires. New servers bind
+loopback port 0 and close before database cleanup. Preload credentials before
+fixtures, redirect nested dotenv reloads to an owned empty root, and assert the
+exact disposable DSN. Never send credentials in commands or model-visible input.
+
+The repo-owned query-and-answer contract at c274197a passed 1,308 tests, exit 0.
+The first tracing/pin integration at 90fdeb8c passed 1,312 tests, hosted 1,421 tests
+and build/validator, and the strengthened joined browser witness with its own
+fresh 1331f24 environment (`plan-browser/attempt-c5yndays`). Those handles completed
+before another rebase. All five capability patches remain identical by range-diff;
+the frontend tree remains 8196f95e.
+
+Main's later cf89 integration changes only the native registry/inspection opt-in
+and locked Core pin. Independent source review found no changed Jev questions,
+labels, aliases, codecs, binding, writer instructions, editor application or Save.
+Standalone reads keep the default path; cached shared inspection reads use the
+verified-row option. The unavailable-Graph witness does not exercise that option.
+A fresh 046791d environment, auth-app inspection/principal controls, query-and-answer
+including explicit V2 placement controls, integrated browser and exact frontend
+verification remain required before final review/merge. Consume upstream merged
+Core proof for its row parser; do not claim our fixture qualifies that branch.
+Old-SHA evidence is labeled, not reused as exact-current-source qualification.
+Keep the one-shot holdout consumed; do not retune it or claim a fresh score after
+integration. Unchanged producer semantics support carrying its original evidence
+with accurate provenance, not inventing a new inference run.
