@@ -646,6 +646,10 @@ class AgentTurnTraceBuilder:
         if self._first_jev_dispatch_recorded or not self.turn_id:
             return
         self._first_jev_dispatch_recorded = True
+        observer = host_work_observer.get()
+        if observer is not None:
+            dispatched = time.monotonic()
+            observer(self.trace_id, "first_jev_transport_entry", dispatched, dispatched, False)
         LOGGER.info(
             "buddy_first_jev_dispatch turn_id=%s trace_id=%s unix_ms=%d server_elapsed_ms=%.1f",
             self.turn_id, self.trace_id, time.time_ns() // 1_000_000,
@@ -740,6 +744,10 @@ class AgentTurnTraceBuilder:
         if attributes:
             merged_attributes.update(dict(attributes))
         completed_mono = time.monotonic()
+        observer = host_work_observer.get()
+        if observer is not None:
+            observer(self.trace_id, open_span["name"], open_span["started_mono"],
+                     completed_mono, status == "error")
         self._phase_offsets[span_id] = {
             "start_offset_ms": (open_span["started_mono"] - self._started_mono) * 1000,
             "end_offset_ms": (completed_mono - self._started_mono) * 1000,
