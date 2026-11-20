@@ -34,3 +34,19 @@ evidence and obtain independent review before merge.
 
 The full cutover still requires deployment, rollback rehearsal and serving
 acceptance. The frozen retrieval baseline is retained.
+
+## Test scope after first diagnostic
+
+The first working-tree UI diagnostic recorded 972 passes and 86 failures.
+Audit these failures in the owning Graph Lens demand and hook suites,
+RecapGraphModule, GraphReviewCommittedProjectionPanel, GraphReviewExtractPromoteSheet,
+GraphReviewLiveProjectionPanel, GraphReviewWorkbenchModule and
+StatblockWorkbenchModule tests. The work here is to move still-valid behavior
+proofs to managed fixtures and replace direct classic-read expectations with
+retirement assertions. Preserve tests for unrelated defects and carry their
+actual results into the base comparison. No release qualification claim.
+
+Hubble's server lease remains exclusive until final report. Aristotle owns
+only the two Graph Lens test files named above. MIND owns the other UI files.
+The diagnostic artifacts are retained in task scratch under
+v10-public-projection-retirement.
