@@ -1,6 +1,6 @@
 # Retire mounted classic Threat publication
 
-Status: COMPLETE — accepted implementation; merge pending. Owner MIND; explicit operator authorization covers the full vNext
+Status: COMPLETE — accepted and merged as PR #4234. Owner MIND; explicit operator authorization covers the full vNext
 lane's design, implementation, review and merge. Serial successor to accepted
 PR #4233 at `43c39419cb9024054d6ef78db99746111f04178b`. Branch
 `codex/v10-retire-classic-threat-publication`; reuse existing task Buddy checkout
@@ -189,8 +189,14 @@ dirty worktrees and unique commits before any specifically authorized cleanup.
 This follow-up applies to each retained scratch/cache and the reused checkout;
 never blanket-clean shared caches or another lane's artifacts.
 
-The next consuming slice must settle the actual merge anchor and this merge-
-pending field. What remains false: callable classic library writers are not
+Accepted merge: `e4829505224a29ea9b4d3688ac22762588d60b05`, seal
+`9d63c1c0232c8f8f93fbc6777b4417a431470920`, tree equality
+`b880babefea207aaa1728e054b558ffa3e29ac50`. Reviews5992289571 and5992315513
+accept the bounded implementation/seal; CI44732012856/44732012858/44732012841
+pass. Backend evidence at d036 is byte-identical in the backend at af3; frontend
+qualification tested af3 directly. This merge equality does not claim execution
+of the actual merged commit or a serving deployment. This successor settles the
+former merge-pending field without changing the retained red full-default result. What remains false: callable classic library writers are not
 excised; Kernel current/public WorldGraph APIs are not yet quarantined; deployed
 current authority, later-write-safe rollback and V11 are not accepted. Core main
 was re-fetched at d206 and matches Buddy's accepted pin. Next primary question:
