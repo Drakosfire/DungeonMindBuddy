@@ -2722,17 +2722,16 @@ export async function postWorldGraphRecapContextReadV2(
   request: WorldGraphRecapContextReadRequestV2,
   saved?: { worldId: string; turnId: string; claimId: string },
 ): Promise<WorldGraphRecapContextReadResponseV2> {
-  if (saved && !isLoopbackApiDestination(`${baseUrl}/api/live`)) {
+  if (saved) {
     const query = new URLSearchParams({ claim_id: saved.claimId, anchor_id: request.contextAnchorId });
     if (request.continuation) query.set("continuation", request.continuation);
     return apiFetch<WorldGraphRecapContextReadResponseV2>(
       `/api/live/agent/worlds/${encodeURIComponent(saved.worldId)}/conversation/turns/${encodeURIComponent(saved.turnId)}/graph-evidence?${query}`,
     );
   }
-  return apiFetch<WorldGraphRecapContextReadResponseV2>(
-    "/api/live/world-graph/retrieval/recap-context/v2/read",
-    { method: "POST", body: JSON.stringify(request) },
-  );
+  throw new LiveApiError("Open related recap context from a saved answer.", 410, {
+    code: "recap_context_retired",
+  });
 }
 
 export async function postIndexAgentTurn(

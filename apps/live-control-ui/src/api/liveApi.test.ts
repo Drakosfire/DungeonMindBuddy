@@ -3477,3 +3477,14 @@ it.each([true, false])("loads surface views with combined response supported: %s
   expect(await getSurfaceSessionViews()).toEqual({ ...surface, ...views });
   expect(fetch).toHaveBeenCalledTimes(supported ? 1 : 4);
 });
+
+
+it("refuses unbound related-recap discovery without network IO", async () => {
+  const api = await import("./liveApi");
+  const fetch = vi.spyOn(globalThis, "fetch");
+  await expect(api.postWorldGraphRecapContextReadV2({
+    schema: "dmb_recap_context_read_request_v2", worldId: "native", campaignId: "", scopeMode: "world",
+    revisionPin: "revision", contextAnchorId: "dm-context-anchor:v2:exact", maxChars: 12000, focus: { kind: "none", sessionId: null, campaignId: null }, admissibility: "gm",
+  })).rejects.toMatchObject({ name: "LiveApiError", status: 410, code: "recap_context_retired" });
+  expect(fetch).not.toHaveBeenCalled();
+});

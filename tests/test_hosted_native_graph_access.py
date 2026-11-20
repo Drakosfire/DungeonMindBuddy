@@ -4549,7 +4549,8 @@ def test_saved_action_evidence_resolves_target_from_exact_plan_action(monkeypatc
     open_anchor.assert_called_once_with(target)
 
 
-def test_saved_turn_related_recap_binds_continuation_to_saved_revision(monkeypatch):
+@pytest.mark.parametrize("mutation", ["revision", "native_world", "artifact", "source_revision", "hash", "anchor", "binding", "unavailable"])
+def test_saved_turn_related_recap_binds_continuation_to_saved_revision(monkeypatch, mutation):
     from unittest.mock import Mock
 
     from apps.live_control_server.services import agent_source_passages as passages
@@ -4585,9 +4586,19 @@ def test_saved_turn_related_recap_binds_continuation_to_saved_revision(monkeypat
     assert passages.open_saved_turn_related_recap(**selectors) is result
     request = read.call_args.args[1]
     assert (request.revision_pin, request.continuation) == (target.graph_revision, continuation)
-    snapshot.revision_id = "different-revision"
-    with pytest.raises(passages.SourcePassageOpenError, match="source_passage_binding_invalid"):
+    assert (request.world_id, request.context_anchor_id, request.max_chars) == (target.native_world_id, target.context_anchor_id, 12000)
+    if mutation == "revision": snapshot.revision_id = "different-revision"
+    elif mutation == "native_world": snapshot.world_id = "different-world"
+    elif mutation == "artifact": descriptor.source_artifact_id = "different-artifact"
+    elif mutation == "source_revision": descriptor.source_revision_id = "different-source-revision"
+    elif mutation == "hash": descriptor.content_sha256 = "f" * 64
+    elif mutation == "anchor": descriptor.context_anchor_id = "dm-context-anchor:v2:foreign"
+    elif mutation == "binding": binding.binding_version += 1
+    else: read.side_effect = RuntimeError("Authority unavailable")
+    expected = "source_passage_unavailable" if mutation == "unavailable" else "source_passage_binding_invalid"
+    with pytest.raises(passages.SourcePassageOpenError, match=expected):
         passages.open_saved_turn_related_recap(**selectors)
+    assert read.call_count == (1 if mutation == "binding" else 2)
 
 
 def test_hosted_plan_terminal_diagnostic_reads_owned_action(hosted, monkeypatch):
