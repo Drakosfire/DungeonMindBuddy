@@ -3395,3 +3395,60 @@ def test_temporal_wording_keeps_ordinary_supported_claims_not_latestness(tmp_pat
     assert response["graph_references"]
     assert response["answer"] != ABSTENTION_ANSWER
     assert "latest_recap_change" not in response and "s1_support" not in response
+
+
+@pytest.mark.parametrize("backend", ["live", "hermes"])
+@pytest.mark.parametrize("scope", ["campaign", "world", "selected_object"])
+def test_graph_attached_live_query_retires_without_downstream_work(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, backend: str, scope: str
+) -> None:
+    from apps.live_control_server.routes import live as live_route
+
+    def unexpected(*args: object, **kwargs: object) -> None:
+        pytest.fail("Retired query reached session, storage, or runtime work")
+
+    for name in ("session_dir", "load_session_packet", "get_world_container", "process_live_query"):
+        monkeypatch.setattr(live_route, name, unexpected)
+
+    context = dict(GRAPH_NESTED)
+    campaign_id = "longmont-c2"
+    if scope != "campaign":
+        campaign_id = "elderwyld"
+        context.update(world_id=campaign_id, scope_mode="world", campaign_id="")
+    if scope == "selected_object":
+        context["selected_node_id"] = "entity:tripod"
+
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": campaign_id,
+            "session": 22,
+            "query_backend": backend,
+            "text": "Where is Tripod?",
+            "world_graph_context": context,
+        },
+    )
+    assert response.status_code == 410
+    assert response.json()["code"] == "legacy_live_graph_query_retired"
+
+
+def test_malformed_graph_attached_live_query_precedes_authorization(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from apps.live_control_server.routes import live as live_route
+
+    def unexpected(*args: object, **kwargs: object) -> None:
+        pytest.fail("Malformed query reached authorization")
+
+    monkeypatch.setattr(live_route, "enforce_native_graph_gm", unexpected)
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "text": "Where is Tripod?",
+            "world_graph_context": {**GRAPH_NESTED, "world_id": ""},
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["body", "world_graph_context", "world_id"]
