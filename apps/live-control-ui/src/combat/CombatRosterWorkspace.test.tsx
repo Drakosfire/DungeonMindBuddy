@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {cleanup, render, screen, within} from '@testing-library/react';
+import {cleanup, fireEvent, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {afterEach, expect, it, vi} from 'vitest';
 import fixture from '../../../../tests/fixtures/statblocks/v1/exact-revision-response.json';
@@ -80,4 +80,34 @@ it('keeps selection through group collapse and returns close focus outside hidde
   expect(screen.queryByRole('button',{name:'Project Bridge brute'})).toBeNull();
   await userEvent.click(screen.getByRole('button',{name:'Close projected statblock'}));
   expect(screen.getByRole('region',{name:'Combat roster and statblock'})).toHaveFocus();
+});
+
+it('moves the selected source into a modal and restores roster focus on cancel', async () => {
+  const nativeDialog = HTMLDialogElement.prototype;
+  const showModal = Object.getOwnPropertyDescriptor(nativeDialog, 'showModal');
+  const close = Object.getOwnPropertyDescriptor(nativeDialog, 'close');
+  Object.defineProperties(nativeDialog, {
+    showModal: {configurable: true, value(this: HTMLDialogElement) { this.open = true; }},
+    close: {configurable: true, value(this: HTMLDialogElement) { this.open = false; }},
+  });
+  try {
+    render(board(draft()));
+    const trigger = screen.getByRole('button', {name: 'Project Bridge brute'});
+    await userEvent.click(trigger);
+    await userEvent.click(screen.getByRole('button', {name: 'Open as modal'}));
+    const modal = screen.getByRole('dialog', {name: 'Projected statblock for Bridge brute'});
+    expect(await within(modal).findByRole('heading', {name: 'Ironhide Brute'})).toBeVisible();
+    await userEvent.click(within(modal).getByRole('button', {name: 'Dock statblock'}));
+    expect(screen.getByRole('complementary')).toHaveFocus();
+    await userEvent.click(screen.getByRole('button', {name: 'Open as modal'}));
+    const reopened = screen.getByRole('dialog');
+    fireEvent(reopened, new Event('cancel', {cancelable: true}));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(trigger).toHaveFocus();
+  } finally {
+    if (showModal) Object.defineProperty(nativeDialog, 'showModal', showModal);
+    else Reflect.deleteProperty(nativeDialog, 'showModal');
+    if (close) Object.defineProperty(nativeDialog, 'close', close);
+    else Reflect.deleteProperty(nativeDialog, 'close');
+  }
 });

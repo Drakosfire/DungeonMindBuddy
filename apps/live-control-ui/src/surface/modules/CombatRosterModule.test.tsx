@@ -279,6 +279,25 @@ describe("CombatRosterModule", () => {
     expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
   });
 
+  it("runs sample turns without an encounter write until explicitly kept", async () => {
+    vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockResolvedValue([]);
+    const created = record({draft: {...record().draft, title: "Crossing at dusk", entities: []}});
+    const create = vi.spyOn(combatApi, "createWorldCombatEncounter").mockResolvedValue(created);
+    const save = vi.spyOn(combatApi, "saveWorldCombatEncounter");
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", {name: "Load sample"}));
+    await userEvent.click(screen.getByRole("button", {name: "Next turn"}));
+    expect(screen.getByText("Round 1 · Harbor Brute")).toBeVisible();
+    expect(create).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", {name: "Create encounter from sample"}));
+    await screen.findByText("Unsaved changes");
+    expect(create).toHaveBeenCalledWith("elderwyld", {title: "Crossing at dusk"});
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it("creates a durable encounter, keeps edits local, then explicitly saves against its revision", async () => {
     const created = record({ draft: { ...record().draft, title: "New encounter", entities: [] } });
     vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockResolvedValue([]);
@@ -870,7 +889,7 @@ describe("CombatRosterModule", () => {
     expect(round()).toHaveTextContent('4');
     await userEvent.click(screen.getByRole('button',{name:'Next turn'}));
     expect(round()).toHaveTextContent('5');
-    await userEvent.click(screen.getByRole('button',{name:'Previous turn'}));
+    await userEvent.click(screen.getByRole('button',{name:'Back'}));
     expect(round()).toHaveTextContent('4');
   });
 

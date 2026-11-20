@@ -1,3 +1,5 @@
+import {stepCombatTurn} from "../../combat/combatTurn";
+import {CombatSamplePreview} from "../../combat/CombatSamplePreview";
 import type {SavedConversationVariantTarget} from '../../statblocks/savedStatblockLocation';
 import {useTourNavigationGuard} from '../../guidedTour/Navigation';
 import {useTourEncounter,type TourEncounterScope} from '../../guidedTour/EncounterScope';
@@ -229,7 +231,7 @@ function RosterRow({
       </td>
       <td className="combat-roster-notes">
         <span className="eyebrow">Conditions</span>
-        <input
+        <textarea rows={1}
           aria-label={`Conditions for ${entity.name}`}
           value={entity.conditions.join(", ")}
           disabled={disabled}
@@ -292,6 +294,8 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
   const [manualRecord,setManualRecord]=useState<ManualCombatRecord|null>(null);
   const [manualBlocked,setManualBlocked]=useState(false);
   const [draft, setDraft] = useState<CombatEncounterDraft | null>(null);
+  const [sampleWorld, setSampleWorld] = useState<string | null>(null);
+  const [setupSystem, setSetupSystem] = useState<"dnd5e" | "custom">("dnd5e");
   const [newTitle, setNewTitle] = useState("New encounter");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -436,18 +440,22 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
     });
   }
 
-  async function createEncounter() {
+  async function createEncounter(sample?: CombatEncounterDraft) {
     if (!worldId) return;
     const requestedWorldId = worldId;
     const generation = worldRequestGeneration.current;
     setBusy("create");
     setError(null);
     try {
-      const created = await createWorldCombatEncounter(requestedWorldId, { title: newTitle.trim() || "New encounter" });
+      const created = await createWorldCombatEncounter(requestedWorldId, { title: sample?.title ?? (newTitle.trim() || "New encounter") });
       if (generation !== worldRequestGeneration.current) return;
       setEncounters((current) => [created, ...current.filter((item) => item.encounter_id !== created.encounter_id)]);
       setSelectedEncounterId(created.encounter_id);
       await adoptRecord(created, requestedWorldId, null, generation);
+      if (sample && generation === worldRequestGeneration.current && recordRef.current?.encounter_id === created.encounter_id) {
+        updateDraft(() => sample);
+        setSampleWorld(null);
+      }
     } catch (caught) {
       if (generation === worldRequestGeneration.current) setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
@@ -571,31 +579,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
   }
 
   function advance(direction: "next" | "previous") {
-    updateDraft((current) => {
-      const living = current.entities.filter((entity) => !entity.defeated);
-      if (living.length === 0) return current;
-      const activeIndex = living.findIndex((entity) => entity.id === current.active_turn_entity_id);
-      if (activeIndex < 0) {
-        return {
-          ...current,
-          active_turn_entity_id: living[0]?.id ?? null,
-          round_start_entity_id: current.round_start_entity_id ?? living[0]?.id ?? null,
-        };
-      }
-      const from = activeIndex;
-      const nextIndex = (from + (direction === "next" ? 1 : living.length - 1)) % living.length;
-      const anchorIndex = current.entities.findIndex(entity => entity.id === current.round_start_entity_id);
-      const anchoredOrder = anchorIndex < 0 ? current.entities
-        : [...current.entities.slice(anchorIndex), ...current.entities.slice(0, anchorIndex)];
-      const roundStart = anchoredOrder.find(entity => !entity.defeated)?.id;
-      const wrapped = direction === "next" ? living[nextIndex]?.id === roundStart : living[from]?.id === roundStart;
-      return {
-        ...current,
-        active_turn_entity_id: living[nextIndex]?.id ?? null,
-        round: Math.max(1, current.round + (wrapped ? (direction === "next" ? 1 : -1) : 0)),
-        round_start_entity_id: current.round_start_entity_id ?? living[0]?.id ?? null,
-      };
-    });
+    updateDraft(current => stepCombatTurn(current, direction));
   }
 
   function sortInitiative() {
@@ -630,6 +614,27 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
         ? "Choose a verified World before creating or opening a Combat encounter."
         : null;
 
+  const showSetup = !scope && !worldListLoading && !visibleRecord && !manualRecord && !error;
+  const dndSetup = <>
+    <label>
+      <span className="eyebrow">New encounter</span>
+      <input aria-label="New encounter title" value={newTitle} disabled={operationsBlocked} onChange={(event) => setNewTitle(event.target.value)} />
+    </label>
+    <button type="button" disabled={operationsBlocked || !newTitle.trim() || dirty} onClick={() => void createEncounter()}>
+      Create
+    </button>
+  </>;
+  const customSetup = <ManualCombatProfileForm inline={showSetup} disabled={operationsBlocked||dirty||availableRecovery!==null} onCreate={async(title,profile)=>{
+    const generation=worldRequestGeneration.current;
+    setBusy('create');
+    try {
+      const created=await createManualCombatEncounter(worldId,title,profile);
+      if(generation!==worldRequestGeneration.current)return;
+      setEncounters(items=>[created,...items]);setSelectedEncounterId(created.encounter_id);
+      await adoptRecord(created,worldId,created.encounter_id,generation);
+    } finally {if(generation===worldRequestGeneration.current)setBusy(null);}
+  }}/>;
+
   return (
     <div ref={panelRef} className="module-panel combat-roster" data-module-id="combat_roster">
       <CombatTourObservation record={visibleRecord} runScope={scope?.runScope??null} acknowledged={tourAcknowledged} blocked={busy!==null||dirty||availableRecovery!==null||!!pendingSave.current||adoptionBlocked} error={error}/>
@@ -638,7 +643,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
       {error ? <p className="module-error" role="alert">Combat: {error}</p> : null}
       {worldId ? (
         <>
-          <section className="combat-roster-save-rail" aria-label="Encounter selection and save">
+          <section ref={visibleRecord && visibleDraft ? turnRailRef : undefined} className={`combat-roster-save-rail${visibleRecord && visibleDraft ? " combat-roster-active-toolbar" : ""}`} aria-label="Encounter selection and save">
             {scope ? <p>{scope.label}</p> : <>
             <label>
               <span className="eyebrow">Encounter</span>
@@ -659,13 +664,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
             <button type="button" disabled={operationsBlocked || manualRecord?.encounter_id===selectedEncounterId || !visibleEncounters.some((item) => item.encounter_id === selectedEncounterId) || dirty} onClick={() => void openEncounter()}>
               Open
             </button>
-            <label>
-              <span className="eyebrow">New encounter</span>
-              <input aria-label="New encounter title" value={newTitle} disabled={operationsBlocked} onChange={(event) => setNewTitle(event.target.value)} />
-            </label>
-            <button type="button" disabled={operationsBlocked || !newTitle.trim() || dirty} onClick={() => void createEncounter()}>
-              Create
-            </button>
+            {!showSetup && dndSetup}
             </>}
             {!manualRecord&&<><button type="button" disabled={operationsBlocked || (!dirty && !pendingSave.current)} onClick={() => void saveEncounter()}>
               {busy === "save" ? "Saving…" : "Save"}
@@ -675,17 +674,48 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
             </button>
             {pendingSave.current ? <span className="module-muted">{busy === 'save' ? 'Saving exact request…' : 'Save outcome unconfirmed · exact request retained'}</span> : dirty ? <span className="module-muted">Unsaved changes</span> : visibleRecord ? <span className="module-muted">Saved · rev {visibleRecord.revision}</span> : null}
             </>}
+            {visibleRecord && visibleDraft && (
+              <div className="combat-roster-turn-rail" role="group" aria-label="Combat turn controls">
+                <div><span className="eyebrow">Round</span><strong>{visibleDraft.round}</strong></div>
+                <div><span className="eyebrow">Active</span><strong>{active?.name ?? "No active actor"}</strong></div>
+                <div><span className="eyebrow">Next</span><strong>{next?.name ?? "—"}</strong></div>
+                <button type="button" onClick={sortInitiative} disabled={operationsBlocked || visibleDraft.entities.length < 2}>Sort initiative</button>
+                <button type="button" onClick={() => advance("previous")} disabled={operationsBlocked || visibleDraft.entities.length === 0}>Back</button>
+                <button type="button" onClick={() => advance("next")} disabled={operationsBlocked || visibleDraft.entities.length === 0}>Next turn</button>
+              </div>
+            )}
           </section>
-          {!scope&&<ManualCombatProfileForm disabled={operationsBlocked||dirty||availableRecovery!==null} onCreate={async(title,profile)=>{
-            const generation=worldRequestGeneration.current;
-            setBusy('create');
-            try {
-              const created=await createManualCombatEncounter(worldId,title,profile);
-              if(generation!==worldRequestGeneration.current)return;
-              setEncounters(items=>[created,...items]);setSelectedEncounterId(created.encounter_id);
-              await adoptRecord(created,worldId,created.encounter_id,generation);
-            } finally {if(generation===worldRequestGeneration.current)setBusy(null);}
-          }}/>}
+          {!scope && (showSetup ? (
+            <section className="combat-start-workspace" aria-label="Empty Combat workspace">
+              {sampleWorld === worldId ? <CombatSamplePreview
+                disabled={operationsBlocked}
+                onClose={() => setSampleWorld(null)}
+                onKeep={createEncounter}
+              /> : <div className="combat-start-roster">
+                <div className="combat-start-columns" aria-hidden="true">
+                  <span>Participant</span><span>Stats</span><span>Conditions</span><span>Notes</span>
+                </div>
+                <div className="combat-start-card">
+                  <h3>Set the scene</h3>
+                  <p>{visibleEncounters.length ? "Start an encounter or open one above." : "No encounters yet. Set up your first encounter."}</p>
+                  <label>System
+                    <select value={setupSystem} onChange={event => setSetupSystem(event.target.value === "custom" ? "custom" : "dnd5e")} disabled={operationsBlocked}>
+                      <option value="dnd5e">D&amp;D 5e</option>
+                      <option value="custom">Custom system</option>
+                    </select>
+                  </label>
+                  {setupSystem === "custom" ? customSetup : <div className="combat-start-fields">
+                    {dndSetup}
+                    <button type="button" disabled={operationsBlocked} onClick={() => setSampleWorld(worldId)}>Load sample</button>
+                  </div>}
+                </div>
+              </div>}
+              <aside className="combat-start-source">
+                <h3>Statblock</h3>
+                <p>Open a participant’s sheet here or in a pop-up.</p>
+              </aside>
+            </section>
+          ) : customSetup)}
           {manualRecord?.world_id===worldId&&<ManualCombatEditor key={JSON.stringify([manualRecord.world_id,manualRecord.encounter_id,scope?.runScope])} record={manualRecord} externallyDisabled={busy==='open'||busy==='create'||busy==='reload'} scope={scope?.runScope} onBlocked={setManualBlocked} onSaved={saved=>{setManualRecord(saved);setEncounters(items=>items.map(item=>item.encounter_id===saved.encounter_id?saved:item));}}/>}
           {availableRecovery && <section aria-label="Combat draft recovery">
             <p>Local Combat draft available from revision {availableRecovery.base.revision}. Current committed revision: {visibleRecord?.revision}. Recover explicitly; newer server state is never overwritten automatically.</p>
@@ -694,22 +724,11 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
           </section>}
           {recoveryMessage && <p role="status">{recoveryMessage}</p>}
           {worldListLoading ? <p className="module-muted">Loading World encounters…</p> : null}
-          {!worldListLoading && visibleEncounters.length === 0 && !visibleRecord && !manualRecord ? (
-            <p className="module-muted">No encounters yet. Create a named encounter to begin; it won’t replace another fight.</p>
-          ) : null}
-          {!visibleRecord && !manualRecord ? (
+          {!showSetup && !worldListLoading && !visibleRecord && !manualRecord && !error ? (
             <p className="module-muted">Choose an encounter and open it, or create a new one.</p>
           ) : null}
           {visibleRecord && visibleDraft ? (
             <>
-              <section ref={turnRailRef} className="combat-roster-turn-rail" aria-label="Combat turn controls">
-                <div><span className="eyebrow">Round</span><strong>{visibleDraft.round}</strong></div>
-                <div><span className="eyebrow">Active</span><strong>{active?.name ?? "No active actor"}</strong></div>
-                <div><span className="eyebrow">Next</span><strong>{next?.name ?? "—"}</strong></div>
-                <button type="button" onClick={sortInitiative} disabled={operationsBlocked || visibleDraft.entities.length < 2}>Sort initiative</button>
-                <button type="button" onClick={() => advance("previous")} disabled={operationsBlocked || visibleDraft.entities.length === 0}>Previous turn</button>
-                <button type="button" onClick={() => advance("next")} disabled={operationsBlocked || visibleDraft.entities.length === 0}>Next turn</button>
-              </section>
               <header className="combat-encounter-heading">
                 <label>
                   <span className="eyebrow">Encounter title</span>
