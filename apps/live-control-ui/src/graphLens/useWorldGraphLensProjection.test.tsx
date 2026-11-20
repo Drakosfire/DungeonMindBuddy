@@ -437,8 +437,10 @@ describe("WorldGraphLensProjectionProvider", () => {
       location = "http://localhost/plan?world=other-managed";
       rerender();
     });
-    await waitFor(() => expect(result.current.channel).not.toBe(first));
-    expect(result.current.channel).not.toBeNull();
+    await waitFor(() => {
+      expect(result.current.channel).not.toBeNull();
+      expect(result.current.channel).not.toBe(first);
+    });
     expect(result.current.channel!.descriptor.scope).toEqual(
       expect.arrayContaining([{ kind: "scope_mode", id: "world" }]),
     );

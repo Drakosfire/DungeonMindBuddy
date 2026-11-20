@@ -92,15 +92,12 @@ it('drops a late prepared response after source scope unmounts',async()=>{
   expect(api.confirmExtractPromote).not.toHaveBeenCalled();
 });
 
-it('retains successful receipt and reads its exact native World/revision without a campaign alias',async()=>{
+it('retains and replays the exact successful receipt without a classic projection',async()=>{
   vi.mocked(api.confirmExtractPromote).mockResolvedValue({schema:'dmb_extract_promote_confirm_v2',outcome:'committed',worldId:'native-a',proposalId:'proposal-a',proposalDigest:'digest-a',
     parentRevisionId:'rev:1',committedRevisionId:'rev:2',headAdvanced:true,selectedAssertionIds:['0:source_extraction::keeper'],acceptedAssertionIds:['0:source_extraction::keeper'],
     affectedObjectIds:[],appliedAssertionCount:1,auditStatus:'ok',warnings:[]});
-  vi.mocked(live.postWorldGraphProjection).mockResolvedValue({schema:'dmb_world_graph_projection_v1',snapshot:{worldId:'native-a',campaignId:'longmont-c2',revisionId:'rev:2',headRevisionId:'rev:2',
-    isHead:true,admissibility:'gm',focus:{kind:'session',sessionId:'session-30',campaignId:'longmont-c2'}},nodes:[],relationships:[],summary:{}} as any);
   render(<RetainedRecapPublication review={review} run={run} worldId="managed-a" onBusy={vi.fn()}/>);
   fireEvent.click(screen.getByRole('button',{name:'Prepare changes for review'}));fireEvent.click(await screen.findByRole('button',{name:'Merge 1 change into campaign memory'}));
-  await waitFor(()=>expect(live.postWorldGraphProjection).toHaveBeenCalledWith(expect.objectContaining({worldId:'native-a',campaignId:'longmont-c2',revisionPin:'rev:2'})));
   expect(await screen.findByText('These changes are committed to campaign memory.')).toBeInTheDocument();
   expect(api.confirmExtractPromote).toHaveBeenCalledOnce();
   cleanup();render(<RetainedRecapPublication review={review} run={run} worldId="managed-a" onBusy={vi.fn()}/>);
@@ -112,7 +109,8 @@ it('retains successful receipt and reads its exact native World/revision without
   await screen.findByText('These changes are committed to campaign memory.');
   expect(api.prepareExtractPromote).toHaveBeenCalledOnce();expect(api.confirmExtractPromote).toHaveBeenCalledTimes(2);
   expect(vi.mocked(api.confirmExtractPromote).mock.calls[1]).toEqual(vi.mocked(api.confirmExtractPromote).mock.calls[0]);
-  expect(live.postWorldGraphProjection).toHaveBeenLastCalledWith(expect.objectContaining({worldId:'native-a',revisionPin:'rev:2'}));
+  expect(screen.getByTestId("graph-review-extract-promote-receipt")).toHaveTextContent("rev:1 → rev:2");
+  expect(live.postWorldGraphProjection).not.toHaveBeenCalled();
 });
 
 it('persists exact selected choices before dispatch, restores them after reload and retries only explicitly',async()=>{
