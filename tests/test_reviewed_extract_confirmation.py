@@ -962,9 +962,13 @@ def test_postgres_recovers_exact_finalized_review_after_repository_recreation(
         )
     )
     assert parent.revision_id == case["parent"].revision_id
-    bundle.sources.put_artifact(
-        case["sources"].get_artifact(case["review"].source_artifact_id)
-    )
+    from dungeonmind.contracts.evidence import SourceArtifactV2
+    original_artifact = case["sources"].get_artifact(case["review"].source_artifact_id)
+    # The current V6 SQL materializer requires the already-accepted V2 artifact
+    # contract. Preserve every fixture fact; change only its schema generation.
+    artifact_payload = original_artifact.model_dump(mode="json")
+    artifact_payload["schema_version"] = SourceArtifactV2.model_fields["schema_version"].default
+    bundle.sources.put_artifact(SourceArtifactV2.model_validate(artifact_payload))
     bundle.sources.put_revision(
         case["sources"].get_revision(case["review"].source_revision_id)
     )
