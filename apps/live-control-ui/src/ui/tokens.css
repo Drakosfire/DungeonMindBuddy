@@ -42,3 +42,7 @@
   --ui-border-subtle: #365c63;
   --ui-border-strong: #729fa5;
 }
+
+:root[data-buddy-accent="sky"] {
+  --ui-accent-action: #8dc8ff;
+}
