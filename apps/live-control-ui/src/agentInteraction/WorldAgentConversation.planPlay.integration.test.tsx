@@ -2465,6 +2465,10 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
     if (newerDraft) fireEvent.change(composer, { target: { value: "My next thought" } });
     reject(new LiveApiError("The conversation changed since this request was prepared.", 409, { code: "build_editor_context_changed" }));
+    const notice = await screen.findByText(/^This message was not sent/);
+    expect(notice).toHaveAttribute("role", "alert");
+    expect(notice.closest("form")).toBeNull();
+    expect(composer.closest("form")).toContainElement(screen.getByRole("button", { name: "Send message" }));
     await waitFor(() => expect(composer).toHaveValue(newerDraft ? "My next thought" : "Propose an Economy section"));
     await waitFor(() => expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled());
     expect(localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).toBeNull();
