@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.routes.statblock_storage import statblock_data_root
-from apps.live_control_server.config import repo_root, world_graph_root
+from apps.live_control_server.config import repo_root
 from apps.live_control_server.models.threat_draft import require_draft_id
 from apps.live_control_server.models.threat_publication import validate_publication_operation_id
 from apps.live_control_server.models.threat_publication_identity import (
@@ -17,8 +17,6 @@ from apps.live_control_server.models.threat_publication_identity import (
 )
 from apps.live_control_server.services.threat_publication_identity import (
     IdentityResolutionOutcome,
-    decide_identity_resolution,
-    prepare_identity_candidates,
     read_identity_resolution,
 )
 from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
@@ -115,12 +113,13 @@ def post_prepare_identity_candidates(
     request: Request,
 ) -> JSONResponse:
     enforce_native_graph_gm(request)
-    safe_draft = _validated_draft_id(draft_id)
-    safe_op = _validated_operation_id(operation_id)
-    outcome = prepare_identity_candidates(
-        statblock_data_root(repo_root()), safe_draft, safe_op, body, world_root=world_graph_root()
+    _validated_draft_id(draft_id)
+    _validated_operation_id(operation_id)
+    # Retain admission above, but never enter the historical write lifecycle.
+    raise HTTPException(
+        status_code=410,
+        detail="Classic Threat publication is retired; retained history is read-only.",
     )
-    return _json(outcome)
 
 
 @router.post("/{draft_id}/publication-operations/{operation_id}/identity-resolutions")
@@ -129,12 +128,13 @@ def post_identity_resolution(
     operation_id: str,
     body: CreateThreatIdentityResolutionRequestV1,
 ) -> JSONResponse:
-    safe_draft = _validated_draft_id(draft_id)
-    safe_op = _validated_operation_id(operation_id)
-    outcome = decide_identity_resolution(
-        statblock_data_root(repo_root()), safe_draft, safe_op, body, world_root=world_graph_root()
+    _validated_draft_id(draft_id)
+    _validated_operation_id(operation_id)
+    # Retain admission above, but never enter the historical write lifecycle.
+    raise HTTPException(
+        status_code=410,
+        detail="Classic Threat publication is retired; retained history is read-only.",
     )
-    return _json(outcome)
 
 
 @router.get(
