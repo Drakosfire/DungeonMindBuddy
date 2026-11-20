@@ -1541,7 +1541,7 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     const { rerender } = render(<BindingHost liveRunId="run-a" />);
     fireEvent.click(screen.getByTestId("probe-adopt"));
     await waitFor(() =>
-      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("error"),
     );
     expect(screen.getByTestId("probe-receipt")).toHaveTextContent("rev:committed");
 
@@ -1550,6 +1550,7 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
       expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate"),
     );
     expect(screen.getByTestId("probe-receipt")).toHaveTextContent("none");
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
   });
 
   it("preserves committed authority on same-binding refresh remount", async () => {
@@ -1588,7 +1589,7 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     const first = render(<BindingHost />);
     fireEvent.click(screen.getByTestId("probe-adopt"));
     await waitFor(() =>
-      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("error"),
     );
     first.unmount();
 
@@ -1598,24 +1599,16 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate");
     fireEvent.click(screen.getByTestId("probe-adopt"));
     await waitFor(() =>
-      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("error"),
     );
     second.rerender(<BindingHost />);
-    expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready");
+    expect(screen.getByTestId("probe-phase")).toHaveTextContent("error");
     expect(screen.getByTestId("probe-receipt")).toHaveTextContent("rev:committed");
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
   });
 
-  it("suppresses stale deferred committed loads via generation counter", async () => {
-    let resolveFirst!: (value: WorldGraphProjection) => void;
-    let resolveSecond!: (value: WorldGraphProjection) => void;
-    const firstDeferred = new Promise<WorldGraphProjection>((resolve) => {
-      resolveFirst = resolve;
-    });
-    const secondDeferred = new Promise<WorldGraphProjection>((resolve) => {
-      resolveSecond = resolve;
-    });
+  it("retains the receipt during repeated adoption without reading a classic graph", async () => {
     const postSpy = vi.spyOn(liveApi, "postWorldGraphProjection");
-    postSpy.mockReturnValueOnce(firstDeferred).mockReturnValueOnce(secondDeferred);
 
     function BindingHost() {
       return (
@@ -1648,29 +1641,16 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     render(<BindingHost />);
     fireEvent.click(screen.getByTestId("probe-adopt"));
     await waitFor(() =>
-      expect(screen.getByTestId("probe-phase")).toHaveTextContent("loading"),
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("error"),
     );
     fireEvent.click(screen.getByTestId("probe-adopt"));
-    await waitFor(() => expect(postSpy).toHaveBeenCalledTimes(2));
-
-    resolveFirst(committedProjection("Stale Label", "rev:committed"));
-    resolveSecond(committedProjection("Hesta Ironroot", "rev:committed"));
-
-    await waitFor(() =>
-      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
-    );
-    expect(screen.getByTestId("probe-selected")).toHaveTextContent("object-1");
-    // Durable second response wins; stale first must not leave conflicting UI.
-    expect(screen.queryByText("Stale Label")).toBeNull();
+    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("rev:committed");
+    expect(screen.getByTestId("probe-selected")).toHaveTextContent("none");
+    expect(postSpy).not.toHaveBeenCalled();
   });
 
-  it("discards deferred run-A projection after switching committedBinding to run B", async () => {
-    let resolveA!: (value: WorldGraphProjection) => void;
-    const deferredA = new Promise<WorldGraphProjection>((resolve) => {
-      resolveA = resolve;
-    });
+  it("clears the adopted run A receipt when the review switches to run B", async () => {
     const postSpy = vi.spyOn(liveApi, "postWorldGraphProjection");
-    postSpy.mockReturnValueOnce(deferredA);
 
     function BindingHost({ runId }: { runId: string }) {
       return (
@@ -1703,11 +1683,11 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     const { rerender } = render(<BindingHost runId="run-a" />);
     fireEvent.click(screen.getByTestId("probe-adopt"));
     await waitFor(() =>
-      expect(screen.getByTestId("probe-phase")).toHaveTextContent("loading"),
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("error"),
     );
-    expect(postSpy).toHaveBeenCalledTimes(1);
+    expect(postSpy).not.toHaveBeenCalled();
 
-    // Switch binding while run-A projection is still in flight.
+    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("rev:committed");
     rerender(<BindingHost runId="run-b" />);
     await waitFor(() =>
       expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate"),
@@ -1715,16 +1695,6 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     expect(screen.getByTestId("probe-receipt")).toHaveTextContent("none");
     expect(screen.getByTestId("probe-selected")).toHaveTextContent("none");
 
-    resolveA(committedProjection("Run A Only Label", "rev:run-a"));
-
-    // Allow any late resolution microtasks to flush; authority must stay clear of A.
-    await waitFor(() =>
-      expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate"),
-    );
-    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("none");
-    expect(screen.getByTestId("probe-selected")).toHaveTextContent("none");
-    expect(screen.queryByText("Run A Only Label")).toBeNull();
-    expect(postSpy).toHaveBeenCalledTimes(1);
   });
 
   it("clears committed authority when exact-run session scope changes for same run+artifact", async () => {
@@ -1773,7 +1743,7 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     const { rerender } = render(<ExactBindingHost sessionId="session-22" />);
     fireEvent.click(screen.getByTestId("probe-adopt"));
     await waitFor(() =>
-      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("error"),
     );
 
     rerender(<ExactBindingHost sessionId="session-23" />);
@@ -1781,6 +1751,7 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
       expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate"),
     );
     expect(screen.getByTestId("probe-receipt")).toHaveTextContent("none");
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
   });
 
   it("hides exact-run candidate prose and assertions after committed authority is adopted", async () => {
@@ -1889,7 +1860,8 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     expect(
       screen.queryByTestId("graph-review-exact-run-assertion-a-candidate"),
     ).toBeNull();
-    expect(screen.getAllByText("Hesta Ironroot").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("graph-review-committed-projection-error")).toHaveTextContent("Graph visualization for this saved revision is unavailable.");
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
   });
 });
 
@@ -2096,6 +2068,7 @@ describe("GraphReviewWorkbenchModule exact-run primary after confirm", () => {
     expect(
       screen.queryByTestId("graph-review-exact-run-assertion-a-exact"),
     ).toBeNull();
-    expect(screen.getAllByText("Hesta Ironroot").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("graph-review-committed-projection-error")).toHaveTextContent("Graph visualization for this saved revision is unavailable.");
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
   });
 });
