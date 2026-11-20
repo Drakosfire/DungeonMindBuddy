@@ -72,7 +72,8 @@ vi.mock("../selectedWorld/SelectedWorldContext", async (importOriginal) => ({
 vi.mock("../api/liveApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/liveApi")>()),
   getBuddyReadiness: vi.fn(async (surface: string, world_graph: boolean) => ({schema: "dmb_agent_readiness_v1", surface, world_graph, configured: true, issues: []})),
-  getNativeGraphCatalog: vi.fn(),
+  getNativeGraphCatalog: vi.fn().mockRejectedValue(new Error("Catalog unavailable in this test")),
+  getNativeSourceCatalog: vi.fn().mockRejectedValue(new Error("Source catalog unavailable in this test")),
   createWorkspaceDocument: vi.fn(),
   getWorkspaceDocumentSnapshot: vi.fn(),
   getCommittedPageSnapshot: vi.fn(),

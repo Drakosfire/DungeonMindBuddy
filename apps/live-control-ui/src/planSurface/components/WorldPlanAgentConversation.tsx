@@ -6898,6 +6898,8 @@ export function WorldPlanAgentConversation({
   }
   const activityInComposer = activityBusy || activityLifecycle !== 'completed'
     || Boolean(presentationHosts && !presentationHosts.header);
+  const savedTurnRunning = activityTurn?.lifecycle_status === "accepted"
+    || activityTurn?.lifecycle_status === "running";
   const replyActivity = activityTurnId && verifiedWorldId && activityHistory?.conversation_id
     && !openedTraceTurns[`${verifiedWorldId}\u001f${activityTurnId}`] ? <BuddyTurnInspection
     key={`activity:${verifiedWorldId}:${activityHistory.conversation_id}:${activityTurnId}`}
@@ -7087,7 +7089,7 @@ export function WorldPlanAgentConversation({
           </article>;
         })}
       </details> : null}
-      {pendingPlayTurn && !sending && requestRef.current === null ? <section className="world-plan-agent-conversation__recovery-notice" aria-label="Saved turn recovery">
+      {pendingPlayTurn && !activityBusy && !savedTurnRunning && requestRef.current === null ? <section className="world-plan-agent-conversation__recovery-notice" aria-label="Saved turn recovery">
         <p>This request needs recovery. You can check its saved status or retry the exact request.</p>
         <details><summary>Saved request details</summary>
           <p>{pendingPlayTurn.request.message}</p>
@@ -7420,7 +7422,7 @@ export function WorldPlanAgentConversation({
 
       {activityInComposer && replyActivity}
 
-      {!sending && !composing && !buildCompose.busy && !playCompose.busy
+      {!activityBusy && !savedTurnRunning
         && Boolean(sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) ? (
           <p className="world-plan-agent-conversation__notice" role="status">
             Check the previous request before sending. You can keep drafting.{" "}
