@@ -403,6 +403,8 @@ def main() -> None:
     suite = Path(__file__).resolve().parent
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--output", type=Path, default=None)
+    p.add_argument("--no-update-latest", action="store_true",
+                   help="Do not write the last-report mirror (use --output for external results)")
     args = p.parse_args()
 
     out = args.output or _default_output_path(suite)
@@ -411,15 +413,17 @@ def main() -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
-    mirror = suite / "artifacts" / "last_npc_corpus_recall_audit.json"
-    mirror.parent.mkdir(parents=True, exist_ok=True)
-    mirror.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    mirror = None
+    if not args.no_update_latest:
+        mirror = suite / "artifacts" / "last_npc_corpus_recall_audit.json"
+        mirror.parent.mkdir(parents=True, exist_ok=True)
+        mirror.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     print(
         json.dumps(
             {
                 "wrote": str(out),
-                "mirror": str(mirror),
+                "mirror": str(mirror) if mirror is not None else None,
                 "all_ok": bool(report.get("all_ok")),
                 "targets_total": report.get("aggregates", {}).get("targets_total"),
                 "targets_with_any_hub": report.get("aggregates", {}).get("targets_with_any_hub"),

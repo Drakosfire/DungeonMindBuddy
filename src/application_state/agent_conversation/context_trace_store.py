@@ -474,7 +474,7 @@ class TurnContextTraceStore:
             traces[index] = trace.model_copy(update={
                 "writer_evidence_sequences": _writer_evidence_sequences(trace, turn[0], next_start),
                 "native_assertion_steps": native_steps or None,
-                "native_discovery_replay": native_discovery_replay(turn[2]) if trace.attempt == 1 else None,
+                "native_discovery_replay": native_discovery_replay(turn[2], turn[0], stop=next_start) if trace.attempt == 1 else None,
                 "retrieval_exclusion_steps": exclusion_steps or None,
                 "graph_replay_order": graph_order,
             })

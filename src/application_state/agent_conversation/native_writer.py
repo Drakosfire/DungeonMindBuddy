@@ -96,7 +96,11 @@ def model_frame(receipt, execution, *, schema=SCHEMA, passages_only=False):
     validate_execution_binding(receipt, execution)
     if any(type(event) in NATIVE_WRITER_TYPES for event in execution.events):
         raise ValueError("Native evidence projection requires the prefix before its writer")
-    query = receipt.native_query
+    from .native_execution import effective_native_query
+    query = effective_native_query(receipt, execution)
+    from .native_context import NativeBuildQueryPendingV1
+    if isinstance(query, NativeBuildQueryPendingV1):
+        raise ValueError("Native writer requires the settled Build Graph query")
     partial = (isinstance(receipt.source_authority, t.NativeCorpusUnavailableV1)
         or isinstance(query, statements.NativePlanQueryUnavailableV1)
         or bodies.body_input_partial(execution)

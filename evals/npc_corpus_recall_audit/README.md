@@ -8,9 +8,20 @@ are `tests/test_npc_corpus_recall_audit.py`.
 The generator is `npc_corpus_recall_audit.py`. Its default invocation writes a
 dated report and replaces `artifacts/last_npc_corpus_recall_audit.json`.
 Supplying `--output` changes the dated output destination but **still replaces
-the last-report mirror**. Use an isolated disposable checkout for new CLI runs;
-do not assume an external output path makes the command read-only. The retained
+the last-report mirror** unless `--no-update-latest` is also supplied. The retained
 last report is a historical result, not automatically refreshed current truth.
+
+For a new offline report without changing checkout artifacts, use the checked
+Projects launcher and both output options from the repository root:
+
+```bash
+scripts/run_local_lab.sh npc-recall-audit bash -c \
+  'uv run --locked python evals/npc_corpus_recall_audit/npc_corpus_recall_audit.py --output "$TMPDIR/npc-recall-audit.json" --no-update-latest'
+```
+
+Use a task slug you own. The JSON command receipt reports `mirror: null` when
+the automatic mirror write is disabled. Without an explicit `--output`, the
+runner still creates a dated checkout report even with `--no-update-latest`.
 
 ## Historical snapshots
 
