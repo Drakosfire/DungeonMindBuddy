@@ -1,6 +1,7 @@
 """Snapshot-local Plan navigation. A selector grants no evidence or Save authority."""
 from __future__ import annotations
 
+import re
 from typing import Literal
 from pydantic import Field, model_validator
 from .authored_graph_references import AuthoredReferencesV2
@@ -99,6 +100,119 @@ class PlanPlacementCatalogV1(Frozen):
     def model_choices(self):
         # No offsets, root indices or authority digests in model-visible state.
         return [{"selector": entry.selector, "label": entry.label} for entry in self.entries]
+
+
+class PlanPlacementOptionV2(Frozen):
+    """Inert paragraph-capable option; V1 wire values remain unchanged."""
+
+    selector: str = Field(min_length=1)
+    kind: Literal["captured_target", "before_heading", "after_heading", "after_section",
+                  "end_page", "before_paragraph", "after_paragraph"]
+    label: str = Field(min_length=1)
+    source_root_index: int | None = Field(strict=True, ge=0)
+    root_boundary: int | None = Field(strict=True, ge=0)
+    position: int | None = Field(strict=True, ge=0)
+    target_capture_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def exact_kind(self):
+        if self.kind == "captured_target":
+            if self.selector != "captured" or any(value is not None for value in (
+                self.source_root_index, self.root_boundary, self.position
+            )):
+                raise ValueError("Captured target cannot invent a structural boundary")
+        else:
+            if not re.fullmatch(r"place[1-9][0-9]*", self.selector):
+                raise ValueError("V2 placement requires an opaque local selector")
+            if self.root_boundary is None or self.position is None:
+                raise ValueError("Structural placement requires its editor-compiled boundary")
+            if (self.source_root_index is None) != (self.kind == "end_page"):
+                raise ValueError("Placement requires its exact source root")
+        return self
+
+    def derived_target(self, original: PlanAuthoringCaptureV1):
+        # Reuse the original boundary format, preserving the real selection.
+        return PlanPlacementOptionV1.derived_target(self, original)
+
+
+def paragraph_placement_label(content: list[dict], index: int, kind: str) -> str:
+    """Semantic source context only; no host identity or root index in labels."""
+    node = content[index]
+    inline = node.get("content", [])
+    if (node.get("type") != "paragraph" or not isinstance(inline, list)
+            or any(not isinstance(child, dict) or child.get("type") not in {"text", "hardBreak"}
+                   or child.get("type") == "text" and not isinstance(child.get("text"), str)
+                   for child in inline)):
+        raise ValueError("Paragraph placement requires plain root prose")
+    passage = "".join("\n" if child["type"] == "hardBreak" else child["text"] for child in inline).strip()
+    if not passage:
+        raise ValueError("Paragraph placement requires nonempty prose")
+    ancestors: list[tuple[int, str]] = []
+    for heading in content[:index]:
+        attrs, children = heading.get("attrs"), heading.get("content", [])
+        if heading.get("type") != "heading" or not isinstance(attrs, dict) or not isinstance(children, list):
+            continue
+        level = attrs.get("level")
+        if type(level) is not int or not 1 <= level <= 6:
+            continue
+        text = "".join(child.get("text", "") for child in children
+                       if isinstance(child, dict) and child.get("type") == "text"
+                       and isinstance(child.get("text"), str)).strip()
+        if not text:
+            continue
+        while ancestors and ancestors[-1][0] >= level:
+            ancestors.pop()
+        ancestors.append((level, text))
+    section = " / ".join(text for _, text in ancestors) or "this page"
+    direction = "Before" if kind == "before_paragraph" else "After"
+    return f"{direction} paragraph in {section}: {passage}"
+
+
+class PlanPlacementCatalogV2(PlanPlacementCatalogV1):
+    """Inert until the authorized reader fence and public consumers are wired."""
+
+    schema_: Literal["dmb_plan_placement_catalog_v2"] = Field(
+        default="dmb_plan_placement_catalog_v2", alias="schema")
+    entries: tuple[PlanPlacementOptionV2, ...] = Field(min_length=1)
+
+    def require_original(self, original: PlanAuthoringCaptureV1):
+        if (isinstance(original, PlanAuthoringBoundaryCaptureV1)
+                or self.original_capture_sha256 != original.sha256
+                or self.editor_sha256 != original.editor_sha256):
+            raise ValueError("Placement catalog differs from its original captured page")
+        content = strict_json(original.editor_json).get("content", [])
+        if not isinstance(content, list) or any(not isinstance(node, dict) for node in content):
+            raise ValueError("Invalid Plan root nodes")
+        if any(node.get("type") in {"pageRow", "pageImageText", "pageSlot"} for node in content):
+            raise ValueError("Paragraph placement currently requires a plain Plan")
+        if original.target_kind != "insert_at_caret" and len(self.entries) != 1:
+            raise ValueError("Replacement authority has only its exact captured target")
+        for entry in self.entries:
+            if entry.derived_target(original).sha256 != entry.target_capture_sha256:
+                raise ValueError("Placement target differs from its frozen offered digest")
+            if entry.kind == "captured_target":
+                continue
+            if entry.root_boundary > len(content):
+                raise ValueError("Placement boundary exceeds its captured page")
+            if entry.kind == "end_page":
+                if entry.root_boundary != len(content):
+                    raise ValueError("End placement differs from the captured page end")
+                continue
+            index = entry.source_root_index
+            if index >= len(content):
+                raise ValueError("Placement source root is unavailable")
+            if entry.kind in {"before_paragraph", "after_paragraph"}:
+                boundary = index + int(entry.kind == "after_paragraph")
+                if entry.root_boundary != boundary:
+                    raise ValueError("Paragraph placement differs from its source boundary")
+                if entry.label != paragraph_placement_label(content, index, entry.kind):
+                    raise ValueError("Paragraph placement label differs from its source prose")
+            elif (content[index].get("type") != "heading"
+                  or entry.kind == "before_heading" and entry.root_boundary != index
+                  or entry.kind == "after_heading" and entry.root_boundary != index + 1
+                  or entry.kind == "after_section" and entry.root_boundary <= index):
+                raise ValueError("Section placement differs from its captured root heading")
+        return self
 
 
 class PlanRequestedWorkInputV2(PlanRequestedWorkInputV1):

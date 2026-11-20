@@ -10,6 +10,7 @@ from application_state.agent_conversation.plan_authoring import (
 )
 from application_state.agent_conversation.plan_placement import (
     PlanPlacementCatalogV1, PlanPlacementOptionV1,
+    PlanPlacementCatalogV2, PlanPlacementOptionV2, paragraph_placement_label,
 )
 
 
@@ -33,6 +34,102 @@ def catalog_for(original):
     boundary = boundary.model_copy(update={"target_capture_sha256": boundary.derived_target(original).sha256})
     return PlanPlacementCatalogV1(original_capture_sha256=original.sha256,
         editor_sha256=original.editor_sha256, entries=(captured, boundary))
+
+
+def paragraph_catalog_for(original, kind="after_paragraph", index=1):
+    content = json.loads(original.editor_json)["content"]
+    captured = PlanPlacementOptionV2(selector="captured", kind="captured_target",
+        label="Captured caret", source_root_index=None, root_boundary=None,
+        position=None, target_capture_sha256=original.sha256)
+    option = PlanPlacementOptionV2(selector="place1", kind=kind,
+        label=paragraph_placement_label(content, index, kind), source_root_index=index,
+        root_boundary=index + int(kind == "after_paragraph"), position=39,
+        target_capture_sha256="0" * 64)
+    option = option.model_copy(update={"target_capture_sha256": option.derived_target(original).sha256})
+    return PlanPlacementCatalogV2(original_capture_sha256=original.sha256,
+        editor_sha256=original.editor_sha256, entries=(captured, option))
+
+
+@pytest.mark.parametrize("kind,boundary", [("before_paragraph", 1), ("after_paragraph", 2)])
+def test_inert_v2_paragraph_catalog_binds_semantic_source_and_real_selection(kind, boundary):
+    original = original_capture()
+    catalog = paragraph_catalog_for(original, kind)
+    selected = catalog.resolve(original, "place1")
+    assert isinstance(selected, PlanAuthoringBoundaryCaptureV1)
+    assert selected.root_boundary == boundary
+    assert selected.selection_json == original.selection_json
+    assert selected.editor_json == original.editor_json
+    assert original.from_ == original.to == 14
+    assert selected.from_ == selected.to == 39
+    assert catalog.model_choices() == [
+        {"selector": "captured", "label": "Captured caret"},
+        {"selector": "place1", "label": f"{'Before' if boundary == 1 else 'After'} paragraph in Objective: Keep the alternatives open."},
+    ]
+    # This new nested value is deliberately not admitted by any old V1 reader.
+    with pytest.raises(ValidationError):
+        PlanPlacementCatalogV1.model_validate(catalog.model_dump(mode="json", by_alias=True))
+    legacy = catalog_for(original)
+    assert PlanPlacementCatalogV1.model_validate_json(legacy.model_dump_json(by_alias=True)).sha256 == legacy.sha256
+
+
+@pytest.mark.parametrize("change", [
+    {"source_root_index": 0}, {"root_boundary": 1},
+    {"label": "After a different paragraph"}, {"source_root_index": 99},
+])
+def test_v2_refuses_false_semantic_targets_even_with_a_recomputed_target_digest(change):
+    original = original_capture()
+    catalog = paragraph_catalog_for(original)
+    option = catalog.entries[1].model_copy(update=change)
+    option = option.model_copy(update={"target_capture_sha256": option.derived_target(original).sha256})
+    changed = catalog.model_copy(update={"entries": (catalog.entries[0], option)})
+    with pytest.raises(ValueError):
+        changed.require_original(original)
+
+
+def test_v2_opaque_selectors_and_closed_original_replacement_authority():
+    original = original_capture()
+    catalog = paragraph_catalog_for(original)
+    with pytest.raises(ValueError, match="not offered"):
+        catalog.resolve(original, "place999")
+    payload = catalog.model_dump(mode="json", by_alias=True)
+    payload["entries"][1]["selector"] = "after:1"
+    with pytest.raises(ValidationError, match="opaque local selector"):
+        PlanPlacementCatalogV2.model_validate(payload)
+    payload = original.model_dump(mode="json", by_alias=True)
+    selection = '{"type":"text","anchor":8,"head":1}'
+    payload.update(selection_json=selection, selection_sha256=text_digest(selection),
+        target_kind="replace_selection", selected_text="Objecti", **{"from": 1, "to": 8})
+    replacement = PlanAuthoringCaptureV1.model_validate(payload)
+    with pytest.raises(ValueError, match="broadened"):
+        catalog.entries[1].derived_target(replacement)
+
+
+@pytest.mark.parametrize("node", [
+    {"type": "paragraph"}, {"type": "table"},
+    {"type": "paragraph", "content": [{"type": "image", "attrs": {"src": "private"}}]},
+])
+def test_v2_paragraph_source_does_not_admit_empty_prose_or_unrelated_objects(node):
+    with pytest.raises(ValueError, match="prose"):
+        paragraph_placement_label([node], 0, "after_paragraph")
+
+
+def test_v2_cannot_transfer_to_another_world_or_enroll_composed_roots():
+    original = original_capture()
+    catalog = paragraph_catalog_for(original)
+    payload = original.model_dump(mode="json", by_alias=True)
+    payload["world_id"] = "foreign"
+    with pytest.raises(ValueError, match="original captured page"):
+        catalog.require_original(PlanAuthoringCaptureV1.model_validate(payload))
+    doc = json.loads(original.editor_json)
+    doc["content"][0] = {"type": "pageRow", "content": []}
+    editor = json.dumps(doc, separators=(",", ":"))
+    payload = original.model_dump(mode="json", by_alias=True)
+    payload.update(editor_json=editor, editor_sha256=text_digest(editor))
+    composed = PlanAuthoringCaptureV1.model_validate(payload)
+    current = catalog.model_copy(update={"original_capture_sha256": composed.sha256,
+        "editor_sha256": composed.editor_sha256})
+    with pytest.raises(ValueError, match="plain Plan"):
+        current.require_original(composed)
 
 
 def test_frozen_catalog_resolves_host_target_without_overwriting_original_caret():
