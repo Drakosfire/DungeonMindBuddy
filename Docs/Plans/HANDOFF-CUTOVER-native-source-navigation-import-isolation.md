@@ -1,6 +1,6 @@
 # Fresh source-navigation import isolation
 
-Status: ACTIVE. Owner MIND under operator authorization for the complete optimized
+Status: BLOCKED — verification found prerequisites; implementation preserved in draft PR #4236. Owner MIND under operator authorization for the complete optimized
 vNext lane's design, implementation, review and merge. Serial successor to Buddy
 #4235 merge052bea94cac45895184526e10dd6efcc4834624b, accepted Core pin
 e56a3faee749ced9ac0913da5d7282da84b7cc2d/WK348 unchanged. Reuse existing task
@@ -94,3 +94,24 @@ Still false: saved section opener agent_native_source_sections/agent_source_pass
 and mounted unmanaged projection/recap/context need disposition; current/public
 Core legacy APIs are not retired. Serving rollout, later-write-safe rollback and
 deployed V11 latency/auth/order/exact-citation acceptance remain incomplete.
+
+## Verification checkpoint and serial prerequisite
+
+Frozen source4f907b7f: cold3 pass; owning150 pass,2 inapplicable Play/Plan skips,
+29 origin-fixture errors and one historical migration-test failure. Fresh cohort
+55 pass/12 failures. Original reports stay failed. Exact base052bea targeted
+reproductions in a Git-archived backend mirror show identical four failure classes:
+forward-only0169 downgrade guard, empty heading-locator source pins in old origin
+fixture, legacy PlanSourceExecutionPolicyV1 missing action, and HTTP fixture
+repository lambda rejecting verification_cache. Hosted frontend1414/147, build,
+parity and validator pass; this does not close the required backend proof.
+
+MIND checkpoints scope rather than absorbing a separately useful runtime repair.
+PR #4236 becomes draft/blocked, source commits retained/pushed. A serial prerequisite
+on main052bea will preserve batch coverage for retained Plan V1 policies with a
+focused regression and matching repository fixture seam. It must merge first.
+Then rebase this queued slice to that accepted merge and rebrief fixture-only
+origin/migration proof corrections before editing additional paths. This is not
+a parallel implementation lease or a waiver of the still-missing origin proof.
+The full cutover goal remains active; no source admission relaxation, legacy
+locator restoration or baseline/provider/ingestion run is authorized by this finding.
