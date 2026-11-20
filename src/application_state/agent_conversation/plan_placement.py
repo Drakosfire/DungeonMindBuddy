@@ -135,7 +135,46 @@ class PlanPlacementOptionV2(Frozen):
         return PlanPlacementOptionV1.derived_target(self, original)
 
 
-def paragraph_placement_label(content: list[dict], index: int, kind: str) -> str:
+def _placement_headings(content: list[dict]) -> list[dict]:
+    """Mirror the frontend semantic heading/table-caption navigation rules."""
+    headings, ancestors = [], []
+    for index, node in enumerate(content):
+        attrs, children = node.get("attrs"), node.get("content", [])
+        if node.get("type") != "heading" or not isinstance(attrs, dict) or not isinstance(children, list):
+            continue
+        level = attrs.get("level")
+        if type(level) is not int or not 1 <= level <= 6:
+            continue
+        plain = all(isinstance(child, dict) and child.get("type") == "text"
+                    and not child.get("marks") and isinstance(child.get("text"), str)
+                    for child in children)
+        caption = (level == 2 and index + 1 < len(content)
+                   and content[index + 1].get("type") == "table" and plain
+                   and not any(key != "level" and value is not None for key, value in attrs.items()))
+        text = "".join(child.get("text", "") for child in children
+                       if isinstance(child, dict) and child.get("type") == "text"
+                       and isinstance(child.get("text"), str)).strip()
+        if not text or caption:
+            continue
+        while ancestors and ancestors[-1][0] >= level:
+            ancestors.pop()
+        ancestors.append((level, text))
+        path = " / ".join(label for _, label in ancestors)
+        headings.append(dict(index=index, level=level, path=path))
+    totals, seen = {}, {}
+    for heading in headings:
+        totals[heading["path"]] = totals.get(heading["path"], 0) + 1
+    for offset, heading in enumerate(headings):
+        path = heading["path"]
+        seen[path] = seen.get(path, 0) + 1
+        heading["label"] = path + (f" · {seen[path]} of {totals[path]}" if totals[path] > 1 else "")
+        heading["end"] = next((row["index"] for row in headings[offset + 1:]
+                               if row["level"] <= heading["level"]), len(content))
+    return headings
+
+
+def paragraph_placement_label(content: list[dict], index: int, kind: str, *,
+                              headings: list[dict] | None = None) -> str:
     """Semantic source context only; no host identity or root index in labels."""
     node = content[index]
     inline = node.get("content", [])
@@ -147,23 +186,9 @@ def paragraph_placement_label(content: list[dict], index: int, kind: str) -> str
     passage = "".join("\n" if child["type"] == "hardBreak" else child["text"] for child in inline).strip()
     if not passage:
         raise ValueError("Paragraph placement requires nonempty prose")
-    ancestors: list[tuple[int, str]] = []
-    for heading in content[:index]:
-        attrs, children = heading.get("attrs"), heading.get("content", [])
-        if heading.get("type") != "heading" or not isinstance(attrs, dict) or not isinstance(children, list):
-            continue
-        level = attrs.get("level")
-        if type(level) is not int or not 1 <= level <= 6:
-            continue
-        text = "".join(child.get("text", "") for child in children
-                       if isinstance(child, dict) and child.get("type") == "text"
-                       and isinstance(child.get("text"), str)).strip()
-        if not text:
-            continue
-        while ancestors and ancestors[-1][0] >= level:
-            ancestors.pop()
-        ancestors.append((level, text))
-    section = " / ".join(text for _, text in ancestors) or "this page"
+    section = next((heading["path"] for heading in reversed(
+        _placement_headings(content) if headings is None else headings)
+                    if heading["index"] < index), "this page")
     direction = "Before" if kind == "before_paragraph" else "After"
     return f"{direction} paragraph in {section}: {passage}"
 
@@ -187,15 +212,22 @@ class PlanPlacementCatalogV2(PlanPlacementCatalogV1):
             raise ValueError("Paragraph placement currently requires a plain Plan")
         if original.target_kind != "insert_at_caret" and len(self.entries) != 1:
             raise ValueError("Replacement authority has only its exact captured target")
+        heading_rows = _placement_headings(content)
+        headings = {row["index"]: row for row in heading_rows}
         for entry in self.entries:
             if entry.derived_target(original).sha256 != entry.target_capture_sha256:
                 raise ValueError("Placement target differs from its frozen offered digest")
             if entry.kind == "captured_target":
+                label = {"insert_at_caret": "At the captured text caret",
+                         "replace_selection": "Replace only the captured selection",
+                         "replace_playable_body": "Replace only the captured playable body"}[original.target_kind]
+                if entry.label != label:
+                    raise ValueError("Captured placement label differs from its original selection authority")
                 continue
             if entry.root_boundary > len(content):
                 raise ValueError("Placement boundary exceeds its captured page")
             if entry.kind == "end_page":
-                if entry.root_boundary != len(content):
+                if entry.root_boundary != len(content) or entry.label != "At the end of the page":
                     raise ValueError("End placement differs from the captured page end")
                 continue
             index = entry.source_root_index
@@ -205,13 +237,19 @@ class PlanPlacementCatalogV2(PlanPlacementCatalogV1):
                 boundary = index + int(entry.kind == "after_paragraph")
                 if entry.root_boundary != boundary:
                     raise ValueError("Paragraph placement differs from its source boundary")
-                if entry.label != paragraph_placement_label(content, index, entry.kind):
+                if entry.label != paragraph_placement_label(content, index, entry.kind, headings=heading_rows):
                     raise ValueError("Paragraph placement label differs from its source prose")
-            elif (content[index].get("type") != "heading"
-                  or entry.kind == "before_heading" and entry.root_boundary != index
-                  or entry.kind == "after_heading" and entry.root_boundary != index + 1
-                  or entry.kind == "after_section" and entry.root_boundary <= index):
-                raise ValueError("Section placement differs from its captured root heading")
+            else:
+                heading = headings.get(index)
+                if heading is None:
+                    raise ValueError("Section placement requires a semantic root heading")
+                boundaries = {"before_heading": index, "after_heading": index + 1,
+                              "after_section": heading["end"]}
+                labels = {"before_heading": f"Before {heading['label']}",
+                          "after_heading": f"Directly below the heading {heading['label']}, before its existing body",
+                          "after_section": f"After the entire section {heading['label']}"}
+                if entry.root_boundary != boundaries[entry.kind] or entry.label != labels[entry.kind]:
+                    raise ValueError("Section placement differs from its exact semantic boundary")
         return self
 
 

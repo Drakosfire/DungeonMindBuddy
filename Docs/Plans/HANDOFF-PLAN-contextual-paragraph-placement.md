@@ -101,3 +101,21 @@ Ruff reports two pre-existing E701 lines in the owning test file; no new lint
 diagnostics. Whitespace checks pass. Exact-source qualification, frontend
 compiler, consumer integration, reader fence and actual ordinary-path/model/
 persistence evidence remain unfinished. This checkpoint is not feature delivery.
+
+## Preparation review corrections
+
+Independent review of inert head164c3248 found two V2 contract gaps: named-table
+captions were treated as semantic headings, and after-section accepted a later
+boundary short of/beyond the actual section end. V2 now mirrors the frontend's
+exact plain/unmarked caption predicate, including meaningful marks/extra attrs,
+computes the next equal-or-higher-level semantic heading/end, and validates
+canonical heading/section/end labels. Captured caret/selection labels are also
+canonical, so they cannot claim an unrelated semantic destination.
+
+All 58 owning tests pass after these corrections, including caption variants,
+rehashed wrong section ends, wrong semantic labels and a mislabelled incidental
+caret. The changed backend module passes Ruff; the owning test file retains its
+two previously recorded E701 errors. Evidence: `plan-catalog-label-fix.log` under
+the existing external task. This is still inert preparation, not ordinary-path
+or migration qualification. V1 definitions and current public consumers remain
+unchanged. Independent reinspection is requested before relying on the V2 shape.

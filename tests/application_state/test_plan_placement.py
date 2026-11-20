@@ -39,7 +39,7 @@ def catalog_for(original):
 def paragraph_catalog_for(original, kind="after_paragraph", index=1):
     content = json.loads(original.editor_json)["content"]
     captured = PlanPlacementOptionV2(selector="captured", kind="captured_target",
-        label="Captured caret", source_root_index=None, root_boundary=None,
+        label="At the captured text caret", source_root_index=None, root_boundary=None,
         position=None, target_capture_sha256=original.sha256)
     option = PlanPlacementOptionV2(selector="place1", kind=kind,
         label=paragraph_placement_label(content, index, kind), source_root_index=index,
@@ -62,7 +62,7 @@ def test_inert_v2_paragraph_catalog_binds_semantic_source_and_real_selection(kin
     assert original.from_ == original.to == 14
     assert selected.from_ == selected.to == 39
     assert catalog.model_choices() == [
-        {"selector": "captured", "label": "Captured caret"},
+        {"selector": "captured", "label": "At the captured text caret"},
         {"selector": "place1", "label": f"{'Before' if boundary == 1 else 'After'} paragraph in Objective: Keep the alternatives open."},
     ]
     # This new nested value is deliberately not admitted by any old V1 reader.
@@ -130,6 +130,65 @@ def test_v2_cannot_transfer_to_another_world_or_enroll_composed_roots():
         "editor_sha256": composed.editor_sha256})
     with pytest.raises(ValueError, match="plain Plan"):
         current.require_original(composed)
+
+
+@pytest.mark.parametrize("attrs,marks,section", [
+    ({"level": 2}, [], "Preparation"),
+    ({"level": 2, "pageBlockId": None}, [], "Preparation"),
+    ({"level": 2}, [{"type": "bold"}], "Treasure"),
+    ({"level": 2, "id": "real-heading"}, [], "Treasure"),
+])
+def test_v2_paragraph_context_uses_exact_named_table_caption_rules(attrs, marks, section):
+    content = [
+        {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Preparation"}]},
+        {"type": "heading", "attrs": attrs, "content": [{"type": "text", "text": "Treasure", "marks": marks}]},
+        {"type": "table", "content": []},
+        {"type": "paragraph", "content": [{"type": "text", "text": "Bring a key."}]},
+    ]
+    assert paragraph_placement_label(content, 3, "after_paragraph") == f"After paragraph in {section}: Bring a key."
+
+
+@pytest.mark.parametrize("boundary", [1, 3])
+def test_v2_after_section_requires_the_exact_end_even_with_valid_rehashed_capture(boundary):
+    original = original_capture()
+    captured = paragraph_catalog_for(original).entries[0]
+    option = PlanPlacementOptionV2(selector="place1", kind="after_section",
+        label="After the entire section Objective", source_root_index=0,
+        root_boundary=boundary, position=39, target_capture_sha256="0" * 64)
+    option = option.model_copy(update={"target_capture_sha256": option.derived_target(original).sha256})
+    catalog = PlanPlacementCatalogV2(original_capture_sha256=original.sha256,
+        editor_sha256=original.editor_sha256, entries=(captured, option))
+    with pytest.raises(ValueError, match="exact semantic boundary"):
+        catalog.require_original(original)
+    fixed = option.model_copy(update={"root_boundary": 2})
+    fixed = fixed.model_copy(update={"target_capture_sha256": fixed.derived_target(original).sha256})
+    assert catalog.model_copy(update={"entries": (captured, fixed)}).require_original(original)
+
+
+@pytest.mark.parametrize("kind,index,boundary,label", [
+    ("after_section", 0, 2, "After the entire section Elsewhere"),
+    ("before_heading", 0, 0, "Before Elsewhere"),
+    ("end_page", None, 3, "After a paragraph"),
+])
+def test_v2_structural_labels_cannot_misrepresent_an_admitted_source_boundary(kind, index, boundary, label):
+    original = original_capture()
+    captured = paragraph_catalog_for(original).entries[0]
+    option = PlanPlacementOptionV2(selector="place1", kind=kind, label=label,
+        source_root_index=index, root_boundary=boundary, position=39, target_capture_sha256="0" * 64)
+    option = option.model_copy(update={"target_capture_sha256": option.derived_target(original).sha256})
+    catalog = PlanPlacementCatalogV2(original_capture_sha256=original.sha256,
+        editor_sha256=original.editor_sha256, entries=(captured, option))
+    with pytest.raises(ValueError):
+        catalog.require_original(original)
+
+
+def test_v2_captured_caret_cannot_be_labeled_as_a_different_semantic_destination():
+    original = original_capture()
+    catalog = paragraph_catalog_for(original)
+    captured = catalog.entries[0].model_copy(update={"label": "After the Preparation paragraph"})
+    changed = catalog.model_copy(update={"entries": (captured, catalog.entries[1])})
+    with pytest.raises(ValueError, match="original selection authority"):
+        changed.require_original(original)
 
 
 def test_frozen_catalog_resolves_host_target_without_overwriting_original_caret():
