@@ -46,6 +46,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 
 | Idea | Next useful slice or decision |
 | --- | --- |
+| [Advanced Appearance palette](#idea-advanced-appearance-palette--captured-2026-11-20) | Customize the full UI and page palette from a preset, with live preview and contrast feedback. |
 | [Delightful Buddy landing page](#idea-delightful-buddy-landing-page--captured-2026-11-16) | [Home implementation #3965](https://github.com/Drakosfire/DungeonMindBuddy/pull/3965) merged; assess actual hosted sign-in and any remaining acceptance. |
 | [Inviting canvases with no graph loaded](#idea-inviting-canvases-with-no-graph-loaded--captured-2026-11-16) | Audit every surface and identify the right empty canvas and next action. |
 | [Shared page composer residuals](#idea-high-priority--shared-grid-page-constructor) | Manual foundation merged; physical print and ordinary chat-directed layout remain separate acceptance work. |
@@ -64,6 +65,16 @@ One row per product idea. These rows are pointers, not separate status records. 
 | [Background relationship suggestions](#deferred-background-suggestions-for-missing-world-graph-relationships) | One opt-in, source-backed suggested relationship with duplicate suppression. |
 | [Create a campaign inside an existing World](#deferred-create-a-campaign-inside-an-existing-world) | Define membership ownership and prove ordinary scoped creation. |
 | [Propose edits to a related page](#deferred-propose-edits-to-an-existing-related-page-from-the-current-workspace) | Target one existing passage without leaving or corrupting the current draft. |
+
+## [IDEA] Advanced Appearance palette — captured 2026-11-20
+
+**Context:** Buddy ships interface and page presets with a bounded accent setting. Keep the main Appearance view focused on choosing a preset, page style, and accent.
+
+**Action:** Add an Advanced palette panel for one custom palette based on the selected interface and page presets. Group independently editable color roles into Interface, Controls, Status, and Pages. Cover backgrounds, text, borders, focus, links, hover, selection, saved and feedback states, and document, table, and statblock colors. Give each role a swatch, hex field, and a way to restore its preset color. Show live examples and identify low-contrast foreground and background pairs by name.
+
+**Exit proof:** Preview, Apply, Cancel, and Reset palette work through the existing Appearance settings. Save only changed colors, keep preset choices when resetting the palette, and share the accent setting with the Sky blue shortcut. Explicit reader styles keep precedence unless the user deliberately restyles them.
+
+**Refs:** [Shared appearance design guide](Docs/Design/ARCHITECTURE-surface-interaction-layer.md#appearance-and-authored-content).
 
 ## [IDEA] Delightful Buddy landing page — captured 2026-11-16
 
@@ -237,7 +248,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 **Last verified:** 2026-11-10 @ `8a9ad7902`
 **Trigger:** The operator selects saved spatial composition for implementation.
 
-**Current boundary:** Shared presentation components and graph canvas exist; saved multi-object workspace arrangements are not established by this backlog. The page composer handles ordered document layout. [App-wide theming](#idea-app-wide-theme-system) owns styling.
+**Current boundary:** Shared presentation components and graph canvas exist; saved multi-object workspace arrangements are not established by this backlog. The page composer handles ordered document layout. The [shared appearance design guide](Docs/Design/ARCHITECTURE-surface-interaction-layer.md#appearance-and-authored-content) owns styling.
 
 **Next slice on trigger:** Investigate existing canvas/projection components and define one saved arrangement with clear ownership of positions, sizes and camera state. Preserve low-cost pan/zoom and do not conflate coordinate mutation with theme or semantic document truth.
 
