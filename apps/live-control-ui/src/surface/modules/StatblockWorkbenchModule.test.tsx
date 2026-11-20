@@ -5258,6 +5258,7 @@ describe("StatblockWorkbenchModule", () => {
 
     it.each(["recorded", "cancelled", "missing", "outage"])("preserves the pointer and editor for %s history with no head", async (state) => {
       const raw = retainPointer(), classic = forbidClassicWrites();
+      const accept = vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockRejectedValue(new Error("Saved mechanics must not be accepted again"));
       const head = vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(legacyProjectionFixture(null));
       const reads = vi.spyOn(liveApi, "getThreatPublicationOperation");
       if (state === "outage") reads.mockRejectedValue(new Error("Historical storage unavailable"));
@@ -5268,6 +5269,10 @@ describe("StatblockWorkbenchModule", () => {
       else await screen.findByTestId("publication-history-records");
       expect(sessionStorage.getItem(pointerKey())).toBe(raw);
       expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      const savedControl = within(screen.getByTestId("workbench-edit-dock")).getByRole("button", {name: "Accept/Save mechanics"});
+      expect(savedControl).toBeDisabled();
+      await userEvent.setup().click(savedControl);
+      expect(accept).not.toHaveBeenCalled();
       expect(screen.queryByTestId("publication-head-unavailable")).toBeNull();
       expect(head).not.toHaveBeenCalled();
       for (const fn of classic) expect(fn).not.toHaveBeenCalled();
@@ -5280,9 +5285,14 @@ describe("StatblockWorkbenchModule", () => {
         .mockResolvedValueOnce(recordedOperation(threatDraftFixture({draft_id: DRAFT_B_ID, name: "Draft B"})));
       const user = await loadHistoricalDraft();
       await waitFor(() => expect(reads).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(within(screen.getByTestId("workbench-edit-dock")).getByRole("button", {name: "Accept/Save mechanics"})).toBeDisabled());
       vi.mocked(liveApi.getStatblockCandidate).mockResolvedValue({...activeResponse, candidate_id: "cand_draft_b",
         candidate: {...candidate, candidate_id: "cand_draft_b"}, source_draft_id: DRAFT_B_ID, source_draft_version: 2});
-      vi.mocked(liveApi.getThreatDraft).mockResolvedValue(threatDraftFixture({draft_id: DRAFT_B_ID, workflow_state: "candidate_ready", accepted_mechanics_ref: null}));
+      vi.mocked(liveApi.getThreatDraft).mockResolvedValue(threatDraftFixture({
+        draft_id: DRAFT_B_ID, version: 2, workflow_state: "candidate_ready", accepted_mechanics_ref: null,
+        candidate_refs: [{candidate_id: "cand_draft_b", generated_from_draft_version: 2,
+          request_id: "gen-draft-b-2", created_at: "2026-01-02T00:00:00Z", status: "active", lineage: null}],
+      }));
       await user.clear(screen.getByPlaceholderText("cand_…"));
       await user.type(screen.getByPlaceholderText("cand_…"), "cand_draft_b");
       await user.click(screen.getByRole("button", {name: "Load candidate"}));

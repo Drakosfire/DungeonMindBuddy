@@ -1968,6 +1968,16 @@ function AcceptMechanicsFlow({
               </button>
             </>
           )}
+          {publicationDock && mechanicsSavedDraft ? (
+            <button
+              type="button"
+              data-testid="accept-mechanics-save"
+              disabled
+              title="These mechanics are already saved."
+            >
+              Accept/Save mechanics
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
