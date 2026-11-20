@@ -418,7 +418,6 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         setLoadStatus("empty");
         setSwitching(false);
         setSwitchError(null);
-        void refreshDocuments();
         return false;
       }
 
@@ -456,8 +455,6 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
             importCommittedRef.current = false;
           }
         }
-        void refreshDocuments();
-
         if (typeof window !== "undefined") {
           const canonical = buildDocumentSelectionSearch(
             search,
@@ -515,7 +512,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         return false;
       }
     },
-    [persistPendingImportDocumentId, refreshDocuments, selectedWorldId, tourNavigation],
+    [persistPendingImportDocumentId, selectedWorldId, tourNavigation],
   );
 
   useEffect(() => {
