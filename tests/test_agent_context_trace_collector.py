@@ -631,8 +631,8 @@ def test_real_trace_append_timing_counts_success_and_propagates_failure():
         capture.observe({"kind": "failure", "code": "synthetic", "phase": "delivery"})
     assert caught.value is failure
     assert len(store.trace.observations) == 1
-    span, = host.spans
-    assert span["name"] == "trace_append"
+    assert sum(item["name"] == "first_jev_context_trace_append" for item in host.spans) == 2
+    span, = [item for item in host.spans if item["name"] == "trace_append"]
     assert span["attributes"]["count"] == 2 and span["attributes"]["error_count"] == 1
     assert capture.trace.capture_status == "recording"
 
@@ -654,7 +654,7 @@ def test_execution_fence_timing_preserves_revision_and_failed_append():
     fence = _ClaimFence.__new__(_ClaimFence)
     fence.trace = host
     fence.service = SimpleNamespace(record=append)
-    fence.renewer = SimpleNamespace(_lock=RLock(), _turn=current)
+    fence.renewer = SimpleNamespace(_lock=RLock(), _turn=current, _error=None, _session=None)
     event = object()
     assert fence.append("record", "event", event) == (updated, True)
     with pytest.raises(ConnectionError) as caught:
