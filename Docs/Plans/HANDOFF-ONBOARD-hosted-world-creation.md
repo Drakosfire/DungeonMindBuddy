@@ -1,7 +1,43 @@
 # ONBOARD — hosted owner-created World
 
-Status: BLOCKED design; no implementation write lease. Goal: Sizzek ingestion
-and new-user onboarding. Re-anchor before activation.
+Status: ACTIVE implementation assignment. The operator's ongoing Sizzek
+onboarding goal authorizes this bounded capability and its reviewable PR; merge,
+deployment and live policy enablement remain separate. Base
+`e39ebc2523e5dc00c47ab18e6b0325804aa36b27`; branch
+`codex/sizzek-hosted-world-creation`; checkout is this isolated Buddy lane.
+
+Topology: parallel-independent of open #4244 (`codex/sizzek-docx-tables`), whose
+DOCX converter/test paths do not overlap and whose behavior is not a prerequisite
+for authenticated World creation. Both lanes use separately owned disposable
+databases and no production runtime, ports or mutable user data. Draft #3824
+touches shared hosted authorization files but is not an exclusive bounded lease;
+preserve its behavior and require exact cumulative integration review. Open
+#3528 changes World navigation helpers, not this lane's selector component;
+preserve those helper contracts. Open #3808 has an unmerged 0159 migration while
+main already has a different 0159 and current head 0169: do not alter or absorb
+that draft; re-anchor migration topology before review. No provider calls.
+
+Exclusive expected write set for this single capability: this handoff; new
+hosted-admission migration and application-state catalog/admission modules;
+`apps/live_control_server/main.py`, `routes/world_containers.py`,
+`services/hosted_auth.py`, `services/hosted_native_graph_access.py`, and a new
+hosted-creation service; `apps/live-control-ui/src/selectedWorld/WorldSelector.tsx`
+and its owning tests, plus the smallest existing API transport/types files and
+tests needed for exact hosted creation; new isolated backend owner/authorization
+and migration tests and their required CI classification. Shared files are
+limited to this capability's exact regions. The existing
+`tests/test_hosted_native_graph_access.py` fixture lease for one unrelated test
+is excluded; use new tests. If required paths exceed this expected set, resolve
+the ownership boundary before writing them.
+
+The coherent review map is: transactional catalog/admission + shared policy;
+hosted exact-route authentication, origin and resource checks; selector/retry
+UX; migration/rollback and mounted isolated PostgreSQL tests. The combined PR is
+indivisible for a usable secure creation path: none of those pieces alone gives
+an owner a safely usable hosted World. The independent Bugbot critique of
+`6fc77c1e0b12122c2b0c9fd64aaae5177408db09` found no new material design issue;
+the only wording inconsistency was corrected before activation. Feature stays
+disabled until explicitly configured and deployed under the release process.
 
 ## Problem and boundary
 
@@ -66,8 +102,8 @@ atomic rollback must leave neither an admitted orphan nor a visible World when
 creation fails. Define recovery and same-name idempotence without permitting an
 existing local World to be adopted. Require bounded creation and abuse controls
 before enabling the feature; preserve a way to revoke the feature and a single
-World's admission independently. This is a design candidate, not an approved
-or implemented access policy.
+World's admission independently. This is the reviewed implementation contract,
+not a claim that the policy is implemented, deployed, or enabled.
 
 One implementation PR: authenticated hosted creation and owner-visible recovery
 using a code-owned exact create capability, with owner derived only from the
@@ -77,9 +113,9 @@ Define same-name/retry and ambiguous-failure recovery before implementation.
 The public response must not expose native IDs, owner subjects, grants, or
 provisioning receipts. The UI must communicate what is and is not ready.
 
-Before activation, pin the approved deployment-admission contract, lane/base,
-exclusive paths, any migration or operational dependency, and actual ownership
-of the overlapping hosted routes. If the correct admission model requires a new
+The activation above pins the admission contract, lane/base, exclusive paths,
+migration context and overlapping hosted-route ownership. If implementation
+requires a new
 cross-repository or deployment contract, return that decision to the owning
 steward; do not broaden this slice silently.
 
@@ -132,7 +168,7 @@ must not transfer creator admission. The exact hosted POST derives its owner
 from the verified DMS principal, never caller-selected identity or admission;
 it retains origin protection and exposes only the existing public projection
 with `Cache-Control: no-store`. The decision, quota, revocation and rollout
-contracts must be explicitly settled before this design grants a write lease.
+contracts are settled for this bounded assignment by the decisions below.
 
 ## Proposed decisions for review
 
@@ -172,15 +208,14 @@ implemented or enabled:
   reviewed first Graph remain separate states. Failure must not claim success.
 
 Review must verify no access path bypasses the shared decision. The refinements
-below settle rejected-attempt accounting and rate-window behavior. Implementation
-stays blocked until the exact write-set/migration collision audit and bounded
-implementation assignment finish.
+below settle rejected-attempt accounting and rate-window behavior. The activation
+records the bounded implementation assignment and collision audit.
 
 ### Admission decision refinements
 
 Bugbot's read-only critique of `6314003c46154103c19855a0f171d7dd8eb5937b`
 accepts the earlier atomicity and revocation direction but requires these
-additional explicit rules before activation:
+additional explicit rules, adopted for this assignment:
 
 - Bound bytes before parsing. Charge every well-formed authenticated attempt,
   including retries and conflicts, to a shared durable rate window before it can
