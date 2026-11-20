@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import json
 import logging
 import time
@@ -48,6 +49,12 @@ class ProposalWriterProjection:
 
     def kwargs(self):
         return json.loads(self.expected_json)
+
+
+# Keep this pool separate from the per-turn event loop, whose shutdown joins
+# its default executor. A cancelled turn can discard an in-flight read.
+_BUILD_GRAPH_PREPARATION = ThreadPoolExecutor(max_workers=4, thread_name_prefix="build-graph")
+
 
 
 class BuildJevHarness:
@@ -558,7 +565,9 @@ class BuildJevHarness:
             if trace is not None:
                 trace.mark_first_jev_dispatch()
             if prepare_deferred_query is not None and pending_query is None:
-                pending_query = asyncio.create_task(asyncio.to_thread(prepare_deferred_query))
+                pending_query = asyncio.get_running_loop().run_in_executor(
+                    _BUILD_GRAPH_PREPARATION, prepare_deferred_query,
+                )
 
         client = decision_client(
             authorize=authorize, record=record, select_context=select_context,
@@ -625,7 +634,10 @@ class BuildJevHarness:
             raise
         finally:
             if pending_query is not None:
-                await asyncio.gather(pending_query, return_exceptions=True)
+                if pending_query.done() and not pending_query.cancelled():
+                    pending_query.exception()
+                else:
+                    pending_query.cancel()
             await client.aclose()
 
     @staticmethod

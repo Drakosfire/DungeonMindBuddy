@@ -869,6 +869,16 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert lane.repo.get_head(world).head_revision_id==current_revision
         return
     response = (dispatch(client, world, body) if dispatch else client.post('/api/live/agent/turn', json=body))
+    if failure in {"deferred_settlement_drift", "deferred_provider_failure"}:
+        from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+        assert response.status_code == 503, response.text
+        assert len(decisions.calls) == 1 and not writer.calls
+        turn = writer.adapter.service.inspect_turn(world_id=world, turn_id=writer.adapter.turn.turn_id)
+        assert turn.status == "interrupted"
+        assert not any(isinstance(e, NativeBuildQuerySettledV1)
+                       for e in turn.graph_context_execution.events)
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        return
     if failure=='initial_context':
         assert response.status_code in {502,503},response.text
         assert not decisions.calls and not writer.calls
@@ -2542,3 +2552,84 @@ def test_followup_rejects_inadmissible_fresh_pdf_support(lane, tmp_path, monkeyp
     assert response.status_code == 503, response.text
     assert calls
     assert lane.repo.get_head(case.world) == head
+
+
+@pytest.mark.parametrize("drift", ["source_epoch", "graph_binding"])
+def test_deferred_build_rejects_drift_after_graph_preparation(lane, tmp_path, monkeypatch, drift):
+    from dataclasses import replace
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
+
+    settle = _PolicyExecutionAdapter.settle_deferred_build_query
+    refresh = native_corpus_source._refresh_native_context
+
+    def drifted(adapter, context, query):
+        with monkeypatch.context() as patch:
+            if drift == "source_epoch":
+                def refreshed(*args, **kwargs):
+                    fresh = refresh(*args, **kwargs)
+                    changed = fresh.authority.model_copy(
+                        update={"acquisition_epoch": fresh.authority.acquisition_epoch + 1},
+                    )
+                    return replace(fresh, authority=changed)
+
+                patch.setattr(native_corpus_source, "_refresh_native_context", refreshed)
+            else:
+                context = replace(context, resolve_binding=lambda _world: None)
+            return settle(adapter, context, query)
+
+    monkeypatch.setattr(_PolicyExecutionAdapter, "settle_deferred_build_query", drifted)
+    _fresh_case(lane, tmp_path, monkeypatch, "deferred_settlement_drift",
+                False, False, False, saved_statblock="by-name")
+
+
+def test_deferred_build_recovers_same_id_after_accept_before_claim(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
+    from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+
+    def send(client, _world, body):
+        def interrupted(*_args, **_kwargs):
+            raise RuntimeError("interrupted after durable acceptance")
+
+        with monkeypatch.context() as patch:
+            patch.setattr(AgentConversationService, "claim_turn", interrupted)
+            first = client.post("/api/live/agent/turn", json=body)
+        assert first.status_code == 503, first.text
+        return client.post("/api/live/agent/turn", json=body)
+
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+                       saved_statblock="by-name", dispatch=send, message="Find the statblock for the Meat Mind.")
+    assert isinstance(case.turn.graph_context_receipt.native_query, NativeBuildQueryPendingV1)
+    events = case.turn.graph_context_execution.events
+    assert sum(isinstance(event, NativeBuildQuerySettledV1) for event in events) == 1
+    assert sum(isinstance(event, t.ProviderAttemptAuthorizedEventV5)
+               and event.context_phase == "select" for event in events) == 1
+
+
+def test_deferred_build_provider_failure_does_not_wait_for_graph(lane, tmp_path, monkeypatch):
+    from threading import Event
+    from apps.live_control_server.services import native_graph_reads
+
+    started, release, finished = Event(), Event(), Event()
+
+    def blocked(*_args, **_kwargs):
+        started.set()
+        try:
+            assert release.wait(timeout=15)
+            raise RuntimeError("unused speculative Graph read")
+        finally:
+            finished.set()
+
+    def fail_at_transport(_adapter, provider):
+        assert provider == "typesafe" and started.wait(timeout=5)
+        raise RuntimeError("opening transport failed")
+
+    monkeypatch.setattr(native_graph_reads, "prepare_query", blocked)
+    try:
+        _fresh_case(lane, tmp_path, monkeypatch, "deferred_provider_failure",
+                    False, False, False, saved_statblock="by-name", before_provider=fail_at_transport)
+        assert started.is_set() and not finished.is_set()
+    finally:
+        release.set()
+        if started.is_set():
+            assert finished.wait(timeout=5)

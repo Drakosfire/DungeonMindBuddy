@@ -3161,6 +3161,12 @@ class _PolicyExecutionAdapter:
 
         if query_context is None or query_context.query != query:
             raise ValueError("Build Graph settlement requires its actual prepared query")
+        from ..integrations.dungeonmind.native_corpus_source import _refresh_native_context
+        fresh = _refresh_native_context(self.native_corpus_context,
+            authority=self.native_source_authority, principal=self.native_principal)
+        if (fresh.authority != self.native_source_authority
+                or query_context.resolve_binding(self.world_id) != query_context.binding):
+            raise ValueError("Build Graph or source authority changed before settlement")
         event = NativeBuildQuerySettledV1(
             event_id=uuid4(), sequence=len(self._broker_execution().events),
             controller_attempt_id=self.last_provider_attempt_id, query=query,
@@ -6959,6 +6965,9 @@ def execute_agent_turn(
             (graph_types.PlanSourceContextReceiptV1, graph_types.SurfaceNativeContextReceiptV1))))
     native_corpus_context = native_source_authority = None
     native_query_context = native_query = prepare_deferred_build_query = None
+    from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
+    retained_pending = getattr(getattr(durable_turn, "graph_context_receipt", None), "native_query", None)
+    resumes_deferred = isinstance(retained_pending, NativeBuildQueryPendingV1)
     selected_knowledge_context = None
     if request.selected_knowledge is not None:
         if conversation_service is None or not operator_subject:
@@ -7086,12 +7095,13 @@ def execute_agent_turn(
             request, durable_turn.provenance
         )
         _require_play_run_receipt_matches_request(request, durable_turn.provenance, durable_turn.play_context_receipt)
-        stored_play_graph_binding = _stored_play_graph_binding(
-            request, durable_turn.provenance,
-        )
+        if not resumes_deferred:
+            stored_play_graph_binding = _stored_play_graph_binding(
+                request, durable_turn.provenance,
+            )
 
     graph_reference = None
-    if durable_turn is not None:
+    if durable_turn is not None and not resumes_deferred:
         graph_reference = _stored_graph_reference(durable_turn.provenance)
         if (request.graph_request.mode == "none") != (graph_reference is None):
             raise AgentTurnServiceError(
@@ -7382,13 +7392,19 @@ def execute_agent_turn(
         if (native_graph_query_resolver is not None and (
                 isinstance(frozen, (graph_types.PlanNativeContextReceiptV1,graph_types.SurfaceNativeContextReceiptV1))
                 or frozen is None and (_governed_build_turn(request) or request.surface.surface_id=='play' or isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2)))):
-            if (_governed_build_turn(request) and durable_turn is None and request.retry_of is None
-                    and isinstance(submitted_intent, BuildGraphIntentV1) and submitted_intent.reviewed_step is None
-                    and request.build_authored_references is None
-                    and native_corpus_context is not None):
+            can_defer = (_governed_build_turn(request) and request.retry_of is None
+                and isinstance(submitted_intent, BuildGraphIntentV1) and submitted_intent.reviewed_step is None
+                and request.build_authored_references is None and native_corpus_context is not None)
+            if resumes_deferred and not can_defer:
+                raise AgentTurnServiceError("The retained opening Graph authority is no longer available.",
+                    code="turn_receipt_unverifiable", status_code=409, provider_dispatched=False)
+            if can_defer and (durable_turn is None or resumes_deferred):
                 from .native_graph_reads import pending_build_query
                 with trace.phase("build_graph_query_pin"):
                     native_query = pending_build_query(canonical_world_id, request.message, native_corpus_context)
+                if resumes_deferred and native_query != retained_pending:
+                    raise AgentTurnServiceError("The retained opening Graph authority changed.",
+                        code="turn_receipt_unverifiable", status_code=409, provider_dispatched=False)
                 if native_query is not None:
                     def prepare_deferred_build_query():
                         from ..integrations.dungeonmind.native_corpus_source import _refresh_native_context
