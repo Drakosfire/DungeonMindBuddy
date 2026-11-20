@@ -121,6 +121,8 @@ describe("ThreatSheetProjection", () => {
       campaignId: null,
       scopeMode: scope.scopeMode,
       revisionPin: scope.revisionId,
+      expectedNativeWorldId: "eldyrwild",
+      expectedBindingVersion: 2,
       queryText: "threat:tripod-null-calf",
       focusNodeIds: ["threat:tripod-null-calf"],
       maxHits: 64,
