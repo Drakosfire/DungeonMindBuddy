@@ -620,3 +620,75 @@ def test_large_sdk_wire_passes_native_app_admission_and_retained_reload(applicat
     assert owner.raw.encode()==owner.sent[0].content
     retained=type(stored).model_validate_json(stored.model_dump_json(by_alias=True))
     assert retained==stored
+
+
+@pytest.mark.parametrize("fail_after_append", [False, True])
+def test_atomic_build_claim_retains_exact_draft_or_rolls_back(
+    application_state_dsn, monkeypatch, fail_after_append,
+):
+    from application_state.agent_conversation.build_draft_context import BuildDraftContextRequestV1, digest
+
+    owner = _DurableBuildOwner()
+    context, record = component("build", unavailable=True)
+    raw = context.model_dump(mode="json", by_alias=True)
+    raw["assembled_input"]["assembler_version"] = "native_build_semantic_initial_v2"
+    context = type(context).model_validate_json(json.dumps(seal(raw)))
+    draft = BuildDraftContextRequestV1(
+        conversation_id=owner.conversation_id, expected_pointer_revision=1,
+        snapshot=context.work_context.source_basis.model_dump() | {
+            "draft_markdown": "Exact unsaved text",
+            "draft_sha256": sha256(b"Exact unsaved text").hexdigest(),
+            "editor_sha256": "b" * 64, "draft_generation": 1,
+        },
+    )
+    action = record.policy.action
+    intent = action.intent.model_copy(update={"build_draft_context_sha256": digest(draft.model_dump(mode="json", by_alias=True))})
+    policy = record.policy.model_copy(update={"action": action.model_copy(update={"intent": intent})})
+    submission = t.TurnSubmission(
+        world_id=owner.world_id, conversation_id=owner.conversation_id, idempotency_key=uuid4(),
+        expected_conversation_revision=1, user_text=intent.message,
+        provenance=provenance_for(context.work_context).model_copy(update={
+            "surface_instance_id": intent.surface_instance_id,
+        }),
+        submitted_intent_v2=intent, graph_context_receipt=context,
+        graph_context_execution=execution(context.context_receipt_sha256, policy),
+    )
+    accepted = owner.service.accept_turn(submission)
+    args = (owner.world_id, owner.conversation_id, accepted.turn_id)
+    kwargs = dict(expected_revision=accepted.revision, lease_seconds=120, draft=draft)
+    if fail_after_append:
+        persist = owner.service._persist_execution_append
+        def fail(*args, **kwargs):
+            assert persist(*args, **kwargs) is not None
+            raise RuntimeError("after final draft write")
+        monkeypatch.setattr(owner.service, "_persist_execution_append", fail)
+        with pytest.raises(RuntimeError, match="after final draft write"):
+            owner.service.claim_build_with_draft(*args, **kwargs)
+        assert owner.service.inspect_turn(world_id=owner.world_id, turn_id=accepted.turn_id) == accepted
+        assert not owner.service.list_context_trace_attempts(world_id=owner.world_id, turn_id=accepted.turn_id)
+        return
+
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    barrier = Barrier(2)
+
+    def acquire():
+        barrier.wait(timeout=10)
+        return owner.service.claim_build_with_draft(*args, **kwargs)
+
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        results = [workers.submit(acquire) for _ in range(2)]
+        outcomes = sorted((result.result(timeout=15) for result in results),
+                          key=lambda result: result[0].disposition)
+    (claim, (trace, captured)), (pending, duplicate) = outcomes
+    assert pending.disposition == "pending" and duplicate is None
+
+    assert claim.disposition == "claimed"
+    assert trace.execution_start_sequence == 0 and trace.attempt == claim.turn.attempt
+    (event,) = claim.turn.graph_context_execution.events
+    assert event.record == captured and captured.snapshot == draft.snapshot
+    assert owner.service.list_context_trace_attempts(
+        world_id=owner.world_id, turn_id=accepted.turn_id,
+    ) == [trace]
+    assert owner.service.inspect_turn(world_id=owner.world_id, turn_id=accepted.turn_id) == claim.turn

@@ -223,6 +223,46 @@ def close_context_trace_locked(
     _save_trace(conn, closed)
 
 
+def begin_context_trace_locked(
+    conn, *, world_id: str, conversation_id: UUID, turn_id: UUID,
+    expected_revision: int, attempt: int, trace_id: UUID, started_at: datetime,
+) -> TurnContextTraceV1:
+    """Start capture inside the caller's transaction under the existing claim fence."""
+    turn = conn.execute(
+        "SELECT conversation_id, status, revision, attempt, claim_expires_at, "
+        "clock_timestamp() AS now, graph_context_execution FROM agent.turn "
+        "WHERE world_id=%s AND turn_id=%s FOR UPDATE",
+        (world_id, turn_id),
+    ).fetchone()
+    if turn is None or turn[0] != conversation_id:
+        raise ApplicationStateNotFoundError("trace turn is unavailable in this World conversation")
+    if (
+        turn[1] != "running" or turn[2] != expected_revision
+        or turn[3] != attempt or turn[4] is None or turn[4] <= turn[5]
+    ):
+        raise ApplicationStateConflictError("trace start is fenced by the current turn claim")
+    existing = _trace_row(conn, turn_id, attempt)
+    if existing is not None:
+        trace = _load_trace(existing[1])
+        if trace.trace_id != trace_id or trace.started_at != started_at:
+            raise ApplicationStateConflictError("context trace attempt identity changed")
+        return trace
+    trace = TurnContextTraceV1(
+        trace_id=trace_id, world_id=world_id, conversation_id=conversation_id,
+        turn_id=turn_id, attempt=attempt, started_at=started_at,
+        execution_start_sequence=(
+            len(turn[6].get("events", [])) if isinstance(turn[6], dict) else 0
+        ),
+        observations=[],
+    )
+    conn.execute(
+        "INSERT INTO agent.turn_context_trace(turn_id,attempt,trace_id,payload) "
+        "VALUES (%s,%s,%s,%s)",
+        (turn_id, attempt, trace_id, Jsonb(trace.model_dump(mode="json", by_alias=True))),
+    )
+    return trace
+
+
 class TurnContextTraceStore:
     def begin(
         self, *, world_id: str, conversation_id: UUID, turn_id: UUID,
@@ -231,39 +271,11 @@ class TurnContextTraceStore:
         from application_state.agent_conversation.service import _ready_dsn
 
         with unit_of_work(_ready_dsn()) as conn:
-            turn = conn.execute(
-                "SELECT conversation_id, status, revision, attempt, claim_expires_at, "
-                "clock_timestamp() AS now, graph_context_execution FROM agent.turn "
-                "WHERE world_id=%s AND turn_id=%s FOR UPDATE",
-                (world_id, turn_id),
-            ).fetchone()
-            if turn is None or turn[0] != conversation_id:
-                raise ApplicationStateNotFoundError("trace turn is unavailable in this World conversation")
-            if (
-                turn[1] != "running" or turn[2] != expected_revision
-                or turn[3] != attempt or turn[4] is None or turn[4] <= turn[5]
-            ):
-                raise ApplicationStateConflictError("trace start is fenced by the current turn claim")
-            existing = _trace_row(conn, turn_id, attempt)
-            if existing is not None:
-                trace = _load_trace(existing[1])
-                if trace.trace_id != trace_id or trace.started_at != started_at:
-                    raise ApplicationStateConflictError("context trace attempt identity changed")
-                return trace
-            trace = TurnContextTraceV1(
-                trace_id=trace_id, world_id=world_id, conversation_id=conversation_id,
-                turn_id=turn_id, attempt=attempt, started_at=started_at,
-                execution_start_sequence=(
-                    len(turn[6].get("events", [])) if isinstance(turn[6], dict) else 0
-                ),
-                observations=[],
+            return begin_context_trace_locked(
+                conn, world_id=world_id, conversation_id=conversation_id, turn_id=turn_id,
+                expected_revision=expected_revision, attempt=attempt, trace_id=trace_id,
+                started_at=started_at,
             )
-            conn.execute(
-                "INSERT INTO agent.turn_context_trace(turn_id,attempt,trace_id,payload) "
-                "VALUES (%s,%s,%s,%s)",
-                (turn_id, attempt, trace_id, Jsonb(trace.model_dump(mode="json", by_alias=True))),
-            )
-            return trace
 
     def append(
         self, *, world_id: str, conversation_id: UUID, turn_id: UUID,
