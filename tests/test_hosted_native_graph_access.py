@@ -5246,95 +5246,110 @@ def test_hosted_extraction_coverage_requires_owned_document_and_matching_result(
 
 
 def test_hosted_worldbuilding_plan_prepare_checks_exact_run(hosted, monkeypatch):
-    from apps.live_control_server.routes import extract_promote
+    """Retirement keeps both the original owner gate and a late transfer fence."""
+    from apps.live_control_server.services import worldbuilding_graph_publication as service
 
     async def owned_extraction(subject, run_id):
         world = "managed" if run_id == "owned" else "foreign"
         access._owned_world(subject, world)
         return world, SimpleNamespace(source_artifact_id="saved-source")
-
-    calls = []
-
-    def prepare(body):
-        calls.append(body.run_id)
-        raise extract_promote.ExtractPromoteError("fixture reached", code="fixture", status_code=409)
-
     monkeypatch.setattr(access, "_owned_worldbuilding_extraction", owned_extraction)
-    monkeypatch.setattr(extract_promote, "prepare_worldbuilding", prepare)
+    monkeypatch.setattr(service, "prepare_worldbuilding",
+                        lambda *a, **k: pytest.fail("Retired classic preparation dispatched"))
     path = "/api/live/extract-promote/worldbuilding/prepare"
     body = {"runId": "owned", "expectedParentRevisionId": "rev:head",
             "dispositions": [{"assertionId": "candidate", "decision": "defer"}]}
     assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
     assert hosted.client.request("POST", path, json={**body, "runId": "foreign"}).status_code == 403
-    assert calls == []
     response = hosted.client.request("POST", path, json=body)
-    assert response.status_code == 409, response.text
-    assert calls == ["owned"]
+    assert response.status_code == 410, response.text
+    assert response.json()["code"] == "classic_worldbuilding_prepare_retired"
 
-    def prepare_after_transfer(_request):
-        hosted.records["managed"] = hosted.records["managed"].model_copy(
-            update={"owner_subject": OTHER_OWNER},
-        )
-        return SimpleNamespace(
-            publication_binding=SimpleNamespace(managed_world_id="managed"),
-            model_dump=lambda **_kwargs: {"private": "Sealed plan contents"},
-        )
-
-    monkeypatch.setattr(extract_promote, "prepare_worldbuilding", prepare_after_transfer)
+    async def transfer_after_gate(subject, run_id):
+        access._owned_world(subject, "managed")
+        hosted.records["managed"] = hosted.records["managed"].model_copy(update={"owner_subject": OTHER_OWNER})
+        return "managed", SimpleNamespace(source_artifact_id="saved-source")
+    monkeypatch.setattr(access, "_owned_worldbuilding_extraction", transfer_after_gate)
     denied = hosted.client.request("POST", path, json=body)
     assert denied.status_code == 403, denied.text
-    assert "Sealed plan contents" not in denied.text
+
+
+def _hosted_original_worldbuilding_plan(hosted, monkeypatch):
+    from tests.test_cutover_worldbuilding_authority_port import (
+        _immutable_worldbuilding_plan, _reseal_immutable_worldbuilding_plan,
+    )
+    from apps.live_control_server.services import managed_world_graph_projection
+    record = access._owned_world(OWNER, "managed")
+    current = record.native_graph_binding
+    plan = _immutable_worldbuilding_plan(monkeypatch)
+    plan.world_id = current.native_world_id
+    plan.publication_binding.managed_world_id = "managed"
+    plan.publication_binding.native_world_id = current.native_world_id
+    plan.publication_binding.binding_version = current.binding_version
+    plan = _reseal_immutable_worldbuilding_plan(plan)
+    def binding(world):
+        record = hosted.records[world]
+        current = record.native_graph_binding
+        return SimpleNamespace(managed_world_id=record.world_id, native_world_id=current.native_world_id,
+                               binding_version=current.binding_version)
+    monkeypatch.setattr(managed_world_graph_projection, "resolve_managed_world_binding", binding)
+    return plan
 
 
 def test_hosted_worldbuilding_plan_confirm_checks_native_and_managed_ids(hosted, monkeypatch):
-    from apps.live_control_server.models.extract_promote import WorldbuildingWritePlanResponse
     from apps.live_control_server.routes import extract_promote
-
-    native_id = access._owned_world("synthetic-owner-alpha", "managed").native_graph_binding.native_world_id
-    publication_binding = {
-        "managed_world_id": "managed", "native_world_id": native_id, "binding_version": 3,
-        "document_id": "document", "document_revision": 1, "source_artifact_id": "source", "source_sha256": "a" * 64,
-    }
-    plan = WorldbuildingWritePlanResponse(
-        plan_id="plan", plan_digest="digest", decision_digest="decisions", world_id=native_id,
-        parent_revision_id="parent", run_id="run", source_artifact_id="source", source_revision_id="revision",
-        candidate_preview_id="preview", candidate_schema="schema", candidate_version="1", summary={},
-        effect={"contribution_meta": {"source_artifact_id": "source", "source_revision_id": "revision",
-                                      "extraction_profile": "fixture"}},
-        publication_binding=publication_binding,
-    ).model_dump(mode="json", by_alias=True)
+    plan = _hosted_original_worldbuilding_plan(hosted, monkeypatch)
+    payload = plan.model_dump(mode="json", by_alias=True)
     calls = []
-
-    async def owned_extraction(subject, run_id):
-        access._owned_world(subject, "managed")
-        return "managed", SimpleNamespace(source_artifact_id="source")
-
+    def forbidden(*args, **kwargs):
+        pytest.fail("historical Worldbuilding confirm opened run/artifact/Page")
+    monkeypatch.setattr(access, "_owned_worldbuilding_extraction", forbidden)
     def confirm(body, *, authorize_write):
         authorize_write()
         calls.append(body.plan.world_id)
         raise extract_promote.ExtractPromoteError("fixture reached", code="fixture", status_code=409)
-
-    monkeypatch.setattr(access, "_owned_worldbuilding_extraction", owned_extraction)
     monkeypatch.setattr(extract_promote, "confirm_worldbuilding", confirm)
     path = "/api/live/extract-promote/worldbuilding/confirm"
-    assert hosted.client.request("POST", path, json={"plan": plan}, session="other-session").status_code == 403
-    assert hosted.client.request("POST", path, json={"plan": {**plan, "worldId": "another-native"}}).status_code == 403
+    assert hosted.client.request("POST", path, json={"plan": payload}, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={"plan": {**payload, "worldId": "another-native"}}).status_code == 403
     assert calls == []
-    result = hosted.client.request("POST", path, json={"plan": plan})
+    result = hosted.client.request("POST", path, json={"plan": payload})
     assert result.status_code == 409, result.text
-    assert calls == [native_id]
-
+    assert calls == [plan.world_id]
     def confirm_after_transfer(body, *, authorize_write):
-        hosted.records["managed"] = hosted.records["managed"].model_copy(
-            update={"owner_subject": OTHER_OWNER},
-        )
+        hosted.records["managed"] = hosted.records["managed"].model_copy(update={"owner_subject": OTHER_OWNER})
         authorize_write()
-        calls.append(body.plan.world_id)
-
+        pytest.fail("private receipt disclosed after transfer")
     monkeypatch.setattr(extract_promote, "confirm_worldbuilding", confirm_after_transfer)
-    denied = hosted.client.request("POST", path, json={"plan": plan})
+    denied = hosted.client.request("POST", path, json={"plan": payload})
     assert denied.status_code == 403, denied.text
-    assert calls == [native_id]
+    assert calls == [plan.world_id]
+
+
+@pytest.mark.parametrize("late", [False, True])
+def test_hosted_worldbuilding_current_binding_version_fences_receipt(hosted, monkeypatch, late):
+    from apps.live_control_server.routes import extract_promote
+    plan = _hosted_original_worldbuilding_plan(hosted, monkeypatch)
+    def change_version():
+        record = hosted.records["managed"]
+        hosted.records["managed"] = record.model_copy(update={"native_graph_binding":
+            record.native_graph_binding.model_copy(update={"binding_version": plan.publication_binding.binding_version + 1})})
+    calls = []
+    def confirm(body, *, authorize_write):
+        authorize_write()
+        calls.append("receipt")
+        change_version()
+        return SimpleNamespace(model_dump=lambda **_: {"private": "original-receipt"})
+    monkeypatch.setattr(extract_promote, "confirm_worldbuilding", confirm)
+    monkeypatch.setattr(access, "_owned_worldbuilding_extraction",
+                        lambda *a, **k: pytest.fail("historical confirm opened mutable source"))
+    if not late:
+        change_version()
+    response = hosted.client.request("POST", "/api/live/extract-promote/worldbuilding/confirm",
+                                     json={"plan": plan.model_dump(mode="json", by_alias=True)})
+    assert response.status_code == 403, response.text
+    assert "original-receipt" not in response.text
+    assert calls == (["receipt"] if late else [])
 
 
 def test_hosted_native_publication_uses_world_owner_for_both_steps(hosted, monkeypatch):

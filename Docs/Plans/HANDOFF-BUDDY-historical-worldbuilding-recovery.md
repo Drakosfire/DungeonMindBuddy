@@ -144,17 +144,32 @@ evidence review and expected-head authorized merge are required.
 
 ## Implementation checkpoint
 
-Pure original-plan authentication and typed effect/evidence reconstruction are
-implemented in the new helper. Working owning-file diagnostic:73pass,17retained
-warnings; changed helper/test Ruff and diff checks pass. This includes genuine
-create/bind/defer/reject/observation/governs recipes, independently signed
-inconsistent crosslinks, candidate-kind ownership and operation-wide evidence
-collisions. Complete typed-mapping output matches the original producer for
-create/bind/alias/defer/reject/observation/governs recipes; this is not yet complete
-terminal candidate/review equality. Full terminal
-candidate/review equality, bare SQL, mounted owner/binding integration and prepare
-retirement remain pending. Current routes have not changed in this checkpoint.
-This is draft groundwork, not final qualification, merge or deployment acceptance.
+Receipt-only confirmation, complete original candidate/review derivation, bare
+immutable SQL readers, current/late owner and binding fences, and authenticated
+prepare retirement are implemented. Working owning diagnostic:105pass,0fail/error/
+skip (owning-working-9.xml); hosted focused fences:4pass. These are working-tree
+diagnostics, not exact committed-head release acceptance. All original pure
+producer and full typed mapping checks remain; old confirm-as-fresh-publication
+expectations now explicitly seed typed original history before recovery.
+
+Real loopback PostgreSQL witnesses execute public V6 seed, actual source admission,
+original pure producer plus actual Core finalize/publication, later descendant and
+catalog-consistent source withdrawal. Original packets recover twice through fresh
+bare readers with unchanged full APP/Core row counts and hashes. Missing receipt
+refuses without publication; corrupt child returns publication_integrity_failure.
+Historical preparation uses an empty fake mutation port only; admission, review,
+publication and recovery are real SQL. Fixtures require zero clients before drop
+and independent absence afterward. SQL-working-1 retained a test expectation error
+for the typed integrity code; corrected in the passing owning diagnostic. Earlier
+owning-working-7 also retains test-scaffolding failures, corrected before passing.
+
+Full frozen-head auth/native/preservation, official hosted/build/canonical checks,
+installed dependency origin audit, independent cumulative acceptance and merge
+remain pending. No serving rollout or full V10/V11 acceptance is claimed. Missing
+mutable run/Page/body/index access is tripwired; explicit fixture removal and
+original receipt/evidence assertions remain subject to final proof review.
+Changed production/owning tests Ruff is clean;11 unrelated existing hosted F811
+findings and route F401 remain inherited. Remote main revalidated at744b3971d.
 
 ## Full goal and resources
 

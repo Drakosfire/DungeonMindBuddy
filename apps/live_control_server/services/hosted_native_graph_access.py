@@ -1349,6 +1349,22 @@ def worldbuilding_evidence_authorizer(request: Request, world_id: str) -> Callab
         if getattr(request.state, "hosted_build_page_world", None) != world_id:
             raise _denied()
         _owned_world(_hosted_subject(request), world_id)
+        plan = getattr(request.state, "hosted_worldbuilding_confirmation", None)
+        if plan is not None:
+            from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import (
+                authenticate_original_plan, authorize_current_binding,
+            )
+            from apps.live_control_server.services.extract_promote import ExtractPromoteError
+
+            try:
+                if plan.publication_binding is None or plan.publication_binding.managed_world_id != world_id:
+                    raise _denied()
+                authenticate_original_plan(plan)
+                authorize_current_binding(plan)
+            except ExtractPromoteError as exc:
+                if exc.status_code >= 500:
+                    raise _unavailable() from None
+                raise _denied() from None
 
     return authorize
 
@@ -1402,15 +1418,21 @@ async def resolve_hosted_worldbuilding_write_plan(request: Request) -> str:
         binding = plan.publication_binding
         if binding is None:
             raise _denied()
-        world_id, artifact = await _owned_worldbuilding_extraction(subject, plan.run_id)
-        world = await run_in_threadpool(_owned_world, subject, world_id)
-        if world.native_graph_binding is None:
-            raise _denied()
-        native_id = world.native_graph_binding.native_world_id
-        if (binding.managed_world_id != world_id or binding.native_world_id != native_id
-                or plan.world_id != native_id or plan.source_artifact_id != artifact.source_artifact_id
-                or binding.source_artifact_id != artifact.source_artifact_id):
-            raise _denied()
+        from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import (
+            authenticate_original_plan, authorize_current_binding,
+        )
+        from apps.live_control_server.services.extract_promote import ExtractPromoteError
+
+        try:
+            authenticate_original_plan(plan)
+            world_id = binding.managed_world_id
+            await run_in_threadpool(_owned_world, subject, world_id)
+            await run_in_threadpool(authorize_current_binding, plan)
+        except ExtractPromoteError as exc:
+            if exc.status_code >= 500:
+                raise _unavailable() from None
+            raise _denied() from None
+        request.state.hosted_worldbuilding_confirmation = plan
     else:
         body = WorldbuildingWritePlanPrepareRequest.model_validate(payload)
         world_id, _ = await _owned_worldbuilding_extraction(subject, body.run_id)

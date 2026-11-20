@@ -813,7 +813,7 @@ def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypat
         update={"document_revision": plan.publication_binding.document_revision + 1})})
     with pytest.raises(Exception) as forged_error:
         confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=forged))
-    assert forged_error.value.code == "worldbuilding_source_binding_changed"
+    assert forged_error.value.code == "identity_snapshot_inexpressible"
     assert fake.publish_calls == 0
     original_world = get_world("publication-managed").record
     for binding_state in ("missing", "inactive"):
@@ -823,7 +823,7 @@ def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypat
             store_world(original_world.model_copy(update={"native_graph_binding": original_world.native_graph_binding.model_copy(update={"status": "inactive"})}))
         with pytest.raises(Exception) as unavailable_error:
             confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
-        assert unavailable_error.value.code == "worldbuilding_source_binding_missing"
+        assert unavailable_error.value.code == "worldbuilding_source_binding_changed"
         assert unavailable_error.value.status_code == 409
         assert fake.publish_calls == 0
     store_world(original_world)
@@ -833,24 +833,22 @@ def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypat
     assert binding_error.value.code == "worldbuilding_source_binding_changed"
     assert fake.publish_calls == 0
     store_world(original_world)
+    seeded = _seed_worldbuilding_unit_history(monkeypatch, plan, fake)
     first = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
-    assert first.outcome == "committed"
+    assert first.outcome == "already_applied"
     assert first.world_id == native_id
-    original_recover = fake.recover
-    def changing_recover(*args, **kwargs):
-        receipt = original_recover(*args, **kwargs)
+    def change_binding_during_read():
         change_binding(original_world.world_id, binding_version=original_world.native_graph_binding.binding_version + 1)
-        return receipt
-    monkeypatch.setattr(fake, "recover", changing_recover)
+    seeded.store.on_read = change_binding_during_read
     with pytest.raises(Exception) as recovery_error:
         confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
     assert recovery_error.value.code == "worldbuilding_source_binding_changed"
-    assert fake.publish_calls == 1
+    assert fake.publish_calls == 0
     store_world(original_world)
-    monkeypatch.setattr(fake, "recover", original_recover)
+    seeded.store.on_read = None
     retry = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
     assert retry.outcome == "already_applied"
-    assert fake.publish_calls == 1
+    assert fake.publish_calls == 0
     assert DEFAULT_WORLD_ID not in fake.heads
 
 
@@ -940,16 +938,16 @@ def test_worldbuilding_governs_uses_pinned_v6_at_prepare_and_confirm(
     forged = plan.model_copy(update={"native_vocabulary_binding": forged_model})
     with pytest.raises(Exception) as stale_contract:
         confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=forged))
-    assert stale_contract.value.code == "worldbuilding_native_vocabulary_changed"
+    assert stale_contract.value.code == "identity_snapshot_inexpressible"
     assert fake.publish_calls == 0
 
+    seeded = _seed_worldbuilding_unit_history(monkeypatch, plan, fake)
     receipt = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
-    published = fake.revisions[(native_id, receipt.committed_revision_id)]
-    relation = next(iter(published.relationships.values()))
-    assert relation.subject_object_id == "obj_session22_vial"
-    assert relation.target_object_id == "mystery_puddles"
+    assert receipt.outcome == "already_applied"
+    assert receipt.committed_revision_id == seeded.history.publication.published_revision_id
+    relation = next(item for item in seeded.history.review.candidate_contribution.assertions if item.assertion_kind == "edge")
     assert relation.predicate == "dnd5e:governs"
-    assert fake.publish_calls == 1
+    assert fake.publish_calls == 0
     assert DEFAULT_WORLD_ID not in fake.heads
 
 
@@ -994,6 +992,7 @@ def test_identity_drift_without_graph_head_advance_uses_sealed_snapshot(
     assert plan.effect.identity_authority.identity_redirects == sealed["identity_redirects"]
 
 
+    _seed_worldbuilding_unit_history(monkeypatch, plan, fake)
     fake.identity[DEFAULT_WORLD_ID] = {
         "identity_redirects": {"obj_session22_vial": "npc:occupied-after-prepare"},
         "decisions": [],
@@ -1015,11 +1014,11 @@ def test_identity_drift_without_graph_head_advance_uses_sealed_snapshot(
     receipt = confirm_worldbuilding(
         WorldbuildingWritePlanConfirmRequest(plan=plan)
     )
-    assert receipt.outcome == "committed"
+    assert receipt.outcome == "already_applied"
     assert receipt.parent_revision_id == parent
     assert receipt.committed_revision_id != parent
-    assert fake.heads[DEFAULT_WORLD_ID] == receipt.committed_revision_id
-    assert fake.publish_calls == 1
+    assert fake.heads[DEFAULT_WORLD_ID] == parent
+    assert fake.publish_calls == 0
 
 
 def test_malformed_sealed_identity_fails_closed(tmp_path, monkeypatch):
@@ -1061,30 +1060,20 @@ def test_malformed_sealed_identity_fails_closed(tmp_path, monkeypatch):
         WorldbuildingWritePlanConfirmRequest.model_validate({"plan": dumped})
 
 
-    real_context = FakeWorldGraphAuthority.mutation_context
-
-
-    def _bad_sealed(self, world_id, revision_id, *, sealed_identity_snapshot=None):
-        if sealed_identity_snapshot is not None:
-            raise WorldGraphAuthorityError(
-                "bad snapshot",
-                code="inexpressible",
-            )
-        return real_context(
-            self,
-            world_id,
-            revision_id,
-            sealed_identity_snapshot=sealed_identity_snapshot,
-        )
-
-
-    monkeypatch.setattr(FakeWorldGraphAuthority, "mutation_context", _bad_sealed)
+    from apps.live_control_server.integrations.dungeonmind import historical_worldbuilding_recovery as recovery
+    malformed = plan.model_copy(update={"effect": plan.effect.model_copy(update={
+        "identity_authority": plan.effect.identity_authority.model_copy(update={"alias_owners": {"forged": ["npc:other"]}})
+    })})
+    def no_history_read():
+        pytest.fail("unauthenticated identity reached trusted history")
+    monkeypatch.setattr(recovery, "_bare_readers", no_history_read)
     with pytest.raises(Exception) as exc:
-        confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
-    assert getattr(exc.value, "code", "") == "dungeonmind_inexpressible"
+        confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=malformed))
+    assert exc.value.code == "plan_verification_failed"
+    assert fake.publish_calls == 0
 
 
-def test_v1_confirm_requires_reprepare(tmp_path, monkeypatch):
+def test_v1_confirm_is_unsupported_without_fresh_publication(tmp_path, monkeypatch):
     from apps.live_control_server.models.extract_promote import (
         WorldbuildingWritePlanConfirmRequest,
         WorldbuildingWritePlanPrepareRequest,
@@ -1124,7 +1113,7 @@ def test_v1_confirm_requires_reprepare(tmp_path, monkeypatch):
     v1 = WorldbuildingWritePlanConfirmRequest.model_validate({"plan": dumped})
     with pytest.raises(Exception) as exc:
         confirm_worldbuilding(v1)
-    assert getattr(exc.value, "code", "") == "legacy_plan_reprepare_required"
+    assert getattr(exc.value, "code", "") == "publication_history_unsupported"
 
 
 def test_exact_retry_is_already_applied_with_zero_second_publish(
@@ -1162,12 +1151,13 @@ def test_exact_retry_is_already_applied_with_zero_second_publish(
             }
         )
     )
+    _seed_worldbuilding_unit_history(monkeypatch, plan, fake)
     first = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
-    assert first.outcome == "committed"
+    assert first.outcome == "already_applied"
     retry = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
     assert retry.outcome == "already_applied"
     assert retry.committed_revision_id == first.committed_revision_id
-    assert fake.publish_calls == 1
+    assert fake.publish_calls == 0
 
 
 def test_stale_distinct_plan_fails_closed_after_unrelated_head_advance(
@@ -1220,7 +1210,7 @@ def test_stale_distinct_plan_fails_closed_after_unrelated_head_advance(
     assert fake.heads[DEFAULT_WORLD_ID] != parent
     with pytest.raises(Exception) as exc:
         confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
-    assert getattr(exc.value, "code", "") == "stale_parent_revision"
+    assert getattr(exc.value, "code", "") == "publication_receipt_unavailable"
     assert all(
         not str(operation_id).startswith("wbop:")
         for _world_id, operation_id in fake.publications
@@ -1427,7 +1417,8 @@ def test_tampered_identity_snapshot_fails_even_after_recompute(tmp_path, monkeyp
             require_current_head=False,
         )
         attack_plan = _wrap_built_plan(rebuilt).model_copy(
-            update={"prepare_binding": honest.prepare_binding, "publication_binding": honest.publication_binding}
+            update={"prepare_binding": honest.prepare_binding, "publication_binding": honest.publication_binding,
+                    "source_admission": honest.source_admission, "native_vocabulary_binding": honest.native_vocabulary_binding}
         )
         with pytest.raises(Exception) as exc:
             confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=attack_plan))
@@ -1474,6 +1465,7 @@ def test_identity_drift_appends_i1_without_changing_sealed_confirm(
             }
         )
     )
+    _seed_worldbuilding_unit_history(monkeypatch, plan, fake)
     fake.identity[DEFAULT_WORLD_ID] = {
         "identity_redirects": {},
         "decisions": [
@@ -1487,8 +1479,8 @@ def test_identity_drift_appends_i1_without_changing_sealed_confirm(
         "alias_owners": {},
     }
     receipt = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
-    assert receipt.outcome == "committed"
-    assert fake.publish_calls == 1
+    assert receipt.outcome == "already_applied"
+    assert fake.publish_calls == 0
 
 
 def test_recomputed_plan_after_i1_cannot_reuse_prepare_binding(tmp_path, monkeypatch):
@@ -1571,7 +1563,8 @@ def test_recomputed_plan_after_i1_cannot_reuse_prepare_binding(tmp_path, monkeyp
         require_current_head=False,
     )
     attack_plan = _wrap_built_plan(rebuilt).model_copy(
-        update={"prepare_binding": prepared.prepare_binding, "publication_binding": prepared.publication_binding}
+        update={"prepare_binding": prepared.prepare_binding, "publication_binding": prepared.publication_binding,
+                "source_admission": prepared.source_admission, "native_vocabulary_binding": prepared.native_vocabulary_binding}
     )
     assert attack_plan.plan_id != prepared.plan_id
     with pytest.raises(Exception) as exc:
@@ -1643,24 +1636,18 @@ def test_bind_existing_native_verify_proves_attribute_and_alias(tmp_path, monkey
             }
         )
     )
+    seeded = _seed_worldbuilding_unit_history(monkeypatch, plan, fake)
     receipt = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
-    assert receipt.outcome == "committed"
-    child = fake.read_revision(DEFAULT_WORLD_ID, receipt.committed_revision_id)
-    bound = child.objects[target.object_id]
-    attribute_assertions = [
-        item
-        for item in plan.effect.accepted_proposals
-        if item.assertion_kind == "attribute"
-    ]
-    assert attribute_assertions
-    published = next(iter(fake.publications.values()))
-    expected_evidence = [
-        *attribute_assertions[0].evidence_ref_ids,
-        f"evidence:{published.reviewed_contribution_id}:{target.object_id}",
-    ]
-    assert any(item in child.evidence_refs for item in expected_evidence if item)
-    assert "Witness Alias" in bound.aliases
-    assert "mystery_puddles" in child.objects
+    assert receipt.outcome == "already_applied"
+    assert receipt.committed_revision_id == seeded.history.publication.published_revision_id
+    candidate = seeded.history.review.candidate_contribution
+    attributes = [item for item in candidate.assertions if item.assertion_kind == "attribute"]
+    aliases = [item for item in candidate.assertions if item.assertion_kind == "alias"]
+    assert any(item.subject_object_id == target.object_id and item.evidence_refs for item in attributes)
+    assert any(item.subject_object_id == target.object_id and "Witness Alias" in item.value for item in aliases)
+    assert any(item.subject_object_id == "mystery_puddles" for item in candidate.assertions)
+    assert fake.publish_calls == 0
+    assert fake.heads[DEFAULT_WORLD_ID] == parent
 
 
 def test_registered_publication_binding_uses_native_target_without_latest_revision_requirement(monkeypatch):
@@ -1913,28 +1900,22 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
         assert fake.publish_calls == 0
         assert fake.heads == parent_by_native
 
-    receipt_a = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan_a))
-    head_a = fake.heads["native-alpha"]
-    child_a = fake.read_revision("native-alpha", head_a)
-    assert receipt_a.outcome == "committed"
-    assert receipt_a.world_id == "native-alpha"
-    assert plan_a.source_artifact_id == source_a
-    assert f"world-marker:{managed_a}" in child_a.objects
-    assert f"world-marker:{managed_b}" not in child_a.objects
-    assert fake.heads["native-beta"] == parent_by_native["native-beta"]
-
-    receipt_b = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan_b))
-    head_b = fake.heads["native-beta"]
-    child_b = fake.read_revision("native-beta", head_b)
-    assert receipt_b.outcome == "committed"
-    assert receipt_b.world_id == "native-beta"
-    assert plan_b.source_artifact_id == source_b
-    assert source_a != source_b
-    assert f"world-marker:{managed_b}" in child_b.objects
-    assert f"world-marker:{managed_a}" not in child_b.objects
-    assert fake.heads["native-alpha"] == head_a
+    seeded_a = _seed_worldbuilding_unit_history(monkeypatch, plan_a, fake)
+    seeded_b = _seed_worldbuilding_unit_history(monkeypatch, plan_b, fake)
+    for plan, seeded, other_managed in ((plan_a, seeded_a, managed_b), (plan_b, seeded_b, managed_a)):
+        receipt = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+        assert receipt.outcome == "already_applied"
+        assert receipt.world_id == plan.world_id
+        assert receipt.committed_revision_id == seeded.history.publication.published_revision_id
+        own_marker = "world-marker:" + plan.publication_binding.managed_world_id
+        subjects = {item.subject_object_id for item in seeded.history.review.candidate_contribution.assertions}
+        assert own_marker in subjects
+        assert "world-marker:" + other_managed not in subjects
+    assert seeded_a.operation != seeded_b.operation
+    assert seeded_a.store.reads[-2:] == [(plan_a.world_id, seeded_a.operation), (plan_b.world_id, seeded_b.operation)]
+    assert fake.heads == parent_by_native
     assert DEFAULT_WORLD_ID not in fake.heads
-    assert fake.publish_calls == 2
+    assert fake.publish_calls == 0
     assert resolve_promotable_ingest_run(run_a, root=repo).data.source_bytes == source_bytes_a
     assert resolve_promotable_ingest_run(run_b, root=repo).data.source_bytes == source_bytes_b
 
@@ -2256,3 +2237,419 @@ def test_immutable_worldbuilding_complete_typed_mapping_matches_original_produce
     assert actual.model_dump(mode="json") == expected.model_dump(mode="json")
     if mode == "bind_alias":
         assert any(item.assertion_kind == "alias" for item in actual.assertions)
+
+
+
+def _immutable_worldbuilding_original_staging(monkeypatch, *, mode="create", mutation=None, prepared_plan=None, producer_inputs=None):
+    """Real historical staging/review builder; fake envelope is unit evidence only."""
+    import json
+    from datetime import UTC, datetime, timedelta
+    from graph_memory.worldbuilding_write_plan import _canonical_effect, materialize_worldbuilding_contribution
+    from apps.live_control_server.services import worldbuilding_graph_publication as service
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes as writes
+    from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import _worldbuilding_expressible
+    from dungeonmind.application.contribution_review_v3 import _build_review_state
+    from dungeonmind.contracts.contribution import AcceptanceState
+    from dungeonmind.contracts.contribution_review import ContributionAssertionVerdict, ContributionPlanRef, derive_confirmation_id
+    from dungeonmind.contracts.contribution_review_v3 import (
+        CommitConfirmationReceiptV3, ContributionReviewIntentV3, ContributionReviewSubmissionV3,
+        contribution_v3_payload_sha256, derive_review_intent_sha256_v3,
+    )
+    from dungeonmind.domain.canonical import canonical_json, canonical_sha256
+    plan, inputs = ((prepared_plan, producer_inputs) if prepared_plan is not None else
+                    _immutable_worldbuilding_plan(monkeypatch, mode=mode, with_producer_inputs=True))
+    effect = service._qualify_worldbuilding_native_edges(
+        preview=inputs["preview"], effect=_canonical_effect(plan.effect.model_dump(mode="json", by_alias=True)),
+        native_vocabulary_binding=plan.native_vocabulary_binding.model_dump(mode="json", by_alias=True),
+    )
+    original = materialize_worldbuilding_contribution(world_id=plan.world_id, plan_digest=plan.plan_digest, effect=effect)
+    pairs = {(plan.source_artifact_id, plan.source_revision_id): plan.source_admission.source_revision_id}
+    sources = SimpleNamespace(get_artifact=lambda _: SimpleNamespace(source_domain="worldbuilding"),
+                              get_revision=lambda _: SimpleNamespace(locator=plan.source_admission.source_locator))
+    stamp = datetime(2025, 1, 1, tzinfo=UTC)
+    review_time = stamp + timedelta(seconds=1) if mutation == "timestamp" else stamp
+    candidate, states = writes._build_v2_candidate(
+        _worldbuilding_expressible(original), context=inputs["mutation_context"],
+        pair_to_dm=pairs, produced_at=review_time, sources=sources,
+    )
+    if mutation in {"value", "evidence", "extra_assertion"}:
+        items = list(candidate.assertions)
+        item = items[0]
+        if mutation == "value":
+            value = json.loads(item.value)
+            value["summary"] = "An alternate coherent meaning"
+            items[0] = item.model_copy(update={"value": canonical_json(value)})
+        elif mutation == "evidence":
+            value = json.loads(item.value)
+            value["evidence"][0]["source_span_ref_id"] = "span:alternate"
+            refs = list(item.evidence_refs)
+            ref = refs[0].model_copy(update={"source_span_ref_id": "span:alternate"})
+            binding = ref.model_dump(mode="json", exclude={"evidence_ref_id"})
+            raw = ref.evidence_ref_id.split(":dm-extraction-v3:")[0]
+            refs[0] = ref.model_copy(update={"evidence_ref_id": raw + ":dm-extraction-v3:" + canonical_sha256(binding)})
+            items[0] = item.model_copy(update={"value": canonical_json(value), "evidence_refs": refs})
+        else:
+            extra = item.model_copy(update={"assertion_id": "assertion:extra", "subject_object_id": "node:extra"})
+            items.append(extra)
+            states[extra.assertion_id] = AcceptanceState.ACCEPTED
+        candidate = candidate.model_copy(update={"assertions": items})
+    if mutation == "verdict":
+        edge = next(item for item in candidate.assertions if item.assertion_kind == "edge")
+        states[edge.assertion_id] = AcceptanceState.REJECTED
+    actor = "other-reviewer" if mutation == "actor" else str(plan.run_id)
+    proposals, verdicts = writes._build_identity_dispositions(candidate, states)
+    assertion_verdicts = [ContributionAssertionVerdict(assertion_id=item.assertion_id, acceptance_state=states[item.assertion_id])
+                          for item in sorted(candidate.assertions, key=lambda item: item.assertion_id)]
+    profile = dict(schema_version="dm_semantic_profile_ref_v1", profile_id="dnd5e.default",
+                   profile_revision="1", descriptor_sha256="12" * 32)
+    payload = {"semantic_profile": profile}
+    parent = SimpleNamespace(revision=SimpleNamespace(world_id=plan.world_id, revision_id=plan.parent_revision_id,
+        status="published", graph_schema="dm_union_graph_v6", graph_payload_sha256=canonical_sha256(payload), created_at=stamp),
+        graph_payload=payload)
+    operation = writes.derive_authority_review_operation_id(world_id=plan.world_id,
+        authority_operation_id=writes.worldbuilding_authority_operation_id(world_id=plan.world_id,
+            plan_id=plan.plan_id, plan_digest=plan.plan_digest), operation_namespace="worldbuilding")
+    plan_ref = ContributionPlanRef(
+        source_plan_schema=writes.WORLDBUILDING_SOURCE_PLAN_SCHEMA, source_plan_id=operation,
+        source_plan_sha256=canonical_sha256({"operation_id": operation, "contribution_id": original.contribution_id}),
+        source_input_sha256=canonical_sha256({"contribution_id": original.contribution_id}),
+        preview_content_sha256=canonical_sha256({}), candidate_contribution_sha256=contribution_v3_payload_sha256(candidate),
+        expected_parent_revision_id=plan.parent_revision_id, base_graph_schema=parent.revision.graph_schema,
+        base_graph_payload_sha256=parent.revision.graph_payload_sha256, semantic_profile=profile,
+    )
+    if mutation == "plan_ref":
+        plan_ref = plan_ref.model_copy(update={"source_input_sha256": "34" * 32})
+    fields = dict(operation_id=operation, world_id=plan.world_id, campaign_id=None, plan_ref=plan_ref,
+        candidate_contribution=candidate, identity_proposals=proposals, identity_verdicts=verdicts,
+        assertion_verdicts=assertion_verdicts, reviewer_id=actor, reviewed_at=review_time)
+    digest = derive_review_intent_sha256_v3(**fields)
+    intent = ContributionReviewIntentV3(**fields, review_intent_sha256=digest)
+    confirmation = CommitConfirmationReceiptV3(
+        confirmation_id=derive_confirmation_id(operation_id=operation, review_intent_sha256=digest, actor=actor, confirmed_at=review_time),
+        operation_id=operation, review_intent_sha256=digest, actor=actor, world_id=plan.world_id,
+        campaign_id=None, expected_parent_revision_id=plan.parent_revision_id, confirmed_at=review_time,
+    )
+    review = _build_review_state(ContributionReviewSubmissionV3(intent=intent, confirmation=confirmation))
+    review = type(review).model_validate(review.model_dump(mode="json"))
+    history = SimpleNamespace(review=review, publication=SimpleNamespace(
+        expected_parent_revision_id=plan.parent_revision_id, parent_graph_payload_sha256=parent.revision.graph_payload_sha256,
+        graph_schema="dm_union_graph_v6", published_at=review_time,
+        published_revision_id="revision:historical:" + operation.removeprefix("reviewop:"),
+    ), revision=SimpleNamespace(created_at=review_time))
+    return plan, original, candidate, states, history, parent, operation
+
+
+@pytest.mark.parametrize("mode", ["create", "bind", "bind_alias", "defer", "observation", "reject", "reject_node", "governs"])
+def test_immutable_worldbuilding_complete_candidate_and_review_match_original_producer(monkeypatch, mode):
+    from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import (
+        reconstruct_original_mapping, reconstruct_candidate, verify_review_correspondence,
+    )
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes as writes
+    plan, original, expected, states, history, parent, operation = _immutable_worldbuilding_original_staging(monkeypatch, mode=mode)
+    def forbidden(*args, **kwargs):
+        pytest.fail("historical verification repeated fresh endpoint/parent admission")
+    monkeypatch.setattr(writes, "_assert_edge_endpoint_admission", forbidden)
+    monkeypatch.setattr(writes, "_candidate_endpoint_kinds", forbidden)
+    reconstructed, mapped = reconstruct_original_mapping(plan)
+    actual, actual_states = reconstruct_candidate(mapped, produced_at=parent.revision.created_at)
+    assert reconstructed.model_dump(mode="json") == original.model_dump(mode="json")
+    assert actual.model_dump(mode="json") == expected.model_dump(mode="json")
+    assert actual_states == states
+    verify_review_correspondence(plan, original=reconstructed, mapped=mapped, history=history, parent=parent, operation_id=operation)
+
+
+@pytest.mark.parametrize("mutation", ["value", "evidence", "extra_assertion", "verdict", "actor", "plan_ref", "timestamp"])
+def test_immutable_worldbuilding_valid_alternate_core_history_fails_complete_correspondence(monkeypatch, mutation):
+    from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import reconstruct_original_mapping, verify_review_correspondence
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+    plan, _, _, _, history, parent, operation = _immutable_worldbuilding_original_staging(monkeypatch, mutation=mutation)
+    original, mapped = reconstruct_original_mapping(plan)
+    with pytest.raises(ExtractPromoteError) as error:
+        verify_review_correspondence(plan, original=original, mapped=mapped, history=history, parent=parent, operation_id=operation)
+    assert error.value.code == "publication_integrity_failure"
+
+
+
+def _immutable_worldbuilding_reader_case(monkeypatch, *, mode="create"):
+    from apps.live_control_server.integrations.dungeonmind import historical_worldbuilding_recovery as recovery
+    plan, original, _, _, history, parent, operation = _immutable_worldbuilding_original_staging(monkeypatch, mode=mode)
+    calls = []
+    def read(world, actual_operation, *, reader):
+        assert world == plan.world_id and actual_operation == operation
+        calls.append("terminal")
+        return history
+    def get_parent(world, revision):
+        assert world == plan.world_id and revision == plan.parent_revision_id
+        calls.append("parent")
+        return parent
+    def binding(actual):
+        assert actual is plan
+        calls.append("binding")
+        return (plan.publication_binding.managed_world_id, plan.world_id, plan.publication_binding.binding_version)
+    monkeypatch.setattr(recovery, "_bare_readers", lambda: (object(), SimpleNamespace(get_revision=get_parent)))
+    monkeypatch.setattr(recovery, "authorize_current_binding", binding)
+    monkeypatch.setattr("dungeonmind.application.compatibility.read_historical_finalized_publication", read)
+    return plan, original, history, parent, calls
+
+
+@pytest.mark.parametrize("mode", ["create", "bind_alias", "reject", "defer", "observation", "governs"])
+def test_immutable_worldbuilding_reader_returns_original_receipt_before_mutable_preflight(monkeypatch, mode):
+    from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import recover_original_publication
+    from apps.live_control_server.services import worldbuilding_graph_publication as service
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes as writes
+    plan, original, history, _, calls = _immutable_worldbuilding_reader_case(monkeypatch, mode=mode)
+    before = plan.model_dump(mode="json", by_alias=True)
+    def forbidden(*args, **kwargs):
+        pytest.fail("immutable reader entered current-source/head/publisher preflight")
+    for name in ("resolve_promotable_ingest_run", "_load_worldbuilding_publication_input", "_registered_publication_binding",
+                 "_reprove_source_admission", "_worldbuilding_native_vocabulary_binding", "_verify_worldbuilding_child"):
+        monkeypatch.setattr(service, name, forbidden)
+    for name in ("_direct_services", "_build_pair_to_dm", "_recap_extraction_evidence_view", "publish_contribution_via_dungeonmind"):
+        monkeypatch.setattr(writes, name, forbidden)
+    receipt = recover_original_publication(plan, authorize_write=lambda: calls.append("owner"))
+    assert calls == ["owner", "binding", "terminal", "parent", "owner", "binding"]
+    assert (receipt.outcome, receipt.world_id, receipt.parent_revision_id, receipt.committed_revision_id) == (
+        "already_applied", plan.world_id, plan.parent_revision_id, history.publication.published_revision_id,
+    )
+    assert receipt.head_advanced is True
+    assert receipt.contribution_id == original.contribution_id
+    assert receipt.accepted_assertion_ids == [item.assertion_id for item in original.accepted_assertions]
+    assert receipt.rejected_assertion_ids == [item.assertion_id for item in original.rejected_assertions]
+    assert receipt.unresolved_mention_ids == [item.mention_id for item in original.unresolved_mentions]
+    assert plan.model_dump(mode="json", by_alias=True) == before
+
+
+@pytest.mark.parametrize("outcome,code,status", [
+    ("absent", "publication_receipt_unavailable", 409),
+    ("integrity", "publication_integrity_failure", 409),
+    ("unavailable", "authority_unavailable", 503),
+    ("missing_parent", "publication_integrity_failure", 409),
+    ("malformed_parent", "publication_integrity_failure", 409),
+    ("unavailable_parent", "authority_unavailable", 503),
+])
+def test_immutable_worldbuilding_reader_failure_classes_preserve_packet(monkeypatch, outcome, code, status):
+    from apps.live_control_server.integrations.dungeonmind import historical_worldbuilding_recovery as recovery
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+    from dungeonmind.domain.errors import PersistenceIntegrityError, PersistenceUnavailableError
+    plan, _, _, _, calls = _immutable_worldbuilding_reader_case(monkeypatch)
+    packet = plan.model_dump(mode="json", by_alias=True)
+    if outcome in {"absent", "integrity", "unavailable"}:
+        def terminal(*args, **kwargs):
+            if outcome == "absent":
+                return None
+            if outcome == "integrity":
+                raise PersistenceIntegrityError("stored terminal invalid")
+            raise PersistenceUnavailableError("terminal store unavailable")
+        monkeypatch.setattr("dungeonmind.application.compatibility.read_historical_finalized_publication", terminal)
+    else:
+        def parent(*args):
+            if outcome == "missing_parent":
+                return None
+            if outcome == "malformed_parent":
+                raise TypeError("stored parent JSON is null")
+            raise PersistenceUnavailableError("parent store unavailable")
+        monkeypatch.setattr(recovery, "_bare_readers", lambda: (object(), SimpleNamespace(get_revision=parent)))
+    with pytest.raises(ExtractPromoteError) as error:
+        recovery.recover_original_publication(plan)
+    assert (error.value.code, error.value.status_code) == (code, status)
+    assert calls == (["binding"] if outcome in {"absent", "integrity", "unavailable"} else ["binding", "terminal"])
+    assert plan.model_dump(mode="json", by_alias=True) == packet
+
+
+def test_immutable_worldbuilding_owner_refusal_precedes_receipt_read(monkeypatch):
+    from fastapi import HTTPException
+    from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import recover_original_publication
+    plan, _, _, _, calls = _immutable_worldbuilding_reader_case(monkeypatch)
+    def deny():
+        raise HTTPException(status_code=403, detail="owner changed")
+    with pytest.raises(HTTPException):
+        recover_original_publication(plan, authorize_write=deny)
+    assert calls == []
+
+
+def test_immutable_worldbuilding_late_owner_transfer_never_discloses_receipt(monkeypatch):
+    from fastapi import HTTPException
+    from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import recover_original_publication
+    plan, _, _, _, calls = _immutable_worldbuilding_reader_case(monkeypatch)
+    checks = []
+    def authorize():
+        checks.append("owner")
+        if len(checks) == 2:
+            raise HTTPException(status_code=403, detail="owner transferred")
+    with pytest.raises(HTTPException):
+        recover_original_publication(plan, authorize_write=authorize)
+    assert checks == ["owner", "owner"] and calls == ["binding", "terminal", "parent"]
+
+
+
+@pytest.fixture(autouse=True)
+def _historical_worldbuilding_unit_store(monkeypatch):
+    """Configured empty trusted history port unless a test explicitly seeds it.
+
+    It never fabricates history from confirm. Core contracts and complete host
+    correspondence still execute; real persistence/materialization is SQL-owned.
+    """
+    from apps.live_control_server.integrations.dungeonmind import historical_worldbuilding_recovery as recovery
+    from dungeonmind.application.compatibility import read_historical_finalized_publication
+    store = SimpleNamespace(entries={}, parents={}, reads=[], on_read=None,
+                            real_readers=recovery._bare_readers, real_read=read_historical_finalized_publication)
+    def read(world, operation, *, reader):
+        reader.reads.append((world, operation))
+        entry = reader.entries.get((world, operation))
+        if reader.on_read is not None:
+            reader.on_read()
+        return entry
+    monkeypatch.setattr(recovery, "_bare_readers", lambda: (
+        store, SimpleNamespace(get_revision=lambda world, revision: store.parents.get((world, revision))),
+    ))
+    monkeypatch.setattr("dungeonmind.application.compatibility.read_historical_finalized_publication", read)
+    return store
+
+
+def _seed_worldbuilding_unit_history(monkeypatch, plan, authority):
+    """Retain real producer/Core review state BEFORE calling receipt-only confirm."""
+    from apps.live_control_server.services import worldbuilding_graph_publication as service
+    from apps.live_control_server.integrations.dungeonmind import historical_worldbuilding_recovery as recovery
+    from apps.live_control_server.models.world_graph_mutation_context import wire_kind
+    resolved = service.resolve_promotable_ingest_run(plan.run_id, root=service.live_config.repo_root())
+    publication = service._load_worldbuilding_publication_input(resolved)
+    preview = service._world_scoped_preview(publication.preview, plan.publication_binding)
+    view = authority.revisions[(plan.world_id, plan.parent_revision_id)]
+    context = WorldGraphMutationContext(world_id=plan.world_id, revision_id=plan.parent_revision_id,
+        head_revision_id=plan.parent_revision_id, objects={key: MutationObject(
+            object_id=key, label=obj.label, kind=wire_kind(obj.kind), aliases=tuple(obj.aliases),
+            canon_state=getattr(obj, "canon_state", "canonical"), memory_state=getattr(obj, "memory_state", "graph_read_model"),
+        ) for key, obj in view.objects.items()})
+    _, original, _, _, history, parent, operation = _immutable_worldbuilding_original_staging(
+        monkeypatch, prepared_plan=plan, producer_inputs={"preview": preview, "mutation_context": context},
+    )
+    store, _ = recovery._bare_readers()
+    store.entries[(plan.world_id, operation)] = history
+    store.parents[(plan.world_id, plan.parent_revision_id)] = parent
+    return SimpleNamespace(store=store, original=original, history=history, parent=parent, operation=operation)
+
+
+@pytest.fixture
+def worldbuilding_history_core_dsn(monkeypatch, record_property):
+    from tests.test_database_graph_object_authoring_evidence import historical_manual_core_dsn
+    yield from historical_manual_core_dsn.__wrapped__(monkeypatch, record_property)
+
+
+@pytest.mark.parametrize("terminal", ["present", "absent", "corrupt_child"])
+def test_real_postgres_worldbuilding_history_after_descendant_and_withdrawal(
+    tmp_path, monkeypatch, application_state_dsn, worldbuilding_history_core_dsn,
+    _historical_worldbuilding_unit_store, terminal,
+):
+    from datetime import UTC, datetime, timedelta
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from dungeonmind.contracts.evidence import SourceStatus
+    from dungeonmind.infrastructure.postgres import PostgresDatabase, PostgresRepositoryBundle, PostgresSourceRepository, PostgresWorldGraphRepository
+    from dungeonmind.infrastructure.postgres.database import jsonb
+    from dungeonmind.infrastructure.postgres.serialization import model_fingerprint
+    from dungeonmind.infrastructure.postgres.review_publication import PostgresFinalizedReviewPublicationRepository
+    from graph_memory.worldbuilding_write_plan import _canonical_effect, materialize_worldbuilding_contribution
+    from apps.live_control_server.models.extract_promote import WorldbuildingWritePlanPrepareRequest, WorldbuildingWritePlanConfirmRequest
+    from apps.live_control_server.services import worldbuilding_graph_publication as service
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes as writes
+    from apps.live_control_server.integrations.dungeonmind import historical_worldbuilding_recovery as recovery
+    from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import _worldbuilding_expressible
+    from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import DungeonMindWorldGraphSourceAdmissionAdapter
+    from tests._cutover_direct_dungeonmind_read_helpers import _payload
+    from tests._cutover_d3a_blocker_safe_fixtures import _write_bld08_reviewable_run
+    from tests.test_database_graph_object_authoring_evidence import _database_rows_fingerprint
+
+    dsn = worldbuilding_history_core_dsn
+    world = "world:historical-worldbuilding-sql"
+    repo = _install_worldbuilding_repo(monkeypatch, tmp_path, native_id=world)
+    bundle = PostgresRepositoryBundle(PostgresDatabase(dsn))
+    stamp = datetime(2025, 1, 1, tzinfo=UTC)
+    payload = _payload()
+    payload.update(world_id=world, objects=[], relationships=[], evidence_refs=[])
+    parent = bundle.world_graph.publish_revision(PublishRevisionCommand(
+        world_id=world, parent_revision_id=None, expected_parent_revision_id=None,
+        operation_ids=["fixture:worldbuilding-history-parent"], graph_schema="dm_union_graph_v6",
+        graph_payload=payload, created_at=stamp,
+    ))
+    # Only the historical preparation's mutation view is a unit port. Actual
+    # source admission, staging, review, publication and subsequent reads are SQL.
+    authority = FakeWorldGraphAuthority()
+    authority.heads[world] = parent.revision_id
+    authority.revisions[(world, parent.revision_id)] = _empty_parent(world_id=world, revision_id=parent.revision_id)
+    _install_fake_authority(monkeypatch, authority)
+    admission = DungeonMindWorldGraphSourceAdmissionAdapter(database_url=dsn)
+    monkeypatch.setattr("apps.live_control_server.ports.world_graph_source_admission_access.get_world_graph_source_admission_authority", lambda: admission)
+    run, _ = _write_bld08_reviewable_run(repo, world_id="publication-managed", campaign_id="publication-managed")
+    plan = service.prepare_worldbuilding(WorldbuildingWritePlanPrepareRequest.model_validate({
+        "runId": run, "expectedParentRevisionId": parent.revision_id, "dispositions": _standard_dispositions(),
+    }))
+    original_packet = plan.model_dump(mode="json", by_alias=True)
+    resolved = service.resolve_promotable_ingest_run(run, root=repo)
+    source = service._load_worldbuilding_publication_input(resolved)
+    effect = service._qualify_worldbuilding_native_edges(
+        preview=source.preview, effect=_canonical_effect(plan.effect.model_dump(mode="json", by_alias=True)),
+        native_vocabulary_binding=plan.native_vocabulary_binding.model_dump(mode="json", by_alias=True),
+    )
+    original = materialize_worldbuilding_contribution(world_id=world, plan_digest=plan.plan_digest, effect=effect)
+    operation = writes.derive_authority_review_operation_id(world_id=world,
+        authority_operation_id=writes.worldbuilding_authority_operation_id(world_id=world, plan_id=plan.plan_id, plan_digest=plan.plan_digest),
+        operation_namespace="worldbuilding")
+    with monkeypatch.context() as publishing:
+        publishing.setattr(writes, "_direct_services", lambda *_: SimpleNamespace(bundle=bundle))
+        published = writes.publish_contribution_via_dungeonmind(world_id=world,
+            expected_parent_revision_id=parent.revision_id, operation_id=operation, actor=str(run),
+            contribution=_worldbuilding_expressible(original), database_url=dsn, publication_family="worldbuilding")
+    child_id = published["committed_revision_id"]
+    child = bundle.world_graph.get_revision(world, child_id)
+    descendant = bundle.world_graph.publish_revision(PublishRevisionCommand(
+        world_id=world, parent_revision_id=child_id, expected_parent_revision_id=child_id,
+        operation_ids=["fixture:worldbuilding-history-descendant"], graph_schema=child.revision.graph_schema,
+        graph_payload=child.graph_payload, created_at=stamp + timedelta(days=1),
+    ))
+    artifact = bundle.sources.get_artifact(plan.source_admission.source_artifact_id).model_copy(update={"status": SourceStatus.RETRACTED})
+    with bundle.database.transaction() as conn:
+        conn.execute("UPDATE dungeonmind.source_artifacts SET status=%s,payload=%s,record_fingerprint=%s WHERE source_artifact_id=%s",
+            (artifact.status.value, jsonb(artifact.model_dump(mode="json")), model_fingerprint(artifact), artifact.source_artifact_id))
+        if terminal == "absent":
+            conn.execute("DELETE FROM dungeonmind.finalized_review_publications WHERE published_revision_id=%s", (child_id,))
+        elif terminal == "corrupt_child":
+            conn.execute("UPDATE dungeonmind.graph_revisions SET graph_payload='null'::jsonb WHERE revision_id=%s", (child_id,))
+    assert bundle.sources.get_artifact(artifact.source_artifact_id).status is SourceStatus.RETRACTED
+    assert bundle.world_graph.get_head(world).head_revision_id == descendant.revision_id != child_id
+    monkeypatch.setattr(storage, "world_graph_authority_database_url", lambda: dsn)
+    monkeypatch.setattr(recovery, "_bare_readers", _historical_worldbuilding_unit_store.real_readers)
+    monkeypatch.setattr("dungeonmind.application.compatibility.read_historical_finalized_publication", _historical_worldbuilding_unit_store.real_read)
+    before = (_database_rows_fingerprint(dsn, core=True), _database_rows_fingerprint(application_state_dsn))
+    def forbidden(*args, **kwargs):
+        pytest.fail("receipt-only Worldbuilding recovery touched mutable source/head or publication")
+    for name in ("resolve_promotable_ingest_run", "_load_worldbuilding_publication_input", "_worldbuilding_native_vocabulary_binding", "_reprove_source_admission"):
+        monkeypatch.setattr(service, name, forbidden)
+    for name in ("_direct_services", "_build_pair_to_dm", "publish_contribution_via_dungeonmind"):
+        monkeypatch.setattr(writes, name, forbidden)
+    for path in (
+        "apps.live_control_server.services.graph_run_registry.get_extraction_run",
+        "apps.live_control_server.services.graph_run_registry.load_reviewable_extraction_data",
+        "apps.live_control_server.services.workspace_document_registry.get_workspace_document",
+        "apps.live_control_server.services.source_artifact_registry.get_source_artifact",
+        "apps.live_control_server.services.source_artifact_registry.load_source_input_bytes",
+        "apps.live_control_server.services.worldbuilding_source_span_read.read_admitted_worldbuilding_span",
+        "dungeonmind.application.contribution_review_v3.finalize_contribution_review_v3",
+        "dungeonmind.application.review_publication.publish_finalized_review",
+    ):
+        monkeypatch.setattr(path, forbidden)
+    monkeypatch.setattr(PostgresSourceRepository, "get_artifact", forbidden)
+    monkeypatch.setattr(PostgresWorldGraphRepository, "get_head", forbidden)
+    monkeypatch.setattr(PostgresWorldGraphRepository, "publish_revision", forbidden)
+    monkeypatch.setattr(PostgresFinalizedReviewPublicationRepository, "publish", forbidden)
+    for _ in range(2):
+        if terminal == "present":
+            receipt = service.confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+            assert receipt.outcome == "already_applied"
+            assert (receipt.world_id, receipt.parent_revision_id, receipt.committed_revision_id) == (world, parent.revision_id, child_id)
+            assert receipt.committed_revision_id != descendant.revision_id
+        else:
+            with pytest.raises(service.ExtractPromoteError) as error:
+                service.confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+            assert error.value.code == ("publication_receipt_unavailable" if terminal == "absent" else "publication_integrity_failure")
+        assert plan.model_dump(mode="json", by_alias=True) == original_packet
+        assert (_database_rows_fingerprint(dsn, core=True), _database_rows_fingerprint(application_state_dsn)) == before
+    assert authority.publish_calls == 0

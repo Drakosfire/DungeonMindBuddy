@@ -236,3 +236,245 @@ def reconstruct_original_mapping(plan: WorldbuildingWritePlanResponse) -> tuple[
     except ContributionMappingError as exc:
         raise _invalid("typed extraction mapping") from exc
     return contribution, mapped
+
+
+
+def reconstruct_candidate(mapped: Any, *, produced_at: Any) -> tuple[Any, dict[str, Any]]:
+    """Reproduce review staging, without the producer's fresh endpoint admission."""
+    import json
+    from dungeonmind.contracts.contribution import AcceptanceState, ContributionStatus
+    from dungeonmind.domain.canonical import canonical_json
+    from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
+        CURRENT_V5_TARGET, resolve_buddy_predicate_mapping_v4,
+    )
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        _normalized_temporal_scope, _qualified_assertion_update,
+    )
+
+    qualified, states = [], {}
+    for assertion in mapped.assertions:
+        state = assertion.acceptance_state
+        if state not in {AcceptanceState.ACCEPTED, AcceptanceState.REJECTED}:
+            raise _invalid("unadjudicated original assertion")
+        states[assertion.assertion_id] = state
+        update: dict[str, Any] = {"acceptance_state": AcceptanceState.CANDIDATE}
+        if state is AcceptanceState.ACCEPTED:
+            update["temporal_scope"] = _normalized_temporal_scope(assertion.temporal_scope)
+            if assertion.assertion_kind == "edge":
+                value = json.loads(assertion.value) if assertion.value else {}
+                value = value if isinstance(value, dict) else {}
+                existing = value.get("dm_predicate")
+                if assertion.predicate == "operates":
+                    raise _unsupported("manual-only place operation")
+                if not isinstance(existing, str) or not existing.strip():
+                    mapping = resolve_buddy_predicate_mapping_v4(str(assertion.predicate or ""), target=CURRENT_V5_TARGET)
+                    if mapping is None or not mapping[0]:
+                        raise _unsupported("historical edge predicate")
+                    predicate, reverse = mapping
+                    update["value"] = canonical_json({**value, "dm_predicate": predicate})
+                    if reverse:
+                        update.update(subject_object_id=assertion.object_object_id,
+                                      object_object_id=assertion.subject_object_id)
+            else:
+                # Only edge qualification consults parent endpoint kinds.
+                # These existing node/attribute/alias/evidence transformations
+                # are pure and preserve the original closed producer recipe.
+                update.update(_qualified_assertion_update(assertion, endpoint_kinds={}))
+        qualified.append(assertion.model_copy(update=update))
+    return mapped.model_copy(update={
+        "assertions": qualified, "status": ContributionStatus.ACTIVE,
+        "supersedes_contribution_id": None, "identity_decision_ids": [], "produced_at": produced_at,
+    }), states
+
+
+def _integrity(reason: str) -> ExtractPromoteError:
+    return ExtractPromoteError(
+        f"Historical Worldbuilding publication integrity failed: {reason}.",
+        code="publication_integrity_failure", status_code=409,
+    )
+
+
+def verify_review_correspondence(
+    plan: WorldbuildingWritePlanResponse, *, original: Any, mapped: Any,
+    history: Any, parent: Any, operation_id: str,
+) -> None:
+    """Verify the COMPLETE original candidate, review and successor at parent time."""
+    from dungeonmind.contracts.contribution import ContributionStatus
+    from dungeonmind.contracts.contribution_review import (
+        ContributionAssertionVerdict, ContributionPlanRef,
+        derive_confirmation_id, derive_review_id, derive_reviewed_contribution_id,
+    )
+    from dungeonmind.contracts.contribution_review_v3 import (
+        ContributionReviewRecordV3, ContributionReviewStateV3,
+        contribution_v3_payload_sha256, derive_review_intent_sha256_v3, reviewed_v3_identity_outcome,
+    )
+    from dungeonmind.domain.canonical import canonical_sha256
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        WORLDBUILDING_SOURCE_PLAN_SCHEMA, _build_identity_dispositions,
+    )
+
+    review, publication, child = history.review, history.publication, history.revision
+    if type(review) is not ContributionReviewStateV3 or type(review.record) is not ContributionReviewRecordV3:
+        raise _unsupported("terminal review generation")
+    if parent is None:
+        raise _integrity("missing original parent")
+    record, envelope = review.record, parent.revision
+    if (envelope.world_id != plan.world_id or envelope.revision_id != plan.parent_revision_id
+            or envelope.status != "published" or envelope.graph_schema != publication.graph_schema
+            or envelope.graph_payload_sha256 != canonical_sha256(parent.graph_payload)
+            or envelope.graph_payload_sha256 != publication.parent_graph_payload_sha256
+            or parent.graph_payload.get("semantic_profile") != record.plan_ref.semantic_profile.model_dump(mode="json")
+            or publication.expected_parent_revision_id != plan.parent_revision_id):
+        raise _integrity("immutable parent correspondence")
+    stamp, actor = envelope.created_at, str(plan.run_id)
+    if record.reviewed_at != stamp or publication.published_at != stamp or child.created_at != stamp:
+        raise _integrity("original producer timestamp")
+    candidate, states = reconstruct_candidate(mapped, produced_at=stamp)
+    stored = candidate.model_copy(update={"status": ContributionStatus.SUPERSEDED})
+    if stored.model_dump(mode="json") != review.candidate_contribution.model_dump(mode="json"):
+        raise _integrity("complete candidate payload")
+    proposals, verdicts = _build_identity_dispositions(candidate, states)
+    assertion_verdicts = [ContributionAssertionVerdict(
+        assertion_id=item.assertion_id, acceptance_state=states[item.assertion_id],
+    ) for item in sorted(candidate.assertions, key=lambda item: item.assertion_id)]
+    plan_ref = ContributionPlanRef(
+        source_plan_schema=WORLDBUILDING_SOURCE_PLAN_SCHEMA, source_plan_id=operation_id,
+        source_plan_sha256=canonical_sha256({"operation_id": operation_id, "contribution_id": original.contribution_id}),
+        source_input_sha256=canonical_sha256({"contribution_id": original.contribution_id}),
+        preview_content_sha256=canonical_sha256({}), candidate_contribution_sha256=contribution_v3_payload_sha256(candidate),
+        expected_parent_revision_id=plan.parent_revision_id, base_graph_schema=envelope.graph_schema,
+        base_graph_payload_sha256=envelope.graph_payload_sha256, semantic_profile=parent.graph_payload["semantic_profile"],
+    )
+    intent = derive_review_intent_sha256_v3(
+        operation_id=operation_id, world_id=plan.world_id, campaign_id=original.campaign_scope or None,
+        plan_ref=plan_ref, candidate_contribution=candidate, identity_proposals=proposals,
+        identity_verdicts=verdicts, assertion_verdicts=assertion_verdicts, reviewer_id=actor, reviewed_at=stamp,
+    )
+    review_id = derive_review_id(operation_id=operation_id, review_intent_sha256=intent, world_id=plan.world_id)
+    reviewed_id = derive_reviewed_contribution_id(review_id=review_id, candidate_contribution_id=candidate.contribution_id)
+    outcomes = {item.target_object_id: reviewed_v3_identity_outcome(item.verdict) for item in verdicts}
+    assertions = []
+    for item in candidate.assertions:
+        update = {"acceptance_state": states[item.assertion_id]}
+        if item.assertion_kind in {"node", "alias"} and item.subject_object_id in outcomes:
+            update["identity_resolution_outcome"] = outcomes[item.subject_object_id]
+        assertions.append(item.model_copy(update=update))
+    reviewed = candidate.model_copy(update={
+        "contribution_id": reviewed_id, "status": ContributionStatus.ACTIVE,
+        "supersedes_contribution_id": candidate.contribution_id, "produced_at": stamp,
+        "authored_by": actor, "assertions": assertions,
+    })
+    expected_record = ContributionReviewRecordV3(
+        review_id=review_id, operation_id=operation_id, world_id=plan.world_id,
+        campaign_id=original.campaign_scope or None, plan_ref=plan_ref, review_intent_sha256=intent,
+        candidate_preview_sha256=contribution_v3_payload_sha256(candidate),
+        stored_candidate_contribution_id=candidate.contribution_id, stored_candidate_sha256=contribution_v3_payload_sha256(stored),
+        reviewed_contribution_id=reviewed_id, reviewed_contribution_sha256=contribution_v3_payload_sha256(reviewed),
+        identity_proposals=proposals, identity_verdicts=verdicts, assertion_verdicts=assertion_verdicts,
+        reviewer_id=actor, reviewed_at=stamp,
+        confirmation_id=derive_confirmation_id(operation_id=operation_id, review_intent_sha256=intent,
+                                                actor=actor, confirmed_at=stamp),
+    )
+    if (record.model_dump(mode="json") != expected_record.model_dump(mode="json")
+            or review.reviewed_contribution.model_dump(mode="json") != reviewed.model_dump(mode="json")):
+        raise _integrity("complete review record or reviewed successor payload")
+
+
+
+def authorize_current_binding(plan: WorldbuildingWritePlanResponse) -> tuple[str, str, int]:
+    """Current managed/native binding only; historical Page/run state is irrelevant."""
+    from apps.live_control_server.services.managed_world_graph_projection import (
+        WorldGraphProjectionServiceError, resolve_managed_world_binding,
+    )
+    binding = plan.publication_binding
+    if binding is None:
+        raise _unsupported("missing publication binding")
+    try:
+        current = resolve_managed_world_binding(binding.managed_world_id)
+    except WorldGraphProjectionServiceError as exc:
+        raise ExtractPromoteError(
+            "Current World binding is unavailable.",
+            code="authority_unavailable" if exc.status_code >= 500 else "worldbuilding_source_binding_changed",
+            status_code=503 if exc.status_code >= 500 else 409,
+        ) from exc
+    if (current.managed_world_id != binding.managed_world_id or current.native_world_id != binding.native_world_id
+            or current.binding_version != binding.binding_version or current.native_world_id != plan.world_id):
+        raise ExtractPromoteError("Original World binding changed; retain the original request.",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
+    return current.managed_world_id, current.native_world_id, current.binding_version
+
+
+def _bare_readers():
+    from dungeonmind.infrastructure.postgres import (
+        PostgresDatabase, PostgresFinalizedReviewPublicationRepository, PostgresWorldGraphRepository,
+    )
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import _require_database_url
+
+    database = PostgresDatabase(_require_database_url(None))
+    return PostgresFinalizedReviewPublicationRepository(database), PostgresWorldGraphRepository(database)
+
+
+def recover_original_publication(plan: WorldbuildingWritePlanResponse, *, authorize_write: Any = None) -> Any:
+    """Return a fully proved original receipt, never permission for a new write."""
+    from dungeonmind.application.compatibility import read_historical_finalized_publication
+    from dungeonmind.contracts.contribution_review_v3 import ContributionReviewRecordV3, ContributionReviewStateV3
+    from dungeonmind.domain.errors import CapabilityDeniedError, PersistenceIntegrityError, PersistenceUnavailableError
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        WorldGraphWriteError, derive_authority_review_operation_id, worldbuilding_authority_operation_id,
+    )
+    from apps.live_control_server.services.worldbuilding_graph_publication import _confirm_receipt
+
+    authenticate_original_plan(plan)
+    if authorize_write is not None:
+        authorize_write()
+    binding = authorize_current_binding(plan)
+    operation = derive_authority_review_operation_id(
+        world_id=plan.world_id, authority_operation_id=worldbuilding_authority_operation_id(
+            world_id=plan.world_id, plan_id=plan.plan_id, plan_digest=plan.plan_digest),
+        operation_namespace="worldbuilding",
+    )
+    try:
+        reader, graph = _bare_readers()
+        history = read_historical_finalized_publication(plan.world_id, operation, reader=reader)
+        if history is None:
+            raise ExtractPromoteError(
+                "No authoritative publication receipt exists; retain the original request.",
+                code="publication_receipt_unavailable", status_code=409,
+            )
+        if type(history.review) is not ContributionReviewStateV3 or type(history.review.record) is not ContributionReviewRecordV3:
+            raise _unsupported("terminal review generation")
+        original, mapped = reconstruct_original_mapping(plan)
+        try:
+            parent = graph.get_revision(plan.world_id, plan.parent_revision_id)
+        except (TypeError, ValueError, KeyError) as exc:
+            raise _integrity("immutable parent decoding") from exc
+        verify_review_correspondence(plan, original=original, mapped=mapped, history=history,
+                                     parent=parent, operation_id=operation)
+    except PersistenceUnavailableError as exc:
+        raise ExtractPromoteError("Historical Worldbuilding authority is unavailable.",
+                                 code="authority_unavailable", status_code=503) from exc
+    except PersistenceIntegrityError as exc:
+        raise _integrity("stored terminal correspondence") from exc
+    except CapabilityDeniedError as exc:
+        raise _unsupported("receipt generation") from exc
+    except WorldGraphWriteError as exc:
+        if exc.code != "authority_unavailable":
+            raise _integrity("original producer reconstruction") from exc
+        raise ExtractPromoteError("Historical Worldbuilding authority is unavailable.",
+                                 code="authority_unavailable", status_code=503) from exc
+    if authorize_write is not None:
+        authorize_write()
+    if authorize_current_binding(plan) != binding:
+        raise _integrity("late World binding correspondence")
+    publication = history.publication
+    # Preserve the original response's contribution ID and head_advanced meaning
+    # (the recorded child differs from its parent, including on a replay).
+    # audit_status reflects complete immutable correspondence, not source opening.
+    return _confirm_receipt(
+        outcome="already_applied", verified=plan.model_dump(mode="json"), contribution=original,
+        parent_revision_id=plan.parent_revision_id, committed_revision_id=publication.published_revision_id,
+        head_advanced=publication.published_revision_id != plan.parent_revision_id,
+        accepted_assertion_ids=[item.assertion_id for item in original.accepted_assertions],
+        rejected_assertion_ids=[item.assertion_id for item in original.rejected_assertions],
+        audit_status="ok", warnings=[],
+    )
