@@ -1,6 +1,6 @@
 # Historical Worldbuilding v2 — immutable receipt recovery
 
-Status: COMPLETE — accepted implementation; merge pending. Owner MIND, explicit operator authorization to own this full lane,
+Status: COMPLETE — merged PR4231 at e89bfa6c486a4c2459de643ba0dc60007ff2e69b. Owner MIND, explicit operator authorization to own this full lane,
 implement/review/merge without PRIME or ARCHITECTURE coordination. Serial successor
 on codex/v10-historical-worldbuilding-recovery, base
 744b3971d0105b5ce64483f9d049a0221f938f63 (accepted Buddy4230).
@@ -195,7 +195,11 @@ Both are corrected, not deleted. Changed production/owning tests Ruff is clean;
 11 unrelated hostedF811 and inherited routeF401 remain outside this repair.
 
 Independent exact cumulative source/evidence acceptance is recorded above.
-Expected-head merge remains pending. All17 unique fixture databases were queried
+Expected-head merge completed at e89bfa6c486a4c2459de643ba0dc60007ff2e69b.
+Final sealing head4f546447e502890bcfc2083dca5cc4bb6ef4f364 was independently
+accepted in review5990671307; workflows44713483421/44713483371 succeeded.
+Merged tree51c10cfb4feb465ee47626baa6b8741f20dfa2a6 equals that reviewed head;
+actual merged commit was not executed. All17 unique fixture databases were queried
 independently absent; complete dependency byte audits matched before/afterSQL.
 No serving rollout, fullV10/V11 or aggregate release-green claim.
 
