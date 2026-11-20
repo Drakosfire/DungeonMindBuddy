@@ -55,6 +55,58 @@ it('validates edited exact source and saves a successor without an encounter mut
   expect(tourReadings.get('mechanics')?.observation).toMatchObject({origin:'acknowledged',observedAt:outcome.created_at,target:tourScope.plan,proof:{kind:'mechanics',sceneId:'scene',encounterId:'encounter',draftId:draft,operationId:body.operation_id,locator:next}});
 });
 
+it('repairs a movement reference and reopens the saved successor without changing its parent', async () => {
+  const original = opened();
+  original.resource.definition.movement = {
+    modes: [{key: 'waterway', mode: 'swim', distance: {value: 30, unit: 'feet'}, qualifiers: []}],
+  };
+  const attack = original.resource.definition.rule_elements.find(rule => rule.mechanic.kind === 'attack');
+  if (!attack || attack.mechanic.kind !== 'attack') throw new Error('Expected an attack fixture');
+  attack.mechanic.hit_effects = [{kind: 'movement', movement_mode_key: 'swim'}];
+  const originalBytes = structuredClone(original.resource.definition);
+  let successor: OpenSavedMechanicsVersion | undefined;
+  vi.mocked(api.openSavedMechanicsVersion).mockImplementation(async (_draft, _world, revision) => {
+    if (revision === base.revision_id) return structuredClone(original);
+    if (revision === next.revision_id && successor) return structuredClone(successor);
+    throw new Error('Unknown saved revision');
+  });
+  vi.mocked(api.saveMechanicsRevision).mockImplementation(async (_draft, body) => {
+    successor = opened(next.revision_id);
+    successor.resource.definition = structuredClone(body.definition) as typeof successor.resource.definition;
+    return {...outcome, operation_id: body.operation_id};
+  });
+
+  const user = userEvent.setup();
+  const first = render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);
+  await load();
+  const label = `Movement mode reference ${attack.key} hit effects 0`;
+  const reference = screen.getByLabelText(label);
+  expect(reference).toHaveValue('swim');
+  await user.clear(reference);
+  await user.type(reference, 'waterway');
+  expect(screen.getByRole('button', {name: 'Save new version'})).toBeDisabled();
+  await validate();
+  const definition = vi.mocked(api.validateStatblockDefinition).mock.calls[0]![0].definition;
+  expect(definition.movement).toEqual(originalBytes.movement);
+  expect(definition.rule_elements.find(rule => rule.key === attack.key)?.mechanic).toMatchObject({
+    hit_effects: [{kind: 'movement', movement_mode_key: 'waterway'}],
+  });
+  await user.click(screen.getByRole('button', {name: 'Save new version'}));
+  await screen.findByText(/New mechanics version saved/);
+  expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(api.saveMechanicsRevision).mock.calls[0]![1]).toMatchObject({base, definition});
+
+  first.unmount();
+  const reopened = render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft} initialRevisionId={next.revision_id} autoLoad/>);
+  expect(await screen.findByLabelText(label)).toHaveValue('waterway');
+  expect(api.openSavedMechanicsVersion).toHaveBeenCalledWith(draft, world, next.revision_id);
+  reopened.unmount();
+  render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft} initialRevisionId={base.revision_id} autoLoad/>);
+  expect(await screen.findByLabelText(label)).toHaveValue('swim');
+  expect(original.resource.definition).toEqual(originalBytes);
+  expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1);
+});
+
 it('recovers local edits for the same exact source after remount',async()=>{
   const first=render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();await edit();first.unmount();
   render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();
