@@ -223,26 +223,29 @@ def capture_native_sources(*, managed_world_id, principal, revision_id=None,
             pairs.setdefault((evidence.source_artifact_id, evidence.source_revision_id), []).append(evidence)
     opened_members = []
     unavailable = 0
-    for pair, candidates in sorted(pairs.items()):
-        for evidence in sorted(candidates, key=lambda row: row.evidence_ref_id):
-            opened = open_admitted_native_text(access, evidence.evidence_ref_id)
-            if opened.status == "available":
-                if prepared.resolve_identity(managed_world_id) != prepared.binding:
-                    raise ValueError("Native source ownership changed during opening")
-                opened_members.append((pair, evidence, opened))
-                break
-        else:
-            unavailable += 1
+    if pairs:
+        with access.source_view.read_scope() as source_view:
+            scoped_access = replace(access, source_view=source_view)
+            for pair, candidates in sorted(pairs.items()):
+                for evidence in sorted(candidates, key=lambda row: row.evidence_ref_id):
+                    opened = open_admitted_native_text(scoped_access, evidence.evidence_ref_id)
+                    if opened.status == "available":
+                        if prepared.resolve_identity(managed_world_id) != prepared.binding:
+                            raise ValueError("Native source ownership changed during opening")
+                        opened_members.append((pair, evidence, opened))
+                        break
+                else:
+                    unavailable += 1
+            if opened_members:
+                snapshot = source_view.get_provenance_snapshot(
+                    artifact_ids=sorted({pair[0] for pair, _, _ in opened_members}),
+                    revision_ids=sorted({pair[1] for pair, _, _ in opened_members}),
+                )
     members, bodies = [], {}
-    if opened_members:
-        snapshot = access.source_view.get_provenance_snapshot(
-            artifact_ids=sorted({pair[0] for pair, _, _ in opened_members}),
-            revision_ids=sorted({pair[1] for pair, _, _ in opened_members}),
-        )
-        for pair, evidence, opened in opened_members:
-            member, text = _build_native_corpus_member(prepared, evidence, opened, snapshot)
-            members.append(member)
-            bodies[pair] = text
+    for pair, evidence, opened in opened_members:
+        member, text = _build_native_corpus_member(prepared, evidence, opened, snapshot)
+        members.append(member)
+        bodies[pair] = text
     if prepared.resolve_identity(managed_world_id) != prepared.binding:
         raise ValueError("Native source ownership changed during capture")
     return NativeCorpusCapture(authority, tuple(members), MappingProxyType(bodies), unavailable)
