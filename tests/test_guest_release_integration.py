@@ -28,6 +28,63 @@ from apps.live_control_server.services.dms_principal import DmsPrincipal
 from tests import test_governed_native_source_publication_adoption as native_fixture
 
 
+@pytest.mark.parametrize("role", ["support", "context"])
+def test_first_world_compiler_release_selection_preserves_inference(application_state_dsn, monkeypatch, role):
+    import dungeonmind.application.vnext as native_api
+    from tests.test_first_world_typed_evidence import _native_compilation_case, _compile_and_bind, _publish_compilation
+
+    world = create_world(name="First World selection fixture", owner_subject="owner").record.world_id
+    page = create_page(world_id=world, title="Source", metadata=PageMetadata(visibility_state="internal"))
+    body = ("Scene: private heading\nÁlice meets Bob beside the towér.\nGM secret waits beneath the bridge."
+            if role == "context" else "Álice meets Bob beside the towér.\nThey remember the bridge.\n\nUnrelated paragraph.")
+    saved, revision = commit_page(str(page.page.work_object_id), body, world_id=world,
+        expected_revision=page.page.object_revision, expected_working_copy_revision=None)
+    publish_source = native_api.publish_native_text_source_evidence
+    def source_with_page_origin(*, request, **kwargs):
+        data = request.model_dump(mode="json")
+        data["origin"] = {"namespace": "dungeonbuddy.workspace-document-registry",
+            "object_id": str(page.page.work_object_id), "revision_id": f"registry-revision:{saved.page.object_revision}"}
+        return publish_source(request=type(request).model_validate(data), **kwargs)
+    monkeypatch.setattr(native_api, "publish_native_text_source_evidence", source_with_page_origin)
+    case = _native_compilation_case(source_text=revision.markdown, native_role=role)
+    _, bound = _compile_and_bind(case)
+    result = _publish_compilation(case, bound)
+    graph_revision = result.publication_receipt.published_revision_id
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE workspace.world_native_binding SET native_world_id=%s,status='active', "
+            "binding_version=1,validated_at='now',validated_head_revision_id=%s, provisioning_id=NULL,"
+            "initialization_revision_id=NULL WHERE world_id=%s", (case.space, graph_revision, world))
+    binding = SimpleNamespace(native_world_id=case.space, binding_version=1)
+    monkeypatch.setattr(native_reader, "resolve_managed_world_binding", lambda _: binding)
+    monkeypatch.setattr(discovery, "resolve_managed_world_binding", lambda _: binding)
+    monkeypatch.setattr(native_reader.native_registry_source, "read_repository", lambda: case.repo)
+    options = discovery.selection_options(world_id=world)
+    fields = options["fields"]
+    assert {field["kind"] for field in fields} == {"name", "classification", "relationship"}
+    assert all(field["basis"] == "inferred" for field in fields)
+    names = {field["entity_id"]: field for field in fields if field["kind"] == "name"}
+    kinds = {field["entity_id"]: field for field in fields if field["kind"] == "classification"}
+    edge = next(field for field in fields if field["kind"] == "relationship")
+    source = next(item for item in options["sources"] if "Álice" in item["excerpt"])
+    assert source["evidence_role"] == role
+    selection = preparation.ReleaseSelection(graph_revision=graph_revision,
+        sources=[preparation.SourceSelection(**{key: source[key] for key in preparation.SourceSelection.model_fields})],
+        nodes=[preparation.NodeSelection(entity_id=entity, name_assertion_id=names[entity]["assertion_id"],
+            kind_assertion_id=kinds[entity]["assertion_id"], name_source_index=0, kind_source_index=0)
+            for entity in (edge["entity_id"], edge["target_id"])],
+        relationships=[preparation.RelationshipSelection(assertion_id=edge["assertion_id"], subject_id=edge["entity_id"],
+            predicate=edge["predicate"], evidence_id=source["evidence_id"], source_index=0)], asset_ids=[])
+    release_id, digest = preparation._prepare_candidate(world_id=world, subject="owner", selection=selection)
+    manifest, _ = guest_release.review(world_id=world, subject="owner", release_id=release_id)
+    assert all(node["name_basis"] == "inferred" and node["kind_basis"] == "inferred" for node in manifest["graph"]["nodes"])
+    assert manifest["graph"]["edges"][0]["basis"] == "inferred"
+    assert manifest["sources"][0]["evidence_role"] == role
+    assert "Reviewed description" not in str(manifest) and "Unrelated paragraph" not in str(manifest)
+    assert "GM secret" not in str(manifest) and "private heading" not in str(manifest)
+    assert case.repo.get_head(case.space).head_revision_id == graph_revision
+    assert validation.validate_candidate(world_id=world, subject="owner", release_id=release_id, digest=digest) >= 0
+
+
 def test_private_source_candidate_review_publish_and_withdrawal(application_state_dsn, monkeypatch):
     world = create_world(name="Guest integration fixture", owner_subject="owner").record.world_id
     page = create_page(world_id=world, title="Private source", metadata=PageMetadata(visibility_state="internal"))
@@ -133,7 +190,7 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
     pending_id, pending_digest = preparation._prepare_candidate(world_id=world, subject="owner", selection=selection)
     manifest, reviewed_digest = guest_release.review(world_id=world, subject="owner", release_id=release_id)
     assert reviewed_digest == digest and len(manifest["graph"]["nodes"]) == 2
-    assert manifest["projection_version"] == "explicit_native_assertions_v1"
+    assert manifest["projection_version"] == "explicit_native_assertions_v2"
     assert manifest["image_sanitizer_version"] == "bounded_png_v1"
     assert len(manifest["graph"]["edges"]) == 1
     assert len(manifest["assets"]) == 1

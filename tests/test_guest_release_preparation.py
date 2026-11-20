@@ -17,7 +17,7 @@ def test_preparation_fails_closed_until_native_release_path_is_qualified(monkeyp
 
 def test_experimental_assembly_passes_sanitized_bytes_and_verified_bindings(monkeypatch):
     monkeypatch.setattr(assembly.guest_release, "owner_generation", lambda **_: 4)
-    monkeypatch.setattr(assembly, "read_owner_graph", lambda **_: (SimpleNamespace(native_world_id="native", binding_version=2), "context", SimpleNamespace(listing=SimpleNamespace(admitted_assertion_ids=[])), "access"))
+    monkeypatch.setattr(assembly, "read_owner_graph", lambda **_: (SimpleNamespace(native_world_id="native", binding_version=2), "context", SimpleNamespace(listing=SimpleNamespace(admitted_assertion_ids=[])), SimpleNamespace(parsed=SimpleNamespace(get_evidence=lambda _: SimpleNamespace(evidence_role="support")))))
     excerpt_id, asset_id, doc_id = uuid4(), uuid4(), uuid4()
     source_binding = (excerpt_id, doc_id, 0, 0, 1, "a" * 64, 0, 4, 3, "internal")
     monkeypatch.setattr(assembly, "selected_page_excerpt", lambda **_: ({"id": str(excerpt_id), "text": "safe"}, source_binding))

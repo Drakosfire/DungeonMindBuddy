@@ -22,11 +22,10 @@ def _assertion(context, admitted_ids: set[str], assertion_id: str, *, subject: s
     if (assertion_id not in admitted_ids or assertion is None
         or assertion.subject_entity_id != subject or assertion.predicate != predicate):
         raise GuestReleaseAssertionError("Selected assertion is not admitted")
-    # The initial wire can represent only established asserted facts without
-    # losing modality. Other claims must not be silently flattened; a later
-    # representation must preserve their full semantics.
+    # Preserve whether a reviewed fact was asserted or inferred. Other claims
+    # must not be silently flattened into this representation.
     if (assertion.metadata.standing != "established"
-        or assertion.metadata.epistemic_basis != "asserted"
+        or assertion.metadata.epistemic_basis not in {"asserted", "inferred"}
         or assertion.metadata.claim_mode != "dungeonbuddy.claim:fact"
         or assertion.metadata.temporal_scope.kind not in {"timeless", "unknown"}):
         raise GuestReleaseAssertionError("Selected assertion semantics are unsupported")
@@ -63,6 +62,7 @@ def select_node(*, context, admitted_ids: set[str], entity_id: str, name_asserti
     node_id = local_id or uuid4()
     public = {"id": str(node_id), "label": label, "kind": category,
               "name_citations": [name_citation], "kind_citations": [kind_citation],
+              "name_basis": name.metadata.epistemic_basis, "kind_basis": kind.metadata.epistemic_basis,
               "name_temporal": name.metadata.temporal_scope.kind,
               "kind_temporal": kind.metadata.temporal_scope.kind}
     return public, (node_id, entity_id, name_assertion_id, name_evidence[0], name_citation,
@@ -86,5 +86,6 @@ def select_relationship(*, context, admitted_ids: set[str], assertion_id: str,
     citation = _citation(assertion, evidence, access=access, native_world_id=native_world_id, revision_id=revision_id)
     edge_id = local_id or uuid4()
     public = {"id": str(edge_id), "source": node_ids[subject_id], "target": node_ids[target],
-              "label": label, "citations": [citation], "temporal": assertion.metadata.temporal_scope.kind}
+              "label": label, "citations": [citation], "temporal": assertion.metadata.temporal_scope.kind,
+              "basis": assertion.metadata.epistemic_basis}
     return public, (edge_id, assertion_id, evidence[0], citation)

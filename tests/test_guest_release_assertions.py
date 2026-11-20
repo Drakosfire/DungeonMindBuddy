@@ -37,6 +37,10 @@ def test_explicit_fields_require_admitted_assertions_and_their_own_evidence(monk
     unknown, _ = selections.select_node(**common, entity_id="entity", name_assertion_id="name",
         kind_assertion_id="kind", name_evidence=citation, kind_evidence=citation)
     assert unknown["name_temporal"] == "unknown" and unknown["kind_temporal"] == "timeless"
+    assertions["name"] = replace(name, metadata=replace(metadata, epistemic_basis="inferred"))
+    inferred, _ = selections.select_node(**common, entity_id="entity", name_assertion_id="name",
+        kind_assertion_id="kind", name_evidence=citation, kind_evidence=citation)
+    assert inferred["name_basis"] == "inferred" and inferred["kind_basis"] == "asserted"
     assertions["name"] = replace(name, metadata=replace(metadata, claim_mode="dungeonbuddy.claim:speculation"))
     with pytest.raises(selections.GuestReleaseAssertionError, match="semantics"):
         selections.select_node(**common, entity_id="entity", name_assertion_id="name",

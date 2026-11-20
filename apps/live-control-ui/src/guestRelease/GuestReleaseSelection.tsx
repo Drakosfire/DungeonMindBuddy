@@ -1,8 +1,8 @@
 import { useState } from "react";
 
-type Field = { assertion_id: string; entity_id: string; kind: "name" | "classification" | "relationship"; value: string; predicate: string; target_id: string | null; temporal: string; evidence_ids: string[] };
-type Source = { document_id: string; document_title: string; visibility: string; revision_n: number; sha256: string; start: number; end: number; excerpt: string; evidence_id: string };
-type Options = { graph_revision: string; fields: Field[]; sources: Source[] };
+type Field = { assertion_id: string; entity_id: string; kind: "name" | "classification" | "relationship"; value: string; predicate: string; target_id: string | null; temporal: string; basis: string; source_option_ids: string[] };
+type Source = { option_id: string; document_id: string; document_title: string; visibility: string; revision_n: number; sha256: string; start: number; end: number; excerpt: string; evidence_id: string; evidence_role: "support" | "context" };
+type Options = { graph_revision: string; fields: Field[]; sources: Source[]; source_options_truncated: boolean };
 type Asset = { id: string; width: number; height: number; created_at: string };
 type Cursor = { before_time: string; before_id: string };
 
@@ -49,9 +49,9 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
     item[field.kind] = field;
     nodes.set(field.entity_id, item);
   }
-  const sources = new Map(options?.sources.map(source => [source.evidence_id, source]) ?? []);
+  const sources = new Map(options?.sources.map(source => [source.option_id, source]) ?? []);
   const ready = nodes.size > 0 && [...nodes.values()].every(node => node.name && node.classification && !node.duplicate)
-    && selected.every(field => field.evidence_ids.includes(chosen[field.assertion_id]) && sources.has(chosen[field.assertion_id]))
+    && selected.every(field => field.source_option_ids.includes(chosen[field.assertion_id]) && sources.has(chosen[field.assertion_id]))
     && selected.filter(field => field.kind === "relationship").every(field => nodes.has(field.entity_id) && field.target_id !== null && nodes.has(field.target_id));
   async function prepare() {
     if (!options || !ready) return;
@@ -62,7 +62,7 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
         kind_assertion_id: item.classification!.assertion_id, name_source_index: evidenceIds.indexOf(chosen[item.name!.assertion_id]),
         kind_source_index: evidenceIds.indexOf(chosen[item.classification!.assertion_id]) })),
       relationships: selected.filter(field => field.kind === "relationship").map(field => ({ assertion_id: field.assertion_id,
-        subject_id: field.entity_id, predicate: field.predicate, evidence_id: chosen[field.assertion_id],
+        subject_id: field.entity_id, predicate: field.predicate, evidence_id: sources.get(chosen[field.assertion_id])!.evidence_id,
         source_index: evidenceIds.indexOf(chosen[field.assertion_id]) })),
       sources: evidenceIds.map(id => { const source = sources.get(id)!; return { document_id: source.document_id,
         revision_n: source.revision_n, sha256: source.sha256, start: source.start, end: source.end,
@@ -80,25 +80,26 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
   const labels = new Map(options?.fields.filter(field => field.kind === "name").map(field => [field.entity_id, field.value]) ?? []);
   return <section aria-labelledby="guest-selection-heading">
     <h3 id="guest-selection-heading">Choose what to share</h3>
-    <p>Choose each name, classification, relationship and supporting excerpt. Preparing a copy does not publish it.</p>
-    <p>Only supported, evidenced facts with unknown or timeless scope are shown. Other claims, summaries, and dated events cannot yet be selected here.</p>
+    <p>Choose each name, classification, relationship and source excerpt. Context is not direct support. Preparing a copy does not publish it.</p>
+    <p>Only established facts with unknown or timeless scope are shown. Other claims, summaries, and dated events cannot yet be selected here.</p>
     <button type="button" disabled={busy} onClick={load}>Load selection options</button>
     {error && <p role="alert">{error}</p>}
     {prepared && <p role="status">Copy prepared. Load prepared copies below to review it.</p>}
     {options && <div>
+      {options.source_options_truncated && <p>Excerpt discovery reached its current limit. Additional excerpts cannot yet be selected here.</p>}
       {options.fields.length === 0 && <p>No eligible fields found for this Graph revision.</p>}
       <ul>{options.fields.map(field => <li key={field.assertion_id}>
         <label><input type="checkbox" checked={Object.hasOwn(chosen, field.assertion_id)} disabled={busy}
           onChange={event => { const checked = event.target.checked; setChosen(previous => { const next = { ...previous }; if (checked) next[field.assertion_id] = ""; else delete next[field.assertion_id]; return next; }); }} />{" "}
-          {labels.get(field.entity_id) ?? "Unnamed object"} · {field.kind}: {field.value}{field.target_id ? ` → ${labels.get(field.target_id) ?? "unnamed object"}` : ""} · {field.temporal}
+          {labels.get(field.entity_id) ?? "Unnamed object"} · {field.kind}: {field.value}{field.target_id ? ` → ${labels.get(field.target_id) ?? "unnamed object"}` : ""} · {field.basis} · {field.temporal}
         </label>
-        {Object.hasOwn(chosen, field.assertion_id) && <label> Supporting excerpt <select value={chosen[field.assertion_id]} disabled={busy}
+        {Object.hasOwn(chosen, field.assertion_id) && <label> Source excerpt <select value={chosen[field.assertion_id]} disabled={busy}
           onChange={event => { const value = event.target.value; setChosen(previous => ({ ...previous, [field.assertion_id]: value })); }}>
-          <option value="">Choose an excerpt</option>{field.evidence_ids.map(id => <option key={id} value={id}>{sources.get(id)?.document_title ?? "Source"} · {sources.get(id)?.visibility === "internal" ? "private" : "player-safe"}</option>)}
+          <option value="">Choose an excerpt</option>{field.source_option_ids.map(id => <option key={id} value={id}>{sources.get(id)?.document_title ?? "Source"} · {sources.get(id)?.visibility === "internal" ? "private" : "player-safe"} · {sources.get(id)?.evidence_role === "context" ? "context, not direct support" : "support"} · {sources.get(id)?.excerpt.slice(0, 60)}</option>)}
         </select></label>}
       </li>)}</ul>
       {[...new Set(Object.values(chosen).filter(Boolean))].map(id => { const source = sources.get(id); return source && <section key={id}>
-        <h4>{source.document_title} · {source.visibility === "internal" ? "private source" : "player-safe source"}</h4><p style={{ whiteSpace: "pre-wrap" }}>{source.excerpt}</p>
+        <h4>{source.document_title} · {source.visibility === "internal" ? "private source" : "player-safe source"} · {source.evidence_role === "context" ? "context, not direct support" : "support"}</h4><p style={{ whiteSpace: "pre-wrap" }}>{source.excerpt}</p>
       </section>; })}
       <h4>Images to include</h4><p>Choose images from this World. The reviewed copy will contain sanitized image bytes.</p>
       <button type="button" disabled={busy} onClick={() => loadImages()}>Load World images</button>

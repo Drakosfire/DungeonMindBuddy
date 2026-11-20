@@ -5,7 +5,8 @@ Preparation reopens and independently verifies every selected item.
 """
 from __future__ import annotations
 
-from uuid import UUID
+import re
+from uuid import UUID, uuid4
 
 from dungeonmind.application.vnext import (
     ParsedEntityRefValue, ParsedLiteralValue, ParsedTermRefValue,
@@ -20,6 +21,16 @@ from apps.live_control_server.services.guest_release_evidence import GuestReleas
 from apps.live_control_server.services.guest_release_native_graph import GuestNativeGraphError, read_owner_graph
 from apps.live_control_server.services.guest_release_sources import GuestReleaseSourceError, selected_page_excerpt
 from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding
+
+
+def _context_ranges(body: str, start: int, end: int):
+    """Offer individually selected nonempty lines inside the native span."""
+    for match in re.finditer(r"[^\r\n]+", body[start:end]):
+        value = match.group()
+        left = len(value) - len(value.lstrip())
+        right = len(value.rstrip())
+        if right > left:
+            yield start + match.start() + left, start + match.start() + right
 
 
 def selection_options(*, world_id: str) -> dict:
@@ -61,10 +72,13 @@ def selection_options(*, world_id: str) -> dict:
         evidence_ids.update(assertion.metadata.evidence_ref_ids)
     if len(evidence_ids) > 1000:
         raise GuestNativeGraphError("Graph has too much evidence for release selection")
-    sources = {}
+    sources = []
+    by_evidence = {}
+    truncated = False
+    scanned = 0
     for evidence_id in sorted(evidence_ids):
         evidence = access.parsed.get_evidence(evidence_id)
-        if evidence is None or evidence.evidence_role != "support":
+        if evidence is None or evidence.evidence_role not in {"support", "context"}:
             continue
         catalog = list_admitted_native_text_sources(access, evidence_ref_ids=[evidence_id])
         matches = [item for item in catalog.sources if evidence_id in item.evidence_ref_ids]
@@ -88,26 +102,47 @@ def selection_options(*, world_id: str) -> dict:
             raw = opened.body_text.encode("utf-8")
             start = len(raw[:opened.span_start_byte].decode("utf-8"))
             end = len(raw[:opened.span_end_byte].decode("utf-8"))
-            text = opened.body_text[start:end]
-            excerpt, proof = selected_page_excerpt(world_id=world_id, document_id=document_id,
-                revision_n=page.revision.revision_n, expected_sha256=page.revision.content_sha256,
-                start=start, end=end, expected_excerpt=text)
-            verify_source_citation(evidence_id=evidence_id, access=access, excerpt=excerpt,
-                source_binding=proof[:9], expected_native_world_id=binding.native_world_id,
-                expected_graph_revision=revision_id)
         except (ValueError, UnicodeDecodeError, ApplicationStateError, GuestReleaseSourceError, GuestReleaseEvidenceError):
             continue
-        sources[evidence_id] = {"document_id": document_id, "document_title": page.page.title,
-            "visibility": page.metadata.visibility_state, "revision_n": page.revision.revision_n,
-            "sha256": page.revision.content_sha256, "start": start, "end": end,
-            "excerpt": text, "evidence_id": evidence_id}
+        if evidence.evidence_role == "context":
+            candidates = _context_ranges(opened.body_text, start, end)
+        else:
+            candidates = [(start, end)]
+        for selected_start, selected_end in candidates:
+            scanned += 1
+            if scanned > 2000:
+                truncated = True
+                break
+            text = opened.body_text[selected_start:selected_end]
+            try:
+                excerpt, proof = selected_page_excerpt(world_id=world_id, document_id=document_id,
+                    revision_n=page.revision.revision_n, expected_sha256=page.revision.content_sha256,
+                    start=selected_start, end=selected_end, expected_excerpt=text)
+                excerpt["evidence_role"] = evidence.evidence_role
+                verify_source_citation(evidence_id=evidence_id, access=access, excerpt=excerpt,
+                    source_binding=proof[:9], expected_native_world_id=binding.native_world_id,
+                    expected_graph_revision=revision_id)
+            except (ValueError, ApplicationStateError, GuestReleaseSourceError, GuestReleaseEvidenceError):
+                continue
+            if len(sources) >= 500:
+                truncated = True
+                break
+            option_id = str(uuid4())
+            by_evidence.setdefault(evidence_id, []).append(option_id)
+            sources.append({"option_id": option_id, "document_id": document_id, "document_title": page.page.title,
+                "visibility": page.metadata.visibility_state, "revision_n": page.revision.revision_n,
+                "sha256": page.revision.content_sha256, "start": selected_start, "end": selected_end,
+                "excerpt": text, "evidence_id": evidence_id, "evidence_role": evidence.evidence_role})
+        if truncated:
+            break
     fields = []
     for assertion, kind, value in assertions:
-        eligible = [item for item in assertion.metadata.evidence_ref_ids if item in sources]
+        eligible = [option for item in assertion.metadata.evidence_ref_ids for option in by_evidence.get(item, [])]
         if not eligible:
             continue
         fields.append({"assertion_id": assertion.assertion_id, "entity_id": assertion.subject_entity_id,
             "kind": kind, "value": value, "predicate": assertion.predicate,
             "target_id": assertion.value.entity_id if kind == "relationship" else None,
-            "temporal": assertion.metadata.temporal_scope.kind, "evidence_ids": eligible})
-    return {"graph_revision": revision_id, "fields": fields, "sources": list(sources.values())}
+            "temporal": assertion.metadata.temporal_scope.kind, "basis": assertion.metadata.epistemic_basis,
+            "source_option_ids": eligible})
+    return {"graph_revision": revision_id, "fields": fields, "sources": sources, "source_options_truncated": truncated}

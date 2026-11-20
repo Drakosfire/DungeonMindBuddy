@@ -10,9 +10,9 @@ def test_validation_rechecks_exact_graph_and_citation(monkeypatch):
     release_id, local_node, local_edge, excerpt_id = (uuid4() for _ in range(4))
     source_binding = (excerpt_id, uuid4(), 0, 0, 1, "a" * 64, 0, 4, 2, "internal", "source-evidence")
     material = {"native_world_id": "native", "binding_version": 3, "graph_revision": "rev",
-        "manifest": {"nodes": [], "graph": {"nodes": [{"id": str(local_node), "label": "Node", "kind": "npc", "name_citations": [str(excerpt_id)], "kind_citations": [str(excerpt_id)], "name_temporal": "unknown", "kind_temporal": "unknown"}],
+        "manifest": {"nodes": [], "graph": {"nodes": [{"id": str(local_node), "label": "Node", "kind": "npc", "name_citations": [str(excerpt_id)], "kind_citations": [str(excerpt_id)], "name_temporal": "unknown", "kind_temporal": "unknown", "name_basis": "inferred", "kind_basis": "asserted"}],
                     "edges": [{"id": str(local_edge), "source": str(local_node), "target": str(local_node),
-                               "label": "knows", "citations": [str(excerpt_id)], "temporal": "unknown"}]},
+                               "label": "knows", "citations": [str(excerpt_id)], "temporal": "unknown", "basis": "inferred"}]},
                      "sources": [{"id": str(excerpt_id), "text": "safe"}]},
         "node_bindings": [(local_node, "native-node", "name", "source-evidence", excerpt_id, "kind", "source-evidence", excerpt_id)],
         "evidence_bindings": [(local_edge, "native-edge", "source-evidence", excerpt_id)],
@@ -29,11 +29,11 @@ def test_validation_rechecks_exact_graph_and_citation(monkeypatch):
         calls.append(kwargs)
         return {"id": str(kwargs["local_id"]), "label": "Node", "kind": "npc",
                 "name_citations": [str(excerpt_id)], "kind_citations": [str(excerpt_id)],
-                "name_temporal": "unknown", "kind_temporal": "unknown"}, ()
+                "name_temporal": "unknown", "kind_temporal": "unknown", "name_basis": "inferred", "kind_basis": "asserted"}, ()
     def edge_selection(**kwargs):
         calls.append(kwargs)
         return {"id": str(kwargs["local_id"]), "source": str(local_node), "target": str(local_node),
-                "label": edge.predicate.removeprefix("dnd5e:"), "citations": [str(excerpt_id)], "temporal": "unknown"}, ()
+                "label": edge.predicate.removeprefix("dnd5e:"), "citations": [str(excerpt_id)], "temporal": "unknown", "basis": "inferred"}, ()
     monkeypatch.setattr(validation, "select_node", node_selection)
     monkeypatch.setattr(validation, "select_relationship", edge_selection)
     def verify_source(**kwargs):

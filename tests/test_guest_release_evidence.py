@@ -24,10 +24,20 @@ def test_relationship_citation_requires_exact_native_span_and_origin(monkeypatch
     args = dict(edge=SimpleNamespace(evidence_ref_ids=["ev"]), evidence_id="ev",
         access=SimpleNamespace(space_id="native", revision_id="rev",
             parsed=SimpleNamespace(get_evidence=lambda _: SimpleNamespace(evidence_role="support"))),
-        excerpt={"id": str(excerpt_id), "text": text},
+        excerpt={"id": str(excerpt_id), "text": text, "evidence_role": "support"},
         source_binding=(excerpt_id, document_id, 0, 0, 1, digest, start, end, 8),
         expected_native_world_id="native", expected_graph_revision="rev")
     assert evidence.verify_relationship_citation(**args) == str(excerpt_id)
+    with pytest.raises(evidence.GuestReleaseEvidenceError, match="role"):
+        evidence.verify_relationship_citation(**{**args, "excerpt": {**args["excerpt"], "evidence_role": "context"}})
+    context_args = {**args, "access": SimpleNamespace(space_id="native", revision_id="rev",
+        parsed=SimpleNamespace(get_evidence=lambda _: SimpleNamespace(evidence_role="context"))),
+        "excerpt": {"id": str(excerpt_id), "text": "clue", "evidence_role": "context"},
+        "source_binding": (excerpt_id, document_id, 0, 0, 1, digest, body.index("clue"), end, 8)}
+    assert evidence.verify_relationship_citation(**context_args) == str(excerpt_id)
+    with pytest.raises(evidence.GuestReleaseEvidenceError):
+        evidence.verify_relationship_citation(**{**context_args, "excerpt": {"id": str(excerpt_id), "text": "Before", "evidence_role": "context"},
+            "source_binding": (excerpt_id, document_id, 0, 0, 1, digest, 0, 6, 8)})
     with pytest.raises(evidence.GuestReleaseEvidenceError):
         evidence.verify_relationship_citation(**{**args, "evidence_id": "other"})
     with pytest.raises(evidence.GuestReleaseEvidenceError):
@@ -73,7 +83,7 @@ def test_standalone_proof_uses_fresh_core_view_and_rejects_withdrawal(private_so
     evidence_id = admission.bindings[0].evidence_ref_id
     _, access, _, _ = read_context(repo, space, graph_revision, None, role="gm" if private_source else "player", scope_mode="world")
     excerpt_id = uuid4()
-    args = dict(evidence_id=evidence_id, excerpt={"id": str(excerpt_id), "text": text},
+    args = dict(evidence_id=evidence_id, excerpt={"id": str(excerpt_id), "text": text, "evidence_role": "support"},
         source_binding=(excerpt_id, doc_id, 0, 0, 1, digest, start, end, 4),
         expected_native_world_id=space, expected_graph_revision=graph_revision)
     assert evidence.verify_source_citation(access=access, **args) == str(excerpt_id)

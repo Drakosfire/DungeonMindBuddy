@@ -1,9 +1,9 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import "./guestReleasePage.css";
 
-type Node = { id: string; label: string; kind: string; name_citations: string[]; kind_citations: string[] };
-type Edge = { id: string; source: string; target: string; label: string; citations: string[]; temporal: string };
-type Source = { id: string; text: string };
+type Node = { id: string; label: string; kind: string; name_citations: string[]; kind_citations: string[]; name_basis: string; kind_basis: string };
+type Edge = { id: string; source: string; target: string; label: string; citations: string[]; temporal: string; basis: string };
+type Source = { id: string; text: string; evidence_role: "support" | "context" };
 type Snapshot = { release_id: string; manifest: { graph: { nodes: Node[]; edges: Edge[] }; sources: Source[]; assets: { id: string }[] } };
 
 /** Public release copies only: this component never loads a managed World. */
@@ -33,7 +33,7 @@ export function GuestReleasePage({ publicId }: { publicId: string }) {
   const positions = new Map(nodes.map((node, index) => [node.id, {
     x: (index % columns + .5) * 100 / columns, y: (Math.floor(index / columns) + .5) * 100 / rows,
   }]));
-  const citationButton = (id: string, index: number) => <button type="button" key={`${id}-${index}`} onClick={() => setSelectedSource(id)}>Read source {sources.findIndex(item => item.id === id) + 1}</button>;
+  const citationButton = (id: string, index: number) => <button type="button" key={`${id}-${index}`} onClick={() => setSelectedSource(id)}>Read {sources.find(item => item.id === id)?.evidence_role === "context" ? "context" : "source"} {sources.findIndex(item => item.id === id) + 1}</button>;
   return <main className="guest-world">
     <header className="guest-world__header"><a href="/">DungeonMind · Buddy</a><nav aria-label="Guest navigation"><a href="https://www.dungeonmind.net/">DungeonMind.net ↗</a><a href="/">Start your own World →</a></nav></header>
     {unavailable ? <section role="alert"><h1>This guest World is unavailable</h1><p>The owner may have withdrawn it, or the link may have changed.</p><a href="/">Return to Buddy</a></section>
@@ -45,8 +45,8 @@ export function GuestReleasePage({ publicId }: { publicId: string }) {
             {nodes.map(node => { const position = positions.get(node.id)!; return <button key={node.id} type="button" style={{ left: `${position.x}%`, top: `${position.y}%` }} className={selectedNode === node.id ? "guest-world__point is-selected" : "guest-world__point"} aria-pressed={selectedNode === node.id} onClick={() => { setSelectedNode(node.id); setSelectedSource(null); }}><span aria-hidden="true">✦</span><strong>{node.label}</strong><small>{node.kind}</small></button>; })}
           </div> : <p>This copy has no Graph points yet.</p>}
         </section><aside className="guest-world__detail" aria-live="polite"><p className="guest-world__eyebrow">{source ? "SOURCE EXCERPT" : "FOLLOW A THREAD"}</p>
-          {source ? <><h2>From the owner’s notes</h2><p className="guest-world__excerpt">{source.text}</p><button type="button" onClick={() => setSelectedSource(null)}>← Back to connections</button></>
-            : active ? <><h2>{active.label}</h2><p>{active.kind}</p><div className="guest-world__citations">{[...new Set([...active.name_citations, ...active.kind_citations])].map(citationButton)}</div><h3>Connections</h3>{connected.length ? <ul>{connected.map(edge => { const other = edge.source === active.id ? edge.target : edge.source; return <li key={edge.id}><p>{labels.get(edge.source)} <em>{edge.label}</em> {labels.get(edge.target)}</p><small>{edge.temporal === "unknown" ? "When this happened is not specified" : edge.temporal === "timeless" ? "Timeless" : edge.temporal}</small><div className="guest-world__citations"><button type="button" onClick={() => setSelectedNode(other)}>Explore {labels.get(other)}</button>{edge.citations.map(citationButton)}</div></li>; })}</ul> : <p>No connections were included for this point.</p>}</>
+          {source ? <><h2>From the owner’s notes</h2><p>{source.evidence_role === "context" ? "Context for this claim; not direct support." : source.evidence_role === "support" ? "Supporting excerpt." : "Evidence role unavailable."}</p><p className="guest-world__excerpt">{source.text}</p><button type="button" onClick={() => setSelectedSource(null)}>← Back to connections</button></>
+            : active ? <><h2>{active.label}</h2><p>{active.kind}</p><small>Name: {active.name_basis} · Classification: {active.kind_basis}</small><div className="guest-world__citations">{[...new Set([...active.name_citations, ...active.kind_citations])].map(citationButton)}</div><h3>Connections</h3>{connected.length ? <ul>{connected.map(edge => { const other = edge.source === active.id ? edge.target : edge.source; return <li key={edge.id}><p>{labels.get(edge.source)} <em>{edge.label}</em> {labels.get(edge.target)}</p><small>{edge.basis} · {edge.temporal === "unknown" ? "When this happened is not specified" : edge.temporal === "timeless" ? "Timeless" : edge.temporal}</small><div className="guest-world__citations"><button type="button" onClick={() => setSelectedNode(other)}>Explore {labels.get(other)}</button>{edge.citations.map(citationButton)}</div></li>; })}</ul> : <p>No connections were included for this point.</p>}</>
               : <><h2>Every story has a trail.</h2><p>Select a point to follow it through the owner’s shared notes.</p></>}
         </aside></div>
         {snapshot.manifest.assets.length > 0 && <section className="guest-world__gallery"><h2>From the World</h2>{snapshot.manifest.assets.map((asset, index) => <img key={asset.id} src={`/api/live/guest-releases/${encodeURIComponent(publicId)}/releases/${encodeURIComponent(snapshot.release_id)}/assets/${encodeURIComponent(asset.id)}`} alt={`Shared World image ${index + 1}`} />)}</section>}

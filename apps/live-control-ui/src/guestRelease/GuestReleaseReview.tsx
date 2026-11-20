@@ -4,9 +4,9 @@ import { GuestReleaseSelection } from "./GuestReleaseSelection";
 
 type Candidate = { release_id: string; created_at: string };
 type Published = { release_id: string; published_at: string; current: boolean; reviewable: boolean };
-type Source = { id: string; text: string };
-type Node = { id: string; label: string; kind: string; name_citations: string[]; kind_citations: string[]; name_temporal: string; kind_temporal: string };
-type Edge = { id: string; source: string; target: string; label: string; citations: string[]; temporal: string };
+type Source = { id: string; text: string; evidence_role: "support" | "context" };
+type Node = { id: string; label: string; kind: string; name_citations: string[]; kind_citations: string[]; name_temporal: string; kind_temporal: string; name_basis: string; kind_basis: string };
+type Edge = { id: string; source: string; target: string; label: string; citations: string[]; temporal: string; basis: string };
 type Review = { digest: string; source_visibility: Record<string, string>; manifest: { graph: { nodes: Node[]; edges: Edge[] }; sources: Source[]; assets: { id: string }[] } };
 
 async function readJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -90,7 +90,7 @@ export function GuestReleaseReview({ worldId }: { worldId: string }) {
   const sourceNumbers = new Map(review?.manifest.sources.map((source, index) => [source.id, index + 1]) ?? []);
   const citations = (ids: string[]) => ids.map(id => `excerpt ${sourceNumbers.get(id) ?? "unavailable"}`).join(", ");
   const imagesReady = review?.manifest.assets.every(asset => loadedAssets.has(asset.id)) ?? false;
-  const sourcesReady = review?.manifest.sources.every(source => ["internal", "player_safe"].includes(review.source_visibility[source.id])) ?? false;
+  const sourcesReady = review?.manifest.sources.every(source => ["internal", "player_safe"].includes(review.source_visibility[source.id]) && ["support", "context"].includes(source.evidence_role)) ?? false;
   return <section aria-labelledby="guest-review-heading" className="guest-release-review">
     <h2 id="guest-review-heading">Guest release review</h2>
     <GuestReleaseSelection worldId={worldId} onPrepared={() => { setCandidates(null); setReview(null); setSelected(null); }} />
@@ -115,14 +115,14 @@ export function GuestReleaseReview({ worldId }: { worldId: string }) {
       <h3>Review everything guests will see</h3>
       <p>This copy can include private source material you select for release. Later private edits do not update it. If a source is withdrawn after the publication check begins, it may still appear in the copy; revoke the release to withdraw the copy.</p>
       <h4>Graph</h4>
-      <ul>{review.manifest.graph.nodes.map(node => <li key={node.id}>{node.label} · {node.kind} (name: {node.name_temporal}, {citations(node.name_citations)}; classification: {node.kind_temporal}, {citations(node.kind_citations)})</li>)}</ul>
-      <ul>{review.manifest.graph.edges.map(edge => <li key={edge.id}>{names.get(edge.source)} — {edge.label} → {names.get(edge.target)} ({edge.temporal}, {citations(edge.citations)})</li>)}</ul>
+      <ul>{review.manifest.graph.nodes.map(node => <li key={node.id}>{node.label} · {node.kind} (name: {node.name_basis}, {node.name_temporal}, {citations(node.name_citations)}; classification: {node.kind_basis}, {node.kind_temporal}, {citations(node.kind_citations)})</li>)}</ul>
+      <ul>{review.manifest.graph.edges.map(edge => <li key={edge.id}>{names.get(edge.source)} — {edge.label} → {names.get(edge.target)} ({edge.basis}, {edge.temporal}, {citations(edge.citations)})</li>)}</ul>
       <h4>Source excerpts</h4>
-      {review.manifest.sources.map((source, index) => <section key={source.id}><h5>Excerpt {index + 1} · {review.source_visibility[source.id] === "internal" ? "private source" : review.source_visibility[source.id] === "player_safe" ? "player-safe source" : "source visibility unavailable"}</h5><p style={{ whiteSpace: "pre-wrap" }}>{source.text}</p></section>)}
+      {review.manifest.sources.map((source, index) => <section key={source.id}><h5>Excerpt {index + 1} · {review.source_visibility[source.id] === "internal" ? "private source" : review.source_visibility[source.id] === "player_safe" ? "player-safe source" : "source visibility unavailable"} · {source.evidence_role === "context" ? "context, not direct support" : source.evidence_role === "support" ? "support" : "evidence role unavailable"}</h5><p style={{ whiteSpace: "pre-wrap" }}>{source.text}</p></section>)}
       <h4>Images</h4>
       {review.manifest.assets.length === 0 ? <p>No images selected.</p> : review.manifest.assets.map((asset, index) => <img key={asset.id} src={`${base}/candidates/${encodeURIComponent(selected)}/assets/${encodeURIComponent(asset.id)}`} alt={`Selected release image ${index + 1}`} style={{ maxWidth: "100%" }} onLoad={() => setLoadedAssets(previous => new Set(previous).add(asset.id))} onError={() => { setLoadedAssets(previous => { const next = new Set(previous); next.delete(asset.id); return next; }); setApproved(false); setError("An image could not be loaded. Reload this copy before approving it."); }} />)}
       {!imagesReady && <p>All selected images must load before approval.</p>}
-      {!sourcesReady && <p>Source visibility must be available before approval.</p>}
+      {!sourcesReady && <p>Source visibility and evidence role must be available before approval.</p>}
       <p>Snapshot digest: <code>{review.digest}</code></p>
       {!published && <><label><input type="checkbox" checked={approved} onChange={event => setApproved(event.target.checked)} disabled={busy || !imagesReady || !sourcesReady} /> I reviewed this copy and approve making these exact contents available to guests.</label><br /><button type="button" disabled={!approved || busy || !imagesReady || !sourcesReady} onClick={publish}>{selectedKind === "candidate" ? "Publish this copy" : "Restore this copy"}</button></>}
       {published && <div role="status"><p>Copy {selectedKind === "candidate" ? "published" : "restored"}. Reload to check the current copy.</p>{import.meta.env.VITE_GUEST_RELEASE_PAGE === "1" && publicId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(publicId) ? <a href={`/visit/${publicId}`}>Open guest link</a> : <p>Guest page delivery is not yet available on this deployment.</p>}</div>}

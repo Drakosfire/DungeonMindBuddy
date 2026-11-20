@@ -16,8 +16,8 @@ it("shows the exact staged copy and requires explicit approval before publicatio
     else if (url.endsWith("/status")) body = { public_id: null, version: 0 };
     else body = { digest, source_visibility: { source: "internal" }, manifest: {
       nodes: [], graph: { nodes: [{ id: "n", label: "Sizzek", kind: "character", name_citations: ["source"],
-        kind_citations: ["source"], name_temporal: "unknown", kind_temporal: "unknown" }], edges: [] },
-      sources: [{ id: "source", text: "<private text>" }], assets: [] } };
+        kind_citations: ["source"], name_temporal: "unknown", kind_temporal: "unknown", name_basis: "inferred", kind_basis: "inferred" }], edges: [] },
+      sources: [{ id: "source", text: "<private text>", evidence_role: "context" }], assets: [] } };
     return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -27,7 +27,7 @@ it("shows the exact staged copy and requires explicit approval before publicatio
   await user.click(await screen.findByRole("button", { name: /Review copy from/ }));
   expect(await screen.findByText(/Sizzek · character/)).toHaveTextContent("excerpt 1");
   expect(screen.getByText("<private text>")).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Excerpt 1 · private source" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Excerpt 1 · private source · context, not direct support" })).toBeInTheDocument();
   const publish = screen.getByRole("button", { name: "Publish this copy" });
   expect(publish).toBeDisabled();
   await user.click(screen.getByRole("checkbox", { name: /I reviewed this copy/ }));

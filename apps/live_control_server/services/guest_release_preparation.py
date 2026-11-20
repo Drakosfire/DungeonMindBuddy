@@ -86,6 +86,10 @@ def _prepare_candidate(*, world_id: str, subject: str, selection: ReleaseSelecti
         excerpt, source_binding = selected_page_excerpt(world_id=world_id, document_id=str(source.document_id),
             revision_n=source.revision_n, expected_sha256=source.sha256, start=source.start,
             end=source.end, expected_excerpt=source.excerpt)
+        native_evidence = access.parsed.get_evidence(source.evidence_id)
+        if native_evidence is None:
+            raise GuestReleasePreparationError("Selected evidence is unavailable")
+        excerpt["evidence_role"] = native_evidence.evidence_role
         verify_source_citation(evidence_id=source.evidence_id, access=access, excerpt=excerpt,
             source_binding=source_binding[:9], expected_native_world_id=binding.native_world_id,
             expected_graph_revision=selection.graph_revision)
@@ -127,7 +131,7 @@ def _prepare_candidate(*, world_id: str, subject: str, selection: ReleaseSelecti
         assets.append((release_asset_id, mime, content))
         manifest_assets.append({"id": str(release_asset_id), "mime_type": mime,
                                 "sha256": hashlib.sha256(content).hexdigest()})
-    manifest = {"schema": "buddy_guest_release_v1", "projection_version": "explicit_native_assertions_v1",
+    manifest = {"schema": "buddy_guest_release_v1", "projection_version": "explicit_native_assertions_v2",
                 "image_sanitizer_version": "bounded_png_v1", "graph": graph, "sources": sources,
                 "assets": sorted(manifest_assets, key=lambda item: item["id"])}
     return guest_release.stage(world_id=world_id, subject=subject, expected_owner_generation=generation,

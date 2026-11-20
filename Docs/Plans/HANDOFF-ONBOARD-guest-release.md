@@ -98,8 +98,13 @@ the intended source path; the user chooses what becomes public.
 The experimental assembler now binds each selected name and classification to
 its own native assertion, evidence and release-local excerpt; publication
 validation reconstructs those fields and the selected relationships from a
-fresh owner view. Unknown and timeless scope are retained separately in the
-candidate. Other temporal scopes and non-established or non-factual claims are
+fresh owner view. Unknown and timeless scope and asserted versus inferred basis
+are retained separately in the candidate. Source spans retain their `support`
+or `context` role; owner and guest views explicitly say context is not direct
+support. For a context span, an explicitly chosen line may be copied only if
+its exact bytes fall inside that Core-verified span; supporting excerpts must
+still match their full native span. Discovery caps its work and reports when
+its excerpt list is incomplete. Other temporal scopes and non-established or non-factual claims are
 currently rejected, not converted into facts. An initial owner selection
 interface inventories exact eligible source spans and requires explicit field
 and evidence choices. It also pages through World-owned images and requires
@@ -120,7 +125,14 @@ fixture confirms unknown scope is common. A synthetic integration fixture now
 joins a committed APP page to a private Core source, stages and reviews two
 nodes and a relationship, publishes the copy, verifies a later private edit
 does not alter it, rejects another publication after Core withdrawal, and
-revokes the published copy. It now exercises owner selection inventory and
+revokes the published copy. A separate synthetic fixture compiles reviewed
+first-World contributions through the real compiler and native publication,
+then verifies inferred fields and both support and context roles through release
+selection and fresh validation. A mixed context containing a heading and GM
+secret demonstrates that an owner can select an exact safe line without copying
+its neighbors. It checks that an unselected description and uncited paragraph
+are absent and that release preparation does not change the
+native Graph head. It now exercises owner selection inventory and
 preparation through hosted middleware, but substitutes the identity resolver,
 Core repository and binding; it is not an ordinary first-World or real sign-in
 witness. A complete real first-World preparation, owner review,
