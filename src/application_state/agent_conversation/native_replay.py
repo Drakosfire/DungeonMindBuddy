@@ -33,8 +33,24 @@ class NativeDiscoveryReplay(BaseModel):
     hops: list[NeighborhoodReplayHop]
 
 
-def native_discovery_replay(receipt):
+def _replay_query(receipt, execution, *, stop=None):
     query = receipt.get("native_query") if isinstance(receipt, dict) else None
+    if not isinstance(query, dict) or query.get("schema") != "dmb_native_build_query_pending_v1":
+        return query
+    from .native_context import NativeBuildQueryPendingV1, SurfaceNativeContextReceiptV1
+    from .native_execution import SurfaceNativeExecutionV1, _join_context_binding, effective_native_query
+
+    context = SurfaceNativeContextReceiptV1.model_validate_json(json.dumps(receipt))
+    ledger = SurfaceNativeExecutionV1.model_validate_json(json.dumps(
+        execution | {"events": execution["events"][:stop]},
+    ))
+    _join_context_binding(context, ledger)
+    query = effective_native_query(context, ledger)
+    return None if isinstance(query, NativeBuildQueryPendingV1) else query.model_dump(mode="json", by_alias=True)
+
+
+def native_discovery_replay(receipt, execution=None, *, stop=None):
+    query = _replay_query(receipt, execution, stop=stop)
     if not isinstance(query, dict) or not query.get("discovery_hops"):
         return None
     hops = [NeighborhoodReplayHop.model_validate(hop) for hop in query["discovery_hops"]]
@@ -102,15 +118,16 @@ def load_native_replay_read(*, world_id, turn_id, trace_id, sequence, assertion_
     codecs = {codec.model_fields["schema_"].default: codec
               for codec in (SurfaceNativeContextReceiptV1, PlanNativeContextReceiptV1)}
     captured = codecs[receipt["schema"]].model_validate_json(json.dumps(receipt))
-    query = captured.native_query
-    if not isinstance(query, NativePlanQueryV2):
-        raise ValueError("Saved query does not admit native assertions")
     if isinstance(captured, SurfaceNativeContextReceiptV1):
         ledger = SurfaceNativeExecutionV1.model_validate_json(json.dumps(execution))
         _join_context_binding(captured, ledger)
     else:
         ledger = PlanNativeExecutionV1.model_validate_json(json.dumps(execution))
         validate_execution_binding(captured, ledger)
+    from .native_execution import effective_native_query
+    query = effective_native_query(captured, ledger)
+    if not isinstance(query, NativePlanQueryV2):
+        raise ValueError("Saved query does not admit native assertions")
     grant = NativePlanAssertionReadAuthorizedV1.model_validate_json(json.dumps(grant_data))
     codec = NativePlanAssertionReadV2 if observed["kind"].endswith("_v2") else NativePlanAssertionReadV1
     saved = codec.model_validate_json(json.dumps(saved_data))
@@ -124,7 +141,7 @@ def native_assertion_steps(execution, receipt, *, start: int, stop: int | None):
     """Keep ledger sequence and identify the completed writer's exact read events."""
     if not isinstance(execution, dict) or not isinstance(receipt, dict):
         return []
-    query = receipt.get("native_query") or {}
+    query = _replay_query(receipt, execution, stop=stop) or {}
     revision = query.get("authority", {}).get("revision_id")
     if not revision:
         return []

@@ -134,7 +134,10 @@ def authorize_read(turn, *, event_id, record_kind, record_ids):
     if record_kind not in {"statement", "assertion"}:
         raise ValueError("Unknown native selected-read record kind")
     receipt, execution = _owner(turn)
-    query = getattr(receipt, "native_query", None)
+    from .native_execution import effective_native_query
+    query = (effective_native_query(receipt, execution)
+             if isinstance(receipt, t.SurfaceNativeContextReceiptV1)
+             else getattr(receipt, "native_query", None))
     if (not isinstance(receipt, (t.PlanNativeContextReceiptV1,t.SurfaceNativeContextReceiptV1))
             or not isinstance(query, NativePlanQueryV1)
             or record_kind == "assertion" and not isinstance(query, NativePlanQueryV2)):

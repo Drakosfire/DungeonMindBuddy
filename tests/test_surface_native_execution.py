@@ -692,6 +692,9 @@ def test_build_query_settlement_requires_exact_opening_response(failure):
     record = execution(context.context_receipt_sha256, policy, prefix)
     validate_context_binding(context, record)
     assert effective_native_query(context, record) == pending
+    from application_state.agent_conversation.native_writer import model_frame
+    with pytest.raises(ValueError, match="requires the settled Build Graph query"):
+        model_frame(context, record)
     if failure == "early":
         prefix.pop()
     if failure == "wrong_epoch":
@@ -714,3 +717,7 @@ def test_build_query_settlement_requires_exact_opening_response(failure):
     else:
         bound = validate_context_binding(context, candidate)
         assert effective_native_query(context, bound) == catalog
+        frame = model_frame(context, bound)
+        assert frame["native_assertions"]["authority"] == catalog.authority.model_dump(
+            mode="json", by_alias=True,
+        )
