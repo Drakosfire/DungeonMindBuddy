@@ -754,7 +754,7 @@ class NativeBodyNavigation:
         execution = turn.graph_context_execution
         return bool(selected_batch_covering_reads(
             execution, current_selection(turn), handle,
-            require_passage=type(execution.policy.action) is NativePlanActionV2,
+            require_passage=type(getattr(execution.policy, "action", None)) is NativePlanActionV2,
         ))
 
     def select(self, handles):
