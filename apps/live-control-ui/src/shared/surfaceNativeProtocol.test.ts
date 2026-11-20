@@ -276,3 +276,30 @@ it('accepts an inert Build lore draft and rejects a writer-owned duplicate body'
     {...answer, collaboration: {...draft, markdown: 'Uncited prose'}}, receipt,
   )).toBe(false);
 });
+
+
+it.each(['valid','missing','foreign-epoch','bad-receipt','wrong-producer','wrong-match','extra-match'])(
+  'checks deferred Build receipt and exact citation membership: %s', mutation=>{
+    const c=authoredContext(), r=c.receipt, answer=c.completion;
+    const membership={
+      context_receipt_sha256:r.context_receipt_sha256,
+      producing_provider_attempt_id:answer.producing_provider_attempt_id,
+      statements:answer.native_clause_citations.map(cite=>[cite.statement_id,cite.campaign_id]),
+      assertions:answer.native_assertion_citations.map(cite=>[cite.assertion_id,cite.assertion_sha256]),
+    };
+    const authority=structuredClone(r.native_query.authority);
+    const pending={
+      ...r,
+      native_query:{schema:'dmb_native_build_query_pending_v1',authority,question:r.native_query.question},
+      assembled_input:{...r.assembled_input,assembler_version:'native_build_semantic_initial_v2'},
+    };
+    if(mutation==='foreign-epoch')authority.acquisition_epoch++;
+    if(mutation==='bad-receipt')membership.context_receipt_sha256='f'.repeat(64);
+    if(mutation==='wrong-producer')membership.producing_provider_attempt_id='00000000-0000-4000-8000-000000000001';
+    if(mutation==='wrong-match')membership.assertions[0]![0]='foreign';
+    if(mutation==='extra-match')membership.assertions.push(['extra','f'.repeat(64)]);
+    const valid=isSurfaceNativeReceipt(pending,buildWork)
+      &&isSurfaceNativeCompletion(answer,pending,mutation==='missing'?undefined:membership);
+    expect(valid).toBe(mutation==='valid');
+  },
+);

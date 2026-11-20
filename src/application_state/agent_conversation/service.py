@@ -241,12 +241,16 @@ def _expect_pointer(command: ConversationCommand, pointer: WorldPointer) -> None
         )
 
 
-def _archive_active(conn, pointer: WorldPointer, now: datetime) -> None:
+def _archive_active(conn, pointer: WorldPointer, now: datetime, *, authorize_write=None) -> None:
     if pointer.active_conversation_id is None:
+        if authorize_write is not None:
+            authorize_write()
         return
     active = repo.lock_conversation(conn, pointer.world_id, pointer.active_conversation_id)
     if active is None or active.status != "active":
         raise ApplicationStateIntegrityError("World active pointer does not reference an active conversation")
+    if authorize_write is not None:
+        authorize_write()
     archived = repo.update_conversation_state(
         conn,
         world_id=pointer.world_id,
@@ -814,7 +818,7 @@ class AgentConversationService:
                 recorded_at=now,
             )
 
-    def reopen_conversation(self, command: ReopenCommand) -> ConversationCommandReceipt:
+    def reopen_conversation(self, command: ReopenCommand, *, authorize_write=None) -> ConversationCommandReceipt:
         world_id = _world_id(command.world_id)
         dsn = _ready_dsn()
         now = _now()
@@ -824,6 +828,8 @@ class AgentConversationService:
                 raise ApplicationStateConflictError("command ID is retired")
             replay = _receipt_replay(conn, command, command_kind="reopen")
             if replay is not None:
+                if authorize_write is not None:
+                    authorize_write()
                 return replay
             _expect_pointer(command, pointer)
             target = repo.lock_conversation(conn, world_id, command.conversation_id)
@@ -831,7 +837,7 @@ class AgentConversationService:
                 raise ApplicationStateNotFoundError("conversation not found in verified World")
             if target.status != "archived":
                 raise ApplicationStateConflictError("only an archived conversation can be reopened")
-            _archive_active(conn, pointer, now)
+            _archive_active(conn, pointer, now, authorize_write=authorize_write)
             reopened = repo.update_conversation_state(
                 conn,
                 world_id=world_id,

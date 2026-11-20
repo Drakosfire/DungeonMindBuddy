@@ -275,6 +275,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 or (saved_statblock and c['kind'].startswith('Saved statblock'))
                 or ((failure=='used_rules' or failure=='mixed_questions' and writer.review is not None) and c['kind']=='public_rules_lookup')
                 or (native_body and c['kind'] in ({'Explicit admitted full-source read; metadata choice, not evidence'} | ({'Source lexical navigation; not evidence or semantic completeness'} if direct_source=='mixed' else set()) if direct_source else {'Source lexical navigation; not evidence or semantic completeness','Explicit full-document read'} | ({'Explicit admitted full-source read; metadata choice, not evidence'} if any(c['kind'].startswith('Navigation scan:') for c in body['state'].get('examined_subjects',[])) else set())))}
+            if failure == "deferred_graph_citation":
+                selected = {i for i, c in enumerate(candidates) if "Native Graph object;" in c["kind"]}
             if direct_source == 'covered-batch' and candidates:
                 scanned = any(c['kind'].startswith('Navigation scan:')
                     for c in body['state'].get('examined_subjects', []))
@@ -631,7 +633,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             expected_content_sha256=source.content_sha256), client_work_state='saved_clean',
         graph_request=dict(mode='world', world_id=world, campaign_id=None, revision_pin=None,
             focus=dict(kind='none', session_id=None, campaign_id=None)), graph_selection=None,
-        build_authored_references=None if saved_statblock == 'by-name' else selected.model_dump(mode='json', by_alias=True), message=message or ('Describe the selected object and source-local episode.' if native_body else 'Describe the object I selected.'))
+        build_authored_references=None if saved_statblock == 'by-name' or failure == 'deferred_graph_citation' else selected.model_dump(mode='json', by_alias=True), message=message or ('Describe the selected object and source-local episode.' if native_body else 'Describe the object I selected.'))
     if draft is not None:
         body['build_draft_context']=draft.model_dump(mode='json',by_alias=True)
         body['client_work_state']='saved_dirty'
@@ -1077,7 +1079,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert context['receipt']['native_query']['reason']=='native_graph_binding_unavailable'
     else:
         assert context['receipt']['native_query']['authority']['revision_id'] == current_revision
-    if authored_source!='source_only' and saved_statblock != 'by-name':
+    if authored_source!='source_only' and saved_statblock != 'by-name' and failure != 'deferred_graph_citation':
         assert context['receipt']['native_query']['authored_targets'][0]['selection_revision_id'] == original_revision
     service = AgentConversationService()
     turn = service.inspect_turn(world_id=world, turn_id=writer.adapter.turn.turn_id)
@@ -1125,7 +1127,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     assert not any(isinstance(e,(t.BuildDraftProviderInclusionV1,t.BuildSectionProviderInclusionV1))
         for e in turn.graph_context_execution.events)
     captures = [event for event in turn.graph_context_execution.events if isinstance(event, t.BuildAuthoredReferencesCapturedV1)]
-    if saved_statblock == "by-name":
+    if saved_statblock == "by-name" or failure == "deferred_graph_citation":
         assert not captures
     else:
         assert len(captures) == 1 and captures[0].references == selected
@@ -2708,3 +2710,22 @@ def test_deferred_build_provider_failure_does_not_wait_for_graph(lane, tmp_path,
         release.set()
         if started.is_set():
             assert finished.wait(timeout=5)
+
+
+def test_deferred_build_display_keeps_admission_and_exact_native_citations(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.services.agent_turn_service import project_plan_turn_context
+
+    case = _fresh_case(lane, tmp_path, monkeypatch, "deferred_graph_citation",
+                       False, False, False, message="Describe A and B.")
+    for replay in (False, True):
+        context = project_plan_turn_context(case.turn, delivery_replay=replay).model_dump(mode="json", by_alias=True)
+        receipt = context["receipt"]
+        assert receipt == case.turn.graph_context_receipt.model_dump(mode="json", by_alias=True)
+        assert receipt["native_query"]["schema"] == "dmb_native_build_query_pending_v1"
+        membership = context["deferred_build_citations"]
+        assert membership["context_receipt_sha256"] == receipt["context_receipt_sha256"]
+        assert membership["producing_provider_attempt_id"] == context["completion"]["producing_provider_attempt_id"]
+        assert membership["assertions"] == sorted([list(item) for item in {
+            (cite.assertion_id, cite.assertion_sha256) for cite in case.turn.completion.native_assertion_citations
+        }])
+        assert membership["assertions"]
