@@ -19,7 +19,8 @@ Use the existing native read-only repository owner for one exact revision read.
 No current-head lookup, parsed read context, source hydration, publication or
 classic fallback. Retain current and late managed-binding fences and exact
 space/revision identity verification. Missing/foreign/malformed pins fail closed
-before draft mutation; storage unavailability remains typed503. Explicit null
+before draft mutation; storage unavailability remains typed503; stored integrity failure is500, matching
+the native projection owner (malformed submitted identities remain422). Explicit null
 freestanding pins remain accepted without opening graph authority. Retained
 GET/history and legacy campaign draft semantics remain unchanged.
 

@@ -9,9 +9,30 @@ from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
 import apps.live_control_server.routes.threat_drafts as threat_drafts_routes
-from apps.live_control_server.ports.world_graph_authority import WorldGraphAuthorityError
+from dungeonmind.domain.errors import PersistenceIntegrityError, PersistenceUnavailableError
 from apps.live_control_server.services.world_container_registry import create_world_container
 from apps.live_control_server.services.managed_world_graph_projection import VerifiedManagedWorldBinding
+
+
+
+@pytest.fixture(autouse=True)
+def _forbid_classic_authority(monkeypatch):
+    from apps.live_control_server.ports import world_graph_authority_access
+
+    monkeypatch.setattr(world_graph_authority_access, "get_world_graph_authority",
+                        lambda *a, **k: pytest.fail("Draft admission opened classic graph authority"))
+
+
+def _install_native_reader(monkeypatch, read_revision):
+    repository = SimpleNamespace(
+        get_revision=read_revision,
+        get_head=lambda *a, **k: pytest.fail("Draft admission looked up the current head"),
+    )
+    monkeypatch.setattr(threat_drafts_routes.native, "read_repository", lambda: repository)
+
+
+def _native_snapshot(space_id, revision_id):
+    return SimpleNamespace(revision=SimpleNamespace(space_id=space_id, revision_id=revision_id))
 
 
 def _payload() -> dict:
@@ -172,7 +193,10 @@ def test_world_routes_reject_unknown_or_mixed_scope(monkeypatch, tmp_path: Path,
     assert not (tmp_path / "out/threat_drafts").exists()
 
 
-@pytest.mark.parametrize("result", ["exact", "foreign", "wrong_revision", "missing", "unavailable"])
+@pytest.mark.parametrize("result", [
+    "exact", "foreign", "wrong_revision", "missing", "malformed",
+    "corrupt", "unavailable", "unexpected_error",
+])
 def test_world_route_revision_admission_before_create_and_update(
     monkeypatch, tmp_path: Path, result: str,
 ) -> None:
@@ -184,22 +208,31 @@ def test_world_route_revision_admission_before_create_and_update(
     monkeypatch.setattr(threat_drafts_routes, "resolve_managed_world_binding", lambda *args, **kwargs: binding)
     calls = []
 
-    def read_revision(world_id, revision_id):
-        calls.append((world_id, revision_id))
-        if result in {"missing", "unavailable"}:
-            raise WorldGraphAuthorityError(
-                "Unavailable pin", code="revision_unavailable" if result == "missing" else "authority_unavailable",
-            )
-        return SimpleNamespace(
-            world_id="foreign-world" if result == "foreign" else world_id,
-            revision_id="other-revision" if result == "wrong_revision" else revision_id,
+    def read_revision(space_id, revision_id):
+        calls.append((space_id, revision_id))
+        if result == "missing":
+            return None
+        if result == "malformed":
+            return SimpleNamespace(revision=None)
+        if result == "corrupt":
+            raise PersistenceIntegrityError("Stored native revision is corrupt")
+        if result == "unavailable":
+            raise PersistenceUnavailableError("Native storage unavailable")
+        if result == "unexpected_error":
+            raise RuntimeError("Native repository read failed")
+        return _native_snapshot(
+            "foreign-space" if result == "foreign" else space_id,
+            "other-revision" if result == "wrong_revision" else revision_id,
         )
 
-    monkeypatch.setattr(threat_drafts_routes, "get_world_graph_authority",
-                        lambda: SimpleNamespace(read_revision=read_revision))
+    _install_native_reader(monkeypatch, read_revision)
     payload["graph_context_snapshot"]["graph_revision_id"] = "exact-pin"
-    expected_status = 200 if result == "exact" else 503 if result == "unavailable" else 422
-    assert client.post("/api/live/threat-drafts", json=payload).status_code == expected_status
+    expected_status = (200 if result == "exact" else 500 if result == "corrupt"
+                       else 503 if result in {"unavailable", "unexpected_error"} else 422)
+    created = client.post("/api/live/threat-drafts", json=payload)
+    assert created.status_code == expected_status, created.text
+    assert calls == [("world:reserved", "exact-pin")]
+    assert client.get("/api/live/threat-drafts", params={"world_id": payload["world_id"]}).json()["total"] == (2 if result == "exact" else 1)
     update = {key: value for key, value in payload.items()
               if key not in {"world_id", "campaign_id", "scope_mode", "created_by"}}
     update.update(expected_version=1, description="Changed.")
@@ -216,15 +249,32 @@ def test_world_route_rejects_factory_unavailable_but_freestanding_is_explicit(
     client = TestClient(create_app(), client=("127.0.0.1", 50000))
     payload = _world_payload(tmp_path)
 
+    calls = []
     def unavailable():
+        calls.append("factory")
         raise RuntimeError("Not mounted")
 
     monkeypatch.setattr(threat_drafts_routes, "resolve_managed_world_binding",
-                        lambda *args, **kwargs: VerifiedManagedWorldBinding(payload["world_id"], "world:reserved", 1, "sources/owned"))
-    monkeypatch.setattr(threat_drafts_routes, "get_world_graph_authority", unavailable)
-    assert client.post("/api/live/threat-drafts", json=payload).status_code == 200
+                        lambda *a, **k: pytest.fail("Freestanding draft resolved a graph binding"))
+    monkeypatch.setattr(threat_drafts_routes.native, "read_repository", unavailable)
+    created = client.post("/api/live/threat-drafts", json=payload)
+    assert created.status_code == 200, created.text
+    existing = created.json()
+    update = {key: value for key, value in payload.items()
+              if key not in {"world_id", "campaign_id", "scope_mode", "created_by"}}
+    update.update(expected_version=1, description="Freestanding edit.")
+    edited = client.put(f"/api/live/threat-drafts/{existing['draft_id']}", json=update)
+    assert edited.status_code == 200, edited.text
+    assert calls == []
+    existing = edited.json()
+    monkeypatch.setattr(threat_drafts_routes, "resolve_managed_world_binding",
+                        lambda *a, **k: VerifiedManagedWorldBinding(payload["world_id"], "world:reserved", 1, "sources/owned"))
     payload["graph_context_snapshot"]["graph_revision_id"] = "pin"
     assert client.post("/api/live/threat-drafts", json=payload).status_code == 503
+    update.update(expected_version=2, graph_context_snapshot=payload["graph_context_snapshot"])
+    assert client.put(f"/api/live/threat-drafts/{existing['draft_id']}", json=update).status_code == 503
+    assert calls == ["factory", "factory"]
+    assert client.get(f"/api/live/threat-drafts/{existing['draft_id']}").json() == existing
 
 
 def test_world_draft_binding_change_rejects_before_mutation(monkeypatch, tmp_path):
@@ -236,14 +286,18 @@ def test_world_draft_binding_change_rejects_before_mutation(monkeypatch, tmp_pat
     changed = VerifiedManagedWorldBinding(payload["world_id"], "world:two", 2, "sources/owned")
     bindings = iter([first, changed, first, changed])
     monkeypatch.setattr(threat_drafts_routes, "resolve_managed_world_binding", lambda *args, **kwargs: next(bindings))
-    monkeypatch.setattr(threat_drafts_routes, "get_world_graph_authority", lambda: SimpleNamespace(
-        read_revision=lambda world_id, revision_id: SimpleNamespace(world_id=world_id, revision_id=revision_id)))
+    calls = []
+    def read_revision(space_id, revision_id):
+        calls.append((space_id, revision_id))
+        return _native_snapshot(space_id, revision_id)
+    _install_native_reader(monkeypatch, read_revision)
     payload["graph_context_snapshot"]["graph_revision_id"] = "exact-pin"
     assert client.post("/api/live/threat-drafts", json=payload).status_code == 409
     update = {key: value for key, value in payload.items() if key not in {"world_id", "campaign_id", "scope_mode", "created_by"}}
     update["expected_version"] = 1
     assert client.put(f"/api/live/threat-drafts/{existing['draft_id']}", json=update).status_code == 409
     assert client.get(f"/api/live/threat-drafts/{existing['draft_id']}").json() == existing
+    assert calls == [("world:one", "exact-pin")] * 2
     assert client.get("/api/live/threat-drafts", params={"world_id": payload["world_id"]}).json()["total"] == 1
 
 
@@ -251,7 +305,7 @@ def test_world_draft_reserved_identity_is_not_graph_authority(monkeypatch, tmp_p
     monkeypatch.setattr(threat_drafts_routes, "repo_root", lambda: tmp_path)
     payload = _world_payload(tmp_path)
     payload["graph_context_snapshot"]["graph_revision_id"] = "exact-pin"
-    monkeypatch.setattr(threat_drafts_routes, "get_world_graph_authority", lambda: pytest.fail("Unbound World must not reach native authority"))
+    monkeypatch.setattr(threat_drafts_routes.native, "read_repository", lambda: pytest.fail("Unbound World must not reach native authority"))
     client = TestClient(create_app(), client=("127.0.0.1", 50000))
     assert client.post("/api/live/threat-drafts", json=payload).status_code == 409
     assert not (tmp_path / "out/threat_drafts").exists()
@@ -273,8 +327,8 @@ def test_world_draft_admission_uses_configured_world_root(monkeypatch, tmp_path)
     calls = []
     def read_revision(world_id, revision_id):
         calls.append((world_id, revision_id))
-        return SimpleNamespace(world_id=world_id, revision_id=revision_id)
-    monkeypatch.setattr(threat_drafts_routes, "get_world_graph_authority", lambda: SimpleNamespace(read_revision=read_revision))
+        return _native_snapshot(world_id, revision_id)
+    _install_native_reader(monkeypatch, read_revision)
     payload["graph_context_snapshot"]["graph_revision_id"] = "exact-pin"
     client = TestClient(create_app(), client=("127.0.0.1", 50000))
     response = client.post("/api/live/threat-drafts", json=payload)
