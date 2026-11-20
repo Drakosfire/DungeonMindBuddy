@@ -1,8 +1,8 @@
 # Fresh source-navigation import isolation
 
-Status: BLOCKED — verification found prerequisites; implementation preserved in draft PR #4236. Owner MIND under operator authorization for the complete optimized
-vNext lane's design, implementation, review and merge. Serial successor to Buddy
-#4235 merge052bea94cac45895184526e10dd6efcc4834624b, accepted Core pin
+Status: ACTIVE — prerequisite #4237 accepted/merged; draft PR #4236 resumes bounded proof repair. Owner MIND under operator authorization for the complete optimized
+vNext lane's design, implementation, review and merge. Serial successor to Buddy #4237 merge817354e15398239947cc86736e58d87a3e0f0b1c
+(after #4235 merge052bea94cac45895184526e10dd6efcc4834624b), accepted Core pin
 e56a3faee749ced9ac0913da5d7282da84b7cc2d/WK348 unchanged. Reuse existing task
 Buddy checkout and qualified environment; pin this brief before runtime edits.
 
@@ -23,7 +23,7 @@ Historical calls still use their original graph/source authority. Keep fresh
 Plan/Play/native-source dispatch unchanged; loading saved section opener or whole
 server may still explicitly load historical adapters and is outside this claim.
 
-## Exclusive seven-path lease
+## Exclusive eleven-path lease after prerequisite
 
 1. This handoff and evidence/disposition.
 2. Docs/Plans/HANDOFF-CUTOVER-native-projection-import-isolation.md: settle4235 merge.
@@ -36,7 +36,23 @@ server may still explicitly load historical adapters and is outside this claim.
 7. tests/application_state/test_corpus_source_search_postgres.py: same scan-owner
    patch adjustment, preserving actual replay/downgrade assertions.
 
-MIND owns docs/tests; Hubble may own only the two runtime files after dispatch;
+8. tests/test_native_source_origin.py: origin fixture only, give its V2 evidence
+   an explicit body-digest/line-bound readable span before publication. Preserve
+   general unsupported-heading fixtures; real Core resolver still creates pins.
+9. tests/application_state/test_native_source_navigation_postgres.py: replace
+   obsolete whole-head downgrade roundtrip with the owning0053 constraint
+   roundtrip on its isolated test database, preserving historical Play bytes and
+   existing populated-navigation downgrade refusal. Do not bypass0169's forward
+   recovery guard or change production migrations/version state.
+10. tests/test_agent_native_corpus_sources.py: current HTTP fixture only, accept/
+    check repository verification_cache, select eligible writer passages after
+    inspection, assert actual current evidence prose/aliases/host-ID absence and
+    exact selected citation/reopen/replay/auth. No full-document-as-writer-passage
+    assumption, weakened Plan V2 filter or removed four parametrized cases.
+11. Docs/Plans/HANDOFF-CUTOVER-retained-plan-batch-coverage.md: settle4237 merge.
+
+MIND owns all docs/tests; the two runtime import edits are already implemented.
+Hubble may inspect fixture design read-only; no concurrent edit lease.
 Aristotle independently reviews. The seventh path was identified before dispatch:
 the real APP replay proof also patches the old module global. No new test file
 or CI inventory/selector changes. No Core/WK/dependency/policy/DTO/route/UI/profile/
@@ -51,7 +67,9 @@ Their patches concern passage ranking/status and remain unmerged/unmodified.
 MIND allocates only current-main import declarations and local retained imports
 to this slice. No proposed ranking/status behavior is adopted. Later adoption
 requires rebase and owning review; Git conflicts are not the ownership mechanism.
-Other56 open PRs do not overlap these seven paths. Delivery is one serial PR.
+The original56 other PRs did not overlap the original seven paths; the
+additional test overlaps with old3307 are explicitly allocated to current-main
+fixture verification here, without adopting its ranking proposal. Delivery is one serial PR.
 
 ## Required owning proof
 
@@ -95,23 +113,38 @@ and mounted unmanaged projection/recap/context need disposition; current/public
 Core legacy APIs are not retired. Serving rollout, later-write-safe rollback and
 deployed V11 latency/auth/order/exact-citation acceptance remain incomplete.
 
-## Verification checkpoint and serial prerequisite
+## Accepted prerequisite and active fixture-proof rebrief
 
-Frozen source4f907b7f: cold3 pass; owning150 pass,2 inapplicable Play/Plan skips,
-29 origin-fixture errors and one historical migration-test failure. Fresh cohort
-55 pass/12 failures. Original reports stay failed. Exact base052bea targeted
-reproductions in a Git-archived backend mirror show identical four failure classes:
-forward-only0169 downgrade guard, empty heading-locator source pins in old origin
-fixture, legacy PlanSourceExecutionPolicyV1 missing action, and HTTP fixture
-repository lambda rejecting verification_cache. Hosted frontend1414/147, build,
-parity and validator pass; this does not close the required backend proof.
+Original frozen4f907b7f remains failed evidence: owning150 pass/2 inapplicable
+Play/Plan skips/29 origin errors/one migration failure; fresh55 pass/12 failures.
+Exact-base052bea archive reproductions match four classes. Source4237 then
+6c4d77da corrected only optional-action access, accepted by5993948969; docs seal
+353a7fa581e088c481df399955b1a76388777bbe accepted by5993964656, three checks pass.
+Actual merge817354e15398239947cc86736e58d87a3e0f0b1c equals seal tree
+a922e61225b4695307dae0a07f41c56ba1e7bf11. Runtime qualification21 owning
+positives/four inherited HTTP TypeErrors RED plus71 strict-current passes;
+frontend1414/147 and package audits accepted. No full-suite/deployed claim.
 
-MIND checkpoints scope rather than absorbing a separately useful runtime repair.
-PR #4236 becomes draft/blocked, source commits retained/pushed. A serial prerequisite
-on main052bea will preserve batch coverage for retained Plan V1 policies with a
-focused regression and matching repository fixture seam. It must merge first.
-Then rebase this queued slice to that accepted merge and rebrief fixture-only
-origin/migration proof corrections before editing additional paths. This is not
-a parallel implementation lease or a waiver of the still-missing origin proof.
-The full cutover goal remains active; no source admission relaxation, legacy
-locator restoration or baseline/provider/ingestion run is authorized by this finding.
+MIND re-anchors this queued PR onto that actual merge before new fixture edits.
+Old40c176da is protected at codex/v10-source-navigation-pre-prereq; original
+reports/commits remain evidence. This rebrief expands7 to11 paths explicitly.
+The extra paths repair required proof of the same current/retained navigation
+boundary; no additional production capability is absorbed. Review map: two
+import-only runtime files, three existing fake-owner test seams, three required
+fixture-contract repairs and three control-plane handoffs. These stay together
+so import isolation is accepted with actual source/APP/citation proof.
+
+Origin diagnosis: Core returns one admitted openable anchor; Buddy intentionally
+filters unsupported heading locators into zero pins. Nullable V2 artifact metadata
+is not the cause. Correct the origin fixture's span identity only, not source
+admission, authority/review metadata, locator policy or fabricated returned pins.
+HTTP fixture must follow current writer-passage selection and readable prompt
+contract; full-document inspection is not automatically writer evidence. Whole
+head APP downgrade is blocked by a separate forward-only migration; test owning
+0053 behavior without disabling or executing around that production guard.
+
+Required owning/fresh/retained/auth and frontend/package proofs must be collected
+on a new combined frozen head. Original red results are not relabelled green.
+Conditional Play parameters for Plan-only assertions retain documented skips;
+zero required proof omissions. No CI selectors/exclusions, providers, ingestion
+or frozen retrieval baseline run. Full cutover goal remains active.
