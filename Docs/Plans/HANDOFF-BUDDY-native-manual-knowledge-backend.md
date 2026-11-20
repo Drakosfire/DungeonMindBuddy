@@ -171,3 +171,18 @@ files compared against current main, inherited hosted diagnostics retained. Exac
 committed-head native-manual-knowledge command/evidence and input/module/SQL-cleanup
 manifest live externally in scratch/v9-buddy/v10-native-manual-backend; parent owns
 broad qualification/frontend and Hubble Cycle2 judgment. No final acceptance claim.
+
+Root final configuration disposition: after all348 runs terminated (92 owning,
+315 auth,376 preservation,1411 hosted/build/canonical PASS), normally integrate
+mainafb5897746240ae046e93fa90fbe6822ec535b77 atbcb99af4d93847ee56a9a57af989dfb7184f85ee.
+Transfer back ONLY this handoff, new manual service and owning tests for a narrow
+prepublication configuration repair. Catch specific ArtifactDataRootError only at
+source-root resolution -> ManualRefused manual_source_configuration_unavailable,
+503, not outcome_unknown; no message parsing/global config change. Context/prepare/
+fresh confirm refuse before mutable/writer IO (confirm may perform original
+immutable lookup first); committed recovery never resolves the bad root. Four
+new regressions assert exact classification, no subsequent receipt probe and full
+zero-additional-mutation. Old348 results remain old-source identities. Root owns
+ALL updated owning/auth/preservation/frontend execution on the new combined head;
+worker runs static checks only, commits/pushes/freezes first. No fresh execution or
+acceptance claimed by this repair. Full objective and resource retention unchanged.

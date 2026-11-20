@@ -106,7 +106,12 @@ def _binding(principal, world, expected=None):
 
 def _source(selector, bound):
     """Join immutable APP owners; never register, admit, or rebuild an index."""
-    root = config.artifact_data_root()
+    try:
+        root = config.artifact_data_root()
+    except config.ArtifactDataRootError as exc:
+        raise ManualRefused(
+            "manual_source_configuration_unavailable", status_code=503
+        ) from exc
     # Scope metadata first. These public owners never select body/component bytes.
     page = pages.get_page(
         str(selector.document_id), world_id=selector.managed_world_id

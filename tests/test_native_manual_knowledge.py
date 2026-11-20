@@ -1584,3 +1584,91 @@ def test_manual_fact_exact_citation_and_fresh_withdrawal_denial(manual_case):
     assert recovered.status_code == 200, recovered.text
     assert recovered.json()["receipt"] == receipt
     assert snapshot(c) == before
+
+
+@pytest.mark.parametrize("phase", ["context", "prepare", "confirm"])
+def test_bad_artifact_configuration_typed_before_mutable_or_writer_IO(
+    manual_case, monkeypatch, phase
+):
+    c = manual_case
+    request, plan = prepare_packet(c)
+    configuration_failed = []
+    receipt_probes = []
+    original_receipt = c.repo.get_native_source_publication_receipt
+
+    def receipt(*args, **kwargs):
+        assert not configuration_failed, (
+            "receipt probe after deterministic config refusal"
+        )
+        receipt_probes.append(args)
+        return original_receipt(*args, **kwargs)
+
+    def bad_root(*args, **kwargs):
+        configuration_failed.append(True)
+        raise service.config.ArtifactDataRootError("fixture selected root unavailable")
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("bad artifact configuration reached mutable content or writer IO")
+
+    monkeypatch.setattr(service.config, "artifact_data_root", bad_root)
+    monkeypatch.setattr(c.repo, "get_native_source_publication_receipt", receipt)
+    monkeypatch.setattr(c.repo, "publish_governed_native_source_publication", forbidden)
+    monkeypatch.setattr(service.native, "read_repository", forbidden)
+    monkeypatch.setattr(service.pages, "get_page", forbidden)
+    monkeypatch.setattr(service.pages, "committed_page", forbidden)
+    monkeypatch.setattr(service, "load_reviewable_extraction_data", forbidden)
+    before = (snapshot(c), rows_snapshot(c.dsn))
+    if phase == "context":
+        response = c.client.post(PATH + "/context", json=c.selector)
+    elif phase == "prepare":
+        response = c.client.post(PATH + "/prepare", json=request)
+    else:
+        response = confirm_packet(c, plan)
+    assert response.status_code == 503, response.text
+    detail = response.json()["detail"]
+    assert detail["code"] == "manual_source_configuration_unavailable"
+    assert not detail["outcome_unknown"]
+    assert detail["retry_original_packet"] == (phase == "confirm")
+    assert configuration_failed == [True]
+    if phase == "confirm":
+        assert (c.space, plan["publication"]["publication_id"]) in receipt_probes
+    else:
+        assert not receipt_probes
+    assert (snapshot(c), rows_snapshot(c.dsn)) == before
+
+
+def test_committed_recovery_ignores_bad_artifact_configuration(
+    manual_case, monkeypatch
+):
+    c = manual_case
+    _, plan = prepare_packet(c)
+    committed = confirm_packet(c, plan)
+    assert committed.status_code == 200, committed.text
+    attempted_configuration = []
+
+    def bad_root(*args, **kwargs):
+        attempted_configuration.append(True)
+        raise service.config.ArtifactDataRootError("fixture selected root unavailable")
+
+    def forbidden(*args, **kwargs):
+        pytest.fail(
+            "original committed recovery touched mutable content/head or writer"
+        )
+
+    monkeypatch.setattr(service.config, "artifact_data_root", bad_root)
+    monkeypatch.setattr(service.pages, "get_page", forbidden)
+    monkeypatch.setattr(service.pages, "committed_page", forbidden)
+    monkeypatch.setattr(service, "get_extraction_run", forbidden)
+    monkeypatch.setattr(service, "load_reviewable_extraction_data", forbidden)
+    monkeypatch.setattr(service.sources, "get_source_markdown", forbidden)
+    monkeypatch.setattr(service.native, "read_repository", forbidden)
+    monkeypatch.setattr(c.repo, "get_head", forbidden)
+    monkeypatch.setattr(c.repo, "open_native_source_view", forbidden)
+    monkeypatch.setattr(c.repo, "publish_governed_native_source_publication", forbidden)
+    before = (snapshot(c), rows_snapshot(c.dsn))
+    response = confirm_packet(c, plan)
+    assert response.status_code == 200, response.text
+    assert response.json()["recovered"]
+    assert response.json()["receipt"] == committed.json()["receipt"]
+    assert not attempted_configuration
+    assert (snapshot(c), rows_snapshot(c.dsn)) == before
