@@ -359,3 +359,10 @@ a prototype is not a new durable authority.
 **Context:** The operator wants to interrupt a message at any point and prevent it from participating in future history.
 **Action:** Add Stop from preparation through reply streaming. Record cancellation durably, exclude the stopped user message and any partial reply from future model context, and prevent late responses, reloads, or retries from restoring the canceled turn. Show a stopped state so the user can tell what happened.
 **Surfaces when:** Conversation cancellation, turn lifecycle, or history assembly work begins.
+
+## [IDEA] Optimize Buddy trace collection and presentation — captured 2026-11-19
+
+**Context:** Hosted Buddy traces are valuable for debugging, but the request setup is noisy and critical-path timing still has gaps.
+**Action:** Profile trace capture, persistence, reads, and rendering under realistic hosted turns. Remove duplicate events and synchronous work where evidence permits. Present each Luna or Jev call as one expandable step with the composed prompt, call configuration, timing, outcome, and retries. Make the pre-dispatch critical path and unmeasured gaps explicit, and keep the details panel stable during refresh. Preserve authorization, redaction, and the durable evidence needed to diagnose failures and verify dispatch fencing.
+**Verification:** Compare trace write volume, added Send-to-first-dispatch latency, and trace open time before and after. Inspect successful, failed, retried, and historical turns on hosted Buddy.
+**Surfaces when:** Trace performance, execution Details, or conversation diagnostics work begins.
