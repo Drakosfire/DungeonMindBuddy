@@ -23,7 +23,7 @@ Historical calls still use their original graph/source authority. Keep fresh
 Plan/Play/native-source dispatch unchanged; loading saved section opener or whole
 server may still explicitly load historical adapters and is outside this claim.
 
-## Exclusive eleven-path lease after prerequisite
+## Exclusive twelve-path lease after retained-proof discovery
 
 1. This handoff and evidence/disposition.
 2. Docs/Plans/HANDOFF-CUTOVER-native-projection-import-isolation.md: settle4235 merge.
@@ -50,6 +50,10 @@ server may still explicitly load historical adapters and is outside this claim.
     exact selected citation/reopen/replay/auth. No full-document-as-writer-passage
     assumption, weakened Plan V2 filter or removed four parametrized cases.
 11. Docs/Plans/HANDOFF-CUTOVER-retained-plan-batch-coverage.md: settle4237 merge.
+12. tests/test_plan_jev_acquisition.py: only the real two-object broker fixture;
+    publish explicit supported spans via Core before selecting both objects.
+    Preserve one-open-context, two durable operations, returned pins and lifetime
+    closure assertions. General heading fixtures and production code unchanged.
 
 MIND owns docs and all tests except the two explicitly delegated fixture paths.
 The runtime import edits are already implemented. Hubble owns exclusively
@@ -173,3 +177,14 @@ body; source-name matching selected both sections; expected citation selector wa
 incorrectly assumed to change for a covering acquisition. Correct the test fake
 and expectations to current contracts; no production behavior changed. These
 working diagnostics do not replace the required new combined frozen-head runs.
+
+## Retained-broker proof rebrief before additional edits
+
+Frozena2ce47ac owning180pass/2documented conditional skips and fresh73pass close
+the prior fixture classes. Retained52pass/onefailure exposes the same unsupported
+heading fixture in the real two-object acquisition witness: returned pins are
+empty. MIND expands11 to12 paths for that specific test fixture only. Current
+open PR path audit found no overlap on this added test. Reproduce on exact817
+base, retain original failure, correct typed span data before publication, and
+prove unchanged context reuse/closure and ordered durable evidence. No required
+broker proof is waived and no locator policy or production algorithm changes.
