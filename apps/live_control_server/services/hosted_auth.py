@@ -17,6 +17,7 @@ from pathlib import Path
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 from urllib.parse import unquote, urlsplit
+from starlette.concurrency import run_in_threadpool
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -656,7 +657,8 @@ def install_hosted_request_boundary(
                     detail={"code": "hosted_world_context_mismatch"},
                 )
             principal = getattr(request.state, "dms_principal", None)
-            authorize_world_access(
+            await run_in_threadpool(
+                authorize_world_access,
                 principal.subject if principal is not None else "",
                 frozenset({resolved_world_id}),
                 access=hosted_world_access(),
