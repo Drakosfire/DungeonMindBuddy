@@ -1,6 +1,6 @@
 # Native body opener import isolation
 
-Status: ACTIVE. Owner: MIND. Operator authorizes design, implementation, review,
+Status: COMPLETE — bounded implementation accepted; documentation seal/merge pending. Owner: MIND. Operator authorizes design, implementation, review,
 merge and continuation of the full optimized Elderwyld vNext cutover goal.
 
 ## Anchor and delivery
@@ -64,3 +64,56 @@ Inventory retained artifacts with owner/reason/cleanup followup at completion.
 Remaining false: full legacy retirement, deployed cutover, later-write-safe rollback
 and deployed V11 acceptance. Next question after this boundary is disposition of
 remaining unmanaged projection/recap routes and their historical consumers.
+
+## Accepted implementation and exact evidence
+
+PR4238 source7d963474d9f45d823137f5c7bc040ee9bdaa07ef accepted by independent
+COMMENT review5994836165. Both runtime non-import ASTs equal base6473; current
+body implementation and shared error class remain unchanged. No runtime behavior,
+publication or source-admission change is claimed.
+
+Exact-source owning443, fresh73 and auth316 tests passed with zero skips/errors.
+Retained cohort remains RED:95 passed,2 failed,19 setup errors. All21 failed/error
+node IDs, tags and exact messages reproduce on exact base6473 in the same installed
+environment. The base run is targeted unit failure classification, not a frozen
+retrieval baseline rerun. Passing graph-reader cases cover original bytes/revision,
+auth/selector/mismatch/no-fallback; writer/reuse/citation positives cover this boundary.
+Intentional Build missing-GM fixture, legacy Play policy literal and0057 downgrade
+remain unproved and deferred; no green full-cohort or release qualification claim.
+
+Installed before/after audits are identical: Core180+dnd39 files at e56a3fa,
+WorldKeeper14 at348c0dbf, same installed origins. No dependency sync/mutation.
+Official exact-head hosted frontend:1414 selected passed/147 filtered; collection
+parity/build/validator passed, clean source and own temporary root independently
+absent. Full default frontend remains RED/unqualified. Scoped Ruff32 inherited,
+zero new after normalizing shifted embedded line references; whole check RED.
+Earlier3dae frontend verifier exited0 but source-unchanged guard failed; its receipt
+is rejected. The479-pass working-tree diagnostic is supporting, not exact-source proof.
+
+Evidence root: /home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v10-native-body-opener-import-isolation.
+Backend69154 terminal1 preserves retained failures; classification/auth39441 terminal0;
+frontend69540 terminal0. XMLs, ledgers, failure-classification.json, installed audits,
+Ruff reports and resource-audit.json are retained. Seven recorded test/verifier PIDs
+were independently absent. Fixture database teardown only; exact names were not
+retained, so no named absence or zero-client claim. No serving deployment occurred.
+
+## Storage and continuation
+
+MIND retains this lane scratch (3,022,784 bytes at source audit) for review evidence;
+its task cache and reused worktree/environment remain owned by the active full goal.
+New plain archive verification mirror:
+/home/drakosfire/Projects/.codex/v7-elderwyld-scope/verification/native-body-opener-base-6473
+(200,109,331 bytes) holds exact-base unit classification. It is not a Git worktree.
+No manual paths removed,0 manual bytes reclaimed. Official frontend verifier removed
+its own temporary root; reclaimed byte count was not instrumented. All storage is
+on the verified Projects filesystem. Before later specifically authorized cleanup,
+check active tasks/processes/mounts and dirty or unique data; retain unique evidence.
+Cleanup followup for scratch/cache/mirror: MIND after acceptance and active-goal use.
+
+Remaining delivery gate: docs-only seal review, short checks and guarded merge.
+No separate actual merged execution is claimed. Next consuming slice settles the
+actual merge anchor. Next primary question: retire the two public legacy recap-context
+POSTs while routing local and hosted saved-claim opening through the existing
+claim-bound GET, without fresh discovery, writes or fallback. Fresh native routes
+stay authoritative. Full V10 retirement, deployed cutover, later-write-safe rollback
+and V11 serving acceptance remain ahead.
