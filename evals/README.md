@@ -160,3 +160,26 @@ citation reopening.
 
 For authoring actions, conversation-only boundaries, and Build and Ingest
 workflows, see the [Buddy actions and authoring benchmark](plan-authoring-benchmark.md).
+
+For an ordinary Plan browser replay, select a case in the context capture
+command as well as choosing the writer sink.
+
+```bash
+python -m evals.buddy_benchmark.workflow capture-context \\
+  --manifest MANIFEST.json --output CAPTURE_DIRECTORY \\
+  --case Q01 --writer-transport --detailed-trace
+```
+
+The manifest's browser_capture object supplies a bundle directory, a
+bundle_inventory file pin containing each relative asset path and SHA-256,
+and a jev_wire file pin containing the exact successful wire exchange.
+Set DMB_BENCHMARK_NODE, DMB_BENCHMARK_PLAYWRIGHT and DMB_BENCHMARK_CHROMIUM
+to the local Node executable, Playwright module and browser executable.
+Use a disposable local App clone and a pinned Core database. The driver
+starts one loopback instance and submits from Buddy's ordinary Plan composer.
+The exact retained Jev request must match. The GenerationEngine writer
+request is captured at the local transport sink. Neither provider is called.
+
+The optional manifest field browser_capture.settled_pane waits for a quiet
+pane before timing Send. Leave it false for immediate Send after the
+controls are ready. Leave off --detailed-trace for the coarse comparison arm.
