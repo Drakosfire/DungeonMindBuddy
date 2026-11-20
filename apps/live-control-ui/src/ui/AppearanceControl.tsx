@@ -7,6 +7,7 @@ import {
 const PRESETS = [
   { id: "default", label: "Buddy" },
   { id: "deep-teal", label: "Deep Teal" },
+  { id: "wayfinder", label: "Wayfinder" },
 ] as const;
 
 export function AppearanceControl({ proposedAccent, onApplied }: {

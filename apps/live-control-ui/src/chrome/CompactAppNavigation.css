@@ -76,3 +76,25 @@
 .app-appearance label { display: flex; gap: .5rem; align-items: center; }
 .app-appearance input { accent-color: var(--ui-accent-action); }
 .app-appearance__actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
+
+.app-nav-symbol__reticle { display: none; }
+[data-buddy-theme="wayfinder"] .app-nav-symbol__compass { display: none; }
+[data-buddy-theme="wayfinder"] .app-nav-symbol__reticle { display: inline; }
+[data-buddy-theme="wayfinder"] .app-site-nav.app-site-nav--compact {
+  background: var(--ui-background-chrome);
+  border-color: var(--ui-border-subtle);
+  border-radius: var(--ui-radius-md);
+  font-family: var(--ui-font-body);
+}
+[data-buddy-theme="wayfinder"] .app-site-nav--compact :is(.app-nav-compass, .app-nav-tour) {
+  color: var(--ui-accent-action);
+  border-radius: var(--ui-radius-sm);
+}
+[data-buddy-theme="wayfinder"] .app-site-nav--compact .app-nav-tour {
+  background: var(--ui-background-ops);
+  border-color: var(--ui-border-subtle);
+}
+[data-buddy-theme="wayfinder"] .app-site-nav--compact :is(button, a):focus-visible {
+  outline: 2px solid var(--ui-accent-action);
+  outline-offset: 2px;
+}
