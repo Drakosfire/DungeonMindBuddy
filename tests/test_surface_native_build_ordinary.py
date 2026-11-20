@@ -1890,6 +1890,11 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
     def witness(adapter, provider):
         if mode != "by-name" or provider != "typesafe" or first_wire.is_set():
             return
+        phase_names = [span["name"] for span in adapter.trace.spans]
+        assert phase_names.count("build_first_jev_request_preparation") == 1
+        assert phase_names.index("build_first_jev_request_preparation") < phase_names.index(
+            "build_first_jev_authorization"
+        )
         assert isinstance(adapter.native_query, NativeBuildQueryPendingV1)
         assert not any(isinstance(event, NativeBuildQuerySettledV1)
                        for event in adapter.turn.graph_context_execution.events)
