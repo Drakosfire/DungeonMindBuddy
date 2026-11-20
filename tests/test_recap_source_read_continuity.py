@@ -16,6 +16,7 @@ import copy
 import hashlib
 import json
 import shutil
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -28,21 +29,33 @@ from apps.live_control_server.integrations.dungeonmind.contribution_mapping impo
 from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
     _classify_locator_kind,
     _product_source_span_ref_id,
-    _read_admitted_repo_span,
+    _read_admitted_source_span,
     _source_anchor_views,
     extract_span_from_revision_bound_text,
+    list_recap_context_direct_v2,
+    read_recap_context_direct_v2,
 )
 from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
     _recap_extraction_evidence_view,
 )
+from apps.live_control_server.services.world_graph_retrieval import _resolved_repo_root
 from dungeonmind.application.graph_snapshot import GraphEvidenceRecord
 from dungeonmind.application.world_graph_retrieval import SourceAnchorMetadata
+from dungeonmind.application.world_graph_retrieval import (
+    RecapContextSectionSelectorV2, RecapSourceContextV2,
+    SourceContextIndexResult, SourceContextResolution,
+)
 from dungeonmind.contracts.evidence import SourceDomain
+from dungeonmind.contracts.projection import Admissibility
+from dungeonmind.contracts.projection_v2 import ScopeModeV2
 from graph_memory.retrieval.models import (
     RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
     WorldGraphRetrievalTrustBoundary,
     WorldGraphSourceAnchorReadRequest,
+    RecapContextIndexRequestV2,
+    RecapContextReadRequestV2,
 )
+from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
 from graph_memory.source_span import build_stable_source_span_id
 from tests.test_candidate_graph_admission_contract import _candidate
 
@@ -201,6 +214,27 @@ def _read_base(**overrides: Any) -> dict[str, Any]:
     return payload
 
 
+def _mock_stored_recap(monkeypatch, payload: bytes):
+    """Exercise the real shared byte validator with an isolated storage double."""
+    from apps.live_control_server.services import source_artifact_registry as inputs
+    from application_state.source import service
+
+    artifact = GraphMemorySourceArtifact(
+        source_artifact_id=ARTIFACT_ID, source_domain="recap",
+        world_id="world:recap-source-read-continuity", campaign_id="longmont-c2",
+        session_id="session-22", uri=REPO_URI, content_sha256=_digest_hex(payload),
+    )
+    record = SimpleNamespace(
+        source_artifact_id=artifact.source_artifact_id, source_domain="recap",
+        world_id=artifact.world_id, campaign_id=artifact.campaign_id,
+        session_id=artifact.session_id, content_sha256=artifact.content_sha256,
+        encoding="utf-8", media_type="text/markdown", markdown=payload.decode("utf-8"),
+    )
+    monkeypatch.setattr(inputs, "get_source_artifact", lambda artifact_id: artifact)
+    monkeypatch.setattr(service, "get_source_markdown", lambda **kwargs: record)
+    return record
+
+
 def test_write_stamps_canonical_span_onto_locator_not_file_uri() -> None:
     mapped = _mapped_recap_evidence()
     assert mapped.source_domain == SourceDomain.SESSION_RECAP
@@ -239,6 +273,175 @@ def test_classifier_keeps_replay_shaped_file_uri_unsupported() -> None:
     assert _classify_locator_kind(anchor) == "unsupported"
 
 
+def test_legacy_opaque_recap_span_remains_provenance_but_unreadable() -> None:
+    anchor = _anchor(locator_identity="span:session-22:mireward", source_span_ref_id="span:session-22:mireward")
+    view = _source_anchor_views([anchor], revision_id="rev:child")[0]
+    assert view.source_span_ref_id == "span:session-22:mireward"
+    assert view.locator_kind == "unsupported"
+    assert view.readable is False
+
+
+def _store_context_source(raw: bytes, descriptor):
+    """Actual APP input owner; native descriptor resolution remains the test seam."""
+    from apps.live_control_server.services.source_artifact_registry import _register_source_input
+    from graph_memory.evidence.source_artifact import build_world_scoped_recap_source_artifact_id
+    digest = hashlib.sha256(raw).hexdigest()
+    artifact_id = build_world_scoped_recap_source_artifact_id(
+        world_id=descriptor.world_id, campaign_id=descriptor.campaign_id,
+        session_id=descriptor.section_selector.expected_session_id, content_sha256=digest,
+    )
+    artifact = _artifact(uri=descriptor.source_uri, content_sha256=digest,
+        source_artifact_id=artifact_id, campaign_id=descriptor.campaign_id,
+        session_id=descriptor.section_selector.expected_session_id, world_id=descriptor.world_id)
+    _register_source_input(artifact, raw.decode("utf-8"))
+    return replace(descriptor, source_artifact_id=artifact_id,
+        content_sha256=digest, source_revision_id="opaque-native-revision:" + digest)
+
+
+def _context_fixture(tmp_path: Path, raw=None):
+    raw = raw if raw is not None else b'title: recap\n\n# Session 22 Recap\nfirst line\nsecond line\n'
+    digest = hashlib.sha256(raw).hexdigest()
+    path = tmp_path / 's22.md'
+    path.write_bytes(raw)
+    selector = RecapContextSectionSelectorV2(expected_session_id='session-22', canonical_heading='# Session 22 Recap', legacy_session_heading="## Session 22:", legacy_recap_marker="**Recap**:")
+    descriptor = RecapSourceContextV2(
+        context_anchor_id='dm-context-anchor:v2:test', world_id='eldyrwild',
+        campaign_id='longmont-c2', graph_revision_id='rev:test',
+        source_artifact_id='artifact:s22', source_revision_id='sha256:' + digest,
+        source_uri='repo://s22.md', content_sha256=digest, section_selector=selector,
+    )
+    descriptor = _store_context_source(raw, descriptor)
+    snapshot = SimpleNamespace(
+        world_id='eldyrwild', campaign_id='longmont-c2', revision_id='rev:test',
+        head_revision_id='rev:test', is_head=True, admissibility=Admissibility.GM,
+        scope_mode=ScopeModeV2.CAMPAIGN,
+    )
+    retrieval = SimpleNamespace(
+        list_source_context_index=lambda req: SourceContextIndexResult(
+            snapshot=snapshot, eligible_count=1, max_entries=req.max_entries,
+            status='complete', entries=(descriptor,),
+        ),
+        resolve_source_context=lambda _req, context_anchor_id, allow_selector_v2=False: SourceContextResolution(
+            snapshot=snapshot, found=context_anchor_id == descriptor.context_anchor_id,
+            context_anchor_id=context_anchor_id,
+            context=descriptor if context_anchor_id == descriptor.context_anchor_id else None,
+        ),
+    )
+    services = SimpleNamespace(retrieval=retrieval, binding=SimpleNamespace(legacy_buddy_revision_id=None))
+    common = dict(worldId='eldyrwild', campaignId='longmont-c2', scopeMode='campaign', revisionPin='rev:test')
+    index_request = RecapContextIndexRequestV2.model_validate({'schema':'dmb_recap_context_index_request_v2', **common})
+    read_request = RecapContextReadRequestV2.model_validate({'schema':'dmb_recap_context_read_request_v2', **common,
+        'contextAnchorId':descriptor.context_anchor_id, 'maxChars':5})
+    return services, index_request, read_request, path, digest
+
+
+def test_recap_context_core_descriptor_opens_verified_section_with_continuation(tmp_path: Path, application_state_dsn) -> None:
+    services, index_request, read_request, _path, digest = _context_fixture(tmp_path)
+    index = list_recap_context_direct_v2(services, index_request)
+    assert index.status == 'complete'
+    assert index.entries[0].content_sha256 == digest
+    first = read_recap_context_direct_v2(services, read_request, repo_root=tmp_path)
+    assert (first.heading_line, first.line_start, first.line_end) == (3, 4, 5)
+    assert first.content == 'first'
+    assert first.truncated and first.next_continuation
+    tail = []
+    current = first
+    while current.next_continuation:
+        current = read_recap_context_direct_v2(services, read_request.model_copy(update={'continuation': current.next_continuation}), repo_root=tmp_path)
+        tail.append(current.content)
+    assert first.content + ''.join(tail) == 'first line\nsecond line\n'
+    assert current.section_sha256 == first.section_sha256
+
+
+def test_recap_context_opens_campaign_recap_from_ordinary_world_scope(tmp_path: Path, application_state_dsn) -> None:
+    services, index_request, read_request, _path, digest = _context_fixture(tmp_path)
+    native_index = services.retrieval.list_source_context_index(SimpleNamespace(max_entries=index_request.max_entries))
+    campaign_snapshot = native_index.snapshot
+    world_snapshot = SimpleNamespace(
+        **{**vars(campaign_snapshot), 'campaign_id': None, 'scope_mode': ScopeModeV2.WORLD_CROSS_CAMPAIGN}
+    )
+    native_resolution = services.retrieval.resolve_source_context(None, context_anchor_id=read_request.context_anchor_id)
+    services.retrieval.list_source_context_index = lambda req: replace(native_index, snapshot=world_snapshot)
+    services.retrieval.resolve_source_context = lambda req, context_anchor_id, allow_selector_v2=False: replace(native_resolution, snapshot=world_snapshot)
+    world_index_request = RecapContextIndexRequestV2.model_validate({
+        **index_request.model_dump(mode='json', by_alias=True), 'campaignId': '', 'scopeMode': 'world',
+    })
+    world_read_request = RecapContextReadRequestV2.model_validate({
+        **read_request.model_dump(mode='json', by_alias=True), 'campaignId': '', 'scopeMode': 'world',
+    })
+    index = list_recap_context_direct_v2(services, world_index_request)
+    assert index.snapshot.scope_mode == 'world'
+    assert index.entries[0].campaign_id == 'longmont-c2'
+    read = read_recap_context_direct_v2(services, world_read_request, repo_root=tmp_path)
+    assert read.context is not None and read.context.content_sha256 == digest
+    assert read.content == 'first'
+
+
+def test_recap_context_ignores_mirror_changes_and_refuses_tampered_continuation(tmp_path: Path, application_state_dsn) -> None:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import DirectWorldGraphReadError
+    services, _index_request, request, path, _digest = _context_fixture(tmp_path)
+    with pytest.raises(DirectWorldGraphReadError):
+        read_recap_context_direct_v2(services, request.model_copy(update={'continuation':'recap-page:v1:bad:5'}), repo_root=tmp_path)
+    path.write_text('# Session 22 Recap\nchanged\n')
+    assert read_recap_context_direct_v2(services, request, repo_root=tmp_path).content == 'first'
+
+
+def test_recap_context_ignores_fenced_fake_headings(tmp_path: Path, application_state_dsn) -> None:
+    source = (
+        '```markdown\n# Session 22 Recap\n```\n'
+        '# Session 22 Recap\nfirst line\n'
+        '~~~~ example\n# Fake next heading\n~~~~\n'
+        'last line\n# Actual next heading\nexcluded\n'
+    ).encode('utf-8')
+    services, _, request, _, _ = _context_fixture(tmp_path, source)
+    opened = read_recap_context_direct_v2(services, request.model_copy(update={'max_chars': 4000}), repo_root=tmp_path)
+    assert (opened.heading_line, opened.line_start, opened.line_end) == (4, 5, 9)
+    assert opened.content == 'first line\n~~~~ example\n# Fake next heading\n~~~~\nlast line\n'
+
+
+def test_recap_context_rejects_heading_only_inside_fence(tmp_path: Path, application_state_dsn) -> None:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import DirectWorldGraphReadError
+    source = b'```markdown\n# Session 22 Recap\n```\nbody\n'
+    services, _, request, _, _ = _context_fixture(tmp_path, source)
+    with pytest.raises(DirectWorldGraphReadError):
+        read_recap_context_direct_v2(services, request, repo_root=tmp_path)
+
+
+@pytest.mark.parametrize('source', [
+    b'# Wrong heading\nbody\n',
+    b'# Session 22 Recap\none\n# Session 22 Recap\ntwo\n',
+])
+def test_recap_context_rejects_unreadable_section_bytes(tmp_path: Path, source: bytes, application_state_dsn) -> None:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import DirectWorldGraphReadError
+    services, _, request, _, _ = _context_fixture(tmp_path, source)
+    with pytest.raises(DirectWorldGraphReadError):
+        read_recap_context_direct_v2(services, request, repo_root=tmp_path)
+
+
+def test_recap_context_rejects_foreign_graph_revision(tmp_path: Path, application_state_dsn) -> None:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import DirectWorldGraphReadError
+    services, _index_request, request, _path, _digest = _context_fixture(tmp_path)
+    native = services.retrieval.resolve_source_context(None, context_anchor_id=request.context_anchor_id)
+    for change in ({'graph_revision_id':'rev:foreign'},):
+        revised = replace(native.context, **change)
+        services.retrieval.resolve_source_context = lambda _req, context_anchor_id, allow_selector_v2=False: replace(native, context=revised)
+        with pytest.raises(DirectWorldGraphReadError):
+            read_recap_context_direct_v2(services, request, repo_root=tmp_path)
+
+
+def test_recap_context_miss_and_overflow_never_open_source(tmp_path: Path, application_state_dsn) -> None:
+    services, index_request, request, path, _digest = _context_fixture(tmp_path)
+    request = request.model_copy(update={'context_anchor_id':'dm-context-anchor:v2:missing'})
+    missed = read_recap_context_direct_v2(services, request, repo_root=tmp_path)
+    assert missed.outcome == 'empty' and missed.content is None
+    assert path.exists()
+    native = services.retrieval.list_source_context_index(SimpleNamespace(max_entries=index_request.max_entries))
+    services.retrieval.list_source_context_index = lambda req: replace(native,
+        status='overflow', eligible_count=513, entries=())
+    overflow = list_recap_context_direct_v2(services, index_request)
+    assert overflow.status == 'overflow' and overflow.entries == []
+
+
 def test_classifier_ignores_span_syntax_inside_evidence_ref_id() -> None:
     decoy = f"evidence:{ARTIFACT_ID}:{SPAN_ID}"
     anchor = _anchor(
@@ -251,19 +454,19 @@ def test_classifier_ignores_span_syntax_inside_evidence_ref_id() -> None:
     assert _classify_locator_kind(anchor) == "unsupported"
 
 
-def test_heading_and_json_pointer_locators_are_unchanged() -> None:
+def test_heading_and_json_pointer_file_locators_are_unsupported() -> None:
     heading = _anchor(
         locator_identity="heading:Mireward",
         source_span_ref_id=None,
         uri="repo://corpus/notes.md",
     )
-    assert _classify_locator_kind(heading) == "heading"
+    assert _classify_locator_kind(heading) == "unsupported"
     pointer = _anchor(
         locator_identity="jsonptr:/nodes/0",
         source_span_ref_id=None,
         uri="graph-data://payload.json",
     )
-    assert _classify_locator_kind(pointer) == "json_pointer"
+    assert _classify_locator_kind(pointer) == "unsupported"
     unknown = _anchor(
         locator_identity="https://example.invalid/recap",
         source_span_ref_id=None,
@@ -317,13 +520,14 @@ def test_extract_span_rejects_unknown_and_mismatched_identities() -> None:
     )
 
 
-def test_admitted_repo_span_read_is_digest_verified(tmp_path: Path) -> None:
+def test_admitted_source_span_read_is_digest_verified(tmp_path: Path, monkeypatch) -> None:
     relative = "out/registries/source_content/recap/longmont-c2/session-22/ad4ecd013dad.md"
     path = tmp_path / relative
     path.parent.mkdir(parents=True)
     lines = [f"line-{index}" for index in range(1, 20)]
     payload = ("\n".join(lines) + "\n").encode("utf-8")
-    path.write_bytes(payload)
+    _mock_stored_recap(monkeypatch, payload)
+    path.write_bytes(b"obsolete mirror")
     digest = _digest_hex(payload)
     span = build_stable_source_span_id(
         source_artifact_id=ARTIFACT_ID,
@@ -339,7 +543,7 @@ def test_admitted_repo_span_read_is_digest_verified(tmp_path: Path) -> None:
         source_span_ref_id=None,
         uri=f"repo://{relative}",
     )
-    result = _read_admitted_repo_span(
+    result = _read_admitted_source_span(
         services,
         anchor,
         request=_read_request(),
@@ -353,7 +557,154 @@ def test_admitted_repo_span_read_is_digest_verified(tmp_path: Path) -> None:
     assert result.line_end == 16
 
 
-def test_admitted_repo_span_fails_closed_on_tampered_bytes(tmp_path: Path) -> None:
+def test_admitted_recap_spans_are_independent_of_artifact_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    code_root = tmp_path / "code"
+    code_root.mkdir()
+    artifact_root = tmp_path / "artifacts"
+    artifact_root.mkdir()
+    relative = "out/registries/source_content/recap/longmont-c2/session-22/source.md"
+    source = artifact_root / relative
+    source.parent.mkdir(parents=True)
+    source.write_text("first line\nsecond line\n", encoding="utf-8")
+    digest = _digest_hex(source.read_bytes())
+    _mock_stored_recap(monkeypatch, source.read_bytes())
+    source.unlink()
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(artifact_root))
+
+    selected = _resolved_repo_root(root=None, repo_root=None)
+    assert selected == artifact_root
+    assert _resolved_repo_root(root=None, repo_root=code_root) == code_root
+    services = SimpleNamespace(bundle=SimpleNamespace(sources=_FakeSources(
+        locator=f"repo://{relative}", digest=digest,
+    )))
+    for line, expected in ((1, "first line"), (2, "second line")):
+        span = build_stable_source_span_id(
+            source_artifact_id=ARTIFACT_ID,
+            content_sha256=digest,
+            start_line=line,
+            end_line=line,
+        )
+        result = _read_admitted_source_span(
+            services,
+            _anchor(locator_identity=span, source_span_ref_id=None,
+                    uri=f"repo://{relative}"),
+            request=_read_request(),
+            repo_root=selected,
+            base=_read_base(source_span_ref_id=span),
+        )
+        assert result.outcome == "enough"
+        assert result.content == expected
+        assert result.content_sha256 == digest
+        assert (result.line_start, result.line_end) == (line, line)
+
+    missing_under_code = _read_admitted_source_span(
+        services,
+        _anchor(locator_identity=span, source_span_ref_id=None,
+                uri=f"repo://{relative}"),
+        request=_read_request(),
+        repo_root=code_root,
+        base=_read_base(source_span_ref_id=span),
+    )
+    assert missing_under_code.outcome == "enough"
+    assert missing_under_code.content == "second line"
+
+
+def test_source_batch_v2_opens_split_root_recap_spans_with_receipts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from apps.live_control_server.services import world_graph_retrieval as retrieval
+    from graph_memory.interaction.expansion_executor import execute_read_graph_source
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession, SessionSnapshot, SourceAnchorState,
+    )
+    from graph_memory.interaction.session_store import clear_sessions, create_session
+    from graph_memory.retrieval.models import WorldGraphRetrievalSnapshot
+
+    artifact_root = tmp_path / "artifact-root"
+    artifact_root.mkdir()
+    relative = "out/registries/source_content/recap/longmont-c2/session-22/source.md"
+    source = artifact_root / relative
+    source.parent.mkdir(parents=True)
+    source.write_text("first line\nsecond line\n", encoding="utf-8")
+    digest = _digest_hex(source.read_bytes())
+    _mock_stored_recap(monkeypatch, source.read_bytes())
+    source.unlink()
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(artifact_root))
+    assert not (REPO_ROOT / relative).exists()
+
+    anchors = {}
+    for line in (1, 2):
+        span = build_stable_source_span_id(
+            source_artifact_id=ARTIFACT_ID, content_sha256=digest,
+            start_line=line, end_line=line,
+        )
+        anchor = replace(
+            _anchor(locator_identity=span, uri=f"repo://{relative}"),
+            anchor_id=f"source-anchor:v1:split-root-{line}",
+        )
+        anchors[anchor.anchor_id] = anchor
+    snapshot = SimpleNamespace(
+        world_id="world:recap-source-read-continuity", revision_id="rev:split-root",
+        revision_pin="rev:split-root",
+    )
+    services = SimpleNamespace(
+        binding=object(),
+        bundle=SimpleNamespace(sources=_FakeSources(
+            locator=f"repo://{relative}", digest=digest,
+        )),
+        retrieval=SimpleNamespace(resolve_source_anchors=lambda request: SimpleNamespace(
+            snapshot=snapshot,
+            resolutions=tuple(SimpleNamespace(
+                found=True, anchor=anchors[anchor_id], anchor_id=anchor_id, snapshot=snapshot,
+            ) for anchor_id in request.anchor_ids),
+        )),
+    )
+    monkeypatch.setattr(retrieval, "_require_mounted_native_read", lambda _root: None)
+    monkeypatch.setattr(direct, "direct_services_from_config", lambda _world: services)
+    monkeypatch.setattr(direct, "_map_retrieval_context", lambda *_args: snapshot)
+    monkeypatch.setattr(direct, "_dnd_anchor_id", lambda anchor_id: anchor_id)
+    monkeypatch.setattr(direct, "_retrieval_snapshot_view", lambda _snapshot, *, focus: (
+        WorldGraphRetrievalSnapshot(
+            world_id="world:recap-source-read-continuity", campaign_id="longmont-c2",
+            revision_id="rev:split-root", head_revision_id="rev:split-root",
+            is_head=True, focus=focus, admissibility="gm",
+        )
+    ))
+    clear_sessions()
+    try:
+        session = GraphRetrievalSession(
+            snapshot=SessionSnapshot(
+                world_id="world:recap-source-read-continuity",
+                campaign_id="longmont-c2", revision_id="rev:split-root",
+            ),
+            source_anchors=[
+                SourceAnchorState(anchor_id=anchor_id, readable=True)
+                for anchor_id in anchors
+            ],
+        )
+        create_session(session)
+        batch = execute_read_graph_source({
+            "retrievalSessionId": session.id,
+            "anchorIds": list(anchors),
+            "maxChars": 4000,
+        }, receipt_version=2)
+        assert batch["schema"] == "dmb_internal_read_graph_source_batch_v2"
+        for line, item in enumerate(batch["reads"], start=1):
+            assert item["result"].get("outcome") == "enough", item
+            assert item["result"]["content"] == f"{('first', 'second')[line - 1]} line"
+            assert item["result"]["contentSha256"] == digest
+            assert item["receipt"]["read_content_sha256"] == digest
+            assert item["receipt"]["source_revision_sha256"] == digest
+            assert item["receipt"]["line_start"] == line
+            assert item["receipt"]["line_end"] == line
+    finally:
+        clear_sessions()
+
+
+def test_admitted_source_span_fails_closed_on_tampered_database_bytes(tmp_path: Path, monkeypatch) -> None:
     relative = "out/registries/source_content/recap/longmont-c2/session-22/ad4ecd013dad.md"
     path = tmp_path / relative
     path.parent.mkdir(parents=True)
@@ -369,8 +720,9 @@ def test_admitted_repo_span_fails_closed_on_tampered_bytes(tmp_path: Path) -> No
     services = SimpleNamespace(
         bundle=SimpleNamespace(sources=_FakeSources(locator=f"repo://{relative}", digest=digest))
     )
-    path.write_bytes(b"tampered recap bytes\n")
-    result = _read_admitted_repo_span(
+    record = _mock_stored_recap(monkeypatch, original)
+    record.markdown = "tampered database bytes\n"
+    result = _read_admitted_source_span(
         services,
         _anchor(locator_identity=span, source_span_ref_id=None, uri=f"repo://{relative}"),
         request=_read_request(),
@@ -383,12 +735,12 @@ def test_admitted_repo_span_fails_closed_on_tampered_bytes(tmp_path: Path) -> No
     assert [item.code for item in result.diagnostics] == ["source_integrity_error"]
 
 
-def test_admitted_repo_span_fails_closed_when_revision_missing(tmp_path: Path) -> None:
+def test_admitted_source_span_fails_closed_when_revision_missing(tmp_path: Path) -> None:
     services = SimpleNamespace(
         bundle=SimpleNamespace(sources=_FakeSources(locator=REPO_URI, digest=None))
     )
     services.bundle.sources.get_revision = lambda _rid: None  # type: ignore[method-assign]
-    result = _read_admitted_repo_span(
+    result = _read_admitted_source_span(
         services,
         _anchor(locator_identity=SPAN_ID, source_span_ref_id=None),
         request=_read_request(),
@@ -408,7 +760,7 @@ def _span_candidate(*, artifact_id: str, span_id: str, node_id: str, campaign_id
     node = candidate["nodes"][0]
     node["node_id"] = node_id
     node["label"] = node_id.rsplit(":", 1)[-1].replace("-", " ").title()
-    node["node_type"] = "location" if "mireward" in node_id else "character"
+    node["node_type"] = "location" if ":location:" in node_id else "character"
     ref = node["evidence_refs"][0]
     ref["source_artifact_id"] = artifact_id
     ref["source_span_ref_id"] = span_id
@@ -424,10 +776,10 @@ def _artifact(
     campaign_id: str,
     session_id: str,
     world_id: str,
-) -> SimpleNamespace:
+) -> GraphMemorySourceArtifact:
     from datetime import UTC, datetime
 
-    return SimpleNamespace(
+    return GraphMemorySourceArtifact(
         source_artifact_id=source_artifact_id,
         source_domain="recap",
         campaign_id=campaign_id,
@@ -498,6 +850,7 @@ def _prepare_session(
     recap_text: str,
     parent_revision_id: str | None = None,
     genesis: SimpleNamespace | None = None,
+    source_name: str | None = None,
 ) -> SimpleNamespace:
     from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
         DungeonMindWorldGraphAuthorityAdapter,
@@ -619,7 +972,12 @@ def _prepare_session(
         session_id=session_id,
         world_id=world_id,
     )
+    if source_name is not None:
+        recap.lineage["source_name"] = source_name
+    from apps.live_control_server.services.source_artifact_registry import _register_source_input
+    _register_source_input(recap, recap_text)
     result = prepare_candidate_graph_admission(
+        source_body=source.read_bytes(),
         candidate_graph=candidate,
         source_uri=uri,
         source_revision_id=f"sha256:{digest}",
@@ -687,6 +1045,7 @@ def test_fresh_recap_publication_source_read_is_digest_verified(
     assert c2.result.confirmable is True
     published_c2 = _confirm_via_product_seam(c2)
     c2_rev = published_c2["committed_revision_id"]
+    c2_node = c2.package["effect"]["node_id_map"][c2.node_id]
     services = build_direct_world_graph_read_services(c2.dsn, world_id)
     found = get_object_direct(
         services,
@@ -697,7 +1056,7 @@ def test_fresh_recap_publication_source_read_is_digest_verified(
                 "campaignId": "longmont-c2",
                 "revisionPin": c2_rev,
                 "scopeMode": "world",
-                "nodeId": "node:location:mireward",
+                "nodeId": c2_node,
             }
         ),
     )
@@ -711,7 +1070,7 @@ def test_fresh_recap_publication_source_read_is_digest_verified(
                 "campaignId": "longmont-c2",
                 "revisionPin": c2_rev,
                 "scopeMode": "world",
-                "target": {"kind": "node", "id": "node:location:mireward"},
+                "target": {"kind": "node", "id": c2_node},
             }
         ),
     )
@@ -719,6 +1078,7 @@ def test_fresh_recap_publication_source_read_is_digest_verified(
     anchor = evidence.source_anchors[0]
     assert anchor.source_span_ref_id == c2.span_id
     assert anchor.locator_kind == "source_span"
+    (c2.repo / c2.uri.removeprefix("repo://")).unlink()
     read = read_source_anchor_direct(
         services,
         WorldGraphSourceAnchorReadRequest.model_validate(
@@ -770,6 +1130,7 @@ def test_fresh_recap_publication_source_read_is_digest_verified(
     )
     published_c1 = _confirm_via_product_seam(c1)
     c1_rev = published_c1["committed_revision_id"]
+    c1_node = c1.package["effect"]["node_id_map"][c1.node_id]
     assert c1_rev != c2_rev
     historical = get_evidence_direct(
         services,
@@ -780,7 +1141,7 @@ def test_fresh_recap_publication_source_read_is_digest_verified(
                 "campaignId": "longmont-c2",
                 "revisionPin": c2_rev,
                 "scopeMode": "world",
-                "target": {"kind": "node", "id": "node:location:mireward"},
+                "target": {"kind": "node", "id": c2_node},
             }
         ),
     )
@@ -816,7 +1177,7 @@ def test_fresh_recap_publication_source_read_is_digest_verified(
                 "campaignId": "longmont-c1",
                 "revisionPin": c1_rev,
                 "scopeMode": "world",
-                "target": {"kind": "node", "id": "node:character:torbin"},
+                "target": {"kind": "node", "id": c1_node},
             }
         ),
     )
@@ -855,3 +1216,185 @@ def test_fresh_recap_publication_source_read_is_digest_verified(
     )
     assert foreign.outcome in {"empty", "partial", "unavailable", "denied"}
     assert foreign.content is None
+
+
+LEGACY_PRELUDE_V2 = (
+    "## Session 16:\n## Major Beats:\nSynthetic prelude A.\n"
+    "## Next Beats :\nSynthetic prelude B.\n**Recap**:\n"
+    "Synthetic recap body.\n## Afterword\nExcluded afterword.\n"
+    "## Session 17:\n**Recap**:\nOther session body.\n"
+)
+
+
+def _context_fixture_v2(tmp_path, raw=LEGACY_PRELUDE_V2.encode()):
+    from dungeonmind.application.world_graph_retrieval import RecapContextSectionSelectorV2, RecapSourceContextV2
+    from graph_memory.retrieval.models import RecapContextIndexRequestV2, RecapContextReadRequestV2
+    path = tmp_path / "s16.md"
+    path.write_bytes(raw)
+    digest = hashlib.sha256(raw).hexdigest()
+    common = dict(world_id="eldyrwild", campaign_id="longmont-c1", graph_revision_id="rev:test",
+        source_artifact_id="artifact:synthetic:s16", source_revision_id="sha256:" + digest,
+        source_uri="repo://s16.md", content_sha256=digest)
+    v2 = RecapSourceContextV2(context_anchor_id="dm-context-anchor:v2:synthetic",
+        section_selector=RecapContextSectionSelectorV2(expected_session_id="session-16",
+            canonical_heading="# Session 16 Recap", legacy_session_heading="## Session 16:", legacy_recap_marker="**Recap**:"), **common)
+    snapshot = SimpleNamespace(world_id="eldyrwild", campaign_id="longmont-c1", revision_id="rev:test",
+        head_revision_id="rev:test", is_head=True, admissibility=Admissibility.GM, scope_mode=ScopeModeV2.CAMPAIGN)
+    v2 = _store_context_source(raw, v2)
+    descriptors = {v2.context_anchor_id: v2}
+    def index(request):
+        assert request.selector_policy == "markdown-session-recap-v2"
+        selected = v2
+        return SourceContextIndexResult(snapshot=snapshot, eligible_count=1, max_entries=request.max_entries, status="complete", entries=(selected,))
+    def resolve(projection, *, context_anchor_id, allow_selector_v2=False):
+        selected = descriptors.get(context_anchor_id)
+        if context_anchor_id.startswith("dm-context-anchor:v2:") and not allow_selector_v2:
+            selected = None
+        return SourceContextResolution(snapshot=snapshot, context_anchor_id=context_anchor_id, found=selected is not None, context=selected)
+    services = SimpleNamespace(retrieval=SimpleNamespace(list_source_context_index=index, resolve_source_context=resolve),
+        binding=SimpleNamespace(legacy_buddy_revision_id=None))
+    base = dict(worldId="eldyrwild", campaignId="longmont-c1", scopeMode="campaign", revisionPin="rev:test")
+    request = RecapContextReadRequestV2.model_validate({"schema":"dmb_recap_context_read_request_v2", **base, "contextAnchorId":v2.context_anchor_id,"maxChars":5})
+    listed = RecapContextIndexRequestV2.model_validate({"schema":"dmb_recap_context_index_request_v2", **base})
+    return services, listed, request, path, descriptors
+
+
+def test_recap_context_v2_exact_prelude_and_contiguous_original_pages(tmp_path, application_state_dsn):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import list_recap_context_direct_v2, read_recap_context_direct_v2
+    services, listed, request, path, _ = _context_fixture_v2(tmp_path)
+    index = list_recap_context_direct_v2(services, listed)
+    assert index.entries[0].selector_policy == "markdown-session-recap-v2"
+    pages = []
+    while True:
+        page = read_recap_context_direct_v2(services, request, repo_root=tmp_path)
+        assert page.selected_form == "legacy_h2"
+        assert (page.session_heading_line,page.recap_marker_line,page.line_start,page.line_end)==(1,6,7,7)
+        assert page.offset_chars == sum(map(len,pages))
+        pages.append(page.content)
+        if not page.truncated:
+            break
+        request = request.model_copy(update={"continuation":page.next_continuation})
+    assert "".join(pages) == "Synthetic recap body.\n"
+    assert path.read_bytes() == LEGACY_PRELUDE_V2.encode()
+
+
+def test_recap_context_v2_canonical_bytes_ranges_and_rejects_old_cursor(tmp_path, application_state_dsn):
+    raw = b"# Session 16 Recap\r\nUnicode \xce\xa9 text.\r\n## Still in recap\r\nTail.\r\n# Next\r\nExcluded.\r\n"
+    services, _, request, path, _ = _context_fixture_v2(tmp_path, raw)
+    page = read_recap_context_direct_v2(services, request, repo_root=tmp_path)
+    assert page.selected_form == "canonical_h1"
+    assert (page.session_heading_line, page.recap_marker_line, page.line_start, page.line_end) == (1, None, 2, 4)
+    assert page.next_continuation.startswith("recap-page:v2:")
+    parts = [page.content]
+    while page.next_continuation:
+        page = read_recap_context_direct_v2(services, request.model_copy(update={"continuation":page.next_continuation}), repo_root=tmp_path)
+        parts.append(page.content)
+    assert "".join(parts) == "Unicode Ω text.\r\n## Still in recap\r\nTail.\r\n"
+    assert path.read_bytes() == raw
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import DirectWorldGraphReadError
+    with pytest.raises(DirectWorldGraphReadError):
+        read_recap_context_direct_v2(services, request.model_copy(update={"continuation":"recap-page:v1:" + "a"*64 + ":5"}), repo_root=tmp_path)
+
+
+@pytest.mark.parametrize("raw", [
+    "## Session 17:\n**Recap**:\nWrong session.\n",
+    "## Session 16:\n## Major Beats:\nNo marker.\n## Session 17:\n**Recap**:\nOther.\n",
+    "## Session 16:\n**Recap**:\nFirst.\n**Recap**:\nSecond.\n",
+    "## Session 16:\n**Recap**:\nFirst.\n## Session 16:\n**Recap**:\nSecond.\n",
+    "# Session 16 Recap\nCanonical.\n## Session 16:\n**Recap**:\nLegacy.\n",
+    "## Session 16:\n```md\n**Recap**:\nFenced.\n```\n",
+    "## Session 16:\n> **Recap**:\nQuoted.\n",
+    "## Session 16:\n    **Recap**:\nIndented.\n",
+    "```\n## Session 16:\n**Recap**:\nFake.\n```\n",
+    "## Session 16:\n**Recap**:",
+    "## Session 16:\nRecap: inline\nUnsupported.\n",
+])
+def test_recap_context_v2_rejects_unsupported_or_ambiguous_structure(tmp_path,raw, application_state_dsn):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import read_recap_context_direct_v2,DirectWorldGraphReadError
+    services,_,request,_,_ = _context_fixture_v2(tmp_path,raw.encode())
+    with pytest.raises(DirectWorldGraphReadError) as error:
+        read_recap_context_direct_v2(services,request,repo_root=tmp_path)
+    assert error.value.code=="source_unavailable" and error.value.status_code==409
+
+
+def test_recap_context_v2_fenced_fake_boundaries_and_subordinate_headings_are_exact(tmp_path, application_state_dsn):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import read_recap_context_direct_v2
+    raw="## Session 16:\n**Recap**:\nBody.\n### Detail\n```\n# Fake boundary\n## Fake boundary\n**Recap**:\n```\nTail.\n## End\nExcluded.\n"
+    services,_,request,_,_ = _context_fixture_v2(tmp_path,raw.encode())
+    page=read_recap_context_direct_v2(services,request.model_copy(update={"max_chars":12000}),repo_root=tmp_path)
+    assert page.content=="Body.\n### Detail\n```\n# Fake boundary\n## Fake boundary\n**Recap**:\n```\nTail.\n"
+
+
+@pytest.mark.parametrize("fault",["bytes","utf8","uri","campaign","revision","cursor","source_revision"])
+def test_recap_context_v2_revalidates_every_page_and_authority(tmp_path,fault, application_state_dsn):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import read_recap_context_direct_v2,DirectWorldGraphReadError
+    services,_,request,path,descriptors = _context_fixture_v2(tmp_path)
+    page=read_recap_context_direct_v2(services,request,repo_root=tmp_path)
+    request=request.model_copy(update={"continuation":page.next_continuation})
+    descriptor=descriptors[request.context_anchor_id]
+    if fault in {"bytes", "utf8"}:
+        import psycopg
+        with psycopg.connect(application_state_dsn) as conn:
+            if fault == "bytes":
+                conn.execute("UPDATE source.revision SET markdown='changed' WHERE source_artifact_id=%s",
+                             (descriptor.source_artifact_id,))
+            else:
+                conn.execute("UPDATE source.revision SET encoding='latin-1' WHERE source_artifact_id=%s",
+                             (descriptor.source_artifact_id,))
+    elif fault=="uri":
+        descriptors[request.context_anchor_id]=replace(descriptor,source_uri="repo://../escape.md")
+    elif fault=="campaign":
+        descriptors[request.context_anchor_id]=replace(descriptor,campaign_id="foreign")
+    elif fault=="revision":
+        descriptors[request.context_anchor_id]=replace(descriptor,graph_revision_id="rev:foreign")
+    elif fault=="source_revision":
+        descriptors[request.context_anchor_id]=replace(descriptor,source_revision_id="revision:changed")
+    else:
+        request=request.model_copy(update={"continuation":page.next_continuation+"0"})
+    with pytest.raises(DirectWorldGraphReadError) as error:
+        read_recap_context_direct_v2(services,request,repo_root=tmp_path)
+    assert error.value.code=="source_unavailable"
+
+
+def test_recap_context_v2_empty_canonical_body(tmp_path, application_state_dsn):
+    services, _, request, _, _ = _context_fixture_v2(tmp_path, b"# Session 16 Recap\n# Next\n")
+    page = read_recap_context_direct_v2(services, request, repo_root=tmp_path)
+    assert page.selected_form == "canonical_h1"
+    assert (page.content, page.line_start, page.line_end) == ("", 2, 1)
+    assert page.section_sha256 == hashlib.sha256(b"").hexdigest()
+
+
+def test_native_recap_source_read_keeps_registered_document_name(
+    tmp_path, monkeypatch, application_state_dsn,
+):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+        build_direct_world_graph_read_services, get_evidence_direct, read_source_anchor_direct,
+    )
+    from graph_memory.retrieval.models import (
+        RETRIEVAL_EVIDENCE_REQUEST_SCHEMA, WorldGraphEvidenceRequest,
+    )
+    title = "The party reaches Willow Park — external recap"
+    world = "world:registered-source-name"
+    prepared = _prepare_session(tmp_path, monkeypatch, application_state_dsn,
+        world_id=world, campaign_id="longmont-c2", session_id="session-22",
+        node_id="node:location:willow-park", recap_text="The party reaches Willow Park.\n",
+        source_name=title)
+    assert prepared.result.confirmable
+    published = _confirm_via_product_seam(prepared)
+    revision = published["committed_revision_id"]
+    published_node = prepared.package["effect"]["node_id_map"][prepared.node_id]
+    # Reopen services after publication: the name must survive native catalog
+    # admission, not just be copied from a prepare-time Python object.
+    services = build_direct_world_graph_read_services(prepared.dsn, world)
+    scope = {"worldId": world, "campaignId": "longmont-c2", "revisionPin": revision, "scopeMode": "world"}
+    evidence = get_evidence_direct(services, WorldGraphEvidenceRequest.model_validate({
+        "schema": RETRIEVAL_EVIDENCE_REQUEST_SCHEMA, **scope,
+        "target": {"kind": "node", "id": published_node}}))
+    anchor = next(a for a in evidence.source_anchors if a.source_artifact_id == prepared.artifact_id)
+    opened = read_source_anchor_direct(services, WorldGraphSourceAnchorReadRequest.model_validate({
+        "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA, **scope, "anchorId": anchor.anchor_id}),
+        repo_root=prepared.repo)
+    assert opened.source_name == title
+    assert opened.outcome == "enough"
+    assert opened.content_sha256 == prepared.digest
+    assert opened.content == "The party reaches Willow Park."

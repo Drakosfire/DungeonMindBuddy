@@ -6,6 +6,8 @@ Imported only after the legacy import blocker is armed in the owning witness.
 
 
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture, page_text, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 
 import hashlib
@@ -56,7 +58,7 @@ def _patch_extraction_run(run_id: str, **updates: object) -> None:
             raise AssertionError(f"extraction run patch CAS failed: {run_id}")
 
 
-def _reseal_extraction_component_digest(run_id: str, *, kind: str, digest: str) -> None:
+def _reseal_extraction_component_digest(run_id: str, *, kind: str, digest: str, payload: bytes | None = None) -> None:
     """Test-only reseal of an immutable component digest on the APP-STATE row."""
     from application_state.config import load_runtime_dsn
     from application_state.ingest import repository as ingest_repo
@@ -78,6 +80,12 @@ def _reseal_extraction_component_digest(run_id: str, *, kind: str, digest: str) 
         )
         if persisted is None:
             raise AssertionError(f"extraction run reseal CAS failed: {run_id}")
+    if payload is not None:
+        from application_state.ingest.components import persist_component_payload
+
+        assert hashlib.sha256(payload).hexdigest() == digest
+        persist_component_payload(run_id=run_id, expected_revision=updated.revision,
+                                  kind=kind, payload=payload)
 
 
 CAMPAIGN_ID = "longmont-c2"
@@ -96,6 +104,7 @@ REJECTED_NODE_ID = "obj_rejected_extra"
 TEST_DSN_ENV = "DMB_CUTOVER_TEST_DATABASE_URL"
 TRUNCATE_SQL = """
 TRUNCATE TABLE
+    dungeonmind.knowledge_spaces,
     dungeonmind.semantic_documents,
     dungeonmind.active_embedding_runs,
     dungeonmind.embedding_runs,
@@ -169,7 +178,7 @@ def register_glass_orchard(repo: Path):
     )
 
 
-    return create_world_container(repo, name="The Glass Orchard")
+    return create_world_container(name="The Glass Orchard")
 
 
 def first_world_decisions(
@@ -252,22 +261,18 @@ def write_post_genesis_graph_review_run(repo: Path) -> str:
         create_source_artifact_from_workspace_document,
         source_span_index_relpath,
     )
-    from apps.live_control_server.services.workspace_document_registry import (
-        create_workspace_document,
-        mark_workspace_document_committed,
-    )
     from graph_memory.ingestion.extraction_run import (
         ExtractionRunComponentKind,
         ExtractionRunComponentRef,
         ExtractionRunStatus,
     )
-    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+    from graph_memory.extraction.worldbuilding_plumbing_profile import (
         WORLDBUILDING_PLUMBING_PROFILE,
     )
 
 
     (repo / f"corpus/{GLASS_ORCHARD_WORLD_ID}-markdown").mkdir(parents=True, exist_ok=True)
-    document = create_workspace_document(
+    document = create_page_fixture(
         repo,
         title="D2C4 Graph Review source",
         campaign_id=GLASS_ORCHARD_WORLD_ID,
@@ -278,20 +283,18 @@ def write_post_genesis_graph_review_run(repo: Path) -> str:
         authority_state="draft",
         visibility_state="internal",
     )
-    committed = mark_workspace_document_committed(
-        repo, document.document_id, expected_revision=document.revision
-    )
-    source = repo / committed.target_relpath
-    source.parent.mkdir(parents=True, exist_ok=True)
-    source.write_text(
-        "# D2C4 Graph Review\n\nPost-genesis source for manual authoring.\n",
-        encoding="utf-8",
-    )
+    committed = get_workspace_document(repo, document.document_id)
+    committed = save_page(repo, committed.document_id, '# D2C4 Graph Review\n\nPost-genesis source for manual authoring.\n')
     artifact = create_source_artifact_from_workspace_document(
         repo, document_id=committed.document_id, expected_revision=committed.revision
     )
+    from apps.live_control_server.services.source_artifact_registry import load_source_span_index
+    from graph_memory.source_span import source_span_index_to_dict
     span_rel = source_span_index_relpath(artifact.source_artifact_id)
     span_path = repo / span_rel
+    span_path.parent.mkdir(parents=True, exist_ok=True)
+    span_path.write_text(json.dumps(source_span_index_to_dict(
+        load_source_span_index(repo, artifact.source_artifact_id)), indent=2, ensure_ascii=False) + "\n")
     span_index = json.loads(span_path.read_text(encoding="utf-8"))
     span_ref_id = str(span_index["spans"][0]["source_span_id"])
     run_dir = repo / "out" / "graph_memory" / "runs" / "extraction" / "d2c4"
@@ -759,7 +762,7 @@ def _write_reviewable_extraction_run(
     invent_session_in_candidate: bool = False,
     candidate_campaign_id: str | None = ...,  # type: ignore[assignment]
     pin_noncanonical_span_index: bool = False,
-) -> tuple[str, Path]:
+) -> tuple[str, bytes]:
     """Build a canonical worldbuilding ExtractionRun through its owning services.
 
 
@@ -772,7 +775,7 @@ def _write_reviewable_extraction_run(
     ``campaign_id=None`` produces a campaignless worldbuilding run/artifact
     (worldbuilding SourceArtifacts may omit campaign). The workspace document
     still needs a storage campaign for the file write; the artifact/run are
-    then rewritten to drop that campaign before promotion.
+    registered without a campaign before promotion.
 
 
     ``pin_noncanonical_span_index=True`` writes a second valid index for the same
@@ -786,15 +789,8 @@ def _write_reviewable_extraction_run(
         update_extraction_run_status,
     )
     from apps.live_control_server.services.source_artifact_registry import (
-        SourceArtifactRegistryDocument,
         create_source_artifact_from_workspace_document,
-        get_source_artifact,
-        source_artifacts_path,
         source_span_index_relpath,
-    )
-    from apps.live_control_server.services.workspace_document_registry import (
-        create_workspace_document,
-        mark_workspace_document_committed,
     )
     from graph_memory.ingestion.extraction_run import (
         ExtractionRunComponentKind,
@@ -804,7 +800,7 @@ def _write_reviewable_extraction_run(
     from graph_memory.source_span import (
         source_span_index_to_dict,
     )
-    from src.live_play.live_store import load_json, write_json
+    from live_store import write_json
 
 
     if candidate_campaign_id is ...:
@@ -814,59 +810,51 @@ def _write_reviewable_extraction_run(
     storage_campaign = world_id or campaign_id or CAMPAIGN_ID
     if world_id is not None:
         (repo / f"corpus/{world_id}-markdown").mkdir(parents=True, exist_ok=True)
-    document = create_workspace_document(
+    document = create_page_fixture(
         repo,
         title="Worldbuilding lore",
         campaign_id=storage_campaign,
-        world_id=world_id,
+        world_id=world_id or storage_campaign,
         kind="worldbuilding_source",
         source_domain="worldbuilding",
         document_class="lore",
         authority_state="draft",
         visibility_state="internal",
     )
-    committed = mark_workspace_document_committed(
-        repo, document.document_id, expected_revision=document.revision
-    )
-    source = repo / committed.target_relpath
-    source.parent.mkdir(parents=True, exist_ok=True)
-    source.write_text(
-        "# Lore\n\nWorldbuilding source for promote.\n\nA second paragraph.\n",
-        encoding="utf-8",
-    )
-    artifact = create_source_artifact_from_workspace_document(
-        repo, document_id=committed.document_id, expected_revision=committed.revision
-    )
-
-
+    committed = get_workspace_document(repo, document.document_id)
+    committed = save_page(repo, committed.document_id, '# Lore\n\nWorldbuilding source for promote.\n\nA second paragraph.\n')
     if campaign_id is None:
-        # Worldbuilding SourceArtifacts may omit campaign; rewrite the registry
-        # record so the ExtractionRun binds to a truly campaignless artifact.
-        path = source_artifacts_path(repo)
-        document_payload = SourceArtifactRegistryDocument.model_validate(load_json(path))
-        rewritten = []
-        for row in document_payload.records:
-            if row.source_artifact_id == artifact.source_artifact_id:
-                rewritten.append(
-                    row.model_copy(update={"campaign_id": None, "world_id": None})
-                )
-            else:
-                rewritten.append(row)
-        write_json(
-            path,
-            SourceArtifactRegistryDocument(
-                schema_version=document_payload.schema_version,
-                records=rewritten,
-            ).model_dump(mode="json"),
+        # Register the campaignless input correctly at creation; immutable DB
+        # descriptors/bodies must never be retargeted after registration.
+        from apps.live_control_server.services.source_artifact_registry import _register_source_input
+        from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact, build_worldbuilding_source_artifact_id
+        content = page_text(repo, committed.document_id)
+        digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        artifact = _register_source_input(content=content, artifact=GraphMemorySourceArtifact(
+            source_artifact_id=build_worldbuilding_source_artifact_id(
+                workspace_document_id=committed.document_id,
+                workspace_document_revision=committed.revision, content_sha256=digest),
+            source_domain="worldbuilding", campaign_id=None, world_id=None,
+            uri=f"repo://{committed.target_relpath}", content_sha256=digest,
+            artifact_kind="worldbuilding_markdown", document_class="lore",
+            authority_state="draft", visibility_state="internal",
+            workspace_document_id=committed.document_id,
+            workspace_document_revision=committed.revision,
+        ))
+    else:
+        artifact = create_source_artifact_from_workspace_document(
+            repo, document_id=committed.document_id, expected_revision=committed.revision
         )
-        artifact = get_source_artifact(repo, artifact.source_artifact_id)
-        assert artifact.campaign_id is None
 
 
+    from apps.live_control_server.services.source_artifact_registry import load_source_span_index
     span_rel = source_span_index_relpath(artifact.source_artifact_id)
     span_path = repo / span_rel
+    span_path.parent.mkdir(parents=True, exist_ok=True)
+    span_path.write_text(json.dumps(source_span_index_to_dict(
+        load_source_span_index(repo, artifact.source_artifact_id)), indent=2, ensure_ascii=False) + "\n")
     span_index = json.loads(span_path.read_text(encoding="utf-8"))
-    source_lines = source.read_text(encoding="utf-8").splitlines()
+    source_lines = page_text(repo, committed.document_id).splitlines()
     span_ref_id = str(span_index["spans"][0]["source_span_id"])
     for span in span_index["spans"]:
         start = int(span["start_line"])
@@ -877,7 +865,15 @@ def _write_reviewable_extraction_run(
             break
 
 
-    run_dir = repo / "out" / "graph_memory" / "runs" / "extraction" / "wb1"
+    run = create_extraction_run(
+        repo,
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding",
+        campaign_id=campaign_id,
+        session_id=None,
+        profile_id="worldbuilding_plumbing_v0@0.1",
+    )
+    run_dir = repo / "out" / "graph_memory" / "runs" / "extraction" / run.run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
 
@@ -922,7 +918,7 @@ def _write_reviewable_extraction_run(
                 ),
             ),
         )
-        alt_rel = "out/graph_memory/runs/extraction/wb1/alt_source_span_index.json"
+        alt_rel = (run_dir / "alt_source_span_index.json").relative_to(repo).as_posix()
         alt_path = repo / alt_rel
         write_json(alt_path, source_span_index_to_dict(alt_index))
         span_component_uri = f"repo://{alt_rel}"
@@ -944,7 +940,7 @@ def _write_reviewable_extraction_run(
     candidate_payload["source_artifact_ids"] = [artifact.source_artifact_id]
     # Stamp the real worldbuilding profile default — not played_canon. BLD-07
     # narrowed worldbuilding to inspect-only; fixtures must not hide the gate.
-    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+    from graph_memory.extraction.worldbuilding_plumbing_profile import (
         WORLDBUILDING_PLUMBING_PROFILE,
     )
 
@@ -990,14 +986,13 @@ def _write_reviewable_extraction_run(
     }
 
 
-    run = create_extraction_run(
-        repo,
-        source_artifact_id=artifact.source_artifact_id,
-        source_domain="worldbuilding",
-        campaign_id=campaign_id,
-        session_id=None,
-        profile_id="worldbuilding_plumbing_v0@0.1",
-    )
+    from application_state.ingest.components import persist_component_payload
+
+    for kind, path in (("source_span_index", span_component_path),
+                       ("candidate_graph", candidate_path)):
+        persist_component_payload(run_id=run.run_id, expected_revision=run.revision,
+                                  kind=kind, payload=path.read_bytes())
+
     reachable = [
         ExtractionRunStatus.PREPARED,
         ExtractionRunStatus.EXTRACTED,
@@ -1021,7 +1016,7 @@ def _write_reviewable_extraction_run(
             break
     if status == "superseded":
         supersede_extraction_run(repo, run.run_id, expected_revision=run.revision)
-    return run.run_id, source
+    return run.run_id, page_text(repo, committed.document_id).encode("utf-8")
 
 
 def _write_bld08_reviewable_run(
@@ -1033,13 +1028,7 @@ def _write_bld08_reviewable_run(
     session_id: str | None = None,
 ) -> tuple[str, Path]:
     """Adapt the canonical run fixture to the checked-in BLD-08 profile."""
-    from apps.live_control_server.services.graph_run_registry import (
-        get_extraction_run,
-    )
-    from apps.live_control_server.services.promotable_ingest_run import (
-        _resolve_extraction_component_path,
-    )
-    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+    from graph_memory.extraction.worldbuilding_extraction_profile import (
         DEFAULT_SEMANTIC_STATE,
     )
 
@@ -1049,46 +1038,34 @@ def _write_bld08_reviewable_run(
         campaign_id=campaign_id,
         world_id=world_id,
     )
-    run = get_extraction_run(repo, resolved_id)
-    candidate_path = _resolve_extraction_component_path(
-        repo,
-        run.components["candidate_graph"].uri,
-        label="candidate_graph",
-    )
-    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
-    candidate["session_id"] = session_id
-    for index, node in enumerate(candidate.get("nodes") or []):
-        node["node_type"] = "character" if index == 0 else "location"
-        node["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
-    for edge in candidate.get("edges") or []:
-        edge["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
-    candidate_path.write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
-    digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
-    _reseal_extraction_component_digest(
-        resolved_id, kind="candidate_graph", digest=digest
-    )
+    def apply_profile(candidate):
+        candidate["session_id"] = session_id
+        for index, node in enumerate(candidate.get("nodes") or []):
+            node["node_type"] = "character" if index == 0 else "location"
+            node["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
+        for edge in candidate.get("edges") or []:
+            edge["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
+
+    _mutate_extraction_candidate(repo, resolved_id, apply_profile)
     _patch_extraction_run(resolved_id, profile_id=profile_id)
     return resolved_id, source
 
 
 def _mutate_extraction_candidate(repo, run_id: str, mutator) -> None:
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
-    from apps.live_control_server.services.promotable_ingest_run import (
-        _resolve_extraction_component_path,
-    )
+    from application_state.ingest.components import get_component_bytes
 
-
-    run = get_extraction_run(repo, run_id)
-    candidate_path = _resolve_extraction_component_path(
-        repo, run.components["candidate_graph"].uri, label="candidate_graph"
-    )
-    payload = json.loads(candidate_path.read_text(encoding="utf-8"))
+    run = get_extraction_run(run_id)
+    component = run.components["candidate_graph"]
+    payload = json.loads(get_component_bytes(
+        run_id=run_id, kind="candidate_graph", content_sha256=component.sha256,
+    ))
     mutator(payload)
-    candidate_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    candidate_bytes = (json.dumps(payload, indent=2) + "\n").encode("utf-8")
     # Digest must match the component seal or reviewable evidence fails before
     # our span checks. Re-seal the component digest on the registry record.
-    digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
-    _reseal_extraction_component_digest(run_id, kind="candidate_graph", digest=digest)
+    digest = hashlib.sha256(candidate_bytes).hexdigest()
+    _reseal_extraction_component_digest(run_id, kind="candidate_graph", digest=digest, payload=candidate_bytes)
 
 
 def _preview_node(

@@ -8,12 +8,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
+from typing import Literal
 
 import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from application_state.source.types import SourceMarkdownRecord
+from application_state.source.types import SourceMarkdownRecord, SourceRevisionMetadata
 
 
 def _now() -> datetime:
@@ -27,18 +28,60 @@ def _record_from_row(row: dict) -> SourceMarkdownRecord:
 def get_source_artifact(
     conn: psycopg.Connection,
     source_artifact_id: str,
+    *, lock: Literal["share", "update"] | None = None,
 ) -> dict | None:
+    lock_sql = {None: "", "share": "FOR SHARE", "update": "FOR UPDATE"}[lock]
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            """
+            f"""
             SELECT source_artifact_id, source_domain, campaign_id, session_id, world_id
             FROM source.artifact
             WHERE source_artifact_id = %s
+            {lock_sql}
             """,
             (source_artifact_id,),
         )
         row = cur.fetchone()
     return None if row is None else dict(row)
+
+
+def owned_source_artifacts(
+    conn: psycopg.Connection, *, source_artifact_ids: list[str], world_id: str,
+) -> frozenset[str]:
+    """Metadata-only necessary ownership check, never source-body read authority."""
+    if not source_artifact_ids:
+        return frozenset()
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT source_artifact_id FROM source.artifact "
+            "WHERE source_artifact_id = ANY(%s::text[]) AND world_id = %s",
+            (source_artifact_ids, world_id),
+        )
+        return frozenset(row[0] for row in cur.fetchall())
+
+
+def get_source_revision_metadata(
+    conn: psycopg.Connection, *, bindings: list[tuple[str, str]], world_id: str,
+) -> list[SourceRevisionMetadata]:
+    """Exact revision coordinates without selecting or opening Markdown."""
+    if not bindings:
+        return []
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """
+            SELECT r.source_revision_id, r.source_artifact_id, a.source_domain,
+                   a.campaign_id, a.session_id, a.world_id, r.content_sha256,
+                   r.media_type, r.encoding, r.lineage, r.created_at
+            FROM source.revision r
+            JOIN source.artifact a USING (source_artifact_id)
+            JOIN unnest(%s::text[], %s::text[]) AS requested(artifact_id, digest)
+              ON r.source_artifact_id = requested.artifact_id
+             AND r.content_sha256 = requested.digest
+            WHERE a.world_id = %s
+            """,
+            ([key[0] for key in bindings], [key[1] for key in bindings], world_id),
+        )
+        return [SourceRevisionMetadata.model_validate(row) for row in cur.fetchall()]
 
 
 def get_source_markdown(
@@ -47,6 +90,7 @@ def get_source_markdown(
     source_artifact_id: str,
     content_sha256: str,
     source_revision_id: UUID | None = None,
+    world_id: str | None = None,
 ) -> SourceMarkdownRecord | None:
     clauses = [
         "r.source_artifact_id = %s",
@@ -56,6 +100,9 @@ def get_source_markdown(
     if source_revision_id is not None:
         clauses.append("r.source_revision_id = %s")
         params.append(source_revision_id)
+    if world_id is not None:
+        clauses.append("a.world_id = %s")
+        params.append(world_id)
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
@@ -232,3 +279,26 @@ def insert_source_markdown(
     if loaded is None:
         raise RuntimeError("source revision insert did not persist")
     return loaded
+
+
+def get_input_descriptors(conn: psycopg.Connection, artifact_ids: list[str]) -> list[dict]:
+    """Exact metadata lookup; this query never selects a source body."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            "SELECT source_artifact_id, source_domain, campaign_id, session_id, world_id, input_descriptor "
+            "FROM source.artifact WHERE source_artifact_id = ANY(%s::text[]) AND input_descriptor IS NOT NULL",
+            (artifact_ids,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def get_input_descriptor(conn: psycopg.Connection, artifact_id: str, *, for_update: bool = False) -> dict | None:
+    with conn.cursor(row_factory=dict_row) as cur:
+        lock = " FOR UPDATE" if for_update else ""
+        cur.execute("SELECT input_descriptor FROM source.artifact WHERE source_artifact_id=%s" + lock, (artifact_id,))
+        row = cur.fetchone()
+        return None if row is None else row["input_descriptor"]
+
+
+def set_input_descriptor(conn: psycopg.Connection, artifact_id: str, descriptor: dict) -> None:
+    conn.execute("UPDATE source.artifact SET input_descriptor=%s WHERE source_artifact_id=%s", (Jsonb(descriptor), artifact_id))

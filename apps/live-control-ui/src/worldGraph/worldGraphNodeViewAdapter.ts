@@ -69,6 +69,7 @@ export function adaptWorldGraphNodeView(node: WorldGraphProjectionNodeView): Gra
     anchored_to_focus_session: node.anchoredToFocusSession,
     summary: node.summary,
     campaign_scope: node.campaignScope ?? null,
+    ...(node.campaignScopeUnknown ? { campaign_scope_unknown: true } : {}),
   };
 }
 

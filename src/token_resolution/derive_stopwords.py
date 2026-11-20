@@ -18,7 +18,7 @@ import re
 from collections import Counter
 from collections.abc import Iterable
 
-from src.token_resolution.defaults import default_generic_defaults
+from .defaults import default_generic_defaults
 
 _TOKEN_SPLIT_RE = re.compile(r"[/_\-\s]+")
 

@@ -19,7 +19,7 @@ import {
   resolveInitialReviewCampaignId,
   sessionsForReviewCampaign,
   syncReviewCampaignUrl,
-} from "../sessionCampaignContext";
+} from "../../graphLens/sessionCampaignContext";
 import { GraphGoldEvidenceDiff } from "./GraphGoldEvidenceDiff";
 import { GraphGoldReviewMissTables } from "./GraphGoldReviewMissTables";
 import { GraphGoldReviewRunPicker } from "./GraphGoldReviewRunPicker";

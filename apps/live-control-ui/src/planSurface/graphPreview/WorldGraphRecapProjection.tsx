@@ -12,7 +12,7 @@ import {
 } from "../../graphReference/fullWorldObjectProjection";
 import { PeekClaim } from "../../surfaceInteraction/peekHost";
 import { adaptWorldGraphNodeViewMap } from "../../worldGraph/worldGraphNodeViewAdapter";
-import { useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
+import { useWorldGraphLensProjectionDemand, useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
 import { PublishedRecapLocalAuthoring } from "../graphReviewWorkbench/PublishedRecapLocalAuthoring";
 import { useGraphObjectAuthoringDraft } from "../graphReviewWorkbench/useGraphObjectAuthoringDraft";
 import { derivePublishedRecapWorkingProjection } from "../graphReviewWorkbench/publishedRecapWorkingProjection";
@@ -34,6 +34,7 @@ interface WorldGraphRecapProjectionProps {
   draftSessionId?: string;
   onLoad?: () => void;
   canLoad?: boolean;
+  showProjectionToolbar?: boolean;
   recapRecord?: RecapArtifactRecord | null;
   onRefreshProjection?: () => Promise<unknown>;
 }
@@ -49,6 +50,7 @@ export function WorldGraphRecapProjectionView({
   draftSessionId = selectedSessionId,
   onLoad,
   canLoad = true,
+  showProjectionToolbar = true,
   recapRecord = null,
   onRefreshProjection,
 }: WorldGraphRecapProjectionProps) {
@@ -56,6 +58,7 @@ export function WorldGraphRecapProjectionView({
     () => adaptWorldGraphNodeViewMap(payload.nodeViews),
     [payload.nodeViews],
   );
+  useWorldGraphLensProjectionDemand(true);
   const worldLensProjection = useOptionalWorldGraphLensProjection();
   const governedWorldNodeViews = useMemo(() => {
     if (worldLensProjection == null) return undefined;
@@ -179,7 +182,7 @@ export function WorldGraphRecapProjectionView({
 
   return (
     <div className="recap-reader-root world-graph-recap-root" data-object-open={objectOpen}>
-      {reviewToolbar}
+      {showProjectionToolbar ? reviewToolbar : null}
       {readAuthorityError ? <p role="alert">{readAuthorityError}</p> : worldLensProjection && !lensSnapshot ? (
         <p role="note">World lens unavailable; node inspection uses this recap's verified native snapshot.</p>
       ) : null}

@@ -1,11 +1,11 @@
 /**
  * Campaign Threat sheet — Classic MM / Statblock Generator canvas look.
- * Assets under public/statblock-theme/ (parchment + Bookinsanity).
+ * Assets under ./statblock-theme/ (parchment + Bookinsanity).
  */
 
 @font-face {
   font-family: "BookInsanityRemake";
-  src: url("/statblock-theme/fonts/Bookinsanity.woff2") format("woff2");
+  src: url("./statblock-theme/fonts/Bookinsanity.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -13,7 +13,7 @@
 
 @font-face {
   font-family: "BookInsanityRemake";
-  src: url("/statblock-theme/fonts/Bookinsanity Bold.woff2") format("woff2");
+  src: url("./statblock-theme/fonts/Bookinsanity Bold.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -21,7 +21,7 @@
 
 @font-face {
   font-family: "BookInsanityRemake";
-  src: url("/statblock-theme/fonts/Bookinsanity Italic.woff2") format("woff2");
+  src: url("./statblock-theme/fonts/Bookinsanity Italic.woff2") format("woff2");
   font-weight: 400;
   font-style: italic;
   font-display: swap;
@@ -29,7 +29,7 @@
 
 @font-face {
   font-family: "BookInsanityRemake";
-  src: url("/statblock-theme/fonts/Bookinsanity Bold Italic.woff2") format("woff2");
+  src: url("./statblock-theme/fonts/Bookinsanity Bold Italic.woff2") format("woff2");
   font-weight: 700;
   font-style: italic;
   font-display: swap;
@@ -50,7 +50,7 @@
   color: var(--dm-text-dark-brown);
   font-family: "BookInsanityRemake", "Book Antiqua", Georgia, "Times New Roman", serif;
   background-color: #eee5ce;
-  background-image: url("/statblock-theme/assets/parchmentBackground.jpg");
+  background-image: url("./statblock-theme/assets/buddy-paper.svg");
   background-size: cover;
   background-position: center;
   border: 1px solid color-mix(in srgb, var(--dm-accent-gold) 70%, #8a7340);
@@ -101,24 +101,6 @@
   flex-direction: column;
   gap: 0.75rem;
   min-width: 0;
-}
-
-.statblock-renderer--campaign .statblock-campaign-portrait {
-  margin: 0;
-}
-
-.statblock-renderer--campaign .statblock-campaign-portrait__frame {
-  border: 2px solid #2b1d0f;
-  background: #f7ebcf;
-  aspect-ratio: 1;
-  overflow: hidden;
-}
-
-.statblock-renderer--campaign .statblock-campaign-portrait__image {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .statblock-renderer--campaign .statblock-campaign-flavor {
@@ -268,4 +250,10 @@
   color: color-mix(in srgb, var(--dm-text-dark-brown) 72%, transparent);
   font-size: 0.86rem;
   line-height: 1.35;
+}
+
+.statblock-renderer--campaign .statblock-campaign-vitals dd,
+.statblock-renderer--campaign .statblock-campaign-quickfacts dd,
+.statblock-renderer--campaign summary {
+  color: var(--dm-text-dark-brown);
 }

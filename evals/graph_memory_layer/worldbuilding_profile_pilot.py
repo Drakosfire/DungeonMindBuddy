@@ -33,17 +33,17 @@ from apps.live_control_server.services.workspace_document_registry import (  # n
     mark_workspace_document_committed,
 )
 from graph_memory.source_span import source_span_index_to_dict  # noqa: E402
-from src.graph_memory.extraction.category_candidate_graph_extractor import (  # noqa: E402
+from graph_memory.extraction.category_candidate_graph_extractor import (  # noqa: E402
     FixtureCategoryGraphPassClient,
 )
-from src.graph_memory.extraction.graph_preview_runner import (  # noqa: E402
+from graph_memory.extraction.graph_preview_runner import (  # noqa: E402
     ProductionExtractionRequest,
     run_production_extraction,
 )
-from src.graph_memory.extraction.source_adapter import (  # noqa: E402
+from graph_memory.extraction.source_adapter import (  # noqa: E402
     NormalizedExtractionSource,
 )
-from src.graph_memory.extraction.worldbuilding_extraction_profile import (  # noqa: E402
+from graph_memory.extraction.worldbuilding_extraction_profile import (  # noqa: E402
     WORLDBUILDING_PROFILE_ID,
     WORLDBUILDING_PROFILE_VERSION,
     validate_worldbuilding_candidate_bounds,
@@ -146,8 +146,7 @@ def run_cohort(*, trials: int, output_dir: Path) -> dict:
     for index in range(1, trials + 1):
         trial_id = f"{cohort_id}-trial-{index}"
         trial_dir = output_dir / trial_id
-        # Isolate registry + run artifacts under one repo root so component URIs
-        # remain repo-relative.
+        # Isolate source imports and cohort reports; APP owns run components.
         trial_repo = trial_dir / "repo"
         trial_repo.mkdir(parents=True, exist_ok=True)
         source, span_id = _admit_fixture_source(trial_repo, fixture, trial_id)
@@ -162,7 +161,6 @@ def run_cohort(*, trials: int, output_dir: Path) -> dict:
                 profile_version=WORLDBUILDING_PROFILE_VERSION,
                 allow_llm=True,
                 category_client=client,
-                output_dir=trial_repo / "out" / "runs" / trial_id,
             )
         )
         graph = result.candidate_graph or {}

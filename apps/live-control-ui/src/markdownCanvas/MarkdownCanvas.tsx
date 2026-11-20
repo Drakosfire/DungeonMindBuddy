@@ -1,3 +1,5 @@
+import { PAGE_COMPOSER_EXTENSIONS, PageComposerTools } from "../tiptap/pageComposer/PageRow";
+import { WorkspaceConflictRecovery } from "../workspaceDocument/WorkspaceConflictRecovery";
 import type { ReactNode } from "react";
 import type { Content } from "@tiptap/react";
 
@@ -94,9 +96,7 @@ export function MarkdownCanvas({ slots = {} }: MarkdownCanvasProps) {
         <button type="button" onClick={() => void session.reloadFromSnapshot()}>
           Reload from server
         </button>
-        <button type="button" onClick={() => void session.discardLocalDraft()}>
-          Discard local draft
-        </button>
+        <WorkspaceConflictRecovery key={session.documentKey} recovery={session.conflictRecovery} />
       </main>
     );
   }
@@ -124,8 +124,10 @@ export function MarkdownCanvas({ slots = {} }: MarkdownCanvasProps) {
         </p>
       ) : null}
 
+      {session.pageComposerEnabled ? <PageComposerTools editor={session.editor} disabledReason={session.pageComposerDisabledReason ?? undefined} /> : null}
       <section className={editorClassName}>
         <MarkdownEditorCore
+          extensions={session.pageComposerEnabled ? PAGE_COMPOSER_EXTENSIONS : undefined}
           documentKey={session.documentKey}
           content={session.editorContent as Content}
           onEditorChange={session.setEditor}

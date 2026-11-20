@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Content } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
 
 import type { GraphProjectionNodeView, RecapProjectionSourceSpan } from "../../api/types";
 import {
   GraphNodeChipRuntimeProvider,
   type GraphNodeChipDeltaPresentation,
 } from "../../graphReference";
-import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferenceNode";
+import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorCore";
+import { analyzeMarkdownBody } from "../../tiptap/markdown/markdownAdmission";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { GraphNodeExplorer } from "../graphPreview/GraphNodePresentation";
-import type { RecapGraphNodeDeltaPresentation } from "../graphPreview/recapGraphNodeRuntime";
 import {
   graphAuthoringSelectionsEqual,
   type GraphAuthoringAction,
@@ -26,6 +25,8 @@ export type { GraphAuthoringAction, GraphAuthoringSelection };
 
 export interface GraphProjectionReaderProps {
   markdown: string;
+  /** Preserve source whose normalization is already owned by its producer. */
+  frontmatterPolicy?: "strip-leading" | "preserve";
   nodeViews: Record<string, GraphProjectionNodeView>;
   sourceSpans: RecapProjectionSourceSpan[];
   mentionsCount?: number;
@@ -38,7 +39,7 @@ export interface GraphProjectionReaderProps {
   documentLabel?: string;
   documentScroll?: "contained" | "page";
   resetKey?: string | null;
-  nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation | GraphNodeChipDeltaPresentation>;
+  nodeDeltaPresentations?: Record<string, GraphNodeChipDeltaPresentation>;
   sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
   selectedSourceSpanId?: string | null;
   onActiveNodeChange?: (nodeId: string | null) => void;
@@ -54,6 +55,7 @@ export interface GraphProjectionReaderProps {
 
 function ReadOnlyTiptapRecap({
   markdown,
+  frontmatterPolicy,
   nodeViews,
   activeNodeId,
   onSelectNode,
@@ -66,12 +68,13 @@ function ReadOnlyTiptapRecap({
   onGraphAuthoringSelection,
 }: {
   markdown: string;
+  frontmatterPolicy: "strip-leading" | "preserve";
   nodeViews: Record<string, GraphProjectionNodeView>;
   activeNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
   sourceSpans: RecapProjectionSourceSpan[];
   selectedEvidenceSpanId: string | null;
-  nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation | GraphNodeChipDeltaPresentation>;
+  nodeDeltaPresentations?: Record<string, GraphNodeChipDeltaPresentation>;
   sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
   authoringEnabled?: boolean;
   authoringContext?: GraphAuthoringContext;
@@ -79,17 +82,24 @@ function ReadOnlyTiptapRecap({
 }) {
   const readerRef = useRef<HTMLDivElement | null>(null);
   const projectionMarkdown = useMemo(
-    () => stripLeadingYamlFrontmatter(markdown).markdown,
-    [markdown],
+    () => frontmatterPolicy === "preserve" ? markdown : stripLeadingYamlFrontmatter(markdown).markdown,
+    [markdown, frontmatterPolicy],
   );
-  const content = useMemo(
-    () =>
-      markdownToTiptapDoc(projectionMarkdown, { parseGraphNodeLinks: true })
-        .doc as Content,
-    [projectionMarkdown],
+  const imported = useMemo(
+    () => {
+      if (frontmatterPolicy === "preserve") {
+        // The orchestration helper strips YAML too. Use the same admission/parser
+        // boundary directly when the producer already owns normalization.
+        const result = analyzeMarkdownBody(projectionMarkdown.replace(/\r\n?/g, "\n"), { parseGraphNodeLinks: true });
+        return { doc: { type: "doc", content: result.content }, diagnostics: result.diagnostics };
+      }
+      return markdownToTiptapDoc(projectionMarkdown, { parseGraphNodeLinks: true });
+    },
+    [projectionMarkdown, frontmatterPolicy],
   );
+  const content = imported.doc as Content;
   const editor = useEditor({
-    extensions: [StarterKit, GraphNodeReferenceNode],
+    extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
     content,
     editable: false,
     immediatelyRender: false,
@@ -119,23 +129,42 @@ function ReadOnlyTiptapRecap({
   useEffect(() => {
     const root = readerRef.current;
     if (!root) return;
-    const highlighted = attachSourceSpanDataAttributes(root, sourceSpans, selectedEvidenceSpanId, sourceSpanDeltaOverlays ?? {});
-    if (highlighted && typeof highlighted.scrollIntoView === "function") {
-      highlighted.scrollIntoView({ block: "center", behavior: "smooth" });
-    }
-  }, [content, sourceSpans, selectedEvidenceSpanId, sourceSpanDeltaOverlays]);
+    let didScroll = false;
+    const attach = () => {
+      const highlighted = attachSourceSpanDataAttributes(root, sourceSpans, selectedEvidenceSpanId, sourceSpanDeltaOverlays ?? {});
+      if (!didScroll && highlighted && typeof highlighted.scrollIntoView === "function") {
+        highlighted.scrollIntoView({ block: "center", behavior: "smooth" });
+        didScroll = true;
+      }
+    };
+    // React node views mount their chip labels after the editor content effect.
+    // Reattach when those children arrive so evidence can match the full prose.
+    const observer = new MutationObserver(attach);
+    observer.observe(root, { childList: true, subtree: true });
+    attach();
+    return () => observer.disconnect();
+  }, [content, editor, sourceSpans, selectedEvidenceSpanId, sourceSpanDeltaOverlays]);
 
   return (
     <GraphNodeChipRuntimeProvider value={chipRuntime}>
       <div className="union-supergraph-tiptap-reader" ref={readerRef}>
         <EditorContent editor={editor} />
       </div>
+      {imported.diagnostics.length > 0 ? (
+        <details aria-label="Source formatting details">
+          <summary>Source formatting</summary>
+          <ul>{imported.diagnostics.map((diagnostic, index) => (
+            <li key={`${diagnostic.message}:${index}`}>{diagnostic.message}</li>
+          ))}</ul>
+        </details>
+      ) : null}
     </GraphNodeChipRuntimeProvider>
   );
 }
 
 export function GraphProjectionReader({
   markdown,
+  frontmatterPolicy = "strip-leading",
   nodeViews,
   sourceSpans,
   mentionsCount,
@@ -274,6 +303,7 @@ export function GraphProjectionReader({
           aria-label={documentLabel}
         >
           <ReadOnlyTiptapRecap
+            frontmatterPolicy={frontmatterPolicy}
             markdown={markdown}
             nodeViews={nodeViews}
             activeNodeId={activeNodeId}

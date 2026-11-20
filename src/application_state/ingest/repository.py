@@ -21,6 +21,17 @@ _RUN_COLUMNS = """
 """
 
 
+# Filter exact source identity before interpreting a run, including incomplete runs.
+_SOURCE_SCOPE_SQL = """EXISTS (
+    SELECT 1 FROM source.artifact AS source_owner
+    WHERE source_owner.source_artifact_id = ingest.run.source_artifact_id
+      AND source_owner.world_id = %s
+      AND source_owner.source_domain = ingest.run.source_domain
+      AND source_owner.campaign_id IS NOT DISTINCT FROM ingest.run.campaign_id
+      AND source_owner.session_id IS NOT DISTINCT FROM ingest.run.session_id
+)"""
+
+
 def now_utc() -> datetime:
     return datetime.now(UTC)
 
@@ -111,14 +122,39 @@ def insert_run(conn: psycopg.Connection, run: ExtractionRun) -> ExtractionRun:
     return loaded
 
 
-def get_run(conn: psycopg.Connection, run_id: str) -> ExtractionRun | None:
+def get_run(conn: psycopg.Connection, run_id: str, *, world_id: str | None = None) -> ExtractionRun | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            f"SELECT {_RUN_COLUMNS} FROM ingest.run WHERE run_id = %s",
-            (run_id,),
+            f"SELECT {_RUN_COLUMNS} FROM ingest.run WHERE run_id = %s"
+            + (f" AND {_SOURCE_SCOPE_SQL}" if world_id is not None else ""),
+            (run_id, world_id) if world_id is not None else (run_id,),
         )
         row = cur.fetchone()
     return None if row is None else _run_from_row(row)
+
+
+def find_runs_by_candidate_component(
+    conn: psycopg.Connection, *, uri: str, sha256: str
+) -> list[ExtractionRun]:
+    """Return at most two exact candidates, across every status and domain.
+
+    Two rows are enough to distinguish unique identity from ambiguity. The
+    caller-claimed component ``exists`` flag has no bearing on this lookup.
+    """
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            SELECT {_RUN_COLUMNS} FROM ingest.run
+            WHERE components -> 'candidate_graph' ->> 'uri' = %s
+              AND lower(components -> 'candidate_graph' ->> 'sha256')
+                  IN (%s, %s)
+            ORDER BY run_id ASC
+            LIMIT 2
+            """,
+            (uri, sha256, f"sha256:{sha256}"),
+        )
+        rows = cur.fetchall()
+    return [_run_from_row(row) for row in rows]
 
 
 def lock_run(conn: psycopg.Connection, run_id: str) -> ExtractionRun | None:
@@ -143,9 +179,17 @@ def list_runs(
     session_id: str | None = None,
     source_artifact_id: str | None = None,
     status: str | None = None,
+    world_id: str | None = None,
+    source_domain: str | None = None,
 ) -> list[ExtractionRun]:
     filters: list[psql.SQL] = []
     params: list[object] = []
+    if world_id is not None:
+        filters.append(psql.SQL(_SOURCE_SCOPE_SQL))
+        params.append(world_id)
+    if source_domain is not None:
+        filters.append(psql.SQL("source_domain = %s"))
+        params.append(source_domain)
     if campaign_id is not None:
         filters.append(psql.SQL("campaign_id = %s"))
         params.append(campaign_id)
@@ -225,7 +269,41 @@ def cas_update_run(
     return None if row is None else _run_from_row(row)
 
 
-def get_runs_by_ids(conn: psycopg.Connection, run_ids: set[str]) -> list[ExtractionRun]:
+def cas_update_run_lineage(
+    conn: psycopg.Connection,
+    *,
+    run_id: str,
+    expected_revision: int,
+    lineage: dict[str, Any],
+) -> ExtractionRun | None:
+    """Update only the metadata permitted by a disposition decision."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            UPDATE ingest.run
+            SET lineage = %s, revision = revision + 1, updated_at = %s
+            WHERE run_id = %s AND revision = %s AND status = 'reviewable'
+            RETURNING {_RUN_COLUMNS}
+            """,
+            (Jsonb(lineage), now_utc(), run_id, expected_revision),
+        )
+        row = cur.fetchone()
+    return None if row is None else _run_from_row(row)
+
+
+def connected_run_ids(conn: psycopg.Connection, run_ids: set[str], *, world_id: str | None = None) -> set[str]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT run_id FROM ingest.run
+               WHERE (run_id = ANY(%s) OR supersedes_run_id = ANY(%s)
+                      OR superseded_by_run_id = ANY(%s))"""
+            + (f" AND {_SOURCE_SCOPE_SQL}" if world_id is not None else ""),
+            (list(run_ids), list(run_ids), list(run_ids)) + ((world_id,) if world_id is not None else ()),
+        )
+        return {str(row[0]) for row in cur.fetchall()}
+
+
+def get_runs_by_ids(conn: psycopg.Connection, run_ids: set[str], *, world_id: str | None = None) -> list[ExtractionRun]:
     if not run_ids:
         return []
     with conn.cursor(row_factory=dict_row) as cur:
@@ -234,8 +312,8 @@ def get_runs_by_ids(conn: psycopg.Connection, run_ids: set[str]) -> list[Extract
             SELECT {_RUN_COLUMNS}
             FROM ingest.run
             WHERE run_id = ANY(%s)
-            """,
-            (list(run_ids),),
+            """ + (f" AND {_SOURCE_SCOPE_SQL}" if world_id is not None else ""),
+            (list(run_ids), world_id) if world_id is not None else (list(run_ids),),
         )
         rows = cur.fetchall()
     return [_run_from_row(row) for row in rows]

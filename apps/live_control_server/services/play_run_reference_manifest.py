@@ -397,6 +397,12 @@ class PlayRunReferenceManifestV2(BaseModel):
             target_set = beat_set if edge.target_kind == "beat" else scene_set
             if edge.target_id not in target_set:
                 raise ValueError("edge target_id does not resolve in this manifest")
+        edge_keys = [
+            (edge.option_id, edge.effect, edge.target_kind, edge.target_id)
+            for edge in self.edges
+        ]
+        if len(edge_keys) != len(set(edge_keys)):
+            raise ValueError("manifest v2 transition edges must be unique")
         return self
 
 
@@ -819,8 +825,7 @@ def derive_play_run_reference_elements_v2(markdown: str) -> DerivedV2Membership:
     )
 
 
-def get_play_run_reference_manifest(root: Path, run_id: str) -> AnyPlayRunReferenceManifest:
-    del root
+def get_play_run_reference_manifest(run_id: str) -> AnyPlayRunReferenceManifest:
     from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
     from application_state.play.service import get_play_run_manifest
     from apps.live_control_server.services.play_run_registry import _validate_run_id
@@ -836,10 +841,8 @@ def get_play_run_reference_manifest(root: Path, run_id: str) -> AnyPlayRunRefere
 
 
 def seal_or_replay_play_run_reference_manifest(
-    root: Path,
     run_id: str,
 ) -> AnyPlayRunReferenceManifest:
-    del root
     from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
     from application_state.play.service import replay_play_run_manifest
     from apps.live_control_server.services.play_run_registry import _validate_run_id
@@ -855,9 +858,8 @@ def seal_or_replay_play_run_reference_manifest(
 
 
 def get_world_play_run_reference_manifest(
-    root: Path, *, world_id: str, run_id: str
+    *, world_id: str, run_id: str
 ) -> AnyPlayRunReferenceManifest:
-    del root
     from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
     from application_state.play.service import get_world_play_run_manifest
     from apps.live_control_server.services.play_run_registry import (
@@ -876,12 +878,3 @@ def get_world_play_run_reference_manifest(
     except ApplicationStateError as exc:
         raise PlayRunReferenceManifestError(str(exc), status_code=exc.status_code) from exc
     return parse_manifest_payload(stored.manifest, run_id=str(stored.run_id))
-
-
-def seal_or_replay_world_play_run_reference_manifest(
-    root: Path, *, world_id: str, run_id: str
-) -> AnyPlayRunReferenceManifest:
-    """Idempotently verify a sealed manifest through the World V2 owner fence."""
-    return get_world_play_run_reference_manifest(
-        root, world_id=world_id, run_id=run_id
-    )

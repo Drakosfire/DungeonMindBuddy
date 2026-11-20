@@ -33,6 +33,7 @@ EntityKind = Literal[
     "phenomenon",
     "combat_encounter",
     "social_encounter",
+    "event",
     "session_beat",
     "unknown",
 ]

@@ -1,3 +1,7 @@
+import {parseWorkPlanFence,workPlanFence,workPlanIdentity} from "../../surface/workPlans/workPlanReference";
+import {parseTableFence} from "../../preparedTables/tableGrammar";
+import { webSourceHref, validWebSourceTitle } from "./webSourceHref";
+import { mediaMarkdown } from "../../media/mediaReferences";
 import {
   normalizeRunbookReferenceAttrs,
   runbookReferenceHref,
@@ -146,6 +150,7 @@ function safeMarkdownHref(value: unknown): string | null {
     return null;
   }
 
+  if (/^https?:/i.test(href) && !webSourceHref(href)) return null;
   return escapeMarkdownHref(href);
 }
 
@@ -161,7 +166,9 @@ function serializeTextWithMarks(text: string, marks: JsonMark[]): string {
 
   const link = marks.find((mark) => mark.type === "link");
   const href = safeMarkdownHref(link?.attrs?.href);
-  return href ? `[${result}](${href})` : result;
+  const title = link?.attrs?.title;
+  const suffix = typeof title === "string" ? ` "${title.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"` : "";
+  return href && validWebSourceTitle(title) ? `[${result}](${href}${suffix})` : result;
 }
 
 function inlineMarkdown(node: JsonNode): string {
@@ -171,7 +178,8 @@ function inlineMarkdown(node: JsonNode): string {
       markdownMarks(node.marks),
     );
   }
-  if (node.type === "hardBreak") return "\n";
+  if (node.type === "mediaImage") return mediaMarkdown(String(node.attrs?.assetId ?? ''), String(node.attrs?.alt ?? ''), node.attrs?.width, node.attrs?.collapsed);
+  if (node.type === "hardBreak") return "\\\n";
   if (node.type === "runbookReference") {
     // In-memory attrs are semantic after versioned load migration.
     const attrs = normalizeRunbookReferenceAttrs(node.attrs ?? {}, { labelSource: "semantic" });
@@ -200,21 +208,29 @@ function indentLines(value: string, prefix: string): string {
 }
 
 function serializeListItem(node: JsonNode, marker: string): string {
-  const parts = childNodes(node).map(serializeNode).filter(Boolean);
-  if (parts.length === 0) return marker.trimEnd();
+  const blocks = childNodes(node)
+    .map((child) => ({ child, markdown: serializeNode(child) }))
+    .filter((block) => Boolean(block.markdown));
+  if (blocks.length === 0) return marker.trimEnd();
   const indent = " ".repeat(marker.length);
   const serializeFirst = (text: string): string => {
     const lines = text.split("\n");
     if (lines.length <= 1) return `${marker}${text}`;
     return `${marker}${lines[0]}\n${indentLines(lines.slice(1).join("\n"), indent)}`;
   };
-  const [first, ...rest] = parts;
-  const head = serializeFirst(first);
-  // Sibling blocks need a true blank line between them so MDAST parses adjacent
-  // callouts/D/C as separate blockquotes. Indent each block first, then join
-  // with `\n\n` — indenting after join would turn the blank into spaces.
+  const [first, ...rest] = blocks;
+  const head = serializeFirst(first!.markdown);
+  // Two paragraphs need a blank line here or Markdown joins the continuation
+  // into the first paragraph. Other first continuations (such as nested lists
+  // and callouts) remain on the existing single-line boundary.
+  const firstContinuationSeparator = first!.child.type === "paragraph" && rest[0]?.child.type === "paragraph"
+    ? "\n\n"
+    : "\n";
+  // Later sibling blocks need a true blank line so MDAST keeps callouts/D/C
+  // separate. Indent each block first, then join blank lines to avoid spaces on
+  // otherwise empty separators.
   const continuation = rest.length > 0
-    ? `\n${rest.map((part) => indentLines(part, indent)).join("\n\n")}`
+    ? `${firstContinuationSeparator}${rest.map((part) => indentLines(part.markdown, indent)).join("\n\n")}`
     : "";
   return `${head}${continuation}`;
 }
@@ -283,12 +299,25 @@ export function serializeDecisionConsequence(node: JsonNode): string {
 
 function serializeNode(node: JsonNode): string {
   switch (node.type) {
-    case "doc":
+    case "surfaceWorkPlan": return workPlanFence(parseWorkPlanFence(String(node.attrs?.source??'')));
+    case "preparedTable": {
+      const source=String(node.attrs?.source ?? '');
+      parseTableFence(source);
+      return source;
+    }
+    case "doc": {
+      const seen=new Set<string>();
+      for(const child of childNodes(node)){if(child.type==='surfaceWorkPlan'){
+        const key=workPlanIdentity(parseWorkPlanFence(String(child.attrs?.source??'')));
+        if(seen.has(key))throw new Error('Duplicate work-plan reference.');seen.add(key);
+      }}
       return childNodes(node).map(serializeNode).filter(Boolean).join("\n\n");
+    }
     case "text":
       return inlineMarkdown(node);
     case "hardBreak":
-      return "\n";
+      return "\\\n";
+    case "mediaImage":
     case "runbookReference":
     case "graphNodeReference":
       return inlineMarkdown(node);

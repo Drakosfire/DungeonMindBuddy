@@ -1,14 +1,25 @@
 from __future__ import annotations
 
+from tests.application_state.session_encounter_helpers import session_request, historical_world_run
+
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import psycopg
 import pytest
 
-from application_state.content.service import commit_runbook, create_world_runbook
+from application_state.content.service import (
+    autosave_plan,
+    commit_plan,
+    commit_runbook,
+    create_plan,
+    create_world_plan,
+    create_world_runbook,
+    update_plan_metadata,
+)
 from application_state.errors import ApplicationStateError
 from application_state.play.service import (
+    create_play_run,
     create_world_play_run,
     get_world_play_run_aggregate,
     list_play_run_aggregates,
@@ -18,8 +29,12 @@ from application_state.play.service import (
 )
 from tests.application_state.play_runtime_helpers import (
     RUN_ID_A,
+    RUN_ID_B,
     SOURCE_MARKDOWN,
+    V2_SOURCE_MARKDOWN,
+    V2_SURVIVING_TARGET_MARKDOWN,
     SURVIVING_TARGET_MARKDOWN,
+    count_play_rows,
     create_committed_runbook,
     create_run,
     fetch_play_runtime_state,
@@ -29,7 +44,7 @@ from tests.application_state.play_runtime_helpers import (
 pytest_plugins = ["tests.application_state.conftest"]
 
 
-def _create_world_runbook(world_id: str, *, markdown: str = SOURCE_MARKDOWN):
+def _create_world_runbook(world_id: str, *, markdown: str = V2_SOURCE_MARKDOWN):
     created = create_world_runbook(
         title=f"World Runbook {world_id}", world_id=world_id
     )
@@ -41,15 +56,23 @@ def _create_world_runbook(world_id: str, *, markdown: str = SOURCE_MARKDOWN):
     return work_object, revision
 
 
-def _create_world_run(*, world_id: str = "demo-world-a", run_id: str = RUN_ID_A):
-    work_object, revision = _create_world_runbook(world_id)
-    run = create_world_play_run(
-        world_id=world_id,
-        run_id=run_id,
-        playable_artifact_id=work_object.work_object_id,
-        expected_playable_revision=revision.revision_n,
-        expected_playable_content_sha256=revision.content_sha256,
+def _create_world_plan(world_id: str, *, markdown: str = V2_SOURCE_MARKDOWN):
+    created = create_world_plan(title=f"World Plan {world_id}", world_id=world_id)
+    work_object, revision = commit_plan(
+        str(created.work_object_id),
+        markdown,
+        expected_world_id=world_id,
+        expected_revision=created.object_revision,
     )
+    return work_object, revision
+
+
+def _create_world_run(*, world_id: str = "demo-world-a", run_id: str = RUN_ID_A, historical=False):
+    work_object, revision = _create_world_runbook(world_id)
+    if historical:
+        run = historical_world_run(world_id=world_id,run_id=run_id,playable_artifact_id=work_object.work_object_id,expected_playable_revision=revision.revision_n,expected_playable_content_sha256=revision.content_sha256)
+    else:
+        run = create_world_play_run(world_id=world_id, run_id=run_id, request=session_request(world_id=world_id, playable_artifact_id=work_object.work_object_id, expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)).aggregate
     return work_object, revision, run
 
 
@@ -57,20 +80,28 @@ def test_create_replay_list_and_campaign_inventory_are_owner_fenced(
     application_state_dsn: str, tmp_path: Path
 ) -> None:
     _world_object, _world_revision, created = _create_world_run()
-    replayed = create_world_play_run(
-        world_id="demo-world-a",
-        run_id=RUN_ID_A,
-        playable_artifact_id=created.run.playable_work_object_id,
-        expected_playable_revision=created.run.playable_revision_n,
-        expected_playable_content_sha256=created.run.playable_content_sha256,
-    )
+    replayed = create_world_play_run(world_id="demo-world-a", run_id=RUN_ID_A, request=session_request(world_id="demo-world-a", playable_artifact_id=created.run.playable_work_object_id, expected_playable_revision=created.run.playable_revision_n, expected_playable_content_sha256=created.run.playable_content_sha256)).aggregate
     assert replayed == created
     assert created.world_id == "demo-world-a"
     assert created.run.world_id == "demo-world-a"
     assert created.run.campaign_id is None
+    assert created.run.progress == {
+        "current_scene_id": "scene:gate",
+        "current_beat_id": "beat:arrival",
+        "resolved_beat_ids": [],
+        "selections": {},
+        "notes_by_element_id": {},
+    }
 
     listed = list_world_play_run_aggregates(world_id="demo-world-a")
     assert [item.run.run_id for item in listed] == [UUID(RUN_ID_A)]
+    assert listed[0].active_source_title == _world_object.title
+
+    from apps.live_control_server.routes.play_runs import get_world_play_runs_v2
+    assert get_world_play_runs_v2(world_id="demo-world-a")["source_titles"] == {
+        str(_world_object.work_object_id): _world_object.title,
+    }
+    assert get_world_play_runs_v2(world_id="demo-world-b")["source_titles"] == {}
     assert list_world_play_run_aggregates(world_id="demo-world-b") == []
     assert list_play_run_aggregates() == []
 
@@ -100,7 +131,7 @@ def test_bad_owner_or_pin_fails_before_progress_mutation(
     column: str,
     value: str | int,
 ) -> None:
-    _work_object, _revision, created = _create_world_run()
+    _work_object, _revision, created = _create_world_run(historical=True)
     before = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
     with psycopg.connect(application_state_dsn, autocommit=True) as conn:
         conn.execute(
@@ -125,7 +156,7 @@ def test_bad_owner_or_pin_fails_before_progress_mutation(
 def test_world_run_rebase_checks_same_owner_and_run_revision_cas(
     application_state_dsn: str,
 ) -> None:
-    work_object, _first_revision, created = _create_world_run()
+    work_object, _first_revision, created = _create_world_run(historical=True)
     progressed = replace_world_play_run_progress(
         world_id="demo-world-a",
         run_id=RUN_ID_A,
@@ -134,7 +165,7 @@ def test_world_run_rebase_checks_same_owner_and_run_revision_cas(
     )
     target_work_object, target_revision = commit_runbook(
         str(work_object.work_object_id),
-        SURVIVING_TARGET_MARKDOWN,
+        V2_SURVIVING_TARGET_MARKDOWN,
         expected_revision=work_object.object_revision,
     )
     assert target_work_object.world_id == "demo-world-a"
@@ -186,3 +217,209 @@ def test_detail_resolves_world_from_exact_committed_revision(
     )
     assert loaded.world_id == "demo-world-a"
     assert loaded.world_id == loaded.run.world_id
+
+
+def test_world_plan_can_start_run_and_reopen_exact_pin_after_save_and_discard(
+    application_state_dsn: str,
+) -> None:
+    world_id = "demo-world-plan-run"
+    plan, first_revision = _create_world_plan(world_id)
+    first = create_world_play_run(world_id=world_id, run_id=RUN_ID_A, request=session_request(world_id=world_id, playable_artifact_id=plan.work_object_id, expected_playable_revision=first_revision.revision_n, expected_playable_content_sha256=first_revision.content_sha256)).aggregate
+
+    assert first.run.world_id == world_id
+    assert first.run.campaign_id is None
+    assert first.run.playable_work_object_id == plan.work_object_id
+    assert first.run.playable_work_revision_id == first_revision.work_revision_id
+    assert first.manifest.playable_work_revision_id == first_revision.work_revision_id
+    assert first.manifest.playable_content_sha256 == first_revision.content_sha256
+
+    changed_plan, second_revision = commit_plan(
+        str(plan.work_object_id),
+        V2_SURVIVING_TARGET_MARKDOWN,
+        expected_world_id=world_id,
+        expected_revision=plan.object_revision,
+    )
+    with pytest.raises(ApplicationStateError):
+        create_world_play_run(world_id=world_id, run_id=RUN_ID_B, request=session_request(world_id=world_id, playable_artifact_id=plan.work_object_id, expected_playable_revision=first_revision.revision_n, expected_playable_content_sha256=first_revision.content_sha256)).aggregate
+    second = create_world_play_run(world_id=world_id, run_id=RUN_ID_B, request=session_request(world_id=world_id, playable_artifact_id=plan.work_object_id, expected_playable_revision=second_revision.revision_n, expected_playable_content_sha256=second_revision.content_sha256)).aggregate
+    assert second.run.playable_work_revision_id == second_revision.work_revision_id
+
+    discarded = update_plan_metadata(
+        str(plan.work_object_id),
+        status="discarded",
+        expected_revision=changed_plan.object_revision,
+    )
+    assert discarded.status == "discarded"
+
+    replayed = create_world_play_run(world_id=world_id, run_id=RUN_ID_A, request=session_request(world_id=world_id, playable_artifact_id=plan.work_object_id, expected_playable_revision=first_revision.revision_n, expected_playable_content_sha256=first_revision.content_sha256)).aggregate
+    reopened = get_world_play_run_aggregate(RUN_ID_A, world_id=world_id)
+    assert replayed == first
+    assert reopened.run.playable_work_revision_id == first_revision.work_revision_id
+    assert reopened.manifest == first.manifest
+
+
+def test_world_v2_create_uses_first_authored_spine_and_replay_keeps_progress(
+    application_state_dsn: str,
+) -> None:
+    world_id = f"world-v2-opening-{uuid4()}"
+    markdown = "\n".join(
+        [
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:z-optional beat_kind=optional -->",
+            "## Optional appears first in document order",
+            "",
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:a-spine beat_kind=spine -->",
+            "## First spine beat",
+            "",
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:b-spine beat_kind=spine -->",
+            "## Second spine beat",
+        ]
+    )
+    plan, first_revision = _create_world_plan(world_id, markdown=markdown)
+    run_id = str(uuid4())
+    first = create_world_play_run(world_id=world_id, run_id=run_id, request=session_request(world_id=world_id, playable_artifact_id=plan.work_object_id, expected_playable_revision=first_revision.revision_n, expected_playable_content_sha256=first_revision.content_sha256)).aggregate
+
+    assert first.run.progress == {
+        "current_scene_id": None,
+        "current_beat_id": "beat:a-spine",
+        "resolved_beat_ids": [],
+        "selections": {},
+        "notes_by_element_id": {},
+    }
+    assert first.run.run_revision == 1
+
+    progressed = replace_world_play_run_progress(
+        world_id=world_id,
+        run_id=run_id,
+        expected_run_revision=1,
+        progress={
+            "current_scene_id": None,
+            "current_beat_id": "beat:z-optional",
+            "resolved_beat_ids": ["beat:z-optional"],
+            "selections": {},
+            "notes_by_element_id": {},
+        },
+    )
+    saved, _new_revision = commit_plan(
+        str(plan.work_object_id),
+        V2_SURVIVING_TARGET_MARKDOWN,
+        expected_world_id=world_id,
+        expected_revision=plan.object_revision,
+    )
+    update_plan_metadata(
+        str(plan.work_object_id),
+        status="discarded",
+        expected_revision=saved.object_revision,
+    )
+
+    replayed = create_world_play_run(world_id=world_id, run_id=run_id, request=session_request(world_id=world_id, playable_artifact_id=plan.work_object_id, expected_playable_revision=first_revision.revision_n, expected_playable_content_sha256=first_revision.content_sha256)).aggregate
+    assert replayed == progressed
+    assert replayed.run.progress["current_beat_id"] == "beat:z-optional"
+    assert replayed.run.run_revision == 2
+
+
+def test_historical_world_v1_plan_read_keeps_scene_first_progress_empty(
+    application_state_dsn: str,
+) -> None:
+    world_id = f"world-v1-scene-first-{uuid4()}"
+    plan, revision = _create_world_plan(world_id, markdown=SOURCE_MARKDOWN)
+    run_id = str(uuid4())
+
+    created = historical_world_run(run_id=run_id, world_id=world_id, playable_artifact_id=plan.work_object_id, expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)
+    reopened = get_world_play_run_aggregate(run_id, world_id=world_id)
+
+    assert created.manifest.manifest["schema_version"] == "dmb_play_run_reference_manifest_v1"
+    assert created.run.progress == {
+        "current_scene_id": None,
+        "current_beat_id": None,
+        "resolved_beat_ids": [],
+        "selections": {},
+        "notes_by_element_id": {},
+    }
+    assert reopened == created
+
+
+def test_world_v2_create_falls_back_to_first_authored_beat(
+    application_state_dsn: str,
+) -> None:
+    world_id = f"world-v2-opening-fallback-{uuid4()}"
+    markdown = "\n".join(
+        [
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:z-first beat_kind=optional -->",
+            "## First authored",
+            "",
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:a-second beat_kind=interrupt -->",
+            "## Second authored",
+        ]
+    )
+    plan, revision = _create_world_plan(world_id, markdown=markdown)
+    created = create_world_play_run(world_id=world_id, run_id=str(uuid4()), request=session_request(world_id=world_id, playable_artifact_id=plan.work_object_id, expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)).aggregate
+    assert created.run.progress["current_beat_id"] == "beat:z-first"
+
+
+def test_invalid_world_v2_source_rolls_back_run_and_manifest(
+    application_state_dsn: str,
+) -> None:
+    world_id = f"world-v2-invalid-{uuid4()}"
+    malformed_markdown = "<!-- dmb-playable-element:v2 kind=beat id=not-canonical -->\n## Broken\n"
+    plan, revision = _create_world_plan(world_id, markdown=malformed_markdown)
+    before = count_play_rows(application_state_dsn)
+
+    with pytest.raises(ApplicationStateError):
+        create_world_play_run(world_id=world_id, run_id=str(uuid4()), request=session_request(world_id=world_id, playable_artifact_id=plan.work_object_id, expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)).aggregate
+
+    assert count_play_rows(application_state_dsn) == before
+
+
+def test_world_plan_new_run_requires_clean_current_revision(
+    application_state_dsn: str,
+) -> None:
+    world_id = "demo-world-plan-dirty"
+    plan, revision = _create_world_plan(world_id)
+    autosave_plan(
+        str(plan.work_object_id),
+        SOURCE_MARKDOWN + "\nUncommitted Plan edit.\n",
+        expected_world_id=world_id,
+        expected_revision=plan.object_revision,
+    )
+
+    with pytest.raises(ApplicationStateError, match="not committed"):
+        create_world_play_run(world_id=world_id, run_id=RUN_ID_A, request=session_request(world_id=world_id, playable_artifact_id=plan.work_object_id, expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)).aggregate
+
+
+def test_campaign_run_admission_remains_runbook_only(
+    application_state_dsn: str,
+) -> None:
+    plan = create_plan(title="Campaign Plan", campaign_id="campaign-plan-control")
+    _plan, revision = commit_plan(
+        str(plan.work_object_id),
+        SOURCE_MARKDOWN,
+        expected_revision=plan.object_revision,
+    )
+
+    with pytest.raises(ApplicationStateError, match="runbook"):
+        create_play_run(
+            run_id=RUN_ID_A,
+            playable_artifact_id=plan.work_object_id,
+            expected_playable_revision=revision.revision_n,
+            expected_playable_content_sha256=revision.content_sha256,
+        )
+
+
+def test_world_plan_rebase_rejected_even_for_same_target_retry(
+    application_state_dsn: str,
+) -> None:
+    world_id = "demo-world-plan-no-rebase"
+    plan, revision = _create_world_plan(world_id)
+    created = create_world_play_run(world_id=world_id, run_id=RUN_ID_A, request=session_request(world_id=world_id, playable_artifact_id=plan.work_object_id, expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)).aggregate
+    before = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
+
+    with pytest.raises(ApplicationStateError, match="captured encounter preparation"):
+        rebase_world_play_run(
+            world_id=world_id,
+            run_id=RUN_ID_A,
+            expected_run_revision=created.run.run_revision,
+            target_playable_revision=revision.revision_n,
+            target_playable_content_sha256=revision.content_sha256,
+        )
+
+    assert fetch_play_runtime_state(application_state_dsn, RUN_ID_A) == before

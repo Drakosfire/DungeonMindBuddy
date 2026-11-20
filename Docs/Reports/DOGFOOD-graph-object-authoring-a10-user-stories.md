@@ -351,7 +351,7 @@ None blocking. A8 backend semantics verified by tests (31 cases).
 1. Identified write targets before/after commits:
    - Source recap markdown
    - Graph ingest run artifacts (`out/graph_memory/runs/.../20260706T023949Z/`)
-   - Candidate graph gold fixtures (`evals/graph_memory_layer/examples/session_1_candidate_graph_gold/` — not C1S2-specific)
+   - Candidate graph gold fixtures (`evals/graph_benchmark_gold/candidate_graph/longmont-c1/session-01/` — not C1S2-specific)
    - Authored overlay + event log + backups
 2. Reviewed prepare/commit panel copy and paths.
 3. Hashed source markdown and ingest artifacts (post-dogfood read-only verification).

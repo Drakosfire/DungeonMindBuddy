@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ValidationIssueV1 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
-import { baseCandidateDefinition } from "./editorFixtures";
+import { baseCandidateDefinition } from "../../test/statblockEditorFixtures";
 import { definitionOutputToInput } from "./definitionOutputToInput";
 import {
   mapServerValidationStatus,

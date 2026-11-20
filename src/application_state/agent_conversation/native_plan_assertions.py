@@ -1,0 +1,466 @@
+"""Selected native assertions for Plan; Core owns admission and source provenance."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from hashlib import sha256
+from typing import Literal
+from uuid import UUID
+
+from dungeonmind.contracts.vnext.domain import Assertion
+from dungeonmind.contracts.vnext.source import EvidenceRefV3
+from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1
+from pydantic import Field, model_validator
+
+from .native_statement_input import Strict, digest
+from .neighborhood_replay import NeighborhoodReplayHop
+from .native_plan_statements import NativePlanQueryV1, NativePlanStatementMatchV1
+
+POLICY = 'dmb_surface_evidence_answer_v8'
+INSTRUCTIONS = """Native assertions are reviewed Graph records, not independent proof of every event.
+Use {"kind":"native_assertion_claim","text":"supported prose","assertion_handles":["exact exposed handle"]}.
+Preserve claim_mode, epistemic_basis, standing, temporal_scope, scope and all domain
+qualifications. Reported beliefs and uncertain accounts must stay attributed and
+qualified. Entity labels are navigation only. Source coordinates are citations,
+not source text you inspected; do not invent quotations or source chronology.
+Select only relevant assertions. Partial retrieval never establishes absence.
+"""
+
+
+class NativePlanAssertionMatchV1(Strict):
+    assertion_id: str = Field(min_length=1)
+    subject_entity_id: str = Field(min_length=1)
+    discovered_entity_ids: tuple[str, ...] = Field(min_length=1)
+    assertion_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    label: str = Field(min_length=1)
+
+
+class NativePlanQueryV2(NativePlanQueryV1):
+    schema_: Literal['dmb_native_plan_query_v2'] = Field(default='dmb_native_plan_query_v2', alias='schema')
+    assertion_matches: tuple[NativePlanAssertionMatchV1, ...]
+
+    @model_validator(mode='after')
+    def assertion_closure(self):
+        ids = [m.assertion_id for m in self.assertion_matches]
+        if len(ids) != len(set(ids)) or any(not set(m.discovered_entity_ids) <= set(self.discovered_entity_ids)
+                for m in self.assertion_matches):
+            raise ValueError('Native assertion matches differ from discovered entities')
+        return self
+
+
+class NativeAuthoredTargetV1(Strict):
+    """Core entity catalog for an explicit author target, never a search hit."""
+    node_id: str = Field(min_length=1)
+    selection_revision_id: str = Field(min_length=1)
+    matches: tuple[NativePlanStatementMatchV1, ...]
+    assertion_matches: tuple[NativePlanAssertionMatchV1, ...]
+    status: Literal['complete', 'partial', 'unavailable']
+    gap_codes: tuple[str, ...]
+
+    @model_validator(mode='after')
+    def target_closure(self):
+        statements = [m.statement_id for m in self.matches]
+        assertions = [m.assertion_id for m in self.assertion_matches]
+        if (len(statements) != len(set(statements)) or len(assertions) != len(set(assertions))
+                or (self.status == 'complete') != (not self.gap_codes)
+                or self.status == 'unavailable' and (self.matches or self.assertion_matches)
+                or any(m.discovered_entity_ids != (self.node_id,)
+                    for m in (*self.matches, *self.assertion_matches))):
+            raise ValueError('Authored target catalog differs from its exact Core entity')
+        return self
+
+
+class NativeGraphQueryV3(NativePlanQueryV2):
+    """Search and authored-target catalogs retain their distinct selection origins."""
+    schema_: Literal['dmb_native_graph_query_v3'] = Field(default='dmb_native_graph_query_v3', alias='schema')
+    authored_targets: tuple[NativeAuthoredTargetV1, ...]
+
+    @model_validator(mode='after')
+    def authored_closure(self):
+        ids = [target.node_id for target in self.authored_targets]
+        if len(ids) != len(set(ids)):
+            raise ValueError('Authored targets repeat a Core entity')
+        if any(target.status != 'complete' for target in self.authored_targets) and self.status != 'partial':
+            raise ValueError('Query cannot hide unavailable authored targets')
+        return self
+
+
+class NativeObjectMatchV1(Strict):
+    """Core-admitted object navigation metadata, never claim evidence."""
+    entity_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+
+
+class NativeGraphQueryV4(NativeGraphQueryV3):
+    """Object selection expands to existing, frozen record witness sets."""
+    schema_: Literal['dmb_native_graph_query_v4'] = Field(default='dmb_native_graph_query_v4', alias='schema')
+    object_matches: tuple[NativeObjectMatchV1, ...]
+    discovery_hops: tuple[NeighborhoodReplayHop, ...] = Field(default=(), max_length=32, exclude_if=lambda value: not value)
+
+    @model_validator(mode='after')
+    def object_closure(self):
+        ids = tuple(m.entity_id for m in self.object_matches)
+        if len(ids) != len(set(ids)) or set(ids) != set(self.discovered_entity_ids):
+            raise ValueError('Native object catalog differs from exact discovered entities')
+        matches = {match.statement_id: match for match in self.matches}
+        assertions = {match.assertion_id: match for match in self.assertion_matches}
+        targets = set()
+        for hop in self.discovery_hops:
+            match = matches.get(hop.to_node_id)
+            assertion = assertions.get(hop.relationship_id)
+            statement_path = (match is not None and hop.from_node_id in match.discovered_entity_ids
+                              and hop.relationship_id in match.discovery_assertion_ids)
+            assertion_path = (assertion is not None and assertion.subject_entity_id == hop.to_node_id
+                              and hop.from_node_id in assertion.discovered_entity_ids)
+            if hop.to_node_id in targets or hop.to_node_id in ids or not (statement_path or assertion_path):
+                raise ValueError('Native replay hop differs from admitted discovery')
+            targets.add(hop.to_node_id)
+        return self
+
+
+def _object_selection_handle(query_digest, entity_id):
+    return 'native-object:' + digest({'query': query_digest, 'object': entity_id})
+
+
+def object_selection_handle(query, entity_id):
+    if not isinstance(query, NativeGraphQueryV4) or entity_id not in query.discovered_entity_ids:
+        raise ValueError('Object was not discovered by this native query')
+    return _object_selection_handle(query.sha256, entity_id)
+
+
+@dataclass(frozen=True, slots=True)
+class _ObjectRecordUnit:
+    handle: str
+    label: str
+    statement_ids: tuple[str, ...]
+    assertion_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ObjectRecordCatalog:
+    """Invocation-local value projection; never evidence or a query cache."""
+    query_sha256: str
+    units: tuple[_ObjectRecordUnit, ...]
+    statement_order: tuple[str, ...]
+    assertion_order: tuple[str, ...]
+
+    def record_ids(self, handles, *, assertion, attempted=()):
+        selected, excluded = set(handles), set(attempted)
+        included = {identity for unit in self.units if unit.handle in selected
+            for identity in (unit.assertion_ids if assertion else unit.statement_ids)}
+        order = self.assertion_order if assertion else self.statement_order
+        return tuple(identity for identity in order if identity in included and identity not in excluded)
+
+
+def object_record_catalog(query):
+    """Hash one exact query and invert its ordered witness membership once."""
+    if not isinstance(query, NativeGraphQueryV4):
+        raise ValueError('Object closure requires its versioned native query')
+    discovered = set(query.discovered_entity_ids)
+    if any(match.entity_id not in discovered for match in query.object_matches):
+        raise ValueError('Object was not discovered by this native query')
+    members = {match.entity_id: ([], []) for match in query.object_matches}
+    for family, matches in enumerate((query.matches, query.assertion_matches)):
+        for match in matches:
+            identity = match.assertion_id if family else match.statement_id
+            # Duplicate witnesses do not duplicate a record's membership.
+            for entity_id in set(match.discovered_entity_ids):
+                if entity_id in members:
+                    members[entity_id][family].append(identity)
+    query_digest = query.sha256
+    return ObjectRecordCatalog(query_digest, tuple(_ObjectRecordUnit(
+        _object_selection_handle(query_digest, match.entity_id), match.label,
+        tuple(members[match.entity_id][0]), tuple(members[match.entity_id][1]))
+        for match in query.object_matches),
+        tuple(match.statement_id for match in query.matches),
+        tuple(match.assertion_id for match in query.assertion_matches))
+
+
+def object_record_ids(query, handles, *, assertion, attempted=()):
+    """Resolve selected witness units; labels never grant a read or merge identity."""
+    if not isinstance(query, NativeGraphQueryV4):
+        raise ValueError('Object closure requires its versioned native query')
+    selected = set(handles)
+    # Source/Rules/page-only selections have no object closure. Avoid hashing
+    # the entire frozen query for each family on every retained source append.
+    if not any(isinstance(handle, str) and handle.startswith('native-object:') for handle in selected):
+        return ()
+    return object_record_catalog(query).record_ids(selected, assertion=assertion, attempted=attempted)
+
+
+def selection_handle(query, match):
+    return 'native-assertion:' + digest({'query': query.sha256, 'assertion': match.assertion_id})
+
+
+class NativePlanAssertionReadAuthorizedV1(Strict):
+    kind: Literal['native_plan_assertion_read_authorized_v1'] = 'native_plan_assertion_read_authorized_v1'
+    event_id: UUID
+    sequence: int = Field(ge=0, strict=True)
+    provider_attempt_id: UUID
+    query_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    assertion_ids: tuple[str, ...] = Field(min_length=1)
+
+    @model_validator(mode='after')
+    def distinct(self):
+        if len(self.assertion_ids) != len(set(self.assertion_ids)):
+            raise ValueError('Assertion selection repeats an ID')
+        return self
+
+
+class NativeAssertionLocationV1(Strict):
+    evidence_ref_id: str = Field(min_length=1)
+    source_artifact_id: str = Field(min_length=1)
+    source_revision_id: str = Field(min_length=1)
+    body_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    start_byte: int = Field(ge=0, strict=True)
+    end_byte: int = Field(gt=0, strict=True)
+    span_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+
+class NativeAssertionSpanV1(NativeAssertionLocationV1):
+    text: str = Field(min_length=1)
+
+    @model_validator(mode='after')
+    def exact_bytes(self):
+        if (self.end_byte - self.start_byte != len(self.text.encode())
+                or sha256(self.text.encode()).hexdigest() != self.span_sha256):
+            raise ValueError('Native assertion support span bytes differ')
+        return self
+
+
+class NativeAssertionPdfRegionV1(Strict):
+    evidence_ref_id: str = Field(min_length=1)
+    source_artifact_id: str = Field(min_length=1)
+    source_revision_id: str = Field(min_length=1)
+    region: NativePdfRegionV1
+
+    @model_validator(mode='after')
+    def exact_revision(self):
+        if self.source_revision_id != self.region.source_revision_id:
+            raise ValueError('Native PDF region source revision differs')
+        return self
+
+
+class NativePlanAssertionReadV1(Strict):
+    # Reuse Core's complete wire contracts, including every qualification.
+    assertion: Assertion
+    evidence: tuple[EvidenceRefV3, ...]
+    spans: tuple[NativeAssertionSpanV1 | NativeAssertionPdfRegionV1, ...] = Field(min_length=1)
+
+    @model_validator(mode='after')
+    def support_closure(self):
+        refs = {e.evidence_ref_id: e for e in self.evidence}
+        spans = {s.evidence_ref_id: s for s in self.spans}
+        if (len(refs) != len(self.evidence) or len(spans) != len(self.spans)
+                or set(refs) != set(self.assertion.metadata.evidence_ref_ids)
+                or set(spans) != {i for i, e in refs.items() if e.evidence_role == 'support'}):
+            raise ValueError('Native assertion evidence closure differs')
+        for i, span in spans.items():
+            ref = refs[i]
+            if isinstance(span, NativeAssertionPdfRegionV1):
+                if (not ref.can_open_source or not ref.can_highlight_span
+                        or not ref.source_locator or ref.source_span_ref_id is not None
+                        or not ref.evidence_ref_id.startswith('pdf-region:')
+                        or ref.source_artifact_id != span.source_artifact_id
+                        or ref.source_revision_id != span.source_revision_id
+                        or NativePdfRegionV1.model_validate_json(ref.source_locator) != span.region):
+                    raise ValueError('Native assertion requires an exact PDF region')
+                continue
+            if (not ref.can_open_source or not ref.can_highlight_span or not ref.source_span_ref_id
+                    or (ref.source_artifact_id, ref.source_revision_id) != (span.source_artifact_id, span.source_revision_id)):
+                raise ValueError('Native assertion requires exact openable supporting spans')
+        return self
+
+
+class NativePlanAssertionReadV2(NativePlanAssertionReadV1):
+    """Retain Core support identity, not another copy of its immutable bytes."""
+    spans: tuple[NativeAssertionLocationV1 | NativeAssertionPdfRegionV1, ...] = Field(min_length=1)
+
+
+def compact_assertion_read(read):
+    """Validate complete Core bytes before their redundant APP copy is removed."""
+    if type(read) is not NativePlanAssertionReadV1:
+        raise ValueError('Assertion capture requires complete native source materialization')
+    checked = NativePlanAssertionReadV1.model_validate_json(read.model_dump_json())
+    return NativePlanAssertionReadV2.model_validate(checked.model_dump(
+        exclude={'spans': {'__all__': {'text'}}}))
+
+
+class NativePlanAssertionReadObservedV1(Strict):
+    kind: Literal['native_plan_assertion_read_observed_v1'] = 'native_plan_assertion_read_observed_v1'
+    event_id: UUID
+    sequence: int = Field(ge=0, strict=True)
+    authorization_event_id: UUID
+    reads: tuple[NativePlanAssertionReadV1, ...]
+    unavailable_assertion_ids: tuple[str, ...]
+    status: Literal['complete', 'partial']
+
+    @model_validator(mode='after')
+    def inventory(self):
+        ids = [r.assertion.assertion_id for r in self.reads]
+        if (len(ids) != len(set(ids)) or len(self.unavailable_assertion_ids) != len(set(self.unavailable_assertion_ids))
+                or set(ids) & set(self.unavailable_assertion_ids)
+                or (self.status == 'partial') != bool(self.unavailable_assertion_ids)):
+            raise ValueError('Native assertion read inventory differs')
+        return self
+
+
+class NativePlanAssertionReadObservedV2(NativePlanAssertionReadObservedV1):
+    """Current shared observation, with exact support locations owned by Core."""
+    kind: Literal['native_plan_assertion_read_observed_v2'] = 'native_plan_assertion_read_observed_v2'
+    reads: tuple[NativePlanAssertionReadV2, ...]
+
+
+def validate_execution(receipt, execution):
+    from .native_plan_statements import validate_execution as validate_selected_reads
+    validate_selected_reads(receipt, execution)
+
+
+def selected_reads(turn):
+    return selected_read_records(turn.graph_context_execution)
+
+
+def selected_read_records(execution):
+    from .authored_graph_references import BuildAuthoredReferenceReadV2
+    return tuple((event, read) for event in execution.events
+        for read in (event.reads if isinstance(event, NativePlanAssertionReadObservedV1)
+            else event.assertion_reads if isinstance(event, BuildAuthoredReferenceReadV2) else ()))
+
+
+def model_frame(turn):
+    return model_frame_records(turn.graph_context_receipt.native_query, turn.graph_context_execution)
+
+
+def model_frame_records(query, execution, *, schema='dmb_plan_native_assertion_frame_v1', read_records=None):
+    """Project admitted facts; full source proofs stay in the read/citation owner."""
+    if schema not in {'dmb_plan_native_assertion_frame_v1', 'dmb_native_assertion_frame_v2'}:
+        raise ValueError('Unknown native assertion presentation')
+    if read_records is None:
+        read_records = selected_read_records(execution)
+    return {'schema': schema,
+        'authority': query.authority.model_dump(mode='json', by_alias=True),
+        'status': 'partial' if input_partial_records(query, execution) else 'complete',
+        'gap_codes': list(query.gap_codes), 'universal_absence_claimed': False,
+        'assertions': [{'assertion_handle': 'assertion:' + digest({'query': query.sha256,
+            'read': str(event.event_id), 'assertion': read.assertion.assertion_id}),
+            'assertion': read.assertion.model_dump(mode='json'),
+            **({'evidence': [e.model_dump(mode='json') for e in read.evidence],
+                'supporting_sources': [s.model_dump(exclude={'text'}) for s in read.spans]}
+                if schema == 'dmb_plan_native_assertion_frame_v1' else {})}
+            for event, read in read_records]}
+
+
+def input_partial(turn):
+    query = getattr(turn.graph_context_receipt, 'native_query', None)
+    return input_partial_records(query, turn.graph_context_execution)
+
+
+def input_partial_records(query, execution):
+    from .authored_graph_references import BuildAuthoredReferenceReadV2
+    return isinstance(query, NativePlanQueryV2) and (query.status == 'partial' or any(
+        isinstance(e, (NativePlanAssertionReadObservedV1, BuildAuthoredReferenceReadV2)) and e.status == 'partial'
+        for e in execution.events))
+
+
+def producing_reads(turn, authorization, raw):
+    from . import types as t
+    if not isinstance(getattr(turn.graph_context_receipt, 'native_query', None), NativePlanQueryV2):
+        return ()
+    from .plan_jev_graph_packet import frame_in_request
+    frame = frame_in_request(raw)
+    if (not isinstance(authorization, t.PlanNativeWriterAuthorizedV2)
+            or sha256(raw.encode()).hexdigest() != authorization.envelope_sha256
+            or digest(frame) != authorization.frame_sha256 or frame.get('native_assertions') != model_frame(turn)):
+        raise ValueError('Native assertions differ from actual producing input')
+    reads = selected_reads(turn)
+    if set(authorization.native_assertion_read_event_ids) != {e.event_id for e in turn.graph_context_execution.events
+            if isinstance(e, NativePlanAssertionReadObservedV1)}:
+        raise ValueError('Native assertion exposure differs from producing authorization')
+    return tuple((row['assertion_handle'], event, read) for row, (event, read)
+        in zip(model_frame(turn)['assertions'], reads, strict=True))
+
+
+class NativeAssertionCitationBinding(Strict):
+    segment_index: int = Field(ge=0, strict=True)
+    assertion_id: str = Field(min_length=1)
+    read_event_id: UUID
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    context_receipt_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    managed_world_id: str
+    native_world_id: str
+    read_revision_id: str
+    assertion_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+class NativeAssertionCitationV1(NativeAssertionLocationV1, NativeAssertionCitationBinding):
+    @model_validator(mode='after')
+    def exact_bytes(self):
+        if self.start_byte >= self.end_byte:
+            raise ValueError('Empty native assertion citation')
+        return self
+
+
+class NativeAssertionPdfCitationV1(NativeAssertionPdfRegionV1, NativeAssertionCitationBinding):
+    pass
+
+
+NativeAssertionCitation = NativeAssertionCitationV1 | NativeAssertionPdfCitationV1
+
+
+def citation(receipt, authorization, event, read, span, *, index):
+    authority = receipt.native_query.authority
+    citation_type = NativeAssertionPdfCitationV1 if isinstance(span, NativeAssertionPdfRegionV1) else NativeAssertionCitationV1
+    return citation_type(**span.model_dump(exclude={'text'}), segment_index=index,
+        assertion_id=read.assertion.assertion_id, read_event_id=event.event_id,
+        provider_attempt_id=authorization.provider_attempt_id, envelope_sha256=authorization.envelope_sha256,
+        context_receipt_sha256=receipt.context_receipt_sha256, managed_world_id=authority.managed_world_id,
+        native_world_id=authority.native_world_id, read_revision_id=authority.revision_id,
+        assertion_sha256=digest(read.assertion))
+
+
+def validate_citations(completion, receipt, execution, authorization):
+    from . import types as t
+    if not isinstance(getattr(receipt, 'native_query', None), NativePlanQueryV2):
+        if getattr(completion, 'native_assertion_citations', ()):
+            raise ValueError('Native assertion citations require their query')
+        return
+    if not isinstance(completion, t.SurfaceEvidenceCompletionV7):
+        raise ValueError('Native assertion query requires its exact completion')
+    validate_execution(receipt, execution)
+    reads = {(e.event_id, r.assertion.assertion_id): (e, r) for e in execution.events
+        if isinstance(e, NativePlanAssertionReadObservedV1) and e.event_id in authorization.native_assertion_read_event_ids for r in e.reads}
+    validate_citation_records(completion, receipt, authorization, reads)
+
+
+def validate_citation_records(completion, receipt, authorization, reads):
+    """One assertion span/qualification closure after actual producer admission."""
+    from . import types as t
+    seen, cited = set(), {}
+    for item in completion.native_assertion_citations:
+        key = item.segment_index, item.read_event_id, item.assertion_id, item.evidence_ref_id
+        pair = reads.get((item.read_event_id, item.assertion_id))
+        if key in seen or pair is None or item.segment_index >= len(completion.answer_segments):
+            raise ValueError('Native assertion citation lacks exact included support')
+        event, read = pair
+        span = next((s for s in read.spans if s.evidence_ref_id == item.evidence_ref_id), None)
+        segment = completion.answer_segments[item.segment_index]
+        if (span is None or not isinstance(segment, t.NativeAssertionClaimV1)
+                or item.assertion_id not in segment.assertion_ids
+                or item != citation(receipt, authorization, event, read, span, index=item.segment_index)):
+            raise ValueError('Native assertion citation changed original source support')
+        seen.add(key)
+        cited.setdefault(item.segment_index, set()).add(item.assertion_id)
+    for i, segment in enumerate(completion.answer_segments):
+        if isinstance(segment, t.NativeAssertionClaimV1):
+            included = [reads[(c.read_event_id, c.assertion_id)][1] for c in completion.native_assertion_citations if c.segment_index == i]
+            metadata = {digest(r.assertion.metadata): r.assertion.metadata for r in included}
+            if (set(segment.assertion_ids) != cited.get(i, set())
+                    or {digest(m) for m in segment.qualifications} != set(metadata)):
+                raise ValueError('Native assertion claim omitted its support or qualifications')
+            # Each citation was checked against its exact producing read above.
+            # Reopening the same immutable evidence in another read adds no support.
+            expected = {(read.assertion.assertion_id, span.evidence_ref_id)
+                for _, read in reads.values() if read.assertion.assertion_id in segment.assertion_ids for span in read.spans}
+            observed = {(assertion_id, evidence_ref_id)
+                for index, _, assertion_id, evidence_ref_id in seen if index == i}
+            if observed != expected:
+                raise ValueError('Native assertion claim omitted a supporting span')

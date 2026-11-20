@@ -1,0 +1,168 @@
+"""Plan parent orchestration: semantic decisions, unique reads, one writer."""
+import asyncio
+import json
+import logging
+import re
+
+from application_state.agent_conversation.rules_authority_policy import rules_capability
+from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
+from .agent_runtime import AgentRuntimeDescriptor
+from .plan_jev_dispatch import PlanJevDispatch, request_budget
+from .plan_jev_driver import PlanJevDriver
+from .plan_jev_rules_runtime import PlanRulesRuntime
+from .plan_jev_writer import PlanJevWriter
+
+
+class PlanJevHarness:
+    descriptor = AgentRuntimeDescriptor('buddy-plan-jev','generationengine','plan-jev-one-writer','graph')
+
+    def __init__(self, *, decision_transport=None, writer_transport=None, decision_api_key=None, writer_api_key=None):
+        self.decision_transport, self.writer_transport = decision_transport, writer_transport
+        self.decision_api_key, self.writer_api_key = decision_api_key, writer_api_key
+        self.calls = []
+        self.output_limit_exceeded = False
+
+    def configured_budget(self, request):
+        if request.surface.surface_id != 'plan' or request.plan_context_policy is None:
+            raise ValueError('Plan Jev requires a governed Plan question')
+        return request_budget()
+
+    def run_with_provider_authorization(self, *args, **kwargs):
+        raise ValueError('Plan Jev requires its trusted parent orchestration')
+
+    def execute(self, adapter, *, dialogue=(), retained_navigation=()):
+        from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+        from .agent_turn_service import AgentTurnServiceError
+        self.calls = []
+        page_title = next((line[2:].strip() for line in adapter.work.plan_markdown.splitlines() if line.startswith('# ') and line[2:].strip()), 'Current Plan')
+        semantic = None
+        rules = PlanRulesRuntime(adapter, rules_capability(graph=True))
+        driver = writer = None
+        primary_error = False
+        try:
+            from application_state.agent_conversation import types as t
+            from application_state.agent_conversation.native_context import NativeProviderInputV1
+            # Continue an existing SDK-admitted turn with its exact first wire.
+            # The dispatch/claim owner verifies that wire and the retained basis;
+            # never replace its receipt with a current request-first admission.
+            receipt = adapter.turn.graph_context_receipt if adapter.turn is not None else None
+            retained_sdk = (isinstance(receipt, (t.PlanSourceContextReceiptV1, t.SurfaceNativeContextReceiptV1))
+                and type(receipt.assembled_input) in (t.PlanSourceProviderInputV1, NativeProviderInputV1))
+            if retained_sdk:
+                semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title, dialogue=dialogue)
+            else:
+                if type(adapter.request.plan_context_policy) is not t.PlanContextPolicyV2:
+                    raise ValueError('Current Plan orchestration requires the governed native request protocol')
+                adapter.claim_native_plan_request(dialogue=dialogue)
+                from .native_authored_references import acquire
+                acquire(adapter)
+                driver = PlanJevDriver(adapter, dialogue=dialogue, rules=rules, retained_navigation=retained_navigation)
+                driver.native_sources.discover_initial()
+                semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title, **driver.decision_arguments())
+            selected, _ = asyncio.run(semantic.run(transport=self.decision_transport, api_key=self.decision_api_key))
+            if selected == 'different_destination':
+                raise AgentTurnServiceError('This request needs another page or object. The request is retained; choose that destination before generating.',
+                    code='plan_authoring_destination_unavailable', status_code=409)
+            if selected == 'write_current_page':
+                capture = adapter.request.plan_authoring_capture
+                selector = semantic.selection_event.placement_selector
+                catalog = adapter.request.plan_placement_catalog
+                if capture is not None and catalog is not None and selector is not None:
+                    capture = catalog.resolve(capture, selector)
+                else:
+                    capture = None
+                if capture is None:
+                    raise AgentTurnServiceError('The requested Plan writing has no captured page location. The request is retained; select a location on the Plan and try again.',
+                        code='plan_authoring_target_unavailable', status_code=409)
+                try:
+                    action, _ = adapter.service.reserve_plan_authoring_action(capture=capture,
+                        turn_id=adapter.fence.turn.turn_id, expected_revision=adapter.fence.turn.revision)
+                except (ApplicationStateConflictError, ApplicationStateValidationError) as exc:
+                    raise AgentTurnServiceError('The Plan or conversation changed before writing could start. The request is retained; review the current page location before trying again.',
+                        code='plan_authoring_target_changed', status_code=409) from exc
+                rules.authoring = (action, capture)
+            if not retained_sdk and semantic.selection_event.operation is not None:
+                driver.apply_opening(semantic)
+            else:
+                if retained_sdk and type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
+                    from .native_authored_references import acquire
+                    acquire(adapter)
+                driver = PlanJevDriver(adapter, dialogue=dialogue, rules=rules, retained_navigation=retained_navigation)
+                from .corpus_source_navigation import NativeBodyNavigation
+                if isinstance(driver.native_sources, NativeBodyNavigation):
+                    driver.native_sources.discover_initial()
+            proof = asyncio.run(driver.run(transport=self.decision_transport, api_key=self.decision_api_key))
+            writer = PlanJevWriter(adapter, proof, rules)
+            completed = asyncio.run(writer.run(transport=self.writer_transport, api_key=self.writer_api_key))
+            adapter.turn = completed.envelope if isinstance(completed, MixedCompletedTurnV1) else completed
+            return completed
+        except BaseException as exc:
+            primary_error = True
+            if writer is not None and writer.target_changed:
+                raise AgentTurnServiceError('The Plan or conversation changed during preparation, before writing was sent. The request is retained; review the current page location before trying again.',
+                    code='plan_authoring_target_changed', status_code=409) from exc
+            raise
+        finally:
+            self.calls = ([semantic.call] if semantic is not None and semantic.call is not None else []) + (driver.calls if driver is not None else []) + ([writer.call] if writer is not None and writer.call is not None else [])
+            self.output_limit_exceeded = writer.output_limit_exceeded if writer is not None else False
+            if adapter.fence is not None:
+                try:
+                    adapter.stop()
+                except Exception:
+                    if not primary_error:
+                        raise
+                    logging.getLogger(__name__).exception(
+                        "Plan claim cleanup failed; preserving the original execution failure")
+
+    def execute_response(self, adapter, *, owner, trace, dialogue=(), retained_navigation=()):
+        from .agent_turn_service import AgentTurnServiceError, _completed_turn_replay, _interrupt_policy_delivery
+        span=trace.start_phase('runtime_dispatch')
+        try:
+            completed=self.execute(adapter,dialogue=dialogue,retained_navigation=retained_navigation)
+        except BaseException as exc:
+            # Observe before fail_turn closes the attempt capture. This is a
+            # diagnostic, never completion/evidence or permission to retry.
+            surface=adapter.request.surface.surface_id
+            failure_code=f'{surface}_jev_delivery_failure'
+            code = exc.code if isinstance(exc, AgentTurnServiceError) else failure_code
+            if not isinstance(code, str) or re.fullmatch(r'[a-z][a-z0-9_]{0,63}', code) is None:
+                code = failure_code
+            if adapter.context_capture is not None:
+                try:
+                    adapter.context_capture.observe(dict(kind='failure', phase='delivery', code=code))
+                except Exception:
+                    logging.getLogger(__name__).exception(
+                        "Plan failure observation could not be recorded; preserving the execution failure")
+            trace.complete_phase(span,status='error')
+            if adapter.fence is not None:
+                current=adapter.fence.turn
+                if current.status=='running': _interrupt_policy_delivery(adapter.service,current,
+                    output_limit_exceeded=self.output_limit_exceeded,
+                    failure_code_override=exc.code if isinstance(exc,AgentTurnServiceError) and exc.code in {
+                        "plan_authoring_target_unavailable", "plan_authoring_target_changed", "plan_authoring_destination_unavailable",
+                        "authored_source_unavailable"} else None)
+            trace.finalize_and_log(status='error',model_calls=self.calls,observed_model_call_count=len(self.calls))
+            if isinstance(exc,AgentTurnServiceError): raise
+            raise AgentTurnServiceError(f'The {surface.title()} reply could not complete safely. No request was replayed.',
+                code=failure_code,status_code=503) from exc
+        trace.complete_phase(span)
+        final=trace.finalize_and_log(status='ok',model_calls=self.calls,observed_model_call_count=len(self.calls),
+            hermes_fields={'conversation_context':'structured'})
+        response=_completed_turn_replay(adapter.request,owner=owner,turn=completed)
+        payload=response.model_dump(mode='json',by_alias=True)
+        payload['answer']['trace']=final
+        # The durable projection deliberately omits live work on a replay. A
+        # fresh response must carry the committed basis resolved for this turn.
+        if adapter.request.surface.surface_id=='plan':
+            payload['primary_work']['content_basis']=adapter.work.content_basis.model_dump(mode='json')
+        if payload.get('plan_context') is not None: payload['plan_context']['delivery_replay']=False
+        if payload.get('play_context') is not None: payload['play_context']['delivery_replay']=False
+        if payload.get('rules_context') is not None:
+            for key in ('base_context','unclaimed_context'):
+                if payload['rules_context'].get(key) is not None: payload['rules_context'][key]['delivery_replay']=False
+        return type(response).model_validate_json(json.dumps(payload))
+
+
+def default_plan_jev_runtime():
+    """Ordinary governed Plan factory; the parent owns dispatch authorization."""
+    return PlanJevHarness()

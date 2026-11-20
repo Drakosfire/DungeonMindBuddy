@@ -1,3 +1,5 @@
+import {WorkPlanNode} from "../surface/workPlans/WorkPlanNode";
+import {PreparedTableNode} from "../preparedTables/PreparedTableNode";
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import type { AnyExtension, Content, Editor, JSONContent } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -10,14 +12,22 @@ import { PLAN_TABLE_EXTENSIONS } from "./extensions/planTableExtensions";
 import { PlayableElementHeadingAttributes } from "./extensions/PlayableElementHeadingAttributes";
 import { RunbookReferenceNode } from "./extensions/RunbookReferenceNode";
 
+import { WebSourceLink } from "./extensions/WebSourceLink";
+
+import { MediaImageNode } from "./extensions/MediaImageNode";
+
 export const DEFAULT_MARKDOWN_EDITOR_EXTENSIONS: AnyExtension[] = [
   StarterKit,
+  PreparedTableNode,
+  WorkPlanNode,
+  WebSourceLink,
   PlayableElementHeadingAttributes,
   CalloutNode,
   ...DECISION_CONSEQUENCE_EXTENSIONS,
   ...PLAN_TABLE_EXTENSIONS,
   RunbookReferenceNode,
   GraphNodeReferenceNode,
+  MediaImageNode,
 ];
 
 const NO_EXTRA_EXTENSIONS: AnyExtension[] = [];
@@ -114,7 +124,9 @@ export function MarkdownEditorCore({
   }, [editor, onEditorChange]);
 
   useEffect(() => {
-    editor?.setEditable(editable);
+    // Editable-state hydration/toggles do not change the document. TipTap
+    // otherwise emits an update that can serialize untouched saved source.
+    editor?.setEditable(editable, false);
   }, [editable, editor]);
 
   if (!editor) {

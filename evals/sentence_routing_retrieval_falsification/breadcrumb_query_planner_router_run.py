@@ -69,7 +69,7 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_query_planner_dis
     planner_message_from_final_text,
     query_session_memory_call_count,
 )
-from src.agent.corpus_path_tools import (
+from corpus.tool_trace import (
     read_paths_from_tool_trace,
     unit_ids_from_query_session_memory_trace,
 )
@@ -89,7 +89,7 @@ from src.agent.planner_retrieval_router import (
 )
 from src.agent.planner_telemetry import router_telemetry_row
 from src.agent.synthesis import _load_api_key
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 
 
 def _resolve_records(

@@ -31,7 +31,7 @@ from dungeonmind.infrastructure.postgres import PostgresDatabase, PostgresReposi
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GRAPH_INGEST_RUNS_ENV,
 )
-from scripts.bootstrap_local_play import inspect_readiness
+from application_state.local_play_bootstrap import inspect_readiness
 
 RuntimePreflightStatus = Literal[
     "READY",
@@ -91,14 +91,19 @@ def run_runtime_preflight(
     repo_root: Path,
     require_world: str | None = None,
     load_env: bool = True,
+    include_runbooks: bool = True,
+    include_operator_diagnostics: bool = True,
 ) -> RuntimePreflightReport:
-    checks = (
-        _check_app_state(repo_root, load_env=load_env),
-        _check_dungeonmind_world(require_world=require_world),
-        _check_campaign_registry(),
-        _check_ingest_registry(repo_root),
-        _check_source_roots(),
-    )
+    checks = (_check_app_state(load_env=load_env, include_runbooks=include_runbooks),)
+    if not include_operator_diagnostics and overall_status(checks) != "READY":
+        return RuntimePreflightReport(status="NOT READY", checks=checks)
+    checks += (_check_dungeonmind_world(require_world=require_world),)
+    if include_operator_diagnostics:
+        checks += (
+            _check_campaign_registry(),
+            _check_ingest_registry(repo_root),
+            _check_source_roots(),
+        )
     return RuntimePreflightReport(status=overall_status(checks), checks=checks)
 
 
@@ -139,8 +144,8 @@ def _format_detail_value(value: PreflightDetailValue) -> str:
     return str(value)
 
 
-def _check_app_state(repo_root: Path, *, load_env: bool) -> RuntimePreflightCheck:
-    readiness = inspect_readiness(repo_root=repo_root, load_env=load_env)
+def _check_app_state(*, load_env: bool, include_runbooks: bool = True) -> RuntimePreflightCheck:
+    readiness = inspect_readiness(load_env=load_env, include_runbooks=include_runbooks, periodic=not include_runbooks)
     details: dict[str, PreflightDetailValue] = {}
     if readiness.coordinates is not None:
         details["host"] = readiness.coordinates.host
@@ -204,11 +209,12 @@ def _check_app_state(repo_root: Path, *, load_env: bool) -> RuntimePreflightChec
             details=details,
         )
 
-    startable = readiness.startable_runbooks or 0
-    details["startable_runbooks"] = startable
     summary = "Application-state schema is ready"
-    if startable == 0:
-        details["note"] = "No startable runbooks; empty application state is valid"
+    if include_runbooks:
+        startable = readiness.startable_runbooks or 0
+        details["startable_runbooks"] = startable
+        if startable == 0:
+            details["note"] = "No startable runbooks; empty application state is valid"
     return RuntimePreflightCheck(
         id="app_state",
         label="Buddy application state",

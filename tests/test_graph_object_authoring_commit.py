@@ -16,14 +16,12 @@ from apps.live_control_server.services.graph_object_authoring_commit import (
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphObjectAuthoringCommitRequest,
     GraphObjectAuthoringError,
-    publication_intent_payload,
     sign_publication_intent,
+    VerifiedGraphReviewSpan,
 )
 from tests.test_graph_object_authoring_prepare import (
     CAMPAIGN_ID,
     GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV,
-    SOURCE_ARTIFACT_ID,
-    SOURCE_REVISION_ID,
     TEST_CAMPAIGN_REL,
     FakeSourceAdmission,
     FakeWorldGraphAuthority,
@@ -39,10 +37,42 @@ from tests.test_graph_object_authoring_prepare import (
 @pytest.fixture(autouse=True)
 def graph_review_unit_seams(monkeypatch: pytest.MonkeyPatch) -> FakeSourceAdmission:
     monkeypatch.setenv(GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, "d2c4-unit-test-key")
+    # These unit tests isolate proposal/signature behavior; registered ownership
+    # and distinct native routing are exercised by test_graph_object_authoring_world_binding.
+    from apps.live_control_server.services.graph_object_authoring_binding import GraphReviewPublicationContext
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_object_authoring_binding.resolve_publication_context",
+        lambda request, resolved, **_: GraphReviewPublicationContext(request.world_id or request.campaign_id, request.campaign_id),
+    )
     fake = FakeSourceAdmission()
     monkeypatch.setattr(
         "apps.live_control_server.ports.world_graph_source_admission_access.get_world_graph_source_admission_authority",
         lambda: fake,
+    )
+    def verified_unit_spans(*, assertions, resolved_source, **_kwargs):
+        artifact = resolved_source.source_artifact
+        return {
+            assertion.assertion_id: VerifiedGraphReviewSpan(
+                assertion_id=assertion.assertion_id,
+                evidence_ref_id=f"grauth-ev:{artifact.source_artifact_id}:{assertion.assertion_id}",
+                source_artifact_id=artifact.source_artifact_id,
+                source_revision_id=resolved_source.source_revision_id,
+                source_domain="worldbuilding",
+                source_span_ref_id=f"unit:{assertion.assertion_id}",
+                source_content_sha256="ab" * 32,
+                span_content_sha256="cd" * 32,
+                span_index_sha256="ef" * 32,
+                visibility_state="internal",
+            )
+            for assertion in assertions
+        }
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_object_authoring_prepare.verify_graph_review_assertion_spans",
+        verified_unit_spans,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_object_authoring_commit.verify_graph_review_assertion_spans",
+        verified_unit_spans,
     )
     return fake
 
@@ -173,6 +203,36 @@ def test_commit_publishes_object_through_dungeonmind(
     assert contrib.accepted_assertions[0].assertion_kind == "node"
     overlay = store.overlay_path(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
     assert not overlay.exists()
+
+
+def test_commit_binds_authenticated_actor_in_signed_intent(corpus_root: Path, monkeypatch) -> None:
+    from apps.live_control_server.services.graph_object_authoring_prepare import prepare_graph_object_authoring_write
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.source_artifact_registry.load_source_input_bytes",
+        lambda artifact: b"Synthetic proposal unit-test body",
+    )
+    authority = FakeWorldGraphAuthority()
+    source = fake_resolved_source()
+    dependencies = dict(corpus_root=corpus_root, authority=authority, resolved_source=source)
+    actor = "hosted_dms:owner"
+    preview = prepare_graph_object_authoring_write(prepare_request(), authenticated_actor=actor, **dependencies)
+    command = _commit_request_from_prepare(preview)
+    with pytest.raises(GraphObjectAuthoringError) as denied:
+        commit_graph_object_authoring_write(command, authenticated_actor="hosted_dms:other", **dependencies)
+    assert denied.value.code == "confirmation_invalid"
+    from fastapi import HTTPException
+
+    def transferred():
+        raise HTTPException(status_code=403)
+
+    with pytest.raises(HTTPException) as revoked:
+        commit_graph_object_authoring_write(
+            command, authenticated_actor=actor, authorize_world=transferred, **dependencies,
+        )
+    assert revoked.value.status_code == 403
+    assert authority.publish_calls == 0
+    assert commit_graph_object_authoring_write(command, authenticated_actor=actor, **dependencies).committed
 
 
 def test_commit_binds_recap_selector_and_rejects_selector_swap(corpus_root: Path) -> None:
@@ -407,20 +467,10 @@ def test_commit_expired_token_fails(corpus_root: Path) -> None:
         authority=authority,
         resolved_source=source,
     )
-    expired = publication_intent_payload(
-        world_id=CAMPAIGN_ID,
-        campaign_id=CAMPAIGN_ID,
-        campaign_rel=TEST_CAMPAIGN_REL,
-        source_run_id="run-c1s2",
-        source_artifact_id=SOURCE_ARTIFACT_ID,
-        source_revision_id=SOURCE_REVISION_ID,
-        expected_parent_revision_id=prepare.expected_parent_revision_id,
-        authority_operation_id=prepare.authority_operation_id,
-        expressibility="EXPRESSIBLE",
-        actor=prepare.actor or "",
-        assertions_digest=prepare.proposed_assertions_digest,
-        expires_at=(datetime.now(UTC) - timedelta(seconds=1)).isoformat(),
-    )
+    from apps.live_control_server.services.graph_object_authoring_prepare import decode_publication_intent
+    # Expiry-independent receipt recovery still requires a complete valid binding.
+    expired = decode_publication_intent(prepare.confirm_token)
+    expired["expires_at"] = (datetime.now(UTC) - timedelta(seconds=1)).isoformat()
     request = _commit_request_from_prepare(prepare)
     request = request.model_copy(update={"confirm_token": sign_publication_intent(expired)})
     with pytest.raises(GraphObjectAuthoringError) as exc:

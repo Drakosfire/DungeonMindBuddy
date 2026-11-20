@@ -10,7 +10,7 @@
   },
   "gold_fixture": {
     "fixture_id": "graph-memory:session-23-candidate-graph-gold:v0",
-    "candidate_graph_gold_path": "evals/graph_memory_layer/examples/session_23_candidate_graph_gold/candidate_graph_gold.json"
+    "candidate_graph_gold_path": "evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-23/candidate_graph_gold.json"
   },
   "passes": [
     {

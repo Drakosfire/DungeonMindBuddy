@@ -1,46 +1,24 @@
-"""Server-owned resolution of a graph-ingest run into promote inputs.
+"""Resolve exact database ingestion runs for governed promotion.
 
-Product prepare must never accept browser-supplied source/candidate paths.
-This module turns a ``run_id`` into validated artifact paths + digests from the
-bounded graph-ingest run registry.
+File manifests and directory discovery cannot create publication authority.
+Canonical component readers are being cut over to their immutable byte owner.
 """
 
 from __future__ import annotations
 
-import hashlib
+import copy
 import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from apps.live_control_server.config import repo_root, world_graph_root
-from apps.live_control_server.services.graph_ingest_run_registry import (
-    GRAPH_INGEST_MANIFEST_NAME,
-    GraphIngestRunRegistryError,
-    _graph_ingest_search_roots,
-    _resolve_repo_contained_path,
-)
+from apps.live_control_server.config import ArtifactDataRootError, artifact_data_root, repo_root
+
+from apps.live_control_server.services import graph_run_registry as run_registry
 from apps.live_control_server.services.graph_run_registry import (
     GraphRunRegistryError,
-    _resolve_repo_contained_uri,
-)
-from graph_memory.ingestion.graph_ingest_run import (
-    GraphIngestArtifactKind,
-    GraphIngestRunManifest,
-    GraphIngestRunStatus,
-)
-from graph_memory.ingestion.graph_ingest_validate import (
-    validate_graph_ingest_run_manifest,
-)
-from graph_memory.candidate_graph_to_contribution import (
-    CandidateGraphMappingError,
-    load_typed_candidate_graph,
-)
-
-# run_id forms that embed campaign/session for cross-check against the manifest.
-_RUN_ID_SCOPED = re.compile(
-    r"^graph-ingest:(?P<campaign>[^:]+):(?P<session>[^:]+):.+$"
+    ReviewableExtractionData,
 )
 
 
@@ -61,6 +39,15 @@ class PromotableIngestRunError(ValueError):
         self.diagnostics = list(diagnostics or [message])
 
 
+def _artifact_root(root: Path | None = None) -> Path:
+    try:
+        return artifact_data_root(root if root is not None else repo_root())
+    except ArtifactDataRootError as exc:
+        raise PromotableIngestRunError(
+            str(exc), code="artifact_data_root_unavailable", status_code=503
+        ) from exc
+
+
 @dataclass(frozen=True)
 class PromotableIngestRun:
     """Resolved, promotable graph-ingest run."""
@@ -72,6 +59,7 @@ class PromotableIngestRun:
     extraction_profile: str | None
     source_artifact_id: str
     source_revision_id: str
+    data: ReviewableExtractionData
     normalized_recap_path: Path
     candidate_graph_path: Path
     preview_union_store_path: Path
@@ -83,308 +71,67 @@ class PromotableIngestRun:
     diagnostics: list[str] = field(default_factory=list)
     source_domain: str = "recap"
     # Exact SourceArtifact world identity for canonical Build ExtractionRuns.
-    # Legacy graph-ingest manifests leave this None; never invent DEFAULT_WORLD_ID.
+    # An undeclared World stays None; never invent DEFAULT_WORLD_ID.
     world_id: str | None = None
-    # Exact ExtractionRun path: the run-pinned source_span_index component path.
-    # Review/prepare must load this URI — never re-derive the registry canonical
-    # index from source_artifact_id alone.
+    # Presentation metadata only. Exact source/span bytes are carried in data.
     source_span_index_path: Path | None = None
+    source_span_index_sha256: str | None = None
+    # Immutable MIND membership/head observation captured before recap extraction.
+    ingest_context: dict[str, Any] | None = None
 
-
-def ingest_runs_artifact_root(root: Path | None = None) -> Path:
-    """Default repo-relative root for product ingest-run artifacts."""
-    return ((root or repo_root()).resolve() / "out" / "graph_memory" / "runs").resolve()
-
-
-def ingest_run_registry_roots(
-    root: Path | None = None, *, include_eval_roots: bool = False
-) -> list[Path]:
-    """Configured registry search roots (honors ``DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT``)."""
-    repo = (root or repo_root()).resolve()
-    return list(
-        _graph_ingest_search_roots(repo, include_eval_roots=include_eval_roots)
-    )
-
-
-def world_store_denied_roots(root: Path | None = None) -> list[Path]:
-    """Durable world-graph trees that must never become evidentiary source.
-
-    When ``world_graph_root()`` is the broad default ``<repo>/out``, only the
-    worlds subtree is denied so configured ingest-run registry roots can remain
-    registry-gated evidence. A more specific mutation root is denied wholesale.
-    """
-    repo = (root or repo_root()).resolve()
-    out_root = (repo / "out").resolve()
-    worlds = (repo / "out" / "graph_memory" / "worlds").resolve()
-    roots: list[Path] = [worlds]
-    wgr = world_graph_root().resolve()
-    if wgr != out_root:
-        roots.append(wgr)
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for item in roots:
-        if item not in seen:
-            seen.add(item)
-            unique.append(item)
-    return unique
-
-
-def is_under_world_store(path: Path, *, root: Path | None = None) -> bool:
-    resolved = path.resolve()
-    for denied in world_store_denied_roots(root):
-        try:
-            resolved.relative_to(denied)
-            return True
-        except ValueError:
-            continue
-    return False
-
-
-def assess_manifest_promotability(
-    *,
-    repo: Path,
-    manifest_path: Path,
-    payload: dict[str, Any],
-    registry_root: Path,
-    include_eval_roots: bool = False,
-) -> tuple[bool, str | None]:
-    """Server-owned promotability using the same seam as prepare.
-
-    Runs the identical scope / artifact / containment validation as
-    ``resolve_promotable_ingest_run`` for this manifest, plus duplicate
-    ``run_id`` detection across the same search roots prepare uses.
-    """
-    run_id = str(payload.get("run_id") or "").strip()
-    if not run_id:
-        return False, "runId is missing"
-
-    matches = _find_manifests_for_run_id(
-        repo.resolve(), run_id, include_eval_roots=include_eval_roots
-    )
-    if len(matches) > 1:
-        return False, "ambiguous graph-ingest runId"
-
-    try:
-        resolve_promotable_from_loaded_manifest(
-            repo=repo.resolve(),
-            manifest_path=manifest_path,
-            payload=payload,
-            registry_root=registry_root.resolve(),
-            run_id=run_id,
-        )
-    except PromotableIngestRunError as exc:
-        return False, str(exc)
-    return True, None
-
-
-def is_under_ingest_runs(
-    path: Path, *, root: Path | None = None, include_eval_roots: bool = False
-) -> bool:
-    """True when ``path`` sits under any configured ingest-run registry root."""
-    resolved = path.resolve()
-    for registry_root in ingest_run_registry_roots(
-        root, include_eval_roots=include_eval_roots
-    ):
-        try:
-            resolved.relative_to(registry_root.resolve())
-            return True
-        except ValueError:
-            continue
-    return False
 
 
 def resolve_promotable_ingest_run(
     run_id: str,
     *,
     root: Path | None = None,
-    include_eval_roots: bool = False,
 ) -> PromotableIngestRun:
-    """Resolve ``run_id`` to promote inputs; fail closed when not promotable.
-
-    Canonical ExtractionRun IDs win over legacy graph-ingest manifests. When the
-    ID exists in the ExtractionRun registry, this seam never falls back to a
-    colliding legacy manifest — even for damaged, superseded, or non-reviewable
-    canonical runs.
-    """
+    """Resolve only the exact APP ExtractionRun; files cannot grant authority."""
     text = (run_id or "").strip()
     if not text:
         raise PromotableIngestRunError(
-            "runId is required",
-            code="invalid_request",
-            status_code=422,
+            "runId is required", code="invalid_request", status_code=422,
         )
-
-    repo = (root or repo_root()).resolve()
-
-    from apps.live_control_server.services.graph_run_registry import (
-        get_extraction_run,
-    )
-
-    try:
-        get_extraction_run(repo, text)
-        canonical_present = True
-    except GraphRunRegistryError as exc:
-        if exc.status_code == 404:
-            canonical_present = False
-        else:
-            raise PromotableIngestRunError(
-                str(exc),
-                code="run_not_promotable",
-                status_code=exc.status_code if exc.status_code in {422, 409, 500} else 422,
-                diagnostics=[str(exc)],
-            ) from exc
-
-    if canonical_present:
-        # Never consult legacy manifests for an ID that exists in the canonical
-        # ExtractionRun namespace — including non-reviewable failures.
-        extraction = _resolve_promotable_extraction_run(repo, text)
-        if extraction is None:
-            raise PromotableIngestRunError(
-                f"extraction run is not promotable: {text}",
-                code="run_not_promotable",
-                status_code=422,
-            )
-        return extraction
-
-    matches = _find_manifests_for_run_id(
-        repo, text, include_eval_roots=include_eval_roots
-    )
-    if matches:
-        if len(matches) > 1:
-            raise PromotableIngestRunError(
-                f"ambiguous graph-ingest runId: {text}",
-                code="run_ambiguous",
-                status_code=409,
-                diagnostics=[
-                    "multiple manifests share this run_id",
-                    *[str(path) for path, _, _ in matches],
-                ],
-            )
-        manifest_path, payload, registry_root = matches[0]
-        return resolve_promotable_from_loaded_manifest(
-            repo=repo,
-            manifest_path=manifest_path,
-            payload=payload,
-            registry_root=registry_root,
-            run_id=text,
-        )
-
-    raise PromotableIngestRunError(
-        f"unknown graph-ingest runId: {text}",
-        code="run_not_found",
-        status_code=404,
-    )
-
-
-def _resolve_extraction_component_path(repo: Path, uri: str, *, label: str) -> Path:
-    """Resolve one ExtractionRun component URI under the registry's path contract."""
-    try:
-        path = _resolve_repo_contained_uri(repo, uri)
-    except GraphRunRegistryError as exc:
+    extraction = _resolve_promotable_extraction_run(_artifact_root(root), text)
+    if extraction is None:
         raise PromotableIngestRunError(
-            f"extraction run {label} uri is unsafe or missing",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[str(exc)],
-        ) from exc
-    if not path.is_file():
-        raise PromotableIngestRunError(
-            f"extraction run {label} artifact is not a file",
-            code="run_not_promotable",
-            status_code=422,
+            f"unknown extraction runId: {text}", code="run_not_found", status_code=404,
         )
-    if is_under_world_store(path, root=repo):
-        raise PromotableIngestRunError(
-            f"extraction run {label} must not reference the world graph store",
-            code="run_not_promotable",
-            status_code=422,
-        )
-    return path
+    return extraction
 
 
-def _seal_extraction_source(
-    repo: Path,
-    *,
-    source_path: Path,
-    source_revision_id: str,
-) -> Path:
-    """Return an allowlisted, content-addressed seal of the verified source bytes.
-
-    Registry-owned source bytes (a committed workspace document) live outside the
-    ingest-run seal roots, so prepare cannot reference them directly. The seal is
-    keyed by the already-verified content digest, so it is immutable, idempotent,
-    and never mutates the ExtractionRun's own artifact directory.
-    """
-    if is_under_ingest_runs(source_path, root=repo):
-        return source_path
-
-    digest_hex = source_revision_id.removeprefix("sha256:")
-    seal_root = ingest_run_registry_roots(repo)[0]
-    sealed = (seal_root / "promote_seals" / digest_hex / "normalized_source.md").resolve()
-    payload = source_path.read_bytes()
-    if hashlib.sha256(payload).hexdigest() != digest_hex:
-        raise PromotableIngestRunError(
-            "extraction run source bytes disagree with the sealed content digest",
-            code="run_not_promotable",
-            status_code=422,
-        )
-    if not sealed.is_file() or hashlib.sha256(sealed.read_bytes()).hexdigest() != digest_hex:
-        sealed.parent.mkdir(parents=True, exist_ok=True)
-        sealed.write_bytes(payload)
-    return sealed
+def _resolve_extraction_component_path(repo: Path, uri: str) -> Path:
+    """Inert display metadata; never resolve symlinks or inspect a directory."""
+    return repo / uri.removeprefix("repo://")
 
 
 def _resolve_promotable_extraction_run(
     repo: Path,
     run_id: str,
 ) -> PromotableIngestRun | None:
-    """Resolve a canonical BLD-03 ExtractionRun when no graph-ingest manifest exists.
-
-    Evidence integrity (SourceArtifact scope, immutable source bytes, span-index
-    binding, candidate digest, repo containment) is owned by
-    ``get_reviewable_extraction_run``. This function adapts that verified run to
-    the existing promote inputs; it never re-derives digests or paths itself.
-    """
-    from apps.live_control_server.services.graph_run_registry import (
-        get_reviewable_extraction_run,
-    )
-    from apps.live_control_server.services.source_artifact_registry import (
-        SourceArtifactRegistryError,
-        get_source_artifact,
-    )
-
+    """Resolve the sole live ExtractionRun promotion path."""
     try:
-        run = get_reviewable_extraction_run(repo, run_id)
+        data = run_registry.load_reviewable_extraction_data(repo, run_id)
+        run, artifact = data.run, data.source_artifact
     except GraphRunRegistryError as exc:
         if exc.status_code == 404:
             return None
-        # Any other registry verdict (not reviewable, superseded, damaged
-        # lineage) means this exact run is not promotable. Never fall back.
+        # Preserve the owner failure; no alternate pipeline can recover it.
         raise PromotableIngestRunError(
             str(exc),
             code="run_not_promotable",
-            status_code=422,
+            status_code=exc.status_code,
             diagnostics=[str(exc), f"status={run_id}"],
         ) from exc
 
-    try:
-        artifact = get_source_artifact(repo, run.source_artifact_id)
-    except SourceArtifactRegistryError as exc:
-        raise PromotableIngestRunError(
-            f"extraction run SourceArtifact is unresolvable: {run.source_artifact_id}",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[str(exc)],
-        ) from exc
-
     candidate_path = _resolve_extraction_component_path(
-        repo, run.components["candidate_graph"].uri, label="candidate_graph"
+        repo, run.components["candidate_graph"].uri
     )
     source_path = _resolve_extraction_component_path(
-        repo, run.components["source_artifact"].uri, label="source_artifact"
+        repo, run.components["source_artifact"].uri
     )
     span_index_path = _resolve_extraction_component_path(
-        repo, run.components["source_span_index"].uri, label="source_span_index"
+        repo, run.components["source_span_index"].uri
     )
 
     source_revision_id = _normalize_digest(artifact.content_sha256)
@@ -395,9 +142,6 @@ def _resolve_promotable_extraction_run(
             status_code=422,
         )
 
-    sealed_source_path = _seal_extraction_source(
-        repo, source_path=source_path, source_revision_id=source_revision_id
-    )
     run_dir = candidate_path.parent
     artifact_world_id = (artifact.world_id or "").strip() or None
 
@@ -409,13 +153,14 @@ def _resolve_promotable_extraction_run(
         extraction_profile=run.profile_id,
         source_artifact_id=run.source_artifact_id,
         source_revision_id=source_revision_id,
-        normalized_recap_path=sealed_source_path,
+        data=data,
+        normalized_recap_path=source_path,
         candidate_graph_path=candidate_path,
         preview_union_store_path=run_dir,
         manifest_path=run_dir / "extraction_run.json",
         run_dir=run_dir,
         registry_root=repo,
-        sealed_source_uri=_seal_repo_uri(repo, sealed_source_path),
+        sealed_source_uri=artifact.uri,
         diagnostics=[
             "resolved via canonical ExtractionRun registry",
             f"source_domain={run.source_domain}",
@@ -424,363 +169,14 @@ def _resolve_promotable_extraction_run(
         ],
         source_domain=(run.source_domain or "worldbuilding").strip() or "worldbuilding",
         world_id=artifact_world_id,
+        ingest_context=(
+            dict(run.lineage.get("world_campaign_ingest_context"))
+            if isinstance(run.lineage.get("world_campaign_ingest_context"), dict)
+            else None
+        ),
         source_span_index_path=span_index_path,
+        source_span_index_sha256=run.components["source_span_index"].sha256,
     )
-
-
-def resolve_promotable_from_loaded_manifest(
-    *,
-    repo: Path,
-    manifest_path: Path,
-    payload: dict[str, Any],
-    registry_root: Path,
-    run_id: str,
-) -> PromotableIngestRun:
-    """Shared prepare/summary seam: validate one loaded manifest for promotion."""
-    validation = validate_graph_ingest_run_manifest(payload)
-    if validation.get("errors"):
-        raise PromotableIngestRunError(
-            "graph-ingest run manifest is invalid",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[str(item) for item in validation["errors"]],
-        )
-
-    try:
-        manifest = GraphIngestRunManifest.model_validate(payload)
-    except Exception as exc:  # noqa: BLE001 — surface as promotability failure
-        raise PromotableIngestRunError(
-            "graph-ingest run manifest is invalid",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[str(exc)],
-        ) from exc
-
-    _assert_run_id_scope_matches(run_id, manifest)
-
-    if manifest.status == GraphIngestRunStatus.FAILED:
-        raise PromotableIngestRunError(
-            "graph-ingest run status is failed",
-            code="run_not_promotable",
-            status_code=422,
-        )
-    if manifest.status != GraphIngestRunStatus.PREVIEW_UNION_STORE_READY:
-        raise PromotableIngestRunError(
-            "graph-ingest run is not preview_union_store_ready",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[f"status={manifest.status.value}"],
-        )
-    if manifest.health.candidate_graph_valid is not True:
-        raise PromotableIngestRunError(
-            "graph-ingest run candidate graph is not valid",
-            code="run_not_promotable",
-            status_code=422,
-        )
-    if manifest.health.preview_union_store_valid is not True:
-        raise PromotableIngestRunError(
-            "graph-ingest run preview union store is not valid",
-            code="run_not_promotable",
-            status_code=422,
-        )
-
-    run_dir = manifest_path.parent.resolve()
-    normalized_path = _resolve_run_artifact_file(
-        repo,
-        run_dir,
-        manifest,
-        kind=GraphIngestArtifactKind.NORMALIZED_RECAP,
-        fallback_uri=manifest.source.normalized_recap_path,
-    )
-    candidate_path = _resolve_run_artifact_file(
-        repo,
-        run_dir,
-        manifest,
-        kind=GraphIngestArtifactKind.CANDIDATE_GRAPH,
-        fallback_uri=None,
-    )
-    preview_path = _resolve_run_artifact_file(
-        repo,
-        run_dir,
-        manifest,
-        kind=GraphIngestArtifactKind.PREVIEW_UNION_STORE,
-        fallback_uri=None,
-    )
-
-    if is_under_world_store(normalized_path, root=repo):
-        raise PromotableIngestRunError(
-            "normalized recap must not reference the world graph store",
-            code="run_not_promotable",
-            status_code=422,
-        )
-    if is_under_world_store(candidate_path, root=repo):
-        raise PromotableIngestRunError(
-            "candidate graph must not reference the world graph store",
-            code="run_not_promotable",
-            status_code=422,
-        )
-    if is_under_world_store(preview_path, root=repo):
-        raise PromotableIngestRunError(
-            "preview union store must not reference the world graph store",
-            code="run_not_promotable",
-            status_code=422,
-        )
-
-    try:
-        candidate_payload = json.loads(candidate_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise PromotableIngestRunError(
-            "candidate graph could not be read as JSON",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[str(exc)],
-        ) from exc
-    if not isinstance(candidate_payload, dict):
-        raise PromotableIngestRunError(
-            "candidate graph root must be a JSON object",
-            code="run_not_promotable",
-            status_code=422,
-        )
-    # Prefer declared registry artifact when present; otherwise partition in-memory
-    # so older runs that still embed heroes-party become promotable.
-    from graph_memory.standing_context_partition import (
-        partition_candidate_graph_by_provenance,
-    )
-
-    registry_kind = GraphIngestArtifactKind.REGISTRY_CONTEXT_GRAPH
-    registry_declared = manifest.artifacts.get(registry_kind.value) is not None
-    registry_context_graph_path: Path | None = None
-    if registry_declared:
-        try:
-            registry_path = _resolve_run_artifact_file(
-                repo,
-                run_dir,
-                manifest,
-                kind=registry_kind,
-                fallback_uri=None,
-            )
-            loaded_registry = json.loads(registry_path.read_text(encoding="utf-8"))
-        except (PromotableIngestRunError, OSError, json.JSONDecodeError, TypeError) as exc:
-            raise PromotableIngestRunError(
-                "registry context graph is declared but unreadable or invalid",
-                code="run_not_promotable",
-                status_code=422,
-                diagnostics=[str(exc)],
-            ) from exc
-        if not isinstance(loaded_registry, dict):
-            raise PromotableIngestRunError(
-                "registry context graph root must be a JSON object",
-                code="run_not_promotable",
-                status_code=422,
-            )
-        try:
-            typed_registry = load_typed_candidate_graph(loaded_registry)
-        except CandidateGraphMappingError as exc:
-            raise PromotableIngestRunError(
-                f"registry context graph is declared but not typed CandidateGraphPreview IR: {exc}",
-                code="run_not_promotable",
-                status_code=422,
-                diagnostics=[str(exc)],
-            ) from exc
-        if not typed_registry.nodes:
-            raise PromotableIngestRunError(
-                "registry context graph must contain at least one node",
-                code="run_not_promotable",
-                status_code=422,
-            )
-        registry_campaign = str(typed_registry.campaign_id or "").strip()
-        if not registry_campaign:
-            raise PromotableIngestRunError(
-                "registry context graph campaign_id is required",
-                code="run_not_promotable",
-                status_code=422,
-                diagnostics=[f"manifest_campaign={manifest.campaign_id}"],
-            )
-        if registry_campaign != manifest.campaign_id:
-            raise PromotableIngestRunError(
-                "registry context graph campaign_id disagrees with run manifest",
-                code="run_not_promotable",
-                status_code=422,
-                diagnostics=[
-                    f"registry_campaign={registry_campaign}",
-                    f"manifest_campaign={manifest.campaign_id}",
-                ],
-            )
-        registry_context_graph_path = registry_path
-    else:
-        candidate_payload, _standing, _diag = partition_candidate_graph_by_provenance(
-            candidate_payload
-        )
-
-    try:
-        load_typed_candidate_graph(candidate_payload)
-    except CandidateGraphMappingError as exc:
-        raise PromotableIngestRunError(
-            f"candidate graph is not typed CandidateGraphPreview IR: {exc}",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[str(exc)],
-        ) from exc
-
-    artifact_digest = None
-    normalized_artifact = manifest.artifacts.get(
-        GraphIngestArtifactKind.NORMALIZED_RECAP.value
-    )
-    if normalized_artifact is not None:
-        artifact_digest = normalized_artifact.sha256
-    source_revision_id = _normalize_digest(
-        manifest.source.normalized_recap_sha256 or artifact_digest
-    )
-    if not source_revision_id:
-        raise PromotableIngestRunError(
-            "graph-ingest run is missing normalized_recap sha256",
-            code="run_not_promotable",
-            status_code=422,
-        )
-
-    source_artifact_id = (manifest.source.source_artifact_id or "").strip()
-    if not source_artifact_id:
-        raise PromotableIngestRunError(
-            "graph-ingest run is missing source_artifact_id",
-            code="run_not_promotable",
-            status_code=422,
-        )
-
-    try:
-        normalized_path.resolve().relative_to(registry_root.resolve())
-        candidate_path.resolve().relative_to(registry_root.resolve())
-        preview_path.resolve().relative_to(registry_root.resolve())
-    except ValueError as exc:
-        raise PromotableIngestRunError(
-            "graph-ingest run artifacts escape the matched registry root",
-            code="run_not_promotable",
-            status_code=422,
-        ) from exc
-
-    sealed_source_uri = _seal_repo_uri(repo, normalized_path)
-    extraction_profile = _extraction_profile(payload)
-    diagnostics = [
-        f"resolved_run_id:{manifest.run_id}",
-        f"campaign_id:{manifest.campaign_id}",
-        f"session_id:{manifest.session_id}",
-        f"status:{manifest.status.value}",
-        f"registry_root:{registry_root}",
-    ]
-    if registry_context_graph_path is not None:
-        diagnostics.append(
-            f"registry_context_graph_path:{registry_context_graph_path}"
-        )
-
-    return PromotableIngestRun(
-        run_id=manifest.run_id,
-        campaign_id=manifest.campaign_id,
-        session_id=manifest.session_id,
-        status=manifest.status.value,
-        extraction_profile=extraction_profile,
-        source_artifact_id=source_artifact_id,
-        source_revision_id=source_revision_id,
-        normalized_recap_path=normalized_path,
-        candidate_graph_path=candidate_path,
-        preview_union_store_path=preview_path,
-        manifest_path=manifest_path,
-        run_dir=run_dir,
-        registry_root=registry_root.resolve(),
-        sealed_source_uri=sealed_source_uri,
-        registry_context_graph_path=registry_context_graph_path,
-        diagnostics=diagnostics,
-    )
-
-
-def _find_manifests_for_run_id(
-    repo: Path,
-    run_id: str,
-    *,
-    include_eval_roots: bool,
-) -> list[tuple[Path, dict[str, Any], Path]]:
-    matches: list[tuple[Path, dict[str, Any], Path]] = []
-    for search_root in _graph_ingest_search_roots(
-        repo, include_eval_roots=include_eval_roots
-    ):
-        if not search_root.exists():
-            continue
-        for manifest_path in sorted(search_root.rglob(GRAPH_INGEST_MANIFEST_NAME)):
-            try:
-                safe = _resolve_repo_contained_path(manifest_path, repo)
-                payload = json.loads(safe.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError, GraphIngestRunRegistryError):
-                continue
-            if not isinstance(payload, dict):
-                continue
-            if str(payload.get("run_id") or "").strip() != run_id:
-                continue
-            matches.append((safe, payload, search_root.resolve()))
-    return matches
-
-
-def _assert_run_id_scope_matches(run_id: str, manifest: GraphIngestRunManifest) -> None:
-    match = _RUN_ID_SCOPED.match(run_id)
-    if match is None:
-        return
-    campaign = match.group("campaign")
-    session = match.group("session")
-    if campaign != manifest.campaign_id or session != manifest.session_id:
-        raise PromotableIngestRunError(
-            "runId campaign/session does not match the run manifest",
-            code="run_scope_mismatch",
-            status_code=422,
-            diagnostics=[
-                f"run_id_campaign={campaign}",
-                f"run_id_session={session}",
-                f"manifest_campaign={manifest.campaign_id}",
-                f"manifest_session={manifest.session_id}",
-            ],
-        )
-
-
-def _resolve_run_artifact_file(
-    repo: Path,
-    run_dir: Path,
-    manifest: GraphIngestRunManifest,
-    *,
-    kind: GraphIngestArtifactKind,
-    fallback_uri: str | None,
-) -> Path:
-    artifact = manifest.artifacts.get(kind.value)
-    uri = None
-    if artifact is not None and isinstance(artifact.uri, str) and artifact.uri.strip():
-        uri = artifact.uri.strip()
-    elif fallback_uri and fallback_uri.strip():
-        uri = fallback_uri.strip()
-    if not uri:
-        raise PromotableIngestRunError(
-            f"graph-ingest run is missing {kind.value} artifact",
-            code="run_not_promotable",
-            status_code=422,
-        )
-    try:
-        path = _resolve_repo_contained_path(Path(uri), repo)
-    except (GraphIngestRunRegistryError, FileNotFoundError) as exc:
-        raise PromotableIngestRunError(
-            f"graph-ingest run {kind.value} artifact is missing or unsafe",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[str(exc)],
-        ) from exc
-    if not path.is_file():
-        raise PromotableIngestRunError(
-            f"graph-ingest run {kind.value} artifact is not a file",
-            code="run_not_promotable",
-            status_code=422,
-        )
-    try:
-        path.relative_to(run_dir)
-    except ValueError as exc:
-        raise PromotableIngestRunError(
-            f"graph-ingest run {kind.value} artifact escapes the run directory",
-            code="run_not_promotable",
-            status_code=422,
-        ) from exc
-    return path
 
 
 def _normalize_digest(raw: str | None) -> str:
@@ -795,25 +191,64 @@ def _normalize_digest(raw: str | None) -> str:
     return f"sha256:{text}"
 
 
-def _seal_repo_uri(repo: Path, path: Path) -> str:
-    rel = path.resolve().relative_to(repo.resolve()).as_posix()
-    return f"repo://{rel}"
+EXTRACTION_RUN_BINDING_KEY = "extraction_run"
 
 
-def _extraction_profile(payload: dict[str, Any]) -> str | None:
-    for key_path in (
-        ("extraction_profile",),
-        ("metadata", "extraction_profile"),
-        ("runner_options", "extraction_profile"),
-        ("diagnostics", "graph_extraction_profile"),
-        ("diagnostics", "extraction_profile"),
-    ):
-        value: Any = payload
-        for key in key_path:
-            if not isinstance(value, dict):
-                value = None
-                break
-            value = value.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
+def extraction_run_binding(data: ReviewableExtractionData) -> dict[str, Any]:
+    """Pins inside the existing reviewed effect; no new receipt or authority."""
+    run = data.run
+    return {
+        "run_id": run.run_id, "run_revision": run.revision,
+        "profile_id": run.profile_id, "source_domain": run.source_domain,
+        "campaign_id": run.campaign_id, "session_id": run.session_id,
+        "world_id": data.source_artifact.world_id,
+        "source_artifact_id": run.source_artifact_id,
+        "source_revision_id": _normalize_digest(data.source_artifact.content_sha256),
+        "components": {
+            kind: _normalize_digest(run.components[kind].sha256)
+            for kind in ("source_artifact", "candidate_graph", "source_span_index")
+        },
+    }
+
+
+def seal_extraction_run(package: dict[str, Any], data: ReviewableExtractionData) -> dict[str, Any]:
+    from graph_memory.extract_promote_proposal import compute_proposal_digest
+    sealed = copy.deepcopy(package)
+    effect = dict(sealed.get("effect") or {})
+    effect[EXTRACTION_RUN_BINDING_KEY] = extraction_run_binding(data)
+    sealed["effect"] = effect
+    sealed["proposal_digest"] = compute_proposal_digest(effect)
+    return sealed
+
+
+def load_bound_extraction_run(package: dict[str, Any], *, root: Path) -> ReviewableExtractionData:
+    """Reopen only the exact reviewed APP run; no locator discovery/fallback."""
+    from graph_memory.extract_promote_proposal import compute_proposal_digest
+    from apps.live_control_server.services.candidate_graph_admission import canonical_candidate_digest
+
+    effect = package.get("effect") or {}
+    binding = effect.get(EXTRACTION_RUN_BINDING_KEY)
+    if (not isinstance(binding, dict) or not isinstance(binding.get("run_id"), str)
+        or not binding["run_id"].strip()
+        or package.get("proposal_digest") != compute_proposal_digest(effect)):
+        raise PromotableIngestRunError(
+            "Exact extraction run binding is required; prepare this review again.",
+            code="candidate_binding_invalid", status_code=409,
+        )
+    try:
+        data = run_registry.load_reviewable_extraction_data(root, binding["run_id"])
+    except GraphRunRegistryError as exc:
+        raise PromotableIngestRunError(str(exc), code="candidate_binding_invalid",
+                                      status_code=exc.status_code) from exc
+    admission = effect.get("candidate_admission") or {}
+    if (binding != extraction_run_binding(data)
+        or effect.get("source_artifact_id") != data.run.source_artifact_id
+        or effect.get("source_revision_id") != _normalize_digest(data.source_artifact.content_sha256)
+        or (data.source_artifact.world_id is not None and effect.get("world_id") != data.source_artifact.world_id)
+        or (effect.get("contribution_meta") or {}).get("campaign_scope") != data.run.campaign_id
+        or admission.get("candidate_digest") != canonical_candidate_digest(json.loads(data.candidate_bytes))):
+        raise PromotableIngestRunError(
+            "Reviewed extraction run or component pins changed; prepare again.",
+            code="candidate_binding_invalid", status_code=409,
+        )
+    return data

@@ -180,14 +180,14 @@ def git_worktree_clean(repo_root: Path) -> bool:
 
 
 def model_policy_digest(repo_root: Path | None = None) -> str:
-    from src.model_policy import buddy_model_policy_path
+    from model_policy import buddy_model_policy_path
 
     path = buddy_model_policy_path()
     return _sha256_file(path)
 
 
 def resolved_production_model_id() -> str:
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         resolve_category_graph_model,
     )
 
@@ -195,7 +195,7 @@ def resolved_production_model_id() -> str:
 
 
 def parse_flat_frontmatter(markdown: str) -> dict[str, str | int | None]:
-    from src.ingestion.frontmatter import (
+    from ingestion.frontmatter import (
         FrontmatterParseError,
         _parse_frontmatter_block,
         split_frontmatter,
@@ -208,7 +208,7 @@ def parse_flat_frontmatter(markdown: str) -> dict[str, str | int | None]:
 
 
 def _discover_sessions(corpus: Path, campaign_number: int) -> list[int]:
-    from src.corpus.session_recap_paths import session_recaps_prefix
+    from corpus.session_recap_paths import session_recaps_prefix
 
     norm_dir = corpus / session_recaps_prefix(campaign_number) / "_normalized"
     if not norm_dir.is_dir():
@@ -252,12 +252,12 @@ def _require_repo_contained(path: Path, repo_root: Path) -> Path:
 
 def freeze_current_corpus_manifest(repo_root: Path) -> FrozenManifest:
     """Freeze one exact current-corpus cohort before any model call."""
-    from src.corpus.session_recap_paths import (
+    from corpus.session_recap_paths import (
         campaign_id_from_number,
         pick_normalized_basename_from_disk,
         session_recaps_prefix,
     )
-    from src.graph_memory.evidence.source_artifact import build_recap_source_artifact_id
+    from graph_memory.evidence.source_artifact import build_world_scoped_recap_source_artifact_id
     from src.live_play.recap_stage_paths import corpus_root as default_corpus_root
 
     corpus = default_corpus_root()
@@ -359,7 +359,8 @@ def freeze_current_corpus_manifest(repo_root: Path) -> FrozenManifest:
 
             original_sha = _sha256_file(original_path)
             session_id = f"session-{session}"
-            source_artifact_id = build_recap_source_artifact_id(
+            source_artifact_id = build_world_scoped_recap_source_artifact_id(
+                world_id=WORLD_ID,
                 campaign_id=campaign_id,
                 session_id=session_id,
                 content_sha256=original_sha,
@@ -567,18 +568,19 @@ def _extract_session(
         load_source_span_index,
     )
     from graph_memory.source_span import source_span_index_to_dict
-    from src.graph_memory.extraction.graph_preview_runner import (
+    from graph_memory.extraction.graph_preview_runner import (
         ProductionExtractionRequest,
         run_production_extraction,
     )
-    from src.graph_memory.extraction.recap_extraction_profile import (
+    from graph_memory.extraction.recap_extraction_profile import (
         RECAP_PROFILE_ID,
         RECAP_PROFILE_VERSION,
     )
-    from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
+    from graph_memory.extraction.source_adapter import NormalizedExtractionSource
 
     artifact = create_recap_source_artifact(
         repo_root,
+        world_id=WORLD_ID,
         campaign_id=entry.campaign_id,
         session_id=entry.session_id,
         recap_path=repo_root / entry.original_path,
@@ -614,7 +616,10 @@ def _extract_session(
             profile_version=RECAP_PROFILE_VERSION,
             model_id=None,
             allow_llm=True,
-            output_dir=output_dir / "extraction" / entry.session_id,
+            initial_lineage={
+                "native_world_id": WORLD_ID,
+                "campaign_id": entry.campaign_id,
+            },
         )
     )
     status = result.run.status
@@ -1014,7 +1019,7 @@ def run_preflight(
     require_clean_worktree: bool = False,
 ) -> AcceptanceState:
     """Zero model calls; zero graph mutation."""
-    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
 
     load_dungeonmindbuddy_dotenv()
     root = (repo_root or REPO_ROOT).resolve()
@@ -1063,7 +1068,7 @@ def run_execute(
     require_clean_worktree: bool = False,
 ) -> AcceptanceState:
     """Full fresh acceptance from pristine authority; stop on first failure."""
-    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
 
     load_dungeonmindbuddy_dotenv()
     root = (repo_root or REPO_ROOT).resolve()

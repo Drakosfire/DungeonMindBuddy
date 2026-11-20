@@ -57,7 +57,7 @@
   "schema": "dmb_graph_ingest_run_manifest_v0",
   "session_id": "session-1",
   "source": {
-    "candidate_graph_uri": "evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/c1s1-stonebridge_edge_and_node_packet_candidate_graph.json",
+    "candidate_graph_uri": "evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/c1s1-stonebridge_edge_and_node_packet_candidate_graph.json",
     "normalized_recap_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 01 - Stonebridge and Glowkindle Rats.md",
     "normalized_recap_sha256": "sha256:b01733e7c2a943ac8db29e338c4e57204db1148069f3050ad9bac9e484ba8284",
     "source_artifact_id": "artifact:recap:longmont-c1:session-1",

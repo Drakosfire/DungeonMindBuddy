@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from apps.live_control_server.models.threat_query_hydration import (
     ThreatQueryHydrationRequestV1,
@@ -23,16 +26,50 @@ from graph_memory.interaction.expansion_executor import (
 
 DECLARE_CONVERSATION_CONTEXT_TOOL_NAME = "declare_conversation_context"
 QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME = "query_threat_mechanics_hydration"
+READ_RELATED_RECAP_CONTEXT_TOOL_NAME = "read_related_recap_context"
+
+
+class ReadRelatedRecapContextRequest(BaseModel):
+    """Model intent only; the parent supplies and checks every authority pin."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    schema_: Literal["dmb_read_related_recap_context_request_v2"] = Field(
+        default="dmb_read_related_recap_context_request_v2", alias="schema"
+    )
+    target_kind: Literal["assertion", "relationship"] = Field(alias="targetKind")
+    target_id: str = Field(alias="targetId", min_length=1, max_length=256)
+    evidence_ref_ids: list[str] = Field(alias="evidenceRefIds", min_length=1, max_length=64)
+    max_chars: int = Field(default=4000, alias="maxChars", strict=True, ge=1, le=12000)
+    context_anchor_id: str = Field(alias="contextAnchorId", min_length=1, max_length=256)
+    continuation: str | None = Field(default=None, max_length=256)
+
+    @model_validator(mode="after")
+    def validate_request(self) -> ReadRelatedRecapContextRequest:
+        if (
+            self.target_id != self.target_id.strip()
+            or self.evidence_ref_ids != sorted(set(self.evidence_ref_ids))
+            or any(not value.strip() or value != value.strip() for value in self.evidence_ref_ids)
+            or not self.context_anchor_id.startswith("dm-context-anchor:v2:")
+        ):
+            raise ValueError("related recap request has invalid intent or continuation")
+        return self
 
 ORDERED_INTERACTION_TOOL_NAMES: tuple[str, ...] = (
     "expand_graph_retrieval",
     "read_graph_source",
+    READ_RELATED_RECAP_CONTEXT_TOOL_NAME,
     QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
 )
+
+PROPOSE_BUILD_INSERTION = "propose_build_insertion"
 
 ORDERED_MODEL_VISIBLE_TOOL_NAMES: tuple[str, ...] = (
     DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
     *ORDERED_INTERACTION_TOOL_NAMES,
+    "search_retained_source_sections", "browse_native_source_sections", "read_native_source_sections",
+    PROPOSE_BUILD_INSERTION,
+    "prepare_build_image",
 )
 
 HERMES_GRAPH_INTERACTION_TOOL_NAMES = frozenset(ORDERED_INTERACTION_TOOL_NAMES)
@@ -131,6 +168,14 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
         by_alias=True,
         mode="validation",
     )
+    recap_schema = ReadRelatedRecapContextRequest.model_json_schema(
+        by_alias=True, mode="validation"
+    )
+    for schema in (expand_schema,read_schema,recap_schema):
+        schema["properties"]["resultPageToken"]={
+            "type":"string","minLength":1,
+            "description":"Opaque continuation from the previous result. Repeat the exact original arguments with this token; never invent a token.",
+        }
     return [
         {
             "type": "function",
@@ -138,14 +183,46 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
                 "name": "expand_graph_retrieval",
                 "description": (
                     "Expand the current shared GraphRetrievalSession with a bounded "
-                    "graph operation (object, neighborhood, search, or support). "
+                    "graph operation (object, neighborhood, search, support, or observations). "
+                    "In governed Build, prefer observations with 1–8 observationIds from saved-source "
+                    "discovery for multi-subject source questions. Pass IDs only, no targets/query; "
+                    "the parent freezes source identity. This returns complete qualified records "
+                    "and anchors without unrelated object history. Missing selection or overflow "
+                    "admits nothing; narrow to exact available IDs. Open relevant supporting sources. "
+                    "For substantive object/observations questions prefer includeSources=true: the parent "
+                    "opens admitted sources and returns one compact dmb_graph_evidence_packet_v1. "
+                    "Use original assertionId/edgeId and subject IDs for claims; evidence handles link exact "
+                    "source text. Follow the current answer schema: copy evidenceRefIds exactly when "
+                    "provided and required; otherwise emit target IDs only. Check unopened/truncated "
+                    "coverage. Oversized bundles require a narrower selection. Other operations do not "
+                    "support this opt-in. "
                     "Always pass the retrievalSessionId "
                     "that was provided for this turn. Scope/revision are server-enforced. "
                     "object/support require exactly one node target; neighborhood requires "
                     "1–8 seeds (no silent search fallback); search allows 0–8 seed nodes. "
                     "For relationship or multi-entity questions, prefer neighborhood with "
                     "1–8 seeds. Call object or support separately for each single node. "
-                    "Use this instead of rediscovering objects independently. "
+                    "Search with targets=[] discovers across the frozen scope without "
+                    "inheriting preflight or selected nodes; supply seeds only to retain "
+                    "those explicit targets. Use this instead of rediscovering objects independently. "
+                    "Search reviewedSourceObservationMatches are bounded discovery "
+                    "pointers, not canonical attributes or answer claims. Expand each "
+                    "relevant subjectNodeId with object, setting observationIds to the relevant "
+                    "assertionId pointers in governed Build. This selects definitions before "
+                    "anchor admission; unselected coverage remains partial. Open supporting source "
+                    "anchors before answering. Preserve belief and conditional language; "
+                    "a role label does not establish organizational membership. "
+                    "Large expansions first return dmb_graph_tool_overview_v1: view contains "
+                    "complete selected rows with exact identities, qualifications and admitted "
+                    "sourceAnchorIds. Counts explicitly report omitted rows. Act on usable "
+                    "rows now: expand relevant objects and open sources. detailPageToken "
+                    "is optional full provenance, not a mandatory continuation; repeat "
+                    "original arguments with resultPageToken only when missing detail matters. "
+                    "Full detail uses dmb_graph_tool_page_v1: records carry original paths; "
+                    "claimDelta contains operation-local claims. Follow nextPageToken by "
+                    "repeating the exact same request with resultPageToken until the needed "
+                    "records are delivered. Core truncation is separate from pagination. "
+                    "Fragments require complete reassembly before use. "
                     "Do not open Markdown or corpus files directly on a graph gap."
                 ),
                 "parameters": expand_schema,
@@ -157,17 +234,66 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
                 "name": "read_graph_source",
                 "description": (
                     "Read one or more source anchors already admitted in the current "
-                    "GraphRetrievalSession, including exact admitted worldbuilding "
+                    "GraphRetrievalSession, including pins admitted by the parent "
+                    "from a validated traversal in this turn, and exact admitted worldbuilding "
                     "evidence spans when the graph provenance names them. Creates a "
                     "source citation only after a successful integrity-checked read. "
                     "Pass retrievalSessionId and anchorIds from the session ledger. "
                     "Never supply filesystem paths, artifact IDs, or span IDs as "
-                    "caller authority."
+                    "caller authority. Large responses use the same bounded Graph result "
+                    "page protocol; follow nextPageToken using resultPageToken with the "
+                    "original arguments. Fragments are incomplete until reassembled."
                 ),
                 "parameters": read_schema,
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": READ_RELATED_RECAP_CONTEXT_TOOL_NAME,
+                "description": (
+                    "Read a related recap section for an admitted Graph target and exact "
+                    "evidence refs. This context can inform prose but is not cited evidence. "
+                    "Use the contextAnchorId offered in a relatedRecapContexts entry "
+                    "of a validated graph retrieval result. A previously known Core context "
+                    "ID can also resolve when its target and refs were admitted to this turn "
+                    "and the parent verifies the exact same-scope provenance join. "
+                    "For another page pass that same contextAnchorId and the returned continuation. "
+                    "Do not supply paths, source revisions, or World authority."
+                ),
+                "parameters": recap_schema,
+            },
+        },
         query_threat_mechanics_hydration_tool_definition(),
+    ]
+
+
+def propose_build_insertion_definition() -> dict[str, Any]:
+    return {"type": "function", "function": {"name": PROPOSE_BUILD_INSERTION,
+        "description": "Prepare an addition to the currently mounted Build page ONLY when the user asks to put content on the page. Use the discussed content and their requested changes in instruction. The host chooses the document and insertion point. Returns a durable Markdown preview awaiting approval; never inserts, saves or publishes. Never say applied or saved. No document IDs, paths, or Graph authority arguments.",
+        "parameters": {"type": "object", "properties": {"instruction": {"type": "string", "minLength": 1}},
+                       "required": ["instruction"], "additionalProperties": False}}}
+
+
+def prepare_build_image_definition() -> dict[str, Any]:
+    return {"type":"function", "function":{"name":"prepare_build_image",
+        "description":"Prepare an image prompt for the current Build document when the user asks for an image, illustration or map. Set purpose to map for a cartographic map, otherwise illustration. Use the document and discussion to write a vivid, self-contained visual prompt and concise alt text. This opens a user-reviewed Image Studio action; it does not generate, save or insert. No IDs, paths, URLs, model or credentials arguments. Do not use propose_build_insertion for an image.",
+        "parameters":{"type":"object","properties":{"prompt":{"type":"string","minLength":1,"maxLength":16000},"alt":{"type":"string","minLength":1,"maxLength":500},"purpose":{"type":"string","enum":["illustration","map"]}},"required":["prompt","alt","purpose"],"additionalProperties":False}}}
+
+
+def native_source_tool_definitions():
+    return [
+        {"type":"function", "function":{"name":"search_retained_source_sections",
+            "description":"Search retained World source sections for the current user request, even when the Graph has no connection. No arguments: the parent freezes the actual request and scoped source membership. Returns section handles and lexical navigation matches, never claim support. Read chosen handles with read_native_source_sections before making source claims. Coverage is of enumerated sources, not a guarantee of complete semantic recall.",
+            "parameters":{"type":"object","properties":{},"required":[],"additionalProperties":False}}},
+        {"type":"function","function":{"name":"browse_native_source_sections",
+            "description":"Explore the exact source behind an admitted Graph anchor for appendices, tables or statblocks beyond its opened passage. Use anchor_id returned by expand_graph_retrieval in this turn; no paths or source IDs. Returns source-name and section handles, not source facts.",
+            "parameters":{"type":"object","properties":{"anchor_id":{"type":"string","minLength":1}},
+                "required":["anchor_id"],"additionalProperties":False}}},
+        {"type":"function","function":{"name":"read_native_source_sections",
+            "description":"Read relevant exact section_handles from browse_native_source_sections. Use native_source_claim with returned section_handle selections for source-only citations. A repeated read returns references to earlier literal material, never another body. Partial results leave gaps; preserve authored possibilities versus played facts.",
+            "parameters":{"type":"object","properties":{"section_handles":{"type":"array","items":{"type":"string","minLength":1},"minItems":1,"uniqueItems":True}},
+                "required":["section_handles"],"additionalProperties":False}}},
     ]
 
 
@@ -175,6 +301,9 @@ def hermes_model_visible_tool_definitions() -> list[dict[str, Any]]:
     return [
         declare_conversation_context_tool_definition(),
         *hermes_graph_interaction_tool_definitions(),
+        *native_source_tool_definitions(),
+        propose_build_insertion_definition(),
+        prepare_build_image_definition(),
     ]
 
 
@@ -203,12 +332,17 @@ def execute_query_threat_mechanics_hydration(
     query_text = str(
         arguments.get("queryText") or arguments.get("query_text") or ""
     ).strip()
-    if not world_id or not campaign_id or not revision_pin:
+    scope_mode = arguments.get("scopeMode", arguments.get("scope_mode", "campaign"))
+    if (
+        not world_id or not revision_pin
+        or scope_mode not in ("world", "campaign")
+        or (scope_mode == "campaign") != bool(campaign_id)
+    ):
         return {
             "schema": "dmb_threat_query_hydration_error_v1",
             "resultLabel": "threat_query_hydration_unavailable",
             "message": (
-                "exact worldId, campaignId, and revisionPin are required "
+                "exact worldId, scopeMode, and revisionPin are required, with campaignId for campaign scope "
                 "(server-injected from turn scope)"
             ),
             "diagnostics": ["missing_exact_scope"],
@@ -231,7 +365,8 @@ def execute_query_threat_mechanics_hydration(
     request = ThreatQueryHydrationRequestV1(
         schema="dmb_threat_query_hydration_request_v1",
         world_id=world_id,
-        campaign_id=campaign_id,
+        campaign_id=campaign_id or None,
+        scope_mode=scope_mode,
         revision_pin=revision_pin,
         query_text=query_text,
         focus_node_ids=list(focus_raw or []),
@@ -294,6 +429,8 @@ __all__ = [
     "DECLARE_CONVERSATION_CONTEXT_TOOL_NAME",
     "HERMES_ANSWER_SCOPE_TOOL_NAMES",
     "HERMES_GRAPH_INTERACTION_TOOL_NAMES",
+    "READ_RELATED_RECAP_CONTEXT_TOOL_NAME",
+    "ReadRelatedRecapContextRequest",
     "ORDERED_INTERACTION_TOOL_NAMES",
     "ORDERED_MODEL_VISIBLE_TOOL_NAMES",
     "QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME",
@@ -305,3 +442,60 @@ __all__ = [
     "hermes_model_visible_tool_definitions",
     "query_threat_mechanics_hydration_tool_definition",
 ]
+
+
+def project_graph_read_tools(
+    definitions: list[dict[str, Any]], profile: str, *, parent_broker_available: bool,
+) -> list[dict[str, Any]]:
+    """Project copies for one trusted consumer, leaving the global catalog intact."""
+    if not isinstance(profile, str) or profile not in ("world_graph", "governed_build"):
+        raise ValueError("invalid Graph read profile")
+    projected = deepcopy(definitions)
+    for definition in projected:
+        function = definition.get("function", definition)
+        if function.get("name") != "expand_graph_retrieval":
+            continue
+        schema = function["parameters"]
+        if not parent_broker_available:
+            schema["properties"].pop("includeSources", None)
+            schema["required"] = [
+                key for key in schema.get("required", []) if key != "includeSources"
+            ]
+        if profile == "governed_build":
+            if not parent_broker_available:
+                raise ValueError("governed Build requires the parent broker")
+            continue
+        properties = schema["properties"]
+        operations = properties["operation"]["enum"]
+        allowed = ["object", "neighborhood", "search", "support"]
+        if set(operations) not in (set(allowed), set(allowed + ["observations"])):
+            raise ValueError("unsupported Graph expansion schema")
+        properties["operation"]["enum"] = allowed
+        properties.pop("observationIds", None)
+        if "required" in schema:
+            schema["required"] = [key for key in schema["required"] if key != "observationIds"]
+        function["description"] = (
+            "Expand the current shared GraphRetrievalSession with object, neighborhood, search or support. "
+            "Always pass the provided retrievalSessionId. Scope and revision are server-enforced. "
+            "object/support require exactly one node target; neighborhood requires 1–8 seed nodes; "
+            "search allows 0–8 seeds, with targets=[] searching the frozen scope. "
+            + ("For substantive object questions prefer includeSources=true: the parent opens admitted "
+             "sources and returns a compact dmb_graph_evidence_packet_v1. Other operations do not "
+             "support this opt-in. " if parent_broker_available else
+             "Source bundles are unavailable here; use object expansion then read_graph_source "
+             "for admitted anchors. ")
+            + "Use original assertionId/edgeId and subject IDs for claims; "
+            "evidence handles link exact source text. Follow the answer schema and copy evidenceRefIds "
+            "exactly when required. Open supporting source anchors before answering. Preserve belief "
+            "and conditional language; a role label does not establish organizational membership. "
+            "Search source pointers are discovery, not canonical facts; expand their subjectNodeId "
+            "with object and inspect admitted sources. Check unopened/truncated coverage. "
+            "Large expansions return dmb_graph_tool_overview_v1 with usable complete selected rows, "
+            "exact identities and sourceAnchorIds; omitted counts describe coverage gaps. "
+            "detailPageToken is optional provenance, not mandatory continuation. For needed full detail, "
+            "repeat the exact original arguments with resultPageToken from nextPageToken. "
+            "dmb_graph_tool_page_v1 records retain original paths and claimDelta. Core truncation is "
+            "separate from pagination. Reassemble fragments before use; never invent tokens or IDs. "
+            "Do not open Markdown or corpus files directly on a graph gap."
+        )
+    return projected

@@ -1,0 +1,2 @@
+.app-wrap:has(> .native-combat-surface) { max-width:none; min-width:0; }
+.native-combat-surface { width:100%; min-width:0; box-sizing:border-box; margin:1rem 0; padding:0 1rem; }

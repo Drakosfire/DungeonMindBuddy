@@ -1,0 +1,215 @@
+import { Editor } from "@tiptap/core";
+import { webcrypto } from "node:crypto";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
+
+import bodyCodecFixture from "../../../../../tests/fixtures/plan_playable_body_codec_v1.json";
+import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorCore";
+import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
+import { tiptapJsonToSemanticMarkdown } from "../../tiptap/markdown/calloutMarkdown";
+import { playableBodyProtectedStructureMatches, resolvePlayableBodyTarget, type PlayableBodyTarget } from "./planPlayableBodyTarget";
+
+const editors: Editor[] = [];
+const vectors = bodyCodecFixture.vectors as Array<{
+  name: string;
+  draft_markdown: string;
+  target: PlayableBodyTarget;
+  expected: { available: boolean; body_markdown?: string; body_sha256?: string };
+}>;
+
+beforeAll(() => {
+  Object.defineProperty(globalThis, "crypto", { configurable: true, value: webcrypto });
+});
+
+afterEach(() => {
+  for (const editor of editors.splice(0)) editor.destroy();
+});
+
+describe("shared Playable body codec vectors", () => {
+  for (const vector of vectors) {
+    it(vector.name, async () => {
+      const imported = markdownToTiptapDoc(vector.draft_markdown);
+      const editor = new Editor({
+        extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
+        content: imported.doc,
+      });
+      editors.push(editor);
+
+      if (!vector.expected.available) {
+        const warnings = imported.diagnostics.filter((item) => item.level === "warning");
+        if (warnings.length) {
+          if (vector.name.endsWith("_ordinary_https_unsupported")) {
+            expect(warnings.some((item) => item.message.includes("Ordinary Markdown links"))).toBe(true);
+          }
+          return;
+        }
+        await expect(resolvePlayableBodyTarget(editor, vector.target)).rejects.toThrow();
+        return;
+      }
+
+      expect(imported.diagnostics.filter((item) => item.level === "warning")).toEqual([]);
+      const resolved = await resolvePlayableBodyTarget(editor, vector.target);
+      expect(resolved.targetBodyMarkdown).toBe(vector.expected.body_markdown);
+      expect(resolved.targetBodySha256).toBe(vector.expected.body_sha256);
+    });
+  }
+});
+
+it("allows schema-empty headings and list attrs to normalize across protected Markdown reload", async () => {
+  const markdown = [
+    "- An earlier ordinary list item.",
+    "",
+    "# ",
+    "",
+    "<!-- dmb-playable-element:v2 kind=beat id=beat:smoke beat_kind=spine -->",
+    "## Smoke",
+    "",
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:smoke -->",
+    "### Quiet scene",
+    "",
+    "The original body with [the guide](dmb-node:node:guide).",
+    "",
+    "<!-- dmb-playable-element:v2 kind=choice id=choice:smoke scene=scene:smoke -->",
+    "### Choose",
+    "",
+    "<!-- dmb-playable-element:v2 kind=option id=option:smoke -->",
+    "- Continue.",
+    "",
+    "- A later ordinary list item.",
+    "",
+  ].join("\n");
+  const imported = markdownToTiptapDoc(markdown);
+  const editor = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: imported.doc });
+  editors.push(editor);
+  const target = await resolvePlayableBodyTarget(editor, { kind: "scene", id: "scene:smoke" });
+  const before = editor.getJSON();
+  const reloaded = markdownToTiptapDoc(tiptapJsonToSemanticMarkdown(before)).doc;
+
+  expect(before.content?.[0]).toMatchObject({ type: "bulletList" });
+  const earlierListItem = before.content?.[0]?.content?.[0];
+  expect(earlierListItem?.attrs).toMatchObject({
+    playableActivates: null,
+    playableElementId: null,
+    playableElementKind: null,
+    playableElementVersion: null,
+    playableSuppresses: null,
+  });
+  expect(reloaded.content?.[0]?.content?.[0]?.attrs).toBeUndefined();
+  expect(before.content?.some((node) => node.type === "heading" && node.content === undefined)).toBe(true);
+  expect(reloaded.content?.some((node) => node.type === "heading" && node.content?.length === 0)).toBe(true);
+  expect(playableBodyProtectedStructureMatches(before, reloaded, target)).toBe(true);
+
+  const changedListAttribute = structuredClone(reloaded);
+  const ordinaryItem = changedListAttribute.content?.[0]?.content?.[0];
+  if (!ordinaryItem || ordinaryItem.type !== "listItem") throw new Error("Expected a protected ordinary list item.");
+  ordinaryItem.attrs = { playableActivates: ["beat:changed"] };
+  expect(playableBodyProtectedStructureMatches(before, changedListAttribute, target)).toBe(false);
+
+  const changedSibling = structuredClone(reloaded);
+  const choiceHeading = changedSibling.content?.[target.rootEndIndex];
+  if (!choiceHeading?.content?.[0]) throw new Error("Expected a protected sibling heading text node.");
+  choiceHeading.content[0].text = "Changed choice";
+  expect(playableBodyProtectedStructureMatches(before, changedSibling, target)).toBe(false);
+
+  const changedMarker = structuredClone(reloaded);
+  const sceneHeading = changedMarker.content?.[target.rootStartIndex - 1];
+  if (!sceneHeading?.attrs) throw new Error("Expected the protected Scene marker attributes.");
+  sceneHeading.attrs.playableElementId = "scene:changed";
+  expect(playableBodyProtectedStructureMatches(before, changedMarker, target)).toBe(false);
+
+  const changedMark = structuredClone(reloaded);
+  const changedChoice = changedMark.content?.[target.rootEndIndex];
+  if (!changedChoice?.content?.[0]) throw new Error("Expected the protected sibling heading text node.");
+  changedChoice.content[0].marks = [{ type: "bold" }];
+  expect(playableBodyProtectedStructureMatches(before, changedMark, target)).toBe(false);
+
+  const lostReference = structuredClone(reloaded);
+  const sceneBody = lostReference.content?.[target.rootStartIndex];
+  if (!sceneBody?.content) throw new Error("Expected the Scene body containing a protected Graph reference.");
+  sceneBody.content = sceneBody.content.filter((node) => node.type !== "graphNodeReference");
+  expect(playableBodyProtectedStructureMatches(before, lostReference, target)).toBe(false);
+
+  const movedSibling = structuredClone(reloaded);
+  const movedRoot = movedSibling.content;
+  if (!movedRoot?.[target.rootEndIndex + 1]) throw new Error("Expected a protected sibling list after the Choice heading.");
+  [movedRoot[target.rootEndIndex], movedRoot[target.rootEndIndex + 1]] = [
+    movedRoot[target.rootEndIndex + 1]!,
+    movedRoot[target.rootEndIndex]!,
+  ];
+  expect(playableBodyProtectedStructureMatches(before, movedSibling, target)).toBe(false);
+});
+
+
+it.each(["sibling", "body"])("captures a marked Plan with an ordinary table in the %s", async (placement) => {
+  const table = "| Lead | Next step |\n| --- | --- |\n| A repair | Ask the smith (optional). |";
+  const markdown = [
+    "Preparation only; no outcomes have been played.", "",
+    "<!-- dmb-playable-element:v2 kind=beat id=beat:table-capture beat_kind=spine -->",
+    "## Preparation", "",
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:arrival -->",
+    "### 1. Arrival", "", "Meet the village residents.", "",
+    ...(placement === "sibling" ? [table, ""] : []),
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:descent -->",
+    "### 2. Descent", "", "The guardian protects the child (proposed scene).", "",
+    ...(placement === "body" ? [table, ""] : []),
+  ].join("\n");
+  const imported = markdownToTiptapDoc(markdown);
+  expect(imported.diagnostics).toEqual([]);
+  const editor = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: imported.doc });
+  editors.push(editor);
+  const rawTable = imported.doc.content?.find((node) => node.type === "table");
+  const editorTable = editor.getJSON().content?.find((node) => node.type === "table");
+  expect(rawTable?.content?.[0]?.content?.[0]?.attrs).toBeUndefined();
+  expect(editorTable?.content?.[0]?.content?.[0]?.attrs).toEqual({ colspan: 1, rowspan: 1, colwidth: null });
+  const before = editor.getJSON();
+  const selection = editor.state.selection.toJSON();
+  const captured = await resolvePlayableBodyTarget(editor, { kind: "scene", id: "scene:descent" });
+  expect(editor.getJSON()).toEqual(before);
+  expect(editor.state.selection.toJSON()).toEqual(selection);
+  expect(captured.targetBodyMarkdown).toContain("The guardian protects the child");
+  expect(captured.targetBodyMarkdown.includes("| Lead | Next step |")).toBe(placement === "body");
+});
+
+
+it.each([{ colspan: 2 }, { rowspan: 2 }, { colwidth: [120] }])("refuses lossy table cell attributes %j", async (attrs) => {
+  const imported = markdownToTiptapDoc("<!-- dmb-playable-element:v2 kind=scene id=scene:table -->\n### Table\n\n| A | B |\n| --- | --- |\n| One | Two |\n");
+  const editor = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: imported.doc });
+  editors.push(editor);
+  const document = editor.getJSON();
+  const cell = document.content?.find((node) => node.type === "table")?.content?.[0]?.content?.[0];
+  if (!cell) throw new Error("Expected a table cell");
+  cell.attrs = { ...cell.attrs, ...attrs };
+  editor.commands.setContent(document);
+  const before = editor.getJSON();
+  await expect(resolvePlayableBodyTarget(editor, { kind: "scene", id: "scene:table" })).rejects.toThrow(/unsupported Playable content/);
+  expect(editor.getJSON()).toEqual(before);
+});
+
+
+it("refuses an ordinary link outside the selected body without changing the editor", async () => {
+  const markdown = "<!-- dmb-playable-element:v1 kind=scene id=scene:chosen -->\n## Chosen\nAllowed body.\n<!-- dmb-playable-element:v1 kind=scene id=scene:other -->\n## Other\n[Web source](https://example.test/source)\n";
+  const imported = markdownToTiptapDoc(markdown);
+  expect(imported.diagnostics.filter(row => row.level === "warning")).toEqual([]);
+  const editor = new Editor({extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: imported.doc});
+  editors.push(editor);
+  const before = editor.getJSON();
+  const selection = editor.state.selection.toJSON();
+  await expect(resolvePlayableBodyTarget(editor, {kind:"scene", id:"scene:chosen"})).rejects.toThrow(/Web links.*card edit proposals/);
+  expect(editor.getJSON()).toEqual(before);
+  expect(editor.state.selection.toJSON()).toEqual(selection);
+  expect(tiptapJsonToSemanticMarkdown(editor.getJSON())).toContain("[Web source](https://example.test/source)");
+});
+
+it("keeps a hard break outside the selected body available with exact V1 bytes", async () => {
+  const markdown = "<!-- dmb-playable-element:v1 kind=scene id=scene:chosen -->\n## Chosen\nAllowed body.\n<!-- dmb-playable-element:v1 kind=scene id=scene:other -->\n## Other\nLine one  \nLine two\n";
+  const imported = markdownToTiptapDoc(markdown);
+  expect(imported.diagnostics.filter(row => row.level === "warning")).toEqual([]);
+  const editor = new Editor({extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: imported.doc});
+  editors.push(editor);
+  const before = editor.getJSON();
+  const result = await resolvePlayableBodyTarget(editor, {kind:"scene", id:"scene:chosen"});
+  expect(result.targetBodyMarkdown).toBe("Allowed body.\n");
+  expect(result.bodySerializationVersion).toBe("plan-playable-body-markdown-v1");
+  expect(result.targetBodySha256).toBe("8bdf404853a05d16fcbfb1c86f11942796884f94fc4cfa3ccf43f27aa814458d");
+  expect(editor.getJSON()).toEqual(before);
+  expect(JSON.stringify(before)).toContain("hardBreak");
+});

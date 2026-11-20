@@ -76,18 +76,18 @@ describe("dedupeAliasesCaseInsensitive", () => {
 });
 
 describe("buildProposalAliases", () => {
-  it("includes the selected text as an alias when the label diverges", () => {
+  it("does not infer an alias when the label diverges", () => {
     const formState = {
       ...createDefaultGraphObjectAuthoringFormState(baseSelection),
       label: "Questionable Company",
       aliasesText: "",
     };
-    expect(buildProposalAliases(formState, baseSelection)).toEqual(["gang"]);
+    expect(buildProposalAliases(formState)).toEqual([]);
   });
 
   it("does not duplicate the selected text when the label matches it", () => {
     const formState = createDefaultGraphObjectAuthoringFormState(baseSelection);
-    expect(buildProposalAliases(formState, baseSelection)).toEqual([]);
+    expect(buildProposalAliases(formState)).toEqual([]);
   });
 
   it("does not add a duplicate alias when the selected text is already listed", () => {
@@ -96,7 +96,7 @@ describe("buildProposalAliases", () => {
       label: "Questionable Company",
       aliasesText: "gang, the crew",
     };
-    expect(buildProposalAliases(formState, baseSelection)).toEqual([
+    expect(buildProposalAliases(formState)).toEqual([
       "gang",
       "the crew",
     ]);
@@ -104,6 +104,23 @@ describe("buildProposalAliases", () => {
 });
 
 describe("buildGraphObjectAuthoringProposal", () => {
+  it.each([["", []], ["Sarni the healer", ["Sarni the healer"]], ["Other name, other NAME", ["Other name"]]] as const)("keeps highlighted prose as evidence with explicit aliases %s", (aliasesText, expected) => {
+    const prose = "In the olden times, Nar and her child Sarni were simple wanderers who healed for board and lodging.";
+    const source = {...baseSelection, selectedText: prose, normalizedSelectedText: prose};
+    const form = {...createDefaultGraphObjectAuthoringFormState(source), label: "Sarni", aliasesText};
+    const proposal = buildGraphObjectAuthoringProposal(source, form, "local-sarni");
+    expect(proposal.objectRef.aliases).toEqual(expected);
+    expect(proposal.selection).toBe(source);
+    expect(proposal.provenancePreview.sourceGraphId).toBe(source.graphId);
+  });
+
+  it("accepts a whole source sentence as an alias only when explicitly entered", () => {
+    const prose = "Sarni once healed travelers alongside Nar.";
+    const source = {...baseSelection, selectedText: prose, normalizedSelectedText: prose};
+    const form = {...createDefaultGraphObjectAuthoringFormState(source), label: "Sarni", aliasesText: prose};
+    expect(buildGraphObjectAuthoringProposal(source, form).objectRef.aliases).toEqual([prose]);
+  });
+
   it("builds a staged-local proposal carrying the selection and form fields", () => {
     const formState = {
       ...createDefaultGraphObjectAuthoringFormState(baseSelection),
@@ -134,7 +151,7 @@ describe("buildGraphObjectAuthoringProposal", () => {
         sourceGraphId: "graph-c1s2",
       },
     });
-    expect(proposal.objectRef.aliases).toEqual(["the crew", "gang"]);
+    expect(proposal.objectRef.aliases).toEqual(["the crew"]);
     expect(proposal.selection).toBe(baseSelection);
   });
 

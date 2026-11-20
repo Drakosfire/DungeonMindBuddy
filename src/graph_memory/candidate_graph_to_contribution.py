@@ -48,7 +48,7 @@ _NODE_TYPE_TO_KIND: dict[str, str] = {
     "place": "location",
     "party": "party",
     "collective": "party",
-    "organization": "party",
+    "organization": "faction",
     "faction": "faction",
     "event": "event",
     "beat": "event",
@@ -85,7 +85,7 @@ def _require_nonempty(value: str | None, *, field: str) -> str:
     return text
 
 
-def load_typed_candidate_graph(payload: Mapping[str, Any]) -> CandidateGraphPreview:
+def load_typed_candidate_graph(payload: Mapping[str, Any], *, allow_source_observations: bool = False) -> CandidateGraphPreview:
     """Parse and structurally validate a CandidateGraphPreview IR document."""
     if payload.get("schema") == "dmb_portable_object_demo_candidate_v1":
         raise CandidateGraphMappingError(
@@ -97,6 +97,8 @@ def load_typed_candidate_graph(payload: Mapping[str, Any]) -> CandidateGraphPrev
             f"unsupported schema {payload.get('schema')!r}; require "
             f"{CANDIDATE_GRAPH_PREVIEW_SCHEMA}"
         )
+    if payload.get("version") == "0.2" and not allow_source_observations:
+        raise CandidateGraphMappingError("candidate v0.2 requires source-observation review")
     # Detect common category-extractor drift before pydantic-ish dataclass parse.
     nodes = list(payload.get("nodes") or [])
     if nodes and isinstance(nodes[0], dict):
@@ -157,8 +159,21 @@ def verify_source_revision(
     When ``disclose_computed_digest`` is False (HTTP boundaries), mismatch
     errors omit the computed digest so callers cannot oracle arbitrary files.
     """
-    raw = resolve_source_bytes(source_uri, repo_root=repo_root)
-    digest = hashlib.sha256(raw).hexdigest()
+    return verify_source_bytes_revision(
+        source_body=resolve_source_bytes(source_uri, repo_root=repo_root),
+        source_revision_id=source_revision_id,
+        disclose_computed_digest=disclose_computed_digest,
+    )
+
+
+def verify_source_bytes_revision(
+    *, source_body: bytes, source_revision_id: str,
+    disclose_computed_digest: bool = True,
+) -> str:
+    """Compare exact supplied bytes with a revision pin; never open a locator."""
+    if not isinstance(source_body, bytes):
+        raise CandidateGraphMappingError("exact source bytes are required")
+    digest = hashlib.sha256(source_body).hexdigest()
     expected = f"sha256:{digest}"
     provided = _require_nonempty(source_revision_id, field="source_revision_id")
     if not provided.startswith("sha256:"):
@@ -499,6 +514,55 @@ def map_connect_existing_support_assertions(
             )
         )
     return assertions, tuple(skip_diagnostics)
+
+
+def is_recap_source_observation(assertion: GraphContributionAssertion) -> bool:
+    value = assertion.value or {}
+    return (
+        assertion.assertion_kind == "attribute"
+        and assertion.predicate == "session_observation"
+        and isinstance(value.get("summary"), str)
+        and bool(value["summary"].strip())
+        and any(domain in {"recap", "session_recap"} for domain in value.get("source_domains", []))
+    )
+
+
+def map_recap_source_observation(
+    node: CandidateNode, *, durable_node_id: str, source_revision_id: str,
+    verified_source_artifact_id: str, campaign_scope: str | None,
+    source_domain: str = "recap", session_id: str | None = None,
+    campaign_id: str | None = None, source_uri: str | None = None,
+    identity_resolution_outcome: str = "created_new", kind_override: str | None = None,
+) -> GraphContributionAssertion | None:
+    """Build a description proposal; publication requires an explicit selection."""
+    if source_domain not in {"recap", "session_recap"} or not (node.description or "").strip():
+        return None
+    admitted = map_candidate_node_to_assertion(
+        node, source_revision_id=source_revision_id,
+        verified_source_artifact_id=verified_source_artifact_id, campaign_scope=campaign_scope,
+        source_domain=source_domain, session_id=session_id, campaign_id=campaign_id,
+        source_uri=source_uri, acceptance_state="accepted",
+        identity_resolution_outcome=identity_resolution_outcome, kind_override=kind_override,
+        subject_node_id_override=durable_node_id,
+    )
+    support, _ = map_connect_existing_support_assertions(
+        node, durable_node_id=durable_node_id, source_revision_id=source_revision_id,
+        verified_source_artifact_id=verified_source_artifact_id, campaign_scope=campaign_scope,
+        source_domain=source_domain, session_id=session_id, campaign_id=campaign_id,
+        source_uri=source_uri, identity_resolution_outcome=identity_resolution_outcome,
+        kind_override=kind_override,
+    )
+    observation = support[0]
+    return build_assertion(
+        assertion_kind="attribute", acceptance_state="accepted",
+        subject_node_id=durable_node_id, predicate="session_observation", label=observation.label,
+        value={**observation.value, "session_ids": [session_id] if session_id else []},
+        evidence_ref_ids=observation.evidence_ref_ids,
+        source_artifact_id=observation.source_artifact_id, source_revision_id=source_revision_id,
+        campaign_scope=campaign_scope, temporal_scope=admitted.temporal_scope,
+        visibility=admitted.visibility, epistemic_kind=admitted.epistemic_kind,
+        identity_resolution_outcome=identity_resolution_outcome,
+    )
 
 
 def map_candidate_edge_to_assertion(

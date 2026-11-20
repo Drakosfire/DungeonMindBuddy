@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
-import { LiveApiError, postWorldGraphCompleteObject } from "../api/liveApi";
+import { LiveApiError, postNativeWorldGraphCompleteObject, postWorldGraphCompleteObject } from "../api/liveApi";
+import type { InspectionPin } from "../api/nativeGraphInspection";
 import type {
   GraphProjectionNodeView,
   WorldGraphObjectProjectionRequest,
@@ -31,8 +32,16 @@ export function completeWorldObjectRequest(
 
 export async function loadCompleteWorldObject(
   request: WorldGraphObjectProjectionRequest,
+  nativePin?: InspectionPin,
 ): Promise<WorldGraphObjectProjectionResult> {
-  return postWorldGraphCompleteObject(request);
+  if (!nativePin) return postWorldGraphCompleteObject(request);
+  if (request.worldId !== nativePin.managed_world_id ||
+      request.revisionPin !== nativePin.revision_id ||
+      request.scopeMode !== nativePin.scope_mode ||
+      (request.campaignId || null) !== nativePin.campaign_id) {
+    throw new Error("The object request does not match the captured native graph scope.");
+  }
+  return postNativeWorldGraphCompleteObject(request, nativePin);
 }
 
 export type CompleteWorldObjectStatus =

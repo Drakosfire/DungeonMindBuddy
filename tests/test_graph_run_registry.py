@@ -1,4 +1,6 @@
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 import hashlib
 import json
@@ -19,12 +21,11 @@ from apps.live_control_server.services.source_artifact_registry import (
     create_source_artifact_from_workspace_document,
     get_source_artifact,
     resolve_worldbuilding_source_span,
+    load_source_span_index,
+    load_registered_source_artifact_bytes,
     source_span_index_relpath,
 )
-from apps.live_control_server.services.workspace_document_registry import (
-    create_workspace_document,
-    mark_workspace_document_committed,
-)
+from graph_memory.source_span import source_span_index_to_dict
 from graph_memory.ingestion.extraction_run import (
     ExtractionRunComponentKind,
     ExtractionRunComponentRef,
@@ -52,14 +53,12 @@ def _corrupt_ingest_run(dsn: str, run_id: str, **fields: object) -> None:
 
 def _write_committed_markdown(root: Path, record, markdown: str) -> str:
     content = markdown.rstrip("\n") + "\n"
-    target = root / record.target_relpath
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content, encoding="utf-8")
+    record = save_page(root, record.document_id, content)
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
 def _committed_worldbuilding(root: Path, markdown: str = "# Lore\n\nBody.\n"):
-    record = create_workspace_document(
+    record = create_page_fixture(
         root,
         title="Lore",
         campaign_id="eldyrwild",
@@ -69,18 +68,18 @@ def _committed_worldbuilding(root: Path, markdown: str = "# Lore\n\nBody.\n"):
         authority_state="draft",
         visibility_state="internal",
     )
-    committed = mark_workspace_document_committed(
-        root, record.document_id, expected_revision=1
-    )
+    committed = get_workspace_document(root, record.document_id)
     digest = _write_committed_markdown(root, committed, markdown)
-    return committed, digest
+    return get_workspace_document(root, committed.document_id), digest
 
 
 def _reviewable_components(root: Path, artifact, graph_payload: dict | None = None):
-    source_path = root / artifact.uri.removeprefix("repo://")
-    source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    source_digest = hashlib.sha256(load_registered_source_artifact_bytes(root, artifact.source_artifact_id)[1]).hexdigest()
     span_rel = source_span_index_relpath(artifact.source_artifact_id)
     span_path = root / span_rel
+    span_path.parent.mkdir(parents=True, exist_ok=True)
+    span_path.write_text(json.dumps(source_span_index_to_dict(
+        load_source_span_index(root, artifact.source_artifact_id)), indent=2, ensure_ascii=False) + "\n")
     span_digest = hashlib.sha256(span_path.read_bytes()).hexdigest()
     graph_rel = "out/registries/test_candidate_graph.json"
     graph_path = root / graph_rel
@@ -109,7 +108,16 @@ def _reviewable_components(root: Path, artifact, graph_payload: dict | None = No
     }
 
 
-def test_source_artifact_reads_committed_file_not_client_markdown(tmp_path: Path) -> None:
+def _store_fixture_outputs(root: Path, run):
+    from application_state.ingest.components import persist_component_payload
+
+    for key, ref in run.components.items():
+        if key != "source_artifact":
+            persist_component_payload(run_id=run.run_id, expected_revision=run.revision,
+                kind=key, payload=(root / ref.uri.removeprefix("repo://")).read_bytes())
+
+
+def test_source_artifact_reads_committed_page_not_client_markdown(tmp_path: Path) -> None:
     record, digest = _committed_worldbuilding(tmp_path, "# Canon\n\nFrom disk.\n")
     artifact = create_source_artifact_from_workspace_document(
         tmp_path,
@@ -117,14 +125,15 @@ def test_source_artifact_reads_committed_file_not_client_markdown(tmp_path: Path
         expected_revision=record.revision,
     )
     assert artifact.content_sha256 == digest
-    assert artifact.uri.endswith(record.target_relpath)
+    assert artifact.uri == f"object://{artifact.source_artifact_id}"
+    assert artifact.workspace_document_revision == record.revision
     assert artifact.session_id is None
-    loaded = get_source_artifact(tmp_path, artifact.source_artifact_id)
+    loaded = get_source_artifact(artifact.source_artifact_id)
     assert loaded.source_artifact_id == artifact.source_artifact_id
 
 
-def test_source_artifact_rejects_missing_committed_target(tmp_path: Path) -> None:
-    record = create_workspace_document(
+def test_source_artifact_rejects_uncommitted_page(tmp_path: Path) -> None:
+    record = create_page_fixture(
         tmp_path,
         title="Lore",
         campaign_id="eldyrwild",
@@ -134,10 +143,8 @@ def test_source_artifact_rejects_missing_committed_target(tmp_path: Path) -> Non
         authority_state="draft",
         visibility_state="internal",
     )
-    committed = mark_workspace_document_committed(
-        tmp_path, record.document_id, expected_revision=1
-    )
-    with pytest.raises(SourceArtifactRegistryError, match="missing"):
+    committed = get_workspace_document(tmp_path, record.document_id)
+    with pytest.raises(SourceArtifactRegistryError, match="active committed Page"):
         create_source_artifact_from_workspace_document(
             tmp_path,
             document_id=committed.document_id,
@@ -177,17 +184,16 @@ def test_source_artifact_idempotent_and_collision_safe(tmp_path: Path) -> None:
     )
     assert first.source_artifact_id == second.source_artifact_id
 
-    # Corrupt registry foreign key while keeping the same id prefix path.
-    registry_path = tmp_path / "out/registries/source_artifacts.json"
-    payload = json.loads(registry_path.read_text(encoding="utf-8"))
-    payload["records"][0]["campaign_id"] = "other-world"
-    registry_path.write_text(json.dumps(payload), encoding="utf-8")
-    with pytest.raises(SourceArtifactRegistryError, match="collision|malformed|campaign"):
-        create_source_artifact_from_workspace_document(
-            tmp_path,
-            document_id=record.document_id,
-            expected_revision=record.revision,
-        )
+    # The immutable input owner rejects registration with changed scope.
+    from apps.live_control_server.services.source_artifact_registry import (
+        _register_source_input, load_registered_source_artifact_text,
+    )
+    content = load_registered_source_artifact_text(tmp_path, first.source_artifact_id)[1]
+    with pytest.raises(SourceArtifactRegistryError, match="identity does not match the persisted source") as exc:
+        _register_source_input(content=content,
+            artifact=first.model_copy(update={"campaign_id": "other-world"}))
+    assert exc.value.status_code == 409
+    assert get_source_artifact(first.source_artifact_id) == first
 
 
 def test_worldbuilding_span_persists_and_resolves(tmp_path: Path) -> None:
@@ -233,11 +239,11 @@ def test_extraction_run_exact_reload_and_no_latest(tmp_path: Path) -> None:
         campaign_id="eldyrwild",
         session_id=None,
     )
-    loaded = get_extraction_run(tmp_path, run.run_id)
+    loaded = get_extraction_run(run.run_id)
     assert loaded.run_id == run.run_id
     assert loaded.revision == 1
     with pytest.raises(GraphRunRegistryError) as exc_info:
-        get_extraction_run(tmp_path, "missing-run")
+        get_extraction_run("missing-run")
     assert exc_info.value.status_code == 404
 
 
@@ -304,86 +310,16 @@ def test_reviewable_requires_resolvable_evidence(tmp_path: Path) -> None:
         )
 
 
-def test_reviewable_rejects_unknown_paths_and_hash_mismatch(tmp_path: Path) -> None:
-    record, _digest = _committed_worldbuilding(tmp_path)
-    artifact = create_source_artifact_from_workspace_document(
-        tmp_path,
-        document_id=record.document_id,
-        expected_revision=record.revision,
-    )
-    run = create_extraction_run(
-        tmp_path,
-        source_artifact_id=artifact.source_artifact_id,
-        source_domain="worldbuilding",
-    )
-    components = _reviewable_components(tmp_path, artifact)
-    components["candidate_graph"] = ExtractionRunComponentRef(
-        kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
-        uri="repo://../escape.json",
-        sha256="a" * 64,
-    )
-    prepared = update_extraction_run_status(
-        tmp_path,
-        run.run_id,
-        status=ExtractionRunStatus.PREPARED,
-        expected_revision=run.revision,
-        components=components,
-    )
-    extracted = update_extraction_run_status(
-        tmp_path,
-        prepared.run_id,
-        status=ExtractionRunStatus.EXTRACTED,
-        expected_revision=prepared.revision,
-    )
-    validated = update_extraction_run_status(
-        tmp_path,
-        extracted.run_id,
-        status=ExtractionRunStatus.VALIDATED,
-        expected_revision=extracted.revision,
-    )
-    with pytest.raises(GraphRunRegistryError, match="unsafe|escape"):
-        update_extraction_run_status(
-            tmp_path,
-            validated.run_id,
-            status=ExtractionRunStatus.REVIEWABLE,
-            expected_revision=validated.revision,
-        )
+def test_file_only_outputs_do_not_grant_reviewable(tmp_path: Path) -> None:
+    record, _ = _committed_worldbuilding(tmp_path)
+    artifact = create_source_artifact_from_workspace_document(tmp_path, document_id=record.document_id, expected_revision=record.revision)
+    run = create_extraction_run(tmp_path, source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding", components=_reviewable_components(tmp_path, artifact),
+        status=ExtractionRunStatus.VALIDATED)
+    with pytest.raises(GraphRunRegistryError, match="not durable"):
+        update_extraction_run_status(tmp_path, run.run_id, status=ExtractionRunStatus.REVIEWABLE, expected_revision=run.revision)
+    assert get_extraction_run(run.run_id) == run
 
-    components = _reviewable_components(tmp_path, artifact)
-    components["candidate_graph"] = components["candidate_graph"].model_copy(
-        update={"sha256": "0" * 64}
-    )
-    run2 = create_extraction_run(
-        tmp_path,
-        source_artifact_id=artifact.source_artifact_id,
-        source_domain="worldbuilding",
-        components=components,
-    )
-    prepared2 = update_extraction_run_status(
-        tmp_path,
-        run2.run_id,
-        status=ExtractionRunStatus.PREPARED,
-        expected_revision=run2.revision,
-    )
-    extracted2 = update_extraction_run_status(
-        tmp_path,
-        prepared2.run_id,
-        status=ExtractionRunStatus.EXTRACTED,
-        expected_revision=prepared2.revision,
-    )
-    validated2 = update_extraction_run_status(
-        tmp_path,
-        extracted2.run_id,
-        status=ExtractionRunStatus.VALIDATED,
-        expected_revision=extracted2.revision,
-    )
-    with pytest.raises(GraphRunRegistryError, match="digest mismatch"):
-        update_extraction_run_status(
-            tmp_path,
-            validated2.run_id,
-            status=ExtractionRunStatus.REVIEWABLE,
-            expected_revision=validated2.revision,
-        )
 
 
 def test_reviewable_happy_path_and_terminal_protection(tmp_path: Path) -> None:
@@ -400,6 +336,7 @@ def test_reviewable_happy_path_and_terminal_protection(tmp_path: Path) -> None:
         source_domain="worldbuilding",
         components=components,
     )
+    _store_fixture_outputs(tmp_path, run)
     for status in (
         ExtractionRunStatus.PREPARED,
         ExtractionRunStatus.EXTRACTED,
@@ -476,6 +413,7 @@ def test_get_reviewable_extraction_run_ignores_duplicate_file_records(
         components=components,
     )
     db_create(first)
+    _store_fixture_outputs(tmp_path, first)
     path = tmp_path / LEGACY_EXTRACTION_RUN_REGISTRY_REL
     path.parent.mkdir(parents=True, exist_ok=True)
     document = ExtractionRunRegistryDocument(records=[first, first.model_copy(deep=True)])
@@ -485,7 +423,7 @@ def test_get_reviewable_extraction_run_ignores_duplicate_file_records(
     )
     loaded = get_reviewable_extraction_run(tmp_path, duplicate_id)
     assert loaded.run_id == duplicate_id
-    catalog = get_extraction_run(tmp_path, duplicate_id)
+    catalog = get_extraction_run(duplicate_id)
     assert catalog.run_id == duplicate_id
 
 
@@ -569,7 +507,7 @@ def test_stale_revision_and_supersession(tmp_path: Path) -> None:
         prepared.run_id,
         expected_revision=prepared.revision,
     )
-    predecessor = get_extraction_run(tmp_path, prepared.run_id)
+    predecessor = get_extraction_run(prepared.run_id)
     assert predecessor.status == ExtractionRunStatus.SUPERSEDED
     assert predecessor.superseded_by_run_id == successor.run_id
     assert predecessor.components == prior_components
@@ -593,10 +531,12 @@ def test_malformed_registry_fails_closed_on_load(
     )
     _corrupt_ingest_run(application_state_dsn, run.run_id, session_id="session-1")
     with pytest.raises(GraphRunRegistryError, match="malformed|cannot be interpreted|worldbuilding"):
-        get_extraction_run(tmp_path, run.run_id)
+        get_extraction_run(run.run_id)
 
 
-def _advance_to_reviewable(tmp_path: Path, run, components):
+def _advance_to_reviewable(tmp_path: Path, run, components, *, persist=True):
+    if persist:
+        _store_fixture_outputs(tmp_path, run.model_copy(update={"components": components}))
     current = run
     for status in (
         ExtractionRunStatus.PREPARED,
@@ -666,7 +606,7 @@ def test_concurrent_updates_with_same_expected_revision(tmp_path: Path) -> None:
     assert len(failures) == 1
     assert failures[0].status_code == 409
     assert "revision mismatch" in str(failures[0]) or "concurrently" in str(failures[0])
-    loaded = get_extraction_run(tmp_path, run.run_id)
+    loaded = get_extraction_run(run.run_id)
     assert loaded.revision == run.revision + 1
     assert loaded.status == ExtractionRunStatus.PREPARED
 
@@ -705,14 +645,14 @@ def test_supersede_save_failure_leaves_predecessor_unchanged(
             prepared.run_id,
             expected_revision=prepared.revision,
         )
-    predecessor = get_extraction_run(tmp_path, prepared.run_id)
+    predecessor = get_extraction_run(prepared.run_id)
     assert predecessor.status == ExtractionRunStatus.PREPARED
     assert predecessor.superseded_by_run_id is None
     assert predecessor.revision == prepared.revision
     assert not (tmp_path / "out/registries/extraction_runs.json").exists()
 
 
-def test_promoted_run_integrity_checked_on_load(tmp_path: Path) -> None:
+def test_promoted_run_integrity_checked_on_load(tmp_path: Path, application_state_dsn: str) -> None:
     record, _digest = _committed_worldbuilding(tmp_path)
     artifact = create_source_artifact_from_workspace_document(
         tmp_path,
@@ -733,216 +673,36 @@ def test_promoted_run_integrity_checked_on_load(tmp_path: Path) -> None:
         status=ExtractionRunStatus.PROMOTED,
         expected_revision=reviewable.revision,
     )
-    assert get_extraction_run(tmp_path, promoted.run_id).status == ExtractionRunStatus.PROMOTED
+    assert get_extraction_run(promoted.run_id).status == ExtractionRunStatus.PROMOTED
 
     graph_path = tmp_path / components["candidate_graph"].uri.removeprefix("repo://")
     graph_path.write_text(json.dumps({"nodes": [{"id": "tampered"}]}), encoding="utf-8")
-    catalog = get_extraction_run(tmp_path, promoted.run_id)
+    catalog = get_extraction_run(promoted.run_id)
     assert catalog.status == ExtractionRunStatus.PROMOTED
     from apps.live_control_server.services.graph_run_registry import (
         assert_run_reviewable_evidence,
     )
 
+    assert_run_reviewable_evidence(tmp_path, catalog)
+    import psycopg
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE ingest.component_payload SET payload=%s WHERE run_id=%s AND kind='candidate_graph'", (b"corrupt", catalog.run_id))
     with pytest.raises(GraphRunRegistryError, match="integrity|digest mismatch"):
         assert_run_reviewable_evidence(tmp_path, catalog)
 
 
-def test_whitespace_contaminated_component_uri_is_rejected(tmp_path: Path) -> None:
-    record, _digest = _committed_worldbuilding(tmp_path)
-    artifact = create_source_artifact_from_workspace_document(
-        tmp_path,
-        document_id=record.document_id,
-        expected_revision=record.revision,
-    )
+def test_component_uri_is_not_lifecycle_authority(tmp_path: Path) -> None:
+    record, _ = _committed_worldbuilding(tmp_path)
+    artifact = create_source_artifact_from_workspace_document(tmp_path, document_id=record.document_id, expected_revision=record.revision)
     components = _reviewable_components(tmp_path, artifact)
-    components["candidate_graph"] = components["candidate_graph"].model_copy(
-        update={"uri": " repo://out/registries/test_candidate_graph.json "}
-    )
-    run = create_extraction_run(
-        tmp_path,
-        source_artifact_id=artifact.source_artifact_id,
-        source_domain="worldbuilding",
-        components=components,
-    )
-    prepared = update_extraction_run_status(
-        tmp_path,
-        run.run_id,
-        status=ExtractionRunStatus.PREPARED,
-        expected_revision=run.revision,
-    )
-    extracted = update_extraction_run_status(
-        tmp_path,
-        prepared.run_id,
-        status=ExtractionRunStatus.EXTRACTED,
-        expected_revision=prepared.revision,
-    )
-    validated = update_extraction_run_status(
-        tmp_path,
-        extracted.run_id,
-        status=ExtractionRunStatus.VALIDATED,
-        expected_revision=extracted.revision,
-    )
-    with pytest.raises(GraphRunRegistryError, match="unsafe component uri"):
-        update_extraction_run_status(
-            tmp_path,
-            validated.run_id,
-            status=ExtractionRunStatus.REVIEWABLE,
-            expected_revision=validated.revision,
-        )
+    run = create_extraction_run(tmp_path, source_artifact_id=artifact.source_artifact_id, source_domain="worldbuilding", components=components)
+    _store_fixture_outputs(tmp_path, run)
+    components = {key: ref.model_copy(update={"uri": " historical:never-open "}) for key, ref in components.items()}
+    sealed = _advance_to_reviewable(tmp_path, run, components, persist=False)
+    assert get_reviewable_extraction_run(tmp_path, sealed.run_id) == sealed
 
 
-def test_source_artifact_snapshot_waits_across_commit_barrier(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Artifact creation must not observe target bytes between write and registry commit."""
-    import threading
 
-    from apps.live_control_server.services.tiptap_markdown_write import (
-        TiptapMarkdownWriteCommitRequest,
-        TiptapMarkdownWritePrepareRequest,
-        commit_tiptap_markdown_write,
-        prepare_tiptap_markdown_write,
-    )
-    from apps.live_control_server.services.workspace_document_registry import (
-        mark_workspace_document_committed_unlocked,
-    )
-
-    record = create_workspace_document(
-        tmp_path,
-        title="Lore",
-        campaign_id="eldyrwild",
-        kind="worldbuilding_source",
-        source_domain="worldbuilding",
-        document_class="lore",
-        authority_state="draft",
-        visibility_state="internal",
-    )
-    v1 = "# Lore\n\nRevision one.\n"
-    prepared_v1 = prepare_tiptap_markdown_write(
-        root=tmp_path,
-        request=TiptapMarkdownWritePrepareRequest(
-            document_id=record.document_id,
-            markdown=v1,
-            expected_revision=1,
-        ),
-    )
-    committed_v1 = commit_tiptap_markdown_write(
-        root=tmp_path,
-        request=TiptapMarkdownWriteCommitRequest(
-            document_id=record.document_id,
-            markdown=v1,
-            writer_confirm_token=prepared_v1.writer_confirm_token or "",
-            expected_revision=1,
-        ),
-    )
-    prior_revision = committed_v1.registry_revision
-    prior_digest = hashlib.sha256(v1.encode("utf-8")).hexdigest()
-
-    v2 = "# Lore\n\nRevision two.\n"
-    prepared_v2 = prepare_tiptap_markdown_write(
-        root=tmp_path,
-        request=TiptapMarkdownWritePrepareRequest(
-            document_id=record.document_id,
-            markdown=v2,
-            expected_revision=prior_revision,
-        ),
-    )
-
-    entered_mark = threading.Event()
-    release_mark = threading.Event()
-    real_mark = mark_workspace_document_committed_unlocked
-
-    def delayed_mark(*args, **kwargs):
-        entered_mark.set()
-        assert release_mark.wait(timeout=5), "timed out waiting to release commit barrier"
-        return real_mark(*args, **kwargs)
-
-    monkeypatch.setattr(
-        "apps.live_control_server.services.tiptap_markdown_write.mark_workspace_document_committed_unlocked",
-        delayed_mark,
-    )
-
-    commit_errors: list[BaseException] = []
-    commit_result: list[object] = []
-
-    def commit_worker() -> None:
-        try:
-            commit_result.append(
-                commit_tiptap_markdown_write(
-                    root=tmp_path,
-                    request=TiptapMarkdownWriteCommitRequest(
-                        document_id=record.document_id,
-                        markdown=v2,
-                        writer_confirm_token=prepared_v2.writer_confirm_token or "",
-                        expected_revision=prior_revision,
-                    ),
-                )
-            )
-        except BaseException as exc:  # noqa: BLE001 - surface to main thread
-            commit_errors.append(exc)
-
-    commit_thread = threading.Thread(target=commit_worker)
-    commit_thread.start()
-    assert entered_mark.wait(timeout=5), "commit never reached post-write registry mark"
-
-    # Target already has v2 bytes, but registry still reports prior_revision.
-    target_path = tmp_path / record.target_relpath
-    assert target_path.read_text(encoding="utf-8") == v2
-    from apps.live_control_server.services.workspace_document_registry import (
-        get_workspace_document,
-    )
-
-    assert get_workspace_document(tmp_path, record.document_id).revision == prior_revision
-
-    snapshot_started = threading.Event()
-    snapshot_done = threading.Event()
-    snapshot_errors: list[BaseException] = []
-    snapshot_result: list[object] = []
-
-    def snapshot_worker() -> None:
-        snapshot_started.set()
-        try:
-            snapshot_result.append(
-                create_source_artifact_from_workspace_document(
-                    tmp_path,
-                    document_id=record.document_id,
-                    expected_revision=prior_revision,
-                )
-            )
-        except BaseException as exc:  # noqa: BLE001 - surface to main thread
-            snapshot_errors.append(exc)
-        finally:
-            snapshot_done.set()
-
-    snapshot_thread = threading.Thread(target=snapshot_worker)
-    snapshot_thread.start()
-    assert snapshot_started.wait(timeout=5)
-    # Snapshot must block on the shared document lock while commit is between write and mark.
-    assert not snapshot_done.wait(timeout=0.3)
-
-    release_mark.set()
-    commit_thread.join(timeout=5)
-    snapshot_thread.join(timeout=5)
-    assert not commit_thread.is_alive()
-    assert not snapshot_thread.is_alive()
-    assert not commit_errors
-    assert commit_result
-
-    # After commit, prior_revision is stale; snapshot must not certify v2 bytes as prior_revision.
-    assert not snapshot_result
-    assert snapshot_errors
-    assert isinstance(snapshot_errors[0], SourceArtifactRegistryError)
-    assert "revision mismatch" in str(snapshot_errors[0])
-
-    committed_v2_revision = commit_result[0].registry_revision
-    artifact = create_source_artifact_from_workspace_document(
-        tmp_path,
-        document_id=record.document_id,
-        expected_revision=committed_v2_revision,
-    )
-    assert artifact.workspace_document_revision == committed_v2_revision
-    assert artifact.content_sha256 == hashlib.sha256(v2.encode("utf-8")).hexdigest()
-    assert artifact.content_sha256 != prior_digest
 
 
 def test_one_sided_supersession_fails_closed_on_load(
@@ -977,96 +737,24 @@ def test_one_sided_supersession_fails_closed_on_load(
         status="prepared",
     )
     with pytest.raises(GraphRunRegistryError, match="lineage|non-reciprocal|missing"):
-        get_extraction_run(tmp_path, successor.run_id)
+        get_extraction_run(successor.run_id)
 
 
-def test_source_artifact_snapshot_blocks_concurrent_discard(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Discard cannot change status while a snapshot holds the document lock."""
-    import threading
+def test_source_artifact_snapshot_survives_later_page_discard(tmp_path: Path) -> None:
+    from apps.live_control_server.services.workspace_document_registry import discard_workspace_document
 
-    from apps.live_control_server.services import source_artifact_registry as sar
-    from apps.live_control_server.services.workspace_document_registry import (
-        discard_workspace_document,
-        get_workspace_document,
+    record, digest = _committed_worldbuilding(tmp_path)
+    artifact = create_source_artifact_from_workspace_document(
+        tmp_path, document_id=record.document_id, expected_revision=record.revision,
     )
-
-    record, _digest = _committed_worldbuilding(tmp_path)
-    entered_read = threading.Event()
-    release_read = threading.Event()
-    real_read_fn = sar._read_committed_target_markdown
-
-    def delayed_read(*args, **kwargs):
-        entered_read.set()
-        assert release_read.wait(timeout=5), "timed out waiting to release snapshot barrier"
-        return real_read_fn(*args, **kwargs)
-
-    monkeypatch.setattr(sar, "_read_committed_target_markdown", delayed_read)
-
-    snapshot_errors: list[BaseException] = []
-    snapshot_result: list[object] = []
-
-    def snapshot_worker() -> None:
-        try:
-            snapshot_result.append(
-                create_source_artifact_from_workspace_document(
-                    tmp_path,
-                    document_id=record.document_id,
-                    expected_revision=record.revision,
-                )
-            )
-        except BaseException as exc:  # noqa: BLE001 - surface to main thread
-            snapshot_errors.append(exc)
-
-    snapshot_thread = threading.Thread(target=snapshot_worker)
-    snapshot_thread.start()
-    assert entered_read.wait(timeout=5)
-
-    discard_started = threading.Event()
-    discard_done = threading.Event()
-    discard_errors: list[BaseException] = []
-    discard_result: list[object] = []
-
-    def discard_worker() -> None:
-        discard_started.set()
-        try:
-            discard_result.append(
-                discard_workspace_document(
-                    tmp_path,
-                    record.document_id,
-                    expected_revision=record.revision,
-                )
-            )
-        except BaseException as exc:  # noqa: BLE001 - surface to main thread
-            discard_errors.append(exc)
-        finally:
-            discard_done.set()
-
-    discard_thread = threading.Thread(target=discard_worker)
-    discard_thread.start()
-    assert discard_started.wait(timeout=5)
-    # Discard must block on the shared document lock while snapshot is mid-flight.
-    assert not discard_done.wait(timeout=0.3)
-    assert get_workspace_document(tmp_path, record.document_id).status == "active"
-
-    release_read.set()
-    snapshot_thread.join(timeout=5)
-    discard_thread.join(timeout=5)
-    assert not snapshot_thread.is_alive()
-    assert not discard_thread.is_alive()
-    assert not snapshot_errors
-    assert snapshot_result
-    assert snapshot_result[0].workspace_document_revision == record.revision
-    assert not discard_errors
-    assert discard_result[0].status == "discarded"
-    assert get_workspace_document(tmp_path, record.document_id).status == "discarded"
-
-    with pytest.raises(SourceArtifactRegistryError, match="discarded"):
+    discarded = discard_workspace_document(tmp_path, record.document_id, expected_revision=record.revision)
+    captured, raw = load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id)
+    assert captured.workspace_document_revision == record.revision
+    assert hashlib.sha256(raw).hexdigest() == digest
+    assert discarded.status == "discarded"
+    with pytest.raises(SourceArtifactRegistryError, match="active committed Page"):
         create_source_artifact_from_workspace_document(
-            tmp_path,
-            document_id=record.document_id,
-            expected_revision=discard_result[0].revision,
+            tmp_path, document_id=record.document_id, expected_revision=discarded.revision,
         )
 
 
@@ -1101,7 +789,7 @@ def test_reciprocal_lineage_with_unrelated_artifacts_fails_closed_on_load(
         source_artifact_id="artifact:unrelated",
     )
     with pytest.raises(GraphRunRegistryError, match="lineage|source_artifact_id"):
-        get_extraction_run(tmp_path, prepared.run_id)
+        get_extraction_run(prepared.run_id)
 
 
 def test_reciprocal_lineage_with_non_superseded_predecessor_fails_closed_on_load(
@@ -1131,7 +819,7 @@ def test_reciprocal_lineage_with_non_superseded_predecessor_fails_closed_on_load
     )
     _corrupt_ingest_run(application_state_dsn, prepared.run_id, status="prepared")
     with pytest.raises(GraphRunRegistryError, match="lineage|must be superseded"):
-        get_extraction_run(tmp_path, successor.run_id)
+        get_extraction_run(successor.run_id)
 
 
 def _validated_recap_run(
@@ -1148,13 +836,15 @@ def _validated_recap_run(
 
     artifact = create_recap_source_artifact(
         tmp_path,
+        world_id="world:longmont-test",
         campaign_id="longmont-c2",
         session_id="session-23",
         recap_text=recap_text,
     )
-    source_path = tmp_path / artifact.uri.removeprefix("repo://")
+    source_path = tmp_path / "historical-source-copy.md"
+    source_path.write_bytes(load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id)[1])
     source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
-    uri = component_uri or artifact.uri
+    uri = component_uri or "repo://historical-source-copy.md"
     if component_digest is ...:
         digest: str | None = source_digest
     else:
@@ -1172,6 +862,7 @@ def _validated_recap_run(
         source_domain="recap",
         campaign_id="longmont-c2",
         session_id="session-23",
+        lineage={"native_world_id": "world:longmont-test", "campaign_id": "longmont-c2"},
     )
     run = update_extraction_run_status(
         tmp_path,
@@ -1197,173 +888,99 @@ def _validated_recap_run(
     return run, artifact, source_path
 
 
-def test_historical_recap_inspection_reads_validated_run(tmp_path: Path) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-
-    run, _artifact, _source_path = _validated_recap_run(tmp_path)
-    before = get_extraction_run(tmp_path, run.run_id)
-    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-    after = get_extraction_run(tmp_path, run.run_id)
-
-    assert inspection.source_status == "available"
-    assert inspection.run_status == "validated"
-    assert "# Session Recap" in (inspection.source_prose or "")
-    assert inspection.source_uri is None
-    assert inspection.source_sha256
-    assert before.model_dump() == after.model_dump()
-
-
-def test_historical_recap_inspection_does_not_require_source_registry(
-    tmp_path: Path,
-) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-    from apps.live_control_server.services.source_artifact_registry import (
-        source_artifacts_path,
-    )
-
-    run, _artifact, source_path = _validated_recap_run(tmp_path)
-    source_registry_path = source_artifacts_path(tmp_path)
-    source_registry_path.unlink()
-
-    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-
-    assert source_path.is_file()
-    assert inspection.source_status == "available"
-    assert inspection.source_prose == "# Session Recap\n\nA paragraph.\n"
-
-
-def test_historical_recap_inspection_reads_prepared_run(tmp_path: Path) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-
-    run, _artifact, _source_path = _validated_recap_run(
-        tmp_path, status=ExtractionRunStatus.PREPARED
-    )
-    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-    assert inspection.source_status == "available"
-    assert inspection.run_status == "prepared"
-
-
-def test_historical_recap_inspection_survives_source_file_removal(tmp_path: Path) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-
-    run, _artifact, source_path = _validated_recap_run(tmp_path)
-    source_path.unlink()
-    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-    assert inspection.source_status == "available"
-    assert inspection.source_prose == "# Session Recap\n\nA paragraph.\n"
-
-
-def test_historical_recap_inspection_does_not_fallback_to_sibling_bytes(
-    tmp_path: Path,
-) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-    from apps.live_control_server.services.source_artifact_registry import (
-        create_recap_source_artifact,
-    )
-
-    sibling = create_recap_source_artifact(
-        tmp_path,
-        campaign_id="longmont-c2",
-        session_id="session-23",
-        recap_text="# Sibling recap\n\nDifferent bytes.\n",
-    )
-    run, _artifact, _source_path = _validated_recap_run(
-        tmp_path,
-        component_uri="repo://out/registries/missing/recap.md",
-        component_digest=hashlib.sha256(b"missing").hexdigest(),
-    )
-    sibling_path = tmp_path / sibling.uri.removeprefix("repo://")
-    assert sibling_path.is_file()
-    missing_path = tmp_path / "out/registries/missing/recap.md"
-    assert not missing_path.is_file()
-
-    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-    assert inspection.source_status == "unavailable"
-    assert inspection.source_prose is None
-
-
-def test_historical_recap_inspection_missing_digest_is_unavailable(tmp_path: Path) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-
-    run, _artifact, _source_path = _validated_recap_run(tmp_path, component_digest=None)
-    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-    assert inspection.source_status == "unavailable"
-    assert "digest" in (inspection.unavailable_reason or "")
-
-
-def test_historical_recap_inspection_does_not_resolve_source_uri(
-    tmp_path: Path,
-) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-
-    run, _artifact, _source_path = _validated_recap_run(
-        tmp_path, component_uri="repo://../escape.md"
-    )
-    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-    assert inspection.source_status == "available"
-    assert inspection.source_uri is None
-
-
-def test_historical_recap_inspection_digest_mismatch_is_unavailable(
-    tmp_path: Path,
-) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-
-    run, _artifact, _source_path = _validated_recap_run(
-        tmp_path, component_digest="f" * 64
-    )
-    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-    assert inspection.source_status == "unavailable"
-    assert inspection.source_prose is None
-    assert "not adopted" in (inspection.unavailable_reason or "")
-
-
-def test_historical_recap_inspection_unknown_run_is_404(tmp_path: Path) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-
-    with pytest.raises(GraphRunRegistryError, match="not found|missing"):
-        get_historical_recap_inspection(tmp_path, "missing-run")
-
-
-def test_historical_recap_inspection_rejects_worldbuilding_run(tmp_path: Path) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-
-    record, _digest = _committed_worldbuilding(tmp_path)
-    artifact = create_source_artifact_from_workspace_document(
-        tmp_path,
-        document_id=record.document_id,
-        expected_revision=record.revision,
-    )
-    run = create_extraction_run(
-        tmp_path,
-        source_artifact_id=artifact.source_artifact_id,
-        source_domain="worldbuilding",
-    )
-    with pytest.raises(GraphRunRegistryError, match="not applicable"):
-        get_historical_recap_inspection(tmp_path, run.run_id)
-
-
 def test_get_reviewable_extraction_run_still_rejects_validated(tmp_path: Path) -> None:
     run, _artifact, _source_path = _validated_recap_run(tmp_path)
     with pytest.raises(GraphRunRegistryError, match="not reviewable"):
         get_reviewable_extraction_run(tmp_path, run.run_id)
+
+
+def _frozen_snapshot_child(root: Path):
+    """Current producer freezes source/spans together; a child only moves output."""
+    record, _ = _committed_worldbuilding(root, "# Lore\n\nMira guards the crossing.\n")
+    artifact = create_source_artifact_from_workspace_document(
+        root, document_id=record.document_id, expected_revision=record.revision,
+    )
+    original = _reviewable_components(root, artifact)
+    frozen = root / "out/runs/parent"
+    frozen.mkdir(parents=True)
+    components = {}
+    names = {"source_artifact": "source.md", "source_span_index": "source_span_index.json", "candidate_graph": "candidate_graph.json"}
+    for kind, ref in original.items():
+        path = frozen / names[kind]
+        path.write_bytes(load_registered_source_artifact_bytes(root, artifact.source_artifact_id)[1]
+                         if kind == "source_artifact" else (root / ref.uri.removeprefix("repo://")).read_bytes())
+        components[kind] = ref.model_copy(update={"uri": "repo://" + path.relative_to(root).as_posix()})
+    parent = create_extraction_run(
+        root, source_artifact_id=artifact.source_artifact_id, source_domain="worldbuilding",
+        components=components, status=ExtractionRunStatus.VALIDATED,
+        profile_id="worldbuilding_shepherds_flock_v0@0.1",
+    )
+    _store_fixture_outputs(root, parent)
+    parent = update_extraction_run_status(root, parent.run_id, status=ExtractionRunStatus.REVIEWABLE, expected_revision=parent.revision)
+    child_path = root / "out/derived/child/candidate_graph.json"
+    child_path.parent.mkdir(parents=True)
+    child_path.write_text('{"nodes": [], "edges": [], "reviewed": true}')
+    child_components = dict(components)
+    child_components["candidate_graph"] = components["candidate_graph"].model_copy(update={
+        "uri": "repo://" + child_path.relative_to(root).as_posix(),
+        "sha256": hashlib.sha256(child_path.read_bytes()).hexdigest(),
+    })
+    child = create_extraction_run(
+        root, source_artifact_id=artifact.source_artifact_id, source_domain="worldbuilding",
+        components=child_components, status=ExtractionRunStatus.VALIDATED,
+        profile_id=parent.profile_id, lineage={"parent_run_id": parent.run_id},
+    )
+    _store_fixture_outputs(root, child)
+    return parent, child, frozen, child_path
+
+
+def test_corrected_child_seals_with_inherited_frozen_evidence_and_reopens_exactly(tmp_path: Path):
+    from apps.live_control_server.services.promotable_ingest_run import resolve_promotable_ingest_run
+
+    parent, child, frozen, child_path = _frozen_snapshot_child(tmp_path)
+    before = {p.name: p.read_bytes() for p in frozen.iterdir()}
+    sealed = update_extraction_run_status(
+        tmp_path, child.run_id, status=ExtractionRunStatus.REVIEWABLE,
+        expected_revision=child.revision,
+    )
+    assert get_reviewable_extraction_run(tmp_path, child.run_id) == sealed
+    resolved = resolve_promotable_ingest_run(child.run_id, root=tmp_path)
+    assert resolved.candidate_graph_path == child_path
+    assert resolved.source_span_index_path == frozen / "source_span_index.json"
+    assert resolved.normalized_recap_path.read_bytes() == before["source.md"]
+    assert {p.name: p.read_bytes() for p in frozen.iterdir()} == before
+    assert get_reviewable_extraction_run(tmp_path, parent.run_id) == parent
+    assert sealed.components["source_artifact"] == parent.components["source_artifact"]
+    assert sealed.components["source_span_index"] == parent.components["source_span_index"]
+
+
+@pytest.mark.parametrize("tamper", ["span_bytes", "span_identity"])
+def test_corrected_child_rejects_substituted_frozen_evidence(tmp_path: Path, application_state_dsn: str, tamper: str):
+    parent, child, frozen, child_path = _frozen_snapshot_child(tmp_path)
+    components = dict(child.components)
+    if tamper == "span_bytes":
+        import psycopg
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute("UPDATE ingest.component_payload SET payload=%s WHERE run_id=%s AND kind='source_span_index'", (b"{}", child.run_id))
+    elif tamper == "span_identity":
+        path = frozen / "source_span_index.json"
+        payload = json.loads(path.read_text())
+        payload["source_artifact_id"] = "foreign-artifact"
+        path.write_text(json.dumps(payload))
+        components["source_span_index"] = components["source_span_index"].model_copy(update={
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        })
+    if components != child.components:
+        child = create_extraction_run(
+            tmp_path, source_artifact_id=parent.source_artifact_id, source_domain="worldbuilding",
+            components=components, status=ExtractionRunStatus.VALIDATED,
+            profile_id=parent.profile_id, lineage={"parent_run_id": parent.run_id},
+        )
+        _store_fixture_outputs(tmp_path, child)
+    with pytest.raises(GraphRunRegistryError):
+        update_extraction_run_status(
+            tmp_path, child.run_id, status=ExtractionRunStatus.REVIEWABLE,
+            expected_revision=child.revision,
+        )
+    assert get_extraction_run(child.run_id).status == ExtractionRunStatus.VALIDATED
+    assert get_extraction_run(parent.run_id) == parent

@@ -4,8 +4,8 @@ import json
 import sys
 from pathlib import Path
 
-from src.graph_memory.ontology_ir import GraphBundle
-from src.graph_memory.validation_rules import load_taxonomy_registry, validate_bundle_against_taxonomy
+from graph_memory.ontology_ir import GraphBundle
+from graph_memory.validation_rules import load_taxonomy_registry, validate_bundle_against_taxonomy
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TAXONOMY_REGISTRY_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "taxonomy_registry.json"

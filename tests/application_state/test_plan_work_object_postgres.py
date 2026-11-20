@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import time
-from datetime import UTC, datetime
 from pathlib import Path
-from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -862,104 +860,90 @@ def test_world_plan_revisions_keep_the_world_owner_after_later_commits(
         )
 
 
-def test_world_owner_migration_backfills_only_explicit_world_scope(
+
+
+@pytest.mark.parametrize("title_only", [False, True])
+def test_connection_owned_plan_commit_rolls_back_with_owning_receipt(
+    application_state_dsn: str, title_only: bool,
+) -> None:
+    from application_state.content import repository as content
+    from application_state.content.service import (
+        commit_plan, commit_plan_in_connection, create_world_plan,
+    )
+    from application_state.unit_of_work import unit_of_work
+
+    world = "world-atomic-plan-save"
+    created = create_world_plan(title="Before", world_id=world)
+    obj, original = commit_plan(
+        str(created.work_object_id), "# Original\n", expected_world_id=world,
+    )
+    with unit_of_work(application_state_dsn) as conn:
+        before_copy = content.get_working_copy(conn, obj.work_object_id)
+        next_n = content.next_revision_n(conn, obj.work_object_id)
+    body = original.markdown if title_only else "# Edited\r\n"
+    with pytest.raises(RuntimeError, match="receipt refused"):
+        with unit_of_work(application_state_dsn) as conn:
+            saved, revision = commit_plan_in_connection(
+                conn, str(obj.work_object_id), body,
+                expected_revision=obj.object_revision,
+                expected_world_id=world, title="After",
+            )
+            assert saved.title == "After"
+            assert revision.markdown == body.replace("\r\n", "\n")
+            raise RuntimeError("receipt refused")
+    with unit_of_work(application_state_dsn) as conn:
+        assert content.get_work_object(conn, obj.work_object_id) == obj
+        assert content.get_working_copy(conn, obj.work_object_id) == before_copy
+        assert content.next_revision_n(conn, obj.work_object_id) == next_n
+
+
+def test_connection_owned_plan_commit_shares_normalization_cas_and_exact_replay(
     application_state_dsn: str,
 ) -> None:
-    import psycopg
-    from alembic import command
+    from application_state.content import repository as content
+    from application_state.content.service import (
+        commit_plan, commit_plan_in_connection, create_world_plan,
+    )
+    from application_state.unit_of_work import unit_of_work
 
-    from application_state.cli import alembic_config, upgrade_to_head
-    from application_state.content.types import sha256_utf8
+    world = "world-connection-plan-save"
+    created = create_world_plan(title="Before", world_id=world)
+    with unit_of_work(application_state_dsn) as conn:
+        saved, revision = commit_plan_in_connection(
+            conn, str(created.work_object_id), "# Prepared\r\n",
+            expected_revision=created.object_revision,
+            expected_world_id=world, title="Prepared",
+        )
+    replay, replay_revision = commit_plan(
+        str(created.work_object_id), "# Prepared\n",
+        expected_revision=created.object_revision,
+        expected_world_id=world, title="Prepared",
+    )
+    assert replay == saved and replay_revision == revision
+    with unit_of_work(application_state_dsn) as conn:
+        assert content.get_working_copy(conn, created.work_object_id).markdown == "# Prepared\n"
+        assert content.next_revision_n(conn, created.work_object_id) == revision.revision_n + 1
+    with pytest.raises(ApplicationStateConflictError, match="revision mismatch"):
+        with unit_of_work(application_state_dsn) as conn:
+            commit_plan_in_connection(
+                conn, str(created.work_object_id), "# Unrelated\n",
+                expected_revision=created.object_revision, expected_world_id=world,
+            )
 
-    command.downgrade(alembic_config(), "20260928_0007")
-    now = datetime.now(UTC)
-    world_id = "migration-backfill-world"
-    plan_id = uuid4()
-    plan_revision_id = uuid4()
-    runbook_id = uuid4()
-    runbook_revision_id = uuid4()
-    plan_markdown = "# pre-migration World Plan\n"
-    runbook_markdown = "# pre-migration campaign Runbook\n"
 
-    with psycopg.connect(application_state_dsn) as conn:
-        conn.execute(
-            """
-            INSERT INTO content.work_object (
-                work_object_id, kind, campaign_id, world_id, title, target_session,
-                target_relpath, status, current_revision_id, object_revision,
-                created_at, updated_at
-            ) VALUES (%s, 'plan', NULL, %s, 'World Plan', NULL, NULL,
-                      'active', NULL, 1, %s, %s)
-            """,
-            (plan_id, world_id, now, now),
-        )
-        conn.execute(
-            """
-            INSERT INTO content.work_object (
-                work_object_id, kind, campaign_id, world_id, title, target_session,
-                target_relpath, status, current_revision_id, object_revision,
-                created_at, updated_at
-            ) VALUES (%s, 'runbook', %s, NULL, 'Campaign Runbook', 4, NULL,
-                      'active', NULL, 1, %s, %s)
-            """,
-            (runbook_id, world_id, now, now),
-        )
-        conn.execute(
-            """
-            INSERT INTO content.work_revision (
-                work_revision_id, work_object_id, revision_n, markdown,
-                content_sha256, created_at
-            ) VALUES (%s, %s, 1, %s, %s, %s)
-            """,
-            (
-                plan_revision_id,
-                plan_id,
-                plan_markdown,
-                sha256_utf8(plan_markdown),
-                now,
-            ),
-        )
-        conn.execute(
-            """
-            INSERT INTO content.work_revision (
-                work_revision_id, work_object_id, revision_n, markdown,
-                content_sha256, created_at
-            ) VALUES (%s, %s, 1, %s, %s, %s)
-            """,
-            (
-                runbook_revision_id,
-                runbook_id,
-                runbook_markdown,
-                sha256_utf8(runbook_markdown),
-                now,
-            ),
-        )
-        conn.execute(
-            """
-            UPDATE content.work_object
-            SET current_revision_id = %s, object_revision = 2
-            WHERE work_object_id = %s
-            """,
-            (plan_revision_id, plan_id),
-        )
-        conn.execute(
-            """
-            UPDATE content.work_object
-            SET current_revision_id = %s, object_revision = 2
-            WHERE work_object_id = %s
-            """,
-            (runbook_revision_id, runbook_id),
-        )
+def test_connection_owned_plan_commit_preserves_world_scope_refusal(
+    application_state_dsn: str,
+) -> None:
+    from application_state.content.service import (
+        commit_plan_in_connection, create_world_plan,
+    )
+    from application_state.unit_of_work import unit_of_work
 
-    upgrade_to_head(dsn=application_state_dsn)
-    with psycopg.connect(application_state_dsn) as conn:
-        plan_owner = conn.execute(
-            "SELECT world_id FROM content.work_revision WHERE work_revision_id = %s",
-            (plan_revision_id,),
-        ).fetchone()
-        runbook_owner = conn.execute(
-            "SELECT world_id FROM content.work_revision WHERE work_revision_id = %s",
-            (runbook_revision_id,),
-        ).fetchone()
-    assert plan_owner == (world_id,)
-    assert runbook_owner == (None,)
+    created = create_world_plan(title="Owned", world_id="world-save-owner")
+    with pytest.raises(ApplicationStateConflictError, match="selected World"):
+        with unit_of_work(application_state_dsn) as conn:
+            commit_plan_in_connection(
+                conn, str(created.work_object_id), "# Foreign\n",
+                expected_revision=created.object_revision,
+                expected_world_id="another-world",
+            )

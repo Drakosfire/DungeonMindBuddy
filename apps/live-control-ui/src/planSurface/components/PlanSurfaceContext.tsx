@@ -1,11 +1,11 @@
-import { useMemo } from "react";
+import { usePublishCampaignTrashScope } from "../../workspaceLifecycle/campaignTrashScope";
+import { SurfaceNavbarIconButton } from "../../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
+import { useMemo, type ReactNode } from "react";
 
 import type { WorkspaceDocumentRecord, WorldOwnedPlanRecordV2 } from "../../api/types";
 import { buildPlanSurfaceIdentity } from "../../agentInteraction/projectionSurfacePublication";
 import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
 import {
-  SurfaceContextBadge,
-  SurfaceContextAction,
   SurfaceContextModule,
   SurfaceContextSelect,
   SurfaceContextStatus,
@@ -19,6 +19,7 @@ import {
 } from "./PlanDocumentCreateControl";
 import { PlanDocumentSelector, type PlanDocumentListStatus } from "./PlanDocumentSelector";
 import { buildWorldPlanSurfaceIdentity } from "../worldPlanIdentity";
+import "./PlanSurfaceContext.css";
 
 export interface PlanSurfaceContextProps {
   campaignId: string;
@@ -49,17 +50,18 @@ export interface WorldPlanSurfaceContextProps {
   disabled?: boolean;
   onSelect: (documentId: string) => void;
   onNewPlan: () => void;
+  toolbar?: ReactNode;
 }
 
 export function WorldPlanSurfaceContext({
   worldId,
-  worldName,
   documentId,
   localDraftId,
   records,
   disabled = false,
   onSelect,
   onNewPlan,
+  toolbar,
 }: WorldPlanSurfaceContextProps) {
   const surfaceIdentity = useMemo(() => buildWorldPlanSurfaceIdentity({
     worldId,
@@ -68,9 +70,8 @@ export function WorldPlanSurfaceContext({
   }), [documentId, localDraftId, worldId]);
 
   const content = useMemo(() => (
-    <SurfaceContextModule label="PLAN" className="plan-surface-context">
+    <SurfaceContextModule className="plan-surface-context">
       <div className="plan-surface-context__row" data-testid="world-plan-surface-context">
-        <SurfaceContextBadge>{worldName}</SurfaceContextBadge>
         <SurfaceContextSelect
           id="world-plan-document-select"
           data-testid="world-plan-document-select"
@@ -79,7 +80,7 @@ export function WorldPlanSurfaceContext({
           disabled={disabled}
           onChange={(event) => event.target.value ? onSelect(event.target.value) : onNewPlan()}
         >
-          <option value="">New blank Plan</option>
+          <option value="">New Plan</option>
           {records.map((record) => (
             <option key={record.document_id} value={record.document_id}>
               {record.title || "Untitled Plan"}
@@ -87,13 +88,12 @@ export function WorldPlanSurfaceContext({
           ))}
         </SurfaceContextSelect>
         {documentId ? (
-          <SurfaceContextAction type="button" onClick={onNewPlan} disabled={disabled}>
-            New blank Plan
-          </SurfaceContextAction>
+          <SurfaceNavbarIconButton icon="new" label="New Plan" onClick={onNewPlan} disabled={disabled} />
         ) : null}
+        {toolbar}
       </div>
     </SurfaceContextModule>
-  ), [disabled, documentId, onNewPlan, onSelect, records, worldName]);
+  ), [disabled, documentId, onNewPlan, onSelect, records, toolbar]);
 
   useSurfaceContextContribution({
     id: "plan-world-context",
@@ -114,11 +114,11 @@ export function PlanSurfaceContext({
   activeDocument,
   switching,
   switchError,
-  saveStatusLabel = null,
   onSelect,
   onRetryList,
   createControlProps,
 }: PlanSurfaceContextProps) {
+  usePublishCampaignTrashScope(campaignId);
   const surfaceIdentity = useMemo(() => {
     if (activeDocument) {
       return buildPlanSurfaceIdentity({
@@ -136,7 +136,7 @@ export function PlanSurfaceContext({
 
   const content = useMemo(
     () => (
-      <SurfaceContextModule label="PREP" className="plan-surface-context">
+      <SurfaceContextModule className="plan-surface-context">
         <div className="plan-surface-context__row">
           {activeDocument ? (
             <>
@@ -154,21 +154,10 @@ export function PlanSurfaceContext({
                 onSelect={onSelect}
                 onRetryList={onRetryList}
               />
-              {activeDocument.targetSession != null ? (
-                <SurfaceContextBadge>S{activeDocument.targetSession}</SurfaceContextBadge>
-              ) : null}
-              {saveStatusLabel ? (
-                <SurfaceContextStatus
-                  data-testid="plan-canvas-save-status"
-                  className="plan-surface-context__save-status"
-                  tone={/unsaved|error|fail/i.test(saveStatusLabel) ? "warning" : "neutral"}
-                >
-                  {saveStatusLabel}
-                </SurfaceContextStatus>
-              ) : null}
+
             </>
           ) : (
-            <SurfaceContextValue>No prep loaded</SurfaceContextValue>
+            <SurfaceContextValue>No Plan loaded</SurfaceContextValue>
           )}
           <PlanDocumentCreateControl
             {...createControlProps}
@@ -187,7 +176,7 @@ export function PlanSurfaceContext({
         {switching ? <SurfaceContextStatus>Switching…</SurfaceContextStatus> : null}
         {switchError ? (
           <SurfaceContextStatus tone="error">
-            {switchError} Try selecting another prep document.
+            {switchError} Try selecting another Plan document.
           </SurfaceContextStatus>
         ) : null}
       </SurfaceContextModule>
@@ -199,7 +188,6 @@ export function PlanSurfaceContext({
       listStatus,
       onRetryList,
       onSelect,
-      saveStatusLabel,
       switchError,
       switching,
     ],

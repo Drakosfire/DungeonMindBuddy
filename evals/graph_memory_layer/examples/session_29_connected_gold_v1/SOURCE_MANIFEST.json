@@ -1,0 +1,92 @@
+{
+  "schema": "session29_source_manifest_v1",
+  "sources": [
+    {
+      "id": "s29",
+      "path": "out/graph_memory/runs/longmont-c2/session-29/20261015T204654Z/normalized_recap_source.md",
+      "sha256": "4f963656828b553f7919ee00d3304725ddff892a13651b989f99b9b649933796",
+      "authority": "observed_session_recap",
+      "session": 29,
+      "independence_group": "s29"
+    },
+    {
+      "id": "span_index",
+      "path": "out/graph_memory/runs/longmont-c2/session-29/20261015T204654Z/extraction_run/f43e48e6-c775-4960-824f-fb398fe50bb9/source_span_index.json",
+      "sha256": "a94114e6aee71606e8d77aee42638657821ed69a7d4dcf6c5ea361a4027207d4",
+      "authority": "frozen_span_index",
+      "session": 29,
+      "independence_group": "span_index"
+    },
+    {
+      "id": "s22",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "sha256": "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+      "authority": "observed_session_recap",
+      "session": 22,
+      "independence_group": "s22"
+    },
+    {
+      "id": "s23",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate Battle.md",
+      "sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "authority": "observed_session_recap",
+      "session": 23,
+      "independence_group": "s23"
+    },
+    {
+      "id": "s25",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 25 - Mireward Gate Battle II.md",
+      "sha256": "a3513d738fe09820dfbee1c30adcba176f0beca070701b4a67e94a4935e822b7",
+      "authority": "observed_session_recap",
+      "session": 25,
+      "independence_group": "s25"
+    },
+    {
+      "id": "s27",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 27 - Ironveil Warehouse Wall Collapse.md",
+      "sha256": "740dcd285ee5e630ad84e3b5617374b99126be1784e003dd02e7878fa013b4ad",
+      "authority": "observed_session_recap",
+      "session": 27,
+      "independence_group": "s27"
+    },
+    {
+      "id": "lysandro_dossier",
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md",
+      "sha256": "387abbdf2d2f0c44c407e88fe93a73adeb5dfa809a1bcfbfb302bc632dd5329f",
+      "authority": "authored_dossier",
+      "session": null,
+      "independence_group": "lysandro_dossier"
+    },
+    {
+      "id": "seed_reference",
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/Branchbound/The Witness Seed.md",
+      "sha256": "a254247119a7222254257e78c517741b3a12243414e424394c23eaf66c482035",
+      "authority": "seed_reference",
+      "session": null,
+      "independence_group": "seed_reference"
+    },
+    {
+      "id": "pippa_dossier",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/pippa/pippa_character_dossier.md",
+      "sha256": "0abfe05739f356f56c24619c91a8f0bbc7d6e33b6576b474c84a0cf1bce36258",
+      "authority": "authored_dossier",
+      "session": null,
+      "independence_group": "pippa_dossier"
+    }
+  ],
+  "research_exclusions": [
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Mirathorn — While You Were Away.md",
+      "sha256": "679e1d43a8b5b443decd36aa19b8b9f250e403eab2f71f0eb8ddc802154e6497",
+      "disposition": "Inspected planning authority; GM-only root cause/second-front claims excluded from played Session29 facts."
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json",
+      "sha256": "f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25",
+      "disposition": "Inspected known roster; no C1 session1 roster used as proof of C2S29 membership."
+    }
+  ],
+  "duplicate_policy": "_normalized, _breadcrumbed, _archive and _session_memory derivatives are not independent corroboration. Primary saved normalized S29 is immutable source authority; its corpus copy is not additional support. Canonical prior recaps and authored world dossiers retain distinct authority classes.",
+  "source_root_default": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy",
+  "offsets": "Unicode codepoints [start,end), original UTF-8 SHA256; line bounds 1-based inclusive"
+}

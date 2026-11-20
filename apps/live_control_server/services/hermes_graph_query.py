@@ -261,7 +261,6 @@ def _assemble_graph_turn(
     question: str,
     graph_envelope: Mapping[str, Any],
     root: Path | None = None,
-    corpus_root: Path | None = None,
     conversation_history: list[dict[str, str]] | None = None,
     retrieval_session: GraphRetrievalSession | None = None,
     continuity_session_id: str | None = None,
@@ -275,7 +274,6 @@ def _assemble_graph_turn(
             question=question,
             graph_envelope=graph_envelope,
             root=root,
-            corpus_root=corpus_root,
             conversation_history=conversation_history,
             retrieval_session=retrieval_session,
             runtime_session_id=continuity_session_id,
@@ -306,7 +304,6 @@ def build_hermes_graph_turn_request(
     question: str,
     graph_envelope: Mapping[str, Any],
     root: Path | None = None,
-    corpus_root: Path | None = None,
     conversation_history: list[dict[str, str]] | None = None,
     retrieval_session: GraphRetrievalSession | None = None,
     continuity_session_id: str | None = None,
@@ -319,7 +316,6 @@ def build_hermes_graph_turn_request(
         question=question,
         graph_envelope=graph_envelope,
         root=root,
-        corpus_root=corpus_root,
         conversation_history=conversation_history,
         retrieval_session=retrieval_session,
         continuity_session_id=continuity_session_id,
@@ -579,30 +575,68 @@ def _citations_from_acceptance(
     return legacy, graph_refs, source_cites
 
 
-def _later_evidence_recovers(
-    events: Sequence[AgentRuntimeToolEvent],
-    *,
-    after_index: int,
+# These failures reject a request before evidence admission. They do not report
+# broken integrity or missing authority for evidence that was actually returned.
+_RETRYABLE_EXPANSION_REJECTIONS = frozenset({
+    "parent_evidence_bundle_required", "too_many_targets", "ambiguous_target",
+})
+_EXPANSION_RESULT_SCHEMAS = frozenset({
+    "dmb_world_graph_retrieval_result_v1", "dmb_graph_tool_overview_v1",
+    "dmb_graph_tool_page_v1", "dmb_graph_evidence_packet_v1",
+})
+
+
+def _request_rejection(event: AgentRuntimeToolEvent) -> bool:
+    codes = set(event.diagnostic_codes or [])
+    return (
+        event.tool_name == "expand_graph_retrieval"
+        and event.retrieval_schema == "dmb_world_graph_retrieval_error_v1"
+        and bool(codes)
+        and codes <= _RETRYABLE_EXPANSION_REJECTIONS
+    )
+
+
+def _later_expansion_completed(
+    events: Sequence[AgentRuntimeToolEvent], *, after_index: int,
     scope: _DispatchedScope,
 ) -> bool:
-    for later in events[after_index + 1 :]:
-        if _is_evidence_bearing(later, scope):
-            return True
-    return False
+    # Operation recovery is not evidence acceptance: even an empty corrected
+    # request may complete. The session validator must still support the answer.
+    return any(
+        later.tool_name == "expand_graph_retrieval"
+        and later.state == "completion"
+        and _tool_event_scope_matches(later, scope)
+        and later.retrieval_schema in _EXPANSION_RESULT_SCHEMAS
+        and _normalized_outcome(later) in {"enough", "partial", "truncated", "empty"}
+        and not later.diagnostic_codes
+        for later in events[after_index + 1:]
+    )
 
 
 def _unrecovered_error_events(
     events: Sequence[AgentRuntimeToolEvent],
     scope: _DispatchedScope,
+    *, session: GraphRetrievalSession | None = None,
 ) -> list[AgentRuntimeToolEvent]:
-    """Error-state tool events not followed by a later evidence-bearing completion."""
+    """Recover known request rejections; never recover authority failures by IDs."""
     unrecovered: list[AgentRuntimeToolEvent] = []
     for index, event in enumerate(events):
         if event.state != "error":
             continue
         if _tool_event_scope_contradicts(event, scope):
-            continue
-        if _later_evidence_recovers(events, after_index=index, scope=scope):
+            continue  # the caller rejects contradictory events before this gate
+        if (
+            session is not None
+            and _tool_event_scope_matches(event, scope)
+            and _request_rejection(event)
+            and (
+                _later_expansion_completed(events, after_index=index, scope=scope)
+                or (
+                    set(event.diagnostic_codes) <= RECOVERABLE_WHEN_CLAIMS_LANDED
+                    and _has_landed_factual_claims(session)
+                )
+            )
+        ):
             continue
         unrecovered.append(event)
     return unrecovered
@@ -625,11 +659,6 @@ def _error_code_from_tool_events(events: Sequence[AgentRuntimeToolEvent]) -> tup
 
 def _has_landed_factual_claims(session: GraphRetrievalSession) -> bool:
     return any(claim.may_state_as_campaign_fact() for claim in session.claims)
-
-
-def _is_recoverable_tool_error(event: AgentRuntimeToolEvent) -> bool:
-    code, _ = _error_code_from_tool_events([event])
-    return code in RECOVERABLE_WHEN_CLAIMS_LANDED
 
 
 def _hydrate_retrieval_session(
@@ -667,7 +696,6 @@ def classify_hermes_graph_result(
     scope: _DispatchedScope,
     projection_ok: bool | None = None,
     retrieval_session: GraphRetrievalSession | None = None,
-    corpus_root: Path | None = None,
 ) -> tuple[GroundingState, str, list[str], list[str], str | None, dict[str, Any]]:
     """Classify grounding from the shared claim ledger first.
 
@@ -717,30 +745,38 @@ def classify_hermes_graph_result(
     # soft-recover when the claim ledger already has factual claims.
     session = _hydrate_retrieval_session(result, retrieval_session=retrieval_session)
 
-    unrecovered_errors = _unrecovered_error_events(result.tool_events, scope)
-    recoverable_codes: list[str] = []
-    if unrecovered_errors:
-        if session is not None and _has_landed_factual_claims(session):
-            fatal_errors = [
-                event
-                for event in unrecovered_errors
-                if not _is_recoverable_tool_error(event)
-            ]
-            if not fatal_errors:
-                _, recoverable_codes = _error_code_from_tool_events(unrecovered_errors)
-                unrecovered_errors = []
-            else:
-                unrecovered_errors = fatal_errors
-        if unrecovered_errors:
-            error_code, diagnostic_codes = _error_code_from_tool_events(unrecovered_errors)
+    if session is not None:
+        snapshot = session.snapshot
+        if (
+            snapshot.world_id != scope.world_id
+            or snapshot.campaign_id != scope.campaign_id
+            or snapshot.revision_id != scope.revision_id
+            or snapshot.admissibility != scope.admissibility
+            or snapshot.scope_mode != scope.scope_mode
+            or _normalize_focus_for_compare(snapshot.focus)
+            != _normalize_focus_for_compare(scope.focus)
+        ):
             return (
-                "error",
-                EXECUTION_ERROR_ANSWER,
-                [],
-                diagnostic_codes,
-                error_code,
-                {"state": "execution_error", "reason_codes": diagnostic_codes},
+                "error", EXECUTION_ERROR_ANSWER, [],
+                ["hermes_retrieval_session_scope_mismatch"],
+                "hermes_grounding_contract_error",
+                {"state": "execution_error", "reason_codes": ["session_scope_mismatch"]},
             )
+
+    unrecovered_errors = _unrecovered_error_events(
+        result.tool_events, scope, session=session,
+    )
+    recoverable_codes = list(dict.fromkeys(
+        code for event in result.tool_events
+        if event.state == "error" and event not in unrecovered_errors
+        for code in event.diagnostic_codes
+    ))
+    if unrecovered_errors:
+        error_code, diagnostic_codes = _error_code_from_tool_events(unrecovered_errors)
+        return (
+            "error", EXECUTION_ERROR_ANSWER, [], diagnostic_codes, error_code,
+            {"state": "execution_error", "reason_codes": diagnostic_codes},
+        )
 
     if session is not None:
         explicit_scope = (
@@ -753,7 +789,6 @@ def classify_hermes_graph_result(
             None,
             model_prose=(result.final_text or "").strip() or None,
             execution_error=False,
-            corpus_root=corpus_root,
             answer_scope=explicit_scope,
         )
         replace_session(session)
@@ -775,19 +810,14 @@ def classify_hermes_graph_result(
             "answer_authority": validated.answer_authority,
             "validator_path": validated.validator_path,
         }
-        if validated.support_lag_text or validated.support_excerpt_text:
-            acceptance["s1_support"] = {
-                "lag_disclosure": validated.support_lag_text,
-                "admitted_recap_excerpt": validated.support_excerpt_text,
-            }
         warnings = list(validated.warnings)
         diagnostic_codes = list(
             dict.fromkeys([*validated.diagnostic_codes, *recoverable_codes])
         )
         for code in recoverable_codes:
             warning = (
-                f"Recovered past expand cardinality error ({code}); "
-                "answering from landed claims."
+                f"Recovered past Graph request rejection ({code}); "
+                "answer passed to normal validation."
             )
             if warning not in warnings:
                 warnings.append(warning)
@@ -858,6 +888,48 @@ def classify_hermes_graph_result(
     )
 
 
+def _successful_tool_invocation(event: AgentRuntimeToolEvent, scope: _DispatchedScope) -> bool:
+    """Observe successful execution, never claim/citation authority."""
+    if event.state != "completion" or not _tool_event_scope_matches(event, scope):
+        return False
+    successful = {"enough", "partial", "truncated", "empty"}
+    if event.tool_name == "expand_graph_retrieval":
+        return (
+            event.retrieval_schema in _EXPANSION_RESULT_SCHEMAS
+            and _normalized_outcome(event) in successful
+        )
+    if event.tool_name != "read_graph_source":
+        return False
+    from .agent_source_read_telemetry import BATCH_V1, BATCH_V2, READ_SCHEMA, MAX_READS
+
+    if event.retrieval_schema not in {READ_SCHEMA, BATCH_V1, BATCH_V2}:
+        return False
+    metadata = event.bounded_ids
+    if not isinstance(metadata, Mapping):
+        return False
+    count = metadata.get("sourceReadCount")
+    if type(count) is not int or not 0 < count <= MAX_READS:
+        return False
+    if event.retrieval_schema == READ_SCHEMA and (
+        count != 1 or _normalized_outcome(event) not in EVIDENCE_BEARING_OUTCOMES
+    ):
+        return False
+    if metadata.get("sourceReadTelemetryTruncated") is not False:
+        return False
+    for index in range(count):
+        read = metadata.get(f"sourceRead{index}")
+        if (
+            not isinstance(read, Mapping)
+            or read.get("knownSourceReadSchema") != "true"
+            or read.get("graph_revision") != scope.revision_id
+            or read.get("opened") != "true"
+            or not isinstance(read.get("outcome"), str)
+            or read.get("outcome") not in EVIDENCE_BEARING_OUTCOMES
+        ):
+            return False
+    return True
+
+
 def _grounding_block(
     *,
     state: GroundingState,
@@ -877,7 +949,9 @@ def _grounding_block(
         "focus": dict(scope.focus),
         "admissibility": scope.admissibility,
         "revision_id": scope.revision_id,
-        "successful_tool_count": len(evidence),
+        "successful_tool_count": sum(
+            _successful_tool_invocation(event, scope) for event in tool_events
+        ),
         "source_anchor_count": len(anchors),
         "diagnostic_codes": list(dict.fromkeys(diagnostic_codes)),
         "warnings": list(warnings),
@@ -1202,7 +1276,6 @@ def build_hermes_graph_product_response(
     elapsed_ms: int,
     world_graph_context: Mapping[str, Any] | None = None,
     retrieval_session: GraphRetrievalSession | None = None,
-    corpus_root: Path | None = None,
     conversation_history: Sequence[Mapping[str, str]] | None = None,
     pointer_resolution: HermesPointerResolution | None = None,
     worker_pid_changed: bool = False,
@@ -1237,7 +1310,6 @@ def build_hermes_graph_product_response(
                 scope=scope,
                 projection_ok=True,
                 retrieval_session=retrieval_session,
-                corpus_root=corpus_root,
             )
         )
         grounding_events = result.tool_events
@@ -1264,14 +1336,6 @@ def build_hermes_graph_product_response(
         diagnostic_codes=diagnostic_codes,
         warnings=warnings,
     )
-    latest_recap_change = (
-        world_graph_context.get("latest_recap_change")
-        if isinstance(world_graph_context, Mapping)
-        and isinstance(world_graph_context.get("latest_recap_change"), Mapping)
-        else None
-    )
-    if latest_recap_change is not None:
-        grounding["latest_recap_change"] = dict(latest_recap_change)
     acceptance_state = str(acceptance.get("state") or state)
     grounding["acceptance_state"] = acceptance_state
     grounding["accepted_claim_ids"] = list(acceptance.get("accepted_claim_ids") or [])
@@ -1326,17 +1390,6 @@ def build_hermes_graph_product_response(
         "hermes_session": _hermes_session_handle(pointer_binding),
         "retrieval_session_id": _runtime_retrieval_session_id(result),
     }
-    if latest_recap_change is not None:
-        response["latest_recap_change"] = dict(latest_recap_change)
-    s1_support = acceptance.get("s1_support")
-    if isinstance(s1_support, Mapping):
-        response["s1_support"] = dict(s1_support)
-        if latest_recap_change is not None:
-            merged = dict(latest_recap_change)
-            for key, value in s1_support.items():
-                if value is not None:
-                    merged[str(key)] = value
-            response["latest_recap_change"] = merged
     if world_graph_context is not None:
         response["world_graph_context"] = dict(world_graph_context)
     if forensic_enabled():
@@ -1382,7 +1435,6 @@ def run_hermes_graph_query(
     agent_thread_id: str | None,
     turn_id: str | None,
     root: Path | None = None,
-    corpus_root: Path | None = None,
     agent_runtime: AgentRuntime | None = None,
     conversation_history: Any | None = None,
     session_base: Path | None = None,
@@ -1395,13 +1447,9 @@ def run_hermes_graph_query(
     Crosses ``AgentRuntime.run`` exactly once. Host-owned pre-accept retry remains
     inside the Hermes adapter/host; this product path never retries.
 
-    ``root`` is the World Graph store root. ``corpus_root`` is the Buddy repo
-    root used for registry-admitted recap reads; it must not default to the
-    graph store root (``out/``), or S1 memory-lag sensemaking cannot open
-    ``corpus/...`` paths.
+    ``root`` is the World Graph store root. Source support comes from the
+    governed retrieval session, not a separate recap-file reader.
     """
-    from apps.live_control_server.config import repo_root as default_repo_root
-
     builder = _new_trace_builder(
         agent_thread_id=agent_thread_id,
         turn_id=turn_id,
@@ -1431,7 +1479,6 @@ def run_hermes_graph_query(
                 trace_builder=builder,
             )
 
-        resolved_corpus_root = (corpus_root or default_repo_root()).resolve()
         context_span_id = builder.start_phase("context_assembly")
         try:
             continuity_campaign_id = _continuity_campaign_id(packet)
@@ -1458,7 +1505,6 @@ def run_hermes_graph_query(
                 question=text,
                 graph_envelope=graph_envelope,
                 root=root,
-                corpus_root=resolved_corpus_root,
                 conversation_history=normalized_history,
                 continuity_session_id=pointer_resolution.continuity_session_id,
                 thread_id=agent_thread_id,
@@ -1537,7 +1583,6 @@ def run_hermes_graph_query(
                 completed_at=_utc_now_z(),
                 elapsed_ms=builder.elapsed_ms(),
                 world_graph_context=graph_envelope,
-                corpus_root=resolved_corpus_root,
                 conversation_history=normalized_history,
                 pointer_resolution=pointer_resolution,
                 worker_pid_changed=worker_pid_changed,

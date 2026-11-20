@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -167,68 +167,27 @@ def test_retrieval_session_reuse_preserves_id(tmp_path: Path) -> None:
     assert assembly.trace_summary["retrieval_session_id"] == session_id
 
 
-def test_latest_recap_paths(tmp_path: Path) -> None:
-    # no latest_recap_change
-    bare = assemble_agent_graph_context(
-        question="q",
-        graph_envelope=READY_ENVELOPE,
-        root=tmp_path,
-    )
-    assert bare.trace_summary["latest_recap_change_present"] is False
-    assert bare.trace_summary["admitted_recap_excerpt_char_count"] == 0
-
-    recap_path = tmp_path / "Session 24 - Recap.md"
-    recap_path.write_text(SECRET_EXCERPT, encoding="utf-8")
-    lag_envelope = {
-        **READY_ENVELOPE,
-        "latest_recap_change": {
-            "schema": "dmb_latest_recap_change_context_v1",
-            "outcome": "memory_lag",
-            "memory_lag": True,
-            "latest_recap": {
-                "source_recap_path": "Session 24 - Recap.md",
-            },
-        },
-    }
-    with_excerpt = assemble_agent_graph_context(
-        question="q",
-        graph_envelope=lag_envelope,
-        root=tmp_path,
-        corpus_root=tmp_path,
-    )
-    packet = with_excerpt.invocation.context_packet.retrieval_session.packet
-    assert packet["latest_recap_change"]["admitted_recap_excerpt"] == SECRET_EXCERPT
-    assert with_excerpt.trace_summary["latest_recap_change_present"] is True
-    assert with_excerpt.trace_summary["admitted_recap_excerpt_char_count"] == len(
-        SECRET_EXCERPT
-    )
-    _assert_summary_privacy(dict(with_excerpt.trace_summary), SECRET_EXCERPT)
-
-    # existing excerpt → no duplicate read
-    reader = MagicMock(return_value="SHOULD-NOT-READ")
-    session = create_session_from_preflight(lag_envelope, question="q")
-    session.latest_recap_change = {
-        **dict(lag_envelope["latest_recap_change"]),
-        "admitted_recap_excerpt": "already-present-excerpt",
-    }
-    with patch(
-        "graph_memory.interaction.latest_recap.read_admitted_recap_excerpt",
-        reader,
-    ):
-        reused = assemble_agent_graph_context(
-            question="q",
-            graph_envelope=lag_envelope,
-            root=tmp_path,
-            corpus_root=tmp_path,
-            retrieval_session=session,
-        )
-    reader.assert_not_called()
-    assert (
-        reused.invocation.context_packet.retrieval_session.packet[
-            "latest_recap_change"
-        ]["admitted_recap_excerpt"]
-        == "already-present-excerpt"
-    )
+def test_retained_latest_context_is_unchanged_but_never_opened(tmp_path: Path) -> None:
+    legacy = {"schema": "dmb_latest_recap_change_context_v1", "outcome": "memory_lag",
+              "memory_lag": True, "diagnostic_codes": ["latest_recap_not_in_graph_head"],
+              "latest_recap": {"source_recap_path": "PRIVATE-RECAP.md"},
+              "admitted_recap_excerpt": SECRET_EXCERPT}
+    envelope = {**READY_ENVELOPE, "latest_recap_change": legacy}
+    original = json.dumps(envelope, sort_keys=True)
+    fresh = create_session_from_preflight(envelope, question="What changed after the latest recap?")
+    assert fresh.latest_recap_change is None
+    assert "latest_recap_in_graph_head" not in fresh.coverage.missing
+    # Keep the old stored data shape; it supplies no file-opening authority.
+    fresh.latest_recap_change = json.loads(json.dumps(legacy))
+    with patch("pathlib.Path.read_text", side_effect=AssertionError("Legacy file read")):
+        reused = assemble_agent_graph_context(question="q", graph_envelope=envelope,
+            root=tmp_path, retrieval_session=fresh)
+    assert fresh.latest_recap_change == legacy
+    assert "latest_recap_change_present" not in reused.trace_summary
+    assert "admitted_recap_excerpt_char_count" not in reused.trace_summary
+    assert json.dumps(envelope, sort_keys=True) == original
+    assert reused.invocation.context_packet.retrieval_session is not None
+    _assert_summary_privacy(dict(reused.trace_summary), SECRET_EXCERPT)
 
 
 def test_missing_revision_raises_neutral_error(tmp_path: Path) -> None:

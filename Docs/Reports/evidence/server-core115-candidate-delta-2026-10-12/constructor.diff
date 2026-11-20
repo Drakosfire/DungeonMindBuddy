@@ -1,0 +1,11 @@
+--- accepted-effective_config.py
++++ core115-effective_config.py
+@@ -13 +13 @@
+-CANDIDATE = Path('/tmp/buddy-runtime-candidate-20261012')
++CANDIDATE = Path('/tmp/buddy-runtime-candidate-core115-20261012')
+@@ -26 +26 @@
+-    str(CANDIDATE): 'fad78a85d710f560bc297f867b6e3c1fa4f0940e',
++    str(CANDIDATE): '708416fdf6f5148e7abf17cdeb5ec6d141b70291',
+@@ -129 +129 @@
+-    Path('/tmp/buddy-runtime-prep-20261012/effective-config.json').write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n')
++    Path('/tmp/buddy-core115-candidate-prep-20261012/effective-config.json').write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n')

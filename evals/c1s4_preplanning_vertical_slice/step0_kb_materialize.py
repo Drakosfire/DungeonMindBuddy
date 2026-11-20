@@ -12,7 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.agent.session_memory_query import load_session_memory_records_jsonl
-from src.corpus.session_recap_paths import session_memory_jsonl_relpath
+from corpus.session_recap_paths import session_memory_jsonl_relpath
 
 CORPUS_ROOT = ROOT / "corpus/eldyrwild-markdown"
 DEFAULT_POLICY_PATH = Path(__file__).resolve().parent / "gold/kb_policy.json"

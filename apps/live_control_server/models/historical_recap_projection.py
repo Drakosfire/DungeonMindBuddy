@@ -47,6 +47,8 @@ class HistoricalRecapWorldProjectionResponse(_HistoricalRecapProjectionModel):
     campaign_id: str
     session_id: str
     world_id: str
+    managed_world_id: str | None = None
+    binding_version: int | None = Field(default=None, gt=0)
     source_sha256: str
     source_status: HistoricalProjectionStatus = "available"
     graph_status: HistoricalProjectionStatus = "available"

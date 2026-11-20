@@ -16,7 +16,7 @@ from apps.live_control_server.services.source_artifact_registry import (
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRegistryError,
     WorkspaceDocumentRecord,
-    get_workspace_document_snapshot,
+    get_committed_page_snapshot,
 )
 from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
 from graph_memory.source_span import SourceSpanIndexEntry
@@ -138,7 +138,7 @@ def resolve_build_source_navigation(
         )
 
     try:
-        artifact = get_source_artifact(root, cleaned_artifact_id)
+        artifact = get_source_artifact(cleaned_artifact_id)
     except SourceArtifactRegistryError as exc:
         raise SourceNavigationError(
             str(exc),
@@ -160,7 +160,7 @@ def resolve_build_source_navigation(
     span = _find_span_entry(index.spans, source_span_ref_id)
 
     try:
-        snapshot = get_workspace_document_snapshot(root, document_id)
+        snapshot = get_committed_page_snapshot(root, document_id)
     except WorkspaceDocumentRegistryError as exc:
         raise SourceNavigationError(
             str(exc),

@@ -396,3 +396,40 @@ Historical — satisfied by merged DungeonMind PR #34 (`935d3d91…` / `d2204dd0
 - [x] No DungeonMind `src/` or `migrations/` edits
 - [x] Product-authority switch remains false
 - [x] Post-merge Buddy sync set includes this handoff marked `DONE / HISTORICAL — do not redispatch` with PR/head/merge/review-cycle evidence
+
+## Retrieve the sealed bundle from Git
+
+From the Buddy repository root, write the pinned blob to a fresh scratch file
+and verify its checksum before use.
+
+```bash
+retrieve_eldyrwild_bundle() (
+  ref=ef71a7eb6cb376d01144e1c01242d16a77803886
+  path=graph_data/approved_existing_world_adoptions/eldyrwild/dungeonmind-v6/bundle.json
+  git cat-file -e "$ref:$path" 2>/dev/null ||
+    git fetch --no-tags https://github.com/Drakosfire/DungeonMindBuddy.git "$ref" || exit 1
+  recovered=$(mktemp) || exit 1
+  trap 'rm -f -- "$recovered"' EXIT
+  git show "$ref:$path" > "$recovered" || exit 1
+  printf '%s  %s\n' 90574dfc4101e4198c7fd96478d6f49e65aa534d0aa91fa41a9a17da9d49695f "$recovered" |
+    sha256sum -c - >&2 || exit 1
+  trap - EXIT
+  printf '%s\n' "$recovered"
+)
+bundle=$(retrieve_eldyrwild_bundle) && printf 'Recovered bundle: %s\n' "$bundle"
+```
+
+The function fetches the exact historical commit when it is absent locally,
+including in a shallow clone. It returns a path only after checksum validation
+and removes incomplete output on failure. Use that scratch path for the
+historical proof, then remove it with `rm -f -- "$bundle"`.
+
+A fresh upstream retrieval on 2026-11-18 verified access to these exact bytes.
+The recovered blob passed all 16 unit and integration proof tests at
+DungeonMind revision `935d3d9` with disposable PostgreSQL 16 and pgvector
+0.8.6. The replay covered first adoption, idempotent retry, rollback, and
+durable readback. Use the immutable Git pin for this historical proof rather
+than requiring a duplicate in the current checkout. This input does not replace
+the current World authority or its backups; see the
+[World authority recovery handoff](HANDOFF-DOGFOOD-CONTINUITY-eldyrwild-world-authority-recovery-v1.md).
+[Retirement record #3579](https://github.com/Drakosfire/DungeonMindBuddy/issues/3579)

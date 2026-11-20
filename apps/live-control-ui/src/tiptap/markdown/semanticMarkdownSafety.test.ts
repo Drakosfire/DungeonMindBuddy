@@ -200,7 +200,7 @@ describe("semanticMarkdownSerializationDiagnostics", () => {
     expect(diagnostics.some((diagnostic) => diagnostic.nodeType === "decisionPane")).toBe(true);
   });
 
-  it("rejects hard breaks, unsupported nested list blocks, and merged table cells", () => {
+  it("accepts paragraph breaks while rejecting unsupported nested list blocks and merged table cells", () => {
     const diagnostics = semanticMarkdownSerializationDiagnostics({
       type: "doc",
       content: [
@@ -232,7 +232,7 @@ describe("semanticMarkdownSerializationDiagnostics", () => {
       ],
     });
 
-    expect(diagnostics.some((diagnostic) => diagnostic.nodeType === "hardBreak")).toBe(true);
+    expect(diagnostics.some((diagnostic) => diagnostic.nodeType === "hardBreak")).toBe(false);
     expect(diagnostics.some((diagnostic) => diagnostic.message.includes("List item child"))).toBe(true);
     expect(diagnostics.some((diagnostic) => diagnostic.message.includes("Merged or width-constrained"))).toBe(true);
   });
@@ -275,12 +275,12 @@ describe("semanticMarkdownSerializationDiagnostics", () => {
     ]));
   });
 
-  it("rejects marks that are not mounted by the editor schema", () => {
+  it("rejects unsupported web link attributes", () => {
     const diagnostics = semanticMarkdownSerializationDiagnostics({
       type: "doc",
       content: [{
         type: "paragraph",
-        content: [{ type: "text", text: "Link", marks: [{ type: "link", attrs: { href: "https://example.com" } }] }],
+        content: [{ type: "text", text: "Link", marks: [{ type: "link", attrs: { href: "https://example.com", onclick: "Not supported" } }] }],
       }],
     });
 

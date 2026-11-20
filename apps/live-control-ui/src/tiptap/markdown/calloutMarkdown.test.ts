@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { PlayableIdentitySerializationError } from "../playable/playableElementIdentity";
 import { tiptapJsonToSemanticMarkdown } from "./calloutMarkdown";
+import { markdownToTiptapDoc } from "./markdownToTiptap";
 import { semanticMarkdownSerializationDiagnostics } from "./semanticMarkdownSafety";
 
 describe("Tiptap rich text Markdown export", () => {
@@ -88,6 +89,74 @@ describe("Tiptap rich text Markdown export", () => {
         }],
       }),
     ).toBe("> **First **paragraph.\n>\n> [Lysandra](dmb-node:node:captain-lysandra-ironveil) returns.\n");
+  });
+
+  it.each([
+    ["bulletList", "- "],
+    ["orderedList", "1. "],
+  ] as const)("preserves multiple paragraphs in a %s item", (listType, marker) => {
+    const document = {
+      type: "doc",
+      content: [{
+        type: listType,
+        content: [{
+          type: "listItem",
+          attrs: {
+            playableElementKind: "option",
+            playableElementId: "option:smoke",
+            playableElementVersion: "v2",
+          },
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "Continue the smoke test.", marks: [{ type: "bold" }] }] },
+            { type: "paragraph", content: [
+              { type: "text", text: "First option paragraph with " },
+              { type: "graphNodeReference", attrs: { nodeId: "node:guide", label: "the guide" } },
+              { type: "text", text: "." },
+            ] },
+            { type: "paragraph", content: [{ type: "text", text: "Second option paragraph." }] },
+          ],
+        }],
+      }],
+    };
+
+    const markdown = tiptapJsonToSemanticMarkdown(document);
+    const indent = " ".repeat(marker.length);
+    expect(markdown).toContain(`\n${marker}**Continue the smoke test.**\n\n${indent}First option paragraph with [the guide](dmb-node:node:guide).\n\n${indent}Second option paragraph.`);
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics.filter((diagnostic) => diagnostic.level === "warning")).toEqual([]);
+    const list = imported.doc.content?.[0];
+    const item = list?.content?.[0];
+    expect(item?.content).toHaveLength(3);
+    expect(item?.content?.[0]).toMatchObject({ type: "paragraph", content: [{ type: "text", text: "Continue the smoke test.", marks: [{ type: "bold" }] }] });
+    expect(JSON.stringify(item?.content?.[1])).toContain('"type":"graphNodeReference"');
+    expect(JSON.stringify(item?.content?.[1])).toContain('"nodeId":"node:guide"');
+    expect(item?.attrs).toMatchObject({ playableElementKind: "option", playableElementId: "option:smoke", playableElementVersion: "v2" });
+    expect(tiptapJsonToSemanticMarkdown(imported.doc)).toBe(markdown);
+  });
+
+  it("keeps nested lists and callouts on their existing list continuation boundary", () => {
+    const markdown = tiptapJsonToSemanticMarkdown({
+      type: "doc",
+      content: [{
+        type: "bulletList",
+        content: [{
+          type: "listItem",
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "Parent item." }] },
+            { type: "bulletList", content: [{ type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Nested item." }] }] }] },
+            { type: "callout", attrs: { kind: "gm-note" }, content: [{ type: "paragraph", content: [{ type: "text", text: "A note." }] }] },
+          ],
+        }],
+      }],
+    });
+
+    expect(markdown).toContain("- Parent item.\n  - Nested item.");
+    expect(markdown).toContain("\n  > [!GM-NOTE]");
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics.filter((diagnostic) => diagnostic.level === "warning")).toEqual([]);
+    const item = imported.doc.content?.[0]?.content?.[0];
+    expect(item?.content?.map((node) => node.type)).toEqual(["paragraph", "bulletList", "callout"]);
+    expect(tiptapJsonToSemanticMarkdown(imported.doc)).toBe(markdown);
   });
 
   it("escapes Markdown controls and hardens code spans containing backticks", () => {
@@ -482,4 +551,37 @@ describe("Tiptap rich text Markdown export", () => {
       }),
     ).toBe("> [!GM-NOTE]\n> ## Arrival\n");
   });
+});
+
+it.each([
+  'Before  \nAfter',
+  '- Before  \n  After',
+  '> Before  \n> After',
+  '> [!RULES]\n> Before  \n> After',
+  '**Before**  \n*After*',
+])('preserves hard-break paragraph structure and marks on save/reopen: %s', source => {
+  const original = markdownToTiptapDoc(source);
+  expect(original.diagnostics).toEqual([]);
+  expect(semanticMarkdownSerializationDiagnostics(original.doc)).toEqual([]);
+  const saved = tiptapJsonToSemanticMarkdown(original.doc);
+  const reopened = markdownToTiptapDoc(saved);
+  expect(reopened.diagnostics).toEqual([]);
+  expect(reopened.doc).toEqual(original.doc);
+});
+
+it('keeps hard breaks in headings and table-cell paragraphs blocked', () => {
+  const line = [{type:'text',text:'Before'},{type:'hardBreak'},{type:'text',text:'After'}];
+  const heading = {type:'doc',content:[{type:'heading',attrs:{level:2},content:line}]};
+  const table = {type:'doc',content:[{type:'table',content:[{type:'tableRow',content:[{type:'tableCell',content:[{type:'paragraph',content:line}]}]}]}]};
+  expect(semanticMarkdownSerializationDiagnostics(heading).some(item=>item.nodeType==='hardBreak')).toBe(true);
+  expect(semanticMarkdownSerializationDiagnostics(table).some(item=>item.nodeType==='hardBreak')).toBe(true);
+});
+
+
+it.each([["RULES", "Traveling"], ["READ-ALOUD", "North of Mireward Reach"]])("retains the optional %s title through Markdown round-trip", (kind, label) => {
+  const source = `> [!${kind}] ${label}\n> The complete authored passage.\n`;
+  const parsed = markdownToTiptapDoc(source);
+  expect(parsed.diagnostics).toEqual([]);
+  expect(parsed.doc.content?.[0].attrs?.label).toBe(label);
+  expect(tiptapJsonToSemanticMarkdown(parsed.doc)).toBe(source);
 });

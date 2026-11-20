@@ -44,3 +44,5 @@ The benchmark asks:
 4. Answer the questions in `session_24_projection_questions.json`.
 5. Fill out `session_24_manual_dogfood_report_template.md`.
 6. Treat failures as product/design feedback for graph projection, not extraction failure.
+
+The [historical Session 24 runner](https://github.com/Drakosfire/DungeonMindBuddy/blob/30008dc473bd80144a46c035d09b56ad1deb2928/evals/graph_memory_layer/run_session_24_manual_projection_dogfood.py) used the retired Buddy Graph adapter. The fixture and captured outputs remain available for reference.

@@ -1,0 +1,40 @@
+/* The shared card paper fills the width assigned by each surface's workspace.
+   Doubled class specificity keeps the contract above legacy surface frame skins. */
+.surface-card-layout.surface-card-layout {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+  padding: clamp(1rem, 3cqi, 2rem);
+  border: 1px solid var(--ui-border-paper, #c0ad6a);
+  border-radius: var(--ui-radius-md, 0.75rem);
+  background: var(--ui-background-paper, #f7ebd7);
+  color: var(--ui-text-on-paper, #332d25);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.2);
+  font-family: Georgia, "Book Antiqua", "Times New Roman", serif;
+  line-height: 1.58;
+  overflow-wrap: anywhere;
+}
+.surface-card-layout .shared-scene-card__body,
+.surface-card-layout .play-body {
+  min-width: 0;
+  max-width: none;
+}
+/* Plan's live editor is the card body, not a second sheet inside the card. */
+.surface-card-layout.world-owned-plan__canvas .tiptap-spike-editor {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.surface-card-layout.world-owned-plan__canvas .ProseMirror {
+  padding: 0;
+  max-width: none;
+}

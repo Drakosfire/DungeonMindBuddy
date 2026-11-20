@@ -46,13 +46,12 @@ Field classification (handoff §5.7)
   anchor id prefix adaptation (``dm-source-anchor:v1:`` ↔
   ``source-anchor:v1:``).
 * C (product-local join, non-authoritative): source artifact
-  title/uri/excerpt and anchor content. Generic World projection may join
-  relationship excerpts from checkout-local ``source_span_index.json`` when
-  ``repo_root`` is provided; callers pass ``repo_root=None`` to skip that
-  filesystem join. Historical recap projection overlays excerpts from
+  title/uri/excerpt and anchor content. Generic World projection does not
+  hydrate source text. Historical recap projection explicitly overlays excerpts from
   already-loaded APP-STATE ``source.revision`` bytes using
-  ``extract_span_from_revision_bound_text``. Anchor reads still verify
-  parent bytes against the DungeonMind source revision digest.
+  ``extract_span_from_revision_bound_text``. Anchor reads serve only supported
+  admitted spans from exact database bodies matching the DungeonMind revision
+  digest. Retired heading/JSON file locators remain unreadable metadata.
 * D (retired): ``external_resource``, ``threat_statblock_binding``,
   ``statblock_binding``, ``active_contribution_ids`` — Buddy-only
   hydration-era payloads the DungeonMind authority snapshot intentionally
@@ -74,7 +73,13 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Literal, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Iterable, Literal, Mapping, Sequence
+
+if TYPE_CHECKING:
+    from .object_read_wave import ObjectReadWave
+    from .reviewed_source_wave import ReviewedSourceWave
+    from .source_anchor_wave import SourceAnchorWave
+    from apps.live_control_server.services.worldbuilding_source_span_read import WorldbuildingSourceReadBatch
 
 from dungeonmind.application.graph_snapshot import (
     GraphEvidenceRecord,
@@ -94,6 +99,10 @@ from dungeonmind.application.world_graph_retrieval import (
     NeighborhoodResult,
     ObjectLookupResult,
     RetrievalBounds,
+    SourceAnchorBatchRequest,
+    SourceAnchorIndexRequest,
+    SourceContextIndexRequest,
+    SelectedSourceAnchorIndexRequest,
     SourceAnchorMetadata,
     SourceAnchorResolution,
     WorldGraphRetrievalService,
@@ -135,7 +144,6 @@ from graph_memory.projection.world_projection import (
     WorldGraphProjectionSourceArtifactView,
     WorldGraphProjectionSuggestedExpansion,
     WorldGraphProjectionSummary,
-    WorldGraphProjectionTextHighlightSpan,
     WorldGraphProjectionTrustBoundary,
     WorldGraphQueryContext,
 )
@@ -150,21 +158,18 @@ from graph_memory.retrieval.models import (
     WorldGraphRetrievalRelationship,
     WorldGraphRetrievalRequestContext,
     WorldGraphRetrievalResult,
+    WorldGraphReviewedSourceObservationMatch,
     WorldGraphRetrievalSnapshot,
     WorldGraphRetrievalTrustBoundary,
     WorldGraphSearchRequest,
     WorldGraphSourceAnchor,
     WorldGraphSourceAnchorReadRequest,
     WorldGraphSourceAnchorReadResult,
-)
-from graph_memory.retrieval.source_reader import (
-    SourceReadError,
-    parse_graph_data_uri,
-    parse_heading_locator,
-    parse_json_pointer_locator,
-    parse_repo_uri,
-    read_graph_data_json_pointer_anchor,
-    read_repo_heading_anchor,
+    RecapContextIndexRequestV2,
+    RecapContextReadRequestV2,
+    RecapContextDescriptorV2,
+    RecapContextIndexResultV2,
+    RecapContextReadResultV2,
 )
 from graph_memory.retrieval.errors import WorldGraphRetrievalError
 from apps.live_control_server.models.world_graph_object_projection import (
@@ -173,6 +178,7 @@ from apps.live_control_server.models.world_graph_object_projection import (
     WorldGraphObjectProjectionRelationship,
     WorldGraphObjectProjectionRequest,
     WorldGraphObjectProjectionResult,
+    WorldGraphObjectReviewedSourceObservation,
     WorldGraphObjectProjectionSourceBinding,
     WorldGraphObjectProjectionTelemetry,
 )
@@ -294,6 +300,9 @@ class DirectWorldGraphReadServices:
     projection: WorldGraphProjectionService
     retrieval: WorldGraphRetrievalService
     binding: DirectAuthorityBinding
+    reviewed_source_wave: ReviewedSourceWave | None = None
+    source_anchor_wave: SourceAnchorWave | None = None
+    object_read_wave: ObjectReadWave | None = None
 
 
 def _verified_authority_lookup(getter: Any, world_id: str, *, what: str) -> Any:
@@ -517,9 +526,14 @@ def direct_services_from_bundle(
         graph_reader=graph_reader,
         reviewed_world_initializations=bundle.reviewed_world_initializations,
     )
+    reviews = getattr(bundle, "contribution_reviews", None)
+    publications = getattr(bundle, "finalized_review_publications", None)
     retrieval = WorldGraphRetrievalService(
         projection=projection,
         sources=bundle.sources,
+        world_graph=bundle.world_graph if reviews is not None or publications is not None else None,
+        contribution_reviews=reviews,
+        finalized_review_publications=publications,
     )
     binding = _load_direct_authority_binding(bundle, world_id)
     return DirectWorldGraphReadServices(
@@ -620,9 +634,8 @@ def list_world_heads(*, database_url: str | None = None) -> list[WorldHeadSummar
                 status_code=503,
                 diagnostics=[{"reason": "enumeration_ports_missing"}],
             )
-        world_ids: set[str] = set()
-        for head in bundle.world_graph.list_heads():
-            world_ids.add(head.world_id)
+        heads = {head.world_id: head for head in bundle.world_graph.list_heads()}
+        world_ids = set(heads)
         for world_id in bundle.existing_world_adoptions.list_world_ids():
             world_ids.add(world_id)
         init_repo = getattr(bundle, "reviewed_world_initializations", None)
@@ -632,7 +645,10 @@ def list_world_heads(*, database_url: str | None = None) -> list[WorldHeadSummar
 
         summaries: list[WorldHeadSummary] = []
         for world_id in sorted(world_ids):
-            head = bundle.world_graph.get_head(world_id)
+            head = heads.get(world_id)
+            if head is None:
+                # A receipt may have appeared after list_heads took its snapshot.
+                head = bundle.world_graph.get_head(world_id)
             summaries.append(
                 WorldHeadSummary(
                     world_id=world_id,
@@ -1093,49 +1109,6 @@ def _source_revision_digest(
     return revision.content_sha256 if revision is not None else None
 
 
-def _load_span_paragraph_text(
-    services: DirectWorldGraphReadServices,
-    artifact_ids: Iterable[str],
-    *,
-    repo_root: Path,
-) -> dict[str, str]:
-    """Span id → paragraph text from product-local ingest run indexes.
-
-    Mirrors the legacy kernel's ``source_span_index.json`` sidecar lookup,
-    keyed by admitted artifact URIs from DungeonMind's source repository.
-    """
-    texts: dict[str, str] = {}
-    for artifact_id in sorted(set(artifact_ids)):
-        try:
-            artifact = services.bundle.sources.get_artifact(artifact_id)
-        except Exception:  # noqa: BLE001
-            continue
-        uri = getattr(artifact, "uri", None) if artifact is not None else None
-        if not isinstance(uri, str) or not uri.strip():
-            continue
-        relative = parse_repo_uri(uri)
-        if relative is None:
-            continue
-        index_path = (repo_root / relative).parent / "source_span_index.json"
-        if not index_path.is_file():
-            continue
-        try:
-            raw = json.loads(index_path.read_text(encoding="utf-8"))
-        except Exception:  # noqa: BLE001
-            continue
-        rows = raw.get("spans") if isinstance(raw, dict) else None
-        if not isinstance(rows, list):
-            continue
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            span_id = row.get("span_id") or row.get("source_span_ref_id")
-            text = row.get("paragraph_text") or row.get("text")
-            if isinstance(span_id, str) and isinstance(text, str):
-                texts.setdefault(span_id, text)
-    return texts
-
-
 # ---------------------------------------------------------------------------
 # Snapshot / evidence / relationship adaptation
 # ---------------------------------------------------------------------------
@@ -1312,27 +1285,6 @@ def _expansion_views(
     return expansions
 
 
-def _resolve_adjacency_excerpt(
-    evidence_rows: Sequence[GraphEvidenceRecord | EvidenceRefV2],
-    *,
-    paragraph_text_by_span_id: Mapping[str, str],
-) -> tuple[str | None, bool, list[WorldGraphProjectionTextHighlightSpan]]:
-    """First available full-paragraph excerpt for the edge's admitted evidence.
-
-    Buddy contribution-era ``label``/``anchor_quotes` evidence extras do not
-    exist in the adopted DungeonMind world, so excerpts are always whole
-    paragraphs (``is_full_paragraph=True``, no highlight spans).
-    """
-    for record in evidence_rows:
-        span_id = getattr(record, "source_span_ref_id", None)
-        if not span_id:
-            continue
-        text = paragraph_text_by_span_id.get(span_id)
-        if text:
-            return text, True, []
-    return None, False, []
-
-
 def _node_view(
     obj: GraphObjectView,
     *,
@@ -1341,7 +1293,6 @@ def _node_view(
     focus: _FocusContext,
     evidence_by_id: Mapping[str, GraphEvidenceRecord | EvidenceRefV2],
     artifact_campaigns: Mapping[str, str | None],
-    paragraph_text_by_span_id: Mapping[str, str],
     degree_by_node: Mapping[str, int],
 ) -> WorldGraphProjectionNodeView:
     badges = [
@@ -1363,9 +1314,6 @@ def _node_view(
         rel_evidence = [
             evidence_by_id[ref] for ref in rel.evidence_ref_ids if ref in evidence_by_id
         ]
-        excerpt, is_full, spans = _resolve_adjacency_excerpt(
-            rel_evidence, paragraph_text_by_span_id=paragraph_text_by_span_id
-        )
         rel_metadata = rel.assertion_metadata
         adjacency.append(
             WorldGraphProjectionAdjacencyCandidate(
@@ -1389,9 +1337,6 @@ def _node_view(
                     rel_metadata.campaign_scope if rel_metadata is not None else None
                 ),
                 related_summary=other.summary if other is not None else None,
-                source_excerpt=excerpt,
-                source_excerpt_is_full_paragraph=is_full,
-                source_excerpt_highlight_spans=spans,
             )
         )
     anchored = any(b.is_focus_session_evidence for b in badges) or any(
@@ -1431,16 +1376,12 @@ def _node_view(
 def project_world_graph_direct(
     services: DirectWorldGraphReadServices,
     request: WorldGraphProjectionRequest,
-    *,
-    repo_root: Path | None = None,
 ) -> WorldGraphProjection:
     """Execute one exact DungeonMind projection and adapt to the Buddy wire."""
     try:
         dnd_request = _map_projection_request(request, services.binding)
         result = services.projection.project(dnd_request)
-        projection = _adapt_projection_result(
-            services, result, request=request, repo_root=repo_root
-        )
+        projection = _adapt_projection_result(services, result, request=request)
         if request.query_text:
             search = services.retrieval.search(dnd_request, query_text=request.query_text)
             projection = projection.model_copy(
@@ -1460,7 +1401,6 @@ def _adapt_projection_result(
     result: WorldGraphProjectionResult,
     *,
     request: WorldGraphProjectionRequest,
-    repo_root: Path | None,
 ) -> WorldGraphProjection:
     graph = result.graph
     evidence_by_id: dict[str, GraphEvidenceRecord | EvidenceRefV2] = dict(graph.evidence)
@@ -1474,15 +1414,6 @@ def _adapt_projection_result(
     for rel in relationships:
         degree_by_node[rel.subject_object_id] = degree_by_node.get(rel.subject_object_id, 0) + 1
         degree_by_node[rel.object_object_id] = degree_by_node.get(rel.object_object_id, 0) + 1
-    paragraph_texts: dict[str, str] = {}
-    # Product-local sidecar join is optional. Historical recap projection
-    # passes repo_root=None and overlays APP-STATE bytes after this adapt.
-    if repo_root is not None:
-        paragraph_texts = _load_span_paragraph_text(
-            services,
-            (rec.source_artifact_id for rec in evidence_by_id.values()),
-            repo_root=repo_root,
-        )
     rel_views = [
         _relationship_view(
             rel,
@@ -1500,7 +1431,6 @@ def _adapt_projection_result(
             focus=focus,
             evidence_by_id=evidence_by_id,
             artifact_campaigns=artifact_campaigns,
-            paragraph_text_by_span_id=paragraph_texts,
             degree_by_node=degree_by_node,
         )
         for obj in objects_by_id.values()
@@ -1835,24 +1765,14 @@ def _product_source_span_ref_id(anchor: SourceAnchorMetadata) -> str | None:
 
 
 def _classify_locator_kind(anchor: SourceAnchorMetadata) -> str:
+    """Only supported admitted DB spans are readable; a URI grants no authority."""
     domain = str(getattr(anchor.evidence, "source_domain", "") or "")
-    span = (anchor.source_span_ref_id or "").strip()
-    # Match the legacy live-control dispatch: only worldbuilding spans use
-    # the registry-backed opener. Recap/other spans with a repo:// URI are
-    # still source_span locators, opened via digest-pinned product files.
-    if domain == "worldbuilding" and span:
+    if domain == "worldbuilding" and (anchor.source_span_ref_id or "").strip():
         return "source_span"
-    uri = getattr(anchor.artifact, "uri", None) or ""
-    locator = anchor.locator_identity or ""
-    if parse_repo_uri(uri) is not None and parse_heading_locator(locator) is not None:
-        return "heading"
-    if parse_graph_data_uri(uri) is not None and parse_json_pointer_locator(locator) is not None:
-        return "json_pointer"
-    recap_span = _product_source_span_ref_id(anchor)
-    if recap_span and parse_repo_uri(uri) is not None:
-        return "source_span"
-    if span and parse_repo_uri(uri) is not None:
-        return "source_span"
+    if domain in _RECAP_SOURCE_DOMAINS:
+        span = _product_source_span_ref_id(anchor)
+        if span and _supported_recap_span_identity(span) is not None:
+            return "source_span"
     return "unsupported"
 
 
@@ -1912,6 +1832,202 @@ def get_object_direct(
             dnd_request, object_id=request.node_id, bounds=_retrieval_bounds(request.bounds)
         )
         return _object_result_view(result, request=request)
+    except Exception as exc:  # noqa: BLE001
+        raise _map_direct_error(exc) from exc
+
+
+def get_object_with_reviewed_sources_direct(
+    services: DirectWorldGraphReadServices,
+    request: WorldGraphObjectRequest,
+) -> tuple[WorldGraphRetrievalResult, list[WorldGraphObjectReviewedSourceObservation], list[str], list[str]]:
+    result, observations, gaps, missing, _, _ = _get_object_with_reviewed_sources_direct(services, request)
+    return result, observations, gaps, missing
+
+
+def _get_object_with_reviewed_sources_direct(
+    services: DirectWorldGraphReadServices,
+    request: WorldGraphObjectRequest,
+    *,
+    observation_ids: tuple[str, ...] = (),
+) -> tuple[
+    WorldGraphRetrievalResult,
+    list[WorldGraphObjectReviewedSourceObservation],
+    list[str],
+    list[str],
+    Any,
+    Any,
+]:
+    """Keep bounded object semantics while adding Core's reviewed source facet.
+
+    One Core operation supplies bounded selection plus complete finalized
+    observations and their admitted anchors from the same captured context.
+    No contribution records or private read contexts are inspected in Buddy.
+    """
+    try:
+        if (
+            len(observation_ids) > 8
+            or any(not isinstance(value, str) or not value.strip() or value != value.strip()
+                   for value in observation_ids)
+            or len(set(observation_ids)) != len(observation_ids)
+        ):
+            raise DirectWorldGraphReadError(
+                "Selected observation IDs are invalid", code="invalid_request", status_code=422
+            )
+        native_request = _map_retrieval_context(request, services.binding)
+        if native_request.revision_pin is None:
+            raise ValueError("Harness object expansion requires an exact revision pin")
+        reader = services.object_read_wave or services.retrieval
+        views = reader.get_object_views(
+            native_request,
+            object_id=request.node_id,
+            bounds=_retrieval_bounds(request.bounds),
+        )
+        bounded, complete = views.bounded, views.complete
+        if (
+            bounded.snapshot != complete.snapshot
+            or bounded.found != complete.found
+            or ((bounded.object is None) != (complete.object is None))
+            or (
+                bounded.object is not None and complete.object is not None
+                and bounded.object.object_id != complete.object.object_id
+            )
+        ):
+            raise PersistenceIntegrityError(
+                "Bounded and complete object reads disagree at the pinned revision"
+            )
+        result = _object_result_view(bounded, request=request)
+        gaps = list(complete.coverage.gap_codes)
+        missing = list(complete.coverage.missing_ids)
+        complete_anchors = (
+            _source_anchor_views(complete.anchors, revision_id=complete.snapshot.revision_id)
+            if complete.reviewed_source_observations else []
+        )
+        anchors = {row.anchor_id: row for row in result.source_anchors}
+        accepted: list[WorldGraphObjectReviewedSourceObservation] = []
+        truncated = False
+        observations = complete.reviewed_source_observations
+        selection_partial = False
+        if observation_ids:
+            available = {row.assertion_id for row in observations}
+            if not set(observation_ids).issubset(available):
+                raise DirectWorldGraphReadError(
+                    "Selected observations are unavailable on this object at the pinned revision",
+                    code="selected_observation_unavailable", status_code=422,
+                )
+            selection_partial = bool(available - set(observation_ids))
+            observations = tuple(row for row in observations if row.assertion_id in observation_ids)
+        canonical_anchors = dict(anchors)
+        if observation_ids:
+            required = {}
+            for observation in observations:
+                for evidence_id in observation.evidence_ref_ids:
+                    matches = [anchor for anchor in complete_anchors
+                               if anchor.evidence_ref_id == evidence_id
+                               and observation.assertion_id in anchor.supporting_assertion_ids]
+                    if not matches:
+                        raise PersistenceIntegrityError(
+                            "Reviewed observation has no admitted supporting anchor"
+                        )
+                    anchor = sorted(matches, key=lambda row: row.anchor_id)[0]
+                    required[anchor.anchor_id] = anchor
+            if len(required) > request.bounds.max_source_anchors:
+                observations = ()
+                truncated = True
+            else:
+                # Explicit selection owns the bounded evidence budget first.
+                anchors = {}
+        for observation in observations:
+            if len(accepted) >= request.bounds.max_attributes:
+                truncated = True
+                continue
+            supporting = []
+            for evidence_id in observation.evidence_ref_ids:
+                matches = [
+                    anchor
+                    for anchor in complete_anchors
+                    if anchor.evidence_ref_id == evidence_id
+                    and observation.assertion_id in anchor.supporting_assertion_ids
+                ]
+                if not matches:
+                    raise PersistenceIntegrityError(
+                        "Reviewed observation has no admitted supporting anchor"
+                    )
+                supporting.append(sorted(matches, key=lambda row: row.anchor_id)[0])
+            additional = {
+                anchor.anchor_id
+                for anchor in supporting
+                if anchor.anchor_id not in anchors
+            }
+            if len(anchors) + len(additional) > request.bounds.max_source_anchors:
+                truncated = True
+                continue
+            for anchor in supporting:
+                existing = anchors.get(anchor.anchor_id)
+                if existing is None:
+                    anchors[anchor.anchor_id] = anchor
+                else:
+                    anchors[anchor.anchor_id] = existing.model_copy(
+                        update={
+                            "supporting_assertion_ids": sorted(
+                                set(existing.supporting_assertion_ids)
+                                | set(anchor.supporting_assertion_ids)
+                            ),
+                        }
+                    )
+            accepted.append(_reviewed_source_observation_view(observation))
+        canonical_displaced = False
+        if observation_ids:
+            for anchor_id, anchor in sorted(canonical_anchors.items()):
+                if anchor_id in anchors:
+                    current = anchors[anchor_id]
+                    anchors[anchor_id] = current.model_copy(update={
+                        "supporting_assertion_ids": sorted(set(current.supporting_assertion_ids)
+                                                           | set(anchor.supporting_assertion_ids)),
+                    })
+                elif len(anchors) < request.bounds.max_source_anchors:
+                    anchors[anchor_id] = anchor
+                else:
+                    canonical_displaced = True
+        coverage = result.coverage
+        if canonical_displaced:
+            gaps.append("reviewed_source_observation_canonical_anchors_displaced")
+            coverage = coverage.model_copy(update={
+                "truncated_fields": sorted(set(coverage.truncated_fields) | {"source_anchors"}),
+            })
+        if selection_partial:
+            gaps.append("reviewed_source_observation_selection")
+            coverage = coverage.model_copy(update={
+                "truncated_fields": sorted(set(coverage.truncated_fields) | {"reviewed_source_observations"}),
+            })
+        if truncated:
+            gaps.append("reviewed_source_observation_anchor_bound")
+            coverage = coverage.model_copy(
+                update={
+                    "truncated_fields": sorted(
+                        set(coverage.truncated_fields)
+                        | {"reviewed_source_observations"}
+                    ),
+                }
+            )
+        result = result.model_copy(
+            update={
+                "source_anchors": list(anchors.values()),
+                "coverage": coverage,
+                "outcome": "truncated" if truncated else ("partial" if (selection_partial or canonical_displaced) and result.outcome == "enough" else result.outcome),
+                "diagnostics": [
+                    *result.diagnostics,
+                    *(
+                        WorldGraphRetrievalDiagnostic(
+                            code=code,
+                            message="Reviewed source observation coverage is incomplete.",
+                            severity="warning",
+                        )
+                        for code in sorted(set(gaps))
+                    ),
+                ],
+            }
+        )
+        return result, accepted, sorted(set(gaps)), missing, bounded, complete
     except Exception as exc:  # noqa: BLE001
         raise _map_direct_error(exc) from exc
 
@@ -2075,6 +2191,28 @@ def get_complete_object_direct(
         raise _map_direct_error(exc) from exc
 
 
+def _reviewed_source_observation_view(
+    row: Any,
+) -> WorldGraphObjectReviewedSourceObservation:
+    return WorldGraphObjectReviewedSourceObservation(
+        assertion_id=row.assertion_id,
+        subject_node_id=row.subject_object_id,
+        observation_kind=row.observation_kind,
+        text=row.text,
+        entity_kind=row.entity_kind,
+        review_id=row.review_id,
+        contribution_id=row.contribution_id,
+        publication_revision_id=row.publication_revision_id,
+        source_artifact_id=row.source_artifact_id,
+        source_revision_id=row.source_revision_id,
+        evidence_ref_ids=list(row.evidence_ref_ids),
+        campaign_scope=row.campaign_scope,
+        visibility=row.visibility.value,
+        epistemic_kind=row.epistemic_kind,
+        temporal_scope=row.temporal_scope,
+    )
+
+
 def _complete_object_result_view(
     services: DirectWorldGraphReadServices,
     result: CompleteObjectLookupResult,
@@ -2105,6 +2243,8 @@ def _complete_object_result_view(
             completeness=completeness,
             snapshot=snapshot,
             requested_node_id=request.node_id,
+            coverage_gap_codes=list(result.coverage.gap_codes),
+            coverage_missing_ids=list(result.coverage.missing_ids),
             telemetry=WorldGraphObjectProjectionTelemetry(
                 completeness=completeness.status,
                 truncated_fields=list(completeness.truncated_fields),
@@ -2139,7 +2279,6 @@ def _complete_object_result_view(
         focus=focus,
         evidence_by_id=evidence_by_id,
         artifact_campaigns=artifact_campaigns,
-        paragraph_text_by_span_id={},
         degree_by_node=degree_by_node,
     )
     related = [
@@ -2150,7 +2289,6 @@ def _complete_object_result_view(
             focus=focus,
             evidence_by_id=evidence_by_id,
             artifact_campaigns=artifact_campaigns,
-            paragraph_text_by_span_id={},
             degree_by_node=degree_by_node,
         )
         for obj in result.related_objects
@@ -2158,6 +2296,10 @@ def _complete_object_result_view(
     assertions = [
         _complete_object_attribute_view(row, evidence_by_id=evidence_by_id)
         for row in result.property_assertions
+    ]
+    reviewed_source_observations = [
+        _reviewed_source_observation_view(row)
+        for row in result.reviewed_source_observations
     ]
     relationships = [
         _complete_object_relationship_view(
@@ -2178,6 +2320,9 @@ def _complete_object_result_view(
         related_nodes=related,
         relationships=relationships,
         assertions=assertions,
+        reviewed_source_observations=reviewed_source_observations,
+        coverage_gap_codes=list(result.coverage.gap_codes),
+        coverage_missing_ids=list(result.coverage.missing_ids),
         source_bindings=source_bindings,
         telemetry=WorldGraphObjectProjectionTelemetry(
             relationship_count=len(relationships),
@@ -2239,6 +2384,342 @@ def search_world_graph_direct(
         raise _map_direct_error(exc) from exc
 
 
+@dataclass(frozen=True)
+class ResolvedWorldGraphSearchV2:
+    """Internal source pins from the same native search as its public V1 view."""
+
+    result: WorldGraphRetrievalResult
+    source_pins: tuple[ResolvedSourceAnchorMetadataV2, ...]
+    native_targets: tuple[EvidenceTarget, ...] = ()
+
+
+@dataclass(frozen=True)
+class ResolvedWorldGraphSourceIndexV2:
+    """Complete pinned native source identities, or an explicit overflow."""
+
+    status: Literal["complete", "overflow"]
+    eligible_count: int
+    source_pins: tuple[ResolvedSourceAnchorMetadataV2, ...]
+
+
+@dataclass(frozen=True)
+class ResolvedSelectedSourceIndexV1:
+    status: Literal["complete", "overflow", "unavailable"]
+    eligible_count: int
+    source_pins: tuple[ResolvedSourceAnchorMetadataV2, ...]
+    commitment: Mapping[str, Any] | None
+
+
+def list_selected_source_anchor_index_direct_v1(services: DirectWorldGraphReadServices,
+    request: WorldGraphSearchRequest, *, revision_id: str, targets: tuple[EvidenceTarget, ...],
+) -> ResolvedSelectedSourceIndexV1:
+    """One exact admitted selected metadata index; no source content is opened."""
+    from dungeonmind.domain.canonical import canonical_sha256
+    from application_state.agent_conversation.types import GraphSelectedSourceReadScopeV2
+    try:
+        if not revision_id or (request.revision_pin and request.revision_pin != revision_id):
+            raise ValueError("selected index revision differs from search")
+        projection = _map_retrieval_context(request.model_copy(update={"revision_pin": revision_id}), services.binding)
+        native = services.retrieval.list_selected_source_anchor_index(SelectedSourceAnchorIndexRequest(projection=projection, targets=targets, max_entries=512))
+        snapshot = native.snapshot
+        if (snapshot.world_id, snapshot.campaign_id, snapshot.focus, snapshot.admissibility, snapshot.scope_mode, snapshot.revision_id) != (
+            projection.world_id, projection.campaign_id, projection.focus, projection.admissibility, projection.scope_mode, revision_id):
+            raise ValueError("selected index changed authorized context")
+        context = {"world_id": snapshot.world_id, "campaign_id": snapshot.campaign_id, "scope_mode": str(snapshot.scope_mode),
+            "focus": snapshot.focus.model_dump(mode="json"), "admissibility": str(snapshot.admissibility), "revision_id": snapshot.revision_id}
+        def target_json(values):
+            return [{"kind": target.kind, "target_id": target.target_id} for target in values]
+        requested = target_json(native.requested_targets)
+        if requested != target_json(tuple(sorted(targets, key=lambda target: (target.kind, target.target_id)))):
+            raise ValueError("selected index changed requested targets")
+        selector = {"schema": "dm_selected_source_anchor_selector_v1", "context": context, "max_entries": 512, "targets": requested}
+        if native.max_entries != 512 or native.index_scope != "selected_targets" or canonical_sha256(selector) != native.selector_sha256:
+            raise ValueError("selected selector commitment changed")
+        entries = [{"anchor_id": entry.anchor_id, "evidence_ref_id": entry.evidence_ref_id,
+            "source_artifact_id": entry.source_artifact_id, "source_revision_id": entry.source_revision_id} for entry in native.entries]
+        index_payload = {"schema": "dm_selected_source_anchor_index_v1", "selector_sha256": native.selector_sha256,
+            "status": native.status, "admitted_targets": target_json(native.admitted_targets), "not_visible_targets": target_json(native.not_visible_targets),
+            "provenance_gap_count": native.provenance_gap_count, "unavailable_binding_count": native.unavailable_binding_count,
+            "eligible_count": native.eligible_count, "entries": entries}
+        if canonical_sha256(index_payload) != native.index_sha256:
+            raise ValueError("selected index digest changed")
+        if native.status == "overflow":
+            if native.eligible_count <= 512 or entries:
+                raise ValueError("selected overflow must be explicit and empty")
+            return ResolvedSelectedSourceIndexV1(status="overflow", eligible_count=native.eligible_count, source_pins=(), commitment=None)
+        commitment = {"schema": "dmb_selected_source_anchor_index_commitment_v1", "context": context,
+            "access_context_sha256": canonical_sha256(context), "requested_targets": requested,
+            "admitted_targets": target_json(native.admitted_targets), "not_visible_targets": target_json(native.not_visible_targets),
+            "requested_count": native.requested_count, "admitted_count": native.admitted_count, "not_visible_count": native.not_visible_count,
+            "provenance_gap_count": native.provenance_gap_count, "unavailable_binding_count": native.unavailable_binding_count,
+            "eligible_count": native.eligible_count, "max_entries": 512, "status": native.status, "index_scope": native.index_scope,
+            "selector_sha256": native.selector_sha256, "index_sha256": native.index_sha256}
+        pins = tuple(ResolvedSourceAnchorMetadataV2(anchor_id=_buddy_anchor_id(entry.anchor_id), graph_revision=revision_id,
+            evidence_ref_id=entry.evidence_ref_id, source_artifact_id=entry.source_artifact_id, source_revision_id=entry.source_revision_id) for entry in native.entries)
+        # Validate the exact same durable codec before exposing any authority.
+        GraphSelectedSourceReadScopeV2(retrieval_session_id="bootstrap-validation", initial_claim_packet_sha256="0"*64, world_id=request.world_id,
+            campaign_id=snapshot.campaign_id, graph_revision=revision_id, admitted_anchors=[
+                {key: value for key, value in vars(pin).items() if key != "graph_revision"} for pin in pins], selected_index_commitment=commitment)
+        return ResolvedSelectedSourceIndexV1(status=native.status, eligible_count=native.eligible_count, source_pins=pins, commitment=commitment)
+    except Exception as exc:
+        raise _map_direct_error(exc) from exc
+
+
+def list_source_anchor_index_direct_v2(
+    services: DirectWorldGraphReadServices,
+    request: WorldGraphSearchRequest,
+    *,
+    revision_id: str,
+) -> ResolvedWorldGraphSourceIndexV2:
+    """Map Core's bounded metadata index without opening source content."""
+    try:
+        if not revision_id or (request.revision_pin and request.revision_pin != revision_id):
+            raise ValueError("source index revision differs from the pinned search")
+        pinned = request.model_copy(update={"revision_pin": revision_id})
+        projection = _map_retrieval_context(pinned, services.binding)
+        result = services.retrieval.list_source_anchor_index(
+            SourceAnchorIndexRequest(projection=projection, max_entries=512)
+        )
+        snapshot = result.snapshot
+        if (
+            snapshot.world_id != projection.world_id
+            or snapshot.campaign_id != projection.campaign_id
+            or snapshot.focus != projection.focus
+            or snapshot.admissibility != projection.admissibility
+            or snapshot.scope_mode != projection.scope_mode
+            or snapshot.revision_id != revision_id
+        ):
+            raise ValueError("source index snapshot differs from the pinned search")
+        if result.max_entries != 512:
+            raise ValueError("source index changed its requested bound")
+        if result.status == "overflow":
+            if result.eligible_count <= 512 or result.entries:
+                raise ValueError("source index overflow is not explicit")
+            return ResolvedWorldGraphSourceIndexV2(
+                status="overflow", eligible_count=result.eligible_count,
+                source_pins=(),
+            )
+        if result.status != "complete" or result.eligible_count > 512:
+            raise ValueError("source index is not complete")
+        for entry in result.entries:
+            if any(
+                not isinstance(value, str) or not value or value != value.strip()
+                for value in (
+                    entry.anchor_id, entry.evidence_ref_id,
+                    entry.source_artifact_id, entry.source_revision_id,
+                )
+            ):
+                raise ValueError("source index contains an invalid authority tuple")
+        pins = tuple(sorted((
+            ResolvedSourceAnchorMetadataV2(
+                anchor_id=_buddy_anchor_id(entry.anchor_id),
+                graph_revision=snapshot.revision_id,
+                evidence_ref_id=entry.evidence_ref_id,
+                source_artifact_id=entry.source_artifact_id,
+                source_revision_id=entry.source_revision_id,
+            )
+            for entry in result.entries
+        ), key=lambda pin: pin.anchor_id))
+        if len(pins) != result.eligible_count or len({pin.anchor_id for pin in pins}) != len(pins):
+            raise ValueError("source index identities are incomplete or ambiguous")
+        return ResolvedWorldGraphSourceIndexV2(
+            status="complete", eligible_count=result.eligible_count,
+            source_pins=pins,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise _map_direct_error(exc) from exc
+
+
+def _recap_context_projection(
+    request: RecapContextIndexRequestV2 | RecapContextReadRequestV2,
+    binding: DirectAuthorityBinding,
+) -> WorldGraphProjectionRequestV2:
+    projection = _map_retrieval_context(request, binding)
+    if projection.revision_pin != request.revision_pin:
+        raise ValueError("recap context revision pin changed during binding")
+    return projection
+
+
+def _recap_context_descriptor_in_scope(descriptor: RecapContextDescriptorV2, projection: WorldGraphProjectionRequestV2, revision_id: str) -> bool:
+    if descriptor.world_id != projection.world_id or descriptor.graph_revision_id != revision_id:
+        return False
+    if projection.scope_mode is ScopeModeV2.CAMPAIGN:
+        return descriptor.campaign_id == projection.campaign_id
+    return projection.scope_mode is ScopeModeV2.WORLD_CROSS_CAMPAIGN
+
+
+def _recap_h1_lines_outside_fences(lines: list[str]) -> list[int]:
+    """Find ATX H1 lines while ignoring fenced Markdown code blocks."""
+    headings: list[int] = []
+    fence_char: str | None = None
+    fence_length = 0
+    for index, line in enumerate(lines):
+        content = line.rstrip("\r\n")
+        fence = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", content)
+        if fence_char is not None:
+            if re.fullmatch(rf" {{0,3}}{re.escape(fence_char)}{{{fence_length},}}[ \t]*", content):
+                fence_char = None
+                fence_length = 0
+            continue
+        if fence is not None:
+            marker, info = fence.groups()
+            if marker[0] != "`" or "`" not in info:
+                fence_char, fence_length = marker[0], len(marker)
+                continue
+        if re.match(r"^ {0,3}#(?:[ \t]+|$)", content):
+            headings.append(index)
+    return headings
+
+
+def search_world_graph_direct_v2(
+    services: DirectWorldGraphReadServices,
+    request: WorldGraphSearchRequest,
+) -> ResolvedWorldGraphSearchV2:
+    """Return selected readable anchor metadata without another projection or content IO."""
+    try:
+        dnd_request = _map_retrieval_context(request, services.binding)
+        native = services.retrieval.search(
+            dnd_request,
+            query_text=request.query_text or "",
+            seed_object_ids=request.seed_node_ids,
+            bounds=_retrieval_bounds(request.bounds),
+        )
+        public = _search_result_view(native, request=request)
+        pins = tuple(sorted((
+            ResolvedSourceAnchorMetadataV2(
+                anchor_id=_buddy_anchor_id(anchor.anchor_id),
+                graph_revision=native.snapshot.revision_id,
+                evidence_ref_id=anchor.evidence_ref_id,
+                source_artifact_id=anchor.source_artifact_id,
+                source_revision_id=anchor.source_revision_id,
+            )
+            for anchor in native.anchors
+            if anchor.can_open_source
+            and _classify_locator_kind(anchor) != "unsupported"
+            and anchor.source_revision_id
+            and anchor.evidence_ref_id
+            and anchor.source_artifact_id
+        ), key=lambda pin: pin.anchor_id))
+        candidates = [EvidenceTarget(kind="object", target_id=obj.object_id) for obj in native.objects]
+        candidates += [EvidenceTarget(kind="relationship", target_id=rel.relationship_id) for rel in native.relationships]
+        candidates += [EvidenceTarget(kind="assertion", target_id=row.assertion_id) for row in native.property_assertions]
+        selected = []
+        seen = set()
+        for target in candidates:
+            key = (target.kind, target.target_id)
+            if key not in seen:
+                selected.append(target)
+                seen.add(key)
+            if len(selected) == 8:
+                break
+        return ResolvedWorldGraphSearchV2(result=public, source_pins=pins,
+            native_targets=tuple(sorted(selected, key=lambda target: (target.kind, target.target_id))))
+    except Exception as exc:  # noqa: BLE001
+        raise _map_direct_error(exc) from exc
+
+
+
+@dataclass(frozen=True)
+class ResolvedWorldGraphOperationV3:
+    """Internal parent authority; source revisions never come from public Graph pins."""
+
+    result: WorldGraphRetrievalResult
+    source_pins: tuple[ResolvedSourceAnchorMetadataV2, ...]
+
+
+def _resolved_operation_v3(native: Any, public: WorldGraphRetrievalResult) -> ResolvedWorldGraphOperationV3:
+    pins: dict[str, ResolvedSourceAnchorMetadataV2] = {}
+    for anchor in native.anchors:
+        if not anchor.can_open_source or _classify_locator_kind(anchor) == "unsupported":
+            continue
+        if not anchor.source_revision_id or not anchor.evidence_ref_id or not anchor.source_artifact_id:
+            raise ValueError("Readable native anchor has incomplete source identity")
+        pin = ResolvedSourceAnchorMetadataV2(
+            anchor_id=_buddy_anchor_id(anchor.anchor_id), graph_revision=native.snapshot.revision_id,
+            evidence_ref_id=anchor.evidence_ref_id, source_artifact_id=anchor.source_artifact_id,
+            source_revision_id=anchor.source_revision_id,
+        )
+        if pin.anchor_id in pins and pins[pin.anchor_id] != pin:
+            raise ValueError("Native operation returned conflicting source identities")
+        pins[pin.anchor_id] = pin
+    return ResolvedWorldGraphOperationV3(public, tuple(pins[key] for key in sorted(pins)))
+
+
+def search_world_graph_direct_v3(services: DirectWorldGraphReadServices,
+                                 request: WorldGraphSearchRequest) -> ResolvedWorldGraphOperationV3:
+    try:
+        native = services.retrieval.search(_map_retrieval_context(request, services.binding),
+            query_text=request.query_text or "", seed_object_ids=request.seed_node_ids,
+            bounds=_retrieval_bounds(request.bounds))
+        return _resolved_operation_v3(native, _search_result_view(native, request=request))
+    except Exception as exc:
+        raise _map_direct_error(exc) from exc
+
+
+def get_object_direct_v3(services: DirectWorldGraphReadServices,
+                         request: WorldGraphObjectRequest) -> ResolvedWorldGraphOperationV3:
+    try:
+        native = services.retrieval.get_object(_map_retrieval_context(request, services.binding),
+            object_id=request.node_id, bounds=_retrieval_bounds(request.bounds))
+        return _resolved_operation_v3(native, _object_result_view(native, request=request))
+    except Exception as exc:
+        raise _map_direct_error(exc) from exc
+
+
+@dataclass(frozen=True)
+class ResolvedWorldGraphReviewedObjectV3(ResolvedWorldGraphOperationV3):
+    reviewed_source_observations: tuple[WorldGraphObjectReviewedSourceObservation, ...]
+    observation_gap_codes: tuple[str, ...]
+    observation_missing_ids: tuple[str, ...]
+
+
+def get_object_with_reviewed_sources_direct_v3(
+    services: DirectWorldGraphReadServices,
+    request: WorldGraphObjectRequest,
+    *,
+    observation_ids: tuple[str, ...] = (),
+) -> ResolvedWorldGraphReviewedObjectV3:
+    """Preserve bounded reviewed observations with the exact returned anchor pins."""
+    result, observations, gaps, missing, bounded, complete = _get_object_with_reviewed_sources_direct(services, request, observation_ids=observation_ids)
+    returned = {anchor.anchor_id for anchor in result.source_anchors}
+    pins: dict[str, ResolvedSourceAnchorMetadataV2] = {}
+    for native in (bounded, complete):
+        for pin in _resolved_operation_v3(native, result).source_pins:
+            if pin.anchor_id not in returned:
+                continue
+            if pin.anchor_id in pins and pins[pin.anchor_id] != pin:
+                raise PersistenceIntegrityError("Reviewed object anchor has conflicting source identity")
+            pins[pin.anchor_id] = pin
+    if any(anchor.readable and anchor.anchor_id not in pins for anchor in result.source_anchors):
+        raise PersistenceIntegrityError("Reviewed object readable anchor has no exact source pin")
+    return ResolvedWorldGraphReviewedObjectV3(result, tuple(pins[key] for key in sorted(pins)),
+        tuple(observations), tuple(gaps), tuple(missing))
+
+
+def get_neighborhood_direct_v3(services: DirectWorldGraphReadServices,
+                               request: WorldGraphNeighborhoodRequest) -> ResolvedWorldGraphOperationV3:
+    try:
+        native = services.retrieval.get_neighborhood(_map_retrieval_context(request, services.binding),
+            seed_object_ids=request.seed_node_ids, depth=request.max_depth,
+            bounds=_retrieval_bounds(request.bounds))
+        return _resolved_operation_v3(native, _neighborhood_result_view(native, request=request))
+    except Exception as exc:
+        raise _map_direct_error(exc) from exc
+
+
+def get_evidence_direct_v3(services: DirectWorldGraphReadServices,
+                           request: WorldGraphEvidenceRequest) -> ResolvedWorldGraphOperationV3:
+    try:
+        kind = _EVIDENCE_TARGET_KIND_MAP.get(request.target.kind)
+        if kind is None:
+            raise DirectWorldGraphReadError("Unsupported evidence target kind", code="invalid_request", status_code=422)
+        native = services.retrieval.get_evidence(_map_retrieval_context(request, services.binding),
+            target=EvidenceTarget(kind=kind, target_id=request.target.id))
+        return _resolved_operation_v3(native, _evidence_result_view(native, request=request))
+    except Exception as exc:
+        raise _map_direct_error(exc) from exc
+
+
 def _search_result_view(
     result: GraphSearchResult,
     *,
@@ -2263,6 +2744,30 @@ def _search_result_view(
         },
         matched_node_ids=list(result.matched_object_ids),
         match_reasons={k: list(v) for k, v in result.match_reasons.items()},
+        reviewed_source_observation_matches=[
+            WorldGraphReviewedSourceObservationMatch(
+                assertion_id=row.assertion_id,
+                subject_node_id=row.subject_object_id,
+                observation_kind=row.observation_kind,
+                text_excerpt=row.text_excerpt,
+                excerpt_start=row.excerpt_start,
+                excerpt_end=row.excerpt_end,
+                text_length=row.text_length,
+                text_sha256=row.text_sha256,
+                entity_kind=row.entity_kind,
+                review_id=row.review_id,
+                contribution_id=row.contribution_id,
+                publication_revision_id=row.publication_revision_id,
+                source_artifact_id=row.source_artifact_id,
+                source_revision_id=row.source_revision_id,
+                evidence_ref_ids=list(row.evidence_ref_ids),
+                campaign_scope=row.campaign_scope,
+                visibility=row.visibility.value,
+                epistemic_kind=row.epistemic_kind,
+                temporal_scope=row.temporal_scope,
+            )
+            for row in result.reviewed_source_observation_matches
+        ],
         nodes=[_retrieval_node_view(obj) for obj in result.objects],
         relationships=[_retrieval_relationship_view(rel) for rel in result.relationships],
         attributes=_retrieval_attribute_views(result.property_assertions),
@@ -2304,7 +2809,7 @@ def _neighborhood_result_view(
         partial=bool(coverage.missing_seed_node_ids or coverage.missing_evidence_ref_ids),
         has_content=has_content,
     )
-    return WorldGraphRetrievalResult(
+    view = WorldGraphRetrievalResult(
         operation="neighborhood",
         outcome=outcome,
         snapshot=_retrieval_snapshot_view(
@@ -2324,6 +2829,13 @@ def _neighborhood_result_view(
         trust_boundary=_retrieval_trust_boundary(),
         diagnostics=_coverage_diagnostics(coverage),
     )
+    view._discovery_relationship_ids = result.discovery_relationship_ids
+    view._discovery_hops = tuple(
+        (hop.relationship_id, hop.from_object_id, hop.to_object_id) for hop in result.discovery_hops
+    )
+    view._object_limit_pruned_ids = result.object_limit_pruned_ids
+    view._object_limit_pruned_count = result.object_limit_pruned_count
+    return view
 
 
 _EVIDENCE_TARGET_KIND_MAP = {
@@ -2398,14 +2910,152 @@ def read_source_anchor_direct(
     repo_root: Path,
 ) -> WorldGraphSourceAnchorReadResult:
     """Opaque anchor revalidation (DungeonMind) + product-local content join."""
+    return _read_source_anchor_resolved(services, request, repo_root=repo_root).result
+
+
+@dataclass(frozen=True)
+class ResolvedSourceAnchorReadV2:
+    """Internal binding from the same authoritative resolution and content read."""
+
+    result: WorldGraphSourceAnchorReadResult
+    source_revision_id: str | None
+    source_revision_sha256: str | None
+    evidence_ref_id: str | None
+    source_artifact_id: str | None
+    source_span_ref_id: str | None
+    locator_kind: str | None
+    locator_identity: str | None
+    graph_revision: str | None
+
+
+@dataclass(frozen=True)
+class ResolvedSourceAnchorMetadataV2:
+    """Native anchor pins resolved without opening source content."""
+
+    anchor_id: str
+    graph_revision: str
+    evidence_ref_id: str
+    source_artifact_id: str
+    source_revision_id: str
+
+
+def read_source_anchor_direct_v2(
+    services: DirectWorldGraphReadServices,
+    request: WorldGraphSourceAnchorReadRequest,
+    *,
+    repo_root: Path,
+) -> ResolvedSourceAnchorReadV2:
+    """Internal-only revision binding; the public V1 result stays unchanged."""
+    return _read_source_anchor_resolved(services, request, repo_root=repo_root)
+
+
+def _read_source_anchor_resolved(
+    services: DirectWorldGraphReadServices,
+    request: WorldGraphSourceAnchorReadRequest,
+    *,
+    repo_root: Path,
+) -> ResolvedSourceAnchorReadV2:
     try:
         dnd_request = _map_retrieval_context(request, services.binding)
         resolution = services.retrieval.resolve_source_anchor(
             dnd_request, anchor_id=_dnd_anchor_id(request.anchor_id)
         )
-        return _anchor_read_view(services, resolution, request=request, repo_root=repo_root)
+        return _source_anchor_read_from_resolution(
+            services, resolution, request=request, repo_root=repo_root,
+            revision_digests={},
+        )
     except Exception as exc:  # noqa: BLE001
         raise _map_direct_error(exc) from exc
+
+
+def _source_anchor_read_from_resolution(
+    services: DirectWorldGraphReadServices,
+    resolution: SourceAnchorResolution,
+    *,
+    request: WorldGraphSourceAnchorReadRequest,
+    repo_root: Path,
+    revision_digests: dict[str | None, str | None],
+    source_batch: WorldbuildingSourceReadBatch | None = None,
+) -> ResolvedSourceAnchorReadV2:
+    revision_id = (
+        resolution.anchor.source_revision_id
+        if resolution.found and resolution.anchor is not None else None
+    )
+    anchor = resolution.anchor if resolution.found else None
+    revision_digest = None
+    if (anchor is not None and anchor.can_open_source
+            and _classify_locator_kind(anchor) != "unsupported"):
+        if revision_id not in revision_digests:
+            revision_digests[revision_id] = _source_revision_digest(services, revision_id)
+        revision_digest = revision_digests[revision_id]
+    return ResolvedSourceAnchorReadV2(
+        result=_anchor_read_view(
+            services, resolution, request=request, repo_root=repo_root,
+            revision_digest=revision_digest,
+            source_batch=source_batch,
+        ),
+        source_revision_id=revision_id,
+        source_revision_sha256=revision_digest,
+        evidence_ref_id=anchor.evidence_ref_id if anchor is not None else None,
+        source_artifact_id=(
+            anchor.source_artifact_id if anchor is not None else None
+        ),
+        source_span_ref_id=(
+            _product_source_span_ref_id(anchor) if anchor is not None else None
+        ),
+        locator_kind=(
+            _classify_locator_kind(anchor) if anchor is not None else None
+        ),
+        locator_identity=(
+            anchor.locator_identity if anchor is not None else None
+        ),
+        graph_revision=resolution.snapshot.revision_id,
+    )
+
+
+def read_source_anchors_direct_v2(
+    services: DirectWorldGraphReadServices,
+    requests: tuple[WorldGraphSourceAnchorReadRequest, ...],
+    *,
+    repo_root: Path,
+) -> tuple[ResolvedSourceAnchorReadV2 | DirectWorldGraphReadError, ...]:
+    """One admitted native context; independent immutable body/read outcomes."""
+    try:
+        if not requests:
+            raise ValueError("source-read batch must not be empty")
+        context = requests[0].model_dump(exclude={"schema_", "anchor_id", "max_chars"})
+        if any(item.model_dump(exclude={"schema_", "anchor_id", "max_chars"}) != context
+               for item in requests):
+            raise ValueError("source-read batch contexts differ")
+        projection = _map_retrieval_context(requests[0], services.binding)
+        ids = tuple(_dnd_anchor_id(item.anchor_id) for item in requests)
+        wave = getattr(services, "source_anchor_wave", None) or getattr(services, "reviewed_source_wave", None)
+        native = (wave.resolve(projection, ids) if wave is not None else
+                  services.retrieval.resolve_source_anchors(SourceAnchorBatchRequest(projection, ids)))
+        if (native.snapshot.world_id != projection.world_id
+                or native.snapshot.revision_id != projection.revision_pin
+                or tuple(item.anchor_id for item in native.resolutions) != ids
+                or any(item.snapshot != native.snapshot
+                       or item.found != (item.anchor is not None)
+                       or (item.anchor is not None and item.anchor.anchor_id != item.anchor_id)
+                       for item in native.resolutions)):
+            raise ValueError("native source-read batch identity differs")
+    except Exception as exc:
+        raise _map_direct_error(exc) from exc
+    from apps.live_control_server.services.worldbuilding_source_span_read import WorldbuildingSourceReadBatch
+
+    source_batch = WorldbuildingSourceReadBatch()
+    digests: dict[str | None, str | None] = {}
+    reads: list[ResolvedSourceAnchorReadV2 | DirectWorldGraphReadError] = []
+    for request, resolution in zip(requests, native.resolutions, strict=True):
+        try:
+            reads.append(_source_anchor_read_from_resolution(
+                services, resolution, request=request, repo_root=repo_root,
+                revision_digests=digests, source_batch=source_batch,
+            ))
+        except Exception as exc:
+            reads.append(_map_direct_error(exc))
+    return tuple(reads)
 
 
 def split_recap_body_paragraphs(text: str) -> list[str]:
@@ -2474,58 +3124,76 @@ def _unavailable_anchor_result(
     )
 
 
-def _read_admitted_repo_span(
+def _load_admitted_source_body(
+    *, repo_root: Path, source_artifact_id: str, content_sha256: str,
+    snapshot: WorldGraphRetrievalSnapshot | None,
+) -> tuple[Any, str]:
+    """Join native-authorized identity to exact APP bytes; never open a locator."""
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError, get_source_artifact, load_source_input_bytes,
+    )
+    from apps.live_control_server.services.worldbuilding_source_span_read import (
+        _reconcile_graph_registry_scope,
+    )
+
+    artifact = get_source_artifact(source_artifact_id)
+    expected = content_sha256.removeprefix("sha256:").strip().lower()
+    actual = (artifact.content_sha256 or "").removeprefix("sha256:").strip().lower()
+    if not re.fullmatch(r"[0-9a-f]{64}", expected) or actual != expected:
+        raise SourceArtifactRegistryError(
+            "Registered source does not match the DungeonMind revision digest.",
+            status_code=409,
+        )
+    _reconcile_graph_registry_scope(
+        root=repo_root, artifact=artifact, snapshot=snapshot, graph_artifact=None,
+    )
+    return artifact, load_source_input_bytes(artifact).decode("utf-8")
+
+
+def _read_admitted_source_span(
     services: DirectWorldGraphReadServices,
     anchor: SourceAnchorMetadata,
     *,
     request: WorldGraphSourceAnchorReadRequest,
     repo_root: Path,
     base: dict[str, Any],
+    revision_digest: str | None = None,
 ) -> WorldGraphSourceAnchorReadResult:
-    """Digest-pinned recap/other repo:// span join after DungeonMind revalidation.
+    """Join an admitted span to its exact APP body, never a locator file.
 
-    Span content is sliced from the parent file whose bytes match the
-    DungeonMind source-revision digest. Paragraph identities and
-    digest-prefixed line ranges are resolved from those bound bytes.
-    Sidecar ``source_spans/`` files and ``source_span_index.json`` are
-    unbound mappings and are not read.
+    DungeonMind has already authorized the anchor and revision. The shared APP
+    reader verifies registered identity, scope, media and actual stored bytes;
+    the native revision digest must match that registration before it is read.
     """
-    uri = getattr(anchor.artifact, "uri", None) or ""
-    relative_path = parse_repo_uri(uri)
+    from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
+
     span_id = (_product_source_span_ref_id(anchor) or "").strip()
-    digest = _source_revision_digest(services, anchor.source_revision_id)
+    digest = (
+        revision_digest if revision_digest is not None
+        else _source_revision_digest(services, anchor.source_revision_id)
+    )
     expected = (digest or "").removeprefix("sha256:").strip().lower()
-    if relative_path is None or not span_id or not expected:
+    if not span_id or not expected:
         return _unavailable_anchor_result(
             base=base,
             code="unsupported_locator",
-            message="Admitted recap/repo span is missing a URI, span id, or digest.",
+            message="Admitted source span is missing a span id or revision digest.",
         )
     try:
-        resolved_root = repo_root.resolve()
-        parent_path = (resolved_root / relative_path).resolve()
-        parent_path.relative_to(resolved_root)
-        raw = parent_path.read_bytes()
-    except (OSError, ValueError) as exc:
-        return _unavailable_anchor_result(
-            base=base,
-            code="source_unavailable",
-            message=f"source file unavailable: {exc}",
+        artifact, text = _load_admitted_source_body(
+            repo_root=repo_root, source_artifact_id=anchor.source_artifact_id,
+            content_sha256=expected, snapshot=base.get("snapshot"),
         )
-    actual = hashlib.sha256(raw).hexdigest().lower()
-    if actual != expected:
+        actual = (artifact.content_sha256 or "").removeprefix("sha256:").strip().lower()
+    except SourceArtifactRegistryError as exc:
         return _unavailable_anchor_result(
             base=base,
-            code="source_integrity_error",
-            message="source file content does not match the DungeonMind revision digest",
+            code="source_integrity_error" if exc.status_code in {409, 422} else "source_unavailable",
+            message=str(exc),
         )
-    try:
-        text = raw.decode("utf-8")
-    except UnicodeDecodeError:
+    except WorldGraphRetrievalError as exc:
         return _unavailable_anchor_result(
-            base=base,
-            code="source_integrity_error",
-            message="source file is not valid UTF-8 text",
+            base=base, code=exc.code, message=str(exc),
         )
     extracted = extract_span_from_revision_bound_text(
         text=text, span_id=span_id, digest=actual
@@ -2554,12 +3222,21 @@ def _read_admitted_repo_span(
     )
 
 
+def _registered_source_name(artifact: Any) -> str | None:
+    """Human presentation from registered provenance, never opaque IDs or paths."""
+    from application_state.source.naming import registered_source_name
+    return registered_source_name({key: getattr(artifact, key, None) for key in (
+        "lineage", "source_domain_key", "source_domain", "session_id")})
+
+
 def _anchor_read_view(
     services: DirectWorldGraphReadServices,
     resolution: SourceAnchorResolution,
     *,
     request: WorldGraphSourceAnchorReadRequest,
     repo_root: Path,
+    revision_digest: str | None,
+    source_batch: WorldbuildingSourceReadBatch | None = None,
 ) -> WorldGraphSourceAnchorReadResult:
     snapshot = _retrieval_snapshot_view(
         resolution.snapshot, focus=request.focus.to_projection_focus()
@@ -2590,12 +3267,13 @@ def _anchor_read_view(
         anchor_id=request.anchor_id,
         evidence_ref_id=anchor.evidence_ref_id,
         source_artifact_id=anchor.source_artifact_id,
+        source_name=_registered_source_name(anchor.artifact),
         source_domain=anchor.evidence.source_domain,
         source_span_ref_id=product_span,
         locator_kind=locator_kind,
         trust_boundary=_retrieval_trust_boundary(),
     )
-    if not anchor.can_open_source or locator_kind == "unsupported":
+    if not anchor.can_open_source or locator_kind != "source_span":
         return WorldGraphSourceAnchorReadResult(
             outcome="partial",
             diagnostics=[
@@ -2610,139 +3288,285 @@ def _anchor_read_view(
             truncated=False,
             **base,
         )
-    if locator_kind == "source_span":
-        # Worldbuilding spans compose the registry-backed opener, matching
-        # the legacy live-control dispatch. Recap/other repo:// spans are a
-        # digest-pinned product-local join after DungeonMind revalidation.
-        domain = str(getattr(anchor.evidence, "source_domain", "") or "")
-        if domain == "worldbuilding":
-            from apps.live_control_server.services.worldbuilding_source_span_read import (
-                read_admitted_worldbuilding_span,
-            )
+    # Both joins use exact APP bodies after DungeonMind revalidation.
+    # Worldbuilding additionally checks its workspace/span-index lineage.
+    domain = str(getattr(anchor.evidence, "source_domain", "") or "")
+    if domain == "worldbuilding":
+        from apps.live_control_server.services.worldbuilding_source_span_read import (
+            read_admitted_worldbuilding_span,
+        )
 
-            digest = _source_revision_digest(services, anchor.source_revision_id)
-            try:
-                return read_admitted_worldbuilding_span(
-                    root=repo_root,
-                    source_artifact_id=anchor.source_artifact_id,
-                    source_span_ref_id=str(product_span),
-                    graph_content_sha256=digest,
-                    max_chars=request.max_chars,
-                    anchor_id=request.anchor_id,
-                    evidence_ref_id=anchor.evidence_ref_id,
-                    snapshot=snapshot,
-                    graph_artifact=None,
-                )
-            except WorldGraphRetrievalError as exc:
-                return WorldGraphSourceAnchorReadResult(
-                    outcome="unavailable",
-                    diagnostics=[
-                        WorldGraphRetrievalDiagnostic(
-                            code=getattr(exc, "code", None) or "source_unavailable",
-                            message=str(exc),
-                            severity="warning",
-                        )
-                    ],
-                    truncated=False,
-                    **base,
-                )
-        return _read_admitted_repo_span(
-            services,
-            anchor,
-            request=request,
-            repo_root=repo_root,
-            base=base,
-        )
-    digest = _source_revision_digest(services, anchor.source_revision_id)
-    if digest is None:
-        raise DirectWorldGraphReadError(
-            "Source artifact is missing a revision-bound content digest.",
-            code="source_integrity_error",
-            status_code=409,
-        )
-    uri = getattr(anchor.artifact, "uri", None) or ""
-    try:
-        if locator_kind == "heading":
-            relative_path = parse_repo_uri(uri)
-            heading_text = parse_heading_locator(anchor.locator_identity or "")
-            if relative_path is None or heading_text is None:
-                raise DirectWorldGraphReadError(
-                    "Heading anchor URI/locator no longer matches the expected "
-                    "repo:// + heading: shape.",
-                    code="projection_integrity_error",
-                    status_code=409,
-                )
-            outcome = read_repo_heading_anchor(
-                repo_root=repo_root,
-                relative_path=relative_path,
-                heading_text=heading_text,
-                expected_content_sha256=digest,
+        digest = revision_digest
+        try:
+            return read_admitted_worldbuilding_span(
+                root=repo_root,
+                source_artifact_id=anchor.source_artifact_id,
+                source_span_ref_id=str(product_span),
+                graph_content_sha256=digest,
                 max_chars=request.max_chars,
+                anchor_id=request.anchor_id,
+                evidence_ref_id=anchor.evidence_ref_id,
+                snapshot=snapshot,
+                graph_artifact=None,
+                _source_batch=source_batch,
             )
-        else:  # json_pointer
-            relative_path = parse_graph_data_uri(uri)
-            json_pointer = parse_json_pointer_locator(anchor.locator_identity or "")
-            if relative_path is None or json_pointer is None:
-                raise DirectWorldGraphReadError(
-                    "JSON-pointer anchor locator no longer matches the expected "
-                    "graph-data:// + jsonptr: shape.",
-                    code="projection_integrity_error",
-                    status_code=409,
-                )
-            payload = _read_verified_json_file(
-                repo_root / relative_path, expected_content_sha256=digest
+        except WorldGraphRetrievalError as exc:
+            return WorldGraphSourceAnchorReadResult(
+                outcome="unavailable",
+                diagnostics=[
+                    WorldGraphRetrievalDiagnostic(
+                        code=getattr(exc, "code", None) or "source_unavailable",
+                        message=str(exc),
+                        severity="warning",
+                    )
+                ],
+                truncated=False,
+                **base,
             )
-            outcome = read_graph_data_json_pointer_anchor(
-                contribution_payload=payload,
-                json_pointer=json_pointer,
-                max_chars=request.max_chars,
-            )
-    except SourceReadError as exc:
-        return WorldGraphSourceAnchorReadResult(
-            outcome="unavailable",
-            diagnostics=[
-                WorldGraphRetrievalDiagnostic(
-                    code="source_unavailable",
-                    message=str(exc),
-                    severity="warning",
-                )
-            ],
-            truncated=False,
-            **base,
-        )
-    return WorldGraphSourceAnchorReadResult(
-        outcome="enough",
-        diagnostics=[],
-        media_type=outcome.media_type,
-        content=outcome.content,
-        content_sha256=outcome.content_sha256,
-        line_start=outcome.line_start,
-        line_end=outcome.line_end,
-        truncated=bool(outcome.truncated),
-        **base,
+    return _read_admitted_source_span(
+        services,
+        anchor,
+        request=request,
+        repo_root=repo_root,
+        base=base,
+        revision_digest=revision_digest,
     )
 
 
-def _read_verified_json_file(
-    path: Path,
-    *,
-    expected_content_sha256: str,
-) -> dict[str, Any]:
-    """Read a product-local JSON file pinned to the DungeonMind digest."""
-    try:
-        raw = path.read_bytes()
-    except OSError as exc:
-        raise SourceReadError(f"source file unavailable: {exc}", code="source_unavailable") from exc
-    actual = hashlib.sha256(raw).hexdigest()
-    if actual != expected_content_sha256:
-        raise SourceReadError(
-            "source file content does not match the DungeonMind revision digest",
-            code="source_integrity_error",
+def _recap_context_view_v2(native: Any) -> RecapContextDescriptorV2:
+    selector = native.section_selector
+    if (
+        selector.schema_version != "dm_recap_context_section_selector_v2"
+        or selector.kind != "recap_section"
+        or selector.policy != "markdown-session-recap-v2"
+    ):
+        raise ValueError("unsupported recap context selector")
+    if any(
+        not isinstance(value, str) or not value or value != value.strip()
+        for value in (
+            native.context_anchor_id, native.world_id, native.graph_revision_id,
+            native.source_artifact_id, native.source_revision_id, native.source_uri,
+            native.content_sha256,
         )
+    ) or not native.context_anchor_id.startswith("dm-context-anchor:v2:") or (
+        native.campaign_id is not None and (
+            not isinstance(native.campaign_id, str) or not native.campaign_id.strip()
+        )
+    ):
+        raise ValueError("recap context descriptor is incomplete")
+    match = re.fullmatch(r"session-([1-9][0-9]*)", selector.expected_session_id)
+    if (match is None or selector.canonical_heading != f"# Session {match.group(1)} Recap"
+        or selector.legacy_session_heading != f"## Session {match.group(1)}:"
+        or selector.legacy_recap_marker != "**Recap**:"
+        or native.schema_version != "dm_recap_source_context_v2"):
+        raise ValueError("recap V2 selector metadata is invalid")
+    return RecapContextDescriptorV2(
+        context_anchor_id=native.context_anchor_id,
+        world_id=native.world_id,
+        campaign_id=native.campaign_id,
+        graph_revision_id=native.graph_revision_id,
+        source_artifact_id=native.source_artifact_id,
+        source_revision_id=native.source_revision_id,
+        source_uri=native.source_uri,
+        content_sha256=native.content_sha256,
+        expected_session_id=selector.expected_session_id,
+        canonical_heading=selector.canonical_heading,
+        legacy_session_heading=selector.legacy_session_heading,
+        legacy_recap_marker=selector.legacy_recap_marker,
+    )
+
+
+def list_recap_context_direct_v2(
+    services: DirectWorldGraphReadServices,
+    request: RecapContextIndexRequestV2,
+) -> RecapContextIndexResultV2:
     try:
-        payload = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise SourceReadError(f"source file is not valid JSON: {exc}", code="source_integrity_error") from exc
-    if not isinstance(payload, dict):
-        raise SourceReadError("source file JSON payload is not an object", code="source_integrity_error")
-    return payload
+        projection = _recap_context_projection(request, services.binding)
+        native = services.retrieval.list_source_context_index(
+            SourceContextIndexRequest(projection=projection, max_entries=request.max_entries, selector_policy="markdown-session-recap-v2")
+        )
+        snapshot = native.snapshot
+        if (
+            snapshot.world_id != projection.world_id
+            or snapshot.campaign_id != projection.campaign_id
+            or snapshot.admissibility != projection.admissibility
+            or snapshot.scope_mode != projection.scope_mode
+            or snapshot.revision_id != request.revision_pin
+            or native.max_entries != request.max_entries
+        ):
+            raise ValueError("recap context index changed its pinned projection")
+        entries = [_recap_context_view_v2(row) for row in native.entries]
+        if native.status == "overflow":
+            if entries or native.eligible_count <= request.max_entries:
+                raise ValueError("recap context overflow is not empty")
+        elif native.status != "complete" or len(entries) != native.eligible_count:
+            raise ValueError("recap context index is incomplete")
+        for row in entries:
+            if not _recap_context_descriptor_in_scope(row, projection, snapshot.revision_id):
+                raise ValueError("recap context descriptor differs from index scope")
+        if len({row.context_anchor_id for row in entries}) != len(entries):
+            raise ValueError("recap context identities are ambiguous")
+        return RecapContextIndexResultV2(
+            snapshot=_retrieval_snapshot_view(snapshot, focus=request.focus.to_projection_focus()),
+            status=native.status,
+            eligible_count=native.eligible_count,
+            max_entries=native.max_entries,
+            entries=entries,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise _map_direct_error(exc) from exc
+
+
+def _recap_v2_visible_lines(lines: list[str]) -> list[int]:
+    """Literal structural lines outside fenced and indented Markdown code."""
+    visible = []
+    fence_char = None
+    fence_length = 0
+    for index, line in enumerate(lines):
+        text = line.rstrip("\r\n")
+        if fence_char is not None:
+            if re.fullmatch(rf" {{0,3}}{re.escape(fence_char)}{{{fence_length},}}[ \t]*", text):
+                fence_char, fence_length = None, 0
+            continue
+        fence = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", text)
+        if fence is not None:
+            marker, info = fence.groups()
+            if marker[0] != "`" or "`" not in info:
+                fence_char, fence_length = marker[0], len(marker)
+                continue
+        if not text.startswith(("    ", "\t", ">")):
+            visible.append(index)
+    return visible
+
+
+def _select_recap_section_v2(lines: list[str], descriptor: RecapContextDescriptorV2):
+    visible = _recap_v2_visible_lines(lines)
+    def text(i):
+        return lines[i].rstrip("\r\n")
+    canonical = [i for i in visible if text(i) == descriptor.canonical_heading]
+    legacy = [i for i in visible if text(i) == descriptor.legacy_session_heading]
+    if len(canonical) + len(legacy) != 1:
+        raise ValueError("recap V2 section heading is missing or ambiguous")
+    if canonical:
+        heading = canonical[0]
+        end = next((i for i in _recap_h1_lines_outside_fences(lines) if i > heading), len(lines))
+        start, marker, form = heading + 1, None, "canonical_h1"
+    else:
+        heading = legacy[0]
+        envelope_end = next((i for i in visible if i > heading and (
+            re.match(r"^ {0,3}#(?:[ \t]+|$)", text(i))
+            or re.match(r"^ {0,3}##[ \t]+Session[ \t]+[0-9]+:", text(i))
+        )), len(lines))
+        markers = [i for i in visible if heading < i < envelope_end and text(i) == descriptor.legacy_recap_marker]
+        if len(markers) != 1:
+            raise ValueError("recap V2 marker is missing or ambiguous")
+        marker = markers[0]
+        start = marker + 1
+        end = next((i for i in visible if i > marker and re.match(r"^ {0,3}#{1,2}(?:[ \t]+|$)", text(i))), len(lines))
+        form = "legacy_h2"
+    if not 0 <= heading < start <= end <= len(lines) or (form == "legacy_h2" and start == end):
+        raise ValueError("recap V2 section bounds are invalid")
+    return form, heading, marker, start, end
+
+
+def _recap_context_cursor_v2(descriptor, section_sha256, selected, offset):
+    payload = json.dumps([descriptor.model_dump(mode="json"),
+        section_sha256, *selected, offset], sort_keys=True, separators=(",", ":"))
+    return f"recap-page:v2:{hashlib.sha256(payload.encode()).hexdigest()}:{offset}"
+
+
+def read_recap_context_direct_v2(
+    services: DirectWorldGraphReadServices,
+    request: RecapContextReadRequestV2,
+    *,
+    repo_root: Path,
+) -> RecapContextReadResultV2:
+    from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
+
+    try:
+        projection = _recap_context_projection(request, services.binding)
+        native = services.retrieval.resolve_source_context(
+            projection, context_anchor_id=request.context_anchor_id, allow_selector_v2=True
+        )
+        snapshot = native.snapshot
+        if (
+            snapshot.world_id != projection.world_id
+            or snapshot.campaign_id != projection.campaign_id
+            or snapshot.admissibility != projection.admissibility
+            or snapshot.scope_mode != projection.scope_mode
+            or snapshot.revision_id != request.revision_pin
+            or native.context_anchor_id != request.context_anchor_id
+        ):
+            raise ValueError("recap context resolution changed its pinned projection")
+        view_snapshot = _retrieval_snapshot_view(snapshot, focus=request.focus.to_projection_focus())
+        if not native.found or native.context is None:
+            return RecapContextReadResultV2(outcome="empty", snapshot=view_snapshot, context_anchor_id=request.context_anchor_id)
+        descriptor = _recap_context_view_v2(native.context)
+        if not _recap_context_descriptor_in_scope(descriptor, projection, snapshot.revision_id) or descriptor.context_anchor_id != request.context_anchor_id:
+            raise ValueError("recap context descriptor differs from resolved scope")
+        match = re.fullmatch(r"session-([1-9][0-9]*)", descriptor.expected_session_id)
+        if (
+            match is None
+            or descriptor.canonical_heading != f"# Session {match.group(1)} Recap"
+            or descriptor.legacy_session_heading != f"## Session {match.group(1)}:"
+            or descriptor.legacy_recap_marker != "**Recap**:"
+            or not re.fullmatch(r"[0-9a-f]{64}", descriptor.content_sha256)
+            or not descriptor.source_revision_id.strip()
+        ):
+            raise ValueError("recap context source or selector is invalid")
+        # Core resolves the exact artifact/revision/digest from the pinned
+        # source snapshot on every page. The URI stays descriptor/cursor identity.
+        artifact, text = _load_admitted_source_body(
+            repo_root=repo_root, source_artifact_id=descriptor.source_artifact_id,
+            content_sha256=descriptor.content_sha256, snapshot=view_snapshot,
+        )
+        if (str(artifact.source_domain) not in {"recap", "session_recap"}
+            or artifact.campaign_id != descriptor.campaign_id
+            or artifact.session_id != descriptor.expected_session_id):
+            raise ValueError("registered recap scope differs from native descriptor")
+        lines = text.splitlines(keepends=True)
+        selected = _select_recap_section_v2(lines, descriptor)
+        form, heading_index, marker_index, start_index, end_index = selected
+        section = "".join(lines[start_index:end_index])
+        section_sha = hashlib.sha256(section.encode("utf-8")).hexdigest()
+        offset = 0
+        if request.continuation is not None:
+            try:
+                offset = int(request.continuation.rsplit(":", 1)[1])
+            except (ValueError, IndexError) as exc:
+                raise ValueError("invalid recap context continuation") from exc
+            if not 0 < offset < len(section) or request.continuation != _recap_context_cursor_v2(descriptor, section_sha, selected, offset):
+                raise ValueError("recap context continuation differs from verified section")
+        end = min(len(section), offset + request.max_chars)
+        truncated = end < len(section)
+        return RecapContextReadResultV2(
+            outcome="truncated" if truncated else "enough",
+            snapshot=view_snapshot,
+            context_anchor_id=request.context_anchor_id,
+            context=descriptor,
+            media_type="text/markdown",
+            content=section[offset:end],
+            selected_form=form,
+            heading_line=heading_index + 1,
+            session_heading_line=heading_index + 1,
+            recap_marker_line=marker_index + 1 if marker_index is not None else None,
+            line_start=start_index + 1,
+            line_end=end_index,
+            section_sha256=section_sha,
+            offset_chars=offset,
+            truncated=truncated,
+            next_continuation=_recap_context_cursor_v2(descriptor, section_sha, selected, end) if truncated else None,
+        )
+    except (SourceArtifactRegistryError, WorldGraphRetrievalError) as exc:
+        raise DirectWorldGraphReadError(
+            "Recap context database source is unavailable.", code="source_unavailable",
+            status_code=503 if getattr(exc, "status_code", 409) >= 500 else 409,
+            cause=exc,
+        ) from exc
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
+        raise DirectWorldGraphReadError(
+            f"Recap context is unavailable: {type(exc).__name__}",
+            code="source_unavailable", status_code=409, cause=exc,
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise _map_direct_error(exc) from exc

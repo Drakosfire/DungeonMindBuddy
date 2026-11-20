@@ -7,7 +7,9 @@ rejected assertions, plus a fixed-candidate scorer report for operator review.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import hashlib
+import json
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -20,6 +22,8 @@ from graph_memory.candidate_graph_to_contribution import (
     map_candidate_edge_to_assertion,
     map_candidate_node_to_assertion,
     map_connect_existing_support_assertions,
+    map_recap_source_observation,
+    is_recap_source_observation,
     require_single_verified_source_artifact,
 )
 from graph_memory.extract_promote_proposal import (
@@ -39,6 +43,8 @@ from apps.live_control_server.models.world_graph_contributions import (
 from apps.live_control_server.models.world_graph_identity_models import IdentityCandidate
 from apps.live_control_server.models.world_graph_mutation_context import (
     WorldGraphMutationContext,
+    MutationObject,
+    _norm_kind,
     classify_edge_against_parent,
     durable_relationship_id,
     endpoint_available,
@@ -52,6 +58,53 @@ _CONNECT_EXISTING_OUTCOMES = frozenset({"resolved_existing", "human_override"})
 _NON_MUTATING_OUTCOMES = frozenset(
     {"ambiguous", "blocked_collision", "rejected", "provisional_new"}
 )
+SOURCE_LOCAL_IDENTITY_SCHEMA = "dmb_source_local_identity_basis_v1"
+_STABLE_SOURCE_IDENTITY_FIELDS = (
+    "schema", "world_id", "source_artifact_id", "source_sha256",
+    "extraction_profile", "source_kind", "candidate_sha256",
+    "candidate_schema", "candidate_version",
+)
+
+
+def _candidate_preview_digest(preview: CandidateGraphPreview) -> str:
+    encoded = json.dumps(
+        asdict(preview), sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _source_local_identity_basis(
+    *, world_id: str, parent_revision_id: str, source_artifact_id: str, source_revision_id: str,
+    extraction_profile: str, source_kind: str, candidate_sha256: str,
+    candidate_schema: str, candidate_version: str,
+) -> dict[str, str]:
+    source_sha = source_revision_id.removeprefix("sha256:")
+    for name, digest in (("source revision", source_sha), ("candidate", candidate_sha256)):
+        if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+            raise CandidateGraphMappingError(f"verified {name} SHA-256 is required")
+    return {
+        "schema": SOURCE_LOCAL_IDENTITY_SCHEMA,
+        "world_id": world_id,
+        "parent_revision_id": parent_revision_id,
+        "source_artifact_id": source_artifact_id,
+        "source_sha256": source_sha,
+        "extraction_profile": extraction_profile,
+        "source_kind": source_kind,
+        "candidate_sha256": candidate_sha256,
+        "candidate_schema": candidate_schema,
+        "candidate_version": candidate_version,
+    }
+
+
+def _qualified_source_local_id(basis: Mapping[str, str], local_id: str) -> str:
+    # Parent remains sealed for confirmation, but the same verified source
+    # candidate retains its identity as World revisions advance.
+    preimage = {
+        **{key: basis[key] for key in _STABLE_SOURCE_IDENTITY_FIELDS},
+        "local_node_id": local_id,
+    }
+    encoded = json.dumps(preimage, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return "source-local:v1:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def _require_artifact_id(value: str | None) -> str:
@@ -74,6 +127,7 @@ class IdentityGateResult:
     scorer_report: dict[str, Any] = field(default_factory=dict)
     node_id_map: dict[str, str] = field(default_factory=dict)
     identity_outcome_snapshot: dict[str, str] = field(default_factory=dict)
+    identity_basis: dict[str, Any] = field(default_factory=dict)
     diagnostics: list[str] = field(default_factory=list)
     candidate_preview_id: str = ""
     candidate_schema: str = ""
@@ -108,6 +162,7 @@ class IdentityGateResult:
             unresolved_mentions=self.unresolved_mentions,
             node_id_map=self.node_id_map,
             identity_outcome_snapshot=self.identity_outcome_snapshot,
+            identity_basis=self.identity_basis,
             prepared_by=prepared_by,
             scorer_report=self.scorer_report,
             diagnostics=self.diagnostics,
@@ -227,12 +282,133 @@ def _infer_object_kind(
             terms = {obj.label.strip().lower(), *[a.strip().lower() for a in obj.aliases]}
             if label in terms and obj.kind in {"pc", "npc"}:
                 return obj.kind
-    if raw_type in {"collective", "organization", "party"}:
+    if raw_type == "organization":
+        # Same-name expedition parties do not establish organization identity.
+        return base
+    if raw_type in {"collective", "party"}:
         for obj in context.objects.values():
             terms = {obj.label.strip().lower(), *[a.strip().lower() for a in obj.aliases]}
             if label in terms and obj.kind in {"party", "faction"}:
                 return obj.kind
     return base
+
+
+def _known_party_anchor(
+    node: CandidateNode,
+    context: WorldGraphMutationContext,
+    *,
+    world_id: str,
+    campaign_id: str | None = None,
+) -> MutationObject | None:
+    """Bind a party reference by its exact normalized ID, never its label alone."""
+    ref = node.corpus_ref
+    party_reference = ref is not None and ref.type in {"pc", "npc"}
+    if not (party_reference or (node.node_type == "character" and node.proposed_action == "anchor")):
+        return None
+    if node.node_type != "character":
+        raise CandidateGraphMappingError("known party reference requires character node type")
+    if context.world_id != world_id:
+        raise CandidateGraphMappingError("known party anchor requires its pinned World")
+    if ref is None or ref.type not in {"pc", "npc"} or ref.resolution != "resolved":
+        raise CandidateGraphMappingError("known party anchor requires a resolved PC/NPC corpus reference")
+    reference_key = ir.corpus_ref_identity(node)
+    if reference_key is None or not reference_key[1]:
+        raise CandidateGraphMappingError("known party anchor reference ID is missing")
+    expected_kind = "player_character" if ref.type == "pc" else "npc"
+    bindings = [b for b in context.reviewed_corpus_bindings
+                if b.candidate_node_id == node.node_id]
+    bound_target = None
+    if bindings:
+        if len(bindings) != 1:
+            raise CandidateGraphMappingError("conflicting reviewed corpus bindings")
+        binding = bindings[0]
+        if (binding.world_id != world_id
+            or binding.parent_revision_id != context.revision_id
+            or binding.campaign_id != campaign_id
+            or binding.candidate_sha256 != context.exact_candidate_sha256
+            or binding.corpus_ref_type != ref.type
+            or binding.corpus_ref_key != reference_key[1]):
+            raise CandidateGraphMappingError("reviewed corpus binding basis mismatch")
+        bound_target = context.objects.get(binding.target_object_id)
+        if bound_target is None or _norm_kind(bound_target.kind) != expected_kind:
+            raise CandidateGraphMappingError("reviewed corpus binding target kind mismatch")
+    matches = []
+    mismatched_kind = False
+    for object_id, obj in context.objects.items():
+        namespace, separator, identifier = object_id.partition(":")
+        if not separator or namespace not in {"pc", "npc", "node"}:
+            continue
+        key = ir.corpus_ref_identity({"corpus_ref": {"type": ref.type, "ref_id": identifier}})
+        if key == reference_key:
+            if _norm_kind(obj.kind) != expected_kind:
+                mismatched_kind = True
+                continue
+            matches.append((object_id, obj))
+    if bound_target is not None:
+        if matches and (len(matches) != 1 or matches[0][0] != bound_target.object_id):
+            raise CandidateGraphMappingError("reviewed corpus binding conflicts with exact identity")
+        matches = [(bound_target.object_id, bound_target)]
+    if not matches and mismatched_kind:
+        raise CandidateGraphMappingError("known party anchor reference kind does not match its pinned object")
+    if len(matches) != 1:
+        raise CandidateGraphMappingError("known party anchor reference must identify exactly one pinned object")
+    object_id, target = matches[0]
+    if (
+        target.object_id != object_id
+        or object_id in context.identity_redirects
+        or target.canon_state != "canonical"
+        or target.memory_state in {"merged_away", "rejected"}
+    ):
+        raise CandidateGraphMappingError("known party anchor target is not active canonical identity")
+    terms = {ir.normalize_label(target.label), *(ir.normalize_label(alias) for alias in target.aliases)}
+    if not ir.normalize_label(node.label) or ir.normalize_label(node.label) not in terms:
+        raise CandidateGraphMappingError("known party anchor label does not match its referenced identity")
+    return target
+
+
+def _reviewed_binding_anchor(
+    node: CandidateNode, context: WorldGraphMutationContext, *,
+    world_id: str, campaign_id: str | None,
+) -> MutationObject | None:
+    bindings = [
+        binding for binding in context.reviewed_corpus_bindings
+        if binding.candidate_node_id == node.node_id
+    ]
+    if not bindings:
+        return None
+    if len(bindings) != 1:
+        raise CandidateGraphMappingError("conflicting reviewed canonical bindings")
+    binding = bindings[0]
+    if (
+        binding.world_id != world_id
+        or binding.parent_revision_id != context.revision_id
+        or binding.campaign_id != campaign_id
+        or binding.candidate_sha256 != context.exact_candidate_sha256
+    ):
+        raise CandidateGraphMappingError("reviewed canonical binding basis mismatch")
+    if node.corpus_ref is not None:
+        referenced = _known_party_anchor(
+            node, context, world_id=world_id, campaign_id=campaign_id
+        )
+        if referenced is None or referenced.object_id != binding.target_object_id:
+            raise CandidateGraphMappingError("reviewed canonical binding reference mismatch")
+    target = context.objects.get(binding.target_object_id)
+    expected_kind = "player_character" if binding.corpus_ref_type == "pc" else "npc"
+    if (
+        target is None or target.object_id in context.identity_redirects
+        or node.node_type != "character"
+        or binding.corpus_ref_type not in {"pc", "npc"}
+        or _norm_kind(target.kind) != expected_kind
+        or target.canon_state != "canonical"
+        or target.memory_state in {"merged_away", "rejected"}
+    ):
+        raise CandidateGraphMappingError("reviewed canonical binding target is not active")
+    terms = {ir.normalize_label(target.label), *(
+        ir.normalize_label(alias) for alias in target.aliases
+    )}
+    if ir.normalize_label(node.label) not in terms:
+        raise CandidateGraphMappingError("reviewed canonical binding label mismatch")
+    return target
 
 
 def _durable_node_id(resolution: Any, extract_node_id: str) -> str | None:
@@ -258,6 +434,8 @@ def gate_candidate_graph_against_head(
     source_domain: str = "recap",
     source_uri: str | None = None,
     source_kind: str = "source_extraction",
+    candidate_identity_sha256: str | None = None,
+    source_proven_endpoints: Mapping[str, Mapping[str, Any]] | None = None,
     node_ids: Sequence[str] | None = None,
     include_edges: bool = True,
     mutation_context: WorldGraphMutationContext | None = None,
@@ -312,6 +490,20 @@ def gate_candidate_graph_against_head(
         nodes=nodes,
         edges=edges_in_scope,
     )
+    source_local_basis = (
+        _source_local_identity_basis(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            source_artifact_id=artifact_id,
+            source_revision_id=source_revision_id,
+            extraction_profile=str(extraction_profile or "current_default"),
+            source_kind=kind,
+            candidate_sha256=candidate_identity_sha256 or _candidate_preview_digest(preview),
+            candidate_schema=preview.schema,
+            candidate_version=preview.version,
+        )
+        if kind == "source_extraction" else None
+    )
 
     candidate_contribution = candidate_graph_to_contribution(
         preview,
@@ -340,6 +532,7 @@ def gate_candidate_graph_against_head(
     rejected: list[GraphContributionAssertion] = []
     node_id_map: dict[str, str] = {}
     identity_outcome_snapshot: dict[str, str] = {}
+    identity_nodes: dict[str, dict[str, str]] = {}
     diagnostics: list[str] = [
         f"parent_revision_id:{parent_revision_id}",
         f"scorer_matched:{len(scorer_report.get('matched') or [])}",
@@ -348,9 +541,46 @@ def gate_candidate_graph_against_head(
 
     for node in nodes:
         extract_id = node.node_id
+        endpoint = (source_proven_endpoints or {}).get(extract_id)
+        if endpoint is not None:
+            from apps.live_control_server.models.world_graph_mutation_context import wire_kind
+            target = endpoint.get("subject_id")
+            if (
+                kind != "source_extraction" or source_local_basis is None
+                or endpoint.get("world_id") != world_id
+                or endpoint.get("parent_revision_id") != mutation_context.revision_id
+                or endpoint.get("source_artifact_id") != artifact_id
+                or endpoint.get("source_revision_id") != revision_id
+                or endpoint.get("candidate_digest") != source_local_basis["candidate_sha256"]
+                or target not in mutation_context.objects
+                or target != _qualified_source_local_id(source_local_basis, extract_id)
+                or wire_kind(str(endpoint.get("subject_kind") or ""))
+                != wire_kind(mutation_context.objects[target].kind)
+            ):
+                raise CandidateGraphMappingError("source-proven endpoint binding differs from exact candidate/source/parent")
+            node_id_map[extract_id] = target
+            identity_outcome_snapshot[extract_id] = "resolved_existing"
+            identity_nodes[extract_id] = {
+                "classification":"source_proven_endpoint","proposed_node_id":target,
+                "outcome":"resolved_existing",
+            }
+            diagnostics.append(f"source_proven_endpoint_only:{extract_id}->{target}")
+            continue
         label = node.label or extract_id
         node_aliases = _candidate_aliases(node)
-        object_kind = _infer_object_kind(node, mutation_context)
+        known_anchor = _reviewed_binding_anchor(
+            node, mutation_context, world_id=world_id, campaign_id=scope
+        ) or _known_party_anchor(node, mutation_context, world_id=world_id, campaign_id=scope)
+        classification = "reviewed_canonical" if known_anchor is not None else "source_local"
+        proposed_id = (
+            known_anchor.object_id if known_anchor is not None
+            else _qualified_source_local_id(source_local_basis, extract_id)
+            if source_local_basis is not None else extract_id
+        )
+        object_kind = (
+            known_anchor.kind if known_anchor is not None
+            else _infer_object_kind(node, mutation_context)
+        )
         evidence_refs = [
             str(ref.source_span_ref_id or "")
             for ref in node.evidence_refs
@@ -365,12 +595,29 @@ def gate_candidate_graph_against_head(
             evidence_ref_ids=evidence_refs,
             campaign_scope=scope,
             source_artifact_id=artifact_id,
-            proposed_node_id=extract_id,
+            proposed_node_id=proposed_id,
         )
         resolution = resolve_identity_against_context(
-            mutation_context, identity_candidate
+            mutation_context, identity_candidate,
+            source_local=source_local_basis is not None and known_anchor is None,
         )
+        if known_anchor is not None and (
+            resolution.outcome not in _CONNECT_EXISTING_OUTCOMES
+            or resolution.target_node_id != known_anchor.object_id
+        ):
+            raise CandidateGraphMappingError("known party anchor resolution changed its verified pinned identity")
         identity_outcome_snapshot[extract_id] = resolution.outcome
+        if source_local_basis is not None:
+            identity_nodes[extract_id] = {
+                "classification": classification if resolution.outcome in _MUTATING_OUTCOMES else "deferred",
+                "proposed_node_id": proposed_id,
+                "outcome": resolution.outcome,
+                **({"canonical_target_id": known_anchor.object_id} if known_anchor is not None else {}),
+                **({
+                    "canonical_ref_type": node.corpus_ref.type,
+                    "canonical_ref_id": node.corpus_ref.ref_id,
+                } if known_anchor is not None and node.corpus_ref is not None else {}),
+            }
         diagnostics.append(
             f"identity:{extract_id}:{resolution.outcome}:{resolution.target_node_id or resolution.created_node_id or resolution.provisional_node_id}"
         )
@@ -452,8 +699,19 @@ def gate_candidate_graph_against_head(
                     source_uri=source_uri,
                     identity_resolution_outcome=resolution.outcome,
                     alias_owners=mutation_context.alias_owner_map(),
+                    kind_override=known_anchor.kind if known_anchor is not None else None,
                 )
             )
+            if kind == "source_extraction":
+                description = map_recap_source_observation(
+                    node, durable_node_id=durable_id, source_revision_id=revision_id,
+                    verified_source_artifact_id=artifact_id, campaign_scope=scope,
+                    source_domain=source_domain, session_id=session_id, campaign_id=campaign_id,
+                    source_uri=source_uri, identity_resolution_outcome=resolution.outcome,
+                    kind_override=known_anchor.kind if known_anchor is not None else None,
+                )
+                if description is not None:
+                    support_assertions[0] = description
             accepted_proposals.extend(support_assertions)
             diagnostics.extend(alias_skip_diagnostics)
             continue
@@ -473,6 +731,18 @@ def gate_candidate_graph_against_head(
                 subject_node_id_override=durable_id,
             )
         )
+        if kind == "source_extraction" and resolution.outcome == "created_new":
+            description = map_recap_source_observation(
+                node, durable_node_id=durable_id, source_revision_id=revision_id,
+                verified_source_artifact_id=artifact_id, campaign_scope=scope,
+                source_domain=source_domain, session_id=session_id, campaign_id=campaign_id,
+                source_uri=source_uri, identity_resolution_outcome=resolution.outcome,
+                kind_override=object_kind,
+            )
+            if description is not None:
+                # Separate technical proposal: both reconstruction paths exclude
+                # it unless its assertion ID is explicitly selected.
+                accepted_proposals.append(description)
 
     if include_edges:
         mapped = set(node_id_map)
@@ -565,6 +835,10 @@ def gate_candidate_graph_against_head(
         scorer_report=scorer_report,
         node_id_map=node_id_map,
         identity_outcome_snapshot=identity_outcome_snapshot,
+        identity_basis=(
+            {**source_local_basis, "nodes": dict(sorted(identity_nodes.items()))}
+            if source_local_basis is not None else {}
+        ),
         diagnostics=diagnostics,
         candidate_preview_id=preview.preview_id,
         candidate_schema=preview.schema,
@@ -681,108 +955,6 @@ def _order_assertions_nodes_before_edges(
     return [*nodes, *mid, *edges]
 
 
-def build_accepted_contribution_from_proposals(
-    gate: IdentityGateResult,
-    *,
-    mutation_context: WorldGraphMutationContext | None = None,
-    root: Path | None = None,
-    accepted_assertion_ids: Sequence[str] | None = None,
-    proposal_digest: str | None = None,
-    contribution_meta: Mapping[str, Any] | None = None,
-) -> GraphContribution:
-    """Build a merge-ready contribution from selected accepted proposals.
-
-    Durable metadata comes from sealed ``contribution_meta`` (or, for unit
-    tests that skip sealing, from ``gate.contribution``). Edge endpoints must
-    be selected node subjects or present on the exact pinned parent revision.
-    """
-    allow = set(accepted_assertion_ids) if accepted_assertion_ids is not None else None
-    selected = [
-        assertion
-        for assertion in gate.accepted_proposals
-        if allow is None or assertion.assertion_id in allow
-    ]
-    if not selected:
-        raise CandidateGraphMappingError("no accepted proposals selected for merge")
-
-    if mutation_context is None:
-        if root is None:
-            raise CandidateGraphMappingError(
-                "mutation_context or root is required to reconstruct a contribution"
-            )
-        mutation_context = mutation_context_from_world_root(
-            root, gate.world_id, revision_id=gate.parent_revision_id
-        )
-    pinned_context = mutation_context
-    node_subjects = {
-        a.subject_node_id
-        for a in selected
-        if a.assertion_kind == "node" and a.subject_node_id
-    }
-
-    filtered: list[GraphContributionAssertion] = []
-    for assertion in selected:
-        if assertion.assertion_kind == "edge":
-            subject = assertion.subject_node_id
-            target = assertion.target_node_id
-            if subject is None or target is None:
-                raise CandidateGraphMappingError(
-                    f"edge assertion {assertion.assertion_id} missing endpoint ids"
-                )
-            if not _endpoint_available(
-                subject,
-                selected_node_subjects=node_subjects,
-                context=pinned_context,
-            ):
-                raise CandidateGraphMappingError(
-                    f"edge assertion {assertion.assertion_id} subject endpoint "
-                    f"{subject!r} is neither selected nor on pinned parent "
-                    f"{gate.parent_revision_id}"
-                )
-            if not _endpoint_available(
-                target,
-                selected_node_subjects=node_subjects,
-                context=pinned_context,
-            ):
-                raise CandidateGraphMappingError(
-                    f"edge assertion {assertion.assertion_id} target endpoint "
-                    f"{target!r} is neither selected nor on pinned parent "
-                    f"{gate.parent_revision_id}"
-                )
-        filtered.append(assertion)
-
-    meta = dict(contribution_meta) if contribution_meta is not None else (
-        contribution_meta_from_contribution(gate.contribution)
-    )
-    selection_digest = compute_selection_digest(
-        [a.assertion_id for a in filtered]
-    )
-    return create_graph_contribution(
-        world_id=gate.world_id,
-        source_kind=str(meta["source_kind"]),  # type: ignore[arg-type]
-        source_artifact_id=str(meta["source_artifact_id"]),
-        source_revision_id=str(meta["source_revision_id"]),
-        extraction_profile=str(meta["extraction_profile"]),
-        campaign_scope=meta.get("campaign_scope"),
-        authored_by=str(meta["authored_by"]),
-        accepted_assertions=filtered,
-        rejected_assertions=list(gate.rejected_assertions),
-        unresolved_mentions=list(gate.unresolved_mentions),
-        proposal_digest=proposal_digest,
-        selection_digest=selection_digest,
-        diagnostics=[
-            f"accepted_for_merge:{len(filtered)}",
-            f"parent_revision_id:{gate.parent_revision_id}",
-            f"selection_digest:{selection_digest}",
-            *(
-                [f"proposal_digest:{proposal_digest}"]
-                if proposal_digest
-                else []
-            ),
-        ],
-    )
-
-
 def build_accepted_contribution_from_multi_slice_proposals(
     slice_selections: Sequence[
         tuple[IdentityGateResult, Sequence[str] | None, str]
@@ -822,7 +994,8 @@ def build_accepted_contribution_from_multi_slice_proposals(
         selected = [
             assertion
             for assertion in gate.accepted_proposals
-            if allow is None or assertion.assertion_id in allow
+            if (allow is None and not is_recap_source_observation(assertion))
+            or (allow is not None and assertion.assertion_id in allow)
         ]
         if selected:
             active.append((slice_id, gate, selected))
@@ -861,6 +1034,10 @@ def build_accepted_contribution_from_multi_slice_proposals(
     filtered: list[GraphContributionAssertion] = []
     for slice_id, _gate, selected in active:
         for assertion in selected:
+            if assertion.assertion_kind == "attribute" and not _endpoint_available(
+                assertion.subject_node_id or "", selected_node_subjects=node_subjects, context=pinned_context,
+            ):
+                raise CandidateGraphMappingError("selected attribute subject is neither selected in atomic batch nor on pinned parent")
             selection_coords.append(
                 f"{slice_id}{SLICE_SELECTOR_DELIMITER}{assertion.assertion_id}"
             )

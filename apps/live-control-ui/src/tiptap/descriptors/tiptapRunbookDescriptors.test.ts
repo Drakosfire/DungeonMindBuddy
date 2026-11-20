@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -8,10 +8,15 @@ import {
   northGateRunbookCreateRequest,
   northGateSessionRunbookStarterMarkdown,
   runbookDescriptorFromRecord,
+  resolveRunbookSpikeDocument,
   tiptapRunbookStorageKey,
 } from "./tiptapRunbookDescriptors";
 import { FIXTURE_DOC_ID } from "../../planSurface/config/planSessionDescriptor";
 import { fixtureWorkspaceDocumentRecord } from "../../planSurface/config/planSessionDescriptor";
+
+vi.mock("../../api/liveApi", () => ({ getWorkspaceDocument: vi.fn(), listWorkspaceDocuments: vi.fn(), createWorkspaceDocument: vi.fn() }));
+import * as api from "../../api/liveApi";
+beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
 
 describe("Tiptap runbook descriptors", () => {
   it("maps registry records to runbook descriptors with opaque ids", () => {
@@ -51,4 +56,24 @@ describe("Tiptap runbook descriptors", () => {
     expect(payload.kind).toBe("runbook");
     expect(payload.target_relpath).toBe(NORTH_GATE_RUNBOOK_TARGET_RELPATH);
   });
+});
+
+it.each(["worldbuilding_source", "plan"] as const)("refuses %s before exposing runbook reset/import controls or changing local state", async kind => {
+ const record=fixtureWorkspaceDocumentRecord({kind});
+ const key=`dmb.workspaceDocument.${record.document_id}`;
+ const original=JSON.stringify({retained:"exact source draft bytes",kind});localStorage.setItem(key,original);
+ vi.mocked(api.getWorkspaceDocument).mockResolvedValue(record);
+ const write=vi.spyOn(Storage.prototype,"setItem"),remove=vi.spyOn(Storage.prototype,"removeItem");
+ try {
+  expect(()=>runbookDescriptorFromRecord(record)).toThrow(/not a runbook/);
+  await expect(resolveRunbookSpikeDocument(`?documentId=${record.document_id}`)).rejects.toThrow(/not a runbook/);
+  expect(write).not.toHaveBeenCalled();expect(remove).not.toHaveBeenCalled();
+  expect(localStorage.getItem(key)).toBe(original);
+  expect(api.createWorkspaceDocument).not.toHaveBeenCalled();expect(api.listWorkspaceDocuments).not.toHaveBeenCalled();
+ } finally {write.mockRestore();remove.mockRestore();}
+});
+it("resolves an explicitly requested runbook without creating a replacement", async()=>{
+ const record=fixtureWorkspaceDocumentRecord({kind:"runbook"});vi.mocked(api.getWorkspaceDocument).mockResolvedValue(record);
+ expect((await resolveRunbookSpikeDocument(`?documentId=${record.document_id}`)).documentId).toBe(record.document_id);
+ expect(api.createWorkspaceDocument).not.toHaveBeenCalled();
 });

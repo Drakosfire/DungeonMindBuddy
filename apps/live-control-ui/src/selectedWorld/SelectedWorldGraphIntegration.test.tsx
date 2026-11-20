@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as liveApi from "../api/liveApi";
 import type { WorldContainerRecord } from "../api/types";
 import { WorldGraphLensProvider } from "../graphLens/WorldGraphLensContext";
-import { WorldGraphLensProjectionProvider, useOptionalWorldGraphLensProjection } from "../graphLens/useWorldGraphLensProjection";
+import { WorldGraphLensProjectionProvider, useWorldGraphLensProjectionDemand, useOptionalWorldGraphLensProjection } from "../graphLens/useWorldGraphLensProjection";
 import { SelectedWorldProvider, useSelectedWorld } from "./SelectedWorldContext";
 
 const world: WorldContainerRecord = {
@@ -28,6 +28,7 @@ function GraphShell() {
 }
 
 function GraphState() {
+  useWorldGraphLensProjectionDemand(true);
   const graph = useOptionalWorldGraphLensProjection();
   return <span data-testid="managed-graph-state">{graph?.projectionState ?? "missing"}</span>;
 }
@@ -41,7 +42,8 @@ describe("managed World graph integration", () => {
       records: [world],
     });
     const bundle = vi.spyOn(liveApi, "getSourceBundle").mockRejectedValue(new Error("must not load"));
-    const project = vi.spyOn(liveApi, "postWorldGraphProjection").mockRejectedValue(
+    const native = vi.spyOn(liveApi, "postWorldGraphProjection");
+    const project = vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockRejectedValue(
       new liveApi.LiveApiError("no published head", 404, { code: "world_graph_unavailable" }),
     );
     const view = render(
@@ -52,12 +54,12 @@ describe("managed World graph integration", () => {
     await waitFor(() => expect(project).toHaveBeenCalled());
     await waitFor(() => expect(view.getByTestId("managed-graph-state")).toHaveTextContent("unavailable"));
     expect(project.mock.calls[0]?.[0]).toMatchObject({
-      worldId: world.world_id,
-      campaignId: world.world_id,
-      scopeMode: "world",
-      focus: { kind: "none", sessionId: null },
+      schema: "dmb_managed_world_graph_projection_request_v1",
+      managedWorldId: world.world_id,
+      revisionPin: null, queryText: null,
     });
     expect(bundle).not.toHaveBeenCalled();
+    expect(native).not.toHaveBeenCalled();
     view.rerender(
       <SelectedWorldProvider locationSnapshot="/plan?world=unknown-world">
         <GraphShell />

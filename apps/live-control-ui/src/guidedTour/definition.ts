@@ -1,0 +1,47 @@
+/** Guidance only: neither this definition nor replay executes product commands. */
+export type TargetKind = 'source' | 'page' | 'plan' | 'run';
+export const JOURNEY_STEPS = [
+ {id:'source',title:'Open the source',target:'source',purpose:'Start from the material you want to use.',expected:'The selected source opens in this World.',action:'Use Build to open or import your source, then select it for this walkthrough.',control:'source'},
+ {id:'authoring',title:'Develop and save a page',target:'page',purpose:'Turn an idea into an editable page while keeping source material intact.',expected:'An acknowledged saved page revision, with your newer drafts preserved.',action:'Open or create the page you want to develop, then select it for this step. It may be separate from your source. Use Buddy or the editor and review the result. Build saves edits automatically; wait for Saved, or use the green Save control when available.',control:'save'},
+ {id:'plan',title:'Prepare the Plan',target:'plan',purpose:'Arrange scenes and choices for play.',expected:'A verified saved Plan with the intended scene order.',action:'Create or open a Plan using ordinary controls. Save it, then open Start Play to verify and select its exact version for this walkthrough. The preview does not create a session.',control:'plan'},
+ {id:'generation',title:'Generate and save a creature',target:'plan',purpose:'Develop proposed creature mechanics before using them in an encounter.',expected:'A real generated candidate recovered through the same request, reviewed and explicitly saved as an exact mechanics version.',action:'Open Statblocks from Plan Tools. Describe the creature, then use Create & generate. While it works, navigate away and reopen Statblocks to recover the same candidate. Review, edit and validate the working copy, then Accept/Save mechanics. This does not publish a World fact. Keep this guidance step selected while recovering the generation.',control:'generation'},
+ {id:'encounter',title:'Prepare a scene encounter',target:'plan',purpose:'Give the scene an encounter you can inspect and revise.',expected:'A saved encounter version bound to the selected Plan and scene.',action:'Select the scene and open its encounter controls. Prepare and inspect the saved encounter.',control:'encounter'},
+ {id:'mechanics',title:'Save a mechanics revision',target:'plan',purpose:'Keep manual creature changes as an immutable version.',expected:'A newly saved version with its own exact revision identity.',action:'Open saved creature mechanics, edit them, validate and save a new version.',control:'mechanics'},
+ {id:'adoption',title:'Adopt the exact version',target:'plan',purpose:'Choose which saved mechanics the encounter will use.',expected:'An acknowledged adoption of the exact selected version for the selected actors.',action:'Preview the saved version, choose actors and tracker policies, then explicitly use that version.',control:'adoption'},
+ {id:'image',title:'Generate and choose an image',target:'plan',purpose:'Use an illustration as part of preparation.',expected:'A real generation result retained privately and explicitly placed in a saved Plan.',action:'Open Image Studio, generate an image, choose its placement and save the Plan. Public CDN upload is optional.',control:'image'},
+ {id:'play',title:'Start Play from the saved Plan',target:'run',purpose:'Carry the exact prepared material into a durable session.',expected:'An admitted Run linked to the selected saved Plan and entry scene.',action:'Use Start Play from the Plan. Review its version and entry scene before starting.',control:'start-play'},
+ {id:'progress',title:'Make a choice and save notes',target:'run',purpose:'Keep what happened separate from unresolved possibilities.',expected:'Acknowledged scene position, choices and nonempty scene notes in this Run.',action:'Use the normal scene, choice and notes controls. Leave an unresolved possibility clearly marked.',control:'progress'},
+ {id:'roll',title:'Record a supplied roll',target:'run',purpose:'Keep a real table result with the session.',expected:'A recorded entered roll with its exact table and result.',action:'Roll your physical die and enter that value in the prepared table’s recorded-roll control.',control:'roll'},
+ {id:'combat',title:'Track the encounter',target:'run',purpose:'Exercise the encounter state that must survive a pause.',expected:'Acknowledged actor state such as HP, temporary HP or conditions.',action:'Open the scene encounter and make the intended manual tracker change.',control:'combat'},
+ {id:'recovery',title:'Reload and recover',target:'run',purpose:'Prove the saved session can be resumed.',expected:'The same exact Run and saved state re-admitted after reload or explicit recovery.',action:'Finish pending saves, reload, and reopen this Run. Resolve any retained command through its ordinary recovery controls.',control:'recovery'},
+ {id:'reflection',title:'Save closing reflections',target:'run',purpose:'Retain session recollections alongside scene notes.',expected:'A saved review checkpoint and nonempty closing reflections.',action:'Use the session review controls to finish play and save your reflections.',control:'reflection'},
+ {id:'memory',title:'Ask about the session',target:'run',purpose:'Use retained notes and reflections with inspectable support.',expected:'A delivered answer citing this Run’s saved scene notes and closing reflections.',action:'Ask Buddy a continuity question and open the session citations. These notes do not create an external recap or publish World facts.',control:'memory'},
+] as const satisfies readonly {id:string;title:string;target:TargetKind;purpose:string;expected:string;action:string;control:string}[];
+export type StepId = typeof JOURNEY_STEPS[number]['id'];
+export const TOUR_DEFINITION = {id:'buddy-live-journey',version:3,steps:JOURNEY_STEPS} as const;
+export type Adventure = 'conks' | 'sheep';
+/** Names vary; steps and recognition policy are shared. World identity is selected, never inferred from a label. */
+export const ADVENTURES: Record<Adventure,string> = {conks:'Of Conks and Cons',sheep:'A Wild Sheep Chase'};
+
+/** Historical walkthroughs retain the exact original step order. */
+export const HISTORICAL_STEPS = JOURNEY_STEPS.filter(step=>step.id!=='generation');
+export const journeySteps=(version:number)=>version===3?JOURNEY_STEPS:HISTORICAL_STEPS;
+
+/** Brief interface teaching copy; observations and saved evidence remain unchanged. */
+export const TOUR_HINTS:Record<StepId,string>={
+ source:'Open the source you want to use. Its original material stays intact.',
+ authoring:'Edit your page here. Wait for Saved, or use Save when available.',
+ plan:'Prepare your scenes, then save the Plan before starting Play.',
+ generation:'Describe a creature and generate a candidate. Review it before saving mechanics.',
+ encounter:'Use this encounter group to prepare and inspect the scene’s actors.',
+ mechanics:'Edit and save a new mechanics version. Earlier versions are retained.',
+ adoption:'Preview the exact saved version, then explicitly adopt it for the chosen actors.',
+ image:'Generate an image, choose where it belongs, then save the Plan.',
+ play:'Review the saved Plan and entry scene before starting this Run.',
+ progress:'Record a choice and notes. Keep unresolved possibilities clearly marked.',
+ roll:'Choose a table in this group, then enter your actual physical roll.',
+ combat:'Use this tracker group to record the intended HP, condition or other change.',
+ recovery:'Finish pending saves, reload, and reopen the same Run.',
+ reflection:'Save your closing reflections. These remain session notes.',
+ memory:'Ask about this session, then open the answer’s citations to inspect its support.',
+};

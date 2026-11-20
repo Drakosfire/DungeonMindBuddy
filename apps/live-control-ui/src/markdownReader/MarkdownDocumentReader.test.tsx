@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { GraphNodeChipRuntimeProvider } from "../graphReference";
 import { MarkdownDocumentReader } from "./MarkdownDocumentReader";
 
 const HESTA_FIXTURE = `---
@@ -249,4 +250,40 @@ describe("MarkdownDocumentReader", () => {
       HTMLElement.prototype.scrollIntoView = original;
     }
   });
+  it("hides only canonical playable comments when explicitly opted in", () => {
+    const markdown = [
+      "<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->", "", "## Arrival", "",
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:gate beat_kind=spine -->", "", "## Gate", "",
+      "<!-- dmb-playable-element:v1 kind=scene -->", "", "<div>Untrusted HTML</div>",
+    ].join("\n");
+    const { rerender } = render(<MarkdownDocumentReader markdown={markdown} />);
+    expect(screen.getAllByTestId("markdown-reader-html-literal")).toHaveLength(4);
+    rerender(<MarkdownDocumentReader markdown={markdown} hidePlayableMarkers />);
+    const literals = screen.getAllByTestId("markdown-reader-html-literal");
+    expect(literals).toHaveLength(2);
+    expect(literals[0]).toHaveTextContent("<!-- dmb-playable-element:v1 kind=scene -->");
+    expect(literals[1]).toHaveTextContent("<div>Untrusted HTML</div>");
+    expect(screen.getByRole("heading", { name: "Arrival" })).toBeInTheDocument();
+  });
+
+  it("preserves original full-source heading coordinates when markers are hidden", () => {
+    const markdown = "---\ntitle: Preview\n---\n\n<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->\n## Arrival\n\nBody.\n";
+    render(<MarkdownDocumentReader markdown={markdown} hidePlayableMarkers sourceLineTarget={{startLine: 6, endLine: 6, targetKey: "preview:arrival"}} />);
+    expect(screen.queryByTestId("markdown-reader-html-literal")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Arrival" })).toHaveAttribute("data-source-block", "true");
+    expect(screen.queryByTestId("markdown-reader-source-no-highlight")).toBeNull();
+  });
+
+});
+
+
+it("uses shared pills only for explicit durable node references", () => {
+  const onSelectNode = vi.fn();
+  render(<GraphNodeChipRuntimeProvider value={{ nodeViews: {}, activeNodeId: null, onSelectNode }}>
+    <MarkdownDocumentReader markdown={"Frank is a guard. [Frank](dmb-node:npc:frank). [Sara][radio]\n\n[radio]: #dmb-ref:graph-node:npc:sara"} />
+  </GraphNodeChipRuntimeProvider>);
+  fireEvent.click(screen.getByRole("button", { name: "Frank" }));
+  fireEvent.click(screen.getByRole("button", { name: "Sara" }));
+  expect(onSelectNode.mock.calls).toEqual([["npc:frank"], ["npc:sara"]]);
+  expect(screen.getAllByRole("button")).toHaveLength(2);
 });

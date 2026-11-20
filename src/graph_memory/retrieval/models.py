@@ -13,7 +13,7 @@ import hashlib
 import json
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 from graph_memory.projection.world_projection import (
@@ -44,7 +44,7 @@ RetrievalOutcome = Literal[
     "truncated",
     "unavailable",
 ]
-RetrievalOperation = Literal["search", "object", "neighborhood", "evidence"]
+RetrievalOperation = Literal["search", "object", "neighborhood", "evidence", "observations"]
 EvidenceTargetKind = Literal["node", "relationship", "attribute"]
 LocatorKind = Literal["heading", "json_pointer", "source_span", "unsupported"]
 
@@ -148,6 +148,15 @@ class WorldGraphSearchRequest(WorldGraphRetrievalRequestContext):
     @classmethod
     def _validate_seed_node_ids(cls, value: list[str]) -> list[str]:
         return _reject_blank_ids(value)
+
+
+class WorldGraphObservationSelectionRequest(WorldGraphRetrievalRequestContext):
+    """Parent-only exact source selection; never accepted from model scope."""
+    schema_: Literal["dmb_world_graph_observation_selection_v1"] = Field(alias="schema")
+    source_artifact_id: str = Field(min_length=1)
+    source_revision_id: str = Field(min_length=1)
+    observation_ids: list[str] = Field(min_length=1, max_length=8)
+    max_bytes: int = Field(default=262144, ge=256, le=262144)
 
 
 class WorldGraphObjectRequest(WorldGraphRetrievalRequestContext):
@@ -279,7 +288,50 @@ class WorldGraphSourceAnchor(_RetrievalResponseModel):
     display_label: str | None = None
 
 
+class _ReviewedSourceObservationMatch(_RetrievalResponseModel):
+    """Native bounded discovery pointer, not a canonical assertion or claim."""
+
+    assertion_id: str
+    subject_node_id: str
+    observation_kind: Literal["session_observation", "worldbuilding_observation"]
+    text_excerpt: str = Field(max_length=768)
+    excerpt_start: int = Field(ge=0)
+    excerpt_end: int = Field(ge=0)
+    text_length: int = Field(ge=0)
+    text_sha256: str
+    entity_kind: str
+    publication_revision_id: str
+    source_artifact_id: str
+    source_revision_id: str
+    evidence_ref_ids: list[str]
+    campaign_scope: str | None
+    visibility: Literal["gm", "player"]
+    epistemic_kind: str
+    temporal_scope: dict[str, Any] | None
+
+    @model_validator(mode="after")
+    def validate_excerpt_extent(self) -> "_ReviewedSourceObservationMatch":
+        if not (self.excerpt_start <= self.excerpt_end <= self.text_length):
+            raise ValueError("discovery excerpt offsets must lie within original text")
+        if self.excerpt_end - self.excerpt_start != len(self.text_excerpt):
+            raise ValueError("discovery excerpt length must match original Unicode offsets")
+        return self
+
+
+class WorldGraphReviewedSourceObservationMatch(_ReviewedSourceObservationMatch):
+    review_id: str
+    contribution_id: str
+
+
+class WorldGraphNativeReviewedSourceObservationMatch(_ReviewedSourceObservationMatch):
+    publication_id: str
+
+
 class WorldGraphRetrievalResult(_RetrievalResponseModel):
+    _discovery_relationship_ids: tuple[str, ...] = PrivateAttr(default=())
+    _discovery_hops: tuple[tuple[str, str, str], ...] = PrivateAttr(default=())
+    _object_limit_pruned_ids: tuple[str, ...] = PrivateAttr(default=())
+    _object_limit_pruned_count: int = PrivateAttr(default=0)
     schema_: Literal[RETRIEVAL_RESULT_SCHEMA] = Field(
         alias="schema", default=RETRIEVAL_RESULT_SCHEMA
     )
@@ -289,6 +341,11 @@ class WorldGraphRetrievalResult(_RetrievalResponseModel):
     request_summary: dict[str, Any] = Field(default_factory=dict)
     matched_node_ids: list[str] = Field(default_factory=list)
     match_reasons: dict[str, list[str]] = Field(default_factory=dict)
+    reviewed_source_observation_matches: list[
+        WorldGraphReviewedSourceObservationMatch | WorldGraphNativeReviewedSourceObservationMatch
+    ] = Field(
+        default_factory=list
+    )
     requested_node_id: str | None = None
     resolved_node_id: str | None = None
     nodes: list[WorldGraphRetrievalNode] = Field(default_factory=list)
@@ -311,6 +368,7 @@ class WorldGraphSourceAnchorReadResult(_RetrievalResponseModel):
     anchor_id: str
     evidence_ref_id: str | None = None
     source_artifact_id: str | None = None
+    source_name: str | None = None
     source_domain: str | None = None
     source_span_ref_id: str | None = None
     locator_kind: LocatorKind | None = None
@@ -408,5 +466,89 @@ __all__ = [
     "WorldGraphSourceAnchor",
     "WorldGraphSourceAnchorReadRequest",
     "WorldGraphSourceAnchorReadResult",
+    "RecapContextIndexRequestV2",
+    "RecapContextReadRequestV2",
+    "RecapContextDescriptorV2",
+    "RecapContextIndexResultV2",
+    "RecapContextReadResultV2",
     "compute_source_anchor_id",
 ]
+
+
+class RecapContextIndexRequestV2(WorldGraphRetrievalRequestContext):
+    max_entries: int = Field(default=512, ge=1, le=512)
+
+    @model_validator(mode="after")
+    def _require_pin(self):
+        if not self.revision_pin or self.admissibility != "gm":
+            raise ValueError("recap context requires a pinned GM projection")
+        return self
+
+    schema_: Literal["dmb_recap_context_index_request_v2"] = Field(alias="schema")
+
+
+class RecapContextReadRequestV2(WorldGraphRetrievalRequestContext):
+    schema_: Literal["dmb_recap_context_read_request_v2"] = Field(alias="schema")
+    context_anchor_id: str = Field(min_length=1)
+    max_chars: int = Field(default=SOURCE_ANCHOR_READ_MAX_CHARS_DEFAULT, ge=1, le=SOURCE_ANCHOR_READ_MAX_CHARS_HARD_MAX)
+    continuation: str | None = None
+
+    @field_validator("context_anchor_id")
+    @classmethod
+    def _known_context_version(cls, value: str) -> str:
+        if not value.startswith("dm-context-anchor:v2:"):
+            raise ValueError("recap context requires a known Core context ID")
+        return value
+
+    @model_validator(mode="after")
+    def _require_pin(self):
+        if not self.revision_pin or self.admissibility != "gm":
+            raise ValueError("recap context requires a pinned GM projection")
+        return self
+
+
+class RecapContextDescriptorV2(_RetrievalResponseModel):
+    context_anchor_id: str
+    world_id: str
+    campaign_id: str | None
+    graph_revision_id: str
+    source_artifact_id: str
+    source_revision_id: str
+    source_uri: str
+    content_sha256: str
+    expected_session_id: str
+    canonical_heading: str
+    legacy_session_heading: str
+    legacy_recap_marker: str
+    selector_schema: Literal["dm_recap_context_section_selector_v2"] = "dm_recap_context_section_selector_v2"
+    selector_policy: Literal["markdown-session-recap-v2"] = "markdown-session-recap-v2"
+
+
+class RecapContextIndexResultV2(_RetrievalResponseModel):
+    schema_: Literal["dmb_recap_context_index_v2"] = Field(alias="schema", default="dmb_recap_context_index_v2")
+    snapshot: WorldGraphRetrievalSnapshot
+    status: Literal["complete", "overflow"]
+    eligible_count: int
+    max_entries: int
+    entries: list[RecapContextDescriptorV2] = Field(default_factory=list)
+
+
+class RecapContextReadResultV2(_RetrievalResponseModel):
+    schema_: Literal["dmb_recap_context_read_v2"] = Field(alias="schema", default="dmb_recap_context_read_v2")
+    outcome: Literal["enough", "truncated", "empty", "unavailable"]
+    snapshot: WorldGraphRetrievalSnapshot
+    context_anchor_id: str
+    context: RecapContextDescriptorV2 | None = None
+    media_type: str | None = None
+    content: str | None = None
+    selected_form: Literal["canonical_h1", "legacy_h2"] | None = None
+    heading_line: int | None = None
+    session_heading_line: int | None = None
+    recap_marker_line: int | None = None
+    line_start: int | None = None
+    line_end: int | None = None
+    section_sha256: str | None = None
+    offset_chars: int = 0
+    truncated: bool = False
+    next_continuation: str | None = None
+    diagnostics: list[WorldGraphRetrievalDiagnostic] = Field(default_factory=list)

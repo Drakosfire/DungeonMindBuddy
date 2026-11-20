@@ -64,12 +64,20 @@ export function buildFocusOptionsFromBundles(
   selectedCampaignIds: readonly ReviewCampaignId[],
   bundlesByCampaign: ReadonlyMap<ReviewCampaignId, IngestionSourceBundle>,
 ): PlanGraphLoadFocusOption[] {
+  return buildFocusOptionsFromSessions(
+    selectedCampaignIds,
+    new Map(Array.from(bundlesByCampaign, ([campaignId, bundle]) => [campaignId, sessionNumbersFromBundle(bundle)])),
+  );
+}
+
+export function buildFocusOptionsFromSessions(
+  selectedCampaignIds: readonly ReviewCampaignId[],
+  sessionsByCampaign: ReadonlyMap<ReviewCampaignId, readonly number[]>,
+): PlanGraphLoadFocusOption[] {
   const options: PlanGraphLoadFocusOption[] = [];
   for (const campaignId of REVIEW_CAMPAIGN_IDS) {
     if (!selectedCampaignIds.includes(campaignId)) continue;
-    const bundle = bundlesByCampaign.get(campaignId);
-    if (!bundle) continue;
-    for (const sessionNumber of sessionNumbersFromBundle(bundle)) {
+    for (const sessionNumber of sessionsByCampaign.get(campaignId) ?? []) {
       options.push({
         campaignId,
         sessionNumber,

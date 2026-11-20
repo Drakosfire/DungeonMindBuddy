@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -15,10 +14,6 @@ from graph_memory.interaction.answer_validator import (
 )
 from graph_memory.interaction.authority_classifier import classify_authority_for_attribute
 from graph_memory.interaction.claims import GraphClaim, ClaimSupport
-from graph_memory.interaction.digest_audit import (
-    TRIPOD_CONTRIBUTION_ID,
-    audit_contribution_source_digests,
-)
 from graph_memory.interaction.expansion_executor import execute_expand_graph_retrieval
 from graph_memory.interaction.forensic import (
     FORENSIC_ENV_FLAG,
@@ -27,7 +22,6 @@ from graph_memory.interaction.forensic import (
 )
 from graph_memory.interaction.initial_resolve import create_session_from_preflight
 from graph_memory.interaction.session_hydrate import hydrate_session_from_packet
-from graph_memory.interaction.schema_constants import DIGEST_AUDIT_SCHEMA
 from graph_memory.interaction.session import (
     GraphRetrievalSession,
     SessionSnapshot,
@@ -308,121 +302,6 @@ def test_validate_structured_answer_emits_source_citations_only_for_open_reads()
     denied = validate_structured_answer(session_denied_read, None, model_prose="No quote.")
     assert denied.source_citations == []
     assert denied.outcome == "graph_grounded"
-
-
-def test_validate_s1_memory_lag_gap_is_partial_not_generic_abstention(
-    tmp_path: Path,
-) -> None:
-    recap_path = tmp_path / "Session 24 - Recap.md"
-    recap_path.write_text(
-        "---\ntitle: Session 24\n---\n\n"
-        "The party held the North Gate while Tripod Null-Calf pressed the wall.\n\n"
-        "Edge called for reinforcement as Mireward's shield line buckled.\n",
-        encoding="utf-8",
-    )
-    session = GraphRetrievalSession(
-        snapshot=SessionSnapshot(
-            world_id="world:eldyrwild",
-            campaign_id="campaign:longmont-c2",
-            revision_id="rev:5cadc9798562862cdde22350d8a3b56c",
-            focus={"kind": "session", "session_id": "session-24"},
-        ),
-        question="What changed after the latest ingested recap?",
-        intent_hint="compare",
-        claims=[],
-        latest_recap_change={
-            "schema": "dmb_latest_recap_change_context_v1",
-            "status": "ready",
-            "campaign_id": "longmont-c2",
-            "outcome": "memory_lag",
-            "memory_lag": True,
-            "latest_recap": {
-                "artifact_id": "longmont-c2/session-24",
-                "campaign_id": "longmont-c2",
-                "session_id": "session-24",
-                "source_recap_path": "Session 24 - Recap.md",
-            },
-            "comparison_boundary": {
-                "kind": "latest_admitted_recap_to_graph_head",
-                "recap_session_id": "session-24",
-                "graph_latest_session_id": "session-23",
-                "graph_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
-            },
-            "diagnostic_codes": ["latest_recap_not_in_graph_head"],
-        },
-    )
-
-    agent_answer = (
-        "After Session 24 the fight is still at the North Gate: Tripod Null-Calf "
-        "is under pressure and the meatwings are charming the party. Graph memory "
-        "has not caught up past session-23 yet."
-    )
-    validated = validate_structured_answer(
-        session,
-        None,
-        model_prose=agent_answer,
-        corpus_root=tmp_path,
-    )
-
-    assert validated.outcome == "partial_coverage"
-    assert "no_admissible_claims" not in validated.reason_codes
-    assert "named_gap" in validated.reason_codes
-    assert "hermes_agent_answer" in validated.reason_codes
-    assert "admitted_recap_source_read" in validated.reason_codes
-    assert validated.answer_text.startswith("After Session 24")
-    assert "North Gate" in validated.answer_text
-    assert "memory lag" not in validated.answer_text.lower()
-    assert "From the admitted session-24 recap" not in validated.answer_text
-    assert validated.support_lag_text is not None
-    assert "memory lag" in validated.support_lag_text.lower()
-    assert validated.support_excerpt_text is not None
-    assert "From the admitted session-24 recap" in validated.support_excerpt_text
-    assert "I cannot narrate grounded campaign movement" not in validated.answer_text
-
-
-def test_validate_s1_keeps_excerpt_out_of_chat_when_agent_silent(tmp_path: Path) -> None:
-    recap_path = tmp_path / "Session 24 - Recap.md"
-    recap_path.write_text(
-        "The party held the North Gate while Tripod Null-Calf pressed the wall.\n",
-        encoding="utf-8",
-    )
-    session = GraphRetrievalSession(
-        snapshot=SessionSnapshot(
-            world_id="world:eldyrwild",
-            campaign_id="campaign:longmont-c2",
-            revision_id="rev:5cadc9798562862cdde22350d8a3b56c",
-            focus={"kind": "session", "session_id": "session-24"},
-        ),
-        question="What changed after the latest ingested recap?",
-        claims=[],
-        latest_recap_change={
-            "schema": "dmb_latest_recap_change_context_v1",
-            "status": "ready",
-            "campaign_id": "longmont-c2",
-            "outcome": "memory_lag",
-            "memory_lag": True,
-            "latest_recap": {
-                "artifact_id": "longmont-c2/session-24",
-                "campaign_id": "longmont-c2",
-                "session_id": "session-24",
-                "source_recap_path": "Session 24 - Recap.md",
-            },
-            "comparison_boundary": {
-                "kind": "latest_admitted_recap_to_graph_head",
-                "recap_session_id": "session-24",
-                "graph_latest_session_id": "session-23",
-                "graph_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
-            },
-            "diagnostic_codes": ["latest_recap_not_in_graph_head"],
-        },
-    )
-    validated = validate_structured_answer(session, None, corpus_root=tmp_path)
-    assert validated.answer_text == "Hermes did not return a chat answer for this turn."
-    assert "From the admitted session-24 recap" not in validated.answer_text
-    assert validated.support_excerpt_text is not None
-    assert "North Gate" in validated.support_excerpt_text
-    assert "admitted_recap_source_read" in validated.reason_codes
-    assert "hermes_agent_answer" not in validated.reason_codes
 
 
 def test_validate_empty_graph_without_latest_recap_still_abstains() -> None:
@@ -816,7 +695,7 @@ def test_expand_records_effective_targets_matching_dispatch() -> None:
         ),
         (
             "object",
-            "graph_memory.interaction.expansion_executor.retrieval_service.get_campaign_object",
+            "graph_memory.interaction.expansion_executor.retrieval_service.get_campaign_object_with_reviewed_sources",
             "dmb_world_graph_object_v1",
         ),
         (
@@ -838,7 +717,8 @@ def test_expand_valid_operations_dispatch(
 ) -> None:
     session = _seed_expand_session()
     fake = _fake_retrieval_result(schema=expected_schema)
-    with patch(patch_target, return_value=fake) as mocked:
+    response = (fake, [], [], []) if operation == "object" else fake
+    with patch(patch_target, return_value=response) as mocked:
         result = execute_expand_graph_retrieval(
             {
                 "schema": "dmb_expand_graph_retrieval_request_v1",
@@ -999,49 +879,3 @@ def test_expand_accepts_policy_injected_camelcase_wire_form() -> None:
                 "worldId": "world:eldyrwild",  # scope inject must be stripped
             }
         )
-
-
-def test_tripod_contribution_id_constant() -> None:
-    assert TRIPOD_CONTRIBUTION_ID == "contribution:022187fdefdf4557"
-
-
-def test_audit_contribution_source_digests_returns_schema(tmp_path) -> None:
-    contribution_id = "contribution:abc"
-    digest = "sha256:deadbeef"
-    fake_store = SimpleNamespace(
-        revision_id="revision:head",
-        contribution_source_payload_sha256={contribution_id: digest},
-    )
-    fake_head = SimpleNamespace(head_revision_id="revision:head")
-    fake_revision = SimpleNamespace(revision_id="revision:head")
-    fake_index = SimpleNamespace(
-        all_contribution_ids=[contribution_id],
-        failed_contribution_ids=[],
-    )
-    fake_contrib = SimpleNamespace(status="ok")
-
-    with (
-        patch(
-            "graph_memory.interaction.digest_audit.load_current_world_graph",
-            return_value=(fake_head, fake_revision, fake_store),
-        ),
-        patch(
-            "graph_memory.interaction.digest_audit.load_contribution_index",
-            return_value=fake_index,
-        ),
-        patch(
-            "graph_memory.interaction.digest_audit.load_contribution_record",
-            return_value=fake_contrib,
-        ),
-        patch(
-            "graph_memory.interaction.digest_audit.compute_contribution_source_payload_sha256",
-            return_value=digest,
-        ),
-    ):
-        result = audit_contribution_source_digests(tmp_path)
-
-    assert result["schema"] == DIGEST_AUDIT_SCHEMA
-    assert result["complete"] is True
-    assert result["ok_count"] == 1
-    assert result["revision_id"] == "revision:head"
-    assert result["highlighted"][TRIPOD_CONTRIBUTION_ID] is None

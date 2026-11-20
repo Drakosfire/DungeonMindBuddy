@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from src.graph_memory.extraction.recap_source_adapter import RecapSourceAdapter
-from src.graph_memory.extraction.worldbuilding_source_adapter import WorldbuildingSourceAdapter
+from graph_memory.extraction.recap_source_adapter import RecapSourceAdapter
+from graph_memory.extraction.worldbuilding_source_adapter import WorldbuildingSourceAdapter
 
 
 def test_recap_adapter_preserves_session_identity(tmp_path) -> None:

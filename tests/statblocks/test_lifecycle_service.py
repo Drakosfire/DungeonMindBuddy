@@ -5,18 +5,18 @@ from pathlib import Path
 
 import pytest
 
-from src.statblocks.lifecycle_artifact import StatblockBreadcrumb
-from src.statblocks.lifecycle_commands import (
+from statblocks.lifecycle_artifact import StatblockBreadcrumb
+from statblocks.lifecycle_commands import (
     STATBLOCK_DRAFT_GENERATE,
     STATBLOCK_DRAFT_RENDER,
     STATBLOCK_GENERATOR_HEALTH,
 )
-from src.statblocks.lifecycle_service import (
+from statblocks.lifecycle_service import (
     StatblockLifecycleCommandRequest,
     StatblockLifecycleService,
 )
-from src.statblocks.v2_client import MockStatBlockGeneratorProvider, StatBlockGeneratorHTTPError
-from src.statblocks.v2_contract import (
+from statblocks.v2_client import MockStatBlockGeneratorProvider, StatBlockGeneratorHTTPError
+from statblocks.v2_contract import (
     ContractError,
     StatBlockDraftResponse,
     StatBlockGeneratorHealth,

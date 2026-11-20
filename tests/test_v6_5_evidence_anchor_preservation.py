@@ -38,13 +38,6 @@ from graph_memory.vnext import (
     build_dungeonbuddy_read_context,
 )
 
-from apps.live_control_server.integrations.dungeonmind.vnext_complete_object import (
-    DungeonBuddyVNextReadIdentity,
-    project_complete_world_object_vnext,
-)
-from apps.live_control_server.models.world_graph_object_projection import (
-    WorldGraphObjectProjectionRequest,
-)
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "tests/fixtures/vnext/dungeonbuddy_domain_runtime_preservation_v2.json"
@@ -237,65 +230,6 @@ def test_missing_span_is_preserved_and_never_derived_from_locator(
     assert result.evidence.can_highlight_span is True
     assert result.evidence.source_span_ref_id is None
     assert result.anchors[0].source_span_ref_id is None
-
-
-def test_complete_object_evidence_ids_join_to_native_reads_without_semantic_drift(
-    preservation: dict,
-) -> None:
-    parsed, reader = _runtime(preservation)
-    request = WorldGraphObjectProjectionRequest.model_validate(
-        {
-            "schema": "dmb_world_graph_object_projection_request_v1",
-            "worldId": "eldyrwild",
-            "campaignId": "campaign-longmont",
-            "nodeId": NODE_ID,
-            "focus": {
-                "kind": "session",
-                "campaignId": "campaign-longmont",
-                "sessionId": "session-28",
-            },
-            "admissibility": "gm",
-            "revisionPin": REVISION_ID,
-        }
-    )
-    projection = project_complete_world_object_vnext(
-        parsed_revision=parsed,
-        source_reader=reader,
-        request=request,
-        read_identity=DungeonBuddyVNextReadIdentity(
-            space_id="eldyrwild",
-            revision_id=REVISION_ID,
-            head_revision_id=REVISION_ID,
-            is_head=True,
-        ),
-    )
-    context = build_dungeonbuddy_read_context(
-        parsed_revision=parsed,
-        projection_input=DungeonBuddyVNextProjectionInput(
-            world_id="eldyrwild",
-            scope_mode="campaign",
-            role="gm",
-            campaign_id="campaign-longmont",
-            session_id="session-28",
-            revision_id=REVISION_ID,
-        ),
-        source_reader=reader,
-    )
-    service = EvidenceReadService()
-
-    assert projection.node is not None
-    assert projection.node.evidence_ref_ids == [EVIDENCE_ID]
-    native = service.get_evidence(context, projection.node.evidence_ref_ids[0])
-    assert native.available
-    assert {item.assertion_id for item in native.admitted_supporter_assertions} >= {
-        item.assertion_id for item in projection.assertions
-    }
-    assert projection.assertions[0].temporal_scope is not None
-    assert projection.source_bindings[0].source_domain == "recap"
-    assert projection.source_bindings[0].session_id == "session-28"
-    assert native.source_revisions[0].content_sha256 == (
-        projection.source_bindings[0].content_sha256
-    )
 
 
 def test_campaign_world_role_and_standing_boundaries_fail_closed(

@@ -1,24 +1,26 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import * as extractPromoteApi from "../../api/extractPromoteApi";
+import * as extractPromoteApi from "../../api/nativeFirstWorldPublicationApi";
+import {ExtractPromoteApiError} from "../../api/extractPromoteApi";
+import type {NativeFirstWorldPlan as FirstWorldGraphPlan, NativeFirstWorldReceipt as FirstWorldGraphConfirmReceipt} from "../../api/nativeFirstWorldPublicationTypes";
 import type {
   ExactRunReviewPackage,
-  FirstWorldGraphConfirmReceipt,
-  FirstWorldGraphPlan,
 } from "../../api/types";
+import {withNativeFirstWorldPlan,nativeFirstWorldReceipt} from './firstWorldPublicationRecovery.testSupport';
+import {firstWorldScope,firstWorldRecoveryKey,readFirstWorldRecovery} from './firstWorldPublicationRecovery';
 import {
   buildFirstWorldDecisions,
   GraphReviewFirstWorldPublishSheet,
 } from "./GraphReviewFirstWorldPublishSheet";
 
-vi.mock("../../api/extractPromoteApi", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../api/extractPromoteApi")>();
+vi.mock("../../api/nativeFirstWorldPublicationApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../api/nativeFirstWorldPublicationApi")>();
   return {
     ...actual,
-    prepareFirstWorldGraph: vi.fn(),
-    confirmFirstWorldGraph: vi.fn(),
+    prepareNativeFirstWorld: vi.fn(),
+    confirmNativeFirstWorld: vi.fn(),
   };
 });
 
@@ -26,15 +28,16 @@ const baseReview: ExactRunReviewPackage = {
   schema: "dmb_extract_promote_exact_run_review_v1",
   runId: "run-glass-orchard",
   sourceDomain: "worldbuilding",
+  inspectionStatus:"ready",
   sourceArtifactId: "artifact:worldbuilding:glass:r1:abcdef123456",
-  sourceRevisionId: "sha256:abc",
+  sourceRevisionId: "sha256:"+"a".repeat(64),
   campaignId: null,
   sessionId: null,
   sourceProse: "# Glass Orchard\n\nSample prose.\n",
   assertions: [
     {
       assertionId: "obj_session22_vial",
-      kind: "object",
+      kind: "object", nodeType: "npc", contributionKind: "npc",
       label: "vial",
       summary: "Puddle sample vial",
       evidence: [
@@ -48,7 +51,7 @@ const baseReview: ExactRunReviewPackage = {
     },
     {
       assertionId: "mystery_puddles",
-      kind: "object",
+      kind: "object", nodeType: "npc", contributionKind: "npc",
       label: "mystery puddles",
       summary: "Shimmering puddles",
       evidence: [
@@ -62,7 +65,7 @@ const baseReview: ExactRunReviewPackage = {
     },
     {
       assertionId: "e33",
-      kind: "relationship",
+      kind: "relationship", relationshipType: "contains", fromCandidateNodeId: "obj_session22_vial", toCandidateNodeId: "mystery_puddles",
       label: "vial —contains→ mystery puddles",
       summary: "obj_session22_vial → mystery_puddles",
       evidence: [
@@ -87,11 +90,12 @@ const baseReview: ExactRunReviewPackage = {
 function sealedPlan(
   overrides: Partial<FirstWorldGraphPlan> = {},
 ): FirstWorldGraphPlan {
-  return {
-    schema: "dmb_first_world_graph_plan_v1",
+  return withNativeFirstWorldPlan({
+    schema: "dmb_first_world_graph_plan_v3", sourceEvidenceSha256: "sha256:"+"d".repeat(64),
+      nativeTarget: {nativeWorldId: "world:"+"1".repeat(32), provisioningId: "provision:"+"2".repeat(32), bindingVersion: 1},
     planId: "first-world-graph-plan:abc123",
-    planDigest: "sha256:plan",
-    decisionDigest: "sha256:decisions",
+    planDigest: "sha256:"+"b".repeat(64),
+    decisionDigest: "sha256:"+"c".repeat(64),
     worldId: "the-glass-orchard",
     runId: baseReview.runId,
     sourceArtifactId: baseReview.sourceArtifactId,
@@ -102,8 +106,9 @@ function sealedPlan(
     acceptedAssertionIds: ["obj_session22_vial", "mystery_puddles", "e33"],
     rejectedAssertionIds: [],
     contributionId: "contribution:glass",
-    contributionPayloadSha256: "sha256:payload",
-    reviewedEffect: {},
+    contributionPayloadSha256: "d".repeat(64),
+    reviewedEffect: {decision_snapshot:baseReview.assertions.map(row=>({assertion_id:row.assertionId,
+      candidate_kind:row.kind==='object'?'node':'edge',decision:row.kind==='object'?'create_new':'accept',target_node_id:null}))},
     summary: {
       createNewNodeCount: 2,
       acceptedEdgeCount: 1,
@@ -113,43 +118,103 @@ function sealedPlan(
     confirmable: true,
     diagnostics: [],
     ...overrides,
-  };
+  },baseReview);
 }
 
-function confirmReceipt(
-  overrides: Partial<FirstWorldGraphConfirmReceipt> = {},
-): FirstWorldGraphConfirmReceipt {
-  return {
-    schema: "dmb_first_world_graph_confirm_v1",
-    outcome: "initialized",
-    worldId: "the-glass-orchard",
-    planId: "first-world-graph-plan:abc123",
-    planDigest: "sha256:plan",
-    decisionDigest: "sha256:decisions",
-    sourceArtifactId: baseReview.sourceArtifactId,
-    sourceRevisionId: baseReview.sourceRevisionId,
-    contributionId: "contribution:glass",
-    baselineRevisionId: null,
-    committedRevisionId: "rev:glass:1",
-    appliedAssertionCount: 3,
-    acceptedAssertionIds: ["obj_session22_vial", "mystery_puddles", "e33"],
-    rejectedAssertionIds: [],
-    auditStatus: "ok",
-    warnings: [],
-    ...overrides,
-  };
+function confirmReceipt(overrides:Partial<FirstWorldGraphConfirmReceipt>={}):FirstWorldGraphConfirmReceipt{
+  return nativeFirstWorldReceipt(sealedPlan(),overrides);
 }
 
 describe("GraphReviewFirstWorldPublishSheet", () => {
   beforeEach(() => {
-    vi.mocked(extractPromoteApi.prepareFirstWorldGraph).mockReset();
-    vi.mocked(extractPromoteApi.confirmFirstWorldGraph).mockReset();
+    localStorage.clear();
+    Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(_key:string,action:()=>unknown)=>Promise.resolve(action())}});
+    vi.mocked(extractPromoteApi.prepareNativeFirstWorld).mockReset();
+    vi.mocked(extractPromoteApi.confirmNativeFirstWorld).mockReset();
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    cleanup();vi.restoreAllMocks();
   });
 
+  it('displays actual typed relations separately from hostile friendly wording and summary', () => {
+    const review = structuredClone(baseReview);
+    review.assertions[1].nodeType = 'faction'; review.assertions[1].contributionKind = 'faction';
+    Object.assign(review.assertions[2], {label: 'stole property from', relationshipType: 'owns', summary: 'fake → reversed'});
+    render(<GraphReviewFirstWorldPublishSheet review={review}/>);
+    const row = screen.getByRole('checkbox', {name:'Keep stole property from'}).closest('li')!;
+    expect(row).toHaveTextContent('Structured relation: vial (npc) → owns → mystery puddles (faction)');
+    expect(row).toHaveTextContent('Candidate wording: stole property from');
+    expect(row).not.toHaveTextContent('fake');
+    expect(screen.getByRole('checkbox', {name:'Keep mystery puddles'}).closest('li')).toHaveTextContent('Structured type: faction');
+  });
+
+  it('distinguishes opposite relations between same-named typed candidates', () => {
+    const review = structuredClone(baseReview);
+    for (const node of review.assertions.slice(0, 2)) Object.assign(node, {label: 'Guard', nodeType:'character'});
+    Object.assign(review.assertions[2], {label:'owns', relationshipType:'owns'});
+    review.assertions.push({...review.assertions[2], assertionId:'reverse',
+      fromCandidateNodeId:'mystery_puddles', toCandidateNodeId:'obj_session22_vial'});
+    render(<GraphReviewFirstWorldPublishSheet review={review}/>);
+    const rows = screen.getAllByRole('checkbox', {name:'Keep owns'}).map(e=>e.closest('li')!);
+    expect(rows[0]).toHaveTextContent('Guard [obj_session22_vial] (character) → owns → Guard [mystery_puddles] (character)');
+    expect(rows[1]).toHaveTextContent('Guard [mystery_puddles] (character) → owns → Guard [obj_session22_vial] (character)');
+    const nodes = screen.getAllByRole('checkbox', {name:'Keep Guard'}).map(e=>e.closest('li')!);
+    expect(nodes[0]).toHaveTextContent('candidate: obj_session22_vial');
+    expect(nodes[1]).toHaveTextContent('candidate: mystery_puddles');
+  });
+
+  it.each(['relationshipType', 'fromCandidateNodeId', 'toCandidateNodeId'] as const)(
+    'never reconstructs missing %s from friendly summary', field => {
+      const review = structuredClone(baseReview); delete review.assertions[2][field];
+      render(<GraphReviewFirstWorldPublishSheet review={review}/>);
+      expect(screen.getByRole('checkbox', {name:'Keep vial —contains→ mystery puddles'})).toBeDisabled();
+      expect(extractPromoteApi.prepareNativeFirstWorld).not.toHaveBeenCalled();
+    });
+
+  it.each(['kind', 'predicate', 'direction', 'subject', 'target'])(
+    'refuses forged prepared %s before saving or confirming', async field => {
+      const plan = sealedPlan(), rows = plan.reviewedEffect.accepted_proposals as Record<string, unknown>[];
+      const node = rows[0], edge = rows[2], value = edge.value as Record<string, unknown>;
+      if(field === 'kind') (node.value as Record<string, unknown>).kind = 'faction';
+      if(field === 'predicate') { edge.predicate = 'hires'; value.predicate = 'hires'; }
+      if(field === 'direction') value.direction = 'inbound';
+      if(field === 'subject') edge.subject_node_id = 'mystery_puddles';
+      if(field === 'target') edge.target_node_id = 'obj_session22_vial';
+      vi.mocked(extractPromoteApi.prepareNativeFirstWorld).mockResolvedValue(plan);
+      render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>);
+      await userEvent.click(screen.getByRole('button', {name:'Review World Graph with 3 changes'}));
+      expect(await screen.findByRole('alert')).toHaveTextContent('reviewed structured meaning');
+      expect(extractPromoteApi.confirmNativeFirstWorld).not.toHaveBeenCalled();
+      expect(localStorage.length).toBe(0);
+    });
+
+  it('offers explicit archive and fresh review only for an unsubmitted obsolete plan',async()=>{
+    const raw=JSON.stringify({schema:'dmb_first_world_publication_recovery_v1',scope:firstWorldScope(baseReview),
+      plan:{...sealedPlan(),schema:'dmb_first_world_graph_plan_v2'},submitted:false});
+    localStorage.setItem(firstWorldRecoveryKey(baseReview),raw);
+    render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>);
+    await userEvent.click(screen.getByRole('button',{name:'Archive old plan and review again'}));
+    expect(await screen.findByTestId('graph-review-first-world-create-cta')).toBeInTheDocument();
+    expect(extractPromoteApi.prepareNativeFirstWorld).not.toHaveBeenCalled();
+    expect(extractPromoteApi.confirmNativeFirstWorld).not.toHaveBeenCalled();
+    expect(localStorage.getItem(localStorage.key(0)!)).toBe(raw);
+  });
+  it('holds submitted obsolete recovery without an archive or publish action',()=>{
+    const raw=JSON.stringify({schema:'dmb_first_world_publication_recovery_v1',scope:firstWorldScope(baseReview),
+      plan:{...sealedPlan(),schema:'dmb_first_world_graph_plan_v2'},submitted:true});
+    localStorage.setItem(firstWorldRecoveryKey(baseReview),raw);
+    render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>);
+    expect(screen.getByRole('alert')).toHaveTextContent('out of date');
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    expect(localStorage.getItem(firstWorldRecoveryKey(baseReview))).toBe(raw);
+  });
+  it('shows a safe hold when browser recovery storage cannot be read',()=>{
+    vi.spyOn(Storage.prototype,'getItem').mockImplementation(()=>{throw new Error('storage denied');});
+    expect(()=>render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>)).not.toThrow();
+    expect(screen.getByRole('alert')).toHaveTextContent('storage denied');
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+  });
   it("shows world identity and Create World Graph CTA when eligible", () => {
     render(<GraphReviewFirstWorldPublishSheet review={baseReview} />);
 
@@ -157,7 +222,7 @@ describe("GraphReviewFirstWorldPublishSheet", () => {
     expect(screen.getByText(/The Glass Orchard/i)).toBeInTheDocument();
     expect(screen.getByText("the-glass-orchard")).toBeInTheDocument();
     expect(screen.getByTestId("graph-review-first-world-create-cta")).toHaveTextContent(
-      /Create World Graph/i,
+      /Review World Graph/i,
     );
   });
 
@@ -186,15 +251,15 @@ describe("GraphReviewFirstWorldPublishSheet", () => {
   });
 
   it("submit builds correct first-world decision mapping", async () => {
-    vi.mocked(extractPromoteApi.prepareFirstWorldGraph).mockResolvedValue(sealedPlan());
-    vi.mocked(extractPromoteApi.confirmFirstWorldGraph).mockResolvedValue(confirmReceipt());
+    vi.mocked(extractPromoteApi.prepareNativeFirstWorld).mockResolvedValue(sealedPlan());
+    vi.mocked(extractPromoteApi.confirmNativeFirstWorld).mockResolvedValue(confirmReceipt());
 
     render(<GraphReviewFirstWorldPublishSheet review={baseReview} />);
 
     await userEvent.click(screen.getByTestId("graph-review-first-world-create-cta"));
 
     await waitFor(() => {
-      expect(extractPromoteApi.prepareFirstWorldGraph).toHaveBeenCalledWith({
+      expect(extractPromoteApi.prepareNativeFirstWorld).toHaveBeenCalledWith({
         runId: baseReview.runId,
         decisions: [
           { assertionId: "obj_session22_vial", decision: "create_new" },
@@ -203,21 +268,25 @@ describe("GraphReviewFirstWorldPublishSheet", () => {
         ],
       });
     });
+    expect(extractPromoteApi.confirmNativeFirstWorld).not.toHaveBeenCalled();
+    expect(await screen.findByRole('button',{name:'Confirm native World creation'})).toBeInTheDocument();
+    expect(readFirstWorldRecovery(baseReview)).toMatchObject({submitted:false,request:{schema:'dmb_native_first_world_confirm_request_v1'}});
+    expect(screen.getByRole('note')).toHaveTextContent('established, inferred');
+    expect(screen.getByRole('note')).toHaveTextContent('Reviewed descriptions are preserved');
   });
 
-  it("confirm success shows terminal receipt that survives refresh error", async () => {
-    vi.mocked(extractPromoteApi.prepareFirstWorldGraph).mockResolvedValue(sealedPlan());
-    vi.mocked(extractPromoteApi.confirmFirstWorldGraph).mockResolvedValue(confirmReceipt());
-    const onCatalogRefresh = vi.fn().mockRejectedValue(new Error("refresh failed"));
+  it("confirm success retains the terminal receipt without catalog refresh", async () => {
+    vi.mocked(extractPromoteApi.prepareNativeFirstWorld).mockResolvedValue(sealedPlan());
+    vi.mocked(extractPromoteApi.confirmNativeFirstWorld).mockResolvedValue(confirmReceipt());
 
     render(
       <GraphReviewFirstWorldPublishSheet
         review={baseReview}
-        onCatalogRefresh={onCatalogRefresh}
       />,
     );
 
     await userEvent.click(screen.getByTestId("graph-review-first-world-create-cta"));
+    fireEvent.click(await screen.findByRole("button",{name:"Confirm native World creation"}));
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-first-world-receipt")).toBeInTheDocument();
@@ -228,35 +297,113 @@ describe("GraphReviewFirstWorldPublishSheet", () => {
     );
     expect(screen.getByText(/World Graph created/i)).toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-first-world-create-cta")).not.toBeInTheDocument();
-    expect(onCatalogRefresh).toHaveBeenCalled();
   });
 
   it("unknown confirm error offers exact-plan retry without re-prepare", async () => {
     const plan = sealedPlan();
-    vi.mocked(extractPromoteApi.prepareFirstWorldGraph).mockResolvedValue(plan);
-    vi.mocked(extractPromoteApi.confirmFirstWorldGraph)
+    vi.mocked(extractPromoteApi.prepareNativeFirstWorld).mockResolvedValue(plan);
+    vi.mocked(extractPromoteApi.confirmNativeFirstWorld)
       .mockRejectedValueOnce(new TypeError("network down"))
       .mockResolvedValueOnce(confirmReceipt());
 
     render(<GraphReviewFirstWorldPublishSheet review={baseReview} />);
 
     await userEvent.click(screen.getByTestId("graph-review-first-world-create-cta"));
+    fireEvent.click(await screen.findByRole("button",{name:"Confirm native World creation"}));
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-first-world-retry-exact-confirm")).toBeInTheDocument();
     });
-    expect(extractPromoteApi.prepareFirstWorldGraph).toHaveBeenCalledTimes(1);
+    expect(extractPromoteApi.prepareNativeFirstWorld).toHaveBeenCalledTimes(1);
 
     await userEvent.click(screen.getByTestId("graph-review-first-world-retry-exact-confirm"));
 
     await waitFor(() => {
-      expect(extractPromoteApi.confirmFirstWorldGraph).toHaveBeenCalledTimes(2);
+      expect(extractPromoteApi.confirmNativeFirstWorld).toHaveBeenCalledTimes(2);
     });
-    expect(extractPromoteApi.confirmFirstWorldGraph).toHaveBeenLastCalledWith({ plan });
-    expect(extractPromoteApi.prepareFirstWorldGraph).toHaveBeenCalledTimes(1);
+    expect(extractPromoteApi.confirmNativeFirstWorld).toHaveBeenLastCalledWith({schema:'dmb_native_first_world_confirm_request_v1', plan});
+    expect(extractPromoteApi.prepareNativeFirstWorld).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("graph-review-first-world-receipt")).toBeInTheDocument();
   });
 
+  it('retains the original request before confirm and recovers after reload into an initialized World',async()=>{
+    const plan=sealedPlan();vi.mocked(extractPromoteApi.prepareNativeFirstWorld).mockResolvedValue(plan);
+    vi.mocked(extractPromoteApi.confirmNativeFirstWorld).mockImplementationOnce(async()=>{
+      expect(readFirstWorldRecovery(baseReview)).toMatchObject({submitted:true,plan});
+      throw new TypeError('lost acknowledgement');
+    }).mockResolvedValueOnce(confirmReceipt({outcome:'already_initialized'}));
+    const view=render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>);
+    fireEvent.click(screen.getByTestId('graph-review-first-world-create-cta'));
+    fireEvent.click(await screen.findByRole("button",{name:"Confirm native World creation"}));
+    await screen.findByTestId('graph-review-first-world-retry-exact-confirm');view.unmount();
+    render(<GraphReviewFirstWorldPublishSheet review={{...baseReview,firstWorldPublishEligible:false,worldState:'initialized'}}/>);
+    expect(extractPromoteApi.confirmNativeFirstWorld).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('graph-review-first-world-create-cta')).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox',{name:'Keep vial'})).toBeNull();
+    fireEvent.click(screen.getByRole('button',{name:'Recover saved creation result'}));
+    await screen.findByTestId('graph-review-first-world-receipt');
+    expect(extractPromoteApi.prepareNativeFirstWorld).toHaveBeenCalledTimes(1);
+    expect(extractPromoteApi.confirmNativeFirstWorld).toHaveBeenNthCalledWith(2,{schema:'dmb_native_first_world_confirm_request_v1',plan});
+  });
+  it('keeps typed confirm errors uncertain and prevents a replacement prepare',async()=>{
+    vi.mocked(extractPromoteApi.prepareNativeFirstWorld).mockResolvedValue(sealedPlan());
+    vi.mocked(extractPromoteApi.confirmNativeFirstWorld).mockRejectedValue(new ExtractPromoteApiError('server lost delivery',503,'unknown'));
+    render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>);
+    fireEvent.click(screen.getByTestId('graph-review-first-world-create-cta'));
+    fireEvent.click(await screen.findByRole("button",{name:"Confirm native World creation"}));
+    await screen.findByTestId('graph-review-first-world-retry-exact-confirm');
+    expect(screen.queryByTestId('graph-review-first-world-retry-prepare')).not.toBeInTheDocument();
+    expect(readFirstWorldRecovery(baseReview)?.submitted).toBe(true);
+  });
+  it.each(['worldId','planId','sourceArtifactId','sourceRevisionId','decisionDigest'] as const)('retains recovery after a foreign receipt %s',async field=>{
+    vi.mocked(extractPromoteApi.prepareNativeFirstWorld).mockResolvedValue(sealedPlan());
+    vi.mocked(extractPromoteApi.confirmNativeFirstWorld).mockResolvedValue({...confirmReceipt(),[field]:'foreign'} as FirstWorldGraphConfirmReceipt);
+    render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>);fireEvent.click(screen.getByTestId('graph-review-first-world-create-cta'));
+    fireEvent.click(await screen.findByRole("button",{name:"Confirm native World creation"}));
+    await screen.findByTestId('graph-review-first-world-retry-exact-confirm');
+    expect(screen.queryByTestId('graph-review-first-world-receipt')).not.toBeInTheDocument();
+    expect(readFirstWorldRecovery(baseReview)?.submitted).toBe(true);
+  });
+  it.each(['campaign','nested_source','decisions'] as const)('refuses foreign prepare %s before retaining or confirming',async field=>{
+    const plan=sealedPlan();
+    if(field==='campaign')plan.campaignScope='foreign';
+    if(field==='nested_source')(plan.reviewedEffect.contribution_meta as Record<string,unknown>).source_artifact_id='foreign';
+    if(field==='decisions')(plan.reviewedEffect.decision_snapshot as Record<string,unknown>[])[0].decision='reject';
+    vi.mocked(extractPromoteApi.prepareNativeFirstWorld).mockResolvedValue(plan);
+    render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>);fireEvent.click(screen.getByTestId('graph-review-first-world-create-cta'));
+    await screen.findByRole('alert');expect(extractPromoteApi.confirmNativeFirstWorld).not.toHaveBeenCalled();expect(localStorage.length).toBe(0);
+  });
+  it('recovers the same prepared plan after submission persistence fails',async()=>{
+    const plan=sealedPlan();vi.mocked(extractPromoteApi.prepareNativeFirstWorld).mockResolvedValue(plan);
+    vi.mocked(extractPromoteApi.confirmNativeFirstWorld).mockResolvedValue(confirmReceipt());
+    const original=Storage.prototype.setItem;let calls=0;
+    const write=vi.spyOn(Storage.prototype,'setItem').mockImplementation(function(key,value){
+      if(++calls===2)throw new Error('submission quota');return original.call(this,key,value);
+    });
+    render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>);fireEvent.click(screen.getByTestId('graph-review-first-world-create-cta'));
+    fireEvent.click(await screen.findByRole("button",{name:"Confirm native World creation"}));
+    await screen.findByTestId('graph-review-first-world-retry-exact-confirm');
+    expect(extractPromoteApi.confirmNativeFirstWorld).not.toHaveBeenCalled();expect(readFirstWorldRecovery(baseReview)).toMatchObject({plan,submitted:false});
+    write.mockRestore();fireEvent.click(screen.getByTestId('graph-review-first-world-retry-exact-confirm'));
+    await screen.findByTestId('graph-review-first-world-receipt');expect(extractPromoteApi.prepareNativeFirstWorld).toHaveBeenCalledTimes(1);
+    expect(extractPromoteApi.confirmNativeFirstWorld).toHaveBeenCalledExactlyOnceWith({schema:'dmb_native_first_world_confirm_request_v1',plan});
+  });
+  it('blocks confirm when request persistence fails',async()=>{
+    vi.mocked(extractPromoteApi.prepareNativeFirstWorld).mockResolvedValue(sealedPlan());
+    vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('quota');});
+    render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>);fireEvent.click(screen.getByTestId('graph-review-first-world-create-cta'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('quota');
+    expect(extractPromoteApi.confirmNativeFirstWorld).not.toHaveBeenCalled();
+  });
+  it('does not persist or confirm a prepared reply after source changes',async()=>{
+    let resolve!:(v:FirstWorldGraphPlan)=>void;
+    vi.mocked(extractPromoteApi.prepareNativeFirstWorld).mockReturnValue(new Promise(r=>{resolve=r;}));
+    const view=render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>);fireEvent.click(screen.getByTestId('graph-review-first-world-create-cta'));
+    view.rerender(<GraphReviewFirstWorldPublishSheet review={{...baseReview,runId:'different-run'}}/>);
+    await act(async()=>resolve(sealedPlan()));
+    expect(localStorage.getItem(firstWorldRecoveryKey(baseReview))).toBeNull();
+    expect(extractPromoteApi.confirmNativeFirstWorld).not.toHaveBeenCalled();
+  });
   it("does not render Create World Graph when firstWorldPublishEligible is false", () => {
     render(
       <GraphReviewFirstWorldPublishSheet

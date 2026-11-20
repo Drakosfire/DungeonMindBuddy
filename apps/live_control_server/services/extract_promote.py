@@ -3,14 +3,18 @@
 
 from __future__ import annotations
 
+from graph_memory.extraction.worldbuilding_profile_catalog import SOURCE_OBSERVATION_WORLDBUILDING_PROFILES
 
+
+import hashlib
+from collections.abc import Callable
 import json
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Literal, Mapping
+from typing import TYPE_CHECKING, Any, Literal, Mapping
 
 
 from apps.live_control_server.config import (
-    extract_promote_source_root,
     repo_root,
     world_graph_root,
 )
@@ -22,6 +26,8 @@ from apps.live_control_server.models.extract_promote import (
     ExactRunReviewAssertion,
     ExactRunReviewEvidence,
     ExactRunReviewPackage,
+    RecapSemanticDecisionRequest,
+    RecapSemanticDecisionResponse,
     ExtractPromoteConfirmReceipt,
     ExtractPromoteConfirmRequest,
     ExtractPromoteDiagnostic,
@@ -30,7 +36,6 @@ from apps.live_control_server.models.extract_promote import (
     ExtractPromotePrepareResponse,
     ExtractPromoteReviewSummary,
     ExtractPromotionReviewItem,
-    ExtractPromoteStatusResponse,
     FirstWorldGraphConfirmReceipt,
     FirstWorldGraphConfirmRequest,
     FirstWorldGraphPlan,
@@ -46,23 +51,164 @@ from apps.live_control_server.models.candidate_graph_admission import (
 from apps.live_control_server.services.first_world_graph import (
     resolve_first_world_capability,
 )
+from apps.live_control_server.services.managed_world_graph_projection import (
+    VerifiedManagedWorldBinding,
+    resolve_managed_world_binding,
+)
+from apps.live_control_server.services.world_graph_projection import (
+    WorldGraphProjectionServiceError,
+)
 from apps.live_control_server.services.promotable_ingest_run import (
     PromotableIngestRunError,
-    is_under_ingest_runs,
-    is_under_world_store,
     resolve_promotable_ingest_run,
+    load_bound_extraction_run,
+    seal_extraction_run,
 )
 from graph_memory.candidate_graph_to_contribution import (
     CandidateGraphMappingError,
+    kernel_kind_for_node_type,
     load_typed_candidate_graph,
 )
 from graph_memory.extract_promote_ops import (
-    DEFAULT_WORLD_ID,
     ExtractPromoteWorldError,
-    get_extract_promote_status,
     resolve_merged_contribution_from_package,
 )
-from graph_memory.extract_promote_proposal import PromoteProposalError
+from graph_memory.extract_promote_proposal import (
+    PromoteProposalError,
+    compute_proposal_digest,
+)
+
+
+_PUBLICATION_TARGET_KEY = "managed_world_publication_target"
+_PUBLICATION_TARGET_SCHEMA = "dmb_managed_world_publication_target_v1"
+_RECAP_CONTEXT_KEY = "world_campaign_ingest_context"
+
+
+def _artifact_root() -> Path:
+    from apps.live_control_server.config import ArtifactDataRootError, artifact_data_root
+
+    try:
+        return artifact_data_root(repo_root())
+    except ArtifactDataRootError as exc:
+        raise ExtractPromoteError(
+            str(exc), code="artifact_data_root_unavailable", status_code=503
+        ) from exc
+
+
+def _resolve_publication_target(managed_world_id: str) -> VerifiedManagedWorldBinding:
+    try:
+        return resolve_managed_world_binding(managed_world_id)
+    except WorldGraphProjectionServiceError as exc:
+        raise ExtractPromoteError(
+            "Selected managed World has no verified active native Graph binding; reselect and prepare again.",
+            code="publication_target_unavailable",
+            status_code=exc.status_code,
+            diagnostics=[_diagnostic(exc.code, str(exc))],
+        ) from exc
+
+
+def _target_basis(binding: VerifiedManagedWorldBinding) -> dict[str, Any]:
+    return {
+        "schema": _PUBLICATION_TARGET_SCHEMA,
+        "managed_world_id": binding.managed_world_id,
+        "native_world_id": binding.native_world_id,
+        "binding_version": binding.binding_version,
+    }
+
+
+def _seal_publication_target(
+    package: Mapping[str, Any], binding: VerifiedManagedWorldBinding
+) -> dict[str, Any]:
+    sealed = dict(package)
+    effect = dict(sealed.get("effect") or {})
+    if str(effect.get("world_id") or "").strip() != binding.native_world_id:
+        raise ExtractPromoteError(
+            "Prepared proposal target differs from the verified native World.",
+            code="publication_target_mismatch", status_code=409,
+        )
+    effect[_PUBLICATION_TARGET_KEY] = _target_basis(binding)
+    sealed["effect"] = effect
+    sealed["proposal_digest"] = compute_proposal_digest(effect)
+    return sealed
+
+
+def _seal_recap_ingest_context(
+    package: Mapping[str, Any], context: Mapping[str, Any]
+) -> dict[str, Any]:
+    sealed = dict(package)
+    effect = dict(sealed.get("effect") or {})
+    effect[_RECAP_CONTEXT_KEY] = dict(context)
+    sealed["effect"] = effect
+    sealed["proposal_digest"] = compute_proposal_digest(effect)
+    return sealed
+
+
+def _assert_current_recap_ingest_context(
+    context: Mapping[str, Any], *, managed_world_id: str, campaign_id: str
+) -> dict[str, Any]:
+    from apps.live_control_server.services.recap_ingest_context import (
+        read_recap_ingest_context,
+    )
+
+    try:
+        current = read_recap_ingest_context(
+            managed_world_id=managed_world_id, campaign_id=campaign_id
+        ).as_lineage()
+    except Exception as exc:  # noqa: BLE001
+        raise ExtractPromoteError(
+            "World/campaign ingestion authority is unavailable; prepare again.",
+            code="recap_ingest_context_changed",
+            status_code=409,
+        ) from exc
+    identity_fields = (
+        "managed_world_id",
+        "native_world_id",
+        "binding_version",
+        "campaign_id",
+    )
+    if any(context.get(key) != current.get(key) for key in identity_fields):
+        raise ExtractPromoteError(
+            "World/campaign membership or binding changed; prepare again.",
+            code="recap_ingest_context_changed",
+            status_code=409,
+        )
+    return current
+
+
+def _assert_current_publication_target(
+    package: Mapping[str, Any]
+) -> VerifiedManagedWorldBinding:
+    effect = package.get("effect")
+    if not isinstance(effect, dict) or package.get("proposal_digest") != compute_proposal_digest(effect):
+        raise ExtractPromoteError(
+            "Publication proposal seal is missing or changed; prepare again.",
+            code="publication_target_changed", status_code=409,
+        )
+    sealed = effect.get(_PUBLICATION_TARGET_KEY)
+    if not isinstance(sealed, dict) or sealed.get("schema") != _PUBLICATION_TARGET_SCHEMA:
+        raise ExtractPromoteError(
+            "Publication target is not sealed; prepare again.",
+            code="publication_target_required", status_code=409,
+        )
+    managed_world_id = sealed.get("managed_world_id")
+    if not isinstance(managed_world_id, str) or not managed_world_id.strip():
+        raise ExtractPromoteError(
+            "Publication target is invalid; prepare again.",
+            code="publication_target_changed", status_code=409,
+        )
+    try:
+        current = _resolve_publication_target(managed_world_id)
+    except ExtractPromoteError as exc:
+        raise ExtractPromoteError(
+            "Publication target binding is unavailable; prepare again.",
+            code="publication_target_changed", status_code=409,
+        ) from exc
+    if sealed != _target_basis(current) or effect.get("world_id") != current.native_world_id:
+        raise ExtractPromoteError(
+            "Publication target binding changed; prepare again.",
+            code="publication_target_changed", status_code=409,
+        )
+    return current
 
 
 class WorldGraphNotFoundError(Exception):
@@ -72,7 +218,6 @@ class WorldGraphNotFoundError(Exception):
 # Narrow server-owned roots for non-run promote source evidence (confirm of
 # legacy/CLI seals, dedicated fixture roots). Product prepare never uses these
 # from the browser — run artifacts are registry-resolved only.
-_SOURCE_ROOT_NAMES = ("corpus", "Docs", "evals", "tmp")
 
 
 class ExtractPromoteError(ValueError):
@@ -150,164 +295,6 @@ def _with_review_package_inspection_context(
         run_status=run_status,
         inspection_status=_review_package_inspection_status(exc.diagnostics),
     )
-
-
-def _allowed_source_roots() -> list[Path]:
-    root = repo_root().resolve()
-    roots = [(root / name).resolve() for name in _SOURCE_ROOT_NAMES]
-    dedicated = extract_promote_source_root()
-    if dedicated is not None:
-        roots.append(dedicated)
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for item in roots:
-        if item not in seen:
-            seen.add(item)
-            unique.append(item)
-    return unique
-
-
-def _path_under_any(path: Path, roots: list[Path]) -> bool:
-    for root in roots:
-        try:
-            path.relative_to(root)
-            return True
-        except ValueError:
-            continue
-    return False
-
-
-def _parse_source_uri_to_path(raw_uri: str) -> Path:
-    text = (raw_uri or "").strip()
-    if not text:
-        raise ExtractPromoteError(
-            "sourceUri is required",
-            code="invalid_source_uri",
-            status_code=422,
-            diagnostics=[_diagnostic("invalid_source_uri", "sourceUri is required")],
-        )
-    root = repo_root().resolve()
-    if text.startswith("repo://"):
-        rel = text[len("repo://") :].lstrip("/")
-        if not rel or any(part in ("", ".", "..") for part in Path(rel).parts):
-            raise ExtractPromoteError(
-                "sourceUri repo path is invalid",
-                code="invalid_source_uri",
-                status_code=422,
-                diagnostics=[
-                    _diagnostic("invalid_source_uri", "sourceUri repo path is invalid")
-                ],
-            )
-        return (root / rel).resolve()
-    path = Path(text).expanduser()
-    if not path.is_absolute():
-        return (root / path).resolve()
-    return path.resolve()
-
-
-def resolve_promote_source_uri(raw_uri: str) -> str:
-    """Resolve a non-run promote source URI under server-owned roots.
-
-
-    Browser clients must not call this for product prepare — prepare is
-    ``runId``-only. Kept for confirm defense and dedicated fixture roots.
-    Arbitrary ``out/`` paths (including ingest runs) are rejected here; sealed
-    run-artifact URIs are accepted only via ``assert_sealed_source_uri_allowed``.
-    """
-    path = _parse_source_uri_to_path(raw_uri)
-    root = repo_root().resolve()
-    allowed = _allowed_source_roots()
-
-
-    if is_under_world_store(path, root=root) or is_under_ingest_runs(path, root=root):
-        raise ExtractPromoteError(
-            "sourceUri must not reference the world graph store or ingest-run tree "
-            "via the path contract",
-            code="invalid_source_uri",
-            status_code=422,
-            diagnostics=[
-                _diagnostic(
-                    "invalid_source_uri",
-                    "sourceUri must not reference the world graph store or "
-                    "ingest-run tree via the path contract",
-                )
-            ],
-        )
-    if not path.is_file():
-        raise ExtractPromoteError(
-            "sourceUri does not exist or is not a readable file under allowlisted roots",
-            code="invalid_source_uri",
-            status_code=422,
-            diagnostics=[
-                _diagnostic(
-                    "invalid_source_uri",
-                    "sourceUri does not exist or is not a readable file under "
-                    "allowlisted roots",
-                )
-            ],
-        )
-    if not _path_under_any(path, allowed):
-        raise ExtractPromoteError(
-            "sourceUri is outside the server-owned source roots",
-            code="invalid_source_uri",
-            status_code=422,
-            diagnostics=[
-                _diagnostic(
-                    "invalid_source_uri",
-                    "sourceUri is outside the server-owned source roots",
-                )
-            ],
-        )
-
-
-    try:
-        rel_posix = path.relative_to(root).as_posix()
-        return f"repo://{rel_posix}"
-    except ValueError:
-        return str(path)
-
-
-def assert_sealed_source_uri_allowed(source_uri: str) -> None:
-    """Re-check a sealed source URI at confirm time (defense in depth).
-
-
-    Accepts:
-    - registry-sealed ingest-run normalized_recap under any configured
-      ``DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT`` / default registry root
-    - traditional allowlisted roots (corpus/Docs/evals/tmp/dedicated)
-
-
-    Always denies durable world-graph store trees.
-    """
-    path = _parse_source_uri_to_path(source_uri)
-    root = repo_root().resolve()
-    if is_under_world_store(path, root=root):
-        raise ExtractPromoteError(
-            "sourceUri must not reference the world graph store",
-            code="invalid_source_uri",
-            status_code=422,
-            diagnostics=[
-                _diagnostic(
-                    "invalid_source_uri",
-                    "sourceUri must not reference the world graph store",
-                )
-            ],
-        )
-    if is_under_ingest_runs(path, root=root):
-        if not path.is_file():
-            raise ExtractPromoteError(
-                "sealed ingest-run sourceUri is missing",
-                code="invalid_source_uri",
-                status_code=422,
-                diagnostics=[
-                    _diagnostic(
-                        "invalid_source_uri",
-                        "sealed ingest-run sourceUri is missing",
-                    )
-                ],
-            )
-        return
-    resolve_promote_source_uri(source_uri)
 
 
 def _public_mapping_error(exc: CandidateGraphMappingError) -> ExtractPromoteError:
@@ -431,20 +418,6 @@ def _assert_candidate_scope_matches_run(
         )
 
 
-def get_status(*, world_id: str = DEFAULT_WORLD_ID) -> ExtractPromoteStatusResponse:
-    result = get_extract_promote_status(
-        world_root=world_graph_root(),
-        world_id=world_id or DEFAULT_WORLD_ID,
-    )
-    return ExtractPromoteStatusResponse(
-        world_id=result.world_id,
-        initialized=result.initialized,
-        world_state=result.world_state,  # type: ignore[arg-type]
-        head_revision_id=result.head_revision_id,
-        diagnostics=list(result.diagnostics),
-    )
-
-
 def _paragraph_for_span(
     source_lines: list[str], *, start_line: int, end_line: int
 ) -> str:
@@ -454,64 +427,9 @@ def _paragraph_for_span(
 
 
 def _load_frozen_span_index_for_resolved_run(resolved: Any) -> Any:
-    """Load the SourceSpanIndex pinned by the resolved ExtractionRun component.
-
-
-    Uses the run's frozen ``source_span_index`` component path carried on
-    ``PromotableIngestRun``. Never re-derives the registry's canonical index
-    path from ``source_artifact_id`` alone — a run may pin a different
-    repo-contained, digest-valid index for the same artifact.
-    """
-    from apps.live_control_server.services.source_artifact_registry import (
-        SourceArtifactRegistryError,
-        get_source_artifact,
-    )
-    from graph_memory.source_span import (
-        source_span_index_from_dict,
-        validate_source_span_index,
-    )
-    from src.live_play.live_store import load_json
-
-
-    span_path = getattr(resolved, "source_span_index_path", None)
-    if span_path is None:
-        raise ExtractPromoteError(
-            "exact-run source span index is unavailable",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[
-                _diagnostic(
-                    "source_span_index_unavailable",
-                    "resolved run does not carry a pinned source_span_index path",
-                )
-            ],
-        )
-
-
-    try:
-        payload = load_json(span_path)
-        index = source_span_index_from_dict(payload)
-        artifact = get_source_artifact(repo_root(), resolved.source_artifact_id)
-        validate_source_span_index(
-            index,
-            source_artifact_id=artifact.source_artifact_id,
-            content_sha256=artifact.content_sha256 or "",
-        )
-    except SourceArtifactRegistryError as exc:
-        raise ExtractPromoteError(
-            "exact-run source span index is unavailable",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[_diagnostic("source_span_index_unavailable", str(exc))],
-        ) from exc
-    except (OSError, TypeError, ValueError, KeyError) as exc:
-        raise ExtractPromoteError(
-            "exact-run source span index is unavailable",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[_diagnostic("source_span_index_unavailable", str(exc))],
-        ) from exc
-    return index
+    """Use the exact database run's span component, never a locator file."""
+    from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
+    return load_reviewable_extraction_data(resolved.registry_root, resolved.run_id).span_index
 
 
 _WORLDBUILDING_INSPECT_ONLY_REASON = (
@@ -538,6 +456,165 @@ def _is_worldbuilding_inspect_only(resolved: Any) -> bool:
     return (getattr(resolved, "source_domain", None) or "").strip() == "worldbuilding"
 
 
+
+def _candidate_quote_occurrences(*, candidate_payload: dict[str, Any], source_prose: str,
+    source_artifact_id: str, span_index: Any) -> list[dict[str, Any]]:
+    """Inspect only literal quote failures; all other evidence checks remain strict."""
+    from graph_memory.anchor_quotes import find_anchor_quote_matches
+    projected = _assert_and_project_candidate_evidence(
+        candidate_payload=candidate_payload, source_prose=source_prose,
+        source_artifact_id=source_artifact_id, span_index=span_index,
+        inspect_false_anchor_quotes=True,
+    )
+    assertions = {item.assertion_id: item for item in projected}
+    failures = []
+    for collection, identifier in (("nodes", "node_id"), ("edges", "edge_id")):
+        for record in candidate_payload.get(collection, []):
+            assertion = assertions[record[identifier]]
+            for index, ref in enumerate(record.get("evidence_refs", [])):
+                paragraph = assertion.evidence[index].paragraph_text
+                for quote_index, quote in enumerate(ref.get("anchor_quotes", [])):
+                    if not find_anchor_quote_matches(paragraph, [quote]):
+                        failures.append({"record_kind": "node" if collection == "nodes" else "edge",
+                            "record_id": record[identifier], "evidence_index": index,
+                            "quote_index": quote_index, "quote": quote,
+                            "source_span_ref_id": ref.get("source_span_ref_id"),
+                            "diagnostic": "false_anchor_quote", "reference": ref})
+    return failures
+
+def project_candidate_record_evidence(
+    *,
+    assertion_id: str,
+    kind: str,
+    label: str,
+    summary: str,
+    evidence_refs: Any,
+    source_prose: str,
+    source_artifact_id: str,
+    span_index: Any,
+    inspect_false_anchor_quotes: bool = False,
+) -> ExactRunReviewAssertion:
+    """Shared exact source/span/quote projection for one candidate record."""
+    from graph_memory.anchor_quotes import find_anchor_quote_matches
+
+    span_by_id = {span.source_span_id: span for span in span_index.spans}
+    source_lines = source_prose.splitlines()
+    expected_artifact = (source_artifact_id or "").strip()
+    if not evidence_refs:
+        raise ExtractPromoteError(
+            f"assertion {assertion_id!r} is missing evidence_refs",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[
+                _diagnostic("missing_evidence", f"assertion={assertion_id}"),
+            ],
+        )
+    projected: list[ExactRunReviewEvidence] = []
+    for index, ref in enumerate(evidence_refs):
+        span_id = str(getattr(ref, "source_span_ref_id", "") or "").strip()
+        artifact_id = str(getattr(ref, "source_artifact_id", "") or "").strip()
+        if not span_id:
+            raise ExtractPromoteError(
+                f"assertion {assertion_id!r} evidence[{index}] missing source_span_ref_id",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic(
+                        "missing_span_ref",
+                        f"assertion={assertion_id} evidence_index={index}",
+                    )
+                ],
+            )
+        if artifact_id != expected_artifact:
+            raise ExtractPromoteError(
+                f"assertion {assertion_id!r} evidence[{index}] source_artifact_id "
+                f"does not match the run SourceArtifact",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic(
+                        "source_artifact_mismatch", artifact_id or "<missing>"
+                    ),
+                    _diagnostic("run_source_artifact", expected_artifact),
+                ],
+            )
+        span = span_by_id.get(span_id)
+        if span is None:
+            raise ExtractPromoteError(
+                f"assertion {assertion_id!r} evidence[{index}] references unknown "
+                f"source_span_ref_id {span_id!r}",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic("unknown_span_ref", span_id),
+                    _diagnostic("assertion", assertion_id),
+                ],
+            )
+        paragraph = _paragraph_for_span(
+            source_lines,
+            start_line=int(span.start_line),
+            end_line=int(span.end_line),
+        ).strip()
+        if not paragraph:
+            raise ExtractPromoteError(
+                f"assertion {assertion_id!r} evidence[{index}] span resolves to "
+                "empty source content",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic("empty_span_content", span_id),
+                ],
+            )
+        raw_quotes = [
+            str(item).strip()
+            for item in (getattr(ref, "anchor_quotes", None) or [])
+            if str(item).strip()
+        ]
+        if not raw_quotes:
+            raise ExtractPromoteError(
+                f"assertion {assertion_id!r} evidence[{index}] is missing anchor_quotes",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic("missing_anchor_quotes", span_id),
+                ],
+            )
+        invalid_quotes: list[str] = []
+        for quote in raw_quotes:
+            if not find_anchor_quote_matches(paragraph, [quote]):
+                if inspect_false_anchor_quotes:
+                    invalid_quotes.append(quote)
+                    continue
+                raise ExtractPromoteError(
+                    f"assertion {assertion_id!r} evidence[{index}] anchor quote "
+                    "does not occur in the canonical span paragraph",
+                    code="run_not_promotable",
+                    status_code=422,
+                    diagnostics=[
+                        _diagnostic("false_anchor_quote", quote[:120]),
+                        _diagnostic("span_ref", span_id),
+                    ],
+                )
+        projected.append(
+            ExactRunReviewEvidence(
+                source_artifact_id=artifact_id,
+                source_span_ref_id=span_id,
+                paragraph_text=paragraph,
+                anchor_quotes=raw_quotes,
+                invalid_anchor_quotes=invalid_quotes,
+                start_line=int(span.start_line),
+                end_line=int(span.end_line),
+            )
+        )
+    return ExactRunReviewAssertion(
+        assertion_id=assertion_id,
+        kind=kind,  # type: ignore[arg-type]
+        label=label,
+        summary=summary,
+        evidence=projected,
+    )
+
+
 def _assert_and_project_candidate_evidence(
     *,
     candidate_payload: dict[str, Any],
@@ -545,6 +622,7 @@ def _assert_and_project_candidate_evidence(
     source_artifact_id: str,
     span_index: Any,
     inspect_false_anchor_quotes: bool = False,
+    allow_source_observations: bool = False,
 ) -> list[ExactRunReviewAssertion]:
     """Fail closed when candidate evidence is not bound to frozen span content.
 
@@ -553,14 +631,18 @@ def _assert_and_project_candidate_evidence(
     evidence ref to resolve against the span index + SourceArtifact, and verifies
     anchor quotes against canonical source paragraph bytes.
     """
-    from graph_memory.anchor_quotes import find_anchor_quote_matches
     from apps.live_control_server.services.candidate_graph_admission import (
         validate_candidate_document_integrity,
     )
 
 
     try:
-        typed = validate_candidate_document_integrity(candidate_payload)
+        if allow_source_observations:
+            typed = validate_candidate_document_integrity(
+                candidate_payload, allow_source_observations=True,
+            )
+        else:
+            typed = validate_candidate_document_integrity(candidate_payload)
     except CandidateGraphMappingError as exc:
         raise ExtractPromoteError(
             f"candidate graph failed typed validation: {exc}",
@@ -570,134 +652,15 @@ def _assert_and_project_candidate_evidence(
         ) from exc
 
 
-    span_by_id = {span.source_span_id: span for span in span_index.spans}
-    source_lines = source_prose.splitlines()
-    expected_artifact = (source_artifact_id or "").strip()
     assertions: list[ExactRunReviewAssertion] = []
 
 
-    def _project_holder(
-        *,
-        assertion_id: str,
-        kind: str,
-        label: str,
-        summary: str,
-        evidence_refs: Any,
-    ) -> ExactRunReviewAssertion:
-        if not evidence_refs:
-            raise ExtractPromoteError(
-                f"assertion {assertion_id!r} is missing evidence_refs",
-                code="run_not_promotable",
-                status_code=422,
-                diagnostics=[
-                    _diagnostic("missing_evidence", f"assertion={assertion_id}"),
-                ],
-            )
-        projected: list[ExactRunReviewEvidence] = []
-        for index, ref in enumerate(evidence_refs):
-            span_id = str(getattr(ref, "source_span_ref_id", "") or "").strip()
-            artifact_id = str(getattr(ref, "source_artifact_id", "") or "").strip()
-            if not span_id:
-                raise ExtractPromoteError(
-                    f"assertion {assertion_id!r} evidence[{index}] missing source_span_ref_id",
-                    code="run_not_promotable",
-                    status_code=422,
-                    diagnostics=[
-                        _diagnostic(
-                            "missing_span_ref",
-                            f"assertion={assertion_id} evidence_index={index}",
-                        )
-                    ],
-                )
-            if artifact_id != expected_artifact:
-                raise ExtractPromoteError(
-                    f"assertion {assertion_id!r} evidence[{index}] source_artifact_id "
-                    f"does not match the run SourceArtifact",
-                    code="run_not_promotable",
-                    status_code=422,
-                    diagnostics=[
-                        _diagnostic(
-                            "source_artifact_mismatch", artifact_id or "<missing>"
-                        ),
-                        _diagnostic("run_source_artifact", expected_artifact),
-                    ],
-                )
-            span = span_by_id.get(span_id)
-            if span is None:
-                raise ExtractPromoteError(
-                    f"assertion {assertion_id!r} evidence[{index}] references unknown "
-                    f"source_span_ref_id {span_id!r}",
-                    code="run_not_promotable",
-                    status_code=422,
-                    diagnostics=[
-                        _diagnostic("unknown_span_ref", span_id),
-                        _diagnostic("assertion", assertion_id),
-                    ],
-                )
-            paragraph = _paragraph_for_span(
-                source_lines,
-                start_line=int(span.start_line),
-                end_line=int(span.end_line),
-            ).strip()
-            if not paragraph:
-                raise ExtractPromoteError(
-                    f"assertion {assertion_id!r} evidence[{index}] span resolves to "
-                    "empty source content",
-                    code="run_not_promotable",
-                    status_code=422,
-                    diagnostics=[
-                        _diagnostic("empty_span_content", span_id),
-                    ],
-                )
-            raw_quotes = [
-                str(item).strip()
-                for item in (getattr(ref, "anchor_quotes", None) or [])
-                if str(item).strip()
-            ]
-            if not raw_quotes:
-                raise ExtractPromoteError(
-                    f"assertion {assertion_id!r} evidence[{index}] is missing anchor_quotes",
-                    code="run_not_promotable",
-                    status_code=422,
-                    diagnostics=[
-                        _diagnostic("missing_anchor_quotes", span_id),
-                    ],
-                )
-            invalid_quotes: list[str] = []
-            for quote in raw_quotes:
-                if not find_anchor_quote_matches(paragraph, [quote]):
-                    if inspect_false_anchor_quotes:
-                        invalid_quotes.append(quote)
-                        continue
-                    raise ExtractPromoteError(
-                        f"assertion {assertion_id!r} evidence[{index}] anchor quote "
-                        "does not occur in the canonical span paragraph",
-                        code="run_not_promotable",
-                        status_code=422,
-                        diagnostics=[
-                            _diagnostic("false_anchor_quote", quote[:120]),
-                            _diagnostic("span_ref", span_id),
-                        ],
-                    )
-            projected.append(
-                ExactRunReviewEvidence(
-                    source_artifact_id=artifact_id,
-                    source_span_ref_id=span_id,
-                    paragraph_text=paragraph,
-                    anchor_quotes=raw_quotes,
-                    invalid_anchor_quotes=invalid_quotes,
-                    start_line=int(span.start_line),
-                    end_line=int(span.end_line),
-                )
-            )
-        return ExactRunReviewAssertion(
-            assertion_id=assertion_id,
-            kind=kind,  # type: ignore[arg-type]
-            label=label,
-            summary=summary,
-            evidence=projected,
+    def _project_holder(**holder) -> ExactRunReviewAssertion:
+        return project_candidate_record_evidence(
+            **holder, source_prose=source_prose,
+            source_artifact_id=source_artifact_id, span_index=span_index,
+            inspect_false_anchor_quotes=inspect_false_anchor_quotes,
         )
-
 
     for node in typed.nodes:
         node_id = str(node.node_id or "").strip()
@@ -710,7 +673,10 @@ def _assert_and_project_candidate_evidence(
                 label=str(node.label or node_id).strip() or node_id,
                 summary=str(getattr(node, "description", "") or "").strip(),
                 evidence_refs=node.evidence_refs,
-            )
+            ).model_copy(update={
+                "node_type": node.node_type,
+                "contribution_kind": kernel_kind_for_node_type(node.node_type),
+            })
         )
     for edge in typed.edges:
         edge_id = str(edge.edge_id or "").strip()
@@ -726,58 +692,360 @@ def _assert_and_project_candidate_evidence(
                     f"{getattr(edge, 'to_node_id', None) or '?'}"
                 ),
                 evidence_refs=edge.evidence_refs,
-            )
+            ).model_copy(update={
+                "relationship_type": edge.relationship_type,
+                "from_candidate_node_id": edge.from_node_id,
+                "to_candidate_node_id": edge.to_node_id,
+            })
         )
+    for observation in getattr(typed, "source_observations", ()):
+        assertions.append(_project_holder(
+            assertion_id=observation.observation_id, kind="source_observation",
+            label=observation.title, summary=observation.description,
+            evidence_refs=observation.evidence_refs,
+        ).model_copy(update={"subject_candidate_node_id": observation.subject_candidate_node_id}))
     return assertions
+
+
+def _recap_semantic_assessment(run_id: str, source_revision_id: str, run_record=None):
+    """Assess only the exact database child and its parent."""
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError,
+        get_extraction_run,
+    )
+    from apps.live_control_server.services.recap_semantic_disposition import (
+        assess_recap_semantics,
+        is_recap_correction,
+    )
+
+    try:
+        run = run_record or get_extraction_run(run_id)
+    except GraphRunRegistryError as exc:
+        raise ExtractPromoteError(
+            "canonical extraction run could not be re-read",
+            code="run_not_promotable", status_code=409,
+        ) from exc
+    if not is_recap_correction(run):
+        return run, None
+    parent = None
+    parent_id = run.lineage.get("parent_run_id")
+    if isinstance(parent_id, str) and parent_id.strip():
+        try:
+            parent = get_extraction_run(parent_id)
+        except GraphRunRegistryError as exc:
+            if exc.status_code != 404:
+                raise ExtractPromoteError(
+                    "canonical extraction parent is unavailable",
+                    code="run_not_promotable", status_code=exc.status_code,
+                ) from exc
+            # The child's own exact source package remains inspectable. A
+            # missing parent makes its semantic basis invalid and keeps it held.
+    return run, assess_recap_semantics(
+        run, parent=parent, source_revision_id=source_revision_id,
+        root=_artifact_root(),
+    )
+
+
+def _recap_semantic_operation_basis(assessment):
+    """Return the immutable operation basis inside a source-binding envelope."""
+    basis = getattr(assessment, "basis", None)
+    if not isinstance(basis, Mapping):
+        return None
+    operation = basis.get("operation_basis")
+    return operation if isinstance(operation, Mapping) else basis
+
+
+def _is_pc_reference_operation(run) -> bool:
+    return (
+        run.lineage.get("derivation") == "operator_recap_semantic_candidate_correction_v9"
+        or run.lineage.get("operation_derivation")
+        == "operator_recap_semantic_candidate_correction_v9"
+    )
+
+
+def _bind_recap_semantic_effect(package, run, assessment):
+    """Add the exact accepted child pin before the final proposal seal."""
+    from apps.live_control_server.services.recap_semantic_disposition import (
+        EFFECT_KEY,
+        accepted_effect_binding,
+    )
+    from graph_memory.extract_promote_proposal import compute_proposal_digest
+
+    bound = dict(package)
+    effect = dict(bound.get("effect") or {})
+    if not effect or EFFECT_KEY in effect:
+        raise PromoteProposalError("recap semantic gate cannot be bound")
+    effect[EFFECT_KEY] = accepted_effect_binding(run, assessment)
+    bound["effect"] = effect
+    bound["proposal_digest"] = compute_proposal_digest(effect)
+    return bound
+
+
+def _assert_recap_semantics_at_confirm(review_package) -> None:
+    """Re-prove a marked child immediately before the governed World writer."""
+    from apps.live_control_server.services.recap_semantic_disposition import (
+        EFFECT_KEY,
+        assert_current_effect_binding,
+        is_recap_correction,
+    )
+
+    effect = (review_package or {}).get("effect") or {}
+    binding = effect.get(EFFECT_KEY)
+    try:
+        data = load_bound_extraction_run(review_package, root=_artifact_root())
+    except PromotableIngestRunError as exc:
+        raise _promotable_run_error(exc) from exc
+    owner = data.run
+    if not is_recap_correction(owner):
+        if binding is not None:
+            raise ExtractPromoteError(
+                "recap semantic gate has no matching canonical child",
+                code="candidate_binding_invalid", status_code=409,
+            )
+        return
+    if owner.status.value != "reviewable" or owner.source_domain != "recap":
+        raise ExtractPromoteError(
+            "corrected recap child is no longer reviewable",
+            code="recap_semantic_hold", status_code=409,
+        )
+    current, assessment = _recap_semantic_assessment(
+        owner.run_id, "sha256:" + (data.source_artifact.content_sha256 or "").removeprefix("sha256:"),
+        run_record=owner,
+    )
+    if current is None or assessment is None or not assessment.accepted:
+        raise ExtractPromoteError(
+            "corrected recap child is held for semantic review",
+            code="recap_semantic_hold", status_code=409,
+        )
+    try:
+        assert_current_effect_binding(current, assessment, binding)
+    except ValueError as exc:
+        raise ExtractPromoteError(
+            str(exc), code="candidate_binding_invalid", status_code=409,
+        ) from exc
+    operation_basis = _recap_semantic_operation_basis(assessment)
+    if _is_pc_reference_operation(current):
+        if (not isinstance(binding, dict)
+            or operation_basis is None
+            or effect.get("world_id") != operation_basis.get("world_id")
+            or effect.get("parent_revision_id") != operation_basis.get("expected_head_revision_id")):
+            raise ExtractPromoteError(
+                "PC reference World or parent head differs from reviewed basis",
+                code="candidate_binding_invalid", status_code=409,
+            )
+    proof = current.lineage.get("inherited_pc_proof")
+    if _is_pc_reference_operation(current) or isinstance(proof, dict):
+        from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+        try:
+            context = world_graph_writes.load_production_mutation_context(effect["world_id"])
+        except (KeyError, OSError, ValueError, world_graph_writes.WorldGraphWriteError) as exc:
+            raise ExtractPromoteError("PC reference native World unavailable",
+                                      code="recap_semantic_hold", status_code=409) from exc
+        if (_is_pc_reference_operation(current)
+            and (operation_basis is None
+                 or context.world_id != operation_basis.get("world_id")
+                 or context.revision_id != operation_basis.get("expected_head_revision_id")
+                 or context.head_revision_id != operation_basis.get("expected_head_revision_id"))):
+            raise ExtractPromoteError(
+                "PC reference native head changed after review; correction is held",
+                code="recap_semantic_hold", status_code=409,
+            )
+        if isinstance(proof, dict):
+            from apps.live_control_server.services.recap_semantic_candidate_correction import (
+                verify_inherited_pc_native_basis,
+            )
+            try:
+                candidate = json.loads(data.candidate_bytes)
+            except (OSError, ValueError) as exc:
+                raise ExtractPromoteError("inherited PC native target unavailable",
+                                          code="recap_semantic_hold", status_code=409) from exc
+            if not verify_inherited_pc_native_basis(candidate, proof, context):
+                raise ExtractPromoteError("inherited PC native target changed",
+                                          code="recap_semantic_hold", status_code=409)
+
+
+def decide_recap_semantic_disposition(
+    run_id: str,
+    request: RecapSemanticDecisionRequest,
+    *,
+    reviewer_id: str,
+    authorize_write: Callable[[], None] | None = None,
+) -> RecapSemanticDecisionResponse:
+    """Record an explicit operator decision without altering evidence or World."""
+    from application_state.errors import ApplicationStateError
+    from application_state.ingest.service import (
+        RecapSemanticBasisV1,
+        RecapSemanticBasisV2,
+        RecapSemanticBasisV3,
+        RecapSemanticBasisV4,
+        RecapSemanticBasisV5,
+        RecapSemanticBasisV6,
+        RecapSemanticBasisV7,
+        RecapSemanticBasisV8,
+        RecapSemanticBasisV9,
+        RecapSemanticBasisV10,
+        RecapSemanticBasisV11,
+        RecapSemanticBasisV13,
+        RecapSemanticBasisV12,
+        RecapSemanticDispositionCommandV1,
+        record_recap_semantic_disposition,
+    )
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError,
+        get_extraction_run,
+        load_reviewable_extraction_data,
+    )
+    from apps.live_control_server.services.recap_semantic_disposition import (
+        assess_recap_semantics,
+        CANDIDATE_DERIVATION,
+        CANDIDATE_DERIVATION_V2,
+        CANDIDATE_DERIVATION_V3,
+        CANDIDATE_DERIVATION_V4,
+        CANDIDATE_DERIVATION_V5,
+        CANDIDATE_DERIVATION_V6,
+        CANDIDATE_DERIVATION_V7,
+        CANDIDATE_DERIVATION_V8,
+        CANDIDATE_DERIVATION_V9,
+        CANDIDATE_DERIVATION_V10,
+        CANDIDATE_DERIVATION_V11,
+        is_recap_correction,
+    )
+    try:
+        data = load_reviewable_extraction_data(_artifact_root(), run_id)
+        run = data.run
+        if not is_recap_correction(run):
+            raise ExtractPromoteError(
+                "run is not a corrected recap child",
+                code="recap_semantic_decision_invalid", status_code=409,
+            )
+        parent_id = run.lineage.get("parent_run_id")
+        parent = get_extraction_run(parent_id) if isinstance(parent_id, str) else None
+        artifact = data.source_artifact
+    except GraphRunRegistryError as exc:
+        raise ExtractPromoteError(
+            "canonical corrected recap evidence is unavailable",
+            code="recap_semantic_decision_invalid",
+            status_code=exc.status_code if exc.status_code >= 500 else 409,
+        ) from exc
+    assessment = assess_recap_semantics(
+        run, parent=parent, source_revision_id=artifact.content_sha256,
+        root=_artifact_root(),
+    )
+    if assessment.basis is None or assessment.basis_sha256 is None:
+        raise ExtractPromoteError(
+            "corrected recap semantic basis is invalid",
+            code="recap_semantic_decision_invalid", status_code=409,
+        )
+    assessed_candidate_sha = (
+        assessment.basis["operation_basis"]["candidate_sha256"]
+        if run.lineage.get("derivation") == "operator_recap_semantic_source_binding_v11"
+        else assessment.basis["candidate_sha256"]
+    )
+    if request.candidate_sha256 != assessed_candidate_sha:
+        raise ExtractPromoteError(
+            "candidate digest does not match corrected recap child",
+            code="recap_semantic_decision_conflict", status_code=409,
+        )
+    operation_derivation = (
+        run.lineage.get("operation_derivation")
+        if run.lineage.get("derivation") == "operator_recap_semantic_source_binding_v11"
+        else run.lineage.get("derivation")
+    )
+    if request.decision == "accepted" and operation_derivation == CANDIDATE_DERIVATION_V11:
+        raise ExtractPromoteError(
+            "source-supported actor recovery remains held; separate identity and semantic review is required",
+            code="recap_semantic_hold", status_code=409,
+        )
+    if request.decision == "accepted" and operation_derivation == CANDIDATE_DERIVATION_V9:
+        manifest = run.lineage.get("semantic_candidate_manifest")
+        if (not isinstance(manifest, dict)
+            or reviewer_id != manifest.get("reviewer_id")
+            or request.review_decision_ref != manifest.get("review_decision_ref")):
+            raise ExtractPromoteError(
+                "authenticated PC review differs from proposed correction basis",
+                code="recap_semantic_decision_conflict", status_code=409,
+            )
+    if request.decision == "accepted":
+        payload = json.loads(data.candidate_bytes)
+        _assert_candidate_scope_matches_run(payload, campaign_id=run.campaign_id, session_id=run.session_id)
+        _assert_and_project_candidate_evidence(
+            candidate_payload=payload,
+            source_prose=data.source_bytes.decode("utf-8"),
+            source_artifact_id=run.source_artifact_id,
+            span_index=data.span_index,
+        )
+    try:
+        basis_type = (
+            RecapSemanticBasisV12 if run.lineage.get("derivation") == "operator_recap_semantic_source_binding_v11"
+            else RecapSemanticBasisV13 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V11
+            else RecapSemanticBasisV11 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V10
+            else RecapSemanticBasisV10 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V9
+            else RecapSemanticBasisV9 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V8
+            else RecapSemanticBasisV8 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V7
+            else RecapSemanticBasisV7 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V6
+            else RecapSemanticBasisV6 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V5
+            else RecapSemanticBasisV5 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V4
+            else RecapSemanticBasisV4 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V3
+            else RecapSemanticBasisV3 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V2
+            else RecapSemanticBasisV2 if run.lineage.get("derivation") == CANDIDATE_DERIVATION
+            else RecapSemanticBasisV1
+        )
+        basis = basis_type.model_validate(assessment.basis)
+        decision = RecapSemanticDispositionCommandV1(
+            state=request.decision,
+            review_decision_ref=request.review_decision_ref,
+            reviewer_id=reviewer_id,
+        )
+        if authorize_write is not None:
+            authorize_write()
+        decided = record_recap_semantic_disposition(
+            run_id, expected_revision=request.expected_revision,
+            basis=basis, decision=decision,
+        )
+    except ApplicationStateError as exc:
+        raise ExtractPromoteError(
+            "corrected recap decision conflicts with canonical run",
+            code="recap_semantic_decision_conflict", status_code=exc.status_code,
+        ) from exc
+    receipt = decided.lineage["semantic_disposition"]
+    return RecapSemanticDecisionResponse(
+        run_id=decided.run_id, revision=decided.revision,
+        candidate_sha256=assessed_candidate_sha,
+        state=receipt["state"], basis_sha256=receipt["basis_sha256"],
+        review_decision_ref=receipt["review_decision_ref"],
+        reviewer_id=receipt["reviewer_id"], decided_at=receipt["decided_at"],
+    )
 
 
 def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
     """Build a source/evidence review projection for one exact ExtractionRun.
 
 
-    Resolves the run through the same server-owned promotable seam as prepare,
-    then projects canonical source prose and per-assertion span evidence without
-    sealing a proposal or inventing campaign/session scope.
+    Opens exact immutable product bytes, then applies the normal candidate
+    evidence and semantic review without sealing a publication proposal.
     """
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError, load_reviewable_extraction_data,
+    )
     try:
-        resolved = resolve_promotable_ingest_run(run_id, root=repo_root())
-    except PromotableIngestRunError as exc:
-        raise ExtractPromoteError(
-            str(exc),
-            code=exc.code,
-            status_code=exc.status_code,
-            diagnostics=[
-                _diagnostic(exc.code, item) for item in (exc.diagnostics or [str(exc)])
-            ],
-        ) from exc
-
+        data = load_reviewable_extraction_data(_artifact_root(), run_id)
+    except GraphRunRegistryError as exc:
+        raise ExtractPromoteError(str(exc), code="run_not_found" if exc.status_code == 404 else "run_not_promotable",
+            status_code=exc.status_code, diagnostics=[_diagnostic("run_evidence_unavailable", str(exc))]) from exc
+    run = data.run
+    artifact = data.source_artifact
+    source_revision_id = "sha256:" + (artifact.content_sha256 or "").removeprefix("sha256:")
 
     # Entire post-resolution package construction is one inspection boundary:
     # source prose, candidate parse, scope check, frozen span-index load/validate,
     # and evidence projection all share runStatus + inspectionStatus enrichment.
     try:
+        source_prose = data.source_bytes.decode("utf-8")
         try:
-            source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
-        except OSError as exc:
-            raise ExtractPromoteError(
-                "exact-run source prose could not be read",
-                code="run_not_promotable",
-                status_code=422,
-                diagnostics=[_diagnostic("source_unreadable", str(exc))],
-            ) from exc
-
-
-        try:
-            candidate_payload = json.loads(
-                resolved.candidate_graph_path.read_text(encoding="utf-8")
-            )
-        except (OSError, json.JSONDecodeError) as exc:
-            raise ExtractPromoteError(
-                "exact-run candidate graph could not be read",
-                code="run_not_promotable",
-                status_code=422,
-                diagnostics=[_diagnostic("candidate_unreadable", str(exc))],
-            ) from exc
+            candidate_payload = json.loads(data.candidate_bytes)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ExtractPromoteError("exact-run candidate graph is not UTF-8 JSON", code="run_not_promotable",
+                status_code=422, diagnostics=[_diagnostic("candidate_unreadable", str(exc))]) from exc
         if not isinstance(candidate_payload, dict):
             raise ExtractPromoteError(
                 "exact-run candidate graph root must be a JSON object",
@@ -788,18 +1056,19 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
 
         _assert_candidate_scope_matches_run(
             candidate_payload,
-            campaign_id=resolved.campaign_id,
-            session_id=resolved.session_id,
+            campaign_id=run.campaign_id,
+            session_id=run.session_id,
         )
 
 
-        span_index = _load_frozen_span_index_for_resolved_run(resolved)
+        span_index = data.span_index
         assertions = _assert_and_project_candidate_evidence(
             candidate_payload=candidate_payload,
             source_prose=source_prose,
-            source_artifact_id=resolved.source_artifact_id,
+            source_artifact_id=run.source_artifact_id,
             span_index=span_index,
             inspect_false_anchor_quotes=True,
+            allow_source_observations=(run.source_domain == "worldbuilding" and run.profile_id in SOURCE_OBSERVATION_WORLDBUILDING_PROFILES),
         )
 
         invalid_evidence_count = sum(
@@ -809,117 +1078,203 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
         )
 
 
-        inspect_only = _is_worldbuilding_inspect_only(resolved)
+        inspect_only = _is_worldbuilding_inspect_only(run)
         capability = resolve_first_world_capability(
-            repo=repo_root(),
+            repo=_artifact_root(),
             world_root=world_graph_root(),
-            source_domain=resolved.source_domain,
-            world_id=getattr(resolved, "world_id", None),
-            source_artifact_id=resolved.source_artifact_id,
-        )
-        from apps.live_control_server.services.graph_run_registry import (
-            GraphRunRegistryError,
-            get_extraction_run,
+            source_domain=run.source_domain,
+            world_id=artifact.world_id,
+            source_artifact_id=run.source_artifact_id,
         )
 
         derived_from_run_id: str | None = None
+        inherited_pc_references = None
+        semantic_assessment = None
         try:
-            run_record = get_extraction_run(repo_root(), resolved.run_id)
-            if run_record.lineage.get("derivation") == "operator_literal_evidence_correction_v1":
+            run_record = run
+            # Historical immutable children keep their lineage label; the retired V1
+            # worldbuilding mutation wire is not accepted by the correction route.
+            if run_record.lineage.get("derivation") in {"operator_literal_evidence_correction_v1",
+                    "operator_frozen_evidence_partition_v2"}:
                 derived_from_run_id = str(run_record.lineage.get("parent_run_id") or "") or None
+            from apps.live_control_server.services.recap_semantic_disposition import (
+                is_recap_correction,
+            )
+
+            if is_recap_correction(run_record):
+                derived_from_run_id = str(run_record.lineage.get("parent_run_id") or "") or None
+                _, semantic_assessment = _recap_semantic_assessment(run.run_id, source_revision_id, run_record)
+                operation_derivation = (
+                    run_record.lineage.get("operation_derivation")
+                    if run_record.lineage.get("derivation") == "operator_recap_semantic_source_binding_v11"
+                    else run_record.lineage.get("derivation")
+                )
+                if operation_derivation in {
+                    "operator_recap_semantic_candidate_correction_v7",
+                    "operator_recap_semantic_candidate_correction_v8",
+                    "operator_recap_semantic_candidate_correction_v10",
+                    "operator_recap_semantic_candidate_correction_v11",
+                } and isinstance(run_record.lineage.get("inherited_pc_proof"), dict):
+                    from apps.live_control_server.services.recap_semantic_candidate_correction import (
+                        inherited_pc_proof_digest, inherited_pc_reference_proof,
+                    )
+                    proof = inherited_pc_reference_proof(run_record, _artifact_root())
+                    if semantic_assessment is None or semantic_assessment.basis is None or semantic_assessment.basis_sha256 is None:
+                        raise ExtractPromoteError(
+                            "inherited PC review proof changed",
+                            code="recap_semantic_hold", status_code=409,
+                        )
+                    assessment_basis = semantic_assessment.basis or {}
+                    operation_basis = assessment_basis.get("operation_basis")
+                    inherited_digest = (
+                        operation_basis.get("inherited_pc_proof_sha256")
+                        if isinstance(operation_basis, dict)
+                        else assessment_basis.get("inherited_pc_proof_sha256")
+                    )
+                    if (proof != run_record.lineage["inherited_pc_proof"]
+                        or inherited_digest != inherited_pc_proof_digest(proof)):
+                        raise ExtractPromoteError(
+                            "inherited PC review proof changed",
+                            code="recap_semantic_hold", status_code=409,
+                        )
+                    inherited_pc_references = {
+                        **proof, "proof_sha256": inherited_pc_proof_digest(proof),
+                        "run_revision": run_record.revision,
+                        "semantic_basis_sha256": semantic_assessment.basis_sha256,
+                    }
         except GraphRunRegistryError as exc:
             if exc.status_code != 404:
                 raise
+        semantic_held = semantic_assessment is not None and not semantic_assessment.accepted
         return ExactRunReviewPackage(
-            run_id=resolved.run_id,
+            run_id=run.run_id,
             derived_from_run_id=derived_from_run_id,
-            source_domain=resolved.source_domain,
-            source_artifact_id=resolved.source_artifact_id,
-            source_revision_id=resolved.source_revision_id,
-            campaign_id=resolved.campaign_id or None,
-            session_id=resolved.session_id or None,
+            source_domain=run.source_domain,
+            source_artifact_id=run.source_artifact_id,
+            source_revision_id=source_revision_id,
+            campaign_id=run.campaign_id or None,
+            session_id=run.session_id or None,
             source_prose=source_prose,
             assertions=assertions,
             inspection_status="invalid_evidence" if invalid_evidence_count else "ready",
             invalid_evidence_count=invalid_evidence_count,
-            diagnostics=list(resolved.diagnostics),
-            promotable=not inspect_only and invalid_evidence_count == 0,
+            diagnostics=[*run.diagnostics.messages, "resolved via database ExtractionRun bytes", *([
+                "unresolved_quote_binding:" + json.dumps({
+                    "candidate_sha256": hashlib.sha256(data.candidate_bytes).hexdigest(),
+                    "source_sha256": hashlib.sha256(data.source_bytes).hexdigest(),
+                    "span_index_sha256": hashlib.sha256(data.span_bytes).hexdigest(),
+                    "occurrences": [{key: value for key, value in item.items() if key != "reference"}
+                        | {"reference_sha256": hashlib.sha256(json.dumps(item["reference"], ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()}
+                        for item in _candidate_quote_occurrences(candidate_payload=candidate_payload,
+                            source_prose=source_prose, source_artifact_id=run.source_artifact_id, span_index=span_index)],
+                }, ensure_ascii=False, sort_keys=True)
+            ] if invalid_evidence_count else [])],
+            promotable=not inspect_only and invalid_evidence_count == 0 and not semantic_held,
             promotable_reason=(
                 "Candidate evidence contains nonliteral anchor quotes; publication is blocked."
                 if invalid_evidence_count
-                else _WORLDBUILDING_INSPECT_ONLY_REASON if inspect_only else None
+                else _WORLDBUILDING_INSPECT_ONLY_REASON if inspect_only
+                else semantic_assessment.reason if semantic_held else None
             ),
-            world_id=capability.world_id,
+            semantic_disposition=(
+                {
+                    "version": 1,
+                    "state": (
+                        semantic_assessment.disposition["state"]
+                        if semantic_assessment.disposition is not None else "held"
+                    ),
+                    "basisSha256": semantic_assessment.basis_sha256,
+                    "reason": semantic_assessment.reason,
+                }
+                if semantic_assessment is not None else None
+            ),
+            inherited_pc_references=inherited_pc_references,
+            # Recap has no first-World capability, but its canonical source/run
+            # still owns a native World that the Build review must verify.
+            world_id=(artifact.world_id if run.source_domain == "recap" else capability.world_id),
             world_state=capability.world_state,
-            first_world_publish_eligible=capability.eligible and invalid_evidence_count == 0,
+            first_world_publish_eligible=(
+                capability.eligible and invalid_evidence_count == 0 and not semantic_held
+            ),
             first_world_publish_reason=(
                 "Candidate evidence contains nonliteral anchor quotes; publication is blocked."
-                if invalid_evidence_count else capability.reason
+                if invalid_evidence_count else semantic_assessment.reason if semantic_held
+                else capability.reason
             ),
         )
     except ExtractPromoteError as exc:
         raise _with_review_package_inspection_context(
-            exc, run_status=resolved.status
-        ) from exc
-
-
-def _require_canonical_source_artifact(source_artifact_id: str):
-    """Resolve the run's registry source artifact or fail closed.
-
-    Product prepare must not synthesize a recap SourceArtifact from candidate
-    fields when the canonical registry record is missing or malformed.
-    """
-    from apps.live_control_server.services.source_artifact_registry import (
-        SourceArtifactRegistryError,
-        get_source_artifact,
-    )
-
-    try:
-        return get_source_artifact(repo_root(), source_artifact_id)
-    except SourceArtifactRegistryError as exc:
-        raise ExtractPromoteError(
-            "canonical source artifact is unavailable for recap prepare",
-            code="invalid_request",
-            status_code=getattr(exc, "status_code", 422) or 422,
-            diagnostics=[_diagnostic("source_artifact_missing", str(exc))],
+            exc, run_status=run.status.value
         ) from exc
 
 
 def prepare(
     request: ExtractPromotePrepareRequest,
 ) -> ExtractPromotePrepareResponse:
+    if request.managed_world_id is None:
+        raise ExtractPromoteError(
+            "Select a managed World publication target before preparing.",
+            code="publication_target_required", status_code=422,
+        )
+    target = _resolve_publication_target(request.managed_world_id)
     try:
-        resolved = resolve_promotable_ingest_run(request.run_id, root=repo_root())
+        resolved = resolve_promotable_ingest_run(request.run_id, root=_artifact_root())
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
 
-
-    # Defense in depth: registry seal must still pass confirm-time rules.
-    assert_sealed_source_uri_allowed(resolved.sealed_source_uri)
-
-
-    path = resolved.candidate_graph_path
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    declared_world_id = str(getattr(resolved, "world_id", None) or "").strip()
+    if declared_world_id and declared_world_id != target.native_world_id:
         raise ExtractPromoteError(
-            f"failed to read candidate graph: {exc}",
-            code="invalid_request",
-            status_code=422,
-            diagnostics=[
-                _diagnostic("invalid_request", f"failed to read candidate graph: {exc}")
-            ],
-        ) from exc
-    if not isinstance(payload, dict):
-        raise ExtractPromoteError(
-            "candidate graph must be a JSON object",
-            code="invalid_request",
-            status_code=422,
-            diagnostics=[
-                _diagnostic("invalid_request", "candidate graph must be a JSON object")
-            ],
+            "Run source World declaration differs from selected native World.",
+            code="source_world_mismatch", status_code=409,
         )
 
+    canonical_run, semantic_assessment = _recap_semantic_assessment(resolved.run_id, resolved.source_revision_id)
+    if semantic_assessment is not None and not semantic_assessment.accepted:
+        raise ExtractPromoteError(
+            semantic_assessment.reason or "recap semantic review is required",
+            code="recap_semantic_hold",
+            status_code=409,
+        )
+    operation_basis = _recap_semantic_operation_basis(semantic_assessment)
+    if (canonical_run is not None
+        and _is_pc_reference_operation(canonical_run)
+        and (operation_basis is None
+             or operation_basis.get("world_id") != target.native_world_id)):
+        raise ExtractPromoteError(
+            "PC reference correction names a different native World",
+            code="recap_semantic_hold", status_code=409,
+        )
+
+    recap_context = getattr(resolved, "ingest_context", None)
+    prepared_recap_context: dict[str, Any] | None = None
+    if resolved.source_domain == "recap":
+        if isinstance(recap_context, dict):
+            if (
+                recap_context.get("campaign_id") != resolved.campaign_id
+                or recap_context.get("native_world_id") != target.native_world_id
+                or recap_context.get("managed_world_id") != target.managed_world_id
+            ):
+                raise ExtractPromoteError(
+                    "Recap run World/campaign context differs from the selected managed World.",
+                    code="recap_ingest_context_mismatch",
+                    status_code=409,
+                )
+            prepared_recap_context = _assert_current_recap_ingest_context(
+                recap_context,
+                managed_world_id=target.managed_world_id,
+                campaign_id=resolved.campaign_id,
+            )
+
+
+    data = resolved.data
+    try:
+        payload = json.loads(data.candidate_bytes)
+    except (UnicodeError, ValueError) as exc:
+        raise ExtractPromoteError("Exact run candidate is not valid JSON", code="run_not_promotable",
+                                  status_code=422) from exc
+    if not isinstance(payload, dict):
+        raise ExtractPromoteError("candidate graph must be a JSON object", code="run_not_promotable", status_code=422)
 
     _assert_candidate_scope_matches_run(
         payload,
@@ -928,29 +1283,10 @@ def prepare(
     )
 
 
-    # ExtractionRun-backed prepare: every evidence ref must bind to the frozen
-    # span index and verify against canonical source bytes before sealing.
-    if any(
-        "resolved via canonical ExtractionRun registry" in item
-        for item in resolved.diagnostics
-    ):
-        try:
-            source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
-        except OSError as exc:
-            raise ExtractPromoteError(
-                "exact-run source prose could not be read",
-                code="run_not_promotable",
-                status_code=422,
-                diagnostics=[_diagnostic("source_unreadable", str(exc))],
-            ) from exc
-        span_index = _load_frozen_span_index_for_resolved_run(resolved)
-        _assert_and_project_candidate_evidence(
-            candidate_payload=payload,
-            source_prose=source_prose,
-            source_artifact_id=resolved.source_artifact_id,
-            span_index=span_index,
-        )
-
+    _assert_and_project_candidate_evidence(
+        candidate_payload=payload, source_prose=data.source_bytes.decode("utf-8"),
+        source_artifact_id=resolved.source_artifact_id, span_index=data.span_index,
+    )
 
     # BLD-07 narrowed: worldbuilding is inspect-only. Fail after evidence
     # validation so binding errors remain visible; never seal draft canon.
@@ -961,166 +1297,103 @@ def prepare(
     extraction_profile = resolved.extraction_profile or "current_default"
 
 
-    registry_payload = None
-    registry_path = resolved.registry_context_graph_path
-    if registry_path is None:
-        sibling = path.parent / "registry_context_graph.json"
-        if sibling.is_file():
-            registry_path = sibling
-    if registry_path is not None:
-        try:
-            loaded = json.loads(registry_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise ExtractPromoteError(
-                f"registry context graph is present but unreadable: {exc}",
-                code="invalid_request",
-                status_code=422,
-                diagnostics=[
-                    _diagnostic(
-                        "invalid_request",
-                        f"registry context graph is present but unreadable: {exc}",
-                    )
-                ],
-            ) from exc
-        if not isinstance(loaded, dict):
-            raise ExtractPromoteError(
-                "registry context graph must be a JSON object",
-                code="invalid_request",
-                status_code=422,
-                diagnostics=[
-                    _diagnostic(
-                        "invalid_request",
-                        "registry context graph must be a JSON object",
-                    )
-                ],
-            )
-        try:
-            typed_registry = load_typed_candidate_graph(loaded)
-        except CandidateGraphMappingError as exc:
-            raise ExtractPromoteError(
-                f"registry context graph is present but invalid: {exc}",
-                code="invalid_request",
-                status_code=422,
-                diagnostics=[
-                    _diagnostic(
-                        "invalid_request",
-                        f"registry context graph is present but invalid: {exc}",
-                    )
-                ],
-            ) from exc
-        if not typed_registry.nodes:
-            raise ExtractPromoteError(
-                "registry context graph must contain at least one node",
-                code="invalid_request",
-                status_code=422,
-                diagnostics=[
-                    _diagnostic(
-                        "invalid_request",
-                        "registry context graph must contain at least one node",
-                    )
-                ],
-            )
-        registry_campaign = str(typed_registry.campaign_id or "").strip()
-        if not registry_campaign:
-            raise ExtractPromoteError(
-                "registry context graph campaign_id is required",
-                code="invalid_request",
-                status_code=422,
-                diagnostics=[
-                    _diagnostic(
-                        "invalid_request",
-                        "registry context graph campaign_id is required",
-                    )
-                ],
-            )
-        if registry_campaign != resolved.campaign_id:
-            raise ExtractPromoteError(
-                "registry context graph campaign_id "
-                f"{registry_campaign!r} disagrees with run campaign "
-                f"{resolved.campaign_id!r}",
-                code="invalid_request",
-                status_code=422,
-                diagnostics=[
-                    _diagnostic(
-                        "invalid_request",
-                        "registry context graph campaign_id disagrees with run",
-                    )
-                ],
-            )
-        registry_payload = loaded
-
-
     from apps.live_control_server import config as _config
-
-
-    source_artifact = _require_canonical_source_artifact(resolved.source_artifact_id)
+    source_artifact = data.source_artifact
+    source_body = data.source_bytes
 
     prepare_kwargs = dict(
         candidate_graph=payload,
+        source_body=source_body,
         source_uri=resolved.sealed_source_uri,
         source_revision_id=resolved.source_revision_id,
         prepared_by=SERVER_PREPARED_BY,
-        world_id=DEFAULT_WORLD_ID,
+        world_id=target.native_world_id,
         source_artifact_id=resolved.source_artifact_id,
         source_artifact=source_artifact,
         campaign_scope=resolved.campaign_id,
         extraction_profile=extraction_profile,
         node_ids=request.node_ids,
         include_edges=True,
-        candidate_graph_path=str(path),
-        repo_root=repo_root(),
+        candidate_graph_path=None,
+        repo_root=_artifact_root(),
         disclose_source_digest=False,
-        registry_context_graph=registry_payload,
+        registry_context_graph=None,
     )
     try:
-        if (
-            _config.world_graph_authority_mode()
-            == _config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
-        ):
-            from apps.live_control_server.integrations.dungeonmind import (
-                world_graph_writes,
+        # The mounted parser admits only DungeonMind and rejects retired modes.
+        _config.world_graph_authority_mode()
+        from apps.live_control_server.integrations.dungeonmind import (
+            world_graph_writes,
+        )
+
+
+        try:
+            mutation_context = world_graph_writes.load_production_mutation_context(
+                target.native_world_id
             )
-
-
-            try:
-                mutation_context = world_graph_writes.load_production_mutation_context(
-                    DEFAULT_WORLD_ID
-                )
-            except world_graph_writes.WorldGraphWriteError as exc:
-                raise ExtractPromoteError(
-                    str(exc),
-                    code=exc.code,
-                    status_code=exc.status_code,
-                    diagnostics=[_diagnostic(exc.code, str(exc))],
-                ) from exc
-            from apps.live_control_server.services.candidate_graph_admission import (
-                prepare_candidate_graph_admission,
+        except world_graph_writes.WorldGraphWriteError as exc:
+            raise ExtractPromoteError(
+                str(exc),
+                code=exc.code,
+                status_code=exc.status_code,
+                diagnostics=[_diagnostic(exc.code, str(exc))],
+            ) from exc
+        operation_basis = _recap_semantic_operation_basis(semantic_assessment)
+        if (canonical_run is not None
+            and _is_pc_reference_operation(canonical_run)
+            and (operation_basis is None
+                 or mutation_context.world_id != operation_basis.get("world_id")
+                 or mutation_context.revision_id != operation_basis.get("expected_head_revision_id")
+                 or mutation_context.head_revision_id != operation_basis.get("expected_head_revision_id"))):
+            raise ExtractPromoteError(
+                "PC reference native head changed during prepare; semantic review is stale",
+                code="recap_semantic_hold", status_code=409,
             )
-
-            result = prepare_candidate_graph_admission(
-                **prepare_kwargs,
-                mutation_context=mutation_context,
+        if canonical_run is not None and isinstance(canonical_run.lineage.get("inherited_pc_proof"), dict):
+            from apps.live_control_server.services.recap_semantic_candidate_correction import (
+                verify_inherited_pc_native_basis,
             )
-            from dataclasses import replace
+            candidate = json.loads(data.candidate_bytes)
+            if not verify_inherited_pc_native_basis(
+                candidate, canonical_run.lineage["inherited_pc_proof"], mutation_context,
+            ):
+                raise ExtractPromoteError("inherited PC native target changed during prepare",
+                                          code="recap_semantic_hold", status_code=409)
+        if prepared_recap_context is not None and getattr(
+            mutation_context, "head_revision_id", None
+        ) != prepared_recap_context.get("head_revision_id"):
+            raise ExtractPromoteError(
+                "World Graph head changed during review preparation; prepare again.",
+                code="recap_ingest_context_changed",
+                status_code=409,
+            )
+        from apps.live_control_server.services.candidate_graph_admission import (
+            prepare_candidate_graph_admission,
+        )
 
-
-            sealed = world_graph_writes.bind_identity_ledger_to_package(
-                result.review_package, mutation_context
+        result = prepare_candidate_graph_admission(
+            **prepare_kwargs,
+            mutation_context=mutation_context,
+        )
+        if semantic_assessment is not None:
+            assert canonical_run is not None
+            package = _bind_recap_semantic_effect(
+                result.review_package, canonical_run, semantic_assessment
             )
             result = replace(
                 result,
-                review_package=sealed,
-                proposal_digest=str(sealed["proposal_digest"]),
-            )
-        else:
-            from apps.live_control_server.services.candidate_graph_admission import (
-                prepare_candidate_graph_admission,
+                review_package=package,
+                proposal_digest=str(package["proposal_digest"]),
             )
 
-            result = prepare_candidate_graph_admission(
-                **prepare_kwargs,
-                world_root=world_graph_root(),
-            )
+        sealed = world_graph_writes.bind_identity_ledger_to_package(
+            result.review_package, mutation_context
+        )
+        result = replace(
+            result,
+            review_package=sealed,
+            proposal_digest=str(sealed["proposal_digest"]),
+        )
     except CandidateAdmissionIntegrityError as exc:
         raise ExtractPromoteError(
             str(exc),
@@ -1151,16 +1424,44 @@ def prepare(
         # expected operator state, not extract_promote_internal_error.
         raise ExtractPromoteError(
             "The World Graph is not initialized. Bootstrap or restore an "
-            "eldyrwild head under the configured world root before merging.",
+            "active head for the selected native World before merging.",
             code="world_not_initialized",
             status_code=409,
             diagnostics=[
                 _diagnostic(
                     "world_not_initialized",
-                    "no world graph head for world_id='eldyrwild'",
+                    f"no world graph head for world_id={target.native_world_id!r}",
                 )
             ],
         ) from exc
+
+    sealed_target = _seal_publication_target(seal_extraction_run(result.review_package, data), target)
+    if prepared_recap_context is not None:
+        if result.parent_revision_id != prepared_recap_context.get("head_revision_id"):
+            raise ExtractPromoteError(
+                "Prepared publication parent differs from the observed review head.",
+                code="recap_ingest_context_changed",
+                status_code=409,
+            )
+        current_prepared_context = _assert_current_recap_ingest_context(
+            prepared_recap_context,
+            managed_world_id=target.managed_world_id,
+            campaign_id=resolved.campaign_id,
+        )
+        if current_prepared_context != prepared_recap_context:
+            raise ExtractPromoteError(
+                "World Graph head changed during review preparation; prepare again.",
+                code="recap_ingest_context_changed",
+                status_code=409,
+            )
+        sealed_target = _seal_recap_ingest_context(sealed_target, prepared_recap_context)
+    # A prepare spanning a binding edit must not return a reviewable stale target.
+    _assert_current_publication_target(sealed_target)
+    result = replace(
+        result,
+        review_package=sealed_target,
+        proposal_digest=str(sealed_target["proposal_digest"]),
+    )
 
 
     return ExtractPromotePrepareResponse(
@@ -1198,8 +1499,24 @@ def prepare_worldbuilding(
     return _prepare(request)
 
 
-def _load_typed_worldbuilding_preview_for_run(resolved):
-    """Shared prepare/confirm admission for one exact BLD-08 worldbuilding run."""
+if TYPE_CHECKING:
+    from graph_memory.candidate_graph_preview import CandidateGraphPreview
+    from graph_memory.source_span import SourceSpanIndex
+
+
+@dataclass(frozen=True)
+class WorldbuildingPublicationInput:
+    """One exact database input and its qualified review projection."""
+
+    preview: CandidateGraphPreview
+    profile_id: str
+    source_prose: str
+    span_index: SourceSpanIndex
+    reviewed_assertions: tuple[ExactRunReviewAssertion, ...]
+
+
+def _load_worldbuilding_publication_input(resolved, *, allow_gazetteer=True) -> WorldbuildingPublicationInput:
+    """Qualify exact stored run evidence; locators do not supply publication input."""
     if resolved.source_domain != "worldbuilding":
         raise ExtractPromoteError(
             "operation requires a worldbuilding ExtractionRun",
@@ -1212,16 +1529,14 @@ def _load_typed_worldbuilding_preview_for_run(resolved):
                 )
             ],
         )
-    from graph_memory.extraction.worldbuilding_extraction_profile import (
-        WORLDBUILDING_PROFILE_ID,
-        WORLDBUILDING_PROFILE_VERSION,
-    )
 
 
-    expected_profile = f"{WORLDBUILDING_PROFILE_ID}@{WORLDBUILDING_PROFILE_VERSION}"
-    if resolved.extraction_profile != expected_profile:
+    from graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
+    expected_profile = resolved.extraction_profile
+    if (expected_profile not in PUBLISHABLE_WORLDBUILDING_PROFILES
+            or (not allow_gazetteer and expected_profile != "worldbuilding_shepherds_flock_v0@0.1")):
         raise ExtractPromoteError(
-            "operation requires the exact BLD-08 extraction profile",
+            "operation requires an exactly admitted worldbuilding profile",
             code="unsupported_worldbuilding_profile",
             status_code=422,
             diagnostics=[
@@ -1245,16 +1560,35 @@ def _load_typed_worldbuilding_preview_for_run(resolved):
         )
 
 
-    assert_sealed_source_uri_allowed(resolved.sealed_source_uri)
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError, load_reviewable_extraction_data,
+    )
     try:
-        candidate_payload = json.loads(
-            resolved.candidate_graph_path.read_text(encoding="utf-8")
+        data = load_reviewable_extraction_data(resolved.registry_root, resolved.run_id)
+    except GraphRunRegistryError as exc:
+        raise ExtractPromoteError(
+            str(exc), code="run_not_promotable", status_code=exc.status_code,
+        ) from exc
+    run = data.run
+    if (
+        run.source_domain != resolved.source_domain
+        or run.profile_id != expected_profile
+        or (run.campaign_id or "") != resolved.campaign_id
+        or (run.session_id or "") != resolved.session_id
+        or run.source_artifact_id != resolved.source_artifact_id
+        or data.source_artifact.world_id != resolved.world_id
+        or f"sha256:{hashlib.sha256(data.source_bytes).hexdigest()}" != resolved.source_revision_id
+    ):
+        raise ExtractPromoteError(
+            "resolved publication input differs from the stored run",
+            code="run_scope_mismatch", status_code=409,
         )
-    except (OSError, json.JSONDecodeError) as exc:
+    try:
+        candidate_payload = json.loads(data.candidate_bytes)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ExtractPromoteError(
             "exact-run candidate graph could not be read",
-            code="run_not_promotable",
-            status_code=422,
+            code="run_not_promotable", status_code=422,
             diagnostics=[_diagnostic("candidate_unreadable", str(exc))],
         ) from exc
     if not isinstance(candidate_payload, dict):
@@ -1277,7 +1611,7 @@ def _load_typed_worldbuilding_preview_for_run(resolved):
         session_id=resolved.session_id,
     )
     try:
-        typed_preview = load_typed_candidate_graph(candidate_payload)
+        typed_preview = load_typed_candidate_graph(candidate_payload, allow_source_observations=True)
     except CandidateGraphMappingError as exc:
         raise ExtractPromoteError(
             f"candidate graph failed typed validation: {exc}",
@@ -1287,14 +1621,10 @@ def _load_typed_worldbuilding_preview_for_run(resolved):
         ) from exc
 
 
-    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
 
 
     try:
-        profile = get_extraction_profile(
-            WORLDBUILDING_PROFILE_ID,
-            WORLDBUILDING_PROFILE_VERSION,
-        )
+        profile = PUBLISHABLE_WORLDBUILDING_PROFILES[expected_profile]
         profile_errors = [
             str(item)
             for item in (
@@ -1321,27 +1651,22 @@ def _load_typed_worldbuilding_preview_for_run(resolved):
         )
 
 
-    try:
-        source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise ExtractPromoteError(
-            "exact-run source prose could not be read",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[_diagnostic("source_unreadable", str(exc))],
-        ) from exc
-    span_index = _load_frozen_span_index_for_resolved_run(resolved)
-    _assert_and_project_candidate_evidence(
+    source_prose = data.source_bytes.decode("utf-8")
+    reviewed_assertions = _assert_and_project_candidate_evidence(
         candidate_payload=candidate_payload,
         source_prose=source_prose,
         source_artifact_id=resolved.source_artifact_id,
-        span_index=span_index,
+        span_index=data.span_index,
+        allow_source_observations=(expected_profile in SOURCE_OBSERVATION_WORLDBUILDING_PROFILES),
     )
-    return typed_preview, expected_profile
+    return WorldbuildingPublicationInput(
+        typed_preview, expected_profile, source_prose, data.span_index, tuple(reviewed_assertions),
+    )
 
 
 def confirm_worldbuilding(
     request: WorldbuildingWritePlanConfirmRequest,
+    *, authorize_write: Callable[[], None] | None = None,
 ) -> WorldbuildingWritePlanConfirmReceipt:
     """Verify one sealed worldbuilding write plan and commit its rebuilt effect."""
     from apps.live_control_server.services.worldbuilding_graph_publication import (
@@ -1349,7 +1674,7 @@ def confirm_worldbuilding(
     )
 
 
-    return _confirm(request)
+    return _confirm(request, authorize_write=authorize_write) if authorize_write is not None else _confirm(request)
 
 
 def _project_assertion_fields(
@@ -1370,7 +1695,7 @@ def _project_assertion_fields(
     try:
         world_id_hint = str(
             ((review_package or {}).get("effect") or {}).get("world_id")
-            or DEFAULT_WORLD_ID
+            or ""
         )
         _verified, contribution = resolve_merged_contribution_from_package(
             review_package=review_package,
@@ -1479,9 +1804,17 @@ def _build_confirm_receipt(
             code="extract_promote_internal_error",
             status_code=500,
         )
+    sealed_world_id = str(
+        ((request.review_package or {}).get("effect") or {}).get("world_id") or ""
+    ).strip()
+    if not sealed_world_id or str(payload.get("world_id") or "").strip() != sealed_world_id:
+        raise ExtractPromoteError(
+            "Governed publication receipt does not match the sealed native World.",
+            code="publication_target_mismatch", status_code=500,
+        )
     return ExtractPromoteConfirmReceipt(
         outcome=outcome,
-        world_id=str(payload.get("world_id") or DEFAULT_WORLD_ID),
+        world_id=sealed_world_id,
         proposal_id=str(payload.get("proposal_id") or ""),
         proposal_digest=str(payload.get("proposal_digest") or ""),
         parent_revision_id=str(payload.get("parent_revision_id") or ""),
@@ -1527,17 +1860,21 @@ def confirm(
             ],
         )
 
+    _assert_current_publication_target(request.review_package)
+    effect = (request.review_package or {}).get("effect") or {}
+    recap_context = effect.get(_RECAP_CONTEXT_KEY) if isinstance(effect, dict) else None
+    if isinstance(recap_context, dict):
+        managed_world_id = str(recap_context.get("managed_world_id") or "")
+        campaign_id = str(recap_context.get("campaign_id") or "")
+        _assert_current_recap_ingest_context(
+            recap_context,
+            managed_world_id=managed_world_id,
+            campaign_id=campaign_id,
+        )
+
 
     normalized_assertion_ids = tuple(request.assertion_ids)
     world_root = world_graph_root()
-
-
-    sealed_uri = str(
-        ((request.review_package or {}).get("effect") or {}).get("verified_source_uri")
-        or ""
-    ).strip()
-    if sealed_uri:
-        assert_sealed_source_uri_allowed(sealed_uri)
 
 
     from apps.live_control_server import config as _config
@@ -1557,44 +1894,36 @@ def confirm(
                 confirm_candidate_graph_admission,
             )
 
-            locator = str(
-                ((request.review_package or {}).get("effect") or {})
-                .get("candidate_admission", {})
-                .get("candidate_locator")
-                or ""
-            ).strip()
-            if not locator:
-                raise ExtractPromoteError(
-                    "sealed candidate admission has no candidate locator",
-                    code="candidate_binding_invalid",
-                    status_code=409,
-                )
-            assert_sealed_source_uri_allowed(locator)
             try:
-                candidate_payload = json.loads(Path(locator).read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError) as exc:
-                raise ExtractPromoteError(
-                    "sealed candidate could not be resolved at confirm",
-                    code="candidate_binding_invalid",
-                    status_code=409,
-                    diagnostics=[_diagnostic("candidate_binding_invalid", str(exc))],
-                ) from exc
-            if not isinstance(candidate_payload, dict):
-                raise ExtractPromoteError(
-                    "sealed candidate root is not an object",
-                    code="candidate_binding_invalid",
-                    status_code=409,
-                )
-            payload = confirm_candidate_graph_admission(
-                review_package=request.review_package,
-                candidate_graph=candidate_payload,
-                governed_confirm=lambda: world_graph_writes.confirm_extract_promote_via_dungeonmind(
+                data = load_bound_extraction_run(request.review_package, root=_artifact_root())
+            except PromotableIngestRunError as exc:
+                raise _promotable_run_error(exc) from exc
+            if _is_worldbuilding_inspect_only(data.run):
+                raise _worldbuilding_inspect_only_error()
+            candidate_payload = json.loads(data.candidate_bytes)
+            _assert_candidate_scope_matches_run(candidate_payload,
+                campaign_id=data.run.campaign_id or "", session_id=data.run.session_id or "")
+            _assert_and_project_candidate_evidence(
+                candidate_payload=candidate_payload, source_prose=data.source_bytes.decode("utf-8"),
+                source_artifact_id=data.run.source_artifact_id, span_index=data.span_index,
+            )
+
+            def _governed_confirm():
+                _assert_recap_semantics_at_confirm(request.review_package)
+                _assert_current_publication_target(request.review_package)
+                return world_graph_writes.confirm_extract_promote_via_dungeonmind(
                     request,
                     database_url=_config.world_graph_authority_database_url() or "",
                     confirming_principal=SERVER_CONFIRMING_PRINCIPAL,
                     assertion_ids=normalized_assertion_ids,
-                    repo_root=repo_root(),
-                ),
+                    repo_root=_artifact_root(),
+                    candidate_graph=candidate_payload,
+                )
+
+            payload = confirm_candidate_graph_admission(
+                review_package=request.review_package,
+                candidate_graph=candidate_payload,
+                governed_confirm=_governed_confirm,
             )
         except CandidateGraphMappingError as exc:
             raise ExtractPromoteError(
@@ -1634,6 +1963,7 @@ def confirm(
 
 def prepare_first_world(
     request: FirstWorldGraphPrepareRequest,
+    *, authorize_world: Callable[[str], None] | None = None,
 ) -> FirstWorldGraphPlan:
     """Seal an inert first-world initialization plan (no production graph mutation)."""
     from apps.live_control_server.services.first_world_graph_publication import (
@@ -1641,11 +1971,12 @@ def prepare_first_world(
     )
 
 
-    return _prepare(request)
+    return _prepare(request, authorize_world=authorize_world)
 
 
 def confirm_first_world(
     request: FirstWorldGraphConfirmRequest,
+    *, authorize_world: Callable[[str], None] | None = None,
 ) -> FirstWorldGraphConfirmReceipt:
     """Verify a sealed first-world plan and atomically initialize W."""
     from apps.live_control_server.services.first_world_graph_publication import (
@@ -1653,19 +1984,16 @@ def confirm_first_world(
     )
 
 
-    return _confirm(request)
+    return _confirm(request, authorize_world=authorize_world)
 
 
 __all__ = [
     "ExtractPromoteError",
-    "assert_sealed_source_uri_allowed",
     "confirm",
     "confirm_first_world",
     "confirm_worldbuilding",
     "get_exact_run_review_package",
-    "get_status",
     "prepare_first_world",
     "prepare_worldbuilding",
     "prepare",
-    "resolve_promote_source_uri",
 ]

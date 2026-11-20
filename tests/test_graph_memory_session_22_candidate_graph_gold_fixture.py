@@ -7,7 +7,7 @@ from pathlib import Path
 
 from evals.graph_memory_layer.session_22_candidate_graph_gold_fixture import *
 from evals.graph_memory_layer.session_22_recap_ingest_fixture import load_manifest, load_normalized_recap, validate_manifest
-from src.graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
+from graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
 
 
 def test_source_manifest_and_gold_manifest() -> None:
@@ -25,7 +25,7 @@ def test_source_manifest_and_gold_manifest() -> None:
     for key in ("source_manifest_path", "source_span_seed_refs_path", "candidate_graph_gold_path"):
         assert not Path(manifest[key]).is_absolute()
         assert ".." not in Path(manifest[key]).parts
-    assert manifest["candidate_graph_gold_path"] == GOLD_GRAPH_PATH
+    assert manifest["candidate_graph_gold_path"] == LEGACY_GOLD_GRAPH_PATH
     assert all(value is False for key, value in manifest["diagnostics"].items() if key != "manual_gold_fixture")
 
 

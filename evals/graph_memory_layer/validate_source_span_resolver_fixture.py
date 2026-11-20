@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from src.graph_memory.source_span import (
+from graph_memory.source_span import (
     DEFAULT_CONTEXT_MAX_CHARS,
     DEFAULT_SNIPPET_MAX_CHARS,
     SourceArtifactStructured,

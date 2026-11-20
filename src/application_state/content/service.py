@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
+from datetime import datetime
 from typing import Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel
 
-from application_state.cli import assert_at_head
+from application_state.cli import assert_at_head, assert_connection_at_head
 from application_state.config import load_runtime_dsn
 from application_state.content import repository as repo
 from application_state.content.types import (
     AdmittedKind,
+    _StoredContentObject,
+    _StoredKind,
     CommittedPlayableRevision,
     ContentSnapshot,
     WorkObject,
@@ -60,7 +64,9 @@ def _require_title(title: str) -> str:
     return cleaned
 
 
-def _require_kind(obj: WorkObject, kind: AdmittedKind | None) -> WorkObject:
+def _require_kind(obj: _StoredContentObject, kind: AdmittedKind | None) -> WorkObject:
+    if not isinstance(obj, WorkObject):
+        raise ApplicationStateValidationError("Authored pages require their page-specific Content owner")
     if kind is not None and obj.kind != kind:
         raise ApplicationStateNotFoundError(
             f"workspace document not found: {obj.work_object_id}"
@@ -77,6 +83,7 @@ def create_work_object(
     target_session: int | None = None,
     target_relpath: str | None = None,
     document_id: str | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkObject:
     cleaned_world = world_id.strip() if world_id is not None else None
     cleaned_campaign = campaign_id.strip() if campaign_id is not None else None
@@ -112,6 +119,8 @@ def create_work_object(
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        if authorize_world is not None:
+            authorize_world(obj.world_id)
         return repo.insert_work_object(conn, obj)
 
 
@@ -158,6 +167,7 @@ def create_world_runbook(
     world_id: str,
     target_relpath: str | None = None,
     document_id: str | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkObject:
     return create_work_object(
         kind="runbook",
@@ -167,6 +177,7 @@ def create_world_runbook(
         target_session=None,
         target_relpath=target_relpath,
         document_id=document_id,
+        authorize_world=authorize_world,
     )
 
 
@@ -191,9 +202,10 @@ def create_runbook(
 def get_content_optional(document_id: str) -> WorkObject | None:
     work_object_id = _require_uuid(document_id)
     dsn = load_runtime_dsn()
-    assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
-        return repo.get_work_object(conn, work_object_id)
+        assert_connection_at_head(conn)
+        obj = repo.get_work_object(conn, work_object_id)
+        return None if obj is None else _require_kind(obj, None)
 
 
 def get_plan(document_id: str) -> WorkObject:
@@ -233,16 +245,19 @@ def list_plans(
     campaign_id: str | None = None,
     world_id: str | None = None,
     status: str | None = "active",
+    limit: int | None = None,
+    before: tuple[datetime, UUID] | None = None,
 ) -> list[WorkObject]:
     if campaign_id is not None and world_id is not None:
         raise ApplicationStateValidationError(
             "campaign_id and world_id are mutually exclusive scopes"
         )
     dsn = load_runtime_dsn()
-    assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        assert_connection_at_head(conn)
         return repo.list_work_objects(
-            conn, kind="plan", campaign_id=campaign_id, world_id=world_id, status=status
+            conn, kind="plan", campaign_id=campaign_id, world_id=world_id, status=status,
+            limit=limit, before=before
         )
 
 
@@ -252,58 +267,45 @@ def list_runbooks(
     status: str | None = "active",
 ) -> list[WorkObject]:
     dsn = load_runtime_dsn()
-    assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        assert_connection_at_head(conn)
         return repo.list_work_objects(
             conn, kind="runbook", campaign_id=campaign_id, status=status
         )
 
 
+def _snapshot_body(conn, obj: _StoredContentObject) -> tuple[str, str, bool, WorkingCopy | None, WorkRevision | None]:
+    """Shared body selection; callers own aggregate admission and transaction scope."""
+    working = repo.get_working_copy(conn, obj.work_object_id)
+    committed = None
+    if obj.current_revision_id is not None:
+        committed = repo.get_work_revision(conn, obj.current_revision_id)
+        if committed is None:
+            raise ApplicationStateConflictError("committed workspace document is missing its WorkRevision")
+        _require_revision_owner(obj, committed)
+    if working is not None and (
+        committed is None or working.content_sha256 != committed.content_sha256
+    ):
+        if sha256_utf8(working.markdown) != working.content_sha256:
+            raise ApplicationStateIntegrityError("working copy content SHA does not match its Markdown")
+        return working.markdown, working.content_sha256, True, working, committed
+    if committed is not None:
+        return committed.markdown, committed.content_sha256, False, working, committed
+    return "", sha256_utf8(""), False, working, None
+
+
 def snapshot_content(document_id: str) -> ContentSnapshot:
     work_object_id = _require_uuid(document_id)
     dsn = load_runtime_dsn()
-    assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        assert_connection_at_head(conn)
         obj = repo.get_work_object(conn, work_object_id)
         if obj is None:
-            raise ApplicationStateNotFoundError(
-                f"workspace document not found: {document_id}"
-            )
-        working = repo.get_working_copy(conn, work_object_id)
-        committed = None
-        if obj.current_revision_id is not None:
-            committed = repo.get_work_revision(conn, obj.current_revision_id)
-            if committed is None:
-                raise ApplicationStateConflictError(
-                    "committed workspace document is missing its WorkRevision"
-                )
-            _require_revision_owner(obj, committed)
-        if working is not None and (
-            committed is None or working.content_sha256 != committed.content_sha256
-        ):
-            return ContentSnapshot(
-                work_object=obj,
-                markdown=working.markdown,
-                content_sha256=working.content_sha256,
-                loaded_revision=obj.object_revision,
-                from_working_copy=True,
-            )
-        if committed is not None:
-            return ContentSnapshot(
-                work_object=obj,
-                markdown=committed.markdown,
-                content_sha256=committed.content_sha256,
-                loaded_revision=obj.object_revision,
-                from_working_copy=False,
-            )
-        empty = sha256_utf8("")
-        return ContentSnapshot(
-            work_object=obj,
-            markdown="",
-            content_sha256=empty,
-            loaded_revision=obj.object_revision,
-            from_working_copy=False,
-        )
+            raise ApplicationStateNotFoundError(f"workspace document not found: {document_id}")
+        obj = _require_kind(obj, None)
+        markdown, digest, from_working, _copy, _committed = _snapshot_body(conn, obj)
+        return ContentSnapshot(work_object=obj, markdown=markdown, content_sha256=digest,
+                               loaded_revision=obj.object_revision, from_working_copy=from_working)
 
 
 def snapshot_plan(document_id: str) -> ContentSnapshot:
@@ -318,7 +320,7 @@ def snapshot_runbook(document_id: str) -> ContentSnapshot:
     return snap
 
 
-def _require_kind_for_mutation(obj: WorkObject, kind: AdmittedKind) -> WorkObject:
+def _require_kind_for_mutation(obj: _StoredContentObject, kind: _StoredKind) -> _StoredContentObject:
     if obj.kind != kind:
         raise ApplicationStateValidationError(
             f"workspace document kind mismatch: expected {kind}, current {obj.kind}"
@@ -326,7 +328,7 @@ def _require_kind_for_mutation(obj: WorkObject, kind: AdmittedKind) -> WorkObjec
     return obj
 
 
-def _require_world_plan_scope(obj: WorkObject, world_id: str | None) -> WorkObject:
+def _require_world_plan_scope(obj: _StoredContentObject, world_id: str | None) -> _StoredContentObject:
     """Recheck the exact immutable World owner inside a Content transaction."""
     if world_id is None:
         return obj
@@ -351,6 +353,7 @@ def _update_metadata(
     expected_revision: int | None = None,
     status: str | None = None,
     target_session_set: bool = False,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkObject:
     work_object_id = _require_uuid(document_id)
     dsn = load_runtime_dsn()
@@ -366,6 +369,8 @@ def _update_metadata(
             raise ApplicationStateConflictError(
                 f"revision mismatch: expected {expected_revision}, current {obj.object_revision}"
             )
+        if authorize_world is not None:
+            authorize_world(obj.world_id)
         expected = obj.object_revision
         updates: dict = {"updated_at": repo.now_utc(), "object_revision": expected + 1}
         if title is not None:
@@ -395,6 +400,7 @@ def update_plan_metadata(
     expected_revision: int | None = None,
     status: str | None = None,
     target_session_set: bool = False,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkObject:
     return _update_metadata(
         document_id,
@@ -404,75 +410,82 @@ def update_plan_metadata(
         expected_revision=expected_revision,
         status=status,
         target_session_set=target_session_set,
+        authorize_world=authorize_world,
     )
 
 
-def _autosave(
-    document_id: str,
-    markdown: str,
-    *,
-    kind: AdmittedKind,
-    expected_revision: int | None = None,
-    expected_world_id: str | None = None,
-) -> WorkObject:
+def _autosave_in_connection(
+    conn, document_id: str, markdown: str, *, kind: _StoredKind,
+    expected_revision: int | None = None, expected_world_id: str | None = None,
+) -> _StoredContentObject:
+    """Shared draft CAS in the caller's transaction after aggregate admission."""
     work_object_id = _require_uuid(document_id)
     content = normalize_markdown(markdown)
     digest = sha256_utf8(content)
+    obj = repo.lock_work_object(conn, work_object_id)
+    if obj is None:
+        raise ApplicationStateNotFoundError(
+            f"workspace document not found: {document_id}"
+        )
+    _require_kind_for_mutation(obj, kind)
+    _require_world_plan_scope(obj, expected_world_id)
+    if obj.status == "discarded":
+        raise ApplicationStateConflictError(
+            f"workspace document is discarded: {document_id}"
+        )
+    if expected_revision is not None and obj.object_revision != expected_revision:
+        raise ApplicationStateConflictError(
+            f"revision mismatch: expected {expected_revision}, current {obj.object_revision}"
+        )
+    existing = repo.get_working_copy(conn, work_object_id)
+    wc_revision = 1 if existing is None else existing.working_copy_revision + 1
+    copy = WorkingCopy(
+        work_object_id=work_object_id,
+        markdown=content,
+        content_sha256=digest,
+        base_revision_id=obj.current_revision_id,
+        working_copy_revision=wc_revision,
+        updated_at=repo.now_utc(),
+    )
+    if existing is None:
+        repo.insert_working_copy(conn, copy)
+    else:
+        persisted_copy = repo.update_working_copy(
+            conn,
+            copy,
+            expected_working_copy_revision=existing.working_copy_revision,
+        )
+        if persisted_copy is None:
+            raise ApplicationStateConflictError(
+                f"working copy revision mismatch: concurrent {kind} autosave"
+            )
+    expected = obj.object_revision
+    updated = obj.model_copy(
+        update={
+            "object_revision": expected + 1,
+            "updated_at": repo.now_utc(),
+        }
+    )
+    persisted = repo.update_work_object(
+        conn, updated, expected_object_revision=expected
+    )
+    if persisted is None:
+        raise ApplicationStateConflictError(
+            f"revision mismatch: concurrent {kind} autosave"
+        )
+    return persisted
+
+
+def _autosave(
+    document_id: str, markdown: str, *, kind: AdmittedKind,
+    expected_revision: int | None = None, expected_world_id: str | None = None,
+) -> WorkObject:
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
-        obj = repo.lock_work_object(conn, work_object_id)
-        if obj is None:
-            raise ApplicationStateNotFoundError(
-                f"workspace document not found: {document_id}"
-            )
-        _require_kind_for_mutation(obj, kind)
-        _require_world_plan_scope(obj, expected_world_id)
-        if obj.status == "discarded":
-            raise ApplicationStateConflictError(
-                f"workspace document is discarded: {document_id}"
-            )
-        if expected_revision is not None and obj.object_revision != expected_revision:
-            raise ApplicationStateConflictError(
-                f"revision mismatch: expected {expected_revision}, current {obj.object_revision}"
-            )
-        existing = repo.get_working_copy(conn, work_object_id)
-        wc_revision = 1 if existing is None else existing.working_copy_revision + 1
-        copy = WorkingCopy(
-            work_object_id=work_object_id,
-            markdown=content,
-            content_sha256=digest,
-            base_revision_id=obj.current_revision_id,
-            working_copy_revision=wc_revision,
-            updated_at=repo.now_utc(),
-        )
-        if existing is None:
-            repo.insert_working_copy(conn, copy)
-        else:
-            persisted_copy = repo.update_working_copy(
-                conn,
-                copy,
-                expected_working_copy_revision=existing.working_copy_revision,
-            )
-            if persisted_copy is None:
-                raise ApplicationStateConflictError(
-                    f"working copy revision mismatch: concurrent {kind} autosave"
-                )
-        expected = obj.object_revision
-        updated = obj.model_copy(
-            update={
-                "object_revision": expected + 1,
-                "updated_at": repo.now_utc(),
-            }
-        )
-        persisted = repo.update_work_object(
-            conn, updated, expected_object_revision=expected
-        )
-        if persisted is None:
-            raise ApplicationStateConflictError(
-                f"revision mismatch: concurrent {kind} autosave"
-            )
-        return persisted
+        return _autosave_in_connection(conn, document_id, markdown, kind=kind,
+                                      expected_revision=expected_revision,
+                                      expected_world_id=expected_world_id)
 
 
 def autosave_plan(
@@ -491,6 +504,132 @@ def autosave_plan(
     )
 
 
+def _commit_in_connection(
+    conn,
+    document_id: str,
+    markdown: str,
+    *,
+    kind: _StoredKind,
+    expected_revision: int | None = None,
+    expected_world_id: str | None = None,
+    title: str | None = None,
+    page_presentation_changed: bool = False,
+    authorize_world: Callable[[str | None], None] | None = None,
+) -> tuple[_StoredContentObject, WorkRevision]:
+    """Use the caller's transaction; never commit or allocate another connection."""
+    if page_presentation_changed and kind != "worldbuilding_source":
+        raise ApplicationStateValidationError("presentation revisions are Page-only")
+    canonical_title = _require_title(title) if title is not None else None
+    if canonical_title is not None and (kind != "plan" or expected_world_id is None):
+        raise ApplicationStateValidationError(
+            "title intent requires a selected World-owned Plan"
+        )
+    work_object_id = _require_uuid(document_id)
+    content = normalize_markdown(markdown)
+    digest = sha256_utf8(content)
+    obj = repo.lock_work_object(conn, work_object_id)
+    if obj is None:
+        raise ApplicationStateNotFoundError(
+            f"workspace document not found: {document_id}"
+        )
+    _require_kind_for_mutation(obj, kind)
+    if authorize_world is not None:
+        authorize_world(obj.world_id)
+    _require_world_plan_scope(obj, expected_world_id)
+    if obj.status == "discarded":
+        raise ApplicationStateConflictError(
+            f"workspace document is discarded: {document_id}"
+        )
+    if expected_revision is not None and obj.object_revision != expected_revision:
+        # Identical replay: expected CAS already applied and digest matches
+        # the current revision.
+        if obj.current_revision_id is not None:
+            current = repo.get_work_revision(conn, obj.current_revision_id)
+            if current is not None:
+                _require_revision_owner(obj, current)
+            if (
+                current is not None
+                and current.content_sha256 == digest
+                and (canonical_title is None or obj.title == canonical_title)
+                and expected_revision == obj.object_revision - 1
+            ):
+                return obj, current
+        raise ApplicationStateConflictError(
+            f"revision mismatch: expected {expected_revision}, current {obj.object_revision}"
+        )
+    if obj.current_revision_id is not None:
+        current = repo.get_work_revision(conn, obj.current_revision_id)
+        if current is not None:
+            _require_revision_owner(obj, current)
+        if current is not None and current.content_sha256 == digest and not page_presentation_changed:
+            if canonical_title is not None and obj.title != canonical_title:
+                updated = obj.model_copy(
+                    update={
+                        "title": canonical_title,
+                        "object_revision": obj.object_revision + 1,
+                        "updated_at": repo.now_utc(),
+                    }
+                )
+                if authorize_world is not None:
+                    authorize_world(obj.world_id)
+                persisted = repo.update_work_object(
+                    conn, updated, expected_object_revision=obj.object_revision
+                )
+                if persisted is None:
+                    raise ApplicationStateConflictError(
+                        "revision mismatch: concurrent Plan title update"
+                    )
+                return persisted, current
+            # exact replay at current head
+            return obj, current
+    revision_n = repo.next_revision_n(conn, work_object_id)
+    revision = WorkRevision(
+        work_revision_id=uuid4(),
+        work_object_id=work_object_id,
+        world_id=obj.world_id,
+        revision_n=revision_n,
+        markdown=content,
+        content_sha256=digest,
+        created_at=repo.now_utc(),
+    )
+    if authorize_world is not None:
+        authorize_world(obj.world_id)
+    repo.insert_work_revision(conn, revision)
+    expected = obj.object_revision
+    updated = obj.model_copy(
+        update={
+            "current_revision_id": revision.work_revision_id,
+            "title": canonical_title if canonical_title is not None else obj.title,
+            "object_revision": expected + 1,
+            "updated_at": repo.now_utc(),
+        }
+    )
+    persisted = repo.update_work_object(
+        conn, updated, expected_object_revision=expected
+    )
+    if persisted is None:
+        raise ApplicationStateConflictError(
+            f"revision mismatch: concurrent {kind} commit"
+        )
+    existing_copy = repo.get_working_copy(conn, work_object_id)
+    repo.replace_working_copy(
+        conn,
+        WorkingCopy(
+            work_object_id=work_object_id,
+            markdown=content,
+            content_sha256=digest,
+            base_revision_id=revision.work_revision_id,
+            working_copy_revision=(
+                1
+                if existing_copy is None
+                else existing_copy.working_copy_revision + 1
+            ),
+            updated_at=repo.now_utc(),
+        ),
+    )
+    return persisted, revision
+
+
 def _commit(
     document_id: str,
     markdown: str,
@@ -498,90 +637,18 @@ def _commit(
     kind: AdmittedKind,
     expected_revision: int | None = None,
     expected_world_id: str | None = None,
+    title: str | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
-    work_object_id = _require_uuid(document_id)
-    content = normalize_markdown(markdown)
-    digest = sha256_utf8(content)
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
-        obj = repo.lock_work_object(conn, work_object_id)
-        if obj is None:
-            raise ApplicationStateNotFoundError(
-                f"workspace document not found: {document_id}"
-            )
-        _require_kind_for_mutation(obj, kind)
-        _require_world_plan_scope(obj, expected_world_id)
-        if obj.status == "discarded":
-            raise ApplicationStateConflictError(
-                f"workspace document is discarded: {document_id}"
-            )
-        if expected_revision is not None and obj.object_revision != expected_revision:
-            # Identical replay: expected CAS already applied and digest matches
-            # the current revision.
-            if obj.current_revision_id is not None:
-                current = repo.get_work_revision(conn, obj.current_revision_id)
-                if current is not None:
-                    _require_revision_owner(obj, current)
-                if (
-                    current is not None
-                    and current.content_sha256 == digest
-                    and expected_revision == obj.object_revision - 1
-                ):
-                    return obj, current
-            raise ApplicationStateConflictError(
-                f"revision mismatch: expected {expected_revision}, current {obj.object_revision}"
-            )
-        if obj.current_revision_id is not None:
-            current = repo.get_work_revision(conn, obj.current_revision_id)
-            if current is not None:
-                _require_revision_owner(obj, current)
-            if current is not None and current.content_sha256 == digest:
-                # exact replay at current head
-                return obj, current
-        revision_n = repo.next_revision_n(conn, work_object_id)
-        revision = WorkRevision(
-            work_revision_id=uuid4(),
-            work_object_id=work_object_id,
-            world_id=obj.world_id,
-            revision_n=revision_n,
-            markdown=content,
-            content_sha256=digest,
-            created_at=repo.now_utc(),
+        return _commit_in_connection(
+            conn, document_id, markdown, kind=kind,
+            expected_revision=expected_revision,
+            expected_world_id=expected_world_id, title=title,
+            authorize_world=authorize_world,
         )
-        repo.insert_work_revision(conn, revision)
-        expected = obj.object_revision
-        updated = obj.model_copy(
-            update={
-                "current_revision_id": revision.work_revision_id,
-                "object_revision": expected + 1,
-                "updated_at": repo.now_utc(),
-            }
-        )
-        persisted = repo.update_work_object(
-            conn, updated, expected_object_revision=expected
-        )
-        if persisted is None:
-            raise ApplicationStateConflictError(
-                f"revision mismatch: concurrent {kind} commit"
-            )
-        existing_copy = repo.get_working_copy(conn, work_object_id)
-        repo.replace_working_copy(
-            conn,
-            WorkingCopy(
-                work_object_id=work_object_id,
-                markdown=content,
-                content_sha256=digest,
-                base_revision_id=revision.work_revision_id,
-                working_copy_revision=(
-                    1
-                    if existing_copy is None
-                    else existing_copy.working_copy_revision + 1
-                ),
-                updated_at=repo.now_utc(),
-            ),
-        )
-        return persisted, revision
 
 
 def commit_plan(
@@ -590,6 +657,8 @@ def commit_plan(
     *,
     expected_revision: int | None = None,
     expected_world_id: str | None = None,
+    title: str | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
     return _commit(
         document_id,
@@ -597,6 +666,30 @@ def commit_plan(
         kind="plan",
         expected_revision=expected_revision,
         expected_world_id=expected_world_id,
+        title=title,
+        authorize_world=authorize_world,
+    )
+
+
+def commit_plan_in_connection(
+    conn,
+    document_id: str,
+    markdown: str,
+    *,
+    expected_revision: int,
+    expected_world_id: str,
+    title: str | None = None,
+) -> tuple[WorkObject, WorkRevision]:
+    """Commit Plan content atomically with an owning command's durable receipt.
+
+    The caller owns schema readiness, transaction and preceding domain locks.
+    Every Content validation, CAS, revision and working-copy update is shared
+    with ordinary commit_plan; this function does not commit its connection.
+    """
+    return _commit_in_connection(
+        conn, document_id, markdown, kind="plan",
+        expected_revision=expected_revision,
+        expected_world_id=expected_world_id, title=title,
     )
 
 
@@ -794,7 +887,7 @@ def read_current_world_plan_revision(
         )
 
 
-def _require_revision_owner(obj: WorkObject, revision: WorkRevision) -> None:
+def _require_revision_owner(obj: _StoredContentObject, revision: WorkRevision) -> None:
     if revision.work_object_id != obj.work_object_id:
         raise ApplicationStateIntegrityError(
             "committed revision belongs to a different WorkObject"
@@ -825,9 +918,11 @@ def commit_runbook(
     markdown: str,
     *,
     expected_revision: int | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
     return _commit(
-        document_id, markdown, kind="runbook", expected_revision=expected_revision
+        document_id, markdown, kind="runbook", expected_revision=expected_revision,
+        authorize_world=authorize_world,
     )
 
 
@@ -839,6 +934,7 @@ def update_runbook_metadata(
     expected_revision: int | None = None,
     status: str | None = None,
     target_session_set: bool = False,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> WorkObject:
     return _update_metadata(
         document_id,
@@ -848,4 +944,5 @@ def update_runbook_metadata(
         expected_revision=expected_revision,
         status=status,
         target_session_set=target_session_set,
+        authorize_world=authorize_world,
     )

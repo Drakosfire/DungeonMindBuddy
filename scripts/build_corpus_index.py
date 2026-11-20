@@ -11,6 +11,7 @@ Regenerate after adding session recaps or worldbuilding hubs:
 """
 from __future__ import annotations
 
+import argparse
 import json
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -131,7 +132,7 @@ def build_index() -> dict[str, Any]:
         "schema": SCHEMA,
         "version": INDEX_VERSION,
         "generated_at": _utc_now(),
-        "repo_root": str(REPO_ROOT),
+        "repo_root": ".",
         "corpus_roots": {
             "primary_markdown": {
                 "path": "corpus/eldyrwild-markdown",
@@ -323,15 +324,42 @@ def render_markdown(index: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def main() -> None:
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="Report stale outputs without writing")
+    args = parser.parse_args()
     index = build_index()
+    if args.check:
+        try:
+            saved = json.loads(JSON_OUT.read_text(encoding="utf-8"))
+            timestamp = saved["generated_at"]
+            if not isinstance(timestamp, str):
+                raise ValueError("generated_at must be a string")
+        except (OSError, ValueError, TypeError, KeyError):
+            print(f"Cannot read generated metadata from {JSON_OUT.relative_to(REPO_ROOT)}")
+            return 1
+        index["generated_at"] = timestamp
+        stale = []
+        if saved != index:
+            stale.append(JSON_OUT)
+        try:
+            anchor_matches = MARKDOWN_OUT.read_text(encoding="utf-8") == render_markdown(index)
+        except (OSError, UnicodeError):
+            anchor_matches = False
+        if not anchor_matches:
+            stale.append(MARKDOWN_OUT)
+        for path in stale:
+            print(f"Stale: {path.relative_to(REPO_ROOT)}")
+        return int(bool(stale))
+
     JSON_OUT.parent.mkdir(parents=True, exist_ok=True)
     MARKDOWN_OUT.parent.mkdir(parents=True, exist_ok=True)
     JSON_OUT.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
     MARKDOWN_OUT.write_text(render_markdown(index), encoding="utf-8")
     print(f"Wrote {JSON_OUT.relative_to(REPO_ROOT)}")
     print(f"Wrote {MARKDOWN_OUT.relative_to(REPO_ROOT)}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

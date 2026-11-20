@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from src.ingestion.frontmatter import split_frontmatter
+from ingestion.frontmatter import split_frontmatter
 
 
 def _parse_inline_string_list(raw: str) -> list[str]:

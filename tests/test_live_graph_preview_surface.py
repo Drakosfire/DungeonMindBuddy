@@ -1,13 +1,17 @@
 """Tests for graph preview surface API."""
 from __future__ import annotations
 
+from json import JSONDecodeError, dumps
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.config import SESSION_DIR_ENV, repo_root
 from apps.live_control_server.main import create_app
+from apps.live_control_server.services import graph_preview_surface
 from apps.live_control_server.services.graph_preview_surface import (
     build_graph_preview_surface,
     build_latest_graph_preview_surface,
@@ -57,6 +61,11 @@ def test_discover_graph_preview_runs_empty_when_session_has_no_graph_runs() -> N
     assert runs == []
 
 
+def test_unbounded_graph_preview_run_catalog_route_is_removed(client: TestClient) -> None:
+    response = client.get("/api/live/graph-preview/runs")
+    assert response.status_code == 404
+
+
 def test_build_graph_preview_surface_enriches_paragraph_evidence() -> None:
     fallback_run = (
         "evals/graph_memory_layer/artifacts/category_graph_model_study/"
@@ -78,6 +87,95 @@ def test_build_graph_preview_surface_enriches_paragraph_evidence() -> None:
         assert any(ref.paragraph_text for c in with_evidence for ref in c.evidence_refs)
 
 
+@pytest.mark.parametrize("pinned_uri", [None, "pinned-run"])
+def test_latest_surface_discovers_only_when_unpinned(tmp_path, monkeypatch, pinned_uri) -> None:
+    record = SimpleNamespace(
+        artifact_id="artifact", campaign_id="campaign", session_id="session",
+        run_bundle_uri="bundle", default_graph_run_uri=pinned_uri,
+    )
+    discovery = Mock(return_value=[SimpleNamespace(run_dir="discovered-run", canonical_ir_valid=True)])
+    build = Mock()
+    monkeypatch.setattr(graph_preview_surface, "_resolve_recap_artifact", Mock(return_value=record))
+    monkeypatch.setattr(graph_preview_surface, "discover_graph_preview_runs", discovery)
+    monkeypatch.setattr(graph_preview_surface, "build_graph_preview_surface", build)
+
+    assert build_latest_graph_preview_surface(tmp_path) is build.return_value
+    build.assert_called_once_with(
+        tmp_path, pinned_uri or "discovered-run", run_bundle_dir=tmp_path / "bundle", artifact_record=record, _loaded_run=None,
+    )
+    if pinned_uri:
+        discovery.assert_not_called()
+    else:
+        discovery.assert_called_once_with(
+            tmp_path, artifact_id="artifact", campaign_id="campaign", session_id="session",
+        )
+        discovery.return_value = []
+        with pytest.raises(graph_preview_surface.GraphPreviewSurfaceError) as error:
+            build_latest_graph_preview_surface(tmp_path)
+        assert error.value.status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("canonical", "evidence", "winner", "probed"),
+    [
+        ({0, 2}, {0, 2, 3}, 2, [3, 2]),
+        ({0, 2}, {1, 3}, 3, [3, 2, 0]),
+        ({0, 2}, set(), 2, [3, 2, 1, 0]),
+        (set(), set(), 3, [3, 2, 1, 0]),
+    ],
+)
+def test_preview_ranking_probes_only_runs_that_can_win(tmp_path, monkeypatch, canonical, evidence, winner, probed):
+    runs = [SimpleNamespace(run_dir=str(i), canonical_ir_valid=i in canonical) for i in range(4)]
+    graph = {"nodes": [{"evidence_refs": [{"source_span_ref_id": "source"}]}]}
+    probe = Mock(side_effect=lambda path: ({}, graph if int(path.name) in evidence else None))
+    monkeypatch.setattr(graph_preview_surface, "_resolve_run_dir", lambda root, name: root / name)
+    monkeypatch.setattr(graph_preview_surface, "_load_run_graph", probe)
+    picked = graph_preview_surface._pick_latest_run(tmp_path, runs)
+    assert picked[0] is runs[winner]
+    assert [int(call.args[0].name) for call in probe.call_args_list] == probed
+
+
+def test_preview_ranking_skips_malformed_older_artifact_after_top_tier_match(tmp_path, monkeypatch):
+    older = SimpleNamespace(run_dir="older", canonical_ir_valid=True)
+    newer = SimpleNamespace(run_dir="newer", canonical_ir_valid=True)
+    malformed = JSONDecodeError("malformed fixture", "{", 1)
+
+    def probe(path):
+        if path.name == older.run_dir:
+            raise malformed
+        return {}, {"nodes": [{"evidence_refs": [{"source_span_ref_id": "source"}]}]}
+
+    monkeypatch.setattr(graph_preview_surface, "_resolve_run_dir", lambda root, name: root / name)
+    monkeypatch.setattr(graph_preview_surface, "_load_run_graph", probe)
+    assert graph_preview_surface._pick_latest_run(tmp_path, [older, newer])[0] is newer
+    with pytest.raises(JSONDecodeError):
+        graph_preview_surface._pick_latest_run(tmp_path, [older])
+
+
+@pytest.mark.parametrize(("filename", "key"), [
+    ("validation_report.json", "reconciled_candidate_graph"),
+    ("candidate_output.json", "candidate_graph"),
+])
+def test_latest_surface_decodes_winning_graph_once(tmp_path, monkeypatch, filename, key):
+    run = tmp_path / "run"
+    run.mkdir()
+    artifact = run / filename
+    artifact.write_text(dumps({key: {"nodes": [{"evidence_refs": [{"source_span_ref_id": "source"}]}]}}))
+    record = SimpleNamespace(
+        artifact_id="artifact", campaign_id="campaign", session_id="session",
+        run_bundle_uri="missing-bundle", default_graph_run_uri=None,
+    )
+    load = Mock(wraps=graph_preview_surface._load_json)
+    monkeypatch.setattr(graph_preview_surface, "_resolve_recap_artifact", lambda *args, **kwargs: record)
+    monkeypatch.setattr(graph_preview_surface, "discover_graph_preview_runs",
+                        lambda *args, **kwargs: [SimpleNamespace(run_dir="run", canonical_ir_valid=True)])
+    monkeypatch.setattr(graph_preview_surface, "_resolve_run_dir", lambda root, name: root / name)
+    monkeypatch.setattr(graph_preview_surface, "_load_json", load)
+    with pytest.raises(graph_preview_surface.GraphPreviewSurfaceError, match="run bundle not found"):
+        build_latest_graph_preview_surface(tmp_path)
+    load.assert_called_once_with(artifact)
+
+
 def test_latest_surface_prefers_resolvable_run() -> None:
     runs = discover_graph_preview_runs(repo_root())
     if not runs:
@@ -97,6 +195,113 @@ def test_latest_surface_prefers_resolvable_run() -> None:
             break
     if any_resolvable:
         assert payload.health.resolvable_evidence_ref_count > 0
+
+
+def test_recap_presentation_reuses_preview_source_snapshot(tmp_path, monkeypatch):
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "candidate_output.json").write_text(dumps({"nodes": [{"node_id": "npc_mara", "node_type": "npc", "label": "Mara"}]}))
+    summary = run / "run_summary.json"
+    summary.write_text("{", encoding="utf-8")
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    index_path = bundle / "source_span_index.json"
+    index_path.write_text(dumps({"spans": [{"span_id": "span", "line_start": 5, "line_end": 5},
+                                                {"span_id": "span", "start_line": 7, "end_line": 7},
+                                                {"span_id": "first", "line_start": 5, "line_end": 6},
+                                                {"span_id": "overlap", "line_start": 6, "line_end": 6},
+                                                {"span_id": "metadata", "line_start": 2, "line_end": 2}]}))
+    record = SimpleNamespace(default_graph_run_uri="run", run_bundle_uri="bundle", source_recap_path=None)
+    read = Mock(wraps=graph_preview_surface._load_json)
+    class CountedRecap(str):
+        splits = 0
+
+        def splitlines(self, keepends=False):
+            self.splits += 1
+            return super().splitlines(keepends)
+
+    source = CountedRecap("---\r\ntitle: Mara\r\n---\r\n\r\n---\r\nSee Mara.\r\nAsk The Navigator. [Mara](https://example.test/Mara) and `Mara`.\r\n")
+    recap = Mock(return_value=(source, "recap.md"))
+    monkeypatch.setattr(graph_preview_surface, "_resolve_recap_artifact", lambda *args, **kwargs: record)
+    monkeypatch.setattr(graph_preview_surface, "_resolve_run_dir", lambda root, name: root / name)
+    monkeypatch.setattr(graph_preview_surface, "_load_json", read)
+    monkeypatch.setattr(graph_preview_surface, "_recap_text_for_run_bundle", recap)
+    seed = graph_preview_surface.RecapGraphNode(
+        object_id="npc_mara", label="Seed label", kind="npc", role="npc",
+        description="Seed description", evidence_count=0, chips=[],
+    )
+    monkeypatch.setattr(graph_preview_surface, "_route_seed_nodes",
+                        lambda *args: ({"npc_mara": seed}, {"npc_mara": ["The Navigator"]}))
+
+    payload = build_recap_graph_presentation(tmp_path)
+
+    assert payload.markdown == "---\nSee [Mara](dmb-node:npc_mara).\nAsk [The Navigator](dmb-node:npc_mara). [Mara](https://example.test/Mara) and `Mara`."
+    assert [(link.source_span_ref_id, link.char_start, link.char_end) for link in payload.links] == [("first", 8, 12), ("span", 4, 17)]
+    assert payload.nodes["npc_mara"].label == "Mara"
+    assert payload.recap_source_path == "recap.md"
+    assert sum(call.args == (index_path,) for call in read.call_args_list) == 1
+    assert source.splits == 1
+    recap.assert_called_once_with(tmp_path, bundle, source_recap_path=None)
+    assert all(call.args != (summary,) for call in read.call_args_list)
+    with pytest.raises(JSONDecodeError):
+        build_graph_preview_surface(tmp_path, "run", run_bundle_dir=bundle)
+    index_path.unlink()
+    with pytest.raises(FileNotFoundError, match="source_span_index.json"):
+        build_recap_graph_presentation(tmp_path)
+
+
+
+@pytest.mark.parametrize(("path", "session"), [
+    ("Campaign/Session 2/Session 13 Recap.md", 13),
+    ("Campaign/Session 2/Recap.md", None),
+    ("Campaign/Session 22 Recap.md", 22),
+    (None, None),
+])
+def test_recap_seed_session_uses_filename(path, session):
+    assert graph_preview_surface._session_from_recap_path(path) == session
+
+
+@pytest.mark.parametrize(("span_id", "session"), [
+    ("spref:c1s1:001", 1),
+    ("spref:c2s23-recap:001", 23),
+    ("spref:campaign:session-22:001", 22),
+    ("spref:c2s23-other:001", None),
+    ("unknown:23", None),
+    (None, None),
+])
+def test_recap_evidence_session_from_known_span_ids(span_id, session):
+    assert graph_preview_surface._session_from_span_ref(span_id) == session
+
+
+def test_normalized_recap_frontmatter_preserves_unclosed_input():
+    from apps.live_control_server.services.corpus_normalized_recap import _strip_yaml_frontmatter
+
+    assert _strip_yaml_frontmatter("---\r\ntitle: Mara\r\n---\r\n\r\nBody\r\n") == "Body\n"
+    assert _strip_yaml_frontmatter("---\r\ntitle: Mara\r\n") == "---\r\ntitle: Mara\r\n"
+
+
+def test_recap_seed_parser_reads_only_entity_index():
+    seed = """---
+entity_index:
+  npcs:
+    - slug: mara
+      route: original
+      proposed_route: updated
+      aliases_in_recap: ["Mara, the Navigator"]
+      context:
+        route: unrelated
+  parties:
+    group:
+      slug: ignored_mapping
+other_metadata:
+  - slug: ignored_metadata
+---
+"""
+    assert graph_preview_surface._parse_seed_entities(seed) == [
+        {"slug": "mara", "role": "npc", "aliases": ["Mara, the Navigator"], "route": "updated"},
+    ]
+    with pytest.raises(graph_preview_surface.GraphPreviewSurfaceError, match="invalid recap seed frontmatter"):
+        graph_preview_surface._parse_seed_entities("---\nentity_index: [\n---")
 
 
 def test_build_recap_graph_presentation_links_node_labels() -> None:
@@ -129,14 +334,6 @@ def test_get_graph_preview_latest(client: TestClient) -> None:
     assert body["schema_version"] == "dmb_graph_preview_surface_v1"
     assert body["health"]["node_count"] >= 1
     assert isinstance(body["candidates"], list)
-
-
-def test_get_graph_preview_runs(client: TestClient) -> None:
-    response = client.get("/api/live/graph-preview/runs")
-    assert response.status_code == 200
-    body = response.json()
-    assert body["schema_version"] == "dmb_graph_preview_surface_v1"
-    assert isinstance(body["runs"], list)
 
 
 def test_get_graph_preview_by_run_dir(client: TestClient) -> None:

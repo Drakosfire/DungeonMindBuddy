@@ -1,9 +1,11 @@
+import { admittedDocumentHref } from '../documentReference/documentReference';
 /**
  * Centralized URL/media classification for the Markdown document reader.
  * Do not scatter ad-hoc scheme checks across node renderers.
  */
 
 export type LinkUrlKind =
+  | "surface_document"
   | "safe_external"
   | "safe_mailto"
   | "fragment"
@@ -30,6 +32,7 @@ function hasExecutableScheme(url: string): boolean {
 export function classifyLinkUrl(rawUrl: string): LinkUrlKind {
   const url = trimUrl(rawUrl);
   if (!url) return "unsafe";
+  if (admittedDocumentHref(url)) return "surface_document";
   if (url.startsWith("#") && !url.startsWith("#/")) return "fragment";
   if (hasExecutableScheme(url)) return "unsafe";
 

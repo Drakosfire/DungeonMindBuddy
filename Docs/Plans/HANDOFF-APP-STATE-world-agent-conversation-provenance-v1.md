@@ -1,7 +1,6 @@
 # HANDOFF — APP-STATE: typed World Agent turn provenance
 
-- **Status:** ACTIVE — PRIME approved this bounded serial implementation on
-  2026-10-02.
+- **Status:** SETTLED — PR #862 merged at `cfec63c6df9bd14aa7a1b5963266f926c729f8ab`; the implementation lease is released.
 - **Owner:** APP-STATE task `01a0f569-ab17-7411-8473-00544e7842dc`.
 - **Repository:** `Drakosfire/DungeonMindBuddy`.
 - **Pinned base:** Buddy `main@ce03018d8da85a57be1bf4e4ecccf2b2bc7e8fff`.
@@ -17,11 +16,7 @@
   `ARCHITECTURE-application-state-layer.md`; `DECISION-agent-context-compilation.md`;
   PRIME's 2026-10-02 provenance ruling.
 
-PRIME approved the exact implementation lease below. This handoff is pinned in
-its own first commit before schema or service code changes. It authorizes one
-PR; PRIME reviews and controls merge. Do not resume the paused
-AGENT-INTERACTION runtime branch until PRIME reviews and merges this contract
-PR. The existing runtime branch and suspended checkout remain untouched.
+The allowlist and verification requirements below are historical records of the completed #862 implementation, not an active write lease. The later #865 test-file overlap was separately authorized and released at merge `1c0320d18c53037308cd7412719fb3e2f0610d99`. No APP-STATE runtime or operator-database migration authority remains. Preserve the suspended agent-world-conversation-backend checkout. Any new Graph receipt work requires its own explicit bounded handoff.
 
 ## Mission
 

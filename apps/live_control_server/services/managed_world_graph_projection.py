@@ -2,22 +2,24 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+from dungeonmind.domain.errors import PersistenceIntegrityError, PersistenceUnavailableError
+from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
 
 from apps.live_control_server import config
 from apps.live_control_server.services.world_container_registry import (
     WorldContainerRecord,
+    NativeGraphProvisioningRecord,
     WorldContainerRegistryError,
     get_world_container,
-    world_source_root_relpath,
 )
 from apps.live_control_server.services.world_graph_projection import (
     WorldGraphProjectionServiceError,
-    project_world_graph,
 )
 from graph_memory.projection.world_projection import (
     WorldGraphProjection,
@@ -59,9 +61,30 @@ class ManagedWorldGraphProjectionResponse(BaseModel):
     projection: WorldGraphProjection
 
 
+@dataclass(frozen=True)
+class VerifiedManagedWorldBinding:
+    """Active native identity with a legacy source-storage hint, not a proof."""
+
+    managed_world_id: str
+    native_world_id: str
+    binding_version: int
+    source_root_relpath: str
+
+
+@dataclass(frozen=True)
+class ManagedWorldSourceIdentity:
+    """Private source-space ownership; grants no Graph read or write authority."""
+
+    managed_world_id: str
+    native_world_id: str
+    binding_version: int
+    source_root_relpath: str
+    provisioning_id: str | None = None
+
+
 def _verified_managed_record(root: Path, managed_world_id: str) -> WorldContainerRecord:
     try:
-        record = get_world_container(root, managed_world_id)
+        record = get_world_container(managed_world_id)
     except WorldContainerRegistryError as exc:
         code = (
             "managed_world_not_found"
@@ -74,14 +97,10 @@ def _verified_managed_record(root: Path, managed_world_id: str) -> WorldContaine
             status_code=exc.status_code,
         ) from None
 
-    expected_source_root = world_source_root_relpath(record.world_id)
-    if (
-        record.source_root_relpath != expected_source_root
-        or not (root / expected_source_root).is_dir()
-    ):
+    if record.world_id != managed_world_id:
         raise WorldGraphProjectionServiceError(
-            "Managed World is not verified by its source root.",
-            code="managed_world_unverified",
+            "Managed World record does not match the requested identity.",
+            code="managed_world_identity_mismatch",
             status_code=409,
         )
     return record
@@ -94,6 +113,11 @@ def _active_binding(record: WorldContainerRecord) -> tuple[str, int]:
             "Managed World has no native Graph binding.",
             code="native_graph_binding_missing",
             status_code=409,
+        )
+    if binding.status == "provisioning":
+        raise WorldGraphProjectionServiceError(
+            "World sources can be ingested; reviewed Graph publication is pending.",
+            code="native_graph_provisioning_pending", status_code=409,
         )
     if binding.status != "active":
         raise WorldGraphProjectionServiceError(
@@ -112,21 +136,112 @@ def _active_binding(record: WorldContainerRecord) -> tuple[str, int]:
     return native_world_id, binding.binding_version
 
 
+def resolve_managed_world_binding(
+    managed_world_id: str, *, root: Path | None = None
+) -> VerifiedManagedWorldBinding:
+    """Resolve the existing verified managed World and active native binding."""
+
+    registry_root = root if root is not None else config.repo_root()
+    record = _verified_managed_record(registry_root, managed_world_id)
+    native_world_id, binding_version = _active_binding(record)
+    return VerifiedManagedWorldBinding(
+        managed_world_id=record.world_id,
+        native_world_id=native_world_id,
+        binding_version=binding_version,
+        source_root_relpath=record.source_root_relpath,
+    )
+
+
+def resolve_managed_source_identity(
+    managed_world_id: str, *, root: Path | None = None,
+) -> ManagedWorldSourceIdentity:
+    """Resolve source ownership, permitting a reserved source KnowledgeSpace.
+
+    This value grants no Graph read/publication authority. Promotion to an active
+    binding requires a separately verified reviewed Graph initialization.
+    """
+    registry_root = root if root is not None else config.repo_root()
+    record = _verified_managed_record(registry_root, managed_world_id)
+    binding = record.native_graph_binding
+    if isinstance(binding, NativeGraphProvisioningRecord):
+        return ManagedWorldSourceIdentity(
+            managed_world_id=record.world_id,
+            native_world_id=binding.native_world_id,
+            binding_version=binding.binding_version,
+            source_root_relpath=record.source_root_relpath,
+            provisioning_id=binding.provisioning_id,
+        )
+    native_world_id, binding_version = _active_binding(record)
+    return ManagedWorldSourceIdentity(
+        managed_world_id=record.world_id, native_world_id=native_world_id,
+        binding_version=binding_version, source_root_relpath=record.source_root_relpath,
+        provisioning_id=record.native_graph_binding.provisioning_id,
+    )
+
+
+
+_managed_projection_parsed_cache = NativeParsedRevisionCache()
+
+
+def _read_native_projection_support(
+    binding: VerifiedManagedWorldBinding, revision_pin: str | None
+):
+    """Resolve one native World revision and read its authorized projection inputs."""
+    from dungeonmind.application.vnext import EntityReadService
+    from dungeonmind.application.vnext.errors import KnowledgeReadContextIntegrityError
+
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source
+
+    if not config.world_graph_authority_database_url():
+        raise WorldGraphProjectionServiceError(
+            "Native Graph authority is not configured.",
+            code="native_graph_authority_unavailable", status_code=503,
+        )
+    repository = native_registry_source.read_repository()
+    head = repository.get_head(binding.native_world_id)
+    if head is None:
+        raise WorldGraphProjectionServiceError(
+            "Managed World native Graph head is unavailable.",
+            code="native_graph_head_unavailable",
+            status_code=404,
+        )
+    revision_id = head.head_revision_id if revision_pin is None else revision_pin
+    try:
+        context, access, _, _ = native_registry_source.read_context(
+            repository, binding.native_world_id, revision_id, None, scope_mode="world",
+            parsed_cache=_managed_projection_parsed_cache
+        )
+    except KnowledgeReadContextIntegrityError as exc:
+        # Core currently reports a missing revision through this integrity error.
+        if revision_pin is None or str(exc) != "native source context revision is missing":
+            raise
+        raise WorldGraphProjectionServiceError(
+            "Requested native Graph revision is unavailable.",
+            code="native_graph_revision_unavailable",
+            status_code=404,
+        ) from exc
+    return head.head_revision_id, context, access, EntityReadService().list_entities_with_support(context)
+
+
 def project_managed_world_graph(
     request: ManagedWorldGraphProjectionRequest,
     *,
     root: Path | None = None,
+    expected_binding: VerifiedManagedWorldBinding | None = None,
 ) -> ManagedWorldGraphProjectionResponse:
     """Read through a stable active Buddy binding, failing closed on change."""
 
-    registry_root = root if root is not None else config.repo_root()
-    initial = _verified_managed_record(registry_root, request.managed_world_id)
-    native_world_id, binding_version = _active_binding(initial)
+    initial = resolve_managed_world_binding(request.managed_world_id, root=root)
+    if expected_binding is not None and initial != expected_binding:
+        raise WorldGraphProjectionServiceError(
+            "Managed World native Graph binding changed before projection.",
+            code="native_graph_binding_changed", status_code=409,
+        )
 
     native_request = WorldGraphProjectionRequest.model_validate(
         {
             "schema": "dmb_world_graph_projection_request_v1",
-            "worldId": native_world_id,
+            "worldId": initial.native_world_id,
             "campaignId": "",
             "focus": {"kind": "none", "sessionId": None},
             "admissibility": "gm",
@@ -135,15 +250,46 @@ def project_managed_world_graph(
             "scopeMode": "world",
         }
     )
-    projection = project_world_graph(native_request)
+    try:
+        from apps.live_control_server.integrations.dungeonmind.vnext_world_projection import (
+            project_native_world,
+            project_query_context,
+        )
+        from graph_memory.projection.world_projection import WorldGraphProjectionSnapshot
 
-    current = _verified_managed_record(registry_root, request.managed_world_id)
-    current_native_world_id, current_binding_version = _active_binding(current)
-    if (
-        current_native_world_id != native_world_id
-        or current_binding_version != binding_version
-        or current.source_root_relpath != initial.source_root_relpath
-    ):
+        head, context, access, support = _read_native_projection_support(initial, request.revision_pin)
+        revision = support.listing.identity.revision_id
+        projection = project_native_world(
+            context,
+            support,
+            WorldGraphProjectionSnapshot(
+                world_id=initial.native_world_id,
+                campaign_id="",
+                revision_id=revision,
+                head_revision_id=head,
+                is_head=revision == head,
+                focus=native_request.focus,
+                admissibility="gm",
+                scope_mode="world",
+            ),
+            access=access,
+            managed_world_id=initial.managed_world_id,
+        )
+        if request.query_text:
+            projection.query_context = project_query_context(projection, request.query_text)
+    except PersistenceUnavailableError as exc:
+        raise WorldGraphProjectionServiceError(
+            "Native Graph authority is unavailable.",
+            code="native_graph_authority_unavailable", status_code=503,
+        ) from exc
+    except PersistenceIntegrityError as exc:
+        raise WorldGraphProjectionServiceError(
+            "Native Graph integrity could not be verified.",
+            code="native_graph_integrity_failure", status_code=500,
+        ) from exc
+
+    current = resolve_managed_world_binding(request.managed_world_id, root=root)
+    if current != initial:
         raise WorldGraphProjectionServiceError(
             "Managed World native Graph binding changed during projection; retry the read.",
             code="native_graph_binding_changed",
@@ -152,9 +298,9 @@ def project_managed_world_graph(
 
     return ManagedWorldGraphProjectionResponse(
         schema_="dmb_managed_world_graph_projection_v1",
-        managed_world_id=initial.world_id,
-        native_world_id=native_world_id,
-        binding_version=binding_version,
+        managed_world_id=initial.managed_world_id,
+        native_world_id=initial.native_world_id,
+        binding_version=initial.binding_version,
         projection=projection,
     )
 
@@ -162,5 +308,7 @@ def project_managed_world_graph(
 __all__ = [
     "ManagedWorldGraphProjectionRequest",
     "ManagedWorldGraphProjectionResponse",
+    "VerifiedManagedWorldBinding",
     "project_managed_world_graph",
+    "resolve_managed_world_binding",
 ]

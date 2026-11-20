@@ -111,12 +111,11 @@ describe("markdownToTiptapDoc", () => {
     expect(paragraph.content?.find((node) => node.text === "code")?.marks).toEqual([{ type: "code" }]);
   });
 
-  it("fails closed on ordinary Markdown links instead of emitting an unmounted link mark", () => {
+  it("imports supported web links as mounted link marks", () => {
     const imported = markdownToTiptapDoc("Read [the rules](https://example.com/rules).");
-    expect(imported.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ level: "warning", line: 1 }),
-    ]));
-    expect(JSON.stringify(imported.doc)).not.toContain('"type":"link"');
+    expect(imported.diagnostics).toEqual([]);
+    expect(JSON.stringify(imported.doc)).toContain('"type":"link"');
+    expect(tiptapJsonToSemanticMarkdown(imported.doc)).toContain('[the rules](https://example.com/rules)');
   });
 
   it("imports typed ref links as runbookReference nodes", () => {
@@ -457,39 +456,12 @@ describe("markdownToTiptapDoc", () => {
     ]));
   });
 
-  it("fails closed when ordinary links inside table cells would be destroyed on export", () => {
-    const imported = markdownToTiptapDoc([
-      "Threat | Note",
-      "--- | ---",
-      "Latchling | See [wiki](https://example.com/latchling)",
-      "",
-    ].join("\n"));
-    expect(imported.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        level: "warning",
-        line: 3,
-        message: expect.stringContaining("Ordinary Markdown links"),
-      }),
-    ]));
-    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
-    expect(exported).not.toContain("](https://example.com/latchling)");
-  });
-
-  it("fails closed when ordinary links inside callout table cells would be destroyed", () => {
-    const imported = markdownToTiptapDoc([
-      "> [!GM-NOTE]",
-      "> Threat | Note",
-      "> --- | ---",
-      "> Latchling | See [wiki](https://example.com/latchling)",
-      "",
-    ].join("\n"));
-    expect(imported.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        level: "warning",
-        line: 4,
-        message: expect.stringContaining("Ordinary Markdown links"),
-      }),
-    ]));
+  it.each(["", "> [!GM-NOTE]\n"])("retains web links in table cells with callout prefix %s", prefix => {
+    const lines = ["Threat | Note", "--- | ---", "Latchling | See [wiki](https://example.com/latchling)"];
+    const source = prefix + lines.map(line => prefix ? "> " + line : line).join("\n");
+    const imported = markdownToTiptapDoc(source);
+    expect(imported.diagnostics).toEqual([]);
+    expect(tiptapJsonToSemanticMarkdown(imported.doc)).toContain('[wiki](https://example.com/latchling)');
   });
 
   it("fails closed on aligned tables inside callouts via the table parse path", () => {
@@ -525,12 +497,34 @@ describe("markdownToTiptapDoc", () => {
     ]));
   });
 
-  it("fails closed on Setext headings and explicit hard breaks", () => {
+  it("admits Setext headings while preserving explicit hard breaks", () => {
     const imported = markdownToTiptapDoc("Legacy title\n===\n\nLine one  \nLine two\n");
-    expect(imported.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ level: "warning", line: 2 }),
-      expect.objectContaining({ level: "warning", line: 4 }),
-    ]));
+    expect(imported.diagnostics).toEqual([]);
+    expect(imported.doc.content?.some(node => node.content?.some(child => child.type === "hardBreak"))).toBe(true);
+  });
+
+  it.each([
+    "Title\n===\n",
+    "Section\n---\n",
+    "A **bold** title with *emphasis* and [a link](https://example.com)\n===\n",
+    "A multiline\nsection title\n---\n",
+    "Title\n===\n\n---\n\nSection\n---\n\nText.\n",
+  ])("preserves Setext heading semantics through canonical export: %s", markdown => {
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual([]);
+    const canonical = tiptapJsonToSemanticMarkdown(imported.doc);
+    expect(canonical).toMatch(/^#{1,2} /);
+    const reopened = markdownToTiptapDoc(canonical);
+    expect(reopened.diagnostics).toEqual([]);
+    expect(reopened.doc).toEqual(imported.doc);
+  });
+
+  it.each([
+    "  # Indented heading\n",
+    "- item\n\n  # Nested heading\n",
+    "<div>Unsupported HTML</div>\n",
+  ])("retains refusal of unsupported heading contexts and HTML: %s", markdown => {
+    expect(markdownToTiptapDoc(markdown).diagnostics.some(item => item.level === "warning")).toBe(true);
   });
 
   it("imports canonical top-level Decision/Consequence with two ordered panes", () => {

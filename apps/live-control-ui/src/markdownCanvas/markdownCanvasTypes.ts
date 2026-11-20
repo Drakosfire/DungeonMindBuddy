@@ -1,3 +1,6 @@
+import type {TourDispatchScope} from '../guidedTour/GuidedTour';
+import type { WorkspaceConflictRecovery } from "../workspaceDocument/workspaceConflictRecovery";
+import type { WorkspaceDraftRecoveryReview, WorkspaceDraftRestoreReview } from "../workspaceDocument/workspaceDocumentRecovery";
 import type { ReactNode } from "react";
 import type { Editor, JSONContent } from "@tiptap/react";
 
@@ -103,13 +106,23 @@ export type AdmissionLookupResult =
   };
 
 export interface MarkdownCanvasSessionValue extends CanvasDocumentState {
+  tourSaveScope?:TourDispatchScope|null;
   statusLabel: string;
   reconciliation: ReconcileLocalDraftResult | null;
   editorContent: unknown;
   documentKey: string;
   /** True while Save requires re-import/discard of a sealed source projection. */
   exportedMarkdownAuthoritative: boolean;
+  pageComposerEnabled?: boolean;
+  pageComposerDisabledReason?: string | null;
   saveDisabled: boolean;
+  saveDisabledReason: string | null;
+  conflictRecovery?: WorkspaceConflictRecovery;
+  draftRecoveryAvailable: boolean;
+  prepareDraftRecovery: () => WorkspaceDraftRecoveryReview;
+  confirmDraftRecovery: (review: WorkspaceDraftRecoveryReview, mode?: "source" | "current" | "normalize") => Promise<void>;
+  prepareDraftRestore: () => Promise<WorkspaceDraftRestoreReview>;
+  restoreDraftRecovery: (review: WorkspaceDraftRestoreReview, copyId: string) => Promise<void>;
   lastCommitReceipt: TiptapMarkdownWriteCommitResponse | null;
   activeCommand: ActiveDocumentCommand | null;
   /** Live TipTap instance once MarkdownCanvas mounts; null while unloaded or between swaps. */

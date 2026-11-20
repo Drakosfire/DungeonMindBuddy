@@ -1,0 +1,599 @@
+{
+  "candidate_checkout": "/tmp/buddy-runtime-candidate-20261012",
+  "core_commit": "13143455b304d748c249bd7bd628134c421bf6d9",
+  "environment_is_symlink": false,
+  "environment_root": "/tmp/buddy-runtime-candidate-20261012/.venv",
+  "focused_tests_passed": 6,
+  "head": "fad78a85d710f560bc297f867b6e3c1fa4f0940e",
+  "hermes_manifest": {
+    "expected_tree_sha": "0430126a406c559bb38b86990f513e19c2ec938e",
+    "patch_sha256": "b86a45648bd323eaf58f73550725c2fb8d0442e58bc5471ee2c369fe82a53ada",
+    "schema": "dmb_patched_hermes_source_v1",
+    "tree_sha": "0430126a406c559bb38b86990f513e19c2ec938e",
+    "upstream_commit": "861d69c7bba8d2ea6a1cd170e989c901c74d32d1",
+    "upstream_repository": "https://github.com/NousResearch/hermes-agent.git"
+  },
+  "hermes_verify": "PASS",
+  "installed_package_count": 100,
+  "installed_packages_sha256": "c6692bff57589d1c913a6e3c9f9c536f6bd89928b36fe2684438f3d31141e24a",
+  "launcher_bash_syntax": "PASS",
+  "launcher_sha256": "e20dc73a68d210f2127025df4e7e8b462450cbe2f13c8eee85f62ee7b2803179",
+  "listener_started": false,
+  "live_after_receipt_sha256": "f350917f80260ff33b5a0694669c3830c4d93b3be6320c64b0a08829cd81da1e",
+  "live_preservation_matches": true,
+  "live_preserved_fields": [
+    "runtime_checkout",
+    "rollback_head",
+    "rollback_tree",
+    "runtime_status",
+    "processes",
+    "safe_launch_environment",
+    "preserved_files",
+    "operator_state",
+    "python_environment",
+    "installed_runtime_core",
+    "node_version",
+    "authority_identities",
+    "health_status"
+  ],
+  "lock_check": "PASS",
+  "lock_sha256": "1f2747cad2934bc6f2e7ee5af7b83c0a227d01a75ddab507b3d29f254c9dfb8e",
+  "locked_sync": "PASS; exact Core Git fetch required after offline cache miss",
+  "metadata_record_count": 101,
+  "node": "22.23.0",
+  "npm": "10.9.8",
+  "packages": [
+    {
+      "commit": null,
+      "name": "alembic",
+      "version": "1.19.1"
+    },
+    {
+      "commit": null,
+      "name": "annotated-doc",
+      "version": "0.0.4"
+    },
+    {
+      "commit": null,
+      "name": "annotated-types",
+      "version": "0.7.0"
+    },
+    {
+      "commit": null,
+      "name": "anyio",
+      "version": "4.13.0"
+    },
+    {
+      "commit": null,
+      "name": "attrs",
+      "version": "26.1.0"
+    },
+    {
+      "commit": null,
+      "name": "bcrypt",
+      "version": "5.0.0"
+    },
+    {
+      "commit": null,
+      "name": "blake3",
+      "version": "1.0.8"
+    },
+    {
+      "commit": null,
+      "name": "certifi",
+      "version": "2026.5.20"
+    },
+    {
+      "commit": null,
+      "name": "cffi",
+      "version": "2.0.0"
+    },
+    {
+      "commit": null,
+      "name": "charset-normalizer",
+      "version": "3.4.9"
+    },
+    {
+      "commit": null,
+      "name": "click",
+      "version": "8.3.2"
+    },
+    {
+      "commit": null,
+      "name": "coverage",
+      "version": "7.13.5"
+    },
+    {
+      "commit": null,
+      "name": "croniter",
+      "version": "6.0.0"
+    },
+    {
+      "commit": null,
+      "name": "cryptography",
+      "version": "46.0.7"
+    },
+    {
+      "commit": null,
+      "name": "distro",
+      "version": "1.9.0"
+    },
+    {
+      "commit": "13143455b304d748c249bd7bd628134c421bf6d9",
+      "name": "dungeonmind",
+      "version": "0.1.0"
+    },
+    {
+      "commit": null,
+      "name": "dungeonmindbuddy",
+      "version": "0.1.0"
+    },
+    {
+      "commit": null,
+      "name": "fastapi",
+      "version": "0.136.3"
+    },
+    {
+      "commit": null,
+      "name": "fire",
+      "version": "0.7.1"
+    },
+    {
+      "commit": null,
+      "name": "genai-prices",
+      "version": "0.1.4"
+    },
+    {
+      "commit": "128710668369b73beff78ea0e4377ec252cd04e4",
+      "name": "generationengine",
+      "version": "0.1.0"
+    },
+    {
+      "commit": null,
+      "name": "greenlet",
+      "version": "3.5.5"
+    },
+    {
+      "commit": null,
+      "name": "griffelib",
+      "version": "2.2.0"
+    },
+    {
+      "commit": null,
+      "name": "h11",
+      "version": "0.16.0"
+    },
+    {
+      "commit": null,
+      "name": "hermes-agent",
+      "version": "0.18.2"
+    },
+    {
+      "commit": null,
+      "name": "httpcore",
+      "version": "1.0.9"
+    },
+    {
+      "commit": null,
+      "name": "httpcore2",
+      "version": "2.3.0"
+    },
+    {
+      "commit": null,
+      "name": "httptools",
+      "version": "0.8.0"
+    },
+    {
+      "commit": null,
+      "name": "httpx",
+      "version": "0.28.1"
+    },
+    {
+      "commit": null,
+      "name": "httpx2",
+      "version": "2.3.0"
+    },
+    {
+      "commit": null,
+      "name": "idna",
+      "version": "3.11"
+    },
+    {
+      "commit": null,
+      "name": "iniconfig",
+      "version": "2.3.0"
+    },
+    {
+      "commit": null,
+      "name": "invoke",
+      "version": "2.2.1"
+    },
+    {
+      "commit": null,
+      "name": "Jinja2",
+      "version": "3.1.6"
+    },
+    {
+      "commit": null,
+      "name": "jiter",
+      "version": "0.13.0"
+    },
+    {
+      "commit": null,
+      "name": "jsonschema",
+      "version": "4.26.0"
+    },
+    {
+      "commit": null,
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1"
+    },
+    {
+      "commit": null,
+      "name": "logfire-api",
+      "version": "4.41.0"
+    },
+    {
+      "commit": null,
+      "name": "lxml",
+      "version": "6.0.2"
+    },
+    {
+      "commit": null,
+      "name": "Mako",
+      "version": "1.4.1"
+    },
+    {
+      "commit": null,
+      "name": "Markdown",
+      "version": "3.10.2"
+    },
+    {
+      "commit": null,
+      "name": "markdown-it-py",
+      "version": "4.0.0"
+    },
+    {
+      "commit": null,
+      "name": "MarkupSafe",
+      "version": "3.0.3"
+    },
+    {
+      "commit": null,
+      "name": "mdurl",
+      "version": "0.1.2"
+    },
+    {
+      "commit": null,
+      "name": "openai",
+      "version": "2.24.0"
+    },
+    {
+      "commit": null,
+      "name": "opentelemetry-api",
+      "version": "1.44.0"
+    },
+    {
+      "commit": null,
+      "name": "packaging",
+      "version": "26.0"
+    },
+    {
+      "commit": null,
+      "name": "paramiko",
+      "version": "4.0.0"
+    },
+    {
+      "commit": null,
+      "name": "pathspec",
+      "version": "1.1.1"
+    },
+    {
+      "commit": null,
+      "name": "pgvector",
+      "version": "0.5.0"
+    },
+    {
+      "commit": null,
+      "name": "pillow",
+      "version": "12.2.0"
+    },
+    {
+      "commit": null,
+      "name": "pluggy",
+      "version": "1.6.0"
+    },
+    {
+      "commit": null,
+      "name": "prompt_toolkit",
+      "version": "3.0.52"
+    },
+    {
+      "commit": null,
+      "name": "psutil",
+      "version": "7.2.2"
+    },
+    {
+      "commit": null,
+      "name": "psycopg",
+      "version": "3.3.4"
+    },
+    {
+      "commit": null,
+      "name": "psycopg-binary",
+      "version": "3.3.4"
+    },
+    {
+      "commit": null,
+      "name": "ptyprocess",
+      "version": "0.7.0"
+    },
+    {
+      "commit": null,
+      "name": "pycparser",
+      "version": "3.0"
+    },
+    {
+      "commit": null,
+      "name": "pydantic",
+      "version": "2.13.4"
+    },
+    {
+      "commit": null,
+      "name": "pydantic-ai-slim",
+      "version": "1.66.0"
+    },
+    {
+      "commit": null,
+      "name": "pydantic-graph",
+      "version": "1.66.0"
+    },
+    {
+      "commit": null,
+      "name": "pydantic_core",
+      "version": "2.46.4"
+    },
+    {
+      "commit": null,
+      "name": "Pygments",
+      "version": "2.19.2"
+    },
+    {
+      "commit": null,
+      "name": "PyJWT",
+      "version": "2.13.0"
+    },
+    {
+      "commit": null,
+      "name": "PyNaCl",
+      "version": "1.6.2"
+    },
+    {
+      "commit": null,
+      "name": "pytest",
+      "version": "9.0.2"
+    },
+    {
+      "commit": null,
+      "name": "pytest-cov",
+      "version": "7.1.0"
+    },
+    {
+      "commit": null,
+      "name": "python-dateutil",
+      "version": "2.9.0.post0"
+    },
+    {
+      "commit": null,
+      "name": "python-docx",
+      "version": "1.2.0"
+    },
+    {
+      "commit": null,
+      "name": "python-dotenv",
+      "version": "1.2.2"
+    },
+    {
+      "commit": null,
+      "name": "python-multipart",
+      "version": "0.0.32"
+    },
+    {
+      "commit": null,
+      "name": "pytz",
+      "version": "2026.2"
+    },
+    {
+      "commit": null,
+      "name": "PyYAML",
+      "version": "6.0.3"
+    },
+    {
+      "commit": null,
+      "name": "referencing",
+      "version": "0.37.0"
+    },
+    {
+      "commit": null,
+      "name": "regex",
+      "version": "2026.4.4"
+    },
+    {
+      "commit": null,
+      "name": "requests",
+      "version": "2.33.0"
+    },
+    {
+      "commit": null,
+      "name": "rich",
+      "version": "14.3.3"
+    },
+    {
+      "commit": null,
+      "name": "rpds-py",
+      "version": "0.30.0"
+    },
+    {
+      "commit": null,
+      "name": "ruamel.yaml",
+      "version": "0.18.17"
+    },
+    {
+      "commit": null,
+      "name": "ruamel.yaml.clib",
+      "version": "0.2.15"
+    },
+    {
+      "commit": null,
+      "name": "ruff",
+      "version": "0.15.7"
+    },
+    {
+      "commit": null,
+      "name": "six",
+      "version": "1.17.0"
+    },
+    {
+      "commit": null,
+      "name": "sniffio",
+      "version": "1.3.1"
+    },
+    {
+      "commit": null,
+      "name": "socksio",
+      "version": "1.0.0"
+    },
+    {
+      "commit": null,
+      "name": "SQLAlchemy",
+      "version": "2.0.52"
+    },
+    {
+      "commit": null,
+      "name": "starlette",
+      "version": "1.1.0"
+    },
+    {
+      "commit": null,
+      "name": "tenacity",
+      "version": "9.1.4"
+    },
+    {
+      "commit": null,
+      "name": "termcolor",
+      "version": "3.3.0"
+    },
+    {
+      "commit": null,
+      "name": "tiktoken",
+      "version": "0.14.0"
+    },
+    {
+      "commit": null,
+      "name": "tqdm",
+      "version": "4.67.3"
+    },
+    {
+      "commit": null,
+      "name": "truststore",
+      "version": "0.10.4"
+    },
+    {
+      "commit": null,
+      "name": "typing-inspection",
+      "version": "0.4.2"
+    },
+    {
+      "commit": null,
+      "name": "typing_extensions",
+      "version": "4.15.0"
+    },
+    {
+      "commit": null,
+      "name": "urllib3",
+      "version": "2.7.0"
+    },
+    {
+      "commit": null,
+      "name": "uvicorn",
+      "version": "0.48.0"
+    },
+    {
+      "commit": null,
+      "name": "uvloop",
+      "version": "0.22.1"
+    },
+    {
+      "commit": null,
+      "name": "watchfiles",
+      "version": "1.2.0"
+    },
+    {
+      "commit": null,
+      "name": "wcwidth",
+      "version": "0.8.2"
+    },
+    {
+      "commit": null,
+      "name": "websockets",
+      "version": "15.0.1"
+    },
+    {
+      "commit": "49a8620f066ce7ef8972a699020c012f50af9158",
+      "name": "worldkeeper",
+      "version": "0.1.0"
+    }
+  ],
+  "pip_check": "PASS",
+  "private_config_copied": false,
+  "provider_call": false,
+  "provider_free_main_import_routes": 191,
+  "python": "3.13.12",
+  "pyvenv_cfg_sha256": "4690a295b89def1c2022d052ef5a1e4e7e89a08e2b76fab65a002cb10362693e",
+  "quiet_rollout_authority": false,
+  "tree": "a39554747936fdae84ebac319683ae48f7e8b3c5",
+  "typescript": "5.9.3",
+  "ui_build": [
+    {
+      "path": "assets/dungeonbuddy-agent-C7gh1nKO.png",
+      "sha256": "965410de1316650272ad5ff850318dd09eb89b864974e184d1a855015aa48bf3"
+    },
+    {
+      "path": "assets/index-CrEzQvNx.js",
+      "sha256": "1f7a9fd72b7d2d67c568469bd06fcc7b2ce0d917c935b4929ddefdf20093318e"
+    },
+    {
+      "path": "assets/index-DbehLmIX.css",
+      "sha256": "02a71f715c8a44047fc45f2a9c2988bcc1e9631566891aa59d1d3a5addc36e0a"
+    },
+    {
+      "path": "index.html",
+      "sha256": "cc2b3e07a72172ac9c58c53dbe1554f460446b62da380c103dec038e2e502c38"
+    },
+    {
+      "path": "statblock-theme/assets/parchmentBackground.jpg",
+      "sha256": "fc153294b70f6aac4d2ce48c7e9d015945b87c48f584db29da30cbbd5b876d1c"
+    },
+    {
+      "path": "statblock-theme/fonts/Bookinsanity Bold Italic.woff2",
+      "sha256": "2db2d0f54b23f22128d1b7ba67070bf97193c79b44df2930d3fbe3e21526a211"
+    },
+    {
+      "path": "statblock-theme/fonts/Bookinsanity Bold.woff2",
+      "sha256": "29469e1eda67450666546e11566e67b4cc5cbe064fd5a14ca3f7dd5f802981ff"
+    },
+    {
+      "path": "statblock-theme/fonts/Bookinsanity Italic.woff2",
+      "sha256": "2e211cc36a6fb06a47192bd55131770edf6483447941d7a1b061f09b0ab10607"
+    },
+    {
+      "path": "statblock-theme/fonts/Bookinsanity.woff2",
+      "sha256": "021294e6da102587d463fa8de64d5f1b61606f2c1d5453ebe04ccedf365cedfe"
+    }
+  ],
+  "ui_build_inventory_sha256": "63629e0da6083d56adffb6753b3672f5339f5ea892f9f082ac4f656bc8524516",
+  "ui_build_status": "PASS",
+  "ui_lock_sha256": "860c764cbe376a7b996b77b6ee45f709f8debd9d4713de2f45dbf5817d87c5b2",
+  "ui_offline_ci_packages": 575,
+  "vite": "6.4.2"
+}

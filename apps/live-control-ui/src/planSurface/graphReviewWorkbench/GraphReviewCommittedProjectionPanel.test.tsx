@@ -13,33 +13,6 @@ vi.mock("../../api/liveApi", async () => {
     await vi.importActual<typeof import("../../api/liveApi")>("../../api/liveApi");
   return {
     ...actual,
-    getUnionSupergraphProjection: vi.fn().mockResolvedValue({
-      campaign_id: "longmont-c2",
-      session_id: "session-25",
-      graph_id: "graph-a",
-      markdown: "# Candidate",
-      focus: {
-        focus_session_id: "session-25",
-        focused_evidence_ref_ids: [],
-        focused_edge_ids: [],
-        focused_node_ids: [],
-      },
-      node_views: {
-        "object-1": {
-          node_id: "object-1",
-          label: "Candidate Hesta",
-          kind: "npc",
-          role: "character",
-          summary: "candidate",
-          evidence_ref_ids: [],
-          edge_ids: [],
-          beat_ids: [],
-          source_span_ids: [],
-        },
-      },
-      source_spans: [],
-      mentions: [],
-    }),
     postWorldGraphProjection: vi.fn(),
   };
 });

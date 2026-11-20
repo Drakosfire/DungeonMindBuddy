@@ -1,0 +1,131 @@
+# HOSTED: authorize the owned native World graph
+
+**Status:** ACTIVE for the backend and explicitly transferred frontend/entity-inspection scope below. Implementation and verification are in progress; not deployment-qualified.
+**Owner:** wire_hosted_graph_access, explicitly assigned design/stewardship and implementation by the coordinating root.
+**Policy anchor:** current main `11505add65802454390dbb48e73ea109925eb655`, included in the published parent and inspected by the graph coordinator on 2026-11-11. Its AGENTS.md preserves the pinned branch handoff and Projects-backed frontend verifier allocator. Original reachable owner authority remains `67af9b216ca16a6fee5f0b99493a1711c7c8afa5`; frontend/inspection amendment remains `847929ebab83614d937fa4412e9af01a7fee0851`.
+**Implementation base:** published #2330 `524da0c7a75770da6b01a486fc937e7a6fa3e6d7`, tree-identical to reviewed local `e0ec2441542ce821c3ca01318e6657bf2019454b`. It includes the captured-source reader fence, graph migrations 0150/0151, current main `11505add65802454390dbb48e73ea109925eb655`, and explicit interrupted-prepare recovery. Parent remote branch remains `codex/native-graph-demo-20261110`; current parent checkout is `/home/drakosfire/Projects/.codex/graph-finish-20261111/worktrees/DungeonMindBuddy`. This owner lane merges the published parent without conflicts, preserving scoped owner guards and entity-only hosted presentation. Merge/deployment and owner publication authorization remain separate.
+**Topology:** stacked, exactly one assigned owner-access PR above #2330. Required merge order is existing explorer stack, finalized #2330, then this slice. Rebase/reconcile onto the actual finalized parent before publication/review. No merge/deploy authority.
+**Branch:** `codex/hosted-owned-graph-20261110` at `/home/drakosfire/Projects/.codex/hosted-owned-graph-20261110/worktrees/DungeonMindBuddy`.
+**Authorization:** Alan asked to view his corpus graph and wire it to be ready to deploy with user ownership. Root explicitly directed proceeding with owner-only initially as a bounded least-privilege behavior, not permanent product policy. No shared-member GM assumption, actual ownership change, merge or deployment.
+**Activation facts:** graph coordinator froze/transferred `main.py`, `routes/native_graph_explorer.py`, `services/native_graph_explorer.py` on its side at b032; the same coordinator subsequently released App/selector/liveApi/auth-gate paths after its synchronization assessment, as recorded below. Current open HOSTED #1512/#1514 are documentation-only; deploy prep #1828 owns only deployment packaging paths; #2358 is Backlog only. Older preflight historical ACTIVE records are not new authorities over this explicit root assignment. Shared test inventory is additive for this slice's exact new tests only.
+**Runtime:** synthetic offline auth/unit/native repositories initially. Task-owned scratch/cache/verification on Projects UUID `48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8`; no shared service ports, live DB, user corpus or provider. Any persistent integration proof uses uniquely allocated fixture databases under existing authorized test machinery, not operator data.
+
+## Active invariant and behavior
+
+Only an introspected DMS subject equal to the authoritative preexisting APP World owner and admitted by the existing hosted World allowlist can enter this initial hosted native graph capability. Existing nonowner grants are preserved but do not grant native GM. An owned World can be listed through an explicitly registered owner-filtered collection policy and read/authored through the four exact existing explorer routes. Missing ownership/authority denies; there is no owner assignment, migration, seed, new World creation or generic auth exemption.
+
+Permissions are checked at request admission, before each native publication boundary, before operation recovery and before returning graph/results. A publication already dispatched before a later external ownership change may finish; the result is still withheld after failed revalidation, and later retries revalidate before receipt recovery. This slice does not promise atomic cancellation of in-flight Core work across independently administered databases and does not add an ownership-transfer API.
+
+Keep the current entity/relationship canvas and actual loaded managed/native World/binding/revision synchronization. Do not make source/evidence records into graph nodes. Local native routes retain their authentication. No global hosted enabling of other native routes.
+
+## §4 Active backend write lease
+
+| Action | Path | Purpose |
+|---|---|---|
+| Create | `Docs/Plans/HANDOFF-HOSTED-owned-native-graph-explorer.md` | Pinned active authority and updates |
+| Create | `apps/live_control_server/services/hosted_native_graph_access.py` | Exact trusted owner authorization, scoped principal, filtered collection policy |
+| Modify | `apps/live_control_server/services/hosted_auth.py` | Explicit exact collection-authorizer seam; all other middleware checks unchanged |
+| Modify | `apps/live_control_server/main.py` | Explorer resolvers, collection registration, additive authenticated session identity |
+| Modify | `apps/live_control_server/services/agent_graph_auth.py` | Narrow additive hosted owner principal method type only, no shared auth-policy widening |
+| Modify | `apps/live_control_server/routes/native_graph_explorer.py` | Explorer-scoped auth dependency; local behavior preserved |
+| Modify | `apps/live_control_server/services/native_graph_explorer.py` | Current owner revalidation at effects/recovery/return |
+| Modify | `apps/live_control_server/routes/world_containers.py` | Hosted filtered existing-World list only; local list unchanged |
+| Create | `tests/test_hosted_native_graph_access.py` | Owning middleware/auth/native denial contracts |
+| Modify | `tests/test_hosted_auth.py` | Explicit collection seam and unrelated route regression |
+| Modify | `tests/test_hosted_auth_login.py` | Additive session identity contract |
+| Modify | `tests/test_native_graph_explorer.py` | Native owner revalidation and recovery |
+| Modify | `ci/test-classification.json` | Exact new test entry only |
+
+No write lease to the predecessor handoff, native API adapters or graph presentation files. The amendment below adds the exact transferred frontend paths. Changes outside these tables return to the coordinating root or explicit owner.
+
+
+## Activated frontend and pinned entity-inspection amendment
+
+The graph coordinator expressly released App.tsx, WorldSelector, liveApi.ts, HostedAuthGate and related tests after its loaded-snapshot assessment. The coordinator retains managedNativeGraphApi/nativeGraphDemoApi and canvas/detail presentation, plus AppChrome graph jump. This lane does not edit those retained files; reconcile their successor before final verification.
+
+The same owner-only capability now includes exact POST `/api/live/native-graph-inspection/read` for world-scoped entity selection only, using the unchanged InspectionRead/InspectionPin response contract. It is required by the user's select-point/inspect request. Hosted catalog and source selections remain denied; no evidence-as-graph-nodes capability. Ownership and full binding are checked before/after read, and the existing inspection service verifies the exact native/revision pin.
+
+Additional exclusive paths activated:
+- `apps/live_control_server/routes/native_graph_inspection.py` (only owner-scoped entity read dependency/guard)
+- `tests/test_native_graph_inspection.py` (preserve local-mode configuration under real dependency)
+- `apps/live-control-ui/src/auth/HostedAuthGate.tsx`
+- `apps/live-control-ui/src/auth/HostedAuthGate.test.tsx`
+- `apps/live-control-ui/src/App.tsx`
+- `apps/live-control-ui/src/App.guestEntry.test.tsx`
+- `apps/live-control-ui/src/selectedWorld/WorldSelector.tsx`
+- `apps/live-control-ui/src/selectedWorld/WorldSelector.test.tsx`
+- `apps/live-control-ui/src/api/liveApi.ts`
+- `apps/live-control-ui/src/api/liveApi.nativeGraphExplorerAuth.test.ts`
+
+Frontend must use same-origin HTTPS cookie auth only for five exact hosted POST paths (four explorer, one entity inspection) and GET world-containers. Never send a local bearer/CSRF to hosted or remote destinations; retain strict local path behavior for all other routes. Authenticated session subject is now returned by backend. Require exact subject to expose authenticated children; remount/invalidate subject-scoped graph/selection state and draft keys on account change/logout. Unsupported hosted new-World creation stays disabled. Auth service refresh failure must not silently expose an old account's graph. No frontend call is ownership authority.
+
+## Pin and proof
+
+This handoff is committed before implementation. Local unit/auth proof uses scrubbed environment, disabled dotenv/conftest where appropriate and actual current middleware/native functions. Full APP/Core fixture and browser/TS/aggregate proof remain required before deployment readiness. Current-source aggregate checks and independent review are required; passing scoped tests alone is not completion. No tests or gates are removed.
+
+
+## Deployment-review checklist and explicit limits
+
+- Deployment uses `DMB_DEPLOYMENT_ENVIRONMENT=production` and `DMB_AUTH_MODE=hosted_dms`, the fixed HTTPS `DUNGEONMIND_SERVER_API_ORIGIN`, and exact trusted frontend origins. Browser graph traffic stays same-origin HTTPS and uses the DMS session cookie; local bearer credentials never travel to hosted URLs.
+- The existing APP World must already have `owner_subject` equal to the authenticated DMS subject and an active, validated native binding. The configured `DMB_HOSTED_WORLD_ACCESS_JSON` must separately admit that subject and World. APP ownership, native binding and allowlist are three distinct requirements. This work does not mutate any of them or automatically adopt an unowned corpus.
+- Retain separate application-state and native-graph authority databases with existing migrations applied by the deployment owner. Durable journal/native publication identities use `hosted_dms:<raw subject>` while ownership checks and the browser session identity retain the raw DMS subject. This separates new hosted operations from preexisting local-operator operations without migrating local data.
+- Hosted access includes only the owner-filtered existing-World list, four explorer POST routes and exact world/entity inspection read. Source/evidence links, inspection catalog, new-World creation, owner assignment/transfer, shared-member native roles and unrelated native routes remain unavailable. The UI must represent those limits honestly.
+- Rehearse two signed-in owners, an unowned World and every nonowner grant on synthetic data. Prove the graph and selected-node read match the actual displayed managed/native/binding/revision snapshot; account changes/logout and selection changes must discard stale display and requests. Browser credentials and native receipts are not inferred from mock results.
+- Required final evidence: exact-head `ci_contract.py run auth-app`, additional new owner-boundary tests, inventory, isolated persistent APP/Core and restart proof, browser account-switch/write-review proof, frontend TypeScript/build, repo-owned exact-SHA hosted verifier and full discovered diagnostic, independent cumulative-diff review. Known baseline failures remain red and specifically named. No gate is removed or relabeled green.
+- No merge, deploy, credential change, actual ownership mutation, real corpus publication, service cutover or production environment change is authorized by this handoff. A passing synthetic test count is not live deployment readiness.
+
+## Verification so far
+
+Working-tree diagnostics use scrubbed environment, no production dotenv, synthetic HTTPX DMS transport, APP catalog/journal fixtures and native in-memory Core. They exercise real middleware, typed identity, owner lookup, binding validation, routes and native runtime. The first combined backend run passed314 cases including195 new owner-boundary cases; all196 new owner-boundary cases including the subsequent identity-domain isolation regression now pass. These are diagnostic results, not qualifying exact-head evidence.
+
+Independent boundary review found two in-scope defects during implementation: a prepared status could disclose after a binding changed during its read, and an opaque DMS subject could collide with the local-operator journal namespace. The implementation now revalidates full binding before disclosure and separates hosted operation identity. Both are covered by targeted regression tests. Independent working-tree backend review reports no outstanding finding; formal exact-head cumulative review is still pending.
+
+Task outputs are retained under `/home/drakosfire/Projects/.codex/hosted-owned-graph-20261110/verification`; scratch/cache remain in that task root. No shared runtime has been stopped and no task outputs deleted. Parent #2330's frozen graph presentation/inspection successor c836b657 is reconciled. Exact-head qualification is now due; later parent fixes require fresh reconciliation. The earlier design draft is retained in Git history, not a competing live authority.
+
+
+Frontend diagnostics before parent reconciliation:85 focused tests pass;854 broader tests pass and six existing `liveApi.test.ts` history-fixture tests fail on undefined `page.turns`. Clean archived parent `3fa6ad63738dcb1d345a7d809c5321c26598aeb9` reproduces the exact six failures. They remain red, not waived. Both TypeScript projects and production build pass, with the existing chunk-size warning. Local managed draft storage keys are preserved; only new hosted drafts/layout receive subject+World scope. Commands, exact failure IDs and source hashes are retained in the task's `frontend-diagnostics/REPORT.txt`.
+
+
+## Activated hosted detail-presentation correction
+
+Independent integration review found that the new shared entity detail component automatically asks for linked statblocks and offers source-opening controls. Those capabilities are deliberately unavailable to hosted explorer users; presenting failing controls is an in-scope UI defect, not a reason to widen authorization.
+
+The graph coordinator explicitly releases only the `NativeGraphDemo` props and `NativeGraphObjectDetails` call seams above frozen parent1ca2a807 to this owner lane. It retains all other graph UI ownership and will report overlapping corrections. Newly leased paths are:
+- `apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.tsx`, only an optional presentation prop and its detail-component call.
+- `apps/live-control-ui/src/graphLens/NativeGraphObjectDetails.tsx`, optional entity-only presentation with unchanged local defaults.
+- `apps/live-control-ui/src/graphLens/NativeGraphInspection.test.tsx`, hosted no-statblock/no-source controls and retained local behavior.
+
+Already leased App/guest-entry tests wire that optional presentation for authenticated hosted owners and verify the rendered pinned-inspector flow. Show a clear unavailable-source/statblock explanation; preserve admitted entity facts and qualifications. No source/mechanics routes or authority are added. Current open PRs and selected changed-file lists were re-inspected; no competing shared-detail write path was found. This amendment is pinned before correction edits.
+
+
+The parent review separately found the preexisting StrictMode client-lifetime defect already repaired in this owner lane. The owner coordinator explicitly transfers only the local-compatible `ManagedWorldGraph` effect-owned client helper and its local call replacement back to the parent for correction before parent acceptance. The patch is retained as `verification/parent-strictmode-lifecycle.patch` in this task. Owner-lane App writes are frozen during that transfer; subject admission, subject-scoped keys and hosted entity-only presentation remain exclusive to this successor. Reconcile the parent's exact corrected head before final verification; do not duplicate or weaken invalidation.
+
+
+## Final-parent reconciliation checkpoint
+
+The parent incorporated the transferred lifecycle helper and its local-only App regression at `c836b657856fcc1663338e8d5ae40f2e88d645b0`, then returned the App/test seams to this successor. The owner lane deliberately reconciled two App/test conflicts: retain the parent's lifecycle harness/regression and this lane's subject admission, subject-scoped state, entity-only presentation and all hosted tests. The final App production file is byte-identical to the separately verified owner correction `debe2f7e226fd691a81a94cf440a34e9952fe3f4`; the new parent adds75 App test lines. No work was lost during the brief desktop disconnection.
+
+The entity-only correction passed158 focused client/shared/native tests, both TypeScript projects and production build before this reconciliation. Exact earlier integrated head `d6d01ea884706dcb7e9cdafb9037c70a21869bc1` passed 219 auth-app, 212 owner-boundary/explorer and 15 storage tests plus93 persistent HTTP cases over five fresh processes. Those retained results remain labeled with their actual SHA; final-source repetitions and cumulative review are still required. Synthetic PostgreSQL proofs use real APP/Core authority and only mocked DMS HTTP transport. Unmodified production lifespan validation correctly rejected shared-role socket test configuration, so actual production startup and browser/DMS cookie delivery remain unproven.
+
+
+## Viewport-corrected parent reconciliation
+
+Actual parent browser QA found that the placement Cancel action could sit below a short visible viewport. Parent successor `763adc1e2f56f3ab587c36937cec33defda41a31` changes only WorldGraphCanvas TSX/CSS/tests and its handoff. This owner lane rebases cleanly onto that exact candidate. Relative to the previously qualified owner `cbd2e33002ff3a07ffb600e66ef8b7bfafa74709`, all owner backend, authentication, selected-World, transport and inspection code/test bytes remain unchanged. Parent source review/browser acceptance and remote publication are still separate gates. Final integrated frontend qualification must run after the parent releases the shared lock; earlier exact evidence is not relabeled.
+
+At the previous owner SHA, exact hosted frontend passed 1,295 cases and build. Full discovered remained red at 7,372 passed, 159 inherited failures, 1 pending, with the same failed-case IDs/multiplicities as parent c836 and the same collection error after stripping ANSI color. Exact backend checks passed 219 auth-app, 212 owner/explorer and 15 storage, plus 93 real PostgreSQL HTTP cases across five fresh processes. Independent client checks passed 159 focused and 12 async-race cases. These counts remain attached to cbd2, not the new source.
+
+The hosted-browser feasibility assessment verified no controllable CUA surface after desktop attachment and no supplied/verified trusted non-loopback HTTPS/DMS test environment. A loopback preview uses local authorization, even over HTTPS, and cannot substitute for hosted cookie proof. Real production lifespan, DMS browser cookie delivery, owner-switch/write-review browser acceptance, separate production database roles and a selected existing owner-bound corpus remain deployment gates. No source/configuration/trust/security or actual ownership change was made to work around those gates.
+
+
+## Current-main and migration reconciliation, 2026-11-11
+
+The coordinating root continued this existing owner-access slice while finishing the graph visualizer. The parent coordinator supplied exact candidate `91cbec516da32b0c504033ae335913a7a11ff09b`; it descends from migration fix `6edcc7c8731e6105aa4d19f19fc5748c32398d9b` and current main `0799029dfa421c1965dd545bbb4f6ad16414b8e8`. Reconciliation is a conflict-free merge, preserving every owner production/test file byte for byte and the additive owner test inventory entry. No new feature, role expansion, ownership assignment, migration rewrite, merge or deployment authority is introduced.
+
+Exact-current-source hosted/discovered frontend, auth/owner/storage and persistent synthetic checks must be repeated and reported with their actual final SHA. Earlier failed discovered runs and browser/production-startup limitations remain retained and are not relabeled. The shared frontend lock is coordinated with the parent graph lane. Production APP/Core role separation and actual hosted DMS browser/cookie acceptance are still unproven; synthetic unit roles are not production credentials.
+
+
+## Published recovery-parent reconciliation, 2026-11-11
+
+The parent recovery review found that an interrupted preparation could remain in status-only recovery forever. Published #2330 `524da0c7a75770da6b01a486fc937e7a6fa3e6d7` now returns explicit `retry_prepare` only for intact pre-review journals and presents the exact retained draft retry, still requiring review and confirmation. The owner coordinator transferred only recovery-result/UI seams for that fix and retained owner authorization and full-binding checks. The merge is conflict-free.
+
+This successor adds hosted HTTP regressions proving owner exact-request recovery without duplicate source admission, nonowner/combined-grant denial of recovery and retry, and withholding retry advice after mid-read owner or binding revocation. No owner production behavior is changed. Exact final source is to be recorded in external verification and PR evidence. Previous evidence and the earlier Docker isolation-inspection denial remain retained; no Docker preflight, locked dependency requirement or deployment gate is bypassed.

@@ -142,7 +142,7 @@ Scaffold-era guardrails; post-scaffold PR #58–#67 intentionally extended retri
 ### 2026-05-22 (UTC) — atomic doc-sync after PR #65–#67 + artifact landing prep
 
 - What turned green: [PR #65](https://github.com/Drakosfire/DungeonMindBuddy/pull/65) merge **`777a8bc`**; [PR #66](https://github.com/Drakosfire/DungeonMindBuddy/pull/66) merge **`66972d2`**; [PR #67](https://github.com/Drakosfire/DungeonMindBuddy/pull/67) merge **`8978e92`**. Step 2C/2D checklist rows closed; PR #58–#67 milestone block added. Scaffold handoff archived under `Docs/Plans/archive/2026-05-22/handoffs/`.
-- Artifact commit **`f4f25f7`** (cherry-pick of **`e4a2495`**): PR67 admission diagnostics on expected-context canvas + refreshed `last_c1s4_step2c_multimode_report.json` / `last_c1s4_expected_context_canvas_payload.json` — on `main`.
+- Artifact commit **`f4f25f7`** (cherry-pick of **`e4a2495`**): PR67 admission diagnostics on expected-context canvas + refreshed [multimode report](https://github.com/Drakosfire/DungeonMindBuddy/blob/19d290d42dd5f1d7f82035a620b5a3ea93d145e4/evals/c1s4_preplanning_vertical_slice/artifacts/last_c1s4_step2c_multimode_report.json) and [canvas payload](https://github.com/Drakosfire/DungeonMindBuddy/blob/19d290d42dd5f1d7f82035a620b5a3ea93d145e4/evals/c1s4_preplanning_vertical_slice/artifacts/last_c1s4_expected_context_canvas_payload.json).
 - Step 6: harness + tests exist; marked complete at scaffold level; end-to-end oracle cohort still open.
 - Dominant open gap: Q3 distance `no_session_evidence` (gold/data contract, not admission budget).
 - **Cost:** $0.

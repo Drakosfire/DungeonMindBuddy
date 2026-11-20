@@ -1,0 +1,182 @@
+import type { StatblockRevisionResourceV1 } from '../contracts/dungeonbuddy-statblocks-v1/client';
+import type { WorldMechanicsAssociation } from '../api/worldMechanicsTypes';
+export interface CombatMechanicsSelection {
+  association_id: string; association_version: number; target: CombatWorldIdentity;
+}
+export interface AssociatedCombatMechanicsSnapshot extends CombatMechanicsSelection {
+  locator: WorldMechanicsAssociation['proof']['locator'];
+  resource: StatblockRevisionResourceV1; snapshot_digest: string;
+}
+
+export interface AcceptedCombatMechanicsSelection { draft_id: string; draft_version: number; }
+export interface AcceptedCombatMechanicsSnapshot extends AcceptedCombatMechanicsSelection {
+  origin: 'world_accepted_mechanics_v1'; managed_world_id: string;
+  acceptance_operation_id: string; acceptance_request_digest: string;
+  accepted_from_draft_version: number; accepted_from_candidate_id: string | null;
+  locator: WorldMechanicsAssociation['proof']['locator'];
+  resource: StatblockRevisionResourceV1; snapshot_digest: string;
+}
+export interface ConversationVariantCombatSelection {
+  conversation_id: string; turn_id: string; review_id: string;
+}
+export interface ConversationVariantCombatSnapshot extends ConversationVariantCombatSelection {
+  origin: 'conversation_variant_mechanics_v1'; managed_world_id: string;
+  locator: WorldMechanicsAssociation['proof']['locator'];
+  resource: StatblockRevisionResourceV1; snapshot_digest: string;
+}
+export type CombatMechanicsSnapshot = AssociatedCombatMechanicsSnapshot | AcceptedCombatMechanicsSnapshot | SavedCombatMechanicsSnapshot | ConversationVariantCombatSnapshot;
+export interface AcceptedCombatMechanicsChoice extends AcceptedCombatMechanicsSelection { name: string; }
+
+export interface CombatRulesetField {
+  key: "initiative" | "armor_class" | "hit_points" | "temp_hit_points" | "conditions" | "notes";
+  label: string;
+  enabled: boolean;
+}
+
+export interface CombatRulesetConfig {
+  schema: "dmb_combat_ruleset_v1";
+  config_id: string;
+  system_id: string;
+  edition_id: string;
+  revision: string;
+  mode: "manual_tracking";
+  fields: CombatRulesetField[];
+  manual_defaults: Record<string, string | number | boolean | null>;
+}
+
+export interface CombatEntityProvenance {
+  source: "generated_statblock_view";
+  artifact_id: string;
+  draft_id: string | null;
+  corpus_display_path: string | null;
+  corpus_file_fingerprint: string | null;
+  retrieval_status: string | null;
+  retrieval_verified_at: string | null;
+  added_at: string;
+  hydration_contract: "combat_defaults";
+}
+
+export interface CombatWorldIdentity {
+  managed_world_id: string; native_world_id: string; binding_version: number;
+  graph_revision_id: string; node_id: string; label: string; kind: string; role: string; campaign_scope: string | null;
+}
+
+export interface CombatEntity {
+  id: string;
+  name: string;
+  team: "pc" | "ally" | "enemy" | "neutral";
+  order: number;
+  init: number | null;
+  ac: number | string | null;
+  hp: number | string | null;
+  max_hp: number | string | null;
+  temp_hp: number;
+  defeated: boolean;
+  notes: string;
+  conditions: string[];
+  tags: string[];
+  statblock_path: string | null;
+  statblock_artifact_id: string | null;
+  statblock_title: string | null;
+  corpus_fingerprint: string | null;
+  source: "corpus" | "generated_pending" | "manual" | "imported";
+  world_identity?: CombatWorldIdentity | null;
+  mechanics_snapshot?: CombatMechanicsSnapshot | null;
+  provenance: CombatEntityProvenance[];
+}
+
+export interface CombatGroup {
+  group_key: string;
+  label: string;
+  statblock_path: string | null;
+  member_ids: string[];
+  collapsed: boolean;
+}
+
+export interface CombatEncounterProvenance {
+  source: "statblock_combat_add";
+  artifact_id: string;
+  added_entity_ids: string[];
+  added_at: string;
+}
+
+export interface CombatEncounterDraft {
+  schema: "dmb_combat_encounter_draft_v1";
+  title: string;
+  round: number;
+  active_turn_entity_id: string | null;
+  round_start_entity_id: string | null;
+  queue_model: "circular_barrel_v1";
+  entities: CombatEntity[];
+  groups: CombatGroup[];
+  provenance: CombatEncounterProvenance[];
+}
+
+export interface CombatEncounterRecord {
+  encounter_id: string;
+  world_id: string;
+  campaign_id: string | null;
+  session: number | null;
+  revision: number;
+  ruleset: CombatRulesetConfig;
+  ruleset_digest: string;
+  draft: CombatEncounterDraft;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCombatEncounterRequest {
+  title: string;
+  campaign_id?: string | null;
+  session?: number | null;
+  ruleset_id?: string;
+}
+
+export interface AddGeneratedStatblockRequest {
+  expected_revision: number;
+  team: CombatEntity["team"];
+  count: number;
+  name_override?: string | null;
+  initiative?: number | null;
+  insert_after_entity_id?: string | null;
+  group_key?: string | null;
+  notes?: string | null;
+  hp_override?: number | null;
+  max_hp_override?: number | null;
+}
+
+export interface AddGeneratedStatblockResponse {
+  added_entities: CombatEntity[];
+  encounter: CombatEncounterRecord;
+}
+
+export interface SavedCombatMechanicsSnapshot {
+  origin:'buddy_saved_mechanics_override_v1'; managed_world_id:string; draft_id:string;
+  origin_acceptance_operation_id:string; revision_operation_id:string|null;
+  locator:WorldMechanicsAssociation['proof']['locator'];resource:StatblockRevisionResourceV1;snapshot_digest:string;
+}
+export interface ActorMechanicsAdoption {
+  actor_id:string;expected_snapshot_digest:string;ac_policy:'keep'|'use_saved';
+  hp_policy:'keep'|'preserve_current'|'clamp_current'|'reset_full';
+}
+export interface AdoptMechanicsRequest {
+  schema:'dmb_combat_mechanics_adoption_request_v1';operation_id:string;expected_revision:number;
+  draft_id:string;locator:WorldMechanicsAssociation['proof']['locator'];actors:ActorMechanicsAdoption[];
+}
+export interface MechanicsAdoptionPreview {snapshot:SavedCombatMechanicsSnapshot;armor_class:number|null;hit_points:number|null}
+export interface MechanicsAdoptionTransition {
+  actor_id:string;before_snapshot_digest:string;after_snapshot_digest:string;
+  ac_policy:ActorMechanicsAdoption['ac_policy'];hp_policy:ActorMechanicsAdoption['hp_policy'];
+  before_ac:number|string|null;after_ac:number|string|null;before_hp:number|string|null;after_hp:number|string|null;
+  before_max_hp:number|string|null;after_max_hp:number|string|null;
+}
+export interface MechanicsAdoptionOutcome {
+  receipt:{schema:'dmb_combat_mechanics_adoption_receipt_v1';operation_id:string;world_id:string;encounter_id:string;
+    request_digest:string;state:'applied'|'canceled';source:WorldMechanicsAssociation['proof']['locator'];
+    expected_revision:number;committed_revision:number|null;transitions:MechanicsAdoptionTransition[];created_at:string};
+  encounter:CombatEncounterRecord;advanced_since_apply:boolean;
+}
+export interface MechanicsAdoptionHistory {
+  schema:'dmb_combat_mechanics_adoption_history_v1';world_id:string;encounter_id:string;
+  receipts:MechanicsAdoptionOutcome['receipt'][];next_before_operation_id:string|null;
+}

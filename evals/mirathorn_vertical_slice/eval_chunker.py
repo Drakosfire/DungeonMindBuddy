@@ -12,8 +12,8 @@ INPUT_DIR = Path(__file__).resolve().parent / "input"
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.ingestion.chunker import chunk_document  # noqa: E402
-from src.ingestion.docx_converter import markdown_passthrough  # noqa: E402
+from ingestion.chunker import chunk_document  # noqa: E402
+from ingestion.docx_converter import markdown_passthrough  # noqa: E402
 
 
 MIRATHORN_SOURCE = PROJECT_ROOT / Path(

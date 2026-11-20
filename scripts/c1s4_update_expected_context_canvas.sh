@@ -6,11 +6,11 @@ set -euo pipefail
 # and patch the generated data block so Cursor can render the current canvas.
 #
 # Usage:
-#   bash scripts/c1s4_update_expected_context_canvas.sh
+#   scripts/run_local_lab.sh c1s4-canvas bash scripts/c1s4_update_expected_context_canvas.sh
 #
 # Optional environment overrides:
-#   REPORT_OUT=/tmp/my_report.json \
-#   PAYLOAD_OUT=/tmp/my_payload.json \
+#   REPORT_OUT=/absolute/projects/scratch/my_report.json \
+#   PAYLOAD_OUT=/absolute/projects/scratch/my_payload.json \
 #   CANVAS_PATH=/absolute/path/to/c1s4-expected-context-benchmark.canvas.tsx \
 #   PRESERVE_CANVAS_SHELL=1 \
 #   bash scripts/c1s4_update_expected_context_canvas.sh
@@ -19,8 +19,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
-REPORT_OUT="${REPORT_OUT:-/tmp/c1s4_lane_aware_step2c_multimode_report.json}"
-PAYLOAD_OUT="${PAYLOAD_OUT:-/tmp/c1s4_expected_context_canvas_payload.json}"
+REPORT_OUT="${REPORT_OUT:-${TMPDIR:?Use scripts/run_local_lab.sh}/c1s4_lane_aware_step2c_multimode_report.json}"
+PAYLOAD_OUT="${PAYLOAD_OUT:-${TMPDIR:?Use scripts/run_local_lab.sh}/c1s4_expected_context_canvas_payload.json}"
 CANVAS_NAME="${CANVAS_NAME:-c1s4-expected-context-benchmark.canvas.tsx}"
 GOLD_PATH="${GOLD_PATH:-evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json}"
 TEMPLATE_PATH="${TEMPLATE_PATH:-evals/c1s4_preplanning_vertical_slice/canvas_templates/c1s4_expected_context_benchmark.canvas.tsx}"

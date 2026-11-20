@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 import ast
+import copy
+import hashlib
 import subprocess
 import sys
 import textwrap
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
 from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
     DungeonMindWorldGraphSourceAdmissionAdapter,
+    _map_buddy_source,
 )
 from apps.live_control_server.ports.world_graph_source_admission import (
     WorldGraphSourceAdmissionError,
@@ -27,7 +31,10 @@ WORLD_ID = "the-glass-orchard"
 CAMPAIGN_ID = "the-glass-orchard"
 ARTIFACT_A = "artifact:worldbuilding:a"
 ARTIFACT_B = "artifact:worldbuilding:b"
-TOKEN = "sha256:" + ("ab" * 32)
+BODY = b"Synthetic source admission body.\n"
+DIGEST = hashlib.sha256(BODY).hexdigest()
+TOKEN = "sha256:" + DIGEST
+HEAD = "rev:synthetic-source-admission"
 ADAPTER_PATH = (
     REPO_ROOT
     / "apps/live_control_server/integrations/dungeonmind/world_graph_source_admission_adapter.py"
@@ -53,7 +60,7 @@ def _buddy_artifact(*, artifact_id: str, world_id: str = WORLD_ID, campaign_id: 
         campaign_id=campaign_id,
         session_id=None,
         uri=f"object://{artifact_id}",
-        content_sha256="ab" * 32,
+        content_sha256=DIGEST,
         artifact_kind="markdown",
         document_class="lore",
         authority_state="reviewed",
@@ -70,6 +77,7 @@ def _buddy_artifact(*, artifact_id: str, world_id: str = WORLD_ID, campaign_id: 
 
 def _request(*, artifact_id: str, token: str = TOKEN) -> WorldGraphSourceAdmissionRequest:
     return WorldGraphSourceAdmissionRequest(
+        source_body=BODY, expected_head_revision_id=HEAD,
         world_id=WORLD_ID,
         campaign_id=CAMPAIGN_ID,
         source_artifact=_buddy_artifact(artifact_id=artifact_id),
@@ -80,13 +88,16 @@ def _request(*, artifact_id: str, token: str = TOKEN) -> WorldGraphSourceAdmissi
 
 def test_prove_or_admit_writes_missing_pair_and_is_idempotent() -> None:
     sources = InMemorySourceRepository()
-    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    )
     request = _request(artifact_id=ARTIFACT_A)
     first = adapter.prove_or_admit(request)
     assert first.source_artifact_id == ARTIFACT_A
-    assert first.source_revision_id == TOKEN
+    assert first.source_revision_id == f"{TOKEN}::{ARTIFACT_A}"
     assert sources.get_artifact(ARTIFACT_A) is not None
-    assert sources.get_revision(TOKEN) is not None
+    assert sources.get_revision(f"{TOKEN}::{ARTIFACT_A}") is not None
     snapshot = sources.get_provenance_snapshot(
         artifact_ids=[ARTIFACT_A],
         revision_ids=[first.source_revision_id],
@@ -98,14 +109,75 @@ def test_prove_or_admit_writes_missing_pair_and_is_idempotent() -> None:
     assert sources.get_artifact(ARTIFACT_A) is not None
 
 
-def test_prove_or_admit_collision_seals_as_token_suffix() -> None:
-    sources = InMemorySourceRepository()
-    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+def test_existing_pair_replay_makes_no_core_puts_and_keeps_catalog_metadata() -> None:
+    class CountingSources(InMemorySourceRepository):
+        puts = 0
+
+        def put_artifact(self, artifact: Any) -> Any:
+            self.puts += 1
+            return super().put_artifact(artifact)
+
+        def put_revision(self, revision: Any) -> Any:
+            self.puts += 1
+            return super().put_revision(revision)
+
+    sources = CountingSources()
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    )
     first = adapter.prove_or_admit(_request(artifact_id=ARTIFACT_A))
-    assert first.source_revision_id == TOKEN
+    stored = sources.get_artifact(ARTIFACT_A)
+    assert stored is not None
+    sources._artifacts[ARTIFACT_A] = stored.model_copy(
+        update={"lineage": {"catalog_review": "preserved"}, "updated_at": datetime.now(UTC)}
+    )
+    writes_before = sources.puts
+    replay = WorldGraphSourceAdmissionRequest(
+        source_body=BODY, expected_head_revision_id=HEAD,
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        source_artifact=_buddy_artifact(artifact_id=ARTIFACT_A),
+        source_revision_token=TOKEN,
+        source_uri="object://verified-local-mirror",
+    )
+    second = adapter.prove_or_admit(replay)
+    assert sources.puts == writes_before
+    assert second.source_locator == first.source_locator
+    assert second.catalog_fingerprint_sha256 != first.catalog_fingerprint_sha256
+    assert sources.get_artifact(ARTIFACT_A).updated_at != stored.updated_at
+
+
+def test_partial_pair_and_material_drift_fail_closed_without_puts() -> None:
+    sources = InMemorySourceRepository()
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    )
+    artifact, revision, _ = _map_buddy_source(_request(artifact_id=ARTIFACT_A), sources)
+    sources.put_artifact(artifact)
+    with pytest.raises(WorldGraphSourceAdmissionError, match="one half") as exc:
+        adapter.prove_or_admit(_request(artifact_id=ARTIFACT_A))
+    assert exc.value.code == "source_identity_conflict"
+    assert sources.get_revision(revision.source_revision_id) is None
+    sources.put_revision(revision)
+    sources._artifacts[ARTIFACT_A] = artifact.model_copy(update={"campaign_id": "other-campaign"})
+    with pytest.raises(WorldGraphSourceAdmissionError) as exc:
+        adapter.prove_or_admit(_request(artifact_id=ARTIFACT_A))
+    assert exc.value.code == "source_identity_conflict"
+
+
+def test_prove_or_admit_binds_every_new_revision_to_its_artifact() -> None:
+    sources = InMemorySourceRepository()
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    )
+    first = adapter.prove_or_admit(_request(artifact_id=ARTIFACT_A))
+    assert first.source_revision_id == f"{TOKEN}::{ARTIFACT_A}"
     second = adapter.prove_or_admit(_request(artifact_id=ARTIFACT_B))
     assert second.source_revision_id == f"{TOKEN}::{ARTIFACT_B}"
-    assert sources.get_revision(TOKEN).source_artifact_id == ARTIFACT_A
+    assert sources.get_revision(f"{TOKEN}::{ARTIFACT_A}").source_artifact_id == ARTIFACT_A
     assert sources.get_revision(second.source_revision_id).source_artifact_id == ARTIFACT_B
     proven = adapter.prove(
         world_id=WORLD_ID,
@@ -116,14 +188,20 @@ def test_prove_or_admit_collision_seals_as_token_suffix() -> None:
     assert proven.source_revision_id == second.source_revision_id
 
 
-def test_prove_or_admit_fingerprint_conflict_fails_closed() -> None:
+def test_prove_or_admit_protection_conflict_fails_closed() -> None:
     sources = InMemorySourceRepository()
-    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    )
     adapter.prove_or_admit(_request(artifact_id=ARTIFACT_A))
+    changed = _buddy_artifact(artifact_id=ARTIFACT_A)
+    changed.authority_state = "canonical"
     conflict = WorldGraphSourceAdmissionRequest(
+        source_body=BODY, expected_head_revision_id=HEAD,
         world_id=WORLD_ID,
         campaign_id=CAMPAIGN_ID,
-        source_artifact=_buddy_artifact(artifact_id=ARTIFACT_A),
+        source_artifact=changed,
         source_revision_token=TOKEN,
         source_uri="object://different-locator",
     )
@@ -142,6 +220,62 @@ def test_prove_missing_pair_fails_closed() -> None:
             source_revision_token=TOKEN,
         )
     assert exc.value.code == "source_not_admitted"
+
+
+@pytest.mark.parametrize("legacy_world_id", [None, "", " "])
+def test_mapper_resolves_legacy_missing_world_before_strict_artifact_v2(
+    legacy_world_id: str | None,
+) -> None:
+    from dungeonmind.contracts.evidence import SourceArtifactV2
+
+    artifact = _buddy_artifact(artifact_id=ARTIFACT_A, world_id=legacy_world_id)
+    original_fields = copy.deepcopy(vars(artifact))
+    request = WorldGraphSourceAdmissionRequest(
+        source_body=BODY, expected_head_revision_id=HEAD,
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        source_artifact=artifact,
+        source_revision_token=TOKEN,
+        source_uri=f"object://{ARTIFACT_A}",
+    )
+
+    mapped, revision, token = _map_buddy_source(request, InMemorySourceRepository())
+
+    assert isinstance(mapped, SourceArtifactV2)
+    assert mapped.world_id == WORLD_ID
+    assert mapped.source_domain_key == "worldbuilding"
+    assert mapped.source_domain.value == "worldbuilding"
+    assert mapped.campaign_id == CAMPAIGN_ID
+    assert mapped.uri == f"object://{ARTIFACT_A}"
+    assert mapped.current_revision_id == f"{TOKEN}::{ARTIFACT_A}"
+    assert revision.source_artifact_id == ARTIFACT_A
+    assert revision.content_sha256 == DIGEST
+    assert token == TOKEN
+    assert vars(artifact) == original_fields
+
+
+@pytest.mark.parametrize("artifact_world_id", [WORLD_ID, "foreign-world"])
+def test_mapper_preserves_existing_artifact_world_scope(
+    artifact_world_id: str,
+) -> None:
+    from dungeonmind.contracts.evidence import SourceArtifactV2
+
+    artifact = _buddy_artifact(artifact_id=ARTIFACT_A, world_id=artifact_world_id)
+    original_fields = copy.deepcopy(vars(artifact))
+    request = WorldGraphSourceAdmissionRequest(
+        source_body=BODY, expected_head_revision_id=HEAD,
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        source_artifact=artifact,
+        source_revision_token=TOKEN,
+        source_uri=f"object://{ARTIFACT_A}",
+    )
+
+    mapped, _revision, _token = _map_buddy_source(request, InMemorySourceRepository())
+
+    assert isinstance(mapped, SourceArtifactV2)
+    assert mapped.world_id == artifact_world_id
+    assert vars(artifact) == original_fields
 
 
 def test_source_admission_adapter_has_no_legacy_graph_engine_or_writes_imports() -> None:
@@ -202,13 +336,15 @@ def test_prove_or_admit_works_when_legacy_graph_engine_imports_are_blocked() -> 
         campaign_id = {CAMPAIGN_ID!r}
         artifact_id = {ARTIFACT_A!r}
         token = {TOKEN!r}
+        body = {BODY!r}
+        digest = {DIGEST!r}
         artifact = SimpleNamespace(
             source_artifact_id=artifact_id,
             source_domain="worldbuilding",
             campaign_id=campaign_id,
             session_id=None,
             uri=f"object://{{artifact_id}}",
-            content_sha256="ab" * 32,
+            content_sha256=digest,
             artifact_kind="markdown",
             document_class="lore",
             authority_state="reviewed",
@@ -226,13 +362,17 @@ def test_prove_or_admit_works_when_legacy_graph_engine_imports_are_blocked() -> 
             campaign_id=campaign_id,
             source_artifact=artifact,
             source_revision_token=token,
+            source_body=body, expected_head_revision_id="rev:synthetic-source-admission",
             source_uri=f"object://{{artifact_id}}",
         )
         sources = InMemorySourceRepository()
-        adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+        adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+            sources=sources, world_graph=SimpleNamespace(
+                get_head=lambda _world: SimpleNamespace(head_revision_id="rev:synthetic-source-admission")),
+        )
         admitted = adapter.prove_or_admit(request)
         assert admitted.source_artifact_id == artifact_id
-        assert admitted.source_revision_id == token
+        assert admitted.source_revision_id == f"{{token}}::{{artifact_id}}"
         proven = adapter.prove(
             world_id=world_id,
             source_artifact_id=artifact_id,
@@ -257,3 +397,553 @@ def test_prove_or_admit_works_when_legacy_graph_engine_imports_are_blocked() -> 
         f"fresh-import tripwire failed\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     )
     assert "ok" in result.stdout
+
+
+def test_internal_source_read_uses_the_same_resolved_revision_and_v1_view(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from graph_memory.retrieval.models import WorldGraphSourceAnchorReadResult
+
+    result = WorldGraphSourceAnchorReadResult(
+        outcome="enough", anchor_id="anchor:one", evidence_ref_id="evidence:one",
+        source_artifact_id="artifact:one", source_span_ref_id="span:one",
+        content="bound text", content_sha256="a" * 64,
+    )
+    resolution = SimpleNamespace(
+        found=True, anchor=SimpleNamespace(
+            source_revision_id="source-revision:one", can_open_source=True,
+            evidence_ref_id="evidence:one", source_artifact_id="artifact:one",
+            locator_identity="span:one",
+        ), snapshot=SimpleNamespace(revision_id="graph:one"),
+    )
+    services = SimpleNamespace(
+        binding=object(),
+        retrieval=SimpleNamespace(resolve_source_anchor=lambda *_args, **_kwargs: resolution),
+    )
+    digests: list[str] = []
+    monkeypatch.setattr(direct, "_map_retrieval_context", lambda *_args: object())
+    monkeypatch.setattr(direct, "_dnd_anchor_id", lambda anchor_id: anchor_id)
+    monkeypatch.setattr(direct, "_classify_locator_kind", lambda _anchor: "source_span")
+    monkeypatch.setattr(direct, "_product_source_span_ref_id", lambda _anchor: "span:one")
+
+    def digest(_services: object, revision_id: str) -> str:
+        digests.append(revision_id)
+        return "a" * 64
+
+    monkeypatch.setattr(direct, "_source_revision_digest", digest)
+    monkeypatch.setattr(
+        direct, "_anchor_read_view",
+        lambda *_args, revision_digest, **_kwargs: (
+            result if revision_digest == "a" * 64 else pytest.fail("wrong digest")
+        ),
+    )
+    request = SimpleNamespace(anchor_id="anchor:one")
+    internal = direct.read_source_anchor_direct_v2(
+        services, request, repo_root=REPO_ROOT,
+    )
+    assert internal.result is result
+    assert internal.source_revision_id == "source-revision:one"
+    assert internal.source_revision_sha256 == "a" * 64
+    assert internal.evidence_ref_id == "evidence:one"
+    assert internal.source_artifact_id == "artifact:one"
+    assert internal.source_span_ref_id == "span:one"
+    assert internal.locator_kind == "source_span"
+    assert internal.locator_identity == "span:one"
+    assert internal.graph_revision == "graph:one"
+    assert digests == ["source-revision:one"]
+    assert direct.read_source_anchor_direct(services, request, repo_root=REPO_ROOT) is result
+
+
+def test_selected_source_pins_share_one_search_without_opening_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+
+    native = SimpleNamespace(
+        anchors=[SimpleNamespace(
+            anchor_id="dnd-anchor:one",
+            source_revision_id="source-revision:one", can_open_source=True,
+            evidence_ref_id="evidence:one", source_artifact_id="artifact:one",
+        )],
+        snapshot=SimpleNamespace(revision_id="graph:one"),
+    )
+    calls: list[str] = []
+    services = SimpleNamespace(
+        binding=object(),
+        retrieval=SimpleNamespace(search=lambda *_args, **_kwargs: (calls.append("search") or native)),
+    )
+    monkeypatch.setattr(direct, "_map_retrieval_context", lambda *_args: object())
+    monkeypatch.setattr(direct, "_retrieval_bounds", lambda *_args: object())
+    monkeypatch.setattr(direct, "_classify_locator_kind", lambda _anchor: "source_span")
+    monkeypatch.setattr(direct, "_search_result_view", lambda *_args, **_kwargs: "public-v1")
+    monkeypatch.setattr(
+        direct, "_anchor_read_view",
+        lambda *_args, **_kwargs: pytest.fail("metadata resolution opened content"),
+    )
+    monkeypatch.setattr(
+        direct, "_source_revision_digest",
+        lambda *_args: pytest.fail("metadata resolution read source bytes"),
+    )
+    resolved = direct.search_world_graph_direct_v2(
+        services, SimpleNamespace(query_text="question", seed_node_ids=[], bounds=object()),
+    )
+    assert resolved.result == "public-v1"
+    assert resolved.source_pins == (direct.ResolvedSourceAnchorMetadataV2(
+        anchor_id=direct._buddy_anchor_id("dnd-anchor:one"), graph_revision="graph:one",
+        evidence_ref_id="evidence:one", source_artifact_id="artifact:one",
+        source_revision_id="source-revision:one",
+    ),)
+    assert calls == ["search"]
+
+
+def test_complete_native_source_index_maps_full_pins_without_source_io(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dungeonmind.application.world_graph_retrieval import (
+        SourceAnchorIndexEntry,
+        SourceAnchorIndexResult,
+    )
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+
+    focus = object()
+    projection = SimpleNamespace(
+        world_id="native:one", campaign_id=None, focus=focus,
+        admissibility=SimpleNamespace(value="gm"), scope_mode="world_cross_campaign",
+        revision_pin="graph:one",
+    )
+    snapshot = SimpleNamespace(
+        world_id=projection.world_id, campaign_id=None, focus=focus,
+        admissibility=projection.admissibility, scope_mode=projection.scope_mode,
+        revision_id="graph:one",
+    )
+    initial = SourceAnchorIndexEntry(
+        anchor_id="dm-source-anchor:v1:initial", evidence_ref_id="evidence:one",
+        source_artifact_id="artifact:one", source_revision_id="source-revision:one",
+    )
+    discovered = SourceAnchorIndexEntry(
+        anchor_id="dm-source-anchor:v1:later", evidence_ref_id="evidence:two",
+        source_artifact_id="artifact:two", source_revision_id="source-revision:two",
+    )
+    calls: list[int] = []
+
+    def index(request: Any) -> SourceAnchorIndexResult:
+        calls.append(request.max_entries)
+        assert request.projection is projection
+        return SourceAnchorIndexResult(
+            snapshot=snapshot, eligible_count=2, max_entries=512,
+            status="complete", entries=(discovered, initial),
+        )
+
+    services = SimpleNamespace(
+        binding=object(), retrieval=SimpleNamespace(list_source_anchor_index=index),
+    )
+    monkeypatch.setattr(direct, "_map_retrieval_context", lambda *_args: projection)
+    monkeypatch.setattr(
+        direct, "_anchor_read_view",
+        lambda *_args, **_kwargs: pytest.fail("index opened source content"),
+    )
+    request = SimpleNamespace(
+        revision_pin="graph:one",
+        model_copy=lambda **_kwargs: object(),
+    )
+    resolved = direct.list_source_anchor_index_direct_v2(
+        services, request, revision_id="graph:one",
+    )
+    assert resolved.status == "complete"
+    assert resolved.eligible_count == 2
+    assert [pin.evidence_ref_id for pin in resolved.source_pins] == [
+        "evidence:one", "evidence:two",
+    ]
+    assert calls == [512]
+
+    services.retrieval.list_source_anchor_index = lambda _request: SourceAnchorIndexResult(
+        snapshot=snapshot, eligible_count=513, max_entries=512,
+        status="overflow", entries=(),
+    )
+    overflow = direct.list_source_anchor_index_direct_v2(
+        services, request, revision_id="graph:one",
+    )
+    assert overflow.status == "overflow"
+    assert overflow.eligible_count == 513
+    assert overflow.source_pins == ()
+
+    services.retrieval.list_source_anchor_index = lambda _request: SourceAnchorIndexResult(
+        snapshot=SimpleNamespace(**{**vars(snapshot), "revision_id": "graph:foreign"}),
+        eligible_count=2, max_entries=512, status="complete",
+        entries=(initial, discovered),
+    )
+    with pytest.raises(direct.DirectWorldGraphReadError):
+        direct.list_source_anchor_index_direct_v2(
+            services, request, revision_id="graph:one",
+        )
+
+    services.retrieval.list_source_anchor_index = lambda _request: SourceAnchorIndexResult(
+        snapshot=snapshot, eligible_count=2, max_entries=512,
+        status="complete", entries=(
+            initial,
+            SourceAnchorIndexEntry(
+                anchor_id=initial.anchor_id, evidence_ref_id="evidence:other",
+                source_artifact_id="artifact:other",
+                source_revision_id="source-revision:other",
+            ),
+        ),
+    )
+    with pytest.raises(direct.DirectWorldGraphReadError):
+        direct.list_source_anchor_index_direct_v2(
+            services, request, revision_id="graph:one",
+        )
+
+    services.retrieval.list_source_anchor_index = lambda _request: SourceAnchorIndexResult(
+        snapshot=snapshot, eligible_count=2, max_entries=256,
+        status="complete", entries=(initial, discovered),
+    )
+    with pytest.raises(direct.DirectWorldGraphReadError):
+        direct.list_source_anchor_index_direct_v2(
+            services, request, revision_id="graph:one",
+        )
+
+
+def test_internal_source_read_receipt_binds_executors_id_and_rejects_forgery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from graph_memory.interaction import expansion_executor as executor
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession, SessionSnapshot, SourceAnchorState,
+    )
+    from graph_memory.interaction.session_store import clear_sessions, create_session
+    from graph_memory.retrieval.models import WorldGraphSourceAnchorReadResult
+
+    clear_sessions()
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:one", campaign_id="", revision_id="graph:one",
+            scope_mode="world",
+        ),
+        source_anchors=[SourceAnchorState(anchor_id="anchor:one", readable=True)],
+    )
+    create_session(session)
+    result = WorldGraphSourceAnchorReadResult.model_validate({
+        "outcome": "truncated", "anchorId": "anchor:one",
+        "evidenceRefId": "evidence:one", "sourceArtifactId": "artifact:one",
+        "sourceSpanRefId": "span:one", "locatorKind": "source_span",
+        "content": "bound text",
+        "contentSha256": "a" * 64, "truncated": True,
+        "snapshot": {
+            "worldId": "world:one", "campaignId": "", "revisionId": "graph:one",
+            "headRevisionId": "graph:one", "isHead": True,
+            "focus": {"kind": "none"}, "admissibility": "gm", "scopeMode": "world",
+        },
+    })
+    resolved = SimpleNamespace(
+        result=result, source_revision_id="source-revision:one",
+        source_revision_sha256="a" * 64,
+        evidence_ref_id="evidence:one", source_artifact_id="artifact:one",
+        source_span_ref_id="span:one", locator_kind="source_span",
+        locator_identity="span:one", graph_revision="graph:one",
+    )
+    monkeypatch.setattr(
+        executor.retrieval_service, "read_source_anchors_internal_v2",
+        lambda *_args, **_kwargs: (resolved,),
+    )
+    request = {
+        "retrievalSessionId": session.id, "anchorIds": ["anchor:one"],
+        "maxChars": 12,
+    }
+    output = executor.execute_read_graph_source(request, receipt_version=2)
+    item = output["reads"][0]
+    receipt = item["receipt"]
+    assert output["schema"] == "dmb_internal_read_graph_source_batch_v2"
+    assert receipt["source_read_id"] == item["sourceReadId"]
+    assert receipt["source_revision_id"] == "source-revision:one"
+    assert receipt["source_revision_sha256"] == "a" * 64
+    assert receipt["read_content_sha256"] == "a" * 64
+    assert receipt["retrieval_session_id"] == session.id
+    assert receipt["graph_revision"] == "graph:one"
+    assert receipt["evidence_ref_id"] == "evidence:one"
+    assert receipt["source_span_ref_id"] == "span:one"
+    assert receipt["locator_kind"] == "source_span"
+    assert receipt["locator_identity"] == "span:one"
+    assert receipt["truncated"] is True
+    assert session.source_reads[-1].receipt_v2 is not None
+    assert session.source_reads[-1].receipt_v2.source_read_id == item["sourceReadId"]
+    assert session.source_anchors[0].opened is True
+    forged = executor.execute_read_graph_source({**request, "sourceRevisionId": "forged"})
+    assert forged["code"] == "invalid_arguments"
+    monkeypatch.setattr(
+        executor.retrieval_service, "read_source_anchor",
+        lambda *_args, **_kwargs: result,
+    )
+    legacy = executor.execute_read_graph_source(request)
+    assert legacy == {
+        **result.model_dump(mode="json", by_alias=True),
+        "retrievalSessionId": session.id,
+    }
+    assert "receipt_v2" not in session.source_reads[-1].model_dump()
+    clear_sessions()
+
+
+@pytest.mark.parametrize(
+    "tamper",
+    ["graph_revision", "evidence_ref_id", "source_artifact_id", "source_span_ref_id", "source_revision_id", "locator_identity", "content_sha256"],
+)
+def test_internal_source_read_rejects_mismatched_authoritative_binding(
+    monkeypatch: pytest.MonkeyPatch, tamper: str,
+) -> None:
+    from graph_memory.interaction import expansion_executor as executor
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession, SessionSnapshot, SourceAnchorState,
+    )
+    from graph_memory.interaction.session_store import clear_sessions, create_session
+    from graph_memory.retrieval.models import WorldGraphSourceAnchorReadResult
+
+    clear_sessions()
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:one", campaign_id="", revision_id="graph:one",
+            scope_mode="world",
+        ),
+        source_anchors=[SourceAnchorState(anchor_id="anchor:one", readable=True)],
+    )
+    create_session(session)
+    result = WorldGraphSourceAnchorReadResult.model_validate({
+        "outcome": "enough", "anchorId": "anchor:one",
+        "evidenceRefId": "evidence:one", "sourceArtifactId": "artifact:one",
+        "sourceSpanRefId": "span:one", "locatorKind": "source_span",
+        "content": "bound text",
+        "contentSha256": "a" * 64,
+        "snapshot": {
+            "worldId": "world:one", "campaignId": "", "revisionId": "graph:one",
+            "headRevisionId": "graph:one", "isHead": True,
+            "focus": {"kind": "none"}, "admissibility": "gm", "scopeMode": "world",
+        },
+    })
+    resolved = {
+        "result": result, "source_revision_id": "source-revision:one",
+        "source_revision_sha256": "a" * 64,
+        "evidence_ref_id": "evidence:one", "source_artifact_id": "artifact:one",
+        "source_span_ref_id": "span:one", "locator_kind": "source_span",
+        "locator_identity": "span:one", "graph_revision": "graph:one",
+    }
+    if tamper == "content_sha256":
+        resolved["result"] = result.model_copy(update={"content_sha256": "b" * 64})
+    else:
+        resolved[tamper] = (
+            None if tamper in {"source_revision_id", "locator_identity"} else "foreign"
+        )
+    monkeypatch.setattr(
+        executor.retrieval_service, "read_source_anchors_internal_v2",
+        lambda *_args, **_kwargs: (SimpleNamespace(**resolved),),
+    )
+    output = executor.execute_read_graph_source({
+        "retrievalSessionId": session.id, "anchorIds": ["anchor:one"],
+    }, receipt_version=2)
+    assert output["reads"][0]["receipt"] is None
+    assert output["reads"][0]["result"]["code"] == "source_receipt_unverifiable"
+    assert session.source_anchors[0].opened is False
+    clear_sessions()
+
+
+def test_internal_json_pointer_read_keeps_revision_and_excerpt_digests_distinct(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from graph_memory.interaction import expansion_executor as executor
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession, SessionSnapshot, SourceAnchorState,
+    )
+    from graph_memory.interaction.session_store import clear_sessions, create_session
+    from graph_memory.retrieval.models import WorldGraphSourceAnchorReadResult
+
+    clear_sessions()
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:one", campaign_id="", revision_id="graph:one",
+            scope_mode="world",
+        ),
+        source_anchors=[SourceAnchorState(anchor_id="anchor:json", readable=True)],
+    )
+    create_session(session)
+    result = WorldGraphSourceAnchorReadResult.model_validate({
+        "outcome": "enough", "anchorId": "anchor:json",
+        "evidenceRefId": "evidence:json", "sourceArtifactId": "artifact:json",
+        "locatorKind": "json_pointer", "content": '{"fact": true}',
+        "contentSha256": "b" * 64,
+        "snapshot": {
+            "worldId": "world:one", "campaignId": "", "revisionId": "graph:one",
+            "headRevisionId": "graph:one", "isHead": True,
+            "focus": {"kind": "none"}, "admissibility": "gm", "scopeMode": "world",
+        },
+    })
+    monkeypatch.setattr(
+        executor.retrieval_service, "read_source_anchors_internal_v2",
+        lambda *_args, **_kwargs: (SimpleNamespace(
+            result=result, source_revision_id="source-revision:json",
+            source_revision_sha256="a" * 64,
+            evidence_ref_id="evidence:json", source_artifact_id="artifact:json",
+            source_span_ref_id=None, locator_kind="json_pointer",
+            locator_identity="/fact", graph_revision="graph:one",
+        ),),
+    )
+    output = executor.execute_read_graph_source({
+        "retrievalSessionId": session.id, "anchorIds": ["anchor:json"],
+    }, receipt_version=2)
+    receipt = output["reads"][0]["receipt"]
+    assert receipt["source_revision_sha256"] == "a" * 64
+    assert receipt["read_content_sha256"] == "b" * 64
+    assert receipt["source_span_ref_id"] is None
+    assert receipt["locator_identity"] == "/fact"
+    clear_sessions()
+
+
+def test_internal_source_read_fails_closed_on_missing_or_stale_binding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from graph_memory.interaction import expansion_executor as executor
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession, SessionSnapshot, SourceAnchorState,
+    )
+    from graph_memory.interaction.session_store import clear_sessions, create_session
+    from graph_memory.retrieval.models import WorldGraphSourceAnchorReadResult
+
+    clear_sessions()
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:one", campaign_id="", revision_id="graph:one",
+            scope_mode="world",
+        ),
+        source_anchors=[SourceAnchorState(anchor_id="anchor:one", readable=True)],
+    )
+    create_session(session)
+    result = WorldGraphSourceAnchorReadResult.model_validate({
+        "outcome": "enough", "anchorId": "anchor:one", "content": "text",
+        "contentSha256": "b" * 64, "locatorKind": "source_span",
+        "snapshot": {
+            "worldId": "world:one", "campaignId": "", "revisionId": "graph:stale",
+            "headRevisionId": "graph:stale", "isHead": False,
+            "focus": {"kind": "none"}, "admissibility": "gm", "scopeMode": "world",
+        },
+    })
+    monkeypatch.setattr(
+        executor.retrieval_service, "read_source_anchors_internal_v2",
+        lambda *_args, **_kwargs: (SimpleNamespace(
+            result=result, source_revision_id=None, source_revision_sha256=None,
+            evidence_ref_id=None, source_artifact_id=None,
+            source_span_ref_id=None, locator_kind="source_span",
+            locator_identity="span:one", graph_revision="graph:stale",
+        ),),
+    )
+    output = executor.execute_read_graph_source({
+        "retrievalSessionId": session.id, "anchorIds": ["anchor:one"],
+    }, receipt_version=2)
+    assert output["reads"][0]["receipt"] is None
+    assert output["reads"][0]["result"]["code"] == "source_receipt_unverifiable"
+    assert session.source_anchors[0].opened is False
+    assert session.source_reads[-1].receipt_v2 is None
+    assert "receipt_v2" not in session.source_reads[-1].model_dump()
+    denied = executor.execute_read_graph_source({
+        "retrievalSessionId": session.id, "anchorIds": ["anchor:foreign"],
+    }, receipt_version=2)
+    assert denied["reads"][0]["receipt"] is None
+    assert denied["reads"][0]["sourceReadId"] is None
+    with pytest.raises(ValueError, match="unknown retrieval session"):
+        executor.execute_read_graph_source({
+            "retrievalSessionId": "grs:stale", "anchorIds": ["anchor:one"],
+        }, receipt_version=2)
+    clear_sessions()
+
+
+def test_world_owned_source_admission_preserves_exact_none_campaign():
+    sources = InMemorySourceRepository()
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    )
+    request = WorldGraphSourceAdmissionRequest(
+        source_body=BODY, expected_head_revision_id=HEAD,
+        world_id=WORLD_ID, campaign_id=None,
+        source_artifact=_buddy_artifact(artifact_id=ARTIFACT_A, campaign_id=None),
+        source_revision_token=TOKEN,
+    )
+    first = adapter.prove_or_admit(request)
+    assert first.campaign_id is None
+    assert adapter.prove_or_admit(request) == first
+    assert adapter.prove(world_id=WORLD_ID, source_artifact_id=ARTIFACT_A,
+                         source_revision_id=first.source_revision_id,
+                         source_revision_token=TOKEN) == first
+
+
+def test_world_owned_request_cannot_retag_existing_campaign_source():
+    sources = InMemorySourceRepository()
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    )
+    original = adapter.prove_or_admit(WorldGraphSourceAdmissionRequest(
+        source_body=BODY, expected_head_revision_id=HEAD,
+        world_id=WORLD_ID, campaign_id=CAMPAIGN_ID,
+        source_artifact=_buddy_artifact(artifact_id=ARTIFACT_A), source_revision_token=TOKEN,
+    ))
+    with pytest.raises(WorldGraphSourceAdmissionError):
+        adapter.prove_or_admit(WorldGraphSourceAdmissionRequest(
+            source_body=BODY, expected_head_revision_id=HEAD,
+            world_id=WORLD_ID, campaign_id=None,
+            source_artifact=_buddy_artifact(artifact_id=ARTIFACT_A, campaign_id=None),
+            source_revision_token=TOKEN,
+        ))
+    assert adapter.prove(world_id=WORLD_ID, source_artifact_id=ARTIFACT_A,
+                         source_revision_id=original.source_revision_id,
+                         source_revision_token=TOKEN).campaign_id == CAMPAIGN_ID
+
+
+def test_existing_pair_uses_one_native_snapshot_for_catalog_matching():
+    class CountingSources(InMemorySourceRepository):
+        snapshots = 0
+
+        def get_provenance_snapshot(self, **kwargs):
+            self.snapshots += 1
+            return super().get_provenance_snapshot(**kwargs)
+
+    sources = CountingSources()
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    )
+    request = _request(artifact_id=ARTIFACT_A)
+    first = adapter.prove_or_admit(request)
+    sources.snapshots = 0
+    assert adapter.prove_or_admit(request) == first
+    assert sources.snapshots == 1
+    sources.snapshots = 0
+    assert adapter.prove(world_id=WORLD_ID, source_artifact_id=ARTIFACT_A,
+        source_revision_id=first.source_revision_id, source_revision_token=TOKEN) == first
+    assert sources.snapshots == 1
+
+
+def test_native_catalog_denial_cannot_fall_back_to_buddy_writes(monkeypatch):
+    from dungeonmind.application import source_admission as native
+    from dungeonmind.domain.errors import IdempotencyConflictError
+
+    sources = InMemorySourceRepository()
+    def denied(**_kwargs):
+        raise IdempotencyConflictError("synthetic native catalog denial")
+    monkeypatch.setattr(native, "match_admitted_source_revision", denied)
+    with pytest.raises(WorldGraphSourceAdmissionError) as failure:
+        DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    ).prove_or_admit(_request(artifact_id=ARTIFACT_A))
+    assert failure.value.code == "source_identity_conflict"
+    assert sources.list_artifacts_for_world(WORLD_ID) == []
+
+
+def test_native_read_failure_does_not_return_buddy_source_identity(monkeypatch):
+    from dungeonmind.application import source_admission as native
+    from dungeonmind.domain.errors import PersistenceUnavailableError
+
+    def unavailable(**_kwargs):
+        raise PersistenceUnavailableError("synthetic native source outage")
+    monkeypatch.setattr(native, "load_admitted_source_pair", unavailable)
+    with pytest.raises(WorldGraphSourceAdmissionError) as failure:
+        DungeonMindWorldGraphSourceAdmissionAdapter(sources=InMemorySourceRepository()).prove(
+            world_id=WORLD_ID, source_artifact_id=ARTIFACT_A, source_revision_id=TOKEN)
+    assert failure.value.code == "authority_unavailable"

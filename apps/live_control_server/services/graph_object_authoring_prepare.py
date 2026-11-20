@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import json
 import os
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,7 +15,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from apps.live_control_server.models.graph_authoring_overlay import (
-    AUTHORED_GRAPH_OVERLAY_SCHEMA,
     AuthoredGraphAssertion,
     AuthoredGraphLinkExistingAssertion,
     AuthoredGraphMergeObjectsAssertion,
@@ -31,26 +31,23 @@ from apps.live_control_server.models.graph_authoring_overlay import (
     UnsafeCampaignRelError,
     build_source_anchor_from_payload,
     default_graph_authoring_provenance,
+    normalize_selected_text,
     validate_campaign_id,
-)
-from apps.live_control_server.services.graph_authoring_overlay_store import (
-    GraphAuthoringOverlayStore,
 )
 from apps.live_control_server.services.graph_authoring_ids import (
     authored_object_node_id,
-)
-from apps.live_control_server.services.graph_object_authoring_merge_guard import (
-    detect_merge_assertion_conflicts,
 )
 from apps.live_control_server.services.graph_object_authoring_overlap import (
     detect_prepare_overlap_warnings,
 )
 
+from apps.live_control_server.services.graph_document_source import GraphDocumentSource
+
 STABLE_ASSERTION_TIMESTAMP = "1970-01-01T00:00:00Z"
-CONFIRM_TOKEN_KIND = "graph_authoring_commit_confirmation_v1"
 
 NO_MUTATION_GUARANTEES_PREPARE = [
-    "Prepare wrote nothing.",
+    "Prepared a World Graph change; no graph assertions were published.",
+    "Exact source provenance may have been admitted to the source catalog.",
     "Source markdown was not mutated.",
     "Extracted live run artifacts were not mutated.",
     "Candidate graph gold was not mutated.",
@@ -241,6 +238,7 @@ class GraphObjectAuthoringPrepareRequest(BaseModel):
     session_id: str | None = Field(default=None, alias="sessionId")
     world_id: str | None = Field(default=None, alias="worldId")
     source_run_id: str | None = Field(default=None, alias="sourceRunId")
+    document_source: GraphDocumentSource | None = Field(default=None, alias="documentSource")
     recap_artifact_id: str | None = Field(default=None, alias="recapArtifactId")
     source_graph_id: str | None = Field(default=None, alias="sourceGraphId")
     source_projection_id: str | None = Field(default=None, alias="sourceProjectionId")
@@ -256,6 +254,7 @@ class GraphObjectAuthoringCommitRequest(BaseModel):
     session_id: str | None = Field(default=None, alias="sessionId")
     world_id: str | None = Field(default=None, alias="worldId")
     source_run_id: str | None = Field(default=None, alias="sourceRunId")
+    document_source: GraphDocumentSource | None = Field(default=None, alias="documentSource")
     recap_artifact_id: str | None = Field(default=None, alias="recapArtifactId")
     source_graph_id: str | None = Field(default=None, alias="sourceGraphId")
     source_projection_id: str | None = Field(default=None, alias="sourceProjectionId")
@@ -278,6 +277,7 @@ def authoring_prepare_request_from_write(
         session_id=request.session_id,
         world_id=request.world_id,
         source_run_id=request.source_run_id,
+        document_source=request.document_source,
         recap_artifact_id=request.recap_artifact_id,
         source_graph_id=request.source_graph_id,
         source_projection_id=request.source_projection_id,
@@ -313,9 +313,9 @@ class GraphObjectAuthoringPrepareResponse(BaseModel):
 
     prepared: bool = True
     campaign_id: str
-    overlay_path: str
-    event_log_path: str
-    current_overlay_token: str
+    overlay_path: str | None = None
+    event_log_path: str | None = None
+    current_overlay_token: str | None = None
     proposed_assertions_digest: str
     confirm_token: str
     assertion_count: int
@@ -393,12 +393,6 @@ def contribution_binding_digest(contribution: Any) -> str:
     payload = contribution.model_dump(mode="json")
     payload.pop("produced_at", None)
     return stable_json_digest(payload)
-
-
-def overlay_file_token(path: Path, *, campaign_id: str) -> str:
-    if path.is_file():
-        return hashlib.sha256(path.read_bytes()).hexdigest()
-    return stable_json_digest({"missing_overlay": campaign_id})
 
 
 def _diag(
@@ -823,56 +817,32 @@ def proposed_assertions_digest(assertions: list[AuthoredGraphAssertion]) -> str:
     return stable_json_digest(payload)
 
 
-def build_confirm_token(
-    *,
-    campaign_id: str,
-    overlay_path: str,
-    current_overlay_token: str,
-    assertions: list[AuthoredGraphAssertion],
-) -> str:
-    return stable_json_digest(
-        {
-            "kind": CONFIRM_TOKEN_KIND,
-            "campaign_id": campaign_id,
-            "overlay_path": overlay_path,
-            "current_overlay_token": current_overlay_token,
-            "proposed_assertions_digest": proposed_assertions_digest(assertions),
-            "schema_version": AUTHORED_GRAPH_OVERLAY_SCHEMA,
-        }
-    )
-
-
-def _resolve_store(corpus_root: Path | None) -> GraphAuthoringOverlayStore:
-    if corpus_root is None:
-        from src.live_play.recap_stage_paths import corpus_root as default_corpus_root
-
-        return GraphAuthoringOverlayStore(default_corpus_root())
-    return GraphAuthoringOverlayStore(corpus_root)
-
-
 def classify_graph_review_expressibility(
     proposals: list[GraphObjectAuthoringProposalPayload],
 ) -> Literal["EXPRESSIBLE", "INEXPRESSIBLE"]:
-    if not proposals:
+    ids = [getattr(proposal, "local_proposal_id", None) for proposal in proposals]
+    if not proposals or any(not isinstance(pid, str) or not pid.strip() for pid in ids) or len(ids) != len(set(ids)):
         return "INEXPRESSIBLE"
+    objects = {proposal.local_proposal_id for proposal in proposals if proposal.proposal_kind == "object"}
+
+    def exact(ref, *, allow_local=True):
+        if not isinstance(ref, dict):
+            return False
+        node = str(ref.get("nodeId") or ref.get("node_id") or "").strip()
+        local = str(ref.get("localProposalId") or ref.get("local_proposal_id") or "").strip()
+        kind = ref.get("refKind") or ref.get("ref_kind")
+        if kind == "local_proposal":
+            return allow_local and not node and local in objects
+        return bool(node) and not local
+
     for proposal in proposals:
         if proposal.proposal_kind not in EXPRESSIBLE_KINDS:
             return "INEXPRESSIBLE"
-        if proposal.proposal_kind == "link_existing":
-            node_id = ""
-            if isinstance(proposal.existing_object_ref, dict):
-                node_id = str(proposal.existing_object_ref.get("nodeId") or proposal.existing_object_ref.get("node_id") or "")
-            if not node_id.strip():
-                return "INEXPRESSIBLE"
-        if proposal.proposal_kind == "relationship":
-            source_id = ""
-            target_id = ""
-            if isinstance(proposal.source_object_ref, dict):
-                source_id = str(proposal.source_object_ref.get("nodeId") or proposal.source_object_ref.get("node_id") or "")
-            if isinstance(proposal.target_object_ref, dict):
-                target_id = str(proposal.target_object_ref.get("nodeId") or proposal.target_object_ref.get("node_id") or "")
-            if not source_id.strip() or not target_id.strip():
-                return "INEXPRESSIBLE"
+        if proposal.proposal_kind == "link_existing" and not exact(proposal.existing_object_ref, allow_local=False):
+            return "INEXPRESSIBLE"
+        if proposal.proposal_kind == "relationship" and not (
+                exact(proposal.source_object_ref) and exact(proposal.target_object_ref)):
+            return "INEXPRESSIBLE"
     return "EXPRESSIBLE"
 
 
@@ -917,9 +887,13 @@ def publication_intent_payload(
     expires_at: str,
     contribution_digest: str | None = None,
     recap_artifact_id: str | None = None,
+    publication_binding: dict | None = None,
+    document_source: dict | None = None,
 ) -> dict[str, Any]:
     return {
         "schema": GRAPH_REVIEW_PREPARE_BINDING_SCHEMA,
+        "publication_binding": publication_binding,
+        "document_source": document_source,
         "world_id": world_id,
         "campaign_id": campaign_id,
         "campaign_rel": campaign_rel,
@@ -951,7 +925,7 @@ def sign_publication_intent(payload: dict[str, Any]) -> str:
     return f"v1.{body}.{digest}"
 
 
-def decode_publication_intent(token: str) -> dict[str, Any]:
+def decode_publication_intent(token: str, *, allow_expired_recovery: bool = False) -> dict[str, Any]:
     import base64
 
     raw_token = (token or "").strip()
@@ -1004,7 +978,7 @@ def decode_publication_intent(token: str) -> dict[str, Any]:
             ) from exc
         if expiry.tzinfo is None:
             expiry = expiry.replace(tzinfo=UTC)
-        if datetime.now(UTC) > expiry:
+        if datetime.now(UTC) > expiry and not allow_expired_recovery:
             raise GraphObjectAuthoringError(
                 "Prepared confirmation has expired. Prepare again.",
                 code="confirmation_expired",
@@ -1025,26 +999,237 @@ def verify_publication_intent(token: str, payload: dict[str, Any]) -> None:
         )
 
 
-def graph_review_source_evidence_ref_id(source_artifact_id: str) -> str:
-    """One contribution evidence handle for the sealed Graph Review source pair."""
-    return f"grauth-ev:{source_artifact_id}"
+@dataclass(frozen=True)
+class VerifiedGraphReviewSpan:
+    assertion_id: str
+    evidence_ref_id: str
+    source_artifact_id: str
+    source_revision_id: str
+    source_domain: str
+    source_span_ref_id: str
+    source_content_sha256: str
+    span_content_sha256: str
+    span_index_sha256: str | None
+    visibility_state: str
+
+
+def graph_review_source_evidence_ref_id(source_artifact_id: str, assertion_id: str) -> str:
+    """Keep independently verified assertion passages distinct in one contribution."""
+    return f"grauth-ev:{source_artifact_id}:{assertion_id}"
+
+
+def _source_span_error(message: str, *, drift: bool = False) -> GraphObjectAuthoringError:
+    return GraphObjectAuthoringError(
+        message,
+        code="source_span_drift" if drift else "source_span_unreadable",
+        status_code=409 if drift else 422,
+    )
+
+
+def _selected_passage(
+    anchor: GraphAuthoringSourceAnchor | None,
+    passages: list[tuple[str, str]],
+) -> tuple[str, str]:
+    """Resolve a server-owned passage; selection coordinates are hints, not proof."""
+    if anchor is None or not normalize_selected_text(anchor.selected_text):
+        raise _source_span_error(
+            "Select source text with a readable passage, then prepare Graph Review again."
+        )
+    selected = normalize_selected_text(anchor.selected_text)
+    explicit = (anchor.source_span_ref_id or "").strip()
+    matches = [
+        (span_id, content)
+        for span_id, content in passages
+        if selected in normalize_selected_text(content)
+        and (not explicit or span_id == explicit)
+    ]
+    if not explicit and len(matches) > 1 and anchor.paragraph_ordinal is not None:
+        ordinal = anchor.paragraph_ordinal
+        if 1 <= ordinal <= len(passages) and passages[ordinal - 1] in matches:
+            matches = [passages[ordinal - 1]]
+    if len(matches) != 1:
+        raise _source_span_error(
+            "The selected text does not identify one current source passage. "
+            "Select an exact passage and prepare Graph Review again."
+        )
+    return matches[0]
+
+
+def _worldbuilding_run_passages(resolved_source, *, root: Path, artifact_id: str, digest: str, text: str):
+    """Join manual assertions to the exact run's frozen index, never registry latest."""
+    from graph_memory.source_span import source_span_index_from_dict, validate_source_span_index
+    from application_state.errors import ApplicationStateError
+    from application_state.ingest.components import get_component_bytes
+
+    try:
+        if getattr(resolved_source, "document_source_selector", None) is not None:
+            from apps.live_control_server.services.source_artifact_registry import load_source_span_index
+            from graph_memory.source_span import source_span_index_to_dict
+            payload = source_span_index_to_dict(load_source_span_index(root, artifact_id))
+            raw = (json.dumps(payload, sort_keys=True, ensure_ascii=False) + "\n").encode()
+        else:
+            raw = get_component_bytes(
+                run_id=getattr(resolved_source, "run_id", None), kind="source_span_index",
+                content_sha256=getattr(resolved_source, "source_span_index_sha256", None),
+            )
+        expected = getattr(resolved_source, "source_span_index_sha256", None)
+        if not isinstance(expected, str) or hashlib.sha256(raw).hexdigest() != expected:
+            raise ValueError("Frozen source index differs from the run's component digest")
+        payload = json.loads(raw.decode("utf-8"))
+        if (not isinstance(payload, dict) or not isinstance(payload.get("spans"), list)
+                or any(type(span.get(field)) is not int
+                       for span in payload["spans"] for field in ("start_line", "end_line"))):
+            raise ValueError("Frozen source span ranges must be integers")
+        index = source_span_index_from_dict(payload)
+        validate_source_span_index(index, source_artifact_id=artifact_id, content_sha256=digest)
+        lines, seen, previous_end = text.splitlines(), set(), 0
+        passages = []
+        for span in index.spans:
+            if (span.source_span_id in seen or span.start_line <= previous_end
+                    or span.end_line < span.start_line or span.end_line > len(lines)):
+                raise ValueError("Invalid or overlapping frozen source spans")
+            seen.add(span.source_span_id)
+            previous_end = span.end_line
+            passages.append((span.source_span_id, "\n".join(lines[span.start_line - 1:span.end_line])))
+        return passages, hashlib.sha256(raw).hexdigest()
+    except (ApplicationStateError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
+        raise _source_span_error(
+            "The exact run's frozen source span index is unreadable or changed. Prepare again.", drift=True,
+        ) from exc
+
+
+def verify_graph_review_assertion_spans(
+    *,
+    assertions: list[AuthoredGraphAssertion],
+    resolved_source: Any,
+    source_root: Path,
+    world_id: str,
+    campaign_id: str,
+) -> dict[str, VerifiedGraphReviewSpan]:
+    """Re-read registered bytes and bind each assertion to one exact passage."""
+    from apps.live_control_server.config import artifact_data_root
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+        extract_span_from_revision_bound_text,
+        split_recap_body_paragraphs,
+    )
+    from apps.live_control_server.services.worldbuilding_source_span_read import (
+        read_admitted_worldbuilding_span,
+    )
+    from graph_memory.retrieval.errors import WorldGraphRetrievalError
+
+    artifact = _buddy_source_artifact(resolved_source)
+    _scope_check_buddy_artifact(
+        artifact, authored_world=world_id, authored_campaign=campaign_id
+    )
+    artifact_id = str(getattr(artifact, "source_artifact_id", "") or "")
+    digest = str(getattr(artifact, "content_sha256", "") or "").removeprefix("sha256:").lower()
+    revision_id = str(getattr(resolved_source, "source_revision_id", "") or "")
+    visibility = str(getattr(artifact, "visibility_state", "") or "")
+    domain = str(getattr(artifact, "source_domain", "") or "")
+    if domain == "recap":
+        domain = "session_recap"
+    if (
+        len(digest) != 64
+        or any(char not in "0123456789abcdef" for char in digest)
+        or revision_id != f"sha256:{digest}"
+        or not visibility
+        or str(getattr(artifact, "status", "active")) != "active"
+    ):
+        raise _source_span_error(
+            "The admitted source revision or visibility is not current. Prepare again.",
+            drift=True,
+        )
+    root = artifact_data_root(source_root)
+    try:
+        if getattr(resolved_source, "document_source_selector", None) is not None:
+            from apps.live_control_server.services.source_artifact_registry import load_registered_source_artifact_bytes
+            stored, raw = load_registered_source_artifact_bytes(root, artifact_id)
+            if stored != artifact:
+                raise ValueError("Registered document source changed")
+        else:
+            from apps.live_control_server.services.source_artifact_registry import load_source_input_bytes
+            raw = load_source_input_bytes(artifact)
+        text = raw.decode("utf-8")
+    except (OSError, ValueError) as exc:
+        raise _source_span_error("The admitted source body is unreadable. Prepare again.", drift=True) from exc
+    if hashlib.sha256(raw).hexdigest() != digest:
+        raise _source_span_error("The admitted source body changed. Prepare again.", drift=True)
+
+    index_digest: str | None = None
+    if domain == "worldbuilding":
+        passages, index_digest = _worldbuilding_run_passages(
+            resolved_source, root=root, artifact_id=artifact_id, digest=digest, text=text,
+        )
+    elif domain == "session_recap":
+        passages = [
+            (f"{artifact_id}:paragraph:{ordinal}", paragraph)
+            for ordinal, paragraph in enumerate(split_recap_body_paragraphs(text), start=1)
+        ]
+    else:
+        raise _source_span_error("This source domain has no supported exact passage reader.")
+
+    verified: dict[str, VerifiedGraphReviewSpan] = {}
+    for assertion in assertions:
+        span_id, passage = _selected_passage(assertion.source_anchor, passages)
+        if domain == "worldbuilding":
+            anchor = assertion.source_anchor
+            selected = normalize_selected_text(anchor.selected_text)
+            normalized = normalize_selected_text(passage)
+            first = normalized.find(selected)
+            if (not anchor.source_span_ref_id or normalized.find(selected, first + 1) != -1):
+                raise _source_span_error(
+                    "Select one unique occurrence in an exact frozen source span, then prepare again."
+                )
+            try:
+                read = read_admitted_worldbuilding_span(
+                    root=source_root,
+                    source_artifact_id=artifact_id,
+                    source_span_ref_id=span_id,
+                    graph_content_sha256=digest,
+                    max_chars=max(len(text) + 1, 1024),
+                    anchor_id=f"prepare:{assertion.assertion_id}",
+                    graph_artifact=artifact,
+                )
+            except WorldGraphRetrievalError as exc:
+                raise _source_span_error("The registered source passage cannot be opened. Prepare again.", drift=True) from exc
+            if read.outcome != "enough" or read.content != passage:
+                raise _source_span_error("The registered source passage changed. Prepare again.", drift=True)
+        else:
+            extracted = extract_span_from_revision_bound_text(
+                text=text, span_id=span_id, digest=digest
+            )
+            if extracted is None or extracted[0] != passage:
+                raise _source_span_error("The recap passage changed. Prepare again.", drift=True)
+        verified[assertion.assertion_id] = VerifiedGraphReviewSpan(
+            assertion_id=assertion.assertion_id,
+            evidence_ref_id=graph_review_source_evidence_ref_id(artifact_id, assertion.assertion_id),
+            source_artifact_id=artifact_id,
+            source_revision_id=revision_id,
+            source_domain=domain,
+            source_span_ref_id=span_id,
+            source_content_sha256=digest,
+            span_content_sha256=hashlib.sha256(passage.encode("utf-8")).hexdigest(),
+            span_index_sha256=index_digest,
+            visibility_state=visibility,
+        )
+    return verified
 
 
 def translate_assertions_to_contribution(
     *,
     world_id: str,
-    campaign_id: str,
+    campaign_id: str | None,
     actor: str,
     source_artifact_id: str,
     source_revision_id: str,
     assertions: list[AuthoredGraphAssertion],
+    verified_spans: dict[str, VerifiedGraphReviewSpan],
 ):
     from apps.live_control_server.models.world_graph_contributions import (
         build_assertion,
         create_graph_contribution,
     )
 
-    evidence_ref_ids = [graph_review_source_evidence_ref_id(source_artifact_id)]
     node_id_by_local_proposal_id = {
         str(assertion.object_ref.local_proposal_id): authored_object_node_id(
             assertion.assertion_id
@@ -1062,6 +1247,11 @@ def translate_assertions_to_contribution(
 
     accepted = []
     for assertion in assertions:
+        verified = verified_spans.get(assertion.assertion_id)
+        if verified is None or verified.source_artifact_id != source_artifact_id or verified.source_revision_id != source_revision_id:
+            raise _source_span_error("A reviewed assertion has no verified source passage. Prepare again.")
+        evidence_ref_ids = [verified.evidence_ref_id]
+        evidence_value = {"evidence": [asdict(verified)]}
         if assertion.assertion_kind == "object":
             node_id = authored_object_node_id(assertion.assertion_id)
             accepted.append(
@@ -1073,7 +1263,8 @@ def translate_assertions_to_contribution(
                     value={
                         "kind": assertion.object_ref.kind or "unknown",
                         "role": assertion.object_ref.role or assertion.object_ref.kind or "unknown",
-                        "source_domains": ["worldbuilding"],
+                        "source_domains": [verified.source_domain],
+                        **evidence_value,
                         "aliases": list(assertion.aliases or [assertion.object_ref.label]),
                         "summary": assertion.summary,
                     },
@@ -1102,7 +1293,8 @@ def translate_assertions_to_contribution(
                     label=alias_text or assertion.existing_object_ref.label,
                     value={
                         "alias": alias_text or assertion.existing_object_ref.label,
-                        "source_domains": ["worldbuilding"],
+                        "source_domains": [verified.source_domain],
+                        **evidence_value,
                     },
                     evidence_ref_ids=evidence_ref_ids,
                     source_artifact_id=source_artifact_id,
@@ -1129,7 +1321,7 @@ def translate_assertions_to_contribution(
                     target_node_id=target_id,
                     predicate=assertion.relationship_type,
                     label=assertion.relationship_label,
-                    value={"source_domains": ["worldbuilding"], "direction": assertion.direction},
+                    value={"source_domains": [verified.source_domain], "direction": assertion.direction, **evidence_value},
                     evidence_ref_ids=evidence_ref_ids,
                     source_artifact_id=source_artifact_id,
                     source_revision_id=source_revision_id,
@@ -1168,17 +1360,27 @@ def resolve_graph_review_source(
 ):
     run_id = (request.source_run_id or "").strip()
     recap_artifact_id = (request.recap_artifact_id or "").strip()
-    if bool(run_id) == bool(recap_artifact_id):
-        if run_id and recap_artifact_id:
-            raise GraphObjectAuthoringError(
-                "Choose exactly one authoritative source selector: sourceRunId or recapArtifactId.",
-                code="source_selector_conflict",
-                status_code=422,
-            )
+    selector = request.document_source
+    count = bool(run_id) + bool(recap_artifact_id) + (selector is not None)
+    if count != 1:
         raise GraphObjectAuthoringError(
-            "Graph Review confirmation requires exactly one authoritative source selector: sourceRunId or recapArtifactId.",
-            code="source_unresolved",
+            "Choose exactly one authoritative source selector: sourceRunId, recapArtifactId or documentSource.",
+            code="source_selector_conflict" if count > 1 else "source_unresolved", status_code=422,
         )
+    if selector is not None:
+        from apps.live_control_server.config import repo_root
+        from apps.live_control_server.services.graph_document_source import resolve_graph_document_source
+        from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
+        from apps.live_control_server.services.workspace_document_registry import WorkspaceDocumentRegistryError
+        if request.world_id != authored_world or request.campaign_id != authored_world or request.session_id:
+            raise GraphObjectAuthoringError("Document source requires its explicit managed World and no session.",
+                                            code="world_binding_required", status_code=409)
+        try:
+            return resolve_graph_document_source((source_root or repo_root()).resolve(), selector,
+                world_id=authored_world, campaign_id=request.campaign_id)
+        except (SourceArtifactRegistryError, WorkspaceDocumentRegistryError, OSError) as exc:
+            raise GraphObjectAuthoringError("The exact document source is unavailable or changed.",
+                code="source_inadmissible", status_code=getattr(exc, "status_code", 409)) from exc
 
     if resolved_source is not None:
         run_campaign = (getattr(resolved_source, "campaign_id", "") or "").strip()
@@ -1229,6 +1431,13 @@ def resolve_graph_review_source(
                 "recapArtifactId has no registered source digest",
                 code="source_unresolved",
             )
+        verified_native_world_id = (request.world_id or "").strip()
+        if not verified_native_world_id or verified_native_world_id != request.world_id:
+            raise GraphObjectAuthoringError(
+                "recap source registration requires an explicit verified World",
+                code="world_binding_required",
+                status_code=422,
+            )
 
         recap_path = Path(record.source_recap_path)
         if recap_path.is_absolute() or ".." in recap_path.parts:
@@ -1246,6 +1455,7 @@ def resolve_graph_review_source(
         try:
             artifact = create_recap_source_artifact(
                 root,
+                world_id=verified_native_world_id,
                 campaign_id=record.campaign_id,
                 session_id=record.session_id,
                 recap_path=resolved_path,
@@ -1256,17 +1466,12 @@ def resolve_graph_review_source(
             raise GraphObjectAuthoringError(
                 str(exc), code=code, status_code=exc.status_code
             ) from exc
-        # Recap registry records predate the governed World topology and may
-        # therefore carry no world_id. The request's server-resolved World is
-        # authoritative for this publication and must reach source admission.
-        if not (getattr(artifact, "world_id", None) or "").strip():
-            artifact = artifact.model_copy(update={"world_id": authored_world})
         return SimpleNamespace(
             source_artifact_id=artifact.source_artifact_id,
             source_revision_id=f"sha256:{artifact.content_sha256}",
             campaign_id=record.campaign_id,
             session_id=record.session_id,
-            world_id=authored_world,
+            world_id=verified_native_world_id,
             sealed_source_uri=artifact.uri,
             source_artifact=artifact,
         )
@@ -1307,7 +1512,7 @@ def _buddy_source_artifact(resolved: Any):
     )
 
     try:
-        return get_source_artifact(repo_root(), str(resolved.source_artifact_id))
+        return get_source_artifact(str(resolved.source_artifact_id))
     except SourceArtifactRegistryError as exc:
         raise GraphObjectAuthoringError(
             str(exc),
@@ -1365,7 +1570,9 @@ def prove_or_admit_graph_review_source(
     world_id: str,
     campaign_id: str,
     resolved_source: Any,
+    expected_head_revision_id: str,
     source_admission: Any | None = None,
+    publication_context: Any | None = None,
 ) -> tuple[str, str]:
     from apps.live_control_server.ports.world_graph_source_admission import (
         WorldGraphSourceAdmissionError,
@@ -1378,15 +1585,26 @@ def prove_or_admit_graph_review_source(
     artifact = _buddy_source_artifact(resolved_source)
     _scope_check_buddy_artifact(
         artifact,
-        authored_world=world_id,
+        authored_world=(publication_context.binding["managed_world_id"]
+                        if publication_context and publication_context.binding else world_id),
         authored_campaign=campaign_id,
     )
+    from apps.live_control_server.services.source_artifact_registry import (
+        load_source_input_bytes, SourceArtifactRegistryError,
+    )
+    try:
+        source_body = load_source_input_bytes(artifact)
+    except SourceArtifactRegistryError as exc:
+        raise GraphObjectAuthoringError(str(exc), code="source_inadmissible",
+                                        status_code=exc.status_code) from exc
     admission = source_admission or get_world_graph_source_admission_authority()
     request = WorldGraphSourceAdmissionRequest(
         world_id=world_id,
-        campaign_id=campaign_id,
-        source_artifact=artifact,
+        campaign_id=(publication_context.campaign_scope if publication_context else campaign_id),
+        source_artifact=(publication_context.transport_artifact(artifact) if publication_context else artifact),
         source_revision_token=str(getattr(resolved_source, "source_revision_id")),
+        source_body=source_body,
+        expected_head_revision_id=expected_head_revision_id,
         source_uri=getattr(resolved_source, "sealed_source_uri", None)
         or getattr(artifact, "uri", None),
     )
@@ -1427,10 +1645,51 @@ def prove_graph_review_source(
     return admitted.source_artifact_id, admitted.source_revision_id
 
 
+def graph_review_supported_object_kinds() -> tuple[str, ...]:
+    """Choices come from the exact native target used by the publication writer."""
+    from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
+        CURRENT_V5_TARGET,
+    )
+
+    return tuple(sorted(CURRENT_V5_TARGET.buddy_to_dm_kind))
+
+
+def validate_graph_review_object_kinds(assertions: list[AuthoredGraphAssertion]) -> None:
+    supported = graph_review_supported_object_kinds()
+    for assertion in assertions:
+        if assertion.assertion_kind == "object" and assertion.object_ref.kind not in supported:
+            raise GraphObjectAuthoringError(
+                f"Object kind '{assertion.object_ref.kind}' is not supported for World publication. "
+                "Edit the proposal and explicitly choose a supported kind.",
+                code="authoring_kind_unsupported",
+                status_code=409,
+            )
+
+
+def validate_graph_review_predicates(assertions: list[AuthoredGraphAssertion]) -> None:
+    """Use the governed writer's mapping; never guess a predicate from prose."""
+    from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
+        CONNECTED_PLACE_OPERATION_V7_TARGET, resolve_buddy_predicate_mapping_v4,
+    )
+
+    for assertion in assertions:
+        if assertion.assertion_kind != "relationship":
+            continue
+        mapping = resolve_buddy_predicate_mapping_v4(assertion.relationship_type, target=CONNECTED_PLACE_OPERATION_V7_TARGET)
+        if mapping is None or not mapping[0]:
+            raise GraphObjectAuthoringError(
+                f"Relationship type '{assertion.relationship_type}' is not supported for World publication. "
+                "Edit the review and explicitly choose a supported relationship type.",
+                code="authoring_predicate_unsupported",
+                status_code=409,
+            )
+
+
 def prepare_graph_object_authoring_write(
     request: GraphObjectAuthoringPrepareRequest,
     *,
     corpus_root: Path | None = None,
+    authenticated_actor: str | None = None,
     authority: Any | None = None,
     resolved_source: Any | None = None,
     source_admission: Any | None = None,
@@ -1443,27 +1702,8 @@ def prepare_graph_object_authoring_write(
             code="empty_proposals",
         )
 
-    store = _resolve_store(corpus_root)
-    overlay_path = store.overlay_path(request.campaign_id, campaign_rel=request.campaign_rel)
-    events_path = store.events_path(request.campaign_id, campaign_rel=request.campaign_rel)
-    current_token = overlay_file_token(overlay_path, campaign_id=request.campaign_id)
-    existing_overlay = store.load_overlay(request.campaign_id, campaign_rel=request.campaign_rel)
-
     assertions, assertion_diagnostics = build_assertions_from_proposals(request)
-    local_proposal_ids = {
-        _assertion_id(
-            request.campaign_id,
-            proposal,
-            normalized_payload=_normalized_proposal_payload(proposal),
-        ): proposal.local_proposal_id
-        for proposal in request.proposals
-    }
-    merge_conflicts = detect_merge_assertion_conflicts(
-        assertions,
-        existing_assertions=existing_overlay.assertions,
-        local_proposal_id_by_assertion_id=local_proposal_ids,
-    )
-    blocking = _blocking_assertion_diagnostics([*assertion_diagnostics, *merge_conflicts])
+    blocking = _blocking_assertion_diagnostics(assertion_diagnostics)
     if blocking:
         raise GraphObjectAuthoringError(
             blocking[0].message,
@@ -1472,18 +1712,18 @@ def prepare_graph_object_authoring_write(
     if not assertions:
         raise GraphObjectAuthoringError("No valid assertions could be built.", code="empty_proposals")
 
-    overlap_warnings = detect_prepare_overlap_warnings(
-        request,
-        existing_overlay=existing_overlay,
-    )
+    validate_graph_review_object_kinds(assertions)
+    validate_graph_review_predicates(assertions)
+
+    overlap_warnings = detect_prepare_overlap_warnings(request)
     prepare_warnings = _non_blocking_assertion_diagnostics(assertion_diagnostics)
     expressibility = classify_graph_review_expressibility(request.proposals)
     world_id = authored_world_id(request)
-    actor = graph_review_actor(request.campaign_id)
+    actor = authenticated_actor or graph_review_actor(request.campaign_id)
     expires_at = (datetime.now(UTC) + PREPARE_TTL).isoformat()
     assertions_digest = proposed_assertions_digest(assertions)
     preview = build_assertions_preview(assertions, request.proposals)
-    summary = build_overlay_summary(len(existing_overlay.assertions), assertions)
+    summary = build_overlay_summary(0, assertions)
     diagnostics = [*prepare_warnings, *overlap_warnings]
 
     source_artifact_id = None
@@ -1491,6 +1731,7 @@ def prepare_graph_object_authoring_write(
     expected_parent = None
     operation_id = None
     contribution_digest = None
+    publication_binding = None
     if expressibility == "INEXPRESSIBLE":
         diagnostics.append(
             _diag(
@@ -1508,6 +1749,15 @@ def prepare_graph_object_authoring_write(
         )
         buddy_artifact_id = str(getattr(resolved, "source_artifact_id"))
         buddy_revision_id = str(getattr(resolved, "source_revision_id"))
+        from apps.live_control_server.config import repo_root
+
+        verified_spans = verify_graph_review_assertion_spans(
+            assertions=assertions,
+            resolved_source=resolved,
+            source_root=(corpus_root or repo_root()).resolve(),
+            world_id=world_id,
+            campaign_id=request.campaign_id,
+        )
         from apps.live_control_server.ports.world_graph_authority_access import (
             get_world_graph_authority,
         )
@@ -1515,6 +1765,11 @@ def prepare_graph_object_authoring_write(
             WorldGraphAuthorityError,
         )
 
+        from apps.live_control_server.services.graph_object_authoring_binding import resolve_publication_context
+
+        context = resolve_publication_context(request, resolved, source_root=(corpus_root or repo_root()).resolve())
+        world_id = context.world_id
+        publication_binding = context.binding
         mounted = authority or get_world_graph_authority()
         try:
             expected_parent = mounted.current_head(world_id).revision_id
@@ -1526,6 +1781,8 @@ def prepare_graph_object_authoring_write(
             campaign_id=request.campaign_id,
             resolved_source=resolved,
             source_admission=source_admission,
+            publication_context=context,
+            expected_head_revision_id=expected_parent,
         )
         from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
             graph_review_authority_operation_id,
@@ -1542,11 +1799,12 @@ def prepare_graph_object_authoring_write(
         )
         contribution = translate_assertions_to_contribution(
             world_id=world_id,
-            campaign_id=request.campaign_id,
+            campaign_id=context.campaign_scope,
             actor=actor,
             source_artifact_id=buddy_artifact_id,
             source_revision_id=buddy_revision_id,
             assertions=assertions,
+            verified_spans=verified_spans,
         )
         contribution_digest = contribution_binding_digest(contribution)
 
@@ -1564,16 +1822,18 @@ def prepare_graph_object_authoring_write(
         actor=actor,
         assertions_digest=assertions_digest,
         contribution_digest=contribution_digest,
+        publication_binding=publication_binding,
+        document_source=request.document_source.model_dump(mode="json", by_alias=True) if request.document_source else None,
         expires_at=expires_at,
     )
     confirm_token = sign_publication_intent(intent)
-    event_count = 1 + len(assertions)
+    event_count = 0
 
     return GraphObjectAuthoringPrepareResponse(
         campaign_id=request.campaign_id,
-        overlay_path=str(overlay_path),
-        event_log_path=str(events_path),
-        current_overlay_token=current_token,
+        overlay_path=None,
+        event_log_path=None,
+        current_overlay_token=None,
         proposed_assertions_digest=assertions_digest,
         confirm_token=confirm_token,
         assertion_count=len(assertions),

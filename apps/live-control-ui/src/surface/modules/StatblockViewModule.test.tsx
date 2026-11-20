@@ -3,85 +3,75 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
-import type { AddGeneratedStatblockCombatResponse, CombatEncounterState, GeneratedStatblockDetailResponse, GeneratedStatblockListResponse } from "../../api/types";
+import * as combatApi from "../../combat/combatApi";
+import type { AddGeneratedStatblockResponse, CombatEncounterRecord } from "../../combat/combatTypes";
+import * as selectedWorld from "../../selectedWorld/SelectedWorldContext";
+import type { GeneratedStatblockDetailResponse, GeneratedStatblockListResponse } from "../../api/types";
 import { StatblockViewModule } from "./StatblockViewModule";
 
-const emptyEncounter: CombatEncounterState = {
-  schema: "dmb_combat_encounter_state_v1",
-  campaign_id: "longmont-c2",
-  session: 22,
-  encounter_id: "current-combat",
-  title: "Current Combat",
-  round: 1,
-  active_turn_entity_id: null,
-  round_start_entity_id: null,
-  queue_model: "circular_barrel_v1",
-  entities: [],
-  groups: [],
-  provenance: [],
-  updated_at: "2026-06-09T00:00:00Z",
-};
-
-function addResponseFor(name = "Geomantic Drake Juvenile"): AddGeneratedStatblockCombatResponse {
-  const entity = {
-    id: "geomantic-drake-abc123",
-    name,
-    team: "enemy" as const,
-    order: 1,
-    init: null,
-    ac: 15,
-    hp: 76,
-    max_hp: 76,
-    temp_hp: null,
-    defeated: false,
-    notes: "Added from generated Statblock View.",
-    conditions: [],
-    tags: ["generated_statblock", "corpus_backed", "statblock_view"],
-    statblock_path: "corpus/eldyrwild-markdown/example.md",
-    statblock_artifact_id: "statblock-one",
-    statblock_title: name,
-    corpus_fingerprint: "abc123",
-    source: "corpus" as const,
-    provenance: [],
-  };
+function encounter(overrides: Partial<CombatEncounterRecord> = {}): CombatEncounterRecord {
   return {
-    schema_version: "dmb_add_generated_statblock_to_combat_v1",
-    added_entities: [entity],
-    encounter: { ...emptyEncounter, entities: [entity] },
-    diagnostics: [],
+    encounter_id: "3f620410-21cb-4d18-88d4-5ea5e60b0b14",
+    world_id: "elderwyld",
+    campaign_id: "longmont-c2",
+    session: 29,
+    revision: 1,
+    ruleset: {
+      schema: "dmb_combat_ruleset_v1",
+      config_id: "generic.manual-tracking",
+      system_id: "generic",
+      edition_id: "manual",
+      revision: "1",
+      mode: "manual_tracking",
+      fields: [],
+      manual_defaults: {},
+    },
+    ruleset_digest: "a".repeat(64),
+    draft: {
+      schema: "dmb_combat_encounter_draft_v1",
+      title: "Mireward Gate",
+      round: 1,
+      active_turn_entity_id: null,
+      round_start_entity_id: null,
+      queue_model: "circular_barrel_v1",
+      entities: [],
+      groups: [],
+      provenance: [],
+    },
+    created_at: "2026-10-17T12:00:00Z",
+    updated_at: "2026-10-17T12:00:00Z",
+    ...overrides,
   };
 }
 
 const listResponse: GeneratedStatblockListResponse = {
   schema_version: "dmb_generated_statblock_list_v1",
   diagnostics: [],
-  statblocks: [
-    {
-      artifact_id: "statblock-one",
-      draft_id: "draft-one",
-      title: "Geomantic Drake Juvenile",
-      campaign_id: "longmont-c2",
-      session: 22,
-      review_status: "needs_dm_review",
-      lifecycle_state: "corpus_promoted",
-      storage_status: "stored_draft",
-      corpus_status: "promotion_confirmed",
-      retrieval_status: "retrieval_verified",
-      corpus_relpath: "Longmont Campaign/Campaign 2/Statblocks/generated/geomantic_drake.md",
-      corpus_display_path: "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/geomantic_drake.md",
-      corpus_written_at: "2026-06-09T00:00:00Z",
-      retrieval_verified_at: "2026-06-09T00:01:00Z",
-      armor_class: 15,
-      hit_points: 76,
-      challenge_rating: "3",
-      creature_type: "dragon",
-      primary_actions: ["Bite", "Geomantic Breath"],
-      warning_count: 1,
-    },
-  ],
+  statblocks: [{
+    artifact_id: "statblock-one",
+    draft_id: "draft-one",
+    title: "Geomantic Drake Juvenile",
+    campaign_id: "longmont-c2",
+    session: 22,
+    review_status: "needs_dm_review",
+    lifecycle_state: "corpus_promoted",
+    storage_status: "stored_draft",
+    corpus_status: "promotion_confirmed",
+    retrieval_status: "retrieval_verified",
+    corpus_relpath: "Longmont Campaign/Campaign 2/Statblocks/generated/geomantic_drake.md",
+    corpus_display_path: "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/geomantic_drake.md",
+    corpus_written_at: "2026-06-09T00:00:00Z",
+    retrieval_verified_at: "2026-06-09T00:01:00Z",
+    armor_class: 15,
+    hit_points: 76,
+    challenge_rating: "3",
+    creature_type: "dragon",
+    primary_actions: ["Bite", "Geomantic Breath"],
+    warning_count: 1,
+  }],
 };
 
-function detailFor(artifactId: string, title: string): GeneratedStatblockDetailResponse {
+function detailFor(artifactId = "statblock-one", title = "Geomantic Drake Juvenile"): GeneratedStatblockDetailResponse {
   return {
     schema_version: "dmb_generated_statblock_detail_v1",
     artifact_id: artifactId,
@@ -110,14 +100,7 @@ function detailFor(artifactId: string, title: string): GeneratedStatblockDetailR
       verified_at: "2026-06-09T00:01:00Z",
       evidence_path: "corpus/eldyrwild-markdown/example.md",
     },
-    available_actions: [
-      {
-        action_id: "add_to_combat",
-        label: "Add to current combat",
-        enabled: true,
-        disabled_reason: null,
-      },
-    ],
+    available_actions: [{ action_id: "add_to_combat", label: "Add to current combat", enabled: true, disabled_reason: null }],
     diagnostics: [],
     stored_record: {
       schema_version: "dmb_statblock_draft_record_v1",
@@ -129,7 +112,7 @@ function detailFor(artifactId: string, title: string): GeneratedStatblockDetailR
       updated_at: "2026-06-09T00:00:00Z",
       storage_path: `statblock_drafts/${artifactId}.json`,
       corpus_relpath: `Longmont Campaign/Campaign 2/Statblocks/generated/${artifactId}.md`,
-      corpus_display_path: `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/${artifactId}.md`,
+      corpus_display_path: "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/example.md",
       corpus_written_at: "2026-06-09T00:00:00Z",
       retrieval_status: "retrieval_verified",
       artifact: {
@@ -155,171 +138,152 @@ function detailFor(artifactId: string, title: string): GeneratedStatblockDetailR
   };
 }
 
-describe("StatblockViewModule", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
+function addedResponse(): AddGeneratedStatblockResponse {
+  const added = {
+    id: "geomantic-drake-abc123",
+    name: "Geomantic Drake Juvenile",
+    team: "enemy" as const,
+    order: 1,
+    init: null,
+    ac: 15,
+    hp: 76,
+    max_hp: 76,
+    temp_hp: 0,
+    defeated: false,
+    notes: "Added from generated Statblock View.",
+    conditions: [],
+    tags: ["generated_statblock", "corpus_backed", "statblock_view"],
+    statblock_path: "corpus/eldyrwild-markdown/example.md",
+    statblock_artifact_id: "statblock-one",
+    statblock_title: "Geomantic Drake Juvenile",
+    corpus_fingerprint: "abc123",
+    source: "corpus" as const,
+    provenance: [],
+  };
+  return {
+    added_entities: [added],
+    encounter: encounter({ revision: 2, draft: { ...encounter().draft, entities: [added] } }),
+  };
+}
 
-  function mockCurrentCombat() {
-    vi.spyOn(liveApi, "getCurrentCombat").mockResolvedValue(emptyEncounter);
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => { resolve = resolvePromise; });
+  return { promise, resolve };
+}
+
+describe("StatblockViewModule", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function mount(encounters = [encounter()]) {
+    let worldId = "elderwyld";
+    vi.spyOn(selectedWorld, "useSelectedWorld").mockImplementation(() => ({
+      kind: "managed", worldId, name: worldId === "elderwyld" ? "Elderwyld" : "Conks and Cons", documentId: null,
+    }));
+    vi.spyOn(combatApi, "listWorldCombatEncounters").mockResolvedValue(encounters);
+    vi.spyOn(liveApi, "listGeneratedStatblocks").mockResolvedValue(listResponse);
+    vi.spyOn(liveApi, "getGeneratedStatblock").mockResolvedValue(detailFor());
+    const view = render(<StatblockViewModule />);
+    return {
+      ...view,
+      setWorld(nextWorldId: string) {
+        worldId = nextWorldId;
+        view.rerender(<StatblockViewModule />);
+      },
+    };
   }
 
-  it("shows empty state", async () => {
-    mockCurrentCombat();
-    vi.spyOn(liveApi, "listGeneratedStatblocks").mockResolvedValue({
-      schema_version: "dmb_generated_statblock_list_v1",
-      statblocks: [],
-      diagnostics: [],
-    });
+  it("requires an explicit target encounter before adding a statblock", async () => {
+    mount();
+    const addButton = await screen.findByRole("button", { name: "Add to encounter" });
+    expect(addButton).toBeDisabled();
+    expect(screen.getByText("Choose the encounter that should receive this statblock.")).toBeInTheDocument();
 
-    render(<StatblockViewModule />);
-
-    expect(await screen.findByText("No corpus-backed generated statblocks yet.")).toBeInTheDocument();
-  });
-
-  it("loads list and auto-selects first detail", async () => {
-    mockCurrentCombat();
-    vi.spyOn(liveApi, "listGeneratedStatblocks").mockResolvedValue(listResponse);
-    vi.spyOn(liveApi, "getGeneratedStatblock").mockResolvedValue(detailFor("statblock-one", "Geomantic Drake Juvenile"));
-
-    render(<StatblockViewModule />);
-
-    expect(await screen.findByText("Geomantic Drake Juvenile")).toBeInTheDocument();
-    expect(await screen.findByText(/Armor Class 15/)).toBeInTheDocument();
-    expect(screen.getByText(/AC 15 · HP 76 · CR 3/)).toBeInTheDocument();
-    expect(screen.getAllByText(/Retrieval verified/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/generated\/statblock-one\.md/)).toBeInTheDocument();
-    const addButton = screen.getByRole("button", { name: "Add to current combat" });
+    await screen.findByRole("option", { name: "Mireward Gate · rev 1" });
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Encounter to receive statblock" }), encounter().encounter_id);
     expect(addButton).toBeEnabled();
-    expect(screen.getByRole("region", { name: "Add to current combat" })).toBeInTheDocument();
-    expect(screen.getByText(/No combatants in current combat/)).toBeInTheDocument();
-  });
+    const addSpy = vi.spyOn(combatApi, "addGeneratedStatblockToEncounter").mockResolvedValue(addedResponse());
+    await userEvent.click(addButton);
 
-  it("selects a different statblock and updates detail", async () => {
-    mockCurrentCombat();
-    vi.spyOn(liveApi, "listGeneratedStatblocks").mockResolvedValue({
-      ...listResponse,
-      statblocks: [
-        listResponse.statblocks[0],
-        { ...listResponse.statblocks[0], artifact_id: "statblock-two", title: "Crystal Mite Swarm", armor_class: 12 },
-      ],
+    expect(addSpy).toHaveBeenCalledWith("elderwyld", encounter().encounter_id, "statblock-one", {
+      expected_revision: 1, team: "enemy", count: 1,
     });
-    vi.spyOn(liveApi, "getGeneratedStatblock")
-      .mockResolvedValueOnce(detailFor("statblock-one", "Geomantic Drake Juvenile"))
-      .mockResolvedValueOnce(detailFor("statblock-two", "Crystal Mite Swarm"));
-
-    render(<StatblockViewModule />);
-
-    expect(await screen.findByText(/Armor Class 15/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /Crystal Mite Swarm/ }));
-    expect(await screen.findByText(/# Crystal Mite Swarm/)).toBeInTheDocument();
-    expect(liveApi.getGeneratedStatblock).toHaveBeenLastCalledWith("statblock-two");
+    expect(await screen.findByText("Added Geomantic Drake Juvenile to Mireward Gate.")).toBeInTheDocument();
+    expect(screen.getByText(/Round 1 · 1 combatant · rev 2/)).toBeInTheDocument();
   });
 
-  it("keeps list visible when detail load fails", async () => {
-    mockCurrentCombat();
-    vi.spyOn(liveApi, "listGeneratedStatblocks").mockResolvedValue(listResponse);
-    vi.spyOn(liveApi, "getGeneratedStatblock").mockRejectedValue(new Error("detail failed safely"));
-
-    render(<StatblockViewModule />);
-
-    expect(await screen.findByText("Geomantic Drake Juvenile")).toBeInTheDocument();
-    expect(await screen.findByText(/Unable to load selected statblock: detail failed safely/)).toBeInTheDocument();
-  });
-
-  it("shows loading error when list fetch fails", async () => {
-    mockCurrentCombat();
-    vi.spyOn(liveApi, "listGeneratedStatblocks").mockRejectedValue(new Error("list failed safely"));
-
-    render(<StatblockViewModule />);
-
-    await waitFor(() => expect(screen.getByText(/Unable to load generated statblocks: list failed safely/)).toBeInTheDocument());
-  });
-
-  it("submits default add-to-combat request and shows current combat readback", async () => {
-    mockCurrentCombat();
-    vi.spyOn(liveApi, "listGeneratedStatblocks").mockResolvedValue(listResponse);
-    vi.spyOn(liveApi, "getGeneratedStatblock").mockResolvedValue(detailFor("statblock-one", "Geomantic Drake Juvenile"));
-    const addSpy = vi.spyOn(liveApi, "addGeneratedStatblockToCombat").mockResolvedValue(addResponseFor());
-
-    render(<StatblockViewModule />);
-
-    await userEvent.click(await screen.findByRole("button", { name: "Add to current combat" }));
-
-    expect(addSpy).toHaveBeenCalledWith("statblock-one", { team: "enemy", count: 1 });
-    expect(await screen.findByText("Added Geomantic Drake Juvenile to current combat.")).toBeInTheDocument();
-    expect(screen.getByText(/Round 1 · 1 combatant/)).toBeInTheDocument();
-  });
-
-  it("clears a stale current-combat load error after a successful add", async () => {
-    vi.spyOn(liveApi, "getCurrentCombat").mockRejectedValue(new Error("combat read failed safely"));
-    vi.spyOn(liveApi, "listGeneratedStatblocks").mockResolvedValue(listResponse);
-    vi.spyOn(liveApi, "getGeneratedStatblock").mockResolvedValue(detailFor("statblock-one", "Geomantic Drake Juvenile"));
-    vi.spyOn(liveApi, "addGeneratedStatblockToCombat").mockResolvedValue(addResponseFor());
-
-    render(<StatblockViewModule />);
-
-    expect(await screen.findByText(/Unable to load current combat: combat read failed safely/)).toBeInTheDocument();
-    await userEvent.click(await screen.findByRole("button", { name: "Add to current combat" }));
-
-    expect(await screen.findByText("Added Geomantic Drake Juvenile to current combat.")).toBeInTheDocument();
-    await waitFor(() => {
-      expect(screen.queryByText(/Unable to load current combat: combat read failed safely/)).not.toBeInTheDocument();
-    });
-  });
-
-  it("sends changed add-to-combat options", async () => {
-    mockCurrentCombat();
-    vi.spyOn(liveApi, "listGeneratedStatblocks").mockResolvedValue(listResponse);
-    vi.spyOn(liveApi, "getGeneratedStatblock").mockResolvedValue(detailFor("statblock-one", "Geomantic Drake Juvenile"));
-    const addSpy = vi.spyOn(liveApi, "addGeneratedStatblockToCombat").mockResolvedValue(addResponseFor("South Gate Drake"));
-
-    render(<StatblockViewModule />);
-
-    await screen.findByLabelText("Team");
+  it("sends changed add-to-encounter options", async () => {
+    mount();
+    vi.spyOn(combatApi, "addGeneratedStatblockToEncounter").mockResolvedValue(addedResponse());
+    await screen.findByRole("option", { name: "Mireward Gate · rev 1" });
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Encounter to receive statblock" }), encounter().encounter_id);
     await userEvent.selectOptions(screen.getByLabelText("Team"), "ally");
     await userEvent.clear(screen.getByLabelText("Count"));
     await userEvent.type(screen.getByLabelText("Count"), "2");
     await userEvent.type(screen.getByLabelText("Initiative"), "17");
     await userEvent.type(screen.getByLabelText("Name override"), "South Gate Drake");
     await userEvent.type(screen.getByLabelText("Notes"), "Arrives from south gate.");
-    await userEvent.click(screen.getByRole("button", { name: "Add to current combat" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Add to encounter" }));
 
-    expect(addSpy).toHaveBeenCalledWith("statblock-one", {
-      team: "ally",
-      count: 2,
-      initiative: 17,
-      name_override: "South Gate Drake",
-      notes: "Arrives from south gate.",
+    expect(combatApi.addGeneratedStatblockToEncounter).toHaveBeenCalledWith("elderwyld", encounter().encounter_id, "statblock-one", {
+      expected_revision: 1, team: "ally", count: 2, initiative: 17, name_override: "South Gate Drake", notes: "Arrives from south gate.",
     });
   });
 
-  it("keeps detail visible and reports safe add-to-combat failures", async () => {
-    mockCurrentCombat();
-    vi.spyOn(liveApi, "listGeneratedStatblocks").mockResolvedValue(listResponse);
-    vi.spyOn(liveApi, "getGeneratedStatblock").mockResolvedValue(detailFor("statblock-one", "Geomantic Drake Juvenile"));
-    vi.spyOn(liveApi, "addGeneratedStatblockToCombat").mockRejectedValue(new Error("add failed safely"));
+  it("ignores an add response after its target World changes A→B→A", async () => {
+    const pendingAdd = deferred<AddGeneratedStatblockResponse>();
+    const currentEncounter = encounter();
+    const otherWorldEncounter = encounter({
+      world_id: "conks-and-cons",
+      encounter_id: "d94ebf8a-7f0e-4ff2-a1b8-69916f6a79d1",
+      draft: { ...encounter().draft, title: "Conks encounter" },
+    });
+    const view = mount();
+    vi.spyOn(combatApi, "listWorldCombatEncounters").mockImplementation(async (worldId) =>
+      worldId === "elderwyld" ? [currentEncounter] : [otherWorldEncounter]);
+    const addSpy = vi.spyOn(combatApi, "addGeneratedStatblockToEncounter").mockReturnValue(pendingAdd.promise);
 
-    render(<StatblockViewModule />);
+    await screen.findByRole("option", { name: "Mireward Gate · rev 1" });
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Encounter to receive statblock" }), currentEncounter.encounter_id);
+    await userEvent.click(await screen.findByRole("button", { name: "Add to encounter" }));
+    expect(addSpy).toHaveBeenCalledWith("elderwyld", currentEncounter.encounter_id, "statblock-one", {
+      expected_revision: 1, team: "enemy", count: 1,
+    });
 
-    await userEvent.click(await screen.findByRole("button", { name: "Add to current combat" }));
+    view.setWorld("conks-and-cons");
+    await screen.findByRole("option", { name: "Conks encounter · rev 1" });
+    view.setWorld("elderwyld");
+    await screen.findByRole("option", { name: "Mireward Gate · rev 1" });
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Encounter to receive statblock" }),
+      currentEncounter.encounter_id,
+    );
 
-    expect(await screen.findByText(/Unable to add to combat: add failed safely/)).toBeInTheDocument();
+    pendingAdd.resolve(addedResponse());
+    await waitFor(() => expect(screen.getByText(/Round 1 · 0 combatants · rev 1/)).toBeInTheDocument());
+    expect(screen.queryByText("Added Geomantic Drake Juvenile to Mireward Gate.")).not.toBeInTheDocument();
+  });
+
+  it("shows safe errors and keeps the statblock visible", async () => {
+    mount();
+    vi.spyOn(combatApi, "addGeneratedStatblockToEncounter").mockRejectedValue(new Error("stale revision"));
+    await screen.findByRole("option", { name: "Mireward Gate · rev 1" });
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Encounter to receive statblock" }), encounter().encounter_id);
+    await userEvent.click(await screen.findByRole("button", { name: "Add to encounter" }));
+
+    expect(await screen.findByText(/Unable to add to combat: stale revision/)).toBeInTheDocument();
     expect(screen.getByText(/# Geomantic Drake Juvenile/)).toBeInTheDocument();
   });
 
-  it("does not offer add-to-combat when no detail is selected", async () => {
-    mockCurrentCombat();
-    vi.spyOn(liveApi, "listGeneratedStatblocks").mockResolvedValue({
-      schema_version: "dmb_generated_statblock_list_v1",
-      statblocks: [],
-      diagnostics: [],
+  it("loads generated statblocks and reports the empty state", async () => {
+    vi.spyOn(selectedWorld, "useSelectedWorld").mockReturnValue({
+      kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null,
     });
+    vi.spyOn(combatApi, "listWorldCombatEncounters").mockResolvedValue([]);
+    vi.spyOn(liveApi, "listGeneratedStatblocks").mockResolvedValue({ schema_version: "dmb_generated_statblock_list_v1", statblocks: [], diagnostics: [] });
 
     render(<StatblockViewModule />);
 
     expect(await screen.findByText("No corpus-backed generated statblocks yet.")).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Add to current combat" })).not.toBeInTheDocument();
   });
-
 });

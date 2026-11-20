@@ -1,6 +1,6 @@
 # DOGFOOD — restore recap canvas
 
-Status: ACTIVE under direct operator instruction: recap projection with node pills and World lens, one closed Advanced metadata disclosure.
+Status: MERGED / HISTORICAL. PR #881 merged as `4dd785a0baecc713fddcfaa6d7b31e96832ae7e9`; the recap canvas implementation lease is closed. Source/run association remains outside that completed slice.
 Base: origin/main 6d4644237a38a4aa04ab24c5430e203a1b486737 after PR880; follows merged PR879. Branch: codex/dogfood-recap-canvas. Topology: serial successor to merged PR879.
 Write lease: this handoff; IngestionModule.tsx and IngestionModule.test.tsx; planSurface/graphPreview/WorldGraphRecapProjection.tsx and its test; new chrome/NativeGraphAccessControl.tsx. PRIME explicitly extended this bounded lease after review for native read identity and existing in-memory Graph credential reuse. No overlap found with current open lanes. Existing WorldGraphRecapProjectionView and API contracts reused unchanged.
 Runtime: owned DOGFOOD UI5202/API7866, UI-only hot reload; no restart, provider calls or Graph writes.

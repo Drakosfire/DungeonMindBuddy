@@ -1,0 +1,143 @@
+{
+  "captured_head": "f1d3365acaa0981ca6d84789ae947cba68278810",
+  "capture_test": "test_ordinary_http_plan_source_answer_uses_published_graph_authority[True-True]",
+  "context": {
+    "schema": "dmb_agent_surface_native_context_response_v1",
+    "receipt": {
+      "schema": "dmb_surface_native_context_receipt_v1",
+      "receipt_serializer_version": "canonical-json-utf8-v1",
+      "context_receipt_sha256": "f87bd644f93bef0b9ed10a76e172594280ee537768151eaaceafacba9f16b3ba",
+      "provenance_sha256": "0c7cca898eb5eb6b1059d388658d48c8ba4937c1d7ee23c7ac789d496d033a63",
+      "work_context": {
+        "surface_id": "plan",
+        "plan_basis": {
+          "world_id": "world:one",
+          "document_id": "plan:one",
+          "object_revision": 7,
+          "work_revision_id": "24793bb7-b819-4b55-8787-2beffe6de7c7",
+          "revision_n": 4,
+          "content_sha256": "3e31bc317ffa57b7f56fe9ca80b50b151c3e1e0112694730655cd85a89e85de8"
+        },
+        "plan_context_policy": {
+          "schema": "dmb_plan_context_policy_v2",
+          "policy": "auto_plan_world",
+          "graph_source": "reviewed_native_graph"
+        },
+        "playable_target": null
+      },
+      "source_authority": {
+        "schema_version": "dmb_native_corpus_authority_v1",
+        "managed_world_id": "world:one",
+        "native_world_id": "world:test",
+        "binding_version": 1,
+        "provisioning_id": "provisioned:not-graph-active",
+        "revision_id": "rev:36f7fcfa683718522ae8a59647faa94b",
+        "domain_ref": {
+          "authority_id": "dungeonbuddy.world",
+          "revision": "2",
+          "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+        },
+        "profile_ref": {
+          "authority_id": "dungeonbuddy.dnd5e",
+          "revision": "2",
+          "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+        },
+        "acquisition_epoch": 1,
+        "scope": "gm_world_cross_campaign_source_inspection",
+        "role": "gm"
+      },
+      "native_query": {
+        "schema": "dmb_native_graph_query_v4",
+        "authority": {
+          "schema": "dmb_native_plan_query_authority_v1",
+          "managed_world_id": "world:one",
+          "native_world_id": "world:test",
+          "binding_version": 1,
+          "revision_id": "rev:36f7fcfa683718522ae8a59647faa94b",
+          "domain_ref": {
+            "authority_id": "dungeonbuddy.world",
+            "revision": "2",
+            "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+          },
+          "profile_ref": {
+            "authority_id": "dungeonbuddy.dnd5e",
+            "revision": "2",
+            "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+          },
+          "acquisition_epoch": 1,
+          "role": "gm",
+          "scope_mode": "world",
+          "campaign_id": null,
+          "session_id": null
+        },
+        "question": "Whom did \u00c9phanna hear?",
+        "search_result_sha256": "36eb61e0b15da3275a8a310a59450c2aba2afe50ab0ae655b3bb5e660c1a4c2f",
+        "discovered_entity_ids": [],
+        "matches": [],
+        "status": "complete",
+        "gap_codes": [],
+        "universal_absence_claimed": false,
+        "assertion_matches": [],
+        "authored_targets": [],
+        "object_matches": []
+      },
+      "assembled_input": {
+        "assembler_version": "surface_native_initial_v1",
+        "provider_model_name": "jev-1.14.0",
+        "provider_model_version": "jev-1.14.0",
+        "tokenizer_name": "utf8_json_bytes_plus_64_per_node_v1",
+        "tokenizer_version": "v1",
+        "provider_envelope_input_tokens": 2878,
+        "output_token_reserve": 0,
+        "context_window_limit": null,
+        "included_history": [],
+        "assembled_input_sha256": "ed7bcb04c6627c8ce1f70869074e495465384d007662b4b7f49f62d8332a214f"
+      }
+    },
+    "completion": {
+      "schema": "dmb_surface_native_completion_v1",
+      "surface_id": "plan",
+      "context_receipt_sha256": "f87bd644f93bef0b9ed10a76e172594280ee537768151eaaceafacba9f16b3ba",
+      "producing_provider_attempt_id": "6cc2ceee-b4d0-449d-b1f6-14680b68bfe8",
+      "answer_basis": "mixed_evidence",
+      "answer_context_status": "source_grounded",
+      "answer_segments": [
+        {
+          "kind": "source_passage_claim",
+          "text": "The source says \u00c9phanna heard the guard."
+        }
+      ],
+      "collaboration": null,
+      "saved_source_citations": [],
+      "native_body_citations": [
+        {
+          "segment_index": 0,
+          "text_sha256": "c467280a669f0c8130be48777f08bd4f374214b2cf6e167b460cf35f61bdbb63",
+          "provider_attempt_id": "6cc2ceee-b4d0-449d-b1f6-14680b68bfe8",
+          "envelope_sha256": "e921edc1f78af78e1f1c19631dc527b9b9de50979e3c8c8efed989cdeee808e7",
+          "read_event_id": "1b5dca18-1889-496b-a83d-e930c26ec12d",
+          "catalog_sha256": "8932aea66da3099593f59d95a1524f1cd747d91ae31be15e195eaaae95473e6f",
+          "source_artifact_id": "src:28c8a185c3d515ef5346b3c04420320a296ae43de87e693f8910fa923d716c7f",
+          "native_source_revision_id": "srev:ca283aa8c34b3f2b51b604e6dfa54b3a3869e4499666691af6439cc160a7cdcc",
+          "content_sha256": "9df3085f7783549a2651d8a0b12a82a8c8c91f64e34c1e14ad4b144a5a866871",
+          "excerpt_sha256": "9df3085f7783549a2651d8a0b12a82a8c8c91f64e34c1e14ad4b144a5a866871",
+          "section_id": "fd044d82341fb76f95b6c5afdc38f0fe91024d5c976c3b7325c1da2d68e76397",
+          "selector_policy": "native_full_document_v1",
+          "source_name": "Source",
+          "section_title": "Full document",
+          "line_start": 1,
+          "line_end": 5
+        }
+      ],
+      "native_clause_citations": [],
+      "native_assertion_citations": []
+    },
+    "execution": {
+      "schema": "dmb_agent_plan_world_graph_execution_projection_v1",
+      "claimability": "completed",
+      "authorization_state": "response_received",
+      "automatic_redispatch": false
+    },
+    "delivery_replay": false
+  }
+}

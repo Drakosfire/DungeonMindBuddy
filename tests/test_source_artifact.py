@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from graph_memory.evidence.source_artifact import (
     GraphMemorySourceArtifact,
     build_worldbuilding_source_artifact_id,
+    build_world_scoped_recap_source_artifact_id,
     validate_source_artifact_scope,
 )
 
@@ -23,6 +24,64 @@ def test_legacy_recap_artifact_still_validates() -> None:
     )
     validate_source_artifact_scope(artifact)
     assert artifact.campaign_id == "longmont-c2"
+
+
+def test_world_scoped_recap_id_uses_full_digest_and_unambiguous_world_scope() -> None:
+    digest = hashlib.sha256(b"same recap").hexdigest()
+    same_world = build_world_scoped_recap_source_artifact_id(
+        world_id="world:elderwyld",
+        campaign_id="longmont-c2",
+        session_id="session-29",
+        content_sha256=digest,
+    )
+    assert same_world == build_world_scoped_recap_source_artifact_id(
+        world_id="world:elderwyld",
+        campaign_id="longmont-c2",
+        session_id="session-29",
+        content_sha256=f"sha256:{digest}",
+    )
+    assert same_world != build_world_scoped_recap_source_artifact_id(
+        world_id="world:conks-and-cons",
+        campaign_id="longmont-c2",
+        session_id="session-29",
+        content_sha256=digest,
+    )
+    assert same_world != build_world_scoped_recap_source_artifact_id(
+        world_id="world:elderwyld",
+        campaign_id="longmont-c2",
+        session_id="session-29",
+        content_sha256=hashlib.sha256(b"different recap").hexdigest(),
+    )
+    assert same_world.startswith("artifact:recap:v2:")
+
+
+def test_world_scoped_recap_artifact_rejects_missing_or_forged_world_identity() -> None:
+    digest = hashlib.sha256(b"recap").hexdigest()
+    artifact_id = build_world_scoped_recap_source_artifact_id(
+        world_id="world:elderwyld",
+        campaign_id="longmont-c2",
+        session_id="session-29",
+        content_sha256=digest,
+    )
+    with pytest.raises(ValidationError, match="requires world_id"):
+        GraphMemorySourceArtifact(
+            source_artifact_id=artifact_id,
+            source_domain="recap",
+            campaign_id="longmont-c2",
+            session_id="session-29",
+            uri="repo://recaps/session-29.md",
+            content_sha256=digest,
+        )
+    with pytest.raises(ValidationError, match="ID does not match its identity"):
+        GraphMemorySourceArtifact(
+            source_artifact_id=artifact_id,
+            source_domain="recap",
+            campaign_id="longmont-c2",
+            session_id="session-29",
+            world_id="world:conks-and-cons",
+            uri="repo://recaps/session-29.md",
+            content_sha256=digest,
+        )
 
 
 def test_worldbuilding_artifact_allows_null_session() -> None:
@@ -76,7 +135,7 @@ def test_workspace_id_cannot_equal_source_artifact_id() -> None:
         )
 
 
-def test_world_scoped_source_artifact_uses_record_world_id(tmp_path: Path) -> None:
+def test_world_scoped_source_artifact_uses_record_world_id(tmp_path: Path, application_state_dsn) -> None:
     from apps.live_control_server.services.source_artifact_registry import (
         create_source_artifact_from_workspace_document,
     )
@@ -131,7 +190,7 @@ def test_world_scoped_source_artifact_uses_record_world_id(tmp_path: Path) -> No
     assert artifact.campaign_id == "longmont-c2"
 
 
-def test_legacy_worldbuilding_source_artifact_uses_campaign_id_compat(tmp_path: Path) -> None:
+def test_legacy_worldbuilding_source_artifact_uses_campaign_id_compat(tmp_path: Path, application_state_dsn) -> None:
     from apps.live_control_server.services.source_artifact_registry import (
         create_source_artifact_from_workspace_document,
     )
@@ -180,3 +239,76 @@ def test_legacy_worldbuilding_source_artifact_uses_campaign_id_compat(tmp_path: 
     )
     assert artifact.world_id == "eldyrwild"
     assert record.world_id is None
+
+
+def test_registered_source_byte_loader_preserves_exact_database_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn: str,
+) -> None:
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        load_registered_source_artifact_bytes,
+    )
+
+    content = b"First line\r\nSecond line\r\n"
+    digest = hashlib.sha256(content).hexdigest()
+    artifact = GraphMemorySourceArtifact(
+        source_artifact_id="artifact:recap:campaign:session:exact-bytes",
+        source_domain="recap", campaign_id="campaign", session_id="session",
+        uri="repo://source.md", content_sha256=digest,
+    )
+    (tmp_path / "source.md").write_bytes(content)
+    from application_state.source.service import persist_source_markdown
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
+    saved = persist_source_markdown(
+        source_artifact_id=artifact.source_artifact_id, source_domain="recap",
+        campaign_id=artifact.campaign_id, session_id=artifact.session_id,
+        world_id=artifact.world_id, markdown=content.decode("utf-8"), content_sha256=digest,
+        input_descriptor=artifact.model_dump(mode="json"),
+    )
+
+    loaded, exact = load_registered_source_artifact_bytes(
+        tmp_path, artifact.source_artifact_id,
+    )
+    assert loaded == artifact
+    assert exact == content
+
+    (tmp_path / "source.md").write_bytes(b"First line\nSecond line\n")
+    assert load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id)[1] == content
+    import psycopg
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE source.revision SET markdown=%s WHERE source_revision_id=%s",
+                     ("First line\nSecond line\n", saved.source_revision_id))
+    with pytest.raises(SourceArtifactRegistryError, match="digest mismatch"):
+        load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id)
+
+
+def test_registered_source_byte_loader_does_not_follow_symlink_locator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn: str,
+) -> None:
+    from apps.live_control_server.services.source_artifact_registry import (
+        load_registered_source_artifact_bytes,
+    )
+
+    content = b"Immutable source\n"
+    digest = hashlib.sha256(content).hexdigest()
+    artifact = GraphMemorySourceArtifact(
+        source_artifact_id="artifact:recap:campaign:session:symlink",
+        source_domain="recap", campaign_id="campaign", session_id="session",
+        uri="repo://alias/source.md", content_sha256=digest,
+    )
+    target = tmp_path / "actual"
+    target.mkdir()
+    (target / "source.md").write_bytes(content)
+    (tmp_path / "alias").symlink_to(target, target_is_directory=True)
+    from application_state.source.service import persist_source_markdown
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
+    persist_source_markdown(
+        source_artifact_id=artifact.source_artifact_id, source_domain="recap",
+        campaign_id=artifact.campaign_id, session_id=artifact.session_id,
+        world_id=artifact.world_id, markdown=content.decode("utf-8"), content_sha256=digest,
+        input_descriptor=artifact.model_dump(mode="json"),
+    )
+    (target / "source.md").write_bytes(b"Unrelated file bytes")
+    monkeypatch.setattr(Path, "open",
+                        lambda *args, **kwargs: pytest.fail("Database body read opened a file"))
+    assert load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id)[1] == content

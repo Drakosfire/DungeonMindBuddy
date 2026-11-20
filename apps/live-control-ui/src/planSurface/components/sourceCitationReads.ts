@@ -1,0 +1,170 @@
+import { assertionPdfCitationId, parseAssertionPdfCitationId } from "../../tiptap/references/runbookReferences";
+import {getNativeRelatedRecaps, readNativeRecapPage} from "../../api/liveApi";
+import {sameInspectionPin, type InspectionPin} from "../../api/nativeGraphInspection";
+import {getAgentSavedSection} from '../../api/liveApi';
+import {isSavedSectionTargets} from './BuildSavedSectionEvidence';
+import {getAgentNativeAssertionSource,getAgentNativeSourceClause,getAgentSourcePassage,getAgentNativeSourceSection,getAgentNativeBodyExcerpt,getAgentRelatedPage} from '../../api/liveApi';
+import type {WorldBuildSourceCompletion,SurfaceSourceCompletionV1,SurfaceEvidenceCompletion,SurfaceEvidenceCompletionV3,SurfaceEvidenceCompletionV5,SurfaceEvidenceCompletionV6,SurfaceEvidenceCompletionV7,SurfaceNativeCompletionV1} from '../../api/types';
+import {exact,canonical} from '../../shared/sourcePassageProtocol';
+import type {CitationChoice} from './SourceCitationEvidence';
+export type PassageCompletion=WorldBuildSourceCompletion|SurfaceSourceCompletionV1|SurfaceEvidenceCompletion|SurfaceNativeCompletionV1;
+async function hash(content:string){
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(content));
+  return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+}
+export function passageChoices(completion:PassageCompletion,worldId:string,turnId:string,segmentIndex?:number):CitationChoice[] {
+  const seen=new Set<string>();
+  const passages: CitationChoice[]=('source_citations' in completion ? completion.source_citations : []).flatMap((citation,index)=>{
+    if(segmentIndex!==undefined && citation.segment_index!==segmentIndex)return [];
+    const r=citation.receipt;
+    const key=canonical([citation.segment_index,r.source_artifact_id,r.source_revision_id,r.content_sha256,r.line_start,r.line_end]);
+    if(seen.has(key))return [];seen.add(key);
+    const title='source_name' in citation ? `${citation.source_name} · ${r.line_start===null ? 'passage' : `lines ${r.line_start}–${r.line_end}`}` : `Passage ${index+1}`;
+    return [{key:`passage:${index}`,number:index+1,segmentIndex:citation.segment_index,title,label:'source_name' in citation ? `Read ${title}` : `Read passage ${index+1}`,kind:'passage' as const,load:async()=>{
+      const result=await getAgentSourcePassage(worldId,turnId,index);
+      if(!exact(result,['schema','target','citation','content']) || result.schema!=='dmb_agent_source_passage_read_v1'
+        || !exact(result.target,['schema','kind','world_id','turn_id','citation_index'])
+        || result.target.schema!=='dmb_agent_source_passage_open_target_v1' || result.target.kind!=='source_passage'
+        || result.target.world_id!==worldId || result.target.turn_id!==turnId || result.target.citation_index!==index
+        || canonical(result.citation)!==canonical(citation) || typeof result.content!=='string'
+        || [...result.content].length!==r.returned_chars || await hash(result.content)!==r.content_sha256)throw new Error('Source binding differs');
+      return result.content;
+    }}];
+  });
+  const pages: CitationChoice[]=completion.answer_segments.flatMap((segment,index)=>{
+    if(segment.kind!=='related_page_claim' || segmentIndex!==undefined && index!==segmentIndex)return [];
+    return [{...relatedPageChoice(segment,worldId,turnId,index),number:('source_citations' in completion ? completion.source_citations.length : 0)+index+1}];
+  });
+  return [...passages,...pages];
+}
+/** Shared saved-page reader; lightweight presentation never grants read authority. */
+export function relatedPageChoice(segment:Extract<import('../../api/types').WorldBuildRelatedPageCompletionV1['answer_segments'][number],{kind:'related_page_claim'}>,worldId:string,turnId:string,index:number):CitationChoice {
+    const page=segment.page;
+    const title=`${page.title} · saved revision ${page.registry_revision}`;
+    return {key:`related:${segment.read_id}:${index}`,number:index+1,segmentIndex:index,
+      title,label:`Read ${title}`,kind:'section' as const,load:async()=>{
+        const result=await getAgentRelatedPage(worldId,turnId,segment.read_id);
+        if(page.world_id!==worldId || !exact(result,['schema','world_id','turn_id','read_id','page','markdown'])
+          || result.schema!=='dmb_agent_related_page_read_v1' || result.world_id!==worldId || result.turn_id!==turnId
+          || result.read_id!==segment.read_id || canonical(result.page)!==canonical(page)
+          || typeof result.markdown!=='string' || await hash(result.markdown)!==page.content_sha256)throw new Error('Related page binding differs');
+        return result.markdown;
+      }};
+}
+
+export function nativeChoices(completion:Partial<Pick<SurfaceEvidenceCompletionV3,"native_source_citations"> & Pick<SurfaceEvidenceCompletionV5,"native_body_citations"> & Pick<SurfaceEvidenceCompletionV6,"native_clause_citations"> & Pick<SurfaceEvidenceCompletionV7,"native_assertion_citations">>,worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
+  const sections=(completion.native_source_citations??[]).flatMap((citation,index)=>citation.segment_index!==segmentIndex ? [] : [{
+    key:`section:${index}`,number:index+1,title:`${citation.source_name} · ${citation.section_title}`,
+    label:`${citation.source_name} · ${citation.section_title}`,kind:'section' as const,load:async()=>{
+      const result=await getAgentNativeSourceSection(worldId,turnId,index);
+      if(!exact(result,['schema','world_id','turn_id','citation_index','citation','content'])
+        || result.schema!=='dmb_agent_native_source_section_read_v1' || result.world_id!==worldId
+        || result.turn_id!==turnId || result.citation_index!==index || canonical(result.citation)!==canonical(citation)
+        || typeof result.content!=='string' || !result.content || await hash(result.content)!==citation.excerpt_sha256)throw new Error('Source section binding differs');
+      return result.content;
+    },
+  }]);
+  return [...sections,...(completion.native_body_citations??[]).flatMap((citation,index)=>citation.segment_index!==segmentIndex?[]:[{
+    key:`body:${index}`,number:sections.length+index+1,title:`Source · ${citation.section_title}`,
+    label:`Read source · ${citation.section_title}`,kind:'section' as const,load:async()=>{
+      const result=await getAgentNativeBodyExcerpt(worldId,turnId,index);
+      if(!exact(result,['schema','world_id','turn_id','citation_index','citation','content','display_label'])
+        || result.schema!=='dmb_agent_native_body_excerpt_read_v2' || result.world_id!==worldId
+        || result.turn_id!==turnId || result.citation_index!==index || canonical(result.citation)!==canonical(citation)
+        || (result.display_label!==null && (typeof result.display_label!=='string' || !result.display_label.trim()))
+        || typeof result.content!=='string' || !result.content || await hash(result.content)!==citation.excerpt_sha256)
+        throw new Error('Source excerpt binding differs');
+      return result.display_label===null ? result.content : {content:result.content,title:`${result.display_label} · ${citation.section_title}`};
+    },
+  }]),...(completion.native_clause_citations??[]).flatMap((citation,index)=>citation.segment_index!==segmentIndex?[]:[{
+    key:`statement:${index}`,number:sections.length+index+1,title:`Source statement · ${citation.campaign_id}`,
+    label:`Read source statement · ${citation.campaign_id}`,kind:'section' as const,load:async()=>{
+      const result=await getAgentNativeSourceClause(worldId,turnId,index);
+      if(!exact(result,['schema','world_id','turn_id','citation_index','citation','content'])
+        ||result.schema!=='dmb_native_statement_clause_read_v1'||result.world_id!==worldId||result.turn_id!==turnId
+        ||result.citation_index!==index||canonical(result.citation)!==canonical(citation)||typeof result.content!=='string'
+        ||new TextEncoder().encode(result.content).length!==citation.end_byte-citation.start_byte
+        ||await hash(result.content)!==citation.clause_sha256)throw new Error('Native statement source binding differs');
+      return result.content;
+    },
+  }]),...(completion.native_assertion_citations??[]).flatMap((citation,index)=>citation.segment_index!==segmentIndex?[]:[{
+    key:`assertion:${index}`,number:sections.length+index+1,title:'Reviewed Graph · supporting source',label:'Read Graph assertion source',kind:'section' as const,
+    savedReferenceMarkdown:'region' in citation && parseAssertionPdfCitationId(`pdf_${turnId}_${index}`)
+      ? `[PDF page ${citation.region.page}](#dmb-ref:citation:${assertionPdfCitationId(turnId,index)})` : undefined,
+    load:async()=>{
+      const result=await getAgentNativeAssertionSource(worldId,turnId,index);
+      if ('region' in citation) {
+        if (!exact(result,['schema','world_id','turn_id','citation_index','citation','png_base64'])
+          || result.schema!=='dmb_native_assertion_pdf_source_read_v1' || result.world_id!==worldId
+          || result.turn_id!==turnId || result.citation_index!==index
+          || canonical(result.citation)!==canonical(citation)
+          || typeof result.png_base64!=='string' || !result.png_base64.startsWith('iVBORw0KGgo'))
+          throw new Error('Native PDF assertion source binding differs');
+        return {pngBase64:result.png_base64,title:`Supporting PDF · page ${citation.region.page}`};
+      }
+      if(!exact(result,['schema','world_id','turn_id','citation_index','citation','content'])
+        ||result.schema!=='dmb_native_assertion_source_read_v1'||result.world_id!==worldId||result.turn_id!==turnId
+        ||result.citation_index!==index||canonical(result.citation)!==canonical(citation)||typeof result.content!=='string'
+        ||new TextEncoder().encode(result.content).length!==citation.end_byte-citation.start_byte
+        ||await hash(result.content)!==citation.span_sha256)throw new Error('Native assertion source binding differs');
+      return result.content;
+    },
+  }])];
+}
+
+/** Open only the section IDs accepted in the native completion, never today's page. */
+export function nativeSavedChoices(completion:{surface_id:string;answer_segments:{kind:string;text:string;content_sha256?:string}[];saved_source_citations:SurfaceNativeCompletionV1['saved_source_citations']},
+  basis:import('../../api/types').WorldBuildGraphReceiptV1['source_basis'],worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
+  if(basis.world_id!==worldId||completion.surface_id!=='build')return [];
+  return completion.saved_source_citations.filter(c=>c.segment_index===segmentIndex).flatMap(c=>c.section_event_ids.map(id=>({
+    key:`saved-native:${segmentIndex}:${id}`,number:0,title:`Saved authored page · revision ${basis.registry_revision}`,
+    label:'Read saved page source',kind:'section' as const,load:async()=>{
+      if(await hash(completion.answer_segments[segmentIndex]!.text)!==c.text_sha256)throw new Error('Saved claim differs');
+      const result=await getAgentSavedSection({world_id:worldId,turn_id:turnId,segment_index:segmentIndex,section_event_id:id});
+      if(!exact(result,['schema','target','content'])||result.schema!=='dmb_saved_build_section_read_v1'
+        ||!isSavedSectionTargets([result.target],basis,completion)||result.target.world_id!==worldId||result.target.turn_id!==turnId
+        ||result.target.segment_index!==segmentIndex||result.target.section_event_id!==id||result.target.text_sha256!==c.text_sha256
+        ||typeof result.content!=='string'||!result.content.trim()||await hash(result.content)!==result.target.excerpt_sha256)throw new Error('Saved native section binding differs');
+      return result.content;
+    },
+  })));
+}
+
+export function nativeRecapChoices(
+  completion: SurfaceEvidenceCompletion | SurfaceNativeCompletionV1,
+  scope: InspectionPin, segmentIndex: number,
+): CitationChoice[] {
+  if (!("native_assertion_citations" in completion)) return [];
+  return completion.native_assertion_citations.flatMap((citation, index) => {
+    if ('region' in citation || citation.segment_index !== segmentIndex || citation.managed_world_id !== scope.managed_world_id
+        || citation.native_world_id !== scope.native_world_id || citation.read_revision_id !== scope.revision_id) return [];
+    return [{
+      key: `native-recap:${index}`, number: 0, title: "Related session recap",
+      label: "Open related session recap", kind: "section" as const,
+      load: async () => {
+        const discovered = await getNativeRelatedRecaps(scope, citation.assertion_id);
+        const target = discovered.targets.find(row => row.selection.assertion_id === citation.assertion_id
+          && row.selection.evidence_ref_id === citation.evidence_ref_id
+          && row.source_artifact_id === citation.source_artifact_id
+          && row.source_revision_id === citation.source_revision_id);
+        if (!sameInspectionPin(discovered.scope, scope) || !target) throw new Error("Related recap unavailable");
+        let content = "";
+        let cursor: string | undefined;
+        const seen = new Set<string>();
+        do {
+          const page = await readNativeRecapPage(scope, target.selection, cursor);
+          if (!sameInspectionPin(page.scope, scope) || page.source.span_sha256 !== citation.span_sha256
+              || page.source.body_sha256 !== citation.body_sha256 || page.source.source_revision_id !== citation.source_revision_id
+              || page.source.source_artifact_id !== citation.source_artifact_id || !page.source.text) throw new Error("Related recap binding differs");
+          content += page.source.text;
+          cursor = page.next_continuation ?? undefined;
+          if (new TextEncoder().encode(content).length > citation.end_byte - citation.start_byte
+              || (cursor && seen.has(cursor))) throw new Error("Related recap pagination differs");
+          if (cursor) seen.add(cursor);
+        } while (cursor);
+        if (await hash(content) !== citation.span_sha256) throw new Error("Related recap bytes differ");
+        return content;
+      },
+    }];
+  });
+}

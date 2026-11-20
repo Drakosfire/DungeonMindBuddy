@@ -1,0 +1,11 @@
+.plan-markdown-source { position:relative; display:flex; flex:1; min-height:0; flex-direction:column; gap:.5rem; padding:.75rem; }
+.plan-markdown-source > label { font-size:.85rem; color:var(--ui-text-muted,#aeb8c7); }
+.plan-markdown-source textarea { flex:1; min-height:50vh; width:100%; resize:vertical; padding:1rem; border:1px solid var(--ui-border-strong,#708097); border-radius:.5rem; background:#111720; color:#edf0f5; font: .95rem/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; }
+.plan-markdown-source__help { align-self:flex-end; }
+.plan-markdown-source__help summary { cursor:pointer; }
+.plan-markdown-source__help > div { position:absolute; z-index:5; right:.75rem; top:2.5rem; width:min(32rem,calc(100% - 1.5rem)); max-height:65vh; overflow:auto; padding:1rem; border:1px solid var(--ui-border-strong,#708097); border-radius:.75rem; background:#182230; box-shadow:0 .5rem 2rem #0006; }
+.plan-markdown-source__help h2,.plan-markdown-source__help h3 { margin:.3rem 0 .6rem; }
+.plan-markdown-source__help dd { margin:0 0 .7rem; }
+.plan-markdown-source__help pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+.world-plan-visual-editor { display:contents; }
+.world-plan-visual-editor[hidden] { display:none; }

@@ -6,14 +6,14 @@ from pathlib import Path
 import httpx
 import pytest
 
-from src.statblocks.v2_client import (
+from statblocks.v2_client import (
     INTERNAL_KEY_HEADER,
     DungeonMindServerStatBlockGeneratorClient,
     MockStatBlockGeneratorProvider,
     StatBlockGeneratorClientConfigError,
     StatBlockGeneratorHTTPError,
 )
-from src.statblocks.v2_contract import (
+from statblocks.v2_contract import (
     StatBlockDraftRenderRequest,
     StatBlockDraftRequest,
     StatBlockDraftResponse,

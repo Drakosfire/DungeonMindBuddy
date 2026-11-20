@@ -93,6 +93,13 @@ def test_neutral_linker_replays_base_characterization(case: dict[str, Any]) -> N
         case["markdown"],
         _bindings(case["nodes"]),
     )
+    # The historical fixture deliberately stays unchanged. Its one prefix
+    # false positive is superseded by the whole-word repair (tea/team dogfood).
+    if case["case_id"] == "surface_embedded_in_longer_word":
+        assert projected == case["markdown"]
+        assert mentions == []
+        assert diagnostics == []
+        return
     assert projected == case["projected_markdown"]
     assert [
         [m.mention_id, m.node_id, m.label, m.start_offset, m.end_offset]
@@ -109,6 +116,13 @@ def test_recap_adapter_replays_base_characterization(case: dict[str, Any]) -> No
         case["markdown"],
         _node_views(case["nodes"]),
     )
+    # The historical fixture deliberately stays unchanged. Its one prefix
+    # false positive is superseded by the whole-word repair (tea/team dogfood).
+    if case["case_id"] == "surface_embedded_in_longer_word":
+        assert projected == case["markdown"]
+        assert mentions == []
+        assert diagnostics == []
+        return
     assert projected == case["projected_markdown"]
     assert [
         [m.mention_id, m.node_id, m.label, m.start_offset, m.end_offset]
@@ -427,13 +441,10 @@ def test_free_text_equal_length_binding_order_opt_in_preserves_caller_order() ->
     assert diagnostics == []
 
 
-def test_splice_node_link_spans_is_importable_from_both_modules() -> None:
-    """The recap re-export shim keeps existing service importers unchanged."""
-    from graph_memory.projection.recap_projection import (
-        splice_node_link_spans as reexported,
-    )
+def test_splice_node_link_spans_is_exported_by_projection_package() -> None:
+    from graph_memory.projection import splice_node_link_spans as exported
 
-    assert reexported is splice_node_link_spans
+    assert exported is splice_node_link_spans
 
 
 def test_located_binding_links_plain_prose_with_exact_offsets() -> None:

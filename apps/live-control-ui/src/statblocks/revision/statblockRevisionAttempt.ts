@@ -118,6 +118,7 @@ export function buildReviseRequestFromWorkingCopy(args: {
   const workingRuleset = workingCopy.ruleset;
   if (
     !workingRuleset ||
+    !draftRuleset ||
     rulesetKey(workingRuleset) !== rulesetKey(draftRuleset as RulesetRef)
   ) {
     return {

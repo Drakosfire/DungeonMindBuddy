@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.build_ingested_corpus_library import SCHEMA_ID, build_library
+from live_play.ingested_corpus_library import SCHEMA_ID, build_library
 
 ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT = ROOT / "Docs/data/ingested-corpus-library/ingested_corpus_library.json"
@@ -39,3 +39,20 @@ def test_committed_artifact_matches_schema() -> None:
     assert lib["retrieval_activation"]["ingest_routes_in_dogfood_full_manifest"] > lib[
         "retrieval_activation"
     ]["ingest_routes_in_c2s23_manifest"]
+
+
+def test_default_library_preserves_auxiliary_inventory(tmp_path) -> None:
+    files = (
+        "corpus/eldyrwild-markdown/Elderwyld/setting.md",
+        "evals/c2_live_prep/live/session_7/current_state.json",
+        "evals/stage_d_entity_resolution_vertical_slice/result.json",
+    )
+    for name in files:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}", encoding="utf-8")
+
+    library = build_library(root=tmp_path)
+    assert library["elderwyld"]["md_file_count"] == 1
+    assert library["live_workspaces"][0]["artifacts"][0]["basename"] == "current_state.json"
+    assert library["eval_ingest_artifacts"]["stage_d_vertical_slice"]["file_count"] == 1

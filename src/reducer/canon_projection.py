@@ -5,7 +5,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
-from src.agent.scope_relevance import (
+from reducer.scope_relevance import (
     build_entity_document_index,
     build_entity_evidence_index,
     build_evidence_document_index,

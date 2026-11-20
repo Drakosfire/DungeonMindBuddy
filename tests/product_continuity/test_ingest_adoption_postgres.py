@@ -14,9 +14,6 @@ from application_state.ingest.service import (
     get_extraction_run,
     list_extraction_runs,
 )
-from apps.live_control_server.services.ingest_run_catalog import (
-    list_canonical_extraction_runs,
-)
 from graph_memory.ingestion.graph_ingest_run import (
     GraphIngestArtifactKind,
     GraphIngestArtifactRef,
@@ -99,7 +96,7 @@ def _rewrite_graph_sha(root: Path, run_id: str, sha: str) -> None:
 
 
 def _catalog_ids() -> set[str]:
-    return {str(row.get("run_id")) for row in (list_canonical_extraction_runs().get("runs") or [])}
+    return {row.run_id for row in list_extraction_runs()}
 
 
 def test_w1_preview_does_not_write(

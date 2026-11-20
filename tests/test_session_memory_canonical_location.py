@@ -1,4 +1,4 @@
-"""Guard: session-memory normalization canonical package is ``src.session_memory``."""
+"""Guard: session-memory normalization canonical package is ``session_memory``."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ import inspect
 
 import pytest
 
-from src.session_memory import breadcrumb_normalize as canonical_mod
-from src.session_memory.breadcrumb_normalize import (
+from session_memory import breadcrumb_normalize as canonical_mod
+from session_memory.breadcrumb_normalize import (
     normalize_breadcrumb_artifact,
     write_records_jsonl,
 )

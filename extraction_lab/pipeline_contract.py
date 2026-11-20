@@ -5,7 +5,7 @@ import json
 from typing import Any, get_args
 
 from src.contracts.entity_taxonomy import ALLOWED_SUBTYPE_FACETS, EntityClass
-from src.ingestion import entity_extractor, fact_extractor
+from ingestion import entity_extractor, fact_extractor
 
 
 def _stable_sha256(payload: Any) -> str:

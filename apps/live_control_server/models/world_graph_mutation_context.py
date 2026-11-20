@@ -3,7 +3,7 @@
 
 Buddy-owned pure adaptation logic for mounted DungeonMind publication.
 Does not import ``graph_memory.kernel`` / ``world_supergraph`` / ``union_supergraph``
-at module import time. File-store producers remain lazy and unmounted.
+at module import time. Native mutation contexts carry the governed facts.
 """
 
 
@@ -15,7 +15,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 
 from apps.live_control_server.models.world_graph_identity_models import (
@@ -27,6 +27,10 @@ from apps.live_control_server.models.world_graph_identity_policy import (
     DEFAULT_IDENTITY_RESOLUTION_POLICY,
     IdentityResolutionPolicy,
 )
+
+
+if TYPE_CHECKING:
+    from apps.live_control_server.models.extract_promote import ReviewedCorpusNativeBindingV1
 
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
@@ -87,6 +91,8 @@ class WorldGraphMutationContext:
     identity_decisions: tuple[IdentityDecisionRecord, ...] = ()
     identity_ledger_records: tuple[Mapping[str, Any], ...] = ()
     relationships: Mapping[str, MutationRelationship] = field(default_factory=dict)
+    reviewed_corpus_bindings: tuple[ReviewedCorpusNativeBindingV1, ...] = ()
+    exact_candidate_sha256: str | None = None
 
 
     def object_ids(self) -> frozenset[str]:
@@ -100,134 +106,6 @@ class WorldGraphMutationContext:
             for alias, owners in self.alias_owners.items()
             if owners
         }
-
-
-def mutation_context_from_store(
-    store: Any,
-    *,
-    world_id: str,
-    revision_id: str,
-    head_revision_id: str,
-) -> WorldGraphMutationContext:
-    """Adapt a file-backed ``UnionSupergraphStore`` into the mutation context."""
-    objects: dict[str, MutationObject] = {}
-    for node_id, node in dict(getattr(store, "nodes", {}) or {}).items():
-        state = dict(getattr(node, "state", None) or {})
-        objects[str(node_id)] = MutationObject(
-            object_id=str(node_id),
-            label=str(getattr(node, "label", "") or ""),
-            kind=str(getattr(node, "kind", "") or ""),
-            aliases=tuple(
-                str(alias)
-                for alias in list(getattr(node, "aliases", None) or [])
-                if str(alias).strip()
-            ),
-            canon_state=str(
-                state.get("identity_canon_state") or state.get("canon_state") or ""
-            ),
-            memory_state=str(state.get("memory_state") or ""),
-        )
-
-
-    alias_owners: dict[str, tuple[str, ...]] = {}
-    for alias, owner in dict(getattr(store, "aliases", {}) or {}).items():
-        key = str(alias)
-        owner_id = str(owner)
-        if not key or not owner_id:
-            continue
-        prior = alias_owners.get(key, ())
-        if owner_id not in prior:
-            alias_owners[key] = (*prior, owner_id)
-
-
-    redirects: dict[str, str] = {}
-    for raw in list(getattr(store, "identity_redirects", None) or []):
-        status = str(getattr(raw, "status", "") or "")
-        if status != "active":
-            continue
-        source = str(getattr(raw, "from_node_id", "") or "")
-        target = str(getattr(raw, "to_node_id", "") or "")
-        if source and target and source != target:
-            redirects[source] = target
-
-
-    decisions: list[IdentityDecisionRecord] = []
-    ledger_records: list[dict[str, Any]] = []
-    for raw in list(getattr(store, "identity_decisions", None) or []):
-        try:
-            record = IdentityDecisionRecord.model_validate(raw)
-        except Exception:
-            continue
-        decisions.append(record)
-        ledger_records.append(record.model_dump(mode="json"))
-
-    relationships: dict[str, MutationRelationship] = {}
-    raw_relationships = getattr(store, "relationships", None)
-    if isinstance(raw_relationships, Mapping):
-        for rel in dict(raw_relationships).values():
-            if isinstance(rel, MutationRelationship):
-                relationships[rel.relationship_id] = rel
-                continue
-            if isinstance(rel, Mapping):
-                relationship_id = str(rel.get("relationship_id") or rel.get("edge_id") or "").strip()
-                source = str(
-                    rel.get("source_object_id")
-                    or rel.get("subject_object_id")
-                    or rel.get("from_node_id")
-                    or ""
-                ).strip()
-                target = str(
-                    rel.get("target_object_id")
-                    or rel.get("object_object_id")
-                    or rel.get("to_node_id")
-                    or ""
-                ).strip()
-                predicate = str(
-                    rel.get("predicate") or rel.get("relationship_type") or ""
-                ).strip()
-            else:
-                relationship_id = str(
-                    getattr(rel, "relationship_id", None)
-                    or getattr(rel, "edge_id", "")
-                    or ""
-                ).strip()
-                source = str(
-                    getattr(rel, "source_object_id", None)
-                    or getattr(rel, "subject_object_id", None)
-                    or getattr(rel, "from_node_id", "")
-                    or ""
-                ).strip()
-                target = str(
-                    getattr(rel, "target_object_id", None)
-                    or getattr(rel, "object_object_id", None)
-                    or getattr(rel, "to_node_id", "")
-                    or ""
-                ).strip()
-                predicate = str(
-                    getattr(rel, "predicate", None)
-                    or getattr(rel, "relationship_type", "")
-                    or ""
-                ).strip()
-            if not relationship_id or not source or not target or not predicate:
-                continue
-            relationships[relationship_id] = MutationRelationship(
-                relationship_id=relationship_id,
-                source_object_id=source,
-                target_object_id=target,
-                predicate=predicate,
-            )
-
-    return WorldGraphMutationContext(
-        world_id=world_id,
-        revision_id=revision_id,
-        head_revision_id=head_revision_id,
-        objects=objects,
-        alias_owners=alias_owners,
-        identity_redirects=redirects,
-        identity_decisions=tuple(decisions),
-        identity_ledger_records=tuple(ledger_records),
-        relationships=relationships,
-    )
 
 
 def identity_snapshot_from_context(
@@ -655,6 +533,8 @@ def _decision_for_candidate(
 ) -> IdentityDecisionRecord | None:
     active = []
     for record in context.identity_decisions:
+        if record.reason.startswith(REVIEWED_CORPUS_BINDING_REASON_PREFIX):
+            continue  # Typed bindings are consumed only by the pinned anchor gate.
         if record.status != "active":
             continue
         if record.decision_kind not in _CANDIDATE_DECISION_KINDS:
@@ -825,9 +705,66 @@ def resolve_identity_against_context(
     candidate: IdentityCandidate,
     *,
     policy: IdentityResolutionPolicy | None = None,
+    source_local: bool = False,
 ) -> IdentityResolution:
     """Classify identity against mutation-context facts. Does not mutate."""
     active_policy = policy or DEFAULT_IDENTITY_RESOLUTION_POLICY
+
+    if source_local:
+        # A recap-local token is never a global identity decision key, even if
+        # the same token or label appears in the pinned parent. Only the
+        # source-bound proposed id may be used for a new object.
+        proposed = str(candidate.proposed_node_id or "").strip()
+        if not proposed.startswith("source-local:v1:"):
+            raise ValueError("source-local identity requires a qualified proposed id")
+        qualified_decision = any(
+            record.status == "active" and (
+                record.source_candidate_id == proposed
+                or record.subject_node_id == proposed
+            )
+            for record in context.identity_decisions
+        )
+        if proposed in context.objects or proposed in context.identity_redirects or qualified_decision:
+            return IdentityResolution(
+                world_id=candidate.world_id,
+                candidate_id=candidate.candidate_id,
+                outcome="blocked_collision",
+                blocked_by=[proposed],
+                diagnostics=["Qualified source-local id is already occupied"],
+                requires_human_review=True,
+            )
+        same_kind, cross_kind, provisional = _find_plausible_matches(
+            context, candidate, policy=active_policy
+        )
+        if same_kind or cross_kind or provisional:
+            matches = sorted({
+                obj.object_id for obj in (*same_kind, *cross_kind, *provisional)
+            })
+            return IdentityResolution(
+                world_id=candidate.world_id,
+                candidate_id=candidate.candidate_id,
+                outcome="ambiguous",
+                blocked_by=matches,
+                diagnostics=[
+                    "Surface similarity cannot bind a source-local candidate to a World object"
+                ],
+                requires_human_review=True,
+            )
+        if not candidate.evidence_ref_ids:
+            return IdentityResolution(
+                world_id=candidate.world_id,
+                candidate_id=candidate.candidate_id,
+                outcome="rejected",
+                diagnostics=["Source-local creation requires source evidence"],
+            )
+        return IdentityResolution(
+            world_id=candidate.world_id,
+            candidate_id=candidate.candidate_id,
+            outcome="created_new",
+            created_node_id=proposed,
+            diagnostics=["Qualified source-local identity from verified candidate basis"],
+            canon_state="canonical",
+        )
 
 
     prior = _decision_for_candidate(context, candidate)
@@ -1114,10 +1051,43 @@ __all__ = [
     "endpoint_available",
     "identity_facts_from_dungeonmind_decisions",
     "identity_snapshot_from_context",
-    "mutation_context_from_store",
     "mutation_context_from_world_root",
     "mutation_context_with_sealed_identity",
     "mutation_objects_as_match_dicts",
     "resolve_identity_against_context",
     "wire_kind",
 ]
+
+
+REVIEWED_CORPUS_BINDING_REASON_PREFIX = "dmb-reviewed-corpus-native-binding-v1:"
+
+
+def reviewed_corpus_bindings_from_decisions(records, *, world_id, revision_id):
+    """Recognize only explicitly versioned reviewed carrier records."""
+    import json
+    from apps.live_control_server.models.extract_promote import ReviewedCorpusNativeBindingV1
+
+    bindings = []
+    for record in records:
+        reason = str(record.get("reason") or "")
+        if not reason.startswith(REVIEWED_CORPUS_BINDING_REASON_PREFIX):
+            continue
+        binding = ReviewedCorpusNativeBindingV1.model_validate(
+            json.loads(reason[len(REVIEWED_CORPUS_BINDING_REASON_PREFIX):])
+        )
+        if (record.get("decision_kind") != "human_override"
+            or record.get("world_id") != binding.world_id
+            or record.get("decision_id") != binding.decision_id
+            or record.get("actor") != binding.reviewer_id
+            or record.get("subject_object_ids") != [binding.candidate_node_id]
+            or record.get("target_object_ids") != [binding.target_object_id]):
+            raise ValueError("reviewed binding carrier does not match typed payload")
+        if record.get("status", "active") != "active":
+            continue
+        # Prior one-candidate decisions are retained, never applied to later heads.
+        if binding.world_id == world_id and binding.parent_revision_id == revision_id:
+            bindings.append(binding)
+    keys = [(b.campaign_id, b.candidate_sha256, b.candidate_node_id) for b in bindings]
+    if len(keys) != len(set(keys)):
+        raise ValueError("conflicting reviewed corpus bindings")
+    return tuple(bindings)

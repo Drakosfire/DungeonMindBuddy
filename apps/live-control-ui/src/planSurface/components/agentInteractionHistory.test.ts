@@ -341,6 +341,25 @@ describe("agentInteractionHistory", () => {
     expect(loadAgentThreadById(thread.campaignId, thread.threadId, thread.documentId)?.turns[0].planEdit).toBeNull();
   });
 
+  it("persists and reloads a card-body proposal with its truthful target kind", () => {
+    const thread = makeThread("Card edit");
+    thread.turns[0].backend = "plan_edit";
+    thread.turns[0].planEdit = {
+      proposalSummary: "Guide Aldric quietly",
+      replacementMarkdown: "- Quietly guide [Aldric](dmb-node:node:captain-lysandra-ironveil).",
+      applied: false,
+      targetKind: "replace_playable_body",
+    };
+
+    persistAgentThread(thread);
+
+    const stored = JSON.parse(localStorage.getItem(threadStorageKey(thread.campaignId, thread.threadId)) ?? "{}");
+    expect(stored.turns[0].planEdit).toEqual(thread.turns[0].planEdit);
+    const reloaded = loadAgentThreadById(thread.campaignId, thread.threadId, thread.documentId);
+    expect(reloaded?.turns[0].planEdit).toEqual(thread.turns[0].planEdit);
+    expect(reloaded?.turns[0].planEdit?.applied).toBe(false);
+  });
+
   it("forces Plan threads to Hermes even when constructed or persisted as Live", () => {
     const created = createAgentInteractionThread("longmont-c2", 22, "plan", "live", "Forced");
     expect(created.activeBackend).toBe("hermes");

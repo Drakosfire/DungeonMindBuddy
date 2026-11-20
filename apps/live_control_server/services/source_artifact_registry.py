@@ -1,52 +1,37 @@
-"""Server-owned SourceArtifact registry for committed workspace revisions."""
+"""Database-backed immutable producer source inputs; Core owns provenance admission."""
 
 from __future__ import annotations
 
 import hashlib
-import os
+import json
 import re
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Callable
 
-from pydantic import BaseModel, Field, ValidationError
+from application_state.errors import ApplicationStateError
+from application_state.source import service as source_service
 
-from apps.live_control_server.services.tiptap_markdown_write import (
-    TiptapMarkdownWriteError,
-    authorize_target_for_record,
-    resolve_tiptap_markdown_target,
-)
+from apps.live_control_server.config import ArtifactDataRootError, artifact_data_root
+
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRegistryError,
-    load_workspace_document_under_registry_lock,
+    get_committed_page_snapshot,
 )
 from graph_memory.evidence.source_artifact import (
     GraphMemorySourceArtifact,
-    build_recap_source_artifact_id,
+    build_world_scoped_recap_source_artifact_id,
     build_worldbuilding_source_artifact_id,
-    validate_source_artifact_scope,
 )
 from graph_memory.source_span import (
     SourceSpanIndex,
     build_source_span_index_for_text,
     source_artifact_text_from_markdown,
-    source_span_index_from_dict,
-    source_span_index_to_dict,
     source_span_refs_from_index,
-    validate_source_span_index,
     resolve_source_span_ref,
 )
-from apps.live_control_server.services.registry_file_lock import (
-    registry_mutation_lock,
-    registry_token,
-    workspace_document_mutation_lock,
-)
-from src.live_play.live_store import load_json, write_json
 
-DEFAULT_SOURCE_ARTIFACT_REGISTRY_REL = "out/registries/source_artifacts.json"
 DEFAULT_SOURCE_SPAN_INDEX_DIR_REL = "out/registries/source_span_indexes"
-RECAP_SOURCE_CONTENT_ROOT_ENV = "DUNGEONMIND_RECAP_SOURCE_CONTENT_ROOT"
-DEFAULT_RECAP_SOURCE_CONTENT_ROOT = "out/registries/source_content/recap"
-SOURCE_ARTIFACT_REGISTRY_SCHEMA = "dmb_source_artifact_registry_v1"
 
 _SAFE_ARTIFACT_DIR_RE = re.compile(r"[^A-Za-z0-9._-]+")
 # Single path segment: no slashes, no ``..``, no empty / absolute segments.
@@ -61,17 +46,15 @@ class SourceArtifactRegistryError(ValueError):
         self.status_code = status_code
 
 
-class SourceArtifactRegistryDocument(BaseModel):
-    schema_version: str = SOURCE_ARTIFACT_REGISTRY_SCHEMA
-    records: list[GraphMemorySourceArtifact] = Field(default_factory=list)
+def _artifact_root(root: Path) -> Path:
+    try:
+        return artifact_data_root(root)
+    except ArtifactDataRootError as exc:
+        raise SourceArtifactRegistryError(str(exc), status_code=503) from exc
 
 
 def _utc_now_iso() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
-
-
-def source_artifacts_path(root: Path) -> Path:
-    return root / DEFAULT_SOURCE_ARTIFACT_REGISTRY_REL
 
 
 def _normalize_committed_markdown(markdown: str) -> str:
@@ -105,7 +88,10 @@ def _require_safe_path_segment(value: str, *, field_name: str) -> str:
 
 def _resolve_registry_content_path(root: Path, relpath: str) -> Path:
     """Resolve ``root / relpath`` and reject escapes outside ``root``."""
-    resolved_root = root.resolve()
+    relative = Path(relpath)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise SourceArtifactRegistryError("unsafe artifact path", status_code=422)
+    resolved_root = _artifact_root(root)
     target = (resolved_root / relpath).resolve()
     if not target.is_relative_to(resolved_root):
         raise SourceArtifactRegistryError(
@@ -113,18 +99,6 @@ def _resolve_registry_content_path(root: Path, relpath: str) -> Path:
             status_code=422,
         )
     return target
-
-
-def _recap_content_root_relpath(root: Path) -> str:
-    configured = os.environ.get(RECAP_SOURCE_CONTENT_ROOT_ENV, "").strip()
-    value = (configured or DEFAULT_RECAP_SOURCE_CONTENT_ROOT).replace("\\", "/")
-    path = Path(value)
-    if value.startswith("file:") or path.is_absolute() or ".." in path.parts:
-        raise SourceArtifactRegistryError(
-            "unsafe recap source content root", status_code=422
-        )
-    _resolve_registry_content_path(root, value)
-    return path.as_posix()
 
 
 def source_span_index_relpath(source_artifact_id: str) -> str:
@@ -135,144 +109,43 @@ def source_span_index_relpath(source_artifact_id: str) -> str:
 
 
 def source_span_index_path(root: Path, source_artifact_id: str) -> Path:
-    return root / source_span_index_relpath(source_artifact_id)
-
-
-def _validate_registry_records(records: list[GraphMemorySourceArtifact]) -> None:
-    seen: set[str] = set()
-    for record in records:
-        try:
-            validate_source_artifact_scope(record)
-        except ValueError as exc:
-            raise SourceArtifactRegistryError(
-                f"malformed source artifact registry record: {exc}",
-                status_code=500,
-            ) from exc
-        if record.source_artifact_id in seen:
-            raise SourceArtifactRegistryError(
-                f"duplicate source artifact id: {record.source_artifact_id}",
-                status_code=500,
-            )
-        seen.add(record.source_artifact_id)
-
-
-def _load_unlocked(root: Path) -> tuple[SourceArtifactRegistryDocument, str]:
-    path = source_artifacts_path(root)
-    token = registry_token(path)
-    if not path.is_file():
-        return SourceArtifactRegistryDocument(), token
-    try:
-        document = SourceArtifactRegistryDocument.model_validate(load_json(path))
-    except (ValidationError, TypeError, ValueError) as exc:
-        raise SourceArtifactRegistryError(
-            f"malformed source artifact registry: {exc}",
-            status_code=500,
-        ) from exc
-    _validate_registry_records(document.records)
-    return document, token
-
-
-def _load(root: Path) -> SourceArtifactRegistryDocument:
-    document, _token = _load_unlocked(root)
-    return document
-
-
-def _save_cas(
-    root: Path,
-    document: SourceArtifactRegistryDocument,
-    *,
-    expected_token: str,
-) -> None:
-    _validate_registry_records(document.records)
-    path = source_artifacts_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    current = registry_token(path)
-    if current != expected_token:
-        raise SourceArtifactRegistryError(
-            "source artifact registry changed concurrently",
-            status_code=409,
-        )
-    write_json(path, document.model_dump(mode="json"))
-
-
-def _read_committed_target_markdown(root: Path, record) -> tuple[str, str, str]:
-    """Resolve BLD-02 target, read committed bytes, return (relpath, markdown, digest)."""
-    try:
-        relpath = authorize_target_for_record(record)
-        target = resolve_tiptap_markdown_target(root, relpath)
-    except TiptapMarkdownWriteError as exc:
-        raise SourceArtifactRegistryError(str(exc), status_code=422) from exc
-    if not target.is_file():
-        raise SourceArtifactRegistryError(
-            "committed workspace target file is missing",
-            status_code=409,
-        )
-    try:
-        raw = target.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise SourceArtifactRegistryError(
-            f"failed to read committed workspace target: {exc}",
-            status_code=500,
-        ) from exc
-    content = _normalize_committed_markdown(raw)
-    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
-    return relpath, content, digest
-
-
-def _records_match(existing: GraphMemorySourceArtifact, candidate: GraphMemorySourceArtifact) -> bool:
-    fields = (
-        "source_artifact_id",
-        "source_domain",
-        "campaign_id",
-        "session_id",
-        "uri",
-        "content_sha256",
-        "artifact_kind",
-        "document_class",
-        "workspace_document_id",
-        "workspace_document_revision",
+    """Historical locator metadata; canonical spans come from load_source_span_index."""
+    return _resolve_registry_content_path(
+        root, source_span_index_relpath(source_artifact_id)
     )
-    return all(getattr(existing, field) == getattr(candidate, field) for field in fields)
 
 
-def _persist_span_index(root: Path, index: SourceSpanIndex) -> str:
-    validate_source_span_index(
-        index,
-        source_artifact_id=index.source_artifact_id,
-        content_sha256=index.content_sha256,
-    )
-    relpath = source_span_index_relpath(index.source_artifact_id)
-    path = root / relpath
-    path.parent.mkdir(parents=True, exist_ok=True)
-    write_json(path, source_span_index_to_dict(index))
-    return relpath
+def _committed_page_input(root: Path, document_id: str):
+    try:
+        snapshot = get_committed_page_snapshot(root, document_id)
+    except WorkspaceDocumentRegistryError as exc:
+        raise SourceArtifactRegistryError(
+            str(exc), status_code=exc.status_code
+        ) from exc
+    if (
+        snapshot.record.status != "active"
+        or snapshot.record.content_status != "committed"
+    ):
+        raise SourceArtifactRegistryError(
+            "Source capture requires an active committed Page", status_code=409
+        )
+    if not snapshot.markdown.strip():
+        raise SourceArtifactRegistryError("committed source is empty", status_code=422)
+    return snapshot
 
 
 def load_source_span_index(root: Path, source_artifact_id: str) -> SourceSpanIndex:
-    path = source_span_index_path(root, source_artifact_id)
-    if not path.is_file():
-        raise SourceArtifactRegistryError(
-            f"source span index not found for artifact: {source_artifact_id}",
-            status_code=404,
-        )
-    try:
-        payload = load_json(path)
-        index = source_span_index_from_dict(payload)
-    except (TypeError, ValueError, KeyError, ValidationError) as exc:
-        raise SourceArtifactRegistryError(
-            f"malformed source span index: {exc}",
-            status_code=500,
-        ) from exc
-    artifact = get_source_artifact(root, source_artifact_id)
-    try:
-        validate_source_span_index(
-            index,
-            source_artifact_id=artifact.source_artifact_id,
-            content_sha256=artifact.content_sha256 or "",
-        )
-    except ValueError as exc:
-        raise SourceArtifactRegistryError(str(exc), status_code=500) from exc
-    return index
+    """Derive canonical paragraph spans from the exact stored input body.
+
+    Run-pinned custom indexes belong to extraction output storage. A historical
+    registry mirror cannot select source bytes or change paragraph identities.
+    """
+    artifact, raw = load_registered_source_artifact_bytes(root, source_artifact_id)
+    return build_source_span_index_for_text(
+        source_artifact_id=artifact.source_artifact_id,
+        content_sha256=artifact.content_sha256 or "",
+        text=raw.decode("utf-8"),
+    )
 
 
 def resolve_worldbuilding_source_span(
@@ -282,33 +155,20 @@ def resolve_worldbuilding_source_span(
     span_index: int = 0,
 ):
     """Load one persisted worldbuilding span and resolve it through the evidence resolver."""
-    artifact = get_source_artifact(root, source_artifact_id)
+    artifact = get_source_artifact(source_artifact_id)
     if str(artifact.source_domain) != "worldbuilding":
         raise SourceArtifactRegistryError(
             "resolve_worldbuilding_source_span requires a worldbuilding artifact",
             status_code=422,
         )
-    if not artifact.uri.startswith("repo://"):
-        raise SourceArtifactRegistryError("artifact uri must be repo-relative", status_code=500)
-    relpath = artifact.uri.removeprefix("repo://")
-    try:
-        target = resolve_tiptap_markdown_target(root, relpath)
-        text = _normalize_committed_markdown(target.read_text(encoding="utf-8"))
-    except (TiptapMarkdownWriteError, OSError) as exc:
-        raise SourceArtifactRegistryError(
-            f"failed to load artifact text for span resolution: {exc}",
-            status_code=500,
-        ) from exc
-    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
-    if digest != (artifact.content_sha256 or ""):
-        raise SourceArtifactRegistryError(
-            "artifact content digest mismatch during span resolution",
-            status_code=409,
-        )
+    _, raw = load_registered_source_artifact_bytes(root, source_artifact_id)
+    text = raw.decode("utf-8")
     index = load_source_span_index(root, source_artifact_id)
     refs = source_span_refs_from_index(index)
     if not refs:
-        raise SourceArtifactRegistryError("source span index has no spans", status_code=500)
+        raise SourceArtifactRegistryError(
+            "source span index has no spans", status_code=500
+        )
     if span_index < 0 or span_index >= len(refs):
         raise SourceArtifactRegistryError("span_index out of range", status_code=404)
     text_artifact = source_artifact_text_from_markdown(
@@ -323,15 +183,31 @@ def resolve_worldbuilding_source_span(
     )
 
 
-def get_source_artifact(root: Path, source_artifact_id: str) -> GraphMemorySourceArtifact:
-    document = _load(root)
-    for record in document.records:
-        if record.source_artifact_id == source_artifact_id:
-            return record
-    raise SourceArtifactRegistryError(
-        f"source artifact not found: {source_artifact_id}",
-        status_code=404,
-    )
+def get_source_artifacts(
+    source_artifact_ids: set[str]
+) -> dict[str, GraphMemorySourceArtifact]:
+    """Exact metadata lookup from APP; no source bodies or filesystem discovery."""
+    try:
+        return source_service.get_source_input_descriptors(
+            source_artifact_ids=sorted(source_artifact_ids)
+        )
+    except ApplicationStateError as exc:
+        raise SourceArtifactRegistryError(
+            str(exc), status_code=exc.status_code
+        ) from exc
+
+
+def get_source_artifact(
+    source_artifact_id: str
+) -> GraphMemorySourceArtifact:
+    records = get_source_artifacts({source_artifact_id})
+    artifact = records.get(source_artifact_id)
+    if artifact is None:
+        raise SourceArtifactRegistryError(
+            f"source input not registered in database: {source_artifact_id}",
+            status_code=404,
+        )
+    return artifact
 
 
 def create_source_artifact_from_workspace_document(
@@ -341,95 +217,48 @@ def create_source_artifact_from_workspace_document(
     expected_revision: int | None = None,
     expected_content_sha256: str | None = None,
 ) -> GraphMemorySourceArtifact:
-    """Create an immutable SourceArtifact from a committed worldbuilding workspace revision.
-
-    Markdown bytes are server-resolved from the BLD-02 target. A client-supplied digest is
-    accepted only as an assertion that must match the committed file.
-
-    The per-document mutation lock is held across load/verify/read/persist so a concurrent
-    Markdown commit cannot interleave target bytes with a prior workspace revision.
-    """
-    with workspace_document_mutation_lock(root, document_id):
-        return _create_source_artifact_from_workspace_document_unlocked(
-            root,
-            document_id=document_id,
-            expected_revision=expected_revision,
-            expected_content_sha256=expected_content_sha256,
-        )
-
-
-def _create_source_artifact_from_workspace_document_unlocked(
-    root: Path,
-    *,
-    document_id: str,
-    expected_revision: int | None = None,
-    expected_content_sha256: str | None = None,
-) -> GraphMemorySourceArtifact:
-    try:
-        record = load_workspace_document_under_registry_lock(root, document_id)
-    except WorkspaceDocumentRegistryError as exc:
-        err = SourceArtifactRegistryError(str(exc), status_code=exc.status_code)
-        raise err from exc
-
-    if record.kind != "worldbuilding_source":
-        raise SourceArtifactRegistryError(
-            "only worldbuilding_source documents can create worldbuilding SourceArtifacts",
-            status_code=422,
-        )
-    if record.status != "active":
-        raise SourceArtifactRegistryError(
-            "discarded workspace documents cannot create SourceArtifacts",
-            status_code=409,
-        )
-    if record.content_status != "committed":
-        raise SourceArtifactRegistryError(
-            "workspace document must be committed before SourceArtifact creation",
-            status_code=422,
-        )
+    """Capture coherent saved Page bytes in APP; Core owns source admission."""
+    snapshot = _committed_page_input(root, document_id)
+    record, content, content_sha256 = (
+        snapshot.record,
+        snapshot.markdown,
+        snapshot.content_sha256,
+    )
     if expected_revision is not None and record.revision != expected_revision:
         raise SourceArtifactRegistryError(
-            f"revision mismatch: expected {expected_revision}, current {record.revision}",
+            "workspace document revision changed", status_code=409
+        )
+    if (
+        expected_content_sha256 is not None
+        and expected_content_sha256.removeprefix("sha256:").strip().lower()
+        != content_sha256
+    ):
+        raise SourceArtifactRegistryError(
+            "expected_content_sha256 does not match committed source bytes",
             status_code=409,
         )
-    if not record.target_relpath:
-        raise SourceArtifactRegistryError(
-            "workspace document has no target_relpath",
-            status_code=422,
-        )
-
-    relpath, content, content_sha256 = _read_committed_target_markdown(root, record)
-    if expected_content_sha256 is not None:
-        expected = expected_content_sha256.removeprefix("sha256:").strip().lower()
-        if expected != content_sha256:
-            raise SourceArtifactRegistryError(
-                "expected_content_sha256 does not match committed source bytes",
-                status_code=409,
-            )
-
     source_artifact_id = build_worldbuilding_source_artifact_id(
         workspace_document_id=record.document_id,
         workspace_document_revision=record.revision,
         content_sha256=content_sha256,
     )
-
     now = _utc_now_iso()
-    # Legacy worldbuilding records without world_id use campaign_id as world identity.
-    artifact_world_id = record.world_id if record.world_id else record.campaign_id
     candidate = GraphMemorySourceArtifact(
         source_artifact_id=source_artifact_id,
         source_domain="worldbuilding",
         campaign_id=record.campaign_id,
         session_id=None,
-        uri=f"repo://{relpath}",
+        uri=f"object://{source_artifact_id}",
         content_sha256=content_sha256,
         artifact_kind="worldbuilding_markdown",
         document_class=record.document_class,
         authority_state=record.authority_state,
         visibility_state=record.visibility_state,
-        world_id=artifact_world_id,
+        world_id=record.world_id,
         workspace_document_id=record.document_id,
         workspace_document_revision=record.revision,
         lineage={
+            "source_name": record.title,
             "workspace_document_id": record.document_id,
             "workspace_document_revision": record.revision,
             "source_span_index_uri": f"repo://{source_span_index_relpath(source_artifact_id)}",
@@ -437,41 +266,122 @@ def _create_source_artifact_from_workspace_document_unlocked(
         created_at=now,
         updated_at=now,
     )
+    return _register_page_source(root, candidate, content)
 
-    path = source_artifacts_path(root)
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-        existing = next(
-            (row for row in document.records if row.source_artifact_id == source_artifact_id),
-            None,
+
+def create_recap_source_artifact_from_workspace_document(
+    root: Path,
+    *,
+    document_id: str,
+    expected_revision: int,
+    expected_content_sha256: str,
+    managed_world_id: str,
+    native_world_id: str,
+    campaign_id: str,
+    session_id: str,
+    authorize: Callable[[], None] | None = None,
+) -> GraphMemorySourceArtifact:
+    """Freeze an exact Build document as a separately scoped Recap source.
+
+    The caller supplies an already verified managed/native World context. Source
+    campaign/session describe the recap, not the workspace document's campaign.
+    """
+    if (
+        isinstance(expected_revision, bool)
+        or not isinstance(expected_revision, int)
+        or expected_revision < 1
+        or not isinstance(expected_content_sha256, str)
+        or not re.fullmatch(r"[a-f0-9]{64}", expected_content_sha256)
+    ):
+        raise SourceArtifactRegistryError(
+            "an exact document revision and SHA-256 are required", status_code=422
         )
-        if existing is not None:
-            if not _records_match(existing, candidate):
-                raise SourceArtifactRegistryError(
-                    "source artifact id collision with mismatched digest or foreign keys",
-                    status_code=409,
-                )
-            try:
-                load_source_span_index(root, existing.source_artifact_id)
-            except SourceArtifactRegistryError:
-                index = build_source_span_index_for_text(
-                    source_artifact_id=existing.source_artifact_id,
-                    content_sha256=existing.content_sha256 or content_sha256,
-                    text=content,
-                )
-                _persist_span_index(root, index)
-            return existing
-
-        index = build_source_span_index_for_text(
-            source_artifact_id=source_artifact_id,
-            content_sha256=content_sha256,
-            text=content,
+    if not isinstance(session_id, str) or not re.fullmatch(
+        r"session-[1-9][0-9]*", session_id
+    ):
+        raise SourceArtifactRegistryError(
+            "recap session must be session-N with N >= 1", status_code=422
         )
-        _persist_span_index(root, index)
-
-        document.records.append(candidate)
-        _save_cas(root, document, expected_token=token)
-        return candidate
+    for field, value in (
+        ("managed_world_id", managed_world_id),
+        ("native_world_id", native_world_id),
+    ):
+        if not isinstance(value, str) or not value or value != value.strip():
+            raise SourceArtifactRegistryError(f"{field} is required", status_code=422)
+    if (
+        not isinstance(campaign_id, str)
+        or _require_safe_path_segment(campaign_id, field_name="campaign_id")
+        != campaign_id
+    ):
+        raise SourceArtifactRegistryError(
+            "source campaign must be an exact safe identity", status_code=422
+        )
+    snapshot = _committed_page_input(root, document_id)
+    record = snapshot.record
+    if (
+        record.kind != "worldbuilding_source"
+        or record.status != "active"
+        or record.content_status != "committed"
+    ):
+        raise SourceArtifactRegistryError(
+            "Recap requires an active committed Build document", status_code=409
+        )
+    if record.world_id != managed_world_id:
+        raise SourceArtifactRegistryError(
+            "Build document belongs to another managed World", status_code=409
+        )
+    if record.revision != expected_revision:
+        raise SourceArtifactRegistryError(
+            "Build document revision changed", status_code=409
+        )
+    content, content_sha256 = snapshot.markdown, snapshot.content_sha256
+    if content_sha256 != expected_content_sha256:
+        raise SourceArtifactRegistryError(
+            "Build document content digest changed", status_code=409
+        )
+    binding = {
+        "schema": "dmb_build_recap_source_v1",
+        "mode": "recap",
+        "document_id": record.document_id,
+        "document_revision": record.revision,
+        "content_sha256": content_sha256,
+        "managed_world_id": managed_world_id,
+        "native_world_id": native_world_id,
+        "campaign_id": campaign_id,
+        "session_id": session_id,
+    }
+    binding_sha = hashlib.sha256(
+        json.dumps(
+            binding, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode()
+    ).hexdigest()
+    artifact_id = (
+        f"artifact:recap:build:{record.document_id}:r{record.revision}:{binding_sha}"
+    )
+    now = _utc_now_iso()
+    candidate = GraphMemorySourceArtifact(
+        source_artifact_id=artifact_id,
+        source_domain="recap",
+        campaign_id=campaign_id,
+        session_id=session_id,
+        world_id=native_world_id,
+        uri=f"object://{artifact_id}",
+        content_sha256=content_sha256,
+        artifact_kind="recap_markdown",
+        document_class="recap",
+        visibility_state=record.visibility_state,
+        workspace_document_id=record.document_id,
+        workspace_document_revision=record.revision,
+        lineage={
+            "source_name": record.title,
+            "build_recap_source": binding,
+            "binding_sha256": binding_sha,
+            "source_span_index_uri": f"repo://{source_span_index_relpath(artifact_id)}",
+        },
+        created_at=now,
+        updated_at=now,
+    )
+    return _register_page_source(root, candidate, content, authorize=authorize)
 
 
 def _resolve_repo_contained_path(root: Path, path: Path) -> tuple[Path, str]:
@@ -498,92 +408,62 @@ def _normalize_source_text(text: str) -> str:
     return text.rstrip("\n") + "\n"
 
 
-def _upsert_source_artifact(
-    root: Path,
-    *,
-    candidate: GraphMemorySourceArtifact,
-    content: str,
+def _register_source_input(
+    artifact: GraphMemorySourceArtifact, content: str
 ) -> GraphMemorySourceArtifact:
-    path = source_artifacts_path(root)
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-        existing = next(
-            (
-                row
-                for row in document.records
-                if row.source_artifact_id == candidate.source_artifact_id
-            ),
-            None,
-        )
-        if existing is not None:
-            same_bytes = (existing.content_sha256 or "") == (candidate.content_sha256 or "")
-            same_scope = (
-                existing.source_domain == candidate.source_domain
-                and existing.campaign_id == candidate.campaign_id
-                and existing.session_id == candidate.session_id
-                and existing.artifact_kind == candidate.artifact_kind
-                and existing.document_class == candidate.document_class
-                and existing.workspace_document_id == candidate.workspace_document_id
-                and existing.workspace_document_revision
-                == candidate.workspace_document_revision
-            )
-            if same_bytes and same_scope:
-                # Idempotent re-admission of the same bytes. Keep the existing URI
-                # so previously reviewable runs remain bound to immutable content.
-                try:
-                    load_source_span_index(root, existing.source_artifact_id)
-                except SourceArtifactRegistryError:
-                    index = build_source_span_index_for_text(
-                        source_artifact_id=existing.source_artifact_id,
-                        content_sha256=existing.content_sha256 or candidate.content_sha256 or "",
-                        text=content,
-                    )
-                    _persist_span_index(root, index)
-                return existing
-            if not _records_match(existing, candidate):
-                raise SourceArtifactRegistryError(
-                    "source artifact id collision with mismatched digest or foreign keys",
-                    status_code=409,
-                )
-            try:
-                load_source_span_index(root, existing.source_artifact_id)
-            except SourceArtifactRegistryError:
-                index = build_source_span_index_for_text(
-                    source_artifact_id=existing.source_artifact_id,
-                    content_sha256=existing.content_sha256 or candidate.content_sha256 or "",
-                    text=content,
-                )
-                _persist_span_index(root, index)
-            return existing
+    """Store product input bytes before exposing their descriptor to ingestion.
 
-        index = build_source_span_index_for_text(
-            source_artifact_id=candidate.source_artifact_id,
-            content_sha256=candidate.content_sha256 or "",
-            text=content,
+    This does not admit source provenance or publish Graph facts. DungeonMind
+    owns those decisions; APP owns the immutable body supplied to them.
+    """
+    try:
+        source_service.persist_source_markdown(
+            source_artifact_id=artifact.source_artifact_id,
+            source_domain=str(artifact.source_domain),
+            campaign_id=artifact.campaign_id,
+            session_id=artifact.session_id,
+            world_id=artifact.world_id,
+            markdown=content,
+            content_sha256=artifact.content_sha256,
+            input_descriptor=artifact.model_dump(mode="json"),
+            lineage={
+                "workspace_document_id": artifact.workspace_document_id,
+                "workspace_document_revision": artifact.workspace_document_revision,
+            }
+            if artifact.workspace_document_id
+            else {},
         )
-        _persist_span_index(root, index)
-        document.records.append(candidate)
-        _save_cas(root, document, expected_token=token)
-        return candidate
+    except ApplicationStateError as exc:
+        raise SourceArtifactRegistryError(
+            f"source body persistence failed: {exc}",
+            status_code=exc.status_code,
+        ) from exc
+    # Exact replays return the frozen descriptor, including original timestamps
+    # and inert historical locator. Input storage grants no Core authority.
+    return get_source_artifact(artifact.source_artifact_id)
 
 
 def create_recap_source_artifact(
     root: Path,
     *,
+    world_id: str,
     campaign_id: str,
     session_id: str,
     recap_path: Path | None = None,
     recap_text: str | None = None,
     expected_content_sha256: str | None = None,
 ) -> GraphMemorySourceArtifact:
-    """Create an immutable recap SourceArtifact from committed recap bytes.
+    """Capture exact recap input and descriptor through the APP source owner.
 
-    Bytes are always materialized under a registry-owned, repo-contained URI
-    keyed by the full content digest
-    (default ``out/registries/source_content/recap``; an explicitly configured
-    repo-contained recap content root may replace that prefix).
-    The caller's original recap path is read-only input and is never rewritten.
+    An explicit Markdown file is read-only import input. The registered locator
+    is metadata; no duplicate source file or directory selects the stored bytes.
     """
+    cleaned_world = (world_id or "").strip()
+    if not cleaned_world or cleaned_world != world_id:
+        raise SourceArtifactRegistryError(
+            "a verified native world_id is required to register a fresh recap source",
+            status_code=422,
+        )
     cleaned_campaign = _require_safe_path_segment(
         campaign_id or "", field_name="campaign_id"
     )
@@ -623,26 +503,8 @@ def create_recap_source_artifact(
                 status_code=409,
             )
 
-    # Always materialize into a registry-owned, digest-namespaced path. Never
-    # retain or rewrite the caller's original recap path — that source must stay
-    # immutable from the registry's perspective.
-    relpath = (
-        f"{_recap_content_root_relpath(root)}/"
-        f"{cleaned_campaign}/{cleaned_session}/{content_sha256}.md"
-    )
-    target = _resolve_registry_content_path(root, relpath)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if not target.is_file():
-        target.write_text(content, encoding="utf-8")
-    else:
-        existing = target.read_text(encoding="utf-8")
-        if existing != content:
-            raise SourceArtifactRegistryError(
-                "registry-owned recap content path already exists with different bytes",
-                status_code=409,
-            )
-
-    source_artifact_id = build_recap_source_artifact_id(
+    source_artifact_id = build_world_scoped_recap_source_artifact_id(
+        world_id=cleaned_world,
         campaign_id=cleaned_campaign,
         session_id=cleaned_session,
         content_sha256=content_sha256,
@@ -653,7 +515,8 @@ def create_recap_source_artifact(
         source_domain="recap",
         campaign_id=cleaned_campaign,
         session_id=cleaned_session,
-        uri=f"repo://{relpath}",
+        world_id=cleaned_world,
+        uri=f"object://{source_artifact_id}",
         content_sha256=content_sha256,
         artifact_kind="recap_markdown",
         document_class="recap",
@@ -664,38 +527,105 @@ def create_recap_source_artifact(
         created_at=now,
         updated_at=now,
     )
-    return _upsert_source_artifact(root, candidate=candidate, content=content)
+    return _register_source_input(artifact=candidate, content=content)
 
 
 def load_registered_source_artifact_text(
     root: Path,
     source_artifact_id: str,
 ) -> tuple[GraphMemorySourceArtifact, str]:
-    """Load a registered SourceArtifact and its committed text bytes."""
-    artifact = get_source_artifact(root, source_artifact_id)
-    if not artifact.uri.startswith("repo://"):
-        raise SourceArtifactRegistryError(
-            "artifact uri must be repo-relative",
-            status_code=500,
-        )
-    relpath = artifact.uri.removeprefix("repo://")
-    target = root / relpath
-    if not target.is_file():
-        raise SourceArtifactRegistryError(
-            "registered source artifact file is missing",
-            status_code=409,
-        )
+    """Open the same exact database body as the byte reader, without normalization."""
+    artifact, raw = load_registered_source_artifact_bytes(root, source_artifact_id)
+    return artifact, raw.decode("utf-8")
+
+
+def load_registered_source_artifact_bytes(
+    root: Path,
+    source_artifact_id: str,
+) -> tuple[GraphMemorySourceArtifact, bytes]:
+    """Read an already adopted exact source revision from product database storage.
+
+    DungeonMind owns provenance admission. This reader supplies the product-owned
+    body by its registered identity and digest; a file mirror grants no fallback.
+    """
+    artifact = get_source_artifact(source_artifact_id)
+    return artifact, load_source_input_bytes(artifact)
+
+
+def load_source_input_bytes(artifact: GraphMemorySourceArtifact) -> bytes:
+    """Read exact APP input bytes for registered metadata, never admit provenance."""
+    from application_state.errors import ApplicationStateError
+    from application_state.source import service as source_service
+
+    expected = (artifact.content_sha256 or "").removeprefix("sha256:")
     try:
-        content = _normalize_source_text(target.read_text(encoding="utf-8"))
-    except OSError as exc:
+        source = source_service.get_source_markdown(
+            source_artifact_id=artifact.source_artifact_id,
+            content_sha256=expected,
+        )
+    except ApplicationStateError as exc:
         raise SourceArtifactRegistryError(
-            f"failed to read registered source artifact: {exc}",
-            status_code=500,
+            "database source body is unavailable",
+            status_code=exc.status_code,
         ) from exc
-    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
-    if digest != (artifact.content_sha256 or ""):
+    if source is None:
         raise SourceArtifactRegistryError(
-            "registered source artifact digest mismatch",
+            "registered source body is missing from the database",
             status_code=409,
         )
-    return artifact, content
+    if (
+        source.source_artifact_id != artifact.source_artifact_id
+        or source.content_sha256 != expected
+        or source.source_domain != str(artifact.source_domain)
+        or source.world_id != artifact.world_id
+        or source.campaign_id != artifact.campaign_id
+        or source.session_id != artifact.session_id
+    ):
+        raise SourceArtifactRegistryError(
+            "database source body scope does not match the registered source",
+            status_code=409,
+        )
+    if source.encoding.lower() != "utf-8" or source.media_type != "text/markdown":
+        raise SourceArtifactRegistryError(
+            "database source body is not UTF-8 Markdown",
+            status_code=409,
+        )
+    content = source.markdown.encode("utf-8")
+    if hashlib.sha256(content).hexdigest() != expected:
+        raise SourceArtifactRegistryError(
+            "database source body digest mismatch",
+            status_code=409,
+        )
+    return content
+
+
+def _register_page_source(
+    root: Path, candidate: GraphMemorySourceArtifact, content: str,
+    *, authorize: Callable[[], None] | None = None,
+) -> GraphMemorySourceArtifact:
+    """Reuse exact immutable descriptors across the Page storage transition."""
+    try:
+        existing = get_source_artifact(candidate.source_artifact_id)
+    except SourceArtifactRegistryError as exc:
+        if exc.status_code != 404:
+            raise
+    else:
+        # A locator is inert metadata, never a second identity or body authority.
+        omitted = {"uri", "created_at", "updated_at"}
+        if existing.model_dump(exclude=omitted) != candidate.model_dump(
+            exclude=omitted
+        ):
+            raise SourceArtifactRegistryError(
+                "retained Page source metadata differs", status_code=409
+            )
+        stored, raw = load_registered_source_artifact_bytes(
+            root, existing.source_artifact_id
+        )
+        if stored != existing or raw != content.encode("utf-8"):
+            raise SourceArtifactRegistryError(
+                "retained Page source body differs", status_code=409
+            )
+        return existing
+    if authorize is not None:
+        authorize()
+    return _register_source_input(artifact=candidate, content=content)

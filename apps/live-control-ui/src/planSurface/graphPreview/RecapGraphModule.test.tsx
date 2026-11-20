@@ -1,10 +1,12 @@
+import * as hostedAuth from "../../auth/HostedAuthGate";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import type { RecapArtifactRecord } from "../../api/types";
 import { RecapGraphModule } from "./RecapGraphModule";
-import { session23WorldGraphRecapFixture } from "./worldGraphRecapFixture";
+import { SelectedWorldProvider } from "../../selectedWorld/SelectedWorldContext";
+import { session23WorldGraphRecapFixture } from "../../test/worldGraphRecapFixture";
 
 const context = {
   campaignId: "longmont-c2",
@@ -123,7 +125,7 @@ describe("RecapGraphModule", () => {
         admissibility: "gm",
       });
     });
-    expect(await screen.findByLabelText("Published recap")).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Focus session" })).toBeInTheDocument();
   });
 
   it("defaults to the latest ingested recap artifact when no URL session is provided", async () => {
@@ -150,8 +152,8 @@ describe("RecapGraphModule", () => {
 
     render(<RecapGraphModule context={context} />);
 
-    expect(await screen.findByLabelText("Published recap")).toBeInTheDocument();
     expect(await findRecapPill(/Caelynn/i)).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Focus session" })).toBeInTheDocument();
   }, 15000);
 
   it("shows unavailable message for recap_markdown_unavailable without preview fallback", async () => {
@@ -211,7 +213,7 @@ describe("RecapGraphModule", () => {
 
     render(<RecapGraphModule context={context} />);
 
-    await screen.findByLabelText("Published recap");
+    await screen.findByRole("combobox", { name: "Focus session" });
     expect(window.location.search).toContain("campaign=longmont-c1");
     expect(window.location.search).toContain("session=session-1");
     expect(window.location.search).toContain("campaigns=longmont-c1%2Clongmont-c2");
@@ -248,18 +250,16 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
   });
 
   it("does not call Union/latest-ingest selectors", async () => {
-    const getUnion = vi.spyOn(liveApi, "getUnionSupergraphProjection");
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
 
     render(<RecapGraphModule context={context} />);
-    await screen.findByLabelText("Published recap");
-    expect(getUnion).not.toHaveBeenCalled();
+    await screen.findByRole("combobox", { name: "Focus session" });
   });
 
   it("does not put Continue in Build on the ordinary recap Peek", async () => {
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
     render(<RecapGraphModule context={context} />);
-    await screen.findByLabelText("Published recap");
+    await screen.findByRole("combobox", { name: "Focus session" });
     fireEvent.click(await findRecapPill(/Caelynn/i));
     await waitFor(() => {
       expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledWith(
@@ -285,7 +285,7 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
   it("does not render preview-candidate or recap-lens metadata copy", async () => {
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
     render(<RecapGraphModule context={context} />);
-    expect(await screen.findByLabelText("Published recap")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Focus session" })).toBeInTheDocument());
     expect(screen.queryByText(/Session focus lens/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Published World Graph · session recap/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/graph mentions projected/i)).not.toBeInTheDocument();
@@ -547,4 +547,76 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
       "session-26",
     );
   });
+});
+
+it.each([false, true])("drills into a native recap object and renders only its matching excerpt (hosted=%s)", async hosted => {
+  vi.restoreAllMocks();
+  if (hosted) vi.spyOn(hostedAuth, "useHostedAuthStatus").mockReturnValue({
+    status: "authenticated", subject: "owner", displayName: "Owner", refreshWarning: false,
+  });
+  window.history.replaceState({}, "", "/plan?world=elderwyld&session=session-24");
+  const scope = {
+    managed_world_id: "elderwyld", native_world_id: "elderwyld",
+    binding_version: 3, revision_id: "rev:recap", scope_mode: "world" as const, campaign_id: null,
+  };
+  const pin = { ...scope, scope_mode: "campaign" as const, campaign_id: "longmont-c2" };
+  mockArtifacts();
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [{ schema_version: "dmb_world_container_record_v1", world_id: "elderwyld",
+      name: "Elderwyld", source_root_relpath: "", created_at: "" }],
+  });
+  vi.spyOn(liveApi, "getHostedWorldContainer").mockResolvedValue({
+    schema_version: "dmb_world_container_record_v1", world_id: "elderwyld",
+    name: "Elderwyld", source_root_relpath: "", created_at: "",
+  });
+  vi.spyOn(liveApi, "readPublishedNativeRecap").mockResolvedValue({
+    schema: "dmb_native_published_recap_v1", scope, campaign_id: "longmont-c2", session_id: "session-24",
+    evidence_ref_ids: ["ev:recap"],
+    source: { status: "available", source_artifact_id: "source:recap", source_revision_id: "srev:recap",
+      body_text: "Admitted recap body.", body_sha256: "digest", evidence_ref_id: "ev:recap", source_authority_epoch: 1 },
+  });
+  const catalog = vi.spyOn(liveApi, "getNativeGraphCatalog").mockResolvedValue({
+    schema: "dmb_native_graph_catalog_v1", scope: pin,
+    catalogue: { identity: { space_id: "elderwyld", revision_id: pin.revision_id },
+      entities: [{ entity_id: "ent:recap" }], admitted_assertion_ids: ["asrt:recap"],
+      completeness: { status: "complete", reason: null }, request_sha256: "digest", result_digest: "digest" },
+    assertions: [{ assertion_id: "asrt:recap", subject_entity_id: "ent:recap", predicate: "dnd5e:name",
+      value: { kind: "literal", value: "Recap Object" }, metadata: { evidence_ref_ids: ["ev:recap"],
+        scope: [], visibility: null, epistemic_basis: "", claim_mode: "", standing: "",
+        temporal_scope: null, domain_metadata: [] } }],
+  });
+  const read = vi.spyOn(liveApi, "postNativeWorldGraphCompleteObject").mockResolvedValue({
+    schema: "dmb_world_graph_object_projection_v1", found: true,
+    completeness: { status: "complete", truncatedFields: [] },
+    snapshot: { ...session23WorldGraphRecapFixture.snapshot, revisionId: pin.revision_id },
+    requestedNodeId: "ent:recap", resolvedNodeId: "ent:recap",
+    node: null, relatedNodes: [], semanticFingerprint: "digest",
+    sourceBindings: [{ evidenceRefId: "ev:recap", excerpt: "Exact admitted excerpt." },
+      { evidenceRefId: "ev:other", excerpt: "Unrelated excerpt." }],
+  });
+  const scoped = vi.spyOn(liveApi, "readPublishedRecapObjects");
+  if (hosted) {
+    scoped.mockResolvedValueOnce({ scope: pin, objects: [{ id: "ent:recap", label: "Recap Object", ambiguous: false }], partial: false });
+    const result = await read.getMockImplementation()!({} as never, pin);
+    scoped.mockResolvedValueOnce({ kind: "complete", detail: result });
+  }
+  const classic = vi.spyOn(liveApi, "postWorldGraphRecapProjection");
+  render(<SelectedWorldProvider locationSnapshot={window.location.href}>
+    <RecapGraphModule context={context} />
+  </SelectedWorldProvider>);
+  expect(await screen.findByText("Admitted recap body.")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Recap Object" }));
+  expect(await screen.findByText("Exact admitted excerpt.")).toBeInTheDocument();
+  expect(screen.queryByText("Unrelated excerpt.")).not.toBeInTheDocument();
+  if (hosted) {
+    expect(catalog).not.toHaveBeenCalled();
+    expect(read).not.toHaveBeenCalled();
+    expect(scoped).toHaveBeenLastCalledWith(expect.objectContaining({ scope, campaign_id: "longmont-c2" }), "ent:recap");
+  } else {
+    expect(catalog).toHaveBeenCalledWith(pin, expect.any(AbortSignal));
+    expect(read).toHaveBeenCalledWith(expect.objectContaining({ revisionPin: pin.revision_id, nodeId: "ent:recap" }), pin);
+    expect(scoped).not.toHaveBeenCalled();
+  }
+  expect(classic).not.toHaveBeenCalled();
 });

@@ -5,26 +5,26 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from src.statblocks.lifecycle_artifact import (
+from statblocks.lifecycle_artifact import (
     StatblockBreadcrumb,
     StatblockDraftArtifact,
 )
-from src.statblocks.lifecycle_commands import (
+from statblocks.lifecycle_commands import (
     STATBLOCK_DRAFT_GENERATE,
     STATBLOCK_DRAFT_RENDER,
 )
-from src.statblocks.lifecycle_service import (
+from statblocks.lifecycle_service import (
     StatblockLifecycleCommandRequest,
     StatblockLifecycleService,
     _safe_message,
 )
-from src.statblocks.v2_client import (
+from statblocks.v2_client import (
     MockStatBlockGeneratorProvider,
     StatBlockGeneratorClientConfigError,
     StatBlockGeneratorProvider,
     statblock_generator_provider_from_env,
 )
-from src.statblocks.v2_contract import StatBlockDraftResponse
+from statblocks.v2_contract import StatBlockDraftResponse
 
 WorkbenchCommandMode = Literal["mock_command", "http_command"]
 

@@ -1,4 +1,30 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { renderToString } from "react-dom/server";
+import { GraphReviewAuthoringRail } from "./GraphReviewAuthoringRail";
+import { useGraphObjectAuthoringDraft } from "./useGraphObjectAuthoringDraft";
+import { useGraphReviewAuthorDraftWorkflow } from "./useGraphReviewAuthorDraftWorkflow";
+
+vi.mock("./GraphReviewLiveStateContext", () => ({
+  useGraphReviewLiveState: () => ({
+    campaignId: "longmont-c1", sessionId: "session-8", hasGold: true,
+    liveRun: null, projection: null, goldProjection: null, deltaIndex: { deltas: [] },
+    authorDraft: useGraphReviewAuthorDraftWorkflow(),
+  }),
+}));
+
+function Rail() {
+  const draft = useGraphObjectAuthoringDraft();
+  return <GraphReviewAuthoringRail selectedAuthoringNode={null} graphObjectAuthoringDraft={draft}
+    activeTab="stage_commit" onActiveTabChange={() => undefined} onSelectAuthoringNode={() => undefined} />;
+}
+
+it("renders native staged review and local notes without fixture mutation controls", () => {
+  const markup = renderToString(<Rail />);
+  expect(markup).toContain("Review staged memory");
+  expect(markup).toContain("Local proposal notes");
+  expect(markup).not.toContain("Gold fixture draft");
+  expect(markup).not.toContain("Commit prepared preview");
+});
 
 import { applyAuthoringPillSelection } from "./GraphReviewAuthoringRail";
 import type { GraphObjectAuthoringRelationshipFormState } from "./graphObjectAuthoringDraft";

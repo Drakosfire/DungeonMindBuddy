@@ -1,6 +1,6 @@
 import json, subprocess, sys, re
 from pathlib import Path
-from src.graph_memory.candidate_graph_preview import *
+from graph_memory.candidate_graph_preview import *
 ROOT=Path(__file__).resolve().parents[1]
 FIX=ROOT/'evals/graph_memory_layer/examples/candidate_graph_preview_minimal.json'
 SRC=ROOT/'evals/graph_memory_layer/examples/source_span_resolver_fixture.json'

@@ -1,7 +1,7 @@
 """Storage-neutral World Graph source-admission port (CUTOVER D.2C4).
 
 Product services consume Buddy source identity and admitted DungeonMind IDs.
-Production implements this port with DungeonMind SourceRepository put/get/snapshot.
+Production delegates catalog proof and atomic source admission to DungeonMind.
 Callers must not receive PostgreSQL connections, DSNs, repository bundles, or
 DungeonMind infrastructure records.
 """
@@ -40,9 +40,11 @@ class WorldGraphSourceAdmissionRequest:
     """Buddy source identity to map and prove/admit before a confirmable prepare."""
 
     world_id: str
-    campaign_id: str
+    campaign_id: str | None
     source_artifact: Any
     source_revision_token: str
+    source_body: bytes
+    expected_head_revision_id: str
     source_uri: str | None = None
 
 
@@ -54,6 +56,11 @@ class AdmittedSourceIdentity:
     source_revision_id: str
     content_sha256: str
     buddy_source_revision_id: str
+    # Catalog authority; legacy injected transports may omit these additions.
+    source_locator: str | None = None
+    artifact_uri: str | None = None
+    catalog_fingerprint_sha256: str | None = None
+    campaign_id: str | None = None
 
 
 class WorldGraphSourceAdmissionAuthority(Protocol):

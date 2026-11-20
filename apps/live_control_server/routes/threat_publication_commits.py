@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
+from apps.live_control_server.routes.statblock_storage import statblock_data_root
 from apps.live_control_server.config import repo_root, world_graph_root
 from apps.live_control_server.models.threat_draft import require_draft_id
 from apps.live_control_server.models.threat_publication import validate_publication_operation_id
@@ -115,7 +116,7 @@ def post_confirm_publication_commit(
     safe_op = _validated_operation_id(operation_id)
     safe_proposal = _validated_proposal_id(proposal_id)
     outcome = confirm_threat_publication(
-        repo_root(),
+        statblock_data_root(repo_root()),
         safe_draft,
         safe_op,
         safe_proposal,
@@ -137,6 +138,6 @@ def get_publication_commit(
     safe_op = _validated_operation_id(operation_id)
     safe_commit = _validated_commit_id(commit_id)
     outcome = read_threat_publication_commit(
-        repo_root(), safe_draft, safe_op, safe_commit
+        statblock_data_root(repo_root()), safe_draft, safe_op, safe_commit
     )
     return _json(outcome)

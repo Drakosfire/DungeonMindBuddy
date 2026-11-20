@@ -12,18 +12,18 @@ from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
 from apps.live_control_server.schema_validation import validate_live_packet
 from apps.live_control_server.session_store import load_session
-from src.live_play.live_store import iter_jsonl, load_json
-from src.live_play.projections import build_session_plan_projection
-from src.live_play.session_bootstrap import (
+from live_store import iter_jsonl, load_json
+from live_play.projections import build_session_plan_projection
+from live_play.session_bootstrap import (
     activate_session_workspace,
     bootstrap_session_workspace,
     build_live_packet,
 )
-from src.live_play.recap_ingestion import ingest_recap_markdown
-from src.live_play.session_paths import live_sessions_root, resolve_allowed_output_dir
+from live_play.recap_ingestion import ingest_recap_markdown
+from live_play.session_paths import live_sessions_root, resolve_allowed_output_dir
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_DIR = ROOT / "evals/c2_live_prep/live/schemas"
+SCHEMA_DIR = ROOT / "schemas/live"
 FIXTURE = ROOT / "tests/fixtures/live_bootstrap/session_22_fresh_recap.md"
 CORPUS_PREP = ROOT / "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22"
 
@@ -115,8 +115,10 @@ def test_plan_view_from_bootstrapped_packet(workspace: Path) -> None:
 
 
 def test_live_server_loads_bootstrapped_session(workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
     monkeypatch.setenv(SESSION_DIR_ENV, str(workspace))
-    client = TestClient(create_app())
+    client = TestClient(create_app(), client=("127.0.0.1", 50000))
     response = client.get("/api/live/plan-view")
     assert response.status_code == 200
     body = response.json()

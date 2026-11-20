@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
+import { session23WorldGraphRecapFixture } from "../test/worldGraphRecapFixture";
 import {
   admitBuildDocumentScope,
   admitBuildObjectInsert,
@@ -230,4 +230,11 @@ describe("worldGraphSurfaceContext", () => {
       reason: "Object campaign scope is blank; world-universal requires null.",
     });
   });
+});
+
+it('uses an admitted native World independently of a campaign alias and rejects conflicting/empty bindings',()=>{
+  const input={campaignId:'unmapped-campaign',sessionId:'session-30',receipt:{worldId:'native-a',committedRevisionId:'rev:2'}};
+  expect(buildGraphReviewCommittedProjectionRequest({...input,verifiedWorldId:'native-a'})).toMatchObject({worldId:'native-a',campaignId:'unmapped-campaign',revisionPin:'rev:2'});
+  expect(buildGraphReviewCommittedProjectionRequest({...input,verifiedWorldId:'native-b'})).toBeNull();
+  expect(buildGraphReviewCommittedProjectionRequest({...input,verifiedWorldId:''})).toBeNull();
 });

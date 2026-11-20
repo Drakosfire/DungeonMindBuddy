@@ -26,8 +26,16 @@ pr_body_template: |
 
 # HANDOFF — governed Eldyrwild Lysandra threat-direction correction
 
+Historical payload recovery: the correction paths below refer to the
+[exact package tree at `30008dc4`](https://github.com/Drakosfire/DungeonMindBuddy/tree/30008dc473bd80144a46c035d09b56ad1deb2928/graph_data/approved_graph_corrections).
+Their duplicate checkout copies are retired; use the
+[checksum-verified recovery procedure](../../graph_data/README.md#historical-correction-packages).
+This note preserves historical contracts and grants no new dispatch authority.
+
+> Historical recovery commands below refer to the [pre-cutover script](https://github.com/Drakosfire/DungeonMindBuddy/blob/30008dc473bd80144a46c035d09b56ad1deb2928/scripts/apply_eldyrwild_lysandra_threat_direction_correction.py). Run them from that pinned checkout with the retained World inputs. [Replay evidence and inputs](https://github.com/Drakosfire/DungeonMindBuddy/issues/3588).
+
 **Created:** 2026-08-09.  
-**Status:** BLOCKED ON ELDYRWILD CONTRIBUTION-INTEGRITY HEAL — post-#536 parent-relative contract is canonical in this handoff; BUILD remains blocked until pinned contribution replay is healed for `contribution:d3d244474789879c` (separate forensic predecessor slice), then Lysandra BUILD may dispatch. Merging the correction package is not the same as completing the real Eldyrwild correction.  
+**Status:** DONE / HISTORICAL. [PR #537](https://github.com/Drakosfire/DungeonMindBuddy/pull/537) merged and the [campaign tracker](PR-TRACKER-campaign-supergraph.md) records the canonical live apply and idempotent retry. Do not redispatch this handoff.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-eldyrwild-lysandra-threat-direction-correction.md`  
 **Conversation name:** `Eldyrwild Lysandra Threat Direction Correction`  
 **Flow / agent:** `BUILD`  

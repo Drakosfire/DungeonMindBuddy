@@ -5,6 +5,22 @@ DungeonMindServer openapi/dungeonbuddy-statblocks-v1.json.
 """
 
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import (
+    AppendRevisionRequestV1,
+    AssetBindingV1Input,
+    AssetBindingV1Output,
+    AssetOptionsV1,
+    AssetRefV1,
+    ChallengeProfile,
+    EncounterContextV1,
+    GenerationIntentV1,
+    MovementProfileInput,
+    ProviderKind,
+    Role,
+    RulesetRef,
+    SourceSnapshotV1,
+    StatblockRevisionResourceV1,
+    ValidationSeverity,
+    ValidationStatus,
     CreateStatblockRequestV1,
     CreateStatblockResponseV1,
     GeneratedStatblockCandidateV1,
@@ -17,11 +33,27 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.generated.mode
 )
 
 OPENAPI_FINGERPRINT = (
-    "sha256:df46327f24180150aadd28a8fe6477ceabde40c300b64c931b27e639a762f36a"
+    "sha256:3887196e61418117095bce511205e78f91ffcc214c84eeb361029ca7442dc776"
 )
 
 __all__ = [
     "OPENAPI_FINGERPRINT",
+    "AppendRevisionRequestV1",
+    "AssetBindingV1Input",
+    "AssetBindingV1Output",
+    "AssetOptionsV1",
+    "AssetRefV1",
+    "ChallengeProfile",
+    "EncounterContextV1",
+    "GenerationIntentV1",
+    "MovementProfileInput",
+    "ProviderKind",
+    "Role",
+    "RulesetRef",
+    "SourceSnapshotV1",
+    "StatblockRevisionResourceV1",
+    "ValidationSeverity",
+    "ValidationStatus",
     "CreateStatblockRequestV1",
     "CreateStatblockResponseV1",
     "GeneratedStatblockCandidateV1",

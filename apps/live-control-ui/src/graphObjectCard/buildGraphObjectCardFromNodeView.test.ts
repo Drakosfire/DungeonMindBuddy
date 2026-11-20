@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { GraphProjectionNodeView } from "../api/types";
-import { session23UnionSupergraphFixture } from "../planSurface/graphPreview/unionSupergraphFixture";
+import { session23UnionSupergraphFixture } from "../test/unionSupergraphFixture";
 import { buildGraphObjectCardFromNodeView } from "./buildGraphObjectCardFromNodeView";
 import { relationshipSessionStamp } from "./graphObjectDisplay";
 

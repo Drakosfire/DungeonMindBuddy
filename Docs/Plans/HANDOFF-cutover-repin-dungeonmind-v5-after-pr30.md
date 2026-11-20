@@ -1,7 +1,13 @@
 # HANDOFF — CUTOVER re-pin to DungeonMind world-object-v5 after PR #30
 
+Historical payload recovery: the correction paths below refer to the
+[exact package tree at `30008dc4`](https://github.com/Drakosfire/DungeonMindBuddy/tree/30008dc473bd80144a46c035d09b56ad1deb2928/graph_data/approved_graph_corrections).
+Their duplicate checkout copies are retired; use the
+[checksum-verified recovery procedure](../../graph_data/README.md#historical-correction-packages).
+This note preserves historical contracts and grants no new dispatch authority.
+
 **Created:** 2026-08-12  
-**Status:** READY FOR BUILD  
+**Status:** DONE / HISTORICAL. [PR #571](https://github.com/Drakosfire/DungeonMindBuddy/pull/571) completed this repin. Do not redispatch this handoff.
 **Workstream:** CUTOVER  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Direction:** DESIGN → CODE  

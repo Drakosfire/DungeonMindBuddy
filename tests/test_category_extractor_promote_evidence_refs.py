@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from src.graph_memory.candidate_graph_preview import evidence_ref_from_dict
-from src.graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.candidate_graph_preview import evidence_ref_from_dict
+from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
+from graph_memory.extraction.category_candidate_graph_extractor import (
     DEFAULT_SEMANTIC_STATE,
     PROMOTE_SAFE_PREVIEW_DIAGNOSTICS,
     assemble_envelope,
@@ -190,7 +190,7 @@ def test_project_candidate_graph_for_promote_party_anchors_do_not_block_typed_lo
         candidate_graph_preview_from_dict,
         validate_candidate_graph_preview,
     )
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         CANDIDATE_GRAPH_SCHEMA,
         CANDIDATE_GRAPH_VERSION,
     )
@@ -279,35 +279,37 @@ def test_project_candidate_graph_for_promote_party_anchors_do_not_block_typed_lo
     assert report.issues == ()
 
 
-def test_party_registry_category_pipeline_persists_promotable_for_resolve(
-    tmp_path, monkeypatch
+def test_category_output_file_cannot_authorize_promotion(
+    tmp_path, monkeypatch, application_state_dsn
 ) -> None:
-    """Owning path: real party registry → category runner → persisted run → resolve."""
+    """Typed category output and a file manifest do not grant promotion authority."""
+    import hashlib
     import json
-    from pathlib import Path
+    import pytest
 
     from apps.live_control_server.services.graph_ingest_run_registry import (
         GRAPH_INGEST_RUNS_ENV,
     )
     from apps.live_control_server.services.promotable_ingest_run import (
-        resolve_promotable_ingest_run,
+        PromotableIngestRunError, resolve_promotable_ingest_run,
     )
     from graph_memory.candidate_graph_preview import validate_candidate_graph_preview
-    from src.graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionOptions,
         FixtureCategoryGraphPassClient,
         run_category_pipeline,
     )
-    from src.graph_memory.session_graph_context import PARTY_COLLECTIVE_NODE_ID
+    from graph_memory.session_graph_context import PARTY_COLLECTIVE_NODE_ID
     from tests.fixtures.graph_memory.category_extraction_helpers import (
         minimal_category_pass_outputs,
     )
-    from tests.test_live_extract_promote_api import _write_promotable_run
+    from tests.test_promotable_ingest_run import _write_promotable_run
 
     spref = "session-22:recap:paragraph:001"
+    source_text = "Bonogo scouts the Mireward road with the company."
     passes = minimal_category_pass_outputs(spref)
-    # Beat retains standing party collective id (dropped at promote) plus session node.
+    # Unknown party/roster IDs are not invented as source-local participants.
     passes["beat_pass"]["observation_beats"][0]["involved_node_ids"] = [
         "node:bonogo",
         PARTY_COLLECTIVE_NODE_ID,
@@ -316,6 +318,7 @@ def test_party_registry_category_pipeline_persists_promotable_for_resolve(
     span_index = {
         "source_artifact_id": "artifact:recap:longmont-c2:session-22:testdigest",
         "source_ref_id": "artifact:recap:longmont-c2:session-22:testdigest:text",
+        "content_sha256": hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
         "spans": [
             {
                 "kind": "paragraph",
@@ -323,7 +326,10 @@ def test_party_registry_category_pipeline_persists_promotable_for_resolve(
                 "source_span_ref_id": spref,
                 "source_artifact_id": "artifact:recap:longmont-c2:session-22:testdigest",
                 "line_start": 1,
-                "line_end": 3,
+                "line_end": 1,
+                "char_start": 0,
+                "char_end": len(source_text),
+                "ordinal": 1,
                 "text": "Bonogo scouts the Mireward road with the company.",
             }
         ]
@@ -335,12 +341,13 @@ def test_party_registry_category_pipeline_persists_promotable_for_resolve(
             session_id="session-22",
             session_number=22,
             source_span_index=span_index,
+            source_text=source_text,
             source_artifact_id="artifact:recap:longmont-c2:session-22:testdigest",
             source_ref_id="artifact:recap:longmont-c2:session-22:testdigest:text",
             model_id="gpt-5.4-mini",
         ),
     )
-    assert result.consolidation_diagnostics["inserted_party_anchor_slugs"]
+    assert "inserted_party_anchor_slugs" not in result.consolidation_diagnostics
     graph = result.candidate_graph
     assert PARTY_COLLECTIVE_NODE_ID not in {n["node_id"] for n in graph["nodes"]}
     beats = graph.get("beats") or []
@@ -365,12 +372,10 @@ def test_party_registry_category_pipeline_persists_promotable_for_resolve(
     )
     candidate_path.write_text(json.dumps(graph, indent=2) + "\n", encoding="utf-8")
 
-    resolved = resolve_promotable_ingest_run(run_id, root=repo)
-    assert resolved.run_id == run_id
-    asserted = json.loads(
-        Path(resolved.candidate_graph_path).read_text(encoding="utf-8")
-    )
-    load_typed_candidate_graph(asserted)
+    with pytest.raises(PromotableIngestRunError) as exc:
+        resolve_promotable_ingest_run(run_id, root=repo)
+    assert exc.value.code == "run_not_found"
+    assert exc.value.status_code == 404
 
 
 def test_assemble_envelope_edges_are_typed_loadable() -> None:

@@ -2,74 +2,36 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import os
 import re
 import time
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass, field, replace
+from copy import deepcopy
 from typing import Any, Mapping, Protocol, Sequence
 
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
-from src.graph_memory import identity_resolution as ir
-from src.graph_memory.anchor_quotes import coerce_anchor_quotes
-from src.graph_memory.predicate_catalog import (
+from graph_memory.extraction.compact_evidence_context import CompactEvidenceContext, COMPACT_EVIDENCE_GUIDANCE
+from bootstrap_env import load_dungeonmindbuddy_dotenv
+from graph_memory import identity_resolution as ir
+from graph_memory.anchor_quotes import coerce_anchor_quotes
+from graph_memory.predicate_catalog import (
     prompt_markdown as predicate_catalog_prompt_markdown,
     predicate_family_for_type,
     validate_edge_predicate,
+    requires_relationship_evidence,
 )
-from src.graph_memory.party_context import (
-    PartyContext,
-    build_party_context_for_campaign,
-)
-from src.graph_memory.extraction.known_entity_mention_matcher import (
-    attach_mention_evidence_to_anchors,
-    filter_observation_nodes_dropping_known_entities,
-    match_known_entities_in_spans,
-    render_known_entity_ledger_markdown,
-    validate_known_entity_ir_assertions,
-)
-from src.graph_memory.extraction.known_entity_mention_schema import (
-    KnownEntityMentionSidecar,
-)
-from src.graph_memory.extraction.known_entity_registry import (
-    KnownEntityRegistry,
-    build_known_entity_registry,
-    extend_known_entity_registry,
-    normalize_match_surface,
-)
-from src.graph_memory.extraction.party_claimed_fill import (
-    PASS_NAME as PARTY_CLAIMED_FILL_PASS,
-    PASS_PROGRESS_LABEL as PARTY_CLAIMED_FILL_PROGRESS,
-    apply_fill_to_parts,
-    build_claim_packet,
-    render_fill_prompt,
-)
-from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec, ExtractionProfile
-from src.graph_memory.extraction.recap_extraction_profile import (
+from graph_memory.extraction.extraction_profile import ExtractionPassSpec, ExtractionProfile
+from graph_memory.extraction.recap_extraction_profile import (
     DEFAULT_SEMANTIC_STATE as RECAP_DEFAULT_SEMANTIC_STATE,
     EVIDENCE_RULE as RECAP_EVIDENCE_RULE,
     RECAP_EXTRACTION_PROFILE,
 )
-from src.graph_memory.source_span import document_source_ref_id
-from src.graph_memory.vocabulary.dynamic_selection import build_dynamic_context_vocabulary_packet
-from src.graph_memory.vocabulary.edge_context import render_edge_vocabulary_context
-from src.graph_memory.vocabulary.model import ContextVocabularyPacket
-from src.graph_memory.vocabulary.node_context import render_node_vocabulary_context
-from src.graph_memory.session_graph_context import (
-    attach_party_participation_edges,
-    build_session_graph_context,
-    merge_party_anchor_nodes,
-    merge_party_collective,
-    party_anchors_markdown,
-)
-from src.graph_memory.standing_context_partition import (
-    ensure_standing_warning,
-    partition_candidate_parts_by_provenance,
-    party_registry_artifact_id,
-    stamp_standing_registry_evidence,
-)
-
+from graph_memory.source_span import document_source_ref_id
+from graph_memory.vocabulary.dynamic_selection import build_dynamic_context_vocabulary_packet
+from graph_memory.vocabulary.edge_context import render_edge_vocabulary_context
+from graph_memory.vocabulary.model import ContextVocabularyPacket
+from graph_memory.vocabulary.node_context import render_node_vocabulary_context
 logger = logging.getLogger(__name__)
 
 BEAT_PASS_NAME = "beat_pass"
@@ -276,15 +238,8 @@ class CategoryGraphExtractionOptions:
     enable_dynamic_node_vocabulary_packet: bool = False
     dynamic_node_vocabulary_nodes: tuple[Mapping[str, Any], ...] = ()
     enable_encounter_job_pass: bool = False
-    enable_party_participation_attachment: bool = False
     enable_encounter_job_edge_guidance: bool = False
-    # None = inherit from profile; True/False overrides.
-    enable_party_claimed_fill: bool | None = None
     profile: ExtractionProfile | None = None
-    # Additional known entities (e.g. world-head nodes) merged into the
-    # deterministic registry after party-roster construction; party wins
-    # id/slug collisions. Default None preserves party-only behavior.
-    extra_known_entities: tuple[Any, ...] | None = None
 
 
 def resolve_source_identity(
@@ -333,31 +288,12 @@ def resolve_source_identity(
 
 
 def resolve_extraction_profile(options: CategoryGraphExtractionOptions) -> ExtractionProfile:
-    if options.profile is not None:
-        return options.profile
-    return RECAP_EXTRACTION_PROFILE
-
-
-def _empty_party_context(campaign_id: str | None) -> PartyContext:
-    return PartyContext(
-        campaign_id=campaign_id,
-        session="",
-        party_names=(),
-        members=(),
-        warnings=("party context omitted: null session",),
-    )
-
-
-def _empty_known_entity_registry(campaign_id: str | None) -> KnownEntityRegistry:
-    return KnownEntityRegistry(
-        campaign_id=campaign_id or "",
-        session_key="",
-        roster_session_key=None,
-        roster_carry_forward=False,
-        registry_relpath=None,
-        entities=(),
-        warnings=("known entity registry omitted: null session",),
-    )
+    profile = options.profile or RECAP_EXTRACTION_PROFILE
+    if profile.qualified_id in {
+        "recap_category_v1@1.0", "recap_category_encounter_job_preview@1.0",
+    }:
+        raise CategoryGraphExtractionError("Retired Recap profiles are readable history, not executable policy")
+    return profile
 
 
 @dataclass(frozen=True)
@@ -368,16 +304,15 @@ class CategoryGraphExtractionResult:
     pass_telemetry: dict[str, Any]
     consolidation_diagnostics: dict[str, Any]
     model_id: str
-    total_cost_usd: float
+    total_cost_usd: float | None
     diagnostics: dict[str, Any] = field(default_factory=dict)
-    registry_context_graph: dict[str, Any] | None = None
-    known_entity_mentions: dict[str, Any] | None = None
+    private_response_evidence: str | None = None
 
 
 def resolve_category_graph_model(model_id: str | None) -> str:
     if model_id and model_id.strip():
         return model_id.strip()
-    from src.model_policy import load_buddy_model_policy
+    from model_policy import load_buddy_model_policy
 
     policy = load_buddy_model_policy(strict=True)
     if policy:
@@ -412,11 +347,8 @@ def source_packet_rows_from_span_index(
             continue
         start_line = int(span.get("line_start") or span.get("start_line") or 1)
         end_line = int(span.get("line_end") or span.get("end_line") or start_line)
-        # Offsets in known_entity_mentions are validated against packaged recap
-        # line joins *including* leading indentation. Prefer reconstructing from
-        # source_text without strip(); .strip() previously shifted every match on
-        # indented session-recap paragraphs (Session 25 dogfood: surface_text
-        # mismatch at offsets by the indent width).
+        # Preserve source indentation so paragraph text and evidence coordinates
+        # stay aligned with the exact registered source bytes.
         text = ""
         if lines is not None and start_line >= 1 and end_line >= start_line:
             text = "\n".join(lines[start_line - 1 : end_line])
@@ -445,39 +377,37 @@ def _prompt_key(pass_name: str) -> str:
 def _source_packet_md(rows: Sequence[dict[str, Any]]) -> str:
     parts: list[str] = []
     for row in rows:
+        span_ref = row['source_span_ref_id']
+        unit_ref = row.get('source_unit_id')
+        identifiers = str(span_ref)
+        if unit_ref and unit_ref != span_ref:
+            identifiers += f" / {unit_ref}"
         parts.append(
-            f"### {row['source_span_ref_id']} / {row['source_unit_id']} / "
+            f"### {identifiers} / "
             f"lines {row['line_start']}-{row['line_end']}\n\n"
             f"```text\n{row['text']}\n```"
         )
     return "\n\n".join(parts)
 
 
-def _party_anchors_block(party_ctx: PartyContext) -> str:
-    return party_anchors_markdown(party_ctx)
+def _source_handle_node_passes(profile: ExtractionProfile) -> frozenset[str]:
+    if profile.admitted_source_domains != frozenset({"recap"}):
+        return frozenset()
+    if profile.qualified_id == RECAP_EXTRACTION_PROFILE.qualified_id:
+        return frozenset(p.pass_id for p in profile.node_passes)
+    # Other recap profiles already used actor handles before this expansion.
+    return frozenset({"actor_pass"})
 
 
 def render_category_pass_prompts(
     source_rows: Sequence[dict[str, Any]],
     *,
-    party_ctx: PartyContext,
-    known_entity_sidecar: KnownEntityMentionSidecar | None = None,
-    known_entity_registry: KnownEntityRegistry | None = None,
     profile: ExtractionProfile | None = None,
+    node_source_packet: Any | None = None,
 ) -> dict[str, str]:
     active_profile = profile or RECAP_EXTRACTION_PROFILE
     evidence_rule = active_profile.evidence_rule
     src = _source_packet_md(source_rows)
-    anchors = _party_anchors_block(party_ctx)
-    ledger = ""
-    if known_entity_sidecar is not None:
-        ledger = (
-            render_known_entity_ledger_markdown(
-                known_entity_sidecar,
-                registry=known_entity_registry,
-            )
-            + "\n\n"
-        )
     safety = (
         "Preview-only graph memory extraction. "
         "Forbidden: approve memory, commit graph records, promote canon, execute writes."
@@ -493,25 +423,33 @@ def render_category_pass_prompts(
                 "\n\nAlso include JSON keys `ignored_items` and `deferred_items` (arrays, may be empty). "
                 "Each item: `item_id`, `label`, `reason`, `evidence_refs`; deferred may include `suggested_next_step`."
             )
+        pass_source, pass_evidence_rule = src, evidence_rule
+        if (node_source_packet is not None
+                and pass_name in _source_handle_node_passes(active_profile)):
+            from graph_memory.extraction.source_sentence_evidence import (
+                SENTENCE_EVIDENCE_RULE, render_source_sentence_packet,
+            )
+            pass_source = render_source_sentence_packet(node_source_packet)
+            pass_evidence_rule = SENTENCE_EVIDENCE_RULE
         prompts[_prompt_key(pass_name)] = (
-            f"# Category Graph Extraction — {pass_name}\n\n{safety}\n\n{anchors}\n\n{ledger}"
+            f"# Category Graph Extraction — {pass_name}\n\n{safety}\n\n"
             f"## Task\n\n{instruction}\n\n"
             f"Default node_type for this pass: `{default_type}`.\n\n"
             f"Return JSON with key `observation_nodes` (array). Each node: "
             f"`node_id`, `label`, `node_type`, `description`, `importance` (high|medium|low), `evidence_refs`.\n"
-            f"{evidence_rule}{extra}\n\n## Source Packet\n\n{src}\n"
+            f"{pass_evidence_rule}{extra}\n\n## Source Packet\n\n{pass_source}\n"
         )
     if active_profile.beat_pass is not None:
         beat = active_profile.beat_pass
         prompts[_prompt_key(beat.pass_id)] = (
-            f"# Category Graph Extraction — {beat.pass_id}\n\n{safety}\n\n{ledger}"
+            f"# Category Graph Extraction — {beat.pass_id}\n\n{safety}\n\n"
             f"## Task\n\n{beat.instruction}\n"
             "Return JSON with key `observation_beats` (array). Each beat: "
             "`beat_id`, `order` (positive int), `title`, `summary`, `involved_node_ids` (may be empty), `evidence_refs`.\n"
             f"{evidence_rule}\n\n## Source Packet\n\n{src}\n"
         )
-    predicate_catalog = predicate_catalog_prompt_markdown()
     edge = active_profile.edge_pass
+    predicate_catalog = predicate_catalog_prompt_markdown(capabilities=edge.predicate_capabilities)
     session_volume = ""
     relationship_sweep = ""
     if active_profile.enable_session_relationship_sweep:
@@ -529,7 +467,7 @@ def render_category_pass_prompts(
             "- Composition and participation: emit `part_of`, `member_of`, or `participates_in` for waves, groups, encounters, and participants.\n\n"
         )
     prompts[_prompt_key(edge.pass_id)] = (
-        f"# Category Graph Extraction — {edge.pass_id}\n\n{safety}\n\n{ledger}"
+        f"# Category Graph Extraction — {edge.pass_id}\n\n{safety}\n\n"
         f"## Task\n\n{edge.instruction}\n"
         "Using ONLY the Source Packet and consolidated node list supplied below, propose durable relationship edges. "
         "Do NOT create new nodes. Use exact `node_id` values from the consolidated nodes. "
@@ -672,6 +610,7 @@ def materialize_promote_evidence_ref(
 
 
 _EVIDENCE_COLLECTIONS = (
+    "source_observations",
     "nodes",
     "edges",
     "beats",
@@ -770,18 +709,275 @@ def _normalize_beat(raw: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _span_aliases(span: Mapping[str, Any]) -> set[str]:
+    return {
+        str(span[key]).strip()
+        for key in ("source_span_ref_id", "span_id", "source_span_id")
+        if isinstance(span.get(key), str) and str(span[key]).strip()
+    }
+
+
+def _source_span_bounds_text(
+    span: Mapping[str, Any], source_text: str,
+) -> tuple[str | None, str | None]:
+    """Copy an indexed span from the pinned source using validated bounds."""
+    start_line = span.get("line_start", span.get("start_line"))
+    end_line = span.get("line_end", span.get("end_line"))
+    if (
+        not isinstance(start_line, int)
+        or isinstance(start_line, bool)
+        or not isinstance(end_line, int)
+        or isinstance(end_line, bool)
+        or start_line < 1
+        or end_line < start_line
+    ):
+        return None, "invalid_span_bounds"
+
+    char_start = span.get("char_start")
+    char_end = span.get("char_end")
+    if char_start is not None or char_end is not None:
+        if (
+            not isinstance(char_start, int)
+            or isinstance(char_start, bool)
+            or not isinstance(char_end, int)
+            or isinstance(char_end, bool)
+            or char_start < 0
+            or char_end <= char_start
+            or char_end > len(source_text)
+        ):
+            return None, "invalid_span_bounds"
+        resolved_start_line = source_text.count("\n", 0, char_start) + 1
+        resolved_end_line = source_text.count("\n", 0, max(char_start, char_end - 1)) + 1
+        if resolved_start_line != start_line or resolved_end_line != end_line:
+            return None, "invalid_span_bounds"
+        return source_text[char_start:char_end], None
+
+    lines = source_text.splitlines(keepends=True)
+    if end_line > len(lines):
+        return None, "invalid_span_bounds"
+    text = "".join(lines[start_line - 1:end_line])
+    if text.endswith("\r\n"):
+        text = text[:-2]
+    elif text.endswith(("\n", "\r")):
+        text = text[:-1]
+    return text, None
+
+
+def _recap_source_digest_error(
+    source_span_index: Mapping[str, Any], source_text: str | None,
+) -> str | None:
+    if source_text is None:
+        return "missing_source_text"
+    expected = source_span_index.get("content_sha256") or source_span_index.get("source_sha256")
+    if not isinstance(expected, str) or not expected.strip():
+        return "missing_source_digest"
+    expected_hex = expected.strip()
+    if expected_hex.startswith("sha256:"):
+        expected_hex = expected_hex[len("sha256:"):]
+    actual_hex = hashlib.sha256(source_text.encode("utf-8")).hexdigest()
+    if expected_hex.lower() != actual_hex:
+        return "source_digest_mismatch"
+    return None
+
+
+def _recap_beat_excerpt_candidates(
+    raw_beats: Sequence[Any],
+    *,
+    source_span_index: Mapping[str, Any] | None,
+    source_text: str | None,
+    source_rows: Sequence[Mapping[str, Any]] | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Resolve model span/quote nominations to exact host-owned recap excerpts."""
+    raw_beats = [raw for raw in raw_beats if isinstance(raw, Mapping)]
+    if not raw_beats:
+        return [], []
+
+    index = source_span_index if isinstance(source_span_index, Mapping) else {}
+    digest_error = _recap_source_digest_error(index, source_text)
+    eligible_refs = {
+        str(row.get("source_span_ref_id") or "").strip()
+        for row in (source_rows or ())
+        if isinstance(row, Mapping) and str(row.get("source_span_ref_id") or "").strip()
+    }
+    indexed_by_alias: dict[str, Mapping[str, Any]] = {}
+    for span in index.get("spans") or ():
+        if isinstance(span, Mapping):
+            for alias in _span_aliases(span):
+                indexed_by_alias[alias] = span
+
+    paragraphs: list[dict[str, Any]] = []
+    invalid_bounds_refs: set[str] = set()
+    if digest_error is None and source_text is not None:
+        for index_position, span in enumerate(index.get("spans") or (), start=1):
+            if not isinstance(span, Mapping):
+                continue
+            aliases = _span_aliases(span)
+            ref = str(
+                span.get("source_span_ref_id")
+                or span.get("span_id")
+                or span.get("source_span_id")
+                or ""
+            ).strip()
+            if not ref or ref not in eligible_refs:
+                continue
+            kind = span.get("kind")
+            if kind not in (None, "paragraph") or ref.endswith(":full_text"):
+                continue
+            exact_text, bounds_error = _source_span_bounds_text(span, source_text)
+            if bounds_error or exact_text is None or not exact_text.strip():
+                invalid_bounds_refs.update(aliases)
+                continue
+            ordinal = span.get("ordinal")
+            if not isinstance(ordinal, int) or isinstance(ordinal, bool) or ordinal < 1:
+                ordinal = len(paragraphs) + 1
+            paragraphs.append(
+                {
+                    "source_span_ref_id": ref,
+                    "text": exact_text,
+                    "ordinal": ordinal,
+                    "index_position": index_position,
+                }
+            )
+
+    known_indexed_refs = set(indexed_by_alias)
+    allowed_refs = set(eligible_refs) | known_indexed_refs
+
+    def resolve_nomination(nominated_ref: Any) -> tuple[dict[str, Any] | None, str | None]:
+        if not isinstance(nominated_ref, Mapping):
+            return None, "missing_span_nomination"
+        raw_span_id = str(nominated_ref.get("source_span_ref_id") or "").strip()
+        if not raw_span_id:
+            return None, "missing_span_nomination"
+        lookup_ref = raw_span_id.removeprefix("spref:")
+        canonical_ref = _canonical_spref(lookup_ref, allowed_refs)
+        if canonical_ref is None:
+            return None, "forged_span_ref"
+        span = indexed_by_alias.get(canonical_ref)
+        if span is None:
+            return None, "forged_span_ref"
+        canonical_ref = str(
+            span.get("source_span_ref_id")
+            or span.get("span_id")
+            or span.get("source_span_id")
+            or canonical_ref
+        ).strip()
+        span_kind = span.get("kind")
+        if span_kind not in (None, "paragraph") or canonical_ref.endswith(":full_text"):
+            return None, "non_paragraph_span"
+        if canonical_ref not in eligible_refs:
+            return None, "ineligible_span"
+        if canonical_ref in invalid_bounds_refs:
+            return None, "invalid_span_bounds"
+
+        anchor_quotes = nominated_ref.get("anchor_quotes")
+        if not isinstance(anchor_quotes, list) or not anchor_quotes:
+            return None, "missing_anchor"
+        if any(not isinstance(quote, str) or not quote.strip() for quote in anchor_quotes):
+            return None, "missing_anchor"
+
+        quote_spans: set[str] = set()
+        anchor_error: str | None = None
+        for quote in anchor_quotes:
+            matches: list[str] = []
+            for paragraph in paragraphs:
+                text = str(paragraph["text"])
+                start_at = 0
+                found = 0
+                while True:
+                    found_at = text.find(quote, start_at)
+                    if found_at < 0:
+                        break
+                    found += 1
+                    if found > 1:
+                        break
+                    start_at = found_at + 1
+                if found:
+                    matches.extend([str(paragraph["source_span_ref_id"])] * found)
+            if not matches:
+                anchor_error = "anchor_not_found"
+                break
+            if len(matches) != 1:
+                anchor_error = "ambiguous_anchor"
+                break
+            quote_spans.add(matches[0])
+        if anchor_error:
+            return None, anchor_error
+        if len(quote_spans) != 1 or canonical_ref not in quote_spans:
+            return None, "span_mismatch"
+
+        matched = next(
+            paragraph for paragraph in paragraphs
+            if paragraph["source_span_ref_id"] == canonical_ref
+        )
+        return matched, None
+
+    def defer(beat_ordinal: int, code: str, reference_ordinal: int = 0) -> dict[str, Any]:
+        reference_suffix = f":ref:{reference_ordinal:03d}" if reference_ordinal else ""
+        return {
+            "item_id": f"deferred:recap-beat-excerpt:{beat_ordinal:03d}{reference_suffix}:{code}",
+            "label": f"Beat {beat_ordinal}",
+            "reason": f"recap_beat_excerpt_deferred:{code}",
+            "evidence_refs": [],
+            "warnings": [f"recap_beat_excerpt_deferred:{code}"],
+        }
+
+    excerpt_beats: list[dict[str, Any]] = []
+    deferred_beats: list[dict[str, Any]] = []
+    for beat_ordinal, raw in enumerate(raw_beats, start=1):
+        if digest_error:
+            deferred_beats.append(defer(beat_ordinal, digest_error))
+            continue
+        evidence_refs = raw.get("evidence_refs")
+        if not isinstance(evidence_refs, list) or not evidence_refs:
+            deferred_beats.append(defer(beat_ordinal, "missing_span_nomination"))
+            continue
+
+        # Validate before deduplicating: an invalid second nomination must not
+        # disappear merely because another reference names the same paragraph.
+        matched_by_ref: dict[str, dict[str, Any]] = {}
+        for reference_ordinal, nominated_ref in enumerate(evidence_refs, start=1):
+            matched, error = resolve_nomination(nominated_ref)
+            if error:
+                deferred_beats.append(defer(beat_ordinal, error, reference_ordinal))
+            elif matched is not None:
+                matched_by_ref[str(matched["source_span_ref_id"])] = matched
+
+        for matched in sorted(matched_by_ref.values(), key=lambda item: item["index_position"]):
+            canonical_ref = str(matched["source_span_ref_id"])
+            normalized = _normalize_beat(raw)
+            normalized["source_beat_id"] = normalized["beat_id"]
+            # Raw ordinal prevents missing/duplicate model IDs from colliding;
+            # canonical paragraph identity makes sibling IDs order independent.
+            ref_digest = hashlib.sha256(canonical_ref.encode("utf-8")).hexdigest()
+            normalized["beat_id"] = f"recap-beat-excerpt:{beat_ordinal:03d}:{ref_digest}"
+            normalized["title"] = f"Source excerpt {matched['ordinal']}"
+            normalized["summary"] = str(matched["text"])
+            normalized["evidence_refs"] = [
+                {
+                    "source_span_ref_id": canonical_ref,
+                    "anchor_quotes": [str(matched["text"])],
+                }
+            ]
+            # Carry exact indentation through the shared display-quote normalizer.
+            normalized["_host_excerpt_text"] = str(matched["text"])
+            excerpt_beats.append(normalized)
+
+    return excerpt_beats, deferred_beats
+
+
 def _normalize_edge(
     raw: Mapping[str, Any],
     *,
     semantic_state: Mapping[str, str] | None = None,
+    predicate_capabilities: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     relationship_type = str(raw.get("relationship_type") or "").strip().lower()
     predicate_family = str(raw.get("predicate_family") or "").strip()
     if relationship_type and not predicate_family:
-        predicate_family = predicate_family_for_type(relationship_type)
+        predicate_family = predicate_family_for_type(relationship_type, capabilities=predicate_capabilities)
 
     warnings = [str(w) for w in (raw.get("warnings") or [])]
-    for code in validate_edge_predicate(relationship_type, predicate_family):
+    for code in validate_edge_predicate(relationship_type, predicate_family, capabilities=predicate_capabilities):
         marker = f"predicate_validation:{code}"
         if marker not in warnings:
             warnings.append(marker)
@@ -820,17 +1016,13 @@ def consolidate_category_outputs(
     *,
     campaign_id: str,
     session: int | None,
-    enable_party_participation_attachment: bool = False,
-    known_entity_sidecar: KnownEntityMentionSidecar | None = None,
-    known_entity_registry: KnownEntityRegistry | None = None,
+    source_span_index: Mapping[str, Any] | None = None,
+    source_text: str | None = None,
+    source_rows: Sequence[Mapping[str, Any]] | None = None,
     profile: ExtractionProfile | None = None,
 ) -> dict[str, Any]:
     active_profile = profile or RECAP_EXTRACTION_PROFILE
     semantic_state = dict(active_profile.default_semantic_state)
-    if session is None:
-        party_ctx = _empty_party_context(campaign_id)
-    else:
-        party_ctx = build_party_context_for_campaign(campaign_id, session)
     per_pass_counts: dict[str, int] = {}
     nodes: list[dict[str, Any]] = []
     beats: list[dict[str, Any]] = []
@@ -838,22 +1030,70 @@ def consolidate_category_outputs(
     deferred: list[dict[str, Any]] = []
     encounter_job_diag: dict[str, Any] = {"enabled": False}
 
+    scoped_node_ids = active_profile.qualified_id == RECAP_EXTRACTION_PROFILE.qualified_id
+    node_id_bindings: list[dict[str, str]] = []
+    local_id_counts: dict[str, int] = {}
+    if scoped_node_ids:
+        for spec in active_profile.node_passes:
+            for raw in pass_outputs.get(spec.pass_id, {}).get("observation_nodes") or []:
+                if isinstance(raw, Mapping) and isinstance(raw.get("node_id"), str):
+                    local_id = raw["node_id"].strip()
+                    local_id_counts[local_id] = local_id_counts.get(local_id, 0) + 1
+
+    def composed_node(raw, default_type, pass_name, seen):
+        node = _normalize_node(raw, default_type, semantic_state=semantic_state)
+        if scoped_node_ids:
+            local_id = raw.get("node_id")
+            if not isinstance(local_id, str) or not local_id.strip():
+                raise ValueError(f"{pass_name}: missing node ID")
+            local_id = local_id.strip()
+            if local_id in seen:
+                raise ValueError(f"{pass_name}: duplicate node ID")
+            seen.add(local_id)
+            candidate_id = local_id
+            if local_id_counts[local_id] > 1 or local_id.startswith("recap-model-node:"):
+                candidate_id = "recap-model-node:" + json.dumps(
+                    [pass_name, local_id], separators=(",", ":"), ensure_ascii=True,
+                )
+            node["node_id"] = candidate_id
+            node_id_bindings.append({"pass_id": pass_name, "local_node_id": local_id,
+                                     "candidate_node_id": candidate_id})
+        return node
+
+    def dispositions(payload, collection, prefix, pass_name, seen_ids):
+        for raw in payload.get(collection) or []:
+            if not isinstance(raw, Mapping):
+                continue
+            item = _normalize_disposition(raw, prefix)
+            if active_profile.admitted_source_domains == frozenset({"recap"}):
+                # Producer IDs are pass-local; never merge two held decisions
+                # merely because independent passes both started at D001.
+                local_id = raw.get("item_id")
+                if not isinstance(local_id, str) or not local_id.strip():
+                    raise ValueError(f"{pass_name} {collection}: missing disposition ID")
+                local_id = local_id.strip()
+                if local_id in seen_ids:
+                    raise ValueError(f"{pass_name} {collection}: duplicate disposition ID")
+                seen_ids.add(local_id)
+                item["item_id"] = "recap-model-disposition:" + json.dumps(
+                    [pass_name, local_id], separators=(",", ":"), ensure_ascii=True,
+                )
+            yield item
+
     for pass_spec in active_profile.node_passes:
         pass_name = pass_spec.pass_id
         default_type = pass_spec.default_node_type or "entity"
         payload = pass_outputs.get(pass_name, {})
         raw_nodes = payload.get("observation_nodes") or []
         per_pass_counts[pass_name] = len(raw_nodes)
+        seen_node_ids: set[str] = set()
         for raw in raw_nodes:
             if isinstance(raw, Mapping):
-                nodes.append(_normalize_node(raw, default_type, semantic_state=semantic_state))
+                nodes.append(composed_node(raw, default_type, pass_name, seen_node_ids))
         if pass_spec.include_dispositions:
-            for raw in payload.get("ignored_items") or []:
-                if isinstance(raw, Mapping):
-                    ignored.append(_normalize_disposition(raw, "ignored"))
-            for raw in payload.get("deferred_items") or []:
-                if isinstance(raw, Mapping):
-                    deferred.append(_normalize_disposition(raw, "deferred"))
+            seen_disposition_ids: set[str] = set()
+            ignored.extend(dispositions(payload, "ignored_items", "ignored", pass_name, seen_disposition_ids))
+            deferred.extend(dispositions(payload, "deferred_items", "deferred", pass_name, seen_disposition_ids))
 
     encounter_pass_id = (
         active_profile.encounter_job_pass.pass_id
@@ -891,10 +1131,25 @@ def consolidate_category_outputs(
     beat_payload = pass_outputs.get(beat_pass_id, {})
     raw_beats = beat_payload.get("observation_beats") or []
     per_pass_counts[beat_pass_id] = len(raw_beats)
-    for raw in raw_beats:
-        if isinstance(raw, Mapping):
-            beats.append(_normalize_beat(raw))
+    if active_profile.admitted_source_domains == frozenset({"recap"}):
+        source_anchored_beats, deferred_beats = _recap_beat_excerpt_candidates(
+            raw_beats,
+            source_span_index=source_span_index,
+            source_text=source_text,
+            source_rows=source_rows,
+        )
+        beats.extend(source_anchored_beats)
+        deferred.extend(deferred_beats)
+    else:
+        for raw in raw_beats:
+            if isinstance(raw, Mapping):
+                beats.append(_normalize_beat(raw))
 
+    if active_profile.admitted_source_domains == frozenset({"recap"}):
+        # A source-local candidate is not a resolved campaign/native identity.
+        # Identity selection belongs to explicit review, never a model hint.
+        for node in nodes:
+            node["corpus_ref"] = None
     nodes_before_dedup = len(nodes)
     if active_profile.enable_automatic_identity_consolidation:
         node_dedup = ir.dedup_nodes(nodes)
@@ -908,51 +1163,6 @@ def consolidate_category_outputs(
             "automatic_identity_consolidation": False,
         }
         deduped_nodes = list(nodes)
-    deduped_nodes, anchor_merge_diag = merge_party_anchor_nodes(
-        deduped_nodes,
-        party_ctx,
-        default_semantic_state=semantic_state,
-    )
-
-    known_entity_diag: dict[str, Any] = {"enabled": False}
-    if known_entity_registry is not None:
-        known_ids = {entity.canonical_entity_id for entity in known_entity_registry.entities}
-        known_slugs = {entity.slug for entity in known_entity_registry.entities}
-        known_labels_norm = {
-            normalize_match_surface(entity.display_name)
-            for entity in known_entity_registry.entities
-            if entity.display_name
-        }
-        deduped_nodes, dropped_ids = filter_observation_nodes_dropping_known_entities(
-            deduped_nodes,
-            known_ids=known_ids,
-            known_slugs=known_slugs,
-            known_labels_norm=known_labels_norm,
-        )
-        attach_diag: dict[str, Any] = {"mention_evidence_attachments": 0}
-        if known_entity_sidecar is not None:
-            deduped_nodes, attach_diag = attach_mention_evidence_to_anchors(
-                deduped_nodes,
-                known_entity_sidecar,
-            )
-        ir_report = validate_known_entity_ir_assertions(
-            nodes=deduped_nodes,
-            edges=[],
-            beats=beats,
-            known_ids=known_ids,
-            known_slugs=known_slugs,
-            known_labels_norm=known_labels_norm,
-        )
-        known_entity_diag = {
-            "enabled": True,
-            "dropped_duplicate_node_ids": dropped_ids,
-            "mention_count": (
-                len(known_entity_sidecar.mentions) if known_entity_sidecar is not None else 0
-            ),
-            **attach_diag,
-            **ir_report,
-        }
-
     # One observation pass per node type means a single proper noun can surface
     # as both a place and a polity (e.g. "Mireward Reach" as location AND
     # organization). dedup_nodes keys on (type_class, label) and keeps both,
@@ -983,7 +1193,8 @@ def consolidate_category_outputs(
     for raw in raw_edges:
         if not isinstance(raw, Mapping):
             continue
-        edge = _normalize_edge(raw, semantic_state=semantic_state)
+        edge = _normalize_edge(raw, semantic_state=semantic_state,
+                               predicate_capabilities=active_profile.edge_pass.predicate_capabilities)
         edge["from_node_id"] = cross_class_remap.get(edge["from_node_id"], edge["from_node_id"])
         edge["to_node_id"] = cross_class_remap.get(edge["to_node_id"], edge["to_node_id"])
         if edge["from_node_id"] in node_ids and edge["to_node_id"] in node_ids:
@@ -996,22 +1207,12 @@ def consolidate_category_outputs(
                     "to_node_id": edge["to_node_id"],
                 }
             )
-    deduped_nodes, edges, party_collective_diag = merge_party_collective(
-        deduped_nodes,
-        edges,
-        party_ctx,
-        default_semantic_state=semantic_state,
-    )
-    if enable_party_participation_attachment:
-        edges, party_participation_diag = attach_party_participation_edges(
-            deduped_nodes,
-            edges,
-            party_ctx,
-            default_semantic_state=semantic_state,
-        )
+    if active_profile.enable_automatic_identity_consolidation:
+        edge_dedup = ir.dedup_edges(edges, deduped_nodes)
     else:
-        party_participation_diag = {"enabled": False}
-    edge_dedup = ir.dedup_edges(edges, deduped_nodes)
+        # Label-derived endpoint keys are not source-local identity authority.
+        # Keep exact candidates, including malformed IDs for typed validation.
+        edge_dedup = {"kept": edges, "merged": []}
     edge_predicate_issues = [
         {
             "edge_id": edge["edge_id"],
@@ -1027,54 +1228,10 @@ def consolidate_category_outputs(
         if any(str(w).startswith("predicate_validation:") for w in edge.get("warnings", []))
     ]
 
-    if known_entity_registry is not None:
-        known_ids = {entity.canonical_entity_id for entity in known_entity_registry.entities}
-        known_slugs = {entity.slug for entity in known_entity_registry.entities}
-        known_labels_norm = {
-            normalize_match_surface(entity.display_name)
-            for entity in known_entity_registry.entities
-            if entity.display_name
-        }
-        edge_ir = validate_known_entity_ir_assertions(
-            nodes=deduped_nodes,
-            edges=list(edge_dedup["kept"]),
-            beats=beats,
-            known_ids=known_ids,
-            known_slugs=known_slugs,
-            known_labels_norm=known_labels_norm,
-        )
-        known_entity_diag.update(edge_ir)
-        # Drop missing-evidence known-entity edges before generic evidence repair can
-        # inherit endpoint mention citations onto hallucinated relationships.
-        rejected_edge_ids = {
-            str(edge_id)
-            for edge_id in (edge_ir.get("rejected_known_entity_edges_missing_evidence") or [])
-            if str(edge_id).strip()
-        }
-        if rejected_edge_ids:
-            kept_edges = [
-                edge
-                for edge in edge_dedup["kept"]
-                if str(edge.get("edge_id") or "") not in rejected_edge_ids
-            ]
-            edge_dedup = {
-                **edge_dedup,
-                "kept": kept_edges,
-                "dropped_known_entity_missing_evidence": sorted(rejected_edge_ids),
-            }
-            known_entity_diag["removed_missing_evidence_edge_ids"] = sorted(rejected_edge_ids)
-
-    if session is None:
-        session_ctx_warnings: list[str] = ["session graph context omitted: null session"]
-        registry_relpath = None
-    else:
-        session_ctx = build_session_graph_context(campaign_id, session)
-        session_ctx_warnings = list(session_ctx.warnings)
-        registry_relpath = session_ctx.registry_relpath
     diagnostics = {
         "per_pass_counts": per_pass_counts,
+        **({"node_id_bindings": node_id_bindings} if scoped_node_ids else {}),
         "nodes_before_dedup": nodes_before_dedup,
-        "party_companion_slugs": [m.slug for m in party_ctx.companions()],
         "merged_nodes": node_dedup["merged"],
         "cross_class_merged_nodes": cross_class["merged"],
         "cross_class_blocked_nodes": cross_class.get("blocked", []),
@@ -1084,17 +1241,7 @@ def consolidate_category_outputs(
         "merged_edges": edge_dedup["merged"],
         "dropped_edges_missing_endpoints": dropped_edges,
         "edge_predicate_issues": edge_predicate_issues,
-        "party_anchor_identity_keys": sorted(party_ctx.anchor_identity_keys()),
-        # Deprecated alias of party_anchor_identity_keys (hub paths shed).
-        "party_anchor_hub_paths": sorted(party_ctx.anchor_identity_keys()),
-        "inserted_party_anchor_slugs": anchor_merge_diag.get("inserted_party_anchor_slugs", []),
-        "party_collective_inserted": party_collective_diag.get("party_collective_inserted", False),
-        "party_membership_edge_slugs": party_collective_diag.get("party_membership_edge_slugs", []),
-        "party_participation_attachment": party_participation_diag,
-        "registry_relpath": registry_relpath,
-        "session_graph_context_warnings": session_ctx_warnings,
         ENCOUNTER_JOB_PASS_NAME: encounter_job_diag,
-        "known_entity_mentions": known_entity_diag,
     }
     return {
         "nodes": deduped_nodes,
@@ -1112,6 +1259,7 @@ def repair_edge_evidence_refs(
     allowed_span_refs: set[str],
     *,
     inherit_from_endpoints: bool = True,
+    predicate_capabilities: tuple[str, ...] = (),
 ) -> dict[str, int]:
     """Normalize edge evidence; optionally inherit from endpoints when empty.
 
@@ -1133,7 +1281,9 @@ def repair_edge_evidence_refs(
         if refs:
             edge["evidence_refs"] = refs
             continue
-        if not inherit_from_endpoints:
+        if not inherit_from_endpoints or requires_relationship_evidence(
+            str(edge.get("relationship_type") or ""), capabilities=predicate_capabilities,
+        ):
             edge["evidence_refs"] = []
             continue
         from_id = str(edge.get("from_node_id") or "")
@@ -1157,6 +1307,7 @@ def sanitize_parts(
     drop_empty_evidence_edges: bool = True,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     dropped: dict[str, list[str]] = {}
+    rejected_refs: list[dict[str, Any]] = []
     out: dict[str, Any] = {}
 
     def filter_refs(refs: Any) -> list[dict[str, str]]:
@@ -1168,6 +1319,18 @@ def sanitize_parts(
         for obj in parts.get(key) or []:
             if not isinstance(obj, Mapping):
                 continue
+            rejected_ordinals = []
+            if key in {"nodes", "ignored_items", "deferred_items"}:
+                for ordinal, ref in enumerate(obj.get("evidence_refs") or [], start=1):
+                    if not _normalize_evidence_refs([ref], allowed_span_refs):
+                        rejected_ordinals.append(ordinal)
+                        rejected_refs.append({
+                            "collection": key,
+                            "record_id": obj.get("node_id", obj.get("item_id")),
+                            "reference_ordinal": ordinal,
+                            "reason": "unadvertised_or_invalid_span_ref",
+                            "nominated_ref": deepcopy(ref),
+                        })
             refs = filter_refs(obj.get("evidence_refs"))
             is_context_anchor = bool(obj.get("context_anchor"))
             has_resolved_corpus = (
@@ -1191,12 +1354,32 @@ def sanitize_parts(
                 dropped_ids.append(str(obj.get(id_key, "")))
                 continue
             clone = dict(obj)
+            if rejected_ordinals:
+                clone["warnings"] = list(clone.get("warnings") or []) + [
+                    f"evidence_ref_rejected:{ordinal}" for ordinal in rejected_ordinals
+                ]
+            host_excerpt = clone.get("_host_excerpt_text")
+            if key == "beats" and isinstance(host_excerpt, str):
+                # Keep the evidence match exact even when the excerpt begins
+                # with indentation that the ordinary quote normalizer trims.
+                for ref in refs:
+                    ref["anchor_quote_matches"] = [
+                        {
+                            "quote": host_excerpt,
+                            "char_start": 0,
+                            "char_end": len(host_excerpt),
+                            "match_text": host_excerpt,
+                        }
+                    ]
             clone["evidence_refs"] = refs
             kept.append(clone)
         out[key] = kept
         if dropped_ids:
             dropped[key] = dropped_ids
-    return out, {"dropped_no_valid_evidence": dropped}
+    return out, {
+        "dropped_no_valid_evidence": dropped,
+        "rejected_node_evidence_refs": rejected_refs,
+    }
 
 
 def assemble_envelope(
@@ -1320,14 +1503,48 @@ def build_node_pass_prompt(
     return prompt, context.diagnostics
 
 
+def build_beat_pass_prompt(
+    beat_prompt_template: str,
+    nodes: Sequence[Mapping[str, Any]],
+    *, compact_context: CompactEvidenceContext | None = None,
+) -> str:
+    """Supply resolved candidate identities, without promoting descriptions to facts."""
+    inventory = [
+        {key: node[key] for key in ("node_id", "label", "node_type", "evidence_refs") if key in node}
+        for node in nodes
+    ]
+    if compact_context is not None:
+        inventory = compact_context.inventory(nodes, descriptions=False)
+    context = (
+        (COMPACT_EVIDENCE_GUIDANCE if compact_context is not None else "")
+        + "## Node identity inventory\n\n```json\n"
+        + json.dumps(inventory, indent=2)
+        + "\n```\n\n"
+        "Use exact inventory node_id values for source-supported involved_node_ids. "
+        "These are candidate identity hints, not evidence of involvement or physical presence. "
+        "Use the source passages to establish involvement and preserve roles, attribution, "
+        "plans and uncertainty; leave involved_node_ids empty when identity or involvement "
+        "is unsupported. Do not invent a new identity or infer involvement from inventory "
+        "membership or label proximity.\n\n"
+    )
+    # Keep source/instructions intact and distinguish identity hints from evidence.
+    marker = "## Source Packet\n\n"
+    return beat_prompt_template.replace(marker, context + marker, 1)
+
+
 def build_edge_pass_prompt(
     edge_prompt_template: str,
     nodes: Sequence[Mapping[str, Any]],
     *,
     options: CategoryGraphExtractionOptions,
+    compact_context: CompactEvidenceContext | None = None,
 ) -> tuple[str, dict[str, Any], dict[str, Any]]:
-    nodes_json = json.dumps([_edge_prompt_node_summary(n) for n in nodes], indent=2)
+    inventory = (compact_context.inventory(nodes, descriptions=True) if compact_context is not None
+                 else [_edge_prompt_node_summary(n) for n in nodes])
+    nodes_json = json.dumps(inventory, indent=2)
     prompt = edge_prompt_template.replace("(injected at runtime)", nodes_json)
+    if compact_context is not None:
+        prompt = COMPACT_EVIDENCE_GUIDANCE + prompt
     diagnostics = {"enabled": False}
     if options.enable_edge_vocabulary_packet and options.edge_vocabulary_packet is not None:
         edge_vocab_context = render_edge_vocabulary_context(options.edge_vocabulary_packet)
@@ -1443,14 +1660,12 @@ def _encounter_job_beat_summary(beat: Mapping[str, Any]) -> dict[str, Any]:
 def render_encounter_job_pass_prompt(
     source_rows: Sequence[dict[str, Any]],
     *,
-    party_ctx: PartyContext,
     nodes: Sequence[Mapping[str, Any]],
     beats: Sequence[Mapping[str, Any]],
     vocabulary_context: str | None = None,
     instruction: str | None = None,
 ) -> str:
     src = _source_packet_md(source_rows)
-    anchors = _party_anchors_block(party_ctx)
     safety = (
         "Preview-only graph memory extraction. "
         "Forbidden: approve memory, commit graph records, promote canon, execute writes."
@@ -1471,7 +1686,6 @@ def render_encounter_job_pass_prompt(
     )
     return (
         f"# Category Graph Extraction — {ENCOUNTER_JOB_PASS_NAME}\n\n{safety}\n\n"
-        f"{anchors}\n\n"
         f"{vocabulary_block}"
         f"## Task\n\n{task}"
         "A combat encounter is not the monster, not the location, not the quest, and not the recap beat.\n\n"
@@ -1556,7 +1770,7 @@ class OpenAICategoryGraphPassClient:
         user_content: str,
         pass_spec: ExtractionPassSpec | None = None,
     ) -> dict[str, Any]:
-        from src.graph_memory.extraction.category_candidate_graph_schema import (
+        from graph_memory.extraction.category_candidate_graph_schema import (
             category_pass_text_format,
             category_pass_text_format_for_spec,
         )
@@ -1568,7 +1782,7 @@ class OpenAICategoryGraphPassClient:
             )
         from openai import OpenAI
 
-        from src.agent.planner_pricing import usage_cost_usd
+        from llm.planner_pricing import usage_cost_usd
 
         openai_kwargs: dict[str, Any] = {}
         if self._max_retries is not None:
@@ -1659,7 +1873,7 @@ class FixtureCategoryGraphPassClient:
         }
 
 
-def run_category_pipeline(
+def _run_category_pipeline_impl(
     client: CategoryGraphPassClient,
     options: CategoryGraphExtractionOptions,
     *,
@@ -1671,46 +1885,69 @@ def run_category_pipeline(
         options.source_span_index,
         source_text=options.source_text,
     )
+    from graph_memory.extraction.recap_source_authority import (
+        deferred_source_rows, filter_planning_pass_output, partition_recap_source_rows,
+    )
+    withheld_rows: list[dict[str, Any]] = []
+    authority_diag: dict[str, Any] = {"checked": False, "reason": "not_recap_profile"}
+    if active_profile.admitted_source_domains == frozenset({"recap"}):
+        source_rows, withheld_rows, authority_diag = partition_recap_source_rows(
+            source_rows, options.source_text,
+        )
+    blocked_span_refs = {r["source_span_ref_id"] for r in withheld_rows}
+    deferred_planning = deferred_source_rows(withheld_rows)
+    original_client = client
+    compact_context = (CompactEvidenceContext(source_rows, source_sha256=hashlib.sha256(
+        options.source_text.encode("utf-8")).hexdigest())
+        if active_profile.qualified_id == "recap_category_v2@2.0" and options.source_text is not None else None)
+    if (compact_context is not None and hasattr(original_client, "retain_compact_evidence_context")
+            and getattr(original_client, "execution_binding", None) is not None):
+        original_client.retain_compact_evidence_context(compact_context.record())
+    compact_passes = {"beat_pass", "edge_pass"}
+
+    def _run_pass(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        result = original_client.run_pass(*args, **kwargs)
+        parsed_output = result["parsed"]
+        if compact_context is not None and args[0] in compact_passes:
+            parsed_output = compact_context.expand(parsed_output)
+        parsed, deferred = filter_planning_pass_output(
+            parsed_output, blocked_span_refs, _canonical_spref,
+        )
+        deferred_planning.extend(deferred)
+        return {**result, "parsed": parsed}
+
     allowed_span_refs = {r["source_span_ref_id"] for r in source_rows}
     for span in options.source_span_index.get("spans") or []:
         if isinstance(span, Mapping):
+            identifiers = {span[k] for k in ("source_span_ref_id", "span_id", "source_span_id")
+                           if isinstance(span.get(k), str)}
+            if identifiers & blocked_span_refs or (withheld_rows and span.get("kind") == "full_text"):
+                blocked_span_refs.update(v for v in identifiers if isinstance(v, str))
+                continue
             for key in ("source_span_ref_id", "span_id", "source_span_id"):
                 val = span.get(key)
                 if isinstance(val, str):
                     allowed_span_refs.add(val)
 
-    if options.session_number is None:
-        party_ctx = _empty_party_context(options.campaign_id)
-        known_entity_registry = _empty_known_entity_registry(options.campaign_id)
-    else:
-        party_ctx = build_party_context_for_campaign(
-            options.campaign_id, options.session_number
-        )
-        known_entity_registry = build_known_entity_registry(
-            options.campaign_id,
-            options.session_number,
-            party_ctx=party_ctx,
-        )
-    if options.extra_known_entities:
-        known_entity_registry = extend_known_entity_registry(
-            known_entity_registry,
-            options.extra_known_entities,
-        )
-    known_entity_sidecar = match_known_entities_in_spans(
-        source_rows,
-        known_entity_registry,
-        session_id=options.session_id,
-    )
+    node_source_packet = None
+    if (
+        bool(_source_handle_node_passes(active_profile))
+        and getattr(original_client, "supports_node_source_handles", False) is True
+        and options.source_text is not None
+        and source_rows
+    ):
+        from graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
+        node_source_packet = compile_source_sentence_packet(options.source_text, source_rows)
     prompts = render_category_pass_prompts(
         source_rows,
-        party_ctx=party_ctx,
-        known_entity_sidecar=known_entity_sidecar,
-        known_entity_registry=known_entity_registry,
         profile=active_profile,
+        node_source_packet=node_source_packet,
     )
+    later_prompts = (render_category_pass_prompts(compact_context.prompt_rows(), profile=active_profile)
+                     if compact_context is not None else prompts)
     pass_outputs: dict[str, dict[str, Any]] = {}
     pass_telemetry: dict[str, Any] = {}
-    total_cost = 0.0
+    total_cost: float | None = 0.0
     system = "Category-decomposed graph memory extraction."
     node_vocabulary_pass_diagnostics: dict[str, Any] = {}
     effective_node_vocabulary_packet, dynamic_node_vocabulary_diag = resolve_node_vocabulary_packet_for_options(options)
@@ -1729,12 +1966,14 @@ def run_category_pipeline(
             node_vocabulary_packet_override=effective_node_vocabulary_packet,
         )
         node_vocabulary_pass_diagnostics[pass_name] = node_vocabulary_diag
-        result = client.run_pass(
+        result = _run_pass(
             pass_name,
             model_id=model_id,
             instructions=system,
             user_content=node_prompt,
             pass_spec=pass_spec,
+            **({"source_evidence_packet": node_source_packet}
+               if node_source_packet is not None and pass_name in _source_handle_node_passes(active_profile) else {}),
         )
         pass_outputs[pass_name] = result["parsed"]
         pass_telemetry[pass_name] = {
@@ -1744,17 +1983,26 @@ def run_category_pipeline(
             "response_id": result["response_id"],
             "progress_label": pass_spec.progress_label,
         }
-        total_cost += result["cost_usd"]
+        total_cost = None if total_cost is None or result["cost_usd"] is None else total_cost + result["cost_usd"]
         _notify(pass_name, "complete")
 
     if active_profile.beat_pass is not None:
         beat = active_profile.beat_pass
         _notify(beat.pass_id, "running")
-        beat_result = client.run_pass(
+        beat_nodes = consolidate_category_outputs(
+            pass_outputs,
+            campaign_id=options.campaign_id,
+            session=options.session_number,
+            source_span_index=options.source_span_index,
+            source_text=options.source_text,
+            source_rows=source_rows,
+            profile=active_profile,
+        )["nodes"]
+        beat_result = _run_pass(
             beat.pass_id,
             model_id=model_id,
             instructions=system,
-            user_content=prompts[_prompt_key(beat.pass_id)],
+            user_content=build_beat_pass_prompt(later_prompts[_prompt_key(beat.pass_id)], beat_nodes, compact_context=compact_context),
             pass_spec=beat,
         )
         pass_outputs[beat.pass_id] = beat_result["parsed"]
@@ -1765,16 +2013,16 @@ def run_category_pipeline(
             "response_id": beat_result["response_id"],
             "progress_label": beat.progress_label,
         }
-        total_cost += beat_result["cost_usd"]
+        total_cost = None if total_cost is None or beat_result["cost_usd"] is None else total_cost + beat_result["cost_usd"]
         _notify(beat.pass_id, "complete")
 
     consolidated = consolidate_category_outputs(
         pass_outputs,
         campaign_id=options.campaign_id,
         session=options.session_number,
-        enable_party_participation_attachment=options.enable_party_participation_attachment,
-        known_entity_sidecar=known_entity_sidecar,
-        known_entity_registry=known_entity_registry,
+        source_span_index=options.source_span_index,
+        source_text=options.source_text,
+        source_rows=source_rows,
         profile=active_profile,
     )
     encounter_pass = active_profile.encounter_job_pass
@@ -1801,7 +2049,6 @@ def run_category_pipeline(
             )
         encounter_prompt = render_encounter_job_pass_prompt(
             source_rows,
-            party_ctx=party_ctx,
             nodes=consolidated["nodes"],
             beats=consolidated["beats"],
             vocabulary_context=encounter_vocabulary_context,
@@ -1816,7 +2063,7 @@ def run_category_pipeline(
             kind="encounter_job",
             allowed_node_types=("combat_encounter", "quest"),
         )
-        encounter_result = client.run_pass(
+        encounter_result = _run_pass(
             encounter_pass_id,
             model_id=model_id,
             instructions=system,
@@ -1831,25 +2078,26 @@ def run_category_pipeline(
             "response_id": encounter_result["response_id"],
             "progress_label": encounter_progress,
         }
-        total_cost += encounter_result["cost_usd"]
+        total_cost = None if total_cost is None or encounter_result["cost_usd"] is None else total_cost + encounter_result["cost_usd"]
         _notify(encounter_pass_id, "complete")
         consolidated = consolidate_category_outputs(
             pass_outputs,
             campaign_id=options.campaign_id,
             session=options.session_number,
-            enable_party_participation_attachment=options.enable_party_participation_attachment,
-            known_entity_sidecar=known_entity_sidecar,
-            known_entity_registry=known_entity_registry,
+            source_span_index=options.source_span_index,
+            source_text=options.source_text,
+            source_rows=source_rows,
             profile=active_profile,
         )
     edge = active_profile.edge_pass
     edge_prompt, edge_vocabulary_diag, encounter_job_edge_diag = build_edge_pass_prompt(
-        prompts[_prompt_key(edge.pass_id)],
+        later_prompts[_prompt_key(edge.pass_id)],
         consolidated["nodes"],
         options=options,
+        compact_context=compact_context,
     )
     _notify(edge.pass_id, "running")
-    edge_result = client.run_pass(
+    edge_result = _run_pass(
         edge.pass_id,
         model_id=model_id,
         instructions=system,
@@ -1864,16 +2112,16 @@ def run_category_pipeline(
         "response_id": edge_result["response_id"],
         "progress_label": edge.progress_label,
     }
-    total_cost += edge_result["cost_usd"]
+    total_cost = None if total_cost is None or edge_result["cost_usd"] is None else total_cost + edge_result["cost_usd"]
     _notify(edge.pass_id, "complete")
 
     consolidated = consolidate_category_outputs(
         pass_outputs,
         campaign_id=options.campaign_id,
         session=options.session_number,
-        enable_party_participation_attachment=options.enable_party_participation_attachment,
-        known_entity_sidecar=known_entity_sidecar,
-        known_entity_registry=known_entity_registry,
+        source_span_index=options.source_span_index,
+        source_text=options.source_text,
+        source_rows=source_rows,
         profile=active_profile,
     )
     inherit_edge_evidence = active_profile.enable_edge_evidence_inheritance
@@ -1881,87 +2129,31 @@ def run_category_pipeline(
         consolidated,
         allowed_span_refs,
         inherit_from_endpoints=inherit_edge_evidence,
+        predicate_capabilities=active_profile.edge_pass.predicate_capabilities,
     )
     sanitized, sanitize_diag = sanitize_parts(
         consolidated,
         allowed_span_refs,
         drop_empty_evidence_edges=inherit_edge_evidence,
     )
-    claimed_fill_diag: dict[str, Any] = {"enabled": False}
-    enable_claimed_fill = (
-        active_profile.enable_party_claimed_fill
-        if options.enable_party_claimed_fill is None
-        else options.enable_party_claimed_fill
-    )
-    if enable_claimed_fill:
-        mentions_payload = known_entity_sidecar.to_dict()
-        packet = build_claim_packet(
-            mentions_payload=mentions_payload,
-            span_index=options.source_span_index,
-            source_text=options.source_text,
-            candidate_nodes=list(sanitized.get("nodes") or []),
-            source_packet_rows_from_span_index=source_packet_rows_from_span_index,
-        )
-        if packet.claims:
-            fill_spec = ExtractionPassSpec(
-                pass_id=PARTY_CLAIMED_FILL_PASS,
-                default_node_type="character",
-                instruction=(
-                    "Enrich owned party PC/companion nodes. Never invent new party IDs."
-                ),
-                progress_label=PARTY_CLAIMED_FILL_PROGRESS,
-                kind="claimed_fill",
-            )
-            _notify(PARTY_CLAIMED_FILL_PASS, "running")
-            fill_result = client.run_pass(
-                PARTY_CLAIMED_FILL_PASS,
-                model_id=model_id,
-                instructions=(
-                    "You enrich owned party graph nodes. Never invent new party node IDs. "
-                    "Ground every quote in the provided source packet paragraphs."
-                ),
-                user_content=render_fill_prompt(packet),
-                pass_spec=fill_spec,
-            )
-            pass_outputs[PARTY_CLAIMED_FILL_PASS] = fill_result["parsed"]
-            pass_telemetry[PARTY_CLAIMED_FILL_PASS] = {
-                "cost_usd": fill_result["cost_usd"],
-                "usage": fill_result["usage"],
-                "elapsed_ms": fill_result["elapsed_ms"],
-                "response_id": fill_result["response_id"],
-                "progress_label": PARTY_CLAIMED_FILL_PROGRESS,
-            }
-            total_cost += fill_result["cost_usd"]
-            sanitized, claimed_fill_diag = apply_fill_to_parts(
-                sanitized,
-                parsed=fill_result["parsed"],
-                claimed_ids={c.node_id for c in packet.claims},
-            )
-            claimed_fill_diag["claim_count"] = len(packet.claims)
-            claimed_fill_diag["cost_usd"] = fill_result["cost_usd"]
-            _notify(PARTY_CLAIMED_FILL_PASS, "complete")
-        else:
-            claimed_fill_diag = {
-                "enabled": True,
-                "skipped": "no_pc_companion_mentions",
-                "claim_count": 0,
-            }
-    recap_parts, standing_parts, partition_diag = partition_candidate_parts_by_provenance(
-        sanitized
-    )
+    deferred_planning = list({item["item_id"]: item for item in deferred_planning}.values())
+    for beat in sanitized.get("beats") or []:
+        if isinstance(beat, dict):
+            beat.pop("_host_excerpt_text", None)
+    sanitized["deferred_items"].extend(deferred_planning)
+    authority_diag["deferred_items"] = len(deferred_planning)
     merged_diag = {
         **consolidated["consolidation_diagnostics"],
         **repair_diag,
         **sanitize_diag,
-        "standing_context_partition": partition_diag,
-        "party_claimed_fill": claimed_fill_diag,
         "profile_id": active_profile.profile_id,
         "profile_version": active_profile.profile_version,
     }
+    if compact_context is not None:
+        merged_diag["compact_evidence_context"] = compact_context.record()
     source_artifact_id, source_ref_id = resolve_source_identity(options)
-    registry_artifact_id = party_registry_artifact_id(options.campaign_id)
     envelope = assemble_envelope(
-        recap_parts,
+        sanitized,
         campaign_id=options.campaign_id,
         session_id=options.session_id,
         source_artifact_id=source_artifact_id,
@@ -1973,27 +2165,79 @@ def run_category_pipeline(
         envelope,
         drop_empty_evidence_edges=inherit_edge_evidence,
     )
-    registry_context_graph: dict[str, Any] | None = None
-    if standing_parts.get("nodes"):
-        ensure_standing_warning(standing_parts)
-        standing_envelope = assemble_envelope(
-            standing_parts,
-            campaign_id=options.campaign_id,
-            session_id=options.session_id,
-            source_artifact_id=registry_artifact_id,
-            source_ref_id=document_source_ref_id(registry_artifact_id),
-            model_id=model_id,
-            preview_suffix="standing",
-            drop_empty_evidence_edges=inherit_edge_evidence,
+    if active_profile.source_section_retainer is not None:
+        candidate_graph, retention_diagnostics = active_profile.source_section_retainer(
+            candidate_graph, source_rows,
         )
-        registry_context_graph = canonical_graph_for_runner(
-            standing_envelope,
-            drop_empty_evidence_edges=inherit_edge_evidence,
+        stamp_graph_evidence_refs(
+            candidate_graph, source_artifact_id=source_artifact_id, source_ref_id=source_ref_id,
         )
-        stamp_standing_registry_evidence(
-            registry_context_graph, source_artifact_id=registry_artifact_id
+        def deferred_proposal_maps(value):
+            if not isinstance(value, dict):
+                return
+            proposals = value.get("deferred_proposals")
+            if isinstance(proposals, dict):
+                yield proposals
+            for key, nested in value.items():
+                if key != "deferred_proposals" and isinstance(nested, dict):
+                    yield from deferred_proposal_maps(nested)
+
+        seen_deferred_ids = set()
+        for deferred_proposals in deferred_proposal_maps(retention_diagnostics):
+            for item_id, disposition in deferred_proposals.items():
+                if (not isinstance(disposition, dict)
+                        or disposition.get("item_id") != item_id
+                        or disposition.get("kind") not in {"node", "edge"}
+                        or not isinstance(disposition.get("proposal"), dict)
+                        or item_id in seen_deferred_ids):
+                    raise ValueError("invalid deferred source-section proposal evidence")
+                seen_deferred_ids.add(item_id)
+                key = "nodes" if disposition["kind"] == "node" else "edges"
+                stamp_graph_evidence_refs(
+                    {key: [disposition["proposal"]]},
+                    source_artifact_id=source_artifact_id,
+                    source_ref_id=source_ref_id,
+                )
+        merged_diag["source_section_retention"] = retention_diagnostics
+    if active_profile.edge_review_pass is not None:
+        from graph_memory.extraction.worldbuilding_edge_review import (
+            apply_review, review_prompt, edge_ids, ConstrainedEdgeReviewPassSpec,
         )
-        ensure_standing_warning(registry_context_graph)
+
+        pre_review_envelope = deepcopy(envelope)
+        pre_review_candidate = deepcopy(candidate_graph)
+        review = active_profile.edge_review_pass
+        if candidate_graph.get("edges"):
+            if isinstance(review, ConstrainedEdgeReviewPassSpec):
+                review = replace(review, allowed_edge_ids=tuple(edge_ids(candidate_graph["edges"])))
+                prompt = review_prompt(candidate_graph, source_rows, allowed_edge_ids=review.allowed_edge_ids)
+            else:
+                prompt = review_prompt(candidate_graph, source_rows)
+            _notify(review.pass_id, "running")
+            review_result = client.run_pass(
+                review.pass_id, model_id=model_id, instructions=review.instruction,
+                user_content=prompt, pass_spec=review,
+            )
+            candidate_graph, advisory = apply_review(candidate_graph, review_result["parsed"])
+            pass_outputs[review.pass_id] = deepcopy(review_result["parsed"])
+            pass_telemetry[review.pass_id] = {
+                key: review_result.get(key) for key in
+                ("cost_usd", "usage", "elapsed_ms", "response_id")
+            }
+            cost = review_result.get("cost_usd")
+            total_cost = None if total_cost is None or cost is None else total_cost + cost
+            _notify(review.pass_id, "complete")
+        else:
+            advisory = {"skipped": "no_generated_edges", "semantic_acceptance": False}
+        # Only the private evidence bundle carries the pre-review envelope/objects.
+        client.advisory = {**advisory, "pre_review_envelope": pre_review_envelope,
+                           "pre_review_candidate": pre_review_candidate}
+        envelope["candidate_graph"] = deepcopy(candidate_graph)
+        merged_diag["advisory_edge_review"] = {
+            "semantic_acceptance": False,
+            "retained_count": len(candidate_graph.get("edges", [])),
+            "skipped": advisory.get("skipped"),
+        }
     node_vocabulary_enabled = effective_node_vocabulary_packet is not None
     node_vocabulary_diag: dict[str, Any] = {"enabled": False}
     if node_vocabulary_enabled:
@@ -2009,21 +2253,65 @@ def run_category_pipeline(
         pass_telemetry=pass_telemetry,
         consolidation_diagnostics=merged_diag,
         model_id=model_id,
-        total_cost_usd=round(total_cost, 6),
+        total_cost_usd=None if total_cost is None else round(total_cost, 6),
         diagnostics={
             "extraction_mode": "category_decomposed",
+            "recap_source_authority": authority_diag,
             "model_id": model_id,
             "edge_vocabulary_ablation": edge_vocabulary_diag,
             "encounter_job_edge_guidance": encounter_job_edge_diag,
             "node_vocabulary_ablation": node_vocabulary_diag,
             "dynamic_node_vocabulary_packet": dynamic_node_vocabulary_diag,
-            "standing_context_partition": partition_diag,
-            "party_claimed_fill": claimed_fill_diag,
             **EXTRACTOR_RESULT_DIAGNOSTICS,
         },
-        registry_context_graph=registry_context_graph,
-        known_entity_mentions=known_entity_sidecar.to_dict(),
     )
+
+
+def run_category_pipeline(
+    client: CategoryGraphPassClient,
+    options: CategoryGraphExtractionOptions,
+    *,
+    progress_callback: Any | None = None,
+) -> CategoryGraphExtractionResult:
+    profile = resolve_extraction_profile(options)
+    if profile.edge_review_pass is None:
+        return _run_category_pipeline_impl(client, options, progress_callback=progress_callback)
+    # Lazy import: the bounded client imports this module's exception type.
+    from graph_memory.extraction.bounded_recap_execution import (
+        BoundedRecapPassClient, SUPPORTED_INGESTION_PROVIDERS,
+    )
+    from graph_memory.extraction.worldbuilding_edge_review import (
+        RecordingPassClient, ConstrainedEdgeReviewPassSpec,
+    )
+
+    if (isinstance(profile.edge_review_pass, ConstrainedEdgeReviewPassSpec)
+            and profile.edge_review_pass.allowed_edge_ids is not None):
+        raise CategoryGraphExtractionError("profile review catalog must be unbound")
+    if (not isinstance(client, BoundedRecapPassClient)
+            or client.limits.provider not in SUPPORTED_INGESTION_PROVIDERS
+            or resolve_category_graph_model(options.model_id) != client.limits.model):
+        raise CategoryGraphExtractionError("advisory review requires an explicit matching bounded GE client")
+    required_calls = len(profile.node_passes) + 2  # edge writer + advisory reviewer
+    required_calls += int(profile.beat_pass is not None)
+    required_calls += int(profile.enable_encounter_job_pass and profile.encounter_job_pass is not None)
+    if (not isinstance(options.source_text, str)
+            or client.limits.max_calls - len(client.calls) < required_calls):
+        raise CategoryGraphExtractionError("advisory review requires exact source text and sufficient existing run budget")
+    recording = RecordingPassClient(client)
+    try:
+        result = _run_category_pipeline_impl(recording, options, progress_callback=progress_callback)
+        evidence = recording.bundle(options, profile)
+    except Exception as exc:
+        try:
+            evidence = recording.bundle(options, profile, error=exc)
+        except Exception:
+            # Never stringify unsafe evidence or expose provider exception bodies.
+            raise CategoryGraphExtractionError("could not serialize private advisory evidence") from None
+        raise CategoryGraphExtractionError(
+            "advisory extraction failed; private evidence retained where available",
+            pass_name=getattr(exc, "pass_name", None), raw_model_response=evidence,
+        ) from None
+    return replace(result, private_response_evidence=evidence)
 
 
 def extract_category_candidate_graph(

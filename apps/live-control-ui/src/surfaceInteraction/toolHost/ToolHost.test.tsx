@@ -216,6 +216,24 @@ describe("ToolHost", () => {
     expect(invoke).not.toHaveBeenCalled();
   });
 
+  it("leaves Escape in a native source dialog to the browser without closing Tools", async () => {
+    const user = userEvent.setup();
+    const publication = makeNativePublication([makeTool({ id: "alpha", label: "Alpha" })]);
+    renderToolHost(<><NativeToolsPublisher publication={publication} /><dialog open data-native-escape-owner aria-label="Sources"><input aria-label="Find source" /></dialog></>);
+    const toggle = screen.getByRole("button", { name: "Tools" });
+    await user.click(toggle);
+    const input = screen.getByRole("textbox", { name: "Find source" });
+    input.focus();
+    const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    const reachedDialog = vi.fn();
+    screen.getByRole("dialog", { name: "Sources" }).addEventListener("keydown", reachedDialog);
+    input.dispatchEvent(escape);
+    expect(escape.defaultPrevented).toBe(false);
+    expect(reachedDialog).toHaveBeenCalledOnce();
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(input).toHaveFocus();
+  });
+
   it("closes on Escape in capture phase and returns focus to the toggle", async () => {
     const user = userEvent.setup();
     const publication = makeNativePublication([

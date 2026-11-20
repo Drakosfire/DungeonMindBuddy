@@ -1,0 +1,27 @@
+.world-plan-agent-conversation.world-agent-conversation {
+  display: flex;
+  padding: 0;
+  gap: 0;
+  background: transparent;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.world-agent-conversation > .world-agent-conversation__dock {
+  flex: 1 1 auto;
+  inline-size: 100%;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.world-agent-conversation__dock .conversation-dock__reader,
+.world-agent-conversation__dock .conversation-dock__resize {
+  display: none;
+}
+
+.world-agent-conversation > .world-agent-conversation__dock.is-expanded > .conversation-dock__conversation {
+  block-size: 100%;
+}
+
+.world-agent-conversation__dock .conversation-dock__composer > .plan-conversation-dock__composer {
+  inline-size: 100%;
+}

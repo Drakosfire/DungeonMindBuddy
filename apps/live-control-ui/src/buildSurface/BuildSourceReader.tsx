@@ -1,3 +1,7 @@
+import { parseMarkdownAst } from "../tiptap/markdown/parseMarkdownAst";
+import { stripLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
+import { useMemo, useRef } from "react";
+import { markdownDocumentHeadings } from "../markdownReader/MarkdownDocumentOutline";
 import { MarkdownDocumentReader } from "../markdownReader/MarkdownDocumentReader";
 
 export type BuildSourceNavigationTargetStatus =
@@ -20,6 +24,7 @@ export interface BuildSourceNavigationTarget {
 export interface BuildSourceReaderProps {
   /** Exact accepted workspace-document title. */
   title: string;
+  showOutline?: boolean;
   /** Exact saved `snapshot.markdown` — never TipTap serialization. */
   markdown: string;
   /** When true, Read is showing saved source while local edits exist. */
@@ -50,10 +55,15 @@ function navigationStatusMessage(target: BuildSourceNavigationTarget): string | 
  */
 export function BuildSourceReader({
   title,
+  showOutline = true,
   markdown,
   dirty,
   navigationTarget = { status: "none" },
 }: BuildSourceReaderProps) {
+  const outlineRef = useRef<HTMLDetailsElement>(null);
+  const parsedBody = useMemo(() => parseMarkdownAst(stripLeadingYamlFrontmatter(markdown).markdown), [markdown]);
+  const outline = useMemo(() => markdownDocumentHeadings(markdown, parsedBody), [markdown, parsedBody]);
+  const minimumDepth = Math.min(...outline.map(heading => heading.depth));
   const statusMessage = navigationStatusMessage(navigationTarget);
   const canPassHighlight =
     navigationTarget.status === "exact"
@@ -110,7 +120,19 @@ export function BuildSourceReader({
           </p>
         ) : null}
       </header>
-      <MarkdownDocumentReader markdown={markdown} sourceLineTarget={sourceLineTarget} />
+      {showOutline && outline.length >= 3 ? (
+        <details ref={outlineRef} className="build-source-reader__outline">
+          <summary>On this page <span>{outline.length} sections</span></summary>
+          <nav aria-label="Source sections">
+            <ol>{outline.map(heading => (
+              <li key={heading.id} style={{ paddingInlineStart: `${Math.min(heading.depth - minimumDepth, 2) * 0.75}rem` }}>
+                <a href={`#${heading.id}`} onClick={() => { if (outlineRef.current) outlineRef.current.open = false; }}>{heading.text || "Untitled section"}</a>
+              </li>
+            ))}</ol>
+          </nav>
+        </details>
+      ) : null}
+      <MarkdownDocumentReader markdown={markdown} parsedBody={parsedBody} sourceLineTarget={sourceLineTarget} />
     </article>
   );
 }

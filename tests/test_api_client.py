@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from src.llm.api_client import DungeonMindApiClient
+from llm.api_client import DungeonMindApiClient
 
 
 class _FakeResponses:

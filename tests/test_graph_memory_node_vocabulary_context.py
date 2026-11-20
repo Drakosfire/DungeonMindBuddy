@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from src.graph_memory.vocabulary import (
+from graph_memory.vocabulary import (
     ContextVocabularyPacket,
     ContainmentHint,
     DoNotMergeDecision,
     EvidenceRef,
 )
-from src.graph_memory.vocabulary.node_context import render_node_vocabulary_context
+from graph_memory.vocabulary.node_context import render_node_vocabulary_context
 
 
 def _packet() -> ContextVocabularyPacket:

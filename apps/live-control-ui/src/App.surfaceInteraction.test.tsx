@@ -38,15 +38,6 @@ describe("App surface route leases", () => {
     expect(screen.getByTestId("lease-probe").textContent).toBe("surface:Live Control");
   });
 
-  it("binds an exact tiptap spike compatibility lease", () => {
-    render(
-      <AgentInteractionProvider>
-        <RouteLeaseProbe publication={ROUTE_COMPATIBILITY_PUBLICATIONS.tiptapCalloutSpike} />
-      </AgentInteractionProvider>,
-    );
-    expect(screen.getByTestId("lease-probe").textContent).toBe("tiptap-callout-spike:Tiptap Callout Spike");
-  });
-
   it("binds explicit empty lease when publication is null", () => {
     render(
       <AgentInteractionProvider>

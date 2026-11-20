@@ -10,8 +10,10 @@ from types import SimpleNamespace
 import pytest
 
 from apps.live_control_server.models.extract_promote import (
-    ExactRunEvidenceCorrectionRequest,
-    ExactRunEvidenceQuoteCorrection,
+    WorldbuildingEvidenceCorrectionRequest,
+    WorldbuildingEvidenceRefCorrection,
+    WorldbuildingEvidencePart,
+    WorldbuildingEvidenceQuoteAssignment,
 )
 from apps.live_control_server.services import (
     candidate_graph_admission,
@@ -26,6 +28,14 @@ from graph_memory.ingestion.extraction_run import (
 
 
 def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bool = False):
+    from application_state.ingest import components as output_store
+    payloads = {}
+    def persist(**kwargs):
+        digest = hashlib.sha256(kwargs["payload"]).hexdigest()
+        payloads[(kwargs["run_id"], kwargs["kind"])] = kwargs["payload"]
+        return digest
+    monkeypatch.setattr(output_store, "persist_component_payload", persist)
+    monkeypatch.setattr(output_store, "get_component_bytes", lambda **kw: payloads[(kw["run_id"], kw["kind"])])
     source = tmp_path / "source.md"
     source.write_text("Torbin, who bought the strange seed, repaired the roof.\n")
     artifact_id = "artifact:worldbuilding:demo:r1:abc"
@@ -64,20 +74,17 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
     parent = SimpleNamespace(
         run_id="parent", source_artifact_id=artifact_id, source_domain="worldbuilding",
         campaign_id="demo", session_id=None, profile_id=correction._PROFILE,
-        components=components, status=ExtractionRunStatus.REVIEWABLE,
+        components=components, status=ExtractionRunStatus.REVIEWABLE, revision=7,
     )
-    resolved = SimpleNamespace(
-        run_id="parent", candidate_graph_path=parent_path,
-        normalized_recap_path=source, source_artifact_id=artifact_id,
-        campaign_id="demo", session_id=None, source_domain="worldbuilding",
-        extraction_profile=correction._PROFILE, world_id="demo",
-    )
+    span_path = tmp_path / "span-index.json"
+    span_path.write_text("frozen span index")
     span_index = SimpleNamespace(spans=[
         SimpleNamespace(source_span_id=span_id, start_line=1, end_line=1),
     ])
+    parent._test_span_index = span_index
     child_store: dict[str, SimpleNamespace] = {}
 
-    def get_run(_repo, run_id):
+    def get_run(run_id):
         if run_id == "parent":
             return parent
         if run_id in child_store:
@@ -107,32 +114,46 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
         for item in payload["nodes"]:
             refs = [SimpleNamespace(**ref) for ref in item["evidence_refs"]]
             nodes.append(SimpleNamespace(
-                node_id=item["node_id"], label=item["label"],
+                node_id=item["node_id"], node_type=item.get("node_type", "npc"), label=item["label"],
                 description=item["description"], evidence_refs=refs,
             ))
         return SimpleNamespace(nodes=nodes, edges=[])
 
     monkeypatch.setattr(candidate_graph_admission, "validate_candidate_document_integrity", typed)
     monkeypatch.setattr(correction, "repo_root", lambda: tmp_path)
-    monkeypatch.setattr(correction, "resolve_promotable_ingest_run", lambda run_id, **_: resolved)
+    def load_data(repo, run_id):
+        run = get_run(run_id)
+        if run.status != ExtractionRunStatus.REVIEWABLE:
+            raise GraphRunRegistryError("not reviewable", status_code=422)
+        candidate_bytes = parent_path.read_bytes() if run_id == "parent" else payloads[(run_id, "candidate_graph")]
+        return SimpleNamespace(run=run, candidate_bytes=candidate_bytes,
+            source_bytes=source.read_bytes(), span_bytes=span_path.read_bytes(),
+            source_artifact=SimpleNamespace(world_id="demo"),
+            span_index=parent._test_span_index)
+    monkeypatch.setattr(correction, "load_reviewable_extraction_data", load_data)
     monkeypatch.setattr(correction, "get_extraction_run", get_run)
     monkeypatch.setattr(correction, "create_extraction_run", create_run)
     monkeypatch.setattr(correction, "update_extraction_run_status", update_run)
-    monkeypatch.setattr(correction, "_load_frozen_span_index_for_resolved_run", lambda _: span_index)
     monkeypatch.setattr(correction, "admit_managed_world", lambda *_: None)
     return parent, parent_bytes, parent_sha, span_id, child_store
 
 
 def _request(sha: str, span_id: str, replacement: str = "who bought the strange seed"):
-    return ExactRunEvidenceCorrectionRequest(
-        parent_run_id="parent",
+    artifact = span_id.split(":span:")[0]
+    ref = {"source_artifact_id":artifact, "source_span_ref_id":span_id,
+        "anchor_quotes":["Torbin bought the strange seed"]}
+    return WorldbuildingEvidenceCorrectionRequest(
+        parent_run_id="parent", expected_parent_revision=7, world_id="demo",
+        source_artifact_id=artifact, source_sha256=hashlib.sha256(
+            b"Torbin, who bought the strange seed, repaired the roof.\n").hexdigest(),
+        span_index_sha256=hashlib.sha256(b"frozen span index").hexdigest(),
         parent_candidate_sha256=sha,
-        corrections=[ExactRunEvidenceQuoteCorrection(
-            assertion_id="torbin", evidence_index=0, source_span_ref_id=span_id,
-            quote_index=0, original_quote="Torbin bought the strange seed",
-            replacement_quote=replacement,
-        )],
-    )
+        corrections=[WorldbuildingEvidenceRefCorrection(
+            assertion_id="torbin", evidence_index=0,
+            expected_ref_sha256=correction._sha(correction._canonical_bytes(ref)),
+            parts=[WorldbuildingEvidencePart(source_span_ref_id=span_id, quote_assignments=[
+                WorldbuildingEvidenceQuoteAssignment(original_quote_index=0,replacement_quote=replacement)])])])
+
 
 
 def test_literal_child_is_reviewable_idempotent_and_parent_is_frozen(monkeypatch, tmp_path):
@@ -146,8 +167,10 @@ def test_literal_child_is_reviewable_idempotent_and_parent_is_frozen(monkeypatch
     assert children[response.run_id].lineage["parent_candidate_sha256"] == sha
     assert parent.status == ExtractionRunStatus.REVIEWABLE
     assert (tmp_path / "parent.json").read_bytes() == parent_bytes
-    child_path = tmp_path / children[response.run_id].components["candidate_graph"].uri
-    child_payload = json.loads(child_path.read_text())
+    from application_state.ingest.components import get_component_bytes
+    child = children[response.run_id]
+    child_payload = json.loads(get_component_bytes(run_id=child.run_id, kind="candidate_graph",
+        content_sha256=child.components["candidate_graph"].sha256))
     assert child_payload["nodes"][0]["evidence_refs"][0]["anchor_quotes"] == [
         "who bought the strange seed"
     ]
@@ -187,7 +210,7 @@ def test_partial_correction_and_stale_target_do_not_create_a_child(monkeypatch, 
         correction.correct_exact_run_evidence(_request(sha, span_id))
     assert not children
     request = _request(sha, span_id)
-    request.corrections[0].original_quote = "a different quote"
+    request.corrections[0].expected_ref_sha256 = "0" * 64
     with pytest.raises(correction.ExtractPromoteError):
         correction.correct_exact_run_evidence(request)
     assert not children

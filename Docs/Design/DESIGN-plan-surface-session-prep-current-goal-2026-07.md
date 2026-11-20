@@ -6,7 +6,7 @@
 > [`Surface Interaction Layer`](../Design/ARCHITECTURE-surface-interaction-layer.md).
 > See §8 contribution map.
 
-**Status:** Current product checkpoint  
+**Status:** Dated product checkpoint; historical sequencing\
 **Date:** 2026-07-10  
 **Scope:** `/plan`, session preparation, graph-memory consumption, planning-oriented Agent Interaction, and the Tiptap/Markdown planning board  
 **Architecture authority:** `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` (Plan domain)
@@ -15,6 +15,12 @@
 **Graph Review authority:** `Docs/Design/DESIGN-graph-object-authoring-surface.md`  
 **Graph Review evidence / pause point:** `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`  
 **Source-vocabulary boundary:** `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`
+
+**Sequencing settlement (2026-11-19):** This preserves the July product intent and
+later host-ownership note, not a current implementation brief. For current work,
+use the [documentation map](../README.md),
+[Plan domain architecture](ARCHITECTURE-plan-surface-toolbox.md), and the owning
+workstream's explicitly active bounded handoff.
 
 ---
 
@@ -195,4 +201,8 @@ Landed and dogfoodable:
 - Prep-memory Q&A drawer (live-query / Hermes; **transitional**; can fail on live-packet session mismatch).
 - Optional `/plan?dogfood=1` checklist, notes, report copy, and recovery runbook (**scaffold**, not product UI).
 
-**Next code work** is not more checklist polish. Follow `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` as the default order (shared graph-object card → graph-aware resolver → plan-scoped graph-memory query → wire Q&A behind fallback → dogfood again), with dogfood allowed to pull Q&A ahead when live-packet blockage is the sharper prep-loop blocker.
+**Historical July sequencing recommendation — not current dispatch authority:**
+
+> **Next code work** is not more checklist polish. Follow `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` as the default order (shared graph-object card → graph-aware resolver → plan-scoped graph-memory query → wire Q&A behind fallback → dogfood again), with dogfood allowed to pull Q&A ahead when live-packet blockage is the sharper prep-loop blocker.
+
+The [former Campaign roadmap](../Roadmaps/ROADMAP-campaign-supergraph.md) is now a historical forwarding record. Current sequencing comes from the owning workstream's active bounded handoff.

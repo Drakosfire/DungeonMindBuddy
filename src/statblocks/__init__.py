@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.statblocks.lifecycle_artifact import (
+from statblocks.lifecycle_artifact import (
     StatblockBreadcrumb as StatblockBreadcrumb,
     StatblockCorpusStatus as StatblockCorpusStatus,
     StatblockCreatedBy as StatblockCreatedBy,
@@ -10,7 +10,7 @@ from src.statblocks.lifecycle_artifact import (
     StatblockStorageStatus as StatblockStorageStatus,
     artifact_from_draft_response as artifact_from_draft_response,
 )
-from src.statblocks.lifecycle_commands import (
+from statblocks.lifecycle_commands import (
     STATBLOCK_COMBAT_ADD as STATBLOCK_COMBAT_ADD,
     STATBLOCK_CORPUS_CONFIRM_PROMOTE as STATBLOCK_CORPUS_CONFIRM_PROMOTE,
     STATBLOCK_CORPUS_INGEST as STATBLOCK_CORPUS_INGEST,
@@ -24,18 +24,18 @@ from src.statblocks.lifecycle_commands import (
     STATBLOCK_GENERATOR_HEALTH as STATBLOCK_GENERATOR_HEALTH,
     STATBLOCK_LIFECYCLE_COMMANDS as STATBLOCK_LIFECYCLE_COMMANDS,
 )
-from src.statblocks.lifecycle_service import (
+from statblocks.lifecycle_service import (
     CommandStatus as CommandStatus,
     StatblockLifecycleCommandRequest as StatblockLifecycleCommandRequest,
     StatblockLifecycleCommandResult as StatblockLifecycleCommandResult,
     StatblockLifecycleService as StatblockLifecycleService,
 )
-from src.statblocks.v2_client import (
+from statblocks.v2_client import (
     DungeonMindServerStatBlockGeneratorClient as DungeonMindServerStatBlockGeneratorClient,
     MockStatBlockGeneratorProvider as MockStatBlockGeneratorProvider,
     StatBlockGeneratorProvider as StatBlockGeneratorProvider,
 )
-from src.statblocks.v2_contract import (
+from statblocks.v2_contract import (
     CombatDefaults as CombatDefaults,
     ContractError as ContractError,
     DraftMode as DraftMode,

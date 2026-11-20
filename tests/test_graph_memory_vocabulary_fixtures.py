@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from src.graph_memory.vocabulary import (
+from graph_memory.vocabulary import (
     AliasCandidate,
     ContextVocabularyPacket,
     ContainmentHint,

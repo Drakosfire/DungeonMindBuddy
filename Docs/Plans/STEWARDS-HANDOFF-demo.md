@@ -1,11 +1,11 @@
-# Steward handoff — DEMO, from preparation to a resumable session
+# DEMO assignment — from preparation to a resumable session
 
-**Status:** ACTIVE mandate; fresh DEMO task appointed after the 2026-09-29 reboot
+**Status:** ACTIVE bounded assignment; fresh DEMO task appointed after the 2026-09-29 reboot
 
 **Owner:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`, appointed by the operator. The prior DEMO tasks `01a0885e-375c-7501-9f6e-a58528b39894` and `01a0edf2-b1e1-7281-9448-1d5524f8d4f8` retain history only; PRIME has frozen their #793 implementation and runtime authority.
 
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Mandate amended:** 2026-09-29 — fresh DEMO transfer, three bounded World Plan slices and PRIME model routing
+**Mandate amended:** 2026-10-03 — production card adoption and J2/J5 sequencing; prior transfer and PRIME model routing retained
 **Execution state:** [ROADMAP-demo.md](../Roadmaps/ROADMAP-demo.md) only  
 **Transfer evidence:** [reconciliation report](../Reports/REPORT-DEMO-roadmap-reconciliation-2026-09-26.md)
 
@@ -19,9 +19,11 @@ Own the complete requested Buddy demonstration until the operator accepts it:
 > and select its image; run the prepared session with fast access to plan, choices,
 > NPCs, statblocks, combat and recorded roll-table results; restart and resume.
 
-The steward is accountable for the connected experience, not for reporting that
-its pieces exist. Preserve the full requested journey. Reduce corpus size and
-number of examples before dropping a requested capability.
+The owner explicitly named for this bounded DEMO assignment is accountable for
+the connected experience, not for reporting that its pieces exist. Preserve the
+full requested journey. Reduce corpus size and number of examples before dropping
+a requested capability. The assignment grants no additional merge, runtime,
+provider, or model authority.
 
 ## Required Surface experience
 
@@ -31,7 +33,7 @@ Every navigable surface uses the global navbar and composable/configurable
 surface-specific subnav. World/document context belongs in that context area;
 node search stays in its existing toolbar. Formatting and component insertion
 belong in the existing edit host; tools belong in the existing tool host. Preserve
-the central space as a clean content canvas. Place advanced developer/agent
+the central space for the authored content. Place advanced developer/agent
 metadata in collapsed details. Keep actionable errors and recovery decisions
 visible where the user can resolve them.
 
@@ -50,25 +52,32 @@ Document drafts, accepted graph knowledge and mutable Run state retain their
 actual ownership. A fresh blank World must be usable before campaign, corpus or
 published graph-head existence.
 
-## Immediate delivery order and sequencing
+## Current execution pickup — reconciled2026-10-22
 
-The operator ended broad Buddy PR [#793](https://github.com/Drakosfire/DungeonMindBuddy/pull/793) unmerged on 2026-09-29. Its exact source head `e122c7073ba8c79dcd428b608da5c8e92bc53abb` remains on `codex/demo-j2-plan-canvas-visual-impl`; it is reference material, not an active write lease or merge candidate. The previous DEMO task froze edits. Its local untracked Of Conks corpus remains with that checkout and must not be copied into a PR.
+Use [the sole product roadmap](../Roadmaps/ROADMAP-demo.md) for current evidence
+and remaining acceptance. The operator selected the next connected milestone:
+scene→encounter→manual enemy revision→saved successor→explicit encounter
+adoption→Play→reload/restart/resume. The bounded
+[design contract](HANDOFF-COMBAT-scene-encounter-revision.md) owns its critique and
+serial activation; shared module hosting alone does not establish this journey.
 
-The operator approved three smaller serial implementation slices. Refresh remote `main` and open PRs before each branch; the takeover snapshot was `main@ebfc22ad8c5797d033029c4e0ee2ca098595632c`. Preserve a recoverable source snapshot and extract only the intended hunks from #793. Each slice gets its own bounded ACTIVE handoff, path/runtime lease, owning-boundary tests, cumulative review, and PR. Do not reopen #793 or carry its long evidence/history documents wholesale.
-
-1. **Plan document-switch safety:** prevent the outgoing editor from accepting/persisting input while a different saved Plan loads. A delayed-snapshot mounted regression must prove the old draft and incoming document stay intact. This bug exists on accepted `main`; it is independent of #793's shell work.
-2. **Exact World Plan identity:** publish one saved-document or uniquely identified World-scoped local-draft work object through the existing surface/context seam. Prove old local-draft migration, reload stability, World/document replacement and local-to-saved promotion with mocked API/mounted tests. Keep server document identity, local token, revision and editor generation distinct. Shared publisher/host contracts stay read-only.
-3. **EditHost controls:** consume the identity from slice 2 to put title, Save, formatting and insertion in the established AppChrome/EditHost, removing duplicate inline controls. Prove one matching inventory, current-at-click targeting and inert held callbacks after document/World/draft replacement, save promotion and unmount. Include a mobile close/reopen click witness with mocked APIs; an unavailable database is not a prerequisite for this bounded UI behavior.
-
-Slice 3 depends on slice 2. The switch-safety fix is independent and should land first to avoid overlapping edits to `PlanSurfacePage.tsx`. Keep the existing canvas theme and visual styling from #793 parked on its preserved branch. A separate visual PR needs a fresh appearance decision and operator acceptance; it does not block the three functional slices.
-
-After these bounded repairs, adopt the shared conversational Agent UI with truthful per-turn context on Index, Plan, Play, Build, Ingest and Combat, then resume the full connected fresh-World rehearsal. The rehearsal's isolated database pair is separate from the persistent `54330`/`54331` targets; the prior #793 live witness remained blocked on unavailable services and mismatched target configuration. Coordinate any runtime start or target change with PRIME and the designated runtime owner. Do not point an isolated witness at the persistent targets.
-
-These priorities authorize the fresh DEMO steward to prepare and deliver the named bounded PRs under repository policy; they do not assert that a PR, test, live witness or product acceptance already exists. PRIME owns review and merge. Prefer product progress over repeated process updates; update the single roadmap only for material facts.
+Buddy #1623/APP0051 is merged and deployed on8000/5202, preserving retained
+sources/state. Manual immutable revisions and explicit selected-actor adoption are
+proved in a synthetic encounter, including tracker changes and protected restart.
+The next [scene ownership contract](HANDOFF-COMBAT-scene-template.md) sequences
+Plan template preparation before exact Run-owned encounter materialization; its
+C1 implementation is reviewed/live with ordinary scene-template draft/history/
+restart proof. [C2](HANDOFF-COMBAT-run-scene-encounters.md) defines exact Run capture,
+initialization and server ownership; its implementation and real adventure
+acceptance remain open. Root discovery/composer repairs and Session29 selector/reload are
+witnessed. The new exact excerpt fix still requires its original-query live
+acceptance; repeated roughly10-second grounding, connected image follow-through,
+external recap/memory, full two-adventure J1–J6 twice and8GB evidence remain open.
+Do not reactivate historical dispatches or call a partial witness full acceptance.
 
 ## Activation and inheritance
 
-The operator accepted the local-first Of Conks rehearsal and consolidated Buddy demo sequencing. On 2026-09-29 the operator directed a fresh DEMO task and approved the three-slice split above. The operator appointed task `01a0efc8-f3a8-7be2-a556-33eb338338e8` to this mandate. The full mission remains unchanged.
+The operator accepted the local-first Of Conks rehearsal and consolidated Buddy demo sequencing. On 2026-09-29 the operator directed a fresh DEMO task and approved a three-slice split, now historical transfer evidence in Git. The operator appointed task `01a0efc8-f3a8-7be2-a556-33eb338338e8` to this mandate. The full mission remains unchanged.
 
 The former DEMO task `01a0885e-375c-7501-9f6e-a58528b39894` was archived. Its successor `01a0edf2-b1e1-7281-9448-1d5524f8d4f8` was told to stop and preserve its checkout after #793 closed. Neither may resume #793 implementation or use the shared runtime without a new PRIME lease. Before implementation, verify their exact refs, drafts/untracked material and runtime/process leases; do not disturb the untracked licensed corpus. The fresh task starts from current remote authority and assumes no service is safe to start merely because a port appears free.
 
@@ -76,7 +85,7 @@ The operator's 2026-09-27 ecosystem merge-control assignment to PRIME remains in
 
 ## Operating authority after activation
 
-The adopted mandate permits the steward to:
+The adopted bounded assignment permits its named owner to:
 
 - rehearse, inspect, diagnose and prioritize the demo journey;
 - design and land bounded Buddy implementation handoffs under accepted repository
@@ -127,7 +136,7 @@ required product-state persistence. It owns bounded presentation improvements
 observed on this journey using the accepted UI substrate.
 
 DEMO does not own generic DungeonMind semantics/storage, WorldKeeper lifecycle,
-reusable provider execution, platform auth/tenancy/deployment, Canvas package
+reusable provider execution, platform auth/tenancy/deployment, shared UI package
 internals, Rules/Jev research, general PC progression, or a new universal UI or
 agent framework. It may consume their accepted capabilities and expose defects.
 
@@ -181,9 +190,9 @@ request, not a vague instruction to make the demo work.
 - **WORLDKEEPER** — `01a0c9dc-c685-70d3-b766-8bc2f91b06a8`: preparation,
   confirmation, semantic transaction coordination and verified-result contracts.
 - **ARCHITECTURE** — `01a086f2-c457-7b10-b753-df6063cab1ce`: observed E5/GE
-  execution work and cross-repository ownership questions. Route Canvas/shared
+  execution work and cross-repository ownership questions. Route shared
   UI package needs here for explicit current-owner confirmation; do not assume
-  this task already holds a Canvas implementation lease.
+  this task already holds a shared UI implementation lease.
 - **SERVER** — `01a0dbd8-4d8d-7372-a9bc-ea25c2d59a19`: platform/server producer,
   assets/auth/deployment dependencies; coordinate with its ongoing Rules/GE work
   rather than displacing that work silently.
@@ -216,8 +225,9 @@ status pings without new information; inspect/wait on the existing task.
 
 ## Parallel execution
 
-Start with at most three active DEMO implementation lanes, plus stewardship and
-independent review. This is a proposed WIP limit, not a requirement to fill slots.
+Start with at most three active DEMO implementation lanes, plus coordination
+explicitly assigned within the slice and independent review. This is a proposed
+WIP limit, not a requirement to fill slots.
 Default each workstream to serial unless a handoff explicitly names a safe topology.
 
 Possible lanes are Document/Agent, Knowledge consumer, Assets/Generation, and
@@ -226,7 +236,8 @@ Visual alternatives may be explored independently against the same contract.
 
 Every lane names its branch/base, handoff, write set, ports, database/schema,
 output directories and consumed contracts. Serialize shared host/registry/schema/
-lockfile changes. The steward coordinates shared demo environment changes with its designated
+lockfile changes. The named owner coordinates shared demo environment changes
+with its designated
 runtime owner/PRIME; workers do not independently start/stop servers or fix the
 shared database manually to make a witness pass.
 
@@ -265,4 +276,4 @@ hosted production acceptance. Keep completed technical evidence; do not erase
 failed rehearsals or reactivate completed scaffolds as new work.
 
 The roadmap alone owns current milestone status, active leases, delegated blockers
-and next action. This handoff changes only when the steward's mandate changes.
+and next action. This assignment changes only through an explicit update to its scope or owner.

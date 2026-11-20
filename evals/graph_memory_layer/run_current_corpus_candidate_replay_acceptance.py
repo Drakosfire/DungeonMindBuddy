@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
@@ -30,7 +31,7 @@ if str(REPO_ROOT / "src") not in sys.path:
 WORLD_ID = "dogfood-current-corpus-replay-v1"
 DATABASE_NAME = "dmb_current_corpus_replay_v1"
 EXPECTED_HOST = "127.0.0.1"
-EXPECTED_PORT = 54330
+EXPECTED_PORT = 54362
 OPERATOR = "current-corpus-candidate-replay-v1"
 OUTPUT_REL = Path("out/graph_memory/current_corpus_candidate_replay_v1")
 
@@ -274,17 +275,24 @@ def _recompute_manifest_digest(entries: Sequence[ManifestEntry], schema: str) ->
 
 
 def assert_runtime_dsn(dsn: str) -> tuple[str, int, str]:
-    parsed = urlparse(dsn)
-    host = parsed.hostname or ""
-    port = int(parsed.port or 0)
-    database = (parsed.path or "").lstrip("/")
-    if host not in {EXPECTED_HOST, "localhost"}:
+    try:
+        parsed = urlparse(dsn)
+        host = parsed.hostname or ""
+        port = parsed.port or 0
+    except ValueError as exc:
+        raise ReplayStop("malformed replay DSN", boundary="runtime_guard") from exc
+    if parsed.scheme not in {"postgresql", "postgres"} or parsed.query or parsed.fragment:
+        # libpq query parameters can override URI host/port/database or select a
+        # service. No query configuration belongs to this exact endpoint lease.
+        raise ReplayStop("replay DSN must be a plain PostgreSQL URI", boundary="runtime_guard")
+    if any(os.environ.get(key) for key in ("PGHOSTADDR", "PGSERVICE", "PGSERVICEFILE")):
+        raise ReplayStop("libpq endpoint/service environment overrides are forbidden", boundary="runtime_guard")
+    database = (parsed.path or "").removeprefix("/")
+    if host != EXPECTED_HOST:
         raise ReplayStop(
-            f"DSN host must be loopback {EXPECTED_HOST}, got {host!r}",
+            f"DSN host must be exact leased host {EXPECTED_HOST}, got {host!r}",
             boundary="runtime_guard",
         )
-    if host == "localhost":
-        host = EXPECTED_HOST
     if port != EXPECTED_PORT:
         raise ReplayStop(
             f"DSN port must be {EXPECTED_PORT}, got {port}",
@@ -295,7 +303,7 @@ def assert_runtime_dsn(dsn: str) -> tuple[str, int, str]:
             f"historical database {HISTORICAL_DATABASE_NAME!r} is forbidden",
             boundary="runtime_guard",
         )
-    if database != DATABASE_NAME:
+    if parsed.path != f"/{DATABASE_NAME}":
         raise ReplayStop(
             f"DSN database must be {DATABASE_NAME}, got {database!r}",
             boundary="runtime_guard",
@@ -304,8 +312,6 @@ def assert_runtime_dsn(dsn: str) -> tuple[str, int, str]:
 
 
 def _default_dsn() -> str:
-    import os
-
     return (
         os.environ.get("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "").strip()
         or f"postgresql://dungeonmind:dungeonmind-dev@{EXPECTED_HOST}:{EXPECTED_PORT}/{DATABASE_NAME}"
@@ -679,6 +685,13 @@ def _load_canonical_source_artifact(
     entry: ManifestEntry,
     seams: ReplaySeams,
 ):
+    if not entry.source_artifact_id.startswith("artifact:recap:v2:"):
+        raise ReplayStop(
+            "accepted manifest contains a legacy worldless recap source identity; replay refuses to rebind it",
+            boundary="exact_source_admission",
+            campaign_id=entry.campaign_id,
+            session_id=entry.session_id,
+        )
     if seams.load_source_artifact is not None:
         artifact = seams.load_source_artifact(repo_root=repo_root, entry=entry)
     else:
@@ -688,6 +701,7 @@ def _load_canonical_source_artifact(
 
         artifact = create_recap_source_artifact(
             repo_root,
+            world_id=WORLD_ID,
             campaign_id=entry.campaign_id,
             session_id=entry.session_id,
             recap_path=repo_root / entry.original_path,
@@ -702,18 +716,13 @@ def _load_canonical_source_artifact(
             session_id=entry.session_id,
         )
     existing_world = getattr(artifact, "world_id", None)
-    if existing_world not in {None, "", WORLD_ID}:
+    if existing_world != WORLD_ID:
         raise ReplayStop(
-            f"canonical source artifact world_id {existing_world!r} is not the replay World",
+            f"canonical source artifact world_id {existing_world!r} is not the verified replay World",
             boundary="exact_source_admission",
             campaign_id=entry.campaign_id,
             session_id=entry.session_id,
         )
-    if existing_world != WORLD_ID:
-        if hasattr(artifact, "model_copy"):
-            artifact = artifact.model_copy(update={"world_id": WORLD_ID})
-        else:
-            setattr(artifact, "world_id", WORLD_ID)
     return artifact
 
 
@@ -772,6 +781,8 @@ def _admit_and_confirm(
     source_admission = None if seams.prepare_admission is not None else _source_admission_authority(dsn=dsn)
     prepare_kwargs = dict(
         candidate_graph=candidate_graph,
+        # Explicit frozen replay input; native admission verifies its actual bytes.
+        source_body=(repo_root / entry.original_path).read_bytes(),
         source_uri=source_uri,
         source_revision_id=source_revision_id,
         prepared_by=OPERATOR,
@@ -1718,6 +1729,7 @@ def run_product_smoke(
     seams: ReplaySeams | None = None,
     genesis_d0: str | None = None,
 ) -> dict[str, Any]:
+    assert_runtime_dsn(dsn)
     seams = seams or ReplaySeams()
     c1 = _project_campaign(
         dsn=dsn, campaign_id="longmont-c1", revision_pin=terminal_head, seams=seams
@@ -1890,7 +1902,7 @@ def run_preflight(
     require_clean_worktree: bool = False,
 ) -> ReplayState:
     """Zero model calls; zero graph mutation."""
-    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
 
     load_dungeonmindbuddy_dotenv()
     root = (repo_root or REPO_ROOT).resolve()
@@ -1937,7 +1949,7 @@ def run_execute(
     require_clean_worktree: bool = False,
 ) -> ReplayState:
     """Fresh pristine replay; stop on first failure. Never resumes."""
-    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
 
     load_dungeonmindbuddy_dotenv()
     root = (repo_root or REPO_ROOT).resolve()
@@ -2087,7 +2099,7 @@ def run_product_smoke_from_run(
         or []
     )
     dsn_value = dsn or str(report.get("dsn") or "") or _default_dsn()
-    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
 
     load_dungeonmindbuddy_dotenv()
     assert_runtime_dsn(dsn_value)

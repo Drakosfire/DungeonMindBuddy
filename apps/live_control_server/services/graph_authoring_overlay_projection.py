@@ -101,7 +101,7 @@ def authored_relationship_edge_id(assertion_id: str) -> str:
 
 def _resolve_store(corpus_root: Path | None) -> GraphAuthoringOverlayStore:
     if corpus_root is None:
-        from src.live_play.recap_stage_paths import corpus_root as default_corpus_root
+        from live_play.recap_stage_paths import corpus_root as default_corpus_root
 
         return GraphAuthoringOverlayStore(default_corpus_root())
     return GraphAuthoringOverlayStore(corpus_root)

@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+from tests.application_state.session_encounter_helpers import session_request
+
 import asyncio
+import hashlib
+import json
+import logging
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -24,7 +30,7 @@ from application_state.agent_conversation.types import (
     TurnProvenance,
     TurnSubmission,
 )
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 
 class FakeRuntime:
@@ -38,6 +44,32 @@ class FakeRuntime:
         return AgentRuntimeResult(
             status="ok", final_text="A simple answer.", runtime_session_id="runtime-1"
         )
+
+    def run_with_provider_authorization(self, invocation, authorize, *, request_budget,
+            on_graph_operation, on_provider_lifecycle, on_native_provider_reply,
+            native_rules_capture_required):
+        """Current ordinary native parent, with a captured no-lookup provider reply."""
+        from apps.live_control_server.services.native_rules_capture import NativeProviderReply
+
+        body = json.dumps({"model":request_budget["model"],"input":[{"role":"user", "content":invocation.message}],
+            "max_output_tokens":request_budget["outputReserveTokens"]})
+        view = {"provider":request_budget["provider"], "model":request_budget["model"],
+            "apiMode":request_budget["apiMode"], "baseUrl":None, "payloadJson":body,
+            "payloadSha256":hashlib.sha256(body.encode()).hexdigest(), "payloadUtf8Bytes":len(body.encode())}
+        assert authorize(view)
+        assert on_provider_lifecycle({"transition":"sdk_entered"})
+        result = self.run(invocation)
+        if result.status == "ok" and result.final_text:
+            text = result.final_text
+            assert on_provider_lifecycle({"transition":"response_received"})
+            assert on_native_provider_reply(NativeProviderReply(
+                authorization_id="host:1", api_request_id=str(uuid4()), provider=view["provider"],
+                model=view["model"], api_mode=view["apiMode"], request_sha256=view["payloadSha256"],
+                finish_reason="stop", status="answered", text=text,
+                text_sha256=hashlib.sha256(text.encode()).hexdigest(), text_utf8_bytes=len(text.encode()), tool_calls=()))
+        else:
+            assert on_provider_lifecycle({"transition":"outcome_unknown"})
+        return result
 
 
 def _payload() -> dict[str, Any]:
@@ -53,6 +85,2442 @@ def _payload() -> dict[str, Any]:
         "graph_selection": None,
         "message": "What can you help me with?",
     }
+
+
+def _play_turn_payload(*, revision: int = 7) -> dict[str, Any]:
+    from tests.test_agent_play_surface_context import RUN_ID
+
+    return {
+        **_payload(),
+        "turn_id": "play-turn-1",
+        "surface": {"surface_id": "play", "instance_id": "play-main"},
+        "owner_scope": {"kind": "world", "world_id": "world-a"},
+        "primary_work": {
+            "kind": "run", "object_id": RUN_ID, "expected_revision": revision,
+            "play_content_basis": {
+                "edition_revision": 0, "edition_revision_id": None,
+                "content_sha256": "c" * 64,
+            },
+        },
+        "client_work_state": "saved_clean",
+        "play_target":{"beat_id":"beat:hold-the-gate","scene_id":"scene:gate-line","marker_grammar_version":"v2"},
+    }
+
+
+def _native_lookup_roundtrip(body, view, authorize, on_graph_operation, on_provider_lifecycle,
+                             on_native_provider_reply, *, question, count=2):
+    """Exercise the actual native parent broker with exact captured SDK identities."""
+    from uuid import uuid4
+    from application_state.agent_conversation.rules_authority_policy import RULESET
+    from apps.live_control_server.services.native_rules_capture import NativeProviderReply, NativeToolReply
+
+    args = {"question": question, "ruleset_id": RULESET}
+    raw_args, packets = json.dumps(args), []
+    for index in range(count):
+        call_id = f"lookup-{index}"
+        assert on_provider_lifecycle({"transition": "response_received"})
+        assert on_native_provider_reply(NativeProviderReply(
+            authorization_id=str(authorize.__self__.rules_runtime.authorization_id),
+            api_request_id=str(uuid4()), provider=view["provider"], model=view["model"],
+            api_mode=view["apiMode"], request_sha256=view["payloadSha256"],
+            finish_reason="tool_calls", status="tool_calls", text=None,
+            text_sha256=None, text_utf8_bytes=0,
+            tool_calls=(NativeToolReply(call_id=call_id, name="lookup_rules",
+                arguments_json=raw_args, arguments_sha256=hashlib.sha256(raw_args.encode()).hexdigest()),),
+        ))
+        output = on_graph_operation({"toolName": "lookup_rules", "modelCallId": call_id, "arguments": args})
+        packets.append(json.loads(output["resultJson"]))
+        body["input"].extend([
+            {"type": "function_call", "call_id": call_id, "name": "lookup_rules", "arguments": raw_args},
+            {"type": "function_call_output", "call_id": call_id, "output": output["resultJson"]},
+        ])
+        encoded = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        view = {**view, "payloadJson": encoded, "payloadSha256": hashlib.sha256(encoded.encode()).hexdigest(),
+            "payloadUtf8Bytes": len(encoded.encode()), "providerAttemptId": str(uuid4())}
+        assert authorize(view), str(authorize.__self__.failure)
+        assert on_provider_lifecycle({"transition": "sdk_entered"})
+    return view, packets
+
+
+def _persisted_world_play_fixture(world_id: str = "world-a"):
+    """Create the APP-owned Run and source used by route-level Play tests."""
+    from application_state.content.service import create_world_plan, commit_plan
+    from application_state.play.service import create_world_play_run, replace_world_play_run_progress
+    from apps.live_control_server.services.play_run_reference_manifest import derive_sealed_manifest
+    from tests.test_agent_play_surface_context import DOC_ID, RUN_ID, _world_play_record
+    from tests.test_play_run_reference_manifest import C2S27_SHAPED_V2_MARKDOWN
+
+    plan = create_world_plan(title="Route Play source", world_id=world_id, document_id=DOC_ID)
+    plan, revision = commit_plan(
+        str(plan.work_object_id), C2S27_SHAPED_V2_MARKDOWN,
+        expected_world_id=world_id, expected_revision=plan.object_revision,
+    )
+    created = create_world_play_run(world_id=world_id, run_id=RUN_ID, request=session_request(world_id=world_id, playable_artifact_id=plan.work_object_id, expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)).aggregate
+    progress = {
+        "current_scene_id": "scene:gate-line", "current_beat_id": "beat:hold-the-gate",
+        "resolved_beat_ids": [], "selections": {},
+        "notes_by_element_id": {"scene:gate-line": "Keep the eastern gate clear."},
+    }
+    updated = replace_world_play_run_progress(
+        world_id=world_id, run_id=RUN_ID,
+        expected_run_revision=created.run.run_revision, progress=progress,
+    ).run
+    record = _world_play_record(
+        world_id=world_id, playable_artifact_id=str(plan.work_object_id),
+        playable_revision=updated.playable_revision_n,
+        playable_work_revision_id=str(updated.playable_work_revision_id),
+        playable_content_sha256=updated.playable_content_sha256,
+        run_revision=updated.run_revision, progress=updated.progress,
+    )
+    committed = {
+        "world_id": world_id, "document_id": str(plan.work_object_id),
+        "object_revision": plan.object_revision,
+        "work_revision_id": str(revision.work_revision_id),
+        "revision_n": revision.revision_n, "content_sha256": revision.content_sha256,
+        "markdown": C2S27_SHAPED_V2_MARKDOWN,
+    }
+    manifest = derive_sealed_manifest(
+        C2S27_SHAPED_V2_MARKDOWN, run_id=RUN_ID,
+        playable_artifact_id=str(plan.work_object_id),
+        playable_revision=revision.revision_n,
+        playable_content_sha256=revision.content_sha256,
+        sealed_at="2026-01-01T00:00:00Z",
+    )
+    return record, committed, manifest
+
+
+def _play_payload_for_record(record, **overrides: Any) -> dict[str, Any]:
+    revision = overrides.pop("revision", record.run_revision)
+    payload = _play_turn_payload(revision=revision)
+    payload["primary_work"]["play_content_basis"]["content_sha256"] = record.playable_content_sha256
+    payload.update(overrides)
+    return payload
+
+
+@pytest.mark.parametrize("include_turn_correlation", [False, True])
+def test_play_graph_history_uses_play_context_projection(
+    monkeypatch: Any, include_turn_correlation: bool,
+) -> None:
+    from apps.live_control_server.routes import agent as route
+    from starlette.requests import Request
+    from apps.live_control_server.models.agent_turn import (
+        AgentConversationHistoryResponseV2,
+        AgentConversationHistoryResponseV3,
+    )
+    from tests.test_play_graph_records import retained as retained_play_turn
+
+    turn = retained_play_turn(completed=True)
+    pointer = SimpleNamespace(revision=4, active_conversation_id=turn.conversation_id)
+    conversation = SimpleNamespace(conversation_id=turn.conversation_id)
+
+    class HistoryService:
+        def get_world_pointer(self, _world_id: str):
+            return pointer
+
+        def get_active_conversation(self, _world_id: str):
+            return conversation
+
+        def list_turns(self, _world_id: str, _conversation_id: UUID, **_kwargs: Any):
+            return [turn]
+
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: None)
+    monkeypatch.setattr(route, "_verified_world_id", lambda world_id: world_id)
+    monkeypatch.setattr(route, "_conversation_service", lambda _request: HistoryService())
+    request = Request({
+        "type": "http", "method": "GET", "path": "/",
+        "headers": [], "query_string": b"",
+    })
+    response = route.get_world_conversation_history(
+        "world-one", request, limit=50, before_sequence=None,
+        include_turn_correlation=include_turn_correlation,
+    )
+
+    expected_response = (
+        AgentConversationHistoryResponseV3
+        if include_turn_correlation
+        else AgentConversationHistoryResponseV2
+    )
+    assert isinstance(response, expected_response)
+    history_turn = response.turns[0]
+    assert hasattr(history_turn, "play_context")
+    assert not hasattr(history_turn, "plan_context")
+    assert history_turn.play_context.receipt.schema_ == (
+        "dmb_play_world_graph_context_receipt_v1"
+    )
+    assert history_turn.play_context.delivery_replay is True
+
+
+@pytest.fixture
+def _mock_atomic_play_context_snapshot(monkeypatch: Any) -> None:
+    """Route tests bind the typed atomic snapshot to their existing read fakes."""
+    from application_state.play.edition_types import RunContent
+    from application_state.play.types import PlayRun
+    from apps.live_control_server.services import agent_play_surface_context as play
+
+    def snapshot(*, run_id: str, world_id: str):
+        record = play.get_world_play_run(world_id=world_id, run_id=run_id)
+        committed = play.get_committed_playable_revision(
+            record.playable_artifact_id, revision_n=record.playable_revision,
+            expected_sha256=record.playable_content_sha256, kind=None,
+            expected_world_id=world_id,
+        )
+        run = PlayRun.model_construct(
+            run_id=record.run_id, campaign_id=None, world_id=world_id,
+            playable_work_object_id=record.playable_artifact_id,
+            playable_revision_n=record.playable_revision,
+            playable_work_revision_id=record.playable_work_revision_id,
+            playable_content_sha256=record.playable_content_sha256,
+            run_revision=record.run_revision, progress=record.progress.model_dump(),
+            rebased_from_run_revision=None,
+        )
+        content = RunContent.model_construct(
+            world_id=world_id, run_id=run_id,
+            origin=SimpleNamespace(
+                playable_artifact_id=record.playable_artifact_id,
+                playable_revision=record.playable_revision,
+                playable_work_revision_id=record.playable_work_revision_id,
+                playable_content_sha256=record.playable_content_sha256,
+            ),
+            source="pinned", edition_revision=0, edition_revision_id=None,
+            markdown=committed.markdown, content_sha256=record.playable_content_sha256,
+            committed_at=datetime.now(UTC), observed_run_revision=record.run_revision,
+            structure_sha256="d" * 64,
+        )
+        return run, content
+
+    monkeypatch.setattr(play, "read_context_snapshot", snapshot)
+    monkeypatch.setattr("application_state.play.session_review.read_review", lambda **_: {"review":None,"source_changed":False}, raising=False)
+
+
+def test_play_run_turn_requires_world_owner_and_bounded_graph_intent() -> None:
+    payload = _play_turn_payload()
+    world_graph = {
+        "mode": "world", "world_id": "world-a", "campaign_id": None,
+        "revision_pin": None,
+        "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+    }
+    native_play = {
+        **payload,
+        "graph_request": world_graph,
+        "play_target": {
+            "beat_id": "beat:hold-the-gate",
+            "scene_id": "scene:gate-line",
+            "marker_grammar_version": "v2",
+        },
+    }
+    assert AgentTurnRequest.model_validate({
+        **native_play,
+    }).graph_request.mode == "world"
+    with pytest.raises(ValueError, match="exact saved edition and Beat/Scene target"):
+        AgentTurnRequest.model_validate({**payload, "graph_request": world_graph, "play_target":None})
+    for change in (
+        {"owner_scope": None},
+        {"surface": {"surface_id": "plan", "instance_id": "plan-main"}},
+        {"graph_request": {**world_graph, "world_id": "world-b"}},
+        {"graph_request": world_graph, "primary_work": None, "client_work_state": "none"},
+        {"graph_request": {**world_graph, "campaign_id": "campaign-a"}},
+        {"graph_request": {**world_graph, "revision_pin": "old"}},
+        {"graph_request": {**world_graph, "focus": {
+            "kind": "session", "session_id": "session-a", "campaign_id": None,
+        }}},
+        {"graph_request": world_graph, "graph_selection": {"node_id": "node-a"}},
+    ):
+        with pytest.raises(ValueError):
+            AgentTurnRequest.model_validate({**native_play, **change})
+
+
+@pytest.mark.usefixtures("_mock_atomic_play_context_snapshot")
+def test_world_play_turn_admits_exact_current_run_and_freezes_receipt(
+    tmp_path: Path, monkeypatch: Any,
+) -> None:
+    from unittest.mock import patch
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services.agent_turn_service import _conversation_provenance
+    from application_state.agent_conversation.types import decode_play_run_turn_context_references
+    from tests.test_agent_play_surface_context import (
+        _manifest, _world_committed, _world_play_record,
+    )
+
+    monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
+    with (
+        patch("apps.live_control_server.services.world_container_registry.get_world_container",
+              return_value=SimpleNamespace(world_id="world-a", name="World A")),
+        patch("apps.live_control_server.services.agent_play_surface_context.get_world_play_run",
+              return_value=_world_play_record()),
+        patch("apps.live_control_server.services.agent_play_surface_context.get_committed_playable_revision",
+              return_value=_world_committed()),
+        patch("apps.live_control_server.services.agent_play_surface_context.get_world_play_run_reference_manifest",
+              return_value=_manifest()),
+    ):
+        request = AgentTurnRequest.model_validate(_play_turn_payload())
+        work = route._work_resolver(request, {"kind": "world", "id": "world-a"})
+    assert work is not None and work.surface_context.current_play is not None
+    assert work.surface_context.current_play.current_beat.element_id == "beat:hold-the-gate"
+    provenance = _conversation_provenance(request, world_id="world-a", work=work)
+    receipt = decode_play_run_turn_context_references(
+        provenance.primary_work, provenance.supporting_work,
+    )
+    assert receipt is not None
+    assert receipt.run_revision == 7
+    assert receipt.scene_id == "scene:gate-line"
+    assert receipt.runbook_content_sha256 == "c" * 64
+
+
+@pytest.mark.usefixtures("_mock_atomic_play_context_snapshot")
+def test_world_play_turn_rejects_missing_or_stale_content_basis_before_runtime(
+    tmp_path: Path, monkeypatch: Any,
+) -> None:
+    from unittest.mock import patch
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services import agent_play_surface_context as play
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    from tests.test_agent_play_surface_context import _manifest, _world_committed, _world_play_record
+
+    monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
+    common = (
+        patch("apps.live_control_server.services.world_container_registry.get_world_container",
+              return_value=SimpleNamespace(world_id="world-a", name="World A")),
+        patch.object(play, "get_world_play_run", return_value=_world_play_record()),
+        patch.object(play, "get_committed_playable_revision", return_value=_world_committed()),
+        patch.object(play, "get_world_play_run_reference_manifest", return_value=_manifest()),
+    )
+    with common[0], common[1], common[2], common[3]:
+        with pytest.raises(ValueError,match="exact saved edition and Beat/Scene target"):
+            AgentTurnRequest.model_validate({
+                **_play_turn_payload(),
+                "primary_work": {**_play_turn_payload()["primary_work"], "play_content_basis": None},
+            })
+
+        original_snapshot = play.read_context_snapshot
+        monkeypatch.setattr(play, "read_context_snapshot", lambda **kwargs: (
+            original_snapshot(**kwargs)[0],
+            original_snapshot(**kwargs)[1].model_copy(update={"content_sha256": "e" * 64}),
+        ))
+        request = AgentTurnRequest.model_validate(_play_turn_payload())
+        with pytest.raises(AgentTurnServiceError, match="saved session context") as stale:
+            route._work_resolver(request, {"kind": "world", "id": "world-a"})
+        assert stale.value.provider_dispatched is False
+
+
+def test_historical_play_retry_uses_original_runbook_and_moment(
+    tmp_path: Path, monkeypatch: Any,
+) -> None:
+    from unittest.mock import patch
+    from apps.live_control_server.routes import agent as route
+    from application_state.agent_conversation.types import (
+        PlayRunTurnContextReceiptV1, TurnProvenance,
+        encode_play_run_turn_context_references,
+    )
+    from tests.test_agent_play_surface_context import RUN_ID, DOC_ID, _world_committed
+
+    receipt = PlayRunTurnContextReceiptV1.model_validate({
+        "schema": "dmb_play_run_turn_context_receipt_v1",
+        "run_id": RUN_ID, "run_revision": 7,
+        "runbook_object_id": DOC_ID, "runbook_object_revision": 2,
+        "runbook_work_revision_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        "runbook_revision_n": 1, "runbook_content_sha256": "c" * 64,
+        "beat_id": "beat:hold-the-gate", "scene_id": "scene:gate-line",
+    })
+    primary, supporting = encode_play_run_turn_context_references(receipt)
+    provenance = TurnProvenance(
+        world_id="world-a", surface_resolution="resolved", surface_id="play",
+        primary_work=primary, supporting_work=supporting,
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
+    with (
+        patch("apps.live_control_server.services.world_container_registry.get_world_container",
+              return_value=SimpleNamespace(world_id="world-a", name="World A")),
+        patch("apps.live_control_server.services.agent_play_surface_context.get_committed_playable_revision",
+              return_value=_world_committed()),
+        patch("apps.live_control_server.services.agent_play_surface_context.get_world_play_run") as get_current_run,
+    ):
+        work = route._historical_work_resolver(
+            AgentTurnRequest.model_validate(_play_turn_payload()),
+            {"kind": "world", "id": "world-a"}, provenance,
+        )
+    assert work is not None
+    assert work.surface_context.current_play.current_beat.element_id == receipt.beat_id
+    assert work.surface_context.current_play.current_scene.element_id == receipt.scene_id
+    get_current_run.assert_not_called()
+
+
+@pytest.mark.usefixtures("_mock_atomic_play_context_snapshot")
+def test_world_play_http_turn_replays_without_current_run_or_provider(
+    tmp_path: Path, monkeypatch: Any, application_state_dsn: str,
+) -> None:
+    from unittest.mock import patch
+    from apps.live_control_server.main import create_app
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services import agent_play_surface_context as play
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.agent_conversation.types import ConversationCommand
+    from tests.test_agent_play_surface_context import (
+        _world_committed, _world_play_record,
+    )
+
+    assert application_state_dsn
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="test-operator"))
+    service = AgentConversationService()
+    pointer = service.get_world_pointer("world-a")
+    service.new_conversation(ConversationCommand(
+        world_id="world-a", command_id=uuid4(),
+        expected_pointer_revision=pointer.revision,
+        expected_active_conversation_id=pointer.active_conversation_id,
+    ))
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="test-operator"))
+    monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
+    monkeypatch.setattr(route, "get_world_container", lambda _world: SimpleNamespace(world_id="world-a", name="World A"))
+    runtime = FakeRuntime()
+    app = create_app()
+    app.state.agent_turn_runtime = runtime
+    app.state.agent_conversation_service = service
+    monkeypatch.setattr(route, "_conversation_service", lambda _request: service)
+    run_record, committed_record, manifest_record = _persisted_world_play_fixture()
+    payload = _play_payload_for_record(run_record)
+
+    async def request_turn(value: dict[str, Any]) -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            return await client.post("/api/live/agent/turn", json=value)
+
+    with (
+        patch("apps.live_control_server.services.world_container_registry.get_world_container",
+              return_value=SimpleNamespace(world_id="world-a", name="World A")),
+        patch.object(play, "get_world_play_run", return_value=run_record) as get_run,
+        patch.object(play, "get_committed_playable_revision", return_value=_world_committed(**committed_record)) as get_runbook,
+        patch.object(play, "get_world_play_run_reference_manifest", return_value=manifest_record),
+    ):
+        first = asyncio.run(request_turn(payload))
+        assert first.status_code == 200, first.text
+        assert first.json()["owner_scope"]["status"] == "resolved", first.text
+        assert first.json()["conversation"]["conversation_id"] is not None, first.text
+        assert len(runtime.invocations) == 1
+        assert runtime.invocations[0].context_packet.surface_context.current_play.current_beat.element_id == "beat:hold-the-gate"
+        assert runtime.invocations[0].context_packet.surface_context.current_play.saved_scene_note == "Keep the eastern gate clear."
+        assert get_run.call_count == 2  # legacy wrapper plus locked atomic snapshot
+        get_run.side_effect = AssertionError("completed retry read mutable Run")
+        get_runbook.side_effect = AssertionError("completed retry read mutable Runbook")
+        again = asyncio.run(request_turn(payload))
+        assert again.status_code == 200, again.text
+        assert again.json()["answer"]["text"] == first.json()["answer"]["text"]
+        assert len(runtime.invocations) == 1
+        assert get_run.call_count == 2
+        altered = asyncio.run(request_turn({**payload, "message": "Changed question"}))
+        assert altered.status_code == 409
+        get_run.side_effect = None
+        get_runbook.side_effect = None
+        stale_payload = _play_payload_for_record(run_record, revision=run_record.run_revision - 1)
+        stale = asyncio.run(request_turn({**stale_payload, "turn_id": "play-stale"}))
+        assert stale.status_code == 409
+        get_run.return_value = _world_play_record(world_id="world-b")
+        foreign = asyncio.run(request_turn({**payload, "turn_id": "play-foreign"}))
+        assert foreign.status_code == 409
+        assert len(runtime.invocations) == 1
+        plan = asyncio.run(request_turn({
+            **_payload(), "turn_id": "plan-after-play",
+            "surface": {"surface_id": "plan", "instance_id": "plan-main"},
+            "owner_scope": {"kind": "world", "world_id": "world-a"},
+        }))
+        assert plan.status_code == 200, plan.text
+
+        async def get_history() -> httpx.Response:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                return await client.get("/api/live/agent/worlds/world-a/conversation")
+
+        history = asyncio.run(get_history())
+        assert history.status_code == 200, history.text
+        turns = history.json()["turns"]
+        assert [turn["provenance"]["surface_id"] for turn in turns] == ["play", "plan"]
+        assert turns[0]["provenance"]["primary_work"]["kind"] == "run"
+        persisted_turns = service.list_turns(
+            "world-a", UUID(history.json()["conversation_id"]), limit=10,
+        )
+        assert persisted_turns[0].play_context_receipt is not None
+        assert persisted_turns[0].play_context_receipt.schema_ == "dmb_play_run_turn_context_receipt_v2"
+        assert persisted_turns[0].play_context_receipt.scene_note == "Keep the eastern gate clear."
+        assert turns[1]["provenance"]["primary_work"]["resolution"] == "absent"
+
+
+@pytest.mark.usefixtures("_mock_atomic_play_context_snapshot")
+@pytest.mark.parametrize("rules_case", ["unused", "occupancy", "travel", "unavailable"])
+def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
+    tmp_path: Path, monkeypatch: Any, application_state_dsn: str, rules_case: str,
+) -> None:
+    from unittest.mock import patch
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.agent_conversation.types import ConversationCommand
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from apps.live_control_server.main import create_app
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services import agent_play_surface_context as play
+    from apps.live_control_server.services.world_container_registry import (
+        NativeGraphBindingRecord, create_world_container, world_source_root_relpath,
+    )
+    from apps.live_control_server.services import world_container_registry
+    from apps.live_control_server.services import managed_world_graph_projection
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from dungeonmind.infrastructure.memory import (
+        InMemorySourceRepository, InMemoryWorldGraphRepository,
+    )
+    from tests._cutover_direct_dungeonmind_read_helpers import (
+        WORLD_ID as NATIVE_ID, NOW, _FakeBundle, _payload as graph_payload,
+        _receipt, _seed_sources,
+    )
+    from tests.test_agent_play_surface_context import _world_committed, _world_play_record
+
+    assert application_state_dsn
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="test-operator"))
+    managed = create_world_container(name="Play Graph World")
+    assert managed.world_id != NATIVE_ID
+    (tmp_path / world_source_root_relpath(managed.world_id)).mkdir(parents=True, exist_ok=True)
+    binding = NativeGraphBindingRecord(
+        native_world_id=NATIVE_ID, binding_version=1, status="active",
+        validated_at="2026-10-10T00:00:00Z", validated_head_revision_id="initial",
+    )
+    current = {"record": managed.model_copy(update={"native_graph_binding": binding})}
+    monkeypatch.setattr(
+        world_container_registry, "get_world_container",
+        lambda world_id: current["record"] if world_id == managed.world_id else None,
+    )
+    monkeypatch.setattr(
+        route, "get_world_container",
+        lambda world_id: current["record"] if world_id == managed.world_id else None,
+    )
+    monkeypatch.setattr(
+        managed_world_graph_projection, "get_world_container",
+        lambda world_id: current["record"] if world_id == managed.world_id else None,
+    )
+    graph = InMemoryWorldGraphRepository()
+    first = graph.publish_revision(PublishRevisionCommand(
+        world_id=NATIVE_ID, parent_revision_id=None, expected_parent_revision_id=None,
+        operation_ids=["op:play-graph-a"], graph_schema="dm_union_graph_v6",
+        graph_payload=graph_payload(), created_at=NOW,
+    ))
+    sources = InMemorySourceRepository()
+    seed = _seed_sources()
+    for artifact_id in ("src:world-lore", "src:one-notes", "src:one-recap", "src:player-sign"):
+        artifact = seed.get_artifact(artifact_id)
+        assert artifact is not None
+        sources.put_artifact(artifact)
+        revision = seed.get_revision(artifact.current_revision_id)
+        assert revision is not None
+        sources.put_revision(revision)
+    head = {"revision": first.revision_id}
+    native_reads: list[str] = []
+
+    def direct_services(world_id: str) -> Any:
+        native_reads.append(world_id)
+        assert world_id == NATIVE_ID
+        return direct.direct_services_from_bundle(
+            _FakeBundle(graph, sources, _receipt(NATIVE_ID, head["revision"])), NATIVE_ID,
+        )
+
+    monkeypatch.setattr(direct, "direct_services_from_config", direct_services)
+    auth_token = "test-play-world-graph-operator-token"
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", auth_token)
+    monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
+    service = AgentConversationService()
+    monkeypatch.setattr(route, "_conversation_service", lambda _request: service)
+    from apps.live_control_server.services import rules_lookup as rules_reader
+    actual_query = rules_reader.query_rules
+    rule_reads = []
+
+    def query_rules(*args, **kwargs):
+        rule_reads.append(args)
+        return actual_query(*args, **kwargs)
+
+    monkeypatch.setattr(rules_reader, "query_rules", query_rules)
+    if rules_case in {"unused", "unavailable"}:
+        def unavailable_bundle(*_args):
+            if rules_case == "unused":
+                pytest.fail("unused native Rules capability loaded corpus evidence")
+            raise rules_reader.RulesCorpusUnavailable("synthetic unavailable reader")
+        monkeypatch.setattr(rules_reader, "admitted_bundle", unavailable_bundle)
+    class NativePlayRuntime(FakeRuntime):
+        def run(self, invocation: Any) -> AgentRuntimeResult:
+            pytest.fail("Governed Play Graph bypassed the parent provider gate")
+
+        def run_with_provider_authorization(
+            self, invocation: Any, authorize: Any, *, request_budget: Any,
+            on_graph_operation: Any, on_provider_lifecycle: Any,
+            on_native_provider_reply: Any = None, native_rules_capture_required: bool = False,
+            **_options: Any,
+        ) -> AgentRuntimeResult:
+            from hashlib import sha256
+            from uuid import uuid4
+            from apps.live_control_server.services.agent_turn_service import (
+                _expected_initial_claim_packet,
+            )
+            from apps.live_control_server.services.native_play_graph_owner import (
+                native_play_input_message, prepare_play_sources,
+            )
+            from apps.live_control_server.services.native_rules_capture import NativeProviderReply
+
+            assert callable(on_graph_operation)
+            from dataclasses import replace
+            from apps.live_control_server.services.hermes_agent_runtime import map_invocation_to_hermes_request
+            from apps.live_control_server.services.hermes_graph_agent_contract import (
+                serialize_hermes_graph_agent_turn_request, deserialize_hermes_graph_agent_turn_request)
+            mapped = map_invocation_to_hermes_request(invocation)
+            assert mapped.input_kind == "server_assembled_saved_work"
+            wire = serialize_hermes_graph_agent_turn_request(replace(mapped,request_budget=request_budget,
+                provider_authorization_required=True,parent_graph_broker_required=True,
+                native_rules_capture_required=native_rules_capture_required))
+            assert deserialize_hermes_graph_agent_turn_request(wire).question == mapped.question
+            packet = _expected_initial_claim_packet(
+                authorize.__self__.bootstrap,
+                authorize.__self__.initial_session_projection,
+            )
+            source_frame, _moment = prepare_play_sources(
+                authorize.__self__.request, authorize.__self__.work,
+            )
+            play_input = native_play_input_message(authorize.__self__.request, source_frame)
+            policy = json.dumps({"initialClaimPacket": packet}, sort_keys=True, separators=(",", ":"))
+            body = {
+                "model": request_budget["model"],
+                "input": [
+                    {"role": "system", "content": "Turn capability policy (runtime-enforced; also required on tool calls):\n" + policy},
+                    {"role": "user", "content": play_input},
+                ],
+                "tools": [], "max_output_tokens": min(128, request_budget["outputReserveTokens"]),
+                "store": False,
+            }
+            encoded = json.dumps(body, sort_keys=True, separators=(",", ":"))
+            digest = sha256(encoded.encode()).hexdigest()
+            api_request_id = str(uuid4())
+            view = {
+                "provider": request_budget["provider"], "model": request_budget["model"],
+                "apiMode": request_budget["apiMode"], "payloadJson": encoded,
+                "payloadSha256": digest, "payloadUtf8Bytes": len(encoded.encode()),
+                "providerAttemptId": str(uuid4()),
+            }
+            if not authorize(view):
+                raise AssertionError(getattr(authorize.__self__.failure, "code", None))
+            assert on_provider_lifecycle({"transition": "sdk_entered"})
+            if rules_case != "unused":
+                question = ("How far can we travel in a day?" if rules_case == "travel" else
+                            "Can I willingly end my move in a prone ally space?")
+                view, packets = _native_lookup_roundtrip(body, view, authorize, on_graph_operation,
+                    on_provider_lifecycle, on_native_provider_reply, question=question)
+                digest = view["payloadSha256"]
+                if rules_case == "occupancy":
+                    assert [packet["status"] for packet in packets] == ["evidence", "evidence"]
+                    assert packets[0]["emitted_support_ids"] and not packets[1]["emitted_support_ids"]
+                    assert packets[1]["previous_support_ids"] == packets[0]["emitted_support_ids"]
+                    capsule = packets[0]["support_capsules"][0]
+                    segment = {"kind": "rules_claim", "text": capsule["excerpt_text"],
+                        "support_ids": [capsule["support_id"]]}
+                else:
+                    expected = "no_evidence" if rules_case == "travel" else "unavailable"
+                    assert [packet["status"] for packet in packets] == [expected, expected]
+                    segment = {"kind": "rules_context", "category": "gap",
+                        "text": "The admitted rules evidence does not answer this question."}
+                final_text = json.dumps({"schema": "dmb_rules_mixed_answer_v1", "base_output": None,
+                    "rules_segments": [segment], "ordered_refs": [{"domain": "rules", "segment_index": 0}]})
+                api_request_id = str(uuid4())
+            else:
+                final_text = json.dumps({
+                    "schema":"dmb_surface_evidence_answer_v5", "limitations":[], "requested_detail_gaps":[],
+                    "answer_segments":[{"kind":"authored_excerpt","selection_id":next(
+                        block['selection_id'] for source in json.loads(play_input)['source_frame']['sources']
+                        for block in source['text_blocks'] if block['text'].strip())}],
+                })
+            if native_rules_capture_required:
+                assert callable(on_native_provider_reply)
+                reply_bytes = final_text.encode()
+                captured = NativeProviderReply(
+                    authorization_id=str(authorize.__self__.rules_runtime.authorization_id),
+                    api_request_id=api_request_id, provider=view["provider"], model=view["model"],
+                    api_mode=view["apiMode"], request_sha256=digest, finish_reason="stop",
+                    status="answered", text=final_text, text_sha256=sha256(reply_bytes).hexdigest(),
+                    text_utf8_bytes=len(reply_bytes), tool_calls=(),
+                )
+                assert on_native_provider_reply(captured)
+            assert on_provider_lifecycle({"transition": "response_received"})
+            self.invocations.append(invocation)
+            return AgentRuntimeResult(
+                status="ok", final_text=final_text,
+                runtime_session_id="native-play-graph-route-test",
+            )
+
+    runtime = NativePlayRuntime()
+    app = create_app()
+    from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+
+    rejected_proofs = []
+
+    class ProofCheckingService(AgentConversationService):
+        def complete_native_base_turn(self, result, *, output_proof, expected_rules_revision):
+            # These refusals run against the same live locked PostgreSQL row.
+            with pytest.raises(ApplicationStateValidationError, match="producing-output proof"):
+                self.complete_turn(result)
+            rejected_proofs.append("missing")
+            with pytest.raises(ApplicationStateConflictError, match="Rules ledger"):
+                super().complete_native_base_turn(result, output_proof=output_proof,
+                    expected_rules_revision=expected_rules_revision + 1)
+            rejected_proofs.append("stale")
+            candidate = json.loads(output_proof.raw_output_json)
+            candidate['answer_segments'][0]['selection_id'] += '-forged'
+            raw = json.dumps(candidate)
+            assert raw != output_proof.raw_output_json
+            forged = output_proof.model_copy(update={"raw_output_json": raw,
+                "raw_output_sha256": hashlib.sha256(raw.encode()).hexdigest(),
+                "raw_output_utf8_bytes": len(raw.encode())})
+            with pytest.raises(ApplicationStateValidationError, match="captured bytes"):
+                super().complete_native_base_turn(result, output_proof=forged,
+                    expected_rules_revision=expected_rules_revision)
+            rejected_proofs.append("forged")
+            return super().complete_native_base_turn(result, output_proof=output_proof,
+                expected_rules_revision=expected_rules_revision)
+
+    service = ProofCheckingService()
+    app.state.agent_conversation_service = service
+    app.state.agent_turn_runtime = runtime
+    run_record, committed_record, manifest_record = _persisted_world_play_fixture(managed.world_id)
+    payload = {
+        **_play_payload_for_record(run_record),
+        "owner_scope": {"kind": "world", "world_id": managed.world_id},
+        "graph_request": {
+            "mode": "world", "world_id": managed.world_id,
+            "campaign_id": None, "revision_pin": None,
+            "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+        },
+        "play_target": {
+            "beat_id": "beat:hold-the-gate",
+            "scene_id": "scene:gate-line",
+            "marker_grammar_version": "v2",
+        },
+        "message": "Where is the tavern?",
+    }
+
+    async def post(value: dict[str, Any]) -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, client=("127.0.0.1", 50000)),
+            base_url="http://test",
+        ) as client:
+            return await client.post(
+                "/api/live/agent/turn", json=value,
+                headers={"Authorization": f"Bearer {auth_token}"},
+            )
+
+    with (
+        patch.object(play, "get_world_play_run", return_value=run_record) as get_run,
+        patch.object(play, "get_committed_playable_revision", return_value=_world_committed(**committed_record)) as get_runbook,
+        patch.object(play, "get_world_play_run_reference_manifest", return_value=manifest_record),
+    ):
+        stale = asyncio.run(post({**payload, "turn_id": "stale", "primary_work": {
+            **payload["primary_work"], "expected_revision": run_record.run_revision - 1,
+        }}))
+        assert stale.status_code == 409, stale.text
+        assert native_reads == [] and runtime.invocations == []
+        get_run.return_value = _world_play_record(world_id="foreign-world")
+        foreign = asyncio.run(post({**payload, "turn_id": "foreign-run"}))
+        assert foreign.status_code == 409, foreign.text
+        assert native_reads == [] and runtime.invocations == []
+        get_run.return_value = run_record
+        service.new_conversation(ConversationCommand(
+            world_id=managed.world_id, command_id=uuid4(),
+            expected_pointer_revision=0, expected_active_conversation_id=None,
+        ))
+        first_turn = asyncio.run(post(payload))
+        assert first_turn.status_code == 200, first_turn.text
+        assert first_turn.json()["graph"]["revision_id"] == first.revision_id
+        saved_turn = service.list_turns(managed.world_id,
+            service.get_active_conversation(managed.world_id).conversation_id)[0]
+        from application_state.agent_conversation.rules_authority_store import load_turn_rules_locked
+        from application_state.agent_conversation.service import unit_of_work
+        with unit_of_work(application_state_dsn) as conn:
+            rules_record = load_turn_rules_locked(conn,
+                saved_turn if rules_case == "unused" else saved_turn.envelope)
+            assert rules_record.execution.state == ("unused" if rules_case == "unused" else "accepted")
+            assert rules_record.execution.budget_use.calls == (0 if rules_case == "unused" else 2)
+            assert bool(rules_record.execution.supports) == (rules_case == "occupancy")
+        if rules_case == "unused":
+            excerpt=saved_turn.completion.answer_segments[0]
+            assert excerpt.kind=='authored_excerpt' and excerpt.block_handle.startswith('b')
+            assert len(excerpt.block_handle)==65
+            assert first_turn.json()['answer']['text']==excerpt.text
+            authority = first_turn.json()["play_context"]["receipt"]["graph_authority"]
+        else:
+            assert first_turn.json()["schema"] == "dmb_agent_rules_turn_response_v1"
+            assert first_turn.json()["rules_context"]["base_context"] is None
+            execution_context = first_turn.json()["rules_context"]["unclaimed_context"]
+            assert execution_context["schema"] == "dmb_agent_rules_unclaimed_context_v1"
+            assert "completion" not in execution_context
+            assert execution_context["execution"]["claimability"] == "completed"
+            assert execution_context["execution"]["authorization_state"] == "response_received"
+            assert execution_context["receipt"] == saved_turn.base_projection.graph_context_receipt.model_dump(mode="json", by_alias=True)
+            # Native Rules delivery projects the already accepted stored record.
+            assert execution_context["delivery_replay"] is True
+            assert saved_turn.base_projection.kind == "unclaimed"
+            authority = saved_turn.base_projection.graph_context_receipt.graph_authority.model_dump(mode="json")
+            from application_state.agent_conversation.rules_authority_reads import validate_unclaimed_receipt_owner
+            with pytest.raises(ValueError, match="owning turn"):
+                validate_unclaimed_receipt_owner(saved_turn.envelope.model_copy(update={"play_context_receipt": None}),
+                    saved_turn.base_projection.graph_context_receipt)
+            with pytest.raises(ValueError, match="Play"):
+                validate_unclaimed_receipt_owner(saved_turn.envelope.model_copy(update={
+                    "provenance": saved_turn.envelope.provenance.model_copy(update={"surface_id": "plan"})}),
+                    saved_turn.base_projection.graph_context_receipt)
+        assert authority["native_world_id"] == NATIVE_ID and authority["binding_version"] == 1
+        if rules_case == "occupancy":
+            from urllib.parse import urlencode
+            binding = first_turn.json()["rules_context"]["accepted_binding"]
+            cited = binding["support_table"][0]
+            selectors = {"conversation_id": binding["conversation_id"],
+                "attempt": binding["product_attempt"], "support_sha256": cited["support_sha256"]}
+            path = (f"/api/live/agent/worlds/{managed.world_id}/conversation/turns/"
+                    f"{binding['turn_id']}/rules-passages/{cited['support_id']}")
+
+            async def inspect_citation(query):
+                async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app,
+                        client=("127.0.0.1", 50000)), base_url="http://test") as client:
+                    return await client.get(path + "?" + urlencode(query),
+                        headers={"Authorization": f"Bearer {auth_token}"})
+
+            reads_before_inspect = len(rule_reads)
+            with monkeypatch.context() as citation_patch:
+                def no_current_corpus(*_args, **_kwargs):
+                    pytest.fail("historical citation attempted current corpus acquisition")
+                citation_patch.setattr(rules_reader, "admitted_bundle", no_current_corpus)
+                passage = asyncio.run(inspect_citation(selectors))
+                assert passage.status_code == 200, passage.text
+                assert passage.json()["support"]["excerpt_text"] == first_turn.json()["answer"]["text"]
+                assert passage.json()["support_sha256"] == cited["support_sha256"]
+                assert passage.headers["cache-control"] == "no-store" and len(passage.content) <= 32768
+                wrong_passage = asyncio.run(inspect_citation({**selectors, "support_sha256": "0" * 64}))
+                assert wrong_passage.status_code == 404 and "support" not in wrong_passage.json()
+            assert len(rule_reads) == reads_before_inspect
+        assert runtime.invocations[0].context_packet.world_scope.world_id == NATIVE_ID
+        assert runtime.invocations[0].context_packet.world_scope.revision_id == first.revision_id
+        assert "The Prancing Tavern" in str(runtime.invocations[0].context_packet.retrieval_session.packet)
+        second = graph.publish_revision(PublishRevisionCommand(
+            world_id=NATIVE_ID, parent_revision_id=first.revision_id,
+            expected_parent_revision_id=first.revision_id,
+            operation_ids=["op:play-graph-b"], graph_schema="dm_union_graph_v6",
+            graph_payload=graph_payload(), created_at=NOW,
+        ))
+        head["revision"] = second.revision_id
+        get_run.side_effect = AssertionError("completed replay read mutable Run")
+        get_runbook.side_effect = AssertionError("completed replay read mutable Runbook")
+        frozen = asyncio.run(post(payload))
+        assert frozen.status_code == 200, frozen.text
+        assert frozen.json()["graph"]["revision_id"] == first.revision_id
+        get_run.side_effect = None
+        get_runbook.side_effect = None
+        get_run.return_value = run_record
+        current_turn = asyncio.run(post({
+            **payload, "turn_id": "play-turn-2",
+            "primary_work": {**payload["primary_work"], "expected_revision": run_record.run_revision},
+        }))
+        assert current_turn.status_code == 200, current_turn.text
+        assert current_turn.json()["graph"]["revision_id"] == second.revision_id
+        get_run.side_effect = AssertionError("completed retry read mutable Run")
+        get_runbook.side_effect = AssertionError("completed retry read mutable Runbook")
+        reads_before = len(native_reads)
+        replay = asyncio.run(post(payload))
+        assert replay.status_code == 200, replay.text
+        assert replay.json()["graph"]["revision_id"] == first.revision_id
+        assert len(native_reads) == reads_before and len(runtime.invocations) == 2
+        assert rejected_proofs == (["missing", "stale", "forged"] * 2 if rules_case == "unused" else [])
+        assert len(rule_reads) == (0 if rules_case == "unused" else 4 if rules_case == "unavailable" else 2)
+        altered = asyncio.run(post({**payload, "message": "Altered intent"}))
+        assert altered.status_code == 409
+        monkeypatch.setattr(route, "_conversation_service", lambda _request: AgentConversationService())
+        async def history() -> httpx.Response:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                return await client.get(
+                    f"/api/live/agent/worlds/{managed.world_id}/conversation",
+                    headers={"Authorization": f"Bearer {auth_token}"},
+                )
+        listed = asyncio.run(history())
+        assert listed.status_code == 200, listed.text
+        refs = [turn["provenance"]["supporting_work"] for turn in listed.json()["turns"]]
+        assert [next(ref["revision"] for ref in group if ref["kind"] == "world_graph_revision") for group in refs] == [first.revision_id, second.revision_id]
+        assert [next(ref["revision"] for ref in group if ref["kind"] == "dmb_play_graph_binding_v1") for group in refs] == ["1", "1"]
+        assert all(next(ref["object_id"] for ref in group if ref["kind"] == "world_graph_revision") == NATIVE_ID for group in refs)
+
+        get_run.side_effect = None
+        get_runbook.side_effect = None
+        without_binding = current["record"].model_copy(update={"native_graph_binding": None})
+        current["record"] = without_binding
+        reads_before = len(native_reads)
+        missing = asyncio.run(post({
+            **payload, "turn_id": "play-missing-binding",
+            "primary_work": {**payload["primary_work"], "expected_revision": run_record.run_revision},
+        }))
+        assert missing.status_code == 409, missing.text
+        assert len(native_reads) == reads_before and len(runtime.invocations) == 2
+
+        current["record"] = managed.model_copy(update={"native_graph_binding": binding})
+        with patch.object(direct, "direct_services_from_config", return_value=None):
+            unavailable = asyncio.run(post({
+                **payload, "turn_id": "play-graph-unavailable",
+                "primary_work": {**payload["primary_work"], "expected_revision": run_record.run_revision},
+            }))
+        assert unavailable.status_code == 503, unavailable.text
+        assert len(runtime.invocations) == 2
+
+
+@pytest.mark.parametrize("advanced_scene_id", ["scene:gate-line", "scene:the-crush"])
+@pytest.mark.usefixtures("_mock_atomic_play_context_snapshot")
+def test_pending_play_http_retry_uses_frozen_moment_after_run_advances(
+    tmp_path: Path, monkeypatch: Any, application_state_dsn: str,
+    advanced_scene_id: str,
+) -> None:
+    from unittest.mock import patch
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.agent_conversation.types import ConversationCommand, TurnSubmission
+    from application_state.play.service import replace_world_play_run_progress
+    from apps.live_control_server.main import create_app
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services import agent_play_surface_context as play
+    from apps.live_control_server.services.agent_turn_service import (
+        _conversation_provenance, _submitted_turn_intent, _turn_idempotency_key,
+    )
+    from tests.test_agent_play_surface_context import (
+        _world_committed,
+    )
+
+    assert application_state_dsn
+    service = AgentConversationService()
+    run_record, committed_record, manifest_record = _persisted_world_play_fixture()
+    payload = _play_payload_for_record(run_record)
+    request = AgentTurnRequest.model_validate(payload)
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="test-operator"))
+    monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
+    monkeypatch.setattr(route, "_conversation_service", lambda _request: service)
+    monkeypatch.setattr(route, "get_world_container", lambda _world: SimpleNamespace(world_id="world-a", name="World A"))
+    runtime = FakeRuntime()
+    app = create_app()
+    app.state.agent_turn_runtime = runtime
+
+    with (
+        patch("apps.live_control_server.services.world_container_registry.get_world_container",
+              return_value=SimpleNamespace(world_id="world-a", name="World A")),
+        patch.object(play, "get_world_play_run", return_value=run_record) as get_run,
+        patch.object(play, "get_committed_playable_revision", return_value=_world_committed(**committed_record)),
+        patch.object(play, "get_world_play_run_reference_manifest", return_value=manifest_record),
+    ):
+        work = route._work_resolver(request, {"kind": "world", "id": "world-a"})
+        assert work is not None
+        provenance = _conversation_provenance(request, world_id="world-a", work=work)
+        service.new_conversation(ConversationCommand(
+            world_id="world-a", command_id=uuid4(),
+            expected_pointer_revision=0, expected_active_conversation_id=None,
+        ))
+        active = service.get_active_conversation("world-a")
+        assert active is not None
+        service.accept_turn(TurnSubmission(
+            world_id="world-a", conversation_id=active.conversation_id,
+            idempotency_key=_turn_idempotency_key("world-a", request.turn_id),
+            expected_conversation_revision=active.revision,
+            user_text=request.message, provenance=provenance,
+            submitted_intent_v1=_submitted_turn_intent(request, world_id="world-a"),
+            play_context_receipt=work.play_context_receipt,
+        ))
+        advanced_progress = dict(run_record.progress)
+        advanced_progress["current_scene_id"] = advanced_scene_id
+        if advanced_scene_id == "scene:the-crush":
+            advanced_progress["current_beat_id"] = "beat:panic-breaks"
+        advanced = replace_world_play_run_progress(
+            world_id="world-a", run_id=run_record.run_id,
+            expected_run_revision=run_record.run_revision, progress=advanced_progress,
+        )
+        assert advanced.run.progress["current_scene_id"] == advanced_scene_id
+        reads_before_retry = get_run.call_count
+        get_run.side_effect = AssertionError("pending retry read current Run progress")
+
+        async def post() -> httpx.Response:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                return await client.post("/api/live/agent/turn", json=payload)
+
+        response = asyncio.run(post())
+        assert response.status_code == 200
+        assert len(runtime.invocations) == 1
+        moment = runtime.invocations[0].context_packet.surface_context.current_play
+        assert moment.current_beat.element_id == "beat:hold-the-gate"
+        assert moment.current_scene.element_id == "scene:gate-line"
+        assert get_run.call_count == reads_before_retry
+
+
+def test_source_session_handles_reconstruct_only_for_the_same_frozen_turn() -> None:
+    from apps.live_control_server.routes.agent import _source_session_handles
+
+    handles = _source_session_handles("world:one", "turn:one", "graph:one", "request:one")
+    assert handles == _source_session_handles("world:one", "turn:one", "graph:one", "request:one")
+    assert handles[0].startswith("grs:") and handles[1].startswith("op:")
+    assert handles != _source_session_handles("world:one", "turn:one", "graph:two", "request:one")
+    assert handles != _source_session_handles("world:one", "turn:two", "graph:one", "request:one")
+    assert handles != _source_session_handles("world:two", "turn:one", "graph:one", "request:one")
+    assert handles != _source_session_handles("world:one", "turn:one", "graph:one", "request:two")
+
+
+def test_source_session_retry_never_overwrites_existing_inflight_state() -> None:
+    from apps.live_control_server.routes.agent import _store_plan_retrieval_session
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession, SessionSnapshot, SourceAnchorState,
+    )
+    from graph_memory.interaction.session_store import clear_sessions, create_session
+
+    original = GraphRetrievalSession(
+        id="grs:stable-source", question="Where is the gate?",
+        snapshot=SessionSnapshot(
+            world_id="native:one", campaign_id="", focus={"kind": "none"},
+            admissibility="gm", revision_id="graph:one", scope_mode="world",
+        ),
+        source_anchors=[SourceAnchorState(anchor_id="anchor:one", readable=True)],
+    )
+    clear_sessions()
+    try:
+        create_session(original)
+        fresh = original.model_copy(deep=True)
+        original.source_anchors[0].opened = True
+        assert _store_plan_retrieval_session(
+            fresh, reusable_source_session=True,
+        ) is original
+        assert original.source_anchors[0].opened is True
+        changed = fresh.model_copy(update={"question": "A different question"})
+        with pytest.raises(AgentTurnServiceError) as caught:
+            _store_plan_retrieval_session(
+                changed, reusable_source_session=True,
+            )
+        assert caught.value.code == "turn_receipt_unverifiable"
+    finally:
+        clear_sessions()
+
+
+def test_auto_plan_world_request_requires_exact_saved_world_plan_pin() -> None:
+    payload = _payload()
+    payload.update(
+        {
+            "surface": {"surface_id": "plan", "instance_id": "plan-main"},
+            "owner_scope": {"kind": "world", "world_id": "managed-world-1"},
+            "primary_work": {
+                "kind": "plan",
+                "object_id": "plan-1",
+                "expected_revision": 7,
+                "expected_revision_n": 3,
+                "expected_content_sha256": "a" * 64,
+            },
+            "client_work_state": "saved_dirty",
+            "plan_context_policy": {
+                "schema": "dmb_plan_context_policy_v1",
+                "policy": "auto_plan_world",
+            },
+        }
+    )
+
+    parsed = AgentTurnRequest.model_validate(payload)
+    assert parsed.plan_context_policy is not None
+    assert parsed.plan_context_policy.policy == "auto_plan_world"
+
+    invalid = dict(payload)
+    invalid["primary_work"] = {
+        "kind": "plan",
+        "object_id": "plan-1",
+        "expected_revision": 7,
+    }
+    with pytest.raises(ValueError, match="auto_plan_world"):
+        AgentTurnRequest.model_validate(invalid)
+
+
+def test_auto_plan_world_rejects_generic_graph_reads_and_non_plan_surface() -> None:
+    payload = _payload()
+    payload.update(
+        {
+            "surface": {"surface_id": "plan", "instance_id": "plan-main"},
+            "owner_scope": {"kind": "world", "world_id": "managed-world-1"},
+            "primary_work": {
+                "kind": "plan",
+                "object_id": "plan-1",
+                "expected_revision": 7,
+                "expected_revision_n": 3,
+                "expected_content_sha256": "a" * 64,
+            },
+            "client_work_state": "saved_clean",
+            "plan_context_policy": {"policy": "auto_plan_world"},
+            "graph_request": {
+                "mode": "world",
+                "world_id": "native-world-1",
+                "campaign_id": None,
+                "revision_pin": None,
+                "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+            },
+        }
+    )
+    with pytest.raises(ValueError, match="auto_plan_world"):
+        AgentTurnRequest.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("failure_code", "status_code"),
+    [
+        ("graph_revision_unavailable", 409),
+        ("provider_envelope_over_budget", 413),
+    ],
+)
+def test_policy_predispatch_failure_has_strict_typed_projection(
+    monkeypatch: Any, failure_code: str, status_code: int
+) -> None:
+    from fastapi import HTTPException
+    from apps.live_control_server.routes import agent as agent_route
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+
+    payload = _payload()
+    payload.update({
+        "surface": {"surface_id": "plan", "instance_id": "plan-main"},
+        "owner_scope": {"kind": "world", "world_id": "managed-world-1"},
+        "primary_work": {
+            "kind": "plan", "object_id": "plan-1", "expected_revision": 7,
+            "expected_revision_n": 3, "expected_content_sha256": "a" * 64,
+        },
+        "client_work_state": "saved_clean",
+        "plan_context_policy": {"policy": "auto_plan_world"},
+    })
+    body = AgentTurnRequest.model_validate(payload)
+    monkeypatch.setattr(agent_route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="test-operator"))
+    monkeypatch.setattr(agent_route, "execute_agent_turn", lambda *_args, **_kwargs: (_ for _ in ()).throw(
+        AgentTurnServiceError(
+            "The frozen Graph revision could not be reopened.",
+            code=failure_code, status_code=status_code,
+            provider_dispatched=False,
+        )
+    ))
+    with pytest.raises(HTTPException) as caught:
+        agent_route.post_agent_turn(body, SimpleNamespace(app=SimpleNamespace(), headers={}))
+    assert caught.value.status_code == status_code
+    assert caught.value.detail["code"] == failure_code
+    assert caught.value.detail["plan_context_failure"] == {
+        "schema": "dmb_plan_world_graph_context_failure_v1",
+        "status": "pre_dispatch_failed",
+        "failure_code": failure_code,
+        "provider_dispatched": False,
+        "automatic_downgrade": False,
+    }
+
+
+def test_user_question_preserves_text_beyond_the_retired_character_limit() -> None:
+    payload = _payload()
+    payload["message"] = "x" * 8_001
+    assert AgentTurnRequest.model_validate(payload).message == payload["message"]
+
+
+@pytest.mark.parametrize(
+    ("failure_code", "provider_dispatched"),
+    [
+        ("graph_revision_unavailable", None),
+        ("provider_authorization_denied", False),
+        ("plan_context_delivery_failure", None),
+    ],
+)
+def test_policy_unproven_or_unmapped_failure_stays_generic(
+    monkeypatch: Any, failure_code: str, provider_dispatched: bool | None,
+) -> None:
+    from fastapi import HTTPException
+    from apps.live_control_server.routes import agent as agent_route
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+
+    payload = _payload()
+    payload.update({
+        "surface": {"surface_id": "plan", "instance_id": "plan-main"},
+        "owner_scope": {"kind": "world", "world_id": "managed-world-1"},
+        "primary_work": {
+            "kind": "plan", "object_id": "plan-1", "expected_revision": 7,
+            "expected_revision_n": 3, "expected_content_sha256": "a" * 64,
+        },
+        "client_work_state": "saved_clean",
+        "plan_context_policy": {"policy": "auto_plan_world"},
+    })
+    body = AgentTurnRequest.model_validate(payload)
+    monkeypatch.setattr(agent_route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="test-operator"))
+    monkeypatch.setattr(agent_route, "execute_agent_turn", lambda *_args, **_kwargs: (_ for _ in ()).throw(
+        AgentTurnServiceError(
+            "No typed public projection is established.",
+            code=failure_code, status_code=503,
+            provider_dispatched=provider_dispatched,
+        )
+    ))
+    with pytest.raises(HTTPException) as caught:
+        agent_route.post_agent_turn(body, SimpleNamespace(app=SimpleNamespace(), headers={}))
+    assert caught.value.status_code == 503
+    assert caught.value.detail["code"] == failure_code
+    assert "plan_context_failure" not in caught.value.detail
+
+
+@pytest.mark.parametrize("rules_mode", ["unused", "approved", "unclaimed"])
+def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id(
+    tmp_path: Path, monkeypatch: Any, application_state_dsn: str, rules_mode: str,
+) -> None:
+    from apps.live_control_server.routes import agent as agent_route
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from apps.live_control_server.services.world_container_registry import (
+        NativeGraphBindingRecord,
+        create_world_container,
+        world_source_root_relpath,
+    )
+    from apps.live_control_server.services import world_container_registry
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from dungeonmind.infrastructure.memory import (
+        InMemorySourceRepository,
+        InMemoryWorldGraphRepository,
+    )
+    from tests._cutover_direct_dungeonmind_read_helpers import (
+        WORLD_ID as NATIVE_ID, NOW, _FakeBundle, _payload as graph_payload,
+        _receipt, _seed_sources,
+    )
+
+    managed = create_world_container(name="Managed World")
+    assert managed.world_id != NATIVE_ID
+    (tmp_path / world_source_root_relpath(managed.world_id)).mkdir(
+        parents=True, exist_ok=True
+    )
+    world_graph = InMemoryWorldGraphRepository()
+    indexed_payload = graph_payload()
+    for evidence_row in indexed_payload["evidence_refs"]:
+        if evidence_row["evidence_ref_id"] == "ev:sign":
+            evidence_row["locator"] = "heading:Crossroads Sign"
+    indexed_payload["objects"].append({
+        **indexed_payload["objects"][-1],
+        "object_id": "obj:watchtower", "label": "Old Watchtower",
+        "assertion_metadata": {
+            **indexed_payload["objects"][-1]["assertion_metadata"],
+            "assertion_id": "asrt:obj:watchtower",
+        },
+    })
+    indexed_payload["relationships"].append({
+        "relationship_id": "rel:sign-watchtower",
+        "source_object_id": "obj:road-sign",
+        "target_object_id": "obj:watchtower",
+        "predicate": "dnd5e:located_in",
+        "assertion_metadata": {
+            **indexed_payload["objects"][-1]["assertion_metadata"],
+            "assertion_id": "asrt:rel:sign-watchtower",
+        },
+    })
+    published = world_graph.publish_revision(PublishRevisionCommand(
+        world_id=NATIVE_ID,
+        parent_revision_id=None,
+        expected_parent_revision_id=None,
+        operation_ids=["op:policy-real-graph"],
+        graph_schema="dm_union_graph_v6",
+        graph_payload=indexed_payload,
+        created_at=NOW,
+    ))
+    sources = InMemorySourceRepository()
+    seeded = _seed_sources()
+    sign_text = "# Crossroads Sign\n\nThe sign stands at the old watchtower.\n"
+    (tmp_path / "corpus").mkdir(exist_ok=True)
+    (tmp_path / "corpus" / "sign.md").write_text(sign_text, encoding="utf-8")
+    for artifact_id in ("src:world-lore", "src:one-notes", "src:one-recap", "src:player-sign"):
+        artifact = seeded.get_artifact(artifact_id)
+        assert artifact is not None
+        if artifact_id == "src:player-sign":
+            artifact = artifact.model_copy(update={"uri": "repo://corpus/sign.md"})
+        sources.put_artifact(artifact)
+        revision = seeded.get_revision(artifact.current_revision_id)
+        assert revision is not None
+        if artifact_id == "src:player-sign":
+            revision = revision.model_copy(update={
+                "content_sha256": hashlib.sha256(sign_text.encode("utf-8")).hexdigest(),
+            })
+        sources.put_revision(revision)
+    services = direct.direct_services_from_bundle(
+        _FakeBundle(world_graph, sources, _receipt(NATIVE_ID, published.revision_id)),
+        NATIVE_ID,
+    )
+    graph_reads: list[str] = []
+
+    def bound_direct_services(world_id: str) -> Any:
+        graph_reads.append(world_id)
+        return services if world_id == NATIVE_ID else None
+
+    monkeypatch.setattr(direct, "direct_services_from_config", bound_direct_services)
+    binding = NativeGraphBindingRecord(
+        native_world_id=NATIVE_ID, binding_version=1, status="active",
+        validated_at="2026-10-05T00:00:00Z",
+        validated_head_revision_id=published.revision_id,
+    )
+    bound = managed.model_copy(update={"native_graph_binding": binding})
+    monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        world_container_registry, "get_world_container",
+        lambda world_id: bound if world_id == managed.world_id else None,
+    )
+    payload = _payload()
+    payload.update({
+        "surface": {"surface_id": "plan", "instance_id": "plan-main"},
+        "owner_scope": {"kind": "world", "world_id": managed.world_id},
+        "primary_work": {"kind": "plan", "object_id": "plan-1", "expected_revision": 7,
+                         "expected_revision_n": 3, "expected_content_sha256": "a" * 64},
+        "client_work_state": "saved_clean",
+        "plan_context_policy": {"policy": "auto_plan_world"},
+        "message": "Where is the tavern?",
+    })
+    body = AgentTurnRequest.model_validate(payload)
+    work = agent_route.AgentTurnResolvedWork(
+        kind="plan", object_id="plan-1", revision=7,
+        changed_since_expected=False, owner_kind="world", owner_id=managed.world_id,
+        world_id=managed.world_id,
+        content_basis=agent_route.AgentTurnContentBasis(
+            world_id=managed.world_id, document_id="plan-1", object_revision=7,
+            work_revision_id=str(uuid4()), revision_n=3,
+            content_sha256="a" * 64, committed_status="committed",
+            has_divergent_working_copy=False,
+        ),
+        plan_markdown="The keeper waits by the tavern.",
+    )
+    bootstrap = agent_route._plan_context_resolver(
+        body, {"kind": "world", "id": managed.world_id}, work, None,
+    )
+    assert bootstrap.completed_discovery_query == body.message
+    assert bootstrap.world_scope.world_id == NATIVE_ID
+    assert bootstrap.world_scope.revision_id == published.revision_id
+    assert bootstrap.graph_envelope["revision_id"] == published.revision_id
+    assert bootstrap.retrieval_session.snapshot.world_id == NATIVE_ID
+    assert bootstrap.retrieval_session.snapshot.revision_id == published.revision_id
+    assert bootstrap.retrieval_session.claims
+    assert bootstrap.source_index_commitment is not None
+    assert bootstrap.source_index_commitment["eligible_count"] == len(
+        bootstrap.source_scope_anchors
+    )
+
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    with monkeypatch.context() as index_patch:
+        index_patch.setattr(
+            direct, "list_selected_source_anchor_index_direct_v1",
+            lambda *_args, **_kwargs: direct.ResolvedSelectedSourceIndexV1(
+                status="overflow", eligible_count=513, source_pins=(), commitment=None,
+            ),
+        )
+        with pytest.raises(AgentTurnServiceError) as overflow:
+            agent_route._plan_context_resolver(
+                body, {"kind": "world", "id": managed.world_id}, work, None,
+            )
+        assert overflow.value.code == "graph_evidence_invalid"
+        assert overflow.value.provider_dispatched is False
+    with monkeypatch.context() as mismatch_patch:
+        # Return a complete selected index that disagrees with the initial
+        # search pin. The resolver must reject metadata drift for an anchor
+        # present in both reads.
+        initial_anchor_ids = {
+            anchor.anchor_id for anchor in bootstrap.retrieval_session.source_anchors
+        }
+        matching_pin = next(
+            pin for pin in bootstrap.source_scope_anchors
+            if pin["anchor_id"] in initial_anchor_ids
+        )
+        original_selected_index = direct.list_selected_source_anchor_index_direct_v1
+
+        def selected_index_with_stale_initial_pin(*args: Any, **kwargs: Any) -> Any:
+            index = original_selected_index(*args, **kwargs)
+            indexed_pin = next(
+                pin for pin in index.source_pins
+                if pin.anchor_id == matching_pin["anchor_id"]
+            )
+            stale_pin = replace(
+                indexed_pin,
+                source_revision_id=indexed_pin.source_revision_id + "-changed",
+            )
+            return replace(index, source_pins=tuple(
+                stale_pin if pin.anchor_id == stale_pin.anchor_id else pin
+                for pin in index.source_pins
+            ))
+
+        mismatch_patch.setattr(
+            direct, "list_selected_source_anchor_index_direct_v1",
+            selected_index_with_stale_initial_pin,
+        )
+        with pytest.raises(AgentTurnServiceError) as mismatch:
+            agent_route._plan_context_resolver(
+                body, {"kind": "world", "id": managed.world_id}, work, None,
+            )
+        assert mismatch.value.code == "graph_evidence_invalid"
+        assert mismatch.value.provider_dispatched is False
+
+    # A generic question has no lexical Graph match. The selected committed
+    # card's typed link supplies an exact, same-revision seed and citations.
+    selected_payload = {**payload, "message": "What do you know?",
+        "client_thread_id": "thread-indexed-source",
+        "turn_id": "turn-indexed-source", "playable_target": {
+        "schema": "dmb_plan_playable_target_v1", "kind": "scene", "id": "scene:arrival",
+    }}
+    selected_body = AgentTurnRequest.model_validate(selected_payload)
+    selected_work = replace(
+        work, plan_markdown=(
+            "# Plan\n<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->\n"
+            "## Arrival\nConsult [the tavern](dmb-node:obj:tavern).\n"
+        ),
+    )
+    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+
+    trace = AgentTurnTraceBuilder(
+        agent_thread_id=None,
+        turn_id=selected_body.turn_id,
+        runtime="test",
+        backend="test",
+        mode="test",
+    )
+    parent_span_id = trace.start_phase("plan_graph_context_resolution")
+    selected = agent_route._plan_context_resolver(
+        selected_body, {"kind": "world", "id": managed.world_id}, selected_work, None,
+        trace=trace, parent_span_id=parent_span_id,
+    )
+    trace.complete_phase(parent_span_id)
+    assert selected.world_scope.revision_id == published.revision_id
+    assert "obj:tavern" in selected.graph_envelope["matched_node_ids"]
+    assert selected.retrieval_session.claims
+    assert selected.graph_envelope["source_anchors"]
+    initial_anchor_ids = {
+        anchor.anchor_id for anchor in selected.retrieval_session.source_anchors
+    }
+    assert {pin["anchor_id"] for pin in selected.source_scope_anchors} <= initial_anchor_ids
+    assert graph_reads == [NATIVE_ID] * 4
+    phase_order = [span["name"] for span in trace.spans]
+    assert phase_order == [
+        "plan_graph_seed_selection",
+        "plan_graph_seed_object_lookups",
+        "plan_graph_search",
+        "plan_graph_projection",
+        "plan_graph_context_resolution",
+    ]
+    assert all(
+        span["parent_span_id"] == parent_span_id
+        for span in trace.spans if span["name"] != "plan_graph_context_resolution"
+    )
+    spans_by_name = {span["name"]: span for span in trace.spans}
+    assert spans_by_name["plan_graph_seed_selection"]["duration_ms"] >= 0
+    seed_lookup = spans_by_name["plan_graph_seed_object_lookups"]
+    assert seed_lookup["attributes"] == {"candidate_count": 1, "lookup_count": 1}
+    search = spans_by_name["plan_graph_search"]
+    assert search["attributes"] == {"seed_count": 1}
+    projection = spans_by_name["plan_graph_projection"]
+    assert projection["attributes"] == {
+        "node_count": len(selected.graph_envelope["nodes"]),
+        "relationship_count": len(selected.graph_envelope["relationships"]),
+        "source_anchor_count": len(selected.graph_envelope["source_anchors"]),
+    }
+    assert all(span["duration_ms"] >= 0 for span in spans_by_name.values())
+
+    frozen = SimpleNamespace(assembled_input=SimpleNamespace(
+        assembler_version="agent_harness_final_request_v1",
+    ), graph_authority=SimpleNamespace(
+        managed_world_id=managed.world_id,
+        native_world_id=NATIVE_ID,
+        binding_version=1,
+        graph_revision=published.revision_id,
+    ), graph_packet=SimpleNamespace(
+        selection_policy_version="parent_initial_retrieval_with_bounded_source_index_v1",
+    ))
+    replayed = agent_route._plan_context_resolver(
+        selected_body, {"kind": "world", "id": managed.world_id}, selected_work, frozen,
+    )
+    assert replayed.graph_envelope["revision_id"] == selected.graph_envelope["revision_id"]
+    assert replayed.graph_envelope["matched_node_ids"] == selected.graph_envelope["matched_node_ids"]
+    assert selected.source_scope_anchors
+    assert {pin["anchor_id"] for pin in selected.source_scope_anchors} <= {
+        pin["anchor_id"] for pin in replayed.source_scope_anchors
+    }
+    assert replayed.retrieval_session.id == selected.retrieval_session.id
+    assert replayed.retrieval_session.operations == selected.retrieval_session.operations
+
+    option_work = replace(selected_work, plan_markdown="""# Plan
+<!-- dmb-playable-element:v2 kind=beat id=beat:first -->
+## First
+<!-- dmb-playable-element:v2 kind=scene id=scene:first -->
+### First scene
+<!-- dmb-playable-element:v2 kind=choice id=choice:first -->
+### Choose
+<!-- dmb-playable-element:v2 kind=option id=option:first -->
+- [Tavern](dmb-node:obj:tavern)
+
+  A second paragraph.
+<!-- dmb-playable-element:v2 kind=option id=option:second -->
+- [Cellar](dmb-node:obj:hidden-cellar)
+""")
+    option_body = AgentTurnRequest.model_validate({
+        **selected_payload,
+        "playable_target": {
+            "schema": "dmb_plan_playable_target_v1", "kind": "option", "id": "option:first",
+        },
+    })
+    option_seeded = agent_route._plan_context_resolver(
+        option_body, {"kind": "world", "id": managed.world_id}, option_work, None,
+    )
+    assert "obj:tavern" in option_seeded.graph_envelope["matched_node_ids"]
+    assert "obj:hidden-cellar" not in option_seeded.graph_envelope["matched_node_ids"]
+    assert option_seeded.graph_envelope["source_anchors"]
+
+    missing_work = replace(
+        selected_work,
+        plan_markdown=selected_work.plan_markdown.replace("obj:tavern", "obj:foreign"),
+    )
+    missing = agent_route._plan_context_resolver(
+        selected_body, {"kind": "world", "id": managed.world_id}, missing_work, None,
+    )
+    assert missing.graph_envelope["matched_node_ids"] == []
+    assert missing.retrieval_session.claims == []
+
+    unselected_body = AgentTurnRequest.model_validate({
+        **selected_payload, "playable_target": None,
+    })
+    unselected = agent_route._plan_context_resolver(
+        unselected_body, {"kind": "world", "id": managed.world_id}, selected_work, None,
+    )
+    assert unselected.graph_envelope["matched_node_ids"] == []
+
+    from application_state.agent_conversation import types as graph_types
+    if not hasattr(graph_types, "PlanWorldGraphExecutionV1"):
+        pytest.skip("run with the pinned APP-STATE candidate to verify receipt freeze")
+    from apps.live_control_server.services.agent_turn_service import (
+        _canonical_sha256, _freeze_policy_receipt,
+    )
+    from apps.live_control_server.services.agent_turn_service import _plan_message
+
+    projected = bootstrap.retrieval_session.project_for_hermes()
+    initial_packet = {
+        "candidates": projected["candidates"][:8],
+        "claimLedger": projected["claim_ledger"][:24],
+        "intentHint": projected["intent_hint"],
+        "availableExpansions": projected["available_expansions"],
+    }
+    request_body = {
+        "input": [{
+            "role": "system",
+            "content": "Turn capability policy (runtime-enforced; also required on tool calls):\n"
+            + __import__("json").dumps({"initialClaimPacket": initial_packet}),
+        }, {
+            "role": "user",
+            "content": _plan_message(
+                body.message, work.plan_markdown, content_basis=work.content_basis,
+            ),
+        }],
+        "tools": [],
+    }
+    payload_json = __import__("json").dumps(
+        request_body, sort_keys=True, separators=(",", ":")
+    )
+    view = {
+        "provider": "openai-api", "model": "test-model",
+        "apiMode": "codex_responses", "payloadJson": payload_json,
+        "payloadSha256": __import__("hashlib").sha256(payload_json.encode()).hexdigest(),
+        "payloadUtf8Bytes": len(payload_json.encode()),
+    }
+    budget = {
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": 32768, "outputReserveTokens": 2048,
+        "maxProviderAttempts": 4, "maxToolCapableAttempts": 3,
+        "maxGraphOperations": 8,
+    }
+    receipt, execution, membership = _freeze_policy_receipt(
+        body, work, bootstrap, None, view, budget,
+    )
+    assert receipt.assembled_input.assembled_input_sha256 == view["payloadSha256"]
+    assert receipt.graph_authority.native_world_id == NATIVE_ID
+    assert receipt.graph_authority.managed_world_id == managed.world_id
+    assert (
+        receipt.graph_packet.selection_policy_version
+        == "parent_initial_retrieval_with_selected_source_index_v1"
+    )
+    assert set(receipt.graph_packet.candidate_evidence_ref_ids) == ({
+        pin["evidence_ref_id"] for pin in bootstrap.source_scope_anchors
+    } | set(bootstrap.evidence_by_anchor_id.values()))
+    assert set(receipt.assembled_input.dispatched_evidence_ref_ids).issubset(
+        set(bootstrap.evidence_by_anchor_id.values())
+    )
+    assert bootstrap.source_index_commitment is not None
+    assert receipt.graph_packet.retrieval_packet_sha256 == _canonical_sha256({
+        "schema": "dmb_selected_retrieval_composite_v1",
+        "selection_policy_version": receipt.graph_packet.selection_policy_version,
+        "initial_claim_packet_sha256": _canonical_sha256(initial_packet),
+        "selected_index": bootstrap.source_index_commitment,
+        "source_pins": list(bootstrap.source_scope_anchors),
+    })
+    assert receipt.graph_packet.evidence_sufficiency_status == "sufficient"
+    assert receipt.assembled_input.packet_disposition == "included"
+    assert receipt.assembled_input.dispatched_packet_sha256 is not None
+    changed_pins = [dict(pin) for pin in bootstrap.source_scope_anchors]
+    changed_pins[0]["source_revision_id"] += "-changed"
+    changed_index = {
+        **bootstrap.source_index_commitment,
+    }
+    changed_entries = [{
+        **pin,
+        "anchor_id": pin["anchor_id"].replace(
+            "source-anchor:v1:", "dm-source-anchor:v1:", 1,
+        ),
+    } for pin in changed_pins]
+    changed_index["index_sha256"] = _canonical_sha256({
+        "schema": "dm_selected_source_anchor_index_v1",
+        "selector_sha256": changed_index["selector_sha256"],
+        "status": changed_index["status"],
+        "admitted_targets": changed_index["admitted_targets"],
+        "not_visible_targets": changed_index["not_visible_targets"],
+        "provenance_gap_count": changed_index["provenance_gap_count"],
+        "unavailable_binding_count": changed_index["unavailable_binding_count"],
+        "eligible_count": changed_index["eligible_count"],
+        "entries": changed_entries,
+    })
+    changed_bootstrap = replace(
+        bootstrap,
+        source_scope_anchors=tuple(changed_pins),
+        source_index_commitment=changed_index,
+    )
+    changed_receipt, _, _ = _freeze_policy_receipt(
+        body, work, changed_bootstrap, None, view, budget,
+    )
+    assert (
+        changed_receipt.graph_packet.retrieval_packet_sha256
+        != receipt.graph_packet.retrieval_packet_sha256
+    )
+    assert (
+        changed_receipt.assembled_input.dispatched_packet_sha256
+        == receipt.assembled_input.dispatched_packet_sha256
+    )
+    with pytest.raises(AgentTurnServiceError) as wrong_index_version:
+        _freeze_policy_receipt(
+            body, work, replace(bootstrap, source_index_commitment={
+                **bootstrap.source_index_commitment,
+                "schema": "dmb_bounded_source_anchor_index_commitment_v2",
+            }), None, view, budget,
+        )
+    assert wrong_index_version.value.code == "graph_evidence_invalid"
+    bounded_bootstrap = agent_route._plan_context_resolver(
+        body, {"kind": "world", "id": managed.world_id}, work, frozen,
+    )
+    legacy_initial_ids = set(bounded_bootstrap.evidence_by_anchor_id)
+    legacy_pins = tuple(
+        pin for pin in bounded_bootstrap.source_scope_anchors
+        if pin["anchor_id"] in legacy_initial_ids
+    )
+    assert legacy_pins and len(legacy_pins) < len(bounded_bootstrap.source_scope_anchors)
+    legacy_bootstrap = replace(
+        bounded_bootstrap,
+        source_scope_anchors=legacy_pins,
+        source_index_commitment=None,
+        candidate_evidence_ref_ids=tuple(sorted(set(bounded_bootstrap.evidence_by_anchor_id.values()))),
+    )
+    legacy_receipt, legacy_execution, _ = _freeze_policy_receipt(
+        body, work, legacy_bootstrap, None, view, budget,
+    )
+    assert legacy_receipt.graph_packet.selection_policy_version == "parent_initial_retrieval_v1"
+    assert legacy_receipt.graph_packet.retrieval_packet_sha256 == _canonical_sha256(
+        initial_packet
+    )
+    v1_receipt, v1_execution, _ = _freeze_policy_receipt(
+        body, work, replace(legacy_bootstrap, source_scope_anchors=()),
+        None, view, budget,
+    )
+    with monkeypatch.context() as legacy_patch:
+        def unexpected_index(*_args: Any, **_kwargs: Any) -> Any:
+            raise AssertionError("historical replay must not query the full index")
+
+        legacy_patch.setattr(direct, "list_source_anchor_index_direct_v2", unexpected_index)
+        legacy_v2_replay = agent_route._plan_context_resolver(
+            body, {"kind": "world", "id": managed.world_id}, work, legacy_receipt,
+        )
+        legacy_v1_replay = agent_route._plan_context_resolver(
+            body, {"kind": "world", "id": managed.world_id}, work, v1_receipt,
+        )
+        unknown_policy_receipt = v1_receipt.model_copy(update={
+            "graph_packet": v1_receipt.graph_packet.model_copy(update={
+                "selection_policy_version": "future_selection_policy_v2",
+            }),
+        })
+        with pytest.raises(AgentTurnServiceError) as unknown_policy:
+            agent_route._plan_context_resolver(
+                body, {"kind": "world", "id": managed.world_id},
+                work, unknown_policy_receipt,
+            )
+        assert unknown_policy.value.code == "turn_receipt_unverifiable"
+        assert unknown_policy.value.provider_dispatched is False
+    assert legacy_v2_replay.source_scope_anchors == legacy_pins
+    assert legacy_v2_replay.source_index_commitment is None
+    assert legacy_v1_replay.source_index_commitment is None
+    request_identity = body.model_dump_json(by_alias=True).encode("utf-8")
+    legacy_session_id, _ = agent_route._source_session_handles(
+        managed.world_id, body.turn_id, published.revision_id,
+        __import__("hashlib").sha256(request_identity).hexdigest(),
+    )
+    assert legacy_v2_replay.retrieval_session.id == legacy_session_id
+    assert legacy_v1_replay.retrieval_session.id == legacy_session_id
+    assert bootstrap.retrieval_session.id != legacy_session_id
+    assert execution.context_receipt_sha256 == receipt.context_receipt_sha256
+    assert tuple(receipt.assembled_input.dispatched_assertion_ids) == tuple(membership[0])
+
+    from datetime import UTC, datetime, timedelta
+    from application_state.agent_conversation.types import (
+        HistoricalReference, Turn, TurnProvenance,
+    )
+    from apps.live_control_server.services.agent_turn_service import (
+        _PolicyExecutionAdapter, _submitted_turn_intent,
+    )
+    now = datetime.now(UTC)
+    turn = Turn(
+        turn_id=uuid4(), conversation_id=uuid4(), world_id=managed.world_id,
+        idempotency_key=uuid4(), sequence=1, revision=2, status="running",
+        user_text=body.message, assistant_text=None, failure_code=None,
+        provenance=TurnProvenance(
+            world_id=managed.world_id, surface_resolution="resolved",
+            surface_id="plan", surface_instance_id="plan-main",
+            primary_work=HistoricalReference(
+                resolution="resolved", kind="plan", object_id="plan-1",
+                revision="7", object_revision=7,
+                work_revision_id=__import__("uuid").UUID(work.content_basis.work_revision_id),
+                revision_n=3, content_sha256="a" * 64,
+            ),
+            selected_object=HistoricalReference(resolution="absent"),
+        ),
+        submitted_intent_fingerprint_v2="f" * 64,
+        graph_context_receipt=receipt, graph_context_execution=execution,
+        completion=None, attempt=1,
+        claim_expires_at=now + timedelta(minutes=2),
+        accepted_at=now, completed_at=None, updated_at=now,
+    )
+    from apps.live_control_server.services.agent_turn_service import (
+        _restore_v2_retry_bootstrap,
+    )
+
+    restored_legacy_v2 = _restore_v2_retry_bootstrap(
+        legacy_v2_replay,
+        turn.model_copy(update={
+            "graph_context_receipt": legacy_receipt,
+            "graph_context_execution": legacy_execution,
+        }),
+    )
+    assert restored_legacy_v2.source_scope_anchors == legacy_pins
+    assert restored_legacy_v2.source_index_commitment is None
+    restored_legacy_v1 = _restore_v2_retry_bootstrap(
+        legacy_v1_replay,
+        turn.model_copy(update={
+            "graph_context_receipt": v1_receipt,
+            "graph_context_execution": v1_execution,
+        }),
+    )
+    assert restored_legacy_v1.source_scope_anchors == ()
+    assert restored_legacy_v1.source_index_commitment is None
+
+    class FakeFence:
+        def __init__(self, value: Turn) -> None:
+            self.turn = value
+
+        def append(self, method_name: str, event_name: str, event: Any) -> tuple[Turn, bool]:
+            assert (method_name, event_name) in {
+                ("append_validated_graph_operation", "operation_event"),
+                ("extend_source_scope", "extension"),
+            }
+            current = self.turn.graph_context_execution
+            assert current is not None
+            events = [
+                *current.model_dump(mode="json", by_alias=True)["events"],
+                event.model_dump(mode="json", by_alias=True),
+            ]
+            updated = type(current).model_validate({
+                **current.model_dump(mode="json", by_alias=True),
+                "events": events,
+            })
+            self.turn = self.turn.model_copy(update={
+                "revision": self.turn.revision + 1,
+                "graph_context_execution": updated,
+            })
+            return self.turn, True
+
+    adapter = _PolicyExecutionAdapter(
+        service=object(), request=body, world_id=managed.world_id,
+        work=work, bootstrap=bootstrap, playable_target=None,
+        submitted_intent=_submitted_turn_intent(body, world_id=managed.world_id),
+        existing_turn=turn, budget={
+            **budget, "provider": "openai-api", "model": "test-model",
+            "apiMode": "codex_responses",
+        },
+    )
+    adapter.fence = FakeFence(turn)
+    adapter.last_provider_attempt_id = uuid4()
+    brokered = adapter.broker_graph_operation({
+        "toolName": "expand_graph_retrieval",
+        "arguments": {
+            "schema": "dmb_expand_graph_retrieval_request_v1",
+            "retrievalSessionId": bootstrap.retrieval_session.id,
+            "operation": "search", "queryText": "tavern",
+            "historicalRevisionId": published.revision_id,
+        },
+    })
+    brokered_result = __import__("json").loads(brokered["resultJson"])
+    assert brokered_result["schema"] == "dmb_graph_tool_overview_v1"
+    assert brokered_result["resultSchema"] == "dmb_world_graph_retrieval_result_v1"
+    assert brokered_result["revisionId"] == published.revision_id
+    assert any(node["nodeId"] == "obj:tavern" for node in brokered_result["view"]["nodes"])
+    assert brokered["retrievalSession"]["snapshot"]["revision_id"] == published.revision_id
+    assert adapter.fence.turn.graph_context_execution.events[0].graph_revision == published.revision_id
+
+    from application_state.agent_conversation.service import AgentConversationService
+    from apps.live_control_server.services.agent_runtime import (
+        AgentRuntimeDescriptor, AgentRuntimeResult,
+    )
+    from apps.live_control_server.services.agent_turn_service import execute_agent_turn
+    from apps.live_control_server.services.hermes_session_store import HermesSessionPointerStore
+
+    assert application_state_dsn
+    from apps.live_control_server.services import agent_turn_service as service_module
+    safe_bootstrap = service_module._admitted_initial_policy_bootstrap(bootstrap)
+    safe_projected = safe_bootstrap.retrieval_session.project_for_hermes()
+    projected = bootstrap.retrieval_session.project_for_hermes()
+    assert safe_projected["claim_ledger"] == projected["claim_ledger"]
+    assert safe_projected["source_anchors"] == projected["source_anchors"]
+    first_packet = {
+        "candidates": safe_projected["candidates"][:8],
+        "claimLedger": safe_projected["claim_ledger"][:24],
+        "intentHint": safe_projected["intent_hint"],
+        "availableExpansions": safe_projected["available_expansions"],
+    }
+    first_request_body = {
+        **request_body,
+        "input": [
+            {
+                "role": "system",
+                "content": "Turn capability policy (runtime-enforced; also required on tool calls):\n"
+                + json.dumps({"initialClaimPacket": first_packet}),
+            },
+            request_body["input"][1],
+        ],
+    }
+    first_payload_json = json.dumps(
+        first_request_body, sort_keys=True, separators=(",", ":")
+    )
+    first_view = {
+        **view, "payloadJson": first_payload_json,
+        "payloadSha256": __import__("hashlib").sha256(first_payload_json.encode()).hexdigest(),
+        "payloadUtf8Bytes": len(first_payload_json.encode()),
+    }
+    policy_budget = {
+        **budget, "schema": "dmb_hermes_request_budget_policy_v1",
+        "provider": "openai-api", "model": "test-model",
+        "apiMode": "codex_responses",
+    }
+
+    from apps.live_control_server.services import rules_lookup as native_rules_reader
+    actual_rules_query = native_rules_reader.query_rules
+    plan_rules_reads = []
+
+    def count_plan_rules_query(*args, **kwargs):
+        plan_rules_reads.append(args)
+        return actual_rules_query(*args, **kwargs)
+
+    monkeypatch.setattr(native_rules_reader, "query_rules", count_plan_rules_query)
+    class BrokeredRuntime:
+        descriptor = AgentRuntimeDescriptor("fake-brokered", "fake", "test", "graph")
+        calls = 0
+
+        def run_with_provider_authorization(
+            self, _invocation: Any, authorize: Any, *, request_budget: Any,
+            on_graph_operation: Any, on_provider_lifecycle: Any,
+            source_read_enabled: bool = False,
+            context_read_enabled: bool = False,
+            on_native_provider_reply: Any = None,
+            native_rules_capture_required: bool = False,
+        ) -> AgentRuntimeResult:
+            assert request_budget["model"] == "test-model"
+            assert source_read_enabled is True
+            assert first_packet["claimLedger"] == safe_projected["claim_ledger"][:24]
+            assert all(claim["claim_id"] in first_view["payloadJson"] for claim in first_packet["claimLedger"])
+            assert authorize(first_view) is True, getattr(
+                authorize.__self__.failure, "code", None,
+            )
+            self.calls += 1
+            assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+            assert on_provider_lifecycle({"transition": "response_received"}) is True
+            operation = on_graph_operation({
+                "toolName": "expand_graph_retrieval",
+                "arguments": {
+                    "schema": "dmb_expand_graph_retrieval_request_v1",
+                    "retrievalSessionId": bootstrap.retrieval_session.id,
+                    "operation": "search", "queryText": "tavern",
+                    "historicalRevisionId": published.revision_id,
+                },
+            })
+            operation_result = json.loads(operation["resultJson"])
+            assert operation_result["schema"] == "dmb_graph_tool_overview_v1"
+            assert operation_result["revisionId"] == published.revision_id
+            followup_body = {
+                **first_request_body,
+                "input": [
+                    *first_request_body["input"],
+                    {
+                        "type": "function_call", "call_id": "call-graph-1",
+                        "name": "expand_graph_retrieval", "arguments": "{}",
+                    },
+                    {
+                        "type": "function_call_output", "call_id": "call-graph-1",
+                        "output": operation["resultJson"],
+                    },
+                ],
+            }
+            followup_json = json.dumps(followup_body, sort_keys=True, separators=(",", ":"))
+            followup_view = {
+                **first_view,
+                "payloadJson": followup_json,
+                "payloadSha256": __import__("hashlib").sha256(followup_json.encode()).hexdigest(),
+                "payloadUtf8Bytes": len(followup_json.encode()),
+            }
+            assert authorize(followup_view) is True, getattr(
+                authorize.__self__.failure, "code", None,
+            )
+            self.calls += 1
+            assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+            final_text = json.dumps({
+                "answer_context_status": "plan_only_graph_unused",
+                "answer_segments": [{
+                    "kind": "plan_claim", "text": "The keeper waits by the tavern.",
+                }],
+                "citation_map": None,
+            })
+            if rules_mode != "unused":
+                followup_view, packets = _native_lookup_roundtrip(followup_body, followup_view,
+                    authorize, on_graph_operation, on_provider_lifecycle, on_native_provider_reply,
+                    question="Can I willingly end my move in a prone ally space?")
+                self.calls += 2
+                capsule = packets[0]["support_capsules"][0]
+                assert packets[1]["previous_support_ids"] == packets[0]["emitted_support_ids"]
+                assert not packets[1]["emitted_support_ids"]
+                final_text = json.dumps({"schema": "dmb_rules_mixed_answer_v1",
+                    "base_output": json.loads(final_text) if rules_mode == "approved" else None, "rules_segments": [{
+                        "kind": "rules_claim", "text": capsule["excerpt_text"],
+                        "support_ids": [capsule["support_id"]]}],
+                    "ordered_refs": ([{"domain": "base", "segment_index": None}] if rules_mode == "approved" else [])
+                        + [{"domain": "rules", "segment_index": 0}]})
+            if native_rules_capture_required:
+                from hashlib import sha256
+                from uuid import uuid4
+                from apps.live_control_server.services.native_rules_capture import NativeProviderReply
+
+                reply_bytes = final_text.encode()
+                captured = NativeProviderReply(
+                    authorization_id=str(authorize.__self__.rules_runtime.authorization_id),
+                    api_request_id=str(uuid4()),
+                    provider=followup_view["provider"], model=followup_view["model"],
+                    api_mode=followup_view["apiMode"],
+                    request_sha256=followup_view["payloadSha256"],
+                    finish_reason="stop", status="answered", text=final_text,
+                    text_sha256=sha256(reply_bytes).hexdigest(),
+                    text_utf8_bytes=len(reply_bytes), tool_calls=(),
+                )
+                assert callable(on_native_provider_reply)
+                assert on_native_provider_reply(captured)
+            assert on_provider_lifecycle({"transition": "response_received"}) is True
+            return AgentRuntimeResult(
+                status="ok",
+                final_text=final_text,
+                runtime_session_id="brokered-test-session",
+            )
+
+    monkeypatch.setattr(service_module, "_policy_request_budget", lambda: policy_budget)
+    runtime = BrokeredRuntime()
+    response = execute_agent_turn(
+        body, root=tmp_path,
+        pointer_store=HermesSessionPointerStore(tmp_path / "sessions"),
+        owner_resolver=lambda _body: {
+            "kind": "world", "id": managed.world_id, "name": managed.name,
+        },
+        work_resolver=lambda _body, _owner: work,
+        graph_resolver=lambda *_args: pytest.fail("generic Graph path used"),
+        plan_graph_resolver=lambda *_args: bootstrap,
+        runtime=runtime,
+        conversation_service=AgentConversationService(),
+    )
+    if rules_mode != "unused":
+        assert runtime.calls == 4 and len(plan_rules_reads) == 1
+        assert response.schema_ == "dmb_agent_rules_turn_response_v1"
+        if rules_mode == "approved":
+            assert response.rules_context.base_context.completion is not None
+            assert response.rules_context.base_context.receipt.plan_basis.document_id == "plan-1"
+            assert response.answer.text.startswith("The keeper waits by the tavern.\n")
+            assert response.rules_context.unclaimed_context is None
+        else:
+            assert response.rules_context.base_context is None
+            assert response.rules_context.unclaimed_context.receipt.plan_basis.document_id == "plan-1"
+            assert not response.answer.text.startswith("The keeper waits by the tavern.")
+            assert "completion" not in response.rules_context.unclaimed_context.model_dump(by_alias=True)
+        assert len(response.rules_context.accepted_binding.support_table) == 1
+        replay = execute_agent_turn(body, root=tmp_path,
+            pointer_store=HermesSessionPointerStore(tmp_path / "sessions"),
+            owner_resolver=lambda _body: {"kind": "world", "id": managed.world_id, "name": managed.name},
+            work_resolver=lambda *_args: pytest.fail("mixed Plan replay resolved mutable work"),
+            graph_resolver=lambda *_args: pytest.fail("mixed Plan replay resolved Graph"),
+            plan_graph_resolver=lambda *_args: pytest.fail("mixed Plan replay bootstrapped Graph"),
+            runtime=runtime, conversation_service=AgentConversationService())
+        assert replay.answer.text == response.answer.text
+        projection = replay.rules_context.base_context or replay.rules_context.unclaimed_context
+        assert projection.delivery_replay is True
+        assert runtime.calls == 4 and len(plan_rules_reads) == 1
+        return
+    assert runtime.calls == 2
+    assert response.schema_ == "dmb_agent_turn_response_v2"
+    assert response.answer.text == "The keeper waits by the tavern."
+    assert response.plan_context is not None
+    assert response.plan_context.completion is not None
+    assert response.plan_context.execution is not None
+    assert response.plan_context.execution.authorization_state == "response_received"
+    stored = AgentConversationService().list_turns(
+        managed.world_id, response.conversation.conversation_id,
+    )[0]
+    # No Rules lookup occurred; the ordinary native record owns Graph evidence.
+    stored_base = stored
+    assert stored_base.graph_context_receipt.assembled_input.packet_disposition == "included"
+    events = stored_base.graph_context_execution.events
+    attempts = [event for event in events if event.kind in {
+        "provider_attempt_authorized_v2", "provider_attempt_authorized_v3",
+    }]
+    operations = [event for event in events if event.kind in {"validated_graph_operation", "validated_graph_operation_v3"}]
+    assert len(attempts) == 2
+    assert len(operations) == 1
+    assert attempts[0].included_assertion_ids == stored_base.graph_context_receipt.assembled_input.dispatched_assertion_ids
+    assert attempts[0].included_graph_event_ids == []
+    assert attempts[1].included_graph_event_ids == [operations[0].event_id]
+    from apps.live_control_server.services.agent_turn_service import _parse_policy_completion
+
+    derived, _, _ = _parse_policy_completion(json.dumps({
+        "answer_context_status": "plan_only_insufficient_evidence",
+        "answer_segments": [{"kind": "plan_claim", "text": "The keeper waits by the tavern."}],
+        "citation_map": None,
+    }), stored_base, attempts[1].provider_attempt_id)
+    assert derived.answer_context_status == "plan_only_graph_unused"
+
+    # The sign is absent from the initial retrieval but present in the exact
+    # bounded index. Its metadata alone cannot become a claim or a citation.
+    from graph_memory.interaction.session_store import clear_sessions
+
+    clear_sessions()
+    bounded_replay = SimpleNamespace(
+        graph_authority=SimpleNamespace(
+            managed_world_id=managed.world_id,
+            native_world_id=NATIVE_ID,
+            binding_version=1,
+            graph_revision=published.revision_id,
+        ),
+        graph_packet=SimpleNamespace(
+            selection_policy_version=(
+                "parent_initial_retrieval_with_bounded_source_index_v1"
+            ),
+        ),
+        assembled_input=SimpleNamespace(
+            assembler_version="agent_harness_final_request_v2",
+        ),
+    )
+    selected = agent_route._plan_context_resolver(
+        selected_body, {"kind": "world", "id": managed.world_id}, selected_work,
+        bounded_replay,
+    )
+    sign_pin = next(
+        pin for pin in selected.source_scope_anchors
+        if pin["evidence_ref_id"] == "ev:sign"
+    )
+    assert sign_pin["anchor_id"] not in selected.evidence_by_anchor_id
+    from apps.live_control_server.services import world_graph_retrieval
+
+    monkeypatch.setattr(world_graph_retrieval, "default_repo_root", lambda: tmp_path)
+    selected_safe = service_module._admitted_initial_policy_bootstrap(selected)
+    selected_projected = selected_safe.retrieval_session.project_for_hermes()
+    selected_first_packet = {
+        "candidates": selected_projected["candidates"][:8],
+        "claimLedger": selected_projected["claim_ledger"][:24],
+        "intentHint": selected_projected["intent_hint"],
+        "availableExpansions": selected_projected["available_expansions"],
+    }
+    from apps.live_control_server.services.agent_plan_playable_target import (
+        resolve_agent_plan_playable_target,
+    )
+
+    selected_target = resolve_agent_plan_playable_target(
+        selected_body.playable_target, selected_work.plan_markdown,
+    )
+    selected_first_body = {
+        "input": [{
+            "role": "system",
+            "content": "Turn capability policy (runtime-enforced; also required on tool calls):\n"
+            + json.dumps({"initialClaimPacket": selected_first_packet}),
+        }, {
+            "role": "user",
+            "content": _plan_message(
+                selected_body.message, selected_work.plan_markdown,
+                playable_target=selected_target,
+                content_basis=selected_work.content_basis,
+            ),
+        }],
+        "tools": [],
+    }
+
+    def provider_view(body: dict[str, Any]) -> dict[str, Any]:
+        encoded = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        return {
+            **first_view,
+            "payloadJson": encoded,
+            "payloadSha256": hashlib.sha256(encoded.encode()).hexdigest(),
+            "payloadUtf8Bytes": len(encoded.encode()),
+        }
+
+    class IndexedSourceRuntime:
+        descriptor = AgentRuntimeDescriptor("indexed-source", "fake", "test", "graph")
+        calls = 0
+
+        def run_with_provider_authorization(
+            self, _invocation: Any, authorize: Any, *, request_budget: Any,
+            on_graph_operation: Any, on_provider_lifecycle: Any,
+            source_read_enabled: bool = False,
+            context_read_enabled: bool = False,
+            on_native_provider_reply: Any = None,
+            native_rules_capture_required: bool = False,
+            **_options: Any,
+        ) -> AgentRuntimeResult:
+            assert source_read_enabled is True
+            assert request_budget["model"] == "test-model"
+            assert "ev:sign" not in json.dumps(selected_first_packet)
+            assert authorize(provider_view(selected_first_body)) is True, (
+                getattr(authorize.__self__.failure, "code", None),
+                str(authorize.__self__.failure),
+            )
+            self.calls += 1
+            assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+            assert on_provider_lifecycle({"transition": "response_received"}) is True
+            operation = on_graph_operation({
+                "toolName": "expand_graph_retrieval",
+                "arguments": {
+                    "schema": "dmb_expand_graph_retrieval_request_v1",
+                    "retrievalSessionId": selected.retrieval_session.id,
+                    "operation": "search", "queryText": "Crossroads Sign",
+                    "historicalRevisionId": published.revision_id,
+                },
+            })
+            operation_result = json.loads(operation["resultJson"])
+            assert operation_result["snapshot"]["revisionId"] == published.revision_id
+            assert any(
+                relation["edgeId"] == "rel:sign-watchtower"
+                for relation in operation_result["relationships"]
+            )
+            assert any(
+                anchor["anchorId"] == sign_pin["anchor_id"]
+                for anchor in operation_result["sourceAnchors"]
+            )
+            opened = on_graph_operation({
+                "toolName": "read_graph_source",
+                "arguments": {
+                    "retrievalSessionId": selected.retrieval_session.id,
+                    "anchorIds": [sign_pin["anchor_id"]],
+                },
+            })
+            opened_result = json.loads(opened["resultJson"])
+            assert opened_result["outcome"] == "enough", opened_result
+            assert "old watchtower" in opened_result["content"]
+            followup_body = {
+                **selected_first_body,
+                "input": [
+                    *selected_first_body["input"],
+                    {"type": "function_call", "call_id": "call-graph-index",
+                     "name": "expand_graph_retrieval", "arguments": "{}"},
+                    {"type": "function_call_output", "call_id": "call-graph-index",
+                     "output": operation["resultJson"]},
+                    {"type": "function_call", "call_id": "call-source-index",
+                     "name": "read_graph_source", "arguments": "{}"},
+                    {"type": "function_call_output", "call_id": "call-source-index",
+                     "output": opened["resultJson"]},
+                ],
+            }
+            final_view = provider_view(followup_body)
+            assert authorize(final_view) is True, getattr(
+                authorize.__self__.failure, "code", None,
+            )
+            self.calls += 1
+            assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+            final_text = json.dumps({
+                "answer_context_status": "graph_grounded",
+                "answer_segments": [{
+                    "kind": "graph_claim", "claim_id": "rel:sign-watchtower",
+                    "text": "The sign stands at the old watchtower.",
+                    "target_kind": "relationship", "target_id": "rel:sign-watchtower",
+                }],
+            })
+            if native_rules_capture_required:
+                from hashlib import sha256
+                from uuid import uuid4
+                from apps.live_control_server.services.native_rules_capture import NativeProviderReply
+
+                reply_bytes = final_text.encode()
+                captured = NativeProviderReply(
+                    authorization_id=str(authorize.__self__.rules_runtime.authorization_id),
+                    api_request_id=str(uuid4()), provider=final_view["provider"],
+                    model=final_view["model"], api_mode=final_view["apiMode"],
+                    request_sha256=final_view["payloadSha256"], finish_reason="stop",
+                    status="answered", text=final_text,
+                    text_sha256=sha256(reply_bytes).hexdigest(),
+                    text_utf8_bytes=len(reply_bytes), tool_calls=(),
+                )
+                assert callable(on_native_provider_reply)
+                assert on_native_provider_reply(captured)
+            assert on_provider_lifecycle({"transition": "response_received"}) is True
+            return AgentRuntimeResult(
+                status="ok",
+                final_text=final_text,
+                runtime_session_id="indexed-source-session",
+            )
+
+    indexed_runtime = IndexedSourceRuntime()
+    indexed_pointer_store = HermesSessionPointerStore(tmp_path / "indexed-sessions")
+    indexed_conversation_service = AgentConversationService()
+    indexed_response = execute_agent_turn(
+        selected_body, root=tmp_path,
+        pointer_store=indexed_pointer_store,
+        owner_resolver=lambda _body: {
+            "kind": "world", "id": managed.world_id, "name": managed.name,
+        },
+        work_resolver=lambda _body, _owner: selected_work,
+        graph_resolver=lambda *_args: pytest.fail("generic Graph path used"),
+        plan_graph_resolver=lambda *_args: selected,
+        runtime=indexed_runtime,
+        conversation_service=indexed_conversation_service,
+    )
+    assert indexed_runtime.calls == 2
+    indexed_context = indexed_response.plan_context
+    assert indexed_context is not None and indexed_context.completion is not None
+    assert indexed_context.completion.citation_map.entries[0].source_opened is True
+    indexed_turn = next(
+        turn for turn in AgentConversationService().list_turns(
+            managed.world_id, indexed_response.conversation.conversation_id,
+        ) if turn.user_text == selected_body.message
+    )
+    indexed_events = indexed_turn.graph_context_execution.events
+    producing = [
+        event for event in indexed_events
+        if event.kind in {"provider_attempt_authorized_v2", "provider_attempt_authorized_v3"}
+    ][-1]
+    graph_event = next(
+        event for event in indexed_events
+        if event.kind in {"validated_graph_operation", "validated_graph_operation_v3"}
+    )
+    read_event = next(
+        event for event in indexed_events if event.kind == "validated_source_read_v2"
+    )
+    assert producing.included_graph_event_ids == [graph_event.event_id]
+    assert producing.included_source_read_event_ids == [read_event.event_id]
+    assert indexed_turn.completion.citation_map.entries[0].source_read_ids == [
+        read_event.receipts[0].source_read_id
+    ]
+    stored_before_replay = indexed_turn.model_dump(mode="json")
+    reads_before_replay = len(graph_reads)
+    replayed_indexed = execute_agent_turn(
+        selected_body, root=tmp_path,
+        pointer_store=indexed_pointer_store,
+        owner_resolver=lambda _body: {
+            "kind": "world", "id": managed.world_id, "name": managed.name,
+        },
+        work_resolver=lambda _body, _owner: selected_work,
+        graph_resolver=lambda *_args: pytest.fail("generic Graph path used"),
+        plan_graph_resolver=lambda *_args: pytest.fail("completed turn resolved Graph again"),
+        runtime=indexed_runtime,
+        conversation_service=indexed_conversation_service,
+    )
+    assert replayed_indexed.plan_context.delivery_replay is True
+    assert replayed_indexed.plan_context.completion == indexed_context.completion
+    assert indexed_runtime.calls == 2
+    assert len(graph_reads) == reads_before_replay
+    assert next(
+        turn for turn in indexed_conversation_service.list_turns(
+            managed.world_id, indexed_response.conversation.conversation_id,
+        ) if turn.user_text == selected_body.message
+    ).model_dump(mode="json") == stored_before_replay
+
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.services.hermes_agent_runtime import (
+        HermesAgentRuntimeAdapter,
+    )
+    from apps.live_control_server.services.hermes_graph_agent_host import (
+        HermesGraphAgentHost,
+    )
+    from tests.test_hermes_graph_agent_host import _tool_using_aiagent_host_worker
+
+    http_payload = {
+        **payload,
+        "client_thread_id": "thread-host-policy",
+        "turn_id": "turn-host-policy",
+        "message": "Explore this World.",
+    }
+    plan_basis = {
+        "world_id": managed.world_id,
+        "document_id": "plan-1",
+        "object_revision": 7,
+        "work_revision_id": work.content_basis.work_revision_id,
+        "revision_n": 3,
+        "markdown": work.plan_markdown,
+        "content_sha256": "a" * 64,
+        "committed_status": "committed",
+        "has_divergent_working_copy": False,
+    }
+    monkeypatch.setattr(
+        agent_route, "get_current_world_plan_revision",
+        lambda *_args, **_kwargs: SimpleNamespace(**plan_basis),
+    )
+    monkeypatch.setattr(agent_route, "session_dir", lambda: tmp_path / "host-sessions")
+    route_service: dict[str, Any] = {"value": AgentConversationService()}
+    monkeypatch.setattr(
+        agent_route, "_conversation_service", lambda _request: route_service["value"]
+    )
+    monkeypatch.setenv("DMB_HERMES_HOST_OFFLINE_WITNESS", str(tmp_path / "host-witness.json"))
+    monkeypatch.setenv("DUNGEONMIND_HERMES_GRAPH_MODEL", "test-model")
+    monkeypatch.setenv("DMB_HERMES_TEST_TOOL_QUERY", "tavern")
+    graph_claim = {
+        "kind": "graph_claim",
+        "claim_id": "rel:tavern-cellar",
+        "text": "The Prancing Tavern contains a hidden cellar.",
+        "target_kind": "relationship",
+        "target_id": "rel:tavern-cellar",
+        "graph_revision": published.revision_id,
+        "evidence_ref_ids": ["ev:cellar"],
+    }
+    # The separate offline host witness expands Graph metadata but does not
+    # open its out-of-dispatch source. #1015 correctly forbids citing it.
+    monkeypatch.setenv("DMB_HERMES_TEST_FINAL_TEXT", json.dumps({
+        "answer_context_status": "plan_only_graph_unused",
+        "answer_segments": [{
+            "kind": "plan_claim", "text": "The keeper waits by the tavern.",
+        }],
+        "citation_map": None,
+    }))
+    host = HermesGraphAgentHost(
+        worker_target=_tool_using_aiagent_host_worker,
+        turn_timeout_s=120.0, ready_timeout_s=90.0, accept_timeout_s=30.0,
+        session_profiles_root=tmp_path / "host-profiles",
+    )
+    app = FastAPI()
+    app.include_router(live_router)
+    app.state.agent_turn_runtime = HermesAgentRuntimeAdapter(host_factory=lambda: host)
+    app.state.agent_conversation_service = AgentConversationService()
+    try:
+        with TestClient(app) as client:
+            http_turn = client.post("/api/live/agent/turn", json=http_payload)
+            assert http_turn.status_code == 200, http_turn.text
+            http_answer = http_turn.json()
+            assert http_answer["schema"] == "dmb_agent_turn_response_v2"
+            assert http_answer["primary_work"]["revision_used"] == 7
+            assert isinstance(http_answer["primary_work"]["revision_used"], int)
+            assert http_answer["primary_work"]["content_basis"]["content_sha256"] == "a" * 64
+            assert http_answer["answer"]["graph_grounded"] is False
+            assert http_answer["answer"]["text"] == "The keeper waits by the tavern."
+            before_history_reads = len(graph_reads)
+            history = client.get(f"/api/live/agent/worlds/{managed.world_id}/conversation")
+            assert history.status_code == 200, history.text
+            assert history.json()["schema"] == "dmb_agent_conversation_history_v2"
+            assert any(
+                turn["lifecycle_status"] == "completed"
+                and turn["assistant_text"] == "The keeper waits by the tavern."
+                and turn["plan_context"]["completion"] is not None
+                for turn in history.json()["turns"]
+            )
+            assert len(graph_reads) == before_history_reads
+            replay = client.post("/api/live/agent/turn", json=http_payload)
+            assert replay.status_code == 200, replay.text
+            assert replay.json()["plan_context"]["delivery_replay"] is True
+            assert replay.json()["primary_work"]["revision_used"] == 7
+            assert replay.json()["primary_work"]["content_basis"] is None
+            assert len(graph_reads) == before_history_reads
+            monkeypatch.setattr(
+                world_container_registry, "get_world_container",
+                lambda world_id: (
+                    bound.model_copy(update={"native_graph_binding": None})
+                    if world_id == managed.world_id else None
+                ),
+            )
+            denied = client.post("/api/live/agent/turn", json={
+                **http_payload, "turn_id": "turn-host-binding-denied",
+            })
+            assert denied.status_code == 409, denied.text
+            assert len(graph_reads) == before_history_reads
+            monkeypatch.setattr(
+                world_container_registry, "get_world_container",
+                lambda world_id: bound if world_id == managed.world_id else None,
+            )
+            from application_state.errors import ApplicationStateError
+
+            class DenyAuthorizationService(AgentConversationService):
+                def authorize_provider_attempt(self, *_args: Any, **_kwargs: Any) -> Any:
+                    raise ApplicationStateError("synthetic authorization persistence refusal")
+
+                def authorize_provider_attempt_v2(self, *_args: Any, **_kwargs: Any) -> Any:
+                    raise ApplicationStateError("synthetic authorization persistence refusal")
+
+            route_service["value"] = DenyAuthorizationService()
+            before_persistence_reads = len(graph_reads)
+            persistence_denied = client.post("/api/live/agent/turn", json={
+                **http_payload, "turn_id": "turn-host-persistence-denied",
+            })
+            assert persistence_denied.status_code == 503, persistence_denied.text
+            assert len(graph_reads) == before_persistence_reads + 1
+    finally:
+        host.shutdown()
+    sdk_witness = json.loads((tmp_path / "host-witness.json").read_text())
+    assert sdk_witness["network_attempts"] == []
+    assert sdk_witness["responses_stub_calls"] == 2
+    sdk_bodies = sdk_witness["provider_request_bodies"][0]
+    assert len(sdk_bodies) == 2
+    for provider_body in sdk_bodies:
+        final_user_input = provider_body["input"][0]["content"]
+        assert "Allowed statuses: graph_grounded, graph_grounded_partial" in final_user_input
+        assert "Available but unused evidence means graph_unused" in final_user_input
+        assert '"kind":"graph_claim"' in final_user_input
+        assert '"kind":"plan_claim"' in final_user_input
+        assert "target_id is a separate source identifier" in final_user_input
+        assert "Do not emit graph_revision, evidence_ref_ids, source_opened or source_read_ids." in final_user_input
+        assert "No citation_map." in final_user_input
+    scope_text = sdk_bodies[0]["instructions"].split(
+        "(runtime-enforced; also required on tool calls):\n", 1)[1]
+    scope_packet, _ = json.JSONDecoder().raw_decode(scope_text)
+    assert scope_packet["initialClaimPacket"]["claimLedger"] == []
+    assert graph_claim["claim_id"] not in json.dumps(sdk_bodies[0])
+    followup_output = sdk_bodies[1]["input"][-1]
+    assert followup_output["type"] == "function_call_output"
+    assert followup_output["call_id"] == sdk_bodies[1]["input"][-2]["call_id"]
+    expanded = json.loads(followup_output["output"])
+    assert expanded["schema"] == "dmb_graph_tool_overview_v1"
+    assert expanded["outcome"] == "enough"
+    assert expanded["view"]["relationships"]
+    assert expanded["detailPageToken"]
+    assert "Discovery only" in expanded["interpretation"]
+    assert all(
+        "claim_id" not in relationship
+        for relationship in expanded["view"]["relationships"]
+    )
+    stored_http = next(
+        turn for turn in AgentConversationService().list_turns(
+            managed.world_id, http_answer["conversation"]["conversation_id"],
+        ) if turn.user_text == http_payload["message"]
+    )
+    http_events = stored_http.graph_context_execution.events
+    http_attempts = [
+        e for e in http_events
+        if e.kind in {
+            "provider_attempt_authorized", "provider_attempt_authorized_v2",
+            "provider_attempt_authorized_v3",
+        }
+    ]
+    http_operations = [e for e in http_events if e.kind in {
+        "validated_graph_operation", "validated_graph_operation_v3",
+    }]
+    assert len(http_attempts) == 2
+    assert len(http_operations) == 1
+    assert http_attempts[0].included_graph_event_ids == []
+    assert http_attempts[1].included_graph_event_ids == [http_operations[0].event_id]
+    # The overview is discovery only. It does not authorize a graph fact until
+    # a complete detail record is explicitly requested and admitted.
+    assert graph_claim["target_id"] not in http_attempts[1].included_relationship_ids
+    assert graph_claim["evidence_ref_ids"][0] not in http_attempts[1].included_evidence_ref_ids
 
 
 def _durable_turn(
@@ -97,8 +2565,86 @@ def _authorize_route_execution(monkeypatch: Any) -> None:
     """Keep these route behavior tests independent of local auth setup."""
     from apps.live_control_server.routes import agent as agent_route
 
-    monkeypatch.setattr(agent_route, "enforce_native_graph_gm", lambda _request: None)
+    monkeypatch.setattr(agent_route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="test-operator"))
     monkeypatch.setattr(agent_route, "_conversation_service", lambda _request: None)
+
+
+def test_plan_graph_seed_lookup_failure_preserves_pre_dispatch_error_and_trace(
+    tmp_path: Path, monkeypatch: Any,
+) -> None:
+    from apps.live_control_server.routes import agent as agent_route
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from apps.live_control_server.services import world_container_registry
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+
+    managed_world_id = "managed-world-test"
+    native_world_id = "native-world-test"
+    source_root = "corpus/managed-world-test"
+    (tmp_path / source_root).mkdir(parents=True)
+    binding = SimpleNamespace(
+        native_world_id=native_world_id, binding_version=1, status="active",
+    )
+    container = SimpleNamespace(
+        native_graph_binding=binding, source_root_relpath=source_root,
+    )
+    monkeypatch.setattr(agent_route, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        world_container_registry, "world_source_root_relpath", lambda _world_id: source_root,
+    )
+    monkeypatch.setattr(
+        world_container_registry, "get_world_container", lambda *_args: container,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_plan_playable_target.selected_plan_graph_seed_candidates",
+        lambda *_args: ["obj:seed"],
+    )
+    monkeypatch.setattr(direct, "direct_services_from_config", lambda _world_id: object())
+
+    def fail_lookup(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("synthetic seed lookup failure")
+
+    monkeypatch.setattr(direct, "get_object_direct", fail_lookup)
+    payload = _payload()
+    payload.update({
+        "surface": {"surface_id": "plan", "instance_id": "plan-main"},
+        "owner_scope": {"kind": "world", "world_id": managed_world_id},
+        "primary_work": {
+            "kind": "plan", "object_id": "plan-1", "expected_revision": 7,
+            "expected_revision_n": 3, "expected_content_sha256": "a" * 64,
+        },
+        "client_work_state": "saved_clean",
+        "plan_context_policy": {"policy": "auto_plan_world"},
+        "playable_target": {
+            "schema": "dmb_plan_playable_target_v1", "kind": "scene", "id": "scene:test",
+        },
+    })
+    body = AgentTurnRequest.model_validate(payload)
+    work = agent_route.AgentTurnResolvedWork(
+        kind="plan", object_id="plan-1", revision=7,
+        changed_since_expected=False, owner_kind="world", owner_id=managed_world_id,
+        world_id=managed_world_id, plan_markdown="Plan text.",
+    )
+    trace = AgentTurnTraceBuilder(
+        agent_thread_id=None, turn_id=body.turn_id,
+        runtime="test", backend="test", mode="test",
+    )
+
+    with pytest.raises(AgentTurnServiceError) as caught:
+        agent_route._plan_context_resolver(
+            body, {"kind": "world", "id": managed_world_id}, work, None,
+            trace=trace,
+        )
+
+    assert caught.value.code == "graph_unavailable"
+    assert caught.value.status_code == 503
+    assert caught.value.provider_dispatched is False
+    lookup_span = next(
+        span for span in trace.spans
+        if span["name"] == "plan_graph_seed_object_lookups"
+    )
+    assert lookup_span["status"] == "error"
+    assert lookup_span["attributes"] == {"candidate_count": 1, "lookup_count": 1}
 
 
 def test_no_scope_route_does_not_load_packet_and_registers_exactly_once(
@@ -136,12 +2682,18 @@ def test_no_scope_route_does_not_load_packet_and_registers_exactly_once(
     assert len(legacy_matches) == 1
     response = agent_route.post_agent_turn(
         AgentTurnRequest.model_validate(_payload()),
-        SimpleNamespace(app=app),
+        SimpleNamespace(app=app, headers={}),
     )
     body = response
     assert body["answer"]["text"] == "A simple answer."
     assert body["answer"]["graph_grounded"] is False
     assert body["graph"]["status"] == "not_requested"
+    trace_spans = body["answer"]["trace"]["spans"]
+    trace_names = {span["name"] for span in trace_spans}
+    assert {"route_auth", "turn_owner_resolution", "committed_plan_resolution",
+            "context_assembly", "runtime_creation"} <= trace_names
+    assert all(span["duration_ms"] >= 0 for span in trace_spans)
+    assert "What can you help me with?" not in json.dumps(trace_spans)
     assert len(runtime.invocations) == 1
     assert runtime.invocations[0].context_packet.world_scope is None
     assert runtime.invocations[0].context_packet.retrieval_session is None
@@ -149,7 +2701,7 @@ def test_no_scope_route_does_not_load_packet_and_registers_exactly_once(
 
 
 def test_graph_auth_denial_precedes_world_receipt_reconciliation(
-    monkeypatch: Any,
+    monkeypatch: Any, caplog: pytest.LogCaptureFixture,
 ) -> None:
     from fastapi import HTTPException
 
@@ -178,11 +2730,53 @@ def test_graph_auth_denial_precedes_world_receipt_reconciliation(
         state=SimpleNamespace(agent_conversation_service=receipt_spy)
     )
 
-    with pytest.raises(HTTPException) as exc_info:
-        agent_route.post_agent_turn(body, SimpleNamespace(app=app))
+    with caplog.at_level(logging.INFO, logger="dmb.agent.turn_trace"):
+        with pytest.raises(HTTPException) as exc_info:
+            agent_route.post_agent_turn(body, SimpleNamespace(app=app, headers={}))
 
     assert exc_info.value.status_code == 403
     assert receipt_spy.called is False
+    trace_event = next(
+        record.getMessage() for record in caplog.records
+        if record.name == "dmb.agent.turn_trace"
+        and record.getMessage().startswith("dmb_agent_turn_trace ")
+    )
+    logged_trace = json.loads(trace_event.removeprefix("dmb_agent_turn_trace "))
+    route_auth = next(span for span in logged_trace["spans"] if span["name"] == "route_auth")
+    assert route_auth["status"] == "error"
+    assert "denied" not in trace_event
+
+
+def test_unconfigured_graph_auth_stops_before_receipt_or_runtime(
+    monkeypatch: Any,
+) -> None:
+    from fastapi import HTTPException
+
+    from apps.live_control_server.routes import agent as agent_route
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+
+    class ReceiptSpy:
+        def reconcile_turn(self, *_args: Any, **_kwargs: Any) -> Any:
+            raise AssertionError("unconfigured Graph auth reached receipts")
+
+    for name in (
+        "DMB_AGENT_GRAPH_AUTH_MODE",
+        "DMB_AGENT_GRAPH_AUTH_ENVIRONMENT",
+        "DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(agent_route, "enforce_native_graph_gm", enforce_native_graph_gm)
+    body = AgentTurnRequest.model_validate({
+        **_payload(),
+        "owner_scope": {"kind": "world", "world_id": "world-auth-test"},
+    })
+    app = SimpleNamespace(state=SimpleNamespace(agent_conversation_service=ReceiptSpy()))
+
+    with pytest.raises(HTTPException) as exc_info:
+        agent_route.post_agent_turn(body, SimpleNamespace(app=app, headers={}))
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail["code"] == "graph_auth_unavailable"
 
 
 def test_unverified_world_is_rejected_before_turn_receipt_reconciliation(
@@ -1029,6 +3623,33 @@ def test_request_validation_rejects_unknown_or_contradictory_fields() -> None:
             "surface": {"surface_id": "plan", "instance_id": "plan-pane"},
             "owner_scope": {"kind": "world", "world_id": "world-1"},
             "primary_work": {
+                "kind": "plan", "object_id": "plan-1", "expected_revision": 1,
+                "expected_revision_n": 2, "expected_content_sha256": "b" * 64,
+            },
+            "client_work_state": "saved_clean",
+            "playable_target": {
+                "schema": "dmb_plan_playable_target_v1", "kind": "scene", "id": "scene:arrival",
+                "marker_grammar_version": "v1",
+            },
+        },
+        {
+            **payload,
+            "surface": {"surface_id": "plan", "instance_id": "plan-pane"},
+            "owner_scope": {"kind": "world", "world_id": "world-1"},
+            "primary_work": {
+                "kind": "plan", "object_id": "plan-1", "expected_revision": 1,
+                "expected_revision_n": 2, "expected_content_sha256": "b" * 64,
+            },
+            "client_work_state": "saved_clean",
+            "playable_target": {
+                "schema": "dmb_plan_playable_target_v1", "kind": "scene", "id": "choice:arrival"
+            },
+        },
+        {
+            **payload,
+            "surface": {"surface_id": "plan", "instance_id": "plan-pane"},
+            "owner_scope": {"kind": "world", "world_id": "world-1"},
+            "primary_work": {
                 "kind": "plan",
                 "object_id": "plan-1",
                 "expected_revision": 1,
@@ -1065,6 +3686,22 @@ def test_request_validation_rejects_unknown_or_contradictory_fields() -> None:
         else:
             raise AssertionError("invalid turn request was accepted")
 
+    accepted_target = AgentTurnRequest.model_validate({
+        **payload,
+        "surface": {"surface_id": "plan", "instance_id": "plan-pane"},
+        "owner_scope": {"kind": "world", "world_id": "world-1"},
+        "primary_work": {
+            "kind": "plan", "object_id": "plan-1", "expected_revision": 1,
+            "expected_revision_n": 2, "expected_content_sha256": "b" * 64,
+        },
+        "client_work_state": "saved_clean",
+        "playable_target": {
+            "schema": "dmb_plan_playable_target_v1", "kind": "beat", "id": "beat:a"
+        },
+    })
+    assert accepted_target.playable_target is not None
+    assert accepted_target.playable_target.id == "beat:a"
+
 
 def test_plan_resolver_reads_exact_committed_world_revision_and_returns_basis(
     tmp_path: Path, monkeypatch: Any
@@ -1072,6 +3709,7 @@ def test_plan_resolver_reads_exact_committed_world_revision_and_returns_basis(
     from apps.live_control_server.routes import agent as agent_route
 
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(agent_route, "_planning_session_evidence", lambda *_args: {"world_id":"world-1","sessions":[]})
     basis = {
         "world_id": "world-1",
         "document_id": "plan-1",
@@ -1182,7 +3820,7 @@ def test_plan_agent_route_dispatches_only_atomic_committed_content(
         create_world_container,
     )
 
-    managed_world = create_world_container(tmp_path, name="Plan Ask World")
+    managed_world = create_world_container(name="Plan Ask World")
     markdown = "# Saved Plan\n\nThe keeper waits below the black arch.\n"
     basis = {
         "world_id": managed_world.world_id,
@@ -1238,7 +3876,7 @@ def test_plan_agent_route_dispatches_only_atomic_committed_content(
     )
     app = SimpleNamespace(state=SimpleNamespace(agent_turn_runtime=runtime))
 
-    response = agent_route.post_agent_turn(request, SimpleNamespace(app=app))
+    response = agent_route.post_agent_turn(request, SimpleNamespace(app=app, headers={}))
 
     assert observed == {
         "document_id": "plan-1",
@@ -1270,7 +3908,7 @@ def test_plan_agent_route_rejects_stale_pin_before_runtime_dispatch(
         create_world_container,
     )
 
-    managed_world = create_world_container(tmp_path, name="Stale Plan Ask World")
+    managed_world = create_world_container(name="Stale Plan Ask World")
 
     def stale_read(*_args: Any, **_kwargs: Any) -> Any:
         raise agent_route.WorkspaceDocumentRegistryError(
@@ -1300,7 +3938,7 @@ def test_plan_agent_route_rejects_stale_pin_before_runtime_dispatch(
     app = SimpleNamespace(state=SimpleNamespace(agent_turn_runtime=runtime))
 
     with pytest.raises(HTTPException) as exc_info:
-        agent_route.post_agent_turn(request, SimpleNamespace(app=app))
+        agent_route.post_agent_turn(request, SimpleNamespace(app=app, headers={}))
 
     assert exc_info.value.status_code == 409
     assert exc_info.value.detail["code"] == "plan_revision_changed"
@@ -1327,12 +3965,12 @@ def test_plan_agent_route_reads_actual_committed_content_and_excludes_divergent_
     )
 
     assert application_state_dsn
-    managed_world = create_world_container(tmp_path, name="Atomic Plan Ask World")
+    managed_world = create_world_container(name="Atomic Plan Ask World")
     created = create_world_plan(
         title="Atomic Plan Ask",
         world_id=managed_world.world_id,
     )
-    markdown = "# Atomic Plan\n\nThe keeper waits below the black arch.\n"
+    markdown = "# Atomic Plan\n\n<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->\n## Arrival\nThe keeper waits below the black arch.\n"
     draft_markdown = "# Local draft\n\nThe draft says the arch is empty.\n"
     _committed_object, committed = commit_plan(
         str(created.work_object_id),
@@ -1367,18 +4005,36 @@ def test_plan_agent_route_reads_actual_committed_content_and_excludes_divergent_
                 "expected_content_sha256": current.content_sha256,
             },
             "client_work_state": "saved_dirty",
+            "playable_target": {
+                "schema": "dmb_plan_playable_target_v1",
+                "kind": "scene",
+                "id": "scene:arrival",
+            },
             "message": "What is beneath the black arch?",
         }
     )
     app = SimpleNamespace(state=SimpleNamespace(agent_turn_runtime=runtime))
 
-    response = agent_route.post_agent_turn(request, SimpleNamespace(app=app))
+    response = agent_route.post_agent_turn(request, SimpleNamespace(app=app, headers={}))
 
     assert len(runtime.invocations) == 1
     _prefix, payload = runtime.invocations[0].message.split("\n", maxsplit=1)
     assert json.loads(payload) == {
         "committed_plan_markdown": markdown,
         "user_question": "What is beneath the black arch?",
+        "focus_metadata": {
+            "playable_target": {
+                "kind": "scene",
+                "id": "scene:arrival",
+                "marker_grammar_version": "v1",
+            },
+            "work_revision": {
+                "work_revision_id": str(committed.work_revision_id),
+                "revision_n": committed.revision_n,
+                "content_sha256": committed.content_sha256,
+                "object_revision": current.object_revision,
+            },
+        },
     }
     assert draft_markdown not in runtime.invocations[0].message
     assert response["primary_work"]["content_basis"] == {
@@ -1418,7 +4074,7 @@ def test_campaign_id_equal_to_world_id_is_not_world_plan_ownership(
         create_world_container,
     )
 
-    managed_world = create_world_container(tmp_path, name="World Alias Test")
+    managed_world = create_world_container(name="World Alias Test")
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(
         agent_route,
@@ -1654,7 +4310,7 @@ def test_verified_world_projection_reaches_runtime_through_full_http_route(
         _seed_sources,
     )
 
-    managed_world = create_world_container(tmp_path, name="Agent Projection Test World")
+    managed_world = create_world_container(name="Agent Projection Test World")
     world_root = tmp_path / "isolated-world-root"
     auth_token = "test-local-operator-token-with-adequate-length"
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
@@ -1751,7 +4407,7 @@ def test_verified_world_projection_reaches_runtime_through_full_http_route(
 
     response = asyncio.run(post_turn())
 
-    assert response.status_code == 200, response.text
+    assert response.status_code == 200
     body = response.json()
     assert body["owner_scope"]["owner_id"] == managed_world.world_id
     assert body["graph"]["status"] == "ready"
@@ -1764,3 +4420,505 @@ def test_verified_world_projection_reaches_runtime_through_full_http_route(
     assert invocation.context_packet.retrieval_session is not None
     packet_text = str(invocation.context_packet.retrieval_session.packet)
     assert "The Prancing Tavern" in packet_text
+
+
+def test_reset_receipt_status_auth_precedes_world_and_receipt_lookup(monkeypatch):
+    from fastapi import HTTPException
+    from starlette.requests import Request
+    from apps.live_control_server.routes import agent as route
+    def reject(_request):
+        raise HTTPException(status_code=403, detail="GM required")
+    monkeypatch.setattr(route, "enforce_native_graph_gm", reject)
+    monkeypatch.setattr(route, "_verified_world_id", lambda _world: pytest.fail("World lookup preceded authorization"))
+    monkeypatch.setattr(route, "_conversation_service", lambda _request: pytest.fail("receipt lookup preceded authorization"))
+    with pytest.raises(HTTPException) as error:
+        route.get_new_world_conversation_status("unknown-world", uuid4(), Request({"type": "http", "query_string": b""}), 0, "null")
+    assert error.value.status_code == 403
+
+
+def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, legacy=False, claims=True, neighbor=False, flip_binding_after_index=False, head_updates=None, store_calls=None, corpus_present=True, relocated_hint=False, hint_change_during=None, binding_change_during_search=False, initial_binding="active", registered=True):
+    from tests.test_world_graph_retrieval_contract import _selected_native_fixture
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from apps.live_control_server.services import world_container_registry as registry
+    from apps.live_control_server.services.agent_turn_service import _freeze_policy_receipt, _plan_message
+    services, request, revision = _selected_native_fixture(unrelated=0 if legacy else 513, unavailable=unavailable, claims=claims, neighbor=neighbor)
+    managed = registry.create_world_container(name="Selected consumer fixture")
+    (tmp_path / managed.source_root_relpath).mkdir(parents=True, exist_ok=True)
+    binding = registry.NativeGraphBindingRecord(native_world_id=request.world_id, binding_version=1,
+        status="active", validated_at="2026-10-08T00:00:00Z", validated_head_revision_id=revision)
+    container = managed.model_copy(update={"native_graph_binding": (
+        None if initial_binding == "none" else binding.model_copy(update={"status": initial_binding})
+    )})
+    if not corpus_present:
+        (tmp_path / managed.source_root_relpath).rmdir()
+    if relocated_hint:
+        container = container.model_copy(update={"source_root_relpath": "retained/older-layout"})
+    monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
+
+    def registered_world(world):
+        if not registered or world != managed.world_id:
+            raise registry.WorldContainerRegistryError("World not found")
+        return container
+
+    monkeypatch.setattr(registry, "get_world_container", registered_world)
+    monkeypatch.setattr(direct, "direct_services_from_config", lambda world: services if world == request.world_id else None)
+    def record_store(session, **_kwargs):
+        if store_calls is not None:
+            store_calls.append(session.id)
+        return session
+
+    monkeypatch.setattr(route, "_store_plan_retrieval_session", record_store)
+    if hint_change_during == "search" or binding_change_during_search:
+        original_search = direct.search_world_graph_direct_v2
+
+        def search_then_change_metadata(*args, **kwargs):
+            nonlocal container
+            result = original_search(*args, **kwargs)
+            if hint_change_during == "search":
+                container = container.model_copy(update={"source_root_relpath": "relocated/during-search"})
+            if binding_change_during_search:
+                container = container.model_copy(update={
+                    "native_graph_binding": binding.model_copy(update={"binding_version": 2}),
+                })
+            return result
+
+        monkeypatch.setattr(direct, "search_world_graph_direct_v2", search_then_change_metadata)
+    if flip_binding_after_index or head_updates is not None or hint_change_during == "index":
+        original_index = direct.list_selected_source_anchor_index_direct_v1
+
+        def index_then_change_authority(*args, **kwargs):
+            nonlocal container
+            result = original_index(*args, **kwargs)
+            if hint_change_during == "index":
+                container = container.model_copy(update={"source_root_relpath": "relocated/during-index"})
+            if flip_binding_after_index:
+                container = container.model_copy(update={
+                    "native_graph_binding": binding.model_copy(update={"binding_version": 2}),
+                })
+            if head_updates is not None:
+                from dungeonmind.contracts.graph import PublishRevisionCommand
+                from tests._cutover_direct_dungeonmind_read_helpers import NOW
+
+                stored = services.bundle.world_graph.get_revision(request.world_id, revision)
+                assert stored is not None
+                advanced = services.bundle.world_graph.publish_revision(PublishRevisionCommand(
+                    world_id=request.world_id,
+                    parent_revision_id=revision,
+                    expected_parent_revision_id=revision,
+                    operation_ids=["op:head-advanced-during-source-index"],
+                    graph_schema="dm_union_graph_v6",
+                    graph_payload=stored.graph_payload,
+                    created_at=NOW,
+                ))
+                head_updates.append(advanced.revision_id)
+            return result
+
+        monkeypatch.setattr(direct, "list_selected_source_anchor_index_direct_v1", index_then_change_authority)
+    payload = _payload()
+    payload.update(surface={"surface_id":"plan","instance_id":"plan-main"}, owner_scope={"kind":"world","world_id":managed.world_id},
+        primary_work={"kind":"plan","object_id":"plan-1","expected_revision":7,"expected_revision_n":3,"expected_content_sha256":"a"*64},
+        client_work_state="saved_clean", plan_context_policy={"policy":"auto_plan_world"}, message="The Prancing Tavern")
+    body = AgentTurnRequest.model_validate(payload)
+    work = route.AgentTurnResolvedWork(kind="plan", object_id="plan-1", revision=7, changed_since_expected=False,
+        owner_kind="world", owner_id=managed.world_id, world_id=managed.world_id,
+        content_basis=route.AgentTurnContentBasis(world_id=managed.world_id, document_id="plan-1", object_revision=7,
+            work_revision_id=str(uuid4()), revision_n=3, content_sha256="a"*64, committed_status="committed", has_divergent_working_copy=False),
+        plan_markdown="The keeper waits at the tavern.")
+    frozen = None if not legacy else SimpleNamespace(assembled_input=SimpleNamespace(assembler_version="agent_harness_final_request_v1"), graph_authority=SimpleNamespace(managed_world_id=managed.world_id,
+        native_world_id=request.world_id,binding_version=1,graph_revision=revision),
+        graph_packet=SimpleNamespace(selection_policy_version="parent_initial_retrieval_with_bounded_source_index_v1"))
+    bootstrap = route._plan_context_resolver(body, {"kind":"world","id":managed.world_id}, work, frozen)
+    projected = bootstrap.retrieval_session.project_for_hermes()
+    initial = {"candidates":projected["candidates"][:8], "claimLedger":projected["claim_ledger"][:24],
+        "intentHint":projected["intent_hint"],"availableExpansions":projected["available_expansions"]}
+    encoded = json.dumps({"input":[{"role":"system","content":"Turn capability policy (runtime-enforced; also required on tool calls):\n"+json.dumps({"initialClaimPacket":initial})},
+        {"role":"user","content":_plan_message(body.message,work.plan_markdown,content_basis=work.content_basis)}]},sort_keys=True,separators=(",",":"))
+    view = {"provider":"openai-api","model":"fixture","apiMode":"codex_responses","payloadJson":encoded,
+        "payloadSha256":hashlib.sha256(encoded.encode()).hexdigest(),"payloadUtf8Bytes":len(encoded.encode())}
+    budget = {"estimator":"utf8_json_bytes_plus_64_per_node_v1","contextLimitTokens":32768,"outputReserveTokens":2048,
+        "maxProviderAttempts":4,"maxToolCapableAttempts":3,"maxGraphOperations":8}
+    receipt, execution, membership = _freeze_policy_receipt(body, work, bootstrap, None, view, budget)
+    return body, work, bootstrap, receipt, execution, membership
+
+
+@pytest.mark.parametrize("phase", ["search", "index"])
+def test_selected_plan_binding_change_during_reads_fails_before_receipt(tmp_path, monkeypatch, phase):
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+
+    store_calls = []
+    with pytest.raises(AgentTurnServiceError) as caught:
+        _selected_consumer_context(
+            tmp_path, monkeypatch, flip_binding_after_index=phase == "index",
+            binding_change_during_search=phase == "search", store_calls=store_calls,
+        )
+
+    assert caught.value.code == "native_graph_binding_changed"
+    assert caught.value.status_code == 409
+    assert caught.value.provider_dispatched is False
+    assert store_calls == []
+
+
+@pytest.mark.parametrize("relocated_hint", [False, True])
+def test_selected_plan_graph_admission_does_not_require_a_corpus_folder(tmp_path, monkeypatch, relocated_hint):
+    _body, _work, bootstrap, receipt, _execution, _membership = _selected_consumer_context(
+        tmp_path, monkeypatch, corpus_present=False, relocated_hint=relocated_hint,
+    )
+    assert not list((tmp_path / "corpus").iterdir())
+    assert receipt.graph_authority.native_world_id == bootstrap.world_scope.world_id
+    assert bootstrap.source_index_commitment["status"] == "complete"
+
+
+@pytest.mark.parametrize("phase", ["search", "index"])
+def test_selected_plan_graph_admission_ignores_source_hint_changes(tmp_path, monkeypatch, phase):
+    _body, _work, bootstrap, receipt, _execution, _membership = _selected_consumer_context(
+        tmp_path, monkeypatch, hint_change_during=phase,
+    )
+    assert receipt.graph_authority.binding_version == 1
+    assert receipt.graph_authority.graph_revision == bootstrap.world_scope.revision_id
+    assert bootstrap.source_index_commitment["status"] == "complete"
+
+
+@pytest.mark.parametrize("initial_binding,registered", [("inactive", True), ("none", True), ("active", False)])
+def test_selected_plan_folder_never_substitutes_for_registered_active_binding(tmp_path, monkeypatch, initial_binding, registered):
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+
+    stored = []
+    with pytest.raises(AgentTurnServiceError) as caught:
+        _selected_consumer_context(tmp_path, monkeypatch, initial_binding=initial_binding,
+            registered=registered, store_calls=stored)
+    assert caught.value.code == ("native_graph_binding_unavailable" if registered else "world_owner_unavailable")
+    assert caught.value.provider_dispatched is False
+    assert stored == []
+
+
+def test_selected_plan_head_advance_during_source_index_keeps_one_revision(tmp_path, monkeypatch):
+    head_updates = []
+
+    _body, _work, bootstrap, receipt, _execution, _membership = _selected_consumer_context(
+        tmp_path, monkeypatch, head_updates=head_updates,
+    )
+
+    assert len(head_updates) == 1
+    assert head_updates[0] != bootstrap.world_scope.revision_id
+    assert receipt.graph_authority.graph_revision == bootstrap.world_scope.revision_id
+    assert bootstrap.retrieval_session.snapshot.revision_id == bootstrap.world_scope.revision_id
+    assert bootstrap.source_index_commitment["context"]["revision_id"] == bootstrap.world_scope.revision_id
+
+
+@pytest.mark.parametrize("unavailable", [False, True])
+def test_selected_consumer_freezes_before_provider_despite_513_and_keeps_graph_facts(tmp_path, monkeypatch, unavailable):
+    from application_state.agent_conversation.types import GraphSelectedSourceReadScopeV2
+    body, work, bootstrap, receipt, execution, membership = _selected_consumer_context(tmp_path, monkeypatch, unavailable=unavailable)
+    assert receipt.graph_packet.selection_policy_version == "parent_initial_retrieval_with_selected_source_index_v1"
+    assert isinstance(execution.policy.source_read_scope, GraphSelectedSourceReadScopeV2)
+    from application_state.agent_conversation.types import graph_execution_policy_digest_v3
+    assert execution.execution_policy_sha256 == graph_execution_policy_digest_v3(execution.context_receipt_sha256, execution.policy)
+    assert execution.policy.max_graph_operations == 8
+    assert membership[0] and membership[2] and receipt.assembled_input.dispatched_evidence_ref_ids
+    assert receipt.assembled_input.packet_disposition == "included" and not receipt.source_opened
+    assert execution.policy.max_source_read_chars == 96000
+    assert execution.policy.source_read_accounting == "settled_receipts_v1"
+    assert len(execution.policy.source_read_scope.admitted_anchors) == (0 if unavailable else 1)
+    assert bootstrap.source_index_commitment["status"] == ("unavailable" if unavailable else "complete")
+
+
+def test_selected_consumer_pending_selector_and_no_source_crawl_expansion(tmp_path, monkeypatch):
+    import copy
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    body, work, bootstrap, receipt, execution, _membership = _selected_consumer_context(tmp_path, monkeypatch)
+    owner = {"kind":"world","id":work.world_id}
+    replay = route._plan_context_resolver(body, owner, work, receipt, frozen_source_scope=execution.policy.source_read_scope)
+    assert replay.source_index_commitment == bootstrap.source_index_commitment
+    assert replay.source_scope_anchors == bootstrap.source_scope_anchors
+    with pytest.raises(AgentTurnServiceError, match="stored selected source scope"):
+        route._plan_context_resolver(body, owner, work, receipt)
+    changed = copy.deepcopy(bootstrap.source_index_commitment)
+    changed["access_context_sha256"] = "0"*64
+    from dataclasses import replace
+    from apps.live_control_server.services.agent_turn_service import _restore_v2_retry_bootstrap
+    turn = SimpleNamespace(graph_context_receipt=receipt, graph_context_execution=execution)
+    with pytest.raises(AgentTurnServiceError, match="selected index differs"):
+        _restore_v2_retry_bootstrap(replace(bootstrap,source_index_commitment=changed),turn)
+
+
+
+def test_selected_consumer_unsupported_facts_keep_existing_plan_only_omission(tmp_path,monkeypatch):
+    _body,_work,_bootstrap,receipt,_execution,members=_selected_consumer_context(tmp_path,monkeypatch,claims=False)
+    assert not members[0] and not members[1]
+    assert receipt.assembled_input.packet_disposition=='omitted_insufficient'
+
+
+def _initial_citation_provider_view(body, work, bootstrap):
+    from apps.live_control_server.services.agent_turn_service import _plan_message
+    from apps.live_control_server.services.hermes_graph_agent import _scope_block
+    from graph_memory.hermes_graph_plugin import HermesGraphScope, default_graph_only_capability_policy
+
+    policy = default_graph_only_capability_policy(HermesGraphScope(
+        world_id=bootstrap.world_scope.world_id, campaign_id="", scope_mode="world",
+        focus={"kind": "none"}, admissibility="gm",
+        revision_pin=bootstrap.world_scope.revision_id,
+    ))
+    encoded = json.dumps({"input": [
+        {"role": "system", "content": _scope_block(
+            policy, retrieval_session_id=bootstrap.retrieval_session.id,
+            retrieval_session=bootstrap.retrieval_session.project_for_hermes(),
+        )},
+        {"role": "user", "content": _plan_message(
+            body.message, work.plan_markdown, content_basis=work.content_basis,
+        )},
+    ]}, sort_keys=True, separators=(",", ":"))
+    return {"provider": "openai-api", "model": "fixture", "apiMode": "codex_responses",
+            "payloadJson": encoded, "payloadSha256": hashlib.sha256(encoded.encode()).hexdigest(),
+            "payloadUtf8Bytes": len(encoded.encode())}
+
+
+def test_initial_canonical_citations_match_actual_provider_packet_and_frozen_versions(tmp_path, monkeypatch):
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services.agent_turn_service import (
+        _freeze_policy_receipt, _initial_claim_packet_from_view, _initial_packet_membership,
+    )
+
+    body, work, bootstrap, _, execution, _ = _selected_consumer_context(tmp_path, monkeypatch)
+    budget = {"estimator": "utf8_json_bytes_plus_64_per_node_v1", "contextLimitTokens": 32768,
+              "outputReserveTokens": 2048, "maxProviderAttempts": 4,
+              "maxToolCapableAttempts": 3, "maxGraphOperations": 8}
+    view = _initial_citation_provider_view(body, work, bootstrap)
+    actual = _initial_claim_packet_from_view(SimpleNamespace(payload_json=view["payloadJson"]), bootstrap)
+    admitted = [row for row in actual["claimLedger"] if row["claim_id"] in bootstrap.candidate_assertion_ids]
+    assert admitted
+    exposed = {ref for row in admitted for ref in row.get("evidence_ref_ids", [])}
+    assert exposed
+    assert exposed.isdisjoint({anchor for row in admitted for anchor in row["support"]["source_anchor_ids"]})
+    receipt, _, membership = _freeze_policy_receipt(body, work, bootstrap, None, view, budget)
+    assert receipt.assembled_input.assembler_version == "agent_harness_final_request_v2"
+    assert exposed == set(membership[2]) == set(receipt.assembled_input.dispatched_evidence_ref_ids)
+    # Unanchored relationships keep the existing insufficient-evidence path;
+    # their declared refs never become dispatched citation membership.
+    from dataclasses import replace
+    unanchored = replace(bootstrap, candidate_assertion_ids=(),
+        candidate_relationship_ids=("rel:no-source",))
+    assert _initial_packet_membership({"claimLedger": [{
+        "claim_id": "rel:no-source", "claim_kind": "relationship",
+        "evidence_ref_ids": ["ev:declared-only"], "support": {"source_anchor_ids": []},
+    }]}, unanchored) == ([], ["rel:no-source"], [])
+
+    owner = {"kind": "world", "id": work.world_id}
+    replay = route._plan_context_resolver(body, owner, work, receipt,
+        frozen_source_scope=execution.policy.source_read_scope)
+    assert _initial_citation_provider_view(body, work, replay) == view
+    unknown = receipt.model_copy(update={"assembled_input": receipt.assembled_input.model_copy(
+        update={"assembler_version": "future-unknown"})})
+    with pytest.raises(route.AgentTurnServiceError) as invalid_version:
+        route._plan_context_resolver(body, owner, work, unknown,
+            frozen_source_scope=execution.policy.source_read_scope)
+    assert invalid_version.value.code == "turn_receipt_unverifiable"
+    assert invalid_version.value.provider_dispatched is False
+
+    # Build a genuinely frozen v1 packet, then prove its original request is
+    # reconstructed rather than upgrading already-admitted execution bytes.
+    old_marker = SimpleNamespace(graph_authority=receipt.graph_authority,
+        graph_packet=receipt.graph_packet,
+        assembled_input=SimpleNamespace(assembler_version="agent_harness_final_request_v1"))
+    legacy = route._plan_context_resolver(body, owner, work, old_marker,
+        frozen_source_scope=execution.policy.source_read_scope)
+    old_view = _initial_citation_provider_view(body, work, legacy)
+    old_packet = _initial_claim_packet_from_view(SimpleNamespace(payload_json=old_view["payloadJson"]), legacy)
+    assert all("evidence_ref_ids" not in row for row in old_packet["claimLedger"] if row["claim_kind"] == "attribute")
+    old_receipt, _, old_membership = _freeze_policy_receipt(body, work, legacy, None, old_view, budget)
+    assert old_receipt.assembled_input.assembler_version == "agent_harness_final_request_v1"
+    assert old_membership == _initial_packet_membership(old_packet, legacy)
+    old_replay = route._plan_context_resolver(body, owner, work, old_receipt,
+        frozen_source_scope=execution.policy.source_read_scope)
+    assert _initial_citation_provider_view(body, work, old_replay) == old_view
+
+
+@pytest.mark.parametrize("mutation", ["missing", "anchor", "foreign", "extra", "duplicate"])
+def test_initial_citation_membership_rejects_hidden_or_invalid_evidence(tmp_path, monkeypatch, mutation):
+    import copy
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentTurnServiceError, _initial_claim_packet_from_view, _initial_packet_membership,
+    )
+    body, work, bootstrap, _, _, _ = _selected_consumer_context(tmp_path, monkeypatch)
+    view = _initial_citation_provider_view(body, work, bootstrap)
+    packet = copy.deepcopy(_initial_claim_packet_from_view(SimpleNamespace(payload_json=view["payloadJson"]), bootstrap))
+    row = next(row for row in packet["claimLedger"] if row["claim_id"] in bootstrap.candidate_assertion_ids and row.get("evidence_ref_ids"))
+    row["evidence_ref_ids"] = {
+        "missing": [], "anchor": row["support"]["source_anchor_ids"],
+        "foreign": ["ev:foreign"], "extra": row["evidence_ref_ids"] + ["ev:foreign"],
+        "duplicate": row["evidence_ref_ids"] * 2,
+    }[mutation]
+    with pytest.raises(AgentTurnServiceError) as caught:
+        _initial_packet_membership(packet, bootstrap)
+    assert caught.value.code == "graph_evidence_invalid"
+    assert caught.value.provider_dispatched is False
+
+
+def test_selected_same_pins_different_valid_selector_cannot_rebind_receipt(tmp_path,monkeypatch):
+    import copy
+    from pydantic import ValidationError
+    from application_state.agent_conversation.types import GraphSelectedSourceReadScopeV2, SettledGraphExecutionPolicyV3, PlanWorldGraphExecutionV3, TurnSubmission, _canonical_sha256, graph_execution_policy_digest_v3
+    from apps.live_control_server.services.agent_turn_service import _conversation_provenance,_submitted_turn_intent
+    body,work,bootstrap,receipt,execution,_ = _selected_consumer_context(tmp_path,monkeypatch)
+    scope=execution.policy.source_read_scope
+    commitment=copy.deepcopy(scope.selected_index_commitment.model_dump(mode='json',by_alias=True))
+    targets=[{'kind':'object','target_id':'obj:different-same-pins'}]
+    commitment.update(requested_targets=targets,admitted_targets=targets,not_visible_targets=[],requested_count=1,admitted_count=1,not_visible_count=0)
+    commitment['selector_sha256']=_canonical_sha256({'schema':'dm_selected_source_anchor_selector_v1','context':commitment['context'],'max_entries':512,'targets':targets})
+    entries=[{**anchor.model_dump(mode='json'),'anchor_id':anchor.anchor_id.replace('source-anchor:v1:','dm-source-anchor:v1:',1)} for anchor in scope.admitted_anchors]
+    commitment['index_sha256']=_canonical_sha256({'schema':'dm_selected_source_anchor_index_v1','selector_sha256':commitment['selector_sha256'],'status':commitment['status'],
+        'admitted_targets':targets,'not_visible_targets':[],'provenance_gap_count':commitment['provenance_gap_count'],'unavailable_binding_count':commitment['unavailable_binding_count'],
+        'eligible_count':commitment['eligible_count'],'entries':entries})
+    changed_scope=GraphSelectedSourceReadScopeV2.model_validate({**scope.model_dump(mode='json',by_alias=True),'selected_index_commitment':commitment})
+    changed_policy=SettledGraphExecutionPolicyV3.model_validate({**execution.policy.model_dump(mode='python'),'source_read_scope':changed_scope})
+    changed_execution=PlanWorldGraphExecutionV3(context_receipt_sha256=receipt.context_receipt_sha256,policy=changed_policy,
+        execution_policy_sha256=graph_execution_policy_digest_v3(receipt.context_receipt_sha256,changed_policy),events=[])
+    with pytest.raises(ValidationError,match='selected composite differs'):
+        TurnSubmission(world_id=work.world_id,conversation_id=uuid4(),idempotency_key=uuid4(),expected_conversation_revision=1,user_text=body.message,
+            provenance=_conversation_provenance(body,world_id=work.world_id,work=work,graph_scope=bootstrap.world_scope,graph_envelope=bootstrap.graph_envelope),
+            submitted_intent_v2=_submitted_turn_intent(body,world_id=work.world_id),graph_context_receipt=receipt,graph_context_execution=changed_execution)
+
+
+@pytest.mark.parametrize("status", ["ok", "error"])
+def test_route_fallback_trace_finalizes_once_with_unknown_error_calls(monkeypatch, status):
+    import apps.live_control_server.routes.agent as route
+    import apps.live_control_server.services.agent_turn_trace as trace_module
+    emitted = []
+    monkeypatch.setattr(trace_module, "emit_baseline_trace_log", lambda trace: emitted.append(trace_module.retained_trace_payload(trace)))
+    trace = trace_module.AgentTurnTraceBuilder(agent_thread_id=None, turn_id="request-1", runtime="test", backend="test", mode="test")
+    route._finalize_unlogged_agent_trace(trace, status=status)
+    route._finalize_unlogged_agent_trace(trace, status=status)
+    assert len(emitted) == 1
+    assert emitted[0]["status"] == status
+    assert emitted[0]["correlation"] == {}
+    if status == "error":
+        assert emitted[0]["usage"]["model_call_count"] is None
+
+
+def test_world_plan_real_pin_reaches_http_runtime_and_stale_run_does_not(
+    tmp_path: Path, monkeypatch: Any, application_state_dsn: str,
+) -> None:
+    from apps.live_control_server.main import create_app
+    from apps.live_control_server.routes import agent as route
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.agent_conversation.types import ConversationCommand
+    from tests.test_agent_play_surface_context import _create_real_world_play_context
+
+    assert application_state_dsn
+    world, _obj, revision, run = _create_real_world_play_context(tmp_path)
+    service = AgentConversationService()
+    pointer = service.get_world_pointer(world.world_id)
+    service.new_conversation(ConversationCommand(
+        world_id=world.world_id, command_id=uuid4(), expected_pointer_revision=pointer.revision,
+        expected_active_conversation_id=pointer.active_conversation_id,
+    ))
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="test-operator"))
+    monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
+    monkeypatch.setattr(route, "_conversation_service", lambda _request: service)
+    app = create_app()
+    runtime = FakeRuntime()
+    app.state.agent_turn_runtime = runtime
+    app.state.agent_conversation_service = service
+    payload = {**_play_turn_payload(revision=run.run_revision),
+               "owner_scope": {"kind": "world", "world_id": world.world_id},
+               "primary_work": {"kind": "run", "object_id": run.run_id,
+                                "expected_revision": run.run_revision,
+                                "play_content_basis": {"edition_revision": 0, "edition_revision_id": None, "content_sha256": revision.content_sha256}}}
+
+    async def send(body):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
+                                     base_url="http://test") as client:
+            return await client.post("/api/live/agent/turn", json=body)
+
+    accepted = asyncio.run(send(payload))
+    assert accepted.status_code == 200, accepted.text
+    assert len(runtime.invocations) == 1
+    current = runtime.invocations[0].context_packet.surface_context.current_play
+    assert current.current_scene.element_id == "scene:gate-line"
+    assert current.playable_revision == revision.revision_n
+    stale = asyncio.run(send({**payload, "turn_id": "stale-real-pin",
+        "primary_work": {**payload["primary_work"], "expected_revision": run.run_revision + 1}}))
+    assert stale.status_code == 409, stale.text
+    assert len(runtime.invocations) == 1
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
+
+def _build_reference_admission_payload(family: str) -> dict[str, Any]:
+    from application_state.agent_conversation.authored_graph_references import (
+        AuthoredGraphReferenceV1, AuthoredGraphReferencesV1, AuthoredReferencesV2,
+    )
+
+    reference = AuthoredGraphReferenceV1(
+        managed_world_id="world-a", native_world_id="native-world-a",
+        binding_version=1, graph_revision="revision-a", node_id="object:a", label="A",
+    )
+    references = (AuthoredGraphReferencesV1 if family == "classic" else AuthoredReferencesV2)(
+        references=(reference,),
+    )
+    return {
+        **_payload(),
+        "surface": {"surface_id": "build", "instance_id": "build-page-a"},
+        "owner_scope": {"kind": "world", "world_id": "world-a"},
+        "graph_request": {
+            "mode": "world", "world_id": "world-a", "campaign_id": None,
+            "revision_pin": None,
+            "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+        },
+        "build_authored_references": references.model_dump(mode="json", by_alias=True),
+    }
+
+
+@pytest.mark.parametrize("family", ["classic", "native"])
+@pytest.mark.parametrize("work_state", ["none", "new_unsaved"])
+def test_build_references_without_page_are_rejected_before_dispatch(
+    monkeypatch: Any, family: str, work_state: str,
+) -> None:
+    from apps.live_control_server.routes import agent as route
+
+    dispatched = []
+    monkeypatch.setattr(route, "_execute_agent_turn", lambda body, request: dispatched.append(body) or {"unexpected": True})
+    app = FastAPI()
+    app.include_router(route.router, prefix="/api/live")
+    payload = {**_build_reference_admission_payload(family), "client_work_state": work_state}
+
+    async def send():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            return await client.post("/api/live/agent/turn", json=payload)
+
+    response = asyncio.run(send())
+    assert response.status_code == 422
+    assert "current Build page and World context" in response.text
+    assert dispatched == []
+
+
+@pytest.mark.parametrize("family", ["classic", "native"])
+@pytest.mark.parametrize("work_state", ["saved_clean", "saved_dirty"])
+def test_pinned_build_references_reach_governed_dispatch_unchanged(
+    monkeypatch: Any, family: str, work_state: str,
+) -> None:
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services.agent_turn_service import _governed_build_turn
+
+    dispatched = []
+    monkeypatch.setattr(route, "_execute_agent_turn", lambda body, request: dispatched.append(body) or {"accepted": True})
+    app = FastAPI()
+    app.include_router(route.router, prefix="/api/live")
+    payload = {
+        **_build_reference_admission_payload(family), "client_work_state": work_state,
+        "primary_work": {"kind": "build", "object_id": "page-a", "expected_revision": 1,
+                         "expected_content_sha256": "a" * 64},
+    }
+
+    async def send():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            return await client.post("/api/live/agent/turn", json=payload)
+
+    response = asyncio.run(send())
+    assert response.status_code == 200
+    assert len(dispatched) == 1 and _governed_build_turn(dispatched[0])
+    assert dispatched[0].primary_work.model_dump(mode="json", exclude_none=True) == payload["primary_work"]
+    assert dispatched[0].build_authored_references.model_dump(mode="json", by_alias=True) == payload["build_authored_references"]

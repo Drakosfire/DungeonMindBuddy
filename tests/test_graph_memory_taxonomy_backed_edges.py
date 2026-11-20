@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from evals.graph_memory_layer.live_vs_gold_compare import compare_parts
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     _edge_prompt_node_summary,
     render_category_pass_prompts,
 )
-from src.graph_memory.party_context import build_party_context_for_campaign
+from graph_memory.party_context import build_party_context_for_campaign
 
 
 def test_edge_pass_prompt_includes_predicate_catalog():

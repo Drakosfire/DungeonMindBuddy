@@ -6,6 +6,13 @@ agent policy; slice-specific authority lives in a durable pinned handoff. Legacy
 When consulting historical process material, apply this policy and explicit user
 instructions rather than conflicting legacy requirements.
 
+## Start here
+
+Use the [documentation index](Docs/README.md) to find the owning contract.
+Read the active handoff before implementing, and use the verification standard
+below for the affected boundary. The [lab guide](evals/README.md) points to
+experimental runners and their inputs.
+
 ## Ecosystem execution core — overmind-agent-core-v1
 
 These rules are intentionally shared across active DungeonMind ecosystem repositories. Repository-specific law may add constraints, but it must not weaken this core.
@@ -22,14 +29,21 @@ These rules are intentionally shared across active DungeonMind ecosystem reposit
 
 ## Handoff and lane authority
 
-The designing steward authors or adopts the bounded handoff before dispatch.
-An implementation worker consumes that authority; it may redesign or activate
-it only when explicitly assigned design/stewardship work.
+The designer or owner named in the bounded assignment authors or adopts its handoff before dispatch. Responsibilities derive from that assignment, not a standing Steward role. This wording grants no additional merge, runtime, provider, or model authority. An implementation worker consumes the pinned authority; it may redesign or activate it only when explicitly assigned that design work.
 
 - `BLOCKED` records a concrete design with unresolved gates. It grants no write
   lease and does not allocate an implementation lane.
-- `ACTIVE` requires explicit authorization, a pinned path/ref, satisfied gates,
-  an expected-path allowlist (§4), verification evidence, and declared PR topology.
+- `ACTIVE` means the slice is authorized to start, not ready to merge. Record
+  explicit authorization, a durable pinned assignment, the bounded write set,
+  and any actual start prerequisite. If there is no prerequisite, work may start;
+  do not wait for evidence the work itself is meant to produce.
+- Record how the slice will be verified at the owning boundary. Collect results
+  during implementation and require the applicable evidence and approvals at
+  review, merge, or delivery. Only a named prerequisite (such as an unmerged
+  dependency or an unresolved write/runtime collision) can block start.
+- Reuse an existing pinned handoff or assignment if it already records the
+  scope and ownership. Routine, explicitly authorized, single-PR work may use
+  a short pinned brief; no separate handoff PR or full template is required.
 - The ACTIVE allowlist is an exclusive expected write lease. Other lanes may
   read those paths but must not edit them without an explicit transfer or split.
 - Before activation, critique the invariant and its failure cases. Re-anchor when
@@ -39,10 +53,11 @@ it only when explicitly assigned design/stewardship work.
 - Inspect open PRs and active leases before dispatch. Shared routing, registries,
   lockfiles, root configuration, schemas and sequencing documents are collision
   hotspots. Split, serialize or explicitly transfer overlapping ownership.
-- If required paths or contracts exceed the lease, return to the steward before
+- If required paths or contracts exceed the lease, return to the named owner before
   editing. Git conflicts are not an ownership protocol.
 
-Every ACTIVE handoff declares one topology:
+Use **serial** unless explicitly choosing another topology. Record the exact
+parent/order for stacked work or the concurrent lanes checked for parallel work:
 
 - **serial** (default): one open implementation PR in the workstream. A successor
   may be pinned as BLOCKED; it is not dispatched until its recorded gates resolve.
@@ -52,7 +67,7 @@ Every ACTIVE handoff declares one topology:
 
 Opening the assigned PR is already part of authorized work. A newly discovered
 capability does not authorize another PR. Fix an in-scope defect in the current
-PR; otherwise the steward decides whether to amend the slice, split it or change
+PR; otherwise the named owner decides whether to amend the slice, split it or change
 its topology. Preserve useful work and evidence when superseding a lane.
 
 ## Git and checkout safety
@@ -91,6 +106,69 @@ merge authority. Direct Git/GitHub tools are valid when they preserve these rule
 The pinned ACTIVE handoff and cumulative change are the review contract; the PR
 body is its transport summary.
 
+## Local verification standard and hosted pause
+
+Alan requested local-first verification and pausing long automatic GitHub PR runs.
+The operational standard after this policy lands is local exact-source evidence,
+not waiting for the long Hosted validation/World ownership workflows. Those two
+workflows remain manually dispatchable with all commands/tests intact. Short
+focused regression/security checks remain automatic. No branch protection is changed.
+
+Before review/merge, use an isolated full commit SHA and the repo-owned verifier:
+`python scripts/ci_local_frontend.py run --sha <full-SHA> --suite hosted --output <new-external-directory>`.
+It uses the shared frontend CI manifest, Node22.23.0/npm10.9.8, fresh locked install,
+8workers by default, and a per-user global resource lock. Configurable workers are
+recorded. Never start a competing Vitest benchmark/run around that lock; honor
+`/tmp/dungeonmind-frontend-verification-<uid>.lock` for other local frontend tools.
+The verifier defaults allocations to `~/Projects/.codex` on filesystem UUID
+`48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8`. It checks that existing parent and the
+external evidence destination before allocation, and fails rather than falling
+back to system temp. Each run owns a temporary task directory containing its
+verification worktree, scratch and caches; subprocess TMPDIR/npm/Node/UV/XDG
+caches stay there. Ambient TMPDIR/cache settings do not redirect these writes.
+For another explicitly authorized executor, pass both `--workspace-root` and
+`--workspace-uuid` for its existing external storage. No global settings change.
+Keep outputs outside the source tree on that same verified filesystem. Validate
+retained evidence against the exact
+reviewed SHA with the verifier's validate subcommand. Dirty-runner results are
+working-tree diagnostics, not qualifying evidence. Never reuse a different SHA,
+modified report, stale inventory or failed/incomplete run as a passing check.
+
+For ad hoc browser, build, or database verification that needs substantial
+scratch space, verify the same Projects filesystem before allocating a task
+directory. Use `mktemp -d "$HOME/Projects/.codex/buddy-check.XXXXXX"` and
+place that task's temporary files and dependency caches inside it. Remove
+disposable outputs when the check finishes and retain evidence referenced
+by the handoff.
+
+For frontend changes also run the full default-discovered diagnostic (`--suite
+discovered`) at a meaningful integrated checkpoint, avoiding duplicate heavy runs.
+Keep known legacy failures visibly red with exact IDs/source/environment/results;
+a passing hosted-contract safety sample does not make that diagnostic green or
+establish release qualification. New failures, collection omissions, build errors
+or uncertain baseline comparisons block acceptance until scoped resolution or an
+independently approved contract/retirement change. Do not delete tests merely for
+speed. Existing verified benchmark artifacts can inform worker choice, not stand
+in for exact-current-source verification.
+
+Run affected backend contracts locally in an isolated exact-SHA checkout using
+`scripts/ci_contract.py run <contract>` and the owning locked Python environment.
+Database contracts require uniquely owned disposable databases and existing
+session-template/per-test-clone isolation; never operator/live data or providers.
+Retain SHA, commands, versions, isolation/cleanup and all exit/failure evidence.
+Auth/principal/CAS/rollback/history and graph draft-loss protections remain required
+when affected. Independent exact-head review and user/process merge authority
+remain separate from test evidence. The local tool is not a self-hosted runner or
+a replacement GitHub status check; no fabricated hosted-green claim is permitted.
+Manual full qualification remains red/not release-qualified until actual proof;
+no selector activation or exemption is implied. Existing unmerged CI drafts do not
+silently reactivate long PR runs: reconcile triggers/authority with this policy.
+
+Rollback: restore only the two removed pull_request trigger blocks from the parent
+revision after an explicit reviewed rollback decision; the manual commands/tests
+are unchanged. Review workflow changes and local guard evidence together. Never
+change protections/security rules or deployment as part of this policy.
+
 ## State settlement and documentation
 
 Name mutable authority documents that need to record the completed predecessor
@@ -101,12 +179,12 @@ an unfinished successor is done.
 
 Facts learned after merge normally travel with the next dependent implementation.
 If no suitable successor exists or delay would leave authority materially
-misleading, perform a guarded steward sync after re-anchoring. Keep the whole sync
+misleading, the owner named in the assignment performs a guarded state sync after re-anchoring. Keep the whole sync
 coherent before dependent dispatch. Stable architecture/reference documents
 change only when their claims change.
 
 Routine status bookkeeping does not need a separate PR. Explicitly requested
-policy changes and steward-designated design/architecture artifacts may have
+policy changes and design/architecture artifacts explicitly requested in the assignment may have
 focused review PRs. `DOCUMENTS` is retired as a generic standalone flow.
 Handoffs use `HANDOFF-<FLOW>-<short-slug>.md`; PR titles use `<FLOW>: <capability>`.
 FLOW names the owning workstream, not a fixed enum. PR numbers are transport
@@ -115,8 +193,20 @@ metadata, not naming authority. Git history is the default archive.
 ## Efficient investigation
 
 Use focused symbol/route search and small context packs when available; otherwise
-use `rg` and targeted reads. Use RTK when available for noisy output. Missing
-optional navigation tools do not block ordinary investigation. Preserve useful
-failure output and avoid dumping whole logs, dependency trees or historical docs.
+use `rg` and targeted reads. Keep Git, search, test, and log output focused.
+Preserve failures, stack traces, compiler and migration errors, and
+destructive-command risks.
 Fetch and compare exact remote refs when state matters. Obtain explicit approval
 for destructive actions unless already authorized by the user.
+
+## Model prompt context boundary
+
+Host-side metadata is not context and must never be sent in product model prompts.
+Follow the [ecosystem prompt policy](https://github.com/Drakosfire/DungeonOverMind/blob/main/Docs/Guides/GUIDE-model-prompt-context-boundary.md).
+Keep identifiers, hashes, receipts, execution bindings, accounting/capacity policy
+and telemetry in their existing host owners, outside model-visible input. Preserve
+meaningful task/evidence context, user constraints and all host checks. Use local
+aliases when models must select or cite items; the host resolves exact identities.
+Audit final serialized requests, including nested state and tool results. Do not
+replace this boundary with regex scrubbing, another prompt channel or a new
+provenance authority.

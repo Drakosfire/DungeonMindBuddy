@@ -30,13 +30,62 @@ _WORLD_GRAPH_AUTHORITY_RETIRED_MODES = frozenset(
 WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV = (
     "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL"
 )
-# Cache root leftover from the retired DungeonMind-hydrated read model.
-# Mounted product must not consume it; env/function remain for unmounted names.
-WORLD_GRAPH_AUTHORITY_CACHE_ROOT_ENV = "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_CACHE_ROOT"
+MANAGED_WORLD_DATA_ROOT_ENV = "DMB_MANAGED_WORLD_DATA_ROOT"
+ARTIFACT_DATA_ROOT_ENV = "DMB_ARTIFACT_DATA_ROOT"
 
 
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+class ArtifactDataRootError(RuntimeError):
+    """The explicitly selected artifact repository cannot be used."""
+
+
+def artifact_data_root(default: Path | None = None) -> Path:
+    """Select stored repo:// artifacts without changing the code repository.
+
+    The directory must already exist; producers may create individual artifacts
+    inside it. Metadata and frozen component reads still require exact files.
+    Unset preserves the caller's existing repository selection.
+    """
+    raw = os.environ.get(ARTIFACT_DATA_ROOT_ENV)
+    if raw is None:
+        return (default if default is not None else repo_root()).resolve()
+    raw = raw.strip()
+    if not raw:
+        raise ArtifactDataRootError("artifact_data_root_empty")
+    path = Path(raw)
+    if not path.is_absolute():
+        raise ArtifactDataRootError("artifact_data_root_not_absolute")
+    try:
+        root = path.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise ArtifactDataRootError("artifact_data_root_unavailable") from exc
+    if not root.is_dir() or not os.access(root, os.R_OK | os.X_OK):
+        raise ArtifactDataRootError("artifact_data_root_unavailable")
+    return root
+
+
+class ManagedWorldDataRootError(RuntimeError):
+    """An explicitly selected operator World root cannot be used."""
+
+
+def managed_world_data_root(default: Path | None = None) -> Path:
+    """Select the directory for remaining World file operations, not metadata."""
+    raw = os.environ.get(MANAGED_WORLD_DATA_ROOT_ENV, "").strip()
+    if not raw:
+        return default if default is not None else repo_root()
+    path = Path(raw)
+    if not path.is_absolute():
+        raise ManagedWorldDataRootError("managed_world_root_not_absolute")
+    try:
+        root = path.resolve(strict=True)
+    except OSError as exc:
+        raise ManagedWorldDataRootError("managed_world_root_unavailable") from exc
+    if not root.is_dir():
+        raise ManagedWorldDataRootError("managed_world_root_unavailable")
+    return root
 
 
 def session_dir() -> Path:
@@ -109,16 +158,6 @@ def world_graph_authority_database_url() -> str | None:
     """PostgreSQL DSN for the DungeonMind-backed authority, when configured."""
     override = os.environ.get(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, "").strip()
     return override or None
-
-
-def world_graph_authority_cache_root() -> Path:
-    """Retired hydration-cache path. Not used by mounted production reads/writes."""
-    override = os.environ.get(WORLD_GRAPH_AUTHORITY_CACHE_ROOT_ENV, "").strip()
-    if override:
-        return Path(override).expanduser().resolve()
-    return (
-        repo_root() / "out" / "cache" / "dungeonmind_world_graph_authority"
-    ).resolve()
 
 
 def world_graph_native_production_read(root: Path | None = None) -> bool:

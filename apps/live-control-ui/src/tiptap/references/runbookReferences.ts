@@ -216,3 +216,19 @@ export function runbookReferenceClasses(attrs: RunbookReferenceAttrs): string {
     ? `md-ref-chip md-ref-chip-action md-ref-chip-action-${attrs.refType}`
     : `md-ref-chip md-ref-chip-${attrs.refType}`;
 }
+
+const ASSERTION_PDF_CITATION_ID = /^pdf_([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})_(0|[1-9][0-9]*)$/;
+
+/** A saved card points to one recorded turn citation. The server resolves its pinned source. */
+export function parseAssertionPdfCitationId(refId: string): {turnId: string; citationIndex: number} | null {
+  const match = ASSERTION_PDF_CITATION_ID.exec(refId);
+  if (!match) return null;
+  const citationIndex = Number(match[2]);
+  return Number.isSafeInteger(citationIndex) ? {turnId: match[1]!, citationIndex} : null;
+}
+
+export function assertionPdfCitationId(turnId: string, citationIndex: number): string {
+  const id = `pdf_${turnId}_${citationIndex}`;
+  if (!parseAssertionPdfCitationId(id)) throw new Error("Invalid saved PDF citation");
+  return id;
+}

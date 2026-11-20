@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -227,6 +228,7 @@ class WorldPlayRunRecord(BaseModel):
     playable_work_revision_id: str
     playable_content_sha256: str
     run_revision: int = Field(default=1, gt=0)
+    lifecycle_status: Literal["active", "trashed"] = "active"
     created_at: str
     updated_at: str
     progress: PlayRunProgress = Field(default_factory=empty_play_run_progress)
@@ -286,6 +288,7 @@ class WorldPlayRunsListResponse(BaseModel):
 
     schema_version: Literal["dmb_world_play_runs_list_v2"] = WORLD_PLAY_RUNS_LIST_SCHEMA
     records: list[WorldPlayRunRecord] = Field(default_factory=list)
+    source_titles: dict[str, str] = Field(default_factory=dict)
 
 
 def _world_record_from_aggregate(aggregate: object) -> WorldPlayRunRecord:
@@ -304,6 +307,7 @@ def _world_record_from_aggregate(aggregate: object) -> WorldPlayRunRecord:
         playable_work_revision_id=str(run.playable_work_revision_id),
         playable_content_sha256=str(run.playable_content_sha256),
         run_revision=int(run.run_revision),
+        lifecycle_status=getattr(run, "lifecycle_status", "active"),
         created_at=_iso_z(run.created_at),
         updated_at=_iso_z(run.updated_at),
         progress=PlayRunProgress.model_validate(run.progress),
@@ -469,14 +473,14 @@ def compare_v2_sealed_structure(markdown: str, manifest: object) -> str | None:
     }
     if derived_options != manifest_options:
         return "sealed v2 manifest disagrees with pinned WorkRevision on Option membership"
-    derived_edges = {
+    derived_edges = sorted(
         (edge.option_id, edge.effect, edge.target_kind, edge.target_id)
         for edge in derived.edges
-    }
-    manifest_edges = {
+    )
+    manifest_edges = sorted(
         (edge.option_id, edge.effect, edge.target_kind, edge.target_id)
         for edge in getattr(manifest, "edges", ())
-    }
+    )
     if derived_edges != manifest_edges:
         return "sealed v2 manifest disagrees with pinned WorkRevision on authored transition edges"
     return None
@@ -498,7 +502,7 @@ def compare_run_manifest_binding(record: PlayRunRecord, manifest: object) -> str
 def _run_generation_moved(root: Path, run_id: str, prior: PlayRunRecord) -> bool:
     """True when the durable Run generation/binding changed after preflight."""
     try:
-        current = get_play_run(root, run_id)
+        current = get_play_run(run_id)
     except PlayRunRegistryError:
         return False
     return (
@@ -581,7 +585,6 @@ def ensure_v2_native_ready(root: Path, run_id: str, *, conflict_depth: int = 0) 
         return record
     try:
         return replace_play_run_progress(
-            root,
             run_id=run_id,
             expected_run_revision=record.run_revision,
             progress=PlayRunProgress(
@@ -728,8 +731,7 @@ def _admit_progress(
     return canonical
 
 
-def get_play_run(root: Path, run_id: str) -> PlayRunRecord:
-    del root
+def get_play_run(run_id: str) -> PlayRunRecord:
     from application_state.errors import ApplicationStateError
     from application_state.play.service import get_play_run_aggregate
 
@@ -742,12 +744,10 @@ def get_play_run(root: Path, run_id: str) -> PlayRunRecord:
 
 
 def list_play_runs(
-    root: Path,
     *,
     campaign_id: str | None = None,
     playable_artifact_id: str | None = None,
 ) -> list[PlayRunRecord]:
-    del root
     from application_state.errors import ApplicationStateError
     from application_state.play.service import list_play_run_aggregates
 
@@ -764,8 +764,7 @@ def list_play_runs(
     return [_record_from_play_run(aggregate.run) for aggregate in aggregates]
 
 
-def get_world_play_run(root: Path, *, world_id: str, run_id: str) -> WorldPlayRunRecord:
-    del root
+def get_world_play_run(*, world_id: str, run_id: str) -> WorldPlayRunRecord:
     from application_state.errors import ApplicationStateError
     from application_state.play.service import get_world_play_run_aggregate
 
@@ -781,12 +780,10 @@ def get_world_play_run(root: Path, *, world_id: str, run_id: str) -> WorldPlayRu
 
 
 def list_world_play_runs(
-    root: Path,
     *,
     world_id: str,
     playable_artifact_id: str | None = None,
-) -> list[WorldPlayRunRecord]:
-    del root
+) -> WorldPlayRunsListResponse:
     from application_state.errors import ApplicationStateError
     from application_state.play.service import list_world_play_run_aggregates
 
@@ -803,49 +800,43 @@ def list_world_play_runs(
         )
     except ApplicationStateError as exc:
         raise _map_application_state(exc) from exc
-    return [_world_record_from_aggregate(aggregate) for aggregate in aggregates]
+    return WorldPlayRunsListResponse(
+        records=[_world_record_from_aggregate(aggregate) for aggregate in aggregates],
+        source_titles={
+            str(item.run.playable_work_object_id): item.active_source_title
+            for item in aggregates
+            if item.active_source_title
+        },
+    )
 
 
-def create_or_replay_world_play_run(
-    root: Path,
-    *,
-    world_id: str,
-    run_id: str,
-    playable_artifact_id: str,
-    expected_playable_revision: int,
-    expected_playable_content_sha256: str,
-) -> WorldPlayRunRecord:
-    del root
+def world_session_outcome(result):
+    from application_state.play.session_encounter_types import WorldSessionCreationResult
+    if not isinstance(result, WorldSessionCreationResult):
+        return result
+    return {"schema_version": "dmb_world_session_creation_v1", "state": "applied",
+            "run": _world_record_from_aggregate(result.aggregate).model_dump(mode="json"),
+            "manifest": result.aggregate.manifest.manifest, "receipt": result.receipt}
+
+
+def create_or_replay_world_play_run(*, world_id: str, run_id: str, request):
     from application_state.errors import ApplicationStateError
     from application_state.play.service import create_world_play_run
-
-    canonical_world_id = _validate_world_id(world_id)
-    canonical_run_id = _validate_run_id(run_id)
-    canonical_artifact_id = _validate_playable_artifact_id(playable_artifact_id)
-    expected_revision = _validate_expected_revision(expected_playable_revision)
-    expected_sha = _validate_expected_sha(expected_playable_content_sha256)
     try:
-        aggregate = create_world_play_run(
-            world_id=canonical_world_id,
-            run_id=canonical_run_id,
-            playable_artifact_id=canonical_artifact_id,
-            expected_playable_revision=expected_revision,
-            expected_playable_content_sha256=expected_sha,
-        )
+        return world_session_outcome(create_world_play_run(
+            world_id=_validate_world_id(world_id), run_id=_validate_run_id(run_id), request=request))
     except ApplicationStateError as exc:
         raise _map_application_state(exc) from exc
-    return _world_record_from_aggregate(aggregate)
 
 
 def replace_world_play_run_progress(
-    root: Path,
     *,
     world_id: str,
     run_id: str,
     expected_run_revision: int,
     progress: PlayRunProgress,
+    authorize_world: Callable[[], None] | None = None,
 ) -> WorldPlayRunRecord:
-    del root
     from application_state.errors import ApplicationStateError
     from application_state.play.service import replace_world_play_run_progress as replace_progress
 
@@ -863,6 +854,7 @@ def replace_world_play_run_progress(
             run_id=canonical_run_id,
             expected_run_revision=expected_run_revision,
             progress=progress.model_dump(mode="json"),
+            authorize_world=authorize_world,
         )
     except ApplicationStateError as exc:
         raise _map_application_state(exc) from exc
@@ -870,14 +862,12 @@ def replace_world_play_run_progress(
 
 
 def create_or_replay_play_run(
-    root: Path,
     *,
     run_id: str,
     playable_artifact_id: str,
     expected_playable_revision: int,
     expected_playable_content_sha256: str,
 ) -> PlayRunRecord:
-    del root
     from application_state.errors import ApplicationStateError
     from application_state.play.service import create_play_run
 
@@ -898,13 +888,11 @@ def create_or_replay_play_run(
 
 
 def replace_play_run_progress(
-    root: Path,
     *,
     run_id: str,
     expected_run_revision: int,
     progress: PlayRunProgress,
 ) -> PlayRunRecord:
-    del root
     from application_state.errors import ApplicationStateError
     from application_state.play.service import replace_play_run_progress as replace_progress
 

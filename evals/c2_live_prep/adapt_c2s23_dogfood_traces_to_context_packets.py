@@ -274,10 +274,12 @@ def main() -> int:
         type=Path,
         default=ROOT / "evals/c2_live_prep/artifacts/runs" / str(date.today()),
     )
+    parser.add_argument("--no-update-latest", action="store_true", help="Leave checkout-local latest artifacts untouched.")
     args = parser.parse_args()
 
     manifest = load_json(args.manifest.resolve())
-    summary = load_json(args.dogfood_summary.resolve())
+    summary_input = args.dogfood_summary.resolve()
+    summary = load_json(summary_input)
     _schema = load_json(args.schema.resolve())
     manifest_by_route, _entries = build_manifest_index(manifest)
     preconditions = corpus_preconditions()
@@ -310,7 +312,7 @@ def main() -> int:
         "schema": "dmb_c2s23_trace_context_packet_adapter_run_v1",
         "generated_at": _utc_now_z(),
         "manifest_path": str(args.manifest.resolve().relative_to(ROOT)),
-        "dogfood_summary_path": str(args.dogfood_summary.resolve().relative_to(ROOT)),
+        "dogfood_summary_path": str(summary_input.relative_to(ROOT) if summary_input.is_relative_to(ROOT) else summary_input),
         "packet_schema_path": str(args.schema.resolve().relative_to(ROOT)),
         "packet_count": len(packets),
         "all_preconditions_present": bool(preconditions["all_required_present"]),
@@ -329,14 +331,15 @@ def main() -> int:
     }
     summary_path = out_dir / "c2s23_trace_context_packet_adapter_summary.json"
     summary_path.write_text(json.dumps(summary_out, indent=2, ensure_ascii=False), encoding="utf-8")
-    last = ROOT / "evals/c2_live_prep/artifacts/last_c2s23_trace_context_packet_adapter_summary.json"
-    last.write_text(json.dumps(summary_out, indent=2, ensure_ascii=False), encoding="utf-8")
+    if not args.no_update_latest:
+        last = ROOT / "evals/c2_live_prep/artifacts/last_c2s23_trace_context_packet_adapter_summary.json"
+        last.write_text(json.dumps(summary_out, indent=2, ensure_ascii=False), encoding="utf-8")
 
     print(
         json.dumps(
             {
                 "ok": True,
-                "output_dir": str(out_dir.relative_to(ROOT)),
+                "output_dir": str(out_dir.relative_to(ROOT) if out_dir.is_relative_to(ROOT) else out_dir),
                 "summary": summary_path.name,
                 "packet_count": len(packets),
             },

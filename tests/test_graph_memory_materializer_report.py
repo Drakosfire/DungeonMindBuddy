@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from src.graph_memory.report import materialize_validate_and_report, render_graph_report_markdown
+from graph_memory.report import materialize_validate_and_report, render_graph_report_markdown
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "examples" / "materializer_input_minimal.json"
@@ -14,7 +14,7 @@ REPORT_SOURCE_PATH = REPO_ROOT / "src" / "graph_memory" / "report.py"
 FORBIDDEN_IMPORT_SNIPPETS = {
     "src.agent.session_memory_query",
     "src.agent.planner_retrieval_router",
-    "src.live_play.manifest_context_query",
+    "live_play.manifest_context_query",
     "src.session_memory.capture",
     "src.session_memory.breadcrumb_normalize",
     "openai",
@@ -114,8 +114,8 @@ def test_report_source_does_not_import_production_retrieval_session_memory_or_ll
 
 
 def test_validation_issue_rows_use_actual_severity_code_pairs() -> None:
-    from src.graph_memory.report import build_graph_report
-    from src.graph_memory.validation_rules import ValidationIssue
+    from graph_memory.report import build_graph_report
+    from graph_memory.validation_rules import ValidationIssue
 
     bundle, _report, records, _issues = report_parts()
     issues = [

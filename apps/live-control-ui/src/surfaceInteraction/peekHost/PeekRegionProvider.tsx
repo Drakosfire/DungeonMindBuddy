@@ -9,7 +9,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-export type PeekClaimKind = "world-object" | "tools" | "projection";
+export type PeekClaimKind = "world-object" | "tools" | "projection" | "document-reference";
 
 export interface PeekClaimDescriptor {
   kind: PeekClaimKind;
@@ -21,6 +21,7 @@ const PEEK_PRIORITY: Record<PeekClaimKind, number> = {
   "world-object": 1,
   tools: 2,
   projection: 3,
+  "document-reference": 4,
 };
 
 interface PeekRegionContextValue {

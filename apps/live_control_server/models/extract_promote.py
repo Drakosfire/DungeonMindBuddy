@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, WithJsonSchema, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 from apps.live_control_server.models.world_graph_contribution_models import (
@@ -12,7 +12,25 @@ from apps.live_control_server.models.world_graph_contribution_models import (
     GraphContributionAssertion,
 )
 
-STATUS_SCHEMA = "dmb_extract_promote_status_v1"
+from graph_memory.extraction.worldbuilding_profile_catalog import (
+    PUBLISHABLE_WORLDBUILDING_PROFILES,
+)
+
+_PUBLICATION_PROFILE_IDS = tuple(sorted(PUBLISHABLE_WORLDBUILDING_PROFILES))
+
+
+def _require_publishable_worldbuilding_profile(value: str) -> str:
+    if value not in _PUBLICATION_PROFILE_IDS:
+        raise ValueError("unsupported publishable worldbuilding profile")
+    return value
+
+
+WorldbuildingPublicationProfile = Annotated[
+    str,
+    AfterValidator(_require_publishable_worldbuilding_profile),
+    WithJsonSchema({"type": "string", "enum": list(_PUBLICATION_PROFILE_IDS)}),
+]
+
 PREPARE_REQUEST_SCHEMA = "dmb_extract_promote_prepare_request_v2"
 PREPARE_RESPONSE_SCHEMA = "dmb_extract_promote_prepare_v1"
 CONFIRM_REQUEST_SCHEMA = "dmb_extract_promote_confirm_request_v2"
@@ -21,6 +39,17 @@ ERROR_SCHEMA = "dmb_extract_promote_error_v1"
 EXACT_RUN_REVIEW_SCHEMA = "dmb_extract_promote_exact_run_review_v1"
 EVIDENCE_CORRECTION_REQUEST_SCHEMA = "dmb_exact_run_evidence_correction_request_v1"
 EVIDENCE_CORRECTION_RESPONSE_SCHEMA = "dmb_exact_run_evidence_correction_response_v1"
+RECAP_EVIDENCE_CORRECTION_RESPONSE_SCHEMA = "dmb_recap_evidence_correction_response_v1"
+RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA = "dmb_recap_candidate_correction_request_v1"
+RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA = "dmb_recap_candidate_correction_response_v1"
+RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA_V3 = "dmb_recap_candidate_correction_request_v3"
+RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V3 = "dmb_recap_candidate_correction_response_v3"
+RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA_V4 = "dmb_recap_candidate_correction_request_v4"
+RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V4 = "dmb_recap_candidate_correction_response_v4"
+RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA_V5 = "dmb_recap_candidate_correction_request_v5"
+RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V5 = "dmb_recap_candidate_correction_response_v5"
+RECAP_SEMANTIC_DECISION_REQUEST_SCHEMA = "dmb_recap_semantic_decision_request_v1"
+RECAP_SEMANTIC_DECISION_RESPONSE_SCHEMA = "dmb_recap_semantic_decision_response_v1"
 WORLD_BUILDING_WRITE_PLAN_REQUEST_SCHEMA = (
     "dmb_worldbuilding_write_plan_prepare_request_v1"
 )
@@ -42,7 +71,7 @@ FirstWorldGraphState = Literal[
     "unmanaged",
 ]
 FIRST_WORLD_PREPARE_REQUEST_SCHEMA = "dmb_first_world_graph_prepare_request_v1"
-FIRST_WORLD_PLAN_SCHEMA = "dmb_first_world_graph_plan_v1"
+FIRST_WORLD_PLAN_SCHEMA = "dmb_first_world_graph_plan_v3"
 FIRST_WORLD_CONFIRM_REQUEST_SCHEMA = "dmb_first_world_graph_confirm_request_v1"
 FIRST_WORLD_CONFIRM_RESPONSE_SCHEMA = "dmb_first_world_graph_confirm_v1"
 
@@ -79,30 +108,25 @@ def _nonblank(value: str, *, field_name: str) -> str:
     return text
 
 
-class ExtractPromoteStatusResponse(_ExtractPromoteModel):
-    schema_: Literal["dmb_extract_promote_status_v1"] = Field(
-        default=STATUS_SCHEMA, alias="schema"
-    )
-    world_id: str
-    initialized: bool
-    world_state: WorldState = "uninitialized"
-    head_revision_id: str | None = None
-    diagnostics: list[str] = Field(default_factory=list)
-
-
 class ExtractPromotePrepareRequest(_ExtractPromoteModel):
-    """Product prepare: ``{runId, nodeIds?}`` only — world is server-owned."""
+    """Product prepare selects a managed World; native target stays server-owned."""
 
     schema_: Literal["dmb_extract_promote_prepare_request_v2"] = Field(
         default=PREPARE_REQUEST_SCHEMA, alias="schema"
     )
     run_id: str
+    managed_world_id: str | None = None
     node_ids: list[str] | None = None
 
     @field_validator("run_id")
     @classmethod
     def _run_id(cls, value: str) -> str:
         return _nonblank(value, field_name="run_id")
+
+    @field_validator("managed_world_id")
+    @classmethod
+    def _managed_world_id(cls, value: str | None) -> str | None:
+        return _nonblank(value, field_name="managed_world_id") if value is not None else None
 
 
 class ExtractPromotionReviewItem(_ExtractPromoteModel):
@@ -208,7 +232,7 @@ class WorldbuildingWritePlanPrepareRequest(_ExtractPromoteModel):
 
 class WorldbuildingWritePlanDecisionSnapshot(_ExtractPromoteModel):
     assertion_id: str
-    candidate_kind: Literal["node", "edge"]
+    candidate_kind: Literal["node", "edge", "source_observation"]
     decision: WorldbuildingDispositionDecision
     target_node_id: str | None = None
 
@@ -263,6 +287,48 @@ class WorldbuildingWritePlanSummary(_ExtractPromoteModel):
     accepted_assertion_count: int = 0
 
 
+class WorldbuildingPublicationBinding(_ExtractPromoteModel):
+    managed_world_id: str
+    native_world_id: str
+    binding_version: int = Field(gt=0)
+    document_id: str
+    document_revision: int = Field(gt=0)
+    source_artifact_id: str
+    source_sha256: str
+
+
+class WorldbuildingSourceAdmissionBinding(_ExtractPromoteModel):
+    source_artifact_id: str
+    source_revision_id: str
+    content_sha256: str
+    buddy_source_revision_id: str
+    source_locator: str
+    artifact_uri: str | None
+    catalog_fingerprint_sha256: str
+    campaign_id: None = None
+
+
+class WorldbuildingNativeVocabularyBinding(_ExtractPromoteModel):
+    schema_: Literal["dmb_worldbuilding_native_vocabulary_binding_v1"] = Field(
+        default="dmb_worldbuilding_native_vocabulary_binding_v1", alias="schema"
+    )
+    world_object_vocabulary: dict[str, Any]
+    world_property_vocabulary: dict[str, Any]
+
+
+class WorldbuildingPublicationCapabilities(_ExtractPromoteModel):
+    """Server/configuration discovery, never authority for an individual plan."""
+
+    schema_: Literal["dmb_worldbuilding_publication_capabilities_v1"] = Field(
+        default="dmb_worldbuilding_publication_capabilities_v1", alias="schema"
+    )
+    confirmation_supported: Literal[True] = True
+    configured: bool
+    unavailability_reasons: list[
+        Literal["native_authority_configuration_invalid", "native_database_unconfigured"]
+    ] = Field(default_factory=list)
+
+
 class WorldbuildingWritePlanResponse(_ExtractPromoteModel):
     schema_: Literal[
         WORLD_BUILDING_WRITE_PLAN_SCHEMA,
@@ -278,7 +344,7 @@ class WorldbuildingWritePlanResponse(_ExtractPromoteModel):
     source_domain: Literal["worldbuilding"] = "worldbuilding"
     source_artifact_id: str
     source_revision_id: str
-    extraction_profile: Literal["worldbuilding_shepherds_flock_v0@0.1"] = (
+    extraction_profile: WorldbuildingPublicationProfile = (
         "worldbuilding_shepherds_flock_v0@0.1"
     )
     candidate_preview_id: str
@@ -292,6 +358,9 @@ class WorldbuildingWritePlanResponse(_ExtractPromoteModel):
         "BLD-10a prepares an inert write plan; graph confirmation is not implemented."
     ] = "BLD-10a prepares an inert write plan; graph confirmation is not implemented."
     prepare_binding: str | None = None
+    publication_binding: WorldbuildingPublicationBinding | None = None
+    source_admission: WorldbuildingSourceAdmissionBinding | None = None
+    native_vocabulary_binding: WorldbuildingNativeVocabularyBinding | None = None
 
 
 WORLD_BUILDING_WRITE_PLAN_CONFIRM_REQUEST_SCHEMA = (
@@ -383,6 +452,22 @@ class ExtractPromoteConfirmReceipt(_ExtractPromoteModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class FirstWorldConfirmNonapplication(_ExtractPromoteModel):
+    """This exact confirm returned before calling initialize, not a timeless absence proof."""
+
+    schema_: Literal["dmb_first_world_confirm_not_invoked_v1"] = Field(
+        default="dmb_first_world_confirm_not_invoked_v1", alias="schema"
+    )
+    world_id: str
+    native_world_id: str
+    initialization_id: str
+    plan_id: str
+    plan_digest: str
+    initialization_invoked: Literal[False] = False
+    validation_message: str
+    failure: dict[str, Any]
+
+
 class ExtractPromoteErrorResponse(_ExtractPromoteModel):
     schema_: Literal["dmb_extract_promote_error_v1"] = Field(
         default=ERROR_SCHEMA, alias="schema"
@@ -410,9 +495,15 @@ class ExactRunReviewEvidence(_ExtractPromoteModel):
 
 class ExactRunReviewAssertion(_ExtractPromoteModel):
     assertion_id: str
-    kind: Literal["object", "relationship"]
+    kind: Literal["object", "relationship", "source_observation"]
     label: str
     summary: str
+    subject_candidate_node_id: str | None = None
+    node_type: str | None = None
+    contribution_kind: str | None = None
+    relationship_type: str | None = None
+    from_candidate_node_id: str | None = None
+    to_candidate_node_id: str | None = None
     evidence: list[ExactRunReviewEvidence] = Field(default_factory=list)
 
 
@@ -434,6 +525,72 @@ class ExactRunEvidenceCorrectionRequest(_ExtractPromoteModel):
     corrections: list[ExactRunEvidenceQuoteCorrection] = Field(min_length=1)
 
 
+class WorldbuildingEvidenceQuoteAssignment(_ExtractPromoteModel):
+    original_quote_index: int = Field(strict=True, ge=0)
+    replacement_quote: str = Field(min_length=1)
+
+    @field_validator("replacement_quote")
+    @classmethod
+    def _literal(cls, value: str) -> str:
+        if value != value.strip():
+            raise ValueError("replacement quote must be trimmed")
+        return value
+
+
+class WorldbuildingEvidencePart(_ExtractPromoteModel):
+    source_span_ref_id: str = Field(min_length=1)
+    quote_assignments: list[WorldbuildingEvidenceQuoteAssignment] = Field(min_length=1)
+
+
+class WorldbuildingEvidenceRefCorrection(_ExtractPromoteModel):
+    assertion_id: str = Field(min_length=1)
+    evidence_index: int = Field(strict=True, ge=0)
+    expected_ref_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    parts: list[WorldbuildingEvidencePart] = Field(min_length=1)
+
+
+class WorldbuildingEvidenceCorrectionRequest(_ExtractPromoteModel):
+    schema_: Literal["dmb_worldbuilding_evidence_correction_request_v2"] = Field(
+        default="dmb_worldbuilding_evidence_correction_request_v2", alias="schema")
+    parent_run_id: str = Field(min_length=1)
+    expected_parent_revision: int = Field(strict=True, ge=1)
+    expected_parent_status: Literal["reviewable"] = "reviewable"
+    world_id: str = Field(min_length=1)
+    source_artifact_id: str = Field(min_length=1)
+    source_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    span_index_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    parent_candidate_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    corrections: list[WorldbuildingEvidenceRefCorrection] = Field(min_length=1)
+
+
+class WorldbuildingFrozenSpan(_ExtractPromoteModel):
+    source_span_ref_id: str
+    start_line: int
+    end_line: int
+    paragraph_text: str
+
+
+class WorldbuildingEvidencePreimage(_ExtractPromoteModel):
+    assertion_id: str
+    evidence_index: int
+    ref_sha256: str
+
+
+class WorldbuildingFrozenSpanCatalog(_ExtractPromoteModel):
+    schema_: Literal["dmb_worldbuilding_frozen_span_catalog_v1"] = Field(
+        default="dmb_worldbuilding_frozen_span_catalog_v1", alias="schema")
+    parent_run_id: str
+    parent_revision: int
+    parent_status: Literal["reviewable"]
+    world_id: str
+    source_artifact_id: str
+    source_sha256: str
+    span_index_sha256: str
+    parent_candidate_sha256: str
+    spans: list[WorldbuildingFrozenSpan]
+    evidence_refs: list[WorldbuildingEvidencePreimage]
+
+
 class ExactRunEvidenceCorrectionResponse(_ExtractPromoteModel):
     schema_: Literal["dmb_exact_run_evidence_correction_response_v1"] = Field(
         default=EVIDENCE_CORRECTION_RESPONSE_SCHEMA, alias="schema"
@@ -444,6 +601,571 @@ class ExactRunEvidenceCorrectionResponse(_ExtractPromoteModel):
     candidate_sha256: str
     correction_digest: str
     status: Literal["reviewable"] = "reviewable"
+
+
+class RecapEvidenceCorrectionResponse(_ExtractPromoteModel):
+    schema_: Literal["dmb_recap_evidence_correction_response_v1"] = Field(
+        default=RECAP_EVIDENCE_CORRECTION_RESPONSE_SCHEMA, alias="schema"
+    )
+    run_id: str
+    parent_run_id: str
+    parent_candidate_sha256: str
+    candidate_sha256: str
+    correction_digest: str
+    status: Literal["reviewable"] = "reviewable"
+    semantic_state: Literal["held", "accepted", "rejected"]
+    semantic_basis_sha256: str
+
+
+class RecapNodeDescriptionReplacement(_ExtractPromoteModel):
+    node_id: str
+    original_description: str
+    replacement_description: str
+
+    @field_validator("node_id")
+    @classmethod
+    def _node_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="node_id")
+
+    @field_validator("replacement_description")
+    @classmethod
+    def _description(cls, value: str) -> str:
+        if not value.strip() or value != value.strip() or len(value) > 4096:
+            raise ValueError("replacement_description must be nonblank, trimmed and bounded")
+        return value
+
+
+class RecapCandidateNodeOmission(_ExtractPromoteModel):
+    """Remove one isolated node, pinned to its complete canonical record."""
+
+    node_id: str
+    expected_node_sha256: str
+
+    @field_validator("node_id")
+    @classmethod
+    def _node_id(cls, value: str) -> str:
+        if not value or value != value.strip() or len(value) > 256 or any(ch in value for ch in ("\r", "\n", "\t")):
+            raise ValueError("node_id must be nonblank, trimmed and bounded")
+        return value
+
+    @field_validator("expected_node_sha256")
+    @classmethod
+    def _digest(cls, value: str) -> str:
+        if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+            raise ValueError("expected_node_sha256 must be lowercase SHA-256 hex")
+        return value
+
+
+class RecapNodeLabelReplacement(_ExtractPromoteModel):
+    node_id: str
+    original_label: str
+    replacement_label: str
+
+    @field_validator("node_id")
+    @classmethod
+    def _node_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="node_id")
+
+    @field_validator("original_label", "replacement_label")
+    @classmethod
+    def _label(cls, value: str, info) -> str:
+        if not value.strip() or value != value.strip() or len(value) > 4096:
+            raise ValueError(f"{info.field_name} must be nonblank, trimmed and bounded")
+        return value
+
+    @model_validator(mode="after")
+    def _changed(self) -> "RecapNodeLabelReplacement":
+        if self.original_label == self.replacement_label:
+            raise ValueError("replacement_label must differ from original_label")
+        return self
+
+
+class RecapCandidateCorrectionRequest(_ExtractPromoteModel):
+    schema_: Literal["dmb_recap_candidate_correction_request_v1"] = Field(
+        default=RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA, alias="schema"
+    )
+    parent_run_id: str
+    parent_candidate_sha256: str
+    node_description_replacements: list[RecapNodeDescriptionReplacement] = Field(default_factory=list, max_length=1)
+    node_label_replacements: list[RecapNodeLabelReplacement] = Field(default_factory=list, max_length=1)
+    omitted_edge_ids: list[str] = Field(default_factory=list, max_length=1)
+
+    node_omissions: list[RecapCandidateNodeOmission] = Field(default_factory=list, max_length=1)
+
+    @model_validator(mode="after")
+    def _bounded(self) -> "RecapCandidateCorrectionRequest":
+        if self.node_omissions and (self.node_description_replacements or self.node_label_replacements or self.omitted_edge_ids):
+            raise ValueError("node omission must be the only candidate correction")
+        if not self.node_description_replacements and not self.node_label_replacements and not self.omitted_edge_ids and not self.node_omissions:
+            raise ValueError("at least one candidate correction is required")
+        targets = [v.node_id for v in (*self.node_description_replacements, *self.node_label_replacements)]
+        if len(set(targets)) != len(targets):
+            raise ValueError("duplicate node correction")
+        if len(set(self.omitted_edge_ids)) != len(self.omitted_edge_ids):
+            raise ValueError("duplicate omitted edge")
+        if any(not value.strip() or value != value.strip() for value in self.omitted_edge_ids):
+            raise ValueError("omitted edge IDs must be nonblank and trimmed")
+        if len(self.parent_candidate_sha256) != 64 or any(c not in "0123456789abcdef" for c in self.parent_candidate_sha256):
+            raise ValueError("parent_candidate_sha256 must be lowercase SHA-256 hex")
+        return self
+
+
+class RecapCandidateCorrectionResponse(_ExtractPromoteModel):
+    schema_: Literal["dmb_recap_candidate_correction_response_v1"] = Field(
+        default=RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA, alias="schema"
+    )
+    run_id: str
+    parent_run_id: str
+    parent_candidate_sha256: str
+    candidate_sha256: str
+    manifest_sha256: str
+    semantic_basis_sha256: str
+    semantic_state: Literal["held", "accepted", "rejected"]
+    status: Literal["reviewable"] = "reviewable"
+
+
+class RecapSessionActionReplacement(_ExtractPromoteModel):
+    node_id: str
+    action_index: int = Field(ge=0)
+    expected_old_text: str
+    replacement_text: str
+
+    @field_validator("node_id", "expected_old_text", "replacement_text")
+    @classmethod
+    def _text(cls, value: str) -> str:
+        if not value.strip() or value != value.strip() or len(value) > 4096:
+            raise ValueError("session action text and node ID must be nonblank, trimmed and bounded")
+        return value
+
+    @field_validator("action_index")
+    @classmethod
+    def _index(cls, value: int) -> int:
+        if type(value) is not int:
+            raise ValueError("action_index must be an integer")
+        return value
+
+
+class RecapCandidateCorrectionRequestV2(_ExtractPromoteModel):
+    schema_: Literal["dmb_recap_candidate_correction_request_v2"] = Field(
+        alias="schema"
+    )
+    parent_run_id: str
+    parent_candidate_sha256: str
+    node_description_replacements: list[RecapNodeDescriptionReplacement] = Field(default_factory=list, max_length=1)
+    omitted_edge_ids: list[str] = Field(default_factory=list, max_length=1)
+    session_action_replacements: list[RecapSessionActionReplacement] = Field(min_length=1, max_length=1)
+
+    @model_validator(mode="after")
+    def _bounded(self) -> "RecapCandidateCorrectionRequestV2":
+        if self.node_description_replacements and self.node_description_replacements[0].node_id != self.session_action_replacements[0].node_id:
+            raise ValueError("description and session action corrections must target the same node")
+        if any(not value.strip() or value != value.strip() for value in self.omitted_edge_ids):
+            raise ValueError("omitted edge IDs must be nonblank and trimmed")
+        if len(self.parent_candidate_sha256) != 64 or any(c not in "0123456789abcdef" for c in self.parent_candidate_sha256):
+            raise ValueError("parent_candidate_sha256 must be lowercase SHA-256 hex")
+        return self
+
+
+class RecapCandidateCorrectionResponseV2(RecapCandidateCorrectionResponse):
+    schema_: Literal["dmb_recap_candidate_correction_response_v2"] = Field(
+        default="dmb_recap_candidate_correction_response_v2", alias="schema"
+    )
+
+
+class RecapCandidateEdgeTuple(_ExtractPromoteModel):
+    """The four candidate-owned fields changed by one atomic tuple rewrite."""
+
+    from_node_id: str
+    relationship_type: str
+    to_node_id: str
+    label: str
+
+    @field_validator("from_node_id", "to_node_id")
+    @classmethod
+    def _endpoint_id(cls, value: str, info) -> str:
+        if (
+            not value or value != value.strip() or len(value) > 256
+            or any(ch in value for ch in ("\r", "\n", "\t"))
+        ):
+            raise ValueError(f"{info.field_name} must be nonblank, trimmed and bounded")
+        return value
+
+    @field_validator("relationship_type")
+    @classmethod
+    def _relationship_type(cls, value: str) -> str:
+        if (
+            not value or value != value.strip() or value != value.lower()
+            or len(value) > 128
+            or any(ch in value for ch in ("\r", "\n", "\t"))
+        ):
+            raise ValueError("relationship_type must be lowercase, trimmed and bounded")
+        return value
+
+    @field_validator("label")
+    @classmethod
+    def _label(cls, value: str) -> str:
+        if (
+            not value or value != value.strip() or len(value) > 4096
+            or any(ch in value for ch in ("\r", "\n", "\t"))
+        ):
+            raise ValueError("label must be nonblank, trimmed and bounded")
+        return value
+
+
+class RecapCandidateEdgeTupleReplacement(_ExtractPromoteModel):
+    edge_id: str
+    expected_tuple: RecapCandidateEdgeTuple
+    replacement_tuple: RecapCandidateEdgeTuple
+
+    @field_validator("edge_id")
+    @classmethod
+    def _edge_id(cls, value: str) -> str:
+        if (
+            not value or value != value.strip() or len(value) > 256
+            or any(ch in value for ch in ("\r", "\n", "\t"))
+        ):
+            raise ValueError("edge_id must be nonblank, trimmed and bounded")
+        return value
+
+    @model_validator(mode="after")
+    def _changed_tuple(self) -> "RecapCandidateEdgeTupleReplacement":
+        if self.expected_tuple == self.replacement_tuple:
+            raise ValueError("replacement tuple must differ from its preimage")
+        return self
+
+
+class RecapCandidateNodeTypeReplacement(_ExtractPromoteModel):
+    """One exact-preimage type correction in a frozen recap candidate."""
+
+    node_id: str
+    expected_node_type: str
+    replacement_node_type: str
+
+    @field_validator("node_id")
+    @classmethod
+    def _node_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="node_id")
+
+    @field_validator("expected_node_type", "replacement_node_type")
+    @classmethod
+    def _node_type(cls, value: str, info) -> str:
+        if (
+            not value or value != value.strip() or value != value.lower()
+            or len(value) > 64
+            or any(ch in value for ch in ("\r", "\n", "\t"))
+        ):
+            raise ValueError(f"{info.field_name} must be lowercase, trimmed and bounded")
+        return value
+
+    @model_validator(mode="after")
+    def _changed_type(self) -> "RecapCandidateNodeTypeReplacement":
+        if self.expected_node_type == self.replacement_node_type:
+            raise ValueError("replacement node type must differ from its preimage")
+        return self
+
+
+class RecapCandidateCorrectionRequestV3(_ExtractPromoteModel):
+    """A bounded, exact-preimage relation correction for one frozen candidate."""
+
+    schema_: Literal[RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA_V3] = Field(
+        alias="schema"
+    )
+    parent_run_id: str
+    parent_candidate_sha256: str
+    edge_tuple_replacements: list[RecapCandidateEdgeTupleReplacement] = Field(
+        min_length=1, max_length=7
+    )
+    node_type_replacements: list[RecapCandidateNodeTypeReplacement] = Field(
+        default_factory=list, max_length=1
+    )
+
+    @field_validator("parent_run_id")
+    @classmethod
+    def _parent_run_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="parent_run_id")
+
+    @field_validator("parent_candidate_sha256")
+    @classmethod
+    def _parent_candidate_sha256(cls, value: str) -> str:
+        if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+            raise ValueError("parent_candidate_sha256 must be lowercase SHA-256 hex")
+        return value
+
+    @model_validator(mode="after")
+    def _node_type_correction_is_coordinated(self) -> "RecapCandidateCorrectionRequestV3":
+        if self.node_type_replacements:
+            node_id = self.node_type_replacements[0].node_id
+            if not any(
+                node_id in {
+                    replacement.expected_tuple.from_node_id,
+                    replacement.expected_tuple.to_node_id,
+                    replacement.replacement_tuple.from_node_id,
+                    replacement.replacement_tuple.to_node_id,
+                }
+                for replacement in self.edge_tuple_replacements
+            ):
+                raise ValueError("node type replacement must be paired with an edge tuple replacement for that node")
+        return self
+
+
+class RecapCandidateCorrectionResponseV3(RecapCandidateCorrectionResponse):
+    schema_: Literal[RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V3] = Field(
+        default=RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V3, alias="schema"
+    )
+
+
+class RecapCandidateEvidenceSpanReplacement(_ExtractPromoteModel):
+    """One exact-preimage move of an evidence ref within its frozen source."""
+
+    record_kind: Literal["node", "edge"]
+    record_id: str
+    evidence_index: int = Field(ge=0)
+    expected_source_ref_id: str
+    expected_source_artifact_id: str
+    expected_source_span_ref_id: str
+    replacement_source_span_ref_id: str
+    expected_anchor_quotes: list[str] = Field(min_length=1, max_length=16)
+    replacement_anchor_quotes: list[str] | None = Field(default=None, max_length=16)
+
+    @field_validator(
+        "record_id", "expected_source_ref_id", "expected_source_artifact_id",
+        "expected_source_span_ref_id", "replacement_source_span_ref_id",
+    )
+    @classmethod
+    def _identity(cls, value: str, info) -> str:
+        return _nonblank(value, field_name=info.field_name)
+
+    @field_validator("expected_anchor_quotes", "replacement_anchor_quotes")
+    @classmethod
+    def _quotes(cls, value: list[str] | None, info) -> list[str] | None:
+        if value is None and info.field_name == "replacement_anchor_quotes":
+            return None
+        if not isinstance(value, list) or not value:
+            raise ValueError(f"{info.field_name} must contain at least one quote")
+        if any(
+            not isinstance(item, str) or not item or item != item.strip() or len(item) > 4096
+            for item in value
+        ):
+            raise ValueError(f"{info.field_name} entries must be nonblank, trimmed and bounded")
+        return value
+
+    @model_validator(mode="after")
+    def _changed_span(self) -> "RecapCandidateEvidenceSpanReplacement":
+        if self.expected_source_span_ref_id == self.replacement_source_span_ref_id:
+            raise ValueError("replacement span must differ from the preimage")
+        return self
+
+    @field_validator("evidence_index")
+    @classmethod
+    def _evidence_index(cls, value: int) -> int:
+        if type(value) is not int:
+            raise ValueError("evidence_index must be an integer")
+        return value
+
+
+class RecapCandidateCorrectionRequestV4(_ExtractPromoteModel):
+    """A bounded same-source evidence span relocation for one frozen candidate."""
+
+    schema_: Literal[RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA_V4] = Field(alias="schema")
+    parent_run_id: str
+    parent_candidate_sha256: str
+    evidence_span_replacements: list[RecapCandidateEvidenceSpanReplacement] = Field(
+        min_length=1, max_length=1
+    )
+
+    @field_validator("parent_run_id")
+    @classmethod
+    def _parent_run_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="parent_run_id")
+
+    @field_validator("parent_candidate_sha256")
+    @classmethod
+    def _parent_candidate_sha256(cls, value: str) -> str:
+        if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+            raise ValueError("parent_candidate_sha256 must be lowercase SHA-256 hex")
+        return value
+
+
+class RecapCandidateCorrectionResponseV4(RecapCandidateCorrectionResponse):
+    schema_: Literal[RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V4] = Field(
+        default=RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V4, alias="schema"
+    )
+
+
+class RecapCandidateEvidenceReplacementV5(_ExtractPromoteModel):
+    """One exact-preimage source evidence replacement in a bounded batch."""
+
+    record_kind: Literal["node", "edge"]
+    record_id: str
+    evidence_index: int = Field(ge=0)
+    expected_source_ref_id: str
+    expected_source_artifact_id: str
+    expected_source_span_ref_id: str
+    replacement_source_span_ref_id: str
+    expected_anchor_quotes: list[str] = Field(min_length=1, max_length=16)
+    replacement_anchor_quotes: list[str] = Field(min_length=1, max_length=16)
+
+    @field_validator(
+        "record_id", "expected_source_ref_id", "expected_source_artifact_id",
+        "expected_source_span_ref_id", "replacement_source_span_ref_id",
+    )
+    @classmethod
+    def _identity(cls, value: str, info) -> str:
+        return _nonblank(value, field_name=info.field_name)
+
+    @field_validator("evidence_index")
+    @classmethod
+    def _evidence_index(cls, value: int) -> int:
+        if type(value) is not int:
+            raise ValueError("evidence_index must be an integer")
+        return value
+
+    @field_validator("expected_anchor_quotes", "replacement_anchor_quotes")
+    @classmethod
+    def _quotes(cls, value: list[str]) -> list[str]:
+        if any(not item or item != item.strip() or len(item) > 4096 for item in value):
+            raise ValueError("anchor quotes must be nonblank, trimmed and bounded")
+        return value
+
+    @model_validator(mode="after")
+    def _changed_evidence(self) -> "RecapCandidateEvidenceReplacementV5":
+        if (
+            self.expected_source_span_ref_id == self.replacement_source_span_ref_id
+            and self.expected_anchor_quotes == self.replacement_anchor_quotes
+        ):
+            raise ValueError("evidence replacement must change span or anchor quotes")
+        return self
+
+
+class RecapCandidateCorrectionRequestV5(_ExtractPromoteModel):
+    """An atomic bounded evidence replacement batch for one frozen candidate."""
+
+    schema_: Literal[RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA_V5] = Field(alias="schema")
+    parent_run_id: str
+    parent_candidate_sha256: str
+    evidence_replacements: list[RecapCandidateEvidenceReplacementV5] = Field(
+        min_length=1, max_length=7
+    )
+
+    @field_validator("parent_run_id")
+    @classmethod
+    def _parent_run_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="parent_run_id")
+
+    @field_validator("parent_candidate_sha256")
+    @classmethod
+    def _parent_candidate_sha256(cls, value: str) -> str:
+        if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+            raise ValueError("parent_candidate_sha256 must be lowercase SHA-256 hex")
+        return value
+
+    @model_validator(mode="after")
+    def _unique_targets(self) -> "RecapCandidateCorrectionRequestV5":
+        keys = [
+            (item.record_kind, item.record_id, item.evidence_index)
+            for item in self.evidence_replacements
+        ]
+        if len(set(keys)) != len(keys):
+            raise ValueError("duplicate evidence replacement target")
+        return self
+
+
+class RecapCandidateCorrectionResponseV5(RecapCandidateCorrectionResponse):
+    schema_: Literal[RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V5] = Field(
+        default=RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V5, alias="schema"
+    )
+
+
+class RecapEvidenceRefSplitPart(_ExtractPromoteModel):
+    source_span_ref_id: str
+    quote_indices: list[int] = Field(min_length=1, max_length=16)
+
+    @field_validator("source_span_ref_id")
+    @classmethod
+    def _span_id(cls, value: str) -> str:
+        if not value or value != value.strip() or len(value) > 256 or any(ch in value for ch in ("\r", "\n", "\t")):
+            raise ValueError("span ID must be nonblank, trimmed and bounded")
+        return value
+
+
+class RecapEvidenceRefSplit(_ExtractPromoteModel):
+    record_kind: Literal["node", "edge"]
+    record_id: str
+    evidence_index: int = Field(ge=0)
+    expected_evidence_ref_sha256: str
+    parts: list[RecapEvidenceRefSplitPart] = Field(min_length=2, max_length=2)
+
+    @field_validator("record_id")
+    @classmethod
+    def _record_id(cls, value: str) -> str:
+        return RecapEvidenceRefSplitPart._span_id(value)
+
+    @field_validator("expected_evidence_ref_sha256")
+    @classmethod
+    def _digest(cls, value: str) -> str:
+        if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+            raise ValueError("evidence ref digest must be lowercase SHA-256 hex")
+        return value
+
+    @model_validator(mode="after")
+    def _partitions(self) -> "RecapEvidenceRefSplit":
+        if self.parts[0].source_span_ref_id == self.parts[1].source_span_ref_id:
+            raise ValueError("split spans must be distinct")
+        indices = [index for part in self.parts for index in part.quote_indices]
+        if indices != list(range(len(indices))):
+            raise ValueError("quote partitions must preserve every occurrence in order")
+        return self
+
+
+class RecapCandidateCorrectionRequestV6(_ExtractPromoteModel):
+    """Split one complete frozen evidence ref without changing quote text."""
+
+    schema_: Literal["dmb_recap_candidate_correction_request_v6"] = Field(alias="schema")
+    parent_run_id: str
+    parent_candidate_sha256: str
+    source_revision_sha256: str
+    span_index_sha256: str
+    evidence_ref_splits: list[RecapEvidenceRefSplit] = Field(min_length=1, max_length=1)
+
+    @field_validator("parent_run_id")
+    @classmethod
+    def _parent(cls, value: str) -> str:
+        return _nonblank(value, field_name="parent_run_id")
+
+    @field_validator("parent_candidate_sha256", "source_revision_sha256", "span_index_sha256")
+    @classmethod
+    def _sha(cls, value: str) -> str:
+        return RecapEvidenceRefSplit._digest(value)
+
+
+class RecapCandidateCorrectionResponseV6(RecapCandidateCorrectionResponse):
+    schema_: Literal["dmb_recap_candidate_correction_response_v6"] = Field(
+        default="dmb_recap_candidate_correction_response_v6", alias="schema"
+    )
+
+
+class InheritedPcReferenceReviewRow(_ExtractPromoteModel):
+    node_id: str
+    corpus_ref: dict[str, str]
+    native_object_id: str
+    origin_world_id: str
+    origin_run_id: str
+    origin_manifest_sha256: str
+    source_revision_sha256: str
+    span_index_sha256: str
+    source_span_ref_id: str
+    anchor_quote: str
+    pc_mention: str
+    lineage_links: list[dict[str, str]]
+
+
+class InheritedPcReferenceReview(_ExtractPromoteModel):
+    schema_: Literal["dmb_inherited_pc_reference_proof_v1"] = Field(alias="schema")
+    final_candidate_sha256: str
+    rows: list[InheritedPcReferenceReviewRow]
+    proof_sha256: str
+    run_revision: int
+    semantic_basis_sha256: str
 
 
 class ExactRunReviewPackage(_ExtractPromoteModel):
@@ -471,12 +1193,230 @@ class ExactRunReviewPackage(_ExtractPromoteModel):
     # remains reserved for promote-eligible (played_canon) recap paths.
     promotable: bool = True
     promotable_reason: str | None = None
+    # Present only for a recap child made by operator literal-evidence correction.
+    semantic_disposition: dict[str, Any] | None = None
+    inherited_pc_references: InheritedPcReferenceReview | None = None
     # Additive first-world publish capability (CR02A). Generic promotable stays
     # false for worldbuilding; eligibility is a separate explicit path.
     world_id: str | None = None
     world_state: FirstWorldGraphState | None = None
     first_world_publish_eligible: bool = False
     first_world_publish_reason: str | None = None
+
+
+class RecapBatchEdgeOmission(_ExtractPromoteModel):
+    edge_id: str
+    expected_edge_sha256: str
+
+    _id = field_validator("edge_id")(RecapCandidateNodeOmission._node_id.__func__)
+    _sha = field_validator("expected_edge_sha256")(RecapCandidateNodeOmission._digest.__func__)
+
+class RecapBatchEvidenceReplacement(_ExtractPromoteModel):
+    record_kind: Literal["node", "edge"]
+    record_id: str
+    evidence_index: int = Field(ge=0)
+    expected_evidence_ref_sha256: str
+    source_span_ref_id: str
+    anchor_quotes: list[str] = Field(min_length=1, max_length=16)
+
+    _ids = field_validator("record_id", "source_span_ref_id")(RecapCandidateNodeOmission._node_id.__func__)
+    _sha = field_validator("expected_evidence_ref_sha256")(RecapCandidateNodeOmission._digest.__func__)
+
+    @field_validator("anchor_quotes")
+    @classmethod
+    def _quotes(cls, values: list[str]) -> list[str]:
+        if any(not q or q != q.strip() or len(q) > 4096 for q in values):
+            raise ValueError("quotes must be nonblank, trimmed and bounded")
+        return values
+
+class RecapCandidateCorrectionRequestV7(_ExtractPromoteModel):
+    """One bounded atomic batch; evidence locators are derived, never supplied."""
+
+    schema_: Literal["dmb_recap_candidate_correction_request_v7"] = Field(alias="schema")
+    parent_run_id: str
+    parent_candidate_sha256: str
+    source_revision_sha256: str
+    span_index_sha256: str
+    profile_id: Literal["recap_category_v1@1.0", "recap_category_v2@2.0", "recap_category_encounter_job_preview@2.0"]
+    node_description_replacements: list[RecapNodeDescriptionReplacement] = Field(default_factory=list, max_length=8)
+    node_label_replacements: list[RecapNodeLabelReplacement] = Field(default_factory=list, max_length=4)
+    edge_tuple_replacements: list[RecapCandidateEdgeTupleReplacement] = Field(default_factory=list, max_length=2)
+    evidence_replacements: list[RecapBatchEvidenceReplacement] = Field(default_factory=list, max_length=2)
+    edge_omissions: list[RecapBatchEdgeOmission] = Field(default_factory=list, max_length=3)
+
+    _id = field_validator("parent_run_id")(RecapCandidateNodeOmission._node_id.__func__)
+    _sha = field_validator("parent_candidate_sha256", "source_revision_sha256", "span_index_sha256")(RecapCandidateNodeOmission._digest.__func__)
+
+    @model_validator(mode="after")
+    def _batch(self) -> "RecapCandidateCorrectionRequestV7":
+        groups = [self.node_description_replacements, self.node_label_replacements,
+                  self.edge_tuple_replacements, self.evidence_replacements, self.edge_omissions]
+        if not 1 <= sum(map(len, groups)) <= 19:
+            raise ValueError("batch total must be 1..19")
+        for group in groups:
+            keys = [(x.record_kind, x.record_id, x.evidence_index) if isinstance(x, RecapBatchEvidenceReplacement)
+                    else getattr(x, "node_id", None) or x.edge_id for x in group]
+            if len(set(keys)) != len(keys):
+                raise ValueError("duplicate batch target")
+        omitted = {x.edge_id for x in self.edge_omissions}
+        edited = {x.edge_id for x in self.edge_tuple_replacements} | {
+            x.record_id for x in self.evidence_replacements if x.record_kind == "edge"}
+        if omitted & edited:
+            raise ValueError("edge cannot be edited and omitted")
+        for x in self.node_description_replacements:
+            if not x.original_description or len(x.original_description) > 4096 or x.original_description == x.replacement_description:
+                raise ValueError("description preimage must be bounded and changed")
+        return self
+
+class RecapCandidateCorrectionResponseV7(RecapCandidateCorrectionResponse):
+    schema_: Literal["dmb_recap_candidate_correction_response_v7"] = Field(
+        default="dmb_recap_candidate_correction_response_v7", alias="schema")
+
+
+class RecapCandidateCorrectionRequestV8(RecapCandidateCorrectionRequestV7):
+    """One complete bounded remediation, including typed kinds and omission."""
+
+    schema_: Literal["dmb_recap_candidate_correction_request_v8"] = Field(alias="schema")
+    expected_parent_revision: int = Field(strict=True, ge=1)
+    node_description_replacements: list[RecapNodeDescriptionReplacement] = Field(default_factory=list, max_length=10)
+    node_label_replacements: list[RecapNodeLabelReplacement] = Field(default_factory=list, max_length=8)
+    edge_tuple_replacements: list[RecapCandidateEdgeTupleReplacement] = Field(default_factory=list, max_length=4)
+    edge_omissions: list[RecapBatchEdgeOmission] = Field(default_factory=list, max_length=4)
+    node_type_replacements: list[RecapCandidateNodeTypeReplacement] = Field(default_factory=list, max_length=6)
+    node_omissions: list[RecapCandidateNodeOmission] = Field(default_factory=list, max_length=1)
+
+    @model_validator(mode="after")
+    def _batch(self) -> "RecapCandidateCorrectionRequestV8":
+        groups = [self.node_description_replacements, self.node_label_replacements,
+                  self.edge_tuple_replacements, self.evidence_replacements, self.edge_omissions,
+                  self.node_type_replacements, self.node_omissions]
+        if not 1 <= sum(map(len, groups)) <= 35:
+            raise ValueError("final batch total must be 1..35")
+        for group in groups:
+            keys = [(x.record_kind, x.record_id, x.evidence_index) if isinstance(x, RecapBatchEvidenceReplacement)
+                    else getattr(x, "node_id", None) or x.edge_id for x in group]
+            if len(set(keys)) != len(keys):
+                raise ValueError("duplicate final batch target")
+        omitted_edges = {x.edge_id for x in self.edge_omissions}
+        edited_edges = {x.edge_id for x in self.edge_tuple_replacements} | {
+            x.record_id for x in self.evidence_replacements if x.record_kind == "edge"}
+        omitted_nodes = {x.node_id for x in self.node_omissions}
+        edited_nodes = {x.node_id for x in [*self.node_description_replacements,
+            *self.node_label_replacements, *self.node_type_replacements]} | {
+            x.record_id for x in self.evidence_replacements if x.record_kind == "node"}
+        if omitted_edges & edited_edges or omitted_nodes & edited_nodes:
+            raise ValueError("record cannot be edited and omitted")
+        for x in self.node_description_replacements:
+            if not x.original_description or len(x.original_description) > 4096 or x.original_description == x.replacement_description:
+                raise ValueError("description preimage must be bounded and changed")
+        return self
+
+
+class RecapCandidateCorrectionResponseV8(RecapCandidateCorrectionResponse):
+    schema_: Literal["dmb_recap_candidate_correction_response_v8"] = Field(
+        default="dmb_recap_candidate_correction_response_v8", alias="schema")
+
+
+class RecapPcCorpusReferenceV1(_ExtractPromoteModel):
+    type: Literal["pc"]
+    ref_id: str = Field(min_length=1, max_length=128, pattern=r"^[a-z0-9][a-z0-9_-]*$")
+    resolution: Literal["resolved"]
+
+
+class RecapPcCorpusReferenceAttachmentV1(_ExtractPromoteModel):
+    node_id: str = Field(min_length=1, max_length=256)
+    expected_corpus_ref: None
+    corpus_ref: RecapPcCorpusReferenceV1
+    source_span_ref_id: str = Field(min_length=1, max_length=256)
+    anchor_quote: str = Field(min_length=1, max_length=4096)
+    pc_mention: str = Field(min_length=1, max_length=256)
+    native_object_id: str = Field(min_length=1, max_length=256)
+
+    @model_validator(mode="after")
+    def _target(self) -> "RecapPcCorpusReferenceAttachmentV1":
+        if (self.node_id != self.node_id.strip()
+            or self.source_span_ref_id != self.source_span_ref_id.strip()
+            or self.anchor_quote != self.anchor_quote.strip()
+            or self.pc_mention != self.pc_mention.strip()
+            or self.native_object_id != f"pc:{self.corpus_ref.ref_id}"):
+            raise ValueError("PC attachment target or source anchor is malformed")
+        return self
+
+
+class RecapCandidateCorrectionRequestV9(_ExtractPromoteModel):
+    """One held, reference-only child over reviewed PC actor anchors."""
+
+    schema_: Literal["dmb_recap_candidate_correction_request_v9"] = Field(alias="schema")
+    parent_run_id: str
+    parent_candidate_sha256: str
+    expected_parent_revision: int = Field(strict=True, ge=1)
+    source_revision_sha256: str
+    span_index_sha256: str
+    profile_id: Literal["recap_category_v1@1.0"]
+    registry_path: str = Field(min_length=1)
+    registry_sha256: str
+    roster_session: int = Field(strict=True, ge=1)
+    roster_key: str = Field(min_length=1)
+    world_id: str = Field(min_length=1)
+    expected_head_revision_id: str = Field(min_length=1)
+    reviewer_id: str = Field(min_length=1, max_length=256)
+    review_decision_ref: str = Field(min_length=1, max_length=256)
+    attachments: list[RecapPcCorpusReferenceAttachmentV1] = Field(min_length=1, max_length=6)
+
+    _id = field_validator("parent_run_id")(RecapCandidateNodeOmission._node_id.__func__)
+    _sha = field_validator("parent_candidate_sha256", "source_revision_sha256", "span_index_sha256", "registry_sha256")(RecapCandidateNodeOmission._digest.__func__)
+
+    @model_validator(mode="after")
+    def _unique(self) -> "RecapCandidateCorrectionRequestV9":
+        if (len({x.node_id for x in self.attachments}) != len(self.attachments)
+            or len({x.corpus_ref.ref_id for x in self.attachments}) != len(self.attachments)
+            or self.roster_key != self.roster_key.strip()
+            or any(value != value.strip() for value in (
+                self.registry_path, self.world_id, self.expected_head_revision_id,
+                self.reviewer_id, self.review_decision_ref))):
+            raise ValueError("PC attachment basis is duplicate or malformed")
+        return self
+
+
+class RecapCandidateCorrectionResponseV9(RecapCandidateCorrectionResponse):
+    schema_: Literal["dmb_recap_candidate_correction_response_v9"] = Field(
+        default="dmb_recap_candidate_correction_response_v9", alias="schema")
+
+
+class RecapSemanticDecisionRequest(_ExtractPromoteModel):
+    schema_: Literal["dmb_recap_semantic_decision_request_v1"] = Field(
+        default=RECAP_SEMANTIC_DECISION_REQUEST_SCHEMA, alias="schema"
+    )
+    expected_revision: int = Field(ge=1)
+    candidate_sha256: str
+    decision: Literal["accepted", "rejected"]
+    review_decision_ref: str
+
+    @field_validator("candidate_sha256")
+    @classmethod
+    def _candidate_sha256(cls, value: str) -> str:
+        if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+            raise ValueError("candidate_sha256 must be lowercase SHA-256 hex")
+        return value
+
+    @field_validator("review_decision_ref")
+    @classmethod
+    def _review_decision_ref(cls, value: str) -> str:
+        return _nonblank(value, field_name="review_decision_ref")
+
+
+class RecapSemanticDecisionResponse(_ExtractPromoteModel):
+    schema_: Literal["dmb_recap_semantic_decision_response_v1"] = Field(
+        default=RECAP_SEMANTIC_DECISION_RESPONSE_SCHEMA, alias="schema"
+    )
+    run_id: str
+    revision: int
+    candidate_sha256: str
+    state: Literal["accepted", "rejected"]
+    basis_sha256: str
+    review_decision_ref: str
+    reviewer_id: str
+    decided_at: str
 
 
 FirstWorldDecision = Literal["create_new", "reject", "accept"]
@@ -517,16 +1457,33 @@ class FirstWorldGraphPlanSummary(_ExtractPromoteModel):
     accepted_assertion_count: int = 0
 
 
+class FirstWorldNativeTarget(_ExtractPromoteModel):
+    """Exact reserved native identity included in the reviewed plan digest."""
+
+    native_world_id: str = Field(pattern=r"^world:[0-9a-f]{32}$")
+    provisioning_id: str = Field(pattern=r"^provision:[0-9a-f]{32}$")
+    binding_version: int = Field(gt=0, strict=True)
+
+
 class FirstWorldGraphPlan(_ExtractPromoteModel):
     """Sealed, response-carried first-world initialization plan (confirm evidence)."""
 
     schema_: Literal[FIRST_WORLD_PLAN_SCHEMA] = Field(
         default=FIRST_WORLD_PLAN_SCHEMA, alias="schema"
     )
+    @model_validator(mode="before")
+    @classmethod
+    def _current_plan_only(cls, value: Any) -> Any:
+        if isinstance(value, dict) and value.get("schema", value.get("schema_", FIRST_WORLD_PLAN_SCHEMA)) != FIRST_WORLD_PLAN_SCHEMA:
+            raise ValueError("This saved review plan is out of date. Prepare and review the source again; the old request has been preserved.")
+        return value
+
+    source_evidence_sha256: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     plan_id: str
     plan_digest: str
     decision_digest: str
     world_id: str
+    native_target: FirstWorldNativeTarget
     run_id: str
     source_artifact_id: str
     source_revision_id: str
@@ -575,3 +1532,194 @@ class FirstWorldGraphConfirmReceipt(_ExtractPromoteModel):
     rejected_assertion_ids: list[str] = Field(default_factory=list)
     audit_status: ConfirmAuditStatus
     warnings: list[str] = Field(default_factory=list)
+
+
+class ReviewedCorpusNativeSourceV1(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    source_artifact_id: str = Field(min_length=1)
+    source_revision_id: str = Field(min_length=1)
+    artifact_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    revision_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class ReviewedCorpusNativeBindingV1(BaseModel):
+    """Strict payload in the existing HUMAN_OVERRIDE reason carrier."""
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    schema_version: Literal["dmb_reviewed_corpus_native_binding_v1"] = "dmb_reviewed_corpus_native_binding_v1"
+    world_id: str = Field(min_length=1)
+    parent_revision_id: str = Field(min_length=1)
+    campaign_id: str = Field(min_length=1)
+    candidate_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    candidate_node_id: str = Field(min_length=1)
+    corpus_ref_type: Literal["npc"]
+    corpus_ref_key: str = Field(min_length=1)
+    target_object_id: str = Field(min_length=1)
+    target_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    evidence_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    decision_id: str = Field(min_length=1)
+    reviewer_id: str = Field(min_length=1)
+    sources: tuple[ReviewedCorpusNativeSourceV1, ...] = Field(min_length=1, max_length=16)
+
+    @model_validator(mode="after")
+    def _unique_sources(self):
+        keys = [(s.source_artifact_id, s.source_revision_id) for s in self.sources]
+        if len(keys) != len(set(keys)):
+            raise ValueError("duplicate binding source")
+        return self
+
+
+class RecapEvidenceAppend(_ExtractPromoteModel):
+    """One server-derived evidence entry after an exact existing citation array."""
+
+    record_kind: Literal["node", "edge"]
+    record_id: str
+    expected_evidence_refs_sha256: str = Field(
+        description="SHA-256 of the existing evidence_refs array encoded as UTF-8 JSON with sorted object keys, ensure_ascii=False, compact separators and one trailing newline.")
+    source_span_ref_id: str
+    anchor_quotes: list[str] = Field(min_length=1, max_length=16)
+
+    _ids = field_validator("record_id", "source_span_ref_id")(RecapCandidateNodeOmission._node_id.__func__)
+    _sha = field_validator("expected_evidence_refs_sha256")(RecapCandidateNodeOmission._digest.__func__)
+    _quotes = field_validator("anchor_quotes")(RecapBatchEvidenceReplacement._quotes.__func__)
+
+    @model_validator(mode="after")
+    def _distinct_quotes(self):
+        if len(set(self.anchor_quotes)) != len(self.anchor_quotes):
+            raise ValueError("append quotes must be distinct")
+        return self
+
+
+class RecapCandidateCorrectionRequestV10(_ExtractPromoteModel):
+    """Append at most two frozen-span citations; optionally correct one description."""
+
+    schema_: Literal["dmb_recap_candidate_correction_request_v10"] = Field(alias="schema")
+    parent_run_id: str
+    expected_parent_revision: int = Field(strict=True, ge=1)
+    parent_candidate_sha256: str
+    source_revision_sha256: str
+    span_index_sha256: str
+    profile_id: Literal["recap_category_v1@1.0", "recap_category_v2@2.0", "recap_category_encounter_job_preview@2.0"]
+    evidence_appends: list[RecapEvidenceAppend] = Field(min_length=1, max_length=2)
+    node_description_replacements: list[RecapNodeDescriptionReplacement] = Field(default_factory=list, max_length=1)
+
+    _id = field_validator("parent_run_id")(RecapCandidateNodeOmission._node_id.__func__)
+    _sha = field_validator("parent_candidate_sha256", "source_revision_sha256", "span_index_sha256")(RecapCandidateNodeOmission._digest.__func__)
+
+    @model_validator(mode="after")
+    def _bounded_append(self):
+        targets = [(x.record_kind, x.record_id, x.source_span_ref_id) for x in self.evidence_appends]
+        if len(set(targets)) != len(targets):
+            raise ValueError("duplicate evidence append")
+        for x in self.node_description_replacements:
+            if not x.original_description or len(x.original_description) > 4096 or x.original_description == x.replacement_description:
+                raise ValueError("description preimage must be bounded and changed")
+        return self
+
+
+class RecapCandidateCorrectionResponseV10(RecapCandidateCorrectionResponse):
+    schema_: Literal["dmb_recap_candidate_correction_response_v10"] = Field(
+        default="dmb_recap_candidate_correction_response_v10", alias="schema")
+
+
+class RecapActorIntroductionV1(_ExtractPromoteModel):
+    literal_name: str = Field(min_length=1, max_length=160)
+    source_span_ref_id: str
+    name_start: int = Field(strict=True, ge=0)
+    name_end: int = Field(strict=True, ge=1)
+    replacement_description: str = Field(min_length=1, max_length=4096)
+    description_anchor_quotes: list[str] = Field(min_length=1, max_length=4)
+
+    _span_id = field_validator("source_span_ref_id")(RecapCandidateNodeOmission._node_id.__func__)
+
+    @field_validator("literal_name", "replacement_description")
+    @classmethod
+    def _trimmed_text(cls, value: str) -> str:
+        if not value.strip() or value != value.strip():
+            raise ValueError("actor text must be nonblank and trimmed")
+        return value
+
+    @field_validator("description_anchor_quotes")
+    @classmethod
+    def _quotes(cls, values: list[str]) -> list[str]:
+        if (len(set(values)) != len(values)
+            or any(not quote or quote != quote.strip() or len(quote) > 4096 for quote in values)):
+            raise ValueError("description anchors must be distinct, exact, trimmed quotes")
+        return values
+
+    @model_validator(mode="after")
+    def _range(self) -> "RecapActorIntroductionV1":
+        if self.name_end <= self.name_start or self.name_end - self.name_start != len(self.literal_name):
+            raise ValueError("actor name range must match its literal codepoint length")
+        return self
+
+
+class RecapAffectedEdgeV1(_ExtractPromoteModel):
+    action: Literal["retarget", "omit"]
+    edge_id: str
+    expected_edge_sha256: str
+    expected_evidence_refs_sha256: str
+    original_from_id: str
+    original_to_id: str
+    original_predicate: str
+    misbound_endpoint: Literal["from_id", "to_id"]
+    source_span_ref_id: str
+    actor_anchor_quotes: list[str] = Field(min_length=1, max_length=4)
+
+    _ids = field_validator("edge_id", "original_from_id", "original_to_id", "source_span_ref_id")(
+        RecapCandidateNodeOmission._node_id.__func__
+    )
+    _digests = field_validator("expected_edge_sha256", "expected_evidence_refs_sha256")(
+        RecapCandidateNodeOmission._digest.__func__
+    )
+
+    @field_validator("original_predicate")
+    @classmethod
+    def _predicate(cls, value: str) -> str:
+        if not value or value != value.strip() or len(value) > 128:
+            raise ValueError("predicate must be nonblank, trimmed and bounded")
+        return value
+
+    @field_validator("actor_anchor_quotes")
+    @classmethod
+    def _quotes(cls, values: list[str]) -> list[str]:
+        if (len(set(values)) != len(values)
+            or any(not quote or quote != quote.strip() or len(quote) > 4096 for quote in values)):
+            raise ValueError("actor anchors must be distinct, exact, trimmed quotes")
+        return values
+
+
+class RecapCandidateCorrectionRequestV11(_ExtractPromoteModel):
+    """Introduce one source-supported local actor and repair only declared edges."""
+
+    schema_: Literal["dmb_recap_candidate_correction_request_v11"] = Field(alias="schema")
+    parent_run_id: str
+    expected_parent_revision: int = Field(strict=True, ge=1)
+    parent_candidate_sha256: str
+    source_revision_sha256: str
+    span_index_sha256: str
+    profile_id: Literal["recap_category_v1@1.0", "recap_category_v2@2.0", "recap_category_encounter_job_preview@2.0"]
+    misbound_actor_id: str
+    actor_introduction: RecapActorIntroductionV1
+    affected_edges: list[RecapAffectedEdgeV1] = Field(default_factory=list, max_length=4)
+
+    _id = field_validator("parent_run_id", "misbound_actor_id")(
+        RecapCandidateNodeOmission._node_id.__func__
+    )
+    _sha = field_validator("parent_candidate_sha256", "source_revision_sha256", "span_index_sha256")(
+        RecapCandidateNodeOmission._digest.__func__
+    )
+
+    @model_validator(mode="after")
+    def _unique_edges(self) -> "RecapCandidateCorrectionRequestV11":
+        ids = [edge.edge_id for edge in self.affected_edges]
+        if len(ids) != len(set(ids)):
+            raise ValueError("affected edge targets must be unique")
+        return self
+
+
+class RecapCandidateCorrectionResponseV11(RecapCandidateCorrectionResponse):
+    schema_: Literal["dmb_recap_candidate_correction_response_v11"] = Field(
+        default="dmb_recap_candidate_correction_response_v11", alias="schema")
+    introduced_actor_count: Literal[1] = 1
+    retargeted_edge_count: int = Field(ge=0, le=4)
+    omitted_edge_count: int = Field(ge=0, le=4)

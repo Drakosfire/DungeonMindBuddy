@@ -1,6 +1,8 @@
 """Fixture-backed pipeline proof for the bounded worldbuilding profile."""
 
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 import json
 from pathlib import Path
@@ -12,20 +14,16 @@ from apps.live_control_server.services.source_artifact_registry import (
     create_source_artifact_from_workspace_document,
     load_source_span_index,
 )
-from apps.live_control_server.services.workspace_document_registry import (
-    create_workspace_document,
-    mark_workspace_document_committed,
-)
 from graph_memory.source_span import source_span_index_to_dict
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     FixtureCategoryGraphPassClient,
 )
-from src.graph_memory.extraction.graph_preview_runner import (
+from graph_memory.extraction.graph_preview_runner import (
     ProductionExtractionRequest,
     run_production_extraction,
 )
-from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
-from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+from graph_memory.extraction.source_adapter import NormalizedExtractionSource
+from graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
     WORLDBUILDING_PROFILE_VERSION,
     validate_worldbuilding_candidate_bounds,
@@ -47,7 +45,7 @@ def _load_fixture() -> dict:
 def _admit_fixture_source(tmp_path: Path) -> tuple[NormalizedExtractionSource, str]:
     """Register fixture prose as a SourceArtifact and return normalized source + paragraph span."""
     fixture = _load_fixture()
-    record = create_workspace_document(
+    record = create_page_fixture(
         tmp_path,
         title="Shepherd's Flock fixture",
         campaign_id=fixture["campaign_id"],
@@ -57,13 +55,9 @@ def _admit_fixture_source(tmp_path: Path) -> tuple[NormalizedExtractionSource, s
         authority_state="draft",
         visibility_state="internal",
     )
-    committed = mark_workspace_document_committed(
-        tmp_path, record.document_id, expected_revision=1
-    )
-    target = tmp_path / committed.target_relpath
-    target.parent.mkdir(parents=True, exist_ok=True)
+    committed = get_workspace_document(tmp_path, record.document_id)
     content = str(fixture["source_text"]).rstrip("\n") + "\n"
-    target.write_text(content, encoding="utf-8")
+    committed = save_page(tmp_path, committed.document_id, content)
     artifact = create_source_artifact_from_workspace_document(
         tmp_path,
         document_id=committed.document_id,
@@ -116,7 +110,6 @@ def _run_with_pass_outputs(
     *,
     source: NormalizedExtractionSource,
     pass_outputs: dict[str, Any],
-    subdir: str,
 ) -> Any:
     return run_production_extraction(
         ProductionExtractionRequest(
@@ -126,7 +119,6 @@ def _run_with_pass_outputs(
             profile_version=WORLDBUILDING_PROFILE_VERSION,
             allow_llm=True,
             category_client=FixtureCategoryGraphPassClient(pass_outputs),
-            output_dir=tmp_path / "out" / "runs" / subdir,
         )
     )
 
@@ -138,7 +130,6 @@ def test_fixture_pipeline_produces_reviewable_null_session_run(tmp_path: Path) -
         tmp_path,
         source=source,
         pass_outputs=_pass_outputs_for_span(fixture, span_id),
-        subdir="wb-profile",
     )
 
     assert result.failure_kind is None
@@ -165,10 +156,9 @@ def test_fixture_pipeline_rejects_recap_profile_for_worldbuilding_source(
         ProductionExtractionRequest(
             repo_root=tmp_path,
             source=source,
-            profile_id="recap_category_v1",
-            profile_version="1.0",
+            profile_id="recap_category_v2",
+            profile_version="2.0",
             allow_llm=False,
-            output_dir=tmp_path / "out" / "runs" / "bad-profile",
         )
     )
     assert result.failure_kind == "profile"
@@ -199,7 +189,6 @@ def test_pipeline_rejects_excluded_item_node_as_non_reviewable(tmp_path: Path) -
         tmp_path,
         source=source,
         pass_outputs=pass_outputs,
-        subdir="wb-excluded-item",
     )
     assert result.failure_kind == "validation"
     assert result.run.status.value != "reviewable"
@@ -230,7 +219,6 @@ def test_pipeline_rejects_undeclared_node_type_as_non_reviewable(tmp_path: Path)
         tmp_path,
         source=source,
         pass_outputs=pass_outputs,
-        subdir="wb-undeclared-type",
     )
     assert result.failure_kind == "validation"
     assert result.run.status.value != "reviewable"
@@ -247,7 +235,7 @@ def test_pipeline_rejects_missing_evidence_as_non_reviewable(
     disables the promote projection drop so the production controller's
     missing-evidence gate (and profile validator) are exercised.
     """
-    from src.graph_memory.extraction import category_candidate_graph_extractor as extractor
+    from graph_memory.extraction import category_candidate_graph_extractor as extractor
 
     def _project_keep_empty_evidence(graph: dict, warning_count: int | None = None, **_kwargs: Any) -> dict:
         for edge in graph.get("edges") or []:
@@ -288,7 +276,6 @@ def test_pipeline_rejects_missing_evidence_as_non_reviewable(
         tmp_path,
         source=source,
         pass_outputs=pass_outputs,
-        subdir="wb-missing-evidence",
     )
     assert result.failure_kind == "validation"
     assert result.run.status.value != "reviewable"
@@ -320,7 +307,6 @@ def test_pipeline_rejects_empty_edge_evidence_without_endpoint_inheritance(
         tmp_path,
         source=source,
         pass_outputs=pass_outputs,
-        subdir="wb-empty-edge-evidence",
     )
     assert result.failure_kind == "validation"
     assert result.run.status.value != "reviewable"
@@ -334,7 +320,7 @@ def test_pipeline_rejects_empty_edge_evidence_without_endpoint_inheritance(
 
 
 def test_profile_wires_executable_post_extraction_validator() -> None:
-    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from graph_memory.extraction.extraction_profile import get_extraction_profile
 
     profile = get_extraction_profile(
         WORLDBUILDING_PROFILE_ID, WORLDBUILDING_PROFILE_VERSION
@@ -349,7 +335,7 @@ def test_profile_wires_executable_post_extraction_validator() -> None:
 def test_pipeline_fails_closed_when_post_extraction_validator_raises(
     tmp_path: Path,
 ) -> None:
-    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from graph_memory.extraction.extraction_profile import get_extraction_profile
 
     def _boom(_graph: dict[str, Any]) -> list[str]:
         raise RuntimeError("validator bug")
@@ -366,7 +352,6 @@ def test_pipeline_fails_closed_when_post_extraction_validator_raises(
             tmp_path,
             source=source,
             pass_outputs=_pass_outputs_for_span(fixture, span_id),
-            subdir="wb-validator-raise",
         )
     finally:
         object.__setattr__(profile, "post_extraction_validator", original)

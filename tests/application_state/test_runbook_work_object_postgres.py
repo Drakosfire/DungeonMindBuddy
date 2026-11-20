@@ -33,6 +33,8 @@ RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn: str) -> TestClient:
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
     monkeypatch.setattr(
         "apps.live_control_server.routes.workspace_documents.repo_root",
         lambda: tmp_path,
@@ -42,7 +44,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_ds
         lambda: tmp_path,
         raising=False,
     )
-    return TestClient(create_app())
+    return TestClient(create_app(), client=("127.0.0.1", 50000))
 
 
 def _tiptap_commit(root: Path, document_id: str, markdown: str, expected_revision: int) -> None:
@@ -179,7 +181,6 @@ def test_divergent_working_copy_blocks_start_run_but_not_existing_run_n(
         expected_revision=created.object_revision,
     )
     run = create_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         playable_artifact_id=str(created.work_object_id),
         expected_playable_revision=revision.revision_n,
@@ -193,7 +194,6 @@ def test_divergent_working_copy_blocks_start_run_but_not_existing_run_n(
     )
     with pytest.raises(PlayRunRegistryError) as start_exc:
         create_or_replay_play_run(
-            tmp_path,
             run_id="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
             playable_artifact_id=str(created.work_object_id),
             expected_playable_revision=1,
@@ -290,24 +290,37 @@ def test_runbook_fails_closed_when_app_state_is_down(
     assert excinfo.value.status_code == 503
 
 
-def test_worldbuilding_remains_file_backed_when_app_state_is_down(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_worldbuilding_fails_closed_when_app_state_is_down(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn: str
 ) -> None:
-    monkeypatch.delenv("DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", raising=False)
-    created = create_workspace_document(
-        tmp_path,
-        title="Lore",
-        campaign_id="eldyrwild",
-        kind="worldbuilding_source",
-        source_domain="worldbuilding",
-        document_class="lore",
-        authority_state="draft",
-        visibility_state="internal",
-    )
-    listed = list_workspace_documents(tmp_path, kind="worldbuilding_source")
-    assert [row.document_id for row in listed] == [created.document_id]
+    from application_state.world_catalog.service import create_world
+
+    world_id = create_world(name="Page outage witness").record.world_id
+    metadata = dict(title="Lore", campaign_id=None, world_id=world_id,
+                    kind="worldbuilding_source", source_domain="worldbuilding",
+                    document_class="lore", authority_state="draft",
+                    visibility_state="internal")
+    created = create_workspace_document(tmp_path, **metadata)
+    markdown = "# Lore\n\nDatabase-owned outage witness.\n"
+    _tiptap_commit(tmp_path, created.document_id, markdown, created.revision)
     snapshot = get_workspace_document_snapshot(tmp_path, created.document_id)
+    assert snapshot.record.world_id == world_id
     assert snapshot.record.kind == "worldbuilding_source"
+    assert snapshot.markdown == markdown
+    assert snapshot.file_exists is False
+    assert not list(tmp_path.rglob("*.md"))
+
+    monkeypatch.delenv("DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", raising=False)
+    for operation in (
+        lambda: create_workspace_document(tmp_path, **metadata),
+        lambda: list_workspace_documents(tmp_path, world_id=world_id, kind="worldbuilding_source"),
+        lambda: get_workspace_document_snapshot(tmp_path, created.document_id),
+    ):
+        with pytest.raises(WorkspaceDocumentRegistryError) as excinfo:
+            operation()
+        assert excinfo.value.status_code == 503
+    assert not list(tmp_path.rglob("*.md"))
+    assert not list(tmp_path.rglob("workspace_documents.json"))
 
 
 def test_cas_conflict_one_success(application_state_dsn: str) -> None:
@@ -366,14 +379,18 @@ def _measure_prepare_commit_load(
     return autosave_ms, commit_ms, load_ms, snapshot.markdown
 
 
-def test_runbook_playable_latency(
+def test_runbook_playable_latency_against_current_durable_page(
     tmp_path: Path, application_state_dsn: str
 ) -> None:
+    from application_state.world_catalog.service import create_world
+
+    world_id = create_world(name="Storage latency witness").record.world_id
     markdown = "# latency witness\n"
-    file_backed = create_workspace_document(
+    durable_page = create_workspace_document(
         tmp_path,
-        title="latency file analog",
-        campaign_id="eldyrwild",
+        title="latency durable page analog",
+        campaign_id=None,
+        world_id=world_id,
         kind="worldbuilding_source",
         source_domain="worldbuilding",
         document_class="lore",
@@ -383,10 +400,10 @@ def test_runbook_playable_latency(
     runbook = create_workspace_document(
         tmp_path, title="latency runbook", campaign_id="longmont-c2", kind="runbook"
     )
-    file_autosave_ms, file_commit_ms, file_load_ms, file_markdown = _measure_prepare_commit_load(
+    page_autosave_ms, page_commit_ms, page_load_ms, page_markdown = _measure_prepare_commit_load(
         root=tmp_path,
-        document_id=file_backed.document_id,
-        expected_revision=file_backed.revision,
+        document_id=durable_page.document_id,
+        expected_revision=durable_page.revision,
         markdown=markdown,
     )
     pg_autosave_ms, pg_commit_ms, pg_load_ms, pg_markdown = _measure_prepare_commit_load(
@@ -405,7 +422,6 @@ def test_runbook_playable_latency(
     historical_ms = (time.perf_counter() - started) * 1000
     started = time.perf_counter()
     create_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         playable_artifact_id=runbook.document_id,
         expected_playable_revision=current.revision_n,
@@ -413,12 +429,12 @@ def test_runbook_playable_latency(
     )
     existing_run_ms = (time.perf_counter() - started) * 1000
     print(
-        "AS2 latency hypothesis capture "
-        "baseline_file_worldbuilding "
-        f"autosave_ms={file_autosave_ms:.1f} "
-        f"commit_ms={file_commit_ms:.1f} "
-        f"load_ms={file_load_ms:.1f} "
-        "head_postgres_runbook "
+        "Current storage latency witness "
+        "current_postgres_worldbuilding_page "
+        f"autosave_ms={page_autosave_ms:.1f} "
+        f"commit_ms={page_commit_ms:.1f} "
+        f"load_ms={page_load_ms:.1f} "
+        "current_postgres_runbook "
         f"autosave_ms={pg_autosave_ms:.1f} "
         f"commit_ms={pg_commit_ms:.1f} "
         f"load_ms={pg_load_ms:.1f} "
@@ -426,13 +442,13 @@ def test_runbook_playable_latency(
         f"historical_committed_ms={historical_ms:.1f} "
         f"existing_run_admit_ms={existing_run_ms:.1f}"
     )
-    assert file_markdown == markdown
+    assert page_markdown == markdown
     assert pg_markdown == markdown
     assert historical.markdown == markdown
     assert (
-        file_autosave_ms >= 0
-        and file_commit_ms >= 0
-        and file_load_ms >= 0
+        page_autosave_ms >= 0
+        and page_commit_ms >= 0
+        and page_load_ms >= 0
         and pg_autosave_ms >= 0
         and pg_commit_ms >= 0
         and pg_load_ms >= 0

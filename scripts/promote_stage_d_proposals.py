@@ -50,7 +50,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from pydantic import BaseModel, Field  # noqa: E402
 
-from src.contracts.npc_registry import NpcRegistryRecord, load_npc_registry  # noqa: E402
+from contracts.npc_registry import NpcRegistryRecord, load_npc_registry  # noqa: E402
 
 PROMOTION_SCHEMA_VERSION = "stage_d_promotion_v2"
 _DEFAULT_OUT_DIR = (
@@ -108,7 +108,7 @@ def _resolve_promotion_model(model: str | None) -> str:
 class PromotePayload(BaseModel):
     """Final NpcRegistryRecord-shaped payload for an accepted new candidate.
 
-    Mirrors :class:`src.contracts.npc_registry.NpcRegistryRecord` but with
+    Mirrors :class:`contracts.npc_registry.NpcRegistryRecord` but with
     every field required so OpenAI structured outputs (strict JSON Schema)
     accepts it. Status MUST be ``candidate`` and hub_path MUST be null per
     Stage D's propose-only contract.
@@ -804,7 +804,7 @@ def _add_usage(
     model: str,
     usage: dict[str, int],
 ) -> None:
-    from src.agent.planner_pricing import usage_cost_usd
+    from llm.planner_pricing import usage_cost_usd
 
     cost = usage_cost_usd(
         model_id=model,
@@ -1299,12 +1299,12 @@ def _build_promotion_markdown(payload: dict[str, Any]) -> str:
 def _build_openai_client() -> Any:
     """Build a sync OpenAI client wrapper for the judgment turn.
 
-    Loads ``.env`` via ``src.bootstrap_env.load_dungeonmindbuddy_dotenv`` so
+    Loads ``.env`` via ``bootstrap_env.load_dungeonmindbuddy_dotenv`` so
     ``OPENAI_API_KEY`` matches CLI / pytest behavior. Returns the raw
     ``OpenAI`` SDK client (we use ``responses.parse`` directly, mirroring
     ``src/ingestion/entity_extractor.py``).
     """
-    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
 
     load_dungeonmindbuddy_dotenv()
     api_key = os.getenv("OPENAI_API_KEY")

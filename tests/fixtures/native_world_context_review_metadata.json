@@ -1,0 +1,328 @@
+{
+  "note": "Key shapes from pinned Q09/Q14 captures; all values and qualification text are synthetic. No Gold or story content.",
+  "cases": [
+    {
+      "case": "Q09-shape-0",
+      "capture_sha256": "67eb2572729b20ef8fd8ccb439ae2a486cf31326519e987c8f282b7496166fce",
+      "payload": {
+        "ingestion_code_head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "ingestion_model": "synthetic-extractor",
+        "ingestion_profile": "synthetic-profile@1",
+        "ingestion_runtime_manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_candidate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_effective_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_original_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_qualification": "The reported scene only; preserve uncertainty.",
+        "source_read_mode": "source_scoped_assertion",
+        "source_run_id": "00000000-0000-0000-0000-000000000111",
+        "source_run_revision": 5,
+        "source_selector": "/nodes/2/description"
+      },
+      "host_fields": [
+        "ingestion_code_head",
+        "ingestion_model",
+        "ingestion_profile",
+        "ingestion_runtime_manifest_sha256",
+        "source_candidate_sha256",
+        "source_effective_sha256",
+        "source_original_sha256",
+        "source_read_mode",
+        "source_run_id",
+        "source_run_revision",
+        "source_selector"
+      ]
+    },
+    {
+      "case": "Q09-shape-1",
+      "capture_sha256": "67eb2572729b20ef8fd8ccb439ae2a486cf31326519e987c8f282b7496166fce",
+      "payload": {
+        "source_qualification": "The reported scene only; preserve uncertainty."
+      },
+      "host_fields": []
+    },
+    {
+      "case": "Q09-shape-2",
+      "capture_sha256": "67eb2572729b20ef8fd8ccb439ae2a486cf31326519e987c8f282b7496166fce",
+      "payload": {
+        "identity_review_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "publication_runtime_manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "selected_field_decisions_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_candidate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_qualification": "The reported scene only; preserve uncertainty.",
+        "source_read_mode": "source_scoped_assertion",
+        "source_run_id": "00000000-0000-0000-0000-000000000111",
+        "source_run_revision": 5,
+        "source_selector": "/nodes/2/description"
+      },
+      "host_fields": [
+        "identity_review_sha256",
+        "publication_runtime_manifest_sha256",
+        "selected_field_decisions_sha256",
+        "source_candidate_sha256",
+        "source_read_mode",
+        "source_run_id",
+        "source_run_revision",
+        "source_selector"
+      ]
+    },
+    {
+      "case": "Q09-shape-3",
+      "capture_sha256": "67eb2572729b20ef8fd8ccb439ae2a486cf31326519e987c8f282b7496166fce",
+      "payload": {
+        "ingestion_code_head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "ingestion_model": "synthetic-extractor",
+        "ingestion_profile": "synthetic-profile@1",
+        "ingestion_runtime_manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_candidate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_identity_adoption_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_qualification": "The reported scene only; preserve uncertainty.",
+        "source_qualifier_adjudication_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_read_mode": "source_scoped_assertion",
+        "source_run_id": "00000000-0000-0000-0000-000000000111",
+        "source_run_revision": 5,
+        "source_selector": "/nodes/2/description"
+      },
+      "host_fields": [
+        "ingestion_code_head",
+        "ingestion_model",
+        "ingestion_profile",
+        "ingestion_runtime_manifest_sha256",
+        "source_candidate_sha256",
+        "source_identity_adoption_sha256",
+        "source_qualifier_adjudication_sha256",
+        "source_read_mode",
+        "source_run_id",
+        "source_run_revision",
+        "source_selector"
+      ]
+    },
+    {
+      "case": "Q09-shape-4",
+      "capture_sha256": "67eb2572729b20ef8fd8ccb439ae2a486cf31326519e987c8f282b7496166fce",
+      "payload": {
+        "actual_extraction_candidate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "actual_extraction_run_id": "00000000-0000-0000-0000-000000000111",
+        "ingestion_code_head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "ingestion_model": "synthetic-extractor",
+        "ingestion_profile": "synthetic-profile@1",
+        "ingestion_runtime_manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "semantic_correction_basis_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_candidate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_qualification": "The reported scene only; preserve uncertainty.",
+        "source_read_mode": "source_scoped_assertion",
+        "source_run_id": "00000000-0000-0000-0000-000000000111",
+        "source_run_revision": 5,
+        "source_selector": "/nodes/2/description"
+      },
+      "host_fields": [
+        "actual_extraction_candidate_sha256",
+        "actual_extraction_run_id",
+        "ingestion_code_head",
+        "ingestion_model",
+        "ingestion_profile",
+        "ingestion_runtime_manifest_sha256",
+        "semantic_correction_basis_sha256",
+        "source_candidate_sha256",
+        "source_read_mode",
+        "source_run_id",
+        "source_run_revision",
+        "source_selector"
+      ]
+    },
+    {
+      "case": "Q09-shape-5",
+      "capture_sha256": "67eb2572729b20ef8fd8ccb439ae2a486cf31326519e987c8f282b7496166fce",
+      "payload": {
+        "identity_readiness_review_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "ingestion_code_head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "ingestion_model": "synthetic-extractor",
+        "ingestion_profile": "synthetic-profile@1",
+        "ingestion_telemetry_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "owner_identity_adoption_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_candidate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_qualification": "The reported scene only; preserve uncertainty.",
+        "source_run_id": "00000000-0000-0000-0000-000000000111",
+        "source_run_revision": 5,
+        "source_selector": "/nodes/2/description"
+      },
+      "host_fields": [
+        "identity_readiness_review_sha256",
+        "ingestion_code_head",
+        "ingestion_model",
+        "ingestion_profile",
+        "ingestion_telemetry_sha256",
+        "owner_identity_adoption_sha256",
+        "source_candidate_sha256",
+        "source_run_id",
+        "source_run_revision",
+        "source_selector"
+      ]
+    },
+    {
+      "case": "Q09-shape-6",
+      "capture_sha256": "67eb2572729b20ef8fd8ccb439ae2a486cf31326519e987c8f282b7496166fce",
+      "payload": {
+        "ingestion_code_head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "ingestion_model": "synthetic-extractor",
+        "ingestion_profile": "synthetic-profile@1",
+        "ingestion_runtime_manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_candidate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_qualification": "The reported scene only; preserve uncertainty.",
+        "source_read_mode": "source_scoped_assertion",
+        "source_run_id": "00000000-0000-0000-0000-000000000111",
+        "source_run_revision": 5,
+        "source_selector": "/nodes/2/description"
+      },
+      "host_fields": [
+        "ingestion_code_head",
+        "ingestion_model",
+        "ingestion_profile",
+        "ingestion_runtime_manifest_sha256",
+        "source_candidate_sha256",
+        "source_read_mode",
+        "source_run_id",
+        "source_run_revision",
+        "source_selector"
+      ]
+    },
+    {
+      "case": "Q09-shape-7",
+      "capture_sha256": "67eb2572729b20ef8fd8ccb439ae2a486cf31326519e987c8f282b7496166fce",
+      "payload": {
+        "ingestion_code_head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "ingestion_model": "synthetic-extractor",
+        "ingestion_profile": "synthetic-profile@1",
+        "ingestion_runtime_manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_candidate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_identity_adoption_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_qualification": "The reported scene only; preserve uncertainty.",
+        "source_read_mode": "source_scoped_assertion",
+        "source_run_id": "00000000-0000-0000-0000-000000000111",
+        "source_run_revision": 5,
+        "source_selection_feasibility_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_selector": "/nodes/2/description"
+      },
+      "host_fields": [
+        "ingestion_code_head",
+        "ingestion_model",
+        "ingestion_profile",
+        "ingestion_runtime_manifest_sha256",
+        "source_candidate_sha256",
+        "source_identity_adoption_sha256",
+        "source_read_mode",
+        "source_run_id",
+        "source_run_revision",
+        "source_selection_feasibility_sha256",
+        "source_selector"
+      ]
+    },
+    {
+      "case": "Q09-shape-8",
+      "capture_sha256": "67eb2572729b20ef8fd8ccb439ae2a486cf31326519e987c8f282b7496166fce",
+      "payload": {
+        "ingestion_code_head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "ingestion_model": "synthetic-extractor",
+        "ingestion_profile": "synthetic-profile@1",
+        "ingestion_runtime_manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "publication_fidelity_review_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_candidate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_qualification": "The reported scene only; preserve uncertainty.",
+        "source_read_mode": "source_scoped_assertion",
+        "source_run_id": "00000000-0000-0000-0000-000000000111",
+        "source_run_revision": 5,
+        "source_selector": "/nodes/2/description"
+      },
+      "host_fields": [
+        "ingestion_code_head",
+        "ingestion_model",
+        "ingestion_profile",
+        "ingestion_runtime_manifest_sha256",
+        "publication_fidelity_review_sha256",
+        "source_candidate_sha256",
+        "source_read_mode",
+        "source_run_id",
+        "source_run_revision",
+        "source_selector"
+      ]
+    },
+    {
+      "case": "Q09-shape-9",
+      "capture_sha256": "67eb2572729b20ef8fd8ccb439ae2a486cf31326519e987c8f282b7496166fce",
+      "payload": {
+        "identity_readiness_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "ingestion_code_head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "ingestion_model": "synthetic-extractor",
+        "ingestion_profile": "synthetic-profile@1",
+        "ingestion_telemetry_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_candidate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_identity_selection_proposal_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_qualification": "The reported scene only; preserve uncertainty.",
+        "source_run_id": "00000000-0000-0000-0000-000000000111",
+        "source_run_revision": 5,
+        "source_selector": "/nodes/2/description"
+      },
+      "host_fields": [
+        "identity_readiness_sha256",
+        "ingestion_code_head",
+        "ingestion_model",
+        "ingestion_profile",
+        "ingestion_telemetry_sha256",
+        "source_candidate_sha256",
+        "source_identity_selection_proposal_sha256",
+        "source_run_id",
+        "source_run_revision",
+        "source_selector"
+      ]
+    },
+    {
+      "case": "Q09-shape-10",
+      "capture_sha256": "67eb2572729b20ef8fd8ccb439ae2a486cf31326519e987c8f282b7496166fce",
+      "payload": {
+        "publication_runtime_manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "selected_field_decisions_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_candidate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_qualification": "The reported scene only; preserve uncertainty.",
+        "source_read_mode": "source_scoped_assertion",
+        "source_run_id": "00000000-0000-0000-0000-000000000111",
+        "source_run_revision": 5,
+        "source_selector": "/nodes/2/description"
+      },
+      "host_fields": [
+        "publication_runtime_manifest_sha256",
+        "selected_field_decisions_sha256",
+        "source_candidate_sha256",
+        "source_read_mode",
+        "source_run_id",
+        "source_run_revision",
+        "source_selector"
+      ]
+    },
+    {
+      "case": "Q09-shape-11",
+      "capture_sha256": "67eb2572729b20ef8fd8ccb439ae2a486cf31326519e987c8f282b7496166fce",
+      "payload": {
+        "identity_review_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "ingestion_code_head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "ingestion_model": "synthetic-extractor",
+        "ingestion_profile": "synthetic-profile@1",
+        "ingestion_telemetry_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_candidate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_qualification": "The reported scene only; preserve uncertainty.",
+        "source_run_id": "00000000-0000-0000-0000-000000000111",
+        "source_run_revision": 5,
+        "source_selector": "/nodes/2/description"
+      },
+      "host_fields": [
+        "identity_review_sha256",
+        "ingestion_code_head",
+        "ingestion_model",
+        "ingestion_profile",
+        "ingestion_telemetry_sha256",
+        "source_candidate_sha256",
+        "source_run_id",
+        "source_run_revision",
+        "source_selector"
+      ]
+    }
+  ]
+}

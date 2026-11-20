@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -198,6 +199,7 @@ def _prepare(
         world_id="eldyrwild", revision_id="rev:d0", head_revision_id="rev:d0", objects={}
     )
     return prepare_candidate_graph_admission(
+        source_body=source.read_bytes(),
         candidate_graph=candidate,
         source_uri=str(source),
         source_revision_id=revision,
@@ -273,6 +275,187 @@ def test_digest_covers_complete_candidate_before_qualification(tmp_path) -> None
     assert result.accepted_proposals_count >= 1
 
 
+def test_recap_local_id_cannot_capture_occupied_world_id(tmp_path) -> None:
+    candidate = _candidate()
+    context = WorldGraphMutationContext(
+        world_id="eldyrwild", revision_id="rev:d0", head_revision_id="rev:d0",
+        objects={"candidate:brin": MutationObject(
+            object_id="candidate:brin", label="Other", kind="npc"
+        )},
+    )
+    result = _prepare(tmp_path, candidate, mutation_context=context)
+    effect = result.review_package["effect"]
+    durable = effect["node_id_map"]["candidate:brin"]
+    assert durable.startswith("source-local:v1:")
+    assert durable != "candidate:brin"
+    assert effect["identity_basis"]["nodes"]["candidate:brin"]["classification"] == "source_local"
+    assert effect["accepted_proposals"][0]["subject_node_id"] == durable
+    assert effect["identity_basis"]["candidate_sha256"] == canonical_candidate_digest(candidate)
+    called = False
+
+    def governed_confirm():
+        nonlocal called
+        called = True
+        return "rev:d1"
+
+    confirm_candidate_graph_admission(
+        review_package=result.review_package, candidate_graph=candidate,
+        governed_confirm=governed_confirm,
+    )
+    assert called
+
+
+def test_recap_surface_similarity_defers_without_auto_binding(tmp_path) -> None:
+    candidate = _candidate()
+    context = WorldGraphMutationContext(
+        world_id="eldyrwild", revision_id="rev:d0", head_revision_id="rev:d0",
+        objects={"npc:existing-brin": MutationObject(
+            object_id="npc:existing-brin", label="Brin", kind="npc"
+        )},
+    )
+    result = _prepare(tmp_path, candidate, mutation_context=context)
+    effect = result.review_package["effect"]
+    assert "candidate:brin" not in effect["node_id_map"]
+    assert effect["identity_basis"]["nodes"]["candidate:brin"]["classification"] == "deferred"
+    assert effect["candidate_admission"]["confirmable"] is False
+
+
+def test_same_local_id_in_distinct_frozen_candidates_has_distinct_durable_ids(tmp_path) -> None:
+    first = _candidate()
+    second = copy.deepcopy(first)
+    second["nodes"][0]["description"] = "Different frozen extraction."
+    first_id = _prepare(tmp_path, first).review_package["effect"]["node_id_map"]["candidate:brin"]
+    second_id = _prepare(tmp_path, second).review_package["effect"]["node_id_map"]["candidate:brin"]
+    assert first_id != second_id
+
+
+def test_same_verified_candidate_keeps_id_across_parent_revisions(tmp_path) -> None:
+    candidate = _candidate()
+    def context(revision: str, objects: dict | None = None) -> WorldGraphMutationContext:
+        return WorldGraphMutationContext(
+            world_id="eldyrwild", revision_id=revision,
+            head_revision_id=revision, objects=objects or {},
+        )
+
+    before = _prepare(tmp_path, candidate, mutation_context=context("rev:before"))
+    after = _prepare(tmp_path, candidate, mutation_context=context("rev:after"))
+    before_effect = before.review_package["effect"]
+    after_effect = after.review_package["effect"]
+    first_id = before_effect["node_id_map"]["candidate:brin"]
+    assert first_id == after_effect["node_id_map"]["candidate:brin"]
+    assert before_effect["identity_basis"]["parent_revision_id"] == "rev:before"
+    assert after_effect["identity_basis"]["parent_revision_id"] == "rev:after"
+
+    occupied = _prepare(
+        tmp_path, candidate, mutation_context=context(
+            "rev:after", {first_id: MutationObject(
+                object_id=first_id, label="Brin", kind="npc",
+            )},
+        ),
+    )
+    occupied_effect = occupied.review_package["effect"]
+    assert "candidate:brin" not in occupied_effect["node_id_map"]
+    assert occupied_effect["identity_outcome_snapshot"]["candidate:brin"] == "blocked_collision"
+
+
+def test_resealed_identity_basis_drift_fails_before_governed_write(tmp_path) -> None:
+    from graph_memory.extract_promote_proposal import (
+        PromoteProposalError, compute_proposal_digest,
+    )
+
+    candidate = _candidate()
+    package = copy.deepcopy(_prepare(tmp_path, candidate).review_package)
+    package["effect"]["identity_basis"]["nodes"]["candidate:brin"]["proposed_node_id"] = "candidate:brin"
+    package["proposal_digest"] = compute_proposal_digest(package["effect"])
+    called = False
+
+    def governed_confirm():
+        nonlocal called
+        called = True
+        return "rev:d1"
+
+    with pytest.raises(PromoteProposalError, match="mapping mismatch"):
+        confirm_candidate_graph_admission(
+            review_package=package, candidate_graph=candidate,
+            governed_confirm=governed_confirm,
+        )
+    assert not called
+
+
+@pytest.mark.parametrize("forged_outcome", ["created_new", "resolved_existing"])
+def test_resealed_canonical_tag_without_exact_authority_fails_before_write(
+    tmp_path, forged_outcome: str,
+) -> None:
+    from graph_memory.extract_promote_proposal import (
+        PromoteProposalError, compute_proposal_digest,
+    )
+
+    candidate = _candidate()
+    package = copy.deepcopy(_prepare(tmp_path, candidate).review_package)
+    effect = package["effect"]
+    target = "npc:unreviewed-global"
+    record = effect["identity_basis"]["nodes"]["candidate:brin"]
+    record.update(
+        classification="reviewed_canonical", proposed_node_id=target,
+        canonical_target_id=target, outcome=forged_outcome,
+    )
+    effect["node_id_map"]["candidate:brin"] = target
+    effect["identity_outcome_snapshot"]["candidate:brin"] = forged_outcome
+    for assertion in effect["accepted_proposals"]:
+        if assertion["assertion_kind"] == "node":
+            assertion["subject_node_id"] = target
+            assertion["identity_resolution_outcome"] = forged_outcome
+    package["proposal_digest"] = compute_proposal_digest(effect)
+    called = False
+
+    def governed_confirm():
+        nonlocal called
+        called = True
+        return "rev:d1"
+
+    with pytest.raises(PromoteProposalError, match="reviewed canonical"):
+        confirm_candidate_graph_admission(
+            review_package=package, candidate_graph=candidate,
+            governed_confirm=governed_confirm,
+        )
+    assert not called
+
+
+@pytest.mark.parametrize("rejected_dependents", [False, True])
+def test_exact_known_party_reference_remains_confirmable(tmp_path, rejected_dependents) -> None:
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    candidate = _candidate_with_rejected_dependents() if rejected_dependents else _candidate()
+    candidate["nodes"][0]["corpus_ref"] = {
+        "type": "npc", "ref_id": "brin", "resolution": "resolved",
+    }
+    candidate["nodes"][0]["proposed_action"] = "anchor"
+    candidate["nodes"].append(_node("candidate:orik", "character"))
+    context = WorldGraphMutationContext(
+        world_id="eldyrwild", revision_id="rev:d0", head_revision_id="rev:d0",
+        objects={"npc:brin": MutationObject(
+            object_id="npc:brin", label="Brin", kind="npc",
+            canon_state="canonical", memory_state="active",
+        )},
+    )
+    result = _prepare(tmp_path, candidate, mutation_context=context)
+    assert result.confirmable
+    assert result.review_package["effect"]["node_id_map"]["candidate:brin"] == "npc:brin"
+    assert confirm_candidate_graph_admission(
+        review_package=result.review_package, candidate_graph=candidate,
+        governed_confirm=lambda: "confirmed",
+    ) == "confirmed"
+    (tmp_path / "candidate_graph.json").write_text(
+        json.dumps(candidate), encoding="utf-8"
+    )
+    world_graph_writes._reprove_pinned_canonical_identity_bindings(
+        package=result.review_package, context=context, candidate_graph=candidate,
+    )
+    with pytest.raises(world_graph_writes.WorldGraphWriteError, match="authority could not be proved"):
+        world_graph_writes._reprove_pinned_canonical_identity_bindings(
+            package=result.review_package, context=replace(context, objects={}), candidate_graph=candidate,
+        )
+
+
 @pytest.mark.parametrize(
     ("duplicate_id", "node_types"),
     [
@@ -314,7 +497,7 @@ def test_pr715_s9_sublocation_witness_is_explicit_rejection(tmp_path) -> None:
     ]
 
 
-def test_unsupported_node_dependents_receive_explicit_dispositions(tmp_path) -> None:
+def _candidate_with_rejected_dependents() -> dict:
     candidate = _candidate(unsupported=True)
     candidate["beats"] = [
         {
@@ -343,6 +526,11 @@ def test_unsupported_node_dependents_receive_explicit_dispositions(tmp_path) -> 
             "status": "pending",
         }
     ]
+    return candidate
+
+
+def test_unsupported_node_dependents_receive_explicit_dispositions(tmp_path) -> None:
+    candidate = _candidate_with_rejected_dependents()
     exact_digest = canonical_candidate_digest(candidate)
 
     result = _prepare(tmp_path, candidate)
@@ -648,3 +836,76 @@ def test_standing_context_assertions_keep_empty_recap_plan_confirmable(
     assert effect["source_artifact_id"] == "artifact:recap:longmont-c2:session-9"
     assert len(effect["contributions"]) == 2
     assert effect["contributions"][-1]["accepted_proposals"] == []
+
+
+@pytest.mark.parametrize("drift", ["counts", "dispositions", "dependencies", "eligibility"])
+def test_confirmation_reproves_exact_sealed_eligibility_before_write(
+    tmp_path, monkeypatch, drift,
+):
+    from apps.live_control_server.services import candidate_graph_admission as owner
+    from graph_memory.extract_promote_proposal import compute_proposal_digest
+
+    candidate = _candidate_with_rejected_dependents()
+    before = copy.deepcopy(candidate)
+    package = copy.deepcopy(_prepare(tmp_path, candidate).review_package)
+    binding = package["effect"]["candidate_admission"]
+    if drift == "counts":
+        binding["exact_candidate_counts"]["nodes"] += 1
+    elif drift == "dispositions":
+        binding["dispositions"] = []
+    elif drift == "dependencies":
+        binding["dispositions"][1]["depends_on"] = []
+    else:
+        original = owner.project_candidate_graph_for_admission
+
+        def changed_policy(raw):
+            projected, dispositions, digest = original(raw)
+            return projected, dispositions[:-1], digest
+
+        monkeypatch.setattr(owner, "project_candidate_graph_for_admission", changed_policy)
+    # Even a freshly recomputed proposal seal cannot authorize false eligibility.
+    package["proposal_digest"] = compute_proposal_digest(package["effect"])
+    writes = []
+    with pytest.raises(CandidateAdmissionIntegrityError, match="eligibility"):
+        confirm_candidate_graph_admission(
+            review_package=package, candidate_graph=candidate,
+            governed_confirm=lambda: writes.append(True),
+        )
+    assert writes == [] and candidate == before
+
+
+def test_confirmed_projection_keeps_exact_raw_and_rejection_authority(tmp_path):
+    from apps.live_control_server.services.candidate_graph_admission import (
+        project_candidate_graph_for_confirmation,
+    )
+    from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
+
+    candidate = _candidate_with_rejected_dependents()
+    before = copy.deepcopy(candidate)
+    result = _prepare(tmp_path, candidate)
+    sealed = copy.deepcopy(result.review_package)
+    projected = project_candidate_graph_for_confirmation(
+        review_package=sealed, candidate_graph=candidate,
+    )
+    assert candidate == before and result.review_package == sealed
+    assert sealed["effect"]["candidate_admission"]["candidate_digest"] == canonical_candidate_digest(before)
+    assert len(sealed["effect"]["candidate_admission"]["dispositions"]) == 4
+    assert [node.node_id for node in load_typed_candidate_graph(projected).nodes] == ["candidate:brin"]
+    assert not projected["edges"] and not projected["beats"] and not projected["proposed_writes"]
+
+
+def test_confirmation_requires_source_local_identity_basis_before_write(tmp_path):
+    from graph_memory.extract_promote_proposal import (
+        PromoteProposalError, compute_proposal_digest,
+    )
+    candidate = _candidate()
+    package = copy.deepcopy(_prepare(tmp_path, candidate).review_package)
+    del package["effect"]["identity_basis"]
+    package["proposal_digest"] = compute_proposal_digest(package["effect"])
+    writes = []
+    with pytest.raises(PromoteProposalError, match="identity basis"):
+        confirm_candidate_graph_admission(
+            review_package=package, candidate_graph=candidate,
+            governed_confirm=lambda: writes.append(True),
+        )
+    assert writes == []

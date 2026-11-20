@@ -25,6 +25,8 @@ vocabularies in ``src/graph_memory/candidate_graph_preview.py`` (``NODE_TYPES``,
 from __future__ import annotations
 
 import re
+from copy import deepcopy
+from dataclasses import asdict, replace
 from typing import Any, Callable, Mapping, MutableMapping, Sequence
 
 # --------------------------------------------------------------------------- #
@@ -78,9 +80,9 @@ PREDICATE_FAMILY: dict[str, str] = {
     # routing
     "travels_to": "routing", "routes_to": "routing", "leads_to": "routing",
     "road_to": "routing", "path_to": "routing", "displaced_from": "routing",
-    # threat / antagonism
+    # threats and directed threat responses
     "threatens": "threat_relation", "besieges": "threat_relation",
-    "attacks": "threat_relation",
+    "attacks": "threat_relation", "protects": "threat_relation",
     # membership
     "member_of": "membership", "belongs_to": "membership", "serves": "membership",
     "recruits_for": "membership", "part_of_group": "membership",
@@ -490,6 +492,10 @@ def _canonical_endpoints(edge: Any, node_index: Mapping[str, Any]) -> tuple[Any,
     return frm, to, family
 
 
+def _is_literal_protects(edge: Any) -> bool:
+    return str(_get(edge, "relationship_type", "") or "").strip().lower() == "protects"
+
+
 def edge_match_score(
     gold_edge: Any,
     cand_edge: Any,
@@ -497,6 +503,9 @@ def edge_match_score(
     cand_nodes_index: Mapping[str, Any],
 ) -> float:
     """Score two edges by endpoint-node match and predicate-family agreement."""
+    g_protects, c_protects = _is_literal_protects(gold_edge), _is_literal_protects(cand_edge)
+    if g_protects != c_protects:
+        return 0.0
     g_from, g_to, g_family = _canonical_endpoints(gold_edge, gold_nodes_index)
     c_from, c_to, c_family = _canonical_endpoints(cand_edge, cand_nodes_index)
     if g_from is None or g_to is None or c_from is None or c_to is None:
@@ -504,7 +513,10 @@ def edge_match_score(
     family_ok = g_family == c_family
     forward = min(node_match_score(g_from, c_from), node_match_score(g_to, c_to))
     backward = min(node_match_score(g_from, c_to), node_match_score(g_to, c_from))
-    if g_family in SYMMETRIC_FAMILIES or c_family in SYMMETRIC_FAMILIES:
+    if (
+        not (_is_literal_protects(gold_edge) or _is_literal_protects(cand_edge))
+        and (g_family in SYMMETRIC_FAMILIES or c_family in SYMMETRIC_FAMILIES)
+    ):
         endpoint_score = max(forward, backward)
     else:
         endpoint_score = forward
@@ -514,13 +526,23 @@ def edge_match_score(
     return round(endpoint_score * (1.0 if family_ok else 0.6), 4)
 
 
+# Exact alignment diagnostics need reciprocal predicates, not broad families.
+# This is comparator policy; it neither canonicalizes nor publishes graph edges.
+_SYMMETRIC_ALIGNMENT_PREDICATES: frozenset[str] = frozenset(
+    {
+        "allied_with", "associated_with", "cooperates_with", "linked_to",
+        "rivals", "works_with", "same_as",
+    }
+)
+
+
 def _edge_endpoint_score(
     gold_edge: Any,
     cand_edge: Any,
     gold_nodes_index: Mapping[str, Any],
     cand_nodes_index: Mapping[str, Any],
 ) -> tuple[float, str, str, str, str]:
-    """Return endpoint score and predicate metadata for diagnostics."""
+    """Return directed endpoint alignment and predicate metadata for diagnostics."""
     g_from, g_to, g_family = _canonical_endpoints(gold_edge, gold_nodes_index)
     c_from, c_to, c_family = _canonical_endpoints(cand_edge, cand_nodes_index)
     g_rel = str(_get(gold_edge, "relationship_type", "") or "")
@@ -529,7 +551,10 @@ def _edge_endpoint_score(
         return 0.0, g_family, c_family, g_rel, c_rel
     forward = min(node_match_score(g_from, c_from), node_match_score(g_to, c_to))
     backward = min(node_match_score(g_from, c_to), node_match_score(g_to, c_from))
-    if g_family in SYMMETRIC_FAMILIES or c_family in SYMMETRIC_FAMILIES:
+    if (
+        g_rel.strip().lower() in _SYMMETRIC_ALIGNMENT_PREDICATES
+        and c_rel.strip().lower() in _SYMMETRIC_ALIGNMENT_PREDICATES
+    ):
         endpoint_score = max(forward, backward)
     else:
         endpoint_score = forward
@@ -584,6 +609,12 @@ def classify_edge_alignment(
             **base,
             "reason": "endpoint_score_below_threshold",
             "detail": "live edge endpoints do not align with gold endpoints",
+        }
+    if _is_literal_protects(gold_edge) != _is_literal_protects(live_edge):
+        return {
+            **base,
+            "reason": "exact_predicate_mismatch",
+            "detail": "literal protects does not match another relationship_type",
         }
     if g_family != c_family:
         return {
@@ -749,34 +780,61 @@ def canonical_node_key(node: Any) -> tuple[str, str]:
 
 
 def canonical_edge_key(edge: Any, node_index: Mapping[str, Any]) -> tuple[str, str, str]:
-    """Direction- and inverse-normalized merge key for a single edge."""
-    frm, to, family = _canonical_endpoints(edge, node_index)
-    frm_key = canonical_node_key(frm) if frm is not None else ("missing", str(_get(edge, "from_node_id", "")))
-    to_key = canonical_node_key(to) if to is not None else ("missing", str(_get(edge, "to_node_id", "")))
-    frm_s, to_s = "::".join(frm_key), "::".join(to_key)
-    if family in SYMMETRIC_FAMILIES:
-        frm_s, to_s = sorted((frm_s, to_s))
-    return (family, frm_s, to_s)
+    """Exact predicate and direction, normalizing only explicit inverse verbs.
+
+    Comparison families express similarity, not production identity or symmetry.
+    """
+    rel = str(_get(edge, "relationship_type", "") or "").strip().lower()
+    frm_id = str(_get(edge, "from_node_id", ""))
+    to_id = str(_get(edge, "to_node_id", ""))
+    if rel == "child_of":
+        frm_id, to_id = to_id, frm_id
+    rel = INVERSE_VERBS.get(rel, rel)
+    frm, to = node_index.get(frm_id), node_index.get(to_id)
+    frm_key = canonical_node_key(frm) if frm is not None else ("missing", frm_id)
+    to_key = canonical_node_key(to) if to is not None else ("missing", to_id)
+    return (rel, "::".join(frm_key), "::".join(to_key))
+
+
+def _edge_qualifiers(edge: Any) -> str:
+    payload = dict(edge) if isinstance(edge, Mapping) else asdict(edge)
+    # Preserve every other field: labels can contain temporal/conditional meaning,
+    # and differing warnings or semantic state must not disappear in a merge.
+    for field in ("edge_id", "from_node_id", "to_node_id", "relationship_type", "evidence_refs"):
+        payload.pop(field, None)
+    return json_safe_key(payload)
 
 
 def dedup_edges(edges: Sequence[Any], nodes: Sequence[Any]) -> dict[str, Any]:
-    """Collapse exact + inverse-duplicate edges within one graph.
+    """Collapse exact/inverse payload duplicates and union their evidence.
 
-    Returns ``{"kept": [...], "merged": [(kept_edge_id, dropped_edge_id), ...]}``.
-    The first edge seen for a canonical key is kept; later duplicates are
-    reported as merged (e.g. ``parent_of`` kept, ``child_of`` dropped).
+    First identity survives, but differing qualifiers remain separate candidates.
+    Inputs are not mutated; dict and immutable preview dataclass forms retain type.
     """
     node_index = _node_index(nodes)
-    seen: dict[tuple[str, str, str], Any] = {}
+    seen: dict[tuple[str, ...], int] = {}
     kept: list[Any] = []
     merged: list[tuple[str, str]] = []
     for edge in edges:
-        key = canonical_edge_key(edge, node_index)
+        key = (*canonical_edge_key(edge, node_index), _edge_qualifiers(edge))
         if key in seen:
-            merged.append((str(_get(seen[key], "edge_id", "")), str(_get(edge, "edge_id", ""))))
+            index = seen[key]
+            survivor = kept[index]
+            refs = list(_get(survivor, "evidence_refs", []) or [])
+            ref_keys = {json_safe_key(ref) for ref in refs}
+            for ref in _get(edge, "evidence_refs", []) or []:
+                ref_key = json_safe_key(ref)
+                if ref_key not in ref_keys:
+                    refs.append(deepcopy(ref))
+                    ref_keys.add(ref_key)
+            if isinstance(survivor, MutableMapping):
+                survivor["evidence_refs"] = refs
+            else:
+                kept[index] = replace(survivor, evidence_refs=tuple(refs))
+            merged.append((str(_get(survivor, "edge_id", "")), str(_get(edge, "edge_id", ""))))
             continue
-        seen[key] = edge
-        kept.append(edge)
+        seen[key] = len(kept)
+        kept.append(deepcopy(edge))
     return {"kept": kept, "merged": merged}
 
 

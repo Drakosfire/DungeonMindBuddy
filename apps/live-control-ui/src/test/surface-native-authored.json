@@ -1,0 +1,266 @@
+{
+  "receipt": {
+    "schema": "dmb_surface_native_context_receipt_v1",
+    "receipt_serializer_version": "canonical-json-utf8-v1",
+    "context_receipt_sha256": "c53a02d7072da223a01ed19c53f2e2704e6dbd1ef2c044b67062c1cd7ae28477",
+    "provenance_sha256": "9c063e4eb6b4cbf0763c6654211330a1a534dead1f1e6c2399485ea8beace36c",
+    "work_context": {
+      "surface_id": "build",
+      "source_basis": {
+        "world_id": "statement-fixture-461cadf9382541259231400f4ffcb606",
+        "document_id": "page-one",
+        "registry_revision": 3,
+        "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "visibility": "internal"
+      }
+    },
+    "source_authority": {
+      "schema_version": "dmb_native_corpus_authority_v1",
+      "managed_world_id": "statement-fixture-461cadf9382541259231400f4ffcb606",
+      "native_world_id": "statement-fixture-461cadf9382541259231400f4ffcb606",
+      "binding_version": 1,
+      "provisioning_id": null,
+      "revision_id": "rev:e985b14d21fd857f9bcdcef45357eec2",
+      "domain_ref": {
+        "authority_id": "dungeonbuddy.world",
+        "revision": "2",
+        "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+      },
+      "profile_ref": {
+        "authority_id": "dungeonbuddy.dnd5e",
+        "revision": "2",
+        "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+      },
+      "acquisition_epoch": 2,
+      "scope": "gm_world_cross_campaign_source_inspection",
+      "role": "gm"
+    },
+    "native_query": {
+      "schema": "dmb_native_graph_query_v3",
+      "authority": {
+        "schema": "dmb_native_plan_query_authority_v1",
+        "managed_world_id": "statement-fixture-461cadf9382541259231400f4ffcb606",
+        "native_world_id": "statement-fixture-461cadf9382541259231400f4ffcb606",
+        "binding_version": 1,
+        "revision_id": "rev:e985b14d21fd857f9bcdcef45357eec2",
+        "domain_ref": {
+          "authority_id": "dungeonbuddy.world",
+          "revision": "2",
+          "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+        },
+        "profile_ref": {
+          "authority_id": "dungeonbuddy.dnd5e",
+          "revision": "2",
+          "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+        },
+        "acquisition_epoch": 2,
+        "role": "gm",
+        "scope_mode": "world",
+        "campaign_id": null,
+        "session_id": null
+      },
+      "question": "zz-no-matching-entity-zz",
+      "search_result_sha256": "9b10efd441cad00e48da5fcadc4a7cd12dac27ee086907cee6a2dbf88dce38ca",
+      "discovered_entity_ids": [],
+      "matches": [],
+      "status": "complete",
+      "gap_codes": [],
+      "universal_absence_claimed": false,
+      "assertion_matches": [],
+      "authored_targets": [
+        {
+          "node_id": "ent:0ee5afd482f4a56d8b787f75b2883585",
+          "selection_revision_id": "rev:d053d0ed48ac38188b08420aa1d97b2c",
+          "matches": [
+            {
+              "statement_id": "ent:5cec5c2d481ad7cf38291fa56b9feb9e",
+              "discovered_entity_ids": [
+                "ent:0ee5afd482f4a56d8b787f75b2883585"
+              ],
+              "discovery_assertion_ids": [
+                "asrt:7a45c21fb874e5c85e7f43418ed6e539"
+              ],
+              "campaign_id": "c1",
+              "logical_source": {
+                "namespace": "test.document",
+                "object_id": "34ba7c46-b700-4777-bb04-7630237b2146"
+              },
+              "episode": "episode-1",
+              "label": "About B [ent:0ee5afd482f4a56d8b787f75b2883585] \u00b7 34ba7c46-b700-4777-bb04-7630237b2146 \u2014 episode-1 (c1)"
+            }
+          ],
+          "assertion_matches": [
+            {
+              "assertion_id": "asrt:40cfe6cac89a6c0beead403ba28ea95f",
+              "subject_entity_id": "ent:0ee5afd482f4a56d8b787f75b2883585",
+              "discovered_entity_ids": [
+                "ent:0ee5afd482f4a56d8b787f75b2883585"
+              ],
+              "assertion_sha256": "9d7901283c585ab7eb753c1b72f4d065dd7cac9e9fa0477fde4b495eae8989df",
+              "label": "B \u00b7 dnd5e:name"
+            },
+            {
+              "assertion_id": "asrt:6dbeada94f060c0aaefce224bfa3a31c",
+              "subject_entity_id": "ent:0ee5afd482f4a56d8b787f75b2883585",
+              "discovered_entity_ids": [
+                "ent:0ee5afd482f4a56d8b787f75b2883585"
+              ],
+              "assertion_sha256": "4330916518126cd12f8a5ec45a9b887dcdaabc7076dd8c53c5ccea526eddca3b",
+              "label": "B \u00b7 dnd5e:summary"
+            }
+          ],
+          "status": "complete",
+          "gap_codes": []
+        }
+      ]
+    },
+    "assembled_input": {
+      "assembler_version": "surface_native_initial_v1",
+      "provider_model_name": "jev-1.14.0",
+      "provider_model_version": "jev-1.14.0",
+      "tokenizer_name": "o200k_double_plus_4096_adaptive_context_v3",
+      "tokenizer_version": "1",
+      "provider_envelope_input_tokens": 120,
+      "output_token_reserve": 200,
+      "context_window_limit": 1000,
+      "included_history": [],
+      "assembled_input_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  },
+  "completion": {
+    "schema": "dmb_surface_native_completion_v1",
+    "surface_id": "build",
+    "context_receipt_sha256": "c53a02d7072da223a01ed19c53f2e2704e6dbd1ef2c044b67062c1cd7ae28477",
+    "producing_provider_attempt_id": "e2d94c8b-45da-4d17-b370-0895a6dac522",
+    "answer_basis": "mixed_evidence",
+    "answer_context_status": "graph_grounded",
+    "answer_segments": [
+      {
+        "kind": "source_passage_claim",
+        "text": "Source reports: The source reports an uncertain flight."
+      },
+      {
+        "kind": "native_assertion_claim",
+        "text": "Graph records (belief / speculative / provisional; fact / asserted / established): The Graph retains the qualified description.",
+        "assertion_ids": [
+          "asrt:40cfe6cac89a6c0beead403ba28ea95f",
+          "asrt:6dbeada94f060c0aaefce224bfa3a31c"
+        ],
+        "qualifications": [
+          {
+            "scope": [
+              {
+                "axis": "dungeonbuddy.scope:campaign",
+                "value": "c1"
+              }
+            ],
+            "visibility": {
+              "kind": "labels_any",
+              "labels": [
+                "dungeonbuddy.visibility:gm"
+              ]
+            },
+            "epistemic_basis": "speculative",
+            "claim_mode": "dungeonbuddy.claim:belief",
+            "standing": "provisional",
+            "evidence_ref_ids": [
+              "ev:2b38dc8eb7c32f2588a46a35dc5ce1730f8f478681daa1f060a0f0eb0fca2fc2"
+            ],
+            "temporal_scope": {
+              "kind": "unknown"
+            },
+            "domain_metadata": []
+          },
+          {
+            "scope": [
+              {
+                "axis": "dungeonbuddy.scope:campaign",
+                "value": "c1"
+              }
+            ],
+            "visibility": {
+              "kind": "labels_any",
+              "labels": [
+                "dungeonbuddy.visibility:gm"
+              ]
+            },
+            "epistemic_basis": "asserted",
+            "claim_mode": "dungeonbuddy.claim:fact",
+            "standing": "established",
+            "evidence_ref_ids": [
+              "ev:2b38dc8eb7c32f2588a46a35dc5ce1730f8f478681daa1f060a0f0eb0fca2fc2"
+            ],
+            "temporal_scope": {
+              "kind": "unknown"
+            },
+            "domain_metadata": []
+          }
+        ]
+      }
+    ],
+    "collaboration": null,
+    "saved_source_citations": [],
+    "native_body_citations": [],
+    "native_clause_citations": [
+      {
+        "segment_index": 0,
+        "statement_id": "ent:5cec5c2d481ad7cf38291fa56b9feb9e",
+        "provider_attempt_id": "e2d94c8b-45da-4d17-b370-0895a6dac522",
+        "envelope_sha256": "5f2ea957b9874684f3700ab6ea38eb77aa673b50f3cfda83c1d616143b71c81e",
+        "context_receipt_sha256": "c53a02d7072da223a01ed19c53f2e2704e6dbd1ef2c044b67062c1cd7ae28477",
+        "managed_world_id": "statement-fixture-461cadf9382541259231400f4ffcb606",
+        "native_world_id": "statement-fixture-461cadf9382541259231400f4ffcb606",
+        "campaign_id": "c1",
+        "read_revision_id": "rev:e985b14d21fd857f9bcdcef45357eec2",
+        "publication_revision_id": "rev:0778b7055bc9b4c4b0c32e714b1d52f9",
+        "source_artifact_id": "src:2afa477c3928e960975c5b903996ce00e86f2828fc9d2f0ef337baefa744641c",
+        "source_revision_id": "srev:8924f62db743c3db57dd0968160b4e92f25a03b36730f9300344428cde0a355f",
+        "body_sha256": "e6da3b35ee0c198a2d6f138095d312d300ae120773bf0aff0074237286197b63",
+        "start_byte": 0,
+        "end_byte": 34,
+        "clause_sha256": "3ac9c1ce28ed0899dc663a9ab2ae2b56d3b77f010d5acfd0b113c6206d893ab7",
+        "semantic_digest": "d8319a64ecd50046db3301ef8dac06168d4b54231d8165dc27d90d5668bd6b48"
+      }
+    ],
+    "native_assertion_citations": [
+      {
+        "evidence_ref_id": "ev:2b38dc8eb7c32f2588a46a35dc5ce1730f8f478681daa1f060a0f0eb0fca2fc2",
+        "source_artifact_id": "src:2afa477c3928e960975c5b903996ce00e86f2828fc9d2f0ef337baefa744641c",
+        "source_revision_id": "srev:8924f62db743c3db57dd0968160b4e92f25a03b36730f9300344428cde0a355f",
+        "body_sha256": "e6da3b35ee0c198a2d6f138095d312d300ae120773bf0aff0074237286197b63",
+        "start_byte": 0,
+        "end_byte": 34,
+        "span_sha256": "3ac9c1ce28ed0899dc663a9ab2ae2b56d3b77f010d5acfd0b113c6206d893ab7",
+        "segment_index": 1,
+        "assertion_id": "asrt:40cfe6cac89a6c0beead403ba28ea95f",
+        "read_event_id": "07e5823c-fa24-45ac-adfc-5b9c2431f5df",
+        "provider_attempt_id": "e2d94c8b-45da-4d17-b370-0895a6dac522",
+        "envelope_sha256": "5f2ea957b9874684f3700ab6ea38eb77aa673b50f3cfda83c1d616143b71c81e",
+        "context_receipt_sha256": "c53a02d7072da223a01ed19c53f2e2704e6dbd1ef2c044b67062c1cd7ae28477",
+        "managed_world_id": "statement-fixture-461cadf9382541259231400f4ffcb606",
+        "native_world_id": "statement-fixture-461cadf9382541259231400f4ffcb606",
+        "read_revision_id": "rev:e985b14d21fd857f9bcdcef45357eec2",
+        "assertion_sha256": "9d7901283c585ab7eb753c1b72f4d065dd7cac9e9fa0477fde4b495eae8989df"
+      },
+      {
+        "evidence_ref_id": "ev:2b38dc8eb7c32f2588a46a35dc5ce1730f8f478681daa1f060a0f0eb0fca2fc2",
+        "source_artifact_id": "src:2afa477c3928e960975c5b903996ce00e86f2828fc9d2f0ef337baefa744641c",
+        "source_revision_id": "srev:8924f62db743c3db57dd0968160b4e92f25a03b36730f9300344428cde0a355f",
+        "body_sha256": "e6da3b35ee0c198a2d6f138095d312d300ae120773bf0aff0074237286197b63",
+        "start_byte": 0,
+        "end_byte": 34,
+        "span_sha256": "3ac9c1ce28ed0899dc663a9ab2ae2b56d3b77f010d5acfd0b113c6206d893ab7",
+        "segment_index": 1,
+        "assertion_id": "asrt:6dbeada94f060c0aaefce224bfa3a31c",
+        "read_event_id": "07e5823c-fa24-45ac-adfc-5b9c2431f5df",
+        "provider_attempt_id": "e2d94c8b-45da-4d17-b370-0895a6dac522",
+        "envelope_sha256": "5f2ea957b9874684f3700ab6ea38eb77aa673b50f3cfda83c1d616143b71c81e",
+        "context_receipt_sha256": "c53a02d7072da223a01ed19c53f2e2704e6dbd1ef2c044b67062c1cd7ae28477",
+        "managed_world_id": "statement-fixture-461cadf9382541259231400f4ffcb606",
+        "native_world_id": "statement-fixture-461cadf9382541259231400f4ffcb606",
+        "read_revision_id": "rev:e985b14d21fd857f9bcdcef45357eec2",
+        "assertion_sha256": "4330916518126cd12f8a5ec45a9b887dcdaabc7076dd8c53c5ccea526eddca3b"
+      }
+    ]
+  }
+}

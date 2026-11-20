@@ -8,7 +8,11 @@ from __future__ import annotations
 
 import json
 import logging
+import math
+import re
+import sys
 import time
+from threading import Lock
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import contextmanager
@@ -16,7 +20,7 @@ from datetime import datetime, timezone
 from typing import Any, Iterator, Literal
 
 from apps.live_control_server.services.hermes_graph_agent_contract import MAX_ID_CHARS
-from src.agent.planner_pricing import usage_cost_usd
+from llm.planner_pricing import usage_cost_usd
 
 SCHEMA = "dmb_agent_turn_trace_v1"
 LOGGER = logging.getLogger("dmb.agent.turn_trace")
@@ -219,6 +223,14 @@ def estimate_model_call_cost(*, model: str | None, usage: Mapping[str, Any]) -> 
             "pricing_table_matched": False,
             "rates_per_1m_usd": priced.get("rates_per_1m_usd"),
         }
+    if (_optional_int(usage.get("cache_write_input_tokens")) or 0) > 0:
+        # The current rate card has no cache-write bucket. Reporting the
+        # read/input-only calculation would hide a known unpriced charge.
+        return {
+            "status": "unavailable",
+            "pricing_table_matched": True,
+            "rates_per_1m_usd": priced.get("rates_per_1m_usd"),
+        }
     return {
         "status": "estimated",
         "usd": float(priced["total_usd"]),
@@ -342,10 +354,20 @@ def aggregate_usage(
             observed_model_call_count=observed_model_call_count,
         )
 
-    def _sum(field: str) -> int:
-        return sum(int(call["usage"].get(field) or 0) for call in reported)
+    def _sum(field: str) -> int | None:
+        # Counts cover usage-reported retained calls, not missing attempts.
+        # Unknown is distinct from explicit zero; per-call subtotals remain
+        # available in the call rows without masquerading as complete buckets.
+        values = [call["usage"].get(field) for call in reported]
+        if any(type(value) is not int or value < 0 for value in values):
+            return None
+        return sum(values)
 
-    complete = len(reported) == call_count and not truncated
+    core_complete = all(
+        _sum(field) is not None
+        for field in ("input_tokens", "output_tokens", "total_tokens")
+    )
+    complete = len(reported) == call_count and not truncated and core_complete
     usage = {
         "available": True,
         "status": "reported" if complete else "partial",
@@ -460,8 +482,124 @@ def trace_json_bytes(trace: Mapping[str, Any]) -> str:
     return json.dumps(safe, sort_keys=True, default=str, ensure_ascii=False)
 
 
+MAX_LOG_BYTES = 24_000
+_LOG_TOKEN = re.compile(r"^[A-Za-z0-9_.:/@+\-]{1,256}$")
+
+
+def configure_turn_trace_logging() -> None:
+    """Enable only the sanitized trace stream; stdout is retained by the service journal."""
+    if not any(getattr(handler, "dmb_turn_trace", False) for handler in LOGGER.handlers):
+        handler = logging.StreamHandler(sys.stdout)
+        handler.dmb_turn_trace = True  # type: ignore[attr-defined]
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        LOGGER.addHandler(handler)
+    LOGGER.setLevel(logging.INFO)
+    LOGGER.propagate = False
+
+
+def _log_scalars(value: Mapping[str, Any], keys: Iterable[str]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for key in keys:
+        item = value.get(key)
+        if item is None or isinstance(item, bool):
+            if key in value:
+                out[key] = item
+        elif isinstance(item, (int, float)) and math.isfinite(item):
+            out[key] = item
+        elif isinstance(item, str) and _LOG_TOKEN.fullmatch(item):
+            out[key] = item
+    return out
+
+
+_USAGE_KEYS = (
+    "status", "available", "input_tokens", "output_tokens", "total_tokens",
+    "cached_input_tokens", "cache_write_input_tokens", "uncached_input_tokens",
+    "reasoning_tokens", "model_call_count", "usage_reported_call_count",
+    "observed_model_call_count",
+)
+_COST_KEYS = ("status", "usd", "currency", "pricing_table_matched",
+              "priced_call_count", "unpriced_call_count")
+_REQUEST_SUMMARY_KEYS = (
+    "api_call_count", "message_count", "tool_count", "approx_input_tokens",
+    "request_char_count", "max_tokens", "assistant_content_chars", "assistant_tool_call_count",
+)
+_CONTEXT_KEYS = (
+    "context_schema", "world_id", "campaign_id", "revision_id", "focus_kind",
+    "admissibility", "history_message_count", "history_char_count", "retrieval_session_id",
+    "retrieval_candidate_count", "retrieval_claim_count", "runtime_continuity_present",
+    "surface_context_schema", "request_present", "surface_id", "resolution_status",
+    "current_work_present", "current_work_kind", "pointer_count", "model_context_char_count",
+)
+_SPAN_ATTRIBUTE_KEYS = (*_CONTEXT_KEYS, "count", "reason", "is_error", "outcome",
+                        "retrieval_schema", "result_count", "source_count", "error_count", "max_duration_ms",
+                        "start_offset_ms", "end_offset_ms")
+
+
+def _log_metrics(value: Any, keys: Iterable[str]) -> dict[str, Any]:
+    # Both names and values are bounded; unknown names may themselves contain prose/secrets.
+    return _log_scalars(value, keys) if isinstance(value, Mapping) else {}
+
+
+def retained_trace_payload(trace: Mapping[str, Any]) -> dict[str, Any]:
+    """Log-only allowlist. The HTTP trace contract is unchanged."""
+    out = _log_scalars(trace, (
+        "schema", "trace_id", "agent_thread_id", "turn_id", "runtime", "backend",
+        "mode", "status", "started_at", "completed_at", "elapsed_ms", "provider", "model",
+    ))
+    out["correlation"] = _log_scalars(trace.get("correlation", {}), (
+        "durable_turn_id", "conversation_id", "attempt",
+    ))
+    out["usage"] = _log_metrics(trace.get("usage"), _USAGE_KEYS)
+    out["cost"] = _log_metrics(trace.get("cost"), _COST_KEYS)
+    out["context_summary"] = _log_metrics(trace.get("context_summary"), _CONTEXT_KEYS)
+    out["warnings"] = [w for w in trace.get("warnings", [])
+                       if isinstance(w, str) and _LOG_TOKEN.fullmatch(w)][:32]
+    calls = trace.get("model_calls") or []
+    spans = trace.get("spans") or []
+    out["model_calls"] = []
+    for call in calls:
+        row = _log_scalars(call, (
+            "call_id", "runtime_api_request_id", "runtime_turn_id", "provider_attempt_id",
+            "sequence", "status", "provider", "requested_model", "response_model", "api_mode",
+            "started_at", "completed_at", "duration_ms", "finish_reason", "retry_count",
+            "retryable", "status_code", "error_type",
+        ))
+        for key, keys in (("usage", _USAGE_KEYS), ("cost", _COST_KEYS),
+                          ("request_summary", _REQUEST_SUMMARY_KEYS)):
+            row[key] = _log_metrics(call.get(key), keys)
+        out["model_calls"].append(row)
+    out["spans"] = []
+    for span in spans:
+        row = _log_scalars(span, (
+            "span_id", "parent_span_id", "kind", "name", "status",
+            "started_at", "completed_at", "duration_ms",
+        ))
+        row["attributes"] = _log_metrics(span.get("attributes"), _SPAN_ATTRIBUTE_KEYS)
+        out["spans"].append(row)
+    out["retention"] = {"scope": "allowlisted_metadata", "complete": True, "original_model_calls": len(calls),
+                        "original_spans": len(spans)}
+    # Error fallback's empty call list does not establish absence of dispatch.
+    if trace.get("status") != "ok" and not calls:
+        out["usage"]["model_call_count"] = None
+        out["usage"]["status"] = "unavailable"
+        out["retention"]["provider_accounting"] = "unknown"
+    while len((LOG_EVENT + " " + trace_json_bytes(out)).encode("utf-8")) > MAX_LOG_BYTES:
+        out["retention"]["complete"] = False
+        if out["spans"]:
+            out["spans"].pop()
+        elif out["model_calls"]:
+            out["model_calls"].pop()
+        else:
+            # Even unexpected metric growth must not exceed the journal bound.
+            for key in ("context_summary", "usage", "cost"):
+                out[key] = {}
+            out["warnings"] = []
+            break
+    return out
+
+
 def emit_baseline_trace_log(trace: Mapping[str, Any]) -> None:
-    LOGGER.info("%s %s", LOG_EVENT, trace_json_bytes(trace))
+    LOGGER.info("%s %s", LOG_EVENT, trace_json_bytes(retained_trace_payload(trace)))
 
 
 class AgentTurnTraceBuilder:
@@ -488,8 +626,68 @@ class AgentTurnTraceBuilder:
         self.spans: list[dict[str, Any]] = []
         self.warnings: list[str] = []
         self.logged = False
+        self.correlation: dict[str, Any] = {}
         self.context_summary: dict[str, Any] = {}
         self._open_phases: dict[str, dict[str, Any]] = {}
+        self._phase_offsets: dict[str, dict[str, float]] = {}
+        self._captured_accounting: dict[str, Any] | None = None
+        self._host_work_spans: dict[str, dict[str, Any]] = {}
+        self._host_work_lock = Lock()
+        self._first_jev_dispatch_recorded = False
+
+    def mark_first_jev_dispatch(self) -> None:
+        """Record the first outbound transport entry, after dispatch authorization."""
+        if self._first_jev_dispatch_recorded or not self.turn_id:
+            return
+        self._first_jev_dispatch_recorded = True
+        LOGGER.info(
+            "buddy_first_jev_dispatch turn_id=%s trace_id=%s unix_ms=%d server_elapsed_ms=%.1f",
+            self.turn_id, self.trace_id, time.time_ns() // 1_000_000,
+            (time.monotonic() - self._started_mono) * 1000,
+        )
+
+    @contextmanager
+    def phase_before_first_jev(self, name: str) -> Iterator[None]:
+        if self._first_jev_dispatch_recorded:
+            yield
+        else:
+            with self.phase(name):
+                yield
+
+    @contextmanager
+    def measure_host_work(self, name: str) -> Iterator[None]:
+        """Inclusive cumulative timings, not additive critical-path spans.
+
+        Callers supply fixed host labels, never source/request-derived names.
+        One span per operation avoids a per-read flood. Observation grants no
+        execution authority and failures propagate unchanged.
+        """
+        started_at, started = utc_now_z(), time.monotonic()
+        failed = False
+        try:
+            yield
+        except BaseException:
+            failed = True
+            raise
+        finally:
+            duration = max(0.0, (time.monotonic() - started) * 1000)
+            with self._host_work_lock:
+                span = self._host_work_spans.get(name)
+                if span is None:
+                    span = dict(span_id=new_span_id(), parent_span_id=None,
+                        kind="cumulative", name=name, status="ok",
+                        started_at=started_at, completed_at=started_at,
+                        duration_ms=0.0,
+                        attributes={"count": 0, "error_count": 0, "max_duration_ms": 0.0})
+                    self._host_work_spans[name] = span
+                    self.spans.append(span)
+                span["duration_ms"] += duration
+                span["completed_at"] = utc_now_z()
+                span["attributes"]["count"] += 1
+                span["attributes"]["error_count"] += int(failed)
+                span["attributes"]["max_duration_ms"] = max(span["attributes"]["max_duration_ms"], duration)
+                if failed:
+                    span["status"] = "error"
 
     def elapsed_ms(self) -> int:
         return max(0, int((time.monotonic() - self._started_mono) * 1000))
@@ -531,6 +729,11 @@ class AgentTurnTraceBuilder:
         merged_attributes = dict(open_span["attributes"])
         if attributes:
             merged_attributes.update(dict(attributes))
+        completed_mono = time.monotonic()
+        self._phase_offsets[span_id] = {
+            "start_offset_ms": (open_span["started_mono"] - self._started_mono) * 1000,
+            "end_offset_ms": (completed_mono - self._started_mono) * 1000,
+        }
         self.spans.append(
             {
                 "span_id": span_id,
@@ -541,7 +744,7 @@ class AgentTurnTraceBuilder:
                 "started_at": open_span["started_at"],
                 "completed_at": utc_now_z(),
                 "duration_ms": max(
-                    0, int((time.monotonic() - open_span["started_mono"]) * 1000)
+                    0, int((completed_mono - open_span["started_mono"]) * 1000)
                 ),
                 "attributes": merged_attributes,
             }
@@ -593,6 +796,37 @@ class AgentTurnTraceBuilder:
             }
         )
 
+    def capture_accounting(
+        self,
+        *,
+        model_calls: Sequence[Mapping[str, Any]],
+        extra_warnings: Iterable[str] = (),
+        observed_model_call_count: int | None = None,
+    ) -> None:
+        """Freeze bounded log-safe observations before delivery can fail."""
+        try:
+            snapshot = retained_trace_payload(
+                {
+                    "status": "error",
+                    "model_calls": model_calls,
+                    "spans": [],
+                    "warnings": list(extra_warnings),
+                }
+            )
+            warnings = snapshot["warnings"]
+            if not snapshot["retention"]["complete"]:
+                warnings.append(MODEL_CALLS_TRUNCATED_WARNING)
+                if observed_model_call_count is None:
+                    observed_model_call_count = len(model_calls)
+            self._captured_accounting = {
+                "model_calls": snapshot["model_calls"],
+                "warnings": tuple(warnings),
+                "observed_model_call_count": observed_model_call_count,
+            }
+        except Exception:
+            # Accounting must not alter delivery, authority or provider replay.
+            self.add_warning("accounting_capture_failed")
+
     def finalize(
         self,
         *,
@@ -607,6 +841,11 @@ class AgentTurnTraceBuilder:
         leftover_status: SpanStatus = "error" if status == "error" else "ok"
         for span_id in list(self._open_phases):
             self.complete_phase(span_id, status=leftover_status)
+        if model_calls is None and self._captured_accounting is not None:
+            model_calls = self._captured_accounting["model_calls"]
+            extra_warnings = (*self._captured_accounting["warnings"], *extra_warnings)
+            if observed_model_call_count is None:
+                observed_model_call_count = self._captured_accounting["observed_model_call_count"]
         calls = [dict(call) for call in (model_calls or [])]
         for warning in extra_warnings:
             self.add_warning(warning)
@@ -656,9 +895,28 @@ class AgentTurnTraceBuilder:
                     trace[key] = value
         return trace
 
+    def bind_durable_turn(self, turn: Any) -> None:
+        """Bind known validated APP identity; never query or overwrite client turn_id."""
+        self.correlation = {
+            "durable_turn_id": str(turn.turn_id),
+            "conversation_id": str(turn.conversation_id),
+            "attempt": turn.attempt,
+        }
+
     def finalize_and_log(self, **kwargs: Any) -> dict[str, Any]:
         trace = self.finalize(**kwargs)
         if not self.logged:
-            emit_baseline_trace_log(trace)
             self.logged = True
+            try:
+                logged_spans = [
+                    dict(span, attributes={
+                        **span["attributes"],
+                        **self._phase_offsets.get(span["span_id"], {}),
+                    })
+                    for span in trace["spans"]
+                ]
+                emit_baseline_trace_log(dict(trace, spans=logged_spans, correlation=dict(self.correlation)))
+            except Exception:
+                # Observability must neither change authority nor trigger a provider replay.
+                pass
         return trace

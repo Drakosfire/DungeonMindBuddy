@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
-from apps.live_control_server.config import repo_root
+from apps.live_control_server.config import artifact_data_root, repo_root
 from apps.live_control_server.services.graph_review_lanes import (
     GraphReviewVocabularyMode,
 )
@@ -129,7 +129,7 @@ def inspect_graph_ingest_registry_roots(
     include_eval_roots: bool = False,
 ) -> list[GraphIngestRegistryRootStatus]:
     """Read-only status for configured graph-ingest discovery roots."""
-    repo = (root or repo_root()).resolve()
+    repo = artifact_data_root(root or repo_root())
     env_root = os.environ.get(GRAPH_INGEST_RUNS_ENV, "").strip()
     values: list[str] = [env_root] if env_root else list(DEFAULT_GRAPH_INGEST_RUN_ROOTS)
     if include_eval_roots:
@@ -163,26 +163,21 @@ def inspect_graph_ingest_registry_health(
     max_issues: int = MAX_REGISTRY_HEALTH_ISSUES,
 ) -> GraphIngestRegistryHealth:
     """Read-only registry health: distinguish corrupt manifests from empty roots."""
-    repo = (root or repo_root()).resolve()
+    repo = artifact_data_root(root or repo_root())
     manifest_files_found = 0
     valid_manifests = 0
     invalid_manifests = 0
     issues: list[GraphIngestManifestHealthIssue] = []
 
-    for search_root in _graph_ingest_search_roots(
-        repo, include_eval_roots=include_eval_roots
-    ):
-        if not search_root.exists():
+    for manifest_path in _iter_manifest_paths(repo, include_eval_roots=include_eval_roots):
+        manifest_files_found += 1
+        issue = _manifest_health_issue(repo, manifest_path)
+        if issue is None:
+            valid_manifests += 1
             continue
-        for manifest_path in sorted(search_root.rglob(GRAPH_INGEST_MANIFEST_NAME)):
-            manifest_files_found += 1
-            issue = _manifest_health_issue(repo, manifest_path)
-            if issue is None:
-                valid_manifests += 1
-                continue
-            invalid_manifests += 1
-            if len(issues) < max_issues:
-                issues.append(issue)
+        invalid_manifests += 1
+        if len(issues) < max_issues:
+            issues.append(issue)
 
     return GraphIngestRegistryHealth(
         manifest_files_found=manifest_files_found,
@@ -205,58 +200,76 @@ def discover_graph_ingest_runs(
 ) -> list[GraphIngestRunSummary]:
     """Discover valid graph-ingest manifests from bounded roots."""
 
-    repo = (root or repo_root()).resolve()
+    candidates = _iter_ingest_candidates(
+        root, campaign_id=campaign_id, session_id=session_id,
+        source_recap_path=source_recap_path, source_recap_sha256=source_recap_sha256,
+        status=status, require_preview_union_store=require_preview_union_store,
+        include_eval_roots=include_eval_roots,
+    )
+    return [summary for summary, _ in sorted(candidates, key=_ingest_rank, reverse=True)]
+
+
+def _ingest_rank(item: tuple[GraphIngestRunSummary, float]):
+    summary, modified_at = item
+    return (
+        summary.updated_at or "",
+        summary.created_at or "",
+        modified_at,
+        _reverse_path_key(summary.manifest_path),
+    )
+
+
+def _iter_ingest_candidates(
+    root: Path | None,
+    *,
+    campaign_id: str | None,
+    session_id: str | None,
+    source_recap_path: str | None,
+    source_recap_sha256: str | None,
+    status: str | None,
+    require_preview_union_store: bool,
+    include_eval_roots: bool,
+):
+    repo = artifact_data_root(root or repo_root())
     if status is not None and status not in ALLOWED_STATUS_FILTERS:
         raise GraphIngestRunRegistryError(
             f"invalid status filter: {status}", status_code=422
         )
 
-    summaries: list[tuple[GraphIngestRunSummary, float]] = []
-    for search_root in _graph_ingest_search_roots(
-        repo, include_eval_roots=include_eval_roots
-    ):
-        if not search_root.exists():
+    descriptor_digests: dict[str, str | None] = {}
+    for manifest_path in _iter_manifest_paths(repo, include_eval_roots=include_eval_roots):
+        summarized = _summarize_manifest(
+            repo,
+            manifest_path,
+        )
+        if summarized is None:
             continue
-        for manifest_path in sorted(search_root.rglob(GRAPH_INGEST_MANIFEST_NAME)):
-            summary = _summarize_manifest(
-                repo,
-                manifest_path,
-                registry_root=search_root,
-                include_eval_roots=include_eval_roots,
-            )
-            if summary is None:
-                continue
-            if campaign_id is not None and summary.campaign_id != campaign_id:
-                continue
-            if session_id is not None and summary.session_id != session_id:
-                continue
-            if (
-                source_recap_path is not None or source_recap_sha256 is not None
-            ) and not _manifest_matches_source_recap(
-                repo,
-                manifest_path,
-                source_recap_path=source_recap_path,
-                source_recap_sha256=source_recap_sha256,
-            ):
-                continue
-            if status is not None and summary.status != status:
-                continue
-            if require_preview_union_store and not _has_ready_preview_union_store(
-                summary
-            ):
-                continue
-            summaries.append((summary, manifest_path.stat().st_mtime))
-
-    summaries.sort(
-        key=lambda item: (
-            item[0].updated_at or "",
-            item[0].created_at or "",
-            item[1],
-            _reverse_path_key(item[0].manifest_path),
-        ),
-        reverse=True,
-    )
-    return [summary for summary, _mtime in summaries]
+        summary, payload = summarized
+        if campaign_id is not None and summary.campaign_id != campaign_id:
+            continue
+        if session_id is not None and summary.session_id != session_id:
+            continue
+        if (
+            source_recap_path is not None or source_recap_sha256 is not None
+        ) and not _manifest_matches_source_recap(
+            repo,
+            payload,
+            descriptor_digests=descriptor_digests,
+            source_recap_path=source_recap_path,
+            source_recap_sha256=source_recap_sha256,
+        ):
+            continue
+        if status is not None and summary.status != status:
+            continue
+        if require_preview_union_store and not _has_ready_preview_union_store(
+            summary
+        ):
+            continue
+        try:
+            modified_at = manifest_path.stat().st_mtime
+        except FileNotFoundError:
+            continue
+        yield summary, modified_at
 
 
 def resolve_latest_preview_union_graph_ingest_run(
@@ -268,28 +281,31 @@ def resolve_latest_preview_union_graph_ingest_run(
     source_recap_sha256: str | None = None,
     include_eval_roots: bool = True,
 ) -> GraphIngestRunSummary:
-    runs = discover_graph_ingest_runs(
+    candidates = _iter_ingest_candidates(
         root,
         campaign_id=campaign_id,
         session_id=session_id,
         source_recap_path=source_recap_path,
         source_recap_sha256=source_recap_sha256,
+        status=None,
         require_preview_union_store=True,
         include_eval_roots=include_eval_roots,
     )
-    if not runs:
+    latest = max(candidates, key=_ingest_rank, default=None)
+    if latest is None:
         raise GraphIngestRunRegistryError(
             "no preview_union_store_ready graph-ingest run found for "
             f"{campaign_id}/{session_id}",
             status_code=404,
         )
-    return runs[0]
+    return latest[0]
 
 
 def _manifest_matches_source_recap(
     repo: Path,
-    manifest_path: Path,
+    payload: dict[str, Any],
     *,
+    descriptor_digests: dict[str, str | None],
     source_recap_path: str | None,
     source_recap_sha256: str | None,
 ) -> bool:
@@ -305,10 +321,6 @@ def _manifest_matches_source_recap(
     if source_recap_sha256 == UNUSABLE_SOURCE_RECAP_DIGEST:
         return False
 
-    try:
-        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return False
     source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
     requested_digest = normalize_content_digest(source_recap_sha256)
     if requested_digest:
@@ -333,12 +345,18 @@ def _manifest_matches_source_recap(
                 get_source_artifact,
             )
 
-            try:
-                artifact = get_source_artifact(repo, artifact_id)
-            except SourceArtifactRegistryError:
-                return False
-            if normalize_content_digest(artifact.content_sha256) == requested_digest:
-                return True
+            if artifact_id not in descriptor_digests:
+                try:
+                    artifact = get_source_artifact(artifact_id)
+                except SourceArtifactRegistryError as exc:
+                    if exc.status_code != 404:
+                        return False
+                    descriptor_digests[artifact_id] = None
+                else:
+                    descriptor_digests[artifact_id] = normalize_content_digest(
+                        artifact.content_sha256
+                    )
+            return descriptor_digests[artifact_id] == requested_digest
         return False
     if not source_recap_path:
         return False
@@ -366,6 +384,7 @@ def _normalize_repo_path(repo: Path, value: str) -> str:
 
 def graph_ingest_output_root(repo: Path) -> Path:
     """Use the configured discovery root for new runs, with identical confinement."""
+    repo = artifact_data_root(repo)
     value = (
         os.environ.get(GRAPH_INGEST_RUNS_ENV, "").strip()
         or DEFAULT_GRAPH_INGEST_RUN_ROOTS[0]
@@ -376,6 +395,7 @@ def graph_ingest_output_root(repo: Path) -> Path:
 def _graph_ingest_search_roots(
     repo: Path, *, include_eval_roots: bool = False
 ) -> list[Path]:
+    repo = artifact_data_root(repo)
     env_root = os.environ.get(GRAPH_INGEST_RUNS_ENV)
     values = [env_root] if env_root else list(DEFAULT_GRAPH_INGEST_RUN_ROOTS)
     if include_eval_roots:
@@ -386,6 +406,29 @@ def _graph_ingest_search_roots(
     ]
 
 
+def _iter_manifest_paths(repo: Path, *, include_eval_roots: bool):
+    seen: set[Path] = set()
+    for root in _graph_ingest_search_roots(repo, include_eval_roots=include_eval_roots):
+        for path in sorted(root.rglob(GRAPH_INGEST_MANIFEST_NAME)):
+            try:
+                identity = _resolve_repo_contained_path(path, repo)
+            except (OSError, RuntimeError, ValueError):
+                identity = path
+            if identity not in seen:
+                seen.add(identity)
+                yield path
+
+
+def _validate_manifest_payload(
+    manifest_path: Path,
+) -> tuple[GraphIngestRunManifest, dict[str, Any]] | None:
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = GraphIngestRunManifest.model_validate(payload)
+    if validate_graph_ingest_run_manifest(payload)["errors"]:
+        return None
+    return manifest, payload
+
+
 def _manifest_health_issue(
     repo: Path,
     manifest_path: Path,
@@ -393,14 +436,13 @@ def _manifest_health_issue(
     try:
         safe_manifest_path = _resolve_repo_contained_path(manifest_path, repo)
         rel_path = _repo_relative(safe_manifest_path, repo)
-        payload = json.loads(safe_manifest_path.read_text(encoding="utf-8"))
-        manifest = GraphIngestRunManifest.model_validate(payload)
-        validation = validate_graph_ingest_run_manifest(payload)
-        if validation["errors"]:
+        validated = _validate_manifest_payload(safe_manifest_path)
+        if validated is None:
             return GraphIngestManifestHealthIssue(
                 manifest_path=rel_path,
                 reason="manifest_validation_failed",
             )
+        manifest, _ = validated
         _preview_union_store_path(repo, manifest)
         return None
     except json.JSONDecodeError:
@@ -442,17 +484,13 @@ def _manifest_health_rel_path(repo: Path, manifest_path: Path) -> str:
 def _summarize_manifest(
     repo: Path,
     manifest_path: Path,
-    *,
-    registry_root: Path,
-    include_eval_roots: bool = False,
-) -> GraphIngestRunSummary | None:
+) -> tuple[GraphIngestRunSummary, dict[str, Any]] | None:
     try:
         safe_manifest_path = _resolve_repo_contained_path(manifest_path, repo)
-        payload = json.loads(safe_manifest_path.read_text(encoding="utf-8"))
-        manifest = GraphIngestRunManifest.model_validate(payload)
-        validation = validate_graph_ingest_run_manifest(payload)
-        if validation["errors"]:
+        validated = _validate_manifest_payload(safe_manifest_path)
+        if validated is None:
             return None
+        manifest, payload = validated
         preview_path = _preview_union_store_path(repo, manifest)
     except (OSError, json.JSONDecodeError, ValidationError, ValueError):
         return None
@@ -460,19 +498,7 @@ def _summarize_manifest(
     metadata = _extract_graph_run_metadata(
         manifest, payload, safe_manifest_path, repo, preview_path
     )
-    # Lazy import avoids circular dependency with promotable_ingest_run.
-    from apps.live_control_server.services.promotable_ingest_run import (
-        assess_manifest_promotability,
-    )
-
-    promotable, promotable_reason = assess_manifest_promotability(
-        repo=repo,
-        manifest_path=safe_manifest_path,
-        payload=payload,
-        registry_root=registry_root.resolve(),
-        include_eval_roots=include_eval_roots,
-    )
-    return GraphIngestRunSummary(
+    summary = GraphIngestRunSummary(
         manifest_path=_repo_relative(safe_manifest_path, repo),
         run_dir=_repo_relative(safe_manifest_path.parent, repo),
         campaign_id=manifest.campaign_id,
@@ -486,10 +512,11 @@ def _summarize_manifest(
         edge_count=manifest.health.edge_count,
         evidence_ref_count=manifest.health.evidence_ref_count,
         next_actions=list(manifest.next_actions),
-        promotable=promotable,
-        promotable_reason=promotable_reason,
+        promotable=False,
+        promotable_reason="Historical file manifests are inspection-only; promotion requires an exact database ExtractionRun.",
         **metadata,
     )
+    return summary, payload
 
 
 ScalarSummaryValue = str | int | float | bool | None
@@ -817,6 +844,7 @@ def _has_ready_preview_union_store(summary: GraphIngestRunSummary) -> bool:
 def _resolve_repo_contained_path(
     path: Path, repo: Path, *, must_exist: bool = True
 ) -> Path:
+    repo = artifact_data_root(repo)
     value = str(path).replace("\\", "/")
     if value.startswith("file:") or ".." in Path(value).parts:
         raise GraphIngestRunRegistryError(

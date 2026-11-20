@@ -12,8 +12,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
+from application_state.agent_conversation.rules_authority_policy import (
+    RulesCapabilityV1, RULES_READ_POLICY_ID, WORLD_GRAPH_RULES_READ_POLICY_ID,
+)
+
 WORLD_GRAPH_READ_POLICY_ID = "world_graph_read_v1"
 CONVERSATION_ONLY_POLICY_ID = "conversation_only_v1"
+SELECTED_KNOWLEDGE_CONTEXT_MAX_CHARS = 64000
 
 AgentRuntimeStatus = Literal["ok", "error"]
 AgentRuntimeToolEventState = Literal["start", "completion", "error"]
@@ -30,6 +35,9 @@ class AgentRuntimeDescriptor:
 @dataclass(frozen=True, slots=True)
 class AgentCapabilityPolicy:
     policy_id: str
+    surface_actions: tuple[str, ...] = ()
+    native_source_sections: bool = False
+    corpus_source_sections: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +84,7 @@ class AgentPlayCurrentElementContext:
     element_id: str
     title: str
     body_text: str
+    body_markdown: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +94,8 @@ class AgentPlayCurrentMomentContext:
     playable_revision: int
     current_beat: AgentPlayCurrentElementContext
     current_scene: AgentPlayCurrentElementContext | None = None
+    edition_revision: int | None = None
+    saved_scene_note: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +112,9 @@ class AgentContextPacket:
     world_scope: AgentWorldScope | None
     retrieval_session: AgentRetrievalSession | None = None
     surface_context: AgentSurfaceContext | None = None
+    selected_knowledge_context: Mapping[str, Any] | None = None
+    session_evidence: Mapping[str, Any] | None = None
+    rules_capability: RulesCapabilityV1 | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +128,14 @@ class AgentRuntimeInvocation:
     run_options: AgentRunOptions
     # Resolved by AgentTurnService from the saved-work owner and active surface.
     plan_continuity_turn: bool = False
+    # Set only by trusted saved-work assembly; independent of continuity/capabilities.
+    input_kind: Literal["ordinary_question", "server_assembled_saved_work"] = "ordinary_question"
+    # Parent-selected read advertisement only; never grants broker authority.
+    graph_read_profile: Literal["world_graph", "governed_build"] = "world_graph"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.graph_read_profile, str) or self.graph_read_profile not in ("world_graph", "governed_build"):
+            raise ValueError("invalid internal Graph read profile")
 
 
 @dataclass(frozen=True, slots=True)

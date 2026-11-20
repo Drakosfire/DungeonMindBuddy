@@ -95,7 +95,7 @@ export type FormattedRuleElement = {
 };
 
 export type StatblockViewModel = {
-  recordKind: "candidate" | "revision";
+  recordKind: "candidate" | "revision" | "draft";
   candidateId: string;
   contract: string;
   contractVersion: string;
@@ -407,7 +407,7 @@ function buildViewModelFromDefinition(
   definition: StatblockDefinitionV1_Output,
   metadata: {
     recordId: string;
-    recordKind: "candidate" | "revision";
+    recordKind: "candidate" | "revision" | "draft";
     contract: string;
     contractVersion: string;
     createdAt: string;
@@ -432,7 +432,7 @@ function buildViewModelFromDefinition(
     return `${ac.value}${label}${condition}`;
   });
 
-  const speedParts = definition.movement.modes.map((mode) => {
+  const speedParts = (definition.movement?.modes ?? []).map((mode) => {
     const distance = formatDistance(mode.distance);
     const qualifiers = mode.qualifiers?.length ? ` (${mode.qualifiers.join(", ")})` : "";
     return `${mode.mode} ${distance}${qualifiers}`.trim();
@@ -470,7 +470,7 @@ function buildViewModelFromDefinition(
     armorClassSummary: acParts.length ? acParts.join("; ") : "—",
     hitPointsSummary: formatHitPoints(definition.vitality.hit_points),
     speedSummary: speedParts.length ? speedParts.join(", ") : "—",
-    challengeSummary: `CR ${definition.challenge.rating} (PB ${formatModifier(definition.challenge.proficiency_bonus)})`,
+    challengeSummary: `CR ${definition.challenge.rating} (PB ${definition.challenge.proficiency_bonus == null ? "unspecified" : formatModifier(definition.challenge.proficiency_bonus)})`,
     abilities: ABILITY_ORDER.map((ability) => ({
       ability,
       score: definition.abilities[ability],
@@ -504,6 +504,19 @@ function buildViewModelFromDefinition(
       : null,
     generation: metadata.generation,
   };
+}
+
+export function buildDraftStatblockViewModel(definition: Parameters<typeof buildViewModelFromDefinition>[0]) {
+  return buildViewModelFromDefinition(definition, {
+    recordId: "",
+    recordKind: "draft",
+    contract: "",
+    contractVersion: "",
+    createdAt: "",
+    expiresAt: "",
+    validationReceipt: null,
+    generation: null,
+  });
 }
 
 export function buildStatblockViewModel(

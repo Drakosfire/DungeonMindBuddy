@@ -435,7 +435,7 @@ describe("GraphObjectAuthoringSurface", () => {
     expect(screen.getByLabelText("Visibility")).toHaveValue("gm_private");
   });
 
-  it("preserves the selected text as an alias when the label is changed", () => {
+  it("keeps source selection separate from aliases when the label is changed", () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
 
@@ -447,7 +447,7 @@ describe("GraphObjectAuthoringSurface", () => {
 
     const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
     expect(stagedProposal).toHaveTextContent("Questionable Company");
-    expect(stagedProposal).toHaveTextContent("Aliases: gang");
+    expect(stagedProposal).not.toHaveTextContent("Aliases: gang");
     expect(stagedProposal).toHaveTextContent("party");
   });
 
@@ -944,7 +944,7 @@ describe("GraphObjectAuthoringSurface", () => {
     });
   });
 
-  it("calls prepare API when prepare write is clicked", async () => {
+  it.each(["", "Sarni the healer"])("prepares explicit aliases %s without promoting selected evidence", async (aliasesText) => {
     vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue({
       prepared: true,
       campaign_id: "longmont-c1",
@@ -968,14 +968,21 @@ describe("GraphObjectAuthoringSurface", () => {
       no_mutation_guarantees: ["Prepare wrote nothing."],
     });
 
-    render(<Harness withPrepareCommit />);
+    const prose = "In the olden times, Nar and her child Sarni were simple wanderers who healed for board and lodging.";
+    const source = {...selection, selectedText: prose, normalizedSelectedText: prose};
+    render(<Harness withPrepareCommit initialSelection={source} />);
     fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
+    fireEvent.change(screen.getByLabelText("Label"), {target: {value: "Sarni"}});
+    fireEvent.change(screen.getByLabelText("Aliases"), {target: {value: aliasesText}});
     fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
     fireEvent.click(screen.getByTestId("graph-object-authoring-prepare-button"));
 
     await waitFor(() => {
       expect(prepareGraphObjectAuthoringWrite).toHaveBeenCalled();
     });
+    expect(prepareGraphObjectAuthoringWrite).toHaveBeenLastCalledWith(expect.objectContaining({
+      proposals: [expect.objectContaining({selection: expect.objectContaining({selectedText: prose}), objectRef: expect.objectContaining({label: "Sarni", aliases: aliasesText ? [aliasesText] : []})})],
+    }));
     expect(screen.getByText(/Safe write preview generated/i)).toBeInTheDocument();
     expect(screen.getByTestId("graph-object-authoring-write-safety-details")).not.toHaveAttribute("open");
   });

@@ -1,0 +1,20 @@
+import {afterEach,it,expect,vi} from 'vitest';
+import {cleanup,render,screen,fireEvent} from '@testing-library/react';
+import type {NativeStatementAnswerContextV1} from '../../api/types';
+import {NativeStatementAnswer} from './NativeStatementAnswer';
+import {nativeTextDigest} from '../../shared/nativeStatementAnswerProtocol';
+const api=vi.hoisted(()=>({getAgentNativeSourceClause:vi.fn()}));
+vi.mock('../../api/liveApi',()=>api);
+afterEach(()=>{cleanup();vi.clearAllMocks();});
+it.each([false,true])('opens only the exact original clause; tampered bytes=%s',async tampered=>{
+  const hash=await nativeTextDigest('Original report');
+  const citation={segment_index:0,statement_id:'ent:s',provider_attempt_id:'attempt',envelope_sha256:'e',context_receipt_sha256:'c',managed_world_id:'world',native_world_id:'native',campaign_id:'c1',read_revision_id:'rev:R',publication_revision_id:'rev:C',source_artifact_id:'artifact',source_revision_id:'srev:1',body_sha256:hash,start_byte:0,end_byte:15,clause_sha256:hash,semantic_digest:'s'};
+  const context={completion:{schema:'dmb_native_statement_completion_v1',surface_id:'plan',context_receipt_sha256:'c',answer_context_status:'source_attributed',answer_segments:[{kind:'source_report',text:'An uncertain report.',statement_ids:['ent:s']}],native_clause_citations:[citation]}} as NativeStatementAnswerContextV1;
+  api.getAgentNativeSourceClause.mockResolvedValue({schema:'dmb_native_statement_clause_read_v1',world_id:'world',turn_id:'turn',citation_index:0,citation,content:tampered?'Nearby unsupported paragraph':'Original report'});
+  render(<NativeStatementAnswer context={context} worldId="world" turnId="turn"/>);
+  expect(screen.getByText('Source reports: An uncertain report.')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button',{name:'Read source 1'}));
+  if(tampered)expect(await screen.findByText(/unavailable/i)).toBeTruthy();
+  else expect(await screen.findByText('Original report')).toBeTruthy();
+  expect(api.getAgentNativeSourceClause).toHaveBeenCalledWith('world','turn',0);
+});

@@ -1,0 +1,15 @@
+# DOGFOOD — Readable themed Graph reference labels
+
+Status: ACTIVE. Operator targeted UX authority and PRIME's explicit one-repair authorization. PRIME approved the exact write set and explicitly transferred prepMarkdownThemes.css exclusively from stale ACTIVE DEMO J2 visual and BUILD semantic-prep stylesheet leases. This does not mark those broader programs complete.
+
+Base:04b4bee5dda0951a707bf26dc1be74f45d355e98. Branch:codex/dogfood-graph-pill-contrast. Isolated managed checkout:/home/drakosfire/.codex/worktrees/dogfood-pill-contrast/DungeonMindBuddy. Topology:parallel-independent from blocked Plan dock adoption and current SERVER/RAKE/DEMO repairs.
+
+Exclusive expected writes: modify apps/live-control-ui/src/tiptap/prepMarkdownThemes.css only; create apps/live-control-ui/src/ui/GraphReferenceContrast.stories.tsx, this handoff and owned Docs/Plans/evidence/dogfood-graph-pill-theme-contrast/. Checked #917/#869 exact open files and #970/#979 ownership; no competing dispatched writer in this stylesheet per PRIME. Do not edit component/controller/parser/provider/registry/global paint or adopter paths.
+
+Outcome: existing themed inline Graph labels are readable on parchment and slate. Use the existing --md-fg/--fg foreground tokens, preserve role border/background, shape/sizing/activation/focus, non-themed defaults and dark hover-card descendants. No new theme or paint framework.
+
+Owning proof: render actual MarkdownEditorCore→GraphNodeReferenceView→GraphNodeHoverToken in existing themed containers, record browser-computed foreground/background and composite contrast, before/after desktop/narrow screenshots, click/keyboard-focus behavior and unmodified role classes/backgrounds/borders. No mirrored color unit tests. No Graph/model/API requests. Isolated5203 only if free; never5202/8000/7860. Stop fixture and close/reset temporary tabs after QA.
+
+Before handback: full UI build, cumulative diff/path check, commit/push/one targeted PR, attach and exact-head independent review request to PRIME. No merge authority. After merge, record this stylesheet transfer in the next consuming settlement or guarded targeted cleanup; no status-only PR.
+
+Author evidence: actual browser-computed/composited named-role parchment contrast improved from1.00–1.10 to9.83–11.14; the already-readable generic gold reference now uses document ink at6.05. Slate inline values10.88–12.30. Dark-hover/non-themed foregrounds unchanged; all role backgrounds/borders/classes match baseline. Pointer click selected location; native Tab+Return selected person with focus on Lysandra, editor remains non-editable. Corrected fixture includes the actual World Plan document-view wrapper (direct grid child initially produced a fixture-only narrow collapse); final390px captures have scroll widths375/390 for parchment/slate. Real coarse-pointer hardware was not tested. Full npm build passes; existing large-chunk warning remains. No mirrored color unit tests, Graph/API/model request or operator runtime interaction. Owned5203 server stopped, tabs closed/viewport reset.

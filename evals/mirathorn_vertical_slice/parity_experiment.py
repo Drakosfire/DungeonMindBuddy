@@ -49,17 +49,17 @@ OUTPUT_DIR = EVAL_DIR / "output"
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
+from bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 
 load_dungeonmindbuddy_dotenv()
 
 from src.cli import DungeonBuddyCLI  # noqa: E402
-from src.ingestion.chunker import chunk_document  # noqa: E402
-from src.ingestion.entity_extractor import (  # noqa: E402
+from ingestion.chunker import chunk_document  # noqa: E402
+from ingestion.entity_extractor import (  # noqa: E402
     OpenAIResponsesEntityClient,
     run_entity_extraction,
 )
-from src.ingestion.fact_extractor import (  # noqa: E402
+from ingestion.fact_extractor import (  # noqa: E402
     OpenAIResponsesFactClient,
     run_fact_extraction,
 )

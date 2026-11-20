@@ -1,11 +1,12 @@
 # Plan — Hermes Campaign Authoring Foundation Reset
 
-**Status:** ACTIVE RESET; Phase 1 product re-anchor accepted; initial Phase 0 cleanup slice complete; S1 gate accepted; Phase 2 creative primitives unblocked
+**Status:** HISTORICAL / SUPERSEDED. The [historical index](../Design/INDEX-hermes-campaign-authoring-foundation.md) records the later settlement; do not dispatch work from this plan.
+**Status recorded in July 2026:** ACTIVE RESET; Phase 1 product re-anchor accepted; initial Phase 0 cleanup slice complete; S1 gate accepted; Phase 2 creative primitives unblocked
 **Created:** 2026-07-15  
 **Primary goal anchor:** [`ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)  
 **First proving domain:** statblocks  
 **Re-anchor record:** [`REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md`](REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md)
-**Implementation rule:** S1 conversational gate is accepted; Phase 2 creative primitives may begin without reopening the rejected empty-graph abstention path
+**Historical implementation rule (July 2026):** S1 conversational gate is accepted; Phase 2 creative primitives may begin without reopening the rejected empty-graph abstention path
 **Phase 0 evidence:** [`../Reports/HERMES-PHASE-0-REFERENCE-SCAN.md`](../Reports/HERMES-PHASE-0-REFERENCE-SCAN.md)
 **S1 dogfood evidence:** [`../Reports/HERMES-S1-LATEST-RECAP-DOGFOOD-2026-07-15.md`](../Reports/HERMES-S1-LATEST-RECAP-DOGFOOD-2026-07-15.md)
 

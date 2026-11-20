@@ -119,16 +119,24 @@ def test_ingest_unavailable_when_configured_app_state_dsn_unreachable(
 def test_ingest_not_ready_when_ingest_schema_behind(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    application_state_dsn: str,
 ) -> None:
     import psycopg
+    import uuid
     from alembic import command
 
     from application_state.cli import _current_and_head, alembic_config
+    from tests.application_state.conftest import (
+        _admin_dsn, _create_database, _drop_database, _replace_database,
+    )
 
     monkeypatch.delenv(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, raising=False)
+    admin = _admin_dsn()
+    name = f"dungeonbuddy_app_state_test_{uuid.uuid4().hex[:12]}"
+    application_state_dsn = _replace_database(admin, name)
+    _create_database(admin, name)
+    monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, application_state_dsn)
     try:
-        command.downgrade(alembic_config(), "20260825_0004")
+        command.upgrade(alembic_config(), "20260825_0004")
         current, head = _current_and_head(application_state_dsn)
         assert current == "20260825_0004"
         assert current != head
@@ -143,7 +151,7 @@ def test_ingest_not_ready_when_ingest_schema_behind(
         assert report.status == "NOT READY"
         assert "behind" in ingest.summary.lower()
     finally:
-        command.upgrade(alembic_config(), "head")
+        _drop_database(admin, name)
 
 
 def test_ingest_empty_when_schema_current_and_zero_runs(
@@ -456,3 +464,23 @@ def test_list_world_heads_uses_repository_ports(
         ("alpha", "head-a"),
         ("beta", None),
     ]
+
+
+@pytest.mark.parametrize("operator_diagnostics, expected_world_calls", [(False, 0), (True, 1)])
+def test_app_state_failure_skips_world_check_only_for_periodic_probe(
+    tmp_path: Path, operator_diagnostics: bool, expected_world_calls: int,
+) -> None:
+    unavailable = RuntimePreflightCheck(
+        id="app_state", label="Application state", required=True,
+        status="UNAVAILABLE", summary="Database unavailable",
+    )
+    with (
+        patch("apps.live_control_server.services.runtime_preflight._check_app_state", return_value=unavailable),
+        patch("apps.live_control_server.services.runtime_preflight._check_dungeonmind_world", return_value=unavailable) as world,
+    ):
+        report = run_runtime_preflight(
+            repo_root=tmp_path, load_env=False, include_runbooks=False,
+            include_operator_diagnostics=operator_diagnostics,
+        )
+    assert report.status == "NOT READY"
+    assert world.call_count == expected_world_calls

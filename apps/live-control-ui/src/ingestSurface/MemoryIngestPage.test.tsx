@@ -1,7 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getExtractionRun, getPlanView } from "../api/liveApi";
+import { getExtractionRun, getPlanView, NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT } from "../api/liveApi";
+import { startReadWave } from "../api/inFlightReads";
+import { usePublishAgentSurfaceContext } from "../agentInteraction/usePublishAgentSurfaceContext";
 import type { SelectedWorldState } from "../selectedWorld/SelectedWorldContext";
 import { mockPlanView } from "../test/fixtures";
 import { MemoryIngestPage } from "./MemoryIngestPage";
@@ -13,18 +16,26 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
 }));
 const selection = vi.hoisted(() => ({ current: { kind: "managed", worldId: "world-b", name: "World B", documentId: null } as SelectedWorldState }));
 vi.mock("../selectedWorld/SelectedWorldContext", () => ({ useSelectedWorld: () => selection.current }));
-vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({ usePublishAgentSurfaceContext: () => undefined }));
+vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({ usePublishAgentSurfaceContext: vi.fn() }));
 vi.mock("../chrome/AppChrome", () => ({ AppChrome: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
-vi.mock("./useIngestRunCatalogInformation", () => ({
-  useIngestRunCatalogInformation: () => ({ channel: {}, refresh: () => undefined }),
-}));
 vi.mock("../planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule", () => ({
-  GraphReviewWorkbenchModule: () => <div data-testid="exact-graph-review" />,
+  GraphReviewWorkbenchModule: ({
+    sourceReviewOnly,
+    locationSearch, initialRunObservation,
+  }: { sourceReviewOnly?: boolean; locationSearch?: string; initialRunObservation: import("./ingestInitialRunObservation").IngestInitialRunObservation }) => (
+    <div
+      data-testid="exact-graph-review"
+      data-source-review-only={sourceReviewOnly ? "true" : "false"}
+      data-location-search={locationSearch}
+      data-observed-generation={initialRunObservation.owner.generation}
+      data-observed-run={initialRunObservation.status === "ready" ? initialRunObservation.run.run_id : "none"}
+    />
+  ),
 }));
 
 vi.mock("../modules/IngestionModule", () => ({
-  IngestionModule: ({ campaignId, session }: { campaignId: string; session: number }) =>
-    <div data-testid="recap-workbench">{campaignId} · {session}</div>,
+  IngestionModule: ({ campaignId, session, managedWorldId }: { campaignId: string; session: number; managedWorldId?: string }) =>
+    <div data-testid="recap-workbench" data-managed-world-id={managedWorldId}>{campaignId} · {session}</div>,
 }));
 
 const planView = {
@@ -34,6 +45,14 @@ const planView = {
   session: 0,
 };
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 describe("managed-World Ingest boundary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -42,12 +61,13 @@ describe("managed-World Ingest boundary", () => {
     window.history.replaceState({}, "", "/ingest?world=world-b");
   });
 
-  it("requires a World before any legacy or exact-run reads", async () => {
+  it("welcomes a first-time visitor without attempting legacy or exact-run reads", async () => {
     selection.current = { kind: "legacy" };
     window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-22");
     render(<MemoryIngestPage />);
-    expect(screen.getByRole("alert")).toHaveTextContent("No World selected.");
-    expect(screen.getByRole("alert")).toHaveTextContent("World picker");
+    expect(screen.getByRole("heading", { name: /give your World a little more to remember/i })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "How Ingest works" })).toHaveTextContent("Review what it found");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(getPlanView).not.toHaveBeenCalled();
     expect(getExtractionRun).not.toHaveBeenCalled();
     expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
@@ -69,8 +89,10 @@ describe("managed-World Ingest boundary", () => {
 
   it("does not mount the C1/C2 recap browser on a bare managed landing", async () => {
     render(<MemoryIngestPage />);
-    expect(await screen.findByText("No exact extraction run is selected for this World.")).toBeInTheDocument();
-    expect(getPlanView).toHaveBeenCalledWith("world-b");
+    expect(await screen.findByRole("heading", { name: "Bring a source into the story." })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /open build/i })).toHaveAttribute("href", "/build?world=world-b");
+    expect(getPlanView).toHaveBeenCalledWith("world-b", expect.any(AbortSignal));
+    expect(getExtractionRun).not.toHaveBeenCalled();
     expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
   });
 
@@ -80,6 +102,7 @@ describe("managed-World Ingest boundary", () => {
     window.history.replaceState({}, "", `/ingest?world=elderwyld${query}`);
     render(<MemoryIngestPage />);
     expect(await screen.findByTestId("recap-workbench")).toHaveTextContent("longmont-c2 · 29");
+    expect(screen.getByTestId("recap-workbench")).toHaveAttribute("data-managed-world-id", "elderwyld");
     expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
   });
 
@@ -87,12 +110,35 @@ describe("managed-World Ingest boundary", () => {
     window.history.replaceState({}, "", "/ingest?world=world-b&extractionRunId=run-a");
     vi.mocked(getExtractionRun).mockResolvedValue({
       run_id: "run-a",
+      source_domain: "worldbuilding",
       campaign_id: "world-a",
     } as Awaited<ReturnType<typeof getExtractionRun>>);
     render(<MemoryIngestPage />);
     expect(await screen.findByText("Extraction Run does not belong to World world-b.")).toBeInTheDocument();
     expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
     expect(getPlanView).not.toHaveBeenCalled();
+  });
+
+  it("rejects a plan-view basis resolved for a different managed World", async () => {
+    vi.mocked(getPlanView).mockResolvedValue({
+      ...planView,
+      world_id: "world-a",
+      campaign_id: "world-b",
+    });
+    render(<MemoryIngestPage />);
+    expect(await screen.findByText("Ingest context does not match selected World world-b.")).toBeInTheDocument();
+    expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
+  });
+
+  it("rejects a plan view without a resolved World even when its campaign matches", async () => {
+    vi.mocked(getPlanView).mockResolvedValue({
+      ...planView,
+      world_id: undefined as unknown as string,
+      campaign_id: "world-b",
+    });
+    render(<MemoryIngestPage />);
+    expect(await screen.findByText("Ingest context does not match selected World world-b.")).toBeInTheDocument();
+    expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
   });
 
   it("admits a matching exact run to the existing review controller", async () => {
@@ -103,6 +149,219 @@ describe("managed-World Ingest boundary", () => {
     } as Awaited<ReturnType<typeof getExtractionRun>>);
     render(<MemoryIngestPage />);
     expect(await screen.findByTestId("exact-graph-review")).toBeInTheDocument();
-    expect(getPlanView).toHaveBeenCalledWith("world-b");
+    expect(getPlanView).toHaveBeenCalledWith("world-b", expect.any(AbortSignal));
   });
+
+  it("opens an exact recap as read-only source review with the selected World shown as target", async () => {
+    const user = userEvent.setup();
+    selection.current = { kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null };
+    // Simulate a future PlanView response where campaign and World context
+    // differ; current server PlanView v1 returns the World ID in both fields.
+    vi.mocked(getPlanView).mockResolvedValue({
+      ...planView,
+      world_id: "elderwyld",
+      campaign_id: "longmont-c2",
+    });
+    vi.mocked(getExtractionRun).mockResolvedValue({
+      run_id: "s27-run",
+      source_domain: "recap",
+      source_artifact_id: "s27-source",
+      campaign_id: "longmont-c2",
+      session_id: "session-27",
+    } as Awaited<ReturnType<typeof getExtractionRun>>);
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2&extractionRunId=s27-run",
+    );
+
+    render(<MemoryIngestPage />);
+
+    const sourceScope = await screen.findByTestId("source-review-scope");
+    expect(sourceScope).toHaveTextContent("longmont-c2");
+    expect(screen.getByTestId("source-review-scope")).toHaveTextContent("session-27");
+    expect(screen.getByTestId("source-review-scope")).toHaveTextContent("elderwyld");
+    const artifactDetails = screen.getByText("Show exact artifact ID").closest("details");
+    expect(artifactDetails).not.toHaveAttribute("open");
+    expect(screen.getByText("s27-source")).not.toBeVisible();
+    await user.click(screen.getByText("Show exact artifact ID"));
+    expect(artifactDetails).toHaveAttribute("open");
+    expect(screen.getByText("s27-source")).toBeVisible();
+    expect(screen.getByTestId("exact-graph-review")).toHaveAttribute(
+      "data-source-review-only",
+      "true",
+    );
+    expect(screen.getByText(/does not import it or associate it/)).toBeInTheDocument();
+  });
+
+  it("tracks same-World handoff changes and ignores stale exact-run loads", async () => {
+    selection.current = { kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null };
+    vi.mocked(getPlanView).mockResolvedValue({
+      ...planView,
+      world_id: "elderwyld",
+      campaign_id: "elderwyld",
+    });
+    const runA = deferred<Awaited<ReturnType<typeof getExtractionRun>>>();
+    const runB = deferred<Awaited<ReturnType<typeof getExtractionRun>>>();
+    const runC = deferred<Awaited<ReturnType<typeof getExtractionRun>>>();
+    vi.mocked(getExtractionRun).mockImplementation((runId) => {
+      if (runId === "run-a") return runA.promise;
+      if (runId === "run-b") return runB.promise;
+      if (runId === "run-c") return runC.promise;
+      throw new Error(`unexpected run ${runId}`);
+    });
+    window.history.replaceState({}, "", "/ingest?world=elderwyld");
+    render(<MemoryIngestPage />);
+    expect(await screen.findByTestId("recap-workbench")).toBeInTheDocument();
+
+    const navigate = async (runId: string) => {
+      await act(async () => {
+        window.history.replaceState({}, "", `/ingest?world=elderwyld&extractionRunId=${runId}`);
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
+      await waitFor(() => expect(getExtractionRun).toHaveBeenCalledWith(runId, expect.any(AbortSignal)));
+    };
+
+    await navigate("run-a");
+    await navigate("run-b");
+    await act(async () => {
+      runB.resolve({
+        run_id: "run-b",
+        source_domain: "worldbuilding",
+        source_artifact_id: "source-b",
+        campaign_id: "elderwyld",
+      } as Awaited<ReturnType<typeof getExtractionRun>>);
+      await runB.promise;
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("exact-graph-review")).toHaveAttribute(
+        "data-source-review-only",
+        "false",
+      );
+      expect(screen.getByTestId("exact-graph-review")).toHaveAttribute(
+        "data-location-search",
+        "?world=elderwyld&extractionRunId=run-b",
+      );
+    });
+
+    await act(async () => {
+      runA.resolve({
+        run_id: "run-a",
+        source_domain: "recap",
+        source_artifact_id: "source-a",
+        campaign_id: "longmont-c2",
+        session_id: "session-27",
+      } as Awaited<ReturnType<typeof getExtractionRun>>);
+      await runA.promise;
+    });
+    expect(screen.queryByTestId("source-review-scope")).not.toBeInTheDocument();
+    expect(screen.getByTestId("exact-graph-review")).toHaveAttribute(
+      "data-source-review-only",
+      "false",
+    );
+
+    await navigate("run-c");
+    await act(async () => {
+      runC.resolve({
+        run_id: "run-c",
+        source_domain: "recap",
+        source_artifact_id: "source-c",
+        campaign_id: "longmont-c2",
+        session_id: "session-27",
+      } as Awaited<ReturnType<typeof getExtractionRun>>);
+      await runC.promise;
+    });
+    expect(await screen.findByTestId("source-review-scope")).toHaveTextContent("source-c");
+    expect(screen.getByTestId("exact-graph-review")).toHaveAttribute(
+      "data-source-review-only",
+      "true",
+    );
+  });
+  it("rejects an artifact mismatch before publishing source metadata or reading Plan context", async () => {
+    window.history.replaceState({}, "", "/ingest?world=world-b&extractionRunId=run-b&sourceArtifactId=claimed");
+    vi.mocked(getExtractionRun).mockResolvedValue({run_id:"run-b",source_artifact_id:"actual",source_domain:"recap",campaign_id:"other"} as never);
+    render(<MemoryIngestPage />);
+    expect(await screen.findByText(/sourceArtifactId does not match/)).toBeInTheDocument();
+    expect(getPlanView).not.toHaveBeenCalled();expect(screen.queryByTestId("source-review-scope")).not.toBeInTheDocument();
+  });
+
+  it("rejects incomplete workspace lineage before any exact record read", async () => {
+    window.history.replaceState({}, "", "/ingest?world=world-b&extractionRunId=run-b&documentId=doc");
+    render(<MemoryIngestPage />);
+    expect(await screen.findByText(/documentId and revision must be supplied together/)).toBeInTheDocument();
+    expect(getExtractionRun).not.toHaveBeenCalled();expect(getPlanView).not.toHaveBeenCalled();
+  });
+
+  it("aborts old reads and suppresses old DOM/Agent context across A-B-A navigation", async () => {
+    const oldA=deferred<Awaited<ReturnType<typeof getExtractionRun>>>(),newA=deferred<Awaited<ReturnType<typeof getExtractionRun>>>(),b=deferred<Awaited<ReturnType<typeof getExtractionRun>>>();
+    vi.mocked(getExtractionRun).mockReturnValueOnce(oldA.promise).mockReturnValueOnce(b.promise).mockReturnValueOnce(newA.promise);
+    window.history.replaceState({},"","/ingest?world=world-b&extractionRunId=a");render(<MemoryIngestPage />);
+    await waitFor(()=>expect(getExtractionRun).toHaveBeenCalledTimes(1));
+    const navigate=async(id:string)=>{await act(async()=>{window.history.replaceState({},"",`/ingest?world=world-b&extractionRunId=${id}`);window.dispatchEvent(new PopStateEvent("popstate"))})};
+    await navigate("b");await waitFor(()=>expect(getExtractionRun).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(getExtractionRun).mock.calls[0][1]?.aborted).toBe(true);
+    await navigate("a");await waitFor(()=>expect(getExtractionRun).toHaveBeenCalledTimes(3));
+    await act(async()=>oldA.resolve({run_id:"a",source_domain:"recap",source_artifact_id:"old",campaign_id:"foreign"} as never));
+    expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
+    expect(vi.mocked(usePublishAgentSurfaceContext).mock.calls.at(-1)?.[0]?.campaignId).toBeNull();
+    await act(async()=>newA.resolve({run_id:"a",source_domain:"worldbuilding",source_artifact_id:"new",campaign_id:"world-b"} as never));
+    expect(await screen.findByTestId("exact-graph-review")).toHaveAttribute("data-observed-run","a");
+    expect(screen.queryByTestId("source-review-scope")).not.toBeInTheDocument();
+  });
+
+  it("retires an unresolved access-bound read and never admits its late result", async () => {
+    const old=deferred<Awaited<ReturnType<typeof getExtractionRun>>>(),fresh=deferred<Awaited<ReturnType<typeof getExtractionRun>>>();
+    vi.mocked(getExtractionRun).mockReturnValueOnce(old.promise).mockReturnValueOnce(fresh.promise);
+    window.history.replaceState({},"","/ingest?world=world-b&extractionRunId=a");render(<MemoryIngestPage />);
+    await waitFor(()=>expect(getExtractionRun).toHaveBeenCalledTimes(1));
+    act(()=>window.dispatchEvent(new Event(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT)));
+    await waitFor(()=>expect(getExtractionRun).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(getExtractionRun).mock.calls[0][1]?.aborted).toBe(true);
+    await act(async()=>old.resolve({run_id:"a",source_domain:"recap",source_artifact_id:"old",campaign_id:"foreign"} as never));
+    expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
+    await act(async()=>fresh.resolve({run_id:"a",source_domain:"worldbuilding",campaign_id:"world-b"} as never));
+    expect(await screen.findByTestId("exact-graph-review")).toHaveAttribute("data-source-review-only","false");
+  });
+
+  it("keeps the accepted initial owner mounted through mutation waves", async () => {
+    vi.mocked(getExtractionRun).mockResolvedValue({run_id:"a",source_domain:"worldbuilding",campaign_id:"world-b"} as never);
+    window.history.replaceState({},"","/ingest?world=world-b&extractionRunId=a");render(<MemoryIngestPage />);
+    const element=await screen.findByTestId("exact-graph-review"),generation=element.dataset.observedGeneration;
+    act(()=>{startReadWave();startReadWave()});
+    expect(screen.getByTestId("exact-graph-review")).toBe(element);
+    expect(element.dataset.observedGeneration).toBe(generation);expect(getExtractionRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries failed context reads explicitly and aborts unresolved work on unmount", async () => {
+    const user=userEvent.setup();vi.mocked(getExtractionRun).mockRejectedValueOnce(new Error("read unavailable")).mockResolvedValueOnce({run_id:"a",source_domain:"worldbuilding",campaign_id:"world-b"} as never);
+    window.history.replaceState({},"","/ingest?world=world-b&extractionRunId=a");const view=render(<MemoryIngestPage />);
+    await screen.findByText("read unavailable");await user.click(screen.getByRole("button",{name:"Retry context read"}));
+    await screen.findByTestId("exact-graph-review");expect(getExtractionRun).toHaveBeenCalledTimes(2);
+    const gate=deferred<Awaited<ReturnType<typeof getExtractionRun>>>();vi.mocked(getExtractionRun).mockReturnValue(gate.promise);
+    await act(async()=>{window.history.replaceState({},"","/ingest?world=world-b&extractionRunId=b");window.dispatchEvent(new PopStateEvent("popstate"))});
+    expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
+    view.unmount();expect(vi.mocked(getExtractionRun).mock.calls.at(-1)?.[1]?.aborted).toBe(true);
+  });
+
+});
+
+
+it.each(["held", "accepted", "rejected"])("keeps a recap correction child source-only after route change and remount: %s", async state => {
+  vi.clearAllMocks();
+  selection.current = { kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null };
+  vi.mocked(getPlanView).mockResolvedValue({ ...planView, world_id: "elderwyld", campaign_id: "longmont-c2" });
+  vi.mocked(getExtractionRun).mockImplementation(async id => ({ run_id: id, source_domain: "recap", source_artifact_id: "same-source",
+    campaign_id: "longmont-c2", session_id: "session-29", lineage: id === "child" ? {
+      derivation: "operator_recap_literal_evidence_correction_v1", parent_run_id: "parent", semantic_disposition: { state },
+    } : {},
+  } as Awaited<ReturnType<typeof getExtractionRun>>));
+  window.history.replaceState({}, "", "/ingest?world=elderwyld&extractionRunId=parent");
+  const view = render(<MemoryIngestPage />);
+  await waitFor(() => expect(screen.getByTestId("exact-graph-review")).toHaveAttribute("data-source-review-only", "true"));
+  await act(async () => { window.history.replaceState({}, "", "/ingest?world=elderwyld&extractionRunId=child"); window.dispatchEvent(new PopStateEvent("popstate")); });
+  await waitFor(() => expect(screen.getByTestId("exact-graph-review")).toHaveAttribute("data-location-search", "?world=elderwyld&extractionRunId=child"));
+  expect(screen.getByTestId("exact-graph-review")).toHaveAttribute("data-source-review-only", "true");
+  view.unmount(); render(<MemoryIngestPage />);
+  await waitFor(() => expect(screen.getByTestId("exact-graph-review")).toHaveAttribute("data-source-review-only", "true"));
+  expect(screen.getByTestId("source-review-scope")).toHaveTextContent("does not import it");
 });

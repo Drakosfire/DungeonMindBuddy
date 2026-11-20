@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 
-from src.graph_memory import identity_resolution as ir
+from graph_memory import identity_resolution as ir
 
 
 # --------------------------------------------------------------------------- #
@@ -710,3 +710,212 @@ def test_unknown_job_adversary_monster_types_do_not_gain_identity_classes():
     assert ir.node_type_class("job").startswith("type:")
     assert ir.node_type_class("adversary").startswith("type:")
     assert ir.node_type_class("monster").startswith("type:")
+
+
+# Captured from accepted base406cb3e2 before protects adoption; no regeneration.
+_PROTECTS_LEGACY_GOLDEN = json.loads(r"""{"base": "406cb3e2a5b196a80f8a9b2fc3ff39a7b2b0a045",
+ "keys": {
+  "parent_of": ["kinship", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "child_of": ["kinship", "corpus::actor::bravo", "corpus::actor::alpha"],
+  "sibling_of": ["kinship", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "married_to": ["kinship", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "spouse_of": ["kinship", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "located_in": ["location_hierarchy", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "part_of": ["location_hierarchy", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "within": ["location_hierarchy", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "contains": ["location_hierarchy", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "sublocation_of": ["location_hierarchy", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "north_of": ["location_hierarchy", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "south_of": ["location_hierarchy", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "east_of": ["location_hierarchy", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "west_of": ["location_hierarchy", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "near": ["location_hierarchy", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "defends_weakened_location": ["location_hierarchy", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "travels_to": ["routing", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "routes_to": ["routing", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "leads_to": ["routing", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "road_to": ["routing", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "path_to": ["routing", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "displaced_from": ["routing", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "threatens": ["threat_relation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "besieges": ["threat_relation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "attacks": ["threat_relation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "member_of": ["membership", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "belongs_to": ["membership", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "serves": ["membership", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "recruits_for": ["membership", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "part_of_group": ["membership", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "governs": ["authority", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "commands": ["authority", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "hires": ["authority", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "reports_to": ["authority", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "carries_report_to": ["authority", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "rules": ["authority", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "leads": ["authority", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "knows_about": ["knowledge", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "aware_of": ["knowledge", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "suspects": ["knowledge", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "missing_contact": ["knowledge", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "replaced_contact": ["knowledge", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "reports_threat_in": ["knowledge", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "controls_comms_with": ["knowledge", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "refers_to": ["knowledge", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "works_with": ["social_relation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "allied_with": ["social_relation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "cooperates_with": ["social_relation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "distrusts": ["social_relation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "trusts": ["social_relation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "rivals": ["social_relation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "associated_with": ["social_relation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "linked_to": ["social_relation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "owns": ["ownership", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "holds": ["ownership", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "carries": ["ownership", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "possesses": ["ownership", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "causes": ["causality", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "caused_by": ["causality", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "results_in": ["causality", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "participates_in": ["participation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "present_at": ["participation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "attends": ["participation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "mission_targets": ["hook_relation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "mission_focus": ["hook_relation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "pursues": ["hook_relation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "objective_of": ["hook_relation", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "same_as": ["identity", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "identified_as": ["identity", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "is_a": ["identity", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "alias_of": ["alias", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "also_known_as": ["alias", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "frobnicates": ["rel:frobnicates", "corpus::actor::alpha", "corpus::actor::bravo"],
+  "": ["rel:unknown", "corpus::actor::alpha", "corpus::actor::bravo"]
+ },
+ "pairs": [
+  {"gold": {"edge_id": "e", "from_node_id": "a", "to_node_id": "b", "relationship_type": "parent_of"}, "candidate": {"edge_id": "e", "from_node_id": "b", "to_node_id": "a", "relationship_type": "child_of"}, "score": 1.0, "diagnostic": {"edge_id": "e", "best_live_edge_id": "e", "best_score": 1.0, "endpoint_score": 1.0, "gold_relationship_type": "parent_of", "gold_predicate_family": "kinship", "live_relationship_type": "child_of", "live_predicate_family": "kinship", "reason": "exact_predicate_mismatch", "detail": "predicate family matches but exact relationship_type differs"}},
+  {"gold": {"edge_id": "e", "from_node_id": "a", "to_node_id": "b", "relationship_type": "associated_with"}, "candidate": {"edge_id": "e", "from_node_id": "b", "to_node_id": "a", "relationship_type": "works_with"}, "score": 1.0, "diagnostic": {"edge_id": "e", "best_live_edge_id": "e", "best_score": 1.0, "endpoint_score": 1.0, "gold_relationship_type": "associated_with", "gold_predicate_family": "social_relation", "live_relationship_type": "works_with", "live_predicate_family": "social_relation", "reason": "exact_predicate_mismatch", "detail": "predicate family matches but exact relationship_type differs"}},
+  {"gold": {"edge_id": "e", "from_node_id": "a", "to_node_id": "b", "relationship_type": "attacks"}, "candidate": {"edge_id": "e", "from_node_id": "a", "to_node_id": "b", "relationship_type": "threatens"}, "score": 1.0, "diagnostic": {"edge_id": "e", "best_live_edge_id": "e", "best_score": 1.0, "endpoint_score": 1.0, "gold_relationship_type": "attacks", "gold_predicate_family": "threat_relation", "live_relationship_type": "threatens", "live_predicate_family": "threat_relation", "reason": "exact_predicate_mismatch", "detail": "predicate family matches but exact relationship_type differs"}},
+  {"gold": {"edge_id": "e", "from_node_id": "a", "to_node_id": "b", "relationship_type": "owns"}, "candidate": {"edge_id": "e", "from_node_id": "a", "to_node_id": "b", "relationship_type": "works_with"}, "score": 0.6, "diagnostic": {"edge_id": "e", "best_live_edge_id": "e", "best_score": 0.6, "endpoint_score": 1.0, "gold_relationship_type": "owns", "gold_predicate_family": "ownership", "live_relationship_type": "works_with", "live_predicate_family": "social_relation", "reason": "family_mismatch", "detail": "relationship predicate family differs between gold and live"}},
+  {"gold": {"edge_id": "e", "from_node_id": "a", "to_node_id": "b", "relationship_type": "frobnicates"}, "candidate": {"edge_id": "e", "from_node_id": "a", "to_node_id": "b", "relationship_type": "wibbles"}, "score": 0.6, "diagnostic": {"edge_id": "e", "best_live_edge_id": "e", "best_score": 0.6, "endpoint_score": 1.0, "gold_relationship_type": "frobnicates", "gold_predicate_family": "rel:frobnicates", "live_relationship_type": "wibbles", "live_predicate_family": "rel:wibbles", "reason": "family_mismatch", "detail": "relationship predicate family differs between gold and live"}},
+  {"gold": {"edge_id": "e", "from_node_id": "b", "to_node_id": "a", "relationship_type": "located_in"}, "candidate": {"edge_id": "e", "from_node_id": "b", "to_node_id": "a", "relationship_type": "within"}, "score": 1.0, "diagnostic": {"edge_id": "e", "best_live_edge_id": "e", "best_score": 1.0, "endpoint_score": 1.0, "gold_relationship_type": "located_in", "gold_predicate_family": "location_hierarchy", "live_relationship_type": "within", "live_predicate_family": "location_hierarchy", "reason": "exact_predicate_mismatch", "detail": "predicate family matches but exact relationship_type differs"}},
+  {"gold": {"edge_id": "e", "from_node_id": "a", "to_node_id": "b", "relationship_type": "attacks", "predicate_family": "social_relation"}, "candidate": {"edge_id": "e", "from_node_id": "b", "to_node_id": "a", "relationship_type": "parent_of", "predicate_family": "social_relation"}, "score": 1.0, "diagnostic": {"edge_id": "e", "best_live_edge_id": "e", "best_score": 1.0, "endpoint_score": 0.15, "gold_relationship_type": "attacks", "gold_predicate_family": "social_relation", "live_relationship_type": "parent_of", "live_predicate_family": "social_relation", "reason": "endpoint_score_below_threshold", "detail": "live edge endpoints do not align with gold endpoints"}}
+ ]}""")
+
+
+def test_comparison_scores_and_diagnostics_remain_independent_of_exact_dedup():
+    nodes = [_node("a", "Alpha", "character", {"type": "npc", "ref_id": "alpha"}),
+             _node("b", "Bravo", "character", {"type": "npc", "ref_id": "bravo"})]
+    index = ir.node_index(nodes)
+    for predicate, expected in _PROTECTS_LEGACY_GOLDEN["keys"].items():
+        expected_predicate = "parent_of" if predicate == "child_of" else predicate
+        assert ir.canonical_edge_key(_edge("e", "a", "b", predicate), index) == (expected_predicate, *expected[1:3])
+    for row in _PROTECTS_LEGACY_GOLDEN["pairs"]:
+        assert ir.edge_match_score(row["gold"], row["candidate"], index, index) == row["score"]
+        assert ir.classify_edge_alignment(row["gold"], row["candidate"], index, index) == row["diagnostic"]
+
+
+def test_literal_protects_never_matches_other_predicates_even_explicit_family():
+    nodes = [_node("a", "Alpha", "character", {"type": "npc", "ref_id": "alpha"}),
+             _node("b", "Bravo", "character", {"type": "npc", "ref_id": "bravo"})]
+    index = ir.node_index(nodes)
+    for family in (None, "threat_relation", "social_relation"):
+        protect = _edge("p", "a", "b", "protects")
+        if family: protect["predicate_family"] = family
+        for predicate in ("attacks", "threatens", "works_with", "unregistered_verb"):
+            other = _edge("o", "a", "b", predicate)
+            if family: other["predicate_family"] = family
+            for gold, candidate in ((protect, other), (other, protect)):
+                assert ir.edge_match_score(gold, candidate, index, index) == 0.0
+                diagnostic = ir.classify_edge_alignment(gold, candidate, index, index)
+                assert diagnostic["reason"] == "exact_predicate_mismatch"
+                assert diagnostic["best_score"] == 0.0 and diagnostic["endpoint_score"] == 1.0
+
+
+def test_literal_protection_is_directed_even_when_family_override_is_symmetric():
+    nodes = [_node("a", "Alpha", "character", {"type": "npc", "ref_id": "alpha"}),
+             _node("b", "Bravo", "character", {"type": "npc", "ref_id": "bravo"})]
+    index = ir.node_index(nodes)
+    for family in (None, "social_relation"):
+        forward = _edge("f", "a", "b", "protects"); backward = _edge("r", "b", "a", "protects")
+        if family:
+            forward["predicate_family"] = family; backward["predicate_family"] = family
+        assert ir.edge_match_score(forward, backward, index, index) == 0.0
+        assert ir.edge_match_score(backward, forward, index, index) == 0.0
+        assert ir.canonical_edge_key(forward, index) != ir.canonical_edge_key(backward, index)
+        assert ir.classify_edge_alignment(forward, backward, index, index)["reason"] == "endpoint_score_below_threshold"
+        assert len(ir.dedup_edges([forward, backward], nodes)["kept"]) == 2
+
+
+def test_dedup_preserves_distinct_predicates_directions_and_qualifiers():
+    nodes = [_node('a', 'Alpha', 'character'), _node('b', 'Bravo', 'character')]
+    edges = [_edge('attack', 'a', 'b', 'attacks'),
+             _edge('threat', 'a', 'b', 'threatens'),
+             _edge('trust', 'a', 'b', 'trusts'),
+             _edge('reverse-trust', 'b', 'a', 'trusts'),
+             dict(_edge('planned', 'a', 'b', 'attacks'), semantic_state={'status': 'planned'}),
+             dict(_edge('qualified', 'a', 'b', 'attacks'), label='attacks only if threatened')]
+    for ordered in (edges, list(reversed(edges))):
+        result = ir.dedup_edges(ordered, nodes)
+        assert {e['edge_id'] for e in result['kept']} == {e['edge_id'] for e in edges}
+        assert result['merged'] == []
+
+
+def test_exact_and_inverse_duplicates_union_all_evidence_without_mutating_inputs():
+    import copy
+    nodes = [_node('a', 'Alpha', 'character'), _node('b', 'Bravo', 'character')]
+    edges = [dict(_edge('one', 'a', 'b', 'parent_of'), evidence_refs=[{'anchor': 'one'}]),
+             dict(_edge('two', 'b', 'a', 'child_of'), evidence_refs=[{'anchor': 'two'}]),
+             dict(_edge('three', 'a', 'b', 'parent_of'), evidence_refs=[{'anchor': 'one'}])]
+    original = copy.deepcopy(edges)
+    for ordered in (edges, list(reversed(edges))):
+        result = ir.dedup_edges(ordered, nodes)
+        assert len(result['kept']) == 1
+        assert {r['anchor'] for r in result['kept'][0]['evidence_refs']} == {'one', 'two'}
+        assert len(result['merged']) == 2
+    assert edges == original
+
+
+def test_preview_dataclass_duplicate_keeps_type_and_unions_evidence():
+    from dataclasses import replace
+    from graph_memory.candidate_graph_preview import CandidateEdge, EvidenceRef, SemanticState
+    state = SemanticState('candidate', 'draft', 'source_evidence', 'unreviewed', 'visible')
+    first = CandidateEdge('one', 'a', 'b', 'parent', 'parent_of', state,
+        (EvidenceRef('source', 'artifact', source_anchor_id='one'),), 'create', 'medium')
+    inverse = replace(first, edge_id='two', from_node_id='b', to_node_id='a',
+        relationship_type='child_of',
+        evidence_refs=(EvidenceRef('source', 'artifact', source_anchor_id='two'),))
+    result = ir.dedup_edges([first, inverse], [])
+    assert isinstance(result['kept'][0], CandidateEdge)
+    assert {ref.source_anchor_id for ref in result['kept'][0].evidence_refs} == {'one', 'two'}
+    assert len(first.evidence_refs) == 1
+    assert len(ir.dedup_edges([first, replace(first, to_node_id='missing')], [])['kept']) == 2
+
+
+def test_directional_diagnostics_do_not_adopt_coarse_family_symmetry():
+    nodes = [_node("a", "Alpha", "character"), _node("b", "Bravo", "character")]
+    index = ir.node_index(nodes)
+    for predicate in ("trusts", "distrusts", "identified_as", "is_a"):
+        for hint in (None, "social_relation", "alias", "identity"):
+            gold = _edge("gold", "a", "b", predicate)
+            reversed_edge = _edge("candidate", "b", "a", predicate)
+            if hint is not None:
+                gold["predicate_family"] = hint
+                reversed_edge["predicate_family"] = hint
+            # Candidate discovery remains deliberately tolerant; its score is
+            # insufficient to claim a directed relationship aligns.
+            assert ir.edge_match_score(gold, reversed_edge, index, index) >= 0.6
+            diagnostic = ir.classify_edge_alignment(gold, reversed_edge, index, index)
+            assert diagnostic["reason"] == "endpoint_score_below_threshold"
+            assert diagnostic["endpoint_score"] < 0.6
+            assert ir.classify_edge_alignment(gold, gold, index, index)["reason"] == "aligned"
+
+
+def test_reciprocal_predicates_keep_reverse_alignment_diagnostics():
+    nodes = [_node("a", "Alpha", "character"), _node("b", "Bravo", "character")]
+    index = ir.node_index(nodes)
+    for predicate in (
+        "associated_with", "same_as",
+    ):
+        gold = _edge("gold", "a", "b", predicate)
+        reversed_edge = _edge("candidate", "b", "a", predicate)
+        assert ir.edge_match_score(gold, reversed_edge, index, index) >= 0.6
+        assert ir.classify_edge_alignment(gold, reversed_edge, index, index)["reason"] == "aligned"

@@ -21,7 +21,7 @@
       "notes": "Human-first modular surface guardrails."
     },
     {
-      "path": "Docs/Plans/HANDOFF-s22-live-play-agent.md",
+      "path": "Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-s22-live-play-agent.md",
       "role": "session_22_live_play_contract",
       "notes": "Roll stack, notes discipline, and live-play modes."
     },
@@ -133,7 +133,7 @@
       "summary": "Grobnok committed to contact again in the morning and definitely in the evening; keep this as an open live-play loop until resolved.",
       "source_paths": [
         {
-          "path": "Docs/Plans/HANDOFF-s22-live-play-agent.md",
+          "path": "Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-s22-live-play-agent.md",
           "role": "session_22_live_play_contract",
           "notes": "Roll stack, notes discipline, and live-play modes."
         },
@@ -151,7 +151,7 @@
       "summary": "Comms remain part of the live session state and should become events/jobs rather than inline corpus edits.",
       "source_paths": [
         {
-          "path": "Docs/Plans/HANDOFF-s22-live-play-agent.md",
+          "path": "Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-s22-live-play-agent.md",
           "role": "session_22_live_play_contract",
           "notes": "Roll stack, notes discipline, and live-play modes."
         },

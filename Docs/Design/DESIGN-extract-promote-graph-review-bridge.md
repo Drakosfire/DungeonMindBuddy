@@ -1,6 +1,6 @@
 # Design — Extract Promote → Graph Review Bridge
 
-**Status:** ACTIVE REFERENCE — product binding ladder for governed World Graph publication  
+**Status:** HISTORICAL REFERENCE — the July binding ladder below records the former Kernel implementation. Filesystem promotion CLI/confirm and the default-World status endpoint are retired. Current product preparation and confirmation use DungeonMind authority; this document does not activate the old paths.
 **Date:** 2026-07-17  
 **Updated:** 2026-07-18 — PR011A2 landed on `main` (`cec9834f`, #365); PR011A3 confirm / durable reload / Session 25 dogfood is the active gate  
 **Sequencing authority:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md) (PR011A*)  

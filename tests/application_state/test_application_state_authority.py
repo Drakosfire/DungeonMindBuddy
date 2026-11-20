@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pytest
 
+from application_state import authority
 from application_state.authority import (
     ApplicationStateFingerprint,
     DomainFingerprint,
@@ -156,10 +157,18 @@ def test_fingerprint_deterministic_on_empty_head(application_state_dsn: str) -> 
         "content.working_copy",
         "play.run",
         "play.run_manifest",
+        "play.run_edition",
+        "play.run_edition_revision",
         "play.active_run",
         "ingest.run",
         "source.artifact",
         "source.revision",
+        "media.asset",
+        "media.storage",
+        "agent.conversation",
+        "agent.turn",
+        "agent.turn_reference",
+        "agent.turn_rules_execution",
     }
     assert all(d.row_count == 0 for d in first.domains)
 
@@ -188,6 +197,28 @@ def test_fingerprint_changes_with_content_and_source_rows(
     assert counts["content.work_object"] == 1
     assert counts["source.artifact"] == 1
     assert counts["source.revision"] == 1
+
+
+def test_fingerprint_uses_one_snapshot_across_domains(
+    application_state_dsn: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    before = compute_fingerprint(application_state_dsn)
+    read_table = authority._fingerprint_table
+
+    def write_between_tables(conn, domain, table, order_by):
+        result = read_table(conn, domain, table, order_by)
+        if domain == "content.work_object":
+            create_plan(title="Concurrent plan", campaign_id="eldyrwild")
+        return result
+
+    with monkeypatch.context() as patch:
+        patch.setattr(authority, "_fingerprint_table", write_between_tables)
+        during = compute_fingerprint(application_state_dsn)
+
+    assert during == before
+    after = compute_fingerprint(application_state_dsn)
+    assert after != before
+    assert {d.name: d.row_count for d in after.domains}["content.work_object"] == 1
 
 
 def test_fingerprint_stable_across_repeated_computation_with_rows(
@@ -340,3 +371,92 @@ def test_check_with_stale_fingerprint_is_not_ready(
     assert code == 2
     assert "NOT_READY:" in captured.err
     assert "READY:" not in captured.out
+
+
+def test_editions_and_receipts_participate_in_recovery_parity(application_state_dsn):
+    """The existing v1 envelope remains readable, but missing domains fail parity."""
+    import psycopg
+    from dataclasses import replace
+    from tests.application_state.test_play_run_editions_postgres import (
+        create_source_run,
+        read,
+        request_for,
+        save,
+    )
+
+    _, _, run = create_source_run()
+    before = compute_fingerprint(application_state_dsn)
+    initial = read(run.run.run_id)
+    save(run.run.run_id, request_for(initial))
+    accepted = compute_fingerprint(application_state_dsn)
+    assert before.digest != accepted.digest
+    domains = {d.name: d for d in accepted.domains}
+    assert domains["play.run_edition"].row_count == 1
+    assert domains["play.run_edition_revision"].row_count == 1
+    old_envelope = replace(
+        accepted,
+        domains=tuple(
+            d
+            for d in accepted.domains
+            if d.name not in {"play.run_edition", "play.run_edition_revision"}
+        ),
+    )
+    assert len(compare_fingerprints(old_envelope, accepted)) == 2
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        conn.execute(
+            "UPDATE play.run_edition_revision SET request_sha256 = %s", ("f" * 64,)
+        )
+    corrupt = compute_fingerprint(application_state_dsn)
+    assert corrupt.digest != accepted.digest
+    assert any(
+        "play.run_edition_revision" in item
+        for item in compare_fingerprints(accepted, corrupt)
+    )
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        conn.execute(
+            "UPDATE play.run_edition_revision SET markdown = markdown || %s",
+            ("Additional content",),
+        )
+    changed_content = compute_fingerprint(application_state_dsn)
+    assert changed_content.digest != corrupt.digest
+    assert any(
+        "play.run_edition_revision" in item
+        for item in compare_fingerprints(corrupt, changed_content)
+    )
+
+
+def test_real_dump_restore_retains_edition_fingerprint(application_state_dsn, tmp_path):
+    """Rehearse public backup/restore with owned clones and pg clients on PATH."""
+    from uuid import uuid4
+    from tests.application_state.test_play_run_editions_postgres import (
+        create_source_run,
+        read,
+        request_for,
+        save,
+    )
+    from tests.application_state.conftest import _create_database, _drop_database
+
+    _, _, run = create_source_run()
+    save(run.run.run_id, request_for(read(run.run.run_id)))
+    save(run.run.run_id, request_for(read(run.run.run_id), "second"))
+    expected = compute_fingerprint(application_state_dsn)
+    backup_path = tmp_path / "edition.dump"
+    backup = authority.backup_authority(source_dsn=application_state_dsn, out_path=backup_path)
+    assert backup.fingerprint.digest == expected.digest
+    assert verify_backup_digest(backup_path) == backup.backup_sha256
+    name = "dungeonbuddy_app_state_test_" + uuid4().hex[:12]
+    target = _replace_database(application_state_dsn, name)
+    admin = _replace_database(application_state_dsn, "postgres")
+    _create_database(admin, name)
+    try:
+        report = restore_authority(
+            source_dsn=application_state_dsn,
+            target_dsn=target,
+            backup_path=backup_path,
+        )
+        assert report.ready and not report.mismatches
+        restored = compute_fingerprint(target)
+        assert compare_fingerprints(expected, restored) == []
+        assert expected.digest == restored.digest
+    finally:
+        _drop_database(admin, name)

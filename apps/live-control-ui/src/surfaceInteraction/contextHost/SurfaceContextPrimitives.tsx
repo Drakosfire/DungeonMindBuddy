@@ -5,19 +5,6 @@ import type {
 } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-interface SurfaceContextLabelProps {
-  children: ReactNode;
-  className?: string;
-}
-
-export function SurfaceContextLabel({ children, className }: SurfaceContextLabelProps) {
-  const labelClassName = className
-    ? `surface-context-label ${className}`
-    : "surface-context-label";
-
-  return <span className={labelClassName}>{children}</span>;
-}
-
 interface SurfaceContextValueProps {
   children: ReactNode;
   title?: string;
@@ -123,28 +110,47 @@ export function SurfaceContextPopover({
   const panelRef = useRef<HTMLDivElement>(null);
   const [resolvedAlign, setResolvedAlign] = useState(align);
 
-  useEffect(() => {
-    setResolvedAlign(align);
-  }, [align, open, placement]);
-
   useLayoutEffect(() => {
-    if (!open || placement !== "beside") {
-      return;
-    }
     const panel = panelRef.current;
-    if (!panel) {
-      return;
-    }
-    const rect = panel.getBoundingClientRect();
+    const root = rootRef.current;
+    if (!open || !panel || !root) return;
     const margin = 12;
-    if (align === "end" && rect.right > window.innerWidth - margin) {
-      setResolvedAlign("start");
-      return;
+    function updatePlacement() {
+      if (!panel || !root) return;
+      panel.style.maxHeight = `${Math.max(0, window.innerHeight - margin * 2)}px`;
+      // Measure the normal CSS anchor, including static-root responsive layouts.
+      panel.style.translate = "";
+      const anchor = root.getBoundingClientRect();
+      const rect = panel.getBoundingClientRect();
+      const below = placement === "below" || window.innerWidth <= 720;
+      const leftFor = (candidate: "start" | "end") => below
+        ? candidate === "start" ? anchor.left : anchor.right - rect.width
+        : candidate === "start" ? anchor.left - rect.width - 8 : anchor.right + 8;
+      const fits = (candidate: "start" | "end") => {
+        const left = leftFor(candidate);
+        return left >= margin && left + rect.width <= window.innerWidth - margin;
+      };
+      const alternative = align === "start" ? "end" : "start";
+      setResolvedAlign(fits(align) || !fits(alternative) ? align : alternative);
+      const top = Math.max(margin, Math.min(rect.top, window.innerHeight - margin - rect.height));
+      panel.style.translate = `0 ${top - rect.top}px`;
     }
-    if (align === "start" && rect.left < margin) {
-      setResolvedAlign("end");
+    function handleScroll(event: Event) {
+      if (event.target instanceof Node && panel?.contains(event.target)) return;
+      updatePlacement();
     }
-  }, [align, open, placement, children]);
+    updatePlacement();
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(updatePlacement) : null;
+    observer?.observe(panel);
+    observer?.observe(root);
+    window.addEventListener("resize", updatePlacement);
+    window.addEventListener("scroll", handleScroll, true);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updatePlacement);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [align, open, placement, children, resolvedAlign]);
 
   useEffect(() => {
     if (!open) {

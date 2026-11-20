@@ -1,0 +1,110 @@
+{
+  "authority_identities": {
+    "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL": {
+      "database": "dungeonbuddy_application_state",
+      "host": "127.0.0.1",
+      "port": 54331
+    },
+    "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL": {
+      "database": "dungeonmind_cutover_live_restore_20261011",
+      "host": "127.0.0.1",
+      "port": 54330
+    }
+  },
+  "candidate_head": "fad78a85d710f560bc297f867b6e3c1fa4f0940e",
+  "candidate_launcher_sha256": "e20dc73a68d210f2127025df4e7e8b462450cbe2f13c8eee85f62ee7b2803179",
+  "candidate_lock_sha256": "1f2747cad2934bc6f2e7ee5af7b83c0a227d01a75ddab507b3d29f254c9dfb8e",
+  "candidate_required_core": "13143455b304d748c249bd7bd628134c421bf6d9",
+  "candidate_tree": "a39554747936fdae84ebac319683ae48f7e8b3c5",
+  "health_status": {
+    "5202": 200,
+    "7860": 200,
+    "8000": 200
+  },
+  "installed_runtime_core": {
+    "commit": "ba6069b91e1a608f125548860502a69b4c3e3fc6",
+    "version": "0.1.0"
+  },
+  "live_environment_matches_candidate_core": false,
+  "live_ports": [
+    5202,
+    8000,
+    7860
+  ],
+  "node_version": "v22.23.0",
+  "observed_at_utc": "2026-10-12T17:42:19.545671+00:00",
+  "operator_state": {
+    "hermes_profiles": {
+      "files": 16,
+      "inventory_sha256": "bc304a57c799c6ecc4f12ce8918be36a7caf64ebd317a0d2de40acf0ec2ca197"
+    },
+    "pointer_sha256": "1a785a7e5754d04f8ba68fa0c27e4a7dd958cdceee431e3cd2185958269df1af"
+  },
+  "preserved_files": {
+    "apps/live-control-ui/package-lock.json": {
+      "resolved_path": "/tmp/buddy-automatic-chat-reconciliation/apps/live-control-ui/package-lock.json",
+      "sha256": "860c764cbe376a7b996b77b6ee45f709f8debd9d4713de2f45dbf5817d87c5b2"
+    },
+    "operator_profile": {
+      "resolved_path": "/home/drakosfire/.local/state/dungeonmindbuddy/runtime-config/dogfood-local-operator.env",
+      "sha256": "f3d61e23000d2c73b389e815280ecd1e333563f6c614f2f45f21ba65c6206ac0"
+    },
+    "pyproject.toml": {
+      "resolved_path": "/tmp/buddy-automatic-chat-reconciliation/pyproject.toml",
+      "sha256": "5718b1d1d60c779336bf25888fff36fb30a0757e9d5bf6806bde6a78de47be94"
+    },
+    "run": {
+      "resolved_path": "/tmp/buddy-automatic-chat-reconciliation/run",
+      "sha256": "e20dc73a68d210f2127025df4e7e8b462450cbe2f13c8eee85f62ee7b2803179"
+    },
+    "uv.lock": {
+      "resolved_path": "/tmp/buddy-automatic-chat-reconciliation/uv.lock",
+      "sha256": "e5a544f9aa885b54689ad90fccf98d934f0b206ee4e80e9ad8ef0a64bce542a2"
+    }
+  },
+  "processes": [
+    {
+      "cwd": "/tmp/buddy-automatic-chat-reconciliation/apps/live-control-ui",
+      "executable": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/.hermes-runtime/node/bin/node",
+      "pgid": 497628,
+      "pid": 497672,
+      "service": "ui"
+    },
+    {
+      "cwd": "/tmp/buddy-automatic-chat-reconciliation",
+      "executable": "/home/drakosfire/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/bin/python3.13",
+      "pgid": 497628,
+      "pid": 497657,
+      "service": "buddy_api"
+    },
+    {
+      "cwd": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindServer",
+      "executable": "/usr/bin/python3.12",
+      "pgid": 497628,
+      "pid": 497651,
+      "service": "web_api"
+    }
+  ],
+  "python_environment": "/home/drakosfire/.codex/worktrees/main-dogfood-runtime/DungeonMindBuddy/.venv",
+  "quiet_authority": "not granted; fresh open-turn/action and operator-state snapshot required",
+  "rollback_head": "98f0c225066fff9ec836b05ac7d78e0de983e8ff",
+  "rollback_tree": "38164fd84da3ba9333eb672373053cf46bccc2cf",
+  "runtime_checkout": "/tmp/buddy-automatic-chat-reconciliation",
+  "runtime_status": [
+    "M evals/c2_live_prep/live/session_22/hermes_thread_pointers.json",
+    "?? .venv",
+    "?? evals/c2_live_prep/live/session_22/hermes_agent_profiles/"
+  ],
+  "runtime_swapped": false,
+  "safe_launch_environment": {
+    "BUDDY_API_PORT": "8000",
+    "BUDDY_UI_PORT": "5202",
+    "DMB_AGENT_GRAPH_LOCAL_PROFILE": "/home/drakosfire/.local/state/dungeonmindbuddy/runtime-config/dogfood-local-operator.env",
+    "DMB_ARTIFACT_DATA_ROOT": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy",
+    "DMB_MANAGED_WORLD_DATA_ROOT": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy",
+    "DUNGEONMIND_SERVER_PORT": "7860",
+    "DUNGEONMIND_SERVER_ROOT": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindServer",
+    "RUN_NO_RELOAD": "1",
+    "UV_NO_SYNC": "1"
+  }
+}

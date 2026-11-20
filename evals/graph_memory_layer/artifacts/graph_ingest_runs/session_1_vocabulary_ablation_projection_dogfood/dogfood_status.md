@@ -12,7 +12,7 @@ Projection load: PASS
 - projected_recap_preview: `evals/graph_memory_layer/artifacts/graph_ingest_runs/session_1_vocabulary_ablation_projection_dogfood/projected_recap_preview.md`
 
 ## Notes
-- Candidate graph: `evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/c1s1-stonebridge_edge_and_node_packet_candidate_graph.json`
+- Candidate graph: `evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/c1s1-stonebridge_edge_and_node_packet_candidate_graph.json`
 - Recap source: `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 01 - Stonebridge and Glowkindle Rats.md`
 - Mirathorn world merged: `True`
 - Projected mention chips: 36

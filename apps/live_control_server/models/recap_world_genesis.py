@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-RECAP_WORLD_GENESIS_PLAN_SCHEMA = "dmb_recap_world_genesis_plan_v1"
+RECAP_WORLD_GENESIS_PLAN_SCHEMA = "dmb_recap_world_genesis_plan_v2"
 
 
 class _GenesisModel(BaseModel):
@@ -26,6 +26,13 @@ class RecapWorldGenesisPlan(_GenesisModel):
     schema_: Literal[RECAP_WORLD_GENESIS_PLAN_SCHEMA] = Field(
         default=RECAP_WORLD_GENESIS_PLAN_SCHEMA, alias="schema"
     )
+    @model_validator(mode="before")
+    @classmethod
+    def _current_plan_only(cls, value):
+        if isinstance(value, dict) and value.get("schema", value.get("schema_", RECAP_WORLD_GENESIS_PLAN_SCHEMA)) != RECAP_WORLD_GENESIS_PLAN_SCHEMA:
+            raise ValueError("This saved registry review is out of date. Prepare and review it again; the old request has been preserved.")
+        return value
+
     plan_id: str
     plan_digest: str
     initialization_id: str

@@ -1,8 +1,11 @@
+import {useTourNavigationGuard} from '../guidedTour/Navigation';
+import {useGuidedTour} from '../guidedTour/GuidedTour';
 import {
   createContext,
   useCallback,
   useContext,
   useMemo,
+  useState,
   type ReactNode,
 } from "react";
 
@@ -139,6 +142,8 @@ function admitDocument(args: {
 }
 
 export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProviderProps) {
+  const tour=useGuidedTour();
+  const [tourSaveScope,setTourSaveScope]=useState<ReturnType<NonNullable<typeof tour>['captureScope']>>(null);
   const {
     documentId,
     surface,
@@ -217,6 +222,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       },
       async ({ signal }) => {
         if (signal.aborted) throw new Error("Save aborted.");
+        setTourSaveScope(tour?.captureScope()??null);
         await authoring.saveMarkdown();
       },
     );
@@ -224,7 +230,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       // Authoring already surfaces save errors on the session; conflict/duplicate are silent no-ops
       // matching prior disabled-button races. Other failures remain visible via authoring.error.
     }
-  }, [authoring, runDocumentCommand, saveConflicts]);
+  }, [authoring, runDocumentCommand, saveConflicts, tour?.captureScope]);
 
   const updateDocumentMetadata = useCallback(
     async (patch: { title: string }): Promise<DocumentCommandResult<WorkspaceDocumentRecord>> => {
@@ -273,6 +279,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
     [authoring, runDocumentCommand, saveConflicts],
   );
 
+  useTourNavigationGuard(authoring.record?.world_id?{worldId:authoring.record.world_id,reason:()=>activeCommand?'Finish the current document action before opening other controls.':null}:null);
   const saveBlockedByCommand = Boolean(
     activeCommand && saveConflicts.includes(activeCommand.id),
   );
@@ -285,12 +292,44 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       snapshot: authoring.snapshot,
       dirty: authoring.dirty,
       exportedMarkdownAuthoritative: authoring.exportedMarkdownAuthoritative,
+      pageComposerEnabled: authoring.pageComposerEnabled,
+      pageComposerDisabledReason: authoring.pageComposerDisabledReason,
       error: authoring.error,
       statusLabel: authoring.statusLabel,
       reconciliation: authoring.reconciliation,
       editorContent: authoring.editorContent,
       documentKey: authoring.documentKey,
       saveDisabled: authoring.saveDisabled || saveBlockedByCommand,
+      saveDisabledReason: saveBlockedByCommand ? "Wait for the current document action to finish." : authoring.saveDisabledReason,
+      conflictRecovery: authoring.conflictRecovery ? {
+        ...authoring.conflictRecovery,
+        prepare: () => {
+          if (activeCommand) throw new Error("Wait for the current document action to finish.");
+          return authoring.conflictRecovery!.prepare();
+        },
+        resolve: async (review, choice) => {
+          if (activeCommand) throw new Error("Wait for the current document action to finish.");
+          await authoring.conflictRecovery!.resolve(review, choice);
+        },
+      } : undefined,
+      draftRecoveryAvailable: authoring.draftRecoveryAvailable,
+      prepareDraftRecovery: () => {
+        if (activeCommand) throw new Error("Wait for the current document action to finish.");
+        return authoring.prepareDraftRecovery();
+      },
+      confirmDraftRecovery: (review, mode) => {
+        if (activeCommand) throw new Error("Wait for the current document action to finish.");
+        return authoring.confirmDraftRecovery(review, mode);
+      },
+      prepareDraftRestore: () => {
+        if (activeCommand) throw new Error("Wait for the current document action to finish.");
+        return authoring.prepareDraftRestore();
+      },
+      restoreDraftRecovery: (review, copyId) => {
+        if (activeCommand) throw new Error("Wait for the current document action to finish.");
+        return authoring.restoreDraftRecovery(review, copyId);
+      },
+      tourSaveScope,
       lastCommitReceipt: authoring.lastCommitReceipt,
       activeCommand,
       editor: authoring.editor,
@@ -309,6 +348,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
     [
       activeCommand,
       authoring,
+      tourSaveScope,
       documentId,
       getAdmittedDocument,
       lookupAdmission,

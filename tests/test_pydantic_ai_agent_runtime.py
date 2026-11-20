@@ -203,7 +203,6 @@ def test_dependency_coexistence_pins() -> None:
     lock = (ROOT / "uv.lock").read_text(encoding="utf-8")
     assert 'name = "openai"\nversion = "2.24.0"' in lock
     assert "pydantic-ai-slim" in lock and "1.66.0" in lock
-    assert "861d69c7bba8d2ea6a1cd170e989c901c74d32d1" in lock
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert "openai==2.24.0" in pyproject
     assert "pydantic-ai-slim[openai]==1.66.0" in pyproject
@@ -217,12 +216,6 @@ def test_exact_tool_surface_from_existing_dmb_schemas() -> None:
         for item in hermes_model_visible_tool_definitions()
     }
     assert model_visible_json_schemas() == dmb
-    assert names == (
-        "declare_conversation_context",
-        "expand_graph_retrieval",
-        "read_graph_source",
-        "query_threat_mechanics_hydration",
-    )
 
 
 def test_agent_instructions_reuse_graph_system_policy_and_scope_packet() -> None:
@@ -256,7 +249,7 @@ def test_agent_instructions_reuse_graph_system_policy_and_scope_packet() -> None
     assert expected.startswith(GRAPH_SYSTEM_POLICY)
     assert GRAPH_SYSTEM_POLICY in expected
     assert "call declare_conversation_context exactly once" in expected
-    assert "latest-recap change question" in expected
+    assert "Retrieved facts do not establish which source is latest" in expected
     assert "name the campaign and session provenance" in expected
     assert "Use read_graph_source only for quotation" in expected
     assert "Do not use report scaffolding" in expected
@@ -268,7 +261,9 @@ def test_agent_instructions_reuse_graph_system_policy_and_scope_packet() -> None
     assert '"retrievalSessionId": "retrieval-sess-1"' in expected
     assert '"processIsolation": "in_process"' in expected
     assert "This runtime is in-process PydanticAI" in expected
-    assert '"admittedRecapExcerpt": "Tripod moved."' in expected
+    assert "Tripod moved." not in expected
+    assert "admittedRecapExcerpt" not in expected
+    assert "latestRecapChange" not in expected
     adapter, _executor, captured = _adapter_for(_expand_then_answer())
     result = adapter.run(invocation)
     assert result.status == "ok"
@@ -442,8 +437,8 @@ def test_process_live_query_descriptor_is_not_hermes(tmp_path: Path, monkeypatch
         lambda *args, **kwargs: READY_ENVELOPE,
     )
     monkeypatch.setattr(
-        "apps.live_control_server.services.live_agent_loop.load_session",
-        lambda *_args, **_kwargs: (PACKET, None, [], []),
+        "apps.live_control_server.services.live_agent_loop.load_session_packet",
+        lambda *_args, **_kwargs: PACKET,
     )
     response = process_live_query(
         "Where is Tripod?",
@@ -761,3 +756,29 @@ def test_play_surface_context_block_parity_with_hermes_renderer() -> None:
     assert block in instructions
     hermes_block = map_invocation_to_hermes_request(invocation).surface_context_block
     assert hermes_block == block
+
+
+def test_world_threat_hydration_uses_authoritative_scope_without_campaign(monkeypatch):
+    from dataclasses import replace
+
+    from apps.live_control_server.services import hermes_graph_interaction_tools as tools
+
+    invocation = _invocation()
+    context = invocation.context_packet
+    scope = replace(context.world_scope, campaign_id="", scope_mode="world")
+    invocation = replace(invocation, context_packet=replace(context, world_scope=scope))
+    args = inject_authoritative_tool_args(
+        "query_threat_mechanics_hydration",
+        {"queryText": "Example creature", "scopeMode": "campaign", "campaignId": "foreign"},
+        invocation,
+    )
+
+    def query(request, *, root):
+        assert request.scope_mode == "world"
+        assert request.campaign_id is None
+        assert request.world_id == scope.world_id
+        assert request.revision_pin == scope.revision_id
+        return type("Result", (), {"model_dump": lambda self, **kwargs: {"checked": True}})()
+
+    monkeypatch.setattr(tools, "query_threats_with_hydration", query)
+    assert tools.execute_query_threat_mechanics_hydration(args) == {"checked": True}

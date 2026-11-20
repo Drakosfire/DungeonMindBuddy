@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from apps.live_control_server.config import SESSION_DIR_ENV
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 from tests.application_state.isolate_dsn import needs_disposable_application_state
 
 pytest_plugins = ["tests.application_state.conftest"]
@@ -51,6 +51,11 @@ def _isolate_live_server_session_dir(
 ) -> None:
     """Prevent tests from mutating tracked ``evals/.../session_22`` fixtures."""
     if "tests/test_live_" not in request.node.nodeid:
+        return
+
+    if request.node.name == "test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client":
+        # This test owns a fully synthetic session fixture and must not copy
+        # the repository's C2 live-session inputs, even into a temporary dir.
         return
 
     repo_root = Path(__file__).resolve().parents[1]

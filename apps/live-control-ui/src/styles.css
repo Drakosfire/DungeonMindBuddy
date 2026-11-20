@@ -6,9 +6,8 @@
   line-height: 1.45;
   background: #12141a;
   color: #e8eaef;
-  /* Chrome band: ToolHost / EditHost / ProjectionHost / Author Node sit
-     outside .app-shell, so the inset lives on :root. Sidebars consume
-     these; do not restate per-host pixel heights. */
+  /* Fallback chrome band until AppChrome publishes the rendered header edge.
+     Root scope also reaches ToolHost / ProjectionHost / Author Node portals. */
   --app-chrome-top: 5.5rem;
   --app-chrome-bottom: 0rem;
   --app-ask-open-height: min(64vh, 680px);
@@ -22,8 +21,19 @@
   --app-chrome-bottom: var(--app-ask-open-height);
 }
 
+/* Plan Buddy occupies a side panel/sheet, so other Plan chrome must not reserve
+   the full-height Ask band from its available viewport. */
+:root:has(.plan-agent-shell.agent-interaction-shell--plan.open) {
+  --app-chrome-bottom: 0rem;
+}
+
 * {
   box-sizing: border-box;
+}
+
+/* Keep viewport chrome steady when a surface gains or loses page scrolling. */
+html {
+  scrollbar-gutter: stable;
 }
 
 html,
@@ -211,21 +221,6 @@ code {
     overflow-x: clip;
   }
 
-  .app-wrap:has(.world-owned-plan) .app-world-graph-status {
-    flex: 1 1 100%;
-    width: 100%;
-    margin-left: 0;
-  }
-
-  .app-wrap:has(.world-owned-plan) .app-world-graph-status .surface-context-popover {
-    justify-content: flex-start;
-    min-width: 0;
-  }
-
-  .app-wrap:has(.world-owned-plan) .app-world-graph-status__trigger {
-    max-width: 100%;
-  }
-
   .world-owned-plan {
     width: 100%;
     margin: 0.75rem auto;
@@ -257,9 +252,10 @@ code {
 }
 
 .app-wrap {
+  width: 100%;
   max-width: 960px;
   margin: 0 auto;
-  padding: 16px 20px calc(var(--app-chrome-bottom) + 1rem);
+  padding: 0 20px calc(var(--app-chrome-bottom) + 1rem);
 }
 
 .app-wrap:has(.plan-surface-root) {
@@ -285,13 +281,18 @@ code {
   line-height: 1;
 }
 
+/* Shared viewport chrome is independent of each surface's reading width. */
 .app-chrome-header {
+  flex: 0 0 auto;
+  min-width: 0;
+  margin: 6px 20px;
   position: sticky;
-  top: 10px;
+  top: 6px;
   z-index: 20;
-  margin-bottom: 20px;
   overflow: visible;
 }
+
+.workspace-navigation-fallback:empty { display: none; }
 
 .app-site-nav {
   display: flex;
@@ -308,6 +309,7 @@ code {
 }
 
 .app-site-nav:has(.app-world-selector__menu),
+.app-site-nav:has(.surface-context-popover__panel),
 .app-site-nav:has(.app-world-graph-status__trigger[aria-expanded="true"]) {
   position: relative;
   z-index: 1;
@@ -420,10 +422,6 @@ code {
   min-height: 0;
   display: flex;
   flex-direction: column;
-}
-
-.app-wrap:has(.app-chrome-workspace > .app-peek-region:not([hidden])) > .app-chrome-header {
-  flex: 0 0 auto;
 }
 
 .app-chrome-workspace:has(> .app-peek-region:not([hidden])) {
@@ -687,6 +685,10 @@ code {
   transform: translateX(0);
 }
 
+.app-shell--edit-dock {
+  --app-edit-host-dock-width: min(380px, 32vw);
+}
+
 .app-shell--edit-dock:has(.plan-surface-root) {
   --plan-agent-bar-height: var(--app-chrome-bottom);
   --plan-agent-open-chrome-height: var(--app-ask-open-height);
@@ -697,8 +699,28 @@ code {
   box-sizing: border-box;
 }
 
-.app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-shell-layout {
-  padding-left: min(380px, 32vw);
+.app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-wrap :is(.plan-surface-root, .world-owned-plan) {
+  /* Keep the shared navigation/context band in place; reserve dock space only
+     for the Plan workspace below it. */
+  width: calc(100% - var(--app-edit-host-dock-width));
+  max-width: none;
+  margin-left: var(--app-edit-host-dock-width);
+}
+
+/* AgentInteractionChrome is a #root sibling of the app shell. */
+#root:has(.plan-agent-shell.agent-interaction-shell--plan.open)
+  .app-shell--edit-dock .app-wrap :is(.plan-surface-root, .world-owned-plan) {
+  width: calc(100% - var(--agent-plan-panel-width, 440px));
+  max-width: none;
+  margin-left: 0;
+  margin-right: var(--agent-plan-panel-width, 440px);
+}
+
+#root:has(.plan-agent-shell.agent-interaction-shell--plan.open)
+  .app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-wrap :is(.plan-surface-root, .world-owned-plan) {
+  width: calc(100% - var(--app-edit-host-dock-width) - var(--agent-plan-panel-width, 440px));
+  margin-left: var(--app-edit-host-dock-width);
+  margin-right: var(--agent-plan-panel-width, 440px);
 }
 
 .app-shell--edit-dock .app-edit-toolbox--docked {
@@ -711,7 +733,7 @@ code {
   left: 0;
   bottom: var(--app-chrome-bottom);
   z-index: 30;
-  width: min(380px, 32vw);
+  width: var(--app-edit-host-dock-width);
   height: auto;
   max-height: none;
   transform: none;
@@ -846,78 +868,6 @@ code {
   margin: 0;
   color: #9aa3b5;
   font-size: 13px;
-}
-
-.launcher-root {
-  max-width: 880px;
-  margin: 0 auto;
-  padding: 3rem 1.25rem;
-}
-
-.launcher-header h1 {
-  margin: 0;
-  font-size: 2rem;
-}
-
-.launcher-header p {
-  margin: 0.5rem 0 0;
-  color: #9aa3b5;
-}
-
-.launcher-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
-  margin-top: 2rem;
-}
-
-.launcher-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  min-height: 12rem;
-  padding: 1rem;
-  border: 1px solid #2a3142;
-  border-radius: 10px;
-  background: #171b24;
-  color: inherit;
-  text-decoration: none;
-}
-
-.launcher-card:hover,
-.launcher-card:focus {
-  border-color: #5870aa;
-  background: #1b2130;
-}
-
-.launcher-card.primary {
-  border-color: #3d7655;
-  background: #142119;
-}
-
-.launcher-card strong {
-  font-size: 1.15rem;
-}
-
-.launcher-card span:last-child {
-  color: #9aa3b5;
-}
-
-.launcher-kicker {
-  color: #a9f0c8;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.launcher-note {
-  margin-top: 1.5rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid #2a3142;
-  border-radius: 8px;
-  background: #181b24;
-  color: #9aa3b5;
 }
 
 .surface-shell {
@@ -1238,17 +1188,6 @@ code {
   opacity: 0.64;
 }
 
-.ingestion-readiness-lanes {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.ingestion-readiness-detail {
-  margin: 0.2rem 0 0;
-  color: #9aa3b5;
-  font-size: 0.72rem;
-  line-height: 1.35;
-}
-
 .wizard-step-chip {
   border-radius: 999px;
   font-size: 0.82rem;
@@ -1263,10 +1202,35 @@ code {
   align-items: start;
 }
 
+.ingestion-command-grid--reading {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .ingestion-controls-pane {
   min-width: 0;
   display: grid;
   gap: 0.75rem;
+}
+
+.ingestion-controls-pane--reading {
+  display: block;
+}
+
+.ingest-enriched-recap {
+  min-width: 0;
+  width: 100%;
+}
+
+.ingest-enriched-recap__status {
+  margin: 0 0 0.75rem;
+  color: #d4dbea;
+}
+
+.ingestion-source-markdown {
+  max-height: min(60vh, 42rem);
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .ingestion-source-grid {
@@ -1641,7 +1605,7 @@ code {
   gap: 0.25rem;
 }
 
-.ingestion-proof-path span {
+.ingestion-proof-path__details > summary > span:first-child {
   color: #9aa3b5;
   font-size: 0.78rem;
   text-transform: uppercase;
@@ -1657,41 +1621,32 @@ code {
   font-size: 0.78rem;
 }
 
-.ingestion-impact-list {
-  display: grid;
-  gap: 0.45rem;
-}
-
-.ingestion-impact-row {
-  border: 1px solid #2e3648;
-  border-radius: 8px;
-  background: rgba(20, 24, 33, 0.45);
-  padding: 0.45rem 0.55rem;
-}
-
-.ingestion-impact-row summary {
+.ingestion-proof-path__details > summary {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.45rem;
   cursor: pointer;
 }
 
-.ingestion-impact-row summary strong {
-  color: #a9f0c8;
+.ingestion-proof-path__details > summary > span:first-child {
+  flex: 1 1 12rem;
 }
 
-.ingestion-impact-row code {
+.ingestion-proof-path__details > code {
   display: block;
   margin-top: 0.45rem;
   color: #aeb8cc;
-  word-break: break-word;
 }
 
-.ingestion-impact-row pre {
+.ingestion-proof-path__details > pre {
   max-height: 14rem;
   overflow: auto;
   white-space: pre-wrap;
+}
+
+.ingestion-proof-path__details > .module-muted {
+  margin: 0.35rem 0 0;
 }
 
 .ingestion-proof-path-done {
@@ -1704,6 +1659,14 @@ code {
 
 .ingestion-proof-path-waiting {
   opacity: 0.66;
+}
+
+.ingestion-proof-path-unverified {
+  border-color: #59657a;
+}
+
+.ingestion-proof-path-unverified strong {
+  color: #bac3d1;
 }
 
 .ingestion-status-panel details {
@@ -2374,6 +2337,10 @@ button:disabled {
     background: #171b24;
   }
 
+  .app-shell--edit-dock {
+    --app-edit-host-dock-width: min(440px, 94vw);
+  }
+
   .app-shell--edit-dock .app-shell-layout {
     display: block;
   }
@@ -2384,23 +2351,24 @@ button:disabled {
     left: 0;
     bottom: var(--app-chrome-bottom);
     z-index: 860;
-    width: min(440px, 94vw);
+    width: var(--app-edit-host-dock-width);
     max-height: none;
     transform: translateX(-100%);
     box-shadow: 12px 0 40px rgba(0, 0, 0, 0.35);
   }
 
-  /* The narrow layout overlays EditHost, so desktop dock reservation and
-     stacking must not squeeze the center or block taps. Match open-state
-     selector specificity so these mobile values win. */
-  .app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-shell-layout {
-    padding-left: 0;
+  /* Narrow Edit overlays the page, so the document workspace keeps its full
+     width and the shared navigation/context band stays stable. */
+  .app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-wrap :is(.plan-surface-root, .world-owned-plan) {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
   }
 
   .app-shell--edit-dock:has(.app-edit-toolbox--docked.open)
     .app-edit-toolbox--docked
     .app-edit-toolbox-drawer {
-    width: min(440px, 94vw);
+    width: var(--app-edit-host-dock-width);
     z-index: 860;
   }
 
@@ -3120,4 +3088,38 @@ button:disabled {
 
 .statblock-inline-retry {
   margin-left: 0.5rem;
+}
+
+@media (max-width: 42rem) {
+  #root:has(.plan-agent-shell.agent-interaction-shell--plan.open)
+    .app-shell--edit-dock .app-wrap :is(.plan-surface-root, .world-owned-plan),
+  #root:has(.plan-agent-shell.agent-interaction-shell--plan.open)
+    .app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-wrap :is(.plan-surface-root, .world-owned-plan) {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+
+/* Opted-in Plan workspace: navigation owns its height, dock fills the remainder. */
+.app-shell-layout:has(> .app-wrap[data-workspace-layout="bounded"]) { display:flex; flex-direction:column; overflow:hidden; }
+.app-wrap[data-workspace-layout="bounded"] { flex:1; min-height:0; width:100%; display:flex; flex-direction:column; overflow:hidden; padding-bottom:0; }
+.app-wrap[data-workspace-layout="bounded"] > .app-chrome-workspace { flex:1; min-height:0; display:flex; align-items:stretch; overflow:hidden; }
+.app-wrap[data-workspace-layout="bounded"] .app-chrome-center { flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+
+/* Shared document object: controls float above the projection without reflowing it. */
+.document-projection {
+  box-sizing: border-box;
+  border: 1px solid var(--ui-border-strong, #708097);
+  border-radius: 0.85rem;
+  background: var(--ui-background-panel, #171d27);
+  box-shadow: 0 10px 32px #0002;
+}
+
+/* Actual playable Scenes are cards; ordinary headings and Markdown rules are not. */
+.world-owned-plan .ProseMirror [data-dmb-playable-kind="scene"] {
+  border-block-start: 2px solid var(--md-accent, #9f7b38);
+  margin-block-start: 1.75rem;
+  padding-block-start: 1rem;
 }

@@ -26,11 +26,63 @@ from apps.live_control_server.services.hermes_graph_agent_contract import (
     HermesGraphAgentTurnRequest,
     HermesGraphAgentTurnResult,
     HermesGraphToolEvent,
+    serialize_hermes_graph_agent_turn_request,
+    deserialize_hermes_graph_agent_turn_request,
 )
 from graph_memory.hermes_graph_plugin import (
     ORDERED_MODEL_VISIBLE_TOOL_NAMES,
     TOOLSET_NAME,
 )
+
+
+def test_guarded_adapter_passes_final_answer_limits_unchanged() -> None:
+    budget = {
+        "schema": "dmb_hermes_request_budget_policy_v1",
+        "provider": "openai-api", "model": "gpt-6-luna", "apiMode": "codex_responses",
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": 1_050_000, "outputReserveTokens": 2048,
+        "maxProviderAttempts": 4, "maxToolCapableAttempts": 3,
+        "maxGraphOperations": 8,
+    }
+    result = HermesGraphAgentTurnResult(
+        status="error", error_code="provider_authorization_denied",
+        final_response=None, messages=[], hermes_session_id="test",
+        tool_events=[], answer_scope=None,
+    )
+
+    class CapturingHost(_FakeHost):
+        def execute(self, request: HermesGraphAgentTurnRequest, **kwargs: Any) -> HermesGraphAgentTurnResult:
+            self.calls.append(request)
+            assert callable(kwargs["on_provider_authorization"])
+            assert callable(kwargs["on_graph_operation"])
+            return self.result
+
+    host = CapturingHost(result)
+    adapter = HermesAgentRuntimeAdapter(host_factory=lambda: host)
+    adapter.run_with_provider_authorization(
+        _invocation(), lambda _view: False, request_budget=budget,
+        on_graph_operation=lambda _message: {},
+    )
+    assert len(host.calls) == 1
+    assert host.calls[0].request_budget == budget
+    assert host.calls[0].provider_authorization_required is True
+    assert host.calls[0].parent_graph_broker_required is True
+    assert "read_related_recap_context" not in host.calls[0].capability_policy.enabled_tool_names
+    adapter.run_with_provider_authorization(
+        _invocation(), lambda _view: False, request_budget=budget,
+        on_graph_operation=lambda _message: {}, context_read_enabled=True,
+    )
+    context_policy = host.calls[-1].capability_policy
+    assert context_policy.enabled_tool_names == (
+        "expand_graph_retrieval", "read_related_recap_context"
+    )
+    rule = context_policy.rule_for("read_related_recap_context")
+    assert rule is not None and rule.allowed_effects == frozenset({"read"})
+    wire = serialize_hermes_graph_agent_turn_request(host.calls[-1])
+    assert (
+        "read_related_recap_context"
+        in deserialize_hermes_graph_agent_turn_request(wire).capability_policy.enabled_tool_names
+    )
 
 
 class _FakeHost:
@@ -215,7 +267,10 @@ def test_adapter_maps_invocation_onto_existing_host(tmp_path: Path) -> None:
     assert request.capability_policy is not None
     assert request.capability_policy.enabled_toolsets == (TOOLSET_NAME,)
     assert (
-        request.capability_policy.enabled_tool_names == ORDERED_MODEL_VISIBLE_TOOL_NAMES
+        request.capability_policy.enabled_tool_names == tuple(
+            name for name in ORDERED_MODEL_VISIBLE_TOOL_NAMES
+            if name not in {"read_related_recap_context", "propose_build_insertion", "prepare_build_image", "search_retained_source_sections", "browse_native_source_sections", "read_native_source_sections"}
+        )
     )
     assert all(
         "write" not in rule.allowed_effects
@@ -261,6 +316,22 @@ def test_adapter_preserves_model_calls_without_recompute() -> None:
     assert mapped.tool_events[1].attributes["source_anchor_ids"] == ["anchor:a1"]
     assert mapped.runtime_session_id == "hermes-internal-s1"
     assert "hermes_session_id" not in mapped.__dataclass_fields__
+
+
+def test_adapter_carries_only_validated_terminal_failure_metadata() -> None:
+    result = HermesGraphAgentTurnResult(
+        status="error", final_response=None, messages=[], hermes_session_id="session-1",
+        tool_events=[], error_code="provider_lifecycle_unavailable",
+        terminal_failure={
+            "phase": "provider_lifecycle",
+            "reason": "provider_transport_ambiguous",
+            "transition": "outcome_unknown",
+            "acknowledged": True,
+            "transportExceptionClass": "ConnectError",
+        },
+    )
+    mapped = map_hermes_result_to_runtime_result(result)
+    assert mapped.runtime_metadata["terminal_failure"] == result.terminal_failure
 
 
 def test_map_invocation_does_not_infer_missing_scope() -> None:
@@ -482,3 +553,127 @@ def test_map_invocation_carries_play_surface_context_block_without_mutating_ques
         request.surface_context_block or ""
     )
     assert "beat:hold-the-gate" not in (request.surface_context_block or "")
+
+
+def test_build_insertion_tool_requires_separate_explicit_surface_capability():
+    class CapturingHost(_FakeHost):
+        def execute(self, request, **_kwargs):
+            self.calls.append(request)
+            return self.result
+    host = CapturingHost(_hermes_ok_result())
+    adapter = HermesAgentRuntimeAdapter(host_factory=lambda: host)
+    from dataclasses import replace
+    from apps.live_control_server.services.agent_runtime import AgentSurfaceContext, AgentCurrentWorkContext
+    base = _invocation()
+    invocation = _invocation(capability_policy=AgentCapabilityPolicy(
+        policy_id=WORLD_GRAPH_READ_POLICY.policy_id, surface_actions=("propose_build_insertion",)),
+        context_packet=replace(base.context_packet, surface_context=AgentSurfaceContext(surface_id="build",
+            current_work=AgentCurrentWorkContext(kind="build", work_object_id="doc", title="Edge", object_revision=1))))
+    from apps.live_control_server.services.agent_turn_service import _policy_request_budget
+    adapter.run_with_provider_authorization(invocation, lambda _: True,
+        request_budget=_policy_request_budget(), on_graph_operation=lambda _: {})
+    request = host.calls[-1]
+    assert request.capability_policy.enabled_tool_names == ("expand_graph_retrieval", "propose_build_insertion")
+    rule = request.capability_policy.rule_for("propose_build_insertion")
+    assert rule.allowed_effects == frozenset({"write"}) and not rule.require_graph_scope
+    wire = serialize_hermes_graph_agent_turn_request(request)
+    assert deserialize_hermes_graph_agent_turn_request(wire).capability_policy == request.capability_policy
+    ordinary = map_invocation_to_hermes_request(_invocation())
+    assert "propose_build_insertion" not in ordinary.capability_policy.enabled_tool_names
+
+
+def test_trusted_read_profile_maps_without_build_write_actions():
+    from dataclasses import replace
+    import pytest
+    base=_invocation()
+    class Host(_FakeHost):
+        def execute(self,request,**kwargs):
+            self.calls.append(request);return self.result
+    for profile in ('world_graph','governed_build'):
+        host=Host(_hermes_ok_result())
+        runtime=HermesAgentRuntimeAdapter(host_factory=lambda:host)
+        invocation=replace(base,graph_read_profile=profile)
+        runtime.run_with_provider_authorization(invocation,lambda view:True,
+            request_budget={'schema':'dmb_hermes_request_budget_policy_v1','provider':'openai-api','model':'gpt-6-luna','apiMode':'codex_responses',
+                'estimator':'utf8_json_bytes_plus_64_per_node_v1','contextLimitTokens':100000,
+                'outputReserveTokens':100,'maxProviderAttempts':4,'maxToolCapableAttempts':3,'maxGraphOperations':8},
+            on_graph_operation=lambda message:{},on_provider_lifecycle=lambda event:True)
+        request=host.calls[-1]
+        assert request.graph_read_profile==profile
+        assert not {'propose_build_insertion','prepare_build_image'}.intersection(request.capability_policy.enabled_tool_names)
+        restored=deserialize_hermes_graph_agent_turn_request(serialize_hermes_graph_agent_turn_request(request))
+        assert restored.graph_read_profile==profile
+    with pytest.raises(ValueError):replace(base,graph_read_profile='Build from prompt text')
+
+
+def test_current_native_play_policy_and_source_cross_worker_ipc_once():
+    """Real mapping→host serializer→worker parser; no provider or user-data IO."""
+    import json
+    from dataclasses import replace
+    from uuid import uuid4
+    from application_state.agent_conversation.play_graph_input import NativePlayInputV5, pack_selector_play_frame, unpack_selector_play_frame
+    from application_state.agent_conversation.play_graph_authority import play_source_frame
+    from application_state.agent_conversation.rules_authority_types import canonical_bytes
+    from application_state.agent_conversation.surface_evidence_answer import SELECTOR_INSTRUCTIONS as INSTRUCTIONS,SELECTOR_POLICY as POLICY
+    from application_state.agent_conversation.surface_source_answer import INSTRUCTIONS as OBSOLETE
+    from apps.live_control_server.services.agent_runtime import AgentSurfaceContext,AgentPlayCurrentMomentContext,AgentPlayCurrentElementContext
+    from apps.live_control_server.services.hermes_graph_agent_contract import MAX_SURFACE_CONTEXT_BLOCK_CHARS
+    from tests.test_play_graph_authority import payload
+    body='Frozen scene quotation sentinel. '+('A boardwalk stretches north. '*100)
+    note='Saved note sentinel.'
+    frame=play_source_frame((payload(text=body),payload('scene_note',text=note)))
+    submission=uuid4()
+    carrier=NativePlayInputV5(submission_id=submission,message='Quote the saved note exactly.',source_frame=pack_selector_play_frame(frame,str(submission)),answer_instructions=INSTRUCTIONS)
+    question=canonical_bytes(carrier).decode()
+    surface=AgentSurfaceContext(surface_id='play',current_play=AgentPlayCurrentMomentContext(
+        run_id='run-one',playable_artifact_id='plan-one',playable_revision=1,
+        current_beat=AgentPlayCurrentElementContext(kind='beat',element_id='beat-one',title='North road',body_text=body),
+        saved_scene_note=note))
+    base=_invocation()
+    invocation=_invocation(message=question,input_kind='server_assembled_saved_work',context_packet=replace(base.context_packet,surface_context=surface))
+    request=map_invocation_to_hermes_request(invocation)
+    wire=serialize_hermes_graph_agent_turn_request(request)
+    restored=deserialize_hermes_graph_agent_turn_request(wire)
+    assert restored.question==question and restored.input_kind=='server_assembled_saved_work'
+    assert len(restored.surface_context_block or '')<=MAX_SURFACE_CONTEXT_BLOCK_CHARS
+    assert INSTRUCTIONS not in (restored.surface_context_block or '')
+    assert OBSOLETE not in (restored.surface_context_block or '')
+    parsed=NativePlayInputV5.model_validate_json(restored.question)
+    assert parsed.answer_policy==POLICY and parsed.answer_instructions==INSTRUCTIONS
+    assert unpack_selector_play_frame(parsed.source_frame,str(submission))==frame
+    assert restored.question.count('Frozen scene quotation sentinel.')==1
+    assert restored.question.count('Saved note sentinel.')==1
+    assert body not in (restored.surface_context_block or '') and note not in (restored.surface_context_block or '')
+    assert json.loads(restored.question)['answer_instructions']==INSTRUCTIONS
+
+
+def test_native_source_tools_are_explicit_play_read_capabilities():
+    import pytest
+    from dataclasses import replace
+    from apps.live_control_server.services.agent_runtime import AgentSurfaceContext
+    class Host(_FakeHost):
+        def execute(self,request,**kwargs):self.calls.append(request);return self.result
+    host=Host(_hermes_ok_result());runtime=HermesAgentRuntimeAdapter(host_factory=lambda:host)
+    base=_invocation()
+    native=replace(base,capability_policy=replace(base.capability_policy,native_source_sections=True),
+        context_packet=replace(base.context_packet,surface_context=AgentSurfaceContext(surface_id='play')))
+    budget={'schema':'dmb_hermes_request_budget_policy_v1','provider':'openai-api','model':'gpt-6-luna','apiMode':'codex_responses',
+        'estimator':'utf8_json_bytes_plus_64_per_node_v1','contextLimitTokens':100000,'outputReserveTokens':100,
+        'maxProviderAttempts':4,'maxToolCapableAttempts':3,'maxGraphOperations':8}
+    runtime.run_with_provider_authorization(native,lambda _:True,request_budget=budget,on_graph_operation=lambda _: {})
+    policy=host.calls[-1].capability_policy
+    for name in ('browse_native_source_sections','read_native_source_sections'):
+        assert name in policy.enabled_tool_names
+        assert policy.rule_for(name).allowed_effects==frozenset({'read'})
+    restored=deserialize_hermes_graph_agent_turn_request(serialize_hermes_graph_agent_turn_request(host.calls[-1]))
+    assert restored.capability_policy==policy
+    assert 'search_retained_source_sections' not in policy.enabled_tool_names
+    current=replace(native,capability_policy=replace(native.capability_policy,corpus_source_sections=True))
+    runtime.run_with_provider_authorization(current,lambda _:True,request_budget=budget,on_graph_operation=lambda _: {})
+    corpus_policy=host.calls[-1].capability_policy
+    assert 'search_retained_source_sections' in corpus_policy.enabled_tool_names
+    assert corpus_policy.rule_for('search_retained_source_sections').allowed_effects==frozenset({'read'})
+    for surface in ('plan','build'):
+        invalid=replace(native,context_packet=replace(native.context_packet,surface_context=AgentSurfaceContext(surface_id=surface)))
+        with pytest.raises(ValueError,match='Play surface'):
+            runtime.run_with_provider_authorization(invalid,lambda _:True,request_budget=budget,on_graph_operation=lambda _: {})

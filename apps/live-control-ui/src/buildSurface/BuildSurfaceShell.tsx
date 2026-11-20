@@ -1,16 +1,31 @@
-import { useEffect, useRef, useState } from "react";
+import {BuildTourObservations} from '../guidedTour/OwnerObservations';
+import {BuildWorkPlanHost} from "./BuildWorkPlanHost";
+import {BuildEditorToolsPanel} from './BuildEditorToolsPanel';
+import { saveBuildProposal } from './saveBuildProposal';
+import { mediaMarkdown } from "../media/mediaReferences";
+import { DeferredMediaImageWizard } from "../media/DeferredMediaImageWizard";
+import { createBuildComposeBridge, type BuildComposeBridge, type BuildComposeEditorState } from "./buildComposeBridge";
+import { BUILD_STARTER_CONTENT, BUILD_STUDIO_ACTION, type BuildStudioAction, buildStarterKey, requestBuildStudioAction } from "./buildStudioActions";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { getBuildSourceNavigation } from "../api/liveApi";
+import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
+import { usePublishWorldBuildConversation, type SavedWorldBuildConversationContext } from "../agentInteraction/WorldAgentConversation";
+import type { AppChromeToolsGeneration } from "../chrome/AppChrome";
+import { authenticatedApiFetch, getBuildSourceNavigation } from "../api/liveApi";
 import { MarkdownCanvas } from "../markdownCanvas/MarkdownCanvas";
 import {
   useMarkdownCanvasSession,
+  useOptionalMarkdownCanvasSession,
   type MarkdownCanvasSessionValue,
 } from "../markdownCanvas/MarkdownCanvasSession";
 import type { MarkdownCanvasSlots } from "../markdownCanvas/MarkdownCanvas";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { parseBuildSourceNavigationQuery } from "../sourceNavigation/sourceNavigation";
+import { getWorldIdForCampaign } from "../worldGraph/worldGraphSurfaceContext";
 import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "./buildDocumentCommands";
+import { useBuildAutosave } from "./useBuildAutosave";
+import "./buildAutosave.css";
 import { useBuildMarkdownCanvasSlots } from "./buildMarkdownCanvasAdapter";
 import { BUILD_SURFACE_LABEL } from "./buildSurfaceConfig";
 import {
@@ -21,107 +36,299 @@ import {
 /** Rejected authority diagnostics stay in the page UI; Agent Interaction gets no UUID/rev/path/hash. */
 export const BUILD_AUTHORITY_REJECTION_AMBIENT = "Document rejected by Build authority";
 
-export type BuildSourceViewMode = "read" | "edit";
-
 function isPresentableSourcePhase(phase: string): boolean {
-  return (
-    phase !== "unloaded"
-    && phase !== "loading"
-    && phase !== "load_error"
-    && phase !== "conflict"
-  );
+  return !["unloaded", "loading", "load_error", "conflict"].includes(phase);
 }
 
-function isEffectivelyEmptyMarkdown(markdown: string): boolean {
-  return markdown.trim().length === 0;
-}
-
-export function initialSourceViewMode(args: {
-  dirty: boolean;
-  markdown: string;
-}): BuildSourceViewMode {
-  if (args.dirty) return "edit";
-  if (isEffectivelyEmptyMarkdown(args.markdown)) return "edit";
-  return "read";
-}
-
-/**
- * Ephemeral Read/Edit chrome for one admitted document.
- * Mounted with `key={documentId}` so the initial mode decision runs once per document.
- */
 const IDLE_SOURCE_NAVIGATION_TARGET: BuildSourceNavigationTarget = { status: "none" };
 
 function BuildPresentableSourceView({
   session,
   editSlots,
   navigationTarget,
+  composeBridge,
+  onEditorTools,
 }: {
+  composeBridge: BuildComposeBridge;
   session: MarkdownCanvasSessionValue;
   editSlots: MarkdownCanvasSlots;
   navigationTarget: BuildSourceNavigationTarget;
+  onEditorTools?: (tools: AppChromeToolsGeneration | null) => void;
 }) {
-  const [sourceViewMode, setSourceViewMode] = useState<BuildSourceViewMode>(() =>
-    initialSourceViewMode({
-      dirty: session.dirty,
-      markdown: session.snapshot?.markdown ?? "",
-    }),
+  useBuildAutosave(session);
+  const [mediaOpen, setMediaOpen] = useState(false);
+  const [mediaError,setMediaError]=useState('');
+  const mediaCapture=useRef<Awaited<ReturnType<BuildComposeBridge['capture']>>|null>(null);
+  const openMedia = useCallback(async () => {
+    try { mediaCapture.current=await composeBridge.capture();setMediaError('');setMediaOpen(true); }
+    catch(reason) {setMediaError(reason instanceof Error?reason.message:'Open an editable page first.');}
+  }, [composeBridge]);
+  useEffect(() => {
+    const editor = session.editor;
+    const record = session.record;
+    if (!editor || !record || navigationTarget.status !== "none") return;
+    const key = buildStarterKey(record.document_id);
+    if (sessionStorage.getItem(key) !== "worldbuilding") return;
+    // Wait for the editor's document-key hydration to settle before consuming
+    // the explicit create intent. It must never target a replaced editor.
+    const timer = window.setTimeout(() => {
+      if (editor.isDestroyed) return;
+      if (editor.isEmpty && !session.snapshot?.markdown.trim() && !session.dirty) {
+        editor.commands.insertContent(BUILD_STARTER_CONTENT);
+        session.handleEditorUpdate(editor.getJSON(), editor, { programmatic: false });
+      }
+      sessionStorage.removeItem(key);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [session.editor, session.documentKey, session.record, session.snapshot, session.dirty, session.handleEditorUpdate, navigationTarget.status]);
+  useEffect(() => {
+    onEditorTools?.({ target: { kind: "document", id: session.record!.document_id },
+      tools: { sections: [{ id: "build-document", title: "Document", defaultOpen: true, actions: [],
+        panel: <BuildEditorToolsPanel editor={session.editor}/> }] } });
+    return () => onEditorTools?.(null);
+  }, [onEditorTools, session.editor, session.record?.document_id]);
+
+  useEffect(() => {
+    const handle = (event: Event) => {
+      const action = (event as CustomEvent<BuildStudioAction>).detail;
+      if (action === "image") void openMedia();
+    };
+    window.addEventListener(BUILD_STUDIO_ACTION, handle);
+    return () => window.removeEventListener(BUILD_STUDIO_ACTION, handle);
+  }, [openMedia]);
+
+  const showEmptySourcePrompt = session.record?.kind === "worldbuilding_source"
+    && navigationTarget.status === "none"
+    && (session.editor?.isEmpty ?? !session.snapshot?.markdown.trim());
+  const startWith = (heading: string) => {
+    const editor = session.editor;
+    if (!editor?.isEmpty) return;
+    editor.chain().focus().insertContent([
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: heading }] },
+      { type: "paragraph" },
+    ]).run();
+  };
+
+  return <div className="build-surface-shell" data-testid="build-surface-shell">
+    {navigationTarget.status !== "none" ? <details className="build-source-evidence" open>
+      <summary>Saved evidence passage</summary>
+      <BuildSourceReader showOutline={false} title={session.record!.title}
+        markdown={session.snapshot!.committed_markdown ?? ""} dirty={session.dirty} navigationTarget={navigationTarget} />
+    </details> : null}
+    {showEmptySourcePrompt ? <section className="build-empty-document-prompt" data-testid="build-empty-document-prompt" aria-label="A beginning for this page">
+      <div className="build-empty-document-prompt__art" aria-hidden="true">
+        <svg viewBox="0 0 120 104" fill="none">
+          <path d="M7 83c17-13 29-13 43 0s26 13 42 0 17-12 21-10" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 4" />
+          <path d="M17 24 34 9l14 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M29 14v14m-7-7h14" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+          <rect x="42" y="20" width="53" height="68" rx="4" fill="#fffaf0" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M52 34h32M52 42h24M52 58c8-7 15-7 22 0s13 7 18 1" stroke="#c8ad72" strokeWidth="1.4" strokeLinecap="round" />
+          <path d="m82 73 3.2 6.5 7.2 1-5.2 5 .9 7-6.1-3.4-6.3 3.4 1.2-7-5.3-5 7.1-1L82 73Z" fill="#e0b34d" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
+          <circle cx="103" cy="22" r="2" fill="#c58b33" />
+          <circle cx="109" cy="32" r="1.25" fill="#c58b33" />
+        </svg>
+      </div>
+      <div className="build-empty-document-prompt__copy">
+        <p className="build-empty-document-prompt__eyebrow">A FRESH PAGE</p>
+        <h2>Every world starts somewhere.</h2>
+        <p>Pick a first thread—or skip the prompt and start typing below.</p>
+        <div className="build-empty-document-prompt__starters" role="group" aria-label="Choose a first heading">
+          {(["A place", "A person", "A mystery"] as const).map(heading =>
+            <button key={heading} type="button" onClick={() => startWith(heading)}>{heading}</button>)}
+        </div>
+      </div>
+    </section> : null}
+    {mediaError&&<p role="alert">{mediaError}</p>}
+    {mediaOpen && <aside className="build-media-studio"><DeferredMediaImageWizard onClose={() => setMediaOpen(false)} onChoose={async(image,_result,placement)=>{
+      const origin=mediaCapture.current;
+      if (!origin || !['staged','ready'].includes(image.state) || !composeBridge.pickInsertion) throw new Error('Open a retained image and an editable page first.');
+      const target=await composeBridge.pickInsertion({...placement,assetId:image.asset_id});
+      placement.signal.throwIfAborted();
+      if (target.basis.world_id!==origin.basis.world_id || target.basis.document_id!==origin.basis.document_id || target.basis.registry_revision!==origin.basis.registry_revision || target.basis.content_sha256!==origin.basis.content_sha256) throw new Error('The page changed. Open Image Studio again on the intended page.');
+      const {response}=await authenticatedApiFetch(`/api/live/media/images/${image.asset_id}/metadata`,{signal:placement.signal});
+      const asset=await response.json();
+      placement.signal.throwIfAborted();
+      if(!response.ok || asset.asset_id!==image.asset_id || !['staged','ready'].includes(asset.state)) throw new Error('The retained image is unavailable. Reopen it before placing it.');
+      composeBridge.insert(target,mediaMarkdown(image.asset_id,'Saved artwork'));
+      setMediaOpen(false);setMediaError('');
+    }} /></aside>}
+    <MarkdownCanvas slots={editSlots} />
+  </div>;
+}
+
+function BuildConversationBinding({ source, hosts, composeBridge }: { source: SavedWorldBuildConversationContext | null; hosts: PlanConversationPresentationHosts; composeBridge?: BuildComposeBridge }) {
+  usePublishWorldBuildConversation(source, hosts, composeBridge);
+  const session=useOptionalMarkdownCanvasSession();
+  return <BuildTourObservations source={source} session={session}/>;
+}
+
+/** Build's no-document landing is still a framed projection with the same conversation dock. */
+export function BuildEmptyLanding({ loadStatus }: { loadStatus: "idle" | "loading" | "ready" | "empty" | "error" }) {
+  const isLoading = loadStatus === "idle" || loadStatus === "loading";
+  const hasError = loadStatus === "error";
+  const reader = (
+    <div className="build-surface-with-graph-context document-projection" data-document-surface="build">
+      <main
+        className={`build-surface-shell build-empty-landing${hasError ? " build-empty-landing--error" : ""}`}
+        data-testid="build-surface-empty"
+        aria-busy={isLoading}
+        aria-labelledby="build-empty-landing-title"
+      >
+        <div className="build-empty-landing__welcome">
+          <div className="build-empty-landing__hero">
+            <p className="build-empty-landing__eyebrow">YOUR WORLDBUILDING STUDIO</p>
+            <h1 id="build-empty-landing-title">
+              {hasError ? (
+                "That page took a wrong turn."
+              ) : (
+                <>
+                  Start with a spark.<br />
+                  <em>Build a world around it.</em>
+                </>
+              )}
+            </h1>
+            <p className="build-empty-landing__intro">
+              {hasError
+                ? "Choose another page from the Build bar, or start fresh from Source actions."
+                : "A place, a person, a strange rumor—give one idea a page, then let the rest of the world grow around it."}
+            </p>
+          </div>
+          <div className="build-empty-landing__illustration" aria-hidden="true">
+            <svg viewBox="0 0 420 240" role="presentation" aria-hidden="true" focusable="false">
+              <path
+                className="build-empty-landing__contour"
+                d="M31 178c43-58 85-59 120-32s57 32 87-2 75-43 151 3M22 202c51-41 94-41 129-16s59 24 92-5 78-39 150-2M70 145c30-39 57-40 83-20s45 23 66 0 52-31 96-10"
+              />
+              <path
+                className="build-empty-landing__route"
+                d="M75 106c47 0 49 52 100 52s54-74 107-74 53 50 88 50"
+              />
+              <circle className="build-empty-landing__node" cx="75" cy="106" r="7" />
+              <circle className="build-empty-landing__node" cx="175" cy="158" r="7" />
+              <circle className="build-empty-landing__node" cx="282" cy="84" r="7" />
+              <circle className="build-empty-landing__node" cx="370" cy="134" r="7" />
+              <g className="build-empty-landing__page" transform="translate(177 48) rotate(-5 34 43)">
+                <path d="M8 3h47l14 14v66H8z" />
+                <path d="M55 3v15h14M19 34h38M19 44h31M19 54h35M19 64h25" />
+                <path
+                  className="build-empty-landing__page-star"
+                  d="m18 20 2.2 4.5 4.8.7-3.5 3.4.8 4.8-4.3-2.3-4.3 2.3.8-4.8-3.5-3.4 4.8-.7z"
+                />
+              </g>
+              <path
+                className="build-empty-landing__spark"
+                d="m328 37 3 7 7 3-7 3-3 7-3-7-7-3 7-3zM112 46l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"
+              />
+            </svg>
+            <div className="build-empty-landing__illustration-caption">
+              <span>PLACES</span><i /> <span>PEOPLE</span><i /> <span>WHAT-IFS</span>
+            </div>
+          </div>
+        </div>
+        {!isLoading && !hasError ? <button type="button" className="build-studio-start" onClick={() => requestBuildStudioAction("new")}>Make this page yours →</button> : null}
+        {isLoading ? (
+          <p className="build-empty-landing__status" role="status">Finding your worldbuilding sources…</p>
+        ) : hasError ? (
+          <p className="build-empty-landing__status" role="alert">The requested source is unavailable. You can choose another from the Build bar.</p>
+        ) : (
+          <section className="build-empty-landing__begin" aria-labelledby="build-empty-landing-steps">
+            <p className="build-empty-landing__eyebrow" id="build-empty-landing-steps">CHOOSE YOUR FIRST STEP</p>
+            <div className="build-empty-landing__paths" aria-label="Ways to begin">
+              <button type="button" onClick={() => requestBuildStudioAction("open")}>
+                <span className="build-empty-landing__step">01</span>
+                <div>
+                  <p className="build-empty-landing__path-label">PICK UP WHERE YOU LEFT OFF</p>
+                  <h2>Open a page</h2>
+                  <p>Choose a saved worldbuilding source in the Build bar above.</p>
+                </div>
+              </button>
+              <button type="button" onClick={() => requestBuildStudioAction("new")}>
+                <span className="build-empty-landing__step">02</span>
+                <div>
+                  <p className="build-empty-landing__path-label">BEGIN WITH A CLEAN PAGE</p>
+                  <h2>Start something new</h2>
+                  <p>
+                    Give this starter a title, then make it your own.
+                  </p>
+                </div>
+              </button>
+              <button type="button" onClick={() => requestBuildStudioAction("import")}>
+                <span className="build-empty-landing__step">03</span>
+                <div>
+                  <p className="build-empty-landing__path-label">ALREADY HAVE NOTES?</p>
+                  <h2>Bring your lore</h2>
+                  <p>
+                    Continue from your existing Markdown notes.
+                  </p>
+                </div>
+              </button>
+            </div>
+          </section>
+        )}
+        <p className="build-empty-landing__footnote">
+          <span aria-hidden="true">✦</span>
+          Nothing is created until you choose to begin. Your page and its world tools share this workspace.
+        </p>
+      </main>
+    </div>
   );
 
   return (
-    <div className="build-surface-shell" data-testid="build-surface-shell">
-      <div
-        className="build-source-mode-toggle"
-        role="group"
-        aria-label="Source view mode"
-        data-testid="build-source-mode-toggle"
-      >
-        <button
-          type="button"
-          className="build-source-mode-toggle__button"
-          aria-label="Read source"
-          aria-pressed={sourceViewMode === "read"}
-          data-testid="build-source-mode-read"
-          onClick={() => setSourceViewMode("read")}
-        >
-          Read
-        </button>
-        <button
-          type="button"
-          className="build-source-mode-toggle__button"
-          aria-label="Edit source"
-          aria-pressed={sourceViewMode === "edit"}
-          data-testid="build-source-mode-edit"
-          onClick={() => setSourceViewMode("edit")}
-        >
-          Edit
-        </button>
-      </div>
-      {sourceViewMode === "read" ? (
-        <BuildSourceReader
-          title={session.record!.title}
-          markdown={session.snapshot!.markdown}
-          dirty={session.dirty}
-          navigationTarget={navigationTarget}
-        />
-      ) : (
-        <MarkdownCanvas slots={editSlots} />
-      )}
+    <div className="build-workspace-projection">
+      <DocumentConversationDock surface="build" contextLabel="Worldbuilding source" reader={reader}>
+        {hosts => <BuildConversationBinding source={null} hosts={hosts} />}
+      </DocumentConversationDock>
     </div>
   );
 }
 
 /**
- * Build document chrome: Agent Interaction publication + Read/Edit composition.
+ * Build document workspace: shared authoring and conversation publication.
  * Document authority lives on MarkdownCanvasSession (provider is owned by BuildSurfacePage).
- * Read renders exact saved snapshot Markdown; Edit preserves MarkdownCanvas authoring.
+ * Saved evidence remains separate from the directly editable working document.
  */
-export function BuildSurfaceShell() {
+export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorTools?: (tools: AppChromeToolsGeneration | null) => void; onReviewTarget?: (target: HTMLDivElement | null) => void }) {
   const session = useMarkdownCanvasSession();
   const { rehydrateScope, publishSurfaceContext, surfaceInteractionPublication } = useAgentInteraction();
   const hasSharedEditSave = (surfaceInteractionPublication?.editCommands ?? []).some(
     (command) => command.id === BUILD_DOCUMENT_SAVE_COMMAND_ID,
   );
-  const slots = useBuildMarkdownCanvasSlots({ hideFooterSave: hasSharedEditSave });
+  const slots = useBuildMarkdownCanvasSlots({ hideFooterSave: hasSharedEditSave, hideDraftTools: true });
+  const conversationContext = useMemo(() => session.record?.world_id && session.snapshot?.committed_markdown != null
+    && session.snapshot.committed_content_sha256 && isPresentableSourcePhase(session.phase) ? {
+      worldId: session.record.world_id, documentId: session.record.document_id,
+      revision: session.snapshot.loaded_revision, contentSha256: session.snapshot.committed_content_sha256,
+      surfaceInstanceId: `build:${session.record.document_id}`, title: session.record.title, dirty: session.dirty,
+    } : null, [session.record, session.snapshot, session.phase, session.dirty]);
+  const composeGeneration = useRef({ draft: 0, selection: 0 });
+  const composeCurrent = useRef<BuildComposeEditorState | null>(null);
+  const saveOwner = useRef<MarkdownCanvasSessionValue|null>(session);
+  saveOwner.current=session;
+  useEffect(()=>{saveOwner.current=session;return()=>{saveOwner.current=null;};},[]);
+  const composeChanged = useRef(session.handleEditorUpdate);
+  composeChanged.current = session.handleEditorUpdate;
+  composeCurrent.current = conversationContext && session.editor ? {
+    editor: session.editor, worldId: conversationContext.worldId, documentId: conversationContext.documentId,
+    revision: conversationContext.revision, contentSha256: conversationContext.contentSha256,
+    visibility: session.record?.visibility_state === "player_safe" ? "player_safe" : "internal",
+    draftGeneration: composeGeneration.current.draft, selectionGeneration: composeGeneration.current.selection,
+    canEdit: Boolean(session.lookupAdmission("editable").ok) && !session.activeCommand,
+  } : null;
+  useEffect(() => {
+    const editor = session.editor;
+    if (!editor) return;
+    const draft = () => { composeGeneration.current.draft++; if (composeCurrent.current?.editor === editor) composeCurrent.current.draftGeneration = composeGeneration.current.draft; };
+    const selection = () => { composeGeneration.current.selection++; if (composeCurrent.current?.editor === editor) composeCurrent.current.selectionGeneration = composeGeneration.current.selection; };
+    editor.on("update", draft); editor.on("selectionUpdate", selection);
+    return () => { editor.off("update", draft); editor.off("selectionUpdate", selection); };
+  }, [session.editor]);
+  const composeBridge = useMemo(() => createBuildComposeBridge(() => composeCurrent.current,
+    editor => composeChanged.current(editor.getJSON(), editor, { programmatic: false }),
+    (basis,afterEditor,afterDraft,savedProjection)=>saveBuildProposal(()=>saveOwner.current,basis,afterEditor,afterDraft,savedProjection)), []);
+  const acceptedDocumentCampaignId = session.record?.campaign_id
+    && (session.record.campaign_id === session.record.world_id
+      || getWorldIdForCampaign(session.record.campaign_id) === session.record.world_id)
+    ? session.record.campaign_id : null;
   const lastAcceptedCampaignRef = useRef<string>("build");
   const [navigationTarget, setNavigationTarget] = useState<BuildSourceNavigationTarget>(
     IDLE_SOURCE_NAVIGATION_TARGET,
@@ -133,10 +340,10 @@ export function BuildSurfaceShell() {
     && isPresentableSourcePhase(session.phase);
 
   useEffect(() => {
-    if (session.record?.campaign_id) {
-      lastAcceptedCampaignRef.current = session.record.campaign_id;
+    if (session.record) {
+      lastAcceptedCampaignRef.current = acceptedDocumentCampaignId ?? "build";
     }
-  }, [session.record?.campaign_id]);
+  }, [session.record, acceptedDocumentCampaignId]);
 
   useEffect(() => {
     const publishNeutral = (ambientSummary: string) => {
@@ -179,8 +386,12 @@ export function BuildSurfaceShell() {
       return;
     }
 
+    if (!acceptedDocumentCampaignId) {
+      publishNeutral("This page has no admitted campaign context. Editing and Save remain available.");
+      return;
+    }
     rehydrateScope({
-      campaignId: session.record.campaign_id,
+      campaignId: acceptedDocumentCampaignId,
       sessionNumber: null,
       surfaceId: "build",
       documentId: session.record.document_id,
@@ -191,7 +402,7 @@ export function BuildSurfaceShell() {
     publishSurfaceContext({
       surfaceId: "build",
       label: `${BUILD_SURFACE_LABEL} · ${session.record.title}`,
-      campaignId: session.record.campaign_id,
+      campaignId: acceptedDocumentCampaignId,
       documentId: session.record.document_id,
       sessionNumber: null,
       ambientSummary: [
@@ -229,6 +440,7 @@ export function BuildSurfaceShell() {
     session.snapshot?.loaded_revision,
     publishSurfaceContext,
     rehydrateScope,
+    acceptedDocumentCampaignId,
   ]);
 
   // Leaving Build (or remounting for a new documentId) must not leave prior accepted context.
@@ -334,7 +546,6 @@ export function BuildSurfaceShell() {
   // document is loading, conflicted, or rejected, session.record is null — mounting
   // then would skip scope admission and race a later rejection.
   const graphPointer = parseBuildGraphPointerFromLocation();
-  const acceptedDocumentCampaignId = session.record?.campaign_id ?? null;
 
   const editSlots: MarkdownCanvasSlots = {
     ...slots,
@@ -343,8 +554,8 @@ export function BuildSurfaceShell() {
     className: "build-surface-editor-shell",
   };
 
-  return (
-    <div className="build-surface-with-graph-context">
+  const projection = (
+    <BuildWorkPlanHost session={session} bridge={composeBridge}><div className="build-surface-with-graph-context document-projection" data-document-surface="build">
       {graphPointer && acceptedDocumentCampaignId ? (
         <BuildGraphObjectContext
           documentCampaignId={acceptedDocumentCampaignId}
@@ -359,8 +570,16 @@ export function BuildSurfaceShell() {
           session={session}
           editSlots={editSlots}
           navigationTarget={navigationTarget}
+          composeBridge={composeBridge}
+          onEditorTools={onEditorTools}
         />
       )}
-    </div>
+      <div className="build-run-review-host" ref={onReviewTarget} />
+    </div></BuildWorkPlanHost>
   );
+  return <div className="build-workspace-projection">
+    <DocumentConversationDock surface="build" contextLabel={session.record?.title ?? "Worldbuilding source"} reader={projection}>
+      {hosts => <BuildConversationBinding source={conversationContext} hosts={hosts} composeBridge={composeBridge} />}
+    </DocumentConversationDock>
+  </div>;
 }

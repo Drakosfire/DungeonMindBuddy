@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import { URL as NodeURL } from "node:url";
 import { SelectedWorldProvider } from "../../selectedWorld/SelectedWorldContext";
 import { WorldGraphRecapProjectionView } from "./WorldGraphRecapProjection";
-import { session23WorldGraphRecapFixture } from "./worldGraphRecapFixture";
+import { session23WorldGraphRecapFixture } from "../../test/worldGraphRecapFixture";
 
 const recapRecord = {
   schema_version: "dmb_recap_artifact_record_v1" as const,
@@ -68,6 +68,45 @@ describe("WorldGraphRecapProjectionView", () => {
     });
   });
 
+  it("keeps the shared campaign, session, and load toolbar visible by default", () => {
+    render(
+      <WorldGraphRecapProjectionView
+        payload={session23WorldGraphRecapFixture}
+        selectedSessionId="session-23"
+        onSelectSession={vi.fn()}
+        sessionOptions={["session-23"]}
+        selectedCampaignId="longmont-c2"
+        onSelectCampaign={vi.fn()}
+        onLoad={vi.fn()}
+      />,
+    );
+
+    expect(document.querySelector(".recap-reader-toolbar")).toBeInTheDocument();
+    expect(screen.getByLabelText("Campaign")).toHaveValue("longmont-c2");
+    expect(screen.getByLabelText("Focus session")).toHaveValue("session-23");
+    expect(screen.getByRole("button", { name: "Load" })).toBeEnabled();
+  });
+
+  it("can omit the shared toolbar while preserving the node-bearing recap", async () => {
+    render(
+      <WorldGraphRecapProjectionView
+        payload={session23WorldGraphRecapFixture}
+        selectedSessionId="session-23"
+        onSelectSession={vi.fn()}
+        sessionOptions={["session-23"]}
+        selectedCampaignId="longmont-c2"
+        onSelectCampaign={vi.fn()}
+        showProjectionToolbar={false}
+      />,
+    );
+
+    expect(document.querySelector(".recap-reader-toolbar")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Focus session")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("published-recap-local-authoring")).toBeInTheDocument();
+    await waitFor(() => expect(document.querySelector(".recap-node-token")).toBeInTheDocument());
+  });
+
   it("opens a campaign-memory Peek without World Object chrome or Continue in Build", async () => {
     render(
       <WorldGraphRecapProjectionView
@@ -97,18 +136,19 @@ describe("WorldGraphRecapProjectionView", () => {
     expect(screen.queryByRole("link", { name: /Continue in Build/i })).not.toBeInTheDocument();
     expect(document.querySelector(".recap-graph-object-panel__header")).not.toBeInTheDocument();
     const peek = screen.getByLabelText("Caelynn graph object");
-    expect(within(peek).getByRole("heading", { level: 4 })).toHaveTextContent("Caelynn");
+    expect(within(peek).getByRole("heading", { level: 4, name: "Caelynn" })).toBeInTheDocument();
     expect(within(peek).getByRole("region", { name: "Campaign summary" })).toHaveTextContent(
       "Held the Mireward gate during Session 23.",
     );
     expect(peek).toHaveAttribute("data-graph-object-card-mode", "campaign-memory");
     expect(within(peek).getByRole("button", { name: /Close Caelynn/i })).toBeInTheDocument();
-    expect(within(peek).queryByText("Advanced")).not.toBeInTheDocument();
-    expect(peek.querySelectorAll("details")).toHaveLength(1);
-    fireEvent.click(within(peek).getByText("Source"));
-    expect(within(peek).queryByText("Advanced")).not.toBeInTheDocument();
+    const source = within(peek).getByText("Source");
+    const advanced = within(peek).getByText("Advanced").closest("details");
+    expect(source.closest("details")).toContainElement(advanced);
+    expect(advanced).not.toHaveAttribute("open");
+    fireEvent.click(source);
     expect(within(peek).getByText("World ID")).toBeInTheDocument();
-    expect(peek.querySelectorAll("details details")).toHaveLength(0);
+    expect(advanced).not.toHaveAttribute("open");
 
     fireEvent.click(within(peek).getByRole("button", { name: /Open related object.*Mirathorn/i }));
     expect(within(peek).getByRole("heading", { level: 4, name: "Caelynn" })).toBeInTheDocument();
@@ -121,7 +161,7 @@ describe("WorldGraphRecapProjectionView", () => {
 
     fireEvent.click(within(peek).getByRole("button", { name: /Close Caelynn/i }));
     expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Published recap")).toBeInTheDocument();
+    expect(screen.getByLabelText("Working recap")).toBeInTheDocument();
     expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
       "data-existing-node-id",
       "pc_caelynn",
@@ -286,10 +326,7 @@ describe("WorldGraphRecapProjectionView", () => {
 
   it("reads a durable object through the shared World lens, not the recap focus", async () => {
     window.history.replaceState({}, "", "/ingest?campaign=longmont-c1&session=session-1");
-    vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue({
-      schema: "dmb_ingestion_source_bundle_v1",
-      campaigns: {},
-    } as never);
+    vi.spyOn(liveApi, "getSourceSessions").mockResolvedValue([]);
     const worldProjection: WorldGraphProjection = {
       schema: "dmb_world_graph_projection_v1",
       snapshot: {
@@ -371,7 +408,7 @@ describe("WorldGraphRecapProjectionView", () => {
   it.each(["ready", "unavailable", "mismatched"])("uses verified native read identity under a %s managed lens", async (state) => {
     window.history.replaceState({}, "", "/ingest?world=elderwyld");
     vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({ schema_version: "dmb_world_container_registry_v1", records: [{ schema_version: "dmb_world_container_record_v1", world_id: "elderwyld", name: "Elderwyld", source_root_relpath: "corpus/elderwyld", created_at: "2026-01-01T00:00:00Z" }] });
-    vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue({ schema: "dmb_ingestion_source_bundle_v1", campaigns: {} } as never);
+    vi.spyOn(liveApi, "getSourceSessions").mockResolvedValue([]);
     const snapshot = { ...session23WorldGraphRecapFixture.snapshot, worldId: state === "mismatched" ? "other-native-world" : "eldyrwild", campaignId: "", scopeMode: "world" as const, focus: { kind: "none" as const, sessionId: null }, revisionId: "managed-native-head", headRevisionId: "managed-native-head" };
     const projection: WorldGraphProjection = { schema: "dmb_world_graph_projection_v1", snapshot, summary: { nodeCount: 2, relationshipCount: 1, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false }, nodes: Object.values(session23WorldGraphRecapFixture.nodeViews), relationships: [], attributes: [], evidence: [], sourceArtifacts: [], diagnostics: [] };
     const managed = vi.spyOn(liveApi, "postManagedWorldGraphProjection");

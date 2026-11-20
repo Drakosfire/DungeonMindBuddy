@@ -24,7 +24,7 @@ from scripts.promote_stage_d_proposals import (  # noqa: E402
     collision_flags_for_slug,
     run_promotion,
 )
-from src.contracts.npc_registry import NpcRegistryRecord  # noqa: E402
+from contracts.npc_registry import NpcRegistryRecord  # noqa: E402
 
 
 def _write_per_run_sidecar(

@@ -9,7 +9,7 @@ This path remains only so historical handoffs, Project Sources, and old links co
 For current work:
 
 - durable repository operating law → [`AGENTS.md`](../../AGENTS.md);
-- steward design/decomposition/lane allocation/review/re-anchor process → [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md);
+- bounded assignment design/decomposition/lane allocation/review/re-anchor process → [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md);
 - external PR command runbook → [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md);
 - one-slice handoff skeleton → [`.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md`](../../.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md).
 

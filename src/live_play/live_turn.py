@@ -5,9 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from src.live_play.classify_live_turn import TurnClassification, classify_live_turn
-from src.live_play.resolve_roll import ResolvedRoll, RollResolveError, resolve_roll_command
-from src.live_play.roll_table_registry import RollTableRegistry
+from live_play.classify_live_turn import TurnClassification, classify_live_turn
+from live_play.resolve_roll import ResolvedRoll, RollResolveError, resolve_roll_command
+from live_play.roll_table_registry import RollTableRegistry
 
 _EVENT_COUNTER = 0
 

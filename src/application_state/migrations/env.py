@@ -33,17 +33,20 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     engine = create_engine(sqlalchemy_url(load_runtime_dsn()))
-    with engine.connect() as connection:
-        connection.execute(text("CREATE SCHEMA IF NOT EXISTS application_state"))
-        connection.commit()
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            version_table="schema_migrations",
-            version_table_schema="application_state",
-        )
-        with context.begin_transaction():
-            context.run_migrations()
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("CREATE SCHEMA IF NOT EXISTS application_state"))
+            connection.commit()
+            context.configure(
+                connection=connection,
+                target_metadata=target_metadata,
+                version_table="schema_migrations",
+                version_table_schema="application_state",
+            )
+            with context.begin_transaction():
+                context.run_migrations()
+    finally:
+        engine.dispose()
 
 
 if context.is_offline_mode():

@@ -3,3 +3,6 @@
 # legacy symlinks last_session_events_run.{md,json} are also written here.
 *.md
 *.json
+
+# Dated output folders can also contain generated non-report files.
+/runs/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/

@@ -1,0 +1,117 @@
+.native-graph-inspection {
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.native-graph-inspection__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 32%) minmax(0, 1fr);
+  min-height: min(560px, 65dvh);
+}
+
+.native-graph-inspection__layout > nav {
+  min-width: 0;
+  max-height: 68dvh;
+  padding: 20px;
+  border-right: 1px solid #34485a;
+  background: #101924;
+  overflow: auto;
+}
+
+.native-graph-inspection__layout > nav label {
+  display: block;
+  color: #e3ecf2;
+  font-size: .82rem;
+  font-weight: 650;
+}
+
+.native-graph-inspection__layout > nav input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 8px 0 12px;
+  padding: 10px;
+  border: 1px solid #5a6e82;
+  border-radius: 8px;
+  background: #1b2736;
+  color: #f4f7fa;
+}
+
+.native-graph-inspection__layout > nav ul {
+  list-style: none;
+  padding: 0;
+}
+
+.native-graph-inspection__layout > nav button {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  height: auto;
+  margin-bottom: 6px;
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: #202e3f;
+  color: #f0f4f8;
+}
+
+.native-graph-inspection__layout > nav button[aria-current="true"],
+.native-graph-inspection__layout > nav button:hover {
+  border-color: #d2a751;
+  background: #354339;
+}
+
+.native-graph-inspection__layout > nav small {
+  display: block;
+  color: #b5c4cf;
+  font-size: .8em;
+}
+
+.native-graph-inspection input:focus-visible,
+.native-graph-inspection button:focus-visible {
+  outline: 2px solid #efbc5b;
+  outline-offset: 2px;
+}
+
+.native-graph-inspection__layout > article {
+  min-width: 0;
+  margin: 20px;
+  padding: clamp(22px, 4cqi, 42px);
+  border: 1px solid #d5c7a7;
+  border-radius: 14px;
+  background: #f2e8d2;
+  color: #332b1e;
+  overflow-wrap: anywhere;
+}
+
+.native-graph-inspection__layout > article h3,
+.native-graph-inspection__layout > article h4 {
+  color: #30291b;
+  opacity: 1;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.native-graph-inspection__layout > article h3 { font-size: 1.125rem; }
+.native-graph-inspection__layout > article h4 { font-size: .95rem; }
+.native-graph-inspection__layout > article li { margin-bottom: 12px; }
+.native-graph-inspection__layout > article button {
+  background: #e5d9b9;
+  color: #30291b;
+  border: 1px solid #ad9d78;
+  border-radius: 7px;
+}
+
+@container (max-width: 680px) {
+  .native-graph-inspection__layout { grid-template-columns: minmax(0, 1fr); }
+  .native-graph-inspection__layout > nav {
+    max-height: 34dvh;
+    border-right: 0;
+    border-bottom: 1px solid #34485a;
+  }
+  .native-graph-inspection__layout > article { margin: 12px; }
+}

@@ -1,0 +1,874 @@
+"""Plan parent owns acquisitions; Jev selects semantic catalog entries only."""
+import json
+import re
+from contextlib import nullcontext
+
+from application_state.agent_conversation import types as t
+from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
+from application_state.agent_conversation.plan_jev_rules_lookup import rules_candidate
+from application_state.agent_conversation.plan_jev_decision import current_selection
+from .plan_jev_dispatch import PlanJevDispatch, decision_client
+
+_RUNTIME_GRAPH_FIELDS = {"retrievalSessionId", "addedClaimIds", "claimLedger"}
+
+
+class PlanJevDriver:
+    def __init__(self, adapter, *, dialogue=(), rules=None, retained_navigation=()):
+        self.adapter, self.rules = adapter, rules
+        from .native_source_navigation import navigator
+        self.native_sources = navigator(adapter)
+        self.dialogue = [{"role": item["role"], "content": item["content"]} for item in dialogue]
+        self.catalog = {}
+        self.native_statement_attempts = set()
+        self.native_assertion_attempts = set()
+        self.node_kinds = {}
+        self.graph_available = adapter.bootstrap is not None
+        if self.graph_available:
+            self._remember_node_kinds(adapter.bootstrap.graph_envelope.get("nodes", []), "node_id")
+        self.attempted_nodes, self.attempted_anchors = set(), set()
+        self.discovered = not self.graph_available or adapter.bootstrap.completed_discovery_query == adapter.request.message
+        from .plan_jev_acquisition import query_identity
+        self.attempted_queries = ({query_identity(adapter.bootstrap.completed_discovery_query)}
+            if self.graph_available and adapter.bootstrap.completed_discovery_query else set())
+        self.saved_page_catalog={}
+        self.attempted_saved_pages=set()
+        if adapter.fence is not None and type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
+            receipt=adapter.fence.turn.graph_context_receipt
+            if receipt.work_context.surface_id=='build':
+                from application_state.agent_conversation.build_section import saved_section_catalog
+                self.saved_page_catalog=saved_section_catalog(adapter.work.build_source.markdown,receipt.work_context.source_basis)
+        self._refresh_related_catalog()
+        self.attempted_related_pages = set()
+        self.saved_statblocks = {}
+        self.prior_statblock_read = None
+        self.attempted_statblocks = set()
+        if (adapter.request.surface.surface_id == "build"
+                and adapter.fence is not None
+                and isinstance(adapter.fence.turn.graph_context_receipt, t.SurfaceNativeContextReceiptV1)
+                and getattr(getattr(adapter, "native_principal", None), "role", None) == "gm"):
+            from apps.live_control_server.routes.statblock_storage import statblock_data_root
+            from .statblock_saved_revision import iter_saved_mechanics
+            self.statblock_root = statblock_data_root(adapter.root)
+            self.statblock_world = adapter.fence.turn.world_id
+            from application_state.agent_conversation.authored_graph_references import object_selections
+            references = object_selections(adapter.request.build_authored_references)
+            entries = self._referenced_statblocks(references) if references else None
+            if adapter.request.build_authored_references is None:
+                entries = self._prior_bound_statblock() or entries
+            if entries is None:
+                entries = (iter_saved_mechanics(self.statblock_root, world_id=self.statblock_world)
+                           if re.search(r"\b(?:stat[ -]?blocks?|saved mechanics)\b", adapter.request.message, re.IGNORECASE)
+                           else ())
+            self.saved_statblocks = {
+                f"saved-statblock:{index}": entry for index, entry in enumerate(entries)
+            }
+        self.finished = False
+        self.continuation_candidates = None
+        self.continuation_reviewed = False
+        self.calls = []
+        self.gaps = []
+        self.current = None
+        if self.graph_available:
+            self._collect_candidates(adapter.bootstrap.retrieval_session.project_for_hermes())
+            self._collect_candidates({"candidates": [{"kind": "node", "id": node, "label": label}
+                for node, label in adapter.bootstrap.navigation_candidates]})
+        elif retained_navigation:
+            raise ValueError("Prior Graph labels cannot grant an absent current Graph capability")
+        for subject in retained_navigation:
+            self.catalog.setdefault(f"node:{subject.node_id}", (subject.node_id, RetrievalCandidate(
+                handle=f"node:{subject.node_id}", label=subject.label,
+                kind=f"Previously explored {subject.kind}; navigation only, not current evidence")))
+
+    def _remember_node_kinds(self, nodes, id_key):
+        """Navigation metadata only; kinds never supply claims or read authority."""
+        for node in nodes:
+            node_id, kind = node.get(id_key), node.get("kind")
+            if node_id and isinstance(kind, str) and kind.strip():
+                self.node_kinds[node_id] = kind
+
+    def _refresh_related_catalog(self):
+        from application_state.agent_conversation.build_related_pages import plan_catalog_available, catalog, plan_handle
+        a = self.adapter
+        self.related_saved_pages = ({plan_handle(p): p for p in catalog(a._broker_execution().policy)}
+            if a.fence is not None and plan_catalog_available(a.fence.turn.graph_context_receipt, a._broker_execution()) else {})
+
+    def _collect_candidates(self, session):
+        for row in session.get("candidates", []):
+            if row.get("kind") != "node" or not row.get("label") or not row.get("id"):
+                continue
+            node = row["id"]
+            handle = f"node:{node}"
+            kind = self.node_kinds.get(node)
+            if handle not in self.catalog or kind is not None:
+                self.catalog[handle] = (node, RetrievalCandidate(
+                    handle=handle, label=row["label"],
+                    kind=f"World entity: {kind}" if kind is not None else "World entity"))
+
+    def _anchored_discussion(self):
+        adapter = self.adapter
+        if adapter.request.surface.surface_id != "build":
+            return False
+        from application_state.agent_conversation.build_intentional_response import is_anchored_discussion, selected_action
+
+        execution = adapter._broker_execution()
+        if not any(isinstance(event, t.BuildRequestedWorkResolutionV1) for event in execution.events):
+            return False
+        return is_anchored_discussion(selected_action(execution))
+
+    def _variant_approval(self):
+        if self.adapter.request.surface.surface_id != "build":
+            return False
+        from application_state.agent_conversation.build_intentional_response import is_variant_approval
+
+        return any(is_variant_approval(event) for event in self.adapter._broker_execution().events)
+
+    def _anchored_variant_draft(self):
+        if self.adapter.request.surface.surface_id != "build" or len(self.saved_statblocks) != 1:
+            return False
+        # Only a statblock bound through an explicit or carried World reference
+        # qualifies. A catalog hit from the generic mechanics search does not.
+        entry, = self.saved_statblocks.values()
+        if len(entry) != 4:
+            return False
+        events = self.adapter._broker_execution().events
+        return (
+            any(isinstance(event, t.BuildDraftContextCapturedV1) for event in events)
+            and any(
+                isinstance(event, t.BuildRequestedWorkResolutionV1)
+                and event.requested_work == "draft_in_conversation"
+                and event.resolution.get("source_scope") == "anchored"
+                for event in events
+            )
+        )
+
+    def offered(self):
+        if self.finished or self._variant_approval():
+            return ()
+        if self._anchored_variant_draft():
+            return self._saved_statblock_candidates()
+        if self._anchored_discussion():
+            rules = (rules_candidate(),) if self.rules is not None and not self.rules.selected else ()
+            return rules + self._saved_build_sections() + self._saved_statblock_candidates()
+        result = [candidate for node, candidate in self.catalog.values() if node not in self.attempted_nodes]
+        from .plan_jev_acquisition import query_identity, read_subject_labels
+        seen = set(self.attempted_queries)
+        for node, label in (read_subject_labels(self.adapter) if self.graph_available else {}).items():
+            key = query_identity(label)
+            if key not in seen:
+                result.append(RetrievalCandidate(handle=f"mentions:{node}", label=label,
+                    kind="Search other mentions of this explored World subject"))
+                seen.add(key)
+        if self.rules is not None and not self.rules.selected:
+            result.append(rules_candidate())
+        from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1, selection_handle
+        from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
+        query = getattr(self.adapter, 'native_query', None)
+        if isinstance(query, NativeGraphQueryV4):
+            result.extend(self._native_object_candidates())
+        elif isinstance(query, NativePlanQueryV1):
+            result.extend(RetrievalCandidate(handle=selection_handle(query, match), label=match.label,
+                kind='Qualified native source statement; select to open its complete attributed support')
+                for match in query.matches if match.statement_id not in self.native_statement_attempts)
+        from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2, selection_handle as assertion_handle
+        if isinstance(query, NativePlanQueryV2) and not isinstance(query, NativeGraphQueryV4):
+            result.extend(RetrievalCandidate(handle=assertion_handle(query, match), label=match.label,
+                kind='Reviewed native Graph assertion; select to read its qualifications and exact supporting evidence')
+                for match in query.assertion_matches if match.assertion_id not in self.native_assertion_attempts)
+        result.extend(self._saved_build_sections())
+        result.extend(RetrievalCandidate(handle=handle, label=page.title,
+            kind="Saved authored Worldbuilding page; read its exact current saved text, not played truth. New connected-page review needs a relevant saved page origin.")
+            for handle,page in self.related_saved_pages.items() if handle not in self.attempted_related_pages)
+        result.extend(self._saved_statblock_candidates())
+        result.extend(self.native_sources.offered())
+        return tuple(result)
+
+    def _saved_build_sections(self):
+        return tuple(candidate for handle, (candidate, _range) in self.saved_page_catalog.items()
+                     if handle not in self.attempted_saved_pages)
+
+    def _saved_statblock_candidates(self):
+        return tuple(RetrievalCandidate(handle=handle, label=entry[0],
+                     kind="Saved statblock; open its exact saved mechanics revision")
+                     for handle, entry in self.saved_statblocks.items() if handle not in self.attempted_statblocks)
+
+    def _graph_read(self, operation, node=None, *, query=None):
+        a = self.adapter
+        if not self.graph_available:
+            raise ValueError("This Plan turn has no authorized Graph capability")
+        arguments = {"retrievalSessionId": a.bootstrap.retrieval_session.id, "operation": operation}
+        if node is not None: arguments["targets"] = [{"kind": "node", "id": node}]
+        else: arguments["queryText"] = a.request.message if query is None else query
+        before = set(a.operation_payloads)
+        reply = a.broker_graph_operation({"toolName": "expand_graph_retrieval", "arguments": arguments})
+        if a.failure is not None: raise a.failure
+        if isinstance(reply.get("retrievalSession"), dict): self._collect_candidates(reply["retrievalSession"])
+        added = set(a.operation_payloads) - before
+        for identity in added:
+            packet = json.loads(a.operation_payloads[identity])
+            self._remember_node_kinds(packet.get("nodes", []), "nodeId")
+            self._collect_candidates({"candidates": [{"kind": "node", "id": node.get("nodeId"),
+                "label": node.get("label")} for node in packet.get("nodes", [])]})
+        if len(added) != 1:
+            self.gaps.append(json.loads(reply["resultJson"]).get("code", "graph_read_unavailable"))
+        return added
+
+    def _read_new_sources(self, operations):
+        if not operations:
+            return
+        from .world_source_acquisition import read_operation_sources
+        return read_operation_sources(self.adapter, operations, self.attempted_anchors, self.gaps)
+
+    def apply(self, dispatch):
+        if self.finished or dispatch is not self.current or dispatch.selection is None:
+            raise ValueError("Plan acquisition requires its current acknowledged decision")
+        return self._apply_admitted(dispatch, dispatch.selection)
+
+    def apply_opening(self, dispatch):
+        from application_state.agent_conversation.native_plan_opening import NativePlanOpeningInputV1
+        from application_state.agent_conversation.native_execution import NativePlanOpeningSelectedV1
+        event = dispatch.selection_event
+        if (self.finished or self.current is not None or type(dispatch.parent) is not NativePlanOpeningInputV1
+                or type(event) is not NativePlanOpeningSelectedV1 or event.operation is None
+                or current_selection(self.adapter.fence.turn).event_id != event.event_id):
+            raise ValueError('Opening acquisition requires its actual active atomic selection')
+        self._refresh_related_catalog()  # Actual work now narrows conditional metadata.
+        return self._apply_admitted(dispatch, event)
+
+    def _apply_admitted(self, dispatch, selected):
+        admitted = current_selection(self.adapter.fence.turn)
+        if (admitted.controller_attempt_id != dispatch.authorization.provider_attempt_id
+                or admitted.decision_request_id != dispatch.parent.request_id
+                or admitted.parent_request_sha256 != dispatch.parent.digest
+                or admitted.controller_envelope_sha256 != dispatch.authorization.envelope_sha256
+                or admitted.operation != selected.operation
+                or tuple(admitted.selected_handles) != tuple(selected.selected_handles)):
+            raise ValueError("Plan acquisition decision is no longer current")
+        self.current = None
+        if selected.operation == "finish_retrieval":
+            self.finished = True
+            return
+        from application_state.errors import ApplicationStateValidationError
+        operations = set()
+        if selected.operation == "discover_more":
+            if self.discovered: raise ValueError("Plan discovery cannot repeat the same query")
+            self.discovered = True
+            from .plan_jev_acquisition import query_identity
+            self.attempted_queries.add(query_identity(self.adapter.request.message))
+            operations.update(self._graph_read("search"))
+        else:
+            offered = {candidate.handle for candidate in dispatch.parent.candidates}
+            if not set(selected.selected_handles) <= offered:
+                raise ValueError("Plan selection changed its offered catalog")
+            native_handles = {candidate.handle for candidate in self.native_sources.offered()}
+            from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1, selection_handle
+            from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4, object_record_ids
+            query = getattr(self.adapter, 'native_query', None)
+            if isinstance(query, NativeGraphQueryV4):
+                selected_ids = object_record_ids(query, selected.selected_handles,
+                    assertion=False, attempted=self.native_statement_attempts)
+                assertion_ids = object_record_ids(query, selected.selected_handles,
+                    assertion=True, attempted=self.native_assertion_attempts)
+                if selected_ids:
+                    self._read_native("statement", selected_ids)
+                if assertion_ids:
+                    self._read_native("assertion", assertion_ids)
+            elif isinstance(query, NativePlanQueryV1):
+                selected_ids = [m.statement_id for m in query.matches if selection_handle(query, m) in selected.selected_handles]
+                if selected_ids:
+                    self._read_native("statement", selected_ids)
+
+            from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2, selection_handle as assertion_handle
+            if isinstance(query, NativePlanQueryV2) and not isinstance(query, NativeGraphQueryV4):
+                assertion_ids = [m.assertion_id for m in query.assertion_matches
+                    if assertion_handle(query, m) in selected.selected_handles]
+                if assertion_ids:
+                    self._read_native("assertion", assertion_ids)
+
+            nodes = [self.catalog[handle][0] for handle in selected.selected_handles
+                     if handle.startswith("node:")]
+            if any(node in self.attempted_nodes for node in nodes):
+                raise ValueError("Plan object cannot be reacquired")
+            with self.adapter.plan_graph_acquisition(nodes) if nodes else nullcontext():
+                for handle in selected.selected_handles:
+                    if not handle.startswith("node:"):
+                        continue
+                    node, _ = self.catalog[handle]
+                    if node in self.attempted_nodes: raise ValueError("Plan object cannot be reacquired")
+                    self.attempted_nodes.add(node)  # mark before IO, including failures
+                    operations.update(self._graph_read("object", node))
+            self._read_new_sources(operations)
+            from .plan_jev_acquisition import query_identity, subject_search_acquisition
+            for handle in selected.selected_handles:
+                if not handle.startswith("mentions:"):
+                    continue
+                with subject_search_acquisition(self.adapter, dispatch, handle) as query:
+                    key = query_identity(query)
+                    if key in self.attempted_queries:
+                        raise ValueError("Plan subject query cannot repeat")
+                    self.attempted_queries.add(key)  # consume even when IO fails
+                    self._graph_read("search", query=query)
+            handled_sources = set()
+            for index, handle in enumerate(selected.selected_handles):
+                if handle in handled_sources:
+                    continue
+                if handle in self.saved_statblocks:
+                    self._read_saved_statblock(handle, dispatch.selection_event)
+                elif handle in self.related_saved_pages:
+                    if handle in self.attempted_related_pages:
+                        raise ValueError('Related saved page cannot be reacquired')
+                    self.attempted_related_pages.add(handle)
+                    from .build_related_pages import acquire_plan_page
+                    acquire_plan_page(self.adapter, self.related_saved_pages[handle], dispatch.selection_event)
+                elif handle in self.saved_page_catalog:
+                    if handle in self.attempted_saved_pages:
+                        raise ValueError('Saved page block cannot be reacquired')
+                    self.attempted_saved_pages.add(handle)
+                    first,last=self.saved_page_catalog[handle][1]
+                    self.adapter.read_build_section(line_start=first,line_end=last)
+                elif handle.startswith('native-corpus-keyword:'):
+                    self.native_sources.accept_keyword_selection(handle, parent=dispatch.parent)
+                elif handle.startswith('native-corpus-expand:'):
+                    # Expansion is already recorded, so offered() now presents
+                    # the broad view. The original parent/current selection above
+                    # still owns this metadata-only action and all mixed reads.
+                    self.native_sources.expand_selected(handle, parent=dispatch.parent)
+                elif handle in native_handles:
+                    group = [handle]
+                    source_reads = ('native-direct-source:', 'native-body:', 'native-full-document:', 'native-corpus-search:')
+                    if handle.startswith(source_reads):
+                        for following in selected.selected_handles[index + 1:]:
+                            if following not in native_handles or not following.startswith(source_reads):
+                                break
+                            group.append(following)
+                    handled_sources.update(group)
+                    try:
+                        self.native_sources.select(group)
+                    except (ValueError, ApplicationStateValidationError):
+                        self.native_sources.unavailable('source_navigation_unavailable')
+                elif handle == rules_candidate().handle:
+                    if self.rules is None or self.rules.selected: raise ValueError("Plan Rules offer was already used")
+                    self.rules.lookup_selected(dispatch.parent.model_dump_json(by_alias=True))
+            from application_state.agent_conversation.native_batch_completion import selected_read_closure
+            turn = self.adapter.fence.turn
+            if selected_read_closure(turn.graph_context_receipt, turn.graph_context_execution,
+                    admitted.event_id) is not None:
+                if not self.continuation_reviewed:
+                    continuation = self.native_sources.continuation_offers()
+                    if continuation:
+                        self.continuation_reviewed = True
+                        self.continuation_candidates = {candidate.handle for candidate in continuation}
+                        return
+                from uuid import uuid4
+                self.adapter.turn, fresh = self.adapter.fence.commit('conclude_native_read_batch',
+                    event_id=uuid4(), selection_event_id=admitted.event_id)
+                if not fresh:
+                    raise ValueError('Read-batch conclusion requires its actual committed successor')
+                self.finished = True
+            return
+        self._read_new_sources(operations)
+
+    def _prior_bound_statblock(self):
+        from application_state.agent_conversation.authored_graph_references import native_references, object_selections
+        from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+
+        adapter = self.adapter
+        turn = adapter.fence.turn
+        if turn.sequence <= 1:
+            return ()
+        prior = adapter.service.list_turns(
+            self.statblock_world, turn.conversation_id, limit=12, before_sequence=turn.sequence,
+        )
+        for previous in reversed(prior):
+            if not isinstance(previous, t.Turn) or previous.status != "completed":
+                return ()
+            receipt = previous.graph_context_receipt
+            if (not isinstance(receipt, t.SurfaceNativeContextReceiptV1)
+                    or receipt.work_context.surface_id != "build"
+                    or receipt.work_context.source_basis != turn.graph_context_receipt.work_context.source_basis
+                    or previous.graph_context_execution is None):
+                return ()
+            events = previous.graph_context_execution.events
+            reads = [event for event in events if isinstance(event, BuildSavedStatblockReadV1)]
+            captures = [event for event in events if isinstance(event, t.BuildAuthoredReferencesCapturedV1)]
+            if reads:
+                if len(reads) != 1 or len(captures) > 1:
+                    return ()
+                break
+            if captures or native_references(previous.graph_context_execution) is not None or not any(
+                isinstance(event, t.BuildRequestedWorkResolutionV1) and event.requested_work == "discuss"
+                for event in events
+            ):
+                return ()
+        else:
+            return ()
+        read = reads[0]
+        reference = self._published_statblock_reference(read.draft_id, read.locator)
+        if reference is None:
+            return ()
+        if read.association_anchor is None:
+            if not captures:
+                return ()
+        elif read.association_anchor != self._current_statblock_anchor(reference, read.draft_id, read.locator):
+            return ()
+        if captures and not any(
+            (selected.managed_world_id, selected.native_world_id, selected.binding_version, selected.node_id)
+            == (reference.managed_world_id, reference.native_world_id, reference.binding_version, reference.node_id)
+            for selected in object_selections(captures[0].references)
+        ):
+            return ()
+        self.prior_statblock_read = (previous, read)
+        return ((reference.label, read.draft_id, read.locator, reference),)
+
+    def _referenced_statblocks(self, references):
+        from application_state.world_mechanics.service import list_current
+        from .world_creature_selection import catalog
+
+        records = list_current(world_id=self.statblock_world)
+        selected_nodes = {ref.node_id for ref in references if ref.managed_world_id == self.statblock_world}
+        records = [record for record in records if record.request.target.node_id in selected_nodes]
+        if not records:
+            return None
+
+        entries = []
+        for ref in references:
+            if ref.managed_world_id != self.statblock_world or not any(
+                record.request.target.node_id == ref.node_id for record in records
+            ):
+                continue
+            view = catalog(self.statblock_world, revision_id=ref.graph_revision)
+            if view.revision_id != view.head_revision_id:
+                continue
+            if (view.native_world_id, view.binding_version, view.revision_id) != (
+                ref.native_world_id, ref.binding_version, ref.graph_revision
+            ):
+                continue
+            matches = [
+                (target, record)
+                for target in view.targets if target.node_id == ref.node_id
+                for record in records if record.request.target.matches_association_target(target)
+            ]
+            if len(matches) == 1:
+                target, record = matches[0]
+                entries.append((target.label, record.request.draft_id, record.proof.locator, ref))
+        return entries
+
+    def _published_statblock_reference(self, draft_id, locator):
+        from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1
+        from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
+        from application_state.world_mechanics.service import list_current
+        from .world_creature_selection import catalog
+
+        authority = self.adapter.fence.turn.graph_context_receipt.source_authority
+        if not isinstance(authority, NativeCorpusAuthorityV1):
+            return None
+        records = [
+            record for record in list_current(world_id=self.statblock_world)
+            if str(record.request.draft_id) == str(draft_id) and record.proof.locator == locator
+        ]
+        if not records:
+            return None
+        view = catalog(self.statblock_world, revision_id=authority.revision_id)
+        if (view.native_world_id, view.binding_version, view.revision_id) != (
+            authority.native_world_id, authority.binding_version, authority.revision_id
+        ) or view.revision_id != view.head_revision_id:
+            return None
+        matches = [
+            target for record in records for target in view.targets
+            if record.request.target.matches_association_target(target)
+        ]
+        if len(matches) != 1:
+            return None
+        target = matches[0]
+        return AuthoredGraphReferenceV1(
+            managed_world_id=view.managed_world_id, native_world_id=view.native_world_id,
+            binding_version=view.binding_version, graph_revision=view.revision_id,
+            node_id=target.node_id, label=target.label,
+        )
+
+    def _current_statblock_anchor(self, reference, draft_id, locator):
+        from application_state.agent_conversation.build_saved_statblock import SavedStatblockAssociationAnchor
+        from application_state.world_mechanics.service import list_current
+
+        if reference is None or reference.managed_world_id != self.statblock_world:
+            return None
+        matches = [
+            record for record in list_current(world_id=self.statblock_world)
+            if str(record.request.draft_id) == str(draft_id) and record.proof.locator == locator
+            and (record.request.target.managed_world_id, record.request.target.native_world_id,
+                 record.request.target.binding_version, record.request.target.node_id)
+            == (reference.managed_world_id, reference.native_world_id,
+                reference.binding_version, reference.node_id)
+        ]
+        if len(matches) != 1:
+            return None
+        return SavedStatblockAssociationAnchor(
+            association_id=matches[0].association_id, node_id=reference.node_id,
+        )
+
+    def _read_saved_statblock(self, handle, selection):
+        from uuid import UUID, uuid4
+        from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+        from .agent_turn_service import _require_fresh_execution_append
+        from .statblock_saved_revision import open_version
+
+        if handle in self.attempted_statblocks:
+            raise ValueError("Saved statblock cannot be reacquired")
+        self.attempted_statblocks.add(handle)
+        _, draft_id, locator, *references = self.saved_statblocks[handle]
+        adapter = self.adapter
+        event_id = uuid4()
+        sequence = len(adapter._broker_execution().events)
+
+        from application_state.agent_conversation.build_saved_statblock import validate_prior_read
+        from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
+        from apps.live_control_server.integrations.dungeonmind import native_registry_source
+        from .native_graph_inspection import InspectionUnavailable, statblock_pdf_support
+        from .native_pdf_evidence import reviewed_pdf_regions
+
+        current = adapter.fence.turn
+        authority = getattr(current.graph_context_receipt, "source_authority", None)
+        epoch = authority.acquisition_epoch if isinstance(authority, NativeCorpusAuthorityV1) else None
+
+        def current_epoch():
+            return native_registry_source.read_repository().open_native_source_view(authority.native_world_id).epoch
+
+        fields = dict(event_id=event_id, sequence=sequence, selection_event_id=selection.event_id,
+                      handle=handle, world_id=self.statblock_world, draft_id=UUID(str(draft_id)), locator=locator)
+        reference = references[0] if references else None
+        anchor = self._current_statblock_anchor(reference, draft_id, locator) if epoch is not None else None
+        prior = self.prior_statblock_read
+        event = None
+        if prior is not None and prior[1].continuity_verified and anchor is not None:
+            previous, record = prior
+            candidate = BuildSavedStatblockReadV1(
+                **fields, definition=record.definition, pdf_support=record.pdf_support,
+                continuity_verified=True, association_anchor=anchor, reused_from_turn_id=previous.turn_id,
+            )
+            try:
+                validate_prior_read(candidate, current, previous)
+                from application_state.agent_conversation.native_execution import validate_context_binding
+
+                execution = adapter._broker_execution()
+                validate_context_binding(current.graph_context_receipt, execution.model_copy(
+                    update={"events": [*execution.events, candidate]},
+                ))
+            except ValueError:
+                pass
+            else:
+                if current_epoch() == epoch:
+                    event = candidate
+        if event is None:
+            opened = open_version(self.statblock_root, world_id=self.statblock_world,
+                                  draft_id=draft_id, revision_id=locator.revision_id)
+            if (opened["locator"] != locator.model_dump(mode="json")
+                    or opened["world_id"] != fields["world_id"]
+                    or UUID(str(opened["draft_id"])) != fields["draft_id"]):
+                raise ValueError("Opened statblock differs from its selected saved revision")
+            regions = reviewed_pdf_regions(opened["resource"], world_id=self.statblock_world)
+            pdf_support = None
+            verified = False
+            if regions:
+                if reference is None:
+                    reference = self._published_statblock_reference(draft_id, locator)
+                    anchor = self._current_statblock_anchor(reference, draft_id, locator) if epoch is not None else None
+                if reference is not None:
+                    if epoch is not None:
+                        try:
+                            pdf_support = statblock_pdf_support(
+                                reference, regions, adapter.native_principal, expected_source_epoch=epoch,
+                            )
+                        except InspectionUnavailable:
+                            pdf_support = statblock_pdf_support(reference, regions, adapter.native_principal)
+                        else:
+                            verified = True
+                    else:
+                        pdf_support = statblock_pdf_support(reference, regions, adapter.native_principal)
+            elif anchor is not None:
+                verified = current_epoch() == epoch
+            event = BuildSavedStatblockReadV1(
+                **fields, definition=opened["resource"]["definition"], pdf_support=pdf_support,
+                continuity_verified=verified and anchor is not None,
+                association_anchor=anchor if verified else None,
+            )
+
+        def materialize():
+            if event.continuity_verified:
+                if current_epoch() != epoch:
+                    raise ValueError("Saved statblock source authority changed before admission")
+                if self._current_statblock_anchor(reference, draft_id, locator) != event.association_anchor:
+                    raise ValueError("Saved statblock World association changed before admission")
+            return event
+
+        adapter.turn = _require_fresh_execution_append(adapter.fence.append(
+            "record_build_saved_statblock", "event", event, materializer=materialize,
+        ))
+
+    def _read_native(self, record_kind, identities):
+        from uuid import uuid4
+        from application_state.agent_conversation.native_plan_statements import NativePlanStatementReadAuthorizedV1
+        from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1
+        from .agent_turn_service import _require_fresh_execution_append
+        from .native_graph_reads import read_selected
+        if record_kind == "assertion":
+            attempts, grant_type = self.native_assertion_attempts, NativePlanAssertionReadAuthorizedV1
+        elif record_kind == "statement":
+            attempts, grant_type = self.native_statement_attempts, NativePlanStatementReadAuthorizedV1
+        else:
+            raise ValueError("Unknown native selected-read record kind")
+        if attempts & set(identities):
+            raise ValueError(f"Native {record_kind} cannot be reacquired")
+        a, grant_id = self.adapter, uuid4()
+        # APP validates the acknowledged selection before either Core port opens support.
+        a.turn = _require_fresh_execution_append(a.fence.append("authorize_native_read", "event_id", grant_id,
+            record_kind=record_kind, record_ids=tuple(identities)))
+        attempts.update(identities)
+        grant = next(e for e in a.fence.turn.graph_context_execution.events
+            if isinstance(e, grant_type) and e.event_id == grant_id)
+        from .native_retrieval_activity import observe_native_retrieval
+        activity_target = f'native-{record_kind}-read:{grant_id}'
+        observe_native_retrieval(a, record_kind + '_read', activity_target)
+        context = a.native_query_context
+        reads, unavailable = read_selected(context, grant, context.principal)
+        a.turn = _require_fresh_execution_append(a.fence.append("observe_native_read", "event_id", uuid4(),
+            authorization_event_id=grant_id, reads=reads, unavailable_ids=unavailable))
+        observe_native_retrieval(a, record_kind + '_read', activity_target, completed=True, unavailable=bool(unavailable))
+        if unavailable:
+            self.gaps.append(f"native_{record_kind}_support_unavailable")
+
+    def _native_object_candidates(self, *, examined=False, opened=()):
+        from application_state.agent_conversation.native_plan_assertions import object_record_catalog
+        query = self.adapter.native_query
+        result = []
+        for unit in object_record_catalog(query).units:
+            statement_ids, assertion_ids = unit.statement_ids, unit.assertion_ids
+            if not statement_ids and not assertion_ids:
+                continue  # Query gap codes retain unavailable/empty discovery status.
+            remaining = (set(statement_ids) - self.native_statement_attempts
+                or set(assertion_ids) - self.native_assertion_attempts)
+            if bool(remaining) == examined:
+                continue
+            keys = {(False, i) for i in statement_ids} | {(True, i) for i in assertion_ids}
+            status = 'opened' if keys <= set(opened) else 'partial' if keys & set(opened) else 'unavailable'
+            result.append(RetrievalCandidate(handle=unit.handle, label=unit.label,
+                kind=(f'Previously selected native object: {status}; not an answer-sufficiency verdict' if examined else
+                    'Native Graph object; open its complete admitted statement and assertion support')))
+        return tuple(result)
+
+    def _native_object_examined(self):
+        """Navigation only after both record families settle under the frozen owner."""
+        from application_state.agent_conversation.native_plan_assertions import (
+            NativeGraphQueryV4, NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1)
+        from application_state.agent_conversation.native_plan_statements import (
+            NativePlanStatementReadAuthorizedV1, NativePlanStatementReadObservedV1)
+        from application_state.agent_conversation.native_reads import validate_execution_binding
+        a = self.adapter
+        if a.fence is None or not isinstance(getattr(a, 'native_query', None), NativeGraphQueryV4):
+            return ()
+        receipt, execution = a.fence.turn.graph_context_receipt, a._broker_execution()
+        validate_execution_binding(receipt, execution)
+        from application_state.agent_conversation.native_execution import effective_native_query
+        if effective_native_query(receipt, execution).sha256 != a.native_query.sha256:
+            raise ValueError('Native controller query differs from its frozen receipt')
+        opened = set()
+        for grant_type, observed_type, field, attempts in (
+            (NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1,
+                'assertion_ids', self.native_assertion_attempts),
+            (NativePlanStatementReadAuthorizedV1, NativePlanStatementReadObservedV1,
+                'statement_ids', self.native_statement_attempts),
+        ):
+            grants = [e for e in execution.events if isinstance(e, grant_type)]
+            observed = [e for e in execution.events if isinstance(e, observed_type)]
+            if ({e.event_id for e in grants} != {e.authorization_event_id for e in observed}
+                    or not attempts <= {i for e in grants for i in getattr(e, field)}):
+                raise ValueError('Native acquisition must settle before another controller decision')
+            attempts.update(i for e in grants for i in getattr(e, field))
+            assertion = field == 'assertion_ids'
+            opened.update((assertion, r.assertion.assertion_id if assertion else r.support.statement_id)
+                for e in observed for r in e.reads)
+        return self._native_object_candidates(examined=True, opened=opened)
+
+    def _native_assertion_examined(self):
+        from application_state.agent_conversation.native_plan_assertions import (
+            NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1, selection_handle)
+        a = self.adapter
+        if a.fence is None or not hasattr(a.fence.turn.graph_context_receipt, "native_query"):
+            return ()
+        from application_state.agent_conversation.native_execution import effective_native_query
+        from application_state.agent_conversation.native_reads import validate_execution_binding
+        receipt, execution = a.fence.turn.graph_context_receipt, a._broker_execution()
+        validate_execution_binding(receipt, execution)
+        query = effective_native_query(receipt, execution)
+        if not isinstance(query, NativePlanQueryV2):
+            return ()
+        if a.native_query.sha256 != query.sha256:
+            raise ValueError('Native assertion query differs from its frozen receipt')
+        grants = {e.event_id: e for e in execution.events if isinstance(e, NativePlanAssertionReadAuthorizedV1)}
+        observed = [e for e in execution.events if isinstance(e, NativePlanAssertionReadObservedV1)]
+        if set(grants) != {e.authorization_event_id for e in observed}:
+            raise ValueError('Native assertion acquisition must settle before another decision')
+        matches = {m.assertion_id: m for m in query.assertion_matches}
+        return tuple(RetrievalCandidate(handle=selection_handle(query, matches[identity]), label=matches[identity].label,
+            kind='Previously selected native assertion: ' + ('opened' if identity in {r.assertion.assertion_id for r in event.reads} else 'unavailable')
+                + '; not an answer-sufficiency verdict')
+            for event in observed for identity in grants[event.authorization_event_id].assertion_ids)
+
+    def _native_statement_examined(self):
+        """Truthful read outcomes for navigation, never an answer-sufficiency verdict."""
+        from application_state.agent_conversation.native_plan_statements import (
+            NativePlanQueryV1, NativePlanStatementReadAuthorizedV1,
+            NativePlanStatementReadObservedV1, selection_handle)
+        a = self.adapter
+        # The first controller dispatch may precede the initial durable claim.
+        if a.fence is None:
+            return ()
+        receipt = a.fence.turn.graph_context_receipt
+        if not isinstance(receipt, (t.PlanNativeContextReceiptV1,t.SurfaceNativeContextReceiptV1)):
+            return ()
+        from application_state.agent_conversation.native_reads import validate_execution_binding
+        execution = a._broker_execution()
+        validate_execution_binding(receipt, execution)
+        from application_state.agent_conversation.native_execution import effective_native_query
+        query = effective_native_query(receipt, execution)
+        if not isinstance(query, NativePlanQueryV1):
+            return ()
+        if not isinstance(a.native_query, NativePlanQueryV1) or a.native_query.sha256 != query.sha256:
+            raise ValueError('Native controller query differs from its frozen receipt')
+        grants = {e.event_id: e for e in execution.events if isinstance(e, NativePlanStatementReadAuthorizedV1)}
+        observed = [e for e in execution.events if isinstance(e, NativePlanStatementReadObservedV1)]
+        if set(grants) != {e.authorization_event_id for e in observed}:
+            raise ValueError('Native acquisition must settle before another controller decision')
+        matches = {m.statement_id: m for m in query.matches}
+        result = []
+        for event in observed:
+            opened = {read.support.statement_id for read in event.reads}
+            for identity in grants[event.authorization_event_id].statement_ids:
+                match = matches[identity]
+                status = 'opened' if identity in opened else 'unavailable'
+                result.append(RetrievalCandidate(handle=selection_handle(query, match), label=match.label,
+                    kind=f'Previously selected native statement: {status}; not an answer-sufficiency verdict'))
+        return tuple(result)
+
+    def decision_arguments(self):
+        """One actual catalog producer for opening and subsequent decisions."""
+        if self._variant_approval():
+            return dict(candidates=(), dialogue=self.dialogue, examined_candidates=(),
+                        allowed_operations=("select_candidates", "finish_retrieval"))
+        operations = (
+            ('select_candidates', 'finish_retrieval')
+            if self.discovered or self._anchored_discussion() or self._anchored_variant_draft()
+            else ('select_candidates', 'discover_more', 'finish_retrieval')
+        )
+        examined = [candidate for node, candidate in self.catalog.values() if node in self.attempted_nodes]
+        if self.rules is not None and self.rules.selected:
+            examined.append(rules_candidate())
+        examined.extend(self.saved_page_catalog[h][0] for h in sorted(self.attempted_saved_pages))
+        if self.attempted_statblocks:
+            from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+
+            examined.extend(
+                RetrievalCandidate(
+                    handle=event.handle, label=self.saved_statblocks[event.handle][0],
+                    kind="Saved statblock: acquired exact mechanics in this turn",
+                )
+                for event in self.adapter._broker_execution().events
+                if isinstance(event, BuildSavedStatblockReadV1) and event.handle in self.saved_statblocks
+            )
+        examined.extend(self.native_sources.examined())
+        from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
+        if isinstance(getattr(self.adapter, 'native_query', None), NativeGraphQueryV4):
+            examined.extend(self._native_object_examined())
+        else:
+            examined.extend(self._native_statement_examined())
+            examined.extend(self._native_assertion_examined())
+        candidates = self.offered()
+        if self.continuation_candidates is not None:
+            candidates = tuple(candidate for candidate in candidates
+                               if candidate.handle in self.continuation_candidates)
+            operations = ('select_candidates', 'finish_retrieval')
+        return dict(candidates=candidates, dialogue=self.dialogue,
+            examined_candidates=examined, allowed_operations=operations)
+
+    async def run(self, *, transport=None, api_key=None):
+        if self.finished:
+            return self.proof()
+        trace = getattr(self.adapter, "trace", None)
+        measure = getattr(trace, "phase_before_first_jev", nullcontext)
+
+        async def authorize(prepared):
+            with measure("native_first_jev_authorization"):
+                return self.current.authorize(prepared) if self.current is not None else False
+
+        async def record(event):
+            with (measure("native_first_jev_sending_acknowledgement")
+                  if event.outcome == "sending" else nullcontext()):
+                return self.current.record(event) if self.current is not None else False
+        async def select_context(prepared):
+            return await self.current.select_context(prepared)
+        client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key,
+            select_context=select_context, on_dispatch=getattr(trace, "mark_first_jev_dispatch", None))
+        try:
+            while not self.finished:
+                with trace.measure_host_work("retrieval_candidate_preparation") if trace is not None else nullcontext():
+                    with measure("native_first_jev_candidate_preparation"):
+                        dispatch = PlanJevDispatch(self.adapter, **self.decision_arguments())
+                self.current = dispatch
+                try:
+                    with trace.measure_host_work("retrieval_decision") if trace is not None else nullcontext():
+                        await dispatch.run(client=client)
+                finally:
+                    if dispatch.call is not None: self.calls.append(dispatch.call)
+                with trace.measure_host_work("retrieval_selection_apply") if trace is not None else nullcontext():
+                    self.apply(dispatch)
+            return self.proof()
+        finally:
+            await client.aclose()
+
+    def proof(self):
+        if not self.finished or self.adapter.failure is not None:
+            raise ValueError("Plan writer cannot use unfinished acquisition")
+        a = self.adapter
+        if type(a.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
+            if a.fence.turn.graph_context_execution.policy.action.surface_id == "build":
+                return {}  # Build work is reconstructed from its actual captured APP records.
+            if a.fence.turn.graph_context_execution.policy.action.surface_id=='play':
+                from .plan_source_turn import play_work_proof
+                return play_work_proof(a.request,a.work,self.dialogue)
+            return dict(plan_markdown=a.work.plan_markdown,
+                session_evidence=(a.work.session_evidence or {}).get('sessions',[]),dialogue=self.dialogue)
+        names = {}
+        for event in a._broker_execution().events:
+            if not isinstance(event, t.SOURCE_PASSAGE_EVENTS) or event.event_id not in a.source_payloads:
+                continue
+            payload = json.loads(a.source_payloads[event.event_id])
+            rows = payload.get("reads", [payload])
+            titles = {row["anchorId"]: row.get("sourceName") for row in rows}
+            for receipt in event.receipts:
+                title = titles.get(receipt.anchor_id)
+                if receipt.returned_chars and isinstance(title, str) and title.strip(): names[receipt.source_read_id] = title
+        # Only strip known parent-added runtime fields. The canonical remainder
+        # must still match the owning durable Graph operation digest at admission.
+        packets = {identity: json.dumps({key: value for key, value in json.loads(raw).items()
+            if key not in _RUNTIME_GRAPH_FIELDS}, ensure_ascii=False, separators=(",", ":"))
+            for identity, raw in a.operation_payloads.items()}
+        sessions = (a.work.session_evidence or {}).get("sessions", [])
+        proof={"graph_packets": packets, "source_names": names, "plan_markdown": a.work.plan_markdown,
+                "session_evidence": sessions, "dialogue": self.dialogue}
+        if isinstance(a.fence.turn.graph_context_execution.policy,t.PlanAuthoringPolicyV1):
+            capture = a.request.plan_authoring_capture
+            if isinstance(a.fence.turn.graph_context_execution.policy,t.PlanPlacementAuthoringPolicyV1):
+                from application_state.agent_conversation.plan_authoring import PlanAuthoringCaptureV1
+                from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV1
+                choices=[event for event in a.fence.turn.graph_context_execution.events
+                    if isinstance(event,t.PlanRequestedWorkSelectedV2)]
+                if len(choices)!=1:
+                    raise ValueError('Plan writer requires its retained placement decision')
+                choice=choices[0]
+                proof['original_authoring_capture']=choice.original_capture
+                proof['placement_catalog']=choice.placement_catalog
+                capture=PlanAuthoringCaptureV1.model_validate(choice.original_capture) if choice.original_capture is not None else None
+                if choice.requested_work=='write_current_page':
+                    if capture is None or choice.placement_catalog is None or choice.placement_selector is None:
+                        raise ValueError('Plan writing has no resolved offered target')
+                    capture=PlanPlacementCatalogV1.model_validate(choice.placement_catalog).resolve(capture,choice.placement_selector)
+            proof['authoring_capture']=(capture.model_dump(mode='json',by_alias=True) if capture is not None else None)
+        return proof

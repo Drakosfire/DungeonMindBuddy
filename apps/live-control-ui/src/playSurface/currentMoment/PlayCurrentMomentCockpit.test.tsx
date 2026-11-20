@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen, waitFor, within, type RenderOptions } from "@testing-library/react";
+import type { ReactElement } from "react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import { LiveApiError } from "../../api/liveApi";
@@ -12,9 +13,36 @@ import type {
   WorldPlayRunRecordV2,
 } from "../../api/types";
 import { admitNativeRunbook, overlayRuntimeOnV2Ready } from "../runbook/nativeRunbookProjection";
-import type { RunbookMutationStatus } from "../runbook/RunbookTableDeck";
+import type { RunbookMutationStatus } from "./playRunMutation";
 import { PlayCurrentMomentCockpit } from "./PlayCurrentMomentCockpit";
-import { BREACH_DOGFOOD_RUNBOOK_MARKDOWN, breachDogfoodManifestV2 } from "./breachDogfoodFixture";
+import { SurfaceContextHost, SurfaceContextProvider } from "../../surfaceInteraction/contextHost";
+import { BREACH_DOGFOOD_RUNBOOK_MARKDOWN, breachDogfoodManifestV2 } from "../../test/breachDogfoodFixture";
+
+// Read retained source/context through the same More action used by the UI.
+function playDetails(testId: string) {
+  if (!screen.queryByTestId(testId)) {
+    const more = screen.getByRole("button", { name: "More Play controls" });
+    if (more.getAttribute("aria-expanded") === "false") fireEvent.click(more);
+  }
+  return screen.getByTestId(testId);
+}
+
+function render(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) {
+  return rtlRender(ui, { ...options, wrapper: ({ children }) => <SurfaceContextProvider><SurfaceContextHost />{children}</SurfaceContextProvider> });
+}
+
+// Existing writer cases exercise the now-collapsed control through its public toggle.
+function sceneNoteField() {
+  const toggle = screen.getByRole("button", { name: /^Notes ·/ });
+  if (toggle.getAttribute("aria-expanded") === "false") fireEvent.click(toggle);
+  return screen.getByLabelText("Scene note");
+}
+
+function openRunRecord() {
+  const more = screen.getByRole("button", { name: "More Play controls" });
+  if (more.getAttribute("aria-expanded") === "false") fireEvent.click(more);
+  fireEvent.click(screen.getByRole("button", { name: "Run record" }));
+}
 
 const RUN_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OTHER_RUN_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
@@ -107,6 +135,20 @@ function worldRunRecord(overrides: Partial<WorldPlayRunRecordV2> = {}): WorldPla
   };
 }
 
+function currentWorldRun(progressOverrides: Partial<PlayRunProgress> = {}): WorldPlayRunRecordV2 {
+  return worldRunRecord({
+    progress: progress({ current_scene_id: "scene:north-gate", ...progressOverrides }),
+  });
+}
+
+function storedSceneNoteCache(): { key: string; value: Record<string, unknown> } | null {
+  const key = Object.keys(localStorage).find((candidate) => candidate.startsWith("dmb.play.scene-note-draft.v1:"));
+  if (!key) return null;
+  const raw = localStorage.getItem(key);
+  if (!raw) return null;
+  return { key, value: JSON.parse(raw) as Record<string, unknown> };
+}
+
 function v2Manifest(scenes: PlayRunReferenceManifestV2["scenes"]): PlayRunReferenceManifestV2 {
   return {
     schema_version: "dmb_play_run_reference_manifest_v2",
@@ -163,7 +205,13 @@ function readyWorldDeck(run: WorldPlayRunRecordV2 = worldRunRecord()) {
   ];
   const admitted = admitNativeRunbook({
     run,
-    manifest: { ...v2Manifest(scenes), run_id: run.run_id },
+    manifest: {
+      ...v2Manifest(scenes),
+      run_id: run.run_id,
+      playable_artifact_id: run.playable_artifact_id,
+      playable_revision: run.playable_revision,
+      playable_content_sha256: run.playable_content_sha256,
+    },
     committed: {
       schema_version: "dmb_workspace_committed_revision_v2",
       scope_mode: "world",
@@ -227,6 +275,43 @@ function WorldHarness({ initialRun = worldRunRecord() }: { initialRun?: WorldPla
 describe("PlayCurrentMomentCockpit", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("labels an edited Runbook-origin session copy with its actual source", () => {
+    const admission = readyWorldDeck(worldRunRecord({
+      progress: progress({ current_scene_id: "scene:tunnel" }),
+    }));
+    const deck = {
+      ...admission,
+      effectiveContent: {
+        schema_version: "dmb_world_play_run_content_v1" as const,
+        world_id: admission.run.world_id,
+        run_id: admission.run.run_id,
+        origin: {
+          playable_artifact_id: admission.run.playable_artifact_id,
+          playable_revision: admission.run.playable_revision,
+          playable_work_revision_id: admission.run.playable_work_revision_id,
+          playable_content_sha256: admission.run.playable_content_sha256,
+        },
+        source: "edition" as const,
+        edition_revision: 1,
+        edition_revision_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        markdown: MARKDOWN,
+        content_sha256: "b".repeat(64),
+        committed_at: "2026-10-18T00:00:00Z",
+        observed_run_revision: admission.run.run_revision,
+        structure_sha256: "a".repeat(64),
+      },
+    };
+    render(<PlayCurrentMomentCockpit deck={deck} mutationStatus="idle" onMutationStatus={() => {}} onAuthoritativeRun={() => {}} />);
+
+    expect(screen.getByTestId("scene-card-source-cue")).toHaveTextContent("Session copy · revision 1 · From Runbook version 3");
   });
 
   it("renders the persisted Scene as the central workspace", () => {
@@ -238,9 +323,151 @@ describe("PlayCurrentMomentCockpit", () => {
       />,
     );
     expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel unique body.");
-    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("Tunnel Breach");
+    expect(screen.getByRole("navigation", { name: "Contents" }).querySelector('[data-current="true"]')).toHaveTextContent("Tunnel Breach");
+    expect(playDetails("play-beat-context-disclosure")).toHaveAttribute("data-beat-id", "beat:survive");
     expect(screen.queryByTestId("play-workspace-beat-only")).not.toBeInTheDocument();
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("keeps authored current Beat context available while a Scene is active", async () => {
+    const user = userEvent.setup();
+    render(
+      <BreachHarness
+        initialRun={breachRun({
+          progress: breachProgress({
+            current_scene_id: "scene:north-gate",
+            resolved_beat_ids: ["beat:hold-breach"],
+          }),
+        })}
+      />,
+    );
+    const context = playDetails("play-beat-context-disclosure");
+    expect(context).toHaveAttribute("data-beat-id", "beat:hold-breach");
+    expect(context).toHaveAttribute("data-beat-resolved", "true");
+    expect(context).toHaveTextContent("spine · Resolved");
+    await user.click(within(context).getByText("Hold the Breach"));
+    expect(context).toHaveTextContent("Creatures have broken through the defensive wall.");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("places the active Scene before supporting rails in reading and keyboard order", () => {
+    render(<Harness initialRun={runRecord({
+      progress: progress({ current_scene_id: "scene:north-gate" }),
+    })} />);
+
+    const scene = screen.getByTestId("play-workspace-current");
+    const beatToggle = screen.getByTestId("play-beat-context-toggle");
+    const glanceToggle = screen.getByTestId("play-at-a-glance-toggle");
+    expect(scene.compareDocumentPosition(beatToggle) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(beatToggle.compareDocumentPosition(glanceToggle) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
+  it("renders a named table and following cues in its admitted Scene without sibling leakage", () => {
+    const markdown = MARKDOWN.replace("Tunnel unique body.", [
+      "Negotiate before initiative.", "", "## Compound tactics", "",
+      "| Combatant | Conditional tactic |", "| --- | --- |",
+      "| Wizard | May flee if threatened |", "| Bear | Initially in the outhouse |", "",
+      "GM cue after the table.",
+    ].join("\n"));
+    render(<Harness markdown={markdown} initialRun={runRecord({
+      progress: progress({ current_scene_id: "scene:tunnel" }),
+    })} />);
+    const body = screen.getByTestId("play-workspace-current").querySelector(".play-scene-board-body");
+    expect(body).toHaveTextContent("Negotiate before initiative.");
+    expect(body?.querySelector("h2")).toHaveTextContent("Compound tactics");
+    expect(body?.querySelector("table")).toHaveTextContent("Initially in the outhouse");
+    expect(body).toHaveTextContent("GM cue after the table.");
+    expect(body).not.toHaveTextContent("North Gate unique body.");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("renders admitted Scene body AST with references and authored block structure", () => {
+    const markdown = MARKDOWN.replace(
+      "Tunnel unique body.",
+      [
+        "A long warehouse paragraph names [Lysandra Ironveil](dmb-node:lysandra-ironveil) and preserves its inline reference.",
+        "",
+        "A second paragraph remains separate.",
+        "",
+        "- Inspect the loading bay",
+        "- Check the upper windows",
+        "",
+        "> Read this aloud before the guards arrive.",
+      ].join("\n"),
+    );
+    render(
+      <Harness
+        markdown={markdown}
+        initialRun={runRecord({ progress: progress({ current_scene_id: "scene:tunnel" }) })}
+      />,
+    );
+    const body = screen.getByTestId("play-workspace-current").querySelector(".play-scene-board-body");
+    expect(body).toBeInTheDocument();
+    expect(body?.querySelectorAll(":scope > p")).toHaveLength(2);
+    expect(body?.querySelectorAll(":scope > ul > li")).toHaveLength(2);
+    expect(body?.querySelector(":scope > blockquote")).toHaveTextContent(
+      "Read this aloud before the guards arrive.",
+    );
+    const reference = body?.querySelector('[data-plan-card-reference="graph"]');
+    expect(reference).toHaveTextContent("Lysandra Ironveil");
+    expect(reference).toHaveAttribute("data-graph-node-id", "lysandra-ironveil");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("fails closed for unsafe or unknown captured body nodes and keeps legacy plain text readable", () => {
+    const unsafeDeck = readyDeck(runRecord({
+      progress: progress({ current_scene_id: "scene:tunnel" }),
+    }));
+    const scene = unsafeDeck.beats[0]?.scenes.find((entry) => entry.id === "scene:tunnel");
+    if (!scene) throw new Error("expected fixture Scene");
+    scene.bodyContent = [{
+      type: "paragraph",
+      content: [{
+        type: "text",
+        text: "unsafe link",
+        marks: [{ type: "link", attrs: { href: "javascript:alert(1)" } }],
+      }],
+    }];
+    scene.bodyText = "must not fall back when captured content is unsafe";
+    const renderDeck = (deck: ReturnType<typeof readyDeck>) => (
+      <PlayCurrentMomentCockpit
+        deck={deck}
+        mutationStatus="idle"
+        onMutationStatus={() => undefined}
+        onAuthoritativeRun={() => undefined}
+      />
+    );
+    const { rerender } = render(renderDeck(unsafeDeck));
+    expect(screen.getByRole("status")).toHaveTextContent("cannot be displayed safely");
+    expect(screen.queryByText("must not fall back when captured content is unsafe")).not.toBeInTheDocument();
+
+    const unknownDeck = readyDeck(runRecord({
+      progress: progress({ current_scene_id: "scene:tunnel" }),
+    }));
+    const unknownScene = unknownDeck.beats[0]?.scenes.find((entry) => entry.id === "scene:tunnel");
+    if (!unknownScene) throw new Error("expected fixture Scene");
+    unknownScene.bodyContent = [{ type: "paragraph", content: [{ type: "unregisteredAuthoredNode", text: "unknown" }] }];
+    rerender(renderDeck(unknownDeck));
+    expect(screen.getByRole("status")).toHaveTextContent("cannot be displayed safely");
+    expect(screen.queryByText("unknown")).not.toBeInTheDocument();
+
+    unknownScene.bodyContent = [{
+      type: "paragraph",
+      content: [{ type: "text", text: "unknown mark", marks: [{ type: "unregisteredMark" }] }],
+    }];
+    rerender(renderDeck(unknownDeck));
+    expect(screen.getByRole("status")).toHaveTextContent("cannot be displayed safely");
+    expect(screen.queryByText("unknown mark")).not.toBeInTheDocument();
+
+    const legacyDeck = readyDeck(runRecord({
+      progress: progress({ current_scene_id: "scene:tunnel" }),
+    }));
+    const legacyScene = legacyDeck.beats[0]?.scenes.find((entry) => entry.id === "scene:tunnel");
+    if (!legacyScene) throw new Error("expected fixture Scene");
+    delete legacyScene.bodyContent;
+    legacyScene.bodyText = "Legacy plain body remains readable.";
+    rerender(renderDeck(legacyDeck));
+    expect(within(screen.getByTestId("play-central-workspace")).getByText("Legacy plain body remains readable.")).toBeInTheDocument();
   });
 
   it("does not fabricate a Scene when none is current", () => {
@@ -248,7 +475,7 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(screen.getByTestId("play-workspace-beat-only")).toBeInTheDocument();
     expect(screen.getByTestId("play-current-scene")).toHaveTextContent("No Scene is current");
     expect(screen.queryByTestId("play-workspace-current")).not.toBeInTheDocument();
-    expect(screen.queryByText("Tunnel unique body.")).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("play-central-workspace")).queryByText("Tunnel unique body.")).not.toBeInTheDocument();
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
@@ -266,24 +493,25 @@ describe("PlayCurrentMomentCockpit", () => {
     await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-beat-collapsed", "true");
-    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "false");
+    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "true");
     expect(screen.getByTestId("play-beat-context")).toHaveClass("is-collapsed");
     expect(screen.queryByTestId("play-beat-context-title")).not.toBeInTheDocument();
     expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel unique body.");
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
-  it("collapses At a Glance without writing progress", async () => {
+  it("collapses Recorded outcomes without writing progress", async () => {
     const user = userEvent.setup();
     render(<Harness />);
-    const toggle = screen.getByTestId("play-at-a-glance-toggle");
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    await user.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "true");
+    await user.click(screen.getByRole("button", { name: "More Play controls" }));
+    await user.click(screen.getByRole("button", { name: "Run record" }));
+    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "false");
+    await user.click(screen.getByTestId("play-at-a-glance-toggle"));
     expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "true");
     expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-beat-collapsed", "false");
     expect(screen.getByTestId("play-at-a-glance")).toHaveClass("is-collapsed");
-    expect(screen.queryByTestId("play-at-a-glance-scenes")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-recorded-choices-empty")).not.toBeInTheDocument();
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
@@ -298,8 +526,10 @@ describe("PlayCurrentMomentCockpit", () => {
     );
     const shell = screen.getByTestId("play-cockpit-shell");
     expect(shell).toHaveAttribute("data-beat-collapsed", "false");
-    expect(shell).toHaveAttribute("data-glance-collapsed", "false");
+    expect(shell).toHaveAttribute("data-glance-collapsed", "true");
     await user.click(screen.getByTestId("play-beat-context-toggle"));
+    await user.click(screen.getByRole("button", { name: "More Play controls" }));
+    await user.click(screen.getByRole("button", { name: "Run record" }));
     await user.click(screen.getByTestId("play-at-a-glance-toggle"));
     expect(shell).toHaveAttribute("data-beat-collapsed", "true");
     expect(shell).toHaveAttribute("data-glance-collapsed", "true");
@@ -309,13 +539,196 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
-  it("opens the Scenes category in the central workspace without writing progress", async () => {
+  it("keeps compact panel controls reachable and opens only one panel at a time", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("ResizeObserver", undefined);
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })));
+
+    render(
+      <Harness
+        initialRun={runRecord({
+          progress: progress({ current_scene_id: "scene:tunnel" }),
+        })}
+      />,
+    );
+
+    const shell = screen.getByTestId("play-cockpit-shell");
+    const scenes = screen.getByRole("button", { name: "Contents" });
+    expect(scenes).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(scenes);
+    expect(scenes).toHaveAttribute("aria-expanded", "true");
+    expect(shell).toHaveAttribute("data-beat-collapsed", "false");
+    expect(shell).toHaveAttribute("data-glance-collapsed", "true");
+
+    await user.click(screen.getByRole("button", { name: "More Play controls" }));
+    await user.click(screen.getByRole("button", { name: "Run record" }));
+    expect(scenes).toHaveAttribute("aria-expanded", "false");
+    expect(shell).toHaveAttribute("data-glance-collapsed", "false");
+    expect(shell).toHaveAttribute("data-beat-collapsed", "true");
+    expect(shell).toHaveAttribute("data-glance-collapsed", "false");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("keeps More navigation read-only and restores its focus", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    render(<Harness initialRun={runRecord({ progress: progress({ current_scene_id: "scene:tunnel" }) })} />);
+    const more = screen.getByRole("button", { name: "More Play controls" });
+    await user.click(more);
+    await user.click(screen.getByRole("button", { name: "Next", exact: true }));
+    expect(screen.getByTestId("play-workspace-inspect")).toHaveTextContent("North Gate");
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => expect(more).toHaveFocus());
+    await user.click(more);
+    await user.click(screen.getByRole("button", { name: "Show current scene" }));
+    await waitFor(() => expect(more).toHaveFocus());
+    expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel Breach");
+    await user.click(more);
+    await user.click(screen.getByRole("button", { name: "Browse Contents" }));
+    await waitFor(() => expect(more).toHaveFocus());
+    await user.keyboard("{Escape}");
+    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-beat-collapsed", "true");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("preserves Worldbuilding source provenance under More", () => {
+    const deck = readyWorldDeck();
+    render(<PlayCurrentMomentCockpit deck={{ ...deck, snapshot: { ...deck.snapshot, kind: "worldbuilding_source" } }} campaignId="longmont-c2" onRunChange={vi.fn()} />);
+    expect(playDetails("play-source-cue")).toHaveTextContent("Created from saved Worldbuilding source version 3");
+  });
+
+  it("returns focus to More when Escape closes its focused menu action", async () => {
     const user = userEvent.setup();
     render(<Harness />);
-    expect(screen.getByTestId("play-at-a-glance-scenes")).toHaveTextContent("Scenes 3");
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    expect(screen.getByTestId("play-workspace-scenes")).toBeInTheDocument();
-    expect(screen.getByTestId("play-scene-inventory")).toHaveTextContent("Tunnel Breach");
+    const more = screen.getByRole("button", { name: "More Play controls" });
+    await user.click(more);
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Run record" })).toHaveFocus();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(more).toHaveFocus());
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Run record" })).not.toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("navigates from the inspected Scene and keeps Run record behind More by default", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("ResizeObserver", undefined);
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    render(<Harness initialRun={runRecord({ progress: progress({ current_scene_id: "scene:tunnel" }) })} />);
+    const shell = screen.getByTestId("play-cockpit-shell");
+    expect(shell).toHaveAttribute("data-glance-collapsed", "true");
+    expect(screen.queryByTestId("play-recorded-outcomes-body")).not.toBeInTheDocument();
+    expect(document.querySelectorAll('[data-guided-control="progress"]')).toHaveLength(1);
+    expect(screen.getByRole("combobox", { name: "Inspect scene" })).toHaveAttribute("data-guided-control","progress");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Inspect scene" }), "scene:courtyard");
+    await user.click(screen.getByRole("button", { name: "Previous scene" }));
+    expect(screen.getByTestId("play-workspace-inspect")).toHaveTextContent("North Gate");
+    await user.click(screen.getByRole("button", { name: "Previous scene" }));
+    expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel Breach");
+    expect(screen.getByRole("button", { name: "Previous scene" })).toBeDisabled();
+    expect(screen.getByRole("navigation", { name: "Card navigation" }).closest('[data-testid="play-central-workspace"]')).not.toBeNull();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+    expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "More Play controls" }));
+    await user.click(screen.getByRole("button", { name: "Run record" }));
+    expect(screen.getByTestId("play-recorded-outcomes-body")).toBeInTheDocument();
+    const more = screen.getByRole("button", { name: "More Play controls" });
+    await waitFor(() => expect(more).toHaveFocus());
+    expect(screen.getByTestId("play-central-workspace")).toHaveAttribute("inert");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "true"));
+    expect(more).toHaveFocus();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("closes compact overlays on scene inspection and restores the visible Scenes control", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("ResizeObserver", undefined);
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })));
+    render(
+      <Harness
+        initialRun={runRecord({
+          progress: progress({ current_scene_id: "scene:tunnel" }),
+        })}
+      />,
+    );
+
+    const scenes = screen.getByRole("button", { name: "Contents" });
+    await user.click(scenes);
+    await user.click(screen.getByRole("button", { name: /Courtyard/ }));
+
+    const inspectedHeading = screen.getByRole("heading", { name: "Courtyard" });
+    await waitFor(() => expect(inspectedHeading).toHaveFocus());
+    expect(scenes).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "true");
+    expect(screen.getByTestId("play-workspace-inspect")).toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+
+    await user.keyboard("{Enter}");
+    expect(screen.getByTestId("play-workspace-inspect")).toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+
+    await user.keyboard("{Escape}");
+    expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel unique body.");
+    await waitFor(() => expect(scenes).toHaveFocus());
+    expect(scenes).toHaveAttribute("aria-expanded", "false");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("dismisses an open compact panel before touching inspection and restores its trigger focus", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("ResizeObserver", undefined);
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })));
+    render(<Harness />);
+
+    const scenes = screen.getByRole("button", { name: "Contents" });
+    const central = screen.getByTestId("play-central-workspace");
+    await user.click(scenes);
+    expect(central).toHaveAttribute("inert");
+    expect(central).toHaveAttribute("aria-hidden", "true");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(scenes).toHaveAttribute("aria-expanded", "false"));
+    expect(central).not.toHaveAttribute("inert");
+    await waitFor(() => expect(scenes).toHaveFocus());
+    expect(screen.getByTestId("play-workspace-beat-only")).toBeInTheDocument();
+
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("shows scenes in the outline and keeps the current scene in the central workspace", () => {
+    render(<Harness />);
+    expect(screen.getByRole("navigation", { name: "Contents" })).toHaveTextContent("Tunnel Breach");
+    expect(screen.getByTestId("play-workspace-beat-only")).toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("keeps navigation metadata in More and returns directly to the selected current scene", async () => {
+    const user = userEvent.setup();
+    render(<Harness initialRun={runRecord({ progress: progress({ current_scene_id: "scene:tunnel" }) })} />);
+    await user.selectOptions(screen.getByRole("combobox", { name: "Inspect scene" }), "scene:courtyard");
+    const reading = screen.getByTestId("play-workspace-inspect");
+    expect(within(reading).getByRole("heading", { name: "Courtyard" })).toBeInTheDocument();
+    expect(within(reading).queryByTestId("play-inspect-current")).not.toBeInTheDocument();
+    expect(within(reading).queryByTestId("play-beat-context-disclosure")).not.toBeInTheDocument();
+    expect(within(reading).queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
+    expect(playDetails("play-inspect-current")).toHaveTextContent("Tunnel Breach");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Inspect scene" }), "scene:tunnel");
+    expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel unique body.");
+    expect(screen.queryByTestId("play-workspace-inspect")).not.toBeInTheDocument();
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
@@ -328,14 +741,55 @@ describe("PlayCurrentMomentCockpit", () => {
         })}
       />,
     );
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    await user.click(screen.getByRole("button", { name: "Inspect Courtyard" }));
+    await user.click(screen.getByRole("button", { name: /Courtyard/ }));
     expect(screen.getByTestId("play-workspace-inspect")).toBeInTheDocument();
-    expect(screen.getByTestId("play-inspect-scene")).toHaveTextContent("Inspecting: Courtyard");
-    expect(screen.getByTestId("play-inspect-current")).toHaveTextContent("Current: Tunnel Breach");
-    expect(screen.getByRole("heading", { name: "Inspecting Courtyard" })).toBeInTheDocument();
-    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("Tunnel Breach");
+    expect(playDetails("play-inspect-scene")).toHaveTextContent(/Viewing: .* · Courtyard/);
+    expect(playDetails("play-inspect-current")).toHaveTextContent(/Run position: .* · Tunnel Breach/);
+    expect(screen.getByRole("heading", { name: "Courtyard" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Contents" }).querySelector('[data-current="true"]')).toHaveTextContent("Tunnel Breach");
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("lists Scenes from every Beat and only changes current position after explicit Make Current", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putPlayRunProgress).mockResolvedValue(
+      breachRun({
+        run_revision: 5,
+        progress: breachProgress({
+          current_beat_id: "beat:lower-tunnels",
+          current_scene_id: "scene:lower-cistern",
+        }),
+      }),
+    );
+    render(<BreachHarness />);
+
+    const lowerBeatScene = screen.getByRole("button", { name: /Lower Cistern/ });
+    expect(lowerBeatScene).toBeInTheDocument();
+    await user.click(lowerBeatScene);
+    expect(screen.getByTestId("play-workspace-inspect")).toHaveTextContent("Lower Cistern");
+    expect(playDetails("play-inspect-current")).toHaveTextContent("Run position: Hold the Breach · North Gate");
+    expect(playDetails("play-inspect-scene")).toHaveTextContent("Viewing: Lower Tunnels · Lower Cistern");
+    const viewingBeat = playDetails("play-beat-context-disclosure");
+    expect(viewingBeat).toHaveAttribute("data-beat-id", "beat:lower-tunnels");
+    expect(viewingBeat).toHaveAttribute("data-beat-resolved", "false");
+    expect(viewingBeat).toHaveTextContent("optional · Not marked resolved");
+    await user.click(within(viewingBeat).getByText("Lower Tunnels"));
+    expect(viewingBeat).toHaveTextContent("Following the brood deeper turns the defense");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Make Lower Cistern current" }));
+    await waitFor(() => expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(liveApi.putPlayRunProgress).mock.calls[0]?.[1]).toEqual({
+      expected_run_revision: 4,
+      progress: expect.objectContaining({
+        current_beat_id: "beat:lower-tunnels",
+        current_scene_id: "scene:lower-cistern",
+        selections: {},
+        notes_by_element_id: {},
+      }),
+    });
+    expect(screen.getByRole("navigation", { name: "Contents" }).querySelector('[data-current="true"]')).toHaveTextContent("Lower Cistern");
+    expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Water echoes below the broken gate.");
   });
 
   it("returns from inspection to the authoritative current moment", async () => {
@@ -347,17 +801,16 @@ describe("PlayCurrentMomentCockpit", () => {
         })}
       />,
     );
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    await user.click(screen.getByRole("button", { name: "Inspect Courtyard" }));
-    await user.click(screen.getByTestId("play-workspace-back"));
+    await user.click(screen.getByRole("button", { name: /Courtyard/ }));
+    await user.click(screen.getByRole("button", { name: "Return to current" }));
     expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel unique body.");
     expect(screen.queryByTestId("play-workspace-inspect")).not.toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByTestId("play-at-a-glance-scenes")).toHaveFocus();
+      expect(screen.getByTestId("play-beat-context-toggle")).toHaveFocus();
     });
   });
 
-  it("restores inspection focus to At a Glance when the Scenes launcher is unmounted", async () => {
+  it("restores inspection focus to the outline when the outline is collapsed", async () => {
     const user = userEvent.setup();
     render(
       <Harness
@@ -366,14 +819,13 @@ describe("PlayCurrentMomentCockpit", () => {
         })}
       />,
     );
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    await user.click(screen.getByRole("button", { name: "Inspect Courtyard" }));
-    await user.click(screen.getByTestId("play-at-a-glance-toggle"));
-    expect(screen.queryByTestId("play-at-a-glance-scenes")).not.toBeInTheDocument();
-    await user.click(screen.getByTestId("play-workspace-back"));
+    await user.click(screen.getByRole("button", { name: /Courtyard/ }));
+    await user.click(screen.getByTestId("play-beat-context-toggle"));
+    expect(screen.getByTestId("play-beat-context-toggle")).toHaveAttribute("aria-expanded", "false");
+    await user.click(screen.getByRole("button", { name: "Return to current" }));
     expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel unique body.");
     await waitFor(() => {
-      expect(screen.getByTestId("play-at-a-glance-toggle")).toHaveFocus();
+      expect(screen.getByTestId("play-beat-context-toggle")).toHaveFocus();
     });
   });
 
@@ -478,7 +930,427 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(liveApi.getWorldPlayRun).toHaveBeenCalledWith(RUN_ID, "longmont-c2");
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
     expect(liveApi.getPlayRun).not.toHaveBeenCalled();
-    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("Tunnel Breach");
+    expect(screen.getByRole("navigation", { name: "Contents" }).querySelector('[data-current="true"]')).toHaveTextContent("Tunnel Breach");
+  });
+
+  it("keeps the note dock collapsed and bound to the current scene while inspecting another", async () => {
+    const user = userEvent.setup();
+    render(<WorldHarness initialRun={currentWorldRun({
+      notes_by_element_id: { "scene:north-gate": "Current scene note" },
+    })} />);
+    const toggle = screen.getByRole("button", { name: /^Notes ·/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByLabelText("Scene note")).not.toBeVisible();
+    await user.click(toggle);
+    expect(screen.getByLabelText("Scene note")).toHaveFocus();
+    expect(screen.getByLabelText("Scene note")).toHaveValue("Current scene note");
+    await user.click(screen.getByRole("button", { name: /Tunnel Breach/ }));
+    expect(toggle).toHaveAccessibleName("Notes · current scene North Gate");
+    expect(screen.getByLabelText("Scene note")).toHaveValue("Current scene note");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(toggle);
+    expect(screen.getByLabelText("Scene note")).toHaveValue("Current scene note");
+    await user.keyboard("{Escape}");
+    expect(toggle).toHaveFocus();
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("play-workspace-inspect")).toBeInTheDocument();
+    expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("retains each current-scene draft across A to B to A without using the inspected target", () => {
+    const a = currentWorldRun();
+    const b = currentWorldRun({ current_scene_id: "scene:tunnel" });
+    const props = { mutationStatus: "idle" as const, onMutationStatus: vi.fn(), onAuthoritativeRun: vi.fn() };
+    const view = render(<PlayCurrentMomentCockpit {...props} deck={readyWorldDeck(a)} />);
+    fireEvent.change(sceneNoteField(), { target: { value: "North draft" } });
+    view.rerender(<PlayCurrentMomentCockpit {...props} deck={readyWorldDeck(b)} />);
+    expect(screen.getByRole("button", { name: /^Notes ·/ })).toHaveAccessibleName("Notes · Tunnel Breach");
+    expect(sceneNoteField()).toHaveValue("");
+    fireEvent.change(sceneNoteField(), { target: { value: "Tunnel draft" } });
+    view.rerender(<PlayCurrentMomentCockpit {...props} deck={readyWorldDeck(a)} />);
+    expect(sceneNoteField()).toHaveValue("North draft");
+    view.rerender(<PlayCurrentMomentCockpit {...props} deck={readyWorldDeck(b)} />);
+    expect(sceneNoteField()).toHaveValue("Tunnel draft");
+    expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("autosaves and acknowledges a World-owned marker-v2 Scene note through the fenced writer", async () => {
+    const user = userEvent.setup();
+    const updated = worldRunRecord({
+      run_revision: 5,
+      progress: progress({
+        current_scene_id: "scene:north-gate",
+        selections: { "choice:keep": "option:hold" },
+        notes_by_element_id: {
+          "scene:tunnel": "Keep the other Scene note.",
+          "scene:north-gate": "Gate held until dawn.",
+        },
+      }),
+    });
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockResolvedValue(updated);
+    render(<WorldHarness initialRun={currentWorldRun({
+      selections: { "choice:keep": "option:hold" },
+      notes_by_element_id: { "scene:tunnel": "Keep the other Scene note." },
+    })} />);
+
+    await user.type(sceneNoteField(), "Gate held until dawn.");
+
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledWith(RUN_ID, "longmont-c2", {
+      expected_run_revision: 4,
+      progress: expect.objectContaining({
+        current_scene_id: "scene:north-gate",
+        selections: { "choice:keep": "option:hold" },
+        notes_by_element_id: {
+          "scene:tunnel": "Keep the other Scene note.",
+          "scene:north-gate": "Gate held until dawn.",
+        },
+      }),
+    });
+    expect(await screen.findByText("Saved in this Run.")).toBeInTheDocument();
+    expect(sceneNoteField()).toHaveValue("Gate held until dawn.");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+    expect(storedSceneNoteCache()).toBeNull();
+  });
+
+  it("hydrates the Scene note from canonical Run progress without writing on mount", async () => {
+    render(<WorldHarness initialRun={currentWorldRun({
+      notes_by_element_id: { "scene:north-gate": "Canonical Run note." },
+    })} />);
+
+    expect(sceneNoteField()).toHaveValue("Canonical Run note.");
+    expect(screen.getByText("Saved in this Run.")).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
+    expect(storedSceneNoteCache()).toBeNull();
+  });
+
+  it("keeps the draft when a successful response does not contain the exact submitted note", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockResolvedValue(worldRunRecord({
+      run_revision: 5,
+      progress: progress({
+        current_scene_id: "scene:north-gate",
+        notes_by_element_id: { "scene:north-gate": "Different server note" },
+      }),
+    }));
+    render(<WorldHarness initialRun={currentWorldRun()} />);
+    await user.type(sceneNoteField(), "Submitted draft");
+
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(sceneNoteField()).toHaveValue("Submitted draft");
+    expect(screen.getByTestId("play-scene-note-status")).toHaveTextContent(
+      "Not saved. Another update changed this Run",
+    );
+    expect(screen.queryByText("Saved in this Run.")).not.toBeInTheDocument();
+    expect(storedSceneNoteCache()?.value.failure).toBe("unconfirmed");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1);
+  });
+
+  it("retains a newer edit while an earlier Scene note snapshot is in flight", async () => {
+    const user = userEvent.setup();
+    const pending: Array<(run: WorldPlayRunRecordV2) => void> = [];
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockImplementation(() => new Promise((resolve) => {
+      pending.push(resolve);
+    }));
+    render(<WorldHarness initialRun={currentWorldRun()} />);
+    const note = sceneNoteField();
+
+    await user.type(note, "First");
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+    await user.type(note, " newer edit");
+    expect(note).toHaveValue("First newer edit");
+    expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1);
+
+    const firstResponse = pending.shift();
+    if (!firstResponse) throw new Error("expected the first note save to be pending");
+    firstResponse(worldRunRecord({
+      run_revision: 5,
+      progress: progress({
+        current_scene_id: "scene:north-gate",
+        notes_by_element_id: { "scene:north-gate": "First" },
+      }),
+    }));
+
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(liveApi.putWorldPlayRunProgress).mock.calls[1]?.[2]).toEqual({
+      expected_run_revision: 5,
+      progress: expect.objectContaining({
+        notes_by_element_id: { "scene:north-gate": "First newer edit" },
+      }),
+    });
+    const secondResponse = pending.shift();
+    if (!secondResponse) throw new Error("expected the newer note save to be pending");
+    secondResponse(worldRunRecord({
+      run_revision: 6,
+      progress: progress({
+        current_scene_id: "scene:north-gate",
+        notes_by_element_id: { "scene:north-gate": "First newer edit" },
+      }),
+    }));
+    expect(await screen.findByText("Saved in this Run.")).toBeInTheDocument();
+    expect(sceneNoteField()).toHaveValue("First newer edit");
+  });
+
+  it("restores a newer draft as unknown when reloaded during an older in-flight save", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+    const firstMount = render(<WorldHarness initialRun={currentWorldRun()} />);
+    const note = sceneNoteField();
+    await user.type(note, "First");
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+    await user.type(note, " newer edit");
+    expect(note).toHaveValue("First newer edit");
+    expect(storedSceneNoteCache()?.value.text).toBe("First newer edit");
+    expect(storedSceneNoteCache()?.value.sentText).toBe("First");
+    firstMount.unmount();
+
+    render(<WorldHarness initialRun={currentWorldRun()} />);
+    expect(sceneNoteField()).toHaveValue("First newer edit");
+    expect(screen.getByTestId("play-scene-note-status")).toHaveTextContent(
+      "previous save result is unknown",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a late Scene note response after the Run's pinned Playable changes", async () => {
+    const user = userEvent.setup();
+    let resolveWrite: ((run: WorldPlayRunRecordV2) => void) | undefined;
+    const onAuthoritativeRun = vi.fn();
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockImplementation(() => new Promise((resolve) => {
+      resolveWrite = resolve;
+    }));
+    const initial = currentWorldRun();
+    const view = render(
+      <PlayCurrentMomentCockpit
+        deck={readyWorldDeck(initial)}
+        mutationStatus="idle"
+        onMutationStatus={vi.fn()}
+        onAuthoritativeRun={onAuthoritativeRun}
+      />,
+    );
+    await user.type(sceneNoteField(), "Bound to old Playable");
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+
+    const rebound = worldRunRecord({
+      playable_revision: 4,
+      playable_work_revision_id: "22222222-2222-4222-8222-222222222222",
+      run_revision: 5,
+      progress: progress({ current_scene_id: "scene:north-gate" }),
+    });
+    view.rerender(
+      <PlayCurrentMomentCockpit
+        deck={readyWorldDeck(rebound)}
+        mutationStatus="idle"
+        onMutationStatus={vi.fn()}
+        onAuthoritativeRun={onAuthoritativeRun}
+      />,
+    );
+    const acknowledge = resolveWrite;
+    if (!acknowledge) throw new Error("expected the old-binding note write to be pending");
+    acknowledge(worldRunRecord({
+      run_revision: 5,
+      progress: progress({
+        current_scene_id: "scene:north-gate",
+        notes_by_element_id: { "scene:north-gate": "Bound to old Playable" },
+      }),
+    }));
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onAuthoritativeRun).not.toHaveBeenCalled();
+    expect(sceneNoteField()).toHaveValue("");
+    expect(screen.queryByText("Saved in this Run.")).not.toBeInTheDocument();
+  });
+
+  it("recovers an intentional empty browser draft without replaying it after reload", async () => {
+    const user = userEvent.setup();
+    const initial = currentWorldRun();
+    const firstMount = render(<WorldHarness initialRun={initial} />);
+    const note = sceneNoteField();
+    await user.type(note, "temporary");
+    await user.clear(note);
+
+    const cached = storedSceneNoteCache();
+    expect(cached?.value.text).toBe("");
+    expect(cached?.value.basisPresent).toBe(false);
+    firstMount.unmount();
+
+    const updated = worldRunRecord({
+      run_revision: 5,
+      progress: progress({ current_scene_id: "scene:north-gate", notes_by_element_id: { "scene:north-gate": "" } }),
+    });
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockResolvedValue(updated);
+    render(<WorldHarness initialRun={initial} />);
+    expect(sceneNoteField()).toHaveValue("");
+    expect(await screen.findByText("Recovered browser draft; unsaved in this Run. Save it when ready.")).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Save recovered note" }));
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(liveApi.putWorldPlayRunProgress).mock.calls[0]?.[2].progress.notes_by_element_id)
+      .toEqual({ "scene:north-gate": "" });
+    expect(await screen.findByText("Saved in this Run.")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["409 conflict", "conflict", new LiveApiError("CAS conflict", 409), true],
+    ["422 rejection", "rejected", new LiveApiError("invalid progress", 422), true],
+    ["unknown outcome", "unknown", new Error("network down"), true],
+    ["unknown outcome with failed reread", "unknown", new Error("network down"), false],
+  ] as const)("keeps a %s Scene note draft across reload without automatic replay", async (_label, failure, error, rereadSucceeds) => {
+    const user = userEvent.setup();
+    const serverRun = currentWorldRun({
+      run_revision: 9,
+      notes_by_element_id: { "scene:north-gate": "Server version" },
+    });
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockRejectedValueOnce(error);
+    if (rereadSucceeds) {
+      vi.mocked(liveApi.getWorldPlayRun).mockResolvedValue(serverRun);
+    } else {
+      vi.mocked(liveApi.getWorldPlayRun).mockRejectedValue(new Error("Run reload failed"));
+    }
+    const firstMount = render(<WorldHarness initialRun={currentWorldRun()} />);
+    await user.type(sceneNoteField(), "Keep this local draft");
+    await user.click(screen.getByRole("button", { name: "Save note now" }));
+    await waitFor(() => expect(storedSceneNoteCache()?.value.failure).toBe(failure));
+    expect(sceneNoteField()).toHaveValue("Keep this local draft");
+    expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1);
+    firstMount.unmount();
+
+    render(<WorldHarness initialRun={serverRun} />);
+    expect(sceneNoteField()).toHaveValue("Keep this local draft");
+    expect(screen.getByTestId("play-scene-note-status")).toHaveTextContent(
+      failure === "conflict" || !rereadSucceeds
+        ? "Another update changed this Run"
+        : failure === "unknown"
+          ? "previous save result is unknown"
+          : "Run rejected this note",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1);
+  });
+
+  it("quarantines a browser draft whose pinned Playable binding no longer matches", async () => {
+    const user = userEvent.setup();
+    const initial = currentWorldRun();
+    const firstMount = render(<WorldHarness initialRun={initial} />);
+    await user.type(sceneNoteField(), "Old binding draft");
+    const cached = storedSceneNoteCache();
+    if (!cached) throw new Error("expected the browser draft cache");
+    firstMount.unmount();
+    localStorage.setItem(cached.key, JSON.stringify({ ...cached.value, playableRevision: 2 }));
+
+    render(<WorldHarness initialRun={initial} />);
+    expect(sceneNoteField()).toHaveValue("");
+    expect(await screen.findByTestId("play-scene-note-storage-warning")).toHaveTextContent(
+      "belongs to a different or unreadable Run version and was not restored",
+    );
+    expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("keeps a local draft unsaved when the server note changed before autosave", async () => {
+    const user = userEvent.setup();
+    const initial = currentWorldRun({
+      notes_by_element_id: { "scene:north-gate": "Original server note" },
+    });
+    const concurrent = worldRunRecord({
+      run_revision: 5,
+      progress: progress({
+        current_scene_id: "scene:north-gate",
+        notes_by_element_id: { "scene:north-gate": "Concurrent server note" },
+      }),
+    });
+    const view = render(
+      <PlayCurrentMomentCockpit
+        deck={readyWorldDeck(initial)}
+        mutationStatus="idle"
+        onMutationStatus={vi.fn()}
+        onAuthoritativeRun={vi.fn()}
+      />,
+    );
+    await user.clear(sceneNoteField());
+    await user.type(sceneNoteField(), "Local note draft");
+
+    view.rerender(
+      <PlayCurrentMomentCockpit
+        deck={readyWorldDeck(concurrent)}
+        mutationStatus="idle"
+        onMutationStatus={vi.fn()}
+        onAuthoritativeRun={vi.fn()}
+      />,
+    );
+    expect(sceneNoteField()).toHaveValue("Local note draft");
+    expect(screen.getByTestId("play-scene-note-status")).toHaveTextContent(
+      "Another update changed this Run",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
+
+    const acknowledged = worldRunRecord({
+      run_revision: 6,
+      progress: progress({
+        current_scene_id: "scene:north-gate",
+        notes_by_element_id: { "scene:north-gate": "Local note draft" },
+      }),
+    });
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockResolvedValue(acknowledged);
+    await user.click(screen.getByRole("button", { name: "Save note after review" }));
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(liveApi.putWorldPlayRunProgress).mock.calls[0]?.[2]).toEqual({
+      expected_run_revision: 5,
+      progress: expect.objectContaining({
+        notes_by_element_id: { "scene:north-gate": "Local note draft" },
+      }),
+    });
+    expect(await screen.findByText("Saved in this Run.")).toBeInTheDocument();
+  });
+
+  it("warns on a corrupt recovery cache and keeps canonical progress editable", async () => {
+    const user = userEvent.setup();
+    const initial = currentWorldRun({
+      notes_by_element_id: { "scene:north-gate": "Canonical note" },
+    });
+    const firstMount = render(<WorldHarness initialRun={initial} />);
+    await user.clear(sceneNoteField());
+    await user.type(sceneNoteField(), "Local draft");
+    const cached = storedSceneNoteCache();
+    if (!cached) throw new Error("expected the browser draft cache");
+    firstMount.unmount();
+    localStorage.setItem(cached.key, "{invalid json");
+
+    render(<WorldHarness initialRun={initial} />);
+    expect(sceneNoteField()).toHaveValue("Canonical note");
+    expect(await screen.findByTestId("play-scene-note-storage-warning")).toHaveTextContent(
+      "A browser note draft could not be read",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("keeps the in-memory Scene note editable when browser recovery storage fails", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("quota exceeded");
+    });
+    const firstMount = render(<WorldHarness initialRun={currentWorldRun()} />);
+    const note = sceneNoteField();
+    await user.type(note, "In-memory note");
+    expect(note).toHaveValue("In-memory note");
+    expect(screen.getByTestId("play-scene-note-storage-warning")).toHaveTextContent(
+      "Browser recovery storage is unavailable",
+    );
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId("play-scene-note-status")).toHaveTextContent("Saving note to this Run");
+    firstMount.unmount();
   });
 
   it("reconciles an unknown mutation outcome from the exact Run", async () => {
@@ -496,15 +1368,15 @@ describe("PlayCurrentMomentCockpit", () => {
         })}
       />,
     );
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    await user.click(screen.getByRole("button", { name: "Inspect Courtyard" }));
+    await user.click(screen.getByRole("button", { name: /Courtyard/ }));
     await user.click(screen.getByRole("button", { name: "Make Courtyard current" }));
     expect(await screen.findByTestId("play-unknown-outcome")).toBeInTheDocument();
     expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1);
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(RUN_ID);
-    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("Tunnel Breach");
-    expect(screen.queryByRole("heading", { name: "Courtyard" })).not.toBeInTheDocument();
-    expect(screen.getByTestId("play-inspect-scene")).toHaveTextContent("Inspecting: Courtyard");
+    expect(screen.getByRole("navigation", { name: "Contents" }).querySelector('[data-current="true"]')).toHaveTextContent("Tunnel Breach");
+    expect(within(screen.getByTestId("play-workspace-inspect")).getByRole("heading", { name: "Courtyard" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Make Courtyard current" })).not.toBeInTheDocument();
+    expect(playDetails("play-inspect-scene")).toHaveTextContent(/Viewing: .* · Courtyard/);
   });
 
   it("Back uses the new authoritative current Scene if Runtime changed during inspection", async () => {
@@ -545,13 +1417,12 @@ describe("PlayCurrentMomentCockpit", () => {
       );
     }
     render(<LiveHarness />);
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    await user.click(screen.getByRole("button", { name: "Inspect Courtyard" }));
+    await user.click(screen.getByRole("button", { name: /Courtyard/ }));
     await user.click(screen.getByRole("button", { name: "Simulate writer" }));
-    expect(screen.getByTestId("play-inspect-scene")).toHaveTextContent("Inspecting: Courtyard");
-    await user.click(screen.getByTestId("play-workspace-back"));
+    expect(playDetails("play-inspect-scene")).toHaveTextContent(/Viewing: .* · Courtyard/);
+    await user.click(screen.getByRole("button", { name: "Return to current" }));
     expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("North Gate unique body.");
-    expect(screen.queryByText("Tunnel unique body.")).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("play-central-workspace")).queryByText("Tunnel unique body.")).not.toBeInTheDocument();
   });
 
   it("clears transient inspection state when the Run identity changes", async () => {
@@ -579,19 +1450,16 @@ describe("PlayCurrentMomentCockpit", () => {
       );
     }
     render(<SwitchHarness />);
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    await user.click(screen.getByRole("button", { name: "Inspect North Gate" }));
+    await user.click(screen.getByRole("button", { name: /North Gate/ }));
     expect(screen.getByTestId("play-workspace-inspect")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Switch run" }));
     expect(screen.queryByTestId("play-workspace-inspect")).not.toBeInTheDocument();
     expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Courtyard unique body.");
   });
 
-  it("shows a truthful empty Scene inventory", async () => {
-    const user = userEvent.setup();
+  it("shows a truthful empty Scene outline", () => {
     render(<Harness markdown={EMPTY_BEAT_MARKDOWN} />);
-    expect(screen.getByTestId("play-at-a-glance-scenes")).toHaveTextContent("Scenes 0");
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
+    expect(screen.getByRole("navigation", { name: "Contents" })).toHaveTextContent("No scenes");
     expect(screen.getByTestId("play-scenes-empty")).toHaveTextContent(
       "No authored Scenes in this Beat.",
     );
@@ -662,14 +1530,14 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
 
   it("renders the North Gate Decision inside the Scene board, not a rail", () => {
     render(<BreachHarness />);
+    openRunRecord();
     const board = screen.getByTestId("play-workspace-current");
     const decision = screen.getByTestId("play-decision");
     expect(board).toContainElement(decision);
     expect(screen.getByTestId("play-central-workspace")).toContainElement(decision);
     expect(screen.getByTestId("play-beat-context")).not.toContainElement(decision);
     expect(screen.getByTestId("play-at-a-glance")).not.toContainElement(decision);
-    expect(screen.getByTestId("play-at-a-glance")).toHaveTextContent("Around this moment");
-    expect(screen.getByTestId("play-at-a-glance-scenes")).toHaveTextContent("Scenes 2");
+    expect(screen.getByTestId("play-at-a-glance")).toHaveTextContent("Current Run state");
     expect(screen.getByRole("heading", { name: "North Gate" })).toBeInTheDocument();
     expect(screen.getByTestId("play-decision-prompt")).toHaveTextContent(
       "What do they do with the surviving brood?",
@@ -678,6 +1546,28 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
     expect(screen.getByRole("radio", { name: "Seal the breach" })).not.toBeChecked();
     expect(screen.queryByTestId("play-decision-consequence")).not.toBeInTheDocument();
     expect(screen.queryByTestId("play-decision-clear")).not.toBeInTheDocument();
+  });
+
+  it("projects saved choices and Scene notes into Recorded outcomes without writing progress", () => {
+    render(
+      <BreachHarness
+        initialRun={breachRun({
+          progress: breachProgress({
+            selections: { "choice:surviving-brood": "option:follow-brood" },
+            notes_by_element_id: { "scene:north-gate": "The defenders are short on rope." },
+          }),
+        })}
+      />,
+    );
+    openRunRecord();
+
+    const outcomes = screen.getByTestId("play-at-a-glance");
+    expect(outcomes).toHaveTextContent("Saved choices & notes");
+    expect(outcomes).toHaveTextContent("What do they do with the surviving brood?");
+    expect(outcomes).toHaveTextContent("Follow it");
+    expect(outcomes).toHaveTextContent("The defenders are short on rope.");
+    expect(outcomes).toHaveTextContent("Current Run state");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
   it("does not project the North Gate Decision when no Scene is current", () => {
@@ -746,7 +1636,7 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
     );
     expect(screen.getByTestId("play-decision-relevance")).toHaveTextContent("Tunnel Pursuit — emphasized");
     expect(screen.getByTestId("play-decision-relevance")).toHaveTextContent("Lower Tunnels — emphasized");
-    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("North Gate");
+    expect(screen.getByRole("navigation", { name: "Contents" }).querySelector('[data-current="true"]')).toHaveTextContent("North Gate");
     expect(screen.getByRole("heading", { name: "North Gate" })).toBeInTheDocument();
   });
 
@@ -812,7 +1702,7 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
     );
     expect(screen.getByTestId("play-decision-relevance")).toHaveTextContent("Tunnel Pursuit — de-emphasized");
     expect(screen.getByTestId("play-decision-relevance")).toHaveTextContent("Lower Tunnels — default");
-    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("North Gate");
+    expect(screen.getByRole("navigation", { name: "Contents" }).querySelector('[data-current="true"]')).toHaveTextContent("North Gate");
   });
 
   it("clears only this Decision key and removes consequence", async () => {
@@ -875,16 +1765,11 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
         })}
       />,
     );
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    const inventory = screen.getByTestId("play-scene-inventory").querySelector(
-      '[data-scene-id="scene:tunnel-pursuit"]',
-    );
-    expect(inventory).toHaveTextContent("de-emphasized");
-    const inspect = screen.getByRole("button", { name: "Inspect Tunnel Pursuit" });
+    const inspect = screen.getByRole("button", { name: /Tunnel Pursuit/ });
     expect(inspect).toBeEnabled();
     await user.click(inspect);
-    expect(screen.getByTestId("play-inspect-scene")).toHaveTextContent("Inspecting: Tunnel Pursuit");
-    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("North Gate");
+    expect(playDetails("play-inspect-scene")).toHaveTextContent(/Viewing: .* · Tunnel Pursuit/);
+    expect(screen.getByRole("navigation", { name: "Contents" }).querySelector('[data-current="true"]')).toHaveTextContent("North Gate");
     expect(screen.getByRole("button", { name: "Make Tunnel Pursuit current" })).toBeEnabled();
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
@@ -892,9 +1777,8 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
   it("returns from inspection to the authoritative North Gate Decision", async () => {
     const user = userEvent.setup();
     render(<BreachHarness />);
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    await user.click(screen.getByRole("button", { name: "Inspect Tunnel Pursuit" }));
-    await user.click(screen.getByTestId("play-workspace-back"));
+    await user.click(screen.getByRole("button", { name: /Tunnel Pursuit/ }));
+    await user.click(screen.getByRole("button", { name: "Return to current" }));
     expect(screen.getByTestId("play-workspace-current")).toContainElement(
       screen.getByTestId("play-decision"),
     );
@@ -906,6 +1790,7 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
     const user = userEvent.setup();
     render(<BreachHarness />);
     await user.click(screen.getByTestId("play-beat-context-toggle"));
+    openRunRecord();
     await user.click(screen.getByTestId("play-at-a-glance-toggle"));
     expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-beat-collapsed", "true");
     expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "true");
@@ -1046,4 +1931,14 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
     expect(screen.queryByRole("radio", { name: "Follow it" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("play-decision-consequence")).not.toBeInTheDocument();
   });
+});
+
+
+it("clears the note gate when the current moment changes from a scene to a beat only", async () => {
+  const notify = vi.fn();
+  const props = { mutationStatus: "idle" as const, onMutationStatus: vi.fn(), onAuthoritativeRun: vi.fn(), onNoteUnsubmittedChange: notify };
+  const { rerender } = render(<PlayCurrentMomentCockpit {...props} deck={readyWorldDeck(currentWorldRun())} />);
+  await waitFor(() => expect(notify).toHaveBeenLastCalledWith(false));
+  rerender(<PlayCurrentMomentCockpit {...props} deck={readyWorldDeck(currentWorldRun({ current_scene_id: null }))} />);
+  await waitFor(() => expect(notify).toHaveBeenLastCalledWith(false));
 });

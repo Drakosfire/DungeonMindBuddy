@@ -23,7 +23,10 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     prove_graph_review_source,
     resolve_graph_review_source,
     translate_assertions_to_contribution,
+    verify_graph_review_assertion_spans,
     validate_authoring_campaign_scope,
+    validate_graph_review_object_kinds,
+    validate_graph_review_predicates,
     _blocking_assertion_diagnostics,
 )
 
@@ -75,10 +78,13 @@ def commit_graph_object_authoring_write(
     request: GraphObjectAuthoringCommitRequest,
     *,
     corpus_root: Path | None = None,
+    authenticated_actor: str | None = None,
+    authorize_world=None,
     repo_root_override: Path | None = None,
     authority: Any | None = None,
     resolved_source: Any | None = None,
     source_admission: Any | None = None,
+    recovery_only: bool = False,
 ) -> GraphObjectAuthoringCommitResponse:
     from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
         graph_review_authority_operation_id,
@@ -106,7 +112,7 @@ def commit_graph_object_authoring_write(
         )
 
     validate_authoring_campaign_scope(request.campaign_id, request.campaign_rel)
-    intent = decode_publication_intent(request.confirm_token)
+    intent = decode_publication_intent(request.confirm_token, allow_expired_recovery=True)
     if str(intent.get("expressibility") or "") == "INEXPRESSIBLE":
         raise GraphObjectAuthoringError(
             "merge_objects and unknown Graph Review operations cannot be published.",
@@ -131,14 +137,8 @@ def commit_graph_object_authoring_write(
         )
 
     world_id = authored_world_id(request)
-    actor = graph_review_actor(request.campaign_id)
+    actor = authenticated_actor or graph_review_actor(request.campaign_id)
     assertions_digest = proposed_assertions_digest(assertions)
-    if str(intent.get("world_id") or "") != world_id:
-        raise GraphObjectAuthoringError(
-            "Confirm token does not match the prepared publication intent.",
-            code="confirmation_invalid",
-            status_code=409,
-        )
     if str(intent.get("campaign_id") or "") != request.campaign_id:
         raise GraphObjectAuthoringError(
             "Confirm token does not match the prepared publication intent.",
@@ -157,6 +157,10 @@ def commit_graph_object_authoring_write(
             code="confirmation_invalid",
             status_code=409,
         )
+    document_source = request.document_source.model_dump(mode="json", by_alias=True) if request.document_source else None
+    if intent.get("document_source") != document_source:
+        raise GraphObjectAuthoringError("Confirm token does not match the prepared document source.",
+                                        code="confirmation_invalid", status_code=409)
     if (intent.get("recap_artifact_id") or None) != (request.recap_artifact_id or None):
         raise GraphObjectAuthoringError(
             "Confirm token does not match the prepared publication intent.",
@@ -204,6 +208,25 @@ def commit_graph_object_authoring_write(
 
     buddy_artifact_id = str(getattr(resolved, "source_artifact_id"))
     buddy_revision_id = str(getattr(resolved, "source_revision_id"))
+    from apps.live_control_server.config import repo_root
+
+    verified_spans = verify_graph_review_assertion_spans(
+        assertions=assertions,
+        resolved_source=resolved,
+        source_root=(corpus_root or repo_root()).resolve(),
+        world_id=world_id,
+        campaign_id=request.campaign_id,
+    )
+    from apps.live_control_server.services.graph_object_authoring_binding import resolve_publication_context
+
+    context = resolve_publication_context(request, resolved, source_root=(corpus_root or repo_root()).resolve())
+    world_id = context.world_id
+    if (intent.get("publication_binding") != context.binding
+            or intent.get("world_id") != world_id):
+        raise GraphObjectAuthoringError(
+            "Prepared World/source binding changed. Prepare again.",
+            code="world_binding_changed", status_code=409,
+        )
     admitted_artifact, admitted_revision = prove_graph_review_source(
         world_id=world_id,
         source_artifact_id=source_artifact_id,
@@ -236,11 +259,12 @@ def commit_graph_object_authoring_write(
 
     contribution = translate_assertions_to_contribution(
         world_id=world_id,
-        campaign_id=request.campaign_id,
+        campaign_id=context.campaign_scope,
         actor=actor,
         source_artifact_id=buddy_artifact_id,
         source_revision_id=buddy_revision_id,
         assertions=assertions,
+        verified_spans=verified_spans,
     )
     if contribution_binding_digest(contribution) != sealed_contribution_digest:
         raise GraphObjectAuthoringError(
@@ -263,6 +287,18 @@ def commit_graph_object_authoring_write(
 
     receipt = recovered
     if recovered is None:
+        if recovery_only:
+            raise GraphObjectAuthoringError(
+                "No authoritative publication receipt exists for this historical operation.",
+                code="publication_receipt_unavailable", status_code=409,
+            )
+        # Recheck expiry before any fresh publication. A valid expired intent
+        # may only recover the exact already-applied receipt above.
+        decode_publication_intent(request.confirm_token)
+        # A recovered publication wins over newer capability checks. This explicit
+        # refusal happens before publish and is safe for deliberate proposal editing.
+        validate_graph_review_object_kinds(assertions)
+        validate_graph_review_predicates(assertions)
         try:
             head = mounted.current_head(world_id)
         except WorldGraphAuthorityError as exc:
@@ -281,6 +317,8 @@ def commit_graph_object_authoring_write(
             contribution=contribution,
             operation_namespace="worldbuilding",
         )
+        if authorize_world is not None:
+            authorize_world()
         try:
             receipt = mounted.publish(publish_request)
         except WorldGraphAuthorityError as exc:

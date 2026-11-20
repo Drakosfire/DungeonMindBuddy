@@ -8,17 +8,25 @@ import type {
   SurfaceModuleInstance,
 } from "../api/types";
 import { IngestionModule } from "../modules/IngestionModule";
-import { SourcesModule } from "../modules/SourcesModule";
 import { ChatModule } from "./modules/ChatModule";
 import { CombatRosterModule } from "./modules/CombatRosterModule";
 import { NowModule } from "./modules/NowModule";
 import { RecordModule } from "./modules/RecordModule";
 import { RollStackModule } from "./modules/RollStackModule";
-import { StatblockWorkbenchModule } from "./modules/StatblockWorkbenchModule";
 import { StatblockViewModule } from "./modules/StatblockViewModule";
 import { TimelineModule } from "./modules/TimelineModule";
 import { UnsupportedModule } from "./modules/UnsupportedModule";
 import type { PaneTarget } from "./targetTypes";
+import { deferredComponent } from "../ui/deferredComponent";
+
+const SourcesModule = deferredComponent(
+  () => import("../modules/SourcesModule").then(module => ({ default: module.SourcesModule })),
+  "Sources",
+);
+const StatblockWorkbenchModule = deferredComponent(
+  () => import("./modules/StatblockWorkbenchModule").then(module => ({ default: module.StatblockWorkbenchModule })),
+  "Statblock workbench",
+);
 
 export interface ModuleRenderContext {
   catalogById: Map<string, SurfaceModuleDefinition>;

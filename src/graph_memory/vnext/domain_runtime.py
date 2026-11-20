@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from dungeonmind.application.vnext.admission import AlwaysAdmitPolicy
 from dungeonmind.application.vnext import (
     KnowledgeProvenanceSnapshot,
     KnowledgeReadContext,
@@ -12,7 +13,10 @@ from dungeonmind.application.vnext import (
     ParsedKnowledgeRevision,
 )
 from dungeonmind.application.vnext.ports import KnowledgeSourceReader
+from dungeonmind.contracts.semantic_profile import SemanticProfileRef
+from dungeonmind.domain.canonical import canonical_sha256
 from dungeonmind.contracts.vnext import (
+    DomainContractRef,
     DomainContractDescriptor,
     FocusRef,
     KnowledgeStanding,
@@ -34,6 +38,10 @@ DUNGEONBUDDY_DOMAIN_DIGEST = (
 )
 DUNGEONBUDDY_PROFILE_DIGEST = (
     "51ea47ff45bc86ea158939c34a5769e7ee56de3911278d473570e3795edb7e14"
+)
+
+DUNGEONBUDDY_CUSTOM_PROFILE_DIGEST = (
+    "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
 )
 
 CAMPAIGN_SCOPE_AXIS = "dungeonbuddy.scope:campaign"
@@ -72,14 +80,18 @@ def _require_nonblank(value: str | None, field_name: str) -> str:
 def _standing_for(projection_input: DungeonBuddyVNextProjectionInput) -> list[str]:
     requested = projection_input.standing_selector
     if requested is None:
-        return list(_PLAYER_STANDING if projection_input.role == "player" else _GM_STANDING)
+        return list(
+            _PLAYER_STANDING if projection_input.role == "player" else _GM_STANDING
+        )
     if not requested or len(requested) != len(set(requested)):
         raise ValueError("standing_selector must be nonempty and unique")
     requested_set = set(requested)
     if projection_input.role == "player" and requested_set != set(_PLAYER_STANDING):
         raise ValueError("player standing_selector must be exactly established")
     if projection_input.role == "gm" and not requested_set <= _ALLOWED_GM_STANDING:
-        raise ValueError("gm standing_selector may contain established and provisional only")
+        raise ValueError(
+            "gm standing_selector may contain established and provisional only"
+        )
     return list(requested)
 
 
@@ -153,9 +165,7 @@ def dungeonbuddy_world_domain_contract() -> DomainContractDescriptor:
             "dungeonbuddy.claim:rumor",
         ],
         temporal_extension_schemas=["dungeonbuddy.time:fictional_anchor_v1"],
-        domain_metadata_schemas=[
-            "dungeonbuddy.domain_metadata:world_context_v1"
-        ],
+        domain_metadata_schemas=["dungeonbuddy.domain_metadata:world_context_v1"],
         source_annotation_schemas=[
             "dungeonbuddy.source:context_v1",
             "dungeonbuddy.domain_metadata:world_context_v1",
@@ -226,6 +236,207 @@ def dungeonbuddy_dnd5e_custom_predicate_profile() -> SemanticProfileDescriptorV3
     return SemanticProfileDescriptorV3.model_validate(descriptor)
 
 
+DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION = "3"
+DUNGEONBUDDY_OBSERVATION_PREDICATE = "dungeonbuddy:reviewed_source_observation"
+DUNGEONBUDDY_OBSERVATION_PROFILE_DIGEST = "5f06b5a7ef94b3d612fd10207f25a38172e406f74f0840e07c72a3edba0c721e"
+
+
+def dungeonbuddy_dnd5e_observation_profile() -> SemanticProfileDescriptorV3:
+    """Add reviewed source observations to the existing custom predicate profile."""
+    descriptor = dungeonbuddy_dnd5e_custom_predicate_profile().model_dump(mode="json")
+    descriptor["profile_revision"] = DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION
+    descriptor["predicates"].append({
+        "term": DUNGEONBUDDY_OBSERVATION_PREDICATE,
+        "allowed_value_kinds": ["literal"],
+        "literal_schema": {"type": "string", "minLength": 1},
+    })
+    return SemanticProfileDescriptorV3.model_validate(descriptor)
+
+
+DUNGEONBUDDY_MANUAL_PROFILE_REVISION = "4"
+DUNGEONBUDDY_MANUAL_PROFILE_DIGEST = '36a75fbf0cda6cf9b19c97bc6b25042d18b7fc344d062e649080f64884f7e5d4'
+
+
+def dungeonbuddy_dnd5e_manual_profile() -> SemanticProfileDescriptorV3:
+    """Declare the immutable opt-in manual catalog; never select it by default.
+
+    These closed terms are frozen revision-4 data, not a live producer lookup.
+    Endpoint qualification and spelling/direction aliases remain Buddy-owned.
+    """
+    descriptor = dungeonbuddy_dnd5e_observation_profile().model_dump(mode="json")
+    descriptor["profile_revision"] = DUNGEONBUDDY_MANUAL_PROFILE_REVISION
+    for term in (
+        "dnd5e:creature",
+        "dnd5e:encounter",
+        "dnd5e:event",
+        "dnd5e:faction",
+        "dnd5e:group",
+        "dnd5e:item",
+        "dnd5e:location",
+        "dnd5e:mystery",
+        "dnd5e:npc",
+        "dnd5e:party",
+        "dnd5e:player_character",
+        "dnd5e:thread",
+        "dnd5e:threat",
+    ):
+        if term not in descriptor["classification_terms"]:
+            descriptor["classification_terms"].append(term)
+    existing = {item["term"] for item in descriptor["predicates"]}
+    for term in (
+        "dnd5e:allied_with",
+        "dnd5e:associated_with",
+        "dnd5e:attacks",
+        "dnd5e:aware_of",
+        "dnd5e:carries",
+        "dnd5e:causes",
+        "dnd5e:commands",
+        "dnd5e:contains",
+        "dnd5e:cooperates_with",
+        "dnd5e:displaced_from",
+        "dnd5e:holds",
+        "dnd5e:knows_about",
+        "dnd5e:leads",
+        "dnd5e:leads_to",
+        "dnd5e:located_in",
+        "dnd5e:member_of",
+        "dnd5e:near",
+        "dnd5e:occurs_at",
+        "dnd5e:operates",
+        "dnd5e:owns",
+        "dnd5e:parent_of",
+        "dnd5e:part_of",
+        "dnd5e:participates_in",
+        "dnd5e:possesses",
+        "dnd5e:present_at",
+        "dnd5e:protects",
+        "dnd5e:pursues",
+        "dnd5e:recruits_for",
+        "dnd5e:rivals",
+        "dnd5e:serves",
+        "dnd5e:south_of",
+        "dnd5e:suspects",
+        "dnd5e:threatens",
+        "dnd5e:travels_to",
+        "dnd5e:trusts",
+        "dnd5e:works_with",
+    ):
+        if term not in existing:
+            descriptor["predicates"].append({
+                "term": term,
+                "allowed_value_kinds": ["entity_ref"],
+                "literal_schema": None,
+            })
+    return SemanticProfileDescriptorV3.model_validate(descriptor)
+
+
+class DungeonBuddyDescriptorError(ValueError):
+    """A selected immutable descriptor is unsupported, mismatched, or has drifted."""
+
+    def __init__(self, code: str, message: str):
+        self.code = code
+        super().__init__(message)
+
+
+def resolve_dungeonbuddy_descriptors(
+    *,
+    domain_ref: DomainContractRef,
+    profile_ref: SemanticProfileRef,
+) -> tuple[
+    DomainContractDescriptor, SemanticProfileDescriptorV2 | SemanticProfileDescriptorV3
+]:
+    """Resolve the closed accepted catalog by complete immutable identity.
+
+    The caller supplies the selected revision's refs, never a guessed latest
+    profile. Descriptor constructors remain immutable declarations.
+    """
+    domain = dungeonbuddy_world_domain_contract()
+    if (domain_ref.domain_id, domain_ref.domain_revision) != (
+        DUNGEONBUDDY_DOMAIN_ID,
+        DUNGEONBUDDY_DOMAIN_REVISION,
+    ):
+        raise DungeonBuddyDescriptorError(
+            "descriptor_unsupported", "Unsupported DungeonBuddy domain reference"
+        )
+    profiles = {
+        (DUNGEONBUDDY_PROFILE_ID, DUNGEONBUDDY_PROFILE_REVISION): (
+            dungeonbuddy_dnd5e_semantic_profile,
+            DUNGEONBUDDY_PROFILE_DIGEST,
+        ),
+        (DUNGEONBUDDY_PROFILE_ID, DUNGEONBUDDY_CUSTOM_PROFILE_REVISION): (
+            dungeonbuddy_dnd5e_custom_predicate_profile,
+            DUNGEONBUDDY_CUSTOM_PROFILE_DIGEST,
+        ),
+    }
+    profiles[(DUNGEONBUDDY_PROFILE_ID, DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION)] = (
+        dungeonbuddy_dnd5e_observation_profile,
+        DUNGEONBUDDY_OBSERVATION_PROFILE_DIGEST,
+    )
+    profiles[(DUNGEONBUDDY_PROFILE_ID, DUNGEONBUDDY_MANUAL_PROFILE_REVISION)] = (
+        dungeonbuddy_dnd5e_manual_profile,
+        DUNGEONBUDDY_MANUAL_PROFILE_DIGEST,
+    )
+    selected = profiles.get((profile_ref.profile_id, profile_ref.profile_revision))
+    if selected is None:
+        raise DungeonBuddyDescriptorError(
+            "descriptor_unsupported",
+            "Unsupported DungeonBuddy semantic profile reference",
+        )
+    constructor, expected_digest = selected
+    profile = constructor()
+    if (
+        canonical_sha256(domain.model_dump(mode="json")) != DUNGEONBUDDY_DOMAIN_DIGEST
+        or canonical_sha256(profile.model_dump(mode="json")) != expected_digest
+    ):
+        raise DungeonBuddyDescriptorError(
+            "descriptor_drift",
+            "An accepted DungeonBuddy descriptor declaration changed",
+        )
+    if (
+        domain_ref.descriptor_sha256 != DUNGEONBUDDY_DOMAIN_DIGEST
+        or profile_ref.descriptor_sha256 != expected_digest
+    ):
+        raise DungeonBuddyDescriptorError(
+            "descriptor_mismatch",
+            "DungeonBuddy descriptor digest does not match its immutable reference",
+        )
+    return domain, profile
+
+
+@dataclass(frozen=True, slots=True)
+class DungeonBuddyPublicationCapabilities:
+    """Feature discovery only; no source/value/endpoint authorization."""
+
+    reviewed_source_observation: bool
+    source_precedence: bool
+
+
+def dungeonbuddy_publication_capabilities(
+    *, domain_ref: DomainContractRef, profile_ref: SemanticProfileRef
+) -> DungeonBuddyPublicationCapabilities:
+    """Resolve the exact accepted descriptor once for a publication/context call."""
+    _, profile = resolve_dungeonbuddy_descriptors(
+        domain_ref=domain_ref, profile_ref=profile_ref
+    )
+    fixed = {declaration.term: declaration.allowed_value_kinds for declaration in profile.predicates}
+    open_namespaces = {
+        rule.namespace: rule.allowed_value_kinds
+        for rule in getattr(profile, "open_predicate_namespaces", ())
+    }
+
+    def supports(predicate: str, kind: str) -> bool:
+        # Fixed declarations take precedence over open namespace rules, as in Core.
+        kinds = fixed.get(predicate)
+        if kinds is None:
+            kinds = open_namespaces.get(predicate.split(":", 1)[0], ())
+        return kind in kinds
+
+    return DungeonBuddyPublicationCapabilities(
+        reviewed_source_observation=supports(DUNGEONBUDDY_OBSERVATION_PREDICATE, "literal"),
+        source_precedence=supports("dungeonbuddy.custom:precedes", "entity_ref"),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class DungeonBuddyWorldAdmissionPolicy:
     """The explicit non-widening Buddy hook after generic Kernel gates."""
@@ -252,16 +463,13 @@ def build_dungeonbuddy_read_context(
     source_reader: KnowledgeSourceReader,
 ) -> KnowledgeReadContext:
     """Assemble the pinned generic context without selecting production authority."""
-    domain_contract = dungeonbuddy_world_domain_contract()
-    policy = DungeonBuddyWorldAdmissionPolicy()
+    domain_contract, profile = resolve_dungeonbuddy_descriptors(
+        domain_ref=parsed_revision.domain_contract_ref,
+        profile_ref=parsed_revision.semantic_profile_ref,
+    )
+    policy = AlwaysAdmitPolicy(policy_id=DUNGEONBUDDY_POLICY_ID)
     if policy.policy_id != domain_contract.admission_policy_id:
         raise ValueError("DungeonBuddy policy identity does not match DomainContract")
-    profile = dungeonbuddy_dnd5e_semantic_profile()
-    if (
-        parsed_revision.semantic_profile_ref.profile_revision
-        == DUNGEONBUDDY_CUSTOM_PROFILE_REVISION
-    ):
-        profile = dungeonbuddy_dnd5e_custom_predicate_profile()
     return KnowledgeReadContext(
         parsed=parsed_revision,
         request=build_dungeonbuddy_projection_request(projection_input),

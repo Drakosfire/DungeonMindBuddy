@@ -45,6 +45,25 @@ This document is the **neutral architecture authority** for how DungeonBuddy sur
 
 `SurfaceShell` / `SurfaceFrame` may **only compose layout** — they are not bar owners and must not become hidden hosts for Nav/Tool/Edit/Agent/Projection.
 
+### A text conversation with access to the workspace
+
+The shared conversation is a text-first surface with one Send action. A user
+can ask Buddy to inspect, describe, compare, or revise images already available
+in the current workspace. Buddy uses the open document, selection, and wording
+to resolve the intended image and operation. The surface makes relevant assets
+available through its authorized context and action tools, with the same review
+and approval flow for changes as other workspace edits.
+
+Apply the same rule to tables, statblocks, and other workspace objects. Users
+describe the result they want. Buddy resolves the object and chooses the
+appropriate tool. If several objects fit and the choice affects the result,
+Buddy asks a focused question. A separate composer button for each object type
+or inferred operation adds a step to ordinary conversation.
+
+Adding a new image to a conversation is a separate input design question.
+Drag and drop can be explored later. Access to images already in the workspace
+is part of the current experience.
+
 ### Re-anchored authority law — 2026-08-26
 
 The post-cutover architecture is:
@@ -65,11 +84,14 @@ Runtime adapter / agent harness
 
 The Surface Interaction Layer never becomes a second World or source/evidence authority.
 
-The harness is not product architecture. Hermes is the current production
-adapter, PydanticAI is an existing challenger/experiment, and Pi/`pi-agent-core`
-is the preferred next adapter experiment. Those implementations remain
+The harness is not product architecture. Runtime selection is path-dependent:
+the [turn service](https://github.com/Drakosfire/DungeonMindBuddy/blob/main/apps/live_control_server/services/agent_turn_service.py)
+can use an injected runtime, chooses Jev for qualifying Build, Plan or Play
+turns, and otherwise falls back to Hermes. The [Agent context and runtime guide](https://github.com/Drakosfire/DungeonMindBuddy/blob/main/Docs/Guides/GUIDE-agent-context-and-runtime.md)
+routes contributors to the current selector and tests. Adapters remain
 replaceable behind DungeonBuddy's `AgentRuntime`; none owns Surface meaning,
-World authority, product tool semantics, or the Agent trace contract.
+World authority, product tool semantics, or the Agent trace contract. Merged
+selection logic does not establish the runtime deployed in a particular environment.
 
 The historical phrase “Campaign Supergraph / Kernel owns graph writes” is no longer sufficient. Current product code may route through Buddy `WorldGraphAuthority`-family ports, but durable World authority is DungeonMind.
 

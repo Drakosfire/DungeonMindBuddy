@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.live_play.classify_live_turn import classify_live_turn
+from live_play.classify_live_turn import classify_live_turn
 
 
 def test_weather_7_with_skill_check() -> None:

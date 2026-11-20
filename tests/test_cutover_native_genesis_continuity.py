@@ -959,7 +959,6 @@ def test_reviewed_init_d0_native_read_write_continuity(
         assertion_ids=None,
 
 
-        verify_source=False,
 
 
     )

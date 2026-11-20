@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from src.graph_memory.vocabulary import (
+from graph_memory.vocabulary import (
     LexicalObservation,
     VocabularySourceSpan,
     build_lexical_observations_from_spans,

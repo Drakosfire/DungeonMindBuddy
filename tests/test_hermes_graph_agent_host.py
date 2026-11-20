@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import os
 import threading
@@ -31,6 +32,7 @@ from apps.live_control_server.services.hermes_graph_agent_contract import (
     MAX_SURFACE_CONTEXT_BLOCK_CHARS,
     MAX_TOOL_EVENTS,
     MAX_WIRE_BYTES,
+    decode_json_wire,
     encode_json_wire,
     encode_turn_request_wire,
 )
@@ -144,6 +146,21 @@ def _request(**overrides: Any) -> HermesGraphAgentTurnRequest:
     return HermesGraphAgentTurnRequest(**payload)
 
 
+def _synthetic_request_budget() -> dict[str, Any]:
+    return {
+        "schema": "dmb_hermes_request_budget_policy_v1",
+        "provider": "openai-api",
+        "model": "test-model",
+        "apiMode": "codex_responses",
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": 32768,
+        "outputReserveTokens": 2048,
+        "maxProviderAttempts": 4,
+        "maxToolCapableAttempts": 3,
+        "maxGraphOperations": 8,
+    }
+
+
 def _ok_result(*, session_id: str = "sess-1") -> HermesGraphAgentTurnResult:
     return HermesGraphAgentTurnResult(
         status="ok",
@@ -218,6 +235,352 @@ def _stub_worker_main(request_queue: Any, response_queue: Any) -> None:
                 "pid": os.getpid(),
                 "payload": result,
             },
+        )
+
+
+def _terminal_failure_worker_main(request_queue: Any, response_queue: Any) -> None:
+    """Return a serialized guarded worker failure for the host IPC boundary."""
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+        serialize_hermes_graph_agent_turn_result,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
+            return
+        if message.get("type") == "proceed":
+            continue
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message.get("requestId") or "")
+        _put_json(
+            response_queue,
+            {
+                "type": "accepted",
+                "requestId": request_id,
+                "pid": os.getpid(),
+            },
+        )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
+            return
+        result = serialize_hermes_graph_agent_turn_result(
+            HermesGraphAgentTurnResult(
+                status="error",
+                final_response=None,
+                messages=[],
+                hermes_session_id=f"worker-{os.getpid()}",
+                tool_events=[],
+                error_code="provider_lifecycle_unavailable",
+                terminal_failure={
+                    "phase": "provider_lifecycle",
+                    "reason": "provider_transport_ambiguous",
+                    "transition": "outcome_unknown",
+                    "acknowledged": True,
+                    "transportExceptionClass": "ConnectError",
+                },
+            )
+        )
+        _put_json(
+            response_queue,
+            {
+                "type": "result",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": result,
+            },
+        )
+
+
+def _authorization_worker_main(request_queue: Any, response_queue: Any) -> None:
+    """Synthetic worker proving the correlated parent authorization exchange."""
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+        serialize_hermes_graph_agent_turn_result,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            return
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message["requestId"])
+        _put_json(response_queue, {"type": "accepted", "requestId": request_id})
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            return
+        payload_json = json.dumps(
+            {
+                "model": "test-model",
+                "input": "x"
+                * int(
+                    message["payload"]
+                    .get("requestBudget", {})
+                    .get("maxProviderRequestBytes", 0)
+                    // 2
+                ),
+            }
+        )
+        authorization_id = f"{request_id}:1"
+        authorization_frame = {
+            "type": "provider_authorization_request",
+            "requestId": request_id,
+            "authorizationId": authorization_id,
+            "view": {
+                "provider": "openai-api",
+                "model": "test-model",
+                "apiMode": "codex_responses",
+                "baseUrl": None,
+                "payloadJson": payload_json,
+                "payloadSha256": hashlib.sha256(payload_json.encode()).hexdigest(),
+                "payloadUtf8Bytes": len(payload_json.encode()),
+            },
+        }
+        from apps.live_control_server.services.hermes_graph_agent_contract import (
+            encode_provider_authorization_wire,
+            provider_request_byte_limit,
+        )
+
+        response_queue.put(
+            encode_provider_authorization_wire(
+                authorization_frame,
+                body_limit=provider_request_byte_limit(
+                    message["payload"].get("requestBudget")
+                ),
+            )
+        )
+        response = decode_json_wire(request_queue.get(timeout=10))
+        status = "ok" if response.get("allowOnce") is True else "error"
+        result = serialize_hermes_graph_agent_turn_result(
+            HermesGraphAgentTurnResult(
+                status=status,
+                final_response="authorized" if status == "ok" else None,
+                messages=[],
+                hermes_session_id="auth-worker",
+                tool_events=[],
+                error_code=None if status == "ok" else "authorization_denied",
+                error_message=None if status == "ok" else "denied",
+            )
+        )
+        _put_json(
+            response_queue,
+            {
+                "type": "result",
+                "requestId": request_id,
+                "payload": result,
+            },
+        )
+
+
+def _native_reply_worker_main(request_queue: Any, response_queue: Any) -> None:
+    """Exercise the exact oversized reply frame and parent acknowledgement."""
+    from apps.live_control_server.services.native_rules_capture import (
+        NativeProviderReply,
+        encode_native_reply_wire,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        command = decode_json_wire(request_queue.get())
+        if command.get("type") == "shutdown":
+            return
+        if command.get("type") != "execute":
+            continue
+        request_id = command["requestId"]
+        _put_json(response_queue, {"type": "accepted", "requestId": request_id})
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            return
+        payload_json = json.dumps(
+            {"model": "test-model", "input": "native"}, separators=(",", ":")
+        )
+        authorization_id = f"{request_id}:1"
+        authorization = {
+            "type": "provider_authorization_request",
+            "requestId": request_id,
+            "authorizationId": authorization_id,
+            "view": {
+                "provider": "openai-api",
+                "model": "test-model",
+                "apiMode": "codex_responses",
+                "baseUrl": None,
+                "payloadJson": payload_json,
+                "payloadSha256": hashlib.sha256(payload_json.encode()).hexdigest(),
+                "payloadUtf8Bytes": len(payload_json.encode()),
+            },
+        }
+        from apps.live_control_server.services.hermes_graph_agent_contract import (
+            encode_provider_authorization_wire,
+            provider_request_byte_limit,
+            serialize_hermes_graph_agent_turn_result,
+        )
+
+        response_queue.put(
+            encode_provider_authorization_wire(
+                authorization,
+                body_limit=provider_request_byte_limit(
+                    command["payload"].get("requestBudget")
+                ),
+            )
+        )
+        auth_response = decode_json_wire(request_queue.get(timeout=10))
+        if auth_response.get("allowOnce") is not True:
+            break
+        text = "The captured answer stays exact."
+        encoded = text.encode()
+        reply = NativeProviderReply(
+            authorization_id,
+            "turn:api:1",
+            "openai-api",
+            "test-model",
+            "codex_responses",
+            authorization["view"]["payloadSha256"],
+            "stop",
+            "answered",
+            text,
+            hashlib.sha256(encoded).hexdigest(),
+            len(encoded),
+            (),
+        )
+        response_queue.put(encode_native_reply_wire(reply))
+        capture_ack = decode_json_wire(request_queue.get(timeout=10))
+        result = HermesGraphAgentTurnResult(
+            status="ok" if capture_ack.get("acknowledged") is True else "error",
+            final_response="captured"
+            if capture_ack.get("acknowledged") is True
+            else None,
+            messages=[],
+            hermes_session_id="native-capture-worker",
+            tool_events=[],
+        )
+        _put_json(
+            response_queue,
+            {
+                "type": "result",
+                "requestId": request_id,
+                "payload": serialize_hermes_graph_agent_turn_result(result),
+            },
+        )
+
+
+def _graph_broker_worker_main(request_queue: Any, response_queue: Any) -> None:
+    """Synthetic child Graph call requiring one correlated parent response."""
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+        serialize_hermes_graph_agent_turn_result,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            return
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message["requestId"])
+        _put_json(response_queue, {"type": "accepted", "requestId": request_id})
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            return
+        operation_id = f"{request_id}:g1"
+        _put_json(
+            response_queue,
+            {
+                "type": "graph_operation_request",
+                "requestId": request_id,
+                "operationId": operation_id,
+                "toolName": "expand_graph_retrieval",
+                "arguments": {"retrievalSessionId": "parent-session", "query": "gate"},
+            },
+        )
+        broker_response = decode_json_wire(request_queue.get(timeout=10))
+        ok = (
+            broker_response.get("type") == "graph_operation_response"
+            and broker_response.get("requestId") == request_id
+            and broker_response.get("operationId") == operation_id
+            and broker_response.get("retrievalSession", {}).get("retrieval_session_id")
+            == "parent-session"
+        )
+        result = serialize_hermes_graph_agent_turn_result(
+            HermesGraphAgentTurnResult(
+                status="ok" if ok else "error",
+                final_response=broker_response.get("resultJson") if ok else None,
+                messages=[],
+                hermes_session_id="graph-worker",
+                tool_events=[],
+                error_code=None if ok else "broker_denied",
+                error_message=None if ok else "invalid parent reply",
+            )
+        )
+        _put_json(
+            response_queue,
+            {"type": "result", "requestId": request_id, "payload": result},
+        )
+
+
+def _graph_broker_worker_main(request_queue: Any, response_queue: Any) -> None:
+    """Synthetic child Graph call requiring one correlated parent response."""
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+        serialize_hermes_graph_agent_turn_result,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            return
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message["requestId"])
+        _put_json(response_queue, {"type": "accepted", "requestId": request_id})
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            return
+        operation_id = f"{request_id}:g1"
+        _put_json(
+            response_queue,
+            {
+                "type": "graph_operation_request",
+                "requestId": request_id,
+                "operationId": operation_id,
+                "toolName": os.environ.get(
+                    "DMB_TEST_BROKER_TOOL_NAME", "expand_graph_retrieval"
+                ),
+                "arguments": (
+                    {
+                        "retrievalSessionId": "parent-session",
+                        "anchorIds": ["anchor:one"],
+                    }
+                    if os.environ.get("DMB_TEST_BROKER_TOOL_NAME")
+                    == "read_graph_source"
+                    else {"retrievalSessionId": "parent-session", "query": "gate"}
+                ),
+            },
+        )
+        broker_response = decode_json_wire(request_queue.get(timeout=10))
+        ok = (
+            broker_response.get("type") == "graph_operation_response"
+            and broker_response.get("requestId") == request_id
+            and broker_response.get("operationId") == operation_id
+            and broker_response.get("retrievalSession", {}).get("retrieval_session_id")
+            == "parent-session"
+        )
+        result = serialize_hermes_graph_agent_turn_result(
+            HermesGraphAgentTurnResult(
+                status="ok" if ok else "error",
+                final_response=broker_response.get("resultJson") if ok else None,
+                messages=[],
+                hermes_session_id="graph-worker",
+                tool_events=[],
+                error_code=None if ok else "broker_denied",
+                error_message=None if ok else "invalid parent reply",
+            )
+        )
+        _put_json(
+            response_queue,
+            {"type": "result", "requestId": request_id, "payload": result},
         )
 
 
@@ -417,6 +780,50 @@ def _streamed_model_call(
     }
 
 
+def test_native_reply_frame_is_parent_acknowledged_against_exact_authorization():
+    from application_state.agent_conversation.rules_authority_policy import (
+        rules_capability,
+    )
+    from graph_memory.hermes_graph_plugin import rules_capability_policy
+
+    capability = rules_capability(graph=False)
+    request = HermesGraphAgentTurnRequest(
+        question="Can the captured answer be accepted?",
+        world_id=None,
+        campaign_id=None,
+        scope_mode=None,
+        root=None,
+        capability_policy=rules_capability_policy(capability),
+        request_budget=_synthetic_request_budget(),
+        provider_authorization_required=True,
+        native_rules_capture_required=True,
+        parent_graph_broker_required=True,
+    )
+    seen_authorizations = []
+    seen_replies = []
+    expected_payload = json.dumps(
+        {"model": "test-model", "input": "native"}, separators=(",", ":")
+    )
+    host = HermesGraphAgentHost(worker_target=_native_reply_worker_main)
+    try:
+        result = host.execute(
+            request,
+            on_provider_authorization=lambda view: (
+                seen_authorizations.append(dict(view))
+                or view["payloadJson"] == expected_payload
+            ),
+            on_native_provider_reply=lambda reply: seen_replies.append(reply) or True,
+        )
+    finally:
+        host.shutdown()
+
+    assert result.status == "ok"
+    assert result.final_response == "captured"
+    assert len(seen_authorizations) == len(seen_replies) == 1
+    assert seen_replies[0].api_request_id == "turn:api:1"
+    assert seen_replies[0].text == "The captured answer stays exact."
+
+
 def test_worker_phase_telemetry_is_request_correlated_and_allowlisted() -> None:
     request_id = "request-1"
     group_id = "0123456789abcdef0123456789abcdef"
@@ -480,7 +887,9 @@ def test_worker_phase_telemetry_crosses_host_process_boundary() -> None:
     try:
         result = host.execute(_request(), on_host_phase=phases.append)
         assert result.status == "ok"
-        worker_phases = [phase for phase in phases if phase["name"].startswith("rung3_")]
+        worker_phases = [
+            phase for phase in phases if phase["name"].startswith("rung3_")
+        ]
         assert len(worker_phases) == 1
         assert worker_phases[0]["name"] == "rung3_provider_conversation"
         assert worker_phases[0]["status"] == "ok"
@@ -1106,6 +1515,18 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
                     for request in new_requests
                 ],
             ]
+            previous_bodies = previous_payload.get("provider_request_bodies")
+            payload["provider_request_bodies"] = [
+                *(previous_bodies if isinstance(previous_bodies, list) else []),
+                [
+                    {
+                        key: value
+                        for key, value in request.items()
+                        if key not in {"timeout", "http_client"}
+                    }
+                    for request in new_requests
+                ],
+            ]
             path.write_text(json_mod.dumps(payload), encoding="utf-8")
 
     from apps.live_control_server.services.hermes_graph_agent import (
@@ -1124,6 +1545,8 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
 
     def _fake_execute(tool_name: str, arguments: Any, *, root: Any = None) -> str:
         del root
+        if active_request is not None and active_request.parent_graph_broker_required:
+            raise AssertionError("policy turn attempted child-local Graph fallback")
         return WorldGraphRetrievalResult(
             operation="search",
             outcome="enough",
@@ -1134,8 +1557,18 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
         "schema": EXPAND_GRAPH_RETRIEVAL_SCHEMA,
         "retrievalSessionId": "sess:SPOOF",
         "operation": "search",
-        "queryText": "Tripod",
+        "queryText": os.environ.get("DMB_HERMES_TEST_TOOL_QUERY", "Tripod"),
     }
+    rules_lookup = os.environ.get("DMB_HERMES_TEST_RULES_LOOKUP") == "1"
+    if rules_lookup:
+        tool_args = {
+            "question": "Can I end my move in an occupied space?",
+            "ruleset_id": "dnd_2024_srd_5_2_1",
+        }
+    source_tool=os.environ.get("DMB_HERMES_TEST_SOURCE_TOOL")
+    if source_tool:
+        tool_args=({'anchor_id':'source-anchor:v1:proof'} if source_tool=='browse_native_source_sections'
+            else {'section_handles':['native-section:proof']})
     responses_streams = [
         [
             SimpleNamespace(
@@ -1144,7 +1577,7 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
                     type="function_call",
                     id="fc_1",
                     call_id="call-graph-1",
-                    name="expand_graph_retrieval",
+                    name=source_tool or ("lookup_rules" if rules_lookup else "expand_graph_retrieval"),
                     arguments=json_mod.dumps(tool_args),
                     status="completed",
                 ),
@@ -1161,7 +1594,9 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
         [
             SimpleNamespace(
                 type="response.output_text.delta",
-                delta="Tripod stands at the North Gate.",
+                delta=os.environ.get(
+                    "DMB_HERMES_TEST_FINAL_TEXT", "Tripod stands at the North Gate."
+                ),
             ),
             SimpleNamespace(
                 type="response.completed",
@@ -1173,11 +1608,35 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
             ),
         ],
     ]
+    if rules_lookup and os.environ.get("DMB_HERMES_TEST_RULES_LOOKUPS") == "2":
+        responses_streams[0].insert(
+            1,
+            SimpleNamespace(
+                type="response.output_item.done",
+                item=SimpleNamespace(
+                    type="function_call",
+                    id="fc_2",
+                    call_id="call-rules-2",
+                    name="lookup_rules",
+                    arguments=json_mod.dumps(
+                        {**tool_args, "question": tool_args["question"].upper()}
+                    ),
+                    status="completed",
+                ),
+            ),
+        )
     mocked_responses_requests: list[dict[str, Any]] = []
     active_request: Any | None = None
 
     def _create_responses_stream(**kwargs: Any) -> Any:
         mocked_responses_requests.append(kwargs)
+        if (
+            os.environ.get("DMB_HERMES_TEST_TRANSPORT_FAILURE") == "1"
+            and len(mocked_responses_requests) == 1
+        ):
+            import httpx
+
+            raise httpx.ConnectError("synthetic ambiguous provider transport failure")
         policy = None if active_request is None else active_request.capability_policy
         if policy is not None and policy.mode == "conversation_only":
             answer = (
@@ -1249,11 +1708,136 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
             payload = message.get("payload")
             request = deserialize_hermes_graph_agent_turn_request(payload)
             active_request = request
+
+            authorization_sequence = 0
+
+            def authorize_provider(view: Any) -> bool:
+                nonlocal authorization_sequence
+                if not request.provider_authorization_required:
+                    return True
+                authorization_sequence += 1
+                authorization_id = f"{request_id}:{authorization_sequence}"
+                _put_json(
+                    response_queue,
+                    {
+                        "type": "provider_authorization_request",
+                        "requestId": request_id,
+                        "authorizationId": authorization_id,
+                        "view": {
+                            "provider": view.provider,
+                            "model": view.model,
+                            "apiMode": view.api_mode,
+                            "baseUrl": view.base_url,
+                            "payloadJson": view.payload_json,
+                            "payloadSha256": view.payload_sha256,
+                            "payloadUtf8Bytes": view.payload_utf8_bytes,
+                        },
+                    },
+                )
+                response = decode_json_wire(request_queue.get(timeout=30.0))
+                allowed = (
+                    response.get("type") == "provider_authorization_response"
+                    and response.get("requestId") == request_id
+                    and response.get("authorizationId") == authorization_id
+                    and response.get("allowOnce") is True
+                )
+                authorize_provider.last_authorization_id = (
+                    authorization_id if allowed else None
+                )
+                return allowed
+
+            authorize_provider.last_authorization_id = None
+
+            def report_provider_lifecycle(event: Any) -> bool:
+                if not request.provider_authorization_required or not isinstance(
+                    event, dict
+                ):
+                    return not request.provider_authorization_required
+                sequence = event.get("authorizationSequence")
+                transition = event.get("transition")
+                if isinstance(sequence, bool) or sequence != authorization_sequence:
+                    return False
+                authorization_id = f"{request_id}:{sequence}"
+                _put_json(
+                    response_queue,
+                    {
+                        "type": "provider_lifecycle_request",
+                        "requestId": request_id,
+                        "authorizationId": authorization_id,
+                        "transition": transition,
+                        "runtimeApiRequestId": event.get("runtimeApiRequestId"),
+                    },
+                )
+                response = decode_json_wire(request_queue.get(timeout=30.0))
+                return (
+                    response.get("type") == "provider_lifecycle_response"
+                    and response.get("requestId") == request_id
+                    and response.get("authorizationId") == authorization_id
+                    and response.get("acknowledged") is True
+                )
+
+            def capture_native_provider_reply(reply: Any) -> bool:
+                if not request.native_rules_capture_required:
+                    return False
+                from apps.live_control_server.services.native_rules_capture import (
+                    encode_native_reply_wire,
+                )
+
+                response_queue.put(encode_native_reply_wire(reply))
+                response = decode_json_wire(request_queue.get(timeout=30.0))
+                return (
+                    response.get("type") == "native_provider_reply_response"
+                    and response.get("requestId") == request_id
+                    and response.get("authorizationId") == reply.authorization_id
+                    and response.get("apiRequestId") == reply.api_request_id
+                    and response.get("acknowledged") is True
+                )
+
+            graph_operation_sequence = 0
+
+            def parent_graph_operation(
+                tool_name: str, arguments: Any
+            ) -> tuple[str, Any]:
+                nonlocal graph_operation_sequence
+                if not request.parent_graph_broker_required:
+                    return _fake_execute(tool_name, arguments), None
+                graph_operation_sequence += 1
+                operation_id = f"{request_id}:g{graph_operation_sequence}"
+                frame = {
+                    "type": "graph_operation_request",
+                    "requestId": request_id,
+                    "operationId": operation_id,
+                    "toolName": tool_name,
+                    "arguments": dict(arguments),
+                }
+                if tool_name in {"lookup_rules","browse_native_source_sections","read_native_source_sections"}:
+                    from graph_memory.hermes_graph_plugin import (
+                        get_active_rules_call_id,
+                    )
+
+                    frame["modelCallId"] = get_active_rules_call_id()
+                _put_json(response_queue, frame)
+                response = decode_json_wire(request_queue.get(timeout=30.0))
+                if (
+                    response.get("type") != "graph_operation_response"
+                    or response.get("requestId") != request_id
+                    or response.get("operationId") != operation_id
+                ):
+                    return _fake_execute(tool_name, arguments), None
+                return response["resultJson"], response.get("retrievalSession")
+
             with patch(
                 "graph_memory.hermes_graph_plugin.execute_hermes_graph_interaction_tool_json",
                 _fake_execute,
             ):
-                result = run_hermes_graph_agent_turn(request, agent_factory=_factory)
+                result = run_hermes_graph_agent_turn(
+                    request,
+                    agent_factory=_factory,
+                    on_provider_authorization=authorize_provider,
+                    on_provider_lifecycle=report_provider_lifecycle,
+                    on_parent_graph_operation=parent_graph_operation,
+                    on_native_provider_reply=capture_native_provider_reply,
+                )
             _write_offline_witness(len(mocked_responses_requests))
             if network_attempts:
                 raise AssertionError(
@@ -1740,15 +2324,182 @@ def test_plan_profile_requires_typed_continuity_flag_not_surface_prose(
 
 
 def test_encode_turn_request_wire_respects_max_bytes() -> None:
-    request = _request(question="x" * MAX_QUESTION_CHARS)
-    raw = encode_turn_request_wire(request)
-    assert len(raw) <= MAX_WIRE_BYTES
+    baseline = encode_turn_request_wire(_request(question="x"))
+    question_size = MAX_WIRE_BYTES - len(baseline) + 1
+    assert len(encode_turn_request_wire(_request(question="x" * question_size))) == MAX_WIRE_BYTES
+    with pytest.raises(ValueError, match="wire payload exceeds max bytes"):
+        encode_turn_request_wire(_request(question="x" * (question_size + 1)))
 
 
 def test_host_uses_spawn_start_method() -> None:
     host = HermesGraphAgentHost(worker_target=_stub_worker_main)
     assert host.start_method == "spawn"
     host.shutdown()
+
+
+def test_provider_authorization_is_correlated_and_denial_is_terminal() -> None:
+    host = HermesGraphAgentHost(worker_target=_authorization_worker_main)
+    authorized_views: list[dict[str, Any]] = []
+    try:
+        result = host.execute(
+            _request(
+                provider_authorization_required=True,
+                request_budget=_synthetic_request_budget(),
+            ),
+            on_provider_authorization=lambda view: (
+                authorized_views.append(dict(view)) or True
+            ),
+        )
+        assert result.status == "ok"
+        assert result.final_response == "authorized"
+        assert len(authorized_views) == 1
+        assert (
+            authorized_views[0]["payloadSha256"]
+            == hashlib.sha256(authorized_views[0]["payloadJson"].encode()).hexdigest()
+        )
+    finally:
+        host.shutdown()
+
+    denied_host = HermesGraphAgentHost(worker_target=_authorization_worker_main)
+    try:
+        denied = denied_host.execute(
+            _request(
+                provider_authorization_required=True,
+                request_budget=_synthetic_request_budget(),
+            ),
+            on_provider_authorization=lambda _view: False,
+        )
+        assert denied.status == "error"
+        assert denied.error_code == "authorization_denied"
+    finally:
+        denied_host.shutdown()
+
+
+def test_graph_operation_round_trips_through_correlated_parent_broker() -> None:
+    host = HermesGraphAgentHost(worker_target=_graph_broker_worker_main)
+    observed: list[dict[str, Any]] = []
+    try:
+        result = host.execute(
+            _request(
+                provider_authorization_required=True,
+                request_budget={
+                    "schema": "dmb_hermes_request_budget_policy_v1",
+                    "provider": "openai-api",
+                    "model": "synthetic-model",
+                    "apiMode": "chat_completions",
+                    "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+                    "contextLimitTokens": 32768,
+                    "outputReserveTokens": 2048,
+                    "maxProviderAttempts": 4,
+                    "maxToolCapableAttempts": 3,
+                    "maxGraphOperations": 8,
+                },
+                parent_graph_broker_required=True,
+                retrieval_session_id="parent-session",
+                retrieval_session={"retrieval_session_id": "parent-session"},
+            ),
+            on_provider_authorization=lambda _view: True,
+            on_graph_operation=lambda request: (
+                observed.append(dict(request))
+                or {
+                    "resultJson": '{"status":"expanded"}',
+                    "retrievalSession": {"retrieval_session_id": "parent-session"},
+                }
+            ),
+        )
+        assert result.status == "ok", (result.error_code, result.error_message)
+        assert result.final_response == '{"status":"expanded"}'
+        assert len(observed) == 1
+        assert observed[0]["toolName"] == "expand_graph_retrieval"
+        assert observed[0]["arguments"]["retrievalSessionId"] == "parent-session"
+    finally:
+        host.shutdown()
+
+
+def test_source_read_round_trips_through_correlated_parent_broker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DMB_TEST_BROKER_TOOL_NAME", "read_graph_source")
+    host = HermesGraphAgentHost(worker_target=_graph_broker_worker_main)
+    observed: list[dict[str, Any]] = []
+    try:
+        result = host.execute(
+            _request(
+                provider_authorization_required=True,
+                request_budget={
+                    "schema": "dmb_hermes_request_budget_policy_v1",
+                    "provider": "openai-api",
+                    "model": "synthetic-model",
+                    "apiMode": "chat_completions",
+                    "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+                    "contextLimitTokens": 32768,
+                    "outputReserveTokens": 2048,
+                    "maxProviderAttempts": 4,
+                    "maxToolCapableAttempts": 3,
+                    "maxGraphOperations": 8,
+                },
+                parent_graph_broker_required=True,
+                retrieval_session_id="parent-session",
+                retrieval_session={"retrieval_session_id": "parent-session"},
+            ),
+            on_provider_authorization=lambda _view: True,
+            on_graph_operation=lambda request: (
+                observed.append(dict(request))
+                or {
+                    "resultJson": '{"schema":"dmb_world_graph_source_anchor_read_v1","outcome":"enough"}',
+                    "retrievalSession": {"retrieval_session_id": "parent-session"},
+                }
+            ),
+        )
+        assert result.status == "ok"
+        assert len(observed) == 1
+        assert observed[0]["toolName"] == "read_graph_source"
+        assert observed[0]["arguments"]["anchorIds"] == ["anchor:one"]
+    finally:
+        host.shutdown()
+
+
+def test_related_recap_context_round_trips_through_correlated_parent_broker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DMB_TEST_BROKER_TOOL_NAME", "read_related_recap_context")
+    host = HermesGraphAgentHost(worker_target=_graph_broker_worker_main)
+    observed: list[dict[str, Any]] = []
+    try:
+        result = host.execute(
+            _request(
+                provider_authorization_required=True,
+                request_budget={
+                    "schema": "dmb_hermes_request_budget_policy_v1",
+                    "provider": "openai-api",
+                    "model": "synthetic-model",
+                    "apiMode": "chat_completions",
+                    "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+                    "contextLimitTokens": 32768,
+                    "outputReserveTokens": 2048,
+                    "maxProviderAttempts": 4,
+                    "maxToolCapableAttempts": 3,
+                    "maxGraphOperations": 8,
+                },
+                parent_graph_broker_required=True,
+                retrieval_session_id="parent-session",
+                retrieval_session={"retrieval_session_id": "parent-session"},
+            ),
+            on_provider_authorization=lambda _view: True,
+            on_graph_operation=lambda request: (
+                observed.append(dict(request))
+                or {
+                    "resultJson": '{"schema":"dmb_related_recap_context_read_v1","outcome":"enough"}',
+                    "retrievalSession": {"retrieval_session_id": "parent-session"},
+                }
+            ),
+        )
+        assert result.status == "ok"
+        assert len(observed) == 1
+        assert observed[0]["toolName"] == "read_related_recap_context"
+        assert observed[0]["arguments"]["retrievalSessionId"] == "parent-session"
+    finally:
+        host.shutdown()
 
 
 def test_parent_execute_does_not_call_rung3_when_using_stub_worker(
@@ -1812,6 +2563,34 @@ def test_host_emits_bounded_sanitized_phases_and_ignores_callback_failures() -> 
             on_host_phase=lambda _span: (_ for _ in ()).throw(RuntimeError("ignored")),
         )
         assert callback_failure_result.status == "ok"
+    finally:
+        host.shutdown()
+
+
+def test_serialized_worker_failure_keeps_terminal_diagnostic_and_decode_success() -> (
+    None
+):
+    host = HermesGraphAgentHost(worker_target=_terminal_failure_worker_main)
+    phases: list[dict[str, Any]] = []
+    try:
+        result = host.execute(
+            _request(question="synthetic failure fixture"),
+            on_host_phase=phases.append,
+        )
+        assert result.status == "error"
+        assert result.error_code == "provider_lifecycle_unavailable"
+        assert result.terminal_failure == {
+            "phase": "provider_lifecycle",
+            "reason": "provider_transport_ambiguous",
+            "transition": "outcome_unknown",
+            "acknowledged": True,
+            "transportExceptionClass": "ConnectError",
+        }
+        decode_phase = [
+            phase for phase in phases if phase["name"] == "host_result_decode"
+        ]
+        assert len(decode_phase) == 1
+        assert decode_phase[0]["status"] == "ok"
     finally:
         host.shutdown()
 
@@ -2534,6 +3313,295 @@ def test_host_executes_real_aiagent_tool_turn_through_wire(
     }
 
 
+def test_parent_authorization_and_graph_broker_guard_real_provider_requests(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The actual Hermes worker waits for parent authorization around both calls."""
+    from graph_memory.hermes_graph_plugin import (
+        parent_brokered_graph_expansion_policy,
+    )
+    from graph_memory.retrieval.models import WorldGraphRetrievalResult
+
+    offline_witness = tmp_path / "offline-witness.json"
+    monkeypatch.setenv("DMB_HERMES_HOST_OFFLINE_WITNESS", str(offline_witness))
+    monkeypatch.setenv("DUNGEONMIND_HERMES_GRAPH_MODEL", "test-model")
+    graph_scope = HermesGraphScope(
+        world_id="world:eldyrwild",
+        campaign_id="",
+        focus={"kind": "none", "sessionId": None},
+        admissibility="gm",
+        revision_pin="revision:test",
+        scope_mode="world",
+    )
+    retrieval_session_id = "sess:SPOOF"
+    initial_packet = {
+        "retrieval_session_id": retrieval_session_id,
+        "candidates": [{"node_id": "threat:initial", "label": "Initial"}],
+        "claim_ledger": [],
+        "intent_hint": None,
+        "available_expansions": ["search"],
+    }
+    request = HermesGraphAgentTurnRequest(
+        question="Where is Tripod?",
+        world_id=graph_scope.world_id,
+        campaign_id="",
+        scope_mode="world",
+        focus=dict(graph_scope.focus),
+        admissibility="gm",
+        revision_pin=graph_scope.revision_pin,
+        root=tmp_path / "graph",
+        capability_policy=parent_brokered_graph_expansion_policy(graph_scope),
+        retrieval_session_id=retrieval_session_id,
+        retrieval_session=initial_packet,
+        request_budget=_synthetic_request_budget(),
+        provider_authorization_required=True,
+        parent_graph_broker_required=True,
+    )
+    authorizations: list[dict[str, Any]] = []
+    lifecycle: list[dict[str, Any]] = []
+    graph_requests: list[dict[str, Any]] = []
+    updated_packet = {
+        **initial_packet,
+        "candidates": [
+            *initial_packet["candidates"],
+            {"node_id": "threat:parent-expanded", "label": "North Gate"},
+        ],
+        "claim_ledger": [
+            {"claim_id": "claim:parent-expanded", "text": "At the North Gate."}
+        ],
+    }
+
+    def authorize(view: dict[str, Any]) -> bool:
+        authorizations.append(dict(view))
+        return True
+
+    def persist_lifecycle(event: dict[str, Any]) -> bool:
+        lifecycle.append(dict(event))
+        return True
+
+    def broker(operation: dict[str, Any]) -> dict[str, Any]:
+        graph_requests.append(dict(operation))
+        result = WorldGraphRetrievalResult(
+            operation="search",
+            outcome="enough",
+            matched_node_ids=["threat:parent-expanded"],
+        )
+        return {
+            "resultJson": result.model_dump_json(by_alias=True),
+            "retrievalSession": updated_packet,
+        }
+
+    host = HermesGraphAgentHost(
+        worker_target=_tool_using_aiagent_host_worker,
+        turn_timeout_s=120.0,
+        ready_timeout_s=90.0,
+        accept_timeout_s=30.0,
+        session_profiles_root=tmp_path / "profiles",
+    )
+    try:
+        result = host.execute(
+            request,
+            on_provider_authorization=authorize,
+            on_provider_lifecycle=persist_lifecycle,
+            on_graph_operation=broker,
+        )
+        assert result.status == "ok", (result.error_code, result.error_message)
+        assert result.final_response == "Tripod stands at the North Gate."
+    finally:
+        host.shutdown()
+
+    assert len(authorizations) == 2
+    assert [event["transition"] for event in lifecycle] == [
+        "sdk_entered",
+        "response_received",
+        "sdk_entered",
+        "response_received",
+    ]
+    assert [event["authorizationId"] for event in lifecycle] == [
+        lifecycle[0]["authorizationId"],
+        lifecycle[0]["authorizationId"],
+        lifecycle[2]["authorizationId"],
+        lifecycle[2]["authorizationId"],
+    ]
+    assert lifecycle[0]["authorizationId"].endswith(":1")
+    assert lifecycle[2]["authorizationId"].endswith(":2")
+    request_ids = [event["runtimeApiRequestId"] for event in lifecycle]
+    assert all(isinstance(value, str) and value for value in request_ids)
+    assert request_ids[0] == request_ids[1]
+    assert request_ids[2] == request_ids[3]
+    assert request_ids[0] != request_ids[2]
+    assert [call["runtime_api_request_id"] for call in result.model_calls] == request_ids[::2]
+    assert [view["provider"] for view in authorizations] == ["openai-api"] * 2
+    assert len(graph_requests) == 1
+    assert graph_requests[0]["toolName"] == "expand_graph_retrieval"
+    assert graph_requests[0]["arguments"]["retrievalSessionId"] == retrieval_session_id
+
+    evidence = json.loads(offline_witness.read_text(encoding="utf-8"))
+    assert evidence["network_attempts"] == []
+    assert evidence["responses_stub_calls"] == 2
+    provider_bodies = evidence["provider_request_bodies"][0]
+    assert len(provider_bodies) == 2
+    for authorization, body in zip(authorizations, provider_bodies, strict=True):
+        canonical_body = json.dumps(
+            body,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        authorized_body = json.loads(authorization["payloadJson"])
+        assert authorized_body == body, {
+            key: (authorized_body.get(key), body.get(key))
+            for key in sorted(set(authorized_body) | set(body))
+            if authorized_body.get(key) != body.get(key)
+        }
+        assert authorization["payloadJson"] == canonical_body
+        assert (
+            hashlib.sha256(canonical_body.encode("utf-8")).hexdigest()
+            == (authorization["payloadSha256"])
+        )
+    assert "threat:initial" in json.dumps(provider_bodies[0], ensure_ascii=False)
+    assert "threat:parent-expanded" in json.dumps(
+        provider_bodies[1], ensure_ascii=False
+    )
+
+
+def test_lifecycle_persistence_failure_aborts_before_followup_provider_request(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from graph_memory.hermes_graph_plugin import parent_brokered_graph_expansion_policy
+
+    witness = tmp_path / "offline-witness.json"
+    monkeypatch.setenv("DMB_HERMES_HOST_OFFLINE_WITNESS", str(witness))
+    monkeypatch.setenv("DUNGEONMIND_HERMES_GRAPH_MODEL", "test-model")
+    scope = HermesGraphScope(
+        world_id="world:eldyrwild",
+        campaign_id="",
+        focus={"kind": "none", "sessionId": None},
+        admissibility="gm",
+        revision_pin="revision:test",
+        scope_mode="world",
+    )
+    request = HermesGraphAgentTurnRequest(
+        question="Where is Tripod?",
+        world_id=scope.world_id,
+        campaign_id="",
+        scope_mode="world",
+        focus=dict(scope.focus),
+        admissibility="gm",
+        revision_pin=scope.revision_pin,
+        root=tmp_path / "graph",
+        capability_policy=parent_brokered_graph_expansion_policy(scope),
+        retrieval_session_id="sess:SPOOF",
+        retrieval_session={
+            "retrieval_session_id": "sess:SPOOF",
+            "candidates": [{"node_id": "threat:initial", "label": "Initial"}],
+            "claim_ledger": [],
+            "intent_hint": None,
+            "available_expansions": ["search"],
+        },
+        request_budget=_synthetic_request_budget(),
+        provider_authorization_required=True,
+        parent_graph_broker_required=True,
+    )
+    host = HermesGraphAgentHost(
+        worker_target=_tool_using_aiagent_host_worker,
+        turn_timeout_s=120.0,
+        ready_timeout_s=90.0,
+        accept_timeout_s=30.0,
+        session_profiles_root=tmp_path / "profiles",
+    )
+    lifecycle: list[dict[str, Any]] = []
+    try:
+        result = host.execute(
+            request,
+            on_provider_authorization=lambda _view: True,
+            on_provider_lifecycle=lambda event: lifecycle.append(dict(event)) and False,
+            on_graph_operation=lambda _operation: pytest.fail(
+                "worker continued to Graph tool after lifecycle persistence failure"
+            ),
+        )
+        assert [event["transition"] for event in lifecycle] == [
+            "sdk_entered",
+            "outcome_unknown",
+        ]
+        assert (
+            json.loads(witness.read_text(encoding="utf-8"))["responses_stub_calls"] == 1
+        )
+        assert result.status == "error", (
+            result.status,
+            result.error_code,
+            result.error_message,
+        )
+    finally:
+        host.shutdown()
+
+
+def test_lifecycle_transport_failure_is_unknown_and_never_retried(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from graph_memory.hermes_graph_plugin import parent_brokered_graph_expansion_policy
+
+    witness = tmp_path / "offline-witness.json"
+    monkeypatch.setenv("DMB_HERMES_HOST_OFFLINE_WITNESS", str(witness))
+    monkeypatch.setenv("DMB_HERMES_TEST_TRANSPORT_FAILURE", "1")
+    monkeypatch.setenv("DUNGEONMIND_HERMES_GRAPH_MODEL", "test-model")
+    scope = HermesGraphScope(
+        world_id="world:eldyrwild",
+        campaign_id="",
+        focus={"kind": "none", "sessionId": None},
+        admissibility="gm",
+        revision_pin="revision:test",
+        scope_mode="world",
+    )
+    request = HermesGraphAgentTurnRequest(
+        question="Where is Tripod?",
+        world_id=scope.world_id,
+        campaign_id="",
+        scope_mode="world",
+        focus=dict(scope.focus),
+        admissibility="gm",
+        revision_pin=scope.revision_pin,
+        root=tmp_path / "graph",
+        capability_policy=parent_brokered_graph_expansion_policy(scope),
+        retrieval_session_id="sess:SPOOF",
+        retrieval_session={
+            "retrieval_session_id": "sess:SPOOF",
+            "candidates": [{"node_id": "threat:initial", "label": "Initial"}],
+            "claim_ledger": [],
+            "intent_hint": None,
+            "available_expansions": ["search"],
+        },
+        request_budget=_synthetic_request_budget(),
+        provider_authorization_required=True,
+        parent_graph_broker_required=True,
+    )
+    host = HermesGraphAgentHost(
+        worker_target=_tool_using_aiagent_host_worker,
+        turn_timeout_s=120.0,
+        ready_timeout_s=90.0,
+        accept_timeout_s=30.0,
+        session_profiles_root=tmp_path / "profiles",
+    )
+    lifecycle: list[dict[str, Any]] = []
+    try:
+        result = host.execute(
+            request,
+            on_provider_authorization=lambda _view: True,
+            on_provider_lifecycle=lambda event: lifecycle.append(dict(event)) or True,
+            on_graph_operation=lambda _operation: pytest.fail(
+                "worker continued after ambiguous transport failure"
+            ),
+        )
+        assert result.status == "error"
+    finally:
+        host.shutdown()
+    assert [event["transition"] for event in lifecycle] == ["outcome_unknown"]
+    assert json.loads(witness.read_text(encoding="utf-8"))["responses_stub_calls"] == 1
+
+
 def test_native_plan_conversation_resumes_after_worker_restart_without_browser_history(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -2953,3 +4021,128 @@ def test_oversized_model_calls_truncated_fail_open() -> None:
     assert "model_calls_truncated" in restored.telemetry_warnings
     assert wire["observedModelCallCount"] == MAX_MODEL_CALLS + 1
     assert restored.observed_model_call_count == MAX_MODEL_CALLS + 1
+
+
+@pytest.mark.parametrize("allow", [True, False])
+def test_large_provider_frame_reaches_correlated_parent_gate(allow):
+    host = HermesGraphAgentHost(worker_target=_authorization_worker_main)
+    views = []
+    try:
+        result = host.execute(
+            _request(
+                provider_authorization_required=True,
+                request_budget={
+                    **_synthetic_request_budget(),
+                    "maxProviderRequestBytes": 1_050_000,
+                },
+            ),
+            on_provider_authorization=lambda view: views.append(dict(view)) or allow,
+        )
+        assert len(views) == 1
+        assert views[0]["payloadUtf8Bytes"] > MAX_WIRE_BYTES
+        assert (result.status == "ok") is allow
+        if not allow:
+            assert result.error_code == "authorization_denied"
+    finally:
+        host.shutdown()
+
+
+def _large_real_worker_boundary(request_queue, response_queue):
+    # Replace inference only: exercise the actual production worker authorization
+    # callback, serialization, parent gate and terminal error propagation.
+    from types import SimpleNamespace
+    import apps.live_control_server.services.hermes_graph_agent as agent
+
+    def synthetic_turn(request, **callbacks):
+        payload = json.dumps({"input": "x" * 300_000})
+        view = SimpleNamespace(
+            provider="openai-api",
+            model="test-model",
+            api_mode="codex_responses",
+            base_url=None,
+            payload_json=payload,
+            payload_sha256=hashlib.sha256(payload.encode()).hexdigest(),
+            payload_utf8_bytes=len(payload.encode()),
+        )
+        allowed = callbacks["on_provider_authorization"](view)
+        return HermesGraphAgentTurnResult(
+            status="ok" if allowed else "error",
+            final_response="authorized" if allowed else None,
+            messages=[],
+            hermes_session_id="synthetic",
+            tool_events=[],
+            error_code=None if allowed else "provider_authorization_denied",
+            error_message=None if allowed else "denied",
+        )
+
+    agent.run_hermes_graph_agent_turn = synthetic_turn
+    hermes_graph_agent_worker_main(request_queue, response_queue)
+
+
+@pytest.mark.parametrize(
+    "limit,expected", [(256_000, "provider_request_bytes_exceeded"), (1_050_000, None)]
+)
+def test_real_worker_size_failure_is_explicit_and_large_request_authorizes(
+    limit, expected
+):
+    host = HermesGraphAgentHost(worker_target=_large_real_worker_boundary)
+    views = []
+    try:
+        result = host.execute(
+            _request(
+                provider_authorization_required=True,
+                request_budget={
+                    **_synthetic_request_budget(),
+                    "maxProviderRequestBytes": limit,
+                },
+            ),
+            on_provider_authorization=lambda view: views.append(dict(view)) or True,
+        )
+        assert result.error_code == expected
+        assert len(views) == (0 if expected else 1)
+    finally:
+        host.shutdown()
+
+
+@pytest.mark.parametrize('source_tool',['browse_native_source_sections','read_native_source_sections'])
+def test_native_source_call_and_exact_output_cross_real_sdk_worker(tmp_path,monkeypatch,source_tool):
+    """Real Hermes SDK hooks and host IPC; synthetic provider, no network or APP writes."""
+    from dataclasses import replace
+    from graph_memory.hermes_graph_plugin import parent_brokered_graph_expansion_policy,rules_capability_policy,HermesToolCapabilityRule
+    from application_state.agent_conversation.rules_authority_policy import rules_capability
+    monkeypatch.setenv('DUNGEONMIND_HERMES_GRAPH_MODEL','test-model')
+    monkeypatch.setenv('DMB_HERMES_TEST_SOURCE_TOOL',source_tool)
+    monkeypatch.setenv('DMB_HERMES_TEST_FINAL_TEXT','Synthetic exact source answer.')
+    witness=tmp_path/'source-navigation.json'
+    monkeypatch.setenv('DMB_HERMES_HOST_OFFLINE_WITNESS',str(witness))
+    scope=HermesGraphScope(world_id='world:eldyrwild',campaign_id='',focus={'kind':'none','sessionId':None},
+        admissibility='gm',revision_pin='revision:test',scope_mode='world')
+    policy=rules_capability_policy(rules_capability(graph=True),graph_policy=parent_brokered_graph_expansion_policy(scope))
+    policy=replace(policy,enabled_tool_names=(*policy.enabled_tool_names,source_tool),
+        tool_rules=(*policy.tool_rules,HermesToolCapabilityRule(tool_name=source_tool,require_graph_scope=False,allowed_effects=frozenset({'read'}))))
+    request=HermesGraphAgentTurnRequest(question='Find the appendix.',world_id=scope.world_id,campaign_id='',scope_mode='world',
+        focus=dict(scope.focus),admissibility='gm',revision_pin=scope.revision_pin,root=tmp_path/'graph',capability_policy=policy,
+        retrieval_session_id='sess:SPOOF',retrieval_session={'retrieval_session_id':'sess:SPOOF','candidates':[], 'claim_ledger':[], 'intent_hint':None,'available_expansions':['search']},
+        request_budget=_synthetic_request_budget(),provider_authorization_required=True,parent_graph_broker_required=True,native_rules_capture_required=True)
+    captures=[];operations=[];prepared=[]
+    result_payload=({'schema':'dmb_native_source_catalog_v1','source_name':'Synthetic adventure','sections':[{'section_handle':'native-section:proof','title':'Appendix A','matched_query_terms':['appendix']}]} if source_tool.startswith('browse')
+        else {'schema':'dmb_native_source_section_result_v1','sections':[{'section_handle':'n-proof','source_name':'Synthetic adventure','section_title':'Appendix A','line_start':1,'line_end':1,'text':'Synthetic mechanics sentinel.'}],'reused_section_handles':[],'partial':False})
+    def capture(reply):captures.append(reply);return True
+    def authorize(view):prepared.append(view);return True
+    def broker(message):
+        operations.append(message)
+        assert captures[-1].status=='tool_calls' and captures[-1].tool_calls[0].call_id==message['modelCallId']
+        assert message['toolName']==source_tool
+        assert json.loads(captures[-1].tool_calls[0].arguments_json)==message['arguments']
+        return {'resultJson':json.dumps(result_payload),'retrievalSession':None}
+    host=HermesGraphAgentHost(worker_target=_tool_using_aiagent_host_worker,turn_timeout_s=120,ready_timeout_s=90,accept_timeout_s=30,session_profiles_root=tmp_path/'profiles')
+    try:
+        result=host.execute(request,on_provider_authorization=authorize,on_provider_lifecycle=lambda _:True,
+            on_graph_operation=broker,on_native_provider_reply=capture)
+        assert result.status=='ok',(result.error_code,result.error_message)
+        assert result.final_response=='Synthetic exact source answer.'
+    finally:host.shutdown()
+    assert len(operations)==1 and len(prepared)==2 and captures[-1].status=='answered'
+    assert 'Synthetic adventure' in prepared[-1]['payloadJson']
+    if source_tool.startswith('read'):assert prepared[-1]['payloadJson'].count('Synthetic mechanics sentinel.')==1
+    assert json.loads(witness.read_text())['network_attempts']==[]

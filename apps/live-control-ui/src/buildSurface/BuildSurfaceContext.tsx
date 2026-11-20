@@ -1,4 +1,14 @@
-import { useMemo } from "react";
+import { createPortal } from "react-dom";
+import {useTourNavigationOwner,useTourNavigationGuard} from '../guidedTour/Navigation';
+import { useOptionalAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
+import { BUILD_FIND_EXISTING_TOOL_ID } from "./reference/buildReferenceIds";
+import { SurfaceNavbarIconButton } from "../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
+import { useWorkspaceInventoryVersion } from "../workspaceLifecycle/workspaceInventoryChange";
+import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
+import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
+import { BuildDraftRecovery } from "./buildMarkdownCanvasAdapter";
+import { BUILD_STUDIO_ACTION, requestBuildStudioAction, type BuildStudioAction } from "./buildStudioActions";
+import { useEffect, useMemo, useRef, useState, type Ref } from "react";
 
 import { buildBuildSurfaceIdentity } from "../agentInteraction/projectionSurfacePublication";
 import { formatReviewCampaignLabel } from "../graphLens/sessionCampaignContext";
@@ -7,17 +17,20 @@ import {
   DOCUMENT_SAVE_COMMAND_ID,
 } from "../markdownCanvas/markdownCanvasTypes";
 import { useOptionalMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
+import { DurableSaveStatus } from "../components/DurableSaveStatus";
 import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
 import {
+  SurfaceContextAction,
   SurfaceContextBadge,
   SurfaceContextModule,
   SurfaceContextStatus,
-  SurfaceContextValue,
   useSurfaceContextContribution,
 } from "../surfaceInteraction/contextHost";
+import { BuildConnectedPageControl } from "./BuildConnectedPageControl";
 import { BuildDocumentCreateControl } from "./BuildDocumentCreateControl";
 import { BuildDocumentRenameControl } from "./BuildDocumentRenameControl";
 import { BuildDocumentSelector } from "./BuildDocumentSelector";
+import { buildSavedAt, buildSaveStateFor } from "./useBuildAutosave";
 import type { BuildWorkspaceDocumentController } from "./useBuildWorkspaceDocumentController";
 
 export type BuildSurfaceContextProps = Pick<
@@ -39,10 +52,12 @@ export type BuildSurfaceContextProps = Pick<
   | "retryImportSource"
   | "retryCreatedDocument"
   | "refreshDocuments"
+  | "hasMoreDocuments"
+  | "loadMoreDocuments"
   | "destinationOptions"
   | "suggestedDestinationValue"
   | "suggestedCreateCampaignId"
->;
+> & { primaryActionsHost?: HTMLDivElement | null; extractionTargetRef?: Ref<HTMLDivElement> };
 
 export function BuildSurfaceContext({
   activeRecord,
@@ -62,11 +77,47 @@ export function BuildSurfaceContext({
   retryImportSource,
   retryCreatedDocument,
   refreshDocuments,
+  hasMoreDocuments,
+  loadMoreDocuments,
   destinationOptions,
   suggestedDestinationValue,
   suggestedCreateCampaignId,
+  primaryActionsHost,
+  extractionTargetRef,
 }: BuildSurfaceContextProps) {
   const session = useOptionalMarkdownCanvasSession();
+  const [relationshipsHost,setRelationshipsHost]=useState<HTMLDivElement|null>(null);
+  const agentInteraction = useOptionalAgentInteraction();
+  const openReferenceTool = agentInteraction?.openTool;
+  const linkAvailable = agentInteraction?.surfaceInteractionPublication?.tools.some(tool => tool.id === BUILD_FIND_EXISTING_TOOL_ID && tool.availability.status === "enabled") ?? false;
+  const selectedWorld = useSelectedWorld();
+  const documentWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const trashWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const tourSelection=useRef<symbol|null>(null);
+  useTourNavigationGuard(trashWorldId?{worldId:trashWorldId,reason:(_impact,reservation)=>creating?'Finish creating or importing the current source first.':switching&&reservation!==tourSelection.current?'Wait for source selection to finish.':null}:null);
+  useTourNavigationOwner(trashWorldId?{worldId:trashWorldId,surface:'build',objectId:activeDocumentId,targets:session?.snapshot&&activeRecord?.world_id?(['source','page'] as const).map(kind=>({kind,worldId:activeRecord.world_id!,objectId:activeRecord.document_id,revision:session.snapshot!.loaded_revision,digest:session.snapshot!.content_sha256})):[],inspections:[],select:async(pin,request)=>{
+    if(!request.isCurrent())return;tourSelection.current=request.reservation;
+    try{const opened=await selectDocument(pin.objectId,request.isCurrent,{worldId:pin.worldId,revision:pin.revision,digest:pin.digest});if(!opened&&request.isCurrent())throw new Error('The bound source could not be opened. Your current page is retained.');}
+    finally{if(tourSelection.current===request.reservation)tourSelection.current=null;}
+  }}:null);
+  const trashInventoryVersion = useWorkspaceInventoryVersion(trashWorldId);
+  const consumedTrashInventory = useRef<{worldId:string|null; version:number} | null>(null);
+  useEffect(() => {
+    if (trashInventoryVersion === 0 || (consumedTrashInventory.current?.worldId === trashWorldId
+      && consumedTrashInventory.current.version === trashInventoryVersion)) return;
+    // Mark consumed before refresh: the controller may return a new callback after its list update.
+    consumedTrashInventory.current = {worldId:trashWorldId, version:trashInventoryVersion};
+    refreshDocuments();
+  }, [trashWorldId, trashInventoryVersion, refreshDocuments]);
+  useEffect(() => {
+    const open = (event: Event) => {
+      if ((event as CustomEvent<BuildStudioAction>).detail === "open") {
+        document.querySelector<HTMLButtonElement>("[data-testid=build-document-select]")?.focus();
+      }
+    };
+    window.addEventListener(BUILD_STUDIO_ACTION, open);
+    return () => window.removeEventListener(BUILD_STUDIO_ACTION, open);
+  }, []);
 
   const surfaceIdentity = useMemo(() => {
     if (activeDocumentId) {
@@ -92,32 +143,35 @@ export function BuildSurfaceContext({
     session?.activeCommand?.id === DOCUMENT_METADATA_UPDATE_COMMAND_ID;
   const saveBusy = session?.activeCommand?.id === DOCUMENT_SAVE_COMMAND_ID;
   const documentMutationBusy = metadataBusy || saveBusy || switching || creating;
+  const needsRecovery = session?.phase === "conflict" || session?.exportedMarkdownAuthoritative === true;
   const renameAdmitted = Boolean(session?.lookupAdmission("editable").ok);
 
   const content = useMemo(
     () => (
-      <SurfaceContextModule label="DOCUMENT" className="build-surface-context">
+      <SurfaceContextModule label="" className="build-surface-context">
         <div className="build-surface-context__row">
           {activeDocumentId && liveRecord ? (
             <>
               <span data-testid="build-canvas-title" hidden>
                 {displayTitle}
               </span>
-              <BuildDocumentSelector
+              {placePrimaryAction(<BuildDocumentSelector
+                worldId={documentWorldId}
                 documents={documents}
                 listStatus={listStatus}
                 activeDocumentId={activeDocumentId}
                 activeRecord={liveRecord}
                 preferredCampaignId={campaignId}
                 switching={documentMutationBusy}
+                loadMorePages={hasMoreDocuments ? loadMoreDocuments : undefined}
+                activePageTrashBlocked={!session || session.dirty || buildSaveStateFor(session) !== "saved"}
+                onPageTrashed={id => {
+                  if (id === activeDocumentId && documentWorldId) {
+                    window.location.assign(`/build?world=${encodeURIComponent(documentWorldId)}`);
+                  } else void refreshDocuments();
+                }}
                 onSelect={selectDocument}
-              />
-              {campaignBadge ? (
-                <SurfaceContextBadge>{campaignBadge}</SurfaceContextBadge>
-              ) : null}
-              {documentClass ? (
-                <SurfaceContextBadge>{documentClass}</SurfaceContextBadge>
-              ) : null}
+              />, primaryActionsHost)}
               {authoringStatusLabel ? (
                 <>
                   <SurfaceContextStatus
@@ -125,13 +179,54 @@ export function BuildSurfaceContext({
                     className="build-surface-context__save-status"
                     tone={/unsaved|error|fail/i.test(authoringStatusLabel) ? "warning" : "neutral"}
                   >
-                    {authoringStatusLabel}
+                    {session ? <DurableSaveStatus state={buildSaveStateFor(session)} savedAt={buildSavedAt(session)} /> : authoringStatusLabel}
                   </SurfaceContextStatus>
                   <span data-testid="build-authoring-status" hidden>
                     {authoringStatusLabel}
                   </span>
                 </>
               ) : null}
+              {session ? <SurfaceNavbarIconButton icon="save" label={saveBusy ? "Saving…" : "Save"} className="build-navbar-save" data-testid="build-navbar-save" data-guided-control="save"
+                disabled={session.saveDisabled || documentMutationBusy}
+                title={documentMutationBusy ? "Wait for the current document action to finish." : (session.phase === "conflict" ? "Resolve the browser draft conflict before saving." : session.saveDisabledReason) ?? undefined}
+                aria-describedby={needsRecovery && session.saveDisabled && session.dirty ? "build-save-reason" : undefined}
+                onClick={() => void session.saveMarkdown()} /> : null}
+              {needsRecovery && session ? <details className="surface-navbar-recovery">
+                <summary>Draft recovery</summary><div className="surface-navbar-recovery__panel">
+                  {session.saveDisabled && session.dirty && session.saveDisabledReason ? <p id="build-save-reason" role="status">{session.phase === "conflict" ? "The browser draft and saved document differ. Review conflicting copies to compare them and choose a working copy. Both complete copies are protected before anything is replaced." : session.saveDisabledReason}</p> : null}
+                  <BuildDraftRecovery session={session} />
+                </div>
+              </details> : null}
+            </>
+          ) : (
+            <>
+              {placePrimaryAction(<BuildDocumentSelector
+                worldId={documentWorldId}
+                documents={documents}
+                listStatus={listStatus}
+                activeDocumentId={null}
+                activeRecord={null}
+                preferredCampaignId={suggestedCreateCampaignId}
+                switching={switching || creating}
+                loadMorePages={hasMoreDocuments ? loadMoreDocuments : undefined}
+                activePageTrashBlocked={!session || session.dirty || buildSaveStateFor(session) !== "saved"}
+                onPageTrashed={id => {
+                  if (id === activeDocumentId && documentWorldId) {
+                    window.location.assign(`/build?world=${encodeURIComponent(documentWorldId)}`);
+                  } else void refreshDocuments();
+                }}
+                onSelect={selectDocument}
+              />, primaryActionsHost)}
+            </>
+          )}
+          {(session || campaignBadge || documentClass) && <details className="build-source-actions">
+            <summary>Source actions</summary>
+            <div className="build-source-actions__menu">
+              <div ref={setRelationshipsHost}/>
+              {campaignBadge ? <SurfaceContextBadge>{campaignBadge}</SurfaceContextBadge> : null}
+              {documentClass ? <SurfaceContextBadge>{documentClass}</SurfaceContextBadge> : null}
+              {!needsRecovery && session && (session.dirty || session.draftRecoveryAvailable || session.conflictRecovery?.protectedCopies) ?
+                <details className="build-source-recovery"><summary>Draft and recovery copies</summary><BuildDraftRecovery session={session} /></details> : null}
               {session ? (
                 <BuildDocumentRenameControl
                   currentTitle={displayTitle ?? ""}
@@ -146,22 +241,22 @@ export function BuildSurfaceContext({
                   }}
                 />
               ) : null}
-            </>
-          ) : (
-            <>
-              <SurfaceContextValue>No source loaded</SurfaceContextValue>
-              <BuildDocumentSelector
-                documents={documents}
-                listStatus={listStatus}
-                activeDocumentId={null}
-                activeRecord={null}
-                preferredCampaignId={suggestedCreateCampaignId}
-                switching={switching || creating}
-                onSelect={selectDocument}
-              />
-            </>
-          )}
-          <BuildDocumentCreateControl
+            </div>
+          </details>}
+          {activeDocumentId ? <>
+            <SurfaceContextAction className="build-navbar-tool" aria-label="Link existing node" title="Link an existing graph node" disabled={!linkAvailable || !renameAdmitted || documentMutationBusy}
+              onClick={() => { if (linkAvailable) openReferenceTool?.(BUILD_FIND_EXISTING_TOOL_ID); }}>Link node</SurfaceContextAction>
+            <SurfaceContextAction className="build-navbar-tool" aria-label="Open Image Studio" title="Create or place an image" disabled={!renameAdmitted || documentMutationBusy}
+              onClick={() => requestBuildStudioAction("image")}>Images</SurfaceContextAction>
+          </> : null}
+          {trashWorldId ? <WorkspaceTrashControl showTrash={false} worldId={trashWorldId}
+            current={liveRecord && activeDocumentId ? {kind:"document", id:activeDocumentId, title:displayTitle ?? "Build document", surface:"build", revision:liveRecord.revision} : null}
+            blocked={documentMutationBusy || !session || session.dirty || buildSaveStateFor(session) !== "saved"}
+            onTrashed={() => window.location.assign(`/build?world=${encodeURIComponent(trashWorldId)}`)} /> : null}
+          {activeDocumentId && extractionTargetRef ? (
+            <div className="build-extraction-slot" ref={extractionTargetRef} data-testid="build-extraction-slot" />
+          ) : null}
+          {placePrimaryAction(<BuildDocumentCreateControl
             destinationOptions={destinationOptions}
             suggestedDestinationValue={suggestedDestinationValue}
             creating={creating}
@@ -174,7 +269,7 @@ export function BuildSurfaceContext({
             onRetryOpen={activationError ? retryCreatedDocument : undefined}
             onRetryImport={importError ? retryImportSource : undefined}
             disabled={documentMutationBusy}
-          />
+          />, primaryActionsHost)}
         </div>
         {listStatus === "error" ? (
           <SurfaceContextStatus tone="error">
@@ -191,35 +286,45 @@ export function BuildSurfaceContext({
       </SurfaceContextModule>
     ),
     [
+      openReferenceTool,
+      linkAvailable,
       activationError,
       activeDocumentId,
       authoringStatusLabel,
       campaignBadge,
       campaignId,
+      documentWorldId,
       createDocument,
       createError,
       creating,
       destinationOptions,
       displayTitle,
+      primaryActionsHost,
+      extractionTargetRef,
       documentClass,
       documentMutationBusy,
       documents,
       importError,
       importSourceDocument,
       listStatus,
+      hasMoreDocuments,
+      loadMoreDocuments,
       liveRecord,
       metadataBusy,
+      needsRecovery,
       pendingImportDocumentId,
       refreshDocuments,
       renameAdmitted,
       retryCreatedDocument,
       retryImportSource,
       selectDocument,
+      saveBusy,
       session,
       suggestedCreateCampaignId,
       suggestedDestinationValue,
       switchError,
       switching,
+      trashWorldId,
     ],
   );
 
@@ -230,5 +335,10 @@ export function BuildSurfaceContext({
     content,
   });
 
-  return null;
+  return <BuildConnectedPageControl selectDocument={selectDocument} refreshDocuments={refreshDocuments} relationshipsHost={relationshipsHost}/>;
+}
+
+
+function placePrimaryAction(picker: React.ReactElement, host: HTMLDivElement | null | undefined) {
+  return host === undefined ? picker : host ? createPortal(picker, host) : null;
 }

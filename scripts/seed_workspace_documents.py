@@ -26,7 +26,6 @@ if str(ROOT) not in sys.path:
 from apps.live_control_server.services.workspace_document_registry import (
     create_workspace_document,
     list_workspace_documents,
-    workspace_documents_path,
 )
 
 _PLAN_PREP_RE = re.compile(r"^Session (\d+) Prep\.md$")
@@ -97,7 +96,7 @@ def seed(*, root: Path, dry_run: bool) -> int:
     created = 0
     skipped = 0
 
-    print(f"Registry path: {workspace_documents_path(root)}")
+    print("Document metadata and saved content: application-state database")
     print(f"Plan prep allowlist matches: {len(plan_targets)}")
     print(f"Spike runbooks: {len(spike_targets)}")
 

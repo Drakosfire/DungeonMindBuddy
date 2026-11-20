@@ -1,3 +1,9 @@
+import {NativeThreatCreationPanel} from '../../statblocks/NativeThreatCreationPanel';
+import {samePin} from '../../guidedTour/protocol';
+import {useGuidedTour} from '../../guidedTour/GuidedTour';
+import {GenerationTourObservation,useGenerationPlan} from '../../guidedTour/GenerationObservations';
+import {SavedStatblockButton} from "../../statblocks/SavedStatblockSession";
+import { verifyManagedWorldGraphProjectionResponse } from "../../worldGraph/verifyManagedWorldGraphProjectionResponse";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
@@ -10,6 +16,7 @@ import {
   getThreatDraft,
   LiveApiError,
   postWorldGraphProjection,
+  postManagedWorldGraphProjection,
   reconcileAcceptanceOperation,
   reviseThreatDraftCandidate,
   validateStatblockDefinition,
@@ -52,7 +59,6 @@ import {
   type ThreatPublicationDockModel,
 } from "../../statblocks/publication/ThreatPublicationPanel";
 import {
-  MechanicsSavedAppendBoundary,
   ProposalHistoryPanel,
   ReviseWithAiPanel,
 } from "../../statblocks/revision/StatblockRevisePanels";
@@ -378,6 +384,28 @@ class ProjectionScopeMismatch extends Error {}
 async function resolveNativeWorldGraphHead(scope: StatblockDraftScope): Promise<{
   head: string | null;
 }> {
+  if (scope.mode === "world") {
+    const request = {
+      schema: "dmb_world_graph_projection_request_v1" as const,
+      worldId: scope.worldId, campaignId: "", scopeMode: "world" as const,
+      focus: { kind: "none" as const, sessionId: null }, admissibility: "gm" as const,
+    };
+    const response = await postManagedWorldGraphProjection({
+      schema: "dmb_managed_world_graph_projection_request_v1", managedWorldId: scope.worldId,
+    });
+    // A received malformed envelope is an integrity failure, not a transport
+    // outage eligible for the explicit freestanding escape hatch.
+    try {
+      const mismatch = verifyManagedWorldGraphProjectionResponse({
+        managedWorldId: scope.worldId, request, response, revisionKind: "head",
+      });
+      if (mismatch) throw new ProjectionScopeMismatch(mismatch);
+      return { head: response.projection.snapshot.revisionId };
+    } catch (error) {
+      if (error instanceof ProjectionScopeMismatch) throw error;
+      throw new ProjectionScopeMismatch("Managed World Graph returned malformed provenance.");
+    }
+  }
   const projection = await postWorldGraphProjection({
     schema: "dmb_world_graph_projection_request_v1",
     worldId: scope.worldId,
@@ -1141,7 +1169,9 @@ function AcceptMechanicsFlow({
   draftAuthorityUnavailable = false,
   onMechanicsSaved,
   publicationDock = null,
+  generationTour,
 }: {
+  generationTour?: {attempt:StoredGenerationAttempt|null;draft:ThreatDraft|null;candidate:ReadStatblockCandidateResponseV1|null;reopened:boolean;acceptedInstanceId:string};
   preview: PreviewValidation | null;
   editorState: StatblockEditorState;
   editorEpoch: number;
@@ -1676,8 +1706,10 @@ function AcceptMechanicsFlow({
   };
 
   return (
+    <>
+      {generationTour&&<GenerationTourObservation {...generationTour} accepted={acceptResult}/>}
     <div data-testid="accept-mechanics-flow" data-owned-draft={normalizedDraftId}>
-      {mechanicsSavedDraft ? <MechanicsSavedAppendBoundary /> : null}
+      {mechanicsSavedDraft ? <p>These mechanics are saved. Editing this candidate does not change a saved version.</p> : null}
       {restorePending && !acceptResult && !existenceUnresolved ? (
         <p className="module-muted" role="status" data-testid="accept-mechanics-restoring">
           Restoring acceptance operation…
@@ -1946,6 +1978,7 @@ function AcceptMechanicsFlow({
         </div>
       </div>
     </div>
+    </>
   );
 }
 
@@ -1974,6 +2007,10 @@ export function StatblockWorkbenchModule() {
 }
 
 function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraftScope }) {
+  const guidedTour=useGuidedTour();
+  const generationPlan=useGenerationPlan();
+  const [generationInstanceId]=useState(()=>Array.from(crypto.getRandomValues(new Uint32Array(4))).join("-"));
+  const captureGenerationScope=()=>{const captured=guidedTour?.captureGenerationScope()??null;return captured&&generationPlan&&samePin(captured.plan,generationPlan)?captured:null;};
   // This component's key is the exact launch activation, including Plan identity.
   // Assets/cache remain scope-owned; changing Plan never rebinds an asset.
   const [scope] = useState(launchScope);
@@ -2364,16 +2401,19 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
       return;
     }
     const restoreCandidate = initialGeneration.attempt?.candidate_id ?? stored?.candidate_id;
-    if (restoreCandidate) {
+    // A saved World statblock outlives its temporary generation candidate.
+    // Admit the durable draft before deciding which recovery view to open.
+    const draftId = initialGeneration.attempt?.draft_id ?? stored?.draft_id;
+    if (restoreCandidate && (!draftId || scope.mode !== "world")) {
       setCandidateIdInput(restoreCandidate);
       void loadCandidate(restoreCandidate);
       return;
     }
-    // A hint is not authority. Load/admit the durable draft before exposing its actions.
-    const draftId = initialGeneration.attempt?.draft_id ?? stored?.draft_id;
     if (draftId) {
       void (async () => {
         const opId = beginCandidateOp();
+        ownedDraftSnapshotIdRef.current = draftId;
+        setDraftSnapshotPending(true);
         try {
           const draft = await getThreatDraft(draftId);
           if (!isCurrentCandidateOp(opId)) return;
@@ -2382,6 +2422,15 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
           const identity = createdDraftFromResponse(draft);
           if (!identity) throw new Error("Restored draft identity unavailable.");
           applyCreatedDraftIdentity(identity);
+          if (draft.schema === "dmb_threat_draft_v2" && draft.workflow_state === "mechanics_saved") {
+            await refreshThreatDraftSnapshot(draftId);
+            return;
+          }
+          if (restoreCandidate) {
+            setCandidateIdInput(restoreCandidate);
+            await loadCandidate(restoreCandidate, { opId });
+            return;
+          }
           const attempt = initialGeneration.attempt;
           const completed = isUnresolvedGenerationAttempt(attempt) ? draft.candidate_refs.find((ref) => (
             ref.request_id === attempt.client_request_id
@@ -2394,7 +2443,12 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
           }
           await refreshThreatDraftSnapshot(draftId);
         } catch (error) {
-          if (isCurrentCandidateOp(opId)) setGenerationRecoveryError(error instanceof Error ? error.message : String(error));
+          if (isCurrentCandidateOp(opId)) {
+            setDraftSnapshotUnavailable(true);
+            setDraftSnapshotError(error instanceof Error ? error.message : String(error));
+          }
+        } finally {
+          if (isCurrentCandidateOp(opId)) setDraftSnapshotPending(false);
         }
       })();
     }
@@ -2775,9 +2829,10 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
   const runGenerateFromDraft = async (
     draftId: string,
     expectedVersion: number,
-    options?: { opId?: number },
+    options?: { opId?: number; tourScope?: ReturnType<NonNullable<ReturnType<typeof useGuidedTour>>["captureGenerationScope"]> },
   ) => {
     if (generationInFlightRef.current) return;
+    const tourScope=options&&"tourScope" in options?options.tourScope:captureGenerationScope();
     const opId = options?.opId ?? beginCandidateOp();
     if (!isCurrentCandidateOp(opId)) return;
     generationInFlightRef.current = true;
@@ -2797,6 +2852,8 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
         : {
             schema: "dmb_sbw_generation_attempt_v1", draft_id: draftId,
             expected_draft_version: expectedVersion, client_request_id: crypto.randomUUID(), candidate_id: null,
+            tour_scope: tourScope,
+            ...(tourScope?{tour_dispatch_instance_id:generationInstanceId}:{}),
           };
       if (attempt.draft_id !== draftId) throw new Error("Unresolved generation belongs to another draft; resume it first.");
       if (!isUnresolvedGenerationAttempt(previous) && verified.version !== expectedVersion) {
@@ -2899,8 +2956,9 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
   };
 
   const onCreateAndGenerate = async (event: FormEvent) => {
+    const tourScope=captureGenerationScope();
     event.preventDefault();
-    if (createAndGenerateInFlightRef.current || pendingGenerate || createPhase === "creating") {
+    if (createAndGenerateInFlightRef.current || pendingGenerate || generationRecoveryError != null || draftSnapshotUnavailable || draftSnapshotPending || createPhase === "creating") {
       return;
     }
     try {
@@ -2991,7 +3049,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
       }
 
       if (!isCurrentCandidateOp(opId)) return;
-      await runGenerateFromDraft(created.draft_id, created.version, { opId });
+      await runGenerateFromDraft(created.draft_id, created.version, { opId,tourScope });
     } finally {
       createAndGenerateInFlightRef.current = false;
     }
@@ -3309,10 +3367,11 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
               type="submit"
               disabled={
                 pendingGenerate ||
-                generationRecoveryError != null || isUnresolvedGenerationAttempt(generationAttempt) ||
+                generationRecoveryError != null || draftSnapshotUnavailable || draftSnapshotPending || isUnresolvedGenerationAttempt(generationAttempt) ||
                 createPhase === "creating" ||
                 createPhase === "generating"
               }
+              data-guided-control="generation"
               data-testid="create-and-generate-submit"
             >
               {createPhase === "creating"
@@ -3491,24 +3550,32 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
         />
       ) : null}
 
+      {draftSnapshotUnavailable ? (
+        <p className="statblock-command-error" role="alert" data-testid="draft-snapshot-unavailable">
+          ThreatDraft snapshot unavailable — revision and version-dependent save are disabled.{" "}
+          {draftSnapshotError}
+          {ownedDraftSnapshotIdRef.current ? (
+            <button
+              type="button"
+              className="statblock-inline-retry"
+              onClick={() => void refreshThreatDraftSnapshot(ownedDraftSnapshotIdRef.current!)}
+            >
+              Retry draft refresh
+            </button>
+          ) : null}
+        </p>
+      ) : null}
+
+      {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" && !draftSnapshotUnavailable && !draftSnapshotPending && (
+        <>
+          <SavedStatblockButton key={`${threatDraft.world_id}:${threatDraft.draft_id}`} worldId={threatDraft.world_id} draftId={threatDraft.draft_id}/>
+          <NativeThreatCreationPanel draft={threatDraft} />
+        </>
+      )}
+
       {activeCandidate ? (
         <section className="statblock-section" data-testid="candidate-view-modes">
           <h3>Candidate {activeCandidate.candidate_id}</h3>
-          {draftSnapshotUnavailable ? (
-            <p className="statblock-command-error" role="alert" data-testid="draft-snapshot-unavailable">
-              ThreatDraft snapshot unavailable — revision and version-dependent save are disabled.{" "}
-              {draftSnapshotError}
-              {reviseDraftId ? (
-                <button
-                  type="button"
-                  className="statblock-inline-retry"
-                  onClick={() => void refreshThreatDraftSnapshot(reviseDraftId)}
-                >
-                  Retry draft refresh
-                </button>
-              ) : null}
-            </p>
-          ) : null}
           {editorState && reviseDraftId && threatDraft ? (
             <ReviseWithAiPanel
               candidateId={
@@ -3588,6 +3655,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
           {/* Dock stays mounted in review and edit — Validate/Accept operate on the working copy. */}
           {editorState ? (
             <AcceptMechanicsFlow
+              generationTour={{attempt:generationAttempt,draft:threatDraft,candidate:loadState.kind==="success"?loadState.response:null,reopened:!!initialGeneration.attempt&&initialGeneration.attempt.client_request_id===generationAttempt?.client_request_id,acceptedInstanceId:generationInstanceId}}
               preview={previewValidation}
               editorState={editorState}
               editorEpoch={editorEpoch}

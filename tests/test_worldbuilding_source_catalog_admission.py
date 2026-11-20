@@ -1,0 +1,457 @@
+"""Registered Build evidence must open through the actual native observation reader."""
+from application_state.world_catalog.service import get_world
+from tests.application_state.world_catalog_fixtures import store_world
+
+import os
+
+import pytest
+
+from tests.test_recap_source_observation_followup import (
+    observation_case as _observation_fixture,
+)
+from tests.test_cutover_worldbuilding_authority_port import _install_worldbuilding_repo
+from tests._cutover_d3a_blocker_safe_fixtures import _write_bld08_reviewable_run
+from apps.live_control_server.models.extract_promote import (
+    WorldbuildingWritePlanPrepareRequest,
+    WorldbuildingWritePlanConfirmRequest,
+)
+from apps.live_control_server.services.worldbuilding_graph_publication import (
+    prepare_worldbuilding,
+    confirm_worldbuilding,
+)
+from apps.live_control_server.services.managed_world_graph_projection import (
+    resolve_managed_world_binding as actual_binding,
+)
+
+observation_case = _observation_fixture
+
+pytestmark = pytest.mark.skipif(
+    not os.environ.get("DMB_RECAP_OBSERVATION_TEST_DATABASE_URL"),
+    reason="requires dedicated disposable Core PostgreSQL",
+)
+
+
+
+@pytest.fixture(autouse=True)
+def unique_registered_source_bytes(monkeypatch):
+    # Content-addressed revisions are global in the disposable source catalog.
+    # Distinct registered documents need distinct fixture bytes, not shared hashes.
+    from apps.live_control_server.services import source_artifact_registry as registry
+    from tests.page_fixtures import page_text, save_page
+
+    original = registry.create_source_artifact_from_workspace_document
+
+    def register(root, *, document_id, expected_revision):
+        body = page_text(root, document_id) + "\nFixture document: " + document_id + "\n"
+        saved = save_page(root, document_id, body)
+        return original(root, document_id=document_id, expected_revision=saved.revision)
+
+    monkeypatch.setattr(registry, "create_source_artifact_from_workspace_document", register)
+
+
+def test_registered_build_prepare_admits_exact_world_source_and_confirm_only_proves(
+    observation_case,
+    tmp_path,
+    monkeypatch,
+):
+    case = observation_case
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path / "repo"))
+    monkeypatch.setattr(
+        "apps.live_control_server.services.managed_world_graph_projection.resolve_managed_world_binding",
+        actual_binding,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.extract_promote.resolve_managed_world_binding",
+        actual_binding,
+    )
+    root = _install_worldbuilding_repo(monkeypatch, tmp_path, native_id=case["world"])
+    run_id, _ = _write_bld08_reviewable_run(
+        root,
+        world_id="publication-managed",
+        campaign_id="publication-managed",
+    )
+    from apps.live_control_server.services.promotable_ingest_run import (
+        resolve_promotable_ingest_run,
+    )
+    from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
+    import json
+
+    resolved = resolve_promotable_ingest_run(run_id, root=root)
+    candidate = load_typed_candidate_graph(
+        json.loads(resolved.data.candidate_bytes)
+    )
+    parent = case["bundle"].world_graph.get_head(case["world"])
+    plan = prepare_worldbuilding(
+        WorldbuildingWritePlanPrepareRequest.model_validate(
+            {
+                "runId": run_id,
+                "expectedParentRevisionId": parent.head_revision_id,
+                "dispositions": [
+                    {"assertionId": n.node_id, "decision": "create_new"}
+                    for n in candidate.nodes
+                ]
+                + [
+                    {"assertionId": e.edge_id, "decision": "reject"}
+                    for e in candidate.edges
+                ],
+            }
+        )
+    )
+    admitted = plan.source_admission
+    assert admitted is not None and admitted.campaign_id is None
+    native_artifact = case["bundle"].sources.get_artifact(admitted.source_artifact_id)
+    assert native_artifact.world_id == case["world"]
+    assert native_artifact.campaign_id is None
+    assert admitted.content_sha256 == plan.publication_binding.source_sha256
+    assert all(a.campaign_scope is None for a in plan.effect.accepted_proposals)
+    repeated = prepare_worldbuilding(
+        WorldbuildingWritePlanPrepareRequest.model_validate(
+            {
+                "runId": run_id,
+                "expectedParentRevisionId": parent.head_revision_id,
+                "dispositions": [
+                    {"assertionId": n.node_id, "decision": "create_new"}
+                    for n in candidate.nodes
+                ]
+                + [
+                    {"assertionId": e.edge_id, "decision": "reject"}
+                    for e in candidate.edges
+                ],
+            }
+        )
+    )
+    assert repeated.source_admission == admitted
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+    from apps.live_control_server.services.source_artifact_registry import (
+        get_source_artifact,
+    )
+
+    registered = get_source_artifact(admitted.source_artifact_id)
+    assert registered.world_id == registered.campaign_id == "publication-managed"
+    from apps.live_control_server.services import (
+        worldbuilding_graph_publication as publication,
+    )
+
+    real_admit = publication._prepare_source_admission
+    saved_world = get_world("publication-managed").record
+
+    def rebind_after_admission(resolved_run, binding, *, expected_head_revision_id):
+        result = real_admit(
+            resolved_run, binding, expected_head_revision_id=expected_head_revision_id,
+        )
+        store_world(saved_world.model_copy(update={"native_graph_binding": saved_world.native_graph_binding.model_copy(update={"native_world_id": "other-native-world"})}))
+        return result
+
+    with monkeypatch.context() as race:
+        race.setattr(publication, "_prepare_source_admission", rebind_after_admission)
+        with pytest.raises(ExtractPromoteError) as drift:
+            prepare_worldbuilding(
+                WorldbuildingWritePlanPrepareRequest.model_validate(
+                    {
+                        "runId": run_id,
+                        "expectedParentRevisionId": parent.head_revision_id,
+                        "dispositions": [
+                            {"assertionId": n.node_id, "decision": "create_new"}
+                            for n in candidate.nodes
+                        ]
+                        + [
+                            {"assertionId": e.edge_id, "decision": "reject"}
+                            for e in candidate.edges
+                        ],
+                    }
+                )
+            )
+        assert drift.value.code == "worldbuilding_source_binding_changed"
+    store_world(saved_world)
+    assert (
+        case["bundle"].world_graph.get_head(case["world"]).head_revision_id
+        == parent.head_revision_id
+    )
+    tampered = plan.model_copy(
+        update={
+            "source_admission": admitted.model_copy(
+                update={
+                    "source_revision_id": "forged:revision",
+                }
+            )
+        }
+    )
+    with pytest.raises(ExtractPromoteError):
+        confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=tampered))
+    from apps.live_control_server.ports.world_graph_source_admission import (
+        WorldGraphSourceAdmissionError,
+    )
+
+    class MissingProof:
+        def prove_or_admit(self, request):
+            pytest.fail("Confirm must not admit or repair catalog authority")
+
+        def prove(self, **kwargs):
+            raise WorldGraphSourceAdmissionError(
+                "Missing proof", code="source_not_admitted"
+            )
+
+    monkeypatch.setattr(
+        "apps.live_control_server.ports.world_graph_source_admission_access.get_world_graph_source_admission_authority",
+        lambda: MissingProof(),
+    )
+    with pytest.raises(ExtractPromoteError) as rejected:
+        confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+    assert rejected.value.code == "source_not_admitted"
+    assert (
+        case["bundle"].world_graph.get_head(case["world"]).head_revision_id
+        == parent.head_revision_id
+    )
+
+
+def test_registered_governance_publishes_and_opens_historical_source(
+    observation_case, tmp_path, monkeypatch,
+):
+    import copy
+    import json
+
+    from apps.live_control_server.services import source_artifact_registry as registry
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document
+    from apps.live_control_server.services.promotable_ingest_run import resolve_promotable_ingest_run
+    from apps.live_control_server.ports.world_graph_authority_access import get_world_graph_authority
+    from tests._cutover_d3a_blocker_safe_fixtures import _mutate_extraction_candidate
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from graph_memory.retrieval.models import (
+        WorldGraphObjectRequest, RETRIEVAL_OBJECT_REQUEST_SCHEMA,
+        WorldGraphSourceAnchorReadRequest, RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+    )
+    from apps.live_control_server.services.world_graph_retrieval import read_source_anchor_internal_v2
+
+    case = observation_case
+    sentence = "Testport Council governs Testport."
+    root = _install_worldbuilding_repo(monkeypatch, tmp_path, native_id=case["world"])
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(root))
+    monkeypatch.setattr(
+        "apps.live_control_server.services.managed_world_graph_projection.resolve_managed_world_binding",
+        actual_binding,
+    )
+    register = registry.create_source_artifact_from_workspace_document
+
+    from tests.page_fixtures import page_text, save_page
+
+    def register_governance(repo, *, document_id, expected_revision):
+        saved = save_page(repo, document_id, page_text(repo, document_id) + "\n" + sentence + "\n")
+        return register(repo, document_id=document_id, expected_revision=saved.revision)
+
+    monkeypatch.setattr(registry, "create_source_artifact_from_workspace_document", register_governance)
+    run_id, _ = _write_bld08_reviewable_run(
+        root, world_id="publication-managed", campaign_id="publication-managed",
+        profile_id="worldbuilding_gazetteer_v1@1.9",
+    )
+    run = resolve_promotable_ingest_run(run_id, root=root)
+    index = json.loads(run.data.span_bytes)
+    lines = run.data.source_bytes.decode("utf-8").splitlines()
+    span = next(row for row in index["spans"] if sentence in "\n".join(
+        lines[row["start_line"] - 1:row["end_line"]]
+    ))
+    span_id = span["source_span_id"]
+
+    def governance_candidate(candidate):
+        reference = {
+            "source_artifact_id": run.source_artifact_id,
+            "source_ref_id": index["source_ref_id"],
+            "source_anchor_id": f"anchor:{run.source_artifact_id}:{span_id}",
+            "source_span_ref_id": span_id, "anchor_quotes": [sentence],
+            "evidence_role": "source_evidence", "label": "Governance source",
+            "can_open_source": True, "can_highlight_span": True,
+        }
+        for node, identifier, label, kind in zip(candidate["nodes"],
+                ("testport_council", "testport"), ("Testport Council", "Testport"),
+                ("organization", "location"), strict=True):
+            node.update(node_id=identifier, label=label, node_type=kind,
+                        description=sentence, evidence_refs=[copy.deepcopy(reference)])
+        edge = candidate["edges"][0]
+        edge.update(edge_id="council-governs-city", from_node_id="testport_council",
+                    to_node_id="testport", relationship_type="governs", label=sentence,
+                    evidence_refs=[copy.deepcopy(reference)])
+        candidate["edges"] = [edge]
+
+    _mutate_extraction_candidate(root, run_id, governance_candidate)
+    parent = case["bundle"].world_graph.get_head(case["world"])
+    plan = prepare_worldbuilding(WorldbuildingWritePlanPrepareRequest.model_validate({
+        "runId": run_id, "expectedParentRevisionId": parent.head_revision_id,
+        "dispositions": [
+            {"assertionId": "testport_council", "decision": "create_new"},
+            {"assertionId": "testport", "decision": "create_new"},
+            {"assertionId": "council-governs-city", "decision": "accept"},
+        ],
+    }))
+    binding = plan.native_vocabulary_binding.model_dump(mode="json", by_alias=True)
+    assert binding["worldObjectVocabulary"]["vocabulary_revision"] == "world-object-v6"
+    assert binding["worldPropertyVocabulary"]["vocabulary_revision"] == "world-property-v4"
+    receipt = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+    view = get_world_graph_authority().read_revision(case["world"], receipt.committed_revision_id)
+    city = plan.effect.node_id_map["testport"]
+    council = plan.effect.node_id_map["testport_council"]
+    assert any(edge.predicate == "governs" and edge.subject_object_id == council
+               and edge.target_object_id == city for edge in view.relationships.values())
+    stored = case["bundle"].world_graph.get_revision(case["world"], receipt.committed_revision_id)
+    assert any(edge["predicate"] == "dnd5e:governs" and edge["source_object_id"] == council
+               and edge["target_object_id"] == city for edge in stored.graph_payload["relationships"])
+    repeated = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+    assert repeated.committed_revision_id == receipt.committed_revision_id
+    assert case["bundle"].world_graph.get_head(case["world"]).head_revision_id == receipt.committed_revision_id
+
+    # Fresh services must read the published source after the editable copy changes.
+    save_page(root, run.data.source_artifact.workspace_document_id,
+              "An edited working copy, absent from the historical publication.\n")
+    services = direct.direct_services_from_config(case["world"])
+    context = {"worldId": case["world"], "campaignId": "", "admissibility": "gm",
+               "revisionPin": receipt.committed_revision_id, "scopeMode": "world", "focus": {}}
+    request = WorldGraphObjectRequest.model_validate({
+        **context, "schema": RETRIEVAL_OBJECT_REQUEST_SCHEMA, "nodeId": city,
+    })
+    native = services.retrieval.get_complete_object(
+        direct._map_retrieval_context(request, services.binding), object_id=city,
+    )
+    anchor = next(row for row in native.anchors if row.source_span_ref_id == span_id)
+    opened = read_source_anchor_internal_v2(WorldGraphSourceAnchorReadRequest.model_validate({
+        **context, "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+        "anchorId": anchor.anchor_id, "maxChars": 4000,
+    }), repo_root=root)
+    assert opened.result.outcome == "enough"
+    assert sentence in opened.result.content
+    assert opened.source_span_ref_id == span_id
+
+
+def test_registered_build_publication_keeps_typed_worldbuilding_spans(
+    observation_case,
+    tmp_path,
+    monkeypatch,
+):
+    case = observation_case
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path / "repo"))
+    monkeypatch.setattr(
+        "apps.live_control_server.services.managed_world_graph_projection.resolve_managed_world_binding",
+        actual_binding,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.extract_promote.resolve_managed_world_binding",
+        actual_binding,
+    )
+    root = _install_worldbuilding_repo(monkeypatch, tmp_path, native_id=case["world"])
+    run_id, _ = _write_bld08_reviewable_run(
+        root,
+        world_id="publication-managed",
+        campaign_id="publication-managed",
+    )
+    from apps.live_control_server.services.promotable_ingest_run import (
+        resolve_promotable_ingest_run,
+    )
+    from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
+    import json
+
+    resolved = resolve_promotable_ingest_run(run_id, root=root)
+    candidate = load_typed_candidate_graph(
+        json.loads(resolved.data.candidate_bytes)
+    )
+    parent = case["bundle"].world_graph.get_head(case["world"])
+    plan = prepare_worldbuilding(
+        WorldbuildingWritePlanPrepareRequest.model_validate(
+            {
+                "runId": run_id,
+                "expectedParentRevisionId": parent.head_revision_id,
+                "dispositions": [
+                    {"assertionId": n.node_id, "decision": "create_new"}
+                    for n in candidate.nodes
+                ]
+                + [
+                    {"assertionId": e.edge_id, "decision": "reject"}
+                    for e in candidate.edges
+                ],
+            }
+        )
+    )
+    result = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+    assert result is not None
+    head = case["bundle"].world_graph.get_head(case["world"])
+    assert head.head_revision_id != parent.head_revision_id
+    revision = case["bundle"].world_graph.get_revision(case["world"], head.head_revision_id)
+    refs = [row for row in revision.graph_payload["evidence_refs"]
+            if row["source_artifact_id"] == plan.source_admission.source_artifact_id]
+    assert refs
+    assert all(row["source_domain"] == "worldbuilding" for row in refs)
+    assert all(row["source_span_ref_id"] for row in refs)
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from graph_memory.retrieval.models import (
+        WorldGraphObjectRequest, RETRIEVAL_OBJECT_REQUEST_SCHEMA,
+        WorldGraphSourceAnchorReadRequest, RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+    )
+    from apps.live_control_server.services.world_graph_retrieval import read_source_anchor_internal_v2
+    services = direct.direct_services_from_config(case["world"])
+    node_id = next(a.subject_node_id for a in plan.effect.accepted_proposals
+                   if a.assertion_kind == "node")
+    context = {"worldId": case["world"], "campaignId": "",
+               "admissibility": "gm", "revisionPin": head.head_revision_id,
+               "scopeMode": "world", "focus": {}}
+    request = WorldGraphObjectRequest.model_validate({
+        **context, "schema": RETRIEVAL_OBJECT_REQUEST_SCHEMA, "nodeId": node_id,
+    })
+    native = services.retrieval.get_complete_object(
+        direct._map_retrieval_context(request, services.binding), object_id=node_id,
+    )
+    assert native.found and native.anchors
+    opened = read_source_anchor_internal_v2(
+        WorldGraphSourceAnchorReadRequest.model_validate({
+            **context, "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+            "anchorId": native.anchors[0].anchor_id, "maxChars": 4000,
+        }), repo_root=root,
+    )
+    assert opened.result.outcome == "enough"
+    assert opened.result.content
+    assert opened.source_span_ref_id == native.anchors[0].source_span_ref_id
+    from tests._cutover_d3a_blocker_safe_fixtures import _mutate_extraction_candidate
+    followup_directory = tmp_path / "followup"
+    followup_directory.mkdir()
+    root = _install_worldbuilding_repo(monkeypatch, followup_directory, native_id=case["world"])
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(root))
+    second_run, _ = _write_bld08_reviewable_run(
+        root, world_id="publication-managed", campaign_id="publication-managed",
+    )
+
+    def six_observations(payload):
+        import copy
+        template = payload["nodes"][0]
+        payload["nodes"] = []
+        for index in range(6):
+            node = copy.deepcopy(template)
+            node["node_type"] = "location"
+            node["label"] = native.object.label
+            node["node_id"] = "observation-section-" + str(index)
+            node["description"] = "Worldbuilding source for promote."
+            payload["nodes"].append(node)
+        payload["edges"] = []
+
+    _mutate_extraction_candidate(root, second_run, six_observations)
+    followup = prepare_worldbuilding(WorldbuildingWritePlanPrepareRequest.model_validate({
+        "runId": second_run, "expectedParentRevisionId": head.head_revision_id,
+        "dispositions": [
+            {"assertionId": "observation-section-" + str(index),
+             "decision": "bind_existing", "targetNodeId": node_id}
+            for index in range(6)
+        ],
+    }))
+    original_prose = native.object.summary
+    confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=followup))
+    latest = case["bundle"].world_graph.get_head(case["world"]).head_revision_id
+    fresh = direct.direct_services_from_config(case["world"])
+    followup_request = request.model_copy(update={"revision_pin": latest})
+    enriched = fresh.retrieval.get_complete_object(
+        direct._map_retrieval_context(followup_request, fresh.binding), object_id=node_id,
+    )
+    assert enriched.object.summary == original_prose
+    previous = {row.assertion_id: row for row in native.reviewed_source_observations}
+    current = {row.assertion_id: row for row in enriched.reviewed_source_observations}
+    assert len(current) == len(enriched.reviewed_source_observations)
+    assert {identity: current[identity] for identity in previous} == previous
+    added = [row for identity, row in current.items() if identity not in previous]
+    assert len(added) == 6
+    assert all(row.text == "Worldbuilding source for promote."
+               for row in added)
+    assert all(row.observation_kind == "worldbuilding_observation"
+               for row in added)

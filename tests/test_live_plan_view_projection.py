@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.application_state.world_catalog_fixtures import world_snapshot, legacy_world_catalog_path
+
 import json
 import shutil
 from pathlib import Path
@@ -8,13 +10,13 @@ import pytest
 from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 
-from apps.live_control_server.config import SESSION_DIR_ENV
+from apps.live_control_server.config import MANAGED_WORLD_DATA_ROOT_ENV, SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
 from apps.live_control_server.session_store import load_session
-from src.live_play.projections import build_session_plan_projection
+from live_play.projections import build_session_plan_projection
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_PATH = ROOT / "evals/c2_live_prep/live/schemas/plan_view.schema.json"
+SCHEMA_PATH = ROOT / "schemas/live/plan_view.schema.json"
 SAMPLE_PATH = ROOT / "evals/c2_live_prep/live/session_22/plan_view.sample.json"
 SEED_SESSION = ROOT / "evals/c2_live_prep/live/session_22"
 ALLOWED_TARGET_TYPES = {
@@ -46,7 +48,7 @@ def isolated_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 @pytest.fixture
 def client(isolated_session: Path) -> TestClient:
-    return TestClient(create_app())
+    return TestClient(create_app(), client=("127.0.0.1", 50000))
 
 
 def test_builder_returns_non_authoritative_payload() -> None:
@@ -98,7 +100,7 @@ def test_managed_world_plan_context_v2_has_no_campaign_or_session_sentinel(
     from apps.live_control_server.routes import live
     from apps.live_control_server.services.world_container_registry import create_world_container
 
-    world = create_world_container(tmp_path, name="Context Test World")
+    world = create_world_container(name="Context Test World")
     monkeypatch.setattr(live, "repo_root", lambda: tmp_path)
 
     response = client.get(
@@ -125,11 +127,63 @@ def test_managed_world_plan_context_v2_rejects_missing_world_id(client: TestClie
     assert response.status_code == 422
 
 
+def test_plan_view_reopens_operator_world_from_separate_code_checkout(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.routes import live
+    from apps.live_control_server.services.world_container_registry import (
+        create_world_container,
+        )
+
+    code_root = tmp_path / "clean-checkout"
+    code_root.mkdir()
+    operator_root = tmp_path / "operator-data"
+    world = create_world_container(name="Existing World")
+    original = world_snapshot()
+    monkeypatch.setattr(live, "repo_root", lambda: code_root)
+    monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(operator_root))
+
+    scoped = client.get(
+        "/api/live/plan-view",
+        params={"scope_mode": "world", "world_id": world.world_id},
+    )
+    compatible = client.get(
+        "/api/live/plan-view", params={"world_id": world.world_id},
+    )
+    unknown = client.get(
+        "/api/live/plan-view",
+        params={"scope_mode": "world", "world_id": "unknown-world"},
+    )
+
+    assert scoped.status_code == 200
+    assert scoped.json()["schema_version"] == "dmb_managed_world_plan_context_v2"
+    assert scoped.json()["world_id"] == world.world_id
+    assert compatible.status_code == 200
+    assert compatible.json()["schema_version"] == "dmb_managed_world_plan_context_v1"
+    assert compatible.json()["world_id"] == world.world_id
+    assert unknown.status_code == 404
+    assert world_snapshot() == original
+    assert not legacy_world_catalog_path(code_root).exists()
+
+
+def test_plan_view_unknown_world_does_not_depend_on_file_root(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(tmp_path / "missing"))
+
+    response = client.get(
+        "/api/live/plan-view",
+        params={"scope_mode": "world", "world_id": "existing-world"},
+    )
+
+    assert response.status_code == 404
+
+
 def test_builder_uses_planning_beats_when_present(tmp_path: Path) -> None:
     import shutil
 
-    from src.live_play.session_bootstrap import bootstrap_session_workspace
-    from src.live_play.session_paths import live_sessions_root
+    from live_play.session_bootstrap import bootstrap_session_workspace
+    from live_play.session_paths import live_sessions_root
 
     fixture = ROOT / "tests/fixtures/live_bootstrap/session_22_fresh_recap.md"
     out = live_sessions_root() / "_pytest" / tmp_path.name / "session_23"
@@ -163,3 +217,5 @@ def test_get_plan_view_endpoint_is_read_only(client: TestClient, isolated_sessio
     jobs_after = (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8")
     assert events_after == events_before
     assert jobs_after == jobs_before
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

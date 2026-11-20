@@ -6,17 +6,17 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from src.graph_memory.party_context import (
+from graph_memory.party_context import (
     build_party_context_for_campaign,
     load_party_registry,
     resolve_campaign_corpus,
 )
-from src.graph_memory.session_graph_context import (
+from graph_memory.session_graph_context import (
     SESSION_GRAPH_CONTEXT_SCHEMA,
     build_session_graph_context,
     normalize_registry_view,
 )
-from src.live_play.recap_stage_paths import corpus_root
+from live_play.recap_stage_paths import corpus_root
 
 
 PARTY_REGISTRY_SURFACE_SCHEMA = "dmb_party_registry_surface_v1"

@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from src.token_resolution.contracts import ResolvedTokens
+from .contracts import ResolvedTokens
 
 
 def _normalize_str_set(values: Iterable[str]) -> set[str]:

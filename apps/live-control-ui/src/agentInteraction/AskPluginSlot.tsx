@@ -9,6 +9,12 @@ import {
 } from "react";
 
 interface AskPluginSlotValue {
+  layoutOwner: "chrome" | "plan-workspace";
+  setLayoutOwner: (owner: "chrome" | "plan-workspace") => void;
+  launcherHost: HTMLElement | null;
+  setLauncherHost: (element: HTMLElement | null) => void;
+  menuHost: HTMLElement | null;
+  setMenuHost: (element: HTMLElement | null) => void;
   hostElement: HTMLElement | null;
   setHostElement: (element: HTMLElement | null) => void;
   askPluginPresent: boolean;
@@ -18,8 +24,11 @@ interface AskPluginSlotValue {
 const AskPluginSlotContext = createContext<AskPluginSlotValue | null>(null);
 
 export function AskPluginSlotProvider({ children }: { children: ReactNode }) {
+  const [menuHost, setMenuHost] = useState<HTMLElement | null>(null);
   const [hostElement, setHostElementState] = useState<HTMLElement | null>(null);
   const [askPluginPresent, setAskPluginPresent] = useState(false);
+  const [layoutOwner, setLayoutOwner] = useState<"chrome" | "plan-workspace">("chrome");
+  const [launcherHost, setLauncherHost] = useState<HTMLElement | null>(null);
 
   const setHostElement = useCallback((element: HTMLElement | null) => {
     setHostElementState(element);
@@ -27,12 +36,13 @@ export function AskPluginSlotProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      hostElement,
+      layoutOwner, setLayoutOwner, launcherHost, setLauncherHost,
+      menuHost, setMenuHost, hostElement,
       setHostElement,
       askPluginPresent,
       setAskPluginPresent,
     }),
-    [askPluginPresent, hostElement, setHostElement],
+    [askPluginPresent, menuHost, hostElement, setHostElement, layoutOwner, launcherHost],
   );
 
   return (

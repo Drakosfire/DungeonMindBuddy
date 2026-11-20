@@ -9,7 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
-class SourceMarkdownRecord(BaseModel):
+class SourceRevisionMetadata(BaseModel):
     """One exact source revision plus its stable source-artifact identity."""
 
     model_config = ConfigDict(extra="forbid")
@@ -23,6 +23,11 @@ class SourceMarkdownRecord(BaseModel):
     content_sha256: str
     media_type: str
     encoding: str
-    markdown: str
     lineage: dict[str, Any]
     created_at: datetime
+
+
+class SourceMarkdownRecord(SourceRevisionMetadata):
+    """The exact immutable body and its source-owner metadata."""
+
+    markdown: str

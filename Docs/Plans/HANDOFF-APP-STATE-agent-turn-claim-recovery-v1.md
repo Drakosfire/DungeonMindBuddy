@@ -1,6 +1,6 @@
 # HANDOFF — APP-STATE: Agent turn claim and receipt recovery v1
 
-**Status:** ACTIVE — PRIME released the implementation lease on 2026-10-02; activation record below.
+**Status:** SETTLED — implementation #867 merged `21af97cdc5fe4d10c10032b35c9b26c9ff23ac2b`; historical activation below is retained. Current historical-test repair belongs to CI #2288, and the legacy-import successor is `HANDOFF-APP-legacy-import-intent.md`.
 **Repository:** Drakosfire/DungeonMindBuddy
 **Steward:** DEMO
 **Owning flow/domain:** APP-STATE

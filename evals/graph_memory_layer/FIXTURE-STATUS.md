@@ -8,23 +8,18 @@ Fixture authority ledger: [`FIXTURE-AUTHORITY-LEDGER.md`](FIXTURE-AUTHORITY-LEDG
 
 | Path | Session | Use |
 |------|---------|-----|
-| `examples/session_1_candidate_graph_gold/` | 1 | Candidate graph gold (26 nodes); C1 cross-campaign vocabulary ablation bed |
-| `examples/mirathorn_city_candidate_graph_gold/` | world | Candidate graph gold (28 nodes); world-authority vocabulary ablation bed |
-| `examples/session_23_candidate_graph_gold/` | 23 | Candidate graph gold (42 nodes); compare live extraction |
+| `../graph_benchmark_gold/candidate_graph/longmont-c1/session-01/` | 1 | Candidate graph gold (26 nodes); C1 cross-campaign vocabulary ablation bed |
+| `../graph_benchmark_gold/candidate_graph/world/eldyrwild/mirathorn-city/` | world | Candidate graph gold (28 nodes); world-authority vocabulary ablation bed |
+| `../graph_benchmark_gold/candidate_graph/longmont-c2/session-23/` | 23 | Candidate graph gold (42 nodes); compare live extraction |
 | `examples/session_24_manual_projection_dogfood/` | 24 | Projection gold (36 nodes); **not** LLM extraction benchmark |
 
-## Proven extraction pipeline (target for product runtime)
+## Category extraction owner and historical evaluation
 
 | Path | Notes |
 |------|-------|
-| `category_graph_model_study.py` | `run_category_pipeline`: actor → location → collective → object → thread → beat → edge |
+| `src/graph_memory/extraction/category_candidate_graph_extractor.py` | Product `run_category_pipeline`: actor → location → collective → object → thread → beat → edge |
+| `category_graph_model_study.py` | Eval harness for the product category pipeline |
 | `artifacts/category_graph_model_study/2026-06-26/anchor_quote_n3/` | n=3 validation on Session 22 gold (`gpt-5.4-mini`, node recall ~0.80–0.88) |
-
-## Runtime stub (replace with category pipeline)
-
-| Path | Notes |
-|------|-------|
-| `src/graph_memory/extraction/preview_candidate_graph_extractor.py` | Single compact GPT call (~12-node cap); wired today, not the quality path |
 
 ## Design reference (broader contract)
 
@@ -55,7 +50,11 @@ Fixture authority ledger: [`FIXTURE-AUTHORITY-LEDGER.md`](FIXTURE-AUTHORITY-LEDG
 |------|-------|
 | `examples/static_preview_graph_ui_prototype/` | HTML prototype for GM preview UX |
 | `examples/static_extractor_output_comparison_report/` | Static candidate-vs-gold report fixture |
-| `artifacts/vocabulary_ablation_dogfood/manual_review/baseline_vs_edge_and_node_manual_review.json` | Per-bed (C1S1, Mirathorn) baseline vs edge_and_node_packet candidate graphs + per-pass vocabulary prompt text. Served read-only by `apps/live_control_server/services/graph_manual_review.py` (`/api/live/graph-preview/manual-review/beds[/...]`) and rendered by the Plan surface "Vocabulary Review" tool (`apps/live-control-ui/src/planSurface/manualReview/`). |
+| `examples/vocabulary_ablation/manual_review/baseline_vs_edge_and_node_manual_review.json` | Per-bed (C1S1, Mirathorn) baseline vs edge_and_node_packet candidate graphs + per-pass vocabulary prompt text. Served read-only by `apps/live_control_server/services/graph_manual_review.py` (`/api/live/graph-preview/manual-review/beds[/...]`) and rendered by the Plan surface "Vocabulary Review" tool (`apps/live-control-ui/src/planSurface/manualReview/`). |
+
+The expanded-bed runner writes generated reports and JSON under
+`out/graph_memory/vocabulary_ablation/`. The three historical expanded-bed
+JSON outputs are available at the [pinned pre-cleanup revision](https://github.com/Drakosfire/DungeonMindBuddy/tree/b3a6c245be15c3dc8fb5f6ecd9ac46b8af055fdf/evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood).
 
 ## Recap ingest fixtures (mechanical, no LLM)
 

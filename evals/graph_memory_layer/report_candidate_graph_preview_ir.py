@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 from pathlib import Path
-from src.graph_memory.candidate_graph_preview import candidate_graph_preview_from_dict, validate_candidate_graph_preview
+from graph_memory.candidate_graph_preview import candidate_graph_preview_from_dict, validate_candidate_graph_preview
 ROOT=Path(__file__).resolve().parents[2]
 FIXTURE=ROOT/'evals/graph_memory_layer/examples/candidate_graph_preview_minimal.json'
 def main():

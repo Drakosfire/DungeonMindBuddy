@@ -35,6 +35,8 @@ from apps.live_control_server.ports.world_graph_authority import (
     WorldGraphPublishRequest,
     WorldGraphRevisionView,
     WorldGraphVerificationResult,
+    WorldbuildingPublicationDiscoveryRequest,
+    WorldbuildingPublicationHistory,
 )
 
 _WRITE_TO_PORT = {
@@ -310,6 +312,27 @@ class DungeonMindWorldGraphAuthorityAdapter:
                 details={"world_id": world_id},
             )
         return WorldGraphHead(world_id=world_id, revision_id=str(head.head_revision_id))
+
+    def discover_worldbuilding_publications(
+        self, request: WorldbuildingPublicationDiscoveryRequest,
+    ) -> WorldbuildingPublicationHistory:
+        from dungeonmind.domain.errors import PersistenceIntegrityError
+        from apps.live_control_server.integrations.dungeonmind.worldbuilding_publication_discovery import (
+            discover_worldbuilding_publications,
+        )
+        try:
+            return discover_worldbuilding_publications(self._services(request.world_id).bundle, request)
+        except WorldGraphAuthorityError:
+            raise
+        except PersistenceIntegrityError as exc:
+            raise WorldGraphAuthorityError(
+                "Historical publication proof is inconsistent", code="integrity_failure",
+            ) from exc
+        except Exception as exc:
+            raise WorldGraphAuthorityError(
+                "Historical publication coverage is unavailable", code="authority_unavailable",
+                details={"reason": type(exc).__name__},
+            ) from exc
 
     def read_revision(self, world_id: str, revision_id: str) -> WorldGraphRevisionView:
         services = self._services(world_id)

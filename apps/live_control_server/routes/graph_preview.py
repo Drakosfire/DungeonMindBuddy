@@ -2,15 +2,24 @@
 
 from __future__ import annotations
 
+from apps.live_control_server.services.native_recap_source_admission import public_run
+
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from uuid import UUID
+from apps.live_control_server.models.build_recap_launch import BuildRecapLaunchRequest
+from apps.live_control_server.models.saved_recap_runs import SavedRecapRunsResponse, SavedRecapSourceResponse
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.config import repo_root
+from apps.live_control_server.models.exact_run_candidate_projection import (
+    ExactRunCandidateProjection,
+)
 from apps.live_control_server.models.historical_recap_projection import (
     HistoricalRecapWorldProjectionResponse,
 )
+from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm, native_graph_gm_dependency
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GraphIngestLatestRunResponse,
     GraphIngestRunRegistryError,
@@ -19,29 +28,12 @@ from apps.live_control_server.services.graph_ingest_run_registry import (
     resolve_latest_preview_union_graph_ingest_run,
 )
 from apps.live_control_server.services.graph_preview_surface import (
-    GraphPreviewRunsResponse,
     GraphPreviewSurfaceResponse,
     RecapGraphPresentationResponse,
     build_graph_preview_surface,
     build_latest_graph_preview_surface,
     build_recap_graph_presentation,
-    discover_graph_preview_runs,
     GraphPreviewSurfaceError,
-)
-from apps.live_control_server.services.graph_gold_authoring_prepare import (
-    GraphGoldAuthoringPrepareRequest,
-    GraphGoldAuthoringPrepareResponse,
-    prepare_graph_gold_authoring_preview,
-)
-from apps.live_control_server.services.graph_gold_authoring_commit import (
-    GraphGoldAuthoringCommitRequest,
-    GraphGoldAuthoringCommitResponse,
-    commit_graph_gold_authoring_preview,
-)
-from apps.live_control_server.services.graph_gold_authoring_verify import (
-    GraphGoldAuthoringVerifyCommitRequest,
-    GraphGoldAuthoringVerifyCommitResponse,
-    verify_graph_gold_authoring_commit,
 )
 from apps.live_control_server.services.graph_existing_object_resolver import (
     GraphReviewExistingObjectResolverRequest,
@@ -95,21 +87,6 @@ def get_recap_artifacts(
     ensure_recap_artifacts_registry(root)
     records = list_recap_artifact_records(root, campaign_id=campaign_id)
     return RecapArtifactsListResponse(records=records).model_dump(mode="json")
-
-
-@router.get("/runs", response_model=GraphPreviewRunsResponse)
-def get_graph_preview_runs(
-    artifact_id: Annotated[str | None, Query()] = None,
-    campaign_id: Annotated[str | None, Query()] = None,
-    session_id: Annotated[str | None, Query()] = None,
-) -> dict[str, Any]:
-    runs = discover_graph_preview_runs(
-        repo_root(),
-        artifact_id=artifact_id,
-        campaign_id=campaign_id,
-        session_id=session_id,
-    )
-    return GraphPreviewRunsResponse(runs=runs).model_dump(mode="json")
 
 
 @router.get("/latest", response_model=GraphPreviewSurfaceResponse)
@@ -177,59 +154,164 @@ def get_graph_ingest_runs(
     return GraphIngestRunsResponse(runs=runs).model_dump(mode="json")
 
 
-@router.get("/extraction-runs")
-def get_extraction_runs_catalog() -> dict[str, Any]:
-    """Canonical APP-STATE ExtractionRun catalog. File registry is not consulted."""
-    from apps.live_control_server.services.ingest_run_catalog import (
-        IngestRunCatalogError,
-        list_canonical_extraction_runs,
-    )
-
-    try:
-        return list_canonical_extraction_runs()
-    except IngestRunCatalogError as exc:
-        raise HTTPException(
-            status_code=exc.status_code,
-            detail={"code": exc.code, "message": str(exc)},
-        ) from exc
-
-
 @router.get("/extraction-runs/{run_id}")
-def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
+def get_extraction_run_by_id(run_id: str, request: Request = None) -> dict[str, Any]:
     """Exact ExtractionRun reload. Source-domain neutral; never substitutes latest.
 
     Works for recap and worldbuilding runs. Build-specific workspace lineage lives
     on ``GET /extraction-runs/{run_id}/build-context``.
     """
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import read_hosted_exact_extraction
+
+    if request is not None and hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+        return read_hosted_exact_extraction(request, run_id)
+
     from apps.live_control_server.services.graph_run_registry import (
         GraphRunRegistryError,
         get_extraction_run,
     )
 
     try:
-        run = get_extraction_run(repo_root(), run_id)
+        run = get_extraction_run(run_id)
     except GraphRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return run.model_dump(mode="json")
+    return public_run(run)
 
 
-@router.get("/extraction-runs/{run_id}/recap-inspection")
-def get_extraction_run_recap_inspection(
-    run_id: str,
+def _saved_run_query(
     request: Request,
-) -> dict[str, Any]:
-    """Exact-run historical recap source inspection. Read-only; never substitutes latest."""
-    _reject_query_params(request)
-    from apps.live_control_server.services.graph_run_registry import (
-        GraphRunRegistryError,
-        get_historical_recap_inspection,
+    required: set[str],
+    optional: set[str] | frozenset[str] = frozenset(),
+) -> None:
+    keys = set(request.query_params)
+    if (
+        not required <= keys
+        or not keys <= required | optional
+        or any(
+            len(request.query_params.getlist(key)) != 1
+            or not request.query_params[key]
+            or request.query_params[key] != request.query_params[key].strip()
+            for key in keys
+        )
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Exact saved-run selectors are required; duplicate or unknown selectors are not accepted.",
+        )
+
+
+@router.get("/extraction-runs", response_model=SavedRecapRunsResponse)
+def get_saved_recap_runs(
+    request: Request,
+    managed_world_id: Annotated[str, Query(min_length=1)],
+    campaign_id: Annotated[str | None, Query(min_length=1)] = None,
+):
+    from apps.live_control_server.services.ingest_run_catalog import list_saved_recap_runs
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
+
+    require_saved_recap_access(request, managed_world_id)
+    _saved_run_query(request, {"managed_world_id"}, {"campaign_id"})
+    return _saved_run_response(
+        lambda: list_saved_recap_runs(
+            root=repo_root(),
+            managed_world_id=managed_world_id,
+            campaign_id=campaign_id,
+        )
+    )
+
+
+def _saved_run_response(read):
+    from application_state.errors import ApplicationStateError
+    from apps.live_control_server.services.ingest_run_catalog import (
+        IngestRunCatalogError,
+    )
+    from apps.live_control_server.services.world_graph_projection import (
+        WorldGraphProjectionServiceError,
     )
 
     try:
-        response = get_historical_recap_inspection(repo_root(), run_id)
-    except GraphRunRegistryError as exc:
+        result = read()
+    except (
+        ApplicationStateError,
+        IngestRunCatalogError,
+        WorldGraphProjectionServiceError,
+    ) as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return response.model_dump(mode="json", by_alias=True)
+    return JSONResponse(
+        result.model_dump(mode="json", by_alias=True),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.get(
+    "/extraction-runs/{run_id}/recap-inspection",
+    response_model=SavedRecapSourceResponse,
+)
+def get_extraction_run_recap_inspection(
+    run_id: str,
+    request: Request,
+    managed_world_id: Annotated[str, Query(min_length=1)],
+    expected_run_revision: Annotated[int, Query(gt=0)],
+    source_revision_id: Annotated[UUID, Query()],
+):
+    from apps.live_control_server.services.ingest_run_catalog import read_saved_recap_source
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
+
+    require_saved_recap_access(request, managed_world_id)
+    _saved_run_query(
+        request, {"managed_world_id", "expected_run_revision", "source_revision_id"}
+    )
+    return _saved_run_response(
+        lambda: read_saved_recap_source(
+            root=repo_root(),
+            run_id=run_id,
+            managed_world_id=managed_world_id,
+            expected_run_revision=expected_run_revision,
+            source_revision_id=source_revision_id,
+        )
+    )
+
+
+@router.get(
+    "/extraction-runs/{run_id}/candidate-projection",
+    response_model=ExactRunCandidateProjection,
+)
+def get_extraction_run_candidate_projection(
+    run_id: str,
+    request: Request,
+):
+    """Read exact frozen candidate prose; never admit or publish domain data."""
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
+    require_saved_recap_access(request, request.query_params.get("managed_world_id", ""))
+    if set(request.query_params) != {"managed_world_id"} or len(
+        request.query_params.getlist("managed_world_id")
+    ) != 1:
+        raise HTTPException(
+            status_code=422,
+            detail="One managed_world_id selector is required; no other selectors are accepted.",
+        )
+    managed = request.query_params["managed_world_id"]
+    if not managed or managed != managed.strip():
+        raise HTTPException(
+            status_code=422, detail="managed_world_id must be nonblank and trimmed."
+        )
+    from apps.live_control_server.services.exact_run_candidate_projection import (
+        CandidateProjectionError,
+        build_exact_run_candidate_projection,
+    )
+
+    try:
+        result = build_exact_run_candidate_projection(repo_root(), run_id, managed)
+    except CandidateProjectionError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
+    return JSONResponse(
+        result.model_dump(mode="json", by_alias=True),
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.get(
@@ -239,16 +321,45 @@ def get_extraction_run_recap_inspection(
 def get_extraction_run_recap_projection(
     run_id: str,
     request: Request,
+    response_context: Response,
 ) -> dict[str, Any]:
-    """Project exact durable recap text onto the current governed World."""
-    _reject_query_params(request)
+    """Project exact durable recap text onto the current governed World.
+
+    An optional managed_world_id constrains the current managed World selected
+    by the caller. It never supplies native Graph authority.
+    """
+    allowed_query_names = {"managed_world_id"}
+    unknown_query_names = sorted(set(request.query_params.keys()) - allowed_query_names)
+    if unknown_query_names:
+        names = ", ".join(unknown_query_names)
+        raise HTTPException(
+            status_code=422,
+            detail=f"exact-run route does not accept query parameters: {names}",
+        )
+    managed_world_ids = request.query_params.getlist("managed_world_id")
+    if len(managed_world_ids) > 1:
+        raise HTTPException(
+            status_code=422,
+            detail="exact-run route accepts one managed_world_id selector",
+        )
+    managed_world_id = managed_world_ids[0] if managed_world_ids else None
     from apps.live_control_server.services.historical_recap_world_projection import (
         HistoricalRecapProjectionError,
         build_historical_recap_world_projection,
     )
 
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_saved_recap_access(request, managed_world_id or "")
     try:
-        response = build_historical_recap_world_projection(repo_root(), run_id)
+        response = build_historical_recap_world_projection(
+            repo_root(),
+            run_id,
+            managed_world_id=managed_world_id,
+        )
     except HistoricalRecapProjectionError as exc:
         raise HTTPException(
             status_code=exc.status_code,
@@ -258,10 +369,25 @@ def get_extraction_run_recap_projection(
                 "diagnostics": [item.model_dump(mode="json") for item in exc.diagnostics],
             },
         ) from exc
-    return response.model_dump(mode="json", by_alias=True)
+    result = response.model_dump(mode="json", by_alias=True)
+    if hosted:
+        require_saved_recap_access(request, response.managed_world_id or "")
+        response_context.headers["Cache-Control"] = "no-store"
+    return result
 
 
 @router.get("/extraction-runs/{run_id}/build-context")
+async def read_extraction_run_build_context(run_id: str, request: Request) -> dict[str, Any]:
+    from starlette.concurrency import run_in_threadpool
+
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import read_hosted_extraction_build_context
+
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return await run_in_threadpool(get_extraction_run_build_context, run_id)
+    return await read_hosted_extraction_build_context(request, run_id, _build_extraction_context)
+
+
 def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
     """Build-only exact-run envelope with server-resolved workspace lineage.
 
@@ -278,17 +404,20 @@ def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
         get_source_artifact,
     )
 
-    root = repo_root()
     try:
-        run = get_extraction_run(root, run_id)
+        run = get_extraction_run(run_id)
     except GraphRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
     try:
-        artifact = get_source_artifact(root, run.source_artifact_id)
+        artifact = get_source_artifact(run.source_artifact_id)
     except SourceArtifactRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
+    return _build_extraction_context(run, artifact)
+
+
+def _build_extraction_context(run, artifact) -> dict[str, Any]:
     document_id = artifact.workspace_document_id
     document_revision = artifact.workspace_document_revision
     content_sha256 = artifact.content_sha256
@@ -304,7 +433,7 @@ def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
 
     handoff = {
         "href": (
-            "/ingest"
+            "/build"
             f"?extractionRunId={run.run_id}"
             f"&sourceArtifactId={artifact.source_artifact_id}"
             f"&documentId={document_id}"
@@ -317,7 +446,7 @@ def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
     }
     return {
         "schema_version": "dmb_extraction_run_status_v1",
-        "run": run.model_dump(mode="json"),
+        "run": public_run(run),
         "source_artifact_id": artifact.source_artifact_id,
         "document_id": document_id,
         "document_revision": document_revision,
@@ -340,17 +469,19 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
         WorkspaceDocumentRegistryError,
         get_workspace_document,
     )
-    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+    from graph_memory.extraction.worldbuilding_extraction_profile import (
         WORLDBUILDING_PROFILE_ID,
         WORLDBUILDING_PROFILE_VERSION,
     )
-    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+    from graph_memory.extraction.worldbuilding_plumbing_profile import (
         WORLDBUILDING_PLUMBING_PROFILE_ID,
         WORLDBUILDING_PLUMBING_PROFILE_VERSION,
     )
 
+    from graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
+
     _ALLOWED_BUILD_PROFILES = {
-        (WORLDBUILDING_PROFILE_ID, WORLDBUILDING_PROFILE_VERSION),
+        *(tuple(key.split("@")) for key in PUBLISHABLE_WORLDBUILDING_PROFILES),
         (WORLDBUILDING_PLUMBING_PROFILE_ID, WORLDBUILDING_PLUMBING_PROFILE_VERSION),
     }
 
@@ -415,8 +546,6 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
             status_code=409,
             detail=f"revision mismatch: expected {expected_revision}, current {record.revision}",
         )
-    if not record.target_relpath:
-        raise HTTPException(status_code=422, detail="workspace document has no target_relpath")
 
     try:
         artifact = create_source_artifact_from_workspace_document(
@@ -428,24 +557,37 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
     except SourceArtifactRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
-    result = run_worldbuilding_production_extraction(
-        repo_root=root,
-        source_artifact_id=artifact.source_artifact_id,
-        profile_id=profile_id,
-        profile_version=profile_version,
-        allow_llm=True,
-        output_dir=root
-        / "out"
-        / "graph_memory"
-        / "runs"
-        / "extraction"
-        / artifact.source_artifact_id.replace(":", "_"),
-    )
+    if (profile_id == "worldbuilding_gazetteer_v1"
+            and profile_version in {"1.5", "1.6", "1.7", "1.8", "1.9", "1.10"}):
+        from apps.live_control_server.services.worldbuilding_ge_execution import (
+            WorldbuildingExecutionInputError,
+            run_gazetteer_with_generation_engine,
+        )
+
+        try:
+            result = run_gazetteer_with_generation_engine(
+                repo_root=root,
+                source_artifact_id=artifact.source_artifact_id,
+                document_id=record.document_id,
+                document_revision=record.revision,
+                expected_content_sha256=expected_content_sha256,
+                profile_version=profile_version,
+            )
+        except WorldbuildingExecutionInputError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+    else:
+        result = run_worldbuilding_production_extraction(
+            repo_root=root,
+            source_artifact_id=artifact.source_artifact_id,
+            profile_id=profile_id,
+            profile_version=profile_version,
+            allow_llm=True,
+        )
 
     content_sha256 = artifact.content_sha256 or expected_content_sha256.removeprefix("sha256:").strip().lower()
     return {
         "schema_version": "dmb_extraction_run_launch_v1",
-        "run": result.run.model_dump(mode="json"),
+        "run": public_run(result.run),
         "source_artifact_id": artifact.source_artifact_id,
         "document_id": record.document_id,
         "document_revision": record.revision,
@@ -454,7 +596,7 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
         "diagnostics": result.diagnostics,
         "graph_review_handoff": {
             "href": (
-                "/ingest"
+                "/build"
                 f"?extractionRunId={result.run.run_id}"
                 f"&sourceArtifactId={artifact.source_artifact_id}"
                 f"&documentId={record.document_id}"
@@ -515,39 +657,6 @@ def post_existing_object_resolver_candidates(
 ) -> dict[str, Any]:
     try:
         response = resolve_existing_object_candidates(request, root=repo_root())
-    except GraphGoldReviewError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
-
-
-@router.post("/gold-authoring/prepare", response_model=GraphGoldAuthoringPrepareResponse)
-def post_gold_authoring_prepare(
-    request: GraphGoldAuthoringPrepareRequest,
-) -> dict[str, Any]:
-    try:
-        response = prepare_graph_gold_authoring_preview(request, root=repo_root())
-    except GraphGoldReviewError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
-
-
-@router.post("/gold-authoring/commit", response_model=GraphGoldAuthoringCommitResponse)
-def post_gold_authoring_commit(
-    request: GraphGoldAuthoringCommitRequest,
-) -> dict[str, Any]:
-    try:
-        response = commit_graph_gold_authoring_preview(request, root=repo_root())
-    except GraphGoldReviewError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
-
-
-@router.post("/gold-authoring/verify-commit", response_model=GraphGoldAuthoringVerifyCommitResponse)
-def post_gold_authoring_verify_commit(
-    request: GraphGoldAuthoringVerifyCommitRequest,
-) -> dict[str, Any]:
-    try:
-        response = verify_graph_gold_authoring_commit(request, root=repo_root())
     except GraphGoldReviewError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
@@ -669,3 +778,68 @@ def get_recap_graph_presentation(
     except (GraphPreviewSurfaceError, RecapArtifactRegistryError) as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
+
+
+@router.post("/build-recap-launches")
+def post_build_recap_launch(request: Request, body: BuildRecapLaunchRequest) -> dict[str, Any]:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.build_recap_launch import launch_build_recap
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_native_source
+
+    hosted = hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS
+    if hosted:
+        if request.query_params:
+            raise HTTPException(status_code=403, detail="Unexpected recap launch query")
+        require_hosted_build_native_source(request, body.managed_world_id)
+    else:
+        enforce_native_graph_gm(request)
+    def authorize() -> None:
+        require_hosted_build_native_source(request, body.managed_world_id)
+
+    try:
+        run = launch_build_recap(repo_root(), body, authorize=authorize if hosted else None)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=getattr(exc,"status_code",503),detail=str(exc)) from exc
+    context = get_extraction_run_build_context(run.run_id)
+    if hosted:
+        require_hosted_build_native_source(request, body.managed_world_id)
+    return context
+
+
+@router.get("/build-recap-launches/{request_id}")
+def get_build_recap_launch(request: Request, request_id: UUID, document_id: UUID, managed_world_id: str) -> dict[str, Any]:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_native_source
+    from apps.live_control_server.services.build_recap_launch import recover_build_recap_launch
+
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+    else:
+        require_hosted_build_native_source(request, managed_world_id)
+    try:
+        run = recover_build_recap_launch(repo_root(),request_id=request_id,document_id=document_id,managed_world_id=managed_world_id)
+    except Exception as exc:
+        raise HTTPException(status_code=getattr(exc,"status_code",503),detail=str(exc)) from exc
+    context = get_extraction_run_build_context(run.run_id)
+    if context["document_id"] != str(document_id):
+        raise HTTPException(status_code=409, detail="Saved recap launch does not match this document")
+    require_hosted_build_native_source(request, managed_world_id)
+    return context
+
+
+@router.get("/extraction-runs/{run_id}/usage")
+def get_extraction_usage(run_id: str, request: Request,
+    managed_world_id: Annotated[str, Query(min_length=1)],
+    expected_run_revision: Annotated[int, Query(gt=0)]):
+    from apps.live_control_server.services.extraction_usage import read_extraction_usage
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
+
+    require_saved_recap_access(request, managed_world_id)
+    _saved_run_query(request, {"managed_world_id", "expected_run_revision"})
+    response = _saved_run_response(lambda: read_extraction_usage(root=repo_root(),run_id=run_id,
+        managed_world_id=managed_world_id,expected_run_revision=expected_run_revision))
+    require_saved_recap_access(request, managed_world_id)
+    return response

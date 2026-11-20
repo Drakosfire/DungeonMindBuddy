@@ -1,0 +1,121 @@
+{
+  "rows": [
+    {
+      "background": "rgba(45, 212, 191, 0.12)",
+      "border": "rgba(45, 212, 191, 0.48)",
+      "classes": "recap-node-token role-location delta-unclassified",
+      "color": "rgb(51, 45, 37)",
+      "contrast": 10.79,
+      "effectiveBackground": [
+        223,
+        232,
+        212
+      ],
+      "label": "Ironveil Warehouse",
+      "opacity": "1"
+    },
+    {
+      "background": "rgba(251, 191, 36, 0.13)",
+      "border": "rgba(251, 191, 36, 0.48)",
+      "classes": "recap-node-token role-person delta-unclassified",
+      "color": "rgb(51, 45, 37)",
+      "contrast": 11,
+      "effectiveBackground": [
+        248,
+        229,
+        192
+      ],
+      "label": "Lysandra",
+      "opacity": "1"
+    },
+    {
+      "background": "rgba(139, 92, 246, 0.14)",
+      "border": "rgba(196, 181, 253, 0.55)",
+      "classes": "recap-node-token role-pc delta-unclassified",
+      "color": "rgb(51, 45, 37)",
+      "contrast": 9.83,
+      "effectiveBackground": [
+        232,
+        215,
+        219
+      ],
+      "label": "Thrin",
+      "opacity": "1"
+    },
+    {
+      "background": "rgba(96, 165, 250, 0.12)",
+      "border": "rgba(96, 165, 250, 0.48)",
+      "classes": "recap-node-token role-faction delta-unclassified",
+      "color": "rgb(51, 45, 37)",
+      "contrast": 10.56,
+      "effectiveBackground": [
+        229,
+        227,
+        219
+      ],
+      "label": "Questionable Company",
+      "opacity": "1"
+    },
+    {
+      "background": "rgba(250, 204, 21, 0.12)",
+      "border": "rgba(250, 204, 21, 0.48)",
+      "classes": "recap-node-token role-item delta-unclassified",
+      "color": "rgb(51, 45, 37)",
+      "contrast": 11.14,
+      "effectiveBackground": [
+        247,
+        231,
+        192
+      ],
+      "label": "Sleeping potion",
+      "opacity": "1"
+    },
+    {
+      "background": "rgb(217, 164, 65)",
+      "border": "rgb(217, 164, 65)",
+      "classes": "recap-node-token role-node delta-unclassified",
+      "color": "rgb(51, 45, 37)",
+      "contrast": 6.05,
+      "effectiveBackground": [
+        217,
+        164,
+        65
+      ],
+      "label": "Reference",
+      "opacity": "1"
+    },
+    {
+      "background": "rgba(45, 212, 191, 0.12)",
+      "border": "rgba(45, 212, 191, 0.48)",
+      "classes": "recap-node-token role-location delta-unclassified",
+      "color": "rgb(153, 246, 228)",
+      "contrast": 11.18,
+      "effectiveBackground": [
+        20,
+        47,
+        57
+      ],
+      "label": "Dark hover reference",
+      "opacity": "1"
+    },
+    {
+      "background": "rgba(45, 212, 191, 0.12)",
+      "border": "rgba(45, 212, 191, 0.48)",
+      "classes": "recap-node-token role-location delta-unclassified",
+      "color": "rgb(153, 246, 228)",
+      "contrast": 10.84,
+      "effectiveBackground": [
+        24,
+        49,
+        55
+      ],
+      "label": "Unthemed slate reference",
+      "opacity": "1"
+    }
+  ],
+  "scrollWidth": 1265,
+  "viewport": {
+    "height": 720,
+    "width": 1280
+  }
+}

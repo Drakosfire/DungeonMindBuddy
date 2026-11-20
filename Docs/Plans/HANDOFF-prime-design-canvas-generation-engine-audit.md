@@ -17,7 +17,7 @@ You are the next-phase Prime Design agent for DungeonBuddy.
 Read first:
 
 - `Docs/Plans/HANDOFF-prime-design-canvas-generation-engine-audit.md`
-- `Docs/Runbooks/RUNBOOK-statblock-combat-dogfood.md`
+- `Docs/Runbooks/archive/RUNBOOK-statblock-combat-dogfood.md`
 - `Docs/Plans/archive/2026-07-15/completed-statblock-handoffs/HANDOFF-dogfood-readiness-pr114.md`
 - `Docs/Plans/archive/2026-07-15/completed-statblock-handoffs/HANDOFF-combat-roster-tracker-pr113.md`
 - `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-add-to-combat-pr112.md`

@@ -756,7 +756,7 @@ def test_create_statblock_dict_path_strips_nested_nulls_and_omits_explains_null(
     body["accepted_through"] = None
     body["asset_bindings"] = None
     body["actor"] = None
-    body["definition"]["rule_elements"][0]["explains"] = None
+    body["definition"]["rule_elements"][0]["explains"] = []
     _client(httpx.MockTransport(handler)).create_statblock(body)
     sent = captured[0]
     assert isinstance(sent, dict)
@@ -766,29 +766,19 @@ def test_create_statblock_dict_path_strips_nested_nulls_and_omits_explains_null(
     assert "explains" not in sent["definition"]["rule_elements"][0]
     assert sent["idempotency_key"] == body["idempotency_key"]
     # Transport normalization must not rewrite the durable journal body.
-    assert body["definition"]["rule_elements"][0]["explains"] is None
+    assert body["definition"]["rule_elements"][0]["explains"] == []
 
 
 @pytest.mark.parametrize("as_model", [False, True], ids=["journal-dict", "typed-request"])
-@pytest.mark.parametrize(
-    "explains",
-    [
-        pytest.param([], id="explicit-empty"),
-        pytest.param(
-            [{"element_key": "greatclub", "note": "Explains the strike."}],
-            id="populated",
-        ),
-    ],
-)
-def test_create_rejects_nonnull_explains_before_http_without_mutating_journal(
-    as_model: bool, explains: list[dict[str, str]]
+def test_create_rejects_populated_explains_before_http_without_mutating_journal(
+    as_model: bool
 ) -> None:
     from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
         CreateStatblockRequestV1,
     )
 
     body = _fixture("create-request.json")
-    body["definition"]["rule_elements"][0]["explains"] = copy.deepcopy(explains)
+    body["definition"]["rule_elements"][0]["explains"] = [{"element_key": "greatclub", "note": "Explains the strike."}]
     original_body = copy.deepcopy(body)
     request: dict[str, Any] | CreateStatblockRequestV1 = (
         CreateStatblockRequestV1.model_validate(body) if as_model else body
@@ -1276,3 +1266,44 @@ def test_revise_candidate_maps_409_and_410() -> None:
     with pytest.raises(StatblockIntegrationError) as exc_info2:
         _client(httpx.MockTransport(expired_handler)).revise_candidate(body)
     assert exc_info2.value.category == "downstream_expired"
+
+
+def test_revise_receipt_binds_exact_current_dms_canonical_digest() -> None:
+    body = _fixture("server_revise_transcripts/revise-request.json")
+    body.pop("source_candidate_id", None)
+    body["source_definition"] = _fixture("create-request.json")["definition"]
+    response = _fixture("server_revise_transcripts/revise-replay-response.json")
+    response["generation_receipt"]["source_definition_digest"] = (
+        "sha256:170d6a58c947d61bda8078d2c64705ca5edae5e68a8d61a6b3c2aad395a61246"
+    )
+    # This seal comes from DMS f95e92c, not the consumer helper under test.
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content)["source_definition"] == body["source_definition"]
+        return httpx.Response(200, json=response)
+    candidate = _client(httpx.MockTransport(handler)).revise_candidate(body)
+    assert candidate.generation_receipt.source_definition_digest.root == (
+        response["generation_receipt"]["source_definition_digest"]
+    )
+    response["generation_receipt"]["source_definition_digest"] = "sha256:" + "0" * 64
+    with pytest.raises(StatblockIntegrationError, match="source_definition_digest"):
+        _client(httpx.MockTransport(handler)).revise_candidate(body)
+
+
+def test_validate_sends_required_unknown_fields():
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+        ValidateDefinitionRequestV1,
+    )
+
+    definition = _fixture("candidate-response.json")["definition"]
+    definition.update(ruleset=None, movement=None)
+    definition["challenge"]["proficiency_bonus"] = None
+
+    def handler(request):
+        sent = json.loads(request.content)["definition"]
+        assert sent["ruleset"] is None
+        assert sent["movement"] is None
+        assert sent["challenge"]["proficiency_bonus"] is None
+        return httpx.Response(200, json=_fixture("validate-response.json"))
+
+    client = _client(httpx.MockTransport(handler))
+    client.validate_definition(ValidateDefinitionRequestV1(definition=definition))

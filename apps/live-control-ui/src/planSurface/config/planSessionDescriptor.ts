@@ -7,7 +7,7 @@ import {
 import type { PlanViewProjection, WorkspaceDocumentRecord } from "../../api/types";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { workspaceDocumentSelectionSearch } from "../../workspaceDocument/workspaceDocumentNavigation";
-import { formatReviewCampaignLabel, requestedDocumentIdFromLocation } from "../sessionCampaignContext";
+import { formatReviewCampaignLabel, requestedDocumentIdFromLocation } from "../../graphLens/sessionCampaignContext";
 import type {
   PlanContextDescriptor,
   PlanDocumentDescriptor,
@@ -82,7 +82,7 @@ export function workspaceRecordToPlanDocumentDescriptor(
 }
 
 export function fixtureWorkspaceDocumentRecord(
-  overrides: Partial<WorkspaceDocumentRecord> = {},
+  overrides: Partial<Extract<WorkspaceDocumentRecord, { kind: "plan" | "runbook" }>> = {},
 ): WorkspaceDocumentRecord {
   return {
     schema_version: "dmb_workspace_document_record_v1",
@@ -249,6 +249,9 @@ export async function resolvePlanningDocument(args: {
 
   if (requestedId) {
     const record = await getWorkspaceDocument(requestedId);
+    if (record.kind === "worldbuilding_source") {
+      throw new UnsupportedPlanningDocumentKindError(record.document_id, record.kind);
+    }
     if (record.campaign_id !== campaignId) {
       if (record.kind === "runbook") {
         throw new CrossCampaignRunbookAdmissionError(requestedId, record.campaign_id, campaignId);

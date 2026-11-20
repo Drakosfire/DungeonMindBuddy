@@ -6,7 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from scripts.build_ingested_corpus_library import build_library
+from live_play.ingested_corpus_library import build_library, discover_campaign_sessions, load_retrieval_manifests
+from live_play.session_paths import repo_root as default_repo_root
 
 
 class OpaqueLocator(BaseModel):
@@ -166,15 +167,46 @@ def _make_unit(artifact: SourceArtifact, anchor: SourceAnchor, *, stage: str) ->
     )
 
 
+def _eligible_stages(session):
+    for stage, record in sorted((session.get("stages") or {}).items()):
+        if isinstance(record, dict) and record.get("exists"):
+            route = str(record.get("route") or "")
+            if route:
+                yield stage, route, record
+
+
+def list_ingestion_source_sessions(*, root: Path, campaign_id: str) -> list[int]:
+    corpus = root / "corpus/eldyrwild-markdown"
+    sessions = {
+        int(session.get("session") or 0)
+        for campaign_number in (1, 2)
+        if campaign_id == f"longmont-c{campaign_number}"
+        for session in discover_campaign_sessions(corpus, campaign_number)
+        if any(_eligible_stages(session))
+    }
+    for manifest in load_retrieval_manifests(root).values():
+        if manifest.get("exists") and manifest.get("planning_session") is not None:
+            sessions.add(int(manifest["planning_session"]))
+    return sorted(sessions, reverse=True)
+
+
 def build_ingestion_source_bundle(
     *,
     root: Path | None = None,
     scope: str = "campaign-ingested",
     campaign_id: str | None = None,
 ) -> IngestionSourceBundle:
-    """Map the ingested corpus library into the SourceUnit contract without reading corpus bodies."""
-    repo_root = root or Path(__file__).resolve().parents[2]
-    library = build_library(root=repo_root)
+    """Project fresh corpus metadata without embedding corpus bodies.
+
+    ``scope`` labels the response and determines its legacy bundle ID; it does
+    not filter units. ``campaign_id`` selects campaign-derived session units.
+    Shared manifest reference units and library-wide coverage totals remain
+    unfiltered; selected-unit counts and pipeline tiers reflect the selection.
+    Bundle IDs are shared across campaign filters, so neither the label nor
+    the ID alone identifies a reusable inventory.
+    """
+    repo_root = root or default_repo_root()
+    library = build_library(root=repo_root, include_auxiliary=False)
     corpus_root = str(library["corpus_root"])
     activation = library.get("retrieval_activation", {})
     slim_routes = set(activation.get("c2s23_planning_manifest", {}).get("routes", []))
@@ -192,12 +224,7 @@ def build_ingestion_source_bundle(
         for session in campaign.get("sessions", []):
             session_number = int(session.get("session") or 0)
             tier_counts[str(session.get("pipeline_tier") or "unknown")] += 1
-            for stage, record in sorted((session.get("stages") or {}).items()):
-                if not isinstance(record, dict) or not record.get("exists"):
-                    continue
-                route = str(record.get("route") or "")
-                if not route:
-                    continue
+            for stage, route, record in _eligible_stages(session):
                 kind, layer, _unit_kind = _STAGE_KIND.get(
                     stage, ("unknown", "diagnostic_layer", "diagnostic_record")
                 )

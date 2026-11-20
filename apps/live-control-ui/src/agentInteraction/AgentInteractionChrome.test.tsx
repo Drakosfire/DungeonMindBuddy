@@ -1,11 +1,16 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useMemo } from "react";
-import { describe, expect, it } from "vitest";
+import { useMemo, useLayoutEffect } from "react";
+import { beforeEach, describe, expect, it } from "vitest";
+import { useConversationPlacement } from "../ui/conversationPlacement";
+beforeEach(() => window.localStorage.setItem("buddy.conversation.placement", "side"));
+function PlacementControls() { const [,set] = useConversationPlacement(); return <><button onClick={()=>set("bottom")}>Bottom</button><button onClick={()=>set("side")}>Side</button><button onClick={()=>set("float")}>Float</button></> }
+import { readFileSync } from "node:fs";
+import { URL as NodeURL } from "node:url";
 
 import { AgentInteractionChrome } from "./AgentInteractionChrome";
 import { AgentInteractionProvider } from "./AgentInteractionProvider";
-import { AskPluginSlotProvider, useRegisterAskPluginPresence } from "./AskPluginSlot";
+import { AskPluginSlotProvider, useRegisterAskPluginPresence, useAskPluginSlot } from "./AskPluginSlot";
 import { usePublishAgentSurfaceContext } from "./usePublishAgentSurfaceContext";
 
 function PublishBuildContext() {
@@ -42,11 +47,85 @@ function PublishIngestContext() {
   return null;
 }
 
+function PublishPlanContext() {
+  const context = useMemo(
+    () => ({
+      surfaceId: "plan",
+      label: "World Plan",
+      campaignId: "world-plan:world-1",
+      documentId: "plan-1",
+      sessionNumber: null,
+      ambientSummary: "Saved World Plan",
+      sourceEnvelope: null,
+    }),
+    [],
+  );
+  usePublishAgentSurfaceContext(context);
+  return null;
+}
+
+function PublishPlayContext() {
+  const context = useMemo(
+    () => ({
+      surfaceId: "play",
+      label: "World Play",
+      campaignId: "world-plan:world-1",
+      documentId: "run-1",
+      sessionNumber: null,
+      ambientSummary: "Admitted World Run",
+      sourceEnvelope: null,
+    }),
+    [],
+  );
+  usePublishAgentSurfaceContext(context);
+  return null;
+}
+
 describe("AgentInteractionChrome", () => {
+  afterEach(() => vi.unstubAllGlobals());
   function RegisterAsk({ present = true }: { present?: boolean }) {
     useRegisterAskPluginPresence(present);
-    return null;
+    const {setMenuHost}=useAskPluginSlot();
+    return present ? <div ref={setMenuHost} data-testid="conversation-menu-host"/> : null;
   }
+
+  it("opens Play in its companion shell with one conversation close path", async () => {
+    const user = userEvent.setup();
+    render(
+      <AgentInteractionProvider>
+        <AskPluginSlotProvider>
+          <PublishPlayContext />
+          <PlacementControls />
+          <RegisterAsk />
+          <AgentInteractionChrome />
+        </AskPluginSlotProvider>
+      </AgentInteractionProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Open" }));
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveClass("agent-interaction-shell--play", "open");
+    const host = screen.getByTestId("agent-interaction-ask-host");
+    expect(host).toBeInTheDocument();
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-play-layout", "side");
+
+    await user.click(screen.getByRole("button", { name: "Bottom", exact: true }));
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-play-layout", "bottom");
+    expect(screen.getByTestId("agent-interaction-ask-host")).toBe(host);
+    await user.click(screen.getByRole("button", { name: "Side", exact: true }));
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-play-layout", "side");
+    expect(screen.getByTestId("agent-interaction-ask-host")).toBe(host);
+    await user.click(screen.getByRole("button", {name:"Float",exact:true}));
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-play-layout","float");
+    expect(screen.queryByRole("button", { name: "Close chat" })).not.toBeInTheDocument();
+  });
+
+  it("uses bottom chat on narrow Play without changing the host", async () => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    render(<AgentInteractionProvider><AskPluginSlotProvider><PublishPlayContext /><RegisterAsk /><AgentInteractionChrome /></AskPluginSlotProvider></AgentInteractionProvider>);
+    await userEvent.click(screen.getByRole("button", { name: "Open" }));
+
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-play-layout", "bottom");
+  });
 
   it("renders no Agent chrome or Open action without a registered Ask plugin", () => {
     render(
@@ -82,7 +161,7 @@ describe("AgentInteractionChrome", () => {
     expect(open).toHaveAttribute("title");
     expect(open.getAttribute("title")).toMatch(/Ask DungeonBuddy · Ingest · New thread/i);
     expect(open.getAttribute("title")).toMatch(/Graph Review · longmont-c2/i);
-    expect(open.querySelector("img")).toHaveAttribute("src", expect.stringContaining("dungeonbuddy-agent.png"));
+    expect(open.querySelector("img")).toHaveAttribute("src", expect.stringContaining("dungeonbuddy-agent-launcher.webp"));
     expect(screen.getByTestId("agent-interaction-bar")).toHaveTextContent("");
   });
 
@@ -125,4 +204,117 @@ describe("AgentInteractionChrome", () => {
     );
     expect(screen.getByTestId("agent-interaction-chrome")).toHaveClass("open");
   });
+
+  it("keeps the Plan conversation host mounted through close and reopen and exposes keyboard resize", async () => {
+    const user = userEvent.setup();
+    const originalInnerWidth = window.innerWidth;
+    const originalInnerHeight = window.innerHeight;
+    const style = document.createElement("style");
+    const planPanelRule = readFileSync(new NodeURL("../styles.css", import.meta.url), "utf8")
+      .match(/#root:has\(\.plan-agent-shell\.agent-interaction-shell--plan\.open\)\s+\.app-shell--edit-dock\s+\.app-wrap\s+:is\(\.plan-surface-root,\s*\.world-owned-plan\)\s*\{[^}]*\}/s)?.[0];
+    expect(planPanelRule).toBeTruthy();
+    style.textContent = planPanelRule ?? "";
+    document.head.appendChild(style);
+    const appRoot = document.createElement("div");
+    appRoot.id = "root";
+    appRoot.style.setProperty("--agent-plan-panel-width", "512px");
+    document.body.appendChild(appRoot);
+    const renderPlanChrome = (present = true, surfaceId: "plan" | "build" = "plan") => (
+      <AgentInteractionProvider>
+        <AskPluginSlotProvider>
+          <div className="app-shell--edit-dock" data-testid="plan-app-shell">
+            <div className="app-wrap">
+              <div className="plan-surface-root" data-testid="plan-surface-content" />
+              {surfaceId === "plan" ? <PublishPlanContext /> : <PublishBuildContext />}
+              <RegisterAsk present={present} />
+            </div>
+          </div>
+          <AgentInteractionChrome />
+        </AskPluginSlotProvider>
+      </AgentInteractionProvider>
+    );
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 844 });
+    const view = render(renderPlanChrome(), { container: appRoot });
+
+    try {
+      const appShell = screen.getByTestId("plan-app-shell");
+      const chrome = screen.getByTestId("agent-interaction-chrome");
+      const planContent = screen.getByTestId("plan-surface-content");
+      const host = screen.getByTestId("agent-interaction-ask-host");
+      expect(appShell.parentElement).toBe(appRoot);
+      expect(chrome.parentElement).toBe(appRoot);
+      expect(appShell).not.toContainElement(chrome);
+      expect(host).toHaveAttribute("hidden");
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("512px");
+      await user.click(screen.getByRole("button", { name: "Open" }));
+      expect(host).not.toHaveAttribute("hidden");
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("440px");
+      expect(getComputedStyle(planContent).width).toContain("var(--agent-plan-panel-width");
+
+      const sheetResizer = screen.getByRole("separator", { name: "Resize Buddy sheet" });
+      expect(Number(sheetResizer.getAttribute("aria-valuenow"))).toBe(Math.round(844 * 0.64));
+      sheetResizer.focus();
+      await user.keyboard("{ArrowUp}");
+      expect(Number(sheetResizer.getAttribute("aria-valuenow"))).toBe(Math.round(844 * 0.64) + 24);
+
+      const panelResizer = screen.getByRole("separator", { name: "Resize Buddy panel" });
+      const startingWidth = Number(panelResizer.getAttribute("aria-valuenow"));
+      panelResizer.focus();
+      await user.keyboard("{ArrowLeft}");
+      expect(Number(panelResizer.getAttribute("aria-valuenow"))).toBe(startingWidth + 24);
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("464px");
+
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: 500 });
+      fireEvent.resize(window);
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("360px");
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: originalInnerWidth });
+      fireEvent.resize(window);
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("464px");
+
+      await user.click(screen.getByRole("button", { name: "Close chat" }));
+      expect(screen.getByTestId("agent-interaction-ask-host")).toBe(host);
+      expect(host).toHaveAttribute("hidden");
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("512px");
+      await user.click(screen.getByRole("button", { name: "Open" }));
+      expect(screen.getByTestId("agent-interaction-ask-host")).toBe(host);
+      expect(host).not.toHaveAttribute("hidden");
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("464px");
+
+      view.rerender(renderPlanChrome(false));
+      expect(screen.queryByTestId("agent-interaction-chrome")).not.toBeInTheDocument();
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("512px");
+      view.rerender(renderPlanChrome(true));
+      await waitFor(() => expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("464px"));
+
+      view.rerender(renderPlanChrome(true, "build"));
+      await waitFor(() => expect(screen.getByTestId("agent-interaction-chrome")).not.toHaveClass("agent-interaction-shell--plan"));
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("512px");
+      view.rerender(renderPlanChrome(true, "plan"));
+      await waitFor(() => expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("464px"));
+      view.unmount();
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("512px");
+    } finally {
+      view.unmount();
+      style.remove();
+      appRoot.remove();
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: originalInnerWidth });
+      Object.defineProperty(window, "innerHeight", { configurable: true, value: originalInnerHeight });
+    }
+  });
+});
+
+function DocumentWorkspace({ready}:{ready:boolean}) {
+  const slot=useAskPluginSlot();
+  useRegisterAskPluginPresence(ready);
+  useLayoutEffect(()=>{slot.setLayoutOwner('plan-workspace');return()=>slot.setLayoutOwner('chrome');},[slot.setLayoutOwner]);
+  return <div data-testid="document-launcher-host" ref={slot.setLauncherHost}/>;
+}
+it('keeps the document-owned launcher usable before saved-object readiness and through readiness changes',async()=>{
+  const user=userEvent.setup();
+  function Workspace({ready}:{ready:boolean}) {return <AgentInteractionProvider><AskPluginSlotProvider><DocumentWorkspace ready={ready}/><AgentInteractionChrome/></AskPluginSlotProvider></AgentInteractionProvider>;}
+  const view=render(<Workspace ready={false}/>);
+  const button=await screen.findByTestId('agent-interaction-open');expect(screen.getByTestId('document-launcher-host')).toContainElement(button);
+  expect(button).toHaveAttribute('aria-expanded','false');await user.click(button);expect(button).toHaveAttribute('aria-expanded','true');
+  view.rerender(<Workspace ready/>);expect(screen.getByTestId('agent-interaction-open')).toBe(button);
+  view.rerender(<Workspace ready={false}/>);expect(screen.getByTestId('agent-interaction-open')).toBe(button);expect(button).toHaveAttribute('aria-expanded','true');
 });

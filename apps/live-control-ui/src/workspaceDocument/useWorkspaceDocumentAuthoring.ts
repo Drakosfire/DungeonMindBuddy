@@ -1,3 +1,8 @@
+import "../tiptap/pageComposer/apiPresentation";
+import { hydratePresentation, flattenPresentation, hasPresentation, projectPresentation, presentationFingerprint, composerDisabledReason, type PagePresentation } from "../tiptap/pageComposer/presentation";
+import {useTourNavigationGuard} from '../guidedTour/Navigation';
+import {WorkspaceDraftCoordinator, type DraftPersistenceStatus} from "./workspaceDraftCoordinator";
+import { conflictCopiesKey, preserveConflictCopies, type WorkspaceConflictRecovery, type WorkspaceConflictReview } from "./workspaceConflictRecovery";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Editor, JSONContent } from "@tiptap/react";
 
@@ -17,13 +22,14 @@ import { semanticMarkdownSerializationDiagnostics } from "../tiptap/markdown/sem
 import { preserveLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
 import {
   buildInitialWorkspaceDocumentLocalState,
-  clearWorkspaceDocumentLocalState,
   readWorkspaceDocumentLocalState,
-  writeWorkspaceDocumentLocalState,
   type WorkspaceDocumentLocalKind,
   type WorkspaceDocumentLocalSurface,
+  isWorkspaceDocumentLocalState,
+  workspaceDocumentStorageKey,
   type WorkspaceDocumentLocalState,
 } from "../tiptap/state/tiptapLocalState";
+import { assertPersistedDraft, readDraftRecovery, writeVerifiedLocalState, type WorkspaceDraftRecoveryReview, appendDraftRecoveryCopies, readDraftRecoveryCopies, draftRecoveryJournalKey, type WorkspaceDraftRestoreReview } from "./workspaceDocumentRecovery";
 import { openWorkspaceDocumentAuthoringState } from "./openWorkspaceDocumentAuthoringState";
 import type { ReconcileLocalDraftResult } from "./reconcileLocalDraft";
 import { verifyCommitReceiptAgainstSnapshot } from "./verifyCommitReceiptAgainstSnapshot";
@@ -73,10 +79,19 @@ export interface WorkspaceDocumentAuthoringValue {
   dirty: boolean;
   /** True while Save must wait for re-import/discard of a sealed source projection. */
   exportedMarkdownAuthoritative: boolean;
+  pageComposerEnabled: boolean;
+  pageComposerDisabledReason: string | null;
   /** In-memory local CAS fingerprint for canvas admission (not a second storage read). */
   localAdmission: WorkspaceDocumentLocalAdmission | null;
   statusLabel: string;
   saveDisabled: boolean;
+  saveDisabledReason: string | null;
+  conflictRecovery?: WorkspaceConflictRecovery;
+  draftRecoveryAvailable: boolean;
+  prepareDraftRecovery: () => WorkspaceDraftRecoveryReview;
+  confirmDraftRecovery: (review: WorkspaceDraftRecoveryReview, mode?: "source" | "current" | "normalize") => Promise<void>;
+  prepareDraftRestore: () => Promise<WorkspaceDraftRestoreReview>;
+  restoreDraftRecovery: (review: WorkspaceDraftRestoreReview, copyId: string) => Promise<void>;
   lastCommitReceipt: TiptapMarkdownWriteCommitResponse | null;
   editor: Editor | null;
   setEditor: (editor: Editor | null) => void;
@@ -127,6 +142,7 @@ function applyCommitReceiptToLocalState(args: {
   kind: WorkspaceDocumentLocalKind;
   tiptapJson: unknown;
   markdown: string;
+  presentation?: PagePresentation | null;
 }): WorkspaceDocumentLocalState {
   const now = new Date().toISOString();
   const record = args.receipt.committed_record;
@@ -143,6 +159,8 @@ function applyCommitReceiptToLocalState(args: {
       starterContent: args.tiptapJson,
       now,
     }),
+    base_page_presentation_sha256: args.receipt.page_presentation_sha256 ?? null,
+    ...(args.presentation !== undefined ? {page_presentation: args.presentation} : {}),
     tiptap_json: args.tiptapJson,
     exported_markdown: args.markdown,
     exported_markdown_authoritative: false,
@@ -162,6 +180,7 @@ function applyCommitReceiptBaseRetainingEditorContent(args: {
     ...args.current,
     base_revision: args.receipt.committed_revision,
     base_content_sha256: args.receipt.normalized_content_sha256,
+    base_page_presentation_sha256: args.receipt.page_presentation_sha256 ?? null,
     dirty: true,
     updated_at: now,
     last_local_save_at: now,
@@ -172,16 +191,26 @@ export function useWorkspaceDocumentAuthoring(
   args: UseWorkspaceDocumentAuthoringArgs,
 ): WorkspaceDocumentAuthoringValue {
   const storage = args.storage ?? window.localStorage;
+  const requestedDocument = useRef(args.documentId);
+  requestedDocument.current = args.documentId;
   const [machine, setMachine] = useState<WorkspaceDocumentAuthoringMachineState>(
     initialAuthoringMachineState,
   );
+  const phaseRef = useRef(machine.phase);
+  phaseRef.current = machine.phase;
   const [snapshot, setSnapshot] = useState<WorkspaceDocumentSnapshot | null>(null);
   const [reconciliation, setReconciliation] = useState<ReconcileLocalDraftResult | null>(null);
   const [localState, setLocalState] = useState<WorkspaceDocumentLocalState | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [recoveryVersion, setRecoveryVersion] = useState(0);
   const [documentKey, setDocumentKey] = useState(args.documentId);
   const [lastCommitReceipt, setLastCommitReceipt] = useState<TiptapMarkdownWriteCommitResponse | null>(null);
   const expectedRevisionRef = useRef<number | null>(null);
+  const recoveryMounted = useRef(true);
+  useEffect(() => {
+    recoveryMounted.current = true;
+    return () => { recoveryMounted.current = false; };
+  }, []);
   /** Monotonic generation so stale verification completions cannot clobber newer saves. */
   const verificationGenerationRef = useRef(0);
   /** Monotonic generation so a newer save supersedes an older save's prepare/commit/apply path. */
@@ -213,6 +242,16 @@ export function useWorkspaceDocumentAuthoring(
     localStateRef.current = localState;
   }, [localState]);
 
+  const [persistenceStatus, setPersistenceStatus] = useState<DraftPersistenceStatus>({pending:false,error:null});
+  const draftWriter = useMemo(() => new WorkspaceDraftCoordinator(storage, args.documentId, status => {
+    if (!recoveryMounted.current || requestedDocument.current !== args.documentId) return;
+    setPersistenceStatus(status);
+    if (status.error) dispatch({type:"SAVE_FAILED",message:status.error});
+  }), [storage,args.documentId,dispatch]);
+  const queueLocalState = useCallback((next:WorkspaceDocumentLocalState) => {
+    void draftWriter.write(next,()=>localStateRef.current===next).catch(()=>{});
+  },[draftWriter]);
+
   const openFromSnapshot = useCallback(async (options?: { clearLocalFirst?: boolean }) => {
     dispatch({ type: options?.clearLocalFirst ? "DISCARD_STARTED" : "OPEN_STARTED" });
     saveGenerationRef.current += 1;
@@ -220,11 +259,15 @@ export function useWorkspaceDocumentAuthoring(
     const openGeneration = ++openGenerationRef.current;
     setLastCommitReceipt(null);
     try {
+      await draftWriter.settled();
       if (options?.clearLocalFirst) {
-        clearWorkspaceDocumentLocalState(storage, args.documentId);
+        const generation=editorMutationGenerationRef.current;
+        await draftWriter.clear(()=>openGeneration===openGenerationRef.current && generation===editorMutationGenerationRef.current && requestedDocument.current===args.documentId);
       }
       const nextSnapshot = await getWorkspaceDocumentSnapshot(args.documentId);
-      if (openGeneration !== openGenerationRef.current) return;
+      if (openGeneration !== openGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
+      const admittedRaw = storage.getItem(workspaceDocumentStorageKey(args.documentId));
+      if(options?.clearLocalFirst && admittedRaw!==null)throw new Error("Another tab wrote a draft during discard. Its copy was kept; reopen the page.");
       const stored = options?.clearLocalFirst
         ? null
         : readWorkspaceDocumentLocalState(storage, args.documentId);
@@ -239,8 +282,12 @@ export function useWorkspaceDocumentAuthoring(
       setReconciliation(opened.reconciliation);
 
       if (opened.status === "conflict") {
+        await draftWriter.run(()=>{}, {expectedRaw:admittedRaw,guard:()=>openGeneration===openGenerationRef.current && requestedDocument.current===args.documentId});
+        if(openGeneration!==openGenerationRef.current || requestedDocument.current!==args.documentId)return;
         expectedRevisionRef.current = nextSnapshot.loaded_revision;
         setSnapshot(nextSnapshot);
+        snapshotRef.current = nextSnapshot;
+        localStateRef.current = stored;
         setLocalState(stored);
         setDocumentKey(`${args.documentId}:conflict:${nextSnapshot.loaded_revision}`);
         dispatch({
@@ -264,7 +311,8 @@ export function useWorkspaceDocumentAuthoring(
       expectedRevisionRef.current = nextSnapshot.loaded_revision;
       setSnapshot(nextSnapshot);
       snapshotRef.current = nextSnapshot;
-      writeWorkspaceDocumentLocalState(storage, opened.localState);
+      await draftWriter.write(opened.localState,()=>openGeneration===openGenerationRef.current && requestedDocument.current===args.documentId,admittedRaw);
+      if(openGeneration!==openGenerationRef.current || requestedDocument.current!==args.documentId)return;
       localStateRef.current = opened.localState;
       setLocalState(opened.localState);
       setDocumentKey(
@@ -272,7 +320,7 @@ export function useWorkspaceDocumentAuthoring(
       );
       dispatch({ type: "OPEN_READY", dirty: opened.localState.dirty });
     } catch (loadError) {
-      if (openGeneration !== openGenerationRef.current) return;
+      if (openGeneration !== openGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
       expectedRevisionRef.current = null;
       setSnapshot(null);
       setReconciliation(null);
@@ -282,29 +330,33 @@ export function useWorkspaceDocumentAuthoring(
         message: loadError instanceof Error ? loadError.message : "Unable to load workspace document.",
       });
     }
-  }, [args.documentId, args.kind, args.surface, dispatch, emptyMarkdownFallback, storage]);
+  }, [args.documentId, args.kind, args.surface, dispatch, emptyMarkdownFallback, storage,draftWriter]);
 
   useEffect(() => {
     void openFromSnapshot();
   }, [openFromSnapshot]);
 
   const markDirty = useCallback(() => {
-    setLocalState((current) => {
-      if (!current || current.dirty) return current;
-      const now = new Date().toISOString();
-      const next = { ...current, dirty: true, updated_at: now, last_local_save_at: now };
-      writeWorkspaceDocumentLocalState(storage, next);
-      localDirtyRef.current = true;
-      return next;
-    });
-    dispatch({ type: "EDIT" });
-  }, [dispatch, storage]);
+    const current=localStateRef.current;
+    if(current && !current.dirty){
+      const now=new Date().toISOString();
+      const next={...current,dirty:true,updated_at:now,last_local_save_at:now};
+      localStateRef.current=next;localDirtyRef.current=true;setLocalState(next);queueLocalState(next);
+    }
+    dispatch({type:"EDIT"});
+  },[dispatch,queueLocalState]);
 
-  const persistEditorState = useCallback((nextEditor: Editor) => {
+  const persistEditorState = useCallback((tiptapJson: JSONContent) => {
     const current = localStateRef.current;
     if (!current) return;
-    const tiptapJson = nextEditor.getJSON();
-    const serializationUnsafe = semanticMarkdownSerializationDiagnostics(tiptapJson).length > 0;
+    const composing = args.kind === "worldbuilding_source" && args.surface === "build"
+      && (current.page_presentation !== undefined || hasPresentation(tiptapJson));
+    let projected: {markdown: string; presentation: PagePresentation | null} | undefined;
+    let projectionError: unknown;
+    try { if (composing) projected = projectPresentation(tiptapJson, current.exported_markdown, current.page_presentation_pending ? markdownToTiptapDoc(current.exported_markdown).doc : current.tiptap_json as JSONContent); }
+    catch (error) { projectionError = error; }
+    const serializationUnsafe = semanticMarkdownSerializationDiagnostics(flattenPresentation(tiptapJson)).length > 0;
+    const projectionPending = Boolean(projectionError) && !serializationUnsafe;
     const snap = snapshotRef.current;
     const sourceHasBlockingImport = snap != null && hasBlockingMarkdownImportDiagnostics(snap.markdown);
     // When editor JSON is outside the supported Markdown grammar, or the loaded
@@ -312,9 +364,9 @@ export function useWorkspaceDocumentAuthoring(
     // snapshot markdown instead of a lossy TipTap serialization. Do not call the
     // serializer in that case: playable-identity failure is a throw, not a strip.
     const preservingAuthoritativeExport = serializationUnsafe || sourceHasBlockingImport;
-    const exportedMarkdown = preservingAuthoritativeExport
+    const exportedMarkdown = preservingAuthoritativeExport || projectionPending
       ? (sourceHasBlockingImport && snap ? snap.markdown : current.exported_markdown)
-      : preserveLeadingYamlFrontmatter(
+      : projected?.markdown ?? preserveLeadingYamlFrontmatter(
         snap?.markdown ?? current.exported_markdown,
         tiptapJsonToSemanticMarkdown(tiptapJson),
       );
@@ -323,14 +375,17 @@ export function useWorkspaceDocumentAuthoring(
       && snap != null
       && exportedMarkdown === snap.markdown
       && current.base_revision === snap.loaded_revision
-      && current.base_content_sha256 === snap.content_sha256;
+      && current.base_content_sha256 === snap.content_sha256
+      && presentationFingerprint(projected ? projected.presentation : current.page_presentation ?? null) === presentationFingerprint(snap.page_presentation ?? null);
     // Unsafe sources keep authoritative exported_markdown; TipTap may still hold
     // unsaved projection edits, so do not clear dirty just because export matches.
-    const nextDirty = serializationUnsafe || sourceHasBlockingImport || !matchesSnapshot;
+    const nextDirty = serializationUnsafe || sourceHasBlockingImport || projectionPending || !matchesSnapshot;
     const wasDirty = current.dirty;
     const now = new Date().toISOString();
     const next: WorkspaceDocumentLocalState = {
       ...current,
+      page_presentation_pending: projectionPending,
+      ...(projected ? {page_presentation: projected.presentation} : {}),
       tiptap_json: tiptapJson,
       exported_markdown: exportedMarkdown,
       // Seal authority in localStorage so a future parser upgrade cannot flip the
@@ -341,7 +396,7 @@ export function useWorkspaceDocumentAuthoring(
       updated_at: now,
       last_local_save_at: now,
     };
-    writeWorkspaceDocumentLocalState(storage, next);
+    queueLocalState(next);
     localDirtyRef.current = nextDirty;
     localStateRef.current = next;
     setLocalState(next);
@@ -350,25 +405,29 @@ export function useWorkspaceDocumentAuthoring(
     } else if (wasDirty) {
       dispatch({ type: "OPEN_READY", dirty: false });
     }
-  }, [dispatch, storage]);
+  }, [dispatch, storage,queueLocalState,args.kind,args.surface]);
 
   const handleSetEditor = useCallback((nextEditor: Editor | null) => {
     setEditor(nextEditor);
   }, []);
 
   const handleEditorUpdate = useCallback((
-    _json: JSONContent,
-    nextEditor: Editor,
+    json: JSONContent,
+    _nextEditor: Editor,
     meta: { programmatic: boolean },
   ) => {
     if (meta.programmatic) return;
     editorMutationGenerationRef.current += 1;
-    persistEditorState(nextEditor);
+    persistEditorState(json);
   }, [persistEditorState]);
 
   const reimportFromAuthoritativeMarkdown = useCallback(() => {
     const current = localStateRef.current;
     if (!current?.exported_markdown_authoritative) return;
+    if (current.page_presentation != null) {
+      dispatch({type:"SAVE_FAILED",message:"Use protected source recovery to restore this page together with its layout."});
+      return;
+    }
     if (hasBlockingMarkdownImportDiagnostics(current.exported_markdown)) {
       dispatch({
         type: "SAVE_FAILED",
@@ -396,18 +455,231 @@ export function useWorkspaceDocumentAuthoring(
       updated_at: now,
       last_local_save_at: now,
     };
-    writeWorkspaceDocumentLocalState(storage, next);
-    localDirtyRef.current = next.dirty;
-    localStateRef.current = next;
-    setLocalState(next);
-    setDocumentKey(
-      `${current.document_id}:${current.base_revision}:${next.dirty ? "dirty" : "clean"}:reimport`,
-    );
-    dispatch({ type: "OPEN_READY", dirty: next.dirty });
-  }, [dispatch, storage]);
+    const generation=editorMutationGenerationRef.current;
+    const original={...current,tiptap_json:editor?.getJSON()??current.tiptap_json};
+    void draftWriter.run(()=>{
+      if(requestedDocument.current!==args.documentId || localStateRef.current!==current || generation!==editorMutationGenerationRef.current)
+        throw new Error("The page changed before reimport. Review it again.");
+      appendDraftRecoveryCopies(storage,args.documentId,[{label:"Before source reimport",state:original},{label:"Reimported working draft",state:next}]);
+      writeVerifiedLocalState(storage,next);
+      localDirtyRef.current = next.dirty;
+      localStateRef.current = next;
+      if(!recoveryMounted.current)return;
+      setLocalState(next);
+      setDocumentKey(`${current.document_id}:${current.base_revision}:${next.dirty ? "dirty" : "clean"}:reimport`);
+      dispatch({ type: "OPEN_READY", dirty: next.dirty });
+    },{refusedSnapshot:original}).catch(()=>{});
+  }, [args.documentId,dispatch,storage,draftWriter,editor]);
+
+  const conflictFence = useCallback(() => {
+    const current = localStateRef.current;
+    const saved = snapshotRef.current;
+    if (!recoveryMounted.current || requestedDocument.current !== args.documentId || phaseRef.current !== "conflict" || !current || !saved
+      || current.document_id !== args.documentId || saved.record.document_id !== args.documentId
+      || current.surface !== args.surface || current.kind !== args.kind) {
+      throw new Error("The document changed. Reopen the comparison before choosing a copy.");
+    }
+    assertPersistedDraft(storage, current);
+    return JSON.stringify([current, saved]);
+  }, [args.documentId, args.surface, args.kind, storage]);
+
+  const prepareConflictRecovery = useCallback((): WorkspaceConflictReview => {
+    const fence = conflictFence();
+    return JSON.parse(JSON.stringify({ documentId: args.documentId, fence, local: localStateRef.current, saved: snapshotRef.current }));
+  }, [args.documentId, conflictFence]);
+
+  const resolveConflictRecovery = useCallback(async (review: WorkspaceConflictReview, choice: "local" | "saved") => {
+    if (review.documentId !== args.documentId || review.fence !== conflictFence()) throw new Error("The copies changed. Reopen the comparison.");
+    const generation = openGenerationRef.current;
+    const fresh = await getWorkspaceDocumentSnapshot(args.documentId);
+    if (generation !== openGenerationRef.current || review.fence !== conflictFence()
+      || JSON.stringify(fresh) !== JSON.stringify(snapshotRef.current)) {
+      throw new Error("The saved version or browser draft changed. Check the saved version again and reopen the comparison.");
+    }
+    const current = localStateRef.current!;
+    const opened = openWorkspaceDocumentAuthoringState({ documentId: args.documentId, snapshot: fresh,
+      stored: null, surface: args.surface, kind: args.kind, emptyMarkdownFallback });
+    if (opened.status !== "ready" || !opened.localState) throw new Error("The saved document is no longer editable here. Both copies were kept.");
+    // Preserve exact local JSON and sealed-source authority; existing save gates still apply.
+    const replacement = choice === "saved" ? opened.localState : { ...current,
+      base_revision: fresh.loaded_revision, base_content_sha256: fresh.content_sha256,
+      base_page_presentation_sha256: fresh.page_presentation_sha256 ?? null,
+      dirty: true, updated_at: new Date().toISOString() };
+    const protectedReview = { ...review, local: current, saved: fresh };
+    await draftWriter.run(()=>{
+      if (review.fence !== conflictFence()) throw new Error("The browser draft changed. Both copies were kept; reopen the comparison.");
+      preserveConflictCopies(storage, protectedReview);
+      if (review.fence !== conflictFence()) throw new Error("The browser draft changed. Both copies were kept; reopen the comparison.");
+      writeVerifiedLocalState(storage, replacement);
+      expectedRevisionRef.current = fresh.loaded_revision;
+      localStateRef.current = replacement; localDirtyRef.current = replacement.dirty;
+      setLocalState(replacement); setReconciliation(null); setRecoveryVersion(value => value + 1);
+      setDocumentKey(`${args.documentId}:${fresh.loaded_revision}:conflict-resolved:${Date.now()}`);
+      phaseRef.current = replacement.dirty ? "ready_dirty" : "ready_clean";
+      dispatch({ type: "OPEN_READY", dirty: replacement.dirty });
+    });
+  }, [args.documentId, args.surface, args.kind, conflictFence, dispatch, emptyMarkdownFallback, storage,draftWriter]);
+
+  const protectedConflictCopies = useMemo(() => {
+    try { return storage.getItem(conflictCopiesKey(args.documentId)); } catch { return null; }
+  }, [args.documentId, storage, recoveryVersion]);
+
+  const recoveryFence = useCallback(() => {
+    const current = localStateRef.current;
+    const snap = snapshotRef.current;
+    if (!current || !snap || !editor || current.document_id !== args.documentId
+        || snap.record.document_id !== args.documentId || !isEditorInteractive(machine.phase)
+        || isSaveDisabled(machine.phase) || current.base_revision !== snap.loaded_revision
+        || current.base_content_sha256 !== snap.content_sha256) {
+      throw new Error("The document changed or is not ready. Reopen recovery when it is ready.");
+    }
+    return JSON.stringify([current, editor.getJSON(), editorMutationGenerationRef.current,
+      snap.loaded_revision, snap.content_sha256,
+      assertPersistedDraft(storage, current)]);
+  }, [args.documentId, editor, machine.phase, storage]);
+
+  const currentPageRecovery = useCallback((allowSpacerNormalization = false) => {
+    const current = localStateRef.current;
+    const snap = snapshotRef.current;
+    if (!current || !snap || !editor?.schema) throw new Error("The current page is still loading.");
+    if (hasBlockingMarkdownImportDiagnostics(current.exported_markdown) || hasBlockingMarkdownImportDiagnostics(snap.markdown)) {
+      throw new Error("The preserved source still contains unsupported Markdown. Keep both copies until it can be preserved safely.");
+    }
+    const doc = editor.getJSON();
+    const issues = semanticMarkdownSerializationDiagnostics(doc);
+    if (issues.length) throw new Error(issues[0].message);
+    const markdown = preserveLeadingYamlFrontmatter(current.exported_markdown, tiptapJsonToSemanticMarkdown(doc));
+    const imported = markdownToTiptapDoc(markdown);
+    if (imported.diagnostics.some(issue => issue.level === "warning")) throw new Error("The current page cannot yet be reloaded without changes.");
+    const normalized = editor.schema.nodeFromJSON(imported.doc).toJSON();
+    const stable = (value: unknown): unknown => Array.isArray(value) ? value.map(stable)
+      : value && typeof value === "object" ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, stable(item)])) : value;
+    const equal = (a: unknown, b: unknown) => JSON.stringify(stable(a)) === JSON.stringify(stable(b));
+    if (equal(doc, normalized)) return { doc, markdown, removedSpacers: 0 };
+    const isSpacer = (node: typeof doc) => node.type === "paragraph"
+      && !node.content?.length && !node.marks?.length
+      && Object.values(node.attrs ?? {}).every(value => value == null);
+    const withoutSpacers = (value: typeof doc) => ({ ...value, content: value.content?.filter(node => !isSpacer(node)) });
+    const removedSpacers = (doc.content?.filter(isSpacer).length ?? 0) - (normalized.content?.filter(isSpacer).length ?? 0);
+    if (allowSpacerNormalization && removedSpacers > 0 && equal(withoutSpacers(doc), withoutSpacers(normalized))) {
+      return { doc: normalized, markdown, removedSpacers };
+    }
+    throw new Error("Some current page structure would change on reload. Both copies remain protected.");
+  }, [editor]);
+
+  const prepareDraftRecovery = useCallback((): WorkspaceDraftRecoveryReview => {
+    if(draftWriter.status.pending)throw new Error("Wait for the local draft to finish saving before reviewing recovery.");
+    const current = localStateRef.current;
+    if (!current?.exported_markdown_authoritative) throw new Error("This draft does not require source recovery.");
+    const fence = recoveryFence();
+    let currentPageIssue: string | null = null;
+    let removedSpacers = 0;
+    try { removedSpacers = currentPageRecovery(true).removedSpacers; } catch (reason) { currentPageIssue = reason instanceof Error ? reason.message : "The current page cannot be safely saved yet."; }
+    return { documentId: args.documentId, fence, canKeepCurrent: currentPageIssue == null && removedSpacers === 0, currentPageIssue,
+      canNormalizeCurrent: currentPageIssue == null && removedSpacers > 0, removedSpacers,
+      canUsePreserved: !hasBlockingMarkdownImportDiagnostics(current.exported_markdown),
+      preservedMarkdown: current.exported_markdown,
+      editorText: editor?.getText?.() ?? "Preview unavailable. Your full editor data will be preserved." };
+  }, [args.documentId, editor, recoveryFence, currentPageRecovery,draftWriter]);
+
+  const confirmDraftRecovery = useCallback((review: WorkspaceDraftRecoveryReview, mode: "source" | "current" | "normalize" = "source") => {
+    if (review.documentId !== args.documentId || review.fence !== recoveryFence()) {
+      throw new Error("The draft changed after review. Review it again before replacing it.");
+    }
+    const current = localStateRef.current!;
+    if (!current.exported_markdown_authoritative || hasBlockingMarkdownImportDiagnostics(current.exported_markdown)) {
+      throw new Error("The preserved Markdown still cannot be safely imported. Both versions remain unchanged.");
+    }
+    const imported = markdownToTiptapDoc(current.exported_markdown);
+    if (semanticMarkdownSerializationDiagnostics(imported.doc).length) throw new Error("The preserved source is still unsupported.");
+    const kept = mode === "source" ? null : currentPageRecovery(mode === "normalize");
+    let normalizedDoc = kept?.doc ?? (editor?.schema ? editor.schema.nodeFromJSON(imported.doc).toJSON() : imported.doc);
+    let markdown = kept?.markdown ?? preserveLeadingYamlFrontmatter(current.exported_markdown, tiptapJsonToSemanticMarkdown(normalizedDoc));
+    // Source recovery is explicit: restore the last valid source AND its layout,
+    // never spread stale presentation onto an unrelated plain editor document.
+    let recoveredPresentation = current.page_presentation;
+    if (current.page_presentation !== undefined) {
+      if (mode !== "source") throw new Error("Composed drafts must recover from their preserved source and layout. The protected copy is kept.");
+      markdown = current.exported_markdown;
+      normalizedDoc = current.page_presentation ? hydratePresentation(markdown, current.page_presentation) : imported.doc;
+      recoveredPresentation = current.page_presentation;
+    }
+    const original = JSON.parse(JSON.stringify({ ...current, tiptap_json: editor!.getJSON() })) as WorkspaceDocumentLocalState;
+    const next: WorkspaceDocumentLocalState = { ...current, tiptap_json: normalizedDoc,
+      ...(recoveredPresentation !== undefined ? {page_presentation: recoveredPresentation} : {}),
+      exported_markdown: markdown, exported_markdown_authoritative: false, page_presentation_pending: false,
+      dirty: markdown !== snapshotRef.current!.markdown || presentationFingerprint(recoveredPresentation ?? null) !== presentationFingerprint(snapshotRef.current!.page_presentation ?? null),
+      updated_at: new Date().toISOString(), last_local_save_at: new Date().toISOString() };
+    return draftWriter.run(()=>{
+      if(review.fence!==recoveryFence())throw new Error("The draft changed after review. Review it again before replacing it.");
+      appendDraftRecoveryCopies(storage,args.documentId,[{label:"Protected draft",state:original},{label:"Recovered working draft",state:next}]);
+      if(review.fence!==recoveryFence())throw new Error("The draft changed while recovery was being preserved. All copies were kept.");
+      writeVerifiedLocalState(storage,next);
+      localStateRef.current=next;localDirtyRef.current=next.dirty;setLocalState(next);setRecoveryVersion(v=>v+1);
+      setDocumentKey(`${current.document_id}:${current.base_revision}:recovery:${crypto.randomUUID()}`);
+      dispatch({type:"OPEN_READY",dirty:next.dirty});
+    },{refusedSnapshot:original}).then(()=>{});
+  }, [args.documentId, dispatch, editor, recoveryFence, storage, currentPageRecovery,draftWriter]);
+
+  const restoreFence = useCallback(()=>{
+    const current=localStateRef.current,snap=snapshotRef.current;
+    if(!recoveryMounted.current || requestedDocument.current!==args.documentId || !current || !snap || !editor
+      || current.document_id!==args.documentId || snap.record.document_id!==args.documentId || !isEditorInteractive(phaseRef.current)
+      || isSaveDisabled(phaseRef.current))throw new Error("The page changed or is busy. Reopen recovery when it is ready.");
+    return JSON.stringify([current,editor.getJSON(),editorMutationGenerationRef.current,snap.loaded_revision,snap.content_sha256,
+      storage.getItem(workspaceDocumentStorageKey(args.documentId)),storage.getItem(draftRecoveryJournalKey(args.documentId))]);
+  },[args.documentId,editor,storage]);
+  const prepareDraftRestore = useCallback(async():Promise<WorkspaceDraftRestoreReview>=>{
+    await draftWriter.settled();
+    const before=restoreFence();
+    const primaryRaw=storage.getItem(workspaceDocumentStorageKey(args.documentId));
+    let result:WorkspaceDraftRestoreReview|undefined;
+    await draftWriter.run(()=>{
+      if(before!==restoreFence())throw new Error("The page changed while opening recovery. Reopen the copies.");
+      const copies=appendDraftRecoveryCopies(storage,args.documentId,[]);
+      result={documentId:args.documentId,fence:restoreFence(),copies:JSON.parse(JSON.stringify(copies))};
+    },{expectedRaw:primaryRaw,preserveAdmission:true});
+    return result!;
+  },[args.documentId,draftWriter,restoreFence,storage]);
+  const restoreDraftRecovery = useCallback((review:WorkspaceDraftRestoreReview,copyId:string):Promise<void>=>{
+    if(review.documentId!==args.documentId || review.fence!==restoreFence())throw new Error("The page or recovery copies changed. Review them again before restoring.");
+    const primaryRaw=storage.getItem(workspaceDocumentStorageKey(args.documentId));
+    const incoming={...localStateRef.current!,tiptap_json:editor!.getJSON()};
+    return draftWriter.run(()=>{
+      if(review.fence!==restoreFence())throw new Error("The page or recovery copies changed. All copies were kept.");
+      const selected=readDraftRecoveryCopies(storage,args.documentId).find(copy=>copy.id===copyId);
+      const offered=review.copies.find(copy=>copy.id===copyId);
+      const current=localStateRef.current!,snap=snapshotRef.current!;
+      if(!selected || !offered || JSON.stringify(selected)!==JSON.stringify(offered)
+        || selected.state.kind!==args.kind || selected.state.surface!==args.surface || selected.state.campaign_id!==current.campaign_id)throw new Error("The selected copy does not match this page. Nothing was restored.");
+      const retained:Array<{label:string;state:WorkspaceDocumentLocalState}>=[{label:"Before restoring a copy",state:{...current,tiptap_json:editor!.getJSON()}}];
+      if(primaryRaw!==null){
+        const stored:unknown=JSON.parse(primaryRaw);
+        if(!isWorkspaceDocumentLocalState(stored) || stored.document_id!==args.documentId)throw new Error("The stored page is unreadable. All copies were kept.");
+        retained.push({label:"Stored draft before restore",state:stored});
+      }
+      appendDraftRecoveryCopies(storage,args.documentId,retained);
+      // Appending changes only journal bytes; recheck every live/primary part of the reviewed fence.
+      const reviewed=JSON.parse(review.fence) as unknown[];
+      const now=JSON.parse(restoreFence()) as unknown[];
+      if(JSON.stringify(reviewed.slice(0,-1))!==JSON.stringify(now.slice(0,-1)))throw new Error("The page changed during recovery. All copies were kept.");
+      const next={...selected.state,title:snap.record.title,base_revision:snap.loaded_revision,base_content_sha256:snap.content_sha256,base_page_presentation_sha256:snap.page_presentation_sha256??null,
+        dirty:true,updated_at:new Date().toISOString(),last_local_save_at:new Date().toISOString()};
+      writeVerifiedLocalState(storage,next);
+      expectedRevisionRef.current=snap.loaded_revision;localStateRef.current=next;localDirtyRef.current=true;setLocalState(next);
+      setRecoveryVersion(v=>v+1);setDocumentKey(`${args.documentId}:restore:${crypto.randomUUID()}`);dispatch({type:"OPEN_READY",dirty:true});
+    },{expectedRaw:primaryRaw,refusedSnapshot:incoming}).then(()=>{});
+  },[args.documentId,args.kind,args.surface,dispatch,draftWriter,editor,restoreFence,storage]);
+
+  const draftRecoveryAvailable = useMemo(() => {
+    try { return readDraftRecovery(storage,args.documentId)!=null || readDraftRecoveryCopies(storage,args.documentId).length>0; } catch { return true; }
+  }, [args.documentId, storage, recoveryVersion,persistenceStatus]);
 
   const saveMarkdown = useCallback(async () => {
     if (!editor || !snapshot || !localState) return;
+    const entryGeneration=editorMutationGenerationRef.current;
+    try { await draftWriter.drain(); } catch(error) {dispatch({type:"SAVE_FAILED",message:error instanceof Error?error.message:"The local copy is not verified."});return;}
+    if(entryGeneration!==editorMutationGenerationRef.current || requestedDocument.current!==args.documentId){dispatch({type:"SAVE_FAILED",message:"The page changed while its local copy was saving. Review the current page and Save again."});return;}
     if (localState.exported_markdown_authoritative) {
       dispatch({
         type: "SAVE_FAILED",
@@ -426,7 +698,7 @@ export function useWorkspaceDocumentAuthoring(
     }
 
     const tiptapJson = editor.getJSON();
-    const serializationDiagnostics = semanticMarkdownSerializationDiagnostics(tiptapJson);
+    const serializationDiagnostics = semanticMarkdownSerializationDiagnostics(flattenPresentation(tiptapJson));
     if (serializationDiagnostics.length > 0) {
       dispatch({
         type: "SAVE_FAILED",
@@ -435,8 +707,19 @@ export function useWorkspaceDocumentAuthoring(
       return;
     }
 
-    const editableBody = tiptapJsonToSemanticMarkdown(tiptapJson);
-    const markdown = preserveLeadingYamlFrontmatter(snapshot.markdown, editableBody);
+    let projected: {markdown: string; presentation: PagePresentation | null} | undefined;
+    try {
+      if (args.kind === "worldbuilding_source" && args.surface === "build"
+        && (localState.page_presentation !== undefined || hasPresentation(tiptapJson))) {
+        projected = projectPresentation(tiptapJson, localState.exported_markdown, localState.page_presentation_pending ? markdownToTiptapDoc(localState.exported_markdown).doc : localState.tiptap_json as JSONContent);
+      }
+    } catch (error) {
+      dispatch({type: "SAVE_FAILED", message: error instanceof Error ? error.message : "Layout cannot be saved safely. Your draft was kept."});
+      return;
+    }
+    const editableBody = tiptapJsonToSemanticMarkdown(flattenPresentation(tiptapJson));
+    const markdown = projected?.markdown ?? preserveLeadingYamlFrontmatter(snapshot.markdown, editableBody);
+    const presentationFields = projected ? {page_presentation: projected.presentation} : {};
     if (!editableBody.trim()) {
       dispatch({ type: "SAVE_FAILED", message: "Document is empty; add content before saving." });
       return;
@@ -452,11 +735,13 @@ export function useWorkspaceDocumentAuthoring(
       const prepared = await prepareTiptapMarkdownWrite({
         document_id: args.documentId,
         markdown,
+        ...presentationFields,
         expected_revision: expectedRevision,
       });
-      if (saveGeneration !== saveGenerationRef.current) return;
+      if (saveGeneration !== saveGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
       if (!prepared.writer_ok || !prepared.writer_confirm_token) {
-        dispatch({ type: "SAVE_FAILED", message: "Markdown save could not be prepared." });
+        const reason = [...(prepared.warnings ?? []), ...(prepared.diagnostics ?? [])].filter(Boolean).join(' ');
+        dispatch({ type: "SAVE_FAILED", message: reason ? `Couldn’t save this page: ${reason}` : "The server could not prepare this save. Your draft is still here." });
         return;
       }
 
@@ -464,59 +749,31 @@ export function useWorkspaceDocumentAuthoring(
       const committed = await commitTiptapMarkdownWrite({
         document_id: args.documentId,
         markdown,
+        ...presentationFields,
         writer_confirm_token: prepared.writer_confirm_token,
         expected_revision: expectedRevision,
       });
-      if (saveGeneration !== saveGenerationRef.current) return;
+      if (saveGeneration !== saveGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
       setLastCommitReceipt(committed);
       const receiptForThisSave = committed;
       const verificationGeneration = ++verificationGenerationRef.current;
-      const editedDuringSave =
-        editorMutationGenerationRef.current !== mutationGenerationAtSaveStart;
-
+      let editedDuringSave = editorMutationGenerationRef.current !== mutationGenerationAtSaveStart;
       dispatch({ type: "COMMIT_SUCCEEDED" });
       expectedRevisionRef.current = committed.committed_revision;
-      if (editedDuringSave) {
-        setLocalState((current) => {
-          if (!current) {
-            const fallback = applyCommitReceiptToLocalState({
-              receipt: committed,
-              surface: args.surface,
-              kind: args.kind,
-              tiptapJson,
-              markdown,
-            });
-            const next = { ...fallback, dirty: true };
-            writeWorkspaceDocumentLocalState(storage, next);
-            localDirtyRef.current = true;
-            return next;
-          }
-          const next = applyCommitReceiptBaseRetainingEditorContent({
-            receipt: committed,
-            current,
-          });
-          writeWorkspaceDocumentLocalState(storage, next);
-          localDirtyRef.current = true;
-          return next;
-        });
-      } else {
-        const receiptLocal = applyCommitReceiptToLocalState({
-          receipt: committed,
-          surface: args.surface,
-          kind: args.kind,
-          tiptapJson,
-          markdown,
-        });
-        writeWorkspaceDocumentLocalState(storage, receiptLocal);
-        setLocalState(receiptLocal);
-        localDirtyRef.current = false;
-      }
+      await draftWriter.run(()=>{
+        if(saveGeneration!==saveGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current)return;
+        editedDuringSave=editorMutationGenerationRef.current!==mutationGenerationAtSaveStart;
+        const current=localStateRef.current;
+        const next=editedDuringSave&&current
+          ? applyCommitReceiptBaseRetainingEditorContent({receipt:committed,current})
+          : {...applyCommitReceiptToLocalState({receipt:committed,surface:args.surface,kind:args.kind,tiptapJson,markdown,presentation:projected?.presentation}),dirty:editedDuringSave};
+        writeVerifiedLocalState(storage,next);
+        localStateRef.current=next;localDirtyRef.current=next.dirty;setLocalState(next);
+      },{refusedSnapshot:localStateRef.current??undefined});
 
+      if(saveGeneration!==saveGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current)return;
       if (committed.writer_ok && (committed.file_fingerprint == null || committed.file_fingerprint === "")) {
         setSnapshot(null);
-        if (!editedDuringSave) {
-          setDocumentKey(`${args.documentId}:${committed.committed_revision}:receipt-unverified`);
-        }
         dispatch({
           type: "VERIFICATION_MISMATCH",
           reason: "Commit receipt is missing file_fingerprint after successful write.",
@@ -529,18 +786,22 @@ export function useWorkspaceDocumentAuthoring(
         const nextSnapshot: WorkspaceDocumentSnapshot = {
           ...current,
           record: committed.committed_record,
+          ...presentationFields,
+          page_presentation_sha256: committed.page_presentation_sha256 ?? null,
           markdown,
           content_sha256: committed.normalized_content_sha256,
           file_fingerprint: committed.file_fingerprint as string,
-          file_exists: true,
+          file_exists: false,
+          committed_markdown: markdown,
+          committed_content_sha256: committed.normalized_content_sha256,
           loaded_revision: committed.committed_revision,
         };
         snapshotRef.current = nextSnapshot;
         return nextSnapshot;
       });
-      if (!editedDuringSave) {
-        setDocumentKey(`${args.documentId}:${committed.committed_revision}:committed`);
-      }
+      // Saving acknowledges this live editor's content. Changing documentKey here
+      // would recreate TipTap, dropping focus, selection and undo at each autosave.
+      // Whole-document replacement remains explicit in load/import/recovery paths.
 
       dispatch({ type: "VERIFICATION_STARTED" });
       try {
@@ -574,13 +835,13 @@ export function useWorkspaceDocumentAuthoring(
         });
       }
     } catch (saveError) {
-      if (saveGeneration !== saveGenerationRef.current) return;
+      if (saveGeneration !== saveGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
       dispatch({
         type: "SAVE_FAILED",
         message: saveError instanceof Error ? saveError.message : "Markdown save failed.",
       });
     }
-  }, [args.documentId, args.kind, args.surface, dispatch, editor, localState, snapshot, storage]);
+  }, [args.documentId, args.kind, args.surface, dispatch, editor, localState, snapshot, storage,draftWriter,queueLocalState]);
 
   const discardLocalDraft = useCallback(async () => {
     await openFromSnapshot({ clearLocalFirst: true });
@@ -663,10 +924,10 @@ export function useWorkspaceDocumentAuthoring(
     localDirtyRef.current = nextLocal.dirty;
     setSnapshot(nextSnapshot);
     setLocalState(nextLocal);
-    writeWorkspaceDocumentLocalState(storage, nextLocal);
+    queueLocalState(nextLocal);
     // documentKey intentionally unchanged — TipTap must not remount.
     return { ok: true, record: update.record };
-  }, [args.documentId, args.kind, storage]);
+  }, [args.documentId, args.kind, storage,queueLocalState]);
 
   const dirty = localState?.dirty ?? false;
   const localAdmission = useMemo<WorkspaceDocumentLocalAdmission | null>(() => {
@@ -705,6 +966,24 @@ export function useWorkspaceDocumentAuthoring(
     return snapshot.record;
   }, [localState, phase, snapshot]);
 
+  const saveDisabledReason = persistenceStatus.pending ? "The latest local draft is still saving."
+    : persistenceStatus.error ? persistenceStatus.error
+    : phase === "conflict" ? "The browser draft and saved version differ. Review conflicting copies before saving."
+    : !editor ? "The editor is still loading."
+    : !isEditorInteractive(phase) || isSaveDisabled(phase)
+      ? "The document is not ready to save."
+    : localState?.exported_markdown_authoritative
+      ? (hasBlockingMarkdownImportDiagnostics(localState.exported_markdown)
+        ? "The preserved source uses Markdown this editor cannot save yet. Review the protected copies for details."
+        : "This local copy was protected after an earlier editing problem. Review it once to resume saving.")
+    : localState?.page_presentation_pending ? "Finish or remove the incomplete layout block before saving. Your draft is kept."
+    : (requireDirtyToSave && !dirty) ? "No unsaved changes."
+    : canSave && !canSave() ? "This document is read-only or cannot be saved here."
+    : null;
+  const tourDepartureReason = persistenceStatus.pending ? 'Wait for the local draft to finish saving.'
+    : persistenceStatus.error ?? (dirty ? 'Wait for Saved, or resolve the retained document draft before navigating.'
+    : phase !== 'ready_clean' ? 'Finish loading or resolve the document recovery before navigating.' : null);
+  useTourNavigationGuard(snapshot?.record.world_id ? {worldId:snapshot.record.world_id,reason:impact=>impact==='departure'?tourDepartureReason:null}:null);
   const legacyStatus: WorkspaceDocumentAuthoringStatus = phase;
 
   return {
@@ -718,14 +997,19 @@ export function useWorkspaceDocumentAuthoring(
     documentKey,
     dirty,
     exportedMarkdownAuthoritative: Boolean(localState?.exported_markdown_authoritative),
+    pageComposerEnabled: args.surface === "build" && args.kind === "worldbuilding_source",
+    pageComposerDisabledReason: localState ? composerDisabledReason(localState.exported_markdown) : "Load a page first.",
     localAdmission,
-    statusLabel,
+    statusLabel:persistenceStatus.pending?"Saving local copy…":persistenceStatus.error?"Local copy needs attention":statusLabel,
     saveDisabled: !editor
       || !isEditorInteractive(phase)
       || isSaveDisabled(phase)
       || (requireDirtyToSave && !dirty)
-      || Boolean(localState?.exported_markdown_authoritative)
+      || persistenceStatus.pending || Boolean(persistenceStatus.error)
+      || Boolean(localState?.exported_markdown_authoritative) || Boolean(localState?.page_presentation_pending)
       || (canSave ? !canSave() : false),
+    conflictRecovery: { prepare: prepareConflictRecovery, resolve: resolveConflictRecovery, protectedCopies: protectedConflictCopies },
+    saveDisabledReason, draftRecoveryAvailable, prepareDraftRecovery, confirmDraftRecovery, prepareDraftRestore, restoreDraftRecovery,
     lastCommitReceipt,
     editor,
     setEditor: handleSetEditor,

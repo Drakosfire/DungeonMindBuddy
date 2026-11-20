@@ -20,7 +20,9 @@ from typing import Any
 
 from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import (
     default_cursor_canvas_path,
-    ensure_canvas_file_for_patch,
+    load_candidate_canvas_document,
+    patch_candidate_canvas_paths,
+    summarize_candidate_canvas_results,
 )
 
 BLOCK_BEGIN = "// BEGIN GENERATED C1S3_CANDIDATE_DETAIL"
@@ -54,34 +56,7 @@ def build_c1s3_candidate_canvas_block(candidates_doc: dict[str, Any]) -> str:
 
 
 def patch_c1s3_candidate_canvas_paths(block: str, paths: list[Path]) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    for canvas_path in paths:
-        p = canvas_path.expanduser().resolve()
-        try:
-            ensure_canvas_file_for_patch(p)
-            text = p.read_text(encoding="utf-8")
-        except OSError as exc:
-            out.append({"path": str(p), "error": f"{type(exc).__name__}: {exc}"})
-            continue
-        if BLOCK_BEGIN not in text or BLOCK_END not in text:
-            out.append(
-                {
-                    "path": str(p),
-                    "error": f"ValueError: Canvas must contain {BLOCK_BEGIN!r} and {BLOCK_END!r}",
-                }
-            )
-            continue
-        pre, rest = text.split(BLOCK_BEGIN, 1)
-        _mid, post = rest.split(BLOCK_END, 1)
-        if post.startswith("\n\n"):
-            post = post[1:]
-        new_text = pre + block + post
-        if new_text != text:
-            p.write_text(new_text, encoding="utf-8")
-            out.append({"canvas_updated": str(p)})
-        else:
-            out.append({"canvas_unchanged": str(p)})
-    return out
+    return patch_candidate_canvas_paths(block, paths, begin=BLOCK_BEGIN, end=BLOCK_END)
 
 
 def refresh_c1s3_candidate_canvases(
@@ -91,16 +66,7 @@ def refresh_c1s3_candidate_canvases(
 ) -> dict[str, Any]:
     block = build_c1s3_candidate_canvas_block(candidates_doc)
     per_file = patch_c1s3_candidate_canvas_paths(block, canvas_paths)
-    errors = [x for x in per_file if "error" in x]
-    updated = [str(x["canvas_updated"]) for x in per_file if "canvas_updated" in x]
-    unchanged = [str(x["canvas_unchanged"]) for x in per_file if "canvas_unchanged" in x]
-    return {
-        "enabled": True,
-        "targets": [str(p.expanduser().resolve()) for p in canvas_paths],
-        "updated": updated,
-        "unchanged": unchanged,
-        "errors": errors,
-    }
+    return summarize_candidate_canvas_results(canvas_paths, per_file)
 
 
 def main() -> None:
@@ -115,9 +81,7 @@ def main() -> None:
         help=f"Target canvas (repeatable). Default: {_DEFAULT_CANVAS}",
     )
     args = p.parse_args()
-    doc = json.loads(args.candidates.read_text(encoding="utf-8"))
-    if str(doc.get("schema") or "") != "dmb_breadcrumb_query_candidates_v1":
-        raise SystemExit("candidates file must declare schema dmb_breadcrumb_query_candidates_v1")
+    doc = load_candidate_canvas_document(args.candidates)
     targets = [x.expanduser().resolve() for x in (args.canvas_tsx_list or [_DEFAULT_CANVAS])]
     res = refresh_c1s3_candidate_canvases(candidates_doc=doc, canvas_paths=list(targets))
     if res["errors"]:

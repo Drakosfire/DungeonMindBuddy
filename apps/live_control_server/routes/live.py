@@ -2,13 +2,20 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 from datetime import datetime, timezone
+from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Path, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 
 from apps.live_control_server.routes.agent import router as agent_turn_router
-from apps.live_control_server.config import repo_root, session_dir
+from apps.live_control_server.config import (
+    ManagedWorldDataRootError,
+    artifact_data_root,
+    managed_world_data_root,
+    repo_root,
+    session_dir,
+)
 from apps.live_control_server.services.world_container_registry import (
     WorldContainerRegistryError,
     get_world_container,
@@ -22,12 +29,17 @@ from apps.live_control_server.models.plan_document_edit_proposal import (
     PlanDocumentEditProposalResponse,
     WorldPlanDocumentEditProposalRequest,
     WorldPlanDocumentEditProposalResponse,
+    WorldPlanEditClarificationResponse,
 )
 from apps.live_control_server.services.plan_document_edit_proposal import (
     PlanDocumentEditProposalError,
     get_world_plan_action_projection,
+    get_world_plan_action_conversation_projection,
     propose_plan_document_edit,
     propose_world_plan_document_edit,
+)
+from apps.live_control_server.services.plan_action_consultation import (
+    project_plan_action_source_targets,
 )
 from apps.live_control_server.schema_validation import LiveRowValidationError
 from apps.live_control_server.services.agent_surface_context import (
@@ -56,11 +68,15 @@ from apps.live_control_server.session_store import (
     complete_job,
     events_since,
     load_session,
+    load_session_events,
+    load_session_jobs,
+    load_session_packet,
     queue_packet_rebuild_job,
     refresh_current_state,
+    refresh_loaded_current_state,
     validate_and_save_layout,
 )
-from src.live_play.projections import (
+from live_play.projections import (
     ArtifactReadResponse,
     CapabilityReadResponse,
     ProjectionCommand,
@@ -71,9 +87,13 @@ from src.live_play.projections import (
     execute_projection_command,
     read_artifact_for_target,
 )
-from src.live_play.projections.artifacts import ArtifactReadError
-from src.live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
-from src.live_play.source_bundle import IngestionSourceBundle, build_ingestion_source_bundle
+from live_play.projections.artifacts import ArtifactReadError
+from live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
+from live_play.source_bundle import (
+    IngestionSourceBundle,
+    build_ingestion_source_bundle,
+    list_ingestion_source_sessions,
+)
 
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteCommitRequest,
@@ -83,6 +103,7 @@ from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWritePrepareResponse,
     commit_tiptap_markdown_write,
     prepare_tiptap_markdown_write,
+    has_saved_media_references,
 )
 
 from apps.live_control_server.services.statblock_corpus_preview import (
@@ -121,38 +142,6 @@ from apps.live_control_server.services.statblock_draft_store import (
     store_statblock_draft,
 )
 
-from apps.live_control_server.services.combat_state import (
-    AddGeneratedStatblockCombatRequest,
-    AddGeneratedStatblockCombatResponse,
-    CombatEncounterState,
-    CombatEntityNotFoundError,
-    CombatEntityPatchRequest,
-    CombatHpDeltaRequest,
-    CombatMutationResponse,
-    CombatSetActiveRequest,
-    CombatTurnRequest,
-    add_generated_statblock_to_combat,
-    advance_combat_turn,
-    apply_combat_hp_delta,
-    load_or_initialize_current_combat,
-    patch_combat_entity,
-    set_active_combat_turn,
-    sort_combat_initiative,
-)
-from apps.live_control_server.services.combat_saves import (
-    CombatSaveNotFoundError,
-    CombatSaveSlotResponse,
-    LoadCombatSaveRequest,
-    NewCombatEncounterRequest,
-    SaveCurrentCombatRequest,
-    UnsafeSaveIdError,
-    list_combat_backups,
-    list_combat_saves,
-    load_combat_save,
-    new_combat_encounter,
-    save_current_as,
-    unload_current_combat,
-)
 from apps.live_control_server.services.location_corpus_index import (
     LocationCorpusIndexResponse,
     build_location_corpus_index,
@@ -364,6 +353,11 @@ def post_citation_freshness(body: CitationFreshnessRequest) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="citation freshness check failed") from exc
     return response.model_dump(mode="json")
 
+@router.get("/source-bundle/sessions")
+def get_ingestion_source_sessions(campaign_id: str = Query(min_length=1)) -> list[int]:
+    return list_ingestion_source_sessions(root=repo_root(), campaign_id=campaign_id)
+
+
 @router.get(
     "/source-bundle",
     response_model=IngestionSourceBundle,
@@ -371,70 +365,65 @@ def post_citation_freshness(body: CitationFreshnessRequest) -> dict[str, Any]:
 def get_ingestion_source_bundle(
     scope: str = Query(default="campaign-ingested", min_length=1),
     campaign_id: str | None = Query(default=None),
-) -> dict[str, Any]:
+) -> IngestionSourceBundle:
     try:
-        response = build_ingestion_source_bundle(
+        return build_ingestion_source_bundle(
             root=repo_root(),
             scope=scope,
             campaign_id=campaign_id,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail="source bundle build failed") from exc
-    return response.model_dump(mode="json")
 
 
 @router.get(
     "/locations/index",
     response_model=LocationCorpusIndexResponse,
 )
-def get_location_corpus_index() -> dict[str, Any]:
+def get_location_corpus_index() -> LocationCorpusIndexResponse:
     try:
-        response = build_location_corpus_index(root=repo_root())
+        return build_location_corpus_index(root=repo_root())
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="location corpus index failed"
         ) from exc
-    return response.model_dump(mode="json")
 
 
 @router.get(
     "/roll-tables/index",
     response_model=RollTableCorpusIndexResponse,
 )
-def get_roll_table_corpus_index() -> dict[str, Any]:
+def get_roll_table_corpus_index() -> RollTableCorpusIndexResponse:
     try:
-        response = build_roll_table_corpus_index(root=repo_root())
+        return build_roll_table_corpus_index(root=repo_root())
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="roll table corpus index failed"
         ) from exc
-    return response.model_dump(mode="json")
 
 
 @router.get(
     "/npcs/index",
     response_model=NpcCorpusIndexResponse,
 )
-def get_npc_corpus_index() -> dict[str, Any]:
+def get_npc_corpus_index() -> NpcCorpusIndexResponse:
     try:
-        response = build_npc_corpus_index(root=repo_root())
+        return build_npc_corpus_index(root=repo_root())
     except Exception as exc:
         raise HTTPException(status_code=500, detail="npc corpus index failed") from exc
-    return response.model_dump(mode="json")
 
 
 @router.get(
     "/statblocks/index",
     response_model=StatblockCorpusIndexResponse,
 )
-def get_statblock_corpus_index() -> dict[str, Any]:
+def get_statblock_corpus_index() -> StatblockCorpusIndexResponse:
     try:
-        response = build_statblock_corpus_index(root=repo_root())
+        return build_statblock_corpus_index(root=repo_root())
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="statblock corpus index failed"
         ) from exc
-    return response.model_dump(mode="json")
 
 
 @router.get(
@@ -443,7 +432,7 @@ def get_statblock_corpus_index() -> dict[str, Any]:
 )
 def get_generated_statblock_view_list() -> dict[str, Any]:
     try:
-        response = list_generated_statblocks(base=session_dir(), root=repo_root())
+        response = list_generated_statblocks(base=session_dir(), root=artifact_data_root(repo_root()))
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="generated statblock list failed"
@@ -460,7 +449,7 @@ def get_generated_statblock_view_detail(
 ) -> dict[str, Any]:
     try:
         response = read_generated_statblock(
-            base=session_dir(), root=repo_root(), artifact_id=artifact_id
+            base=session_dir(), root=artifact_data_root(repo_root()), artifact_id=artifact_id
         )
     except UnsafeArtifactIdError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -475,187 +464,83 @@ def get_generated_statblock_view_detail(
     return response.model_dump(mode="json")
 
 
-@router.get(
-    "/combat/current",
-    response_model=CombatEncounterState,
-)
-def get_current_combat() -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    response = load_or_initialize_current_combat(base=base, packet=packet)
-    return response.model_dump(mode="json")
+def _retired_checkout_local_combat_route() -> None:
+    raise HTTPException(
+        status_code=410,
+        detail="Checkout-local Combat is retired. Use World-owned Combat encounters.",
+    )
 
 
-@router.patch(
-    "/combat/current/entities/{entity_id}",
-    response_model=CombatMutationResponse,
-)
+@router.get("/combat/current", status_code=410)
+def get_current_combat() -> None:
+    _retired_checkout_local_combat_route()
+
+
+@router.patch("/combat/current/entities/{entity_id}", status_code=410)
 def patch_current_combat_entity(
     entity_id: Annotated[str, Path(min_length=1)],
-    body: CombatEntityPatchRequest,
-) -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    try:
-        response = patch_combat_entity(
-            base=base, packet=packet, entity_id=entity_id, patch=body
-        )
-    except CombatEntityNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
+) -> None:
+    del entity_id
+    _retired_checkout_local_combat_route()
 
 
-@router.post(
-    "/combat/current/entities/{entity_id}/hp-delta",
-    response_model=CombatMutationResponse,
-)
+@router.post("/combat/current/entities/{entity_id}/hp-delta", status_code=410)
 def post_current_combat_entity_hp_delta(
     entity_id: Annotated[str, Path(min_length=1)],
-    body: CombatHpDeltaRequest,
-) -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    try:
-        response = apply_combat_hp_delta(
-            base=base, packet=packet, entity_id=entity_id, delta=body
-        )
-    except CombatEntityNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
+) -> None:
+    del entity_id
+    _retired_checkout_local_combat_route()
 
 
-@router.post(
-    "/combat/current/sort-initiative",
-    response_model=CombatMutationResponse,
-)
-def post_current_combat_sort_initiative() -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    response = sort_combat_initiative(base=base, packet=packet)
-    return response.model_dump(mode="json")
+@router.post("/combat/current/sort-initiative", status_code=410)
+def post_current_combat_sort_initiative() -> None:
+    _retired_checkout_local_combat_route()
 
 
-@router.post(
-    "/combat/current/active-turn",
-    response_model=CombatMutationResponse,
-)
-def post_current_combat_active_turn(body: CombatSetActiveRequest) -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    try:
-        response = set_active_combat_turn(base=base, packet=packet, request=body)
-    except CombatEntityNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
+@router.post("/combat/current/active-turn", status_code=410)
+def post_current_combat_active_turn() -> None:
+    _retired_checkout_local_combat_route()
 
 
-@router.post(
-    "/combat/current/turn",
-    response_model=CombatMutationResponse,
-)
-def post_current_combat_turn(body: CombatTurnRequest | None = None) -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    request = body or CombatTurnRequest()
-    response = advance_combat_turn(base=base, packet=packet, request=request)
-    return response.model_dump(mode="json")
+@router.post("/combat/current/turn", status_code=410)
+def post_current_combat_turn() -> None:
+    _retired_checkout_local_combat_route()
 
 
-class CombatSavesListResponse(BaseModel):
-    schema_version: Literal["dmb_combat_saves_list_v1"] = "dmb_combat_saves_list_v1"
-    saves: list[Any] = Field(default_factory=list)
-    backups: list[str] = Field(default_factory=list)
+@router.get("/combat/saves", status_code=410)
+def get_combat_saves() -> None:
+    _retired_checkout_local_combat_route()
 
 
-@router.get("/combat/saves", response_model=CombatSavesListResponse)
-def get_combat_saves() -> dict[str, Any]:
-    base = session_dir()
-    return {
-        "saves": [
-            summary.model_dump(mode="json") for summary in list_combat_saves(base)
-        ],
-        "backups": list_combat_backups(base),
-    }
+@router.post("/combat/current/load", status_code=410)
+def post_combat_current_load() -> None:
+    _retired_checkout_local_combat_route()
 
 
-@router.post("/combat/current/load", response_model=CombatSaveSlotResponse)
-def post_combat_current_load(body: LoadCombatSaveRequest) -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    try:
-        response = load_combat_save(base=base, packet=packet, save_id=body.save_id)
-    except UnsafeSaveIdError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except CombatSaveNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
+@router.post("/combat/current/unload", status_code=410)
+def post_combat_current_unload() -> None:
+    _retired_checkout_local_combat_route()
 
 
-@router.post("/combat/current/unload", response_model=CombatSaveSlotResponse)
-def post_combat_current_unload() -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    response = unload_current_combat(base=base, packet=packet)
-    return response.model_dump(mode="json")
+@router.post("/combat/current/new", status_code=410)
+def post_combat_current_new() -> None:
+    _retired_checkout_local_combat_route()
 
 
-@router.post("/combat/current/new", response_model=CombatSaveSlotResponse)
-def post_combat_current_new(
-    body: NewCombatEncounterRequest | None = None,
-) -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    request = body or NewCombatEncounterRequest()
-    response = new_combat_encounter(base=base, packet=packet, request=request)
-    return response.model_dump(mode="json")
-
-
-@router.post("/combat/saves", response_model=CombatSaveSlotResponse)
-def post_combat_save_current(body: SaveCurrentCombatRequest) -> dict[str, Any]:
-    base = session_dir()
-    try:
-        response = save_current_as(base=base, request=body)
-    except UnsafeSaveIdError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except CombatSaveNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
+@router.post("/combat/saves", status_code=410)
+def post_combat_save_current() -> None:
+    _retired_checkout_local_combat_route()
 
 
 @router.post(
     "/statblocks/view/generated/{artifact_id}/combat/add",
-    response_model=AddGeneratedStatblockCombatResponse,
+    status_code=410,
 )
 def post_generated_statblock_combat_add(
     artifact_id: Annotated[str, Path(min_length=1)],
-    body: AddGeneratedStatblockCombatRequest | None = None,
-) -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    request = body or AddGeneratedStatblockCombatRequest()
-    try:
-        response = add_generated_statblock_to_combat(
-            base=base,
-            root=repo_root(),
-            packet=packet,
-            artifact_id=artifact_id,
-            request=request,
-        )
-    except UnsafeArtifactIdError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except StatblockDraftNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except StatblockViewError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail="generated statblock combat add failed"
-        ) from exc
-    return response.model_dump(mode="json")
+) -> None:
+    del artifact_id
+    _retired_checkout_local_combat_route()
 
 
 @router.get(
@@ -892,15 +777,54 @@ def post_statblock_workbench_draft_retrieval_verify(
     return response.model_dump(mode="json")
 
 
+def _require_markdown_media_world(request: Request, world_id: str, plan_world: str | None) -> None:
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        require_hosted_build_page_world, require_hosted_plan_world_context,
+    )
+
+    require_hosted_build_page_world(request, world_id)
+    if plan_world is not None:
+        require_hosted_plan_world_context(request, world_id)
+
+
+def _markdown_media_world(request: Request, markdown: str, plan_world: str | None) -> str | None:
+    if not has_saved_media_references(markdown):
+        return None
+    from apps.live_control_server.services import hosted_auth
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        world_id = getattr(request.state, "hosted_build_page_world", None)
+        if world_id is None:
+            raise HTTPException(403, detail="Saved artwork requires a verified World.")
+        _require_markdown_media_world(request, world_id, plan_world)
+        return world_id
+    enforce_native_graph_gm(request)
+    return None
+
+
 @router.post(
     "/tiptap/markdown-write/prepare",
     response_model=TiptapMarkdownWritePrepareResponse,
 )
 def post_tiptap_markdown_write_prepare(
-    body: TiptapMarkdownWritePrepareRequest,
+    body: TiptapMarkdownWritePrepareRequest, request: Request,
 ) -> dict[str, Any]:
+    if body.world_id is not None:
+        from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+        require_hosted_plan_world_context(request, body.world_id)
     try:
-        response = prepare_tiptap_markdown_write(root=repo_root(), request=body)
+        from apps.live_control_server.services.hosted_native_graph_access import (
+            hosted_world_media_owner,
+        )
+
+        world_id = _markdown_media_world(request, body.markdown, body.world_id)
+        response = prepare_tiptap_markdown_write(
+            root=repo_root(), request=body,
+            media_owner=hosted_world_media_owner(world_id) if world_id else "local_operator",
+        )
+        if world_id:
+            _require_markdown_media_world(request, world_id, body.world_id)
     except TiptapMarkdownWriteError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
@@ -911,10 +835,27 @@ def post_tiptap_markdown_write_prepare(
     response_model=TiptapMarkdownWriteCommitResponse,
 )
 def post_tiptap_markdown_write_commit(
-    body: TiptapMarkdownWriteCommitRequest,
+    body: TiptapMarkdownWriteCommitRequest, request: Request,
 ) -> dict[str, Any]:
+    if body.world_id is not None:
+        from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+        require_hosted_plan_world_context(request, body.world_id)
     try:
-        response = commit_tiptap_markdown_write(root=repo_root(), request=body)
+        from apps.live_control_server.services.hosted_native_graph_access import (
+            hosted_world_media_owner,
+        )
+
+        world_id = _markdown_media_world(request, body.markdown, body.world_id)
+        response = commit_tiptap_markdown_write(
+            root=repo_root(), request=body,
+            media_owner=hosted_world_media_owner(world_id) if world_id else "local_operator",
+            authorize_world=(
+                lambda locked_world: _require_markdown_media_world(request, locked_world, body.world_id)
+            ) if world_id else None,
+        )
+        if world_id:
+            _require_markdown_media_world(request, world_id, body.world_id)
     except TiptapMarkdownWriteError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
@@ -936,7 +877,7 @@ def post_live_query(body: LiveQueryRequest, request: Request) -> Any:
     managed_world = None
     if not legacy_shape:
         try:
-            managed_world = get_world_container(repo_root(), body.campaign_id)
+            managed_world = get_world_container(body.campaign_id)
         except WorldContainerRegistryError as exc:
             if exc.status_code != 404:
                 raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -1006,7 +947,7 @@ def post_live_query(body: LiveQueryRequest, request: Request) -> Any:
         managed_packet = {"campaign_id": managed_world.world_id, "session": body.session}
 
     if managed_packet is None:
-        packet, _, _, _ = load_session(base)
+        packet = load_session_packet(base)
         if body.campaign_id != packet["campaign_id"] or body.session != packet["session"]:
             raise HTTPException(
                 status_code=400,
@@ -1077,13 +1018,19 @@ def post_plan_document_edit_proposal(
 
 @router.post(
     "/world-plan-edit/propose",
-    response_model=WorldPlanDocumentEditProposalResponse,
+    response_model=WorldPlanDocumentEditProposalResponse | WorldPlanEditClarificationResponse,
 )
 def post_world_plan_document_edit_proposal(
     body: WorldPlanDocumentEditProposalRequest,
-) -> WorldPlanDocumentEditProposalResponse:
+) -> WorldPlanDocumentEditProposalResponse | WorldPlanEditClarificationResponse:
     try:
-        return propose_world_plan_document_edit(root=repo_root(), request=body)
+        world_root = managed_world_data_root(repo_root())
+    except ManagedWorldDataRootError as exc:
+        raise HTTPException(
+            status_code=503, detail="Managed World storage is unavailable."
+        ) from exc
+    try:
+        return propose_world_plan_document_edit(root=world_root, request=body)
     except PlanDocumentEditProposalError as exc:
         raise HTTPException(
             status_code=exc.status_code,
@@ -1097,14 +1044,51 @@ def get_world_plan_document_edit_actions(
     document_id: str = Query(min_length=1, max_length=128),
 ) -> dict[str, Any]:
     try:
-        return get_world_plan_action_projection(
-            root=repo_root(), world_id=world_id, document_id=document_id
-        ).model_dump(mode="json")
+        world_root = managed_world_data_root(repo_root())
+    except ManagedWorldDataRootError as exc:
+        raise HTTPException(
+            status_code=503, detail="Managed World storage is unavailable."
+        ) from exc
+    try:
+        page = get_world_plan_action_projection(
+            root=world_root, world_id=world_id, document_id=document_id
+        )
+        payload = page.model_dump(mode="json", by_alias=True)
+        for record, item in zip(page.actions, payload["actions"], strict=True):
+            if record.consultation is not None:
+                item["source_open_targets"] = project_plan_action_source_targets(record)
+        return payload
     except PlanDocumentEditProposalError as exc:
         raise HTTPException(
             status_code=exc.status_code,
             detail={"code": exc.code, "message": str(exc)},
         ) from exc
+
+
+@router.get("/world-plan-edit/conversation-actions")
+def get_world_plan_edit_conversation_actions(
+    world_id: str = Query(min_length=1, max_length=128),
+    conversation_id: UUID = Query(),
+    limit: int = Query(default=50, ge=1, le=50),
+    before_action_sequence: int | None = Query(default=None, ge=1),
+) -> dict[str, Any]:
+    """Project read-only sourced dialogue for the viewed World conversation."""
+    try:
+        world_root = managed_world_data_root(repo_root())
+        page = get_world_plan_action_conversation_projection(
+            root=world_root, world_id=world_id, conversation_id=conversation_id,
+            limit=limit, before_action_sequence=before_action_sequence,
+        )
+    except ManagedWorldDataRootError as exc:
+        raise HTTPException(status_code=503, detail="Managed World storage is unavailable.") from exc
+    except PlanDocumentEditProposalError as exc:
+        raise HTTPException(
+            status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)},
+        ) from exc
+    payload = page.model_dump(mode="json", by_alias=True)
+    for record, item in zip(page.actions, payload["actions"], strict=True):
+        item["source_open_targets"] = project_plan_action_source_targets(record)
+    return payload
 
 
 @router.get("/state")
@@ -1115,41 +1099,49 @@ def get_live_state() -> dict[str, Any]:
 @router.get("/events")
 def get_live_events(since: str | None = Query(default=None)) -> dict[str, Any]:
     base = session_dir()
-    _, _, events, _ = load_session(base)
-    return {"events": events_since(events, since)}
+    return {"events": events_since(load_session_events(base), since)}
 
 
 @router.get("/jobs")
 def get_live_jobs() -> dict[str, Any]:
     base = session_dir()
-    _, _, _, jobs = load_session(base)
-    return {"jobs": jobs}
+    return {"jobs": load_session_jobs(base)}
 
 
 @router.get("/surface")
-def get_live_surface() -> dict[str, Any]:
+def get_live_surface(include_session_views: bool = False) -> dict[str, Any]:
     base = session_dir()
-    packet, layout, _, _ = load_session(base)
-    return {
+    packet, layout, events, jobs = load_session(base)
+    surface = {
         "catalog": packet["surface_catalog"],
         "layout": layout,
-        "state": refresh_current_state(base),
+        "state": refresh_loaded_current_state(base, packet, layout, events, jobs),
     }
+    if include_session_views:
+        surface["events"] = events_since(events, None)
+        surface["jobs"] = jobs
+        surface["plan_view"] = build_session_plan_projection(packet, events, jobs)
+    return surface
 
 
 @router.get("/plan-view")
 def get_live_plan_view(
     world_id: str | None = Query(default=None),
     scope_mode: Literal["world"] | None = Query(default=None),
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, world_id)
     if scope_mode == "world" and world_id is None:
         raise HTTPException(status_code=422, detail="world_id is required for World Plan context.")
     if world_id is not None:
+        world_root = repo_root()
+        try:
+            world = get_world_container(world_id)
+        except WorldContainerRegistryError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
         if scope_mode == "world":
-            try:
-                world = get_world_container(repo_root(), world_id)
-            except WorldContainerRegistryError as exc:
-                raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
             return {
                 "schema_version": "dmb_managed_world_plan_context_v2",
                 "scope_mode": "world",
@@ -1161,10 +1153,6 @@ def get_live_plan_view(
                 "derived_from": ["managed_world_container"],
                 "timeline": [],
             }
-        try:
-            world = get_world_container(repo_root(), world_id)
-        except WorldContainerRegistryError as exc:
-            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
         return {
             "schema_version": "dmb_managed_world_plan_context_v1",
             "campaign_id": world.world_id,
@@ -1260,17 +1248,11 @@ def post_complete_job(job_id: str) -> dict[str, Any]:
 @router.post("/resolve-roll")
 def post_resolve_roll(body: ResolveRollRequest) -> dict[str, Any]:
     base = session_dir()
-    packet, _, events_before, jobs_before = load_session(base)
+    packet = load_session_packet(base)
     try:
         resolved = resolve_roll_from_packet(packet, body.command, root=repo_root())
     except RollResolveError as exc:
         raise HTTPException(status_code=422, detail=exc.diagnostic.message) from exc
-
-    _, _, events_after, jobs_after = load_session(base)
-    if len(events_after) != len(events_before) or len(jobs_after) != len(jobs_before):
-        raise HTTPException(
-            status_code=500, detail="resolve-roll must not append events or jobs"
-        )
 
     return {
         "table_id": resolved.table_id,
@@ -1292,3 +1274,58 @@ def post_rebuild_packet() -> dict[str, Any]:
     except LiveRowValidationError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return {"job_id": job["id"], "status": job["status"], "job": job}
+
+
+def _read_plan_action_prompt(request: Request, world_id: str, action_id: UUID, provider_attempt_id: UUID | None = None):
+    from application_state.errors import ApplicationStateError
+    from apps.live_control_server.services.agent_prompt_evidence import PromptEvidenceError
+    from apps.live_control_server.services.plan_action_prompt_evidence import prompt_index, prompt_body
+
+    enforce_native_graph_gm(request)
+    if list(request.query_params.keys()) != ["world_id"] or len(request.query_params.getlist("world_id")) != 1:
+        raise HTTPException(status_code=422, detail="Only one managed world_id is accepted")
+    try:
+        get_world_container(world_id)
+        payload = (prompt_index(world_id, action_id) if provider_attempt_id is None
+                   else prompt_body(world_id, action_id, provider_attempt_id))
+        return JSONResponse(payload, headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
+    except (ApplicationStateError, PromptEvidenceError, WorldContainerRegistryError) as exc:
+        raise HTTPException(status_code=404, detail={"code": "action_prompt_unavailable"},
+                            headers={"Cache-Control": "no-store", "Pragma": "no-cache"}) from exc
+
+
+@router.get("/world-plan-edit/actions/{action_id}/prompts")
+def get_plan_action_prompt_index(request: Request, action_id: UUID, world_id: str = Query(min_length=1, max_length=128)):
+    return _read_plan_action_prompt(request, world_id, action_id)
+
+
+@router.get("/world-plan-edit/actions/{action_id}/prompts/{provider_attempt_id}")
+def get_plan_action_prompt_body(request: Request, action_id: UUID, provider_attempt_id: UUID,
+                               world_id: str = Query(min_length=1, max_length=128)):
+    return _read_plan_action_prompt(request, world_id, action_id, provider_attempt_id)
+
+
+@router.get("/world-plan-edit/actions/{action_id}/terminal-diagnostic")
+def get_plan_action_terminal_diagnostic(request: Request, action_id: UUID,
+                                       world_id: str = Query(min_length=1, max_length=128)):
+    from application_state.errors import ApplicationStateError
+    from apps.live_control_server.services.plan_action_terminal_diagnostic import terminal_diagnostic
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
+    headers = {"Cache-Control": "no-store", "Pragma": "no-cache"}
+    if list(request.query_params.keys()) != ["world_id"] or len(request.query_params.getlist("world_id")) != 1:
+        raise HTTPException(status_code=422, detail="Only one managed world_id is accepted", headers=headers)
+    try:
+        get_world_container(world_id)
+        diagnostic = terminal_diagnostic(world_id, action_id)
+    except (ApplicationStateError, WorldContainerRegistryError) as exc:
+        raise HTTPException(status_code=404, detail={"code": "action_diagnostic_unavailable"}, headers=headers) from exc
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    return JSONResponse(diagnostic, headers=headers)

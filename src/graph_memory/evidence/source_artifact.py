@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -69,12 +71,53 @@ def build_recap_source_artifact_id(
     return f"artifact:recap:{campaign_id}:{session_id}:{digest_prefix}"
 
 
+def build_world_scoped_recap_source_artifact_id(
+    *,
+    world_id: str,
+    campaign_id: str,
+    session_id: str,
+    content_sha256: str,
+) -> str:
+    """Build a fresh recap identity scoped by World and the complete content digest.
+
+    Legacy ``artifact:recap:<campaign>:<session>:<digest-prefix>`` IDs remain
+    readable, but new sources use this namespace so identical recaps in
+    separate Worlds cannot alias.
+    """
+    values = (world_id, campaign_id, session_id)
+    if any(not value or value != value.strip() for value in values):
+        raise ValueError("world-scoped recap identity requires normalized World/campaign/session IDs")
+    digest = content_sha256.removeprefix("sha256:").strip().lower()
+    if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+        raise ValueError("world-scoped recap identity requires a full SHA-256 content digest")
+    canonical_tuple = json.dumps(
+        [world_id, campaign_id, session_id, digest],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    identity_digest = hashlib.sha256(canonical_tuple.encode("utf-8")).hexdigest()
+    return f"artifact:recap:v2:{identity_digest}"
+
+
 def validate_source_artifact_scope(artifact: GraphMemorySourceArtifact) -> None:
     """Fail closed on invalid domain/scope combinations."""
     domain = str(artifact.source_domain)
     if domain == "recap":
         if not artifact.campaign_id or not artifact.session_id:
             raise ValueError("recap SourceArtifact requires campaign_id and session_id")
+        if artifact.source_artifact_id.startswith("artifact:recap:v2:"):
+            if not artifact.world_id:
+                raise ValueError("World-scoped recap SourceArtifact requires world_id")
+            if not artifact.content_sha256:
+                raise ValueError("World-scoped recap SourceArtifact requires content_sha256")
+            expected_id = build_world_scoped_recap_source_artifact_id(
+                world_id=artifact.world_id,
+                campaign_id=artifact.campaign_id,
+                session_id=artifact.session_id,
+                content_sha256=artifact.content_sha256,
+            )
+            if artifact.source_artifact_id != expected_id:
+                raise ValueError("World-scoped recap SourceArtifact ID does not match its identity")
     if domain == "worldbuilding":
         if artifact.session_id is not None:
             raise ValueError("worldbuilding SourceArtifact must not fabricate a session_id")

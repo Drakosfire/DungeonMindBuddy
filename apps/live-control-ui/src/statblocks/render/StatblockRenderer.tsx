@@ -1,14 +1,16 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import type {
+  AssetRefV1,
   GeneratedStatblockCandidateV1,
   StatblockRevisionResourceV1,
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 
 import "./StatblockRenderer.css";
-import "./statblockCampaignTheme.css";
+
 import {
   buildStatblockViewModel,
+  buildDraftStatblockViewModel,
   formatModifier,
   groupRuleElementsBySection,
   type FormattedRuleElement,
@@ -18,9 +20,12 @@ import {
 
 export type StatblockRendererChrome = "default" | "campaign";
 
-/** Same Cloudflare placeholder as Statblock Generator PortraitPanel until CDN portraits are bound. */
-export const STATBLOCK_PORTRAIT_PLACEHOLDER_URL =
-  "https://imagedelivery.net/SahcvrNe_-ej4lTB6vsAZA/1778cee9-f500-4476-7f30-ac7fd991f700/public";
+type DraftProjection = {
+  portrait?: ReactNode;
+  definition: Parameters<typeof buildDraftStatblockViewModel>[0];
+  hitPoints: (summary: string) => ReactNode;
+  ruleEditor: (key: string, name: string) => ReactNode;
+};
 
 export type StatblockRendererProps =
   | {
@@ -33,9 +38,22 @@ export type StatblockRendererProps =
   | {
       candidate?: never;
       revision: StatblockRevisionResourceV1;
+      pdfPortrait?: string;
       mode?: StatblockRenderMode;
       chrome?: StatblockRendererChrome;
-    };
+    }
+  | { candidate?: never; revision?: never; draft: DraftProjection; mode?: never; chrome?: StatblockRendererChrome };
+
+/** Native bindings own image identity; this projection only admits web image URLs. */
+function SavedPortrait({asset,name}:{asset:AssetRefV1;name:string}) {
+  const [failed,setFailed]=useState(false);
+  let url:string|null=null;
+  try {const parsed=new URL(asset.url);if(['https:','http:'].includes(parsed.protocol))url=parsed.href;} catch { /* Show an honest image-only failure. */ }
+  return <figure className="statblock-renderer-portrait" aria-label="Saved portrait">
+    {url&&!failed?<img src={url} alt={asset.alt_text?.trim()||`Portrait of ${name}`} width={asset.width??undefined} height={asset.height??undefined}
+      loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/>:<p role="status">Portrait unavailable.</p>}
+  </figure>;
+}
 
 function ValidationReceiptSection({ view }: { view: StatblockViewModel }) {
   if (!view.validation) return null;
@@ -118,6 +136,7 @@ export function StatblockAdvancedLedger({
   mode = "full",
 }: {
   revision: StatblockRevisionResourceV1;
+      pdfPortrait?: string;
   mode?: StatblockRenderMode;
 }) {
   const view = buildStatblockViewModel(revision, mode);
@@ -243,7 +262,7 @@ function formatDamageKindLabel(kind: string): string {
   return `Damage ${normalized.replace(/\b\w/g, (ch) => ch.toUpperCase())}`;
 }
 
-function CampaignRuleElement({ element }: { element: FormattedRuleElement }) {
+function CampaignRuleElement({ element, editor }: { element: FormattedRuleElement; editor?: ReactNode }) {
   const metaBits = [
     element.usage.summary && element.usage.summary !== "at will" ? element.usage.summary : null,
     ...element.mechanicDetails.lines.slice(0, 2),
@@ -264,6 +283,7 @@ function CampaignRuleElement({ element }: { element: FormattedRuleElement }) {
       ) : element.summary ? (
         <p className="statblock-campaign-rule__text">{element.summary}</p>
       ) : null}
+      {editor}
     </div>
   );
 }
@@ -283,7 +303,11 @@ function CampaignSectionCard({
   );
 }
 
-function CampaignStatblockBody({ view }: { view: StatblockViewModel }) {
+function CampaignStatblockBody({ view, portrait, draft }: {
+  view: StatblockViewModel;
+  portrait: ReactNode;
+  draft?: DraftProjection;
+}) {
   const sections = groupRuleElementsBySection(view.ruleElements);
   const damageRows = view.damageInteractions.map((entry) => ({
     label: formatDamageKindLabel(entry.kind),
@@ -305,16 +329,7 @@ function CampaignStatblockBody({ view }: { view: StatblockViewModel }) {
 
       <div className="statblock-campaign-grid">
         <div className="statblock-campaign-col">
-          <figure className="statblock-campaign-portrait" data-testid="statblock-campaign-portrait">
-            <div className="statblock-campaign-portrait__frame">
-              <img
-                className="statblock-campaign-portrait__image"
-                src={STATBLOCK_PORTRAIT_PLACEHOLDER_URL}
-                alt="Portrait placeholder"
-              />
-            </div>
-          </figure>
-
+          {portrait}
           {view.flavorSummary ? (
             <p className="statblock-campaign-flavor" data-testid="statblock-campaign-flavor">
               {view.flavorSummary}
@@ -328,7 +343,7 @@ function CampaignStatblockBody({ view }: { view: StatblockViewModel }) {
             </div>
             <div>
               <dt>Hit Points</dt>
-              <dd>{view.hitPointsSummary}</dd>
+              <dd>{draft ? draft.hitPoints(view.hitPointsSummary) : view.hitPointsSummary}</dd>
             </div>
             <div>
               <dt>Speed</dt>
@@ -414,7 +429,8 @@ function CampaignStatblockBody({ view }: { view: StatblockViewModel }) {
           {sections.map(({ section, elements }) => (
             <CampaignSectionCard key={section} heading={section.replace(/_/g, " ")}>
               {elements.map((element) => (
-                <CampaignRuleElement key={element.key} element={element} />
+                <CampaignRuleElement key={element.key} element={element}
+                  editor={draft?.ruleEditor(element.key, element.name)} />
               ))}
             </CampaignSectionCard>
           ))}
@@ -504,18 +520,29 @@ export function StatblockRenderer({
   revision,
   mode = "review",
   chrome = "default",
+  ...options
 }: StatblockRendererProps) {
+  const draft = "draft" in options ? options.draft : undefined;
   const source = candidate ?? revision;
-  if (!source) {
+  if (!source && !draft) {
     throw new Error("StatblockRenderer requires candidate or revision");
   }
   if (candidate && revision) {
     throw new Error("StatblockRenderer accepts candidate or revision, not both");
   }
 
-  const view = buildStatblockViewModel(source, mode);
+  const view = draft ? buildDraftStatblockViewModel(draft.definition) : buildStatblockViewModel(source!, mode);
   const sections = groupRuleElementsBySection(view.ruleElements);
   const campaignChrome = chrome === "campaign";
+  const binding=revision?.asset_bindings?.find(item=>item.role==='portrait'&&item.phase_key==null);
+  const portrait=draft?.portrait ?? (binding?<SavedPortrait key={`${revision!.revision_id}:${binding.asset.asset_id}:${binding.asset.url}`} asset={binding.asset} name={view.name}/>:null);
+  const pdfPortrait = "pdfPortrait" in options && options.pdfPortrait;
+  const displayedPortrait = portrait ?? (pdfPortrait ? (
+    <figure className="statblock-renderer-portrait">
+      <img src={`data:image/jpeg;base64,${pdfPortrait}`} alt={`Source artwork for ${view.name}`} />
+    </figure>
+  ) : null);
+
 
   return (
     <article
@@ -528,18 +555,20 @@ export function StatblockRenderer({
       aria-label={`Statblock ${view.recordKind} ${view.name}`}
     >
       {campaignChrome ? (
-        <CampaignStatblockBody view={view} />
+        <CampaignStatblockBody view={view} portrait={displayedPortrait} draft={draft} />
       ) : (
         <>
           <header className="statblock-renderer-header">
             <h3>{view.name}</h3>
             <p className="statblock-renderer-identity">{view.identityLine}</p>
-            <p className="statblock-renderer-meta">
+            {!draft && <p className="statblock-renderer-meta">
               {view.recordKind === "revision" ? "Revision" : "Candidate"}{" "}
               <code>{view.candidateId}</code> · {view.challengeSummary}
-            </p>
+            </p>}
+            {draft && <p>{view.challengeSummary}</p>}
             {view.flavorSummary ? <p className="statblock-renderer-flavor">{view.flavorSummary}</p> : null}
           </header>
+          {portrait}
 
           <dl className="statblock-renderer-core" aria-label="Core combat statistics">
             <div>
@@ -548,7 +577,7 @@ export function StatblockRenderer({
             </div>
             <div>
               <dt>Hit Points</dt>
-              <dd>{view.hitPointsSummary}</dd>
+              <dd>{draft ? draft.hitPoints(view.hitPointsSummary) : view.hitPointsSummary}</dd>
             </div>
             <div>
               <dt>Speed</dt>
@@ -609,7 +638,10 @@ export function StatblockRenderer({
             <section key={section} className="statblock-renderer-section" aria-label={`${section} rule elements`}>
               <h4>{section.replace(/_/g, " ")}</h4>
               {elements.map((element) => (
-                <RuleElementBlock key={element.key} element={element} />
+                <div key={element.key}>
+                  <RuleElementBlock element={element} />
+                  {draft?.ruleEditor(element.key, element.name)}
+                </div>
               ))}
             </section>
           ))}

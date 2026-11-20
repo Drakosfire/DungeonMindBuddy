@@ -15,9 +15,13 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
+
+from apps.live_control_server.models.reviewed_extract_confirmation import (
+    ReviewedExtractBinding,
+)
 
 from apps.live_control_server.models.world_graph_mutation_context import (
     MutationObject,
@@ -101,50 +105,6 @@ class _BuddyEvidenceRecord:
     source_span_ref_id: str | None = None
 
 
-def _graph_review_evidence_view(
-    contribution: Any,
-    *,
-    pair_to_dm: dict[tuple[str, str], str],
-    sources: Any | None = None,
-) -> _EmptyEvidenceView:
-    """Worldbuilding evidence bound to the admitted Graph Review source pair.
-
-    The empty-store fallback stamps SourceDomain.OTHER, which native
-    projection rejects against a worldbuilding SourceArtifactV2 as
-    ``evidence_source_domain_mismatch`` / SCOPE_UNKNOWN.
-    """
-    records: dict[str, Any] = {}
-    assertions = [
-        *list(getattr(contribution, "accepted_assertions", None) or []),
-        *list(getattr(contribution, "candidate_assertions", None) or []),
-        *list(getattr(contribution, "rejected_assertions", None) or []),
-    ]
-    for assertion in assertions:
-        artifact_id = str(getattr(assertion, "source_artifact_id", "") or "")
-        token = str(getattr(assertion, "source_revision_id", "") or "")
-        dm_revision_id = pair_to_dm.get((artifact_id, token), token)
-        locator = None
-        if sources is not None and dm_revision_id:
-            try:
-                revision = sources.get_revision(dm_revision_id)
-            except Exception:
-                revision = None
-            if revision is not None:
-                locator = str(getattr(revision, "locator", None) or "") or None
-        for evidence_id in list(getattr(assertion, "evidence_ref_ids", None) or []):
-            records[str(evidence_id)] = _BuddyEvidenceRecord(
-                evidence_ref_id=str(evidence_id),
-                source_artifact_id=artifact_id,
-                source_domain="worldbuilding",
-                evidence_role="support",
-                can_open_source=bool(locator),
-                can_highlight_span=False,
-                locator=locator,
-                uri=locator,
-            )
-    return _EmptyEvidenceView(evidence=records)
-
-
 def _embedded_recap_span_ref_id(assertion: Any, evidence_id: str) -> str | None:
     """Return the first-class recap span identity already on the assertion.
 
@@ -175,7 +135,10 @@ def _recap_extraction_evidence_view(
     pair_to_dm: dict[tuple[str, str], str],
     sources: Any | None = None,
 ) -> _EmptyEvidenceView:
-    """Source-extraction evidence bound to the admitted recap source pair.
+    """Source-extraction evidence bound to its admitted artifact domain.
+
+    Fresh worldbuilding uses the separate typed V3 mapper. The locator
+    transport described below remains specific to historical recap mapping.
 
     The empty-store fallback stamps SourceDomain.OTHER, which native
     projection rejects against a recap SourceArtifactV2 as
@@ -196,7 +159,22 @@ def _recap_extraction_evidence_view(
         artifact_id = str(getattr(assertion, "source_artifact_id", "") or "")
         token = str(getattr(assertion, "source_revision_id", "") or "")
         dm_revision_id = pair_to_dm.get((artifact_id, token), token)
+        declared_rows = (getattr(assertion, "value", None) or {}).get("evidence", [])
+        declared_worldbuilding = any(
+            isinstance(row, dict) and row.get("source_domain") == "worldbuilding"
+            for row in declared_rows
+        )
         revision_locator = None
+        domain = "session_recap"
+        if sources is not None and callable(getattr(sources, "get_artifact", None)):
+            artifact = sources.get_artifact(artifact_id)
+            if artifact is not None:
+                domain = str(artifact.source_domain)
+        if declared_worldbuilding and domain != "worldbuilding":
+            raise WorldGraphWriteError(
+                "worldbuilding extraction requires admitted source domain",
+                code="source_not_admitted",
+            )
         if sources is not None and dm_revision_id:
             try:
                 revision = sources.get_revision(dm_revision_id)
@@ -209,7 +187,7 @@ def _recap_extraction_evidence_view(
             records[str(evidence_id)] = _BuddyEvidenceRecord(
                 evidence_ref_id=str(evidence_id),
                 source_artifact_id=artifact_id,
-                source_domain="session_recap",
+                source_domain=domain,
                 evidence_role="support",
                 can_open_source=bool(revision_locator),
                 can_highlight_span=bool(span_id),
@@ -747,12 +725,13 @@ def load_production_mutation_context(
             code="revision_not_bridged",
             details={"world_id": world_id, "revision_id": pinned},
         )
-    return mutation_context_from_revision_payload(
+    context = mutation_context_from_revision_payload(
         stored,
         world_id=world_id,
         head_revision_id=str(head.head_revision_id),
         dungeonmind_decisions=identity_decisions,
     )
+    return _verify_reviewed_corpus_binding_authority(bundle, stored, context)
 
 
 def _derive_confirm_operation_id(
@@ -1151,7 +1130,13 @@ def _reprove_source_extraction(
             details={"world_id": world_id, "reason": "source_identity_conflict"},
         ) from exc
     sealed_sha = str(sealed.get("content_sha256") or "").strip()
-    if sealed_sha and identity.content_sha256 != sealed_sha:
+    sealed_locator = str(sealed.get("source_locator") or "").strip()
+    sealed_fingerprint = str(sealed.get("catalog_fingerprint_sha256") or "").strip()
+    if (
+        (sealed_sha and identity.content_sha256 != sealed_sha)
+        or (sealed_locator and identity.source_locator != sealed_locator)
+        or (sealed_fingerprint and identity.catalog_fingerprint_sha256 != sealed_fingerprint)
+    ):
         raise WorldGraphWriteError(
             "Sealed recap source fingerprint drifted from the admitted pair.",
             code="governed_write_inexpressible",
@@ -1167,8 +1152,11 @@ def _reprove_source_extraction(
 def _candidate_endpoint_kinds(
     context: WorldGraphMutationContext, candidate: Any
 ) -> dict[str, str]:
+    # Core's validated native PC kind is wire-stripped to player_character;
+    # qualification uses the equivalent Buddy kind pc. Keep every other kind
+    # unchanged so unknown/foreign kinds still fail the existing vocabulary gate.
     kinds: dict[str, str] = {
-        object_id: obj.kind
+        object_id: "pc" if obj.kind == "player_character" else obj.kind
         for object_id, obj in context.objects.items()
         if obj.kind.strip()
     }
@@ -1222,6 +1210,7 @@ def _assert_edge_endpoint_admission(
     dm_predicate: str,
     reverse_endpoints: bool,
     endpoint_kinds: Mapping[str, str],
+    target: Any = None,
 ) -> None:
     from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
         _predicate_allowed_endpoints,
@@ -1230,9 +1219,8 @@ def _assert_edge_endpoint_admission(
         CURRENT_V5_TARGET,
     )
 
-    allowed = _predicate_allowed_endpoints(
-        dm_predicate, CURRENT_V5_TARGET.world_object_loader()
-    )
+    target = target or CURRENT_V5_TARGET
+    allowed = _predicate_allowed_endpoints(dm_predicate, target.world_object_loader())
     if allowed is None:
         raise WorldGraphWriteError(
             "DungeonMind vocabulary does not define the qualified predicate",
@@ -1276,7 +1264,7 @@ def _assert_edge_endpoint_admission(
 
 
 def _qualified_edge_update(
-    assertion: Any, *, endpoint_kinds: Mapping[str, str]
+    assertion: Any, *, endpoint_kinds: Mapping[str, str], place_operation: bool = False
 ) -> dict[str, Any]:
     from apps.live_control_server.integrations.dungeonmind.contribution_mapping import (
         _canonical_json,
@@ -1284,14 +1272,23 @@ def _qualified_edge_update(
     from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
         edge_has_reverse_direction_qualifier_v4,
         resolve_buddy_predicate_mapping_v4,
+        CURRENT_V5_TARGET, CONNECTED_PLACE_OPERATION_V7_TARGET,
     )
 
     value = json.loads(assertion.value) if assertion.value else {}
     if not isinstance(value, dict):
         value = {}
-    if isinstance(value.get("dm_predicate"), str) and value["dm_predicate"].strip():
-        return {}
-    mapping = resolve_buddy_predicate_mapping_v4(str(assertion.predicate or ""))
+    if assertion.predicate == "operates" and not place_operation:
+        raise WorldGraphWriteError("place operation requires explicit graph-review authority", code="governed_write_inexpressible")
+    operation = place_operation and assertion.predicate == "operates"
+    target = CONNECTED_PLACE_OPERATION_V7_TARGET if operation else CURRENT_V5_TARGET
+    existing = value.get("dm_predicate")
+    if isinstance(existing, str) and existing.strip():
+        if not operation:
+            return {}
+        if existing != "dnd5e:operates":
+            raise WorldGraphWriteError("place-operation qualification differs from the exact predicate", code="governed_write_inexpressible")
+    mapping = resolve_buddy_predicate_mapping_v4(str(assertion.predicate or ""), target=target)
     if mapping is None or not mapping[0]:
         raise WorldGraphWriteError(
             "confirmed edge predicate has no DungeonMind mapping",
@@ -1322,7 +1319,7 @@ def _qualified_edge_update(
         assertion,
         dm_predicate=dm_predicate,
         reverse_endpoints=reverse_endpoints,
-        endpoint_kinds=endpoint_kinds,
+        endpoint_kinds=endpoint_kinds, target=target,
     )
     update: dict[str, Any] = {
         "value": _canonical_json({**value, "dm_predicate": dm_predicate})
@@ -1334,12 +1331,12 @@ def _qualified_edge_update(
 
 
 def _qualified_assertion_update(
-    assertion: Any, *, endpoint_kinds: Mapping[str, str]
+    assertion: Any, *, endpoint_kinds: Mapping[str, str], allow_place_operation: bool = False
 ) -> dict[str, Any]:
     if assertion.assertion_kind == "node":
         return {"value": _qualified_value(assertion)}
     if assertion.assertion_kind == "edge":
-        return _qualified_edge_update(assertion, endpoint_kinds=endpoint_kinds)
+        return _qualified_edge_update(assertion, endpoint_kinds=endpoint_kinds, place_operation=allow_place_operation)
     if assertion.assertion_kind == "attribute":
         from apps.live_control_server.integrations.dungeonmind.contribution_mapping import (
             _canonical_json,
@@ -1383,20 +1380,29 @@ def _build_v2_candidate(
 ) -> tuple[Any, dict[str, Any]]:
     from apps.live_control_server.integrations.dungeonmind.contribution_mapping import (
         _map_contributions,
+        map_graph_review_contribution_v3,
+        map_worldbuilding_extraction_contribution_v3,
     )
     from dungeonmind.contracts.contribution import AcceptanceState, ContributionStatus
 
     evidence_view: Any = _EmptyEvidenceView()
     source_kind = getattr(contribution, "source_kind", None)
-    if source_kind == "graph_review_authored_assertion":
-        evidence_view = _graph_review_evidence_view(
-            contribution, pair_to_dm=pair_to_dm, sources=sources
-        )
-    elif source_kind == "source_extraction":
+    if source_kind == "source_extraction":
         evidence_view = _recap_extraction_evidence_view(
             contribution, pair_to_dm=pair_to_dm, sources=sources
         )
-    mapped = _map_contributions(evidence_view, [contribution], pair_to_dm)
+    typed_worldbuilding = (
+        source_kind == "source_extraction"
+        and any(str(record.source_domain) == "worldbuilding"
+                for record in evidence_view.evidence.values())
+    )
+    mapped = (
+        [map_worldbuilding_extraction_contribution_v3(evidence_view, contribution, pair_to_dm)]
+        if typed_worldbuilding
+        else [map_graph_review_contribution_v3(evidence_view, contribution, pair_to_dm)]
+        if source_kind == "graph_review_authored_assertion"
+        else _map_contributions(evidence_view, [contribution], pair_to_dm)
+    )
     if len(mapped) != 1:
         raise WorldGraphWriteError(
             "contribution mapping did not produce exactly one candidate",
@@ -1433,6 +1439,7 @@ def _build_v2_candidate(
                                     **_qualified_assertion_update(
                                         assertion,
                                         endpoint_kinds=endpoint_kinds,
+                                        allow_place_operation=source_kind == "graph_review_authored_assertion",
                                     ),
                                 }
                                 if verdict_states[assertion.assertion_id]
@@ -1576,6 +1583,7 @@ def _publish_capability_policy(
     campaign_id: str | None,
     parent_revision_id: str,
     policy_id: str,
+    tool_name: str | None = None,
 ) -> Any:
     """Same confirm-commit tool admission as D.1, distinct policy identity."""
     from dungeonmind.contracts.capability import (
@@ -1588,6 +1596,8 @@ def _publish_capability_policy(
     from dungeonmind.contracts.contribution_review_v2 import FINALIZE_REVIEW_V2_TOOL
     from dungeonmind.contracts.projection import Admissibility
 
+    admitted_tool = tool_name or FINALIZE_REVIEW_V2_TOOL
+
     return CapabilityPolicy(
         policy_id=policy_id,
         graph_scope=GraphScope(
@@ -1596,10 +1606,10 @@ def _publish_capability_policy(
             admissibility=Admissibility.GM,
             revision_pin=parent_revision_id,
         ),
-        enabled_tools=[FINALIZE_REVIEW_V2_TOOL],
+        enabled_tools=[admitted_tool],
         tool_rules=[
             ToolCapabilityRule(
-                tool_name=FINALIZE_REVIEW_V2_TOOL,
+                tool_name=admitted_tool,
                 category=CapabilityCategory.CONFIRM_COMMIT,
                 require_graph_scope=True,
                 allowed_effects=[CapabilityEffect.COMMIT],
@@ -1683,6 +1693,7 @@ def _receipt_ids_from_reviewed_contribution(
     from dungeonmind.contracts.contribution_review_v2 import (
         contribution_v2_payload_sha256,
     )
+    from dungeonmind.contracts.contribution_review_v3 import contribution_v3_payload_sha256
 
     contribution_id = str(getattr(publication, "reviewed_contribution_id", "") or "")
     expected_hash = str(getattr(publication, "reviewed_contribution_sha256", "") or "")
@@ -1707,7 +1718,11 @@ def _receipt_ids_from_reviewed_contribution(
             details={"world_id": world_id, "contribution_id": contribution_id},
         )
     try:
-        actual_hash = contribution_v2_payload_sha256(reviewed)
+        actual_hash = (
+            contribution_v3_payload_sha256(reviewed)
+            if getattr(reviewed, "schema_version", None) == "dm_graph_contribution_v3"
+            else contribution_v2_payload_sha256(reviewed)
+        )
     except Exception:
         from dungeonmind.domain.canonical import canonical_sha256
 
@@ -1744,6 +1759,89 @@ def _mutation_context_from_sealed_package(
     )
 
 
+def _reviewed_identity_publication_guard(
+    *, bundle: Any, package: Mapping[str, Any], context: WorldGraphMutationContext,
+    parent_revision_id: str, campaign_id: str | None,
+) -> Any | None:
+    """Translate a producer-verified binding into Core's guarded intent.
+
+    The native confirm path first re-proves the typed carrier against the live
+    identity, parent, and source authorities. Core then re-verifies the exact
+    committed preimages under its publication fence.
+    """
+    from dungeonmind.contracts.contribution_review_v2 import (
+        ReviewedIdentityPublicationPreconditionsV1,
+        ReviewedIdentitySourcePreconditionV1,
+    )
+    from dungeonmind.contracts.identity import IdentityDecisionRecordV2
+    from dungeonmind.domain.canonical import canonical_sha256
+
+    effect = dict(package.get("effect") or {})
+    admission = dict(effect.get("candidate_admission") or {})
+    candidate_digest = str(admission.get("candidate_digest") or "")
+    bindings = tuple(getattr(context, "reviewed_corpus_bindings", ()) or ())
+    candidates = [
+        binding for binding in bindings
+        if binding.candidate_sha256 == candidate_digest
+    ]
+    if not candidates:
+        return None
+    if len(candidates) != 1:
+        raise WorldGraphWriteError(
+            "confirmation must resolve exactly one reviewed-identity binding",
+            code="governed_write_inexpressible", details={"binding_count": len(candidates)},
+        )
+    binding = candidates[0]
+    decisions = [
+        dict(item) for item in context.identity_ledger_records
+        if item.get("decision_id") == binding.decision_id
+    ]
+    if len(decisions) != 1:
+        raise WorldGraphWriteError(
+            "sealed reviewed-identity binding does not resolve one decision",
+            code="governed_write_inexpressible",
+        )
+    decision = decisions[0]
+    if (
+        binding.world_id != context.world_id
+        or binding.parent_revision_id != parent_revision_id
+        or binding.campaign_id != (campaign_id or "")
+        or binding.candidate_sha256 != candidate_digest
+        or binding.decision_id != decision.get("decision_id")
+        or decision.get("subject_object_ids") != [binding.candidate_node_id]
+        or decision.get("target_object_ids") != [binding.target_object_id]
+        or decision.get("decision_kind") != "human_override"
+        or decision.get("actor") != binding.reviewer_id
+    ):
+        raise WorldGraphWriteError(
+            "sealed reviewed-identity binding does not match this exact command",
+            code="governed_write_inexpressible",
+        )
+    try:
+        typed_decision = IdentityDecisionRecordV2.model_validate(decision)
+        decision_sha256 = canonical_sha256(typed_decision.model_dump(mode="json"))
+        guard = ReviewedIdentityPublicationPreconditionsV1(
+            world_id=binding.world_id, campaign_id=binding.campaign_id,
+            expected_parent_revision_id=binding.parent_revision_id,
+            decision_id=binding.decision_id, decision_sha256=decision_sha256,
+            target_object_id=binding.target_object_id,
+            target_object_sha256=binding.target_sha256,
+            existence_evidence_sha256=binding.evidence_sha256,
+            sources=tuple(ReviewedIdentitySourcePreconditionV1(
+                source_artifact_id=item.source_artifact_id,
+                source_revision_id=item.source_revision_id,
+                source_artifact_sha256=item.artifact_sha256,
+                source_revision_sha256=item.revision_sha256,
+            ) for item in sorted(binding.sources, key=lambda item: (item.source_artifact_id, item.source_revision_id))),
+        )
+    except Exception as exc:
+        raise WorldGraphWriteError(
+            "reviewed-identity publication guard is invalid",
+            code="governed_write_inexpressible", details={"reason": str(exc)[:300],},
+        ) from exc
+    return guard
+
+
 def _reconstruct_selected_contribution(
     *,
     package: dict[str, Any],
@@ -1751,10 +1849,9 @@ def _reconstruct_selected_contribution(
     parent_revision_id: str,
     confirming_principal: str,
     assertion_ids: tuple[str, ...] | None,
-    repo_root: Path,
     mutation_context: WorldGraphMutationContext,
 ) -> tuple[Any, Any]:
-    """Rebuild the sealed contribution against an exact DungeonMind parent."""
+    """Rebuild selection; DungeonMind re-proves admitted source authority below."""
     from graph_memory.extract_promote_ops import (
         resolve_merged_contribution_from_package,
     )
@@ -1766,9 +1863,6 @@ def _reconstruct_selected_contribution(
         mutation_context=mutation_context,
         expected_parent_revision_id=parent_revision_id,
         assertion_ids=assertion_ids,
-        repo_root=repo_root,
-        disclose_source_digest=False,
-        verify_source=True,
     )
 
 
@@ -1798,6 +1892,63 @@ def _confirm_proof_payload(
         "accepted_assertion_ids": list(accepted_assertion_ids or []),
         "affected_object_ids": list(affected_object_ids or []),
     }
+
+
+def _reprove_pinned_canonical_identity_bindings(
+    *, package: Mapping[str, Any], context: WorldGraphMutationContext,
+    candidate_graph: Mapping[str, Any] | None,
+) -> None:
+    """Re-run anchor proof on the supplied sealed candidate and pinned parent."""
+    from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
+    from graph_memory.extract_identity_gate import (
+        _known_party_anchor, _reviewed_binding_anchor,
+    )
+    from graph_memory.extract_promote_proposal import (
+        contribution_slices_from_effect,
+    )
+    from apps.live_control_server.services.candidate_graph_admission import (
+        project_candidate_graph_for_confirmation,
+    )
+
+    effect = dict(package.get("effect") or {})
+    slices = contribution_slices_from_effect(effect)
+    canonical = [
+        (item, str(local_id), record)
+        for item in slices
+        for local_id, record in dict((item.get("identity_basis") or {}).get("nodes") or {}).items()
+        if isinstance(record, Mapping) and record.get("classification") == "reviewed_canonical"
+    ]
+    if not canonical:
+        return
+    if candidate_graph is None:
+        raise WorldGraphWriteError(
+            "reviewed canonical identity requires the exact candidate document",
+            code="governed_write_inexpressible",
+        )
+    try:
+        projected = project_candidate_graph_for_confirmation(
+            review_package=package, candidate_graph=candidate_graph,
+        )
+        preview = load_typed_candidate_graph(projected)
+        nodes = {node.node_id: node for node in preview.nodes}
+        for item, local_id, record in canonical:
+            node = nodes.get(local_id)
+            if node is None:
+                raise ValueError("reviewed canonical node is absent from exact candidate")
+            campaign = (item.get("contribution_meta") or {}).get("campaign_scope")
+            target = _reviewed_binding_anchor(
+                node, context, world_id=context.world_id, campaign_id=campaign,
+            ) or _known_party_anchor(
+                node, context, world_id=context.world_id, campaign_id=campaign,
+            )
+            if target is None or target.object_id != record.get("canonical_target_id"):
+                raise ValueError("reviewed canonical target differs from pinned authority")
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        raise WorldGraphWriteError(
+            "reviewed canonical identity authority could not be proved",
+            code="governed_write_inexpressible",
+            details={"reason": str(exc)[:500]},
+        ) from exc
 
 
 def _classify_parent_revision(
@@ -1873,6 +2024,102 @@ def _classify_parent_revision(
     return "dungeonmind"
 
 
+def _recover_reviewed_extract_confirmation(
+    *,
+    bundle: Any,
+    world_id: str,
+    package: dict[str, Any],
+    operation_id: str,
+    binding: ReviewedExtractBinding,
+) -> dict[str, Any] | None:
+    """Use the exact durable review and its frozen time after an uncertain response."""
+    from dungeonmind.application.review_publication import publish_finalized_review
+    from dungeonmind.domain.canonical import canonical_sha256
+
+    state = bundle.contribution_reviews.get_for_plan(world_id, binding.proposal_id)
+    if state is None:
+        if bundle.finalized_review_publications.get(world_id, operation_id) is not None:
+            raise WorldGraphWriteError(
+                "published operation has no matching finalized review",
+                code="authority_integrity",
+            )
+        return None
+    record = state.record
+    candidate = getattr(state, "candidate_contribution", None)
+    diagnostics = getattr(candidate, "diagnostics", None)
+    expected_binding = binding.model_dump(mode="json")
+    accepted = sorted(
+        verdict.assertion_id
+        for verdict in record.assertion_verdicts
+        if str(getattr(verdict.acceptance_state, "value", verdict.acceptance_state))
+        == "accepted"
+    )
+    if (
+        record.operation_id != operation_id
+        or record.world_id != world_id
+        or record.reviewer_id != binding.service_principal
+        or record.reviewed_at != binding.reviewed_at
+        or record.plan_ref.source_plan_id != binding.proposal_id
+        or record.plan_ref.source_plan_sha256 != binding.proposal_digest
+        or record.plan_ref.source_input_sha256
+        != canonical_sha256(package.get("effect") or {})
+        or record.plan_ref.expected_parent_revision_id
+        != binding.expected_parent_revision_id
+        or record.plan_ref.base_graph_payload_sha256
+        != binding.expected_parent_payload_sha256
+        or accepted != binding.selected_assertion_ids
+        or not isinstance(diagnostics, dict)
+        or diagnostics.get("reviewed_extract_confirmation") != expected_binding
+    ):
+        raise WorldGraphWriteError(
+            "finalized review differs from the pinned semantic selection",
+            code="governed_write_idempotency_conflict",
+            details={"world_id": world_id, "proposal_id": binding.proposal_id},
+        )
+    existing = bundle.finalized_review_publications.get(world_id, operation_id)
+    if existing is None:
+        existing = publish_finalized_review(
+            world_id,
+            record.review_id,
+            published_at=record.reviewed_at,
+            review_repository=bundle.contribution_reviews,
+            world_graph_repository=bundle.world_graph,
+            publication_repository=bundle.finalized_review_publications,
+            graph_reader=_build_graph_reader(),
+        )
+    if (
+        existing.review_id != record.review_id
+        or existing.review_intent_sha256 != record.review_intent_sha256
+        or existing.reviewed_contribution_id != record.reviewed_contribution_id
+        or existing.reviewed_contribution_sha256
+        != record.reviewed_contribution_sha256
+        or existing.expected_parent_revision_id
+        != binding.expected_parent_revision_id
+    ):
+        raise WorldGraphWriteError(
+            "publication differs from the pinned finalized review",
+            code="authority_integrity",
+        )
+    accepted_assertion_ids, affected_object_ids = _receipt_ids_from_reviewed_contribution(
+        bundle=bundle, world_id=world_id, publication=existing
+    )
+    if sorted(accepted_assertion_ids) != binding.selected_assertion_ids:
+        raise WorldGraphWriteError(
+            "published contribution differs from the selected assertions",
+            code="authority_integrity",
+        )
+    return _confirm_proof_payload(
+        package,
+        world_id=world_id,
+        outcome="already_applied",
+        parent_revision_id=existing.expected_parent_revision_id,
+        committed_revision_id=existing.published_revision_id,
+        contribution_id=existing.reviewed_contribution_id,
+        accepted_assertion_ids=accepted_assertion_ids,
+        affected_object_ids=affected_object_ids,
+    )
+
+
 def confirm_extract_promote_via_dungeonmind(
     request: Any,
     *,
@@ -1880,6 +2127,9 @@ def confirm_extract_promote_via_dungeonmind(
     confirming_principal: str,
     assertion_ids: tuple[str, ...] | None,
     repo_root: Path,
+    semantic_binding: ReviewedExtractBinding | None = None,
+    semantic_gm_policy: Any | None = None,
+    candidate_graph: Mapping[str, Any] | None = None,
     **_ignored: Any,
 ) -> dict[str, Any]:
     """Publish a D.1 package through DungeonMind without Buddy hydration."""
@@ -1891,6 +2141,7 @@ def confirm_extract_promote_via_dungeonmind(
     from dungeonmind.contracts.contribution_review_v2 import (
         CommitConfirmationReceiptV2,
         ContributionReviewIntentV2,
+        GuardedContributionReviewIntentV2,
         ContributionReviewSubmissionV2,
         contribution_v2_payload_sha256,
         derive_review_intent_sha256_v2,
@@ -1911,6 +2162,35 @@ def confirm_extract_promote_via_dungeonmind(
             "review package carries no world_id",
             code="invalid_request",
         )
+    if semantic_binding is not None:
+        from dungeonmind.contracts.capability import CapabilityEffect
+        from dungeonmind.contracts.projection import Admissibility
+        from dungeonmind.domain.capability import evaluate_capability
+
+        scope = getattr(semantic_gm_policy, "graph_scope", None)
+        if (
+            scope is None
+            or scope.admissibility is not Admissibility.GM
+            or scope.world_id != world_id
+            or scope.campaign_id
+            != (package.get("effect") or {}).get("contribution_meta", {}).get("campaign_scope")
+            or scope.revision_pin != semantic_binding.expected_parent_revision_id
+        ):
+            raise WorldGraphWriteError(
+                "reviewed extract requires the pinned GM confirm capability",
+                code="governed_write_idempotency_conflict",
+            )
+        try:
+            evaluate_capability(
+                semantic_gm_policy,
+                tool_name=FINALIZE_REVIEW_V2_TOOL,
+                effect=CapabilityEffect.COMMIT,
+            )
+        except Exception as exc:
+            raise WorldGraphWriteError(
+                "reviewed extract GM confirm capability was denied",
+                code="governed_write_idempotency_conflict",
+            ) from exc
     dsn = _require_database_url(database_url)
     services = _direct_services(dsn, world_id)
     bundle = services.bundle
@@ -1921,6 +2201,23 @@ def confirm_extract_promote_via_dungeonmind(
         package=package,
         assertion_ids=assertion_ids,
     )
+    if semantic_binding is not None:
+        if (
+            confirming_principal != semantic_binding.service_principal
+            or sorted(assertion_ids or ()) != semantic_binding.selected_assertion_ids
+            or package.get("proposal_id") != semantic_binding.proposal_id
+            or package.get("proposal_digest") != semantic_binding.proposal_digest
+        ):
+            raise WorldGraphWriteError(
+                "semantic review differs from confirmation request",
+                code="governed_write_idempotency_conflict",
+            )
+        recovered = _recover_reviewed_extract_confirmation(
+            bundle=bundle, world_id=world_id, package=package,
+            operation_id=operation_id, binding=semantic_binding,
+        )
+        if recovered is not None:
+            return recovered
     try:
         existing = bundle.finalized_review_publications.get(world_id, operation_id)
     except Exception as exc:
@@ -1930,6 +2227,23 @@ def confirm_extract_promote_via_dungeonmind(
             details={"world_id": world_id, "reason": type(exc).__name__},
         ) from exc
     if existing is not None:
+        if semantic_binding is not None:
+            raise WorldGraphWriteError(
+                "publication exists without the pinned finalized review",
+                code="authority_integrity",
+            )
+        if (
+            str(getattr(existing, "world_id", "") or "") != world_id
+            or str(getattr(existing, "operation_id", "") or "") != operation_id
+        ):
+            raise WorldGraphWriteError(
+                "publication receipt does not match the requested operation",
+                code="governed_write_idempotency_conflict",
+            )
+        _assert_publication_replay_identity(
+            existing=existing,
+            expected_parent_revision_id=str((package.get("effect") or {}).get("parent_revision_id") or ""),
+        )
         accepted_assertion_ids, affected_object_ids = (
             _receipt_ids_from_reviewed_contribution(
                 bundle=bundle,
@@ -1947,6 +2261,16 @@ def confirm_extract_promote_via_dungeonmind(
             accepted_assertion_ids=accepted_assertion_ids,
             affected_object_ids=affected_object_ids,
         )
+
+    from graph_memory.extract_promote_proposal import verify_source_local_identity_basis
+    try:
+        verify_source_local_identity_basis(package.get("effect") or {}, require=True)
+    except ValueError as exc:
+        raise WorldGraphWriteError(
+            "review package has no valid source-local identity basis",
+            code="governed_write_inexpressible",
+            details={"world_id": world_id, "reason": str(exc)[:500]},
+        ) from exc
 
     sealed_parent = str(
         (package.get("effect") or {}).get("parent_revision_id") or ""
@@ -1980,6 +2304,13 @@ def confirm_extract_promote_via_dungeonmind(
             details={"world_id": world_id, "revision_id": parent_revision_id},
         )
     if head.head_revision_id != parent_revision_id:
+        if semantic_binding is not None:
+            recovered = _recover_reviewed_extract_confirmation(
+                bundle=bundle, world_id=world_id, package=package,
+                operation_id=operation_id, binding=semantic_binding,
+            )
+            if recovered is not None:
+                return recovered
         raise WorldGraphWriteError(
             "DungeonMind head advanced past the sealed package's parent; "
             "re-prepare the review against the current head",
@@ -1997,23 +2328,71 @@ def confirm_extract_promote_via_dungeonmind(
         world_id=world_id,
         head_revision_id=str(head.head_revision_id),
     )
+    mutation_context = _verify_reviewed_corpus_binding_authority(
+        bundle, parent_stored, mutation_context, package=package,
+    )
+    _reprove_pinned_canonical_identity_bindings(
+        package=package, context=mutation_context, candidate_graph=candidate_graph,
+    )
+    if (package.get("effect") or {}).get("source_proven_endpoint_basis") is not None:
+        from apps.live_control_server.services.recap_source_endpoint_prepare import (
+            reprove_source_proven_endpoints,SourceProvenEndpointError,
+        )
+        try:
+            reprove_source_proven_endpoints(bundle=bundle,package=package,repo_root=repo_root)
+        except SourceProvenEndpointError as exc:
+            raise WorldGraphWriteError(str(exc),code="governed_write_source_endpoint_drift") from exc
+    if (package.get("effect") or {}).get("recap_source_observation_basis") is not None:
+        from apps.live_control_server.services.recap_source_observation_prepare import (
+            reprove_recap_source_observation_binding,
+            RecapSourceObservationPrepareError,
+        )
+        try:
+            reprove_recap_source_observation_binding(
+                bundle=bundle, package=package, repo_root=repo_root,
+            )
+        except RecapSourceObservationPrepareError as exc:
+            raise WorldGraphWriteError(
+                str(exc), code="governed_write_source_observation_drift",
+            ) from exc
     _verified, contribution = _reconstruct_selected_contribution(
         package=package,
         world_id=world_id,
         parent_revision_id=parent_revision_id,
         confirming_principal=confirming_principal,
         assertion_ids=assertion_ids,
-        repo_root=repo_root,
         mutation_context=mutation_context,
     )
     accepted_assertion_ids, affected_object_ids = _affected_ids_from_contribution(
         contribution
     )
+    if (
+        semantic_binding is not None
+        and sorted(accepted_assertion_ids)
+        != semantic_binding.selected_assertion_ids
+    ):
+        raise WorldGraphWriteError(
+            "reconstructed contribution differs from the reviewed selection",
+            code="governed_write_idempotency_conflict",
+        )
 
     parent_envelope = parent_stored.revision
     _reprove_source_extraction(bundle, world_id, contribution, package=package)
     pair_to_dm = _build_pair_to_dm(bundle, world_id, contribution)
-    reviewed_at = parent_envelope.created_at
+    if (
+        semantic_binding is not None
+        and parent_envelope.graph_payload_sha256
+        != semantic_binding.expected_parent_payload_sha256
+    ):
+        raise WorldGraphWriteError(
+            "reviewed parent graph digest differs from the sealed parent",
+            code="governed_write_idempotency_conflict",
+        )
+    reviewed_at = (
+        semantic_binding.reviewed_at
+        if semantic_binding is not None
+        else parent_envelope.created_at
+    )
     candidate, verdict_states = _build_v2_candidate(
         contribution,
         context=mutation_context,
@@ -2021,6 +2400,22 @@ def confirm_extract_promote_via_dungeonmind(
         produced_at=reviewed_at,
         sources=bundle.sources,
     )
+    if semantic_binding is not None:
+        if sorted(
+            assertion_id
+            for assertion_id, state in verdict_states.items()
+            if str(getattr(state, "value", state)) == "accepted"
+        ) != semantic_binding.selected_assertion_ids:
+            raise WorldGraphWriteError(
+                "Core candidate differs from the reviewed selection",
+                code="governed_write_idempotency_conflict",
+            )
+        candidate = candidate.model_copy(update={
+            "diagnostics": {
+                **dict(candidate.diagnostics or {}),
+                "reviewed_extract_confirmation": semantic_binding.model_dump(mode="json"),
+            }
+        })
     proposals, verdicts = _build_identity_dispositions(candidate, verdict_states)
     assertion_verdicts = [
         ContributionAssertionVerdict(
@@ -2032,6 +2427,13 @@ def confirm_extract_promote_via_dungeonmind(
         )
     ]
     campaign_id = contribution.campaign_scope or None
+    reviewed_identity_preconditions = _reviewed_identity_publication_guard(
+        bundle=bundle,
+        package=package,
+        context=mutation_context,
+        parent_revision_id=parent_revision_id,
+        campaign_id=campaign_id,
+    )
     raw_profile = parent_stored.graph_payload.get("semantic_profile")
     if raw_profile is None:
         raise WorldGraphWriteError(
@@ -2064,9 +2466,15 @@ def confirm_extract_promote_via_dungeonmind(
         assertion_verdicts=assertion_verdicts,
         reviewer_id=confirming_principal,
         reviewed_at=reviewed_at,
+        reviewed_identity_preconditions=reviewed_identity_preconditions,
     )
     try:
-        intent = ContributionReviewIntentV2(
+        intent_type = (
+            GuardedContributionReviewIntentV2
+            if reviewed_identity_preconditions is not None
+            else ContributionReviewIntentV2
+        )
+        intent = intent_type(
             operation_id=operation_id,
             world_id=world_id,
             campaign_id=campaign_id,
@@ -2078,6 +2486,8 @@ def confirm_extract_promote_via_dungeonmind(
             reviewer_id=confirming_principal,
             reviewed_at=reviewed_at,
             review_intent_sha256=intent_sha256,
+            **({"reviewed_identity_preconditions": reviewed_identity_preconditions}
+               if reviewed_identity_preconditions is not None else {}),
         )
         confirmation = CommitConfirmationReceiptV2(
             confirmation_id=derive_confirmation_id(
@@ -2120,7 +2530,7 @@ def confirm_extract_promote_via_dungeonmind(
     try:
         state = finalize_contribution_review_v2(
             submission,
-            capability_policy=_confirm_capability_policy(
+            capability_policy=semantic_gm_policy if semantic_binding is not None else _confirm_capability_policy(
                 world_id=world_id,
                 campaign_id=campaign_id,
                 parent_revision_id=parent_revision_id,
@@ -2129,6 +2539,13 @@ def confirm_extract_promote_via_dungeonmind(
             review_repository=bundle.contribution_reviews,
         )
     except StaleParentRevisionError as exc:
+        if semantic_binding is not None:
+            recovered = _recover_reviewed_extract_confirmation(
+                bundle=bundle, world_id=world_id, package=package,
+                operation_id=operation_id, binding=semantic_binding,
+            )
+            if recovered is not None:
+                return recovered
         raise WorldGraphWriteError(
             "DungeonMind head advanced past the sealed package's parent; "
             "re-prepare the review against the current head",
@@ -2142,12 +2559,31 @@ def confirm_extract_promote_via_dungeonmind(
             },
         ) from exc
     except DungeonMindError as exc:
+        if semantic_binding is not None:
+            recovered = _recover_reviewed_extract_confirmation(
+                bundle=bundle, world_id=world_id, package=package,
+                operation_id=operation_id, binding=semantic_binding,
+            )
+            if recovered is not None:
+                return recovered
         raise WorldGraphWriteError(
             "DungeonMind review finalization failed",
             code="governed_write_failed",
             details={"world_id": world_id, "reason": str(exc)[:500]},
         ) from exc
+    except Exception:
+        if semantic_binding is not None:
+            recovered = _recover_reviewed_extract_confirmation(
+                bundle=bundle, world_id=world_id, package=package,
+                operation_id=operation_id, binding=semantic_binding,
+            )
+            if recovered is not None:
+                return recovered
+        raise
 
+    _verify_reviewed_corpus_binding_authority(
+        bundle, parent_stored, mutation_context, package=package,
+    )
     try:
         publication = publish_finalized_review(
             world_id,
@@ -2292,8 +2728,13 @@ def _review_intent_sha256_for_threat_request(
         contribution_v2_payload_sha256,
         derive_review_intent_sha256_v2,
     )
+    from dungeonmind.contracts.contribution_review_v3 import (
+        contribution_v3_payload_sha256,
+        derive_review_intent_sha256_v3,
+    )
     from dungeonmind.contracts.semantic_profile import SemanticProfileRef
     from dungeonmind.domain.canonical import canonical_sha256
+
 
     try:
         parent_stored = bundle.world_graph.get_revision(
@@ -2330,6 +2771,7 @@ def _review_intent_sha256_for_threat_request(
         produced_at=reviewed_at,
         sources=bundle.sources,
     )
+    typed_graph_review = candidate.schema_version == "dm_graph_contribution_v3"
     proposals, verdicts = _build_identity_dispositions(candidate, verdict_states)
     assertion_verdicts = [
         ContributionAssertionVerdict(
@@ -2362,13 +2804,22 @@ def _review_intent_sha256_for_threat_request(
             {"contribution_id": contribution.contribution_id}
         ),
         preview_content_sha256=canonical_sha256({}),
-        candidate_contribution_sha256=contribution_v2_payload_sha256(candidate),
+        candidate_contribution_sha256=(
+            contribution_v3_payload_sha256(candidate)
+            if typed_graph_review
+            else contribution_v2_payload_sha256(candidate)
+        ),
         expected_parent_revision_id=expected_parent_revision_id,
         base_graph_schema=parent_envelope.graph_schema,
         base_graph_payload_sha256=parent_envelope.graph_payload_sha256,
         semantic_profile=SemanticProfileRef.model_validate(raw_profile),
     )
-    return derive_review_intent_sha256_v2(
+    derive = (
+        derive_review_intent_sha256_v3
+        if typed_graph_review
+        else derive_review_intent_sha256_v2
+    )
+    return derive(
         operation_id=operation_id,
         world_id=world_id,
         campaign_id=campaign_id,
@@ -2455,6 +2906,14 @@ def publish_contribution_via_dungeonmind(
         contribution_v2_payload_sha256,
         derive_review_intent_sha256_v2,
         FINALIZE_REVIEW_V2_TOOL,
+    )
+    from dungeonmind.contracts.contribution_review_v3 import (
+        CommitConfirmationReceiptV3,
+        ContributionReviewIntentV3,
+        ContributionReviewSubmissionV3,
+        contribution_v3_payload_sha256,
+        derive_review_intent_sha256_v3,
+        FINALIZE_REVIEW_V3_TOOL,
     )
     from dungeonmind.contracts.semantic_profile import SemanticProfileRef
     from dungeonmind.domain.canonical import canonical_sha256
@@ -2549,6 +3008,7 @@ def publish_contribution_via_dungeonmind(
         produced_at=reviewed_at,
         sources=bundle.sources,
     )
+    typed_graph_review = candidate.schema_version == "dm_graph_contribution_v3"
     proposals, verdicts = _build_identity_dispositions(candidate, verdict_states)
     assertion_verdicts = [
         ContributionAssertionVerdict(
@@ -2581,13 +3041,22 @@ def publish_contribution_via_dungeonmind(
             {"contribution_id": contribution.contribution_id}
         ),
         preview_content_sha256=canonical_sha256({}),
-        candidate_contribution_sha256=contribution_v2_payload_sha256(candidate),
+        candidate_contribution_sha256=(
+            contribution_v3_payload_sha256(candidate)
+            if typed_graph_review
+            else contribution_v2_payload_sha256(candidate)
+        ),
         expected_parent_revision_id=expected_parent_revision_id,
         base_graph_schema=parent_envelope.graph_schema,
         base_graph_payload_sha256=parent_envelope.graph_payload_sha256,
         semantic_profile=SemanticProfileRef.model_validate(raw_profile),
     )
-    intent_sha256 = derive_review_intent_sha256_v2(
+    derive = (
+        derive_review_intent_sha256_v3
+        if typed_graph_review
+        else derive_review_intent_sha256_v2
+    )
+    intent_sha256 = derive(
         operation_id=operation_id,
         world_id=world_id,
         campaign_id=campaign_id,
@@ -2600,7 +3069,22 @@ def publish_contribution_via_dungeonmind(
         reviewed_at=reviewed_at,
     )
     try:
-        intent = ContributionReviewIntentV2(
+        intent_type = (
+            ContributionReviewIntentV3
+            if typed_graph_review
+            else ContributionReviewIntentV2
+        )
+        receipt_type = (
+            CommitConfirmationReceiptV3
+            if typed_graph_review
+            else CommitConfirmationReceiptV2
+        )
+        submission_type = (
+            ContributionReviewSubmissionV3
+            if typed_graph_review
+            else ContributionReviewSubmissionV2
+        )
+        intent = intent_type(
             operation_id=operation_id,
             world_id=world_id,
             campaign_id=campaign_id,
@@ -2613,7 +3097,7 @@ def publish_contribution_via_dungeonmind(
             reviewed_at=reviewed_at,
             review_intent_sha256=intent_sha256,
         )
-        confirmation = CommitConfirmationReceiptV2(
+        confirmation = receipt_type(
             confirmation_id=derive_confirmation_id(
                 operation_id=operation_id,
                 review_intent_sha256=intent_sha256,
@@ -2623,14 +3107,18 @@ def publish_contribution_via_dungeonmind(
             operation_id=operation_id,
             review_intent_sha256=intent_sha256,
             actor=actor,
-            tool_name=FINALIZE_REVIEW_V2_TOOL,
+            tool_name=(
+                FINALIZE_REVIEW_V3_TOOL
+                if typed_graph_review
+                else FINALIZE_REVIEW_V2_TOOL
+            ),
             effect="commit",
             world_id=world_id,
             campaign_id=campaign_id,
             expected_parent_revision_id=expected_parent_revision_id,
             confirmed_at=reviewed_at,
         )
-        submission = ContributionReviewSubmissionV2(
+        submission = submission_type(
             intent=intent, confirmation=confirmation
         )
     except Exception as exc:
@@ -2647,18 +3135,31 @@ def publish_contribution_via_dungeonmind(
     from dungeonmind.application.contribution_review_v2 import (
         finalize_contribution_review_v2,
     )
+    from dungeonmind.application.contribution_review_v3 import (
+        finalize_contribution_review_v3,
+    )
     from dungeonmind.application.review_publication import (
         publish_finalized_review,
     )
 
     try:
-        state = finalize_contribution_review_v2(
+        finalize = (
+            finalize_contribution_review_v3
+            if typed_graph_review
+            else finalize_contribution_review_v2
+        )
+        state = finalize(
             submission,
             capability_policy=_publish_capability_policy(
                 world_id=world_id,
                 campaign_id=campaign_id,
                 parent_revision_id=expected_parent_revision_id,
                 policy_id=_publication_provenance(publication_family)[1],
+                tool_name=(
+                    FINALIZE_REVIEW_V3_TOOL
+                    if typed_graph_review
+                    else FINALIZE_REVIEW_V2_TOOL
+                ),
             ),
             world_graph_repository=bundle.world_graph,
             review_repository=bundle.contribution_reviews,
@@ -2773,3 +3274,87 @@ __all__ = [
     "worldbuilding_authority_operation_id",
     "write_error_status_code",
 ]
+
+
+
+def _verify_reviewed_corpus_binding_authority(bundle, stored, context, *, package=None):
+    """Reprove typed carrier, immutable target/evidence and authoritative sources."""
+    from dungeonmind.domain.canonical import canonical_sha256
+    from apps.live_control_server.models.world_graph_mutation_context import (
+        reviewed_corpus_bindings_from_decisions,
+    )
+
+    try:
+        bindings = reviewed_corpus_bindings_from_decisions(
+            context.identity_ledger_records, world_id=context.world_id,
+            revision_id=context.revision_id,
+        )
+        if not bindings:
+            return context
+        live = [_dump_identity_decision(d) for d in
+                bundle.identity_decisions.list_for_world(context.world_id)]
+        payload = stored.graph_payload
+        objects = {o["object_id"]: o for o in payload.get("objects", [])}
+        evidence = {e["evidence_ref_id"]: e for e in payload.get("evidence_refs", [])}
+        for binding in bindings:
+            sealed = [d for d in context.identity_ledger_records
+                      if d.get("decision_id") == binding.decision_id]
+            current = [d for d in live if d.get("decision_id") == binding.decision_id]
+            if len(sealed) != 1 or current != sealed:
+                raise ValueError("reviewed binding decision changed or disappeared")
+            if any(d.get("status", "active") == "active" and
+                   binding.decision_id in (d.get("supersedes_decision_ids") or []) for d in live):
+                raise ValueError("reviewed binding decision was superseded")
+            obj = objects.get(binding.target_object_id)
+            target = context.objects.get(binding.target_object_id)
+            if (obj is None or target is None or wire_kind(target.kind) != "npc"
+                or target.canon_state != "canonical"
+                or target.memory_state in {"rejected", "merged_away"}
+                or target.object_id in context.identity_redirects):
+                raise ValueError("reviewed binding target is not active canonical NPC")
+            meta = obj.get("assertion_metadata") or {}
+            if meta.get("canon_state") != "canonical" or wire_kind(str(obj.get("kind") or "")) != "npc":
+                raise ValueError("reviewed binding raw target standing mismatch")
+            if meta.get("campaign_scope") != binding.campaign_id:
+                raise ValueError("reviewed binding target campaign mismatch")
+            refs = [evidence[eid] for eid in meta.get("evidence_ref_ids", [])]
+            if (not refs or canonical_sha256(obj) != binding.target_sha256
+                or canonical_sha256(refs) != binding.evidence_sha256):
+                raise ValueError("reviewed binding target/evidence fingerprint mismatch")
+            pairs = {(e["source_artifact_id"], e["source_revision_id"]) for e in refs}
+            declared = {(r.source_artifact_id, r.source_revision_id) for r in binding.sources}
+            if pairs != declared:
+                raise ValueError("reviewed binding source closure mismatch")
+            snapshot = bundle.sources.get_provenance_snapshot(
+                artifact_ids=sorted({a for a, _ in pairs}),
+                revision_ids=sorted({r for _, r in pairs}),
+            )
+            for proof in binding.sources:
+                artifact = snapshot.get_artifact(proof.source_artifact_id)
+                revision = snapshot.get_revision(proof.source_revision_id)
+                if (artifact is None or revision is None
+                    or artifact.world_id != context.world_id
+                    or artifact.campaign_id != binding.campaign_id
+                    or str(artifact.status) != "active"
+                    or revision.source_artifact_id != artifact.source_artifact_id
+                    or canonical_sha256(artifact.model_dump(mode="json")) != proof.artifact_sha256
+                    or canonical_sha256(revision.model_dump(mode="json")) != proof.revision_sha256):
+                    raise ValueError("reviewed binding authoritative source mismatch")
+                for ref in refs:
+                    if ref["source_artifact_id"] == proof.source_artifact_id and (
+                        ref.get("source_domain") != str(artifact.source_domain)
+                        or ref.get("source_domain_key") != artifact.source_domain_key
+                    ):
+                        raise ValueError("reviewed binding evidence source domain mismatch")
+        digest = context.exact_candidate_sha256
+        if package is not None:
+            digest = ((package.get("effect") or {}).get("candidate_admission") or {}).get("candidate_digest")
+            if not digest:
+                raise ValueError("reviewed binding requires exact candidate admission")
+        return replace(context, reviewed_corpus_bindings=bindings,
+                       exact_candidate_sha256=digest)
+    except Exception as exc:
+        raise WorldGraphWriteError(
+            "reviewed corpus binding authority could not be proved",
+            code="governed_write_inexpressible", details={"reason": str(exc)[:500]},
+        ) from exc

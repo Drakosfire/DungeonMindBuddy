@@ -1,0 +1,437 @@
+"""Recoverable page + native connection saga. No inference and no source-page saves."""
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+import uuid
+from pathlib import Path
+from urllib.parse import urlencode
+
+from apps.live_control_server.config import artifact_data_root
+from apps.live_control_server.models.connected_page import (ConnectedPageRequest, SavedConnectedPageIntent, SavedPageExcerptOrigin, parse_connected_page_intent)
+from apps.live_control_server.services.graph_document_source import GraphDocumentSource
+from application_state.content.connected_pages import locked_operation
+from apps.live_control_server.services import connected_page_native_graph as native_graph
+from apps.live_control_server.services.workspace_document_registry import (
+    create_workspace_document, get_workspace_document, get_committed_page_snapshot, list_workspace_documents,
+)
+from apps.live_control_server.services.tiptap_markdown_write import (
+    TiptapMarkdownWritePrepareRequest, TiptapMarkdownWriteCommitRequest,
+    prepare_tiptap_markdown_write, commit_tiptap_markdown_write,
+)
+
+
+class ConnectedPageError(ValueError):
+    def __init__(self, message, *, status_code=409):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+def _sha(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _json(value) -> str:
+    return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+
+
+def _units(value: str) -> int:
+    return len(value.encode('utf-16-le')) // 2
+
+
+def verify_origin_capture(origin) -> str:
+    """ProseMirror positions count UTF-16 units and structural node boundaries."""
+    try:
+        if _sha(origin.editor_json) != origin.editor_sha256:
+            raise ValueError('The captured editor snapshot differs from its digest')
+        document = json.loads(origin.editor_json)
+        if not isinstance(document, dict) or document.get('type') != 'doc':
+            raise ValueError('document required')
+        matches = []
+        blocks = []
+
+        def walk(node, position, depth=0):
+            if depth > 80 or not isinstance(node, dict) or not isinstance(node.get('type'), str):
+                raise ValueError('Invalid editor node')
+            kind = node['type']
+            if kind == 'text':
+                if not isinstance(node.get('text'), str):
+                    raise ValueError('Invalid text')
+                return _units(node['text'])
+            content = node.get('content', [])
+            if not isinstance(content, list):
+                raise ValueError('Invalid editor content')
+            start = position if kind == 'doc' else position + 1
+            if kind in ('paragraph', 'heading') and all(isinstance(child, dict) and child.get('type') == 'text' for child in content):
+                text = ''.join(child['text'] for child in content)
+                blocks.append(text)
+                if start <= origin.selection_from < origin.selection_to <= start + _units(text):
+                    raw = text.encode('utf-16-le')
+                    matches.append(raw[(origin.selection_from-start)*2:(origin.selection_to-start)*2].decode('utf-16-le'))
+            offset = start
+            for child in content:
+                offset += walk(child, offset, depth+1)
+            if kind == 'doc':
+                return offset
+            # Empty text blocks are non-leaf ProseMirror nodes; atoms have size 1.
+            return offset-start+2 if content or kind in ('paragraph', 'heading', 'codeBlock') else 1
+
+        walk(document, 0)
+        if matches != [origin.selected_text] or not origin.selected_text.strip():
+            raise ValueError('Quote does not match the selected text block')
+        return _sha('\n\n'.join(blocks))
+    except (ValueError, TypeError, KeyError, UnicodeError, RecursionError) as exc:
+        raise ConnectedPageError('Select text within one paragraph or heading; the captured quote and range must match') from exc
+
+
+def _validate_state(state, operation_id):
+    try:
+        intent = parse_connected_page_intent(state['intent'])
+        if (set(state) - {'hosted_owner'} != {'schema', 'intent', 'intent_sha256', 'page_id', 'phase', 'initial_markdown',
+                          'working_text_sha256', 'saved_source', 'graph_request', 'prepared', 'receipt'}
+                or ('hosted_owner' in state and (
+                    not isinstance(state['hosted_owner'], str) or not state['hosted_owner'].startswith('hosted_dms:')
+                ))
+                or state['schema'] not in (legacy_operation_schema(intent), native_graph.SCHEMA)
+                or (isinstance(intent, SavedConnectedPageIntent) and state['working_text_sha256'] != intent.origin.content_sha256)
+                or state['intent_sha256'] != _sha(_json(intent.model_dump(mode='json')))
+                or str(intent.operation_id) != str(operation_id)
+                or state['phase'] not in ('reserved', 'created', 'saved', 'prepared', 'complete')):
+            raise ValueError('invalid operation')
+        uuid.UUID(state['page_id'])
+        return state
+    except (ValueError, TypeError, KeyError) as exc:
+        raise ConnectedPageError('The retained connected-page operation is unavailable or changed') from exc
+
+
+def _read(journal):
+    state = journal.read()
+    return _validate_state(state, journal.operation_id) if state is not None else None
+
+
+def adopt_connected_page_operation(root: Path, path: Path):
+    """Explicit offline adoption of one retained file; never a live read fallback."""
+    root = artifact_data_root(root)
+    if path.is_symlink() or path.suffix != '.json':
+        raise ConnectedPageError('Adoption requires a regular operation JSON file')
+    try:
+        operation_id = str(uuid.UUID(path.stem))
+        state = _validate_state(json.loads(path.read_text()), operation_id)
+    except (OSError, ValueError, TypeError) as exc:
+        raise ConnectedPageError('The historical operation cannot be adopted') from exc
+    with locked_operation(operation_id) as journal:
+        prior = _read(journal)
+        if prior is not None and prior != state:
+            raise ConnectedPageError('Adoption would overwrite a different retained operation')
+        intent = parse_connected_page_intent(state['intent'])
+        _ownership(root, intent)
+        result = _response(root, state)
+        _verify_completed_adoption(root, state, intent)
+        journal.save(state)
+        return result
+
+
+def _verify_completed_adoption(root, state, intent):
+    from apps.live_control_server.services.graph_object_authoring_prepare import (
+        GraphObjectAuthoringCommitRequest, GraphObjectAuthoringCommitResponse, GraphObjectAuthoringPrepareResponse,
+    )
+    from apps.live_control_server.services.graph_object_authoring_commit import commit_graph_object_authoring_write
+    # Historical files are input, not proof that Graph publication occurred.
+    # Reuse the old publication owner's exact seal/source/receipt checks, with
+    # fresh publication disabled before any publish call can be reached.
+    if state['schema'] == native_graph.SCHEMA or state['phase'] != 'complete':
+        raise ConnectedPageError('Only completed historical operations can be adopted; retain this file for recovery review')
+    try:
+        selector = GraphDocumentSource.model_validate(state['saved_source'])
+        prepared = GraphObjectAuthoringPrepareResponse.model_validate(state['prepared'])
+        receipt = GraphObjectAuthoringCommitResponse.model_validate(state['receipt'])
+        if (selector.document_id != state['page_id']
+                or selector.content_sha256 != _sha(state['initial_markdown'])
+                or state['graph_request'] != _legacy_graph_request(root, state, intent)):
+            raise ValueError('Historical page/source/request differs')
+        recovered = commit_graph_object_authoring_write(
+            GraphObjectAuthoringCommitRequest.model_validate({
+                **state['graph_request'], 'confirmToken': prepared.confirm_token}),
+            corpus_root=root, recovery_only=True,
+        )
+        ignored = {'result', 'idempotency_status'}
+        if receipt.model_dump(exclude=ignored) != recovered.model_dump(exclude=ignored):
+            raise ValueError('Historical receipt differs from publication authority')
+    except (ValueError, TypeError, KeyError) as exc:
+        raise ConnectedPageError('The historical completed publication cannot be verified') from exc
+
+
+def legacy_operation_schema(intent):
+    return 'dmb_connected_page_operation_v2' if isinstance(intent, SavedConnectedPageIntent) else 'dmb_connected_page_operation_v1'
+
+
+def verify_saved_excerpt(root, intent):
+    """The source owner verifies exact saved bytes; no invented editor selection."""
+    origin = intent.origin
+    snapshot = get_committed_page_snapshot(root, str(origin.document_id))
+    source = snapshot.record
+    if (source.kind != 'worldbuilding_source' or source.status != 'active'
+            or source.world_id != intent.world_id
+            or source.document_id != str(origin.document_id) or source.revision != origin.revision
+            or source.content_status != 'committed'
+            or source.source_domain != 'worldbuilding'
+            or snapshot.loaded_revision != origin.revision
+            or snapshot.content_sha256 != origin.content_sha256):
+        raise ConnectedPageError('The exact saved source is unavailable or changed; review the current excerpt again')
+    lines = snapshot.markdown.splitlines()
+    if (origin.line_end > len(lines)
+            or '\n'.join(lines[origin.line_start - 1:origin.line_end]) != origin.selected_text):
+        raise ConnectedPageError('The excerpt does not match those exact saved lines')
+    return snapshot.content_sha256
+
+
+def _ownership(root, intent, *, initial=False):
+    source = get_workspace_document(root, str(intent.origin.document_id))
+    if (source.kind != 'worldbuilding_source' or source.status != 'active'
+            or source.world_id != intent.world_id):
+        raise ConnectedPageError('The source page no longer belongs to this World')
+    if initial:
+        snapshot = get_committed_page_snapshot(root, source.document_id)
+        if snapshot.loaded_revision != intent.origin.revision or snapshot.content_sha256 != intent.origin.content_sha256:
+            raise ConnectedPageError('The saved source base changed; capture the current selection again')
+    return source
+
+
+
+def _escape(text):
+    return re.sub(r'([\\`*_{}\[\]<>])', r'\\\1', text)
+
+
+def _declarations(intent):
+    return ([f'{intent.person.label} {predicate} {intent.place.label}.' for predicate in intent.relationships]
+            if intent.person else [f'{intent.place.label} is a location.'])
+
+
+def _initial_markdown(intent, source):
+    source_url = '/build?' + urlencode({'world': intent.world_id, 'documentId': str(intent.origin.document_id), 'campaign': intent.world_id})
+    declaration = '\n\n'.join(_escape(sentence) for sentence in _declarations(intent))
+    quote = '\n'.join('> ' + line for line in intent.origin.selected_text.splitlines())
+    origin_label = (f'saved revision {intent.origin.revision}, lines {intent.origin.line_start}–{intent.origin.line_end}'
+        if isinstance(intent.origin,SavedPageExcerptOrigin) else 'captured working copy')
+    return (f'# {_escape(intent.title)}\n\n{declaration}\n\n'
+        f'## At a glance\n\n_Add the details that matter at your table._\n\n'
+        f'## People and activity\n\n_Who is here, and what are they doing?_\n\n'
+        f'## The unexpected\n\n_A secret, tension, or possibility to develop._\n\n'
+        f'## Origin\n\n[From {_escape(source.title)}]({source_url}) · {origin_label}\n\n{quote}\n')
+
+
+def _save_initial(root, state, intent, *, authorize=None):
+    if authorize is not None:
+        authorize()
+    page = create_workspace_document(root, title=intent.title, campaign_id=intent.world_id,
+        kind='worldbuilding_source', world_id=intent.world_id, source_domain='worldbuilding',
+        document_class='lore', authority_state='draft', visibility_state='internal',
+        _connected_reservation=(state['page_id'], str(intent.operation_id)))
+    snapshot = get_committed_page_snapshot(root, page.document_id)
+    if snapshot.record.content_status == 'committed':
+        if snapshot.markdown != state['initial_markdown']:
+            raise ConnectedPageError('The created page has newer writing. It is retained; initial creation will not overwrite it')
+    else:
+        if page.revision != 1 or snapshot.markdown:
+            raise ConnectedPageError('The reserved page changed before its initial save; the page is retained')
+        prepared = prepare_tiptap_markdown_write(root=root, request=TiptapMarkdownWritePrepareRequest(
+            document_id=page.document_id, expected_revision=page.revision,
+            markdown=state['initial_markdown'], write_mode='source_import'))
+        def authorize_page(world_id):
+            if world_id != intent.world_id:
+                raise ConnectedPageError("The reserved page belongs to a different World")
+            authorize()
+
+        guard = {"authorize_world": authorize_page} if authorize is not None else {}
+        commit_tiptap_markdown_write(root=root, request=TiptapMarkdownWriteCommitRequest(
+            document_id=page.document_id, expected_revision=page.revision, markdown=state['initial_markdown'],
+            write_mode='source_import', writer_confirm_token=prepared.writer_confirm_token), **guard)
+        snapshot = get_committed_page_snapshot(root, page.document_id)
+    selector = GraphDocumentSource(documentId=page.document_id, revision=snapshot.loaded_revision,
+        contentSha256=snapshot.content_sha256)
+    return selector.model_dump(mode='json', by_alias=True)
+
+
+def _legacy_graph_request(root, state, intent):
+    from apps.live_control_server.services.graph_object_authoring_prepare import GraphObjectAuthoringPrepareRequest
+    from apps.live_control_server.services.graph_document_source import resolve_graph_document_source
+    source = resolve_graph_document_source(root, GraphDocumentSource.model_validate(state['saved_source']),
+        world_id=intent.world_id, campaign_id=intent.world_id)
+    index = source.source_span_index
+    lines = state['initial_markdown'].splitlines()
+    def selection(sentence):
+        target = _escape(sentence)
+        spans = [span for span in index['spans'] if '\n'.join(lines[span['start_line']-1:span['end_line']]) == target]
+        if len(spans) != 1:
+            raise ConnectedPageError('The initial declaration has no unambiguous source span')
+        return {'selectionKind': 'text_span', 'selectedText': target, 'normalizedSelectedText': target,
+                'sourceSpanRefId': spans[0]['source_span_id']}
+    proposals = []
+    first = selection(_declarations(intent)[0])
+    visibility = {'visibility': 'gm_private', 'revealState': 'unrevealed'}
+    def ref(obj, key):
+        if obj.node_id:
+            return {'refKind': 'existing_graph_node', 'nodeId': obj.node_id, 'label': obj.label, 'kind': obj.kind}
+        proposals.append({'localProposalId': key, 'proposalKind': 'object', 'status': 'staged_local',
+            'selection': first, 'objectRef': {'label': obj.label, 'kind': obj.kind, 'aliases': [], 'summary': ''},
+            'visibility': visibility, 'graphScopes': ['campaign_memory_graph']})
+        return {'refKind': 'local_proposal', 'localProposalId': key, 'label': obj.label, 'kind': obj.kind}
+    place = ref(intent.place, 'place')
+    if intent.person:
+        person = ref(intent.person, 'person')
+        for predicate, sentence in zip(intent.relationships, _declarations(intent), strict=True):
+            proposals.append({'localProposalId': predicate, 'proposalKind': 'relationship', 'status': 'staged_local',
+                'selection': selection(sentence), 'sourceObjectRef': person, 'targetObjectRef': place,
+                'relationshipType': predicate, 'direction': 'directed', 'visibility': visibility,
+                'graphScopes': ['campaign_memory_graph']})
+    # If a page describes an existing location with no new connections, a
+    # reviewed exact mention links it through the same governed alias authority.
+    if not proposals:
+        proposals.append({'localProposalId': 'mention', 'proposalKind': 'link_existing', 'status': 'staged_local',
+            'selection': first, 'selectedText': intent.place.label, 'normalizedSelectedText': intent.place.label,
+            'existingObjectRef': place, 'aliasText': intent.place.label, 'operation': 'reference',
+            'visibility': visibility, 'graphScopes': ['campaign_memory_graph']})
+    for proposal in proposals:
+        proposal['provenancePreview'] = {'operatorNote': 'Explicit connected-page author declaration'}
+    return GraphObjectAuthoringPrepareRequest(worldId=intent.world_id, campaignId=intent.world_id,
+        documentSource=state['saved_source'], proposals=proposals).model_dump(mode='json', by_alias=True)
+
+
+def _response(root, state):
+    page = (get_workspace_document(root, state['page_id']) if state['phase'] != 'reserved'
+            else next((record for record in list_workspace_documents(root, kind='worldbuilding_source')
+                       if record.document_id == state['page_id']), None))
+    intent = parse_connected_page_intent(state['intent'])
+    if page and (page.status != 'active' or page.kind != 'worldbuilding_source'
+                 or page.world_id != intent.world_id or page.campaign_id != intent.world_id
+                 or page.connected_page_operation_id != str(intent.operation_id)):
+        raise ConnectedPageError('The retained created page changed ownership or was discarded')
+    receipt = state['receipt']
+    ids = receipt.get('created_node_ids', {}) if receipt else {}
+    return {'schema': state['schema'], 'operation_id': str(intent.operation_id),
+        'phase': state['phase'], 'intent': state['intent'], 'page': page.model_dump(mode='json') if page else None,
+        'source_origin': ({'kind':'saved_page_excerpt','source_text_sha256':state['working_text_sha256'],
+            'line_start':intent.origin.line_start,'line_end':intent.origin.line_end}
+            if isinstance(intent.origin,SavedPageExcerptOrigin) else {'kind': 'captured_working_copy', 'working_text_sha256': state['working_text_sha256']}),
+        'initial_source': state['saved_source'],
+        'prepared': ({key:state['prepared'][key] for key in ('confirm_token','assertions_preview')}
+                     if state['schema'] == native_graph.SCHEMA and state['prepared'] else state['prepared']), 'receipt': receipt,
+        'connections': {'place_node_id': intent.place.node_id or ids.get('place'),
+            'person_node_id': intent.person.node_id or ids.get('person') if intent.person else None,
+            'relationships': intent.relationships} if receipt else None}
+
+
+def _require_operation_owner(state, principal):
+    owner = state.get('hosted_owner')
+    if getattr(principal, 'auth_method', None) == 'hosted_owner':
+        if owner != principal.subject:
+            raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
+    elif owner is not None:
+        raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
+
+
+def prepare_connected_page(root: Path, intent: ConnectedPageRequest, *, principal, authorize=None):
+    root = artifact_data_root(root)
+    native_graph.require_native_graph_gm(principal)
+    working_hash = None if isinstance(intent,SavedConnectedPageIntent) else verify_origin_capture(intent.origin)
+    with locked_operation(intent.operation_id) as journal:
+        state = _read(journal)
+        digest = _sha(_json(intent.model_dump(mode='json')))
+        if state is not None:
+            _require_operation_owner(state, principal)
+        if state and state['intent_sha256'] != digest:
+            raise ConnectedPageError('This operation already belongs to a different page request')
+        if state and state['schema'] != native_graph.SCHEMA and state['phase'] != 'complete':
+            raise ConnectedPageError('This historical page is retained; its retired Graph writer cannot resume')
+        source = _ownership(root, intent, initial=state is None)
+        if state is None:
+            if any(record.connected_page_operation_id == str(intent.operation_id)
+                   for record in list_workspace_documents(root, kind='worldbuilding_source', status=None)):
+                raise ConnectedPageError('The created page is retained but its operation is unavailable')
+            working_hash = verify_saved_excerpt(root,intent) if isinstance(intent,SavedConnectedPageIntent) else working_hash
+            native_graph.validate_identities(intent, principal)
+            state = {'schema': native_graph.SCHEMA, 'intent': intent.model_dump(mode='json'),
+                'intent_sha256': digest, 'page_id': str(uuid.uuid4()), 'phase': 'reserved',
+                'initial_markdown': _initial_markdown(intent, source), 'working_text_sha256': working_hash,
+                'saved_source': None, 'graph_request': None, 'prepared': None, 'receipt': None}
+            if getattr(principal, 'auth_method', None) == 'hosted_owner':
+                state['hosted_owner'] = principal.subject
+            if authorize is not None:
+                authorize()
+            journal.save(state)
+        if state['phase'] == 'reserved':
+            if authorize is not None:
+                authorize()
+            create_workspace_document(root, title=intent.title, campaign_id=intent.world_id,
+                kind='worldbuilding_source', world_id=intent.world_id, source_domain='worldbuilding',
+                document_class='lore', authority_state='draft', visibility_state='internal',
+                _connected_reservation=(state['page_id'], str(intent.operation_id)))
+            state['phase'] = 'created'
+            journal.save(state)
+        if state['phase'] == 'created':
+            state['saved_source'] = _save_initial(root, state, intent, authorize=authorize)
+            state['phase'] = 'saved'
+            journal.save(state)
+        if state['phase'] != 'complete':
+            if state['schema'] != native_graph.SCHEMA:
+                raise ConnectedPageError('This historical page is retained; its retired Graph writer cannot resume')
+            state['prepared'] = native_graph.prepare(root, state, intent, principal,
+                [_escape(sentence) for sentence in _declarations(intent)], journal.save, authorize=authorize)
+            state['phase'] = 'prepared'
+            if authorize is not None:
+                authorize()
+            journal.save(state)
+        response = _response(root, state)
+        if authorize is not None:
+            authorize()
+        return response
+
+
+def get_connected_page(root: Path, operation_id, world_id: str, *, principal=None, authorize=None):
+    root = artifact_data_root(root)
+    with locked_operation(operation_id) as journal:
+        state = _read(journal)
+        if state is None:
+            if any(record.connected_page_operation_id == str(operation_id) and record.world_id == world_id
+                   for record in list_workspace_documents(root, kind='worldbuilding_source', status=None)):
+                raise ConnectedPageError('The created page is retained but its operation is unavailable')
+            raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
+        if state['intent']['world_id'] != world_id:
+            raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
+        if state.get('hosted_owner') is not None:
+            _require_operation_owner(state, principal)
+        _ownership(root, parse_connected_page_intent(state['intent']))
+        response = _response(root, state)
+        if authorize is not None:
+            authorize()
+        return response
+
+
+def confirm_connected_page(root: Path, operation_id, world_id: str, confirm_token: str, *, principal, authorize=None):
+    native_graph.require_native_graph_gm(principal)
+    root = artifact_data_root(root)
+    with locked_operation(operation_id) as journal:
+        state = _read(journal)
+        if state is None:
+            if any(record.connected_page_operation_id == str(operation_id) and record.world_id == world_id
+                   for record in list_workspace_documents(root, kind='worldbuilding_source', status=None)):
+                raise ConnectedPageError('The created page is retained but its operation is unavailable')
+            raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
+        if state['intent']['world_id'] != world_id:
+            raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
+        _require_operation_owner(state, principal)
+        _ownership(root, parse_connected_page_intent(state['intent']))
+        _response(root, state)
+        if not state['prepared'] or state['prepared']['confirm_token'] != confirm_token:
+            raise ConnectedPageError('Confirm the exact reviewed connections for this operation')
+        if state['receipt'] is None:
+            if state['schema'] != native_graph.SCHEMA:
+                raise ConnectedPageError('This historical page is retained; its retired Graph writer cannot resume')
+            state['receipt'] = native_graph.confirm(root, state, parse_connected_page_intent(state['intent']), principal, authorize=authorize)
+            state['phase'] = 'complete'
+            journal.save(state)
+        response = _response(root, state)
+        if authorize is not None:
+            authorize()
+        return response

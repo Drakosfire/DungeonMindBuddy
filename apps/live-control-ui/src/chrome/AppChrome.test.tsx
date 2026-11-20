@@ -45,6 +45,36 @@ function ResponsiveHarness() {
 }
 
 describe("AppChrome Ingest peek composition", () => {
+  it("opts Plan into a bounded center with an initially hidden shared peek outside navigation", () => {
+    render(<AgentInteractionProvider><PeekRegionProvider><AppChrome activeRoute="plan" workspaceLayout="bounded"><main>Plan dock</main></AppChrome></PeekRegionProvider></AgentInteractionProvider>);
+    const workspace = document.querySelector(".app-chrome-workspace");
+    expect(document.querySelector('.app-wrap')).toHaveAttribute("data-workspace-layout", "bounded");
+    expect(workspace).toContainElement(screen.getByText("Plan dock"));
+    expect(workspace).not.toContainElement(screen.getByTestId("app-chrome-header"));
+    expect(screen.getByTestId("app-peek-region")).toHaveAttribute("hidden");
+  });
+  it("keeps the Play navbar outside the reflowing chat workspace", () => {
+    render(<AgentInteractionProvider><PeekRegionProvider><AppChrome activeRoute="play"><main>Play scene</main></AppChrome></PeekRegionProvider></AgentInteractionProvider>);
+    const workspace = screen.getByTestId("app-chrome-play-workspace");
+    expect(workspace).toContainElement(screen.getByText("Play scene"));
+    expect(workspace).not.toContainElement(screen.getByTestId("app-chrome-header"));
+  });
+  it("keeps Build content in a stable center with a hidden shared peek", () => {
+    render(<AgentInteractionProvider><PeekRegionProvider><AppChrome activeRoute="build"><main>Build source</main></AppChrome></PeekRegionProvider></AgentInteractionProvider>);
+    expect(document.querySelector('.app-wrap')).toHaveAttribute("data-workspace-layout", "content");
+    expect(document.querySelector('.app-chrome-workspace')).toContainElement(screen.getByText("Build source"));
+    expect(screen.getByTestId("app-peek-region")).toHaveAttribute("hidden");
+    expect(screen.getByText("Build source")).toBeInTheDocument();
+  });
+  it.each(["plan", "play", "build", "ingest"] as const)("keeps %s navigation outside its content width", (activeRoute) => {
+    render(<AgentInteractionProvider><PeekRegionProvider><AppChrome activeRoute={activeRoute}><main>Surface body</main></AppChrome></PeekRegionProvider></AgentInteractionProvider>);
+    const header = screen.getByTestId("app-chrome-header");
+    const wrap = document.querySelector(".app-wrap");
+    expect(header.parentElement).toHaveClass("app-shell-layout");
+    expect(wrap?.parentElement).toBe(header.parentElement);
+    expect(wrap).not.toContainElement(header);
+    expect(wrap).toContainElement(screen.getByText("Surface body"));
+  });
   afterEach(() => vi.unstubAllGlobals());
   it("keeps Nav outside the CENTER/PEEK workspace and collapses an empty Peek", () => {
     renderIngestChrome(false);
@@ -55,6 +85,56 @@ describe("AppChrome Ingest peek composition", () => {
     expect(workspace).not.toContainElement(header);
     expect(screen.getByText("Recap center")).toBeInTheDocument();
     expect(screen.getByTestId("app-peek-region")).toHaveAttribute("hidden");
+  });
+
+  it("measures the shared chrome edge and resets it when scrolled above the viewport", () => {
+    const callbacks: ResizeObserverCallback[] = [];
+    class TestResizeObserver implements ResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        callbacks.push(callback);
+      }
+      observe(_target: Element, _options?: ResizeObserverOptions) {}
+      unobserve(_target: Element) {}
+      disconnect() {}
+      takeRecords(): ResizeObserverEntry[] { return []; }
+    }
+    vi.stubGlobal("ResizeObserver", TestResizeObserver);
+
+    const previousTop = document.documentElement.style.getPropertyValue("--app-chrome-top");
+    const view = renderIngestChrome(false);
+    const header = screen.getByTestId("app-chrome-header");
+    let bottom = 142;
+    vi.spyOn(header, "getBoundingClientRect").mockImplementation(() => ({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 900,
+      bottom,
+      width: 900,
+      height: bottom,
+      toJSON: () => ({}),
+    }) as DOMRect);
+
+    const measure = callbacks[callbacks.length - 1];
+    expect(measure).toBeDefined();
+    measure?.([], {} as ResizeObserver);
+    expect(document.documentElement.style.getPropertyValue("--app-chrome-top")).toBe("142px");
+
+    bottom = -18;
+    window.dispatchEvent(new Event("scroll"));
+    expect(document.documentElement.style.getPropertyValue("--app-chrome-top")).toBe("0px");
+
+    bottom = 226;
+    measure?.([], {} as ResizeObserver);
+    expect(document.documentElement.style.getPropertyValue("--app-chrome-top")).toBe("226px");
+
+    view.unmount();
+    expect(document.documentElement.style.getPropertyValue("--app-chrome-top")).toBe(previousTop);
+
+    bottom = 48;
+    window.dispatchEvent(new Event("scroll"));
+    expect(document.documentElement.style.getPropertyValue("--app-chrome-top")).toBe(previousTop);
   });
 
   it("composes populated Peek beside the still-mounted CENTER", () => {

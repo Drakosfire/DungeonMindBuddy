@@ -1,0 +1,7 @@
+# CONTENT: usable draft-conflict recovery
+
+ACTIVE, serial. Operator reports disabled recovery controls on the real Edge conflict. PRIME owns this bounded fix from origin/main 5abc13f68f6af016117e721b80a5750109f05c9e in buddy-context-loop, branch codex/conflict-draft-recovery. Open PR inventory has no overlapping recovery implementation.
+
+The conflict state has no mounted editor, so enabling existing protected-source handlers would bypass their base/editor fences. Add a dedicated comparison/choice path at the workspace-document owner: freeze local state and saved snapshot, recheck both and current server snapshot at confirmation, preserve and verify both copies before replacing local state, keep server writes through existing CAS/autosave. Existing sealed-Markdown protection remains binding. Do not resolve the operator's actual draft on their behalf.
+
+Lease: workspaceDocument/useWorkspaceDocumentAuthoring.ts and focused tests; new workspaceDocument conflict-recovery helper/UI/tests/styles; markdownCanvas/markdownCanvasTypes.ts, MarkdownCanvasSession.tsx and MarkdownCanvas.tsx; buildSurface/buildMarkdownCanvasAdapter.tsx, BuildSurfaceContext.tsx and focused tests; this handoff. One implementation PR, independent review before PRIME merge; atomic UI delivery on5202, no API/schema restart/mutation. Prove successful choices, stale local/server/document fences, storage failure retaining originals, and rendered enabled comparison with cancel preserving the actual protected Edge draft. Release via PR settlement after merge.

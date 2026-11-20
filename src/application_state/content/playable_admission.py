@@ -43,9 +43,11 @@ def admit_playable_revision(
     require_current: bool = False,
     require_clean: bool = False,
 ) -> CommittedPlayableRevision:
-    """Admit an exact committed Runbook WorkRevision on ``conn``.
+    """Admit an exact committed Playable WorkRevision on ``conn``.
 
-    Does not commit. Callers must hold the surrounding Play unit of work.
+    World Runs may be sourced from World Plans or World Runbooks. Campaign
+    Runs remain Runbook-only. Does not commit; callers hold the Play unit of
+    work.
     """
     if not isinstance(revision_n, int) or isinstance(revision_n, bool) or revision_n <= 0:
         raise ApplicationStateValidationError("revision_n must be a positive integer")
@@ -60,11 +62,8 @@ def admit_playable_revision(
         raise ApplicationStateNotFoundError(
             f"workspace document not found: {object_id}"
         )
-    if obj.kind != "runbook":
-        raise ApplicationStateValidationError(
-            "playable_artifact_id must identify a runbook workspace document"
-        )
     if expected_world_id is None:
+        require_runbook_work_object(obj)
         if obj.world_id is not None:
             raise ApplicationStateValidationError(
                 "World-owned Runbooks cannot start a campaign PlayRun V1"
@@ -74,6 +73,10 @@ def admit_playable_revision(
                 "campaign PlayRun requires a campaign-owned Runbook"
             )
     else:
+        if obj.kind not in {"plan", "runbook"}:
+            raise ApplicationStateValidationError(
+                "playable_artifact_id must identify a World Plan or Runbook"
+            )
         if not expected_world_id.strip() or expected_world_id != expected_world_id.strip():
             raise ApplicationStateValidationError("world_id must be non-empty and canonical")
         if obj.world_id != expected_world_id or obj.campaign_id is not None:
@@ -81,10 +84,10 @@ def admit_playable_revision(
                 "selected World does not own the Runbook"
             )
     if obj.status != "active":
-        raise ApplicationStateConflictError("runbook workspace document is discarded")
+        raise ApplicationStateConflictError("playable workspace document is discarded")
     if obj.current_revision_id is None:
         raise ApplicationStateConflictError(
-            "runbook workspace document is not committed"
+            "playable workspace document is not committed"
         )
     revision = _lock_work_revision_for_share(conn, object_id, revision_n)
     if revision is None:
@@ -174,9 +177,9 @@ def resolve_pinned_playable_revision(
         raise ApplicationStateNotFoundError(
             f"workspace document not found: {object_id}"
         )
-    if obj.kind != "runbook":
+    if obj.kind not in {"plan", "runbook"}:
         raise ApplicationStateValidationError(
-            "playable_artifact_id must identify a runbook workspace document"
+            "playable_artifact_id must identify a World Plan or Runbook"
         )
     if obj.world_id != expected_world_id or obj.campaign_id is not None:
         raise ApplicationStateConflictError(
@@ -230,4 +233,27 @@ def require_runbook_work_object(obj: WorkObject) -> None:
     if obj.kind != "runbook":
         raise ApplicationStateValidationError(
             "playable_artifact_id must identify a runbook workspace document"
+        )
+
+
+def require_world_runbook_rebase_source(
+    conn: psycopg.Connection,
+    work_object_id: UUID | str,
+    *,
+    expected_world_id: str,
+) -> None:
+    """Keep World Run rebasing Runbook-only, even for same-target retries."""
+    object_id = _as_uuid(work_object_id, field_name="work_object_id")
+    obj = repo.lock_work_object(conn, object_id)
+    if obj is None:
+        raise ApplicationStateNotFoundError(
+            f"workspace document not found: {object_id}"
+        )
+    if obj.kind != "runbook":
+        raise ApplicationStateValidationError(
+            "Plan-backed World PlayRun rebasing is not supported"
+        )
+    if obj.world_id != expected_world_id or obj.campaign_id is not None:
+        raise ApplicationStateConflictError(
+            "selected World does not own the Runbook"
         )

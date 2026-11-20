@@ -13,7 +13,7 @@ from pydantic import Field
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
     downstream_unexpected,
 )
-from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import (
+from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
     CreateStatblockResponseV1,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.models import (

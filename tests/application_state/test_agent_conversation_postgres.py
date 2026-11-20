@@ -1,31 +1,65 @@
 from __future__ import annotations
 
+from tests.application_state.session_encounter_helpers import session_request
+
+import hashlib
+import json
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
-from types import SimpleNamespace
 from threading import Barrier
 from time import sleep
+from types import SimpleNamespace
+from typing import Any
 from uuid import uuid4
 
 import pytest
 from starlette.requests import Request
 
 from application_state.agent_conversation import AgentConversationService
+from application_state.agent_conversation.context_trace import (
+    TraceContextDecision,
+    TraceContextMaterial,
+    TraceContextSnapshot,
+    TraceSourcePassage,
+)
 from application_state.agent_conversation.types import (
     ConversationCommand,
     DraftSave,
     HistoricalReference,
+    PlanContextPolicyV1,
+    PlanPlayableTargetReceiptV1,
+    PlayRunTurnContextReceiptV1,
+    PlayContentBasis,
+    PlayRunTurnContextReceiptV2,
+    PlayGraphBindingReceiptV1,
+    PlanWorldGraphCitationMapV1,
+    PlanWorldGraphCitationV1,
+    PlanWorldGraphClaimSegmentV1,
+    PlanWorldGraphCompletionV1,
+    PlanWorldGraphConnectiveSegmentV1,
+    PlanWorldGraphContextReceiptV1,
+    PlanWorldGraphPlanClaimSegmentV1,
     SubmittedGraphRequestIntentV1,
+    SubmittedPlanPlayableTargetV1,
     SubmittedPrimaryWorkIntentV1,
     SubmittedTurnIntentV1,
-    TurnProvenance,
-    TurnSubmission,
+    SubmittedTurnIntentV2,
     TurnFailure,
+    TurnProvenance,
     TurnResult,
+    TurnSubmission,
+    decode_play_run_turn_context_references,
+    decode_play_graph_binding_references,
+    encode_play_graph_binding_reference,
+    encode_play_run_turn_context_references,
+    encode_plan_playable_target_reference,
 )
 from application_state.cli import _current_and_head
-from application_state.errors import ApplicationStateConflictError
+from application_state.errors import (
+    ApplicationStateConflictError,
+    ApplicationStateValidationError,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -37,7 +71,11 @@ def _authorize_route_execution(
 
     if request.node.name == "test_agent_conversation_history_auth_precedes_world_lookup":
         return
-    monkeypatch.setattr(agent_route, "enforce_native_graph_gm", lambda _request: None)
+    monkeypatch.setattr(
+        agent_route,
+        "enforce_native_graph_gm",
+        lambda _request: SimpleNamespace(subject="test-gm"),
+    )
 
 
 def _reference(kind: str, object_id: str, revision: str, digest: str | None = None):
@@ -48,6 +86,176 @@ def _reference(kind: str, object_id: str, revision: str, digest: str | None = No
         revision=revision,
         content_sha256=digest,
     )
+
+
+def test_play_run_context_complete_tuple_survives_fresh_service(
+    application_state_dsn: str,
+) -> None:
+    writer = AgentConversationService()
+    world_id = "play-run-codec-world"
+    conversation = _new(writer, world_id)
+    receipt = PlayRunTurnContextReceiptV1(
+        schema="dmb_play_run_turn_context_receipt_v1",
+        run_id="run-7",
+        run_revision=3,
+        runbook_object_id="runbook-7",
+        runbook_object_revision=5,
+        runbook_work_revision_id=uuid4(),
+        runbook_revision_n=2,
+        runbook_content_sha256="b" * 64,
+        beat_id="beat:a",
+        scene_id="scene:arrival",
+    )
+    primary, supporting = encode_play_run_turn_context_references(receipt)
+    binding_receipt = PlayGraphBindingReceiptV1(
+        schema="dmb_play_graph_binding_receipt_v1",
+        managed_world_id=world_id,
+        native_world_id="native-play-run-codec-world",
+        binding_version=3,
+    )
+    supporting.extend(
+        [
+            HistoricalReference(
+                resolution="resolved",
+                kind="world_graph_revision",
+                object_id=binding_receipt.native_world_id,
+                revision="graph-revision-9",
+            ),
+            encode_play_graph_binding_reference(binding_receipt),
+        ]
+    )
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="play",
+        primary_work=primary,
+        supporting_work=supporting,
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    writer.accept_turn(
+        TurnSubmission(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            idempotency_key=uuid4(),
+            expected_conversation_revision=1,
+            user_text="What happens now?",
+            provenance=provenance,
+            submitted_intent_v1=SubmittedTurnIntentV1(
+                world_id=world_id,
+                client_thread_id="play-run-test-thread",
+                message="What happens now?",
+                surface_id="play",
+                surface_instance_id="play-main",
+                client_work_state="none",
+                primary_work=SubmittedPrimaryWorkIntentV1(
+                    kind="run", object_id="run-7", expected_revision=3
+                ),
+                graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+                graph_selection=None,
+            ),
+        )
+    )
+    loaded = AgentConversationService().list_turns(
+        world_id, conversation.conversation_id
+    )[0]
+    assert loaded.provenance == provenance
+    assert decode_play_graph_binding_references(loaded.provenance) == binding_receipt
+    assert (
+        decode_play_run_turn_context_references(
+            loaded.provenance.primary_work, loaded.provenance.supporting_work
+        )
+        == receipt
+    )
+
+
+def test_play_v2_edition_and_saved_note_receipt_round_trip_and_replay_binding(
+    application_state_dsn: str,
+) -> None:
+    import psycopg
+
+    from uuid import UUID
+    from application_state.play.service import create_world_play_run, replace_world_play_run_progress
+    from application_state.play.edition_service import read_content, commit_content, read_context_snapshot
+    from application_state.play.edition_types import ContentCommit
+    from tests.application_state.test_play_runtime_world_runs_postgres import _create_world_plan
+    from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN
+
+    writer = AgentConversationService()
+    world_id = "play-v2-receipt-world"
+    conversation = _new(writer, world_id)
+    work_object, revision = _create_world_plan(world_id, markdown=V2_SOURCE_MARKDOWN)
+    aggregate = create_world_play_run(world_id=world_id, run_id=str(uuid4()), request=session_request(world_id=world_id, playable_artifact_id=work_object.work_object_id, expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)).aggregate
+    note = "A durable accepted-edition Scene note."
+    replace_world_play_run_progress(world_id=world_id, run_id=aggregate.run.run_id,
+        expected_run_revision=aggregate.run.run_revision, progress={
+            "current_scene_id":"scene:gate", "current_beat_id":"beat:arrival", "resolved_beat_ids":[],
+            "selections":{}, "notes_by_element_id":{"scene:gate":note}})
+    pinned = read_content(run_id=str(aggregate.run.run_id), world_id=world_id)
+    commit_content(run_id=str(aggregate.run.run_id), world_id=world_id, command_id=str(uuid4()),
+        request=ContentCommit(schema_version="dmb_world_play_run_content_commit_v1", expected_origin=pinned.origin,
+            expected_edition_revision=pinned.edition_revision, expected_content_sha256=pinned.content_sha256,
+            markdown=pinned.markdown+"\nSaved session-copy detail.\n"))
+    run, content = read_context_snapshot(run_id=str(aggregate.run.run_id), world_id=world_id)
+    basis = PlayContentBasis(edition_revision=content.edition_revision,
+        edition_revision_id=UUID(content.edition_revision_id), content_sha256=content.content_sha256)
+    receipt = PlayRunTurnContextReceiptV2(schema="dmb_play_run_turn_context_receipt_v2", world_id=world_id,
+        run_id=str(run.run_id), run_revision=run.run_revision, runbook_object_id=str(run.playable_work_object_id),
+        runbook_object_revision=work_object.object_revision, runbook_work_revision_id=run.playable_work_revision_id,
+        runbook_revision_n=run.playable_revision_n, runbook_content_sha256=run.playable_content_sha256,
+        beat_id="beat:arrival", scene_id="scene:gate", edition_revision=basis.edition_revision,
+        edition_revision_id=basis.edition_revision_id, content_sha256=basis.content_sha256,
+        scene_note=run.progress["notes_by_element_id"]["scene:gate"], scene_note_sha256=hashlib.sha256(note.encode()).hexdigest())
+    primary, supporting = encode_play_run_turn_context_references(receipt)
+    provenance = TurnProvenance(world_id=world_id, surface_resolution="resolved", surface_id="play",
+        surface_instance_id="play-main", primary_work=primary, supporting_work=supporting,
+        selected_object=HistoricalReference(resolution="absent"))
+    submission = TurnSubmission(
+        world_id=world_id,
+        conversation_id=conversation.conversation_id,
+        idempotency_key=uuid4(),
+        expected_conversation_revision=1,
+        user_text="Ask from the exact saved edition.",
+        provenance=provenance,
+        submitted_intent_v1=SubmittedTurnIntentV1(
+            world_id=world_id,
+            client_thread_id="play-v2-test-thread",
+            message="Ask from the exact saved edition.",
+            surface_id="play",
+            surface_instance_id="play-main",
+            client_work_state="saved_clean",
+            primary_work=SubmittedPrimaryWorkIntentV1(
+                kind="run", object_id=str(run.run_id), expected_revision=run.run_revision,
+                play_content_basis=basis,
+            ),
+            graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+            graph_selection=None,
+        ),
+        play_context_receipt=receipt,
+    )
+    accepted = writer.accept_turn(submission)
+    loaded = AgentConversationService().list_turns(
+        world_id, conversation.conversation_id
+    )[0]
+    assert loaded == accepted
+    assert loaded.play_context_receipt == receipt
+    assert AgentConversationService().accept_turn(submission) == accepted
+    with psycopg.connect(application_state_dsn) as conn:
+        with pytest.raises(psycopg.errors.CheckViolation):
+            conn.execute(
+                "UPDATE agent.turn SET play_context_receipt = '{}'::jsonb WHERE turn_id = %s",
+                (accepted.turn_id,),
+            )
+
+    changed_note = "A different note under the same idempotency key."
+    changed_receipt = receipt.model_copy(update={
+        "scene_note": changed_note,
+        "scene_note_sha256": hashlib.sha256(changed_note.encode("utf-8")).hexdigest(),
+    })
+    changed_submission = submission.model_copy(
+        update={"play_context_receipt": changed_receipt}
+    )
+    with pytest.raises(ApplicationStateConflictError, match="different Play context receipt"):
+        AgentConversationService().accept_turn(changed_submission)
 
 
 def _provenance(world_id: str) -> TurnProvenance:
@@ -102,6 +310,104 @@ def _typed_provenance(world_id: str) -> TurnProvenance:
     )
 
 
+def _graph_receipt(
+    world_id: str,
+    plan_revision_id,
+    playable_target: PlanPlayableTargetReceiptV1 | None = None,
+    *,
+    evidence_sufficiency_status: str = "insufficient",
+    candidate_assertion_ids: list[str] | None = None,
+    candidate_evidence_ref_ids: list[str] | None = None,
+    dispatched_assertion_ids: list[str] | None = None,
+    dispatched_evidence_ref_ids: list[str] | None = None,
+    coverage_status: str = "incomplete",
+    truncated: bool = False,
+) -> PlanWorldGraphContextReceiptV1:
+    candidate_assertion_ids = candidate_assertion_ids or []
+    candidate_evidence_ref_ids = candidate_evidence_ref_ids or []
+    dispatched_assertion_ids = dispatched_assertion_ids or []
+    dispatched_evidence_ref_ids = dispatched_evidence_ref_ids or []
+    sufficient = evidence_sufficiency_status == "sufficient"
+    has_candidates = bool(candidate_assertion_ids or candidate_evidence_ref_ids)
+    payload = {
+        "schema": "dmb_agent_plan_world_graph_context_receipt_v1",
+        "receipt_serializer_version": "canonical-json-utf8-v1",
+        "plan_context_policy": {
+            "schema": "dmb_plan_context_policy_v1",
+            "policy": "auto_plan_world",
+        },
+        "plan_basis": {
+            "world_id": world_id,
+            "document_id": "graph-receipt-plan",
+            "object_revision": 3,
+            "work_revision_id": str(plan_revision_id),
+            "revision_n": 2,
+            "content_sha256": "a" * 64,
+        },
+        "playable_target": (
+            None
+            if playable_target is None
+            else playable_target.model_dump(mode="json", by_alias=True)
+        ),
+        "graph_authority": {
+            "managed_world_id": world_id,
+            "native_world_id": "native-world-17",
+            "binding_version": 4,
+            "scope_mode": "world",
+            "campaign_id": None,
+            "admissibility_version": "admission-v1",
+            "graph_revision": "graph-rev-11",
+        },
+        "graph_packet": {
+            "schema": "dmb_plan_world_graph_packet_v1",
+            "packet_serializer_version": "canonical-json-utf8-v1",
+            "selection_policy_version": "selection-v1",
+            "evidence_sufficiency_policy_version": "sufficiency-v1",
+            "retrieval_packet_sha256": "b" * 64,
+            "candidate_assertion_ids": candidate_assertion_ids,
+            "candidate_relationship_ids": [],
+            "candidate_evidence_ref_ids": candidate_evidence_ref_ids,
+            "retrieval_status": "complete" if has_candidates else "empty",
+            "evidence_sufficiency_status": evidence_sufficiency_status,
+            "result_limit": 32,
+            "coverage_status": coverage_status,
+            "truncated": truncated,
+            "omission_reasons": [] if has_candidates else ["no_admissible_evidence"],
+        },
+        "assembled_input": {
+            "assembler_version": "assembler-v1",
+            "budget_policy_version": "budget-v1",
+            "provider_model_name": "synthetic-model",
+            "provider_model_version": "1",
+            "tokenizer_name": "synthetic-tokenizer",
+            "tokenizer_version": "1",
+            "provider_envelope_input_tokens": 12,
+            "output_token_reserve": 10,
+            "context_window_limit": 100,
+            "packet_disposition": "included" if sufficient else "omitted_insufficient",
+            "packet_disposition_reason": None if sufficient else "insufficient_evidence",
+            "dispatched_packet_sha256": "d" * 64 if sufficient else None,
+            "dispatched_assertion_ids": dispatched_assertion_ids,
+            "dispatched_relationship_ids": [],
+            "dispatched_evidence_ref_ids": dispatched_evidence_ref_ids,
+            "source_token_accounting": [],
+            "included_history": [],
+            "assembled_input_sha256": "c" * 64,
+        },
+        "evidence_mode": "metadata_only",
+        "source_opened": False,
+    }
+    canonical = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    payload["context_receipt_sha256"] = hashlib.sha256(canonical).hexdigest()
+    return PlanWorldGraphContextReceiptV1.model_validate(payload)
+
+
 def _saved_plan_turn_payload(
     *, world_id: str, work_object, work_revision, turn_id: str, message: str
 ) -> dict[str, object]:
@@ -136,11 +442,1715 @@ def _new(service: AgentConversationService, world_id: str):
     )
 
 
+def _accepted_execution_turn(
+    service: AgentConversationService,
+    world_id: str,
+    *,
+    max_graph_operations: int = 2,
+    uncapped: bool = False,
+    execution_version: int = 1,
+    candidate_assertion_ids: list[str] | None = None,
+    supporting_work: list[HistoricalReference] | None = None,
+) -> tuple[Any, PlanWorldGraphContextReceiptV1, Any, Any]:
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV1,
+        PlanWorldGraphExecutionV1,
+    )
+
+    conversation = _new(service, world_id)
+    plan_revision_id = uuid4()
+    receipt = _graph_receipt(
+        world_id,
+        plan_revision_id,
+        candidate_assertion_ids=candidate_assertion_ids,
+    )
+    intent = SubmittedTurnIntentV2(
+        world_id=world_id,
+        client_thread_id=f"{world_id}-thread",
+        message="Ask about this Plan Graph context.",
+        surface_id="plan",
+        surface_instance_id="plan-execution-test",
+        client_work_state="saved_clean",
+        primary_work=SubmittedPrimaryWorkIntentV1(
+            kind="plan",
+            object_id="graph-receipt-plan",
+            expected_revision=3,
+            expected_revision_n=2,
+            expected_content_sha256="a" * 64,
+        ),
+        plan_context_policy=PlanContextPolicyV1(policy="auto_plan_world"),
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+        graph_selection=None,
+    )
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="plan",
+        surface_instance_id="plan-execution-test",
+        primary_work=HistoricalReference(
+            resolution="resolved",
+            kind="plan",
+            object_id="graph-receipt-plan",
+            content_sha256="a" * 64,
+            object_revision=3,
+            work_revision_id=plan_revision_id,
+            revision_n=2,
+        ),
+        selected_object=HistoricalReference(resolution="absent"),
+        supporting_work=supporting_work or [],
+    )
+    execution = PlanWorldGraphExecutionV1(
+        schema="dmb_agent_plan_world_graph_execution_v1",
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        policy=GraphExecutionPolicyV1(
+            policy_version="world_graph_execution_uncapped_v1" if uncapped else "test-policy-v1",
+            allowed_graph_operations=["search_assertions"],
+            max_provider_attempts=None if uncapped else 2,
+            max_graph_operations=None if uncapped else max_graph_operations,
+            max_results_per_operation=8,
+            max_total_provider_input_tokens=None if uncapped else 200,
+            max_total_provider_output_tokens=None if uncapped else 40,
+            provider_input_accounting=GraphExecutionAccountingV1(
+                kind="exact_token_count", estimator="synthetic-tokenizer"
+            ),
+            source_opened=False,
+        ),
+        events=[],
+    )
+    if execution_version > 1:
+        from application_state.agent_conversation.types import (
+            GraphExecutionPolicyV2, GraphExecutionPolicyV3, GraphSourceReadScopeV2,
+            PlanWorldGraphExecutionV2, PlanWorldGraphExecutionV3,
+            graph_execution_policy_digest_v2, graph_execution_policy_digest_v3,
+        )
+        source_scope = GraphSourceReadScopeV2(
+            retrieval_session_id="uncapped-persistence", world_id=world_id,
+            campaign_id=None, graph_revision=receipt.graph_authority.graph_revision,
+            admitted_anchors=[],
+        )
+        data = execution.policy.model_dump(mode="json", by_alias=True) | {
+            "source_read_scope": source_scope.model_dump(mode="json", by_alias=True),
+            "max_source_read_chars": 0, "max_chars_per_source_read": 12000,
+        }
+        if execution_version == 2:
+            policy = GraphExecutionPolicyV2.model_validate(data | {"max_source_read_calls": 0, "max_source_read_anchors": 0})
+            execution = PlanWorldGraphExecutionV2(
+                context_receipt_sha256=receipt.context_receipt_sha256, policy=policy, events=[],
+                execution_policy_sha256=graph_execution_policy_digest_v2(receipt.context_receipt_sha256, policy),
+            )
+        else:
+            policy = GraphExecutionPolicyV3.model_validate(data)
+            execution = PlanWorldGraphExecutionV3(
+                context_receipt_sha256=receipt.context_receipt_sha256, policy=policy, events=[],
+                execution_policy_sha256=graph_execution_policy_digest_v3(receipt.context_receipt_sha256, policy),
+            )
+    accepted = service.accept_turn(
+        TurnSubmission(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            idempotency_key=uuid4(),
+            expected_conversation_revision=1,
+            user_text=intent.message,
+            provenance=provenance,
+            submitted_intent_v2=intent,
+            graph_context_receipt=receipt,
+            graph_context_execution=execution,
+        )
+    )
+    claimed = service.claim_turn(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=accepted.revision,
+    ).turn
+    return conversation, receipt, accepted, claimed
+
+
+def _provider_authorization_event(
+    *,
+    attempt_id,
+    sequence: int,
+    assertions: list[str] | None = None,
+    evidence_refs: list[str] | None = None,
+    graph_event_ids: list[Any] | None = None,
+):
+    from application_state.agent_conversation.types import (
+        ProviderAttemptAuthorizedEventV1,
+    )
+
+    return ProviderAttemptAuthorizedEventV1(
+        event_id=uuid4(),
+        sequence=sequence,
+        kind="provider_attempt_authorized",
+        provider_attempt_id=attempt_id,
+        envelope_sha256="c" * 64,
+        serializer_version="canonical-json-utf8-v1",
+        provider="test-provider",
+        model="synthetic-model",
+        api_mode="messages",
+        tool_schema_sha256="5" * 64,
+        input_accounting_kind="exact_token_count",
+        input_estimator="synthetic-tokenizer",
+        input_tokens=12,
+        output_token_reserve=10,
+        included_assertion_ids=assertions or [],
+        included_relationship_ids=[],
+        included_evidence_ref_ids=evidence_refs or [],
+        included_graph_event_ids=graph_event_ids or [],
+    )
+
+
+def _execution_completion_fixture(
+    *,
+    evidence_sufficiency_status: str = "sufficient",
+    coverage_status: str = "incomplete",
+    truncated: bool = False,
+):
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV1,
+        PlanWorldGraphExecutionV1,
+        ProviderOutcomeEventV1,
+        validate_execution_completion,
+    )
+
+    attempt_id = uuid4()
+    has_evidence = evidence_sufficiency_status == "sufficient"
+    assertion_ids = ["assertion-classification"] if has_evidence else []
+    evidence_ref_ids = ["evidence-classification"] if has_evidence else []
+    receipt = _graph_receipt(
+        "completion-classification-world",
+        uuid4(),
+        evidence_sufficiency_status=evidence_sufficiency_status,
+        candidate_assertion_ids=assertion_ids,
+        candidate_evidence_ref_ids=evidence_ref_ids,
+        dispatched_assertion_ids=assertion_ids,
+        dispatched_evidence_ref_ids=evidence_ref_ids,
+        coverage_status=coverage_status,
+        truncated=truncated,
+    )
+    claim = PlanWorldGraphClaimSegmentV1(
+        kind="graph_claim",
+        claim_id="claim-classification",
+        text="Fixed test claim.",
+        target_kind="assertion",
+        target_id="assertion-classification",
+        graph_revision=receipt.graph_authority.graph_revision,
+        evidence_ref_ids=["evidence-classification"],
+    )
+    completion = PlanWorldGraphCompletionV1(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis="committed_plan_plus_world_graph",
+        answer_context_status="graph_grounded_partial",
+        answer_segments=[claim],
+        citation_map=PlanWorldGraphCitationMapV1(
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            entries=[
+                PlanWorldGraphCitationV1(
+                    claim_id=claim.claim_id,
+                    target_kind=claim.target_kind,
+                    target_id=claim.target_id,
+                    graph_revision=claim.graph_revision,
+                    evidence_ref_ids=claim.evidence_ref_ids,
+                    source_opened=False,
+                )
+            ],
+        ),
+    )
+    authorized = _provider_authorization_event(
+        attempt_id=attempt_id,
+        sequence=0,
+        assertions=assertion_ids,
+        evidence_refs=evidence_ref_ids,
+    )
+    execution = PlanWorldGraphExecutionV1(
+        schema="dmb_agent_plan_world_graph_execution_v1",
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        policy=GraphExecutionPolicyV1(
+            policy_version="completion-classification-test-v1",
+            allowed_graph_operations=["search_assertions"],
+            max_provider_attempts=1,
+            max_graph_operations=0,
+            max_results_per_operation=8,
+            max_total_provider_input_tokens=100,
+            max_total_provider_output_tokens=100,
+            provider_input_accounting=GraphExecutionAccountingV1(
+                kind="exact_token_count",
+                estimator="synthetic-tokenizer",
+            ),
+            source_opened=False,
+        ),
+        events=[
+            authorized,
+            ProviderOutcomeEventV1(
+                event_id=uuid4(),
+                sequence=1,
+                kind="provider_outcome",
+                provider_attempt_id=attempt_id,
+                outcome="sdk_entered",
+            ),
+            ProviderOutcomeEventV1(
+                event_id=uuid4(),
+                sequence=2,
+                kind="provider_outcome",
+                provider_attempt_id=attempt_id,
+                outcome="response_received",
+                response_sha256="9" * 64,
+            ),
+        ],
+    )
+    return receipt, completion, execution, attempt_id, validate_execution_completion
+
+
 def test_agent_conversation_migration_is_single_current_head(
     application_state_dsn: str,
 ) -> None:
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20261003_0014"
+    assert current == head == "20261022_0052"
+
+
+def test_completion_validation_codes_are_closed_safe_and_valueerror_compatible() -> (
+    None
+):
+    from application_state.agent_conversation.types import (
+        GraphCompletionRejectionCode,
+        GraphCompletionValidationError,
+        PlanWorldGraphPlanClaimSegmentV1,
+        validate_completion_against_receipt,
+    )
+
+    receipt, completion, execution, attempt_id, validate_execution = (
+        _execution_completion_fixture()
+    )
+    assert (
+        validate_execution(
+            completion,
+            receipt,
+            execution,
+            attempt_id,
+            {"claim-classification": []},
+        )
+        is None
+    )
+    assert validate_completion_against_receipt(completion, receipt) is None
+
+    cases = [
+        (
+            completion.model_copy(update={"context_receipt_sha256": "f" * 64}),
+            receipt,
+            execution,
+            attempt_id,
+            {"claim-classification": []},
+            GraphCompletionRejectionCode.RECEIPT_BINDING,
+            "completion must bind the exact stored Graph receipt",
+        ),
+        (
+            completion,
+            receipt,
+            execution,
+            uuid4(),
+            {"claim-classification": []},
+            GraphCompletionRejectionCode.PRODUCING_RESPONSE_MISSING,
+            "completion requires a durable response from its producing attempt",
+        ),
+        (
+            completion,
+            receipt,
+            execution,
+            attempt_id,
+            {},
+            GraphCompletionRejectionCode.CLAIM_BINDING_SET,
+            "completion binding must map each Graph claim exactly once",
+        ),
+        (
+            completion.model_copy(update={"citation_map": None}),
+            receipt,
+            execution,
+            attempt_id,
+            {"claim-classification": []},
+            GraphCompletionRejectionCode.CITATION_MAP_MISSING,
+            "Graph claims require a citation map",
+        ),
+        (
+            completion.model_copy(update={"answer_context_status": "graph_grounded"}),
+            receipt,
+            execution,
+            attempt_id,
+            {"claim-classification": []},
+            GraphCompletionRejectionCode.GROUNDED_STATUS_MISMATCH,
+            "Graph grounded status does not match cited execution evidence",
+        ),
+    ]
+    for (
+        candidate,
+        candidate_receipt,
+        candidate_execution,
+        producing_id,
+        bindings,
+        code,
+        message,
+    ) in cases:
+        with pytest.raises(GraphCompletionValidationError) as rejected:
+            validate_execution(
+                candidate,
+                candidate_receipt,
+                candidate_execution,
+                producing_id,
+                bindings,
+            )
+        assert isinstance(rejected.value, ValueError)
+        assert str(rejected.value) == message
+        assert rejected.value.rejection_code is code
+        assert "assertion-classification" not in rejected.value.rejection_code.value
+        assert "evidence-classification" not in rejected.value.rejection_code.value
+
+    plan_only_completion = PlanWorldGraphCompletionV1(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis="committed_plan",
+        answer_context_status="plan_only_insufficient_evidence",
+        answer_segments=[
+            PlanWorldGraphPlanClaimSegmentV1(
+                kind="plan_claim",
+                text="Fixed Plan test segment.",
+                plan_content_sha256=receipt.plan_basis.content_sha256,
+            )
+        ],
+        citation_map=None,
+    )
+    with pytest.raises(GraphCompletionValidationError) as wrong_plan_only_status:
+        validate_execution(
+            plan_only_completion,
+            receipt,
+            execution,
+            attempt_id,
+            {},
+        )
+    assert (
+        wrong_plan_only_status.value.rejection_code
+        is GraphCompletionRejectionCode.PLAN_ONLY_STATUS_MISMATCH
+    )
+
+    with pytest.raises(GraphCompletionValidationError) as receipt_rejected:
+        validate_completion_against_receipt(
+            completion.model_copy(update={"context_receipt_sha256": "f" * 64}),
+            receipt,
+        )
+    assert isinstance(receipt_rejected.value, ValueError)
+    assert (
+        str(receipt_rejected.value)
+        == "completion must bind the exact stored Graph receipt"
+    )
+    assert (
+        receipt_rejected.value.rejection_code
+        is GraphCompletionRejectionCode.RECEIPT_BINDING
+    )
+
+
+def test_execution_answer_status_derives_from_validated_producing_evidence() -> None:
+    from inspect import signature
+
+    from pydantic import ValidationError
+
+    from application_state.agent_conversation.types import (
+        GraphCompletionRejectionCode,
+        GraphCompletionValidationError,
+        PlanWorldGraphPlanClaimSegmentV1,
+        derive_execution_answer_context_status,
+        validate_execution_completion,
+    )
+
+    receipt, completion, execution, attempt_id, _ = _execution_completion_fixture()
+    bindings = {"claim-classification": []}
+    model_status_values = (
+        "graph_grounded",
+        "graph_grounded_partial",
+        "plan_only_insufficient_evidence",
+        "plan_only_graph_unused",
+    )
+    assert "answer_context_status" not in signature(
+        derive_execution_answer_context_status
+    ).parameters
+
+    def derive(candidate, candidate_receipt, candidate_execution, candidate_attempt, bindings):
+        # The status is deliberately excluded from the helper input fields.
+        return derive_execution_answer_context_status(
+            context_receipt_sha256=candidate.context_receipt_sha256,
+            answer_segments=candidate.answer_segments,
+            citation_map=candidate.citation_map,
+            receipt=candidate_receipt,
+            execution=candidate_execution,
+            producing_provider_attempt_id=candidate_attempt,
+            claim_graph_event_ids=bindings,
+        )
+
+    assert (
+        derive(completion, receipt, execution, attempt_id, bindings)
+        == "graph_grounded_partial"
+    )
+
+    for model_status in model_status_values:
+        status_variant = completion.model_copy(
+            update={"answer_context_status": model_status}
+        )
+        assert (
+            derive(status_variant, receipt, execution, attempt_id, bindings)
+            == "graph_grounded_partial"
+        )
+
+    mislabeled_graph_completion = completion.model_copy(
+        update={"answer_context_status": "graph_grounded"}
+    )
+    with pytest.raises(GraphCompletionValidationError) as graph_status_mismatch:
+        validate_execution_completion(
+            mislabeled_graph_completion, receipt, execution, attempt_id, bindings
+        )
+    assert (
+        graph_status_mismatch.value.rejection_code
+        is GraphCompletionRejectionCode.GROUNDED_STATUS_MISMATCH
+    )
+    assert (
+        str(graph_status_mismatch.value)
+        == "Graph grounded status does not match cited execution evidence"
+    )
+
+    complete_receipt, complete_completion, complete_execution, complete_attempt, _ = (
+        _execution_completion_fixture(coverage_status="complete")
+    )
+    assert (
+        derive(
+            complete_completion,
+            complete_receipt,
+            complete_execution,
+            complete_attempt,
+            bindings,
+        )
+        == "graph_grounded"
+    )
+
+    truncated_receipt, truncated_completion, truncated_execution, truncated_attempt, _ = (
+        _execution_completion_fixture(coverage_status="incomplete", truncated=True)
+    )
+    assert (
+        derive(
+            truncated_completion,
+            truncated_receipt,
+            truncated_execution,
+            truncated_attempt,
+            bindings,
+        )
+        == "graph_grounded_partial"
+    )
+
+    malformed_status = "graph_grounded_unverified"
+    with pytest.raises(ValidationError):
+        PlanWorldGraphCompletionV1(
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            answer_basis=completion.answer_basis,
+            answer_context_status=malformed_status,
+            answer_segments=completion.answer_segments,
+            citation_map=completion.citation_map,
+        )
+
+    for sufficiency, expected_status, supplied_status in (
+        ("sufficient", "plan_only_graph_unused", "plan_only_insufficient_evidence"),
+        ("insufficient", "plan_only_insufficient_evidence", "plan_only_graph_unused"),
+    ):
+        plan_receipt, _, plan_execution, plan_attempt, _ = _execution_completion_fixture(
+            evidence_sufficiency_status=sufficiency
+        )
+        plan_only = PlanWorldGraphCompletionV1(
+            context_receipt_sha256=plan_receipt.context_receipt_sha256,
+            answer_basis="committed_plan",
+            answer_context_status=supplied_status,
+            answer_segments=[
+                PlanWorldGraphPlanClaimSegmentV1(
+                    kind="plan_claim",
+                    text="Fixed Plan status test segment.",
+                    plan_content_sha256=plan_receipt.plan_basis.content_sha256,
+                )
+            ],
+            citation_map=None,
+        )
+        for model_status in model_status_values:
+            status_variant = plan_only.model_copy(
+                update={"answer_context_status": model_status}
+            )
+            assert (
+                derive(status_variant, plan_receipt, plan_execution, plan_attempt, {})
+                == expected_status
+            )
+        with pytest.raises(GraphCompletionValidationError) as plan_status_mismatch:
+            validate_execution_completion(
+                plan_only, plan_receipt, plan_execution, plan_attempt, {}
+            )
+        assert (
+            plan_status_mismatch.value.rejection_code
+            is GraphCompletionRejectionCode.PLAN_ONLY_STATUS_MISMATCH
+        )
+        assert (
+            str(plan_status_mismatch.value)
+            == "Plan-only status does not match evidence in the producing envelope"
+        )
+
+    with pytest.raises(GraphCompletionValidationError) as invalid_support:
+        derive(
+            completion,
+            receipt,
+            execution,
+            attempt_id,
+            {"claim-classification": [uuid4()]},
+        )
+    assert (
+        invalid_support.value.rejection_code
+        is GraphCompletionRejectionCode.BINDING_EVENT_NOT_IN_ENVELOPE
+    )
+
+
+def test_graph_receipt_and_completion_round_trip_through_fresh_service(
+    application_state_dsn: str,
+) -> None:
+    import psycopg
+    from alembic import command
+    from pydantic import ValidationError
+
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV1,
+        PlanWorldGraphExecutionV1,
+        ProviderAttemptAuthorizedEventV1,
+        ProviderOutcomeEventV1,
+    )
+    from application_state.cli import alembic_config
+
+    service = AgentConversationService()
+    world_id = "graph-receipt-roundtrip-world"
+    conversation = _new(service, world_id)
+    plan_revision_id = uuid4()
+    playable_target = PlanPlayableTargetReceiptV1(
+        schema="dmb_plan_playable_target_receipt_v1",
+        kind="beat",
+        id="beat:a",
+        marker_grammar_version="v2",
+    )
+    submitted_target = SubmittedPlanPlayableTargetV1(
+        schema="dmb_plan_playable_target_v1", kind="beat", id="beat:a"
+    )
+    receipt = _graph_receipt(world_id, plan_revision_id, playable_target)
+    intent = SubmittedTurnIntentV2(
+        world_id=world_id,
+        client_thread_id="graph-receipt-thread",
+        message="Summarize the current plan.",
+        surface_id="plan",
+        surface_instance_id="plan-pane-4",
+        client_work_state="saved_clean",
+        primary_work=SubmittedPrimaryWorkIntentV1(
+            kind="plan",
+            object_id="graph-receipt-plan",
+            expected_revision=3,
+            expected_revision_n=2,
+            expected_content_sha256="a" * 64,
+        ),
+        plan_context_policy=PlanContextPolicyV1(policy="auto_plan_world"),
+        playable_target=submitted_target,
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+        graph_selection=None,
+    )
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="plan",
+        surface_instance_id="plan-pane-4",
+        primary_work=HistoricalReference(
+            resolution="resolved",
+            kind="plan",
+            object_id="graph-receipt-plan",
+            content_sha256="a" * 64,
+            object_revision=3,
+            work_revision_id=plan_revision_id,
+            revision_n=2,
+        ),
+        supporting_work=[encode_plan_playable_target_reference(playable_target)],
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    execution = PlanWorldGraphExecutionV1(
+        schema="dmb_agent_plan_world_graph_execution_v1",
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        policy=GraphExecutionPolicyV1(
+            policy_version="test-policy-v1",
+            allowed_graph_operations=["search_assertions"],
+            max_provider_attempts=2,
+            max_graph_operations=0,
+            max_results_per_operation=0,
+            max_total_provider_input_tokens=100,
+            max_total_provider_output_tokens=40,
+            provider_input_accounting=GraphExecutionAccountingV1(
+                kind="exact_token_count", estimator="synthetic-tokenizer"
+            ),
+            source_opened=False,
+        ),
+        events=[],
+    )
+    submission = TurnSubmission(
+        world_id=world_id,
+        conversation_id=conversation.conversation_id,
+        idempotency_key=uuid4(),
+        expected_conversation_revision=1,
+        user_text=intent.message,
+        provenance=provenance,
+        submitted_intent_v2=intent,
+        graph_context_receipt=receipt,
+        graph_context_execution=execution,
+    )
+    accepted = service.accept_turn(submission)
+    fresh = AgentConversationService()
+    loaded = fresh.list_turns(world_id, conversation.conversation_id)[0]
+    assert loaded.graph_context_receipt == receipt
+    assert loaded.graph_context_execution == execution
+    assert (
+        loaded.graph_context_receipt.playable_target.marker_grammar_version == "v2"
+    )
+    assert fresh.accept_turn(submission) == accepted
+    changed_execution = execution.model_copy(
+        update={"policy": execution.policy.model_copy(update={"max_provider_attempts": 3})}
+    )
+    with pytest.raises(ApplicationStateConflictError, match="different submitted intent or Graph receipt"):
+        fresh.accept_turn(submission.model_copy(update={"graph_context_execution": changed_execution}))
+
+    with pytest.raises(ValidationError, match="Graph context receipt must match"):
+        TurnSubmission(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            idempotency_key=uuid4(),
+            expected_conversation_revision=1,
+            user_text=intent.message,
+            provenance=provenance,
+            submitted_intent_v2=intent.model_copy(
+                update={
+                    "playable_target": SubmittedPlanPlayableTargetV1(
+                        schema="dmb_plan_playable_target_v1",
+                        kind="beat",
+                        id="beat:b",
+                    )
+                }
+            ),
+            graph_context_receipt=receipt,
+        )
+
+    claimed = fresh.claim_turn(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=accepted.revision,
+        lease_seconds=60,
+    )
+    attempt_id = uuid4()
+    authorization_event = ProviderAttemptAuthorizedEventV1(
+        event_id=uuid4(), sequence=0, kind="provider_attempt_authorized",
+        provider_attempt_id=attempt_id, envelope_sha256="c" * 64,
+        serializer_version="canonical-json-utf8-v1", provider="test-provider",
+        model="synthetic-model", api_mode="messages", tool_schema_sha256="2" * 64,
+        input_accounting_kind="exact_token_count", input_estimator="synthetic-tokenizer",
+        input_tokens=12, output_token_reserve=10, included_assertion_ids=[],
+        included_relationship_ids=[], included_evidence_ref_ids=[], included_graph_event_ids=[],
+    )
+    authorized, allowed = fresh.authorize_provider_attempt(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=claimed.turn.revision, expected_attempt=claimed.turn.attempt,
+        provider_attempt_event=authorization_event,
+    )
+    assert allowed is True
+    duplicate_turn, duplicate_allowed = fresh.authorize_provider_attempt(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=authorized.revision, expected_attempt=claimed.turn.attempt,
+        provider_attempt_event=authorization_event,
+    )
+    assert duplicate_allowed is False
+    assert duplicate_turn.graph_context_execution == authorized.graph_context_execution
+    with pytest.raises(ApplicationStateConflictError, match="stale claim"):
+        fresh.authorize_provider_attempt(
+            world_id, conversation.conversation_id, accepted.turn_id,
+            expected_revision=claimed.turn.revision, expected_attempt=claimed.turn.attempt,
+            provider_attempt_event=authorization_event,
+        )
+    entered, _ = fresh.record_provider_outcome(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=authorized.revision, expected_attempt=claimed.turn.attempt,
+        outcome=ProviderOutcomeEventV1(
+            event_id=uuid4(), sequence=1, kind="provider_outcome",
+            provider_attempt_id=attempt_id, outcome="sdk_entered",
+        ),
+    )
+    responded, _ = fresh.record_provider_outcome(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=entered.revision, expected_attempt=claimed.turn.attempt,
+        outcome=ProviderOutcomeEventV1(
+            event_id=uuid4(), sequence=2, kind="provider_outcome",
+            provider_attempt_id=attempt_id, outcome="response_received",
+            response_sha256="3" * 64,
+        ),
+    )
+    completion = PlanWorldGraphCompletionV1(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis="committed_plan",
+        answer_context_status="plan_only_insufficient_evidence",
+        answer_segments=[
+            PlanWorldGraphPlanClaimSegmentV1(
+                kind="plan_claim",
+                text="The plan is to reach the northern pass.",
+                plan_content_sha256="a" * 64,
+            )
+        ],
+        citation_map=None,
+    )
+    completed = fresh.complete_turn(
+        TurnResult(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            turn_id=accepted.turn_id,
+            expected_revision=responded.revision,
+            assistant_text="The plan is to reach the northern pass.",
+            completion=completion,
+            producing_provider_attempt_id=attempt_id,
+            claim_graph_event_ids={},
+        )
+    )
+    reloaded = AgentConversationService().list_turns(
+        world_id, conversation.conversation_id
+    )[0]
+    assert reloaded == completed
+    assert reloaded.graph_context_receipt == receipt
+    assert reloaded.completion == completion
+    assert reloaded.graph_context_execution.events[-1].kind == "completion_binding"
+    assert fresh.accept_turn(submission) == completed
+    with pytest.raises(ApplicationStateConflictError, match="different recorded result"):
+        fresh.complete_turn(
+            TurnResult(
+                world_id=world_id,
+                conversation_id=conversation.conversation_id,
+                turn_id=accepted.turn_id,
+                expected_revision=responded.revision,
+                assistant_text="The plan is to reach the northern pass.",
+                completion=completion,
+                producing_provider_attempt_id=uuid4(),
+                claim_graph_event_ids={},
+            )
+        )
+    assert fresh.claim_turn(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=accepted.revision,
+    ).turn == completed
+
+    # A populated V1 execution row must satisfy the V1 check while 0018 is
+    # removed and restored; this exercises the 0017 -> 0018 upgrade path.
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        v1_execution_before = conn.execute(
+            "SELECT graph_context_execution FROM agent.turn WHERE turn_id = %s",
+            (accepted.turn_id,),
+        ).fetchone()[0]
+    assert v1_execution_before is not None
+    command.downgrade(alembic_config(), "20261005_0017")
+    assert _current_and_head(application_state_dsn) == (
+        "20261005_0017", "20261022_0052"
+    )
+    command.upgrade(alembic_config(), "head")
+    assert _current_and_head(application_state_dsn) == (
+        "20261022_0052", "20261022_0052"
+    )
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        assert conn.execute(
+            "SELECT graph_context_execution FROM agent.turn WHERE turn_id = %s",
+            (accepted.turn_id,),
+        ).fetchone()[0] == v1_execution_before
+
+    # Model a populated 0016 row: receipt/completion and legacy fingerprints
+    # exist, while the newly introduced execution column is still NULL.
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        conn.execute(
+            "UPDATE agent.turn SET graph_context_execution = NULL WHERE turn_id = %s",
+            (accepted.turn_id,),
+        )
+        graph_state_before = conn.execute(
+            """SELECT request_fingerprint, idempotency_fingerprint,
+                      graph_context_receipt, completion, graph_context_execution
+               FROM agent.turn WHERE turn_id = %s""",
+            (accepted.turn_id,),
+        ).fetchone()
+    command.downgrade(alembic_config(), "20261004_0016")
+    command.upgrade(alembic_config(), "head")
+    assert _current_and_head(application_state_dsn) == (
+        "20261022_0052", "20261022_0052"
+    )
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        assert conn.execute(
+            """SELECT request_fingerprint, idempotency_fingerprint,
+                      graph_context_receipt, completion, graph_context_execution
+               FROM agent.turn WHERE turn_id = %s""",
+            (accepted.turn_id,),
+        ).fetchone() == graph_state_before
+    migrated = AgentConversationService().list_turns(world_id, conversation.conversation_id)[0]
+    assert migrated.graph_context_execution is None
+    assert migrated.graph_context_receipt == completed.graph_context_receipt
+    assert migrated.completion == completed.completion
+    legacy_receipt_replay = submission.model_copy(update={"graph_context_execution": None})
+    assert AgentConversationService().accept_turn(legacy_receipt_replay) == migrated
+
+    with pytest.raises(psycopg.errors.CheckViolation):
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute(
+                "UPDATE agent.turn SET graph_context_receipt = '{}'::jsonb WHERE turn_id = %s",
+                (accepted.turn_id,),
+            )
+    with pytest.raises(RuntimeError, match="refusing to drop non-null Agent Graph context"):
+        command.downgrade(alembic_config(), "20261004_0015")
+    assert _current_and_head(application_state_dsn) == (
+        "20261022_0052",
+        "20261022_0052",
+    )
+
+
+def test_execution_partial_citations_require_sufficient_evidence(
+    application_state_dsn: str,
+) -> None:
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV1,
+        PlanWorldGraphExecutionV1,
+        ProviderAttemptAuthorizedEventV1,
+        ProviderOutcomeEventV1,
+        ValidatedGraphOperationEventV1,
+    )
+
+    service = AgentConversationService()
+    world_id = "graph-execution-citation-sufficiency"
+    conversation = _new(service, world_id)
+    plan_revision_id = uuid4()
+    receipt = _graph_receipt(world_id, plan_revision_id)
+    intent = SubmittedTurnIntentV2(
+        world_id=world_id,
+        client_thread_id="graph-execution-citation-thread",
+        message="Describe this Graph evidence.",
+        surface_id="plan",
+        surface_instance_id="plan-pane-citations",
+        client_work_state="saved_clean",
+        primary_work=SubmittedPrimaryWorkIntentV1(
+            kind="plan",
+            object_id="graph-receipt-plan",
+            expected_revision=3,
+            expected_revision_n=2,
+            expected_content_sha256="a" * 64,
+        ),
+        plan_context_policy=PlanContextPolicyV1(policy="auto_plan_world"),
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+        graph_selection=None,
+    )
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="plan",
+        surface_instance_id="plan-pane-citations",
+        primary_work=HistoricalReference(
+            resolution="resolved",
+            kind="plan",
+            object_id="graph-receipt-plan",
+            content_sha256="a" * 64,
+            object_revision=3,
+            work_revision_id=plan_revision_id,
+            revision_n=2,
+        ),
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    execution = PlanWorldGraphExecutionV1(
+        schema="dmb_agent_plan_world_graph_execution_v1",
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        policy=GraphExecutionPolicyV1(
+            policy_version="test-policy-v1",
+            allowed_graph_operations=["search_assertions"],
+            max_provider_attempts=1,
+            max_graph_operations=2,
+            max_results_per_operation=4,
+            max_total_provider_input_tokens=100,
+            max_total_provider_output_tokens=20,
+            provider_input_accounting=GraphExecutionAccountingV1(
+                kind="exact_token_count", estimator="synthetic-tokenizer"
+            ),
+            source_opened=False,
+        ),
+        events=[],
+    )
+    accepted = service.accept_turn(
+        TurnSubmission(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            idempotency_key=uuid4(),
+            expected_conversation_revision=1,
+            user_text=intent.message,
+            provenance=provenance,
+            submitted_intent_v2=intent,
+            graph_context_receipt=receipt,
+            graph_context_execution=execution,
+        )
+    )
+    claimed = service.claim_turn(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=accepted.revision,
+    ).turn
+    insufficient = ValidatedGraphOperationEventV1(
+        event_id=uuid4(),
+        sequence=0,
+        kind="validated_graph_operation",
+        operation_id=uuid4(),
+        operation="search_assertions",
+        request_arguments_sha256="1" * 64,
+        graph_revision="graph-rev-11",
+        result_packet_sha256="2" * 64,
+        assertion_ids=["assertion-evidence-1"],
+        relationship_ids=[],
+        evidence_ref_ids=["evidence-evidence-1"],
+        evidence_sufficiency_status="insufficient",
+        coverage_status="incomplete",
+        truncated=False,
+        source_opened=False,
+    )
+    after_insufficient, _ = service.append_validated_graph_operation(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=claimed.revision,
+        expected_attempt=claimed.attempt,
+        operation_event=insufficient,
+    )
+    sufficient_partial = ValidatedGraphOperationEventV1(
+        event_id=uuid4(),
+        sequence=1,
+        kind="validated_graph_operation",
+        operation_id=uuid4(),
+        operation="search_assertions",
+        request_arguments_sha256="3" * 64,
+        graph_revision="graph-rev-11",
+        result_packet_sha256="4" * 64,
+        assertion_ids=["assertion-evidence-1"],
+        relationship_ids=[],
+        evidence_ref_ids=["evidence-evidence-1"],
+        evidence_sufficiency_status="sufficient",
+        coverage_status="incomplete",
+        truncated=False,
+        source_opened=False,
+    )
+    after_sufficient, _ = service.append_validated_graph_operation(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=after_insufficient.revision,
+        expected_attempt=claimed.attempt,
+        operation_event=sufficient_partial,
+    )
+    attempt_id = uuid4()
+    authorized, _ = service.authorize_provider_attempt(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=after_sufficient.revision,
+        expected_attempt=claimed.attempt,
+        provider_attempt_event=ProviderAttemptAuthorizedEventV1(
+            event_id=uuid4(),
+            sequence=2,
+            kind="provider_attempt_authorized",
+            provider_attempt_id=attempt_id,
+            envelope_sha256="c" * 64,
+            serializer_version="canonical-json-utf8-v1",
+            provider="test-provider",
+            model="synthetic-model",
+            api_mode="messages",
+            tool_schema_sha256="5" * 64,
+            input_accounting_kind="exact_token_count",
+            input_estimator="synthetic-tokenizer",
+            input_tokens=12,
+            output_token_reserve=10,
+            included_assertion_ids=["assertion-evidence-1"],
+            included_relationship_ids=[],
+            included_evidence_ref_ids=["evidence-evidence-1"],
+            included_graph_event_ids=[insufficient.event_id, sufficient_partial.event_id],
+        ),
+    )
+    entered, _ = service.record_provider_outcome(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=authorized.revision,
+        expected_attempt=claimed.attempt,
+        outcome=ProviderOutcomeEventV1(
+            event_id=uuid4(), sequence=3, kind="provider_outcome",
+            provider_attempt_id=attempt_id, outcome="sdk_entered",
+        ),
+    )
+    responded, _ = service.record_provider_outcome(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=entered.revision,
+        expected_attempt=claimed.attempt,
+        outcome=ProviderOutcomeEventV1(
+            event_id=uuid4(), sequence=4, kind="provider_outcome",
+            provider_attempt_id=attempt_id, outcome="response_received",
+            response_sha256="6" * 64,
+        ),
+    )
+    claim = PlanWorldGraphClaimSegmentV1(
+        kind="graph_claim",
+        claim_id="claim-1",
+        text="The available assertion is incomplete.",
+        target_kind="assertion",
+        target_id="assertion-evidence-1",
+        graph_revision="graph-rev-11",
+        evidence_ref_ids=["evidence-evidence-1"],
+    )
+    citation = PlanWorldGraphCitationV1(
+        claim_id="claim-1",
+        target_kind="assertion",
+        target_id="assertion-evidence-1",
+        graph_revision="graph-rev-11",
+        evidence_ref_ids=["evidence-evidence-1"],
+        source_opened=False,
+    )
+    completion = PlanWorldGraphCompletionV1(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis="committed_plan_plus_world_graph",
+        answer_context_status="graph_grounded_partial",
+        answer_segments=[claim],
+        citation_map=PlanWorldGraphCitationMapV1(
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            entries=[citation],
+        ),
+    )
+    for supporting_events in (
+        [insufficient.event_id],
+        [insufficient.event_id, sufficient_partial.event_id],
+    ):
+        with pytest.raises(
+            ApplicationStateValidationError,
+            match="Graph grounded claims require sufficient cited evidence",
+        ):
+            service.complete_turn(
+                TurnResult(
+                    world_id=world_id,
+                    conversation_id=conversation.conversation_id,
+                    turn_id=accepted.turn_id,
+                    expected_revision=responded.revision,
+                    assistant_text="Partially grounded answer.",
+                    completion=completion,
+                    producing_provider_attempt_id=attempt_id,
+                    claim_graph_event_ids={"claim-1": supporting_events},
+                )
+            )
+    completed = service.complete_turn(
+        TurnResult(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            turn_id=accepted.turn_id,
+            expected_revision=responded.revision,
+            assistant_text="Partially grounded answer.",
+            completion=completion,
+            producing_provider_attempt_id=attempt_id,
+            claim_graph_event_ids={"claim-1": [sufficient_partial.event_id]},
+        )
+    )
+    assert completed.completion == completion
+
+
+@pytest.mark.parametrize("expired", [False, True], ids=["owned-claim", "expired-claim"])
+def test_delivery_settlement_preserves_unknown_and_owner_fences(
+    application_state_dsn: str, expired: bool,
+) -> None:
+    import psycopg
+    from application_state.agent_conversation.types import ProviderOutcomeEventV1
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentTurnServiceError, _interrupt_policy_delivery,
+    )
+
+    service = AgentConversationService()
+    world_id = f"delivery-settlement-{expired}"
+    conversation, _, accepted, claimed = _accepted_execution_turn(service, world_id)
+    attempt_id = uuid4()
+    current, _ = service.authorize_provider_attempt(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=claimed.revision, expected_attempt=claimed.attempt,
+        provider_attempt_event=_provider_authorization_event(attempt_id=attempt_id, sequence=0),
+    )
+    for sequence, outcome in enumerate(("sdk_entered", "outcome_unknown"), start=1):
+        current, _ = service.record_provider_outcome(
+            world_id, conversation.conversation_id, accepted.turn_id,
+            expected_revision=current.revision, expected_attempt=current.attempt,
+            outcome=ProviderOutcomeEventV1(
+                event_id=uuid4(), sequence=sequence, kind="provider_outcome",
+                provider_attempt_id=attempt_id, outcome=outcome,
+            ),
+        )
+    ledger = current.graph_context_execution
+    failure = TurnFailure(
+        world_id=world_id, conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id, expected_revision=current.revision,
+        failure_code="provider_outcome_unknown",
+    )
+    with pytest.raises(ApplicationStateConflictError):
+        service.fail_turn(failure.model_copy(update={
+            "expected_revision": current.revision - 1,
+        }), interrupted=True)
+    assert service.list_turns(world_id, conversation.conversation_id)[0] == current
+    if expired:
+        # Disposable test database only: exercise the existing expiry transition.
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute(
+                "UPDATE agent.turn SET claim_expires_at=clock_timestamp()-interval '1 second' WHERE turn_id=%s",
+                (accepted.turn_id,),
+            )
+        with pytest.raises(AgentTurnServiceError) as expired_settlement:
+            _interrupt_policy_delivery(service, current)
+        assert expired_settlement.value.code == "turn_persistence_indeterminate"
+        with pytest.raises(ApplicationStateConflictError, match="recorded as potentially sent"):
+            service.claim_turn(
+                world_id, conversation.conversation_id, accepted.turn_id,
+                expected_revision=current.revision,
+            )
+        settled = service.list_turns(world_id, conversation.conversation_id)[0]
+    else:
+        _interrupt_policy_delivery(service, current)
+        settled = service.list_turns(world_id, conversation.conversation_id)[0]
+        assert service.fail_turn(failure, interrupted=True) == settled
+        with pytest.raises(ApplicationStateConflictError):
+            service.fail_turn(failure.model_copy(update={
+                "failure_code": "different_failure",
+            }), interrupted=True)
+    assert settled.status == "interrupted"
+    assert settled.revision == current.revision + 1 and settled.attempt == current.attempt
+    assert settled.graph_context_execution == ledger
+    assert settled.assistant_text is None and settled.completion is None
+    with pytest.raises(ApplicationStateConflictError, match="prior provider authorization"):
+        service.claim_turn(
+            world_id, conversation.conversation_id, accepted.turn_id,
+            expected_revision=settled.revision,
+        )
+
+
+def test_expired_authorized_execution_becomes_unknown_and_cannot_reclaim(
+    application_state_dsn: str,
+) -> None:
+    import psycopg
+
+    service = AgentConversationService()
+    world_id = "graph-execution-expired-authorization"
+    conversation, _, accepted, claimed = _accepted_execution_turn(service, world_id)
+    attempt_id = uuid4()
+    authorized, fresh = service.authorize_provider_attempt(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=claimed.revision,
+        expected_attempt=claimed.attempt,
+        provider_attempt_event=_provider_authorization_event(
+            attempt_id=attempt_id, sequence=0
+        ),
+    )
+    assert fresh is True
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            """UPDATE agent.turn SET claim_expires_at = clock_timestamp() - interval '1 second'
+               WHERE turn_id = %s""",
+            (accepted.turn_id,),
+        )
+    with pytest.raises(ApplicationStateConflictError, match="recorded as potentially sent"):
+        service.claim_turn(
+            world_id,
+            conversation.conversation_id,
+            accepted.turn_id,
+            expected_revision=authorized.revision,
+        )
+    interrupted = service.list_turns(world_id, conversation.conversation_id)[0]
+    assert interrupted.status == "interrupted"
+    assert interrupted.failure_code == "provider_outcome_unknown"
+    assert interrupted.graph_context_execution.events[-1].kind == "provider_outcome"
+    assert interrupted.graph_context_execution.events[-1].outcome == "outcome_unknown"
+    with pytest.raises(ApplicationStateConflictError, match="prior provider authorization"):
+        service.claim_turn(
+            world_id,
+            conversation.conversation_id,
+            accepted.turn_id,
+            expected_revision=interrupted.revision,
+        )
+
+
+def test_stale_attempt_cannot_append_provider_outcome(
+    application_state_dsn: str,
+) -> None:
+    from application_state.agent_conversation.types import ProviderOutcomeEventV1
+
+    service = AgentConversationService()
+    world_id = "graph-execution-stale-attempt"
+    conversation, _, accepted, claimed = _accepted_execution_turn(service, world_id)
+    attempt_id = uuid4()
+    authorized, _ = service.authorize_provider_attempt(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=claimed.revision,
+        expected_attempt=claimed.attempt,
+        provider_attempt_event=_provider_authorization_event(
+            attempt_id=attempt_id, sequence=0
+        ),
+    )
+    with pytest.raises(ApplicationStateConflictError, match="stale claim"):
+        service.record_provider_outcome(
+            world_id,
+            conversation.conversation_id,
+            accepted.turn_id,
+            expected_revision=authorized.revision,
+            expected_attempt=claimed.attempt + 1,
+            outcome=ProviderOutcomeEventV1(
+                event_id=uuid4(),
+                sequence=1,
+                kind="provider_outcome",
+                provider_attempt_id=attempt_id,
+                outcome="sdk_entered",
+            ),
+        )
+    loaded = service.list_turns(world_id, conversation.conversation_id)[0]
+    assert loaded.revision == authorized.revision
+    assert [event.kind for event in loaded.graph_context_execution.events] == [
+        "provider_attempt_authorized"
+    ]
+
+
+def test_initial_provider_authorization_cannot_include_undispatched_candidates(
+    application_state_dsn: str,
+) -> None:
+    service = AgentConversationService()
+    world_id = "graph-execution-undispatched-candidate"
+    conversation, receipt, accepted, claimed = _accepted_execution_turn(
+        service,
+        world_id,
+        candidate_assertion_ids=["candidate-only-assertion"],
+    )
+    assert receipt.assembled_input.dispatched_assertion_ids == []
+    attempt_id = uuid4()
+    with pytest.raises(
+        ApplicationStateValidationError,
+        match="provider envelope includes IDs absent from admitted Graph evidence",
+    ):
+        service.authorize_provider_attempt(
+            world_id,
+            conversation.conversation_id,
+            accepted.turn_id,
+            expected_revision=claimed.revision,
+            expected_attempt=claimed.attempt,
+            provider_attempt_event=_provider_authorization_event(
+                attempt_id=attempt_id,
+                sequence=0,
+                assertions=["candidate-only-assertion"],
+            ),
+        )
+    loaded = service.list_turns(world_id, conversation.conversation_id)[0]
+    assert loaded.revision == claimed.revision
+    assert loaded.graph_context_execution.events == []
+
+
+def test_database_enforces_graph_execution_policy_and_storage_limits(
+    application_state_dsn: str,
+) -> None:
+    import psycopg
+
+    service = AgentConversationService()
+    world_id = "graph-execution-database-bounds"
+    _, _, accepted, _ = _accepted_execution_turn(service, world_id)
+    bad_updates = (
+        """UPDATE agent.turn
+           SET graph_context_execution = jsonb_set(
+               graph_context_execution, '{policy,max_provider_attempts}', '0'::jsonb
+           ) WHERE turn_id = %s""",
+        """UPDATE agent.turn
+           SET graph_context_execution = jsonb_set(
+               graph_context_execution, '{events}',
+               (SELECT jsonb_agg(jsonb_build_object('sequence', n))
+                FROM generate_series(1, 2049) AS series(n))
+           ) WHERE turn_id = %s""",
+        """UPDATE agent.turn
+           SET graph_context_execution = jsonb_set(
+               graph_context_execution, '{events}',
+               jsonb_build_array(jsonb_build_object('padding', repeat('x', 1048576)))
+           ) WHERE turn_id = %s""",
+    )
+    for statement in bad_updates:
+        with pytest.raises(psycopg.errors.CheckViolation):
+            with psycopg.connect(application_state_dsn) as conn:
+                conn.execute(statement, (accepted.turn_id,))
+
+
+def test_completion_requires_final_attempt_evidence_membership_and_is_atomic(
+    application_state_dsn: str,
+) -> None:
+    import psycopg
+
+    from application_state.agent_conversation.types import (
+        ProviderOutcomeEventV1,
+        ValidatedGraphOperationEventV1,
+    )
+
+    service = AgentConversationService()
+    world_id = "graph-execution-final-evidence-membership"
+    conversation, receipt, accepted, claimed = _accepted_execution_turn(service, world_id)
+    operation = ValidatedGraphOperationEventV1(
+        event_id=uuid4(),
+        sequence=0,
+        kind="validated_graph_operation",
+        operation_id=uuid4(),
+        operation="search_assertions",
+        request_arguments_sha256="1" * 64,
+        graph_revision=receipt.graph_authority.graph_revision,
+        result_packet_sha256="2" * 64,
+        assertion_ids=["assertion-final-evidence"],
+        relationship_ids=[],
+        evidence_ref_ids=["evidence-final-evidence"],
+        evidence_sufficiency_status="sufficient",
+        coverage_status="complete",
+        truncated=False,
+        source_opened=False,
+    )
+    after_operation, _ = service.append_validated_graph_operation(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=claimed.revision,
+        expected_attempt=claimed.attempt,
+        operation_event=operation,
+    )
+    first_attempt_id = uuid4()
+    first_authorized, _ = service.authorize_provider_attempt(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=after_operation.revision,
+        expected_attempt=claimed.attempt,
+        provider_attempt_event=_provider_authorization_event(
+            attempt_id=first_attempt_id,
+            sequence=1,
+            assertions=["assertion-final-evidence"],
+            graph_event_ids=[operation.event_id],
+        ),
+    )
+    first_entered, _ = service.record_provider_outcome(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=first_authorized.revision,
+        expected_attempt=claimed.attempt,
+        outcome=ProviderOutcomeEventV1(
+            event_id=uuid4(), sequence=2, kind="provider_outcome",
+            provider_attempt_id=first_attempt_id, outcome="sdk_entered",
+        ),
+    )
+    first_response, _ = service.record_provider_outcome(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=first_entered.revision,
+        expected_attempt=claimed.attempt,
+        outcome=ProviderOutcomeEventV1(
+            event_id=uuid4(), sequence=3, kind="provider_outcome",
+            provider_attempt_id=first_attempt_id, outcome="response_received",
+            response_sha256="3" * 64,
+        ),
+    )
+    claim = PlanWorldGraphClaimSegmentV1(
+        kind="graph_claim",
+        claim_id="claim-final-evidence",
+        text="The cited assertion is supported.",
+        target_kind="assertion",
+        target_id="assertion-final-evidence",
+        graph_revision=receipt.graph_authority.graph_revision,
+        evidence_ref_ids=["evidence-final-evidence"],
+    )
+    completion = PlanWorldGraphCompletionV1(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis="committed_plan_plus_world_graph",
+        answer_context_status="graph_grounded",
+        answer_segments=[claim],
+        citation_map=PlanWorldGraphCitationMapV1(
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            entries=[PlanWorldGraphCitationV1(
+                claim_id=claim.claim_id,
+                target_kind="assertion",
+                target_id=claim.target_id,
+                graph_revision=claim.graph_revision,
+                evidence_ref_ids=claim.evidence_ref_ids,
+                source_opened=False,
+            )],
+        ),
+    )
+    for mapped_ids in ([operation.event_id], [uuid4()]):
+        with pytest.raises(ApplicationStateValidationError):
+            service.complete_turn(
+                TurnResult(
+                    world_id=world_id,
+                    conversation_id=conversation.conversation_id,
+                    turn_id=accepted.turn_id,
+                    expected_revision=first_response.revision,
+                    assistant_text="The cited assertion is supported.",
+                    completion=completion,
+                    producing_provider_attempt_id=first_attempt_id,
+                    claim_graph_event_ids={claim.claim_id: list(mapped_ids)},
+                )
+            )
+    with psycopg.connect(application_state_dsn) as conn:
+        row = conn.execute(
+            "SELECT status, completion, graph_context_execution FROM agent.turn WHERE turn_id = %s",
+            (accepted.turn_id,),
+        ).fetchone()
+    assert row[0] == "running"
+    assert row[1] is None
+    assert not any(
+        event["kind"] == "completion_binding"
+        for event in row[2]["events"]
+    )
+
+    second_attempt_id = uuid4()
+    second_authorized, fresh = service.authorize_provider_attempt(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=first_response.revision,
+        expected_attempt=claimed.attempt,
+        provider_attempt_event=_provider_authorization_event(
+            attempt_id=second_attempt_id,
+            sequence=4,
+            assertions=["assertion-final-evidence"],
+            evidence_refs=["evidence-final-evidence"],
+            graph_event_ids=[operation.event_id],
+        ),
+    )
+    assert fresh is True
+    second_entered, _ = service.record_provider_outcome(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=second_authorized.revision,
+        expected_attempt=claimed.attempt,
+        outcome=ProviderOutcomeEventV1(
+            event_id=uuid4(), sequence=5, kind="provider_outcome",
+            provider_attempt_id=second_attempt_id, outcome="sdk_entered",
+        ),
+    )
+    second_response, _ = service.record_provider_outcome(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=second_entered.revision,
+        expected_attempt=claimed.attempt,
+        outcome=ProviderOutcomeEventV1(
+            event_id=uuid4(), sequence=6, kind="provider_outcome",
+            provider_attempt_id=second_attempt_id, outcome="response_received",
+            response_sha256="4" * 64,
+        ),
+    )
+    completed = service.complete_turn(
+        TurnResult(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            turn_id=accepted.turn_id,
+            expected_revision=second_response.revision,
+            assistant_text="The cited assertion is supported.",
+            completion=completion,
+            producing_provider_attempt_id=second_attempt_id,
+            claim_graph_event_ids={claim.claim_id: [operation.event_id]},
+        )
+    )
+    assert completed.completion == completion
+
+
+@pytest.mark.parametrize(
+    ("context_status", "coverage_status", "truncated", "has_graph_claim"),
+    [
+        ("graph_grounded", "complete", False, True),
+        ("graph_grounded_partial", "incomplete", False, True),
+        ("plan_only_graph_unused", "complete", False, False),
+    ],
+)
+def test_graph_completion_status_and_citation_membership_persist(
+    application_state_dsn: str,
+    context_status: str,
+    coverage_status: str,
+    truncated: bool,
+    has_graph_claim: bool,
+) -> None:
+    service = AgentConversationService()
+    world_id = f"graph-completion-{context_status}"
+    conversation = _new(service, world_id)
+    plan_revision_id = uuid4()
+    receipt = _graph_receipt(
+        world_id,
+        plan_revision_id,
+        evidence_sufficiency_status="sufficient",
+        candidate_assertion_ids=["assertion-1", "assertion-2"],
+        candidate_evidence_ref_ids=["evidence-1", "evidence-2"],
+        dispatched_assertion_ids=["assertion-1"],
+        dispatched_evidence_ref_ids=["evidence-1"],
+        coverage_status=coverage_status,
+        truncated=truncated,
+    )
+    intent = SubmittedTurnIntentV2(
+        world_id=world_id,
+        client_thread_id="graph-completion-thread",
+        message="Describe the available context.",
+        surface_id="plan",
+        surface_instance_id="plan-pane-5",
+        client_work_state="saved_clean",
+        primary_work=SubmittedPrimaryWorkIntentV1(
+            kind="plan",
+            object_id="graph-receipt-plan",
+            expected_revision=3,
+            expected_revision_n=2,
+            expected_content_sha256="a" * 64,
+        ),
+        plan_context_policy=PlanContextPolicyV1(policy="auto_plan_world"),
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+        graph_selection=None,
+    )
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="plan",
+        surface_instance_id="plan-pane-5",
+        primary_work=HistoricalReference(
+            resolution="resolved",
+            kind="plan",
+            object_id="graph-receipt-plan",
+            content_sha256="a" * 64,
+            object_revision=3,
+            work_revision_id=plan_revision_id,
+            revision_n=2,
+        ),
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    accepted = service.accept_turn(
+        TurnSubmission(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            idempotency_key=uuid4(),
+            expected_conversation_revision=1,
+            user_text=intent.message,
+            provenance=provenance,
+            submitted_intent_v2=intent,
+            graph_context_receipt=receipt,
+        )
+    )
+    claimed = service.claim_turn(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=accepted.revision,
+        lease_seconds=60,
+    )
+
+    if has_graph_claim:
+        claim = PlanWorldGraphClaimSegmentV1(
+            kind="graph_claim",
+            claim_id="claim-1",
+            text="The dispatched Graph packet names the northern pass.",
+            target_kind="assertion",
+            target_id="assertion-1",
+            graph_revision="graph-rev-11",
+            evidence_ref_ids=["evidence-1"],
+        )
+        citation_map = PlanWorldGraphCitationMapV1(
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            entries=[
+                PlanWorldGraphCitationV1(
+                    claim_id="claim-1",
+                    target_kind="assertion",
+                    target_id="assertion-1",
+                    graph_revision="graph-rev-11",
+                    evidence_ref_ids=["evidence-1"],
+                    source_opened=False,
+                )
+            ],
+        )
+        answer_segments = [
+            claim,
+            PlanWorldGraphConnectiveSegmentV1(
+                kind="connective", text="This matches the supplied context."
+            ),
+        ]
+        answer_basis = "committed_plan_plus_world_graph"
+        if context_status == "graph_grounded_partial":
+            invalid_claim = claim.model_copy(
+                update={"evidence_ref_ids": ["evidence-2"]}
+            )
+            invalid_map = citation_map.model_copy(
+                update={
+                    "entries": [
+                        citation_map.entries[0].model_copy(
+                            update={"evidence_ref_ids": ["evidence-2"]}
+                        )
+                    ]
+                }
+            )
+            invalid_completion = PlanWorldGraphCompletionV1(
+                context_receipt_sha256=receipt.context_receipt_sha256,
+                answer_basis=answer_basis,
+                answer_context_status=context_status,
+                answer_segments=[invalid_claim, answer_segments[1]],
+                citation_map=invalid_map,
+            )
+            with pytest.raises(
+                ApplicationStateValidationError,
+                match="Graph claim evidence refs must be in the dispatched packet",
+            ):
+                service.complete_turn(
+                    TurnResult(
+                        world_id=world_id,
+                        conversation_id=conversation.conversation_id,
+                        turn_id=accepted.turn_id,
+                        expected_revision=claimed.turn.revision,
+                        assistant_text="invalid citation membership",
+                        completion=invalid_completion,
+                    )
+                )
+    else:
+        citation_map = None
+        answer_segments = [
+            PlanWorldGraphPlanClaimSegmentV1(
+                kind="plan_claim",
+                text="The committed Plan sets out the journey.",
+                plan_content_sha256="a" * 64,
+            )
+        ]
+        answer_basis = "committed_plan"
+
+    completion = PlanWorldGraphCompletionV1(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis=answer_basis,
+        answer_context_status=context_status,
+        answer_segments=answer_segments,
+        citation_map=citation_map,
+    )
+    completed = service.complete_turn(
+        TurnResult(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            turn_id=accepted.turn_id,
+            expected_revision=claimed.turn.revision,
+            assistant_text="The stored answer follows the recorded context.",
+            completion=completion,
+        )
+    )
+    loaded = AgentConversationService().list_turns(
+        world_id, conversation.conversation_id
+    )[0]
+    assert loaded == completed
+    assert loaded.completion.answer_context_status == context_status
+    assert loaded.completion.citation_map == citation_map
 
 
 def test_turn_and_draft_round_trip_exact_typed_provenance(
@@ -233,6 +2243,111 @@ def test_turn_and_draft_round_trip_exact_typed_provenance(
     )
     assert loaded_draft.provenance == provenance
     assert loaded_draft.provenance.surface_instance_id == "plan-pane-7"
+
+
+def test_playable_target_receipt_persists_and_replays_immutable_plan_basis(
+    application_state_dsn: str,
+) -> None:
+    writer = AgentConversationService()
+    world_id = "playable-target-receipt-world"
+    conversation = _new(writer, world_id)
+    work_revision_id = uuid4()
+    target = SubmittedPlanPlayableTargetV1(
+        schema="dmb_plan_playable_target_v1", kind="scene", id="scene:arrival"
+    )
+    receipt = PlanPlayableTargetReceiptV1(
+        schema="dmb_plan_playable_target_receipt_v1",
+        kind="scene",
+        id="scene:arrival",
+        marker_grammar_version="v1",
+    )
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="plan",
+        surface_instance_id="plan-main",
+        primary_work=HistoricalReference(
+            resolution="resolved",
+            kind="plan",
+            object_id="plan-target-1",
+            revision="7",
+            content_sha256="b" * 64,
+            object_revision=7,
+            work_revision_id=work_revision_id,
+            revision_n=4,
+        ),
+        supporting_work=[encode_plan_playable_target_reference(receipt)],
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    intent = SubmittedTurnIntentV1(
+        world_id=world_id,
+        client_thread_id="target-thread",
+        message="What happens at arrival?",
+        surface_id="plan",
+        surface_instance_id="plan-main",
+        client_work_state="saved_dirty",
+        primary_work=SubmittedPrimaryWorkIntentV1(
+            kind="plan",
+            object_id="plan-target-1",
+            expected_revision=7,
+            expected_revision_n=4,
+            expected_content_sha256="b" * 64,
+        ),
+        playable_target=target,
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+        graph_selection=None,
+    )
+    submission = TurnSubmission(
+        world_id=world_id,
+        conversation_id=conversation.conversation_id,
+        idempotency_key=uuid4(),
+        expected_conversation_revision=1,
+        user_text=intent.message,
+        provenance=provenance,
+        submitted_intent_v1=intent,
+    )
+
+    accepted = writer.accept_turn(submission)
+    recovered = AgentConversationService()
+    loaded = recovered.list_turns(world_id, conversation.conversation_id)[0]
+    assert loaded.provenance == provenance
+    assert loaded.provenance.primary_work.work_revision_id == work_revision_id
+    assert loaded.provenance.supporting_work == [encode_plan_playable_target_reference(receipt)]
+    assert recovered.reconcile_turn(world_id, submission.idempotency_key, intent) == accepted
+
+    claim = recovered.claim_turn(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=accepted.revision,
+        lease_seconds=60,
+    )
+    assert claim.disposition == "claimed"
+    completed = recovered.complete_turn(TurnResult(
+        world_id=world_id,
+        conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id,
+        expected_revision=claim.turn.revision,
+        assistant_text="The arrival is guarded.",
+    ))
+    fresh = AgentConversationService()
+    replay = fresh.reconcile_turn(world_id, submission.idempotency_key, intent)
+    assert replay == completed
+    assert replay.provenance == provenance
+    for changed_intent in (
+        intent.model_copy(update={
+            "playable_target": SubmittedPlanPlayableTargetV1(
+                schema="dmb_plan_playable_target_v1", kind="scene", id="scene:departure"
+            )
+        }),
+        intent.model_copy(update={
+            "primary_work": intent.primary_work.model_copy(
+                update={"expected_content_sha256": "c" * 64}
+            )
+        }),
+    ):
+        with pytest.raises(ApplicationStateConflictError, match="different submitted intent"):
+            fresh.reconcile_turn(world_id, submission.idempotency_key, changed_intent)
 
 
 def test_fresh_service_instance_reads_committed_world_conversation(
@@ -433,7 +2548,7 @@ def test_concurrent_route_both_miss_dispatches_provider_once(
         create_world_container,
     )
 
-    world = create_world_container(tmp_path, name="Concurrent Receipt World")
+    world = create_world_container(name="Concurrent Receipt World")
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(agent_route, "session_dir", lambda: tmp_path / "sessions")
     service = AgentConversationService()
@@ -525,7 +2640,7 @@ def test_agent_route_persists_shared_world_history_and_provider_segments(
     )
 
     assert application_state_dsn
-    world = create_world_container(tmp_path, name="Conversation Route World")
+    world = create_world_container(name="Conversation Route World")
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(agent_route, "session_dir", lambda: tmp_path / "sessions")
     token = "test-local-operator-token-with-adequate-length"
@@ -820,7 +2935,7 @@ def test_late_plan_completion_keeps_frozen_revision_and_plan_segment(
     )
 
     assert application_state_dsn
-    world = create_world_container(tmp_path, name="Late Plan Completion World")
+    world = create_world_container(name="Late Plan Completion World")
     plan_a = create_world_plan(title="Plan A", world_id=world.world_id)
     plan_b = create_world_plan(title="Plan B", world_id=world.world_id)
     object_a_v1, revision_a_v1 = commit_plan(
@@ -1018,7 +3133,7 @@ def test_interrupted_provider_attempt_can_retry_same_durable_turn(
     )
 
     assert application_state_dsn
-    world = create_world_container(tmp_path, name="Interrupted Agent Turn World")
+    world = create_world_container(name="Interrupted Agent Turn World")
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(agent_route, "session_dir", lambda: tmp_path / "sessions")
     service = AgentConversationService()
@@ -1191,3 +3306,939 @@ def test_turn_claim_renewal_expiry_reclaim_and_stale_fences(
     )
     assert completed.status == "completed"
     assert completed.assistant_text == stale_result.assistant_text
+
+
+def test_graph_execution_v2_source_read_receipt_round_trip_through_fresh_service(
+    application_state_dsn: str,
+) -> None:
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV2,
+        GraphSourceReadScopeV2,
+        GraphSourceScopeAnchorV2,
+        PlanWorldGraphExecution,
+        PlanWorldGraphExecutionV2,
+        SourceReadAnchorReceiptV2,
+        SourceReadAuthorizationEventV2,
+        ValidatedSourceReadEventV2,
+        graph_execution_policy_digest_v2,
+    )
+
+    service = AgentConversationService()
+    world_id = "graph-source-read-v2-roundtrip-world"
+    conversation = _new(service, world_id)
+    plan_revision_id = uuid4()
+    playable_target = PlanPlayableTargetReceiptV1(
+        schema="dmb_plan_playable_target_receipt_v1",
+        kind="beat", id="beat:a", marker_grammar_version="v2",
+    )
+    submitted_target = SubmittedPlanPlayableTargetV1(
+        schema="dmb_plan_playable_target_v1", kind="beat", id="beat:a"
+    )
+    receipt = _graph_receipt(
+        world_id, plan_revision_id, playable_target,
+        candidate_evidence_ref_ids=["evidence-1"],
+    )
+    intent = SubmittedTurnIntentV2(
+        world_id=world_id, client_thread_id="source-read-v2-thread",
+        message="Read the admitted Graph source.", surface_id="plan",
+        surface_instance_id="plan-pane-source-read", client_work_state="saved_clean",
+        primary_work=SubmittedPrimaryWorkIntentV1(
+            kind="plan", object_id="graph-receipt-plan", expected_revision=3,
+            expected_revision_n=2, expected_content_sha256="a" * 64,
+        ),
+        plan_context_policy=PlanContextPolicyV1(policy="auto_plan_world"),
+        playable_target=submitted_target,
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"), graph_selection=None,
+    )
+    provenance = TurnProvenance(
+        world_id=world_id, surface_resolution="resolved", surface_id="plan",
+        surface_instance_id="plan-pane-source-read",
+        primary_work=HistoricalReference(
+            resolution="resolved", kind="plan", object_id="graph-receipt-plan",
+            content_sha256="a" * 64, object_revision=3,
+            work_revision_id=plan_revision_id, revision_n=2,
+        ),
+        supporting_work=[encode_plan_playable_target_reference(playable_target)],
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    scope = GraphSourceReadScopeV2(
+        retrieval_session_id="retrieval-source-read-1", world_id=world_id,
+        campaign_id=None, graph_revision="graph-rev-11",
+        admitted_anchors=[GraphSourceScopeAnchorV2(
+            anchor_id="anchor-1", evidence_ref_id="evidence-1",
+            source_artifact_id="artifact-1", source_revision_id="source-revision-1",
+        )],
+    )
+    policy = GraphExecutionPolicyV2(
+        policy_version="test-policy-v2", allowed_graph_operations=["search_assertions"],
+        max_provider_attempts=2, max_graph_operations=0, max_results_per_operation=0,
+        max_total_provider_input_tokens=100, max_total_provider_output_tokens=40,
+        provider_input_accounting=GraphExecutionAccountingV1(
+            kind="exact_token_count", estimator="synthetic-tokenizer",
+        ), source_opened=False, source_read_scope=scope,
+        max_source_read_calls=2, max_source_read_anchors=2,
+        max_source_read_chars=24000, max_chars_per_source_read=12000,
+    )
+    execution = PlanWorldGraphExecutionV2(
+        schema="dmb_agent_plan_world_graph_execution_v2",
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        execution_policy_sha256=graph_execution_policy_digest_v2(
+            receipt.context_receipt_sha256, policy
+        ), policy=policy, events=[],
+    )
+    submission = TurnSubmission(
+        world_id=world_id, conversation_id=conversation.conversation_id,
+        idempotency_key=uuid4(), expected_conversation_revision=1,
+        user_text=intent.message, provenance=provenance, submitted_intent_v2=intent,
+        graph_context_receipt=receipt, graph_context_execution=execution,
+    )
+    accepted = service.accept_turn(submission)
+    fresh = AgentConversationService()
+    loaded = fresh.list_turns(world_id, conversation.conversation_id)[0]
+    assert isinstance(loaded.graph_context_execution, PlanWorldGraphExecution)
+    assert loaded.graph_context_execution == execution
+
+    claimed = fresh.claim_turn(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=accepted.revision, lease_seconds=60,
+    )
+    trace_id = uuid4()
+    trace_started_at = datetime.now(UTC)
+    fresh.start_context_trace(
+        world_id=world_id, conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id, expected_revision=claimed.turn.revision,
+        attempt=claimed.turn.attempt, trace_id=trace_id, started_at=trace_started_at,
+    )
+    context_decision = TraceContextDecision(
+        sequence=0, elapsed_ms=2.0, kind="context_decision", action="retained",
+        item_ids=["question-1"], reason_code="question_relevance",
+        policy_version="trace-test-v1",
+    )
+    trace_after_append = fresh.append_context_trace(
+        world_id=world_id, conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id, expected_revision=claimed.turn.revision,
+        attempt=claimed.turn.attempt, trace_id=trace_id, observation=context_decision,
+    )
+    trace_after_retry = fresh.append_context_trace(
+        world_id=world_id, conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id, expected_revision=claimed.turn.revision,
+        attempt=claimed.turn.attempt, trace_id=trace_id, observation=context_decision,
+    )
+    assert trace_after_retry == trace_after_append
+    assert fresh.list_turns(world_id, conversation.conversation_id)[0].revision == claimed.turn.revision
+    call_id = uuid4()
+    authorization = SourceReadAuthorizationEventV2(
+        event_id=uuid4(), sequence=0, kind="source_read_authorized_v2",
+        read_call_id=call_id, context_receipt_sha256=receipt.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256,
+        retrieval_session_id=scope.retrieval_session_id, world_id=world_id,
+        campaign_id=None, graph_revision=scope.graph_revision,
+        anchors=scope.admitted_anchors, max_chars=12000,
+    )
+    authorized, fresh_auth = fresh.authorize_source_read(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=claimed.turn.revision, expected_attempt=claimed.turn.attempt,
+        authorization=authorization,
+    )
+    assert fresh_auth is True
+    passage_text = "Exact admitted passage bytes from this source read."
+    result_event = ValidatedSourceReadEventV2(
+        event_id=uuid4(), sequence=1, kind="validated_source_read_v2",
+        read_call_id=call_id, receipts=[SourceReadAnchorReceiptV2(
+            source_read_id="source-read:round-trip", anchor_id="anchor-1",
+            evidence_ref_id="evidence-1", source_artifact_id="artifact-1",
+            source_revision_id="source-revision-1", outcome="partial",
+            content_sha256=hashlib.sha256(passage_text.encode("utf-8")).hexdigest(),
+            line_start=3, line_end=7,
+            returned_chars=len(passage_text), truncated=True,
+            evidence_sufficiency_status="insufficient",
+        )],
+    )
+    source_passage = TraceSourcePassage(
+        sequence=0, elapsed_ms=13.0, source_read_event_id=result_event.event_id,
+        read_call_id=call_id, world_id=world_id, graph_revision=scope.graph_revision,
+        source_read_id="source-read:round-trip", anchor_id="anchor-1",
+        evidence_ref_id="evidence-1", source_artifact_id="artifact-1",
+        source_revision_id="source-revision-1", line_start=3, line_end=7,
+        outcome="partial", returned_chars=len(passage_text),
+        content_sha256=hashlib.sha256(passage_text.encode("utf-8")).hexdigest(),
+        text=passage_text,
+    )
+    with pytest.raises(ApplicationStateValidationError, match="exact text"):
+        fresh.record_validated_source_read(
+            world_id, conversation.conversation_id, accepted.turn_id,
+            expected_revision=authorized.revision, expected_attempt=claimed.turn.attempt,
+            receipt=result_event,
+        )
+    assert fresh.list_turns(world_id, conversation.conversation_id)[0].graph_context_execution == authorized.graph_context_execution
+    recorded, fresh_result = fresh.record_validated_source_read(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=authorized.revision, expected_attempt=claimed.turn.attempt,
+        receipt=result_event, source_passages=[source_passage],
+    )
+    assert fresh_result is True
+    with pytest.raises(ApplicationStateConflictError, match="stale or expired claim"):
+        fresh.append_context_trace(
+            world_id=world_id, conversation_id=conversation.conversation_id,
+            turn_id=accepted.turn_id, expected_revision=authorized.revision,
+            attempt=claimed.turn.attempt, trace_id=trace_id,
+            observation=TraceContextDecision(
+                sequence=2, elapsed_ms=15.0, kind="context_decision", action="retained",
+                item_ids=["question-1"], reason_code="question_relevance",
+                policy_version="trace-test-v1",
+            ),
+        )
+    duplicate, inserted = fresh.record_validated_source_read(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=recorded.revision, expected_attempt=claimed.turn.attempt,
+        receipt=result_event, source_passages=[source_passage],
+    )
+    assert inserted is False
+    assert duplicate.graph_context_execution == recorded.graph_context_execution
+    reload = AgentConversationService().list_turns(world_id, conversation.conversation_id)[0]
+    assert reload.graph_context_execution == recorded.graph_context_execution
+    assert reload.graph_context_execution.events[-1] == result_event
+    serialized_read = reload.graph_context_execution.model_dump(mode="json", by_alias=True)["events"][-1]["receipts"][0]
+    assert "content" not in serialized_read
+    saved_traces = AgentConversationService().list_context_trace_attempts(
+        world_id=world_id, turn_id=accepted.turn_id,
+    )
+    assert len(saved_traces) == 1
+    assert saved_traces[0].observations == [
+        context_decision, source_passage.model_copy(update={"sequence": 1}),
+    ]
+    assert saved_traces[0].execution_start_sequence == 0
+
+    source_snapshot = TraceContextSnapshot(sequence=2, elapsed_ms=14, stage="after", materials=[
+        TraceContextMaterial(item_id="admitted-passage", state="model_context", role="source",
+            source_read_event_id=result_event.event_id,
+            source_reads=[{"source_read_id": source_passage.source_read_id,
+                           "content_sha256": source_passage.content_sha256}]),
+    ])
+    fresh.append_context_trace(
+        world_id=world_id, conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id, expected_revision=reload.revision,
+        attempt=claimed.turn.attempt, trace_id=trace_id, observation=source_snapshot,
+    )
+    fabricated = source_snapshot.model_dump(mode="python")
+    fabricated["sequence"] = 3
+    fabricated["materials"][0]["source_reads"][0]["source_read_id"] = "other-passage"
+    with pytest.raises(ApplicationStateValidationError, match="passage IDs and digests"):
+        fresh.append_context_trace(
+            world_id=world_id, conversation_id=conversation.conversation_id,
+            turn_id=accepted.turn_id, expected_revision=reload.revision,
+            attempt=claimed.turn.attempt, trace_id=trace_id,
+            observation=TraceContextSnapshot.model_validate(fabricated),
+        )
+
+    failed = fresh.fail_turn(TurnFailure(
+        world_id=world_id, conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id, expected_revision=reload.revision,
+        failure_code="test_capture_terminal",
+    ), interrupted=True)
+    assert failed.status == "interrupted"
+    closed_trace = AgentConversationService().list_context_trace_attempts(
+        world_id=world_id, turn_id=accepted.turn_id,
+    )[0]
+    assert closed_trace.terminal_status == "interrupted"
+    assert closed_trace.closed_at == failed.completed_at
+    assert closed_trace.capture_status == "complete"
+
+    from alembic import command
+
+    from application_state.cli import alembic_config
+    with pytest.raises(RuntimeError, match="refusing to discard recorded context traces"):
+        command.downgrade(alembic_config(), "20261005_0017")
+    assert _current_and_head(application_state_dsn) == ("20261022_0052", "20261022_0052")
+    assert AgentConversationService().list_turns(world_id, conversation.conversation_id)[0] == failed
+
+
+def test_related_recap_events_round_trip_through_fresh_service(
+    application_state_dsn: str,
+) -> None:
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV2,
+        GraphSourceReadScopeV2,
+        GraphSourceScopeAnchorV2,
+        PlanWorldGraphContextReceiptV1,
+        PlanWorldGraphExecutionV2,
+        RelatedRecapContextAuthorizationEventV2,
+        RelatedRecapContextProviderInclusionEventV2,
+        RelatedRecapProvenanceBindingV2,
+        ValidatedRelatedRecapContextEventV2,
+        _canonical_sha256,
+        graph_execution_policy_digest_v2,
+        plan_world_graph_context_receipt_digest,
+        related_recap_context_inclusion_digest,
+        related_recap_provenance_result_digest,
+    )
+
+    service = AgentConversationService()
+    world_id = "related-recap-context-roundtrip-world"
+    conversation = _new(service, world_id)
+    plan_revision_id = uuid4()
+    receipt = _graph_receipt(
+        world_id,
+        plan_revision_id,
+        candidate_assertion_ids=["assertion-1"],
+        candidate_evidence_ref_ids=["evidence-indexed", "evidence-initial"],
+        dispatched_assertion_ids=["assertion-1"],
+        dispatched_evidence_ref_ids=["evidence-initial"],
+        evidence_sufficiency_status="sufficient",
+    )
+    receipt_without_digest = receipt.model_copy(
+        update={
+            "graph_authority": receipt.graph_authority.model_copy(
+                update={"admissibility_version": "gm-v1"}
+            ),
+            "context_receipt_sha256": "0" * 64,
+        }
+    )
+    receipt_digest = plan_world_graph_context_receipt_digest(receipt_without_digest)
+    receipt = PlanWorldGraphContextReceiptV1.model_validate(
+        receipt_without_digest.model_dump(mode="json", by_alias=True)
+        | {"context_receipt_sha256": receipt_digest}
+    )
+    intent = SubmittedTurnIntentV2(
+        world_id=world_id,
+        client_thread_id="related-recap-context-thread",
+        message="Summarize the prior session.",
+        surface_id="plan",
+        surface_instance_id="plan-pane-related-recap",
+        client_work_state="saved_clean",
+        primary_work=SubmittedPrimaryWorkIntentV1(
+            kind="plan",
+            object_id="graph-receipt-plan",
+            expected_revision=3,
+            expected_revision_n=2,
+            expected_content_sha256="a" * 64,
+        ),
+        plan_context_policy=PlanContextPolicyV1(policy="auto_plan_world"),
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+        graph_selection=None,
+    )
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="plan",
+        surface_instance_id="plan-pane-related-recap",
+        primary_work=HistoricalReference(
+            resolution="resolved",
+            kind="plan",
+            object_id="graph-receipt-plan",
+            content_sha256="a" * 64,
+            object_revision=3,
+            work_revision_id=plan_revision_id,
+            revision_n=2,
+        ),
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    scope = GraphSourceReadScopeV2(
+        retrieval_session_id="related-recap-context-session",
+        world_id=world_id,
+        campaign_id=None,
+        graph_revision="graph-rev-11",
+        admitted_anchors=[
+            GraphSourceScopeAnchorV2(
+                anchor_id="anchor-indexed",
+                evidence_ref_id="evidence-indexed",
+                source_artifact_id="artifact-indexed",
+                source_revision_id="source-revision-indexed",
+            )
+        ],
+    )
+    policy = GraphExecutionPolicyV2(
+        policy_version="related-recap-test-policy-v1",
+        allowed_graph_operations=["search_assertions"],
+        max_provider_attempts=2,
+        max_graph_operations=0,
+        max_results_per_operation=0,
+        max_total_provider_input_tokens=100,
+        max_total_provider_output_tokens=40,
+        provider_input_accounting=GraphExecutionAccountingV1(
+            kind="exact_token_count", estimator="synthetic-tokenizer"
+        ),
+        source_opened=False,
+        source_read_scope=scope,
+        max_source_read_calls=1,
+        max_source_read_anchors=1,
+        max_source_read_chars=12000,
+        max_chars_per_source_read=12000,
+    )
+    execution = PlanWorldGraphExecutionV2(
+        schema="dmb_agent_plan_world_graph_execution_v2",
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        execution_policy_sha256=graph_execution_policy_digest_v2(
+            receipt.context_receipt_sha256, policy
+        ),
+        policy=policy,
+        events=[],
+    )
+    accepted = service.accept_turn(
+        TurnSubmission(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            idempotency_key=uuid4(),
+            expected_conversation_revision=1,
+            user_text=intent.message,
+            provenance=provenance,
+            submitted_intent_v2=intent,
+            graph_context_receipt=receipt,
+            graph_context_execution=execution,
+        )
+    )
+    fresh = AgentConversationService()
+    claimed = fresh.claim_turn(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=accepted.revision,
+        lease_seconds=60,
+    ).turn
+    binding = RelatedRecapProvenanceBindingV2(
+        evidence_ref_id="evidence-initial",
+        source_artifact_id="legacy-artifact",
+        source_revision_id="legacy-source-revision",
+    )
+    admission = {
+        "schema": "dmb_agent_related_recap_context_admission_v2",
+        "admission_origin": "initial_graph_input",
+        "managed_world_id": world_id,
+        "native_world_id": "native-world-17",
+        "binding_version": 4,
+        "scope_mode": "world_cross_campaign",
+        "campaign_id": None,
+        "admissibility": "gm",
+        "admissibility_version": "gm-v1",
+        "graph_revision": "graph-rev-11",
+        "target_kind": "assertion",
+        "target_id": "assertion-1",
+        "provenance_bindings": [binding.model_dump(mode="json")],
+        "provenance_result_sha256": related_recap_provenance_result_digest(
+            managed_world_id=world_id,
+            native_world_id="native-world-17",
+            binding_version=4,
+            graph_revision="graph-rev-11",
+            target_kind="assertion",
+            target_id="assertion-1",
+            provenance_bindings=[binding],
+        ),
+        "provenance_status": "complete",
+        "provenance_gap_count": 0,
+        "context_index_sha256": "c" * 64,
+        "context_index_status": "complete",
+        "context_index_entry_count": 1,
+        "context_index_max_entries": 512,
+        "context_anchor_id": "dm-context-anchor:v2:session-22",
+        "descriptor_world_id": "native-world-17",
+        "descriptor_campaign_id": "longmont-c2",
+        "descriptor_graph_revision_id": "graph-rev-11",
+        "descriptor_source_artifact_id": "legacy-artifact",
+        "descriptor_source_revision_id": "legacy-source-revision",
+        "descriptor_content_sha256": "d" * 64,
+        "selector_schema": "dm_recap_context_section_selector_v2",
+        "selector_policy": "markdown-session-recap-v2",
+        "expected_session_id": "session-22",
+        "canonical_heading": "# Session 22 Recap",
+        "legacy_session_heading": "## Session 22:",
+        "legacy_recap_marker": "**Recap**:",
+    }
+    from application_state.agent_conversation.types import RelatedRecapContextAdmissionV2
+
+    typed_admission = RelatedRecapContextAdmissionV2.model_validate(admission)
+    call_id = uuid4()
+    authorization = RelatedRecapContextAuthorizationEventV2(
+        event_id=uuid4(),
+        sequence=0,
+        kind="related_recap_context_authorized_v2",
+        read_call_id=call_id,
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256,
+        admission=typed_admission,
+        max_chars=12000,
+    )
+    authorized, inserted = fresh.authorize_related_recap_context(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=claimed.revision,
+        expected_attempt=claimed.attempt,
+        authorization=authorization,
+    )
+    assert inserted is True
+    result = ValidatedRelatedRecapContextEventV2(
+        event_id=uuid4(),
+        sequence=1,
+        kind="validated_related_recap_context_v2",
+        read_call_id=call_id,
+        authorization_event_id=authorization.event_id,
+        admission_sha256=_canonical_sha256(typed_admission.model_dump(mode="json", by_alias=True)),
+        outcome="enough",
+        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v2",
+        source_bytes_sha256="d" * 64,
+        section_sha256="e" * 64,
+        page_content_sha256="f" * 64,
+        heading_line=12, selected_form="canonical_h1", session_heading_line=12, recap_marker_line=None,
+        line_start=13,
+        line_end=38,
+        offset_chars=0,
+        returned_chars=37,
+        truncated=False,
+    )
+    recorded, inserted = fresh.record_validated_related_recap_context(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=authorized.revision,
+        expected_attempt=claimed.attempt,
+        result=result,
+    )
+    assert inserted is True
+    attempt_id = uuid4()
+    envelope_sha = "a" * 64
+    inclusion = RelatedRecapContextProviderInclusionEventV2(
+        event_id=uuid4(),
+        sequence=2,
+        kind="related_recap_context_provider_inclusion_v2",
+        provider_attempt_id=attempt_id,
+        envelope_sha256=envelope_sha,
+        included_context_event_ids=[result.event_id],
+        included_context_sha256=related_recap_context_inclusion_digest([result]),
+        included_chars=result.returned_chars,
+    )
+    pending, inserted = fresh.record_related_recap_context_inclusion(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=recorded.revision,
+        expected_attempt=claimed.attempt,
+        inclusion=inclusion,
+    )
+    assert inserted is True
+    reloaded = AgentConversationService().list_turns(
+        world_id, conversation.conversation_id
+    )[0]
+    assert reloaded.graph_context_execution.events[-1] == inclusion
+    assert reloaded.graph_context_execution.events[-2] == result
+    assert reloaded.graph_context_execution.events[-3] == authorization
+    assert reloaded.graph_context_execution.events[-3].admission.campaign_id is None
+    assert (
+        reloaded.graph_context_execution.events[-3].admission.descriptor_campaign_id
+        == "longmont-c2"
+    )
+    assert "evidence-initial" not in {
+        anchor.evidence_ref_id
+        for anchor in reloaded.graph_context_execution.policy.source_read_scope.admitted_anchors
+    }
+    serialized = reloaded.graph_context_execution.model_dump(mode="json", by_alias=True)
+    encoded_result = serialized["events"][1]
+    assert not {"content", "source_uri", "continuation", "token"}.intersection(
+        encoded_result
+    )
+    assert pending.graph_context_execution == reloaded.graph_context_execution
+    assert "response" not in serialized
+    assert "replacement_markdown" not in serialized
+
+
+def test_read_only_reset_receipt_actual_repository_route(application_state_dsn, monkeypatch):
+    import asyncio
+    import httpx
+    import psycopg
+    from fastapi import FastAPI
+    from application_state.agent_conversation.types import ArchiveCommand, request_fingerprint
+    from apps.live_control_server.routes import agent as route
+    service = AgentConversationService()
+    command = ConversationCommand(world_id="status-world", command_id=uuid4(), expected_pointer_revision=0, expected_active_conversation_id=None)
+    first = service.new_conversation(command)
+    next_command = ConversationCommand(world_id=command.world_id, command_id=uuid4(), expected_pointer_revision=first.pointer_revision, expected_active_conversation_id=first.conversation_id)
+    later = service.new_conversation(next_command)
+    assert AgentConversationService().get_new_conversation_receipt(command) == first
+    missing = command.model_copy(update={"world_id": "status-missing"})
+    assert service.get_new_conversation_receipt(missing) is None
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT count(*) FROM agent.world_state WHERE world_id=%s", (missing.world_id,)).fetchone()[0] == 0
+    with pytest.raises(ApplicationStateConflictError):
+        service.get_new_conversation_receipt(command.model_copy(update={"expected_pointer_revision": 1}))
+    with pytest.raises(ApplicationStateConflictError):
+        service.get_new_conversation_receipt(command.model_copy(update={"expected_active_conversation_id": uuid4()}))
+    assert service.new_conversation(command) == first
+    assert service.get_world_pointer(command.world_id).active_conversation_id == later.conversation_id
+    archive_command = ArchiveCommand(world_id=command.world_id, command_id=uuid4(), expected_pointer_revision=later.pointer_revision, expected_active_conversation_id=later.conversation_id, conversation_id=later.conversation_id)
+    service.archive_conversation(archive_command)
+    with pytest.raises(ApplicationStateConflictError):
+        service.get_new_conversation_receipt(ConversationCommand(**archive_command.model_dump(exclude={"conversation_id"})))
+    monkeypatch.setattr(route, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(route, "_conversation_service", lambda request: AgentConversationService())
+    app = FastAPI()
+    app.include_router(route.router, prefix="/api/live")
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            url = f"/api/live/agent/worlds/{command.world_id}/conversation/commands/{command.command_id}"
+            query = "?expected_pointer_revision=0&expected_active_conversation_id=null"
+            response = await client.get(url + query)
+            assert response.status_code == 200, response.text
+            assert response.json()["request_fingerprint"] == request_fingerprint(command)
+            assert response.json()["receipt"]["conversation_id"] == str(first.conversation_id)
+            for suffix in ("", query+"&extra=x", query+"&expected_pointer_revision=0", query.replace("null", "invalid")):
+                assert (await client.get(url+suffix)).status_code == 422
+            assert (await client.get(url+query.replace("revision=0", "revision=1"))).status_code == 409
+            assert (await client.get(url.replace(command.world_id, missing.world_id)+query)).json()["status"] == "absent"
+    asyncio.run(exercise())
+
+
+def _resolution_request(command, *, revision=0, conversation=None):
+    from application_state.agent_conversation.types import CommandResolutionRequestV1
+    return CommandResolutionRequestV1(resolution_operation_id=uuid4(), original_command=command,
+        expected_current_pointer_revision=revision, expected_current_active_conversation_id=conversation)
+
+
+@pytest.mark.parametrize("winner", ["old", "retire"])
+def test_terminal_reset_actual_lock_race_and_delayed_post(application_state_dsn, monkeypatch, winner):
+    import threading
+    import psycopg
+    from application_state.agent_conversation import service as owner
+    command = ConversationCommand(world_id="terminal-race-world", command_id=uuid4(), expected_pointer_revision=0, expected_active_conversation_id=None)
+    request = _resolution_request(command)
+    locked, release = threading.Event(), threading.Event()
+    original_lock = owner._lock_pointer
+    def gated_lock(conn, world):
+        pointer = original_lock(conn, world)
+        if threading.current_thread().name == winner:
+            locked.set()
+            assert release.wait(10)
+        return pointer
+    monkeypatch.setattr(owner, "_lock_pointer", gated_lock)
+    def old():
+        threading.current_thread().name = "old"
+        try:
+            return AgentConversationService().new_conversation(command)
+        except ApplicationStateConflictError as exc:
+            return str(exc)
+    def retire():
+        threading.current_thread().name = "retire"
+        return AgentConversationService().resolve_new_conversation(request, actor="test-gm")
+    functions = {"old": old, "retire": retire}
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(functions[winner])
+        assert locked.wait(10)
+        second = pool.submit(functions["retire" if winner == "old" else "old"])
+        release.set()
+        values = [first.result(timeout=20), second.result(timeout=20)]
+    record = next(value for value in values if hasattr(value, "outcome"))
+    service = AgentConversationService()
+    pointer = service.get_world_pointer(command.world_id)
+    assert record.outcome == ("confirmed" if winner == "old" else "retired")
+    assert service.get_command_resolution(request) == record
+    assert service.resolve_new_conversation(request, actor="different-later-gm") == record
+    if winner == "retire":
+        assert "new_conversation_request_retired" in values
+        assert pointer.revision == 0 and pointer.active_conversation_id is None
+        fresh = service.new_conversation(command.model_copy(update={"command_id": uuid4()}))
+        with pytest.raises(ApplicationStateConflictError, match="request_retired"):
+            service.new_conversation(command)
+        assert service.get_world_pointer(command.world_id).active_conversation_id == fresh.conversation_id
+        assert service.resolve_new_conversation(request, actor="test-gm") == record
+        different = request.model_copy(update={"resolution_operation_id": uuid4()})
+        with pytest.raises(ApplicationStateConflictError, match="use_original_resolution_record"):
+            service.resolve_new_conversation(different, actor="test-gm")
+        with pytest.raises(ApplicationStateConflictError, match="different binding"):
+            service.resolve_new_conversation(request.model_copy(update={"expected_current_pointer_revision": 1}), actor="test-gm")
+    else:
+        assert pointer.revision == 1
+        assert service.new_conversation(command) == record.confirmed_receipt
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT count(*) FROM agent.command_resolution WHERE world_id=%s", (command.world_id,)).fetchone()[0] == 1
+        assert conn.execute("SELECT count(*) FROM agent.conversation WHERE world_id=%s", (command.world_id,)).fetchone()[0] == 1
+
+
+def test_terminal_resolution_authorization_blocks_write_and_replay(application_state_dsn):
+    service = AgentConversationService()
+    original = ConversationCommand(
+        world_id="terminal-authorization-world", command_id=uuid4(),
+        expected_pointer_revision=0, expected_active_conversation_id=None,
+    )
+    request = _resolution_request(original)
+
+    def revoke():
+        raise PermissionError("World ownership changed")
+
+    with pytest.raises(PermissionError, match="World ownership changed"):
+        service.resolve_new_conversation(request, actor="test-gm", authorize_world=revoke)
+    assert service.get_command_resolution(request) is None
+    record = service.resolve_new_conversation(request, actor="test-gm")
+    with pytest.raises(PermissionError, match="World ownership changed"):
+        service.resolve_new_conversation(request, actor="test-gm", authorize_world=revoke)
+    assert service.get_command_resolution(request) == record
+
+
+@pytest.mark.parametrize("outcome", ["confirmed", "retired", "submitted_binding_blocked"])
+def test_terminal_records_fresh_readback_immutable_and_downgrade_refused(application_state_dsn, outcome):
+    import psycopg
+    from alembic import command as migration
+    from application_state.cli import alembic_config
+    from pydantic import ValidationError
+    service = AgentConversationService()
+    original = ConversationCommand(world_id="terminal-record-world", command_id=uuid4(), expected_pointer_revision=0, expected_active_conversation_id=None)
+    occupied = None
+    if outcome != "retired":
+        occupied = service.new_conversation(original)
+    submitted = original if outcome != "submitted_binding_blocked" else original.model_copy(update={"expected_pointer_revision": 9})
+    request = _resolution_request(submitted)
+    record = service.resolve_new_conversation(request, actor="test-gm")
+    assert record.outcome == outcome
+    assert AgentConversationService().get_command_resolution(request) == record
+    assert service.resolve_new_conversation(request, actor="test-gm") == record
+    with pytest.raises(ValidationError, match="digest mismatch"):
+        type(record).model_validate({**record.model_dump(mode="json", by_alias=True), "actor": "tampered"})
+    if occupied:
+        assert service.new_conversation(original) == occupied
+    if outcome == "submitted_binding_blocked":
+        blocked = record.occupied_receipt.model_dump(mode="json")
+        assert "conversation_id" not in blocked and "active_conversation_id" not in blocked
+        assert str(occupied.conversation_id) not in json.dumps(blocked)
+        with pytest.raises(psycopg.Error, match="immutable"):
+            with psycopg.connect(application_state_dsn) as conn:
+                conn.execute("DELETE FROM agent.command_receipt WHERE world_id=%s AND command_id=%s", (original.world_id, original.command_id))
+    for statement in ("DELETE FROM agent.command_resolution", "UPDATE agent.command_resolution SET outcome=outcome"):
+        with pytest.raises(psycopg.Error, match="immutable"):
+            with psycopg.connect(application_state_dsn) as conn:
+                conn.execute(statement)
+    with pytest.raises(Exception, match="downgrade refused"):
+        migration.downgrade(alembic_config(), "20261007_0018")
+    assert _current_and_head(application_state_dsn) == ("20261022_0052", "20261022_0052")
+    assert service.get_command_resolution(request) == record
+
+
+def test_terminal_empty_ledger_downgrade_and_nonterminal_cas_rolls_back(application_state_dsn):
+    import psycopg
+    from alembic import command as migration
+    from application_state.cli import alembic_config
+    original = ConversationCommand(world_id="terminal-missing-world", command_id=uuid4(), expected_pointer_revision=0, expected_active_conversation_id=None)
+    request = _resolution_request(original, revision=1)
+    with pytest.raises(ApplicationStateConflictError, match="changed"):
+        AgentConversationService().resolve_new_conversation(request, actor="test-gm")
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT count(*) FROM agent.world_state WHERE world_id=%s", (original.world_id,)).fetchone()[0] == 0
+        assert conn.execute("SELECT count(*) FROM agent.command_resolution").fetchone()[0] == 0
+    migration.downgrade(alembic_config(), "20261007_0018")
+    assert _current_and_head(application_state_dsn) == ("20261007_0018", "20261022_0052")
+    migration.upgrade(alembic_config(), "head")
+    assert _current_and_head(application_state_dsn) == ("20261022_0052", "20261022_0052")
+
+
+def test_terminal_resolution_actual_http_binding_readback_and_auth(application_state_dsn, monkeypatch):
+    import asyncio
+    import httpx
+    from fastapi import FastAPI, HTTPException
+    from apps.live_control_server.routes import agent as route
+    command = ConversationCommand(world_id="terminal-http-world", command_id=uuid4(), expected_pointer_revision=0, expected_active_conversation_id=None)
+    request = _resolution_request(command)
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+
+    principal = NativeGraphPrincipal("http-gm", "gm", "local_operator")
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: principal)
+    monkeypatch.setattr(route, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(route, "_conversation_service", lambda _request: AgentConversationService())
+    app = FastAPI()
+    app.include_router(route.router, prefix="/api/live")
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            root = f"/api/live/agent/worlds/{command.world_id}/conversation/commands/{command.command_id}"
+            query = "?original_pointer_revision=0&original_active_conversation_id=null&current_pointer_revision=0&current_active_conversation_id=null"
+            status_url = root + "/resolutions/" + str(request.resolution_operation_id)
+            assert (await client.get(status_url+query)).json()["status"] == "absent"
+            body = request.model_dump(mode="json", by_alias=True)
+            response = await client.post(root+"/resolve", json=body)
+            assert response.status_code == 200, response.text
+            assert response.json()["record"]["outcome"] == "retired"
+            assert (await client.get(status_url+query)).json() == response.json()
+            assert (await client.post(root+"/resolve", json=body)).json() == response.json()
+            assert (await client.get(status_url+query+"&extra=x")).status_code == 422
+            assert (await client.get(status_url+query.replace("revision=0", "revision=1"))).status_code == 409
+            different = request.model_copy(update={"resolution_operation_id": uuid4()})
+            conflict = await client.post(root+"/resolve", json=different.model_dump(mode="json", by_alias=True))
+            assert conflict.status_code == 409 and conflict.json()["detail"]["code"] == "use_original_resolution_record"
+            assert (await client.post(root.replace(command.world_id,"other-world")+"/resolve", json=body)).status_code == 422
+            old = await client.post(f"/api/live/agent/worlds/{command.world_id}/conversation/new", json={"schema":"dmb_agent_new_conversation_v1", "command_id":str(command.command_id), "expected_pointer_revision":0,"expected_active_conversation_id":None})
+            assert old.status_code == 409 and old.json()["detail"]["code"] == "new_conversation_request_retired"
+            def reject(_request):
+                raise HTTPException(status_code=403, detail="GM required")
+            monkeypatch.setattr(route, "enforce_native_graph_gm", reject)
+            monkeypatch.setattr(route, "_verified_world_id", lambda _world: pytest.fail("lookup before auth"))
+            assert (await client.post(root+"/resolve", json=body)).status_code == 403
+            assert (await client.get(status_url+query)).status_code == 403
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("unavailable", [False, True])
+def test_selected_source_scope_jsonb_and_legacy_roundtrip(application_state_dsn, tmp_path, monkeypatch, unavailable):
+    from tests.test_agent_turn_route import _selected_consumer_context
+    from apps.live_control_server.services.agent_turn_service import _conversation_provenance, _submitted_turn_intent
+    from application_state.agent_conversation.types import GraphSelectedSourceReadScopeV2, graph_execution_policy_digest_v2
+    body, work, bootstrap, receipt, execution, _members = _selected_consumer_context(tmp_path,monkeypatch,unavailable=unavailable)
+    service = AgentConversationService()
+    conversation = service.new_conversation(ConversationCommand(world_id=work.world_id,command_id=uuid4(),expected_pointer_revision=0,expected_active_conversation_id=None))
+    provenance = _conversation_provenance(body,world_id=work.world_id,work=work,graph_scope=bootstrap.world_scope,graph_envelope=bootstrap.graph_envelope)
+    request = TurnSubmission(world_id=work.world_id,conversation_id=conversation.conversation_id,idempotency_key=uuid4(),expected_conversation_revision=1,
+        user_text=body.message,provenance=provenance,submitted_intent_v2=_submitted_turn_intent(body,world_id=work.world_id),graph_context_receipt=receipt,graph_context_execution=execution)
+    accepted = service.accept_turn(request)
+    readback = AgentConversationService().list_turns(work.world_id,conversation.conversation_id)[0]
+    assert readback.graph_context_execution.model_dump(mode='json',by_alias=True)==execution.model_dump(mode='json',by_alias=True)
+    assert isinstance(readback.graph_context_execution.policy.source_read_scope,GraphSelectedSourceReadScopeV2)
+    assert service.accept_turn(request).turn_id==accepted.turn_id
+    # Legacy scopes must not gain the required selected commitment or change digest.
+    from application_state.agent_conversation.types import GraphSourceReadScopeV2, GraphExecutionPolicyV2, GraphExecutionAccountingV1
+    old_scope = GraphSourceReadScopeV2(retrieval_session_id='legacy',world_id=work.world_id,campaign_id=None,graph_revision=bootstrap.world_scope.revision_id,
+        admitted_anchors=list(bootstrap.source_scope_anchors))
+    old_policy = GraphExecutionPolicyV2(policy_version='plan_world_graph_execution_v1',allowed_graph_operations=['expand_graph_retrieval'],
+        max_provider_attempts=4,max_graph_operations=8,max_results_per_operation=512,max_total_provider_input_tokens=131072,max_total_provider_output_tokens=8192,
+        provider_input_accounting=GraphExecutionAccountingV1(kind='conservative_upper_bound',estimator='utf8_json_bytes_plus_64_per_node_v1'),source_opened=False,
+        source_read_scope=old_scope,max_source_read_calls=0 if unavailable else 8,max_source_read_anchors=0 if unavailable else 8,
+        max_source_read_chars=0 if unavailable else 96000,max_chars_per_source_read=12000)
+    encoded=old_policy.model_dump(mode='json',by_alias=True)
+    assert 'selected_index_commitment' not in encoded['source_read_scope']
+    restored=GraphExecutionPolicyV2.model_validate(encoded)
+    assert restored.model_dump(mode='json',by_alias=True)==encoded
+    assert graph_execution_policy_digest_v2(receipt.context_receipt_sha256,old_policy)==graph_execution_policy_digest_v2(receipt.context_receipt_sha256,restored)
+    legacy_root = tmp_path/'legacy'
+    legacy_root.mkdir()
+    legacy_body,legacy_work,legacy_boot,legacy_receipt,legacy_execution,_ = _selected_consumer_context(legacy_root,monkeypatch,legacy=True)
+    assert legacy_receipt.graph_packet.selection_policy_version == 'parent_initial_retrieval_with_bounded_source_index_v1'
+    active = service.get_active_conversation(legacy_work.world_id)
+    if active is None:
+        receipt_new = service.new_conversation(ConversationCommand(world_id=legacy_work.world_id,command_id=uuid4(),expected_pointer_revision=0,expected_active_conversation_id=None))
+        active = service.get_active_conversation(legacy_work.world_id)
+        assert active.conversation_id == receipt_new.conversation_id
+    legacy_submission = TurnSubmission(world_id=legacy_work.world_id,conversation_id=active.conversation_id,idempotency_key=uuid4(),expected_conversation_revision=active.revision,
+        user_text=legacy_body.message,provenance=_conversation_provenance(legacy_body,world_id=legacy_work.world_id,work=legacy_work,graph_scope=legacy_boot.world_scope,graph_envelope=legacy_boot.graph_envelope),
+        submitted_intent_v2=_submitted_turn_intent(legacy_body,world_id=legacy_work.world_id),graph_context_receipt=legacy_receipt,graph_context_execution=legacy_execution)
+    legacy_turn = service.accept_turn(legacy_submission)
+    legacy_loaded = next(turn for turn in AgentConversationService().list_turns(legacy_work.world_id,active.conversation_id) if turn.turn_id==legacy_turn.turn_id)
+    assert legacy_loaded.graph_context_execution.model_dump_json(by_alias=True)==legacy_execution.model_dump_json(by_alias=True)
+    assert not isinstance(legacy_loaded.graph_context_execution.policy.source_read_scope,GraphSelectedSourceReadScopeV2)
+    assert set(legacy_loaded.graph_context_execution.policy.source_read_scope.model_dump(mode='json',by_alias=True))=={'schema','retrieval_session_id','world_id','campaign_id','graph_revision','admitted_anchors'}
+
+
+@pytest.mark.parametrize("execution_version", [1, 2, 3])
+def test_uncapped_execution_persists_accounting_and_guards_downgrade(application_state_dsn, execution_version):
+    import psycopg
+    from psycopg.types.json import Jsonb
+    from alembic import command
+    from application_state.cli import alembic_config
+    from application_state.agent_conversation.types import ProviderOutcomeEventV1, ValidatedGraphOperationEventV1, ValidatedGraphOperationEventV3, ProviderAttemptAuthorizedEventV3
+
+    service = AgentConversationService()
+    legacy_conversation, _, legacy, _ = _accepted_execution_turn(service, "finite-preservation")
+    before = service.list_turns("finite-preservation", legacy_conversation.conversation_id)[0].model_dump_json(by_alias=True)
+    command.downgrade(alembic_config(), "20261016_0024")
+    command.upgrade(alembic_config(), "head")
+    assert AgentConversationService().list_turns("finite-preservation", legacy_conversation.conversation_id)[0].model_dump_json(by_alias=True) == before
+
+    conversation, receipt, accepted, current = _accepted_execution_turn(service, "uncapped-persistence", uncapped=True, execution_version=execution_version)
+    operation_type = ValidatedGraphOperationEventV3 if execution_version == 3 else ValidatedGraphOperationEventV1
+    for _ in range(9):
+        current, _ = service.append_validated_graph_operation(
+            "uncapped-persistence", conversation.conversation_id, accepted.turn_id,
+            expected_revision=current.revision, expected_attempt=current.attempt,
+            operation_event=operation_type(
+                event_id=uuid4(), sequence=len(current.graph_context_execution.events), kind="validated_graph_operation_v3" if execution_version == 3 else "validated_graph_operation",
+                operation_id=uuid4(), operation="search_assertions", request_arguments_sha256="a"*64,
+                graph_revision=receipt.graph_authority.graph_revision, result_packet_sha256="b"*64,
+                assertion_ids=[], relationship_ids=[], evidence_ref_ids=[],
+                **({"returned_source_pins": []} if execution_version == 3 else {}),
+                evidence_sufficiency_status="insufficient", coverage_status="incomplete", truncated=False, source_opened=False,
+            ),
+        )
+    for _ in range(5):
+        attempt_id = uuid4()
+        authorization = _provider_authorization_event(attempt_id=attempt_id, sequence=len(current.graph_context_execution.events))
+        if execution_version == 3:
+            authorization = ProviderAttemptAuthorizedEventV3.model_validate(
+                authorization.model_dump(mode="json", by_alias=True) | {
+                    "kind": "provider_attempt_authorized_v3", "included_source_read_event_ids": [],
+                }
+            )
+        current, _ = service.authorize_provider_attempt(
+            "uncapped-persistence", conversation.conversation_id, accepted.turn_id,
+            expected_revision=current.revision, expected_attempt=current.attempt,
+            provider_attempt_event=authorization,
+        )
+        for outcome in ("sdk_entered", "response_received"):
+            current, _ = service.record_provider_outcome(
+                "uncapped-persistence", conversation.conversation_id, accepted.turn_id,
+                expected_revision=current.revision, expected_attempt=current.attempt,
+                outcome=ProviderOutcomeEventV1(event_id=uuid4(), sequence=len(current.graph_context_execution.events),
+                    kind="provider_outcome", provider_attempt_id=attempt_id, outcome=outcome),
+            )
+    reopened = AgentConversationService().list_turns("uncapped-persistence", conversation.conversation_id)[0]
+    assert reopened.graph_context_execution == current.graph_context_execution
+    assert len(reopened.graph_context_execution.events) == 24
+    assert sum(getattr(e, "input_tokens", 0) for e in reopened.graph_context_execution.events) == 60
+    encoded = reopened.graph_context_execution.model_dump(mode="json", by_alias=True)
+    for field in ("max_provider_attempts", "max_graph_operations", "max_total_provider_input_tokens", "max_total_provider_output_tokens"):
+        for value in (True, "1", 1):
+            invalid = encoded | {"policy": encoded["policy"] | {field: value}}
+            with pytest.raises(psycopg.errors.CheckViolation), psycopg.connect(application_state_dsn) as conn:
+                conn.execute("UPDATE agent.turn SET graph_context_execution=%s WHERE turn_id=%s", (Jsonb(invalid), accepted.turn_id))
+        invalid = encoded | {"policy": {k: v for k, v in encoded["policy"].items() if k != field}}
+        with pytest.raises(psycopg.errors.CheckViolation), psycopg.connect(application_state_dsn) as conn:
+            conn.execute("UPDATE agent.turn SET graph_context_execution=%s WHERE turn_id=%s", (Jsonb(invalid), accepted.turn_id))
+    invalid = encoded | {"policy": encoded["policy"] | {"policy_version": "test-policy-v1"}}
+    with pytest.raises(psycopg.errors.CheckViolation), psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE agent.turn SET graph_context_execution=%s WHERE turn_id=%s", (Jsonb(invalid), accepted.turn_id))
+    with pytest.raises(RuntimeError, match="retained uncapped"):
+        command.downgrade(alembic_config(), "20261016_0024")
+    assert AgentConversationService().list_turns("uncapped-persistence", conversation.conversation_id)[0] == reopened
+
+
+def test_settled_source_read_receipts_reopen_and_release_capacity(application_state_dsn, tmp_path, monkeypatch):
+    from tests.test_agent_turn_route import _selected_consumer_context
+    from apps.live_control_server.services.agent_turn_service import _conversation_provenance, _submitted_turn_intent
+    from application_state.agent_conversation.types import (
+        SettledGraphExecutionPolicyV3, PlanWorldGraphExecutionV3,
+        SourceReadAuthorizationEventV2, SourceReadAnchorReceiptV2,
+        ValidatedSourceReadEventV2, graph_execution_policy_digest_v3,
+        source_read_character_usage,
+    )
+    body, work, bootstrap, receipt, original, _ = _selected_consumer_context(tmp_path, monkeypatch)
+    policy = SettledGraphExecutionPolicyV3.model_validate(original.policy.model_dump(mode='json', by_alias=True)
+        | {'source_read_accounting':'settled_receipts_v1'})
+    execution = PlanWorldGraphExecutionV3(context_receipt_sha256=receipt.context_receipt_sha256,
+        policy=policy, execution_policy_sha256=graph_execution_policy_digest_v3(receipt.context_receipt_sha256, policy), events=[])
+    service = AgentConversationService()
+    conversation = service.new_conversation(ConversationCommand(world_id=work.world_id, command_id=uuid4(),
+        expected_pointer_revision=0, expected_active_conversation_id=None))
+    accepted = service.accept_turn(TurnSubmission(world_id=work.world_id, conversation_id=conversation.conversation_id,
+        idempotency_key=uuid4(), expected_conversation_revision=1, user_text=body.message,
+        provenance=_conversation_provenance(body, world_id=work.world_id, work=work,
+            graph_scope=bootstrap.world_scope, graph_envelope=bootstrap.graph_envelope),
+        submitted_intent_v2=_submitted_turn_intent(body, world_id=work.world_id),
+        graph_context_receipt=receipt, graph_context_execution=execution))
+    turn = service.claim_turn(work.world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=accepted.revision).turn
+    scope = policy.source_read_scope
+    pin = scope.admitted_anchors[0]
+    for index in range(9):
+        authorization = SourceReadAuthorizationEventV2(event_id=uuid4(), sequence=len(turn.graph_context_execution.events),
+            kind='source_read_authorized_v2', read_call_id=uuid4(), context_receipt_sha256=receipt.context_receipt_sha256,
+            execution_policy_sha256=execution.execution_policy_sha256, retrieval_session_id=scope.retrieval_session_id,
+            world_id=scope.world_id, campaign_id=scope.campaign_id, graph_revision=scope.graph_revision,
+            anchors=[pin], max_chars=12000)
+        turn, fresh = AgentConversationService().authorize_source_read(work.world_id, conversation.conversation_id, turn.turn_id,
+            expected_revision=turn.revision, expected_attempt=turn.attempt, authorization=authorization)
+        assert fresh
+        validated = ValidatedSourceReadEventV2(event_id=uuid4(), sequence=len(turn.graph_context_execution.events),
+            kind='validated_source_read_v2', read_call_id=authorization.read_call_id, receipts=[SourceReadAnchorReceiptV2(
+                source_read_id=f'settled-read-{index}', anchor_id=pin.anchor_id, evidence_ref_id=pin.evidence_ref_id,
+                source_artifact_id=pin.source_artifact_id, source_revision_id=pin.source_revision_id,
+                outcome='enough', content_sha256=hashlib.sha256(b'short body').hexdigest(), returned_chars=10,
+                truncated=False, evidence_sufficiency_status='sufficient')])
+        turn, fresh = AgentConversationService().record_validated_source_read(work.world_id, conversation.conversation_id, turn.turn_id,
+            expected_revision=turn.revision, expected_attempt=turn.attempt, receipt=validated)
+        assert fresh
+        reopened = AgentConversationService().list_turns(work.world_id, conversation.conversation_id)[0]
+        assert reopened.graph_context_execution.model_dump_json(by_alias=True) == turn.graph_context_execution.model_dump_json(by_alias=True)
+        assert source_read_character_usage(reopened.graph_context_execution.policy, reopened.graph_context_execution.events) == (index+1)*10
+    assert len(turn.graph_context_execution.events) == 18

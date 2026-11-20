@@ -1,25 +1,19 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
+import { ToolHost } from "../../surfaceInteraction/toolHost/ToolHost";
+import { PeekRegionProvider, PeekRegionSlot } from "../../surfaceInteraction/peekHost";
 
-import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
-import { referenceFromGraphNode } from "../../graphReference";
-import type { GraphReferenceResolution } from "../../graphReference/types";
-import type { GraphProjectionNodeView } from "../../api/types";
-import { FIXTURE_DOC_ID, fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
-import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
+import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import type { SurfaceConfig } from "../types";
 import { LegacyProjectionHostAdapter } from "./LegacyProjectionHostAdapter";
 import { AgentInteractionProjectionTestHost } from "./projectionTestHost";
 import { useProjection } from "./projectionContext";
-import { useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
 import {
   GRAPH_REVIEW_DIAGNOSTICS_BINDING_ID,
   GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID,
   PLAN_CONTEXT_BINDING_ID,
-  PLAN_SURFACE_CONFIG_BINDING_ID,
-  GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
 } from "./projectionBindings";
 import { GraphReviewDiagnosticsProjectionBinding } from "../graphReviewWorkbench/GraphReviewDiagnosticsProjectionBinding";
 import { GraphReviewLiveStateProvider } from "../graphReviewWorkbench/GraphReviewLiveStateContext";
@@ -125,50 +119,16 @@ const ingestSurfaceConfig: SurfaceConfig = {
   theme: {},
 };
 
-const bubblesNode: GraphProjectionNodeView = {
-  node_id: "creature:bubbles",
-  label: "Bubbles the Float Goat",
-  kind: "creature",
-  role: "creature",
-  aliases: [],
-  source_domains: ["recap"],
-  evidence_badges: [],
-  adjacency: [],
-  anchored_to_focus_session: true,
-  summary: "A float goat rescued from the flooded river.",
-};
-
-const northGateNode: GraphProjectionNodeView = {
-  node_id: "location-north-gate",
-  label: "North Reach Gate",
-  kind: "location",
-  role: "location",
-  aliases: [],
-  source_domains: ["recap"],
-  evidence_badges: [],
-  adjacency: [],
-  anchored_to_focus_session: true,
-  summary: "The northern gate of Mireward Reach.",
-};
-
-function OpenReferenceButton({
-  resolution,
-}: {
-  resolution: GraphReferenceResolution;
-}) {
-  const { openGraphReference } = useProjection();
+// Production owns Tools and Peek outside the projection adapter.
+function CatalogIntegrationHost({ config, children }: { config: SurfaceConfig; children: ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={() =>
-        openGraphReference({
-          resolution,
-          projectionState: "ready",
-        })
-      }
-    >
-      Open reference
-    </button>
+    <PeekRegionProvider>
+      <AgentInteractionProjectionTestHost config={config}>
+        <ToolHost />
+        {children}
+        <PeekRegionSlot />
+      </AgentInteractionProjectionTestHost>
+    </PeekRegionProvider>
   );
 }
 
@@ -181,7 +141,6 @@ describe("projection catalog registration inventory", () => {
       "graph-preview",
       "graph-gold-review",
       "manual-review",
-      GRAPH_REFERENCE_PROJECTION_ID,
     ]);
   });
 
@@ -218,7 +177,7 @@ describe("explicit Plan definition renderer factories", () => {
     { id: "graph-preview", testId: "graph-preview-module", module: () => GraphPreviewModule },
     { id: "graph-gold-review", testId: "graph-gold-review-module", module: () => GraphGoldReviewModule },
     { id: "manual-review", testId: "manual-review-module", module: () => ManualReviewModule },
-  ] as const)("maps $id to its concrete module via definition.render", ({ id, testId, module }) => {
+  ] as const)("maps $id to its concrete module via definition.render", async ({ id, testId, module }) => {
     const definition = PLAN_PROJECTION_DEFINITIONS.find((entry) => entry.projectionId === id);
     expect(definition).toBeDefined();
     render(
@@ -230,7 +189,7 @@ describe("explicit Plan definition renderer factories", () => {
         })}
       </>,
     );
-    expect(screen.getByTestId(testId)).toBeInTheDocument();
+    expect(await screen.findByTestId(testId)).toBeInTheDocument();
     expect(module()).toHaveBeenCalled();
     // Cross-check: sibling modules must not be selected by this factory.
     const others = [
@@ -245,57 +204,6 @@ describe("explicit Plan definition renderer factories", () => {
       expect(other).not.toHaveBeenCalled();
     }
   });
-
-  it("renders graph-reference as PlanReferenceObjectCard with memory tools and ingest session link", () => {
-    const definition = PLAN_PROJECTION_DEFINITIONS.find(
-      (entry) => entry.projectionId === GRAPH_REFERENCE_PROJECTION_ID,
-    );
-    expect(definition).toBeDefined();
-    const resolution = {
-      kind: "resolved_graph",
-      locator: "dmb-node:location-north-gate",
-      reference: referenceFromGraphNode(northGateNode),
-      graphObject: buildGraphObjectCardFromNodeView(northGateNode),
-      graphNodeId: "location-north-gate",
-      projectionState: "ready",
-    } satisfies GraphReferenceResolution;
-    const config = {
-      id: "plan",
-      label: "Plan",
-      context: planContext,
-      sessionDescriptor,
-      tools: [],
-      canvas: { documentId: FIXTURE_DOC_ID },
-      theme: { themeId: "command" },
-    } satisfies SurfaceConfig;
-
-    render(
-      <>
-        {definition!.render({
-          projectionId: GRAPH_REFERENCE_PROJECTION_ID,
-          active: {
-            kind: "content",
-            key: "location-north-gate",
-            size: "wide",
-            title: "North Reach Gate",
-          },
-          bindings: {
-            [PLAN_SURFACE_CONFIG_BINDING_ID]: config,
-            [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolution,
-          },
-        })}
-      </>,
-    );
-
-    expect(screen.getByLabelText(/North Reach Gate graph object/i)).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Actions" })).not.toBeInTheDocument();
-    expect(screen.getByText("Memory tools")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Review memory in \/ingest/i })).toHaveAttribute(
-      "href",
-      "/ingest?campaign=longmont-c2&session=session-21",
-    );
-    expect(screen.queryByLabelText(/selected object/i)).not.toBeInTheDocument();
-  });
 });
 
 describe("explicit Ingest definition renderer factories", () => {
@@ -304,7 +212,7 @@ describe("explicit Ingest definition renderer factories", () => {
     diagnosticsPanelSpy.mockClear();
   });
 
-  it("maps ingest-recap to IngestionModule via definition.render", () => {
+  it("maps ingest-recap to IngestionModule via definition.render", async () => {
     const definition = INGEST_PROJECTION_DEFINITIONS.find(
       (entry) => entry.projectionId === "ingest-recap",
     );
@@ -318,12 +226,12 @@ describe("explicit Ingest definition renderer factories", () => {
         })}
       </>,
     );
-    expect(screen.getByTestId("ingest-recap-module")).toHaveTextContent("longmont-c2:21");
+    expect(await screen.findByTestId("ingest-recap-module")).toHaveTextContent("longmont-c2:21");
     expect(IngestionModule).toHaveBeenCalled();
     expect(diagnosticsPanelSpy).not.toHaveBeenCalled();
   });
 
-  it("maps graph-review-diagnostics to GraphReviewDiagnosticsToolPanel via definition.render", () => {
+  it("maps graph-review-diagnostics to GraphReviewDiagnosticsToolPanel via definition.render", async () => {
     const definition = INGEST_PROJECTION_DEFINITIONS.find(
       (entry) => entry.projectionId === GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID,
     );
@@ -343,7 +251,7 @@ describe("explicit Ingest definition renderer factories", () => {
         })}
       </>,
     );
-    expect(screen.getByTestId("diagnostics-panel")).toBeInTheDocument();
+    expect(await screen.findByTestId("diagnostics-panel")).toBeVisible();
     expect(diagnosticsPanelSpy).toHaveBeenCalledTimes(1);
     expect(IngestionModule).not.toHaveBeenCalled();
   });
@@ -358,36 +266,14 @@ describe("PlanProjectionCatalogRegistration integration", () => {
   it("renders recap through catalog resolution", async () => {
     const user = userEvent.setup();
     render(
-      <AgentInteractionProjectionTestHost config={planSurfaceConfig}>
+      <CatalogIntegrationHost config={planSurfaceConfig}>
         <LegacyProjectionHostAdapter />
-      </AgentInteractionProjectionTestHost>,
+      </CatalogIntegrationHost>,
     );
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
-    expect(await screen.findByTestId("recap-module")).toBeInTheDocument();
-  });
-
-  it("renders graph-reference content through catalog resolution", async () => {
-    const user = userEvent.setup();
-    render(
-      <AgentInteractionProjectionTestHost config={planSurfaceConfig}>
-        <OpenReferenceButton
-          resolution={{
-            kind: "resolved_graph",
-            locator: `dmb-node:${bubblesNode.node_id}`,
-            reference: referenceFromGraphNode(bubblesNode),
-            graphObject: buildGraphObjectCardFromNodeView(bubblesNode),
-            graphNodeId: bubblesNode.node_id,
-            message: `Resolved graph node ${bubblesNode.label}.`,
-            projectionState: "ready",
-          }}
-        />
-        <LegacyProjectionHostAdapter />
-      </AgentInteractionProjectionTestHost>,
-    );
-
-    await user.click(screen.getByRole("button", { name: "Open reference" }));
-    expect(await screen.findByRole("heading", { level: 4, name: "Bubbles the Float Goat" })).toBeInTheDocument();
+    await user.click(within(screen.getByLabelText("Tools toolbar")).getByRole("button", { name: "Recap" }));
+    expect(await screen.findByTestId("recap-module")).toBeVisible();
   });
 
   it("registers only published tool descriptors", () => {
@@ -410,6 +296,7 @@ describe("PlanProjectionCatalogRegistration integration", () => {
 
 describe("IngestProjectionCatalogRegistration integration", () => {
   beforeEach(() => {
+    window.history.pushState({}, "", "/ingest");
     diagnosticsPanelSpy.mockClear();
   });
 
@@ -433,14 +320,14 @@ describe("IngestProjectionCatalogRegistration integration", () => {
     }
 
     render(
-      <AgentInteractionProjectionTestHost config={ingestSurfaceConfig}>
+      <CatalogIntegrationHost config={ingestSurfaceConfig}>
         <ResolveProbe />
         <LegacyProjectionHostAdapter />
-      </AgentInteractionProjectionTestHost>,
+      </CatalogIntegrationHost>,
     );
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
-    await user.click(screen.getByRole("button", { name: "Diagnostics" }));
+    await user.click(within(screen.getByLabelText("Tools toolbar")).getByRole("button", { name: "Diagnostics" }));
     await waitFor(() => {
       expect(statuses).toContain("binding_missing");
     });
@@ -452,7 +339,7 @@ describe("IngestProjectionCatalogRegistration integration", () => {
   it("transitions the same registration to ready when the diagnostics payload is present", async () => {
     const user = userEvent.setup();
     render(
-      <AgentInteractionProjectionTestHost config={ingestSurfaceConfig}>
+      <CatalogIntegrationHost config={ingestSurfaceConfig}>
         <GraphReviewLiveStateProvider
           campaignId="longmont-c2"
           sessionId="session-21"
@@ -467,12 +354,12 @@ describe("IngestProjectionCatalogRegistration integration", () => {
           <GraphReviewDiagnosticsProjectionBinding />
         </GraphReviewLiveStateProvider>
         <LegacyProjectionHostAdapter />
-      </AgentInteractionProjectionTestHost>,
+      </CatalogIntegrationHost>,
     );
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
-    await user.click(screen.getByRole("button", { name: "Diagnostics" }));
-    expect(await screen.findByTestId("diagnostics-panel")).toBeInTheDocument();
+    await user.click(within(screen.getByLabelText("Tools toolbar")).getByRole("button", { name: "Diagnostics" }));
+    expect(await screen.findByTestId("diagnostics-panel")).toBeVisible();
     expect(diagnosticsPanelSpy).toHaveBeenCalled();
   });
 });

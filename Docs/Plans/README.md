@@ -2,7 +2,7 @@
 
 Execution plans, experiments, audits, and design notes for DungeonMindBuddy.
 
-**Current Buddy demonstration:** [`STEWARDS-HANDOFF-demo.md`](STEWARDS-HANDOFF-demo.md) and [`../Roadmaps/ROADMAP-demo.md`](../Roadmaps/ROADMAP-demo.md) own product execution. The lexical-retrieval plan and checklist below retain their research/rollout history; they do not sequence the DEMO journey.
+**Current Buddy demonstration:** the bounded DEMO assignment in [`STEWARDS-HANDOFF-demo.md`](STEWARDS-HANDOFF-demo.md) and [`../Roadmaps/ROADMAP-demo.md`](../Roadmaps/ROADMAP-demo.md) owns product execution. Responsibilities come from the named assignment, with no additional merge, runtime, or model authority. The lexical-retrieval plan and checklist below retain their research/rollout history; they do not sequence the DEMO journey.
 
 ---
 
@@ -22,19 +22,19 @@ Execution plans, experiments, audits, and design notes for DungeonMindBuddy.
 
 | Doc | Role |
 | --- | ---- |
-| [`HANDOFF-execute-evidence-retrieval-synthesis-experiments.md`](HANDOFF-execute-evidence-retrieval-synthesis-experiments.md) | Hub handoff: evidence → retriever → synthesis experiments; links to wave artifacts. |
-| [`HYPOTHESES-evidence-retrieval-synthesis-improvements.md`](HYPOTHESES-evidence-retrieval-synthesis-improvements.md) | Hypothesis list paired with the handoff / ledger work. |
+| [`HANDOFF-execute-evidence-retrieval-synthesis-experiments.md`](archive/2026-05-10/handoffs/HANDOFF-execute-evidence-retrieval-synthesis-experiments.md) | Hub handoff: evidence → retriever → synthesis experiments; links to wave artifacts. |
+| [`HYPOTHESES-evidence-retrieval-synthesis-improvements.md`](archive/2026-05-10/mirathorn-evidence-gap/HYPOTHESES-evidence-retrieval-synthesis-improvements.md) | Hypothesis list paired with the handoff / ledger work. |
 | [`archive/2026-05-09/evidence-gap-waves/`](archive/2026-05-09/evidence-gap-waves/) | Per-wave reports (1–5) + [`REPORT-all-waves-comprehensive.md`](archive/2026-05-09/evidence-gap-waves/REPORT-all-waves-comprehensive.md). |
 | [`archive/2026-05-09/reports/REPORT-evidence-gap-phases-0-6-findings.md`](archive/2026-05-09/reports/REPORT-evidence-gap-phases-0-6-findings.md) | Phases 0–6 findings (referenced from the hub handoff). |
 
 ---
 
-## Hermes campaign authoring foundation (active proposed)
+## Hermes campaign authoring foundation (historical)
 
 | Doc | Role |
 | --- | ---- |
-| [`PLAN-hermes-campaign-authoring-foundation-reset.md`](PLAN-hermes-campaign-authoring-foundation-reset.md) | Phase 0–5 reset plan; current Hermes sequencing for the foundation reset. |
-| [`../Design/INDEX-hermes-campaign-authoring-foundation.md`](../Design/INDEX-hermes-campaign-authoring-foundation.md) | Active Hermes document index. |
+| [`PLAN-hermes-campaign-authoring-foundation-reset.md`](PLAN-hermes-campaign-authoring-foundation-reset.md) | July 2026 reset plan; historical sequencing, not a current dispatch surface. |
+| [`../Design/INDEX-hermes-campaign-authoring-foundation.md`](../Design/INDEX-hermes-campaign-authoring-foundation.md) | Superseded historical index with links to current Agent authority. |
 | [`archive/2026-07-15/hermes-campaign-authoring-foundation-reset/`](archive/2026-07-15/hermes-campaign-authoring-foundation-reset/) | Superseded Hermes ladder / design-reset sandbox. |
 
 Many older sentence-routing / session-recap experiment docs were moved under
@@ -47,7 +47,7 @@ indexed paths over stale root filenames.
 
 | Doc | Role |
 | --- | ---- |
-| [`AUDIT-Stage-D-Entity-Resolution-Discovery.md`](AUDIT-Stage-D-Entity-Resolution-Discovery.md) | Stage D discovery audit (contracts, NC3, open questions). |
+| [`AUDIT-Stage-D-Entity-Resolution-Discovery.md`](../Design/AUDIT-Stage-D-Entity-Resolution-Discovery.md) | Stage D discovery audit (contracts, NC3, open questions). |
 | [`archive/2026-05-09/reports/REPORT-Stage-C-Cross-Campaign-Generalisation.md`](archive/2026-05-09/reports/REPORT-Stage-C-Cross-Campaign-Generalisation.md) | Cross-campaign Stage C synthesis (cited from audit / backlog). |
 
 ---
@@ -56,9 +56,9 @@ indexed paths over stale root filenames.
 
 | Doc | Role |
 | --- | ---- |
-| [`GUIDE-multi-session-document-splitting.md`](GUIDE-multi-session-document-splitting.md) | Multi-session document splitting guide. |
-| [`NAMING-benchmark-vs-runtime.md`](NAMING-benchmark-vs-runtime.md) | Naming conventions: benchmark vs runtime. |
-| [`FLOW-npc-power-skill-pipeline.md`](FLOW-npc-power-skill-pipeline.md) | NPC power-increase skill pipeline flow. |
+| [`GUIDE-multi-session-document-splitting.md`](../Guides/GUIDE-multi-session-document-splitting.md) | Multi-session document splitting guide. |
+| [`NAMING-benchmark-vs-runtime.md`](../CONVENTION-Benchmark-and-Runtime-Naming.md) | Naming conventions: benchmark vs runtime. |
+| [`FLOW-npc-power-skill-pipeline.md`](../Guides/FLOW-npc-power-skill-pipeline.md) | NPC power-increase skill pipeline flow. |
 
 ---
 
@@ -66,7 +66,7 @@ indexed paths over stale root filenames.
 
 | Doc | Role |
 | --- | ---- |
-| [`DESIGN-lysandra-statblock-vertical-slice-benchmark.md`](DESIGN-lysandra-statblock-vertical-slice-benchmark.md) | Lysandra statblock vertical slice benchmark design. |
+| [`DESIGN-lysandra-statblock-vertical-slice-benchmark.md`](../Design/DESIGN-lysandra-statblock-vertical-slice-benchmark.md) | Lysandra statblock vertical slice benchmark design. |
 
 ---
 
@@ -74,9 +74,9 @@ indexed paths over stale root filenames.
 
 | Path | Role |
 | ---- | ---- |
-| [`entity_profiles/`](entity_profiles/) | JSON entity profile examples. |
-| [`entity_audit_manifest.tsv`](entity_audit_manifest.tsv) | Entity audit manifest (TSV). |
-| [`entity_definitions_batch_sanity.md`](entity_definitions_batch_sanity.md) | Batch sanity notes for entity definitions. |
+| [`entity_profiles/`](../data/entity-audit/entity_profiles) | JSON entity profile examples. |
+| [`entity_audit_manifest.tsv`](../data/entity-audit/entity_audit_manifest.tsv) | Entity audit manifest (TSV). |
+| [`entity_definitions_batch_sanity.md`](../data/entity-audit/entity_definitions_batch_sanity.md) | Batch sanity notes for entity definitions. |
 
 ---
 

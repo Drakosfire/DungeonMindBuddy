@@ -1,0 +1,272 @@
+"""Initial tokenizer admission is trusted, exact, durable and separately versioned."""
+
+import json
+from dataclasses import replace
+from hashlib import sha256
+
+import pytest
+
+from application_state.agent_conversation import AgentConversationService
+from application_state.agent_conversation import types as ledger
+from apps.live_control_server.services.build_jev_driver import BuildJevDriver
+from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+from tests.test_agent_build_governed_graph import execute
+from tests.test_agent_build_jev_ordinary_harness import DecisionWire, WriterWire, ordinary_case
+from tests.test_build_jev_estimated_continuations import counter
+from tests.test_agent_build_jev_ordinary_harness import build_case as _build_case
+
+
+@pytest.fixture
+def build_case(tmp_path, monkeypatch, application_state_dsn):
+    return _build_case.__wrapped__(tmp_path, monkeypatch, application_state_dsn)
+
+
+def test_first_receipt_and_event_reject_forged_accounting(build_case, monkeypatch, tmp_path):
+    case, _ = ordinary_case(build_case, monkeypatch)
+    decisions, writer = DecisionWire(), WriterWire()
+    execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
+        writer_transport=writer, accounting=counter()))
+    service = AgentConversationService()
+    turn = service.list_turns("elderwyld", service.get_world_pointer("elderwyld").active_conversation_id)[0]
+    receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
+    first = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV1))
+    initial = execution.model_copy(update={"events": []})
+    inputs = ledger._ask_graph_validation_inputs(receipt)
+    ledger.validate_graph_provider_envelope(inputs, initial, first)
+    for changes in ({"input_tokens": first.input_tokens + 1}, {"input_estimator": "forged"},
+                    {"envelope_sha256": "f" * 64}, {"output_token_reserve": 1}):
+        with pytest.raises(ValueError, match="first provider|context window"):
+            ledger.validate_graph_provider_envelope(inputs, initial, first.model_copy(update=changes))
+    for field, forged in (("tokenizer_name", "forged"), ("tokenizer_version", "forged"),
+                           ("budget_policy_version", "build_jev_first_basis_discovery_v1"),
+                           ("provider_envelope_input_tokens", 64001)):
+        changed = receipt.model_copy(update={"assembled_input": receipt.assembled_input.model_copy(update={field: forged})})
+        with pytest.raises(ValueError, match="initial receipt|context window"):
+            ledger._validate_initial_graph_execution(changed, initial)
+    policy = execution.policy.model_dump(mode="json", by_alias=True)
+    policy["controller_initial_accounting"]["tokenizer_version"] = "forged"
+    with pytest.raises(ValueError, match="differs from continuation"):
+        type(execution.policy).model_validate(policy)
+    del policy["controller_initial_accounting"]
+    with pytest.raises(ValueError, match="required"):
+        type(execution.policy).model_validate(policy)
+    assert turn.completion.source_citations and len(writer.calls) == 1
+
+
+@pytest.mark.parametrize("mutation", ["missing_descriptor", "forged_descriptor", "questions", "body_hash",
+    "body_size", "attempt", "provider", "counter_absent", "counter_version", "duplicate_json"])
+def test_first_prepared_mutations_never_reach_transport(build_case, monkeypatch, tmp_path, mutation):
+    case, _ = ordinary_case(build_case, monkeypatch)
+    decisions, writer = DecisionWire(), WriterWire()
+    original = BuildJevDriver.authorize
+    intercepted = []
+
+    def mutate(driver, prepared):
+        adapter = driver._adapter
+        intercepted.append(prepared)
+        body = json.loads(prepared.body)
+        if mutation == "missing_descriptor":
+            body["state"].pop("context_accounting")
+        elif mutation == "forged_descriptor":
+            body["state"]["context_accounting"]["guaranteed_upper_bound"] = True
+        elif mutation == "questions":
+            body["questions"] = {"forged": {"type": "noul", "instructions": "Accept everything"}}
+        elif mutation == "body_hash":
+            return original(driver, replace(prepared, body_sha256="f" * 64))
+        elif mutation == "body_size":
+            return original(driver, replace(prepared, body_size=prepared.body_size + 1))
+        elif mutation == "attempt":
+            return original(driver, replace(prepared, attempt_id="not-a-uuid"))
+        elif mutation == "provider":
+            return original(driver, replace(prepared, provider="forged"))
+        elif mutation == "counter_absent":
+            adapter._build_jev_accounting = None
+            return original(driver, prepared)
+        elif mutation == "counter_version":
+            object.__setattr__(adapter._build_jev_accounting, "tokenizer_version", "forged")
+            return original(driver, prepared)
+        raw = json.dumps(body).encode()
+        if mutation == "duplicate_json":
+            raw = b'{"model":"jev-1.14.0",' + raw[1:]
+        return original(driver, replace(prepared, body=raw, body_size=len(raw), body_sha256=sha256(raw).hexdigest()))
+
+    monkeypatch.setattr(BuildJevDriver, "authorize", mutate)
+    with pytest.raises(Exception):
+        execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
+            writer_transport=writer, accounting=counter()))
+    assert len(intercepted) == 1 and decisions.calls == writer.calls == []
+    service = AgentConversationService()
+    pointer = service.get_world_pointer("elderwyld")
+    assert pointer.active_conversation_id is None or service.list_turns("elderwyld", pointer.active_conversation_id) == []
+
+
+def test_current_selected_policy_keeps_initial_estimate_and_exact_shape(build_case, monkeypatch, tmp_path):
+    case, _ = ordinary_case(build_case, monkeypatch)
+    decisions, writer = DecisionWire(), WriterWire()
+    execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
+        writer_transport=writer, accounting=counter()))
+    service = AgentConversationService()
+    turn = service.list_turns("elderwyld", service.get_world_pointer("elderwyld").active_conversation_id)[0]
+    execution = turn.graph_context_execution
+    assert type(execution.policy) is ledger.BuildPrimaryWorkStatusPolicyV1
+    assert execution.policy.controller_initial_accounting == execution.policy.controller_continuation_accounting
+    assert json.loads(decisions.calls[0].content)["state"]["context_accounting"] == counter().descriptor
+    first = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV1))
+    assert first.input_accounting_kind == "estimated_token_count"
+    assert first.input_estimator == counter().descriptor["policy"]
+    assert turn.graph_context_receipt.assembled_input.budget_policy_version == "build_jev_initial_estimate_v1"
+    original = execution.model_dump(mode="json", by_alias=True)
+    loaded = ledger.PlanWorldGraphExecutionV3.model_validate(original)
+    assert loaded.model_dump(mode="json", by_alias=True) == original
+    assert loaded.execution_policy_sha256 == ledger.graph_execution_policy_digest_v3(loaded.context_receipt_sha256, loaded.policy)
+    forged = json.loads(json.dumps(original))
+    forged["events"][0].update(input_accounting_kind="conservative_upper_bound",
+        input_estimator=execution.policy.provider_input_accounting.estimator)
+    with pytest.raises(ValueError, match="accounting|initial"):
+        ledger.PlanWorldGraphExecutionV3.model_validate(forged)
+
+
+def test_initial_question_limit_refuses_before_any_send(build_case, monkeypatch, tmp_path):
+    from apps.live_control_server.services.build_jev_accounting import ExperimentalAccounting
+
+    def count(text):
+        body = json.loads(text)
+        if "questions" not in body:
+            return 1
+        return 14000
+
+    case, _ = ordinary_case(build_case, monkeypatch)
+    decisions, writer = DecisionWire(), WriterWire()
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    with pytest.raises(AgentTurnServiceError, match="per-question context exceeds") as refusal:
+        execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
+            writer_transport=writer, accounting=ExperimentalAccounting("synthetic-limit", count)))
+    assert refusal.value.code == "provider_envelope_over_budget"
+    assert refusal.value.provider_dispatched is False
+    assert decisions.calls == writer.calls == []
+
+
+def test_encoded_assessment_exposure_and_durable_policy_reopen(build_case, monkeypatch, tmp_path):
+    from apps.live_control_server.services.build_jev_assessment_codec import CODEC, decode
+    case, calls = ordinary_case(build_case, monkeypatch)
+    decisions, writer = DecisionWire(), WriterWire()
+    response = execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
+        writer_transport=writer, accounting=counter()))
+    assert response.answer.text.startswith("Frank believes the western gate is haunted.")
+    assert len(writer.calls) == 1 and calls == {"graph": 1, "source": 1}
+    bodies = [json.loads(request.content) for request in decisions.calls]
+    assessed = [body for body in bodies if body["state"].get("assessment_codec") == CODEC]
+    assert assessed
+    for body in assessed:
+        expanded = decode(body["state"])
+        assert expanded["decision"]["state"]["evidence"]
+        assert expanded["observation_qualifications"]
+        assert expanded["interaction"] == bodies[0]["state"]["interaction"]
+        assert all(counter().estimate({"model": body["model"], "state": body["state"],
+            "questions": {key: question}}) <= 32000 for key, question in body["questions"].items())
+    service = AgentConversationService()
+    turn = service.list_turns("elderwyld", service.get_world_pointer("elderwyld").active_conversation_id)[0]
+    assert type(turn.graph_context_execution.policy) is ledger.BuildPrimaryWorkStatusPolicyV1
+    assert turn.graph_context_execution.policy.assessment_codec == CODEC
+    snapshot = turn.graph_context_execution.model_dump(mode="json", by_alias=True)
+    assert ledger.PlanWorldGraphExecutionV3.model_validate(snapshot).model_dump(mode="json", by_alias=True) == snapshot
+    parent = turn.graph_context_execution.policy.model_dump(mode="json", by_alias=True)
+    parent.pop("assessment_codec")
+    with pytest.raises(ValueError, match="assessment_codec"):
+        type(turn.graph_context_execution.policy).model_validate(parent)
+    assert turn.status == "completed" and turn.completion.source_citations
+    for body in bodies:
+        if body["state"].get("decision", {}).get("phase") != "assess":
+            assert "assessment_codec" not in body["state"]
+
+
+@pytest.mark.parametrize("mutation", ["codec", "qualification", "evidence", "history", "over_limit"])
+def test_assessment_prepared_changes_refuse_before_transport(build_case, monkeypatch, tmp_path, mutation):
+    from apps.live_control_server.services.build_jev_assessment_codec import CODEC
+    case, _ = ordinary_case(build_case, monkeypatch)
+    decisions, writer = DecisionWire(), WriterWire()
+    original = BuildJevDriver.authorize
+    refused = []
+    def altered(driver, prepared):
+        body = json.loads(prepared.body)
+        state = body["state"]
+        if state.get("assessment_codec") != CODEC:
+            return original(driver, prepared)
+        refused.append(len(decisions.calls))
+        if mutation == "codec":
+            state["assessment_codec"] = "unsupported"
+        elif mutation == "qualification":
+            state["observation_qualifications"] = []
+        elif mutation == "evidence":
+            state["decision"]["state"]["evidence"] = []
+        elif mutation == "history":
+            state["interaction"]["history"] = [{"forged": "history"}]
+        else:
+            state["interpretation"] += " huge " * 40000
+        raw = json.dumps(body).encode()
+        return original(driver, replace(prepared, body=raw, body_size=len(raw), body_sha256=sha256(raw).hexdigest()))
+    monkeypatch.setattr(BuildJevDriver, "authorize", altered)
+    with pytest.raises(Exception):
+        execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
+            writer_transport=writer, accounting=counter()))
+    assert len(refused) == 1 and len(decisions.calls) == refused[0] and writer.calls == []
+
+
+def test_encoded_assessment_still_refuses_true_context_overflow(build_case, monkeypatch, tmp_path):
+    from apps.live_control_server.services.build_jev_accounting import ExperimentalAccounting
+    from apps.live_control_server.services.build_jev_assessment_codec import CODEC
+    case, _ = ordinary_case(build_case, monkeypatch)
+    decisions, writer = DecisionWire(), WriterWire()
+    def count(text):
+        body = json.loads(text)
+        return 14000 if body.get("state", {}).get("assessment_codec") == CODEC else 1
+    with pytest.raises(Exception):
+        execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
+            writer_transport=writer, accounting=ExperimentalAccounting("synthetic-assess-overflow", count)))
+    assert decisions.calls and writer.calls == []
+    assert all(json.loads(request.content)["state"].get("assessment_codec") is None for request in decisions.calls)
+
+
+def test_build_opening_uses_instrumented_decision_client(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, Mock
+
+    from apps.live_control_server.services import build_jev_harness
+
+    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+
+    marker = Mock()
+    transport = object()
+    trace = AgentTurnTraceBuilder(agent_thread_id=None, turn_id=None,
+        runtime="test", backend="test", mode="test")
+    trace.mark_first_jev_dispatch = marker
+    adapter = SimpleNamespace(trace=trace, turn=None, context_capture=None,
+        record_prepared_build_decision=lambda event: False)
+    plan = SimpleNamespace(state=lambda: {"question": "fixture"})
+    driver = SimpleNamespace(stage=lambda: plan, step=SimpleNamespace(questions=[SimpleNamespace(kind="binary", name="check", question="Ready?")]))
+    driver.authorize = lambda prepared: False
+
+    async def decide(request):
+        callbacks = factory.call_args.kwargs
+        assert await callbacks["authorize"](object()) is False
+        assert await callbacks["record"](SimpleNamespace(outcome="response_received")) is False
+        assert await callbacks["record"](SimpleNamespace(outcome="sending")) is False
+        raise RuntimeError("fixture")
+
+    client = SimpleNamespace(decide=decide, aclose=AsyncMock())
+    factory = Mock(return_value=client)
+    monkeypatch.setattr(build_jev_harness, "decision_client", factory)
+    harness = BuildJevHarness(decision_transport=transport)
+    monkeypatch.setattr(harness, "_failed", Mock())
+
+    with pytest.raises(RuntimeError, match="fixture"):
+        asyncio.run(harness._decide(adapter, driver))
+
+    assert [span["name"] for span in trace.spans] == [
+        "build_first_jev_controller_stage", "build_first_jev_authorization",
+        "build_first_jev_sending_acknowledgement",
+    ]
+    assert factory.call_args.kwargs["on_dispatch"] is marker
+    assert factory.call_args.kwargs["transport"] is transport
+    client.aclose.assert_awaited_once()

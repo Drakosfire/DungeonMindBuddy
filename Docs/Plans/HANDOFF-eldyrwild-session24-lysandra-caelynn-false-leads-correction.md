@@ -1,5 +1,13 @@
 # HANDOFF — Eldyrwild Session-24 Lysandra→Caelynn false `leads` correction
 
+Historical payload recovery: the correction paths below refer to the
+[exact package tree at `30008dc4`](https://github.com/Drakosfire/DungeonMindBuddy/tree/30008dc473bd80144a46c035d09b56ad1deb2928/graph_data/approved_graph_corrections).
+Their duplicate checkout copies are retired; use the
+[checksum-verified recovery procedure](../../graph_data/README.md#historical-correction-packages).
+This note preserves historical contracts and grants no new dispatch authority.
+
+> Historical recovery commands below refer to the [pre-cutover script](https://github.com/Drakosfire/DungeonMindBuddy/blob/30008dc473bd80144a46c035d09b56ad1deb2928/scripts/apply_eldyrwild_session24_lysandra_caelynn_false_leads_correction.py). Run them from that pinned checkout with the retained World inputs. [Replay evidence and inputs](https://github.com/Drakosfire/DungeonMindBuddy/issues/3588).
+
 **Created:** 2026-08-10
 **Status:** DONE — canonical P→Q₃ live exit proven (`P=rev:b8dfc063…` → `Q₃=rev:ba3abde1…`; delta `-1/0/-1/0`)
 **Canonical handoff path:** `Docs/Plans/HANDOFF-eldyrwild-session24-lysandra-caelynn-false-leads-correction.md`

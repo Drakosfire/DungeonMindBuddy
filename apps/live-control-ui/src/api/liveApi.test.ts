@@ -1,11 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { clearProjectionRequestCache } from "../planSurface/reference/projectionRequestCache";
 import {
   activateStatblockRetrieval,
-  addGeneratedStatblockToCombat,
-  advanceCombatTurn,
-  applyCombatHpDelta,
   commitTiptapMarkdownWrite,
   commitWorldRunbookMarkdownWrite,
   admitNativeWorldSource,
@@ -16,25 +12,30 @@ import {
   getWorldOwnedRunbookCommittedRevision,
   getWorldOwnedRunbookSnapshot,
   listWorldOwnedPlans,
+  listWorldPlanInventoryPage,
+  listWorkspacePageInventory,
   listWorldOwnedRunbooks,
   createWorkspaceDocument,
   DEFAULT_PLANNING_MANIFEST_PATH,
   getArtifact,
+  getSurfaceSessionViews,
   getPlayActiveRun,
+  getWorldPlayActiveRun,
   getBuildSourceNavigation,
   getCapabilities,
   getGraphIngestRuns,
   getNativeWorldSourceAdmissionStatus,
   getGoldGraphProjection,
   getLatestGraphIngestRun,
-  getUnionSupergraphProjection,
   LiveApiError,
+  isValidWorldPlanGraphContextFailure,
   NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT,
   listWorldContainers,
   listWorkspaceDocuments,
   putPlayRun,
   getPlayRun,
   putPlayActiveRun,
+  putWorldPlayActiveRun,
   putPlayRunReferenceManifest,
   getWorldPlayRun,
   getWorldPlayRunReferenceManifest,
@@ -42,7 +43,6 @@ import {
   putWorldPlayRun,
   putWorldPlayRunProgress,
   putWorldPlayRunRebase,
-  putWorldPlayRunReferenceManifest,
   prepareWorldRunbookMarkdownWrite,
   postLiveQuery,
   postIndexAgentTurn,
@@ -55,7 +55,6 @@ import {
   postWorldGraphCompleteObject,
   postWorldGraphSourceAnchorRead,
   setNativeGraphAccessToken,
-  getCurrentCombat,
   getGeneratedStatblock,
   getStatblockWorkbenchDraft,
   getStatblockWorkbenchSample,
@@ -74,13 +73,10 @@ import {
   prepareThreatIdentityCandidates,
   listGeneratedStatblocks,
   listStatblockWorkbenchDrafts,
-  patchCombatEntity,
   postCommand,
   postCitationSource,
   postStatblockWorkbenchCommand,
   prepareTiptapMarkdownWrite,
-  setCombatActiveTurn,
-  sortCombatInitiative,
   storeStatblockWorkbenchDraft,
   verifyStatblockRetrieval,
 } from "./liveApi";
@@ -101,6 +97,7 @@ describe("Index Agent turn transport", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("posts the exact no-work/no-graph Index request to the accepted endpoint", async () => {
+    setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const request = {
       schema: "dmb_agent_turn_request_v1" as const,
       client_thread_id: "thread-1",
@@ -174,6 +171,92 @@ describe("Index Agent turn transport", () => {
 describe("World Plan Agent turn transport", () => {
   afterEach(() => vi.restoreAllMocks());
 
+  it.each([
+    ["managed_world_unresolved", 404],
+    ["native_binding_invalid", 409],
+    ["graph_revision_unavailable", 409],
+    ["graph_read_failed", 503],
+    ["graph_evidence_invalid", 502],
+    ["provider_envelope_over_budget", 413],
+    ["receipt_freeze_failed", 503],
+  ] as const)("accepts the mapped pre-dispatch failure %s at HTTP %s", (failureCode, status) => {
+    const failure = {
+      schema: "dmb_plan_world_graph_context_failure_v1",
+      status: "pre_dispatch_failed",
+      failure_code: failureCode,
+      provider_dispatched: false,
+      automatic_downgrade: false,
+    } as const;
+
+    expect(isValidWorldPlanGraphContextFailure(failure, failureCode, status)).toBe(true);
+  });
+
+  it.each([
+    {
+      label: "unknown failure codes",
+      failure: {
+        schema: "dmb_plan_world_graph_context_failure_v1",
+        status: "pre_dispatch_failed",
+        failure_code: "unknown_pre_dispatch_failure",
+        provider_dispatched: false,
+        automatic_downgrade: false,
+      },
+      responseCode: "unknown_pre_dispatch_failure",
+      responseStatus: 413,
+    },
+    {
+      label: "contradictory response codes",
+      failure: {
+        schema: "dmb_plan_world_graph_context_failure_v1",
+        status: "pre_dispatch_failed",
+        failure_code: "native_binding_invalid",
+        provider_dispatched: false,
+        automatic_downgrade: false,
+      },
+      responseCode: "provider_envelope_over_budget",
+      responseStatus: 413,
+    },
+    {
+      label: "an HTTP status outside the mapped pair",
+      failure: {
+        schema: "dmb_plan_world_graph_context_failure_v1",
+        status: "pre_dispatch_failed",
+        failure_code: "provider_envelope_over_budget",
+        provider_dispatched: false,
+        automatic_downgrade: false,
+      },
+      responseCode: "provider_envelope_over_budget",
+      responseStatus: 503,
+    },
+    {
+      label: "missing response codes",
+      failure: {
+        schema: "dmb_plan_world_graph_context_failure_v1",
+        status: "pre_dispatch_failed",
+        failure_code: "provider_envelope_over_budget",
+        provider_dispatched: false,
+        automatic_downgrade: false,
+      },
+      responseCode: null,
+      responseStatus: 413,
+    },
+    {
+      label: "malformed failures with extra fields",
+      failure: {
+        schema: "dmb_plan_world_graph_context_failure_v1",
+        status: "pre_dispatch_failed",
+        failure_code: "provider_envelope_over_budget",
+        provider_dispatched: false,
+        automatic_downgrade: false,
+        retryable: true,
+      },
+      responseCode: "provider_envelope_over_budget",
+      responseStatus: 413,
+    },
+  ] as const)("rejects $label", ({ failure, responseCode, responseStatus }) => {
+    expect(isValidWorldPlanGraphContextFailure(failure, responseCode, responseStatus)).toBe(false);
+  });
+
   it("posts the exact saved-Plan no-graph request to the accepted endpoint", async () => {
     setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const request: WorldPlanAgentTurnRequestV1 = {
@@ -202,6 +285,42 @@ describe("World Plan Agent turn transport", () => {
     expect(fetchSpy.mock.calls[0]?.[1]?.redirect).toBe("error");
     expect(JSON.stringify(request)).not.toContain("local-plan:");
     expect(String(fetchSpy.mock.calls[0]?.[1]?.body)).not.toContain("test-only-local-operator-credential-value");
+  });
+
+  it("transports only the versioned Playable identity with a committed Plan basis", async () => {
+    setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const request: WorldPlanAgentTurnRequestV1 = {
+      schema: "dmb_agent_turn_request_v1",
+      client_thread_id: "thread-world-plan-target",
+      turn_id: "turn-world-plan-target",
+      surface: { surface_id: "plan", instance_id: "plan-instance" },
+      owner_scope: { kind: "world", world_id: "world-a" },
+      primary_work: {
+        kind: "plan",
+        object_id: "document-1",
+        expected_revision: 3,
+        expected_revision_n: 4,
+        expected_content_sha256: "b".repeat(64),
+      },
+      playable_target: {
+        schema: "dmb_plan_playable_target_v1",
+        kind: "scene",
+        id: "scene:arrival",
+      },
+      client_work_state: "saved_dirty",
+      graph_request: { mode: "none" },
+      graph_selection: null,
+      message: "What happens at arrival?",
+    };
+    const response = { schema: "dmb_agent_turn_response_v1", turn_id: request.turn_id };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(response));
+
+    await expect(postWorldPlanAgentTurn(request)).resolves.toEqual(response);
+
+    const body = String(fetchSpy.mock.calls[0]?.[1]?.body);
+    expect(JSON.parse(body)).toEqual(request);
+    expect(body).not.toContain("scene body text");
+    expect(body).not.toContain("committed_plan_markdown");
   });
 });
 
@@ -232,6 +351,60 @@ describe("World Plan edit proposal transport", () => {
     expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toEqual(request);
     expect(JSON.stringify(request)).not.toContain("session");
     expect(JSON.stringify(request)).not.toContain("campaign_id");
+  });
+
+  it("transports a typed selected-card body request and its correlated v2 receipt unchanged", async () => {
+    const request: WorldPlanDocumentEditProposalRequest = {
+      idempotency_key: "00000000-0000-4000-8000-000000000022",
+      document_id: "document-1",
+      world_id: "world-a",
+      base_revision: 3,
+      base_content_sha256: "a".repeat(64),
+      draft_markdown: "<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->\n## Arrival\nThe gate opens.\n",
+      draft_sha256: "b".repeat(64),
+      target_kind: "replace_playable_body",
+      selected_text: "",
+      playable_target: { kind: "scene", id: "scene:arrival" },
+      body_serialization_version: "plan-playable-body-markdown-v1",
+      target_body_markdown: "The gate opens.\n",
+      target_body_sha256: "c".repeat(64),
+      instruction: "Make the opening more urgent.",
+      conversation_history: [],
+    };
+    const response = {
+      schema_version: "dmb_world_plan_document_edit_proposal_v2",
+      action_id: "00000000-0000-4000-8000-000000000023",
+      idempotency_key: request.idempotency_key,
+      document_id: request.document_id,
+      world_id: request.world_id,
+      base_revision: request.base_revision,
+      base_content_sha256: request.base_content_sha256,
+      draft_sha256: request.draft_sha256,
+      target_kind: "replace_playable_body",
+      selected_text_sha256: null,
+      playable_target: request.playable_target,
+      marker_grammar_version: "v1",
+      body_scope: "heading_body",
+      range_semantics_version: "plan-playable-ranges-v1",
+      body_serialization_version: request.body_serialization_version,
+      target_body_sha256: request.target_body_sha256,
+      replacement_markdown: "A more urgent gate opening.",
+      summary: "Escalates the entrance.",
+      assumptions: [],
+      model: "test-model",
+      model_observed: true,
+      model_latency_ms: 1,
+      wall_latency_ms: 2,
+      usage: null,
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(response));
+
+    await expect(postWorldPlanDocumentEditProposal(request)).resolves.toEqual(response);
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/world-plan-edit/propose");
+    expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toEqual(request);
+    expect(response.idempotency_key).toBe(request.idempotency_key);
+    expect(response.playable_target).toEqual(request.playable_target);
+    expect(response.target_body_sha256).toBe(request.target_body_sha256);
   });
 
   it("reads the bounded World Plan action status projection by exact route identity", async () => {
@@ -267,6 +440,7 @@ function mockJsonResponse(
     status,
     statusText,
     text: async () => JSON.stringify(payload),
+    clone: () => Response.json(payload, { status }),
   } as Response;
 }
 
@@ -426,7 +600,7 @@ describe("local operator API destination policy", () => {
     const api = await importLiveApiForBaseUrl("");
     api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ schema: "dmb_agent_conversation_history_v1" }),
+      mockJsonResponse({ schema: "dmb_agent_conversation_history_v1", turns: [] }),
     );
 
     await api.getWorldAgentConversationHistory("world-a", { limit: 50 });
@@ -447,6 +621,20 @@ describe("local operator API destination policy", () => {
     expect(String(fetchSpy.mock.calls[0]?.[0])).toContain("/api/live/agent/worlds/world-a/conversation?");
     expect(String(fetchSpy.mock.calls[1]?.[0])).toBe("/api/live/agent/worlds/world-a/conversation/new");
     expect(String(fetchSpy.mock.calls[1]?.[1]?.body)).not.toContain("test-only-local-operator-credential-value");
+  });
+
+  it("opts into persisted turn correlation only when requested", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema: "dmb_agent_conversation_history_v3", turns: [] }),
+    );
+
+    await api.getWorldAgentConversationHistory("world-a", { limit: 25, includeTurnCorrelation: true });
+
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(
+      "/api/live/agent/worlds/world-a/conversation?limit=25&include_turn_correlation=true",
+    );
   });
 
   it("blocks World Agent history and New Conversation at a non-loopback API base", async () => {
@@ -482,21 +670,145 @@ describe("local operator API destination policy", () => {
     const api = await importLiveApiForBaseUrl("");
     api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
     api.setNativeGraphAccessToken(null);
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ schema: "dmb_agent_conversation_history_v1" }),
-    );
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "test-csrf" }))
+      .mockResolvedValueOnce(mockJsonResponse({ schema: "dmb_agent_conversation_history_v1", turns: [] }));
 
     await api.getWorldAgentConversationHistory("world-a", { limit: 50 });
 
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(new Headers(fetchSpy.mock.calls[0]?.[1]?.headers).get("Authorization")).toBeNull();
-    expect(fetchSpy.mock.calls[0]?.[1]?.redirect).toBe("error");
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/agent/local-session");
+    expect(new Headers(fetchSpy.mock.calls[1]?.[1]?.headers).get("Authorization")).toBeNull();
+    expect(fetchSpy.mock.calls[1]?.[1]?.redirect).toBe("error");
+  });
+
+  it("restores a local session after reload, sends CSRF on writes, and requires explicit reconnect after revocation", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "reload-csrf" }))
+      .mockResolvedValueOnce(mockJsonResponse({ schema: "dmb_agent_conversation_history_v1", turns: [] }))
+      .mockResolvedValueOnce(mockJsonResponse({ schema: "dmb_agent_new_conversation_response_v1" }))
+      .mockResolvedValueOnce(Response.json({ status: "revoked" }))
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "new-csrf" }));
+
+    await api.getWorldAgentConversationHistory("world-a");
+    await api.postWorldAgentNewConversation("world-a", {
+      schema: "dmb_agent_new_conversation_v1",
+      command_id: "command-a",
+      expected_pointer_revision: 4,
+      expected_active_conversation_id: "conversation-a",
+    });
+    expect(new Headers(fetchSpy.mock.calls[2]?.[1]?.headers).get("X-DMB-Graph-CSRF")).toBe("reload-csrf");
+    expect(new Headers(fetchSpy.mock.calls[2]?.[1]?.headers).get("Authorization")).toBeNull();
+    expect(fetchSpy.mock.calls[2]?.[1]?.credentials).toBe("same-origin");
+
+    await api.revokeNativeGraphSession();
+    expect(fetchSpy.mock.calls[3]?.[1]?.method).toBe("DELETE");
+    expect(new Headers(fetchSpy.mock.calls[3]?.[1]?.headers).get("X-DMB-Graph-CSRF")).toBe("reload-csrf");
+    await expect(api.getWorldAgentConversationHistory("world-a")).rejects.toMatchObject({ status: 401 });
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+    await expect(api.connectNativeGraphSession()).resolves.toBe("new-csrf");
+    expect(fetchSpy.mock.calls[4]?.[1]?.method).toBe("GET");
+    expect(fetchSpy.mock.calls[5]?.[1]?.method).toBe("POST");
+  });
+
+  it("renews an expired cookie and retries only the current correlated turn", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    let providerWork = 0;
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "stale-csrf" }))
+      .mockResolvedValueOnce(Response.json({ detail: { code: "graph_auth_required" } }, { status: 401 }))
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "fresh-csrf" }))
+      .mockImplementationOnce(async () => { providerWork += 1; return mockJsonResponse({ schema: "dmb_agent_turn_response_v1" }); });
+    await api.postIndexAgentTurn(graphTurnRequest() as unknown as Parameters<DynamicLiveApi["postIndexAgentTurn"]>[0]);
+    const turns = fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn");
+    expect(turns).toHaveLength(2);
+    expect(turns[0][1]?.body).toBe(turns[1][1]?.body);
+    expect(new Headers(turns[1][1]?.headers).get("X-DMB-Graph-CSRF")).toBe("fresh-csrf");
+    expect(new Headers(turns[1][1]?.headers).get("Authorization")).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(5);
+    expect(providerWork).toBe(1);
+  });
+
+  it("revalidates a cached session when Connect is pressed after server-side expiry", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "stale-csrf" }))
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "fresh-csrf" }));
+    await expect(api.ensureNativeGraphSession()).resolves.toBe("stale-csrf");
+    await expect(api.connectNativeGraphSession()).resolves.toBe("fresh-csrf");
+    expect(fetchSpy.mock.calls.map(([, init]) => init?.method)).toEqual(["GET", "GET", "POST"]);
+  });
+
+  it("does not resurrect an in-flight session result after revoke", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    let releaseStatus!: (response: Response) => void;
+    const pendingStatus = new Promise<Response>((resolve) => { releaseStatus = resolve; });
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockReturnValueOnce(pendingStatus)
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "server-csrf" }))
+      .mockResolvedValueOnce(Response.json({ status: "revoked" }));
+
+    const pendingEnsure = api.ensureNativeGraphSession();
+    const rejectedEnsure = expect(pendingEnsure).rejects.toMatchObject({ status: 401 });
+    const pendingRevoke = api.revokeNativeGraphSession();
+    releaseStatus(Response.json({ status: "active", csrf_token: "stale-csrf" }));
+    await rejectedEnsure;
+    await pendingRevoke;
+    expect(fetchSpy.mock.calls[2]?.[1]?.method).toBe("DELETE");
+    expect(new Headers(fetchSpy.mock.calls[2]?.[1]?.headers).get("X-DMB-Graph-CSRF")).toBe("server-csrf");
+    await expect(api.getWorldAgentConversationHistory("world-a")).rejects.toMatchObject({ status: 401 });
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it("waits for an in-flight revoke before an explicit reconnect", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    let releaseRevoke!: (response: Response) => void;
+    const pendingRevokeResponse = new Promise<Response>((resolve) => { releaseRevoke = resolve; });
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "first-csrf" }))
+      .mockReturnValueOnce(pendingRevokeResponse)
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "second-csrf" }));
+
+    await api.ensureNativeGraphSession();
+    const revoke = api.revokeNativeGraphSession();
+    const reconnect = api.connectNativeGraphSession();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    releaseRevoke(Response.json({ status: "revoked" }));
+    await revoke;
+    await expect(reconnect).resolves.toBe("second-csrf");
+    expect(fetchSpy.mock.calls.map(([, init]) => init?.method)).toEqual(["GET", "DELETE", "GET", "POST"]);
+  });
+
+  it("does not let an old protected rejection invalidate a newer connected session", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    let releaseOldRequest!: (response: Response) => void;
+    const oldResponse = new Promise<Response>((resolve) => { releaseOldRequest = resolve; });
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old-csrf" }))
+      .mockReturnValueOnce(oldResponse)
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "new-csrf" }))
+      .mockResolvedValueOnce(mockJsonResponse({ schema: "dmb_agent_conversation_history_v1", turns: [] }));
+
+    await api.ensureNativeGraphSession();
+    const oldRequest = api.getWorldAgentConversationHistory("world-a");
+    const rejectedOldRequest = expect(oldRequest).rejects.toMatchObject({ status: 401 });
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+    await expect(api.connectNativeGraphSession()).resolves.toBe("new-csrf");
+    releaseOldRequest(mockJsonResponse({ detail: "expired" }, { ok: false, status: 401 }));
+    await rejectedOldRequest;
+    await api.getWorldAgentConversationHistory("world-a");
+    expect(fetchSpy).toHaveBeenCalledTimes(5);
   });
 });
 
 describe("Threat publication API", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -1085,7 +1397,6 @@ describe("Threat publication API", () => {
 
 describe("liveApi getBuildSourceNavigation", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -1128,7 +1439,6 @@ describe("liveApi getBuildSourceNavigation", () => {
 
 describe("liveApi artifact/capability helpers", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -1198,60 +1508,6 @@ describe("liveApi artifact/capability helpers", () => {
     const [url] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe(
       "/api/live/graph-preview/graph-ingest/latest?campaign_id=c2&session_id=session-22&source_recap_path=corpus%2Frecap.md&source_recap_sha256=sha256%3Aabc",
-    );
-  });
-
-  it("getUnionSupergraphProjection supports latest graph-ingest mode", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ campaign_id: "c2", session_id: "session-22", focus: {}, node_views: {}, mentions: [] }),
-    );
-
-    await getUnionSupergraphProjection({
-      campaignId: "c2",
-      sessionId: "session-22",
-      useLatestGraphIngest: true,
-      sourceRecapPath: "corpus/recap.md",
-      sourceRecapSha256: "sha256:abc",
-    });
-
-    const [url] = fetchSpy.mock.calls[0];
-    expect(String(url)).toContain("/api/live/graph-preview/union-supergraph/projection?");
-    expect(String(url)).toContain("campaign_id=c2");
-    expect(String(url)).toContain("session_id=session-22");
-    expect(String(url)).toContain("use_latest_graph_ingest=true");
-    expect(String(url)).toContain("source_recap_path=corpus%2Frecap.md");
-    expect(String(url)).toContain("source_recap_sha256=sha256%3Aabc");
-    expect(String(url)).not.toContain("preview_source=");
-  });
-
-  it("getUnionSupergraphProjection supports recap-only mode", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ campaign_id: "c2", session_id: "session-24", focus: {}, node_views: {}, mentions: [] }),
-    );
-
-    await getUnionSupergraphProjection({
-      campaignId: "c2",
-      sessionId: "session-24",
-      allowRecapOnly: true,
-    });
-
-    const [url] = fetchSpy.mock.calls[0];
-    expect(String(url)).toContain("/api/live/graph-preview/union-supergraph/projection?");
-    expect(String(url)).toContain("campaign_id=c2");
-    expect(String(url)).toContain("session_id=session-24");
-    expect(String(url)).toContain("allow_recap_only=true");
-  });
-
-  it("getUnionSupergraphProjection preserves previewSource fallback", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ campaign_id: "c2", session_id: "session-23", focus: {}, node_views: {}, mentions: [] }),
-    );
-
-    await getUnionSupergraphProjection("session-23", "dogfood-preview");
-
-    const [url] = fetchSpy.mock.calls[0];
-    expect(String(url)).toBe(
-      "/api/live/graph-preview/union-supergraph/projection?session_id=session-23&preview_source=dogfood-preview",
     );
   });
 
@@ -1343,6 +1599,7 @@ describe("liveApi artifact/capability helpers", () => {
   });
 
   it("postWorldGraphCompleteObject posts the complete-object request contract", async () => {
+    setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const request = {
       schema: "dmb_world_graph_object_projection_request_v1" as const,
       worldId: "eldyrwild",
@@ -1381,7 +1638,7 @@ describe("liveApi artifact/capability helpers", () => {
         session_id: "session-1",
         source_kind: "gold_fixture",
         gold_fixture_id: "graph-memory:session-1-candidate-graph-gold:v0",
-        gold_fixture_relpath: "evals/graph_memory_layer/examples/session_1_candidate_graph_gold/candidate_graph_gold.json",
+        gold_fixture_relpath: "evals/graph_benchmark_gold/candidate_graph/longmont-c1/session-01/candidate_graph_gold.json",
         focus: {},
         node_views: {},
         mentions: [],
@@ -1805,63 +2062,6 @@ describe("liveApi artifact/capability helpers", () => {
     expect(String(url)).toBe("/api/live/statblocks/view/generated/statblock%3Adraft%20test");
   });
 
-  it("getCurrentCombat calls expected current combat endpoint", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ schema: "dmb_combat_encounter_state_v1", entities: [] }),
-    );
-
-    await getCurrentCombat();
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url] = fetchSpy.mock.calls[0];
-    expect(String(url)).toBe("/api/live/combat/current");
-  });
-
-  it("combat roster mutation helpers call expected endpoints", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({
-        schema_version: "dmb_combat_mutation_v1",
-        encounter: { entities: [] },
-        diagnostics: [],
-      }),
-    );
-
-    await patchCombatEntity("entity:one", { notes: "bloodied" });
-    await applyCombatHpDelta("entity:one", { action: "damage", amount: 7 });
-    await sortCombatInitiative();
-    await setCombatActiveTurn({ entity_id: "entity:one" });
-    await advanceCombatTurn({ direction: "previous" });
-
-    expect(fetchSpy).toHaveBeenCalledTimes(5);
-    expect(String(fetchSpy.mock.calls[0][0])).toBe(
-      "/api/live/combat/current/entities/entity%3Aone",
-    );
-    expect(fetchSpy.mock.calls[0][1]?.method).toBe("PATCH");
-    expect(String(fetchSpy.mock.calls[1][0])).toBe(
-      "/api/live/combat/current/entities/entity%3Aone/hp-delta",
-    );
-    expect(fetchSpy.mock.calls[1][1]?.method).toBe("POST");
-    expect(String(fetchSpy.mock.calls[2][0])).toBe("/api/live/combat/current/sort-initiative");
-    expect(String(fetchSpy.mock.calls[3][0])).toBe("/api/live/combat/current/active-turn");
-    expect(String(fetchSpy.mock.calls[4][0])).toBe("/api/live/combat/current/turn");
-  });
-
-  it("addGeneratedStatblockToCombat posts encoded add request", async () => {
-    const request = { team: "enemy" as const, count: 2, initiative: 17 };
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ schema_version: "dmb_add_generated_statblock_to_combat_v1" }),
-    );
-
-    await addGeneratedStatblockToCombat("statblock:draft test", request);
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchSpy.mock.calls[0];
-    expect(String(url)).toBe("/api/live/statblocks/view/generated/statblock%3Adraft%20test/combat/add");
-    expect(init?.method).toBe("POST");
-    expect(init?.headers).toEqual({ "Content-Type": "application/json" });
-    expect(JSON.parse(String(init?.body))).toEqual(request);
-  });
-
   it("acceptThreatDraftMechanics posts to mechanics:accept", async () => {
     const request = {
       operation_id: "11111111-1111-4111-8111-111111111111",
@@ -2039,31 +2239,18 @@ describe("liveApi artifact/capability helpers", () => {
 
 describe("liveApi World Graph error preservation", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
   it("preserves World Graph error code and diagnostics on LiveApiError", async () => {
-    clearProjectionRequestCache();
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: false,
-      status: 409,
-      statusText: "Conflict",
-      text: async () =>
-        JSON.stringify({
-          schema: "dmb_world_graph_projection_error_v1",
-          code: "projection_integrity_error",
-          message: "Projection integrity check failed.",
-          statusCode: 409,
-          diagnostics: [
-            {
-              code: "missing_node",
-              message: "Node npc-glowkindle is missing.",
-              severity: "error",
-            },
-          ],
-        }),
-    } as Response);
+    setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({
+      schema: "dmb_world_graph_projection_error_v1",
+      code: "projection_integrity_error",
+      message: "Projection integrity check failed.",
+      statusCode: 409,
+      diagnostics: [{ code: "missing_node", message: "Node npc-glowkindle is missing.", severity: "error" }],
+    }, { status: 409, statusText: "Conflict" }));
 
     await expect(
       postWorldGraphProjection({
@@ -2093,7 +2280,6 @@ describe("liveApi World Graph error preservation", () => {
 
 describe("liveApi postLiveQuery Hermes serializer", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -2178,6 +2364,7 @@ describe("liveApi postLiveQuery Hermes serializer", () => {
   });
 
   it("includes world_graph_context for Hermes when provided and omits prior-turn fields", async () => {
+    setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const worldGraphContext = {
       schema: "dmb_agent_world_graph_query_context_request_v1" as const,
       world_id: "eldyrwild",
@@ -2291,11 +2478,11 @@ describe("liveApi postLiveQuery Hermes serializer", () => {
 
 describe("liveApi postWorldGraphSourceAnchorRead", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
   it("posts camelCase body to source-anchor read endpoint", async () => {
+    setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const request = {
       schema: "dmb_world_graph_source_anchor_read_request_v1" as const,
       worldId: "eldyrwild",
@@ -2341,7 +2528,6 @@ describe("liveApi postWorldGraphSourceAnchorRead", () => {
 
 describe("liveApi citation source helper", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -2399,7 +2585,6 @@ function worldbuildingRecord(overrides: Partial<WorkspaceDocumentRecord> = {}): 
 
 describe("liveApi world container contracts", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -2732,6 +2917,7 @@ describe("World Play V2 API transport", () => {
   };
 
   it("uses World V2 routes, owner data, exact revision pins, and CAS request bodies", async () => {
+    setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const committed = {
       schema_version: "dmb_workspace_committed_revision_v2",
       scope_mode: "world",
@@ -2787,13 +2973,13 @@ describe("World Play V2 API transport", () => {
       },
       { schema_version: "dmb_world_play_runs_list_v2", records: [run] },
       run,
-      run,
+      {schema_version:"dmb_world_session_creation_v1",state:"applied",run,manifest,receipt:{}},
       { ...run, run_revision: 5 },
       { ...run, run_revision: 6, playable_revision: 8, playable_content_sha256: "b".repeat(64) },
       manifest,
-      manifest,
     ];
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => mockJsonResponse(responses.shift()));
+    const playInventoryController = new AbortController();
 
     await listWorldOwnedRunbooks(worldId);
     await createWorldOwnedRunbook({ world_id: worldId, title: "North Gate" });
@@ -2802,15 +2988,14 @@ describe("World Play V2 API transport", () => {
     await getWorldOwnedRunbookCommittedRevision(documentId, worldId, 7, sha);
     await prepareWorldRunbookMarkdownWrite(worldId, { document_id: documentId, markdown: "# Gate\n", expected_revision: 7 });
     await commitWorldRunbookMarkdownWrite(worldId, { document_id: documentId, markdown: "# Gate\n", writer_confirm_token: "token", expected_revision: 7 });
-    await listWorldPlayRuns(worldId);
+    await listWorldPlayRuns(worldId, playInventoryController.signal);
     await getWorldPlayRun(runId, worldId);
-    await putWorldPlayRun(runId, worldId, { playable_artifact_id: documentId, expected_playable_revision: 7, expected_playable_content_sha256: sha });
+    await putWorldPlayRun(runId, worldId, {schema_version:"dmb_world_session_create_v1", playable_artifact_id: documentId, expected_playable_revision: 7, expected_playable_work_revision_id:run.playable_work_revision_id, expected_playable_content_sha256: sha,entry_scene_id:null,encounters:[] });
     const progress = { expected_run_revision: 4, progress: run.progress };
     const rebase = { expected_run_revision: 4, target_playable_revision: 8, target_playable_content_sha256: "b".repeat(64) };
     await putWorldPlayRunProgress(runId, worldId, progress);
     await putWorldPlayRunRebase(runId, worldId, rebase);
     await getWorldPlayRunReferenceManifest(runId, worldId);
-    await putWorldPlayRunReferenceManifest(runId, worldId);
 
     expect(fetchSpy.mock.calls.map(([url]) => String(url))).toEqual([
       "/api/live/workspace-documents/world-runbooks?world_id=world%20one",
@@ -2826,8 +3011,9 @@ describe("World Play V2 API transport", () => {
       `/api/live/world-play-runs/v2/${runId}/progress?world_id=world%20one`,
       `/api/live/world-play-runs/v2/${runId}/rebase?world_id=world%20one`,
       `/api/live/world-play-runs/v2/${runId}/reference-manifest?world_id=world%20one`,
-      `/api/live/world-play-runs/v2/${runId}/reference-manifest?world_id=world%20one`,
     ]);
+    expect(fetchSpy.mock.calls[7]?.[1]?.signal).toBeInstanceOf(AbortSignal);
+    expect(fetchSpy.mock.calls[7]?.[1]?.signal).not.toBe(playInventoryController.signal);
     expect(JSON.parse(String(fetchSpy.mock.calls[1]?.[1]?.body))).toMatchObject({ scope_mode: "world", world_id: worldId });
     expect(JSON.parse(String(fetchSpy.mock.calls[5]?.[1]?.body))).toMatchObject({ scope_mode: "world", world_id: worldId });
     expect(JSON.parse(String(fetchSpy.mock.calls[10]?.[1]?.body))).toEqual(progress);
@@ -2858,12 +3044,12 @@ describe("World Play V2 API transport", () => {
 
 describe("liveApi PR380B World Graph recap client", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
   it("postWorldGraphRecapProjection POSTs /api/live/world-graph/recap-projection", async () => {
     const mod = await import("./liveApi");
+    mod.setNativeGraphAccessToken("test-only-local-operator-credential-value");
     expect(mod).toHaveProperty("postWorldGraphRecapProjection");
     const postRecap = (mod as { postWorldGraphRecapProjection: (body: unknown) => Promise<unknown> })
       .postWorldGraphRecapProjection;
@@ -2992,4 +3178,302 @@ describe("Play Run start API", () => {
     expect(fetchSpy.mock.calls[1]?.[1]?.method).toBe("PUT");
     expect(JSON.parse(String(fetchSpy.mock.calls[1]?.[1]?.body))).toEqual({ run_id: runId });
   });
+
+  it("reads and writes the World-scoped active Run through the v2 endpoint", async () => {
+    const active = {
+      schema_version: "dmb_world_play_active_run_v2" as const,
+      world_id: "world-b",
+      run_id: runId,
+      selected_at: "2026-10-06T00:00:00Z",
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(mockJsonResponse(active))
+      .mockResolvedValueOnce(mockJsonResponse(active));
+
+    await expect(getWorldPlayActiveRun("world-b")).resolves.toEqual(active);
+    await expect(putWorldPlayActiveRun("world-b", runId)).resolves.toEqual(active);
+
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(
+      "/api/live/world-play-runs/v2/active?world_id=world-b",
+    );
+    expect(fetchSpy.mock.calls[0]?.[1]?.method).toBeUndefined();
+    expect(String(fetchSpy.mock.calls[1]?.[0])).toBe(
+      "/api/live/world-play-runs/v2/active?world_id=world-b",
+    );
+    expect(fetchSpy.mock.calls[1]?.[1]?.method).toBe("PUT");
+    expect(JSON.parse(String(fetchSpy.mock.calls[1]?.[1]?.body))).toEqual({ run_id: runId });
+  });
+});
+
+
+describe("bounded local cookie recovery", () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
+  const rejection = () => Response.json({ detail: { code: "graph_auth_required" } }, { status: 401 });
+
+  it("shares one renewal across concurrent history and command callers, preserving command CAS", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    let booted = false;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const businessCommands = new Set<string>();
+    let commandWork = 0;
+    let statusCalls = 0;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+      if (String(url) === "/api/live/agent/local-session") {
+        if (init?.method === "POST") { await gate; booted = true; return Response.json({ status: "active", csrf_token: "fresh" }); }
+        statusCalls += 1;
+        return statusCalls === 1 ? Response.json({ status: "active", csrf_token: "old" }) : new Response(null, { status: 401 });
+      }
+      if (!booted) return rejection();
+      if (String(url).endsWith("/new")) {
+        const id = JSON.parse(String(init?.body)).command_id;
+        if (!businessCommands.has(id)) { businessCommands.add(id); commandWork += 1; }
+        return Response.json({ schema: "synthetic-success" });
+      }
+      return Response.json({ schema: "dmb_agent_conversation_history_v3", turns: [] });
+    });
+    await api.ensureNativeGraphSession();
+    const command = { schema: "dmb_agent_new_conversation_request_v1" as const, command_id: "frozen-command", expected_pointer_revision: 7, expected_active_conversation_id: "prior-conversation" };
+    const requests = [api.getWorldAgentConversationHistory("world-a"), api.postWorldAgentNewConversation("world-a", command)];
+    await vi.waitFor(() => expect(fetchSpy.mock.calls.filter(([url, init]) => String(url).endsWith("/local-session") && init?.method === "POST")).toHaveLength(1));
+    release();
+    await Promise.all(requests);
+    expect(commandWork).toBe(1);
+    expect(statusCalls).toBe(2);
+    const attempts = fetchSpy.mock.calls.filter(([url]) => String(url).endsWith("/new"));
+    expect(attempts).toHaveLength(2);
+    expect(attempts[0][1]?.body).toBe(attempts[1][1]?.body);
+    expect(JSON.parse(String(attempts[1][1]?.body))).toMatchObject(command);
+  });
+
+  it("stops after a failed renewal and performs no command/provider work", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+      .mockResolvedValueOnce(rejection())
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }));
+    await expect(api.getWorldAgentConversationHistory("world-a")).rejects.toMatchObject({ code: "local_graph_session_recovery_failed", status: 503 });
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes("/conversation"))).toHaveLength(1);
+  });
+
+  it("does not recover intentional invalid bearer credentials or untrusted 401 responses", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    api.setNativeGraphAccessToken("synthetic-intentional-invalid-bearer");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(rejection());
+    await expect(api.getWorldAgentConversationHistory("world-a")).rejects.toMatchObject({ status: 401 });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(new Headers(fetchSpy.mock.calls[0][1]?.headers).get("Authorization")).toBe("Bearer synthetic-intentional-invalid-bearer");
+    api.setNativeGraphAccessToken(null);
+    fetchSpy.mockReset().mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+      .mockResolvedValueOnce(Response.json({ detail: { code: "different_auth_failure" } }, { status: 401 }));
+    await expect(api.getWorldAgentConversationHistory("world-a")).rejects.toMatchObject({ status: 401 });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("bounds a repeated protected rejection to one renewed retry", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+      .mockResolvedValueOnce(rejection())
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "new" }))
+      .mockResolvedValueOnce(rejection());
+    await expect(api.getWorldAgentConversationHistory("world-a")).rejects.toMatchObject({ status: 401 });
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+  });
+
+  it("refreshes stale CSRF for a read-only Graph POST without changing request bytes", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+      .mockResolvedValueOnce(Response.json({ detail: { code: "graph_auth_csrf_rejected" } }, { status: 403 }))
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "new" }))
+      .mockResolvedValueOnce(Response.json({ schema: "synthetic-graph" }));
+    await api.postManagedWorldGraphProjection({ world_id: "world-a" } as Parameters<DynamicLiveApi["postManagedWorldGraphProjection"]>[0]);
+    const calls = fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/world-graph/managed-projection");
+    expect(calls).toHaveLength(2);
+    expect(calls[0][1]?.body).toBe(calls[1][1]?.body);
+  });
+});
+
+
+it("does not resurrect or replay an action when explicitly revoked during renewal", async () => {
+  const api = await importLiveApiForBaseUrl("");
+  let release!: (response: Response) => void;
+  const renewal = new Promise<Response>((resolve) => { release = resolve; });
+  const fetchSpy = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+    .mockResolvedValueOnce(Response.json({ detail: { code: "graph_auth_required" } }, { status: 401 }))
+    .mockReturnValueOnce(renewal)
+    .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "revoke-csrf" }))
+    .mockResolvedValueOnce(Response.json({ status: "revoked" }));
+  const action = api.getWorldAgentConversationHistory("world-a");
+  const rejected = expect(action).rejects.toMatchObject({ code: "local_graph_session_recovery_failed" });
+  await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(3));
+  const revoke = api.revokeNativeGraphSession();
+  release(Response.json({ status: "active", csrf_token: "obsolete" }));
+  await rejected;
+  await revoke;
+  await expect(api.getWorldAgentConversationHistory("world-a")).rejects.toMatchObject({ status: 401 });
+  expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes("conversation"))).toHaveLength(1);
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
+
+
+it("does not renew an origin rejection", async () => {
+  const api = await importLiveApiForBaseUrl("");
+  const fetchSpy = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+    .mockResolvedValueOnce(Response.json({ detail: { code: "graph_auth_origin_rejected" } }, { status: 403 }));
+  await expect(api.getWorldAgentConversationHistory("world-a")).rejects.toMatchObject({ status: 403 });
+  expect(fetchSpy).toHaveBeenCalledTimes(2);
+  vi.restoreAllMocks(); vi.unstubAllEnvs();
+});
+
+
+it("renews auth but never replays an uncorrelated unsafe turn", async () => {
+  const api = await importLiveApiForBaseUrl("");
+  const fetchSpy = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+    .mockResolvedValueOnce(Response.json({ detail: { code: "graph_auth_required" } }, { status: 401 }))
+    .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "new" }));
+  const request = { ...graphTurnRequest(), turn_id: "" };
+  await expect(api.postIndexAgentTurn(request as unknown as Parameters<DynamicLiveApi["postIndexAgentTurn"]>[0]))
+    .rejects.toMatchObject({ status: 401 });
+  expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
+  expect(fetchSpy).toHaveBeenCalledTimes(3);
+  vi.restoreAllMocks(); vi.unstubAllEnvs();
+});
+
+
+it.each([
+  ["/api/live/world-graph/retrieval/unknown-write", "POST"],
+  ["/api/live/world-graph/retrieval/complete-object", "PATCH"],
+  ["/api/live/agent/worlds/world-a/conversation/new", "PUT"],
+])("renews but never replays unsupported %s %s", async (path, method) => {
+  const api = await importLiveApiForBaseUrl("");
+  const fetchSpy = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+    .mockResolvedValueOnce(Response.json({ detail: { code: "graph_auth_required" } }, { status: 401 }))
+    .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "new" }));
+  const body = JSON.stringify({ command_id: "fixed", expected_pointer_revision: 4, expected_active_conversation_id: null });
+  const result = await api.authenticatedApiFetch(path, { method, body });
+  expect(result.response.status).toBe(401);
+  expect(fetchSpy.mock.calls.filter(([url]) => String(url) === path)).toHaveLength(1);
+  expect(fetchSpy).toHaveBeenCalledTimes(3);
+  vi.restoreAllMocks(); vi.unstubAllEnvs();
+});
+
+it('authenticates Markdown saves containing saved-media references', async () => {
+  setNativeGraphAccessToken('test-only-local-operator-credential-value');
+  const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockJsonResponse({writer_ok:true}));
+  await prepareTiptapMarkdownWrite({document_id:'edge',expected_revision:1,
+    markdown:'![Edge](dmb-media:ac6c15cc-8c68-4732-8ae2-d9f3f051393a)'});
+  expect(new Headers(fetchSpy.mock.calls[0]?.[1]?.headers).get('Authorization')).toBe('Bearer test-only-local-operator-credential-value');
+  expect(String(fetchSpy.mock.calls[0]?.[0])).toBe('/api/live/tiptap/markdown-write/prepare');
+});
+
+it.each(["/content", "/content/revisions/1", "/content/commands/11111111-1111-4111-8111-111111111111"])("authenticates the exact World session content path %s", async suffix => {
+  const api = await import("./liveApi");
+  api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  await api.authenticatedApiFetch(`/api/live/world-play-runs/v2/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa${suffix}?world_id=world`);
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).get("Authorization")).toBe("Bearer test-only-local-operator-credential-value");
+  expect(fetch.mock.calls[0][1]?.redirect).toBe("error");
+  fetch.mockRestore();
+});
+
+
+it.each(['prepare','confirm'])('authenticates first-World %s through the actual bearer transport',async action=>{
+  const api=await importLiveApiForBaseUrl('');
+  api.setNativeGraphAccessToken('test-only-local-operator-credential-value');
+  const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json({}));
+  const path=`/api/live/extract-promote/worldbuilding/first-world/${action}`;
+  const body=JSON.stringify({schema:'exact-command',plan:{nativeTarget:'fixed'}});
+  await api.authenticatedApiFetch(path,{method:'POST',body});
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch.mock.calls[0][0]).toBe(path);
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer test-only-local-operator-credential-value');
+  expect(fetch.mock.calls[0][1]).toMatchObject({method:'POST',body,redirect:'error',credentials:'same-origin'});
+  vi.restoreAllMocks();vi.unstubAllEnvs();
+});
+
+it.each(['prepare','confirm'])('acquires a local session and sends CSRF for first-World %s',async action=>{
+  const api=await importLiveApiForBaseUrl('');
+  const fetch=vi.spyOn(globalThis,'fetch')
+    .mockResolvedValueOnce(Response.json({status:'active',csrf_token:'first-world-csrf'}))
+    .mockResolvedValueOnce(Response.json({}));
+  const path=`/api/live/extract-promote/worldbuilding/first-world/${action}`;
+  await api.authenticatedApiFetch(path,{method:'POST',body:JSON.stringify({plan:'fixed'})});
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fetch.mock.calls[1][0]).toBe(path);
+  expect(new Headers(fetch.mock.calls[1][1]?.headers).get('X-DMB-Graph-CSRF')).toBe('first-world-csrf');
+  expect(fetch.mock.calls[1][1]).toMatchObject({redirect:'error',credentials:'same-origin'});
+  vi.restoreAllMocks();vi.unstubAllEnvs();
+});
+
+it.each(['prepare','confirm'])('refuses non-loopback first-World %s before sending credentials',async action=>{
+  const api=await importLiveApiForBaseUrl('https://example.invalid');
+  api.setNativeGraphAccessToken('test-only-local-operator-credential-value');
+  const fetch=vi.spyOn(globalThis,'fetch');
+  await expect(api.authenticatedApiFetch(`/api/live/extract-promote/worldbuilding/first-world/${action}`,
+    {method:'POST',body:'{}'})).rejects.toThrow('loopback');
+  expect(fetch).not.toHaveBeenCalled();
+  vi.restoreAllMocks();vi.unstubAllEnvs();
+});
+
+it("forwards exact World Plan cursor timestamps and cancellation", async () => {
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({
+    world_id: "world one", records: [], next_before_updated_at: null, next_before_document_id: null,
+  }));
+  const controller = new AbortController();
+  const updatedAt = "2026-01-01T00:00:00.123456Z";
+  await listWorldPlanInventoryPage("world one", { updatedAt, documentId: "cursor-id" }, controller.signal);
+  const url = new URL(String(fetchSpy.mock.calls[0][0]), "http://localhost");
+  expect(url.pathname).toBe("/api/live/workspace-documents/world-plans/page");
+  expect(url.searchParams.get("world_id")).toBe("world one");
+  expect(url.searchParams.get("before_updated_at")).toBe(updatedAt);
+  expect(url.searchParams.get("before_document_id")).toBe("cursor-id");
+  expect(fetchSpy.mock.calls[0][1]?.signal).toBe(controller.signal);
+  fetchSpy.mockRestore();
+});
+
+it("forwards authored-page scope, cursor and cancellation", async () => {
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({ records: [] }));
+  const controller = new AbortController();
+  const updatedAt = "2026-01-01T00:00:00.123456Z";
+  await listWorkspacePageInventory(
+    { worldId: "world one", campaignId: "campaign one", status: "discarded" },
+    { updatedAt, documentId: "cursor-id" },
+    controller.signal,
+  );
+  const url = new URL(String(fetchSpy.mock.calls[0][0]), "http://localhost");
+  expect(url.pathname).toBe("/api/live/workspace-documents/pages/inventory");
+  expect(Object.fromEntries(url.searchParams)).toEqual({
+    world_id: "world one", campaign_id: "campaign one", status: "discarded",
+    before_updated_at: updatedAt, before_document_id: "cursor-id",
+  });
+  expect(fetchSpy.mock.calls[0][1]?.signal).toBe(controller.signal);
+  fetchSpy.mockRestore();
+});
+
+it.each([true, false])("loads surface views with combined response supported: %s", async (supported) => {
+  const surface = { catalog: [], layout: {}, state: {} };
+  const views = { events: [{ id: "event" }], jobs: [], plan_view: { timeline: [] } };
+  const fetch = vi.fn(async (input: RequestInfo | URL) => {
+    const path = String(input);
+    if (path.endsWith("/surface?include_session_views=true")) {
+      return Response.json(supported ? { ...surface, ...views } : surface);
+    }
+    if (path.endsWith("/events")) return Response.json({ events: views.events });
+    if (path.endsWith("/jobs")) return Response.json({ jobs: views.jobs });
+    if (path.endsWith("/plan-view")) return Response.json(views.plan_view);
+    throw new Error("Unexpected request: " + path);
+  });
+  vi.stubGlobal("fetch", fetch);
+
+  expect(await getSurfaceSessionViews()).toEqual({ ...surface, ...views });
+  expect(fetch).toHaveBeenCalledTimes(supported ? 1 : 4);
 });

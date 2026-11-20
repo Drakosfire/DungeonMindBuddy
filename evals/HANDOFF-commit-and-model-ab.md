@@ -179,13 +179,14 @@ tests/evals/test_llm_ingestion_slice.py                 # Gate G assertions, reg
 
 #### Commit 5 (optional): Docs and status
 
+The original file list also included the [Historical status report](https://github.com/Drakosfire/DungeonMindBuddy/blob/3fbf800e0f134ba9a1396156c22c18c614c8f72d/report/REPORT-current-status.md).
+
 **Message:** `docs: temporal metadata design doc, status report, handoffs`
 
 **Files to stage:**
 
 ```
 Docs/Design/SCHEMA-document-temporal-metadata-v0.2.md   # NEW
-report/REPORT-current-status.md
 evals/HANDOFF-gold-scoring-eval.md                      # NEW
 evals/HANDOFF-commit-and-model-ab.md                    # NEW (this file)
 evals/HANDOFF-next-agent-ingestion-temporal-gates.md    # NEW

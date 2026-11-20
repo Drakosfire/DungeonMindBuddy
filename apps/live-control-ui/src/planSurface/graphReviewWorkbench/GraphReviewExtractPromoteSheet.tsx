@@ -1,3 +1,4 @@
+import "./GraphReviewPublicationReview.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -17,13 +18,17 @@ import {
   togglePromoteSelection,
 } from "./extractPromoteSelectionUtils";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
-import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "./graphReviewWorkbenchUtils";
 
 export interface GraphReviewExtractPromoteSheetProps {
   prepared: ExtractPromotePrepareResponse;
   onClose: () => void;
+  /** Host persists the exact package/selection synchronously before any POST. */
+  onBeforeConfirm?: (assertionIds: string[]) => void;
+  recoveryAssertionIds?: string[] | null;
+  initialSelectionIds?: string[] | null;
+  onSelectionChange?: (ids: string[]) => void;
+  onConfirmRejected?: (code: string | null) => void;
   onConfirmInFlightChange?: (inFlight: boolean) => void;
-  onCatalogRefresh?: () => void | Promise<void>;
 }
 
 type ConfirmPhase = "idle" | "confirming" | "receipt" | "pre_commit_error" | "unknown_result";
@@ -92,11 +97,6 @@ function confirmErrorMessage(error: unknown): string {
   return "Failed to confirm promotion.";
 }
 
-async function defaultCatalogRefresh(): Promise<void> {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new Event(GRAPH_REVIEW_RUNS_CHANGED_EVENT));
-}
-
 /**
  * Game-facing promote review sheet (PR011A2 prepare + PR011A3 confirm).
  */
@@ -104,23 +104,27 @@ export function GraphReviewExtractPromoteSheet({
   prepared,
   onClose,
   onConfirmInFlightChange,
-  onCatalogRefresh = defaultCatalogRefresh,
+  onBeforeConfirm,
+  recoveryAssertionIds,
+  initialSelectionIds,
+  onSelectionChange,
+  onConfirmRejected,
 }: GraphReviewExtractPromoteSheetProps) {
   const { adoptCommittedReceipt, reloadCommittedAuthority, committedBinding } =
     useGraphReviewLiveState();
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() =>
-    initialPromoteSelection(prepared.reviewItems),
+    initialSelectionIds ? new Set(initialSelectionIds) : initialPromoteSelection(prepared.reviewItems),
   );
-  const [confirmPhase, setConfirmPhase] = useState<ConfirmPhase>("idle");
-  const [frozenIds, setFrozenIds] = useState<string[] | null>(null);
+  const [confirmPhase, setConfirmPhase] = useState<ConfirmPhase>(recoveryAssertionIds ? "unknown_result" : "idle");
+  const [frozenIds, setFrozenIds] = useState<string[] | null>(recoveryAssertionIds ?? null);
   const [receipt, setReceipt] = useState<ExtractPromoteConfirmReceipt | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [reloadError, setReloadError] = useState<string | null>(null);
   const [reloadingRevision, setReloadingRevision] = useState(false);
 
   const confirming = confirmPhase === "confirming";
-  const selectionLocked = confirming || confirmPhase === "receipt";
+  const selectionLocked = confirmPhase !== "idle";
   const hasTerminalReceipt = receipt != null;
 
   useEffect(() => {
@@ -146,9 +150,11 @@ export function GraphReviewExtractPromoteSheet({
 
   const toggle = (item: ExtractPromotionReviewItem) => {
     if (!item.selectable || selectionLocked) return;
-    setSelectedIds((prev) =>
-      togglePromoteSelection(prepared.reviewItems, prev, item.sliceQualifiedId),
-    );
+    const next=togglePromoteSelection(prepared.reviewItems,selectedIds,item.sliceQualifiedId);
+    try {
+      onSelectionChange?.(selectedPromoteAssertionIds(prepared.reviewItems,next));
+      setSelectedIds(next);setConfirmError(null);
+    } catch(error) { setConfirmError(confirmErrorMessage(error)); }
   };
 
   const adoptTerminalReceipt = useCallback(
@@ -180,6 +186,13 @@ export function GraphReviewExtractPromoteSheet({
       setConfirmError(null);
       setReloadError(null);
 
+      // A failed local save is known to precede dispatch, not an unknown commit.
+      try { onBeforeConfirm?.(assertionIds); }
+      catch (error) {
+        setConfirmPhase("pre_commit_error");
+        setConfirmError(confirmErrorMessage(error));
+        return;
+      }
       let nextReceipt: ExtractPromoteConfirmReceipt;
       try {
         nextReceipt = await confirmExtractPromote({
@@ -188,6 +201,7 @@ export function GraphReviewExtractPromoteSheet({
         });
       } catch (error) {
         if (error instanceof ExtractPromoteApiError) {
+          onConfirmRejected?.(error.code);
           setConfirmPhase("pre_commit_error");
           setConfirmError(confirmErrorMessage(error));
           return;
@@ -205,8 +219,7 @@ export function GraphReviewExtractPromoteSheet({
       setReceipt(nextReceipt);
       setConfirmPhase("receipt");
 
-      // Adopt before catalog refresh so a refresh-driven binding change cannot
-      // race ahead of freezing committed authority for the current binding.
+      // Freeze committed authority before any subsequent binding change.
       try {
         await adoptTerminalReceipt(nextReceipt, frozenBinding);
       } catch (error) {
@@ -217,14 +230,8 @@ export function GraphReviewExtractPromoteSheet({
             : "Failed to reload committed World Graph revision.",
         );
       }
-
-      try {
-        await onCatalogRefresh();
-      } catch {
-        // Catalog refresh failure must not erase receipt.
-      }
     },
-    [adoptTerminalReceipt, committedBinding, onCatalogRefresh, prepared.reviewPackage],
+    [adoptTerminalReceipt, committedBinding, prepared.reviewPackage, onBeforeConfirm, onConfirmRejected],
   );
 
   const onMergeClick = () => {

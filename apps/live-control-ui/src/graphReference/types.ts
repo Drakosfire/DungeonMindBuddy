@@ -1,3 +1,4 @@
+import type {Editor} from "@tiptap/core";
 import type { GraphProjectionNodeView, RecapGraphChip } from "../api/types";
 import type { GraphObjectCardViewModel } from "../graphObjectCard";
 import type { RunbookReferenceAttrs } from "../tiptap/references/runbookReferences";
@@ -33,6 +34,8 @@ export interface GraphNodeChipRuntimeValue {
   nodeViews: Record<string, GraphProjectionNodeView>;
   activeNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
+  /** Source editor affinity for document NodeViews crossing portal boundaries. */
+  onSelectEditorNode?: (nodeId: string, sourceEditor: Editor) => void;
   deltaByNodeId?: Record<string, GraphNodeChipDeltaPresentation>;
   /** Exact Plan World Graph snapshot scope for Threat hover mechanics hydration. */
   exactGraphScope?: ExactGraphReferenceScope | null;
@@ -118,17 +121,6 @@ export interface GraphReferenceProjectionBinding {
   openTool(toolId: string): void;
 }
 
-export interface GraphReferenceSearchItem {
-  nodeId: string;
-  label: string;
-  kind: string;
-  role: string | null;
-  summary: string | null;
-  aliases: string[];
-  scopeLabel: string;
-  reference: RunbookReferenceAttrs;
-  nodeView: GraphProjectionNodeView;
-}
 
 export interface OpenGraphReferenceArgs {
   reference?: RunbookReferenceAttrs | null;

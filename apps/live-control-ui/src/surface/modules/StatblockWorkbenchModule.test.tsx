@@ -1,6 +1,12 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import type {ReactNode} from 'react';
+import {SavedStatblockProvider} from '../../statblocks/SavedStatblockSession';
+import {GuidedTourProvider} from '../../guidedTour/GuidedTour';
+import {GenerationPlanProvider} from '../../guidedTour/GenerationObservations';
+import {createWalkthrough,reduceTour,type TargetPin} from '../../guidedTour/protocol';
+import {readWalkthrough,writeWalkthrough} from '../../guidedTour/storage';
+import { act, render as renderWithoutHost, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import * as selectedWorld from "../../selectedWorld/SelectedWorldContext";
@@ -14,6 +20,7 @@ import type {
   ThreatDraftV1,
   ThreatDraftV2,
   WorldGraphProjection,
+  ManagedWorldGraphProjectionResponse,
   GenerateThreatDraftCandidateRequestV1,
 } from "../../api/types";
 import { persistGenerationAttempt, readGenerationAttempt, scopedWorkbenchJoinKey, type StatblockDraftScope } from "./statblockDraftScope";
@@ -25,12 +32,16 @@ import type {
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import { readStoredReviseAttempt } from "../../statblocks/revision/statblockRevisionAttempt";
 import fixture from "../../../../../tests/fixtures/statblocks/v1/candidate-response.json";
+import savedRevisionFixture from "../../../../../tests/fixtures/statblocks/v1/exact-revision-response.json";
 import {
   ACCEPT_RESTORE_LOOKUP,
   presentCandidateStatus,
   StatblockWorkbenchModule,
 } from "./StatblockWorkbenchModule";
 
+beforeAll(()=>Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value:function(this:HTMLDialogElement){this.setAttribute('open','');}}));
+function SessionTestHost({children}:{children:ReactNode}) {const scope=selectedWorld.useSelectedWorld();return <SavedStatblockProvider worldId={scope.kind==='managed'?scope.worldId:null}>{children}</SavedStatblockProvider>;}
+function render(ui:ReactNode,options?:Parameters<typeof renderWithoutHost>[1]) {return renderWithoutHost(ui,{wrapper:SessionTestHost,...options});}
 const candidate = fixture as GeneratedStatblockCandidateV1;
 
 const activeResponse: ReadStatblockCandidateResponseV1 = {
@@ -175,6 +186,12 @@ describe("World-scoped mounted Workbench", () => {
     };
   }
 
+  function managedProjection(scope: StatblockDraftScope = a): ManagedWorldGraphProjectionResponse {
+    const nativeWorldId = `world:native-${scope.worldId}`;
+    return { schema: "dmb_managed_world_graph_projection_v1", managedWorldId: scope.worldId, nativeWorldId, bindingVersion: 1,
+      projection: { ...projection(scope), snapshot: { ...projection(scope).snapshot, worldId: nativeWorldId } } };
+  }
+
   function draft(scope: StatblockDraftScope = a, id = "draft-a"): ThreatDraftV2 {
     return {
       schema: "dmb_threat_draft_v2", scope_mode: "world", world_id: scope.worldId, campaign_id: null,
@@ -208,10 +225,8 @@ describe("World-scoped mounted Workbench", () => {
       if (!value) throw new Error("Unknown candidate");
       return structuredClone(value);
     });
-    const project = vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(async (request) => projection(
-      request.scopeMode === "world" ? { mode: "world", worldId: request.worldId, campaignId: null }
-        : { mode: "campaign", worldId: request.worldId, campaignId: request.campaignId },
-    ));
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(async () => { throw new Error("Managed World must not use native route"); });
+    const project = vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockImplementation(async request => managedProjection({mode:"world",worldId:request.managedWorldId,campaignId:null}));
     const create = vi.spyOn(liveApi, "createThreatDraft").mockImplementation(async (request) => {
       const scope = request.campaign_id === null ? { mode: "world" as const, worldId: request.world_id, campaignId: null }
         : { mode: "campaign" as const, worldId: request.world_id, campaignId: request.campaign_id };
@@ -298,6 +313,78 @@ describe("World-scoped mounted Workbench", () => {
     expect(h.generate).toHaveBeenCalledTimes(2);
   });
 
+  it("reopens admitted saved World mechanics without depending on the expired candidate", async () => {
+    const h=harness();
+    localStorage.setItem(scopedWorkbenchJoinKey(a),JSON.stringify({draft_id:"draft-a",version:1,candidate_id:"cand_expired"}));
+    const locator={provider:"dungeonmind" as const,statblock_id:"sb_saved",revision_id:"rev_saved",contract:"dungeonmind.dungeonbuddy-statblocks",contract_version:"1.0.0",definition_digest:`sha256:${"a".repeat(64)}`} as const;
+    h.drafts.set("draft-a", {...draft(),workflow_state:"mechanics_saved",accepted_mechanics_ref:{...locator,accepted_from_draft_version:1,accepted_from_candidate_id:null,accepted_at:"2026-11-08T00:00:00Z"}});
+    vi.spyOn(liveApi,"listSavedMechanicsVersions").mockResolvedValue({world_id:a.worldId,draft_id:"draft-a",name:"Saved brute",original:locator,operations:[],pending:null,next_offset:null});
+    vi.spyOn(liveApi,"openSavedMechanicsVersion").mockResolvedValue({world_id:a.worldId,draft_id:"draft-a",locator,resource:{...savedRevisionFixture,definition:candidate.definition,statblock_id:locator.statblock_id,revision_id:locator.revision_id} as unknown as Awaited<ReturnType<typeof liveApi.openSavedMechanicsVersion>>["resource"]});
+    const creatures=vi.spyOn(liveApi,"listWorldCreatures").mockResolvedValue({schema:"dmb_native_world_creatures_v1",managed_world_id:a.worldId,native_world_id:"native-a",binding_version:1,revision_id:"rev:a",completeness:"complete",targets:[]});
+    vi.spyOn(liveApi,"listWorldMechanicsAssociations").mockResolvedValue([]);
+    render(<StatblockWorkbenchModule/>);
+    expect(screen.queryByRole("region",{name:"Associate World creature"})).toBeNull();
+    expect(screen.queryByRole("region",{name:"Create World creature"})).toBeNull();
+    const open=await screen.findByRole("button",{name:"Open statblock"});
+    expect(screen.queryByRole("region",{name:"Associate World creature"})).toBeNull();
+    await userEvent.click(open);
+    const association=await screen.findByRole("region",{name:"Associate World creature"});
+    expect(screen.getByRole("region",{name:"Create World creature"})).toBeInTheDocument();
+    expect(creatures).not.toHaveBeenCalled();
+    await userEvent.click(within(association).getByRole("button",{name:"Load creatures"}));
+    expect(await within(association).findByRole("combobox",{name:"World creature"})).toBeInTheDocument();
+    expect(creatures).toHaveBeenCalledExactlyOnceWith(a.worldId);
+    expect(h.project).not.toHaveBeenCalled();
+    expect(h.getCandidate).not.toHaveBeenCalled();
+    expect(await screen.findByRole("region",{name:"Saved statblock"})).toBeInTheDocument();
+    expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
+  });
+
+  it("retries a failed initial saved draft read without loading or regenerating its candidate",async()=>{
+    const h=harness();h.drafts.set("draft-a",{...draft(),workflow_state:"mechanics_saved"});
+    h.getDraft.mockRejectedValueOnce(new Error("Saved draft temporarily unavailable"));
+    localStorage.setItem(scopedWorkbenchJoinKey(a),JSON.stringify({draft_id:"draft-a",version:1,candidate_id:"cand_expired"}));
+    render(<StatblockWorkbenchModule/>);
+    expect(await screen.findByTestId("draft-snapshot-unavailable")).toHaveTextContent("Saved draft temporarily unavailable");
+    expect(screen.getByTestId("create-and-generate-submit")).toBeDisabled();
+    const retained=localStorage.getItem(scopedWorkbenchJoinKey(a));
+    await userEvent.click(screen.getByTestId("create-and-generate-submit"));
+    expect(localStorage.getItem(scopedWorkbenchJoinKey(a))).toBe(retained);
+    expect(h.create).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button",{name:"Retry draft refresh"}));
+    expect(await screen.findByRole("button",{name:"Open statblock"})).toBeInTheDocument();
+    expect(h.getDraft).toHaveBeenCalledTimes(2);expect(h.getCandidate).not.toHaveBeenCalled();
+    expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
+  });
+
+  it("shows a read-only retry when saved draft refresh fails without an active candidate",async()=>{
+    const h=harness(),saved={...draft(),workflow_state:"mechanics_saved" as const};h.drafts.set("draft-a",saved);
+    h.getDraft.mockResolvedValueOnce(saved).mockRejectedValueOnce(new Error("Saved draft refresh unavailable"));
+    localStorage.setItem(scopedWorkbenchJoinKey(a),JSON.stringify({draft_id:"draft-a",version:1,candidate_id:"cand_expired"}));
+    render(<StatblockWorkbenchModule/>);
+    expect(await screen.findByTestId("draft-snapshot-unavailable")).toHaveTextContent("Saved draft refresh unavailable");
+    expect(screen.getByTestId("create-and-generate-submit")).toBeDisabled();
+    expect(screen.queryByRole("button",{name:"Open statblock"})).toBeNull();
+    expect(screen.queryByRole("region",{name:"Associate World creature"})).toBeNull();
+    expect(screen.queryByRole("region",{name:"Create World creature"})).toBeNull();
+    await userEvent.click(screen.getByRole("button",{name:"Retry draft refresh"}));
+    expect(await screen.findByRole("button",{name:"Open statblock"})).toBeInTheDocument();
+    expect(h.getDraft).toHaveBeenCalledTimes(3);expect(h.getCandidate).not.toHaveBeenCalled();
+    expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
+  });
+
+  it("does not expose saved mechanics from a foreign World recovery hint", async () => {
+    const h=harness();h.drafts.set("draft-b",{...draft(b,"draft-b"),workflow_state:"mechanics_saved"});
+    localStorage.setItem(scopedWorkbenchJoinKey(a),JSON.stringify({draft_id:"draft-b",version:1,candidate_id:"cand_expired"}));
+    render(<StatblockWorkbenchModule/>);
+    await waitFor(()=>expect(h.getDraft).toHaveBeenCalledWith("draft-b"));
+    expect(await screen.findByTestId("draft-snapshot-unavailable")).toHaveTextContent("This ThreatDraft does not belong to the selected scope.");
+    expect(screen.queryByRole("button",{name:"Open statblock"})).toBeNull();
+    expect(screen.queryByRole("region",{name:"Associate World creature"})).toBeNull();
+    expect(screen.queryByRole("region",{name:"Create World creature"})).toBeNull();
+    expect(h.getCandidate).not.toHaveBeenCalled();expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
+  });
+
   it("creates an explicit World request, persists before generation, verifies lineage and restores dirty work A→B→A", async () => {
     const h = harness();
     const user = userEvent.setup();
@@ -308,7 +395,8 @@ describe("World-scoped mounted Workbench", () => {
     });
     await create(user);
     await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
-    expect(h.project.mock.calls[0][0]).toMatchObject({ worldId: a.worldId, campaignId: "", scopeMode: "world" });
+    expect(h.project.mock.calls[0][0]).toEqual({schema:"dmb_managed_world_graph_projection_request_v1",managedWorldId:a.worldId});
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
     expect(h.create.mock.calls[0][0]).toMatchObject({ world_id: a.worldId, campaign_id: null, scope_mode: "world" });
     const name = screen.getByDisplayValue("Ironhide Brute");
     await user.clear(name);
@@ -328,7 +416,7 @@ describe("World-scoped mounted Workbench", () => {
 
   it("does not create after an A head response arrives in B", async () => {
     const h = harness();
-    const pending = deferred<WorldGraphProjection>();
+    const pending = deferred<ManagedWorldGraphProjectionResponse>();
     h.project.mockReturnValue(pending.promise);
     const user = userEvent.setup();
     const view = render(<StatblockWorkbenchModule />);
@@ -591,9 +679,34 @@ describe("World-scoped mounted Workbench", () => {
     expect(h.generate).toHaveBeenCalledTimes(1);
   });
 
+  it.each(["native_identity", "binding_version", "non_head"] as const)("rejects invalid managed %s provenance even with freestanding opt-in", async (fault) => {
+    const h = harness(); const invalid = managedProjection();
+    if (fault === "native_identity") invalid.nativeWorldId = "world:foreign";
+    if (fault === "binding_version") invalid.bindingVersion = 0;
+    if (fault === "non_head") invalid.projection.snapshot.isHead = false;
+    h.project.mockResolvedValue(invalid);
+    const user = userEvent.setup(); render(<StatblockWorkbenchModule />);
+    await user.click(screen.getByTestId("create-threat-allow-freestanding")); await create(user);
+    await waitFor(() => expect(screen.getByTestId("create-threat-error")).toBeTruthy());
+    expect(h.create).not.toHaveBeenCalled(); expect(h.generate).not.toHaveBeenCalled();
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
+  });
+
+  it.each(["native_id", "projection", "snapshot"] as const)("rejects malformed managed %s without freestanding fallback", async (fault) => {
+    const h = harness(); const valid = managedProjection();
+    const invalid = fault === "native_id" ? { ...valid, nativeWorldId: null }
+      : fault === "projection" ? { ...valid, projection: null }
+      : { ...valid, projection: { ...valid.projection, snapshot: null } };
+    h.project.mockResolvedValue(invalid as unknown as ManagedWorldGraphProjectionResponse);
+    const user = userEvent.setup(); render(<StatblockWorkbenchModule />);
+    await user.click(screen.getByTestId("create-threat-allow-freestanding")); await create(user);
+    await waitFor(() => expect(screen.getByTestId("create-threat-error")).toHaveTextContent("malformed provenance"));
+    expect(h.create).not.toHaveBeenCalled(); expect(h.generate).not.toHaveBeenCalled();
+  });
+
   it("rejects contradictory projection even with freestanding opt-in", async () => {
     const h = harness();
-    h.project.mockResolvedValue(projection(b));
+    h.project.mockResolvedValue(managedProjection(b));
     const user = userEvent.setup();
     render(<StatblockWorkbenchModule />);
     await user.click(screen.getByTestId("create-threat-allow-freestanding"));
@@ -638,7 +751,7 @@ describe("World-scoped mounted Workbench", () => {
     view.unmount();
     localStorage.setItem(scopedWorkbenchJoinKey(a), JSON.stringify({ draft_id: "draft-b" }));
     render(<StatblockWorkbenchModule />);
-    await waitFor(() => expect(screen.getByTestId("generation-recovery-error").textContent).toMatch(/selected scope/));
+    await waitFor(() => expect(screen.getByTestId("draft-snapshot-unavailable").textContent).toMatch(/selected scope/));
     expect(h.generate).not.toHaveBeenCalled();
   });
 
@@ -683,6 +796,7 @@ describe("World-scoped mounted Workbench", () => {
   it.each(["longmont-c1", "longmont-c2"])("preserves admitted legacy %s creation with no fake scope/version upgrade", async (campaignId) => {
     const h = harness();
     h.selection.mockReturnValue({ kind: "legacy" });
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({ ...legacyProjectionFixture("rev:owned"), snapshot: { ...legacyProjectionFixture("rev:owned").snapshot, campaignId } });
     vi.spyOn(interaction, "useOptionalAgentInteraction").mockReturnValue({
       surfaceInteractionPublication: {
         surfaceId: "plan", label: "Plan", identity: { surfaceId: "plan", instanceKey: campaignId },
@@ -3281,6 +3395,46 @@ describe("StatblockWorkbenchModule", () => {
       }));
     });
 
+    it.each(["unchanged","step-departure","restart","cross-tab"] as const)("attributes recovered generation only to its original tour dispatch: %s", async (mode) => {
+      Object.defineProperty(navigator,"locks",{configurable:true,value:{request:async(_name:string,fn:()=>unknown)=>fn()}});
+      const plan:TargetPin={kind:'plan',worldId:'eldyrwild',objectId:'legacy-plan',revision:1,revisionId:'wr1',digest:'a'.repeat(64)};
+      let walk=createWalkthrough('eldyrwild','conks','generation-tour','2020-01-01T00:00:00Z');walk=reduceTour(walk,{kind:'bind',pin:plan});walk=reduceTour(walk,{kind:'move',index:3});writeWalkthrough(localStorage,walk,null);
+      const locator={provider:'dungeonmind' as const,statblock_id:'sb_recovered',revision_id:'rev_original',contract:'statblocks',contract_version:'1',definition_digest:PREVIEW_DIGEST};
+      const receiptCandidate={...candidate,generation_receipt:{request_id:GENERATION_REQUEST,provider:'openai',model:'configured-model',prompt_version:'v1',schema_version:'v1',schema_fingerprint:'schema',generated_at:new Date().toISOString(),caller_scope:'workbench',provider_request_id:'p-request',provider_response_id:'p-response'}};
+      let accepted=false;
+      const getDraft=()=>legacyDraftFixture({draft_id:DRAFT_ID,version:accepted?2:1,candidate_refs:[{candidate_id:candidate.candidate_id,generated_from_draft_version:1,request_id:GENERATION_REQUEST,status:accepted?'accepted_source':'active',created_at:new Date().toISOString()}],workflow_state:accepted?'mechanics_saved':'candidate_ready',accepted_mechanics_ref:accepted?{...locator,accepted_from_candidate_id:candidate.candidate_id,accepted_from_draft_version:1,accepted_at:new Date().toISOString()}:null});
+      vi.mocked(liveApi.getThreatDraft).mockImplementation(async()=>getDraft());
+      vi.spyOn(liveApi,'createThreatDraft').mockResolvedValue(mockCreatedDraft());
+      let finish!:(value:GenerateThreatDraftCandidateResponseV1)=>void;
+      const generate=vi.spyOn(liveApi,'generateThreatDraftCandidate').mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+      vi.spyOn(liveApi,'getStatblockCandidate').mockResolvedValue({...ownedResponse,candidate:receiptCandidate});
+      vi.spyOn(liveApi,'validateStatblockDefinition').mockResolvedValue(successValidate('valid'));
+      vi.spyOn(liveApi,'acceptThreatDraftMechanics').mockImplementation(async()=>{accepted=true;return {schema:'dmb_accept_threat_draft_mechanics_response_v1',draft_id:DRAFT_ID,operation_id:'op_recovered',result_label:'mechanics_saved',locator};});
+      const content=()=> <GuidedTourProvider worldId='eldyrwild'><GenerationPlanProvider pin={plan}><StatblockWorkbenchModule/></GenerationPlanProvider></GuidedTourProvider>;
+      const first=render(content()),user=userEvent.setup();await fillRequiredCreateFields(user);await user.click(screen.getByTestId('create-and-generate-submit'));
+      await waitFor(()=>expect(generate).toHaveBeenCalledTimes(1));
+      const owner={mode:'campaign' as const,worldId:'eldyrwild',campaignId:'longmont-c2'};
+      expect(readGenerationAttempt(owner)?.tour_scope).toMatchObject({walkthroughId:'generation-tour',plan});
+      first.unmount();
+      await act(async()=>finish({schema:'dmb_generate_threat_draft_candidate_response_v1',draft_id:DRAFT_ID,generated_from_draft_version:1,request_id:GENERATION_REQUEST,outcome:'success',candidate:receiptCandidate,cache_status:'stored',persistence_failures:[]}));
+      expect(readGenerationAttempt(owner)?.candidate_id).toBe(candidate.candidate_id);
+      render(content());await waitFor(()=>expect(screen.getByTestId('statblock-definition-editor')).toBeTruthy());
+      expect(generate).toHaveBeenCalledTimes(1);expect(readWalkthrough(localStorage,'eldyrwild')?.record.steps.generation.state).not.toBe('completed');
+      if(mode!=="unchanged"){
+        const prior=readWalkthrough(localStorage,'eldyrwild')!;
+        let next=mode==="restart"?createWalkthrough('eldyrwild','conks','restarted-tour','2020-01-01T00:00:00Z'):reduceTour(prior.record,{kind:'move',index:4});
+        if(mode==="restart")next=reduceTour(next,{kind:'bind',pin:plan});next=reduceTour(next,{kind:'move',index:3});
+        writeWalkthrough(localStorage,next,prior);
+        if(mode!=="cross-tab")act(()=>window.dispatchEvent(new StorageEvent('storage',{key:'dmb:guided-journey:v1:eldyrwild:current'})));
+      }
+      await validateWorkingCopy(user);await user.click(screen.getByRole('button',{name:'Accept/Save mechanics'}));
+      if(mode!=="unchanged"){await screen.findByText(/Mechanics saved; not published/i);await act(async()=>{});expect(readWalkthrough(localStorage,'eldyrwild')?.record.steps.generation.state).not.toBe('completed');expect(generate).toHaveBeenCalledTimes(1);return;}
+      await waitFor(()=>expect(readWalkthrough(localStorage,'eldyrwild')?.record.steps.generation.state).toBe('completed'));
+      const proof=readWalkthrough(localStorage,'eldyrwild')!.record.steps.generation.evidence.at(-1)!.proof;
+      expect(proof).toMatchObject({kind:'creature-generation',requestId:GENERATION_REQUEST,candidateId:candidate.candidate_id,acceptOperationId:'op_recovered',locator});
+      expect(generate).toHaveBeenCalledTimes(1);
+    });
+
     it("creates a draft then generates and loads using the returned identity", async () => {
       const user = userEvent.setup();
       const createSpy = vi.spyOn(liveApi, "createThreatDraft").mockResolvedValue(mockCreatedDraft());
@@ -4442,7 +4596,7 @@ describe("StatblockWorkbenchModule", () => {
       );
       await loadId("cand_fixture1");
       await waitFor(() => expect(screen.getByTestId("revise-mechanics-saved-boundary")).toBeTruthy());
-      expect(screen.getByTestId("sbw13-append-boundary")).toBeTruthy();
+      expect(screen.getByText("These mechanics are saved. Editing this candidate does not change a saved version.")).toBeTruthy();
       expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeDisabled();
     });
 
@@ -5260,7 +5414,7 @@ describe("StatblockWorkbenchModule", () => {
       });
       const user = await loadMechanicsSavedDraft();
       expect(screen.getByTestId("revise-mechanics-saved-boundary")).toBeTruthy();
-      expect(screen.getByTestId("sbw13-append-boundary")).toBeTruthy();
+      expect(screen.getByText("These mechanics are saved. Editing this candidate does not change a saved version.")).toBeTruthy();
       expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       await waitFor(() => expect(screen.getByTestId("publication-dock-status")).toBeTruthy());
       expect(screen.getByRole("button", { name: /Publish Threat/i })).toBeTruthy();

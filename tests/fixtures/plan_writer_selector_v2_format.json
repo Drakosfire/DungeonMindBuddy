@@ -1,0 +1,282 @@
+{
+  "producer_frame": {
+    "answer_policy": "dmb_surface_evidence_answer_v5",
+    "graph_records": [
+      {
+        "kind": "assertion",
+        "target_id": "assertion:pond",
+        "evidence": [
+          "e0"
+        ]
+      }
+    ],
+    "opened_passages": [
+      {
+        "passage_handle": "p-current",
+        "evidence": "e0"
+      }
+    ],
+    "committed_plan_blocks": [
+      {
+        "selection_id": "a-current",
+        "text": "Saved preparation."
+      }
+    ],
+    "session_evidence": [
+      {
+        "sources": [
+          {
+            "text_blocks": [
+              {
+                "selection_id": "a-note",
+                "text": "Saved note."
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "native_source_sections": {
+      "sections": [
+        {
+          "section_handle": "n-current"
+        }
+      ]
+    },
+    "schema": "dmb_plan_jev_writer_frame_v5"
+  },
+  "producer_format": {
+    "type": "json_schema",
+    "name": "plan_evidence_selectors_v2",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "dmb_surface_evidence_answer_v5"
+        },
+        "answer_segments": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "graph_claim"
+                  },
+                  "claim_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "target_kind": {
+                    "type": "string",
+                    "const": "assertion"
+                  },
+                  "target_id": {
+                    "type": "string",
+                    "enum": [
+                      "assertion:pond"
+                    ]
+                  },
+                  "passage_handles": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "p-current"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "kind",
+                  "claim_id",
+                  "text",
+                  "target_kind",
+                  "target_id",
+                  "passage_handles"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "source_passage_claim"
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "passage_handles": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "p-current"
+                      ]
+                    },
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "text",
+                  "passage_handles"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "native_source_claim"
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "section_handles": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "n-current"
+                      ]
+                    },
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "text",
+                  "section_handles"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "authored_excerpt"
+                  },
+                  "selection_id": {
+                    "type": "string",
+                    "enum": [
+                      "a-current",
+                      "a-note"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "selection_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "session_summary"
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "selection_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "a-note"
+                      ]
+                    },
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "text",
+                  "selection_ids"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "proposal"
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "label": {
+                    "type": "string",
+                    "enum": [
+                      "image_prompt",
+                      "invented_idea"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "text",
+                  "label"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "missing_requested_details",
+              "partial_retrieval",
+              "unresolved_conflict"
+            ]
+          }
+        },
+        "requested_detail_gaps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "question_phrase": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "question_phrase"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "schema",
+        "answer_segments",
+        "limitations",
+        "requested_detail_gaps"
+      ],
+      "additionalProperties": false
+    },
+    "strict": true
+  }
+}

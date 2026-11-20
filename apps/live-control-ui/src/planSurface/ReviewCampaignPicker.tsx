@@ -1,7 +1,7 @@
 import {
   REVIEW_CAMPAIGN_IDS,
   formatReviewCampaignLabel,
-} from "./sessionCampaignContext";
+} from "../graphLens/sessionCampaignContext";
 
 interface ReviewCampaignPickerProps {
   selectedCampaignId: string;

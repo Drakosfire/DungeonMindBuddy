@@ -14,12 +14,9 @@ import {
   SurfaceContextHost,
 } from "../surfaceInteraction/contextHost";
 import { PeekRegionSlot, usePeekRegionState } from "../surfaceInteraction/peekHost";
-import { APP_NAV_ITEMS, type AppRouteKey } from "./appChromeConfig";
-import { interceptPrimaryNavigationClick } from "./appNavigation";
-import { AppChromeWorldGraphStatus } from "./AppChromeWorldGraphStatus";
-import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
-import { WorldSelector } from "../selectedWorld/WorldSelector";
-import { worldScopedSurfaceHref } from "../selectedWorld/worldSelectionNavigation";
+import type { AppRouteKey } from "./appChromeConfig";
+import { CompactAppNavigation } from "./CompactAppNavigation";
+import { useWorkspacePrimaryNavigation } from "./WorkspacePrimaryNavigation";
 
 const callbackIdentityKeys = new WeakMap<() => void, number>();
 let nextCallbackIdentityKey = 1;
@@ -72,10 +69,15 @@ export interface AppChromeToolsGeneration {
 }
 
 interface AppChromeProps {
+  workspaceLayout?: "content" | "bounded";
   activeRoute: AppRouteKey;
+  primaryActionsRef?: (element: HTMLDivElement | null) => void;
+  contextToolbarRef?: (element: HTMLDivElement | null) => void;
   pageActions?: AppChromeAction[];
   editorTools?: AppChromeToolsGeneration | null;
   editToolboxLayout?: "overlay" | "dock";
+  /** Local guest entry suppresses controls that call hosted World owners. */
+  localOnlyNavigation?: boolean;
   children: ReactNode;
 }
 
@@ -127,24 +129,70 @@ function hasEditorToolsContent(tools: AppChromeTools | null | undefined): boolea
 }
 
 export function AppChrome({
+  primaryActionsRef,
+  contextToolbarRef,
   activeRoute,
   pageActions = [],
   editorTools,
   editToolboxLayout = "overlay",
+  localOnlyNavigation = false,
+  workspaceLayout = "content",
   children,
 }: AppChromeProps) {
-  const selectedWorld = useSelectedWorld();
   const { winner: secondaryContext } = usePeekRegionState();
+  const supportsSharedPeek = ["build", "plan", "play", "ingest"].includes(activeRoute);
   const priorSecondaryKindRef = useRef(secondaryContext?.kind ?? null);
   const secondaryKindRef = useRef(secondaryContext?.kind ?? null);
   secondaryKindRef.current = secondaryContext?.kind ?? null;
   const savedNarrowScrollYRef = useRef<number | null>(null);
   const centerRef = useRef<HTMLDivElement | null>(null);
+  const chromeHeaderRef = useRef<HTMLElement | null>(null);
+  const attachWorkspaceNavigation = useWorkspacePrimaryNavigation();
+  useLayoutEffect(() => {
+    const header = chromeHeaderRef.current;
+    if (header && attachWorkspaceNavigation && !localOnlyNavigation) {
+      return attachWorkspaceNavigation(header, primaryActionsRef);
+    }
+  }, [attachWorkspaceNavigation, localOnlyNavigation, primaryActionsRef]);
   const savedCenterScrollRef = useRef<{ element: HTMLElement; top: number } | null>(null);
+
+  // Fixed Edit/Tool/inspector hosts share the actual wrapped navigation edge.
+  useLayoutEffect(() => {
+    const header = chromeHeaderRef.current;
+    if (!header) return;
+
+    const rootStyle = document.documentElement.style;
+    const previousTop = rootStyle.getPropertyValue("--app-chrome-top");
+    const previousPriority = rootStyle.getPropertyPriority("--app-chrome-top");
+    const updateChromeOffset = () => {
+      const headerBottom = header.getBoundingClientRect().bottom;
+      if (!Number.isFinite(headerBottom)) return;
+      rootStyle.setProperty("--app-chrome-top", `${Math.max(0, Math.ceil(headerBottom))}px`);
+    };
+
+    updateChromeOffset();
+    const observer = typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(updateChromeOffset);
+    observer?.observe(header);
+    window.addEventListener("resize", updateChromeOffset, { passive: true });
+    window.addEventListener("scroll", updateChromeOffset, { passive: true });
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updateChromeOffset);
+      window.removeEventListener("scroll", updateChromeOffset);
+      if (previousTop) {
+        rootStyle.setProperty("--app-chrome-top", previousTop, previousPriority);
+      } else {
+        rootStyle.removeProperty("--app-chrome-top");
+      }
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const center = centerRef.current;
-    if (activeRoute !== "ingest" || !center) return;
+    if (!supportsSharedPeek || !center) return;
     const captureReadingPosition = (event: Event) => {
       if (secondaryKindRef.current !== null) return;
       const element = event.target;
@@ -153,10 +201,10 @@ export function AppChrome({
     };
     center.addEventListener("scroll", captureReadingPosition, true);
     return () => center.removeEventListener("scroll", captureReadingPosition, true);
-  }, [activeRoute]);
+  }, [supportsSharedPeek]);
 
   useLayoutEffect(() => {
-    if (activeRoute !== "ingest") return;
+    if (!supportsSharedPeek) return;
     const previousKind = priorSecondaryKindRef.current;
     const nextKind = secondaryContext?.kind ?? null;
     const narrow = window.matchMedia?.("(max-width: 900px)").matches ?? false;
@@ -177,7 +225,7 @@ export function AppChrome({
     }
 
     priorSecondaryKindRef.current = nextKind;
-  }, [activeRoute, secondaryContext?.kind]);
+  }, [supportsSharedPeek, secondaryContext?.kind]);
 
   const agentInteraction = useAgentInteraction();
   const pageActionsRef = useRef(pageActions);
@@ -316,35 +364,15 @@ export function AppChrome({
   );
 
   const mainContent = (
-    <div className="app-wrap">
-      <header className="app-chrome-header" data-testid="app-chrome-header">
-        <nav className="app-site-nav" aria-label="Command board navigation">
-          <div className="app-site-nav__routes">
-            {APP_NAV_ITEMS.map((item) => (
-              <a
-                key={item.href}
-                href={item.route && selectedWorld.kind === "managed"
-                  ? worldScopedSurfaceHref(item.href, selectedWorld.worldId)
-                  : item.href}
-                className={item.route === activeRoute ? "active" : undefined}
-                onClick={interceptPrimaryNavigationClick}
-              >
-                {item.label}
-              </a>
-            ))}
-          </div>
-          <WorldSelector />
-          <AppChromeWorldGraphStatus />
-        </nav>
-        <SurfaceContextHost />
-      </header>
-
-      {activeRoute === "ingest" ? (
+    <div className="app-wrap" data-workspace-layout={workspaceLayout}>
+      {supportsSharedPeek || workspaceLayout === "bounded" ? (
         <div className="app-chrome-workspace">
           <div ref={centerRef} className="app-chrome-center" data-testid="app-chrome-center">
-            {children}
+            {activeRoute === "play" ? (
+              <div className="app-chrome-play-workspace" data-testid="app-chrome-play-workspace">{children}</div>
+            ) : children}
           </div>
-          <PeekRegionSlot />
+          {supportsSharedPeek ? <PeekRegionSlot /> : null}
         </div>
       ) : children}
     </div>
@@ -354,6 +382,13 @@ export function AppChrome({
     <div className={shellClassName}>
       <div className="app-shell-layout">
         {editToolboxLayout === "dock" ? editHost : null}
+        <header ref={chromeHeaderRef} className="app-chrome-header" data-testid="app-chrome-header">
+          {(!attachWorkspaceNavigation || localOnlyNavigation) && (
+            <CompactAppNavigation activeRoute={activeRoute} localOnly={localOnlyNavigation} primaryActionsRef={primaryActionsRef} />
+          )}
+          <SurfaceContextHost />
+          {contextToolbarRef && <div ref={contextToolbarRef} />}
+        </header>
         {mainContent}
       </div>
 

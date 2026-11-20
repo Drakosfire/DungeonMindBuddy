@@ -4,9 +4,10 @@ This module owns the read-only APP-STATE fingerprint and the recovery-verificati
 logic for the durable local authority (`compose.postgres.app-state.yml`).
 
 Invariants:
-- Schema-at-head alone is never READY. A fingerprint covers every durable domain:
-  Content work objects/revisions/working copies, Play runs/manifests/active run,
-  IngestRun identity/lifecycle, and Source artifact/revision bindings.
+- Schema-at-head alone is never READY. Fingerprint parity covers the explicitly
+  enumerated tables below, including accepted Agent turn/Rules restoration.
+  Other Agent tables and other unlisted domains are not semantically covered;
+  a complete physical dump does not imply fingerprint coverage of every domain.
 - Fingerprints are deterministic: fixed table order, stable row order, canonical
   JSON serialization, SHA-256 digests.
 - Fingerprints and reports never contain secrets; DSNs are redacted before display.
@@ -28,7 +29,11 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import subprocess
+import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -40,7 +45,11 @@ from uuid import UUID
 import psycopg
 from psycopg.rows import dict_row
 
-from application_state.cli import _alembic_head, assert_at_head
+from application_state.cli import (
+    _alembic_head,
+    _require_current_revision,
+    _revision_from_connection,
+)
 from application_state.config import load_runtime_dsn
 from application_state.engine import connect
 from application_state.errors import (
@@ -58,7 +67,8 @@ from application_state.naming import (
 
 FINGERPRINT_SCHEMA = "dmb_application_state_fingerprint_v1"
 
-# Durable APP-STATE domain tables in fixed fingerprint order.
+# Explicit APP-STATE verification coverage in fixed fingerprint order.
+# This is not a complete inventory of all durable Agent/runtime tables.
 # (domain name, fully qualified table, row-order column)
 _DOMAIN_TABLES: tuple[tuple[str, str, str], ...] = (
     ("content.work_object", "content.work_object", "work_object_id"),
@@ -66,14 +76,22 @@ _DOMAIN_TABLES: tuple[tuple[str, str, str], ...] = (
     ("content.working_copy", "content.working_copy", "work_object_id"),
     ("play.run", "play.run", "run_id"),
     ("play.run_manifest", "play.run_manifest", "run_id"),
-    ("play.active_run", "play.active_run", "run_id"),
+    ("play.run_edition", "play.run_edition", "run_id"),
+    ("play.run_edition_revision", "play.run_edition_revision", "run_id, revision_n"),
+    ("play.active_run", "play.active_run", "run_id, scope_key"),
     ("ingest.run", "ingest.run", "run_id"),
     ("source.artifact", "source.artifact", "source_artifact_id"),
     ("source.revision", "source.revision", "source_revision_id"),
+    ("media.asset", "media.asset", "asset_id"),
+    ("media.storage", "media.storage", "asset_id"),
+    ("agent.conversation", "agent.conversation", "conversation_id"),
+    ("agent.turn", "agent.turn", "turn_id"),
+    ("agent.turn_reference", "agent.turn_reference", "turn_id, reference_role, ordinal"),
+    ("agent.turn_rules_execution", "agent.turn_rules_execution", "turn_id, product_attempt"),
 )
 
 # Schemas that mark a database as already holding APP-STATE (restore must refuse).
-_APP_STATE_SCHEMAS = ("application_state", "content", "play", "ingest", "source")
+_APP_STATE_SCHEMAS = ("application_state", "content", "play", "ingest", "source", "media", "agent")
 
 
 @dataclass(frozen=True)
@@ -233,41 +251,53 @@ def database_has_app_state_schema(dsn: str) -> bool:
 
 
 def _fingerprint_table(
-    cursor: psycopg.Cursor[dict[str, Any]], domain: str, table: str, order_by: str
+    conn: psycopg.Connection, domain: str, table: str, order_by: str
 ) -> DomainFingerprint:
     # Table/column names come only from the static _DOMAIN_TABLES contract.
-    rows = cursor.execute(
-        f"SELECT * FROM {table} ORDER BY {order_by}",  # noqa: S608
-    ).fetchall()
     digest = hashlib.sha256()
-    for row in rows:
-        digest.update(_canonical_row(dict(row)).encode("utf-8"))
-        digest.update(b"\n")
-    return DomainFingerprint(
-        name=domain, row_count=len(rows), digest=digest.hexdigest()
-    )
+    row_count = 0
+    with conn.cursor(name="app_state_fingerprint", row_factory=dict_row) as cursor:
+        cursor.execute(f"SELECT * FROM {table} ORDER BY {order_by}")  # noqa: S608
+        for row in cursor:
+            digest.update(_canonical_row(dict(row)).encode("utf-8"))
+            digest.update(b"\n")
+            row_count += 1
+    return DomainFingerprint(name=domain, row_count=row_count, digest=digest.hexdigest())
 
 
 def compute_fingerprint(dsn: str | None = None) -> ApplicationStateFingerprint:
     """Compute the deterministic APP-STATE fingerprint. Requires schema at head."""
-    target = dsn or load_runtime_dsn()
-    assert_at_head(dsn=target)
-    head = _alembic_head()
-    conn = connect(target)
+    with _fingerprint_transaction(dsn or load_runtime_dsn()) as conn:
+        return _fingerprint_snapshot(conn)
+
+
+@contextmanager
+def _fingerprint_transaction(dsn: str) -> Iterator[psycopg.Connection]:
+    conn = connect(dsn)
     try:
         conn.read_only = True
+        conn.isolation_level = psycopg.IsolationLevel.REPEATABLE_READ
         with conn.transaction():
-            cursor = conn.cursor(row_factory=dict_row)
-            current_row = cursor.execute(
-                "SELECT version_num FROM application_state.schema_migrations"
-            ).fetchone()
-            current = str(current_row["version_num"])
-            domains = tuple(
-                _fingerprint_table(cursor, domain, table, order_by)
-                for domain, table, order_by in _DOMAIN_TABLES
-            )
+            yield conn
     finally:
         conn.close()
+
+
+def _fingerprint_snapshot(conn: psycopg.Connection) -> ApplicationStateFingerprint:
+    head = _alembic_head()
+    try:
+        current = _revision_from_connection(conn)
+    except psycopg.errors.UndefinedTable:
+        current = None
+    except psycopg.Error as exc:
+        raise ApplicationStateUnavailableError(
+            f"application-state PostgreSQL is unavailable: {exc}"
+        ) from exc
+    _require_current_revision(current, head)
+    domains = tuple(
+        _fingerprint_table(conn, domain, table, order_by)
+        for domain, table, order_by in _DOMAIN_TABLES
+    )
     combined = hashlib.sha256(
         json.dumps(
             {
@@ -424,48 +454,105 @@ def load_fingerprint_sidecar(backup_path: str | Path) -> ApplicationStateFingerp
     )
 
 
-def backup_authority(*, source_dsn: str, out_path: str | Path) -> BackupRecord:
+def _require_postgres_client(command: str) -> str:
+    executable = shutil.which(command)
+    if executable is None:
+        raise ApplicationStateIntegrityError(
+            f"{command} is required on PATH for APP-STATE recovery. Install PostgreSQL client tools."
+        )
+    return executable
+
+
+def _postgres_client_error(command: str, stderr: str, dsn: str) -> str:
+    detail = redact_secrets(stderr.strip(), dsn)
+    if command == "pg_dump" and "server version mismatch" in detail:
+        detail += "\nUse pg_dump from the source server's PostgreSQL major version and check PATH."
+    if command == "pg_restore" and "unsupported version" in detail and "file header" in detail:
+        detail += "\nUse pg_restore from the PostgreSQL toolchain that created the dump and check PATH."
+    return f"{command} failed: {detail}"
+
+
+def _run_recovery_client(
+    argv: list[str], *, env: dict[str, str], timeout_seconds: int | None, failure_hint: str,
+) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(
+            argv, env=env, capture_output=True, text=True, check=False, timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired:
+        raise ApplicationStateUnavailableError(
+            f"{Path(argv[0]).name} timed out after {timeout_seconds} seconds. {failure_hint}"
+        ) from None
+    except KeyboardInterrupt:
+        raise ApplicationStateUnavailableError(
+            f"{Path(argv[0]).name} was interrupted. {failure_hint}"
+        ) from None
+
+
+def backup_authority(
+    *, source_dsn: str, out_path: str | Path, timeout_seconds: int | None = None,
+) -> BackupRecord:
     """External custom-format backup of the APP-STATE authority.
 
-    Fingerprints the source before and after the dump; a source that changes
+    Fingerprints the exact snapshot imported by pg_dump and checks the source
+    again after the dump; a source that changes
     during backup is reported as an integrity failure (recapture required).
     Writes `<out>.sha256` and `<out>.fingerprint.json` sidecars.
     """
     assert_safe_application_state_dsn(source_dsn)
     assert_dsn_is_not_world_graph(source_dsn, world_dsns=_world_dsns_from_env())
     out = Path(out_path)
+    executable = _require_postgres_client("pg_dump")
     env = _pg_env(source_dsn)
-    before = compute_fingerprint(source_dsn)
-    result = subprocess.run(
-        [
-            "pg_dump",
-            "--format=custom",
-            "--no-owner",
-            "--file",
-            str(out),
-            "--dbname",
-            _pg_conninfo(env),
-        ],
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        raise ApplicationStateUnavailableError(
-            "pg_dump failed: " + redact_secrets(result.stderr.strip(), source_dsn)
+    destinations = (sha256_sidecar_path(out), fingerprint_sidecar_path(out), out)
+    if any(path.exists() or path.is_symlink() for path in destinations):
+        raise ApplicationStateIntegrityError("backup destination already exists; choose a fresh output path")
+    with tempfile.TemporaryDirectory(prefix=".app-state-backup-", dir=out.parent) as directory:
+        staged = Path(directory) / out.name
+        with _fingerprint_transaction(source_dsn) as conn:
+            before = _fingerprint_snapshot(conn)
+            (snapshot,) = conn.execute("SELECT pg_export_snapshot()").fetchone()
+            result = _run_recovery_client(
+                [
+                    executable,
+                    "--format=custom",
+                    "--snapshot",
+                    snapshot,
+                    "--no-owner",
+                    "--file",
+                    str(staged),
+                    "--dbname",
+                    _pg_conninfo(env),
+                ],
+                env=env,
+                timeout_seconds=timeout_seconds,
+                failure_hint="Retry backup with a fresh output path.",
+            )
+            if result.returncode != 0:
+                raise ApplicationStateUnavailableError(
+                    _postgres_client_error("pg_dump", result.stderr, source_dsn)
+                )
+        after = compute_fingerprint(source_dsn)
+        if before.digest != after.digest:
+            raise ApplicationStateIntegrityError(
+                "source APP-STATE changed during backup; recapture required — "
+                "never claim a stale dump is current authority"
+            )
+        backup_sha = _sha256_file(staged)
+        sha256_sidecar_path(staged).write_text(
+            f"{backup_sha}  {out.name}\n", encoding="utf-8"
         )
-    after = compute_fingerprint(source_dsn)
-    if before.digest != after.digest:
-        raise ApplicationStateIntegrityError(
-            "source APP-STATE changed during backup; recapture required — "
-            "never claim a stale dump is current authority"
-        )
-    backup_sha = _sha256_file(out)
-    sha256_sidecar_path(out).write_text(
-        f"{backup_sha}  {out.name}\n", encoding="utf-8"
-    )
-    fingerprint_sidecar_path(out).write_text(before.to_json(), encoding="utf-8")
+        fingerprint_sidecar_path(staged).write_text(before.to_json(), encoding="utf-8")
+        published: list[Path] = []
+        try:
+            # Publish the dump last so the default restore inputs are present first.
+            for path in destinations:
+                path.hardlink_to(staged.parent / path.name)
+                published.append(path)
+        except BaseException:
+            for path in reversed(published):
+                path.unlink()
+            raise
     return BackupRecord(
         backup_path=str(out),
         backup_sha256=backup_sha,
@@ -481,6 +568,7 @@ def restore_authority(
     source_dsn: str | None = None,
     expect_fingerprint: ApplicationStateFingerprint | None = None,
     expected_sha256: str | None = None,
+    timeout_seconds: int | None = None,
 ) -> RestoreReport:
     """Restore an external backup into a second clean target and verify.
 
@@ -497,29 +585,30 @@ def restore_authority(
     backup = Path(backup_path)
     verify_backup_digest(backup, expected_sha256=expected_sha256)
     trusted = expect_fingerprint or load_fingerprint_sidecar(backup)
+    executable = _require_postgres_client("pg_restore")
     if database_has_app_state_schema(target_dsn):
         raise ApplicationStateIntegrityError(
             "restore target already contains APP-STATE schemas; "
             "destructive restore is not supported — use a second clean target"
         )
     env = _pg_env(target_dsn)
-    result = subprocess.run(
+    result = _run_recovery_client(
         [
-            "pg_restore",
+            executable,
             "--no-owner",
             "--no-privileges",
+            "--single-transaction",
             "--dbname",
             _pg_conninfo(env),
             str(backup),
         ],
         env=env,
-        capture_output=True,
-        text=True,
-        check=False,
+        timeout_seconds=timeout_seconds,
+        failure_hint="Discard and recreate the disposable restore target before retrying.",
     )
     if result.returncode != 0:
         raise ApplicationStateUnavailableError(
-            "pg_restore failed: " + redact_secrets(result.stderr.strip(), target_dsn)
+            _postgres_client_error("pg_restore", result.stderr, target_dsn)
         )
     try:
         fingerprint = compute_fingerprint(target_dsn)

@@ -2,19 +2,55 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
-from datetime import datetime
-from typing import Literal
-from uuid import UUID
+from application_state.agent_conversation.identifier_limits import (
+    GRAPH_EVIDENCE_REF_ID_MAX_CHARS,
+    GRAPH_CLAIM_ID_MAX_CHARS,
+)
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
+
+import hashlib
+from hashlib import sha256
+import json
+from collections.abc import Sequence, Mapping
+from datetime import datetime
+from enum import Enum
+from typing import Annotated, ClassVar, Literal, NoReturn, Protocol, Union
+from uuid import UUID, uuid4
+
+from .neighborhood_replay import NeighborhoodReplay, RetrievalExclusionReplay
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
+
+from .rules_authority_types import ClosedRulesModel, Digest, canonical_bytes, canonical_sha256
+from .collaboration import Collaboration, ConnectedCollaboration
+from .relationship_review import RelationshipCollaboration
+from .build_draft_context import BuildDraftContextRecordV1, DraftReferenceClaimV1
+from .build_related_pages import PagePointer, RelatedPagesSelection, RelatedPageRead, RelatedPageClaim, RelatedPageInclusion
+
+from graph_memory.ingestion.selection_context import NativeStatementSelectionV1
+from .native_statement_input import NativeStatementContextReceiptV1, NativeStatementWriterPolicyV1, NativeStatementWriterPolicyV2, NativeStatementInputEventV1
+from .native_statement_answer import NativeStatementCompletionV1
+from .native_corpus import (NativeCorpusAuthorityV1, NativeBodySearchAuthorizedV1,
+    NativeInitialSourceSearchAuthorizedV1 as NativeInitialSourceSearchAuthorizedV1,
+    NativePlanRequestSearchAuthorizedV1 as NativePlanRequestSearchAuthorizedV1,
+    NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1,
+    NativeBodyProviderIncludedV1, NativeAuthoredSourceReadV1 as NativeAuthoredSourceReadV1,
+    NativeDirectSourceAuthorizedV1, NativeDirectSourceObservedV1, NATIVE_BODY_EVENTS)
 
 Resolution = Literal["resolved", "absent", "unresolved", "unavailable"]
-ConversationStatus = Literal["active", "archived"]
+ConversationStatus = Literal["active", "archived", "trashed"]
 TurnStatus = Literal["accepted", "running", "completed", "failed", "interrupted"]
-CommandKind = Literal["new", "archive", "reopen"]
+CommandKind = Literal["new", "archive", "reopen", "trash", "restore"]
 TurnClaimDisposition = Literal["claimed", "pending", "completed"]
+
+# A citation can include every receipt actually supplied in one V3 envelope.
+# These outer validation capacities do not grant reads or weaken event checks.
+MAX_INCLUDED_SOURCE_READ_EVENTS_V3 = 2048
+MAX_RECEIPTS_PER_SOURCE_READ_EVENT = 8
+MAX_CITATION_SOURCE_READ_IDS = (
+    MAX_INCLUDED_SOURCE_READ_EVENTS_V3 * MAX_RECEIPTS_PER_SOURCE_READ_EVENT
+)
 
 
 def _fingerprint(value: object) -> str:
@@ -23,10 +59,16 @@ def _fingerprint(value: object) -> str:
 
 
 def _fingerprint_compatible_payload(value: object) -> object:
-    """Omit only new null provenance fields to keep pre-0012 hashes stable."""
+    """Omit additive null fields so legacy provenance and request hashes stay stable."""
     if isinstance(value, list):
         return [_fingerprint_compatible_payload(item) for item in value]
     if isinstance(value, dict):
+        is_turn_submission = {
+            "conversation_id",
+            "expected_conversation_revision",
+            "user_text",
+            "provenance",
+        }.issubset(value)
         is_provenance = {
             "surface_resolution",
             "primary_work",
@@ -46,6 +88,16 @@ def _fingerprint_compatible_payload(value: object) -> object:
                 item is None
                 and (
                     (key == "surface_instance_id" and is_provenance)
+                    or (key == "play_context_receipt" and is_turn_submission)
+                    or (
+                        key in {
+                            "submitted_intent_v2",
+                            "graph_context_receipt",
+                            "graph_context_execution",
+                        }
+                        and is_turn_submission
+                    )
+                    or key == "play_content_basis"
                     or (
                         key in {"object_revision", "work_revision_id", "revision_n"}
                         and is_reference
@@ -60,13 +112,19 @@ def request_fingerprint(value: BaseModel) -> str:
     """Hash a typed request for idempotency; request JSON is never persisted."""
     payload = value.model_dump(
         mode="json",
-        exclude={"command_id", "idempotency_key", "submitted_intent_v1"},
+        exclude={
+            "command_id",
+            "idempotency_key",
+            "submitted_intent_v1",
+            "submitted_intent_v2",
+        },
     )
     return _fingerprint(_fingerprint_compatible_payload(payload))
 
 
 def turn_idempotency_fingerprint(
-    world_id: str, user_text: str, provenance: "TurnProvenance"
+    world_id: str, user_text: str, provenance: "TurnProvenance",
+    play_context_receipt: "PlayRunTurnContextReceiptV2 | None" = None,
 ) -> str:
     """Fingerprint turn meaning, independent of conversation routing and CAS revision."""
 
@@ -76,6 +134,9 @@ def turn_idempotency_fingerprint(
                 "world_id": world_id,
                 "user_text": user_text,
                 "provenance": provenance.model_dump(mode="json"),
+                **({} if play_context_receipt is None else {
+                    "play_context_receipt": play_context_receipt.model_dump(mode="json", by_alias=True)
+                }),
             }
         )
     )
@@ -147,6 +208,408 @@ class HistoricalReference(StrictModel):
         return self
 
 
+PlanPlayableKind = Literal["scene", "beat", "choice", "option"]
+PlayableMarkerGrammarVersion = Literal["v1", "v2"]
+PLAN_PLAYABLE_TARGET_SCHEMA = "dmb_plan_playable_target_v1"
+PLAN_PLAYABLE_TARGET_REFERENCE_KIND = "dmb_plan_playable_target_v1"
+_PLAN_PLAYABLE_ID_PATTERN = r"^(scene|beat|choice|option):[a-z0-9][a-z0-9._-]{0,127}$"
+
+
+class SubmittedPlanPlayableTargetV1(StrictModel):
+    """Client-supplied identity only; marker grammar remains server-derived."""
+
+    schema_: Literal["dmb_plan_playable_target_v1"] = Field(alias="schema")
+    kind: PlanPlayableKind
+    id: str = Field(min_length=6, max_length=135, pattern=_PLAN_PLAYABLE_ID_PATTERN)
+
+    @model_validator(mode="after")
+    def validate_target(self) -> "SubmittedPlanPlayableTargetV1":
+        if not self.id.startswith(f"{self.kind}:"):
+            raise ValueError("Playable target id prefix must match its kind")
+        return self
+
+
+class PlanPlayableTargetReceiptV1(StrictModel):
+    """Server-validated target plus the grammar version of its pinned Plan."""
+
+    schema_: Literal["dmb_plan_playable_target_receipt_v1"] = Field(alias="schema")
+    kind: PlanPlayableKind
+    id: str = Field(min_length=6, max_length=135, pattern=_PLAN_PLAYABLE_ID_PATTERN)
+    marker_grammar_version: PlayableMarkerGrammarVersion
+
+    @model_validator(mode="after")
+    def validate_target(self) -> "PlanPlayableTargetReceiptV1":
+        if not self.id.startswith(f"{self.kind}:"):
+            raise ValueError("Playable target id prefix must match its kind")
+        return self
+
+
+def encode_plan_playable_target_reference(
+    receipt: PlanPlayableTargetReceiptV1,
+) -> HistoricalReference:
+    """Encode a typed receipt in an existing supporting-reference row."""
+    return HistoricalReference(
+        resolution="resolved",
+        kind=PLAN_PLAYABLE_TARGET_REFERENCE_KIND,
+        object_id=receipt.id,
+        revision=receipt.marker_grammar_version,
+    )
+
+
+def decode_plan_playable_target_reference(
+    reference: HistoricalReference,
+) -> PlanPlayableTargetReceiptV1 | None:
+    """Decode only the reserved target codec; reject malformed stored rows."""
+    if reference.kind != PLAN_PLAYABLE_TARGET_REFERENCE_KIND:
+        return None
+    if (
+        reference.resolution != "resolved"
+        or reference.object_id is None
+        or reference.revision not in {"v1", "v2"}
+        or reference.content_sha256 is not None
+        or reference.object_revision is not None
+        or reference.work_revision_id is not None
+        or reference.revision_n is not None
+    ):
+        raise ValueError("stored Playable target reference is malformed")
+    kind, separator, _ = reference.object_id.partition(":")
+    if not separator or kind not in {"scene", "beat", "choice", "option"}:
+        raise ValueError("stored Playable target identity is malformed")
+    return PlanPlayableTargetReceiptV1(
+        schema="dmb_plan_playable_target_receipt_v1",
+        kind=kind,
+        id=reference.object_id,
+        marker_grammar_version=reference.revision,
+    )
+
+
+PLAY_RUNBOOK_REFERENCE_KIND = "dmb_play_runbook_v1"
+PLAY_CURRENT_BEAT_REFERENCE_KIND = "dmb_play_current_beat_v1"
+PLAY_CURRENT_SCENE_REFERENCE_KIND = "dmb_play_current_scene_v1"
+PLAY_GRAPH_BINDING_REFERENCE_KIND = "dmb_play_graph_binding_v1"
+_PLAY_MARKER_ID_PATTERN = r"^(beat|scene):[a-z0-9][a-z0-9._-]{0,127}$"
+
+
+class PlayGraphBindingReceiptV1(StrictModel):
+    """Frozen native binding under the managed provenance World owner."""
+
+    schema_: Literal["dmb_play_graph_binding_receipt_v1"] = Field(alias="schema")
+    managed_world_id: str = Field(min_length=1, max_length=128)
+    native_world_id: str = Field(min_length=1, max_length=128)
+    binding_version: int = Field(strict=True, ge=1)
+
+    @model_validator(mode="after")
+    def validate_identity(self) -> "PlayGraphBindingReceiptV1":
+        if any(
+            value != value.strip()
+            for value in (self.managed_world_id, self.native_world_id)
+        ):
+            raise ValueError(
+                "Play Graph binding identities cannot have surrounding whitespace"
+            )
+        return self
+
+
+def encode_play_graph_binding_reference(
+    receipt: PlayGraphBindingReceiptV1,
+) -> HistoricalReference:
+    """Encode the native binding; managed owner is TurnProvenance.world_id."""
+    return HistoricalReference(
+        resolution="resolved",
+        kind=PLAY_GRAPH_BINDING_REFERENCE_KIND,
+        object_id=receipt.native_world_id,
+        revision=str(receipt.binding_version),
+    )
+
+
+def decode_play_graph_binding_references(
+    provenance: "TurnProvenance",
+) -> PlayGraphBindingReceiptV1 | None:
+    """Decode the reserved binding only with its complete Play and Graph basis."""
+    bindings = [
+        reference
+        for reference in provenance.supporting_work
+        if reference.kind == PLAY_GRAPH_BINDING_REFERENCE_KIND
+    ]
+    if not bindings:
+        return None
+    graphs = [
+        reference
+        for reference in provenance.supporting_work
+        if reference.kind == "world_graph_revision"
+    ]
+    if len(bindings) != 1 or len(graphs) != 1:
+        raise ValueError(
+            "Play Graph binding requires one binding and one Graph revision"
+        )
+    binding, graph = bindings[0], graphs[0]
+    if (
+        provenance.surface_resolution != "resolved"
+        or provenance.surface_id != "play"
+        or provenance.selected_object.resolution != "absent"
+        or decode_play_run_turn_context_references(
+            provenance.primary_work, provenance.supporting_work
+        )
+        is None
+        or binding.resolution != "resolved"
+        or binding.object_id is None
+        or binding.revision is None
+        or not binding.revision.isdecimal()
+        or binding.revision != str(int(binding.revision))
+        or int(binding.revision) < 1
+        or binding.content_sha256 is not None
+        or binding.object_revision is not None
+        or binding.work_revision_id is not None
+        or binding.revision_n is not None
+        or graph.resolution != "resolved"
+        or graph.object_id != binding.object_id
+        or graph.revision is None
+        or not graph.revision.strip()
+        or graph.content_sha256 is not None
+        or graph.object_revision is not None
+        or graph.work_revision_id is not None
+        or graph.revision_n is not None
+    ):
+        raise ValueError("Play Graph binding provenance is malformed or mismatched")
+    return PlayGraphBindingReceiptV1(
+        schema="dmb_play_graph_binding_receipt_v1",
+        managed_world_id=provenance.world_id,
+        native_world_id=binding.object_id,
+        binding_version=int(binding.revision),
+    )
+
+
+class PlayRunTurnContextReceiptV1(StrictModel):
+    """Structural historical Play context; current authority belongs to SERVER."""
+
+    schema_: Literal["dmb_play_run_turn_context_receipt_v1"] = Field(alias="schema")
+    run_id: str = Field(min_length=1, max_length=128)
+    run_revision: int = Field(strict=True, ge=1)
+    runbook_object_id: str = Field(min_length=1, max_length=128)
+    runbook_object_revision: int = Field(strict=True, ge=1)
+    runbook_work_revision_id: UUID
+    runbook_revision_n: int = Field(strict=True, ge=1)
+    runbook_content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    beat_id: str = Field(min_length=6, max_length=135, pattern=_PLAY_MARKER_ID_PATTERN)
+    scene_id: str | None = Field(
+        default=None, min_length=7, max_length=135, pattern=_PLAY_MARKER_ID_PATTERN
+    )
+    marker_grammar_version: Literal["v2"] = "v2"
+
+    @model_validator(mode="after")
+    def validate_context(self) -> "PlayRunTurnContextReceiptV1":
+        if not self.beat_id.startswith("beat:"):
+            raise ValueError("Play Beat ID must use the beat prefix")
+        if self.scene_id is not None and not self.scene_id.startswith("scene:"):
+            raise ValueError("Play Scene ID must use the scene prefix")
+        if any(
+            value != value.strip() for value in (self.run_id, self.runbook_object_id)
+        ):
+            raise ValueError(
+                "Play context identities cannot have surrounding whitespace"
+            )
+        return self
+
+
+class PlayContentBasis(StrictModel):
+    """Exact accepted Run edition supplied by a Play turn submitter."""
+
+    edition_revision: int = Field(strict=True, ge=0)
+    edition_revision_id: UUID | None = None
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_revision_identity(self) -> "PlayContentBasis":
+        if (self.edition_revision > 0) != (self.edition_revision_id is not None):
+            raise ValueError("Play edition revision ID is required exactly when revision is positive")
+        return self
+
+
+class PlayRunTurnContextReceiptV2(PlayRunTurnContextReceiptV1):
+    """Durable edition and saved-note basis for a Play answer."""
+
+    schema_: Literal["dmb_play_run_turn_context_receipt_v2"] = Field(
+        default="dmb_play_run_turn_context_receipt_v2", alias="schema"
+    )
+    world_id: str = Field(min_length=1, max_length=128)
+    edition_revision: int = Field(strict=True, ge=0)
+    edition_revision_id: UUID | None = None
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    scene_note: str | None = None
+    scene_note_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_edition_and_note(self) -> "PlayRunTurnContextReceiptV2":
+        if self.world_id != self.world_id.strip():
+            raise ValueError("Play receipt World cannot contain surrounding whitespace")
+        if (self.edition_revision > 0) != (self.edition_revision_id is not None):
+            raise ValueError("Play edition revision ID is required exactly when revision is positive")
+        if self.edition_revision == 0 and self.content_sha256 != self.runbook_content_sha256:
+            raise ValueError("initial Play edition digest must match its Runbook origin")
+        if self.scene_id is None and (self.scene_note is not None or self.scene_note_sha256 is not None):
+            raise ValueError("Play receipt without a current Scene cannot carry a saved Scene note")
+        if self.scene_note is None:
+            if self.scene_note_sha256 is not None:
+                raise ValueError("absent saved Scene note cannot carry a digest")
+        else:
+            if len(self.scene_note.encode("utf-8")) > 32 * 1024:
+                raise ValueError("saved Scene note exceeds 32 KiB UTF-8")
+            digest = hashlib.sha256(self.scene_note.encode("utf-8")).hexdigest()
+            if self.scene_note_sha256 != digest:
+                raise ValueError("saved Scene note digest does not match its UTF-8 content")
+        return self
+
+
+def validate_play_context_receipt(
+    receipt: PlayRunTurnContextReceiptV2 | None,
+    world_id: str,
+    provenance: "TurnProvenance",
+) -> None:
+    if receipt is None:
+        return
+    structural = decode_play_run_turn_context_references(
+        provenance.primary_work, provenance.supporting_work
+    )
+    if structural is None or (
+        receipt.world_id != world_id
+        or provenance.world_id != world_id
+        or receipt.run_id != structural.run_id
+        or receipt.run_revision != structural.run_revision
+        or receipt.runbook_object_id != structural.runbook_object_id
+        or receipt.runbook_object_revision != structural.runbook_object_revision
+        or receipt.runbook_work_revision_id != structural.runbook_work_revision_id
+        or receipt.runbook_revision_n != structural.runbook_revision_n
+        or receipt.runbook_content_sha256 != structural.runbook_content_sha256
+        or receipt.beat_id != structural.beat_id
+        or receipt.scene_id != structural.scene_id
+    ):
+        raise ValueError("Play context receipt must match its World and typed provenance witnesses")
+
+
+def encode_play_run_turn_context_references(
+    receipt: PlayRunTurnContextReceiptV1,
+) -> tuple[HistoricalReference, list[HistoricalReference]]:
+    """Encode the complete receipt into existing primary and supporting rows."""
+    primary = HistoricalReference(
+        resolution="resolved",
+        kind="run",
+        object_id=receipt.run_id,
+        revision=str(receipt.run_revision),
+    )
+    supporting = [
+        HistoricalReference(
+            resolution="resolved",
+            kind=PLAY_RUNBOOK_REFERENCE_KIND,
+            object_id=receipt.runbook_object_id,
+            revision=str(receipt.runbook_object_revision),
+            content_sha256=receipt.runbook_content_sha256,
+            object_revision=receipt.runbook_object_revision,
+            work_revision_id=receipt.runbook_work_revision_id,
+            revision_n=receipt.runbook_revision_n,
+        ),
+        HistoricalReference(
+            resolution="resolved",
+            kind=PLAY_CURRENT_BEAT_REFERENCE_KIND,
+            object_id=receipt.beat_id,
+            revision=receipt.marker_grammar_version,
+        ),
+    ]
+    if receipt.scene_id is not None:
+        supporting.append(
+            HistoricalReference(
+                resolution="resolved",
+                kind=PLAY_CURRENT_SCENE_REFERENCE_KIND,
+                object_id=receipt.scene_id,
+                revision=receipt.marker_grammar_version,
+            )
+        )
+    return primary, supporting
+
+
+def decode_play_run_turn_context_references(
+    primary: HistoricalReference,
+    supporting: list[HistoricalReference],
+) -> PlayRunTurnContextReceiptV1 | None:
+    """Validate the reserved group as one complete structural receipt."""
+    reserved = {
+        PLAY_RUNBOOK_REFERENCE_KIND,
+        PLAY_CURRENT_BEAT_REFERENCE_KIND,
+        PLAY_CURRENT_SCENE_REFERENCE_KIND,
+    }
+    reserved_references = [
+        reference for reference in supporting if reference.kind in reserved
+    ]
+    if not reserved_references:
+        return None
+    runbooks = [
+        reference
+        for reference in reserved_references
+        if reference.kind == PLAY_RUNBOOK_REFERENCE_KIND
+    ]
+    beats = [
+        reference
+        for reference in reserved_references
+        if reference.kind == PLAY_CURRENT_BEAT_REFERENCE_KIND
+    ]
+    scenes = [
+        reference
+        for reference in reserved_references
+        if reference.kind == PLAY_CURRENT_SCENE_REFERENCE_KIND
+    ]
+    if (
+        primary.kind != "run"
+        or len(runbooks) != 1
+        or any(reference.kind == "runbook" for reference in supporting)
+        or len(beats) != 1
+        or len(scenes) > 1
+    ):
+        raise ValueError("Play Run context references are incomplete or duplicated")
+    runbook = runbooks[0]
+    if (
+        primary.resolution != "resolved"
+        or primary.object_id is None
+        or primary.revision is None
+        or not primary.revision.isdecimal()
+        or primary.revision != str(int(primary.revision))
+        or primary.content_sha256 is not None
+        or primary.object_revision is not None
+        or primary.work_revision_id is not None
+        or primary.revision_n is not None
+        or runbook.resolution != "resolved"
+        or runbook.object_id is None
+        or runbook.object_revision is None
+        or runbook.work_revision_id is None
+        or runbook.revision_n is None
+        or runbook.content_sha256 is None
+        or runbook.revision != str(runbook.object_revision)
+    ):
+        raise ValueError("Play Run or Runbook reference is malformed")
+    for marker in (*beats, *scenes):
+        if (
+            marker.resolution != "resolved"
+            or marker.object_id is None
+            or marker.revision != "v2"
+            or marker.content_sha256 is not None
+            or marker.object_revision is not None
+            or marker.work_revision_id is not None
+            or marker.revision_n is not None
+        ):
+            raise ValueError("Play current marker reference is malformed")
+    return PlayRunTurnContextReceiptV1(
+        schema="dmb_play_run_turn_context_receipt_v1",
+        run_id=primary.object_id,
+        run_revision=int(primary.revision),
+        runbook_object_id=runbook.object_id,
+        runbook_object_revision=runbook.object_revision,
+        runbook_work_revision_id=runbook.work_revision_id,
+        runbook_revision_n=runbook.revision_n,
+        runbook_content_sha256=runbook.content_sha256,
+        beat_id=beats[0].object_id,
+        scene_id=scenes[0].object_id if scenes else None,
+        marker_grammar_version="v2",
+    )
+
+
 class PlanAskContextBasis(StrictModel):
     """Server-resolved committed Plan basis used only to filter Ask history."""
 
@@ -160,30 +623,17 @@ class PlanAskContextBasis(StrictModel):
     @model_validator(mode="after")
     def validate_basis(self) -> "PlanAskContextBasis":
         if self.world_id != self.world_id.strip():
-            raise ValueError("Plan Ask basis World must not contain surrounding whitespace")
+            raise ValueError(
+                "Plan Ask basis World must not contain surrounding whitespace"
+            )
         if not self.world_id.strip():
             raise ValueError("Plan Ask basis World is required")
         if self.document_id != self.document_id.strip():
-            raise ValueError("Plan Ask basis document must not contain surrounding whitespace")
+            raise ValueError(
+                "Plan Ask basis document must not contain surrounding whitespace"
+            )
         if not self.document_id.strip():
             raise ValueError("Plan Ask basis document is required")
-        return self
-
-
-class CompletedPlanAskPair(StrictModel):
-    """Visible, safe Ask pair with stable source-local merge metadata."""
-
-    source_kind: Literal["ask"] = "ask"
-    source_sequence: int = Field(strict=True, ge=1)
-    source_record_id: UUID
-    accepted_at: datetime
-    question: str = Field(min_length=1)
-    answer: str = Field(min_length=1)
-
-    @model_validator(mode="after")
-    def validate_visible_text(self) -> "CompletedPlanAskPair":
-        if not self.question.strip() or not self.answer.strip():
-            raise ValueError("completed Plan Ask pairs require visible question and answer")
         return self
 
 
@@ -218,6 +668,38 @@ class TurnProvenance(StrictModel):
                 )
         if self.surface_resolution == "absent" and self.surface_instance_id is not None:
             raise ValueError("absent surface cannot carry surface_instance_id")
+        target_references = [
+            reference
+            for reference in self.supporting_work
+            if reference.kind == PLAN_PLAYABLE_TARGET_REFERENCE_KIND
+        ]
+        if len(target_references) > 1:
+            raise ValueError("turn provenance cannot carry duplicate Playable targets")
+        if target_references:
+            decode_plan_playable_target_reference(target_references[0])
+            primary = self.primary_work
+            if (
+                self.surface_id != "plan"
+                or self.surface_resolution != "resolved"
+                or primary.resolution != "resolved"
+                or primary.kind != "plan"
+                or primary.object_revision is None
+                or primary.work_revision_id is None
+                or primary.revision_n is None
+                or primary.content_sha256 is None
+                or self.selected_object.resolution != "absent"
+            ):
+                raise ValueError(
+                    "Playable target provenance requires an exact Plan basis and no Graph selection"
+                )
+        play_context = decode_play_run_turn_context_references(
+            self.primary_work, self.supporting_work
+        )
+        if play_context is not None and (
+            self.surface_resolution != "resolved" or self.surface_id != "play"
+        ):
+            raise ValueError("Play Run context requires the Play surface")
+        decode_play_graph_binding_references(self)
         return self
 
 
@@ -226,16 +708,24 @@ class SubmittedPrimaryWorkIntentV1(StrictModel):
     object_id: str = Field(min_length=1, max_length=128)
     expected_revision: int = Field(strict=True, ge=1)
     expected_revision_n: int | None = Field(default=None, strict=True, ge=1)
-    expected_content_sha256: str | None = Field(
-        default=None, pattern=r"^[0-9a-f]{64}$"
-    )
+    expected_content_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    play_content_basis: PlayContentBasis | None = None
 
     @model_validator(mode="after")
     def validate_plan_basis(self) -> "SubmittedPrimaryWorkIntentV1":
+        if self.play_content_basis is not None and self.kind != "run":
+            raise ValueError("Play content basis is only valid for Run work")
+        if self.kind == "build":
+            if self.expected_revision_n is not None or self.expected_content_sha256 is None:
+                raise ValueError("Build work requires a saved digest and forbids Plan revision_n")
+            return self
+
         has_revision_n = self.expected_revision_n is not None
         has_digest = self.expected_content_sha256 is not None
         if has_revision_n != has_digest:
-            raise ValueError("submitted Plan revision and digest must be supplied together")
+            raise ValueError(
+                "submitted Plan revision and digest must be supplied together"
+            )
         if self.kind != "plan" and (has_revision_n or has_digest):
             raise ValueError("submitted Plan basis is only valid for Plan work")
         return self
@@ -268,13 +758,20 @@ class SubmittedGraphRequestIntentV1(StrictModel):
     def validate_scope(self) -> "SubmittedGraphRequestIntentV1":
         if self.mode == "none" and any(
             value is not None
-            for value in (self.world_id, self.campaign_id, self.revision_pin, self.focus)
+            for value in (
+                self.world_id,
+                self.campaign_id,
+                self.revision_pin,
+                self.focus,
+            )
         ):
             raise ValueError("none submitted graph request cannot carry scope or focus")
         if self.mode == "world" and (not self.world_id or self.focus is None):
             raise ValueError("world submitted graph request requires World and focus")
         if self.mode == "campaign" and (not self.campaign_id or self.focus is None):
-            raise ValueError("campaign submitted graph request requires campaign and focus")
+            raise ValueError(
+                "campaign submitted graph request requires campaign and focus"
+            )
         return self
 
 
@@ -290,18 +787,40 @@ class SubmittedTurnIntentV1(StrictModel):
     )
     world_id: str = Field(min_length=1, max_length=128)
     client_thread_id: str = Field(min_length=1, max_length=128)
-    message: str = Field(min_length=1, max_length=8000)
+    message: str = Field(min_length=1)
     surface_id: str = Field(min_length=1, max_length=64)
     surface_instance_id: str = Field(min_length=1, max_length=128)
     client_work_state: Literal["none", "saved_clean", "saved_dirty", "new_unsaved"]
     primary_work: SubmittedPrimaryWorkIntentV1 | None
+    playable_target: SubmittedPlanPlayableTargetV1 | None = None
     graph_request: SubmittedGraphRequestIntentV1
+    selected_knowledge: AgentKnowledgeSelection | None = None
+    native_statement_selection: NativeStatementSelectionV1 | None = None
     graph_selection: SubmittedGraphSelectionIntentV1 | None
 
     @model_validator(mode="after")
     def validate_identity(self) -> "SubmittedTurnIntentV1":
-        if not self.world_id.strip() or not self.client_thread_id.strip() or not self.message.strip():
-            raise ValueError("submitted World, client thread, and message must be non-blank")
+        if self.native_statement_selection is not None and (
+            self.surface_id != "plan" or self.graph_request.mode != "none"
+            or self.graph_selection is not None or self.selected_knowledge is not None
+            or self.playable_target is not None
+            or self.native_statement_selection.managed_world_id != self.world_id
+        ):
+            raise ValueError("Native selection requires its own graphless Plan intent")
+        if self.selected_knowledge is not None and (
+            self.surface_id != "ingest"
+            or self.primary_work is not None
+            or self.selected_knowledge.context_request.expected_world_id != self.world_id
+        ):
+            raise ValueError("Knowledge selection requires matching World Ingest intent")
+        if (
+            not self.world_id.strip()
+            or not self.client_thread_id.strip()
+            or not self.message.strip()
+        ):
+            raise ValueError(
+                "submitted World, client thread, and message must be non-blank"
+            )
         if not self.surface_id.strip() or not self.surface_instance_id.strip():
             raise ValueError("submitted surface identities must be non-blank")
         if (
@@ -310,7 +829,9 @@ class SubmittedTurnIntentV1(StrictModel):
             and self.primary_work.kind == "plan"
             and self.primary_work.expected_revision_n is None
         ):
-            raise ValueError("Plan content turns require the exact committed content pin")
+            raise ValueError(
+                "Plan content turns require the exact committed content pin"
+            )
         if (
             self.graph_request.mode == "world"
             and self.graph_request.world_id != self.world_id
@@ -318,16 +839,5491 @@ class SubmittedTurnIntentV1(StrictModel):
             raise ValueError("submitted graph World must match submitted turn World")
         if self.graph_selection is not None and self.graph_request.mode == "none":
             raise ValueError("submitted graph selection requires a graph request")
+        if self.playable_target is not None and (
+            self.surface_id != "plan"
+            or self.primary_work is None
+            or self.primary_work.kind != "plan"
+            or self.client_work_state not in {"saved_clean", "saved_dirty"}
+            or self.graph_request.mode != "none"
+            or self.graph_selection is not None
+        ):
+            raise ValueError(
+                "Playable target intent requires a graphless saved Plan turn"
+            )
         return self
 
 
 def submitted_turn_intent_fingerprint_v1(intent: SubmittedTurnIntentV1) -> str:
     """Hash canonical submitted semantics, never current resolver output."""
-    return _fingerprint(
-        intent.model_dump(
-            mode="json", by_alias=True, exclude={"client_thread_id"}
-        )
+    payload = intent.model_dump(
+        mode="json", by_alias=True, exclude={"client_thread_id"}
     )
+    # Older no-target fingerprints were computed before this optional field
+    # existed. Omit its null shape byte-for-byte; targeted intents include it.
+    if payload.get("playable_target") is None:
+        payload.pop("playable_target", None)
+    if payload.get("selected_knowledge") is None:
+        payload.pop("selected_knowledge", None)
+    if payload.get("native_statement_selection") is None:
+        payload.pop("native_statement_selection", None)
+    primary_work_payload = payload.get("primary_work")
+    if isinstance(primary_work_payload, dict) and primary_work_payload.get("play_content_basis") is None:
+        primary_work_payload.pop("play_content_basis", None)
+    return _fingerprint(payload)
+
+
+MarkerBeat = Annotated[str, Field(pattern=r"^beat:[a-z0-9][a-z0-9._-]{0,127}$")]
+
+MarkerScene = Annotated[str, Field(pattern=r"^scene:[a-z0-9][a-z0-9._-]{0,127}$")]
+
+OwnerId = Annotated[str, Field(min_length=1, max_length=128)]
+
+SourceKind = Literal["current_moment", "scene_note"]
+
+class PlayGraphPolicyV1(ClosedRulesModel):
+    schema_: Literal["dmb_play_graph_policy_v1"] = Field(default="dmb_play_graph_policy_v1", alias="schema")
+    policy: Literal["native_play_world_v1"] = "native_play_world_v1"
+
+class SubmittedPlayTargetV1(ClosedRulesModel):
+    schema_: Literal["dmb_submitted_play_target_v1"] = Field(default="dmb_submitted_play_target_v1", alias="schema")
+    beat_id: MarkerBeat
+    scene_id: MarkerScene | None
+    marker_grammar_version: Literal["v2"] = "v2"
+
+from .authored_graph_references import AuthoredReferencesV2
+from .play_authored_sources import PlayAuthoredSourceContextV1
+
+
+class PlayGraphIntentV1(SubmittedTurnIntentV1):
+    model_config = ConfigDict(extra="forbid", frozen=True, revalidate_instances="always", validate_by_name=True)
+    schema_: Literal["dmb_play_graph_intent_v1"] = Field(default="dmb_play_graph_intent_v1", alias="schema")
+    surface_id: Literal["play"]
+    client_work_state: Literal["saved_clean", "saved_dirty"]
+    primary_work: SubmittedPrimaryWorkIntentV1
+    play_graph_policy: PlayGraphPolicyV1
+    play_target: SubmittedPlayTargetV1
+    authored_references: AuthoredReferencesV2 | None = Field(default=None, exclude_if=lambda value: value is None)
+    playable_target: None = None
+    selected_knowledge: None = None
+    graph_selection: None = None
+
+    @model_validator(mode="after")
+    def exact_native_play_intent(self):
+        ref, graph = self.primary_work, self.graph_request
+        if (ref.kind != "run" or ref.play_content_basis is None
+                or graph.mode != "world" or graph.campaign_id is not None or graph.revision_pin is not None
+                or graph.focus is None or graph.focus.kind != "none"):
+            raise ValueError("Native Play Graph requires exact Run edition and current World-only intent")
+        if self.authored_references is not None:
+            if not self.authored_references.references:
+                raise ValueError('Play references must name selected objects or sources')
+            self.authored_references.require_world(self.world_id)
+        return self
+
+class PlayRulesIntentV1(SubmittedTurnIntentV1):
+    """Current Graph-off Play intent; its own schema binds exact edition and target."""
+    schema_: Literal["dmb_play_rules_intent_v1"] = Field(default="dmb_play_rules_intent_v1", alias="schema")
+    surface_id: Literal["play"]
+    client_work_state: Literal["saved_clean"]
+    primary_work: SubmittedPrimaryWorkIntentV1
+    play_target: SubmittedPlayTargetV1
+    playable_target: None = None
+    selected_knowledge: None = None
+    graph_selection: None = None
+
+    @model_validator(mode="after")
+    def exact_rules_only_play_intent(self):
+        if self.graph_request.mode != "none" or self.primary_work.kind != "run" or self.primary_work.play_content_basis is None:
+            raise ValueError("Rules-only Play requires the exact Run edition, target and absent Graph")
+        return self
+
+
+class PlaySourceLocatorV1(ClosedRulesModel):
+    world_id: OwnerId
+    run_id: OwnerId
+    run_revision: Annotated[int, Field(ge=1)]
+    edition: PlayContentBasis
+    beat_id: MarkerBeat
+    scene_id: MarkerScene | None
+
+    @model_validator(mode="after")
+    def canonical_owner(self):
+        if any(value != value.strip() for value in (self.world_id, self.run_id)):
+            raise ValueError("Play source owners must be canonical")
+        return self
+
+class PlaySourcePayloadV1(ClosedRulesModel):
+    schema_: Literal["dmb_play_source_payload_v1"] = Field(default="dmb_play_source_payload_v1", alias="schema")
+    source_kind: SourceKind
+    locator: PlaySourceLocatorV1
+    text: Annotated[str, Field(min_length=1, max_length=32000)]
+
+    @model_validator(mode="after")
+    def bounded_source(self):
+        if (not self.text.strip() or len(self.text.encode("utf-8")) > 32768
+                or len(canonical_bytes(self)) > 49152):
+            raise ValueError("Play source exceeds its text/payload budget or is blank")
+        if self.source_kind == "scene_note" and self.locator.scene_id is None:
+            raise ValueError("Saved scene-note source requires a selected Scene")
+        return self
+
+class PlaySourceManifestEntryV1(ClosedRulesModel):
+    source_id: Annotated[str, Field(pattern=r"^play-source:[a-f0-9]{64}$")]
+    source_kind: SourceKind
+    locator: PlaySourceLocatorV1
+    payload_sha256: Digest
+    payload_utf8_bytes: Annotated[int, Field(ge=1, le=49152)]
+    text_sha256: Digest
+    text_utf8_bytes: Annotated[int, Field(ge=1, le=32768)]
+    text_codepoints: Annotated[int, Field(ge=1, le=32000)]
+
+    @model_validator(mode="after")
+    def source_identity(self):
+        if self.source_id != "play-source:" + self.payload_sha256:
+            raise ValueError("Play source handle differs from its exact payload")
+        return self
+
+def source_entry(payload: PlaySourcePayloadV1) -> PlaySourceManifestEntryV1:
+    checked = PlaySourcePayloadV1.model_validate_json(payload.model_dump_json(by_alias=True))
+    raw, text = canonical_bytes(checked), checked.text.encode("utf-8")
+    digest = sha256(raw).hexdigest()
+    return PlaySourceManifestEntryV1(source_id="play-source:" + digest,
+        source_kind=checked.source_kind, locator=checked.locator,
+        payload_sha256=digest, payload_utf8_bytes=len(raw),
+        text_sha256=sha256(text).hexdigest(), text_utf8_bytes=len(text), text_codepoints=len(checked.text))
+
+class PlaySourceManifestV1(ClosedRulesModel):
+    schema_: Literal["dmb_play_source_manifest_v1"] = Field(default="dmb_play_source_manifest_v1", alias="schema")
+    entries: Annotated[tuple[PlaySourceManifestEntryV1, ...], Field(max_length=2)]
+    manifest_sha256: Digest
+
+    @model_validator(mode="after")
+    def sealed_manifest(self):
+        ids = [entry.source_id for entry in self.entries]
+        if ids != sorted(set(ids)):
+            raise ValueError("Play source manifest must be sorted and distinct")
+        payload = self.model_dump(mode="json", by_alias=True, exclude={"manifest_sha256"})
+        if self.manifest_sha256 != canonical_sha256(payload):
+            raise ValueError("Play source manifest seal differs")
+        return self
+
+class PlaySourceFrameV1(ClosedRulesModel):
+    schema_: Literal["dmb_play_source_frame_v1"] = Field(default="dmb_play_source_frame_v1", alias="schema")
+    manifest: PlaySourceManifestV1
+    sources: Annotated[tuple[PlaySourcePayloadV1, ...], Field(max_length=2)]
+
+    @model_validator(mode="after")
+    def exact_supplied_sources(self):
+        if tuple(source_entry(source) for source in self.sources) != self.manifest.entries:
+            raise ValueError("Play frame source bodies differ from its manifest")
+        if len(canonical_bytes(self)) > 65536:
+            raise ValueError("Play source frame exceeds its UTF8 budget")
+        return self
+
+
+class PlanContextPolicyV1(StrictModel):
+    schema_: Literal["dmb_plan_context_policy_v1"] = Field(
+        default="dmb_plan_context_policy_v1", alias="schema"
+    )
+    policy: Literal["auto_plan_world"]
+
+
+class PlanContextPolicyV2(PlanContextPolicyV1):
+    schema_: Literal['dmb_plan_context_policy_v2'] = Field(default='dmb_plan_context_policy_v2', alias='schema')
+    graph_source: Literal['reviewed_native_graph']
+
+
+from .reviewed_action import ReviewedStepBinding, ReviewedStepBindingV2, ReviewedStepBindingV3
+from .authored_graph_references import AuthoredReferenceInput, AuthoredReferencesV2
+
+
+class RetryTurnReference(StrictModel):
+    turn_id: UUID
+    revision: int = Field(strict=True, ge=1)
+    retained_snapshot_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+
+    @model_serializer(mode="wrap")
+    def retain_ordinary_reference(self, serialize):
+        value = serialize(self)
+        if self.retained_snapshot_sha256 is None:
+            value.pop("retained_snapshot_sha256", None)
+        return value
+
+
+class BuildGraphIntentV1(SubmittedTurnIntentV1):
+    """Saved Build source plus an explicitly requested managed World Graph."""
+
+    schema_: Literal["dmb_build_graph_intent_v1"] = Field(
+        default="dmb_build_graph_intent_v1", alias="schema"
+    )
+    surface_id: Literal["build"]
+    retry_of: RetryTurnReference | None = None
+    reviewed_step: ReviewedStepBindingV3 | ReviewedStepBinding | None = None
+    build_write_capability_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    build_reference_image_id: UUID | None = None
+    build_draft_context_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    client_work_state: Literal["saved_clean", "saved_dirty"]
+    primary_work: SubmittedPrimaryWorkIntentV1
+    playable_target: None = None
+    selected_knowledge: None = None
+    # Native statement selection belongs to Plan, not immutable Build identities.
+    native_statement_selection: None = Field(default=None, exclude=True)
+    graph_selection: None = None
+
+    @model_serializer(mode="wrap")
+    def preserve_ordinary_intent(self, serialize):
+        value = serialize(self)
+        if self.retry_of is None:
+            value.pop("retry_of", None)
+        if self.build_reference_image_id is None:
+            value.pop("build_reference_image_id", None)
+        return value
+
+    @model_validator(mode="after")
+    def validate_build(self) -> "BuildGraphIntentV1":
+        if self.build_reference_image_id is not None and (
+            self.build_write_capability_sha256 is None or self.build_draft_context_sha256 is None
+            or self.reviewed_step is not None
+        ):
+            raise ValueError("The page image requires an ordinary captured Build revision")
+        if self.retry_of is not None and (self.reviewed_step is not None or self.build_draft_context_sha256 is None):
+            raise ValueError("Retry requires fresh ordinary Build draft context")
+        if self.reviewed_step is not None and (self.build_draft_context_sha256 is None or self.reviewed_step.kind == "prepare_insertion" and self.build_write_capability_sha256 is None):
+            raise ValueError("A reviewed action requires captured draft and insertion authority")
+        ref = self.primary_work
+        if (ref.kind != "build"
+            or ref.expected_content_sha256 is None
+            or ref.expected_revision_n is not None
+            or self.graph_request.mode != "world"
+            or self.graph_request.campaign_id is not None
+            or self.graph_request.focus is None
+            or self.graph_request.focus.kind != "none"):
+            raise ValueError("Build Graph intent requires an exact saved Build source and World Graph")
+        return self
+
+
+class BuildGraphIntentV2(BuildGraphIntentV1):
+    schema_: Literal['dmb_build_graph_intent_v2'] = Field(default='dmb_build_graph_intent_v2', alias='schema')
+    authored_references: AuthoredReferenceInput
+    reviewed_step: ReviewedStepBindingV3 | ReviewedStepBindingV2 | ReviewedStepBinding | None = None
+
+
+class BuildSourceContextBasisV1(StrictModel):
+    world_id: str = Field(min_length=1, max_length=128)
+    document_id: str = Field(min_length=1, max_length=256)
+    registry_revision: int = Field(strict=True, ge=1)
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    visibility: Literal["internal", "player_safe"]
+
+
+class SubmittedTurnIntentV2(StrictModel):
+    """Normalized explicit Plan/World Graph policy intent, before resolution."""
+
+    schema_: Literal["dmb_agent_submitted_turn_intent_v2"] = Field(
+        default="dmb_agent_submitted_turn_intent_v2", alias="schema"
+    )
+    world_id: str = Field(min_length=1, max_length=128)
+    client_thread_id: str = Field(min_length=1, max_length=128)
+    message: str = Field(min_length=1)
+    surface_id: Literal["plan"]
+    surface_instance_id: str = Field(min_length=1, max_length=128)
+    client_work_state: Literal["saved_clean", "saved_dirty"]
+    primary_work: SubmittedPrimaryWorkIntentV1
+    plan_context_policy: PlanContextPolicyV2 | PlanContextPolicyV1
+    plan_authoring_capture_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    plan_placement_catalog_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    playable_target: SubmittedPlanPlayableTargetV1 | None = None
+    graph_request: SubmittedGraphRequestIntentV1
+    graph_selection: SubmittedGraphSelectionIntentV1 | None
+
+    @model_validator(mode="after")
+    def validate_policy_turn(self) -> "SubmittedTurnIntentV2":
+        if (
+            not self.world_id.strip()
+            or not self.client_thread_id.strip()
+            or not self.message.strip()
+        ):
+            raise ValueError(
+                "submitted World, client thread, and message must be non-blank"
+            )
+        if not self.surface_instance_id.strip():
+            raise ValueError("submitted surface instance must be non-blank")
+        if (
+            self.primary_work.kind != "plan"
+            or self.primary_work.expected_revision_n is None
+        ):
+            raise ValueError(
+                "auto_plan_world requires the exact committed Plan content pin"
+            )
+        if self.graph_request.mode != "none" or self.graph_selection is not None:
+            raise ValueError(
+                "auto_plan_world requires generic graph_request=none and no selection"
+            )
+        if self.playable_target is not None and (
+            self.playable_target.kind not in {"scene", "beat", "choice", "option"}
+        ):
+            raise ValueError("auto_plan_world playable focus is invalid")
+        return self
+
+
+class SubmittedTurnIntentV3(SubmittedTurnIntentV2):
+    """Plan work with an explicit, immutable author-selected reference bundle."""
+    schema_: Literal["dmb_agent_submitted_turn_intent_v3"] = Field(
+        default="dmb_agent_submitted_turn_intent_v3", alias="schema")
+    authored_references: AuthoredReferencesV2
+
+    @model_validator(mode="after")
+    def exact_authored_input(self):
+        self.authored_references.require_world(self.world_id)
+        if not self.authored_references.references or not isinstance(self.plan_context_policy, PlanContextPolicyV2):
+            raise ValueError('Plan reference input requires nonempty selections and its current policy')
+        return self
+
+
+class SubmittedTurnIntentV4(SubmittedTurnIntentV2):
+    """An explicit author operation on the current native Plan path."""
+    schema_: Literal["dmb_agent_submitted_turn_intent_v4"] = Field(
+        default="dmb_agent_submitted_turn_intent_v4", alias="schema")
+    plan_requested_operation: Literal["discuss", "write_current_page"]
+    authored_references: AuthoredReferencesV2 | None
+
+    @model_validator(mode="after")
+    def exact_plan_operation(self):
+        if not isinstance(self.plan_context_policy, PlanContextPolicyV2):
+            raise ValueError("Explicit Plan operations require the current native policy")
+        if self.authored_references is not None:
+            self.authored_references.require_world(self.world_id)
+            if not self.authored_references.references:
+                raise ValueError("Explicit Plan references cannot be empty")
+        return self
+
+
+def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV4 | SubmittedTurnIntentV3 | SubmittedTurnIntentV2 | BuildGraphIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1) -> str:
+    """Fingerprint only normalized caller intent, excluding routing thread identity."""
+    if isinstance(intent, PlayGraphIntentV1):
+        from .play_graph_authority import play_graph_intent_fingerprint
+        return play_graph_intent_fingerprint(intent)
+    payload = intent.model_dump(
+        mode="json", by_alias=True, exclude={"client_thread_id"}
+    )
+    if payload.get("retry_of") is None:
+        payload.pop("retry_of", None)
+    if payload.get("reviewed_step") is None:
+        payload.pop("reviewed_step", None)
+    if payload.get("build_write_capability_sha256") is None:
+        payload.pop("build_write_capability_sha256", None)
+    if payload.get("build_draft_context_sha256") is None:
+        payload.pop("build_draft_context_sha256", None)
+    if payload.get("plan_placement_catalog_sha256") is None:
+        payload.pop("plan_placement_catalog_sha256", None)
+    if payload.get("plan_authoring_capture_sha256") is None:
+        payload.pop("plan_authoring_capture_sha256", None)
+    primary_work_payload = payload.get("primary_work")
+    if isinstance(primary_work_payload, dict) and primary_work_payload.get("play_content_basis") is None:
+        primary_work_payload.pop("play_content_basis", None)
+    return _fingerprint(payload)
+
+
+class PlanWorldGraphAuthorityV1(StrictModel):
+    managed_world_id: str = Field(min_length=1, max_length=128)
+    native_world_id: str = Field(min_length=1, max_length=128)
+    binding_version: int = Field(strict=True, ge=1)
+    scope_mode: Literal["world"]
+    campaign_id: None = None
+    admissibility_version: str = Field(min_length=1, max_length=128)
+    graph_revision: str = Field(min_length=1, max_length=256)
+
+
+class PlanWorldGraphPacketV1(StrictModel):
+    schema_: Literal["dmb_plan_world_graph_packet_v1"] = Field(
+        default="dmb_plan_world_graph_packet_v1", alias="schema"
+    )
+    packet_serializer_version: Literal["canonical-json-utf8-v1"]
+    selection_policy_version: str = Field(min_length=1, max_length=128)
+    evidence_sufficiency_policy_version: str = Field(min_length=1, max_length=128)
+    retrieval_packet_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    candidate_assertion_ids: list[str] = Field(max_length=512)
+    candidate_relationship_ids: list[str] = Field(max_length=512)
+    candidate_evidence_ref_ids: list[str] = Field(max_length=1024)
+    retrieval_status: Literal["complete", "empty"]
+    evidence_sufficiency_status: Literal["sufficient", "insufficient"]
+    result_limit: int = Field(strict=True, ge=0)
+    coverage_status: Literal["complete", "incomplete"]
+    truncated: bool
+    omission_reasons: list[str] = Field(max_length=32)
+
+    @model_validator(mode="after")
+    def validate_packet(self) -> "PlanWorldGraphPacketV1":
+        for name in (
+            "candidate_assertion_ids",
+            "candidate_relationship_ids",
+            "candidate_evidence_ref_ids",
+        ):
+            values = getattr(self, name)
+            if any(not value.strip() for value in values):
+                raise ValueError(f"{name} cannot contain blank IDs")
+            if values != sorted(set(values)):
+                raise ValueError(f"{name} must be sorted and unique")
+        if self.retrieval_status == "empty" and (
+            self.candidate_assertion_ids
+            or self.candidate_relationship_ids
+            or self.candidate_evidence_ref_ids
+            or self.evidence_sufficiency_status != "insufficient"
+        ):
+            raise ValueError(
+                "empty retrieval requires no candidates and insufficient evidence"
+            )
+        if self.truncated and self.coverage_status != "incomplete":
+            raise ValueError("truncated Graph packet requires incomplete coverage")
+        if any(not reason.strip() for reason in self.omission_reasons):
+            raise ValueError("Graph packet omission reasons cannot be blank")
+        return self
+
+
+class PlanWorldGraphSourceTokenAccountingV1(StrictModel):
+    source_kind: Literal["plan", "history", "graph", "instructions", "tools", "message"]
+    source_id: str = Field(min_length=1, max_length=256)
+    input_tokens: int = Field(strict=True, ge=0)
+
+
+class PlanWorldGraphHistoryPinV1(StrictModel):
+    turn_id: UUID
+    answer_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class PlanWorldGraphAssembledInputV1(StrictModel):
+    assembler_version: str = Field(min_length=1, max_length=128)
+    budget_policy_version: str = Field(min_length=1, max_length=128)
+    provider_model_name: str = Field(min_length=1, max_length=128)
+    provider_model_version: str = Field(min_length=1, max_length=128)
+    tokenizer_name: str = Field(min_length=1, max_length=128)
+    tokenizer_version: str = Field(min_length=1, max_length=128)
+    provider_envelope_input_tokens: int = Field(strict=True, ge=0)
+    output_token_reserve: int = Field(strict=True, ge=0)
+    context_window_limit: int | None = Field(strict=True, ge=1)
+    packet_disposition: Literal["included", "omitted_insufficient"]
+    packet_disposition_reason: Literal["insufficient_evidence"] | None = None
+    dispatched_packet_sha256: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
+    dispatched_assertion_ids: list[str] = Field(max_length=512)
+    dispatched_relationship_ids: list[str] = Field(max_length=512)
+    dispatched_evidence_ref_ids: list[str] = Field(max_length=1024)
+    source_token_accounting: list[PlanWorldGraphSourceTokenAccountingV1] = Field(
+        max_length=128
+    )
+    included_history: list[PlanWorldGraphHistoryPinV1] = Field(max_length=64)
+    assembled_input_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_assembled_input(self) -> "PlanWorldGraphAssembledInputV1":
+        for name in (
+            "dispatched_assertion_ids",
+            "dispatched_relationship_ids",
+            "dispatched_evidence_ref_ids",
+        ):
+            values = getattr(self, name)
+            if any(not value.strip() for value in values):
+                raise ValueError(f"{name} cannot contain blank IDs")
+            if values != sorted(set(values)):
+                raise ValueError(f"{name} must be sorted and unique")
+        if self.context_window_limit is not None and (
+            self.provider_envelope_input_tokens + self.output_token_reserve
+            > self.context_window_limit
+        ):
+            raise ValueError(
+                "provider envelope plus output reserve exceeds context window"
+            )
+        included = self.packet_disposition == "included"
+        if included != (self.dispatched_packet_sha256 is not None):
+            raise ValueError("dispatched packet digest must match packet disposition")
+        if included:
+            if self.packet_disposition_reason is not None:
+                raise ValueError("included packet cannot carry an omission reason")
+        elif (
+            self.packet_disposition_reason != "insufficient_evidence"
+            or self.dispatched_assertion_ids
+            or self.dispatched_relationship_ids
+            or self.dispatched_evidence_ref_ids
+        ):
+            raise ValueError(
+                "omitted insufficient packet cannot carry Graph payload IDs"
+            )
+        return self
+
+
+class PlanWorldGraphContextReceiptV1(StrictModel):
+    schema_: Literal["dmb_agent_plan_world_graph_context_receipt_v1"] = Field(
+        default="dmb_agent_plan_world_graph_context_receipt_v1", alias="schema"
+    )
+    receipt_serializer_version: Literal["canonical-json-utf8-v1"]
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    plan_context_policy: PlanContextPolicyV2 | PlanContextPolicyV1
+    plan_basis: PlanAskContextBasis
+    playable_target: PlanPlayableTargetReceiptV1 | None
+    graph_authority: PlanWorldGraphAuthorityV1
+    graph_packet: PlanWorldGraphPacketV1
+    assembled_input: PlanWorldGraphAssembledInputV1
+    evidence_mode: Literal["metadata_only"]
+    source_opened: Literal[False]
+
+    @model_validator(mode="after")
+    def validate_receipt(self) -> "PlanWorldGraphContextReceiptV1":
+        if self.graph_authority.managed_world_id != self.plan_basis.world_id:
+            raise ValueError("Graph authority managed World must match Plan basis")
+        validate_graph_packet_input(self.graph_packet, self.assembled_input)
+        if self.context_receipt_sha256 != plan_world_graph_context_receipt_digest(self):
+            raise ValueError("Graph context receipt digest does not match its contents")
+        return self
+
+
+
+class NativeCorpusUnavailableV1(StrictModel):
+    schema_: Literal["dmb_native_corpus_unavailable_v1"] = Field(
+        default="dmb_native_corpus_unavailable_v1", alias="schema")
+    managed_world_id: str = Field(min_length=1)
+    failure_code: Literal["native_source_identity_unavailable", "native_source_head_unavailable",
+                          "native_source_authority_unavailable"]
+
+
+class PlanSourceProviderInputV1(StrictModel):
+    """Actual first decision accounting, with no fabricated Graph packet."""
+    assembler_version: Literal["plan_source_jev_initial_v1"] = "plan_source_jev_initial_v1"
+    provider_model_name: str = Field(min_length=1)
+    provider_model_version: str = Field(min_length=1)
+    tokenizer_name: str = Field(min_length=1)
+    tokenizer_version: str = Field(min_length=1)
+    provider_envelope_input_tokens: int = Field(ge=0, strict=True)
+    output_token_reserve: int = Field(ge=0, strict=True)
+    context_window_limit: int | None = Field(gt=0, strict=True)
+    included_history: list[PlanWorldGraphHistoryPinV1]
+    assembled_input_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def exact_allowance(self):
+        if self.context_window_limit is not None and self.provider_envelope_input_tokens + self.output_token_reserve > self.context_window_limit:
+            raise ValueError("Actual Plan decision exceeds its provider context allowance")
+        return self
+
+
+class PlanSourceContextReceiptV1(StrictModel):
+    """Source-capable Plan owner; a native revision never becomes Graph authority."""
+    schema_: Literal["dmb_plan_source_context_receipt_v1"] = Field(
+        default="dmb_plan_source_context_receipt_v1", alias="schema")
+    receipt_serializer_version: Literal["canonical-json-utf8-v1"]
+    context_receipt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    plan_context_policy: PlanContextPolicyV2 | PlanContextPolicyV1
+    plan_basis: PlanAskContextBasis
+    playable_target: PlanPlayableTargetReceiptV1 | None
+    source_authority: NativeCorpusAuthorityV1 | NativeCorpusUnavailableV1
+    graph_capability: PlanWorldGraphContextReceiptV1 | None
+    assembled_input: PlanSourceProviderInputV1
+
+    @model_validator(mode="after")
+    def exact_capability_bases(self):
+        if self.source_authority.managed_world_id != self.plan_basis.world_id:
+            raise ValueError("Source authority differs from the actual Plan World")
+        if self.graph_capability is not None and (
+                self.graph_capability.plan_basis != self.plan_basis
+                or self.graph_capability.playable_target != self.playable_target
+                or self.graph_capability.plan_context_policy != self.plan_context_policy):
+            raise ValueError("Independent Graph capability differs from the actual Plan basis")
+        if self.graph_capability is not None and isinstance(self.source_authority, NativeCorpusAuthorityV1):
+            graph = self.graph_capability.graph_authority
+            if (graph.native_world_id != self.source_authority.native_world_id
+                    or graph.binding_version != self.source_authority.binding_version):
+                raise ValueError("Independent capabilities differ from their managed/native World binding")
+        payload = self.model_dump(mode="json", by_alias=True, exclude={"context_receipt_sha256"})
+        if canonical_sha256(payload) != self.context_receipt_sha256:
+            raise ValueError("Source-capable Plan receipt digest differs from its contents")
+        return self
+
+
+from .native_plan_statements import (
+    NativePlanQueryV1, NativePlanQueryUnavailableV1,
+    NativePlanStatementReadAuthorizedV1, NativePlanStatementReadObservedV1,
+)
+
+
+from .native_plan_assertions import (
+    NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1, NativeAssertionCitationV1, NativeAssertionCitation,
+)
+
+
+class PlanNativeContextReceiptV1(PlanSourceContextReceiptV1):
+    schema_: Literal["dmb_plan_native_context_receipt_v1"] = Field(
+        default="dmb_plan_native_context_receipt_v1", alias="schema")
+    native_query: NativePlanQueryV2 | NativePlanQueryV1 | NativePlanQueryUnavailableV1
+
+    @model_validator(mode="after")
+    def native_capability(self):
+        if self.graph_capability is not None:
+            raise ValueError("Native Plan cannot expose a classic Graph capability")
+        query = self.native_query
+        if isinstance(self.plan_context_policy, PlanContextPolicyV2) and type(query) is NativePlanQueryV1:
+            raise ValueError('Selected reviewed Graph requires its current assertion query')
+        if isinstance(query, NativePlanQueryV2) and not isinstance(self.plan_context_policy, PlanContextPolicyV2):
+            raise ValueError('Native assertion query requires its explicit source policy')
+        authority = query.authority if isinstance(query, NativePlanQueryV1) else query
+        if authority.managed_world_id != self.plan_basis.world_id:
+            raise ValueError("Native query differs from Plan World")
+        if isinstance(query, NativePlanQueryV1) and isinstance(self.source_authority, NativeCorpusAuthorityV1):
+            source, native = self.source_authority, query.authority
+            if any(getattr(source, field) != getattr(native, field) for field in (
+                    "native_world_id", "binding_version", "revision_id", "domain_ref", "profile_ref", "acquisition_epoch")):
+                raise ValueError("Independent source/query capabilities changed coherent authority")
+        return self
+
+
+def validate_graph_packet_input(
+    packet: PlanWorldGraphPacketV1, assembled: PlanWorldGraphAssembledInputV1,
+) -> None:
+    """Validate the shared retrieved-candidate to dispatched-input commitment."""
+    if assembled.packet_disposition == "omitted_insufficient":
+        if packet.evidence_sufficiency_status != "insufficient":
+            raise ValueError("only insufficient evidence may be omitted")
+    elif packet.evidence_sufficiency_status != "sufficient":
+        raise ValueError("included Graph packet requires sufficient evidence")
+    if not set(assembled.dispatched_assertion_ids).issubset(
+        packet.candidate_assertion_ids
+    ):
+        raise ValueError(
+            "dispatched assertion IDs must come from retrieved candidates"
+        )
+    if not set(assembled.dispatched_relationship_ids).issubset(
+        packet.candidate_relationship_ids
+    ):
+        raise ValueError(
+            "dispatched relationship IDs must come from retrieved candidates"
+        )
+    if not set(assembled.dispatched_evidence_ref_ids).issubset(
+        packet.candidate_evidence_ref_ids
+    ):
+        raise ValueError(
+            "dispatched evidence IDs must come from retrieved candidates"
+        )
+
+
+class BuildGraphContextReceiptV1(StrictModel):
+    schema_: Literal["dmb_build_graph_context_receipt_v1"] = Field(
+        default="dmb_build_graph_context_receipt_v1", alias="schema"
+    )
+    receipt_serializer_version: Literal["canonical-json-utf8-v1"]
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_basis: BuildSourceContextBasisV1
+    graph_authority: PlanWorldGraphAuthorityV1
+    graph_packet: PlanWorldGraphPacketV1
+    assembled_input: PlanWorldGraphAssembledInputV1
+    evidence_mode: Literal["metadata_only"]
+    source_opened: Literal[False]
+
+    @model_validator(mode="after")
+    def validate_receipt(self) -> "BuildGraphContextReceiptV1":
+        if self.source_basis.world_id != self.graph_authority.managed_world_id:
+            raise ValueError("Build source and Graph must have the same managed World")
+        validate_graph_packet_input(self.graph_packet, self.assembled_input)
+        payload = self.model_dump(mode="json", by_alias=True, exclude={"context_receipt_sha256"})
+        if self.context_receipt_sha256 != _canonical_sha256(payload):
+            raise ValueError("Build receipt digest does not match its contents")
+        return self
+
+
+class PlayWorldGraphPacketV1(PlanWorldGraphPacketV1):
+    schema_: Literal["dmb_play_world_graph_packet_v1"] = Field(
+        default="dmb_play_world_graph_packet_v1", alias="schema")
+
+class PlayGraphSourceTokenAccountingV1(PlanWorldGraphSourceTokenAccountingV1):
+    source_kind: Literal["play", "history", "graph", "instructions", "tools", "message", "rules"]
+
+class PlayWorldGraphAssembledInputV1(PlanWorldGraphAssembledInputV1):
+    source_token_accounting: Annotated[list[PlayGraphSourceTokenAccountingV1], Field(max_length=128)]
+
+def play_source_locator(basis: PlayRunTurnContextReceiptV2) -> PlaySourceLocatorV1:
+    return PlaySourceLocatorV1(world_id=basis.world_id, run_id=basis.run_id,
+        run_revision=basis.run_revision, beat_id=basis.beat_id, scene_id=basis.scene_id,
+        edition=PlayContentBasis(edition_revision=basis.edition_revision,
+            edition_revision_id=basis.edition_revision_id, content_sha256=basis.content_sha256))
+
+class PlayWorldGraphContextReceiptV1(ClosedRulesModel):
+    schema_: Literal["dmb_play_world_graph_context_receipt_v1"] = Field(
+        default="dmb_play_world_graph_context_receipt_v1", alias="schema")
+    authored_source_context: PlayAuthoredSourceContextV1 | None = Field(default=None, exclude_if=lambda value: value is None)
+    receipt_serializer_version: Literal["canonical-json-utf8-v1"]
+    context_receipt_sha256: Digest
+    play_graph_policy: PlayGraphPolicyV1
+    play_basis: PlayRunTurnContextReceiptV2
+    play_sources: PlaySourceManifestV1
+    play_source_frame_sha256: Digest
+    retrieval_session_id: Annotated[str, Field(min_length=1, max_length=128)]
+    graph_authority: PlanWorldGraphAuthorityV1
+    graph_packet: PlayWorldGraphPacketV1
+    assembled_input: PlayWorldGraphAssembledInputV1
+    evidence_mode: Literal["metadata_only"]
+    source_opened: Literal[False]
+
+    @property
+    def committed_content_sha256(self) -> str:
+        """Structural common evidence view of the genuine Play edition."""
+        return self.play_basis.content_sha256
+
+    @model_validator(mode="after")
+    def exact_receipt(self):
+        authority = self.graph_authority
+        if (authority.managed_world_id != self.play_basis.world_id
+                or authority.campaign_id is not None or authority.admissibility_version != "gm-v1"
+                or any(not value.strip() or value != value.strip() for value in (
+                    authority.managed_world_id, authority.native_world_id, self.retrieval_session_id))):
+            raise ValueError("Play receipt requires exact canonical World-only GM authority")
+        locator = play_source_locator(self.play_basis)
+        kinds = set()
+        for entry in self.play_sources.entries:
+            if entry.locator != locator or entry.source_kind in kinds:
+                raise ValueError("Play receipt source differs from its Run edition or selected target")
+            kinds.add(entry.source_kind)
+            if entry.source_kind == "scene_note":
+                if self.play_basis.scene_note is None:
+                    raise ValueError("Play note source was not supplied by its Run owner")
+                expected = source_entry(PlaySourcePayloadV1(source_kind="scene_note",
+                    locator=locator, text=self.play_basis.scene_note))
+                if entry != expected:
+                    raise ValueError("Play note commitment differs from its exact saved note")
+        if self.graph_packet.selection_policy_version == "parent_initial_retrieval_with_selected_source_index_v1":
+            raise ValueError("Native Play requires its World-wide source scope, not a selected-index policy")
+        validate_graph_packet_input(self.graph_packet, self.assembled_input)
+        payload = self.model_dump(mode="json", by_alias=True, exclude={"context_receipt_sha256"})
+        if canonical_sha256(payload) != self.context_receipt_sha256:
+            raise ValueError("Play receipt digest differs from its exact contents")
+        if len(canonical_bytes(self)) > 131072:
+            raise ValueError("Play receipt exceeds its UTF8 budget")
+        return self
+
+
+GraphContextReceipt = Annotated[
+    Union[PlanWorldGraphContextReceiptV1 | PlanSourceContextReceiptV1 | PlanNativeContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1 | NativeStatementContextReceiptV1, "SurfaceNativeContextReceiptV1"],
+    Field(discriminator="schema_"),
+]
+
+
+class GraphEvidenceValidationInputs(StrictModel):
+    """Common validation inputs, independent of an Ask or action lifecycle."""
+
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    committed_content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    graph_authority: PlanWorldGraphAuthorityV1
+    graph_packet: PlanWorldGraphPacketV1
+    assembled_input: PlanWorldGraphAssembledInputV1
+
+def _ask_graph_validation_inputs(
+    receipt: GraphContextReceipt,
+) -> GraphEvidenceValidationView:
+    if isinstance(receipt, PlayWorldGraphContextReceiptV1):
+        return receipt
+    return GraphEvidenceValidationInputs(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        committed_content_sha256=(receipt.source_basis.content_sha256
+            if isinstance(receipt, BuildGraphContextReceiptV1)
+            else receipt.plan_basis.content_sha256),
+        graph_authority=receipt.graph_authority,
+        graph_packet=receipt.graph_packet,
+        assembled_input=receipt.assembled_input,
+    )
+
+
+def _canonical_sha256(value: object) -> str:
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def plan_world_graph_context_receipt_digest(
+    receipt: PlanWorldGraphContextReceiptV1,
+) -> str:
+    payload = receipt.model_dump(
+        mode="json", by_alias=True, exclude={"context_receipt_sha256"}
+    )
+    return _canonical_sha256(payload)
+
+
+class PlanWorldGraphClaimSegmentV1(StrictModel):
+    kind: Literal["graph_claim"]
+    claim_id: str = Field(min_length=1, max_length=GRAPH_CLAIM_ID_MAX_CHARS)
+    text: str = Field(min_length=1, max_length=4000)
+    target_kind: Literal["assertion", "relationship"]
+    target_id: str = Field(min_length=1, max_length=256)
+    graph_revision: str = Field(min_length=1, max_length=256)
+    evidence_ref_ids: list[str] = Field(min_length=1, max_length=64)
+
+
+class PlanWorldGraphPlanClaimSegmentV1(StrictModel):
+    kind: Literal["plan_claim"]
+    text: str = Field(min_length=1, max_length=4000)
+    plan_content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class PlanWorldGraphProposalSegmentV1(StrictModel):
+    kind: Literal["proposal"]
+    text: str = Field(min_length=1)
+    label: Literal["invented_idea", "image_prompt"]
+
+
+class PlanWorldGraphConnectiveSegmentV1(StrictModel):
+    kind: Literal["connective"]
+    text: str = Field(min_length=1, max_length=4000)
+
+
+class SessionEvidenceClaimV1(StrictModel):
+    kind: Literal["session_evidence_claim"]
+    text: str = Field(min_length=1,max_length=4000)
+    run_id: str = Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+    review_revision: int = Field(strict=True,ge=1)
+    evidence_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+def plan_answer_basis(segments):
+    graph=any(isinstance(segment,PlanWorldGraphClaimSegmentV1) for segment in segments)
+    session=any(isinstance(segment,SessionEvidenceClaimV1) for segment in segments)
+    base="committed_plan_plus_world_graph" if graph else "committed_plan"
+    return base+"_plus_session_evidence" if session else base
+
+
+def validate_session_evidence_claims(segments,provenance):
+    from urllib.parse import urlencode
+    allowed={(ref.object_id,int(ref.revision),ref.content_sha256) for ref in provenance.supporting_work if ref.kind=="session_evidence_v1" and ref.resolution=="resolved"}
+    for segment in (source for segment in segments for source in
+                    (segment.supports if isinstance(segment, SessionSummaryV1) else [segment])):
+        if isinstance(segment, SurfaceAuthoredQuoteV1) and segment.source_kind == 'session':
+            if (segment.object_id, int(segment.revision), segment.owner_sha256) not in allowed:
+                raise ValueError("Session quote is not bound to frozen turn provenance")
+            continue
+        if not isinstance(segment,SessionEvidenceClaimV1):continue
+        if (segment.run_id,segment.review_revision,segment.evidence_sha256) not in allowed:
+            raise ValueError("Session evidence claim is not bound to frozen turn provenance")
+        url="/play?"+urlencode({"world":provenance.world_id,"run":segment.run_id,"evidence_revision":segment.review_revision})
+        if url not in segment.text:raise ValueError("Session evidence claim lacks its exact pinned citation")
+
+
+PlanWorldGraphAnswerSegmentV1 = (
+    SessionEvidenceClaimV1
+    | PlanWorldGraphClaimSegmentV1
+    | PlanWorldGraphPlanClaimSegmentV1
+    | PlanWorldGraphProposalSegmentV1
+    | PlanWorldGraphConnectiveSegmentV1
+)
+
+
+class PlanWorldGraphCitationV1(StrictModel):
+    claim_id: str = Field(min_length=1, max_length=GRAPH_CLAIM_ID_MAX_CHARS)
+    target_kind: Literal["assertion", "relationship"]
+    target_id: str = Field(min_length=1, max_length=256)
+    graph_revision: str = Field(min_length=1, max_length=256)
+    evidence_ref_ids: list[str] = Field(min_length=1, max_length=64)
+    source_opened: Literal[False]
+
+
+class PlanWorldGraphCitationMapV1(StrictModel):
+    schema_: Literal["dmb_graph_citation_map_v1"] = Field(
+        default="dmb_graph_citation_map_v1", alias="schema"
+    )
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    entries: list[PlanWorldGraphCitationV1] = Field(max_length=128)
+
+
+class PlanWorldGraphCompletionV1(StrictModel):
+    schema_: Literal["dmb_plan_world_graph_completion_v1"] = Field(
+        default="dmb_plan_world_graph_completion_v1", alias="schema"
+    )
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["committed_plan", "committed_plan_plus_world_graph", "committed_plan_plus_session_evidence", "committed_plan_plus_world_graph_plus_session_evidence"]
+    answer_context_status: Literal[
+        "graph_grounded",
+        "graph_grounded_partial",
+        "plan_only_insufficient_evidence",
+        "plan_only_graph_unused",
+    ]
+    answer_segments: list[PlanWorldGraphAnswerSegmentV1] = Field(
+        min_length=1, max_length=128
+    )
+    citation_map: PlanWorldGraphCitationMapV1 | None
+
+    @model_validator(mode="after")
+    def validate_completion_shape(self) -> "PlanWorldGraphCompletionV1":
+        graph_claims = [
+            segment
+            for segment in self.answer_segments
+            if isinstance(segment, PlanWorldGraphClaimSegmentV1)
+        ]
+        expected_basis = plan_answer_basis(self.answer_segments)
+        if self.answer_basis != expected_basis:
+            raise ValueError("answer basis must follow the typed answer segments")
+        if (
+            self.citation_map is not None
+            and self.citation_map.context_receipt_sha256 != self.context_receipt_sha256
+        ):
+            raise ValueError("citation map must bind the completion receipt digest")
+        plan_only = self.answer_context_status in {
+            "plan_only_insufficient_evidence",
+            "plan_only_graph_unused",
+        }
+        if plan_only and (graph_claims or self.citation_map is not None):
+            raise ValueError(
+                "Plan-only completion cannot carry Graph claims or citations"
+            )
+        if not plan_only:
+            if (
+                not graph_claims
+                or self.citation_map is None
+                or not self.citation_map.entries
+            ):
+                raise ValueError(
+                    "Graph-grounded completion requires claims and citations"
+                )
+            claims_by_id = {segment.claim_id: segment for segment in graph_claims}
+            entries = self.citation_map.entries
+            entry_ids = [entry.claim_id for entry in entries]
+            if (
+                len(claims_by_id) != len(graph_claims)
+                or len(entries) != len(graph_claims)
+                or len(set(entry_ids)) != len(entry_ids)
+            ):
+                raise ValueError(
+                    "Graph citation map must correspond one-to-one with claims"
+                )
+            for entry in entries:
+                claim = claims_by_id.get(entry.claim_id)
+                if claim is None or (
+                    claim.target_kind != entry.target_kind
+                    or claim.target_id != entry.target_id
+                    or claim.graph_revision != entry.graph_revision
+                    or sorted(set(claim.evidence_ref_ids))
+                    != sorted(set(entry.evidence_ref_ids))
+                ):
+                    raise ValueError("citation map entry must match its Graph claim")
+                if entry.evidence_ref_ids != sorted(set(entry.evidence_ref_ids)):
+                    raise ValueError("citation refs must be sorted and unique")
+        return self
+
+
+class PlanWorldGraphCitationV2(StrictModel):
+    claim_id: str = Field(min_length=1, max_length=GRAPH_CLAIM_ID_MAX_CHARS)
+    target_kind: Literal["assertion", "relationship"]
+    target_id: str = Field(min_length=1, max_length=256)
+    graph_revision: str = Field(min_length=1, max_length=256)
+    evidence_ref_ids: list[str] = Field(min_length=1, max_length=64)
+    source_read_ids: list[str] = Field(max_length=MAX_CITATION_SOURCE_READ_IDS)
+    source_opened: bool
+
+    @model_validator(mode="after")
+    def validate_source_opened(self) -> PlanWorldGraphCitationV2:
+        if self.source_opened != bool(self.source_read_ids):
+            raise ValueError("source_opened must be derived from source read IDs")
+        if any(not value.strip() or value != value.strip() for value in self.source_read_ids):
+            raise ValueError("source read IDs must be nonblank and trimmed")
+        if self.source_read_ids != sorted(set(self.source_read_ids)):
+            raise ValueError("source read IDs must be sorted and unique")
+        if any(not value.strip() or value != value.strip() for value in self.evidence_ref_ids):
+            raise ValueError("citation refs must be nonblank and trimmed")
+        if self.evidence_ref_ids != sorted(set(self.evidence_ref_ids)):
+            raise ValueError("citation refs must be sorted and unique")
+        return self
+
+
+class PlanWorldGraphCitationMapV2(StrictModel):
+    schema_: Literal["dmb_graph_citation_map_v2"] = Field(
+        default="dmb_graph_citation_map_v2", alias="schema"
+    )
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    entries: list[PlanWorldGraphCitationV2] = Field(max_length=128)
+
+
+class PlayContextClaimV1(ClosedRulesModel):
+    kind: Literal["play_context_claim"]
+    text: Annotated[str, Field(min_length=1, max_length=4000)]
+    source_ids: Annotated[list[Annotated[str, Field(pattern=r"^play-source:[a-f0-9]{64}$")]], Field(min_length=1, max_length=2)]
+
+    @model_validator(mode="after")
+    def exact_sources(self):
+        if not self.text.strip() or self.source_ids != sorted(set(self.source_ids)):
+            raise ValueError("Play context claim requires nonblank prose and sorted distinct sources")
+        return self
+
+
+PlayWorldGraphAnswerSegmentV1 = Annotated[
+    PlayContextClaimV1 | PlanWorldGraphClaimSegmentV1 | PlanWorldGraphConnectiveSegmentV1,
+    Field(discriminator="kind"),
+]
+
+
+def play_answer_basis(segments):
+    graph = any(isinstance(segment, PlanWorldGraphClaimSegmentV1) for segment in segments)
+    play = any(isinstance(segment, PlayContextClaimV1) for segment in segments)
+    return ("play_sources_plus_world_graph" if graph and play else "world_graph" if graph
+        else "play_sources" if play else "nonfactual_context")
+
+
+class PlayWorldGraphCompletionV1(ClosedRulesModel):
+    schema_: Literal["dmb_play_world_graph_completion_v1"] = Field(default="dmb_play_world_graph_completion_v1", alias="schema")
+    context_receipt_sha256: Digest
+    answer_basis: Literal["play_sources", "world_graph", "play_sources_plus_world_graph", "nonfactual_context"]
+    answer_context_status: Literal["graph_grounded", "graph_grounded_partial", "play_only_insufficient_evidence", "play_only_graph_unused"]
+    answer_segments: Annotated[list[PlayWorldGraphAnswerSegmentV1], Field(min_length=1, max_length=128)]
+    citation_map: PlanWorldGraphCitationMapV2 | None
+
+    @model_validator(mode="after")
+    def exact_completion(self):
+        if self.answer_basis != play_answer_basis(self.answer_segments):
+            raise ValueError("Play answer basis must follow its typed claims")
+        if not any(segment.text.strip() for segment in self.answer_segments):
+            raise ValueError("Play completion must contain nonblank answer prose")
+        claims = [segment for segment in self.answer_segments if isinstance(segment, PlanWorldGraphClaimSegmentV1)]
+        grounded = self.answer_context_status in {"graph_grounded", "graph_grounded_partial"}
+        if grounded != bool(claims):
+            raise ValueError("Play Graph status must follow actual Graph claims")
+        if not grounded and self.citation_map is not None:
+            raise ValueError("Play-only answer cannot carry Graph citations")
+        if grounded:
+            entries = self.citation_map.entries if self.citation_map is not None else []
+            expected = {claim.claim_id: claim for claim in claims}
+            if (len(expected) != len(claims) or len(entries) != len(expected)
+                    or len({entry.claim_id for entry in entries}) != len(entries)
+                    or self.citation_map.context_receipt_sha256 != self.context_receipt_sha256):
+                raise ValueError("Play Graph citations must match each claim and owning receipt")
+            for entry in entries:
+                claim = expected.get(entry.claim_id)
+                if claim is None or any(getattr(claim, key) != getattr(entry, key) for key in (
+                        "target_kind", "target_id", "graph_revision", "evidence_ref_ids")):
+                    raise ValueError("Play Graph citation differs from its claim")
+        if len(canonical_bytes(self)) > 65536:
+            raise ValueError("Play completion exceeds its UTF8 budget")
+        return self
+
+
+class PlanWorldGraphCompletionV2(StrictModel):
+    schema_: Literal["dmb_plan_world_graph_completion_v2"] = Field(
+        default="dmb_plan_world_graph_completion_v2", alias="schema"
+    )
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["committed_plan", "committed_plan_plus_world_graph", "committed_plan_plus_session_evidence", "committed_plan_plus_world_graph_plus_session_evidence"]
+    answer_context_status: Literal[
+        "graph_grounded", "graph_grounded_partial",
+        "plan_only_insufficient_evidence", "plan_only_graph_unused",
+    ]
+    answer_segments: list[PlanWorldGraphAnswerSegmentV1] = Field(min_length=1, max_length=128)
+    citation_map: PlanWorldGraphCitationMapV2 | None
+
+    @model_validator(mode="after")
+    def validate_completion_shape(self) -> PlanWorldGraphCompletionV2:
+        graph_claims = [s for s in self.answer_segments if isinstance(s, PlanWorldGraphClaimSegmentV1)]
+        if self.answer_basis != plan_answer_basis(self.answer_segments):
+            raise ValueError("answer basis must follow the typed answer segments")
+        if self.citation_map is not None and self.citation_map.context_receipt_sha256 != self.context_receipt_sha256:
+            raise ValueError("citation map must bind the completion receipt digest")
+        plan_only = self.answer_context_status in {"plan_only_insufficient_evidence", "plan_only_graph_unused"}
+        if plan_only and (graph_claims or self.citation_map is not None):
+            raise ValueError("Plan-only completion cannot carry Graph claims or citations")
+        if not plan_only:
+            if not graph_claims or self.citation_map is None or not self.citation_map.entries:
+                raise ValueError("Graph-grounded completion requires claims and citations")
+            claims = {s.claim_id: s for s in graph_claims}
+            entries = self.citation_map.entries
+            if len(claims) != len(graph_claims) or len(entries) != len(graph_claims) or len({e.claim_id for e in entries}) != len(entries):
+                raise ValueError("Graph citation map must correspond one-to-one with claims")
+            for entry in entries:
+                claim = claims.get(entry.claim_id)
+                if claim is None or (claim.target_kind != entry.target_kind or claim.target_id != entry.target_id or claim.graph_revision != entry.graph_revision or claim.evidence_ref_ids != entry.evidence_ref_ids):
+                    raise ValueError("citation map entry must match its Graph claim")
+        if len(self.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
+            raise ValueError("Graph completion record exceeds the storage size limit")
+        return self
+
+
+PlanWorldGraphCitation = PlanWorldGraphCitationV1 | PlanWorldGraphCitationV2
+PlanWorldGraphCitationMap = PlanWorldGraphCitationMapV1 | PlanWorldGraphCitationMapV2
+PlanWorldGraphCompletion = PlanWorldGraphCompletionV1 | PlanWorldGraphCompletionV2
+
+
+class SavedSourceClaimV1(StrictModel):
+    """Attribution to a frozen authored source; never admitted Graph authority."""
+
+    kind: Literal["saved_source_claim"]
+    text: str = Field(min_length=1, max_length=4000)
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+BuildGraphAnswerSegment = Annotated[
+    SavedSourceClaimV1 | PlanWorldGraphClaimSegmentV1 | PlanWorldGraphConnectiveSegmentV1,
+    Field(discriminator="kind"),
+]
+
+
+class BuildGraphCompletionV1(StrictModel):
+    schema_: Literal["dmb_build_graph_completion_v1"] = Field(
+        default="dmb_build_graph_completion_v1", alias="schema"
+    )
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["saved_source", "saved_source_plus_world_graph"]
+    answer_context_status: Literal[
+        "graph_grounded", "graph_grounded_partial",
+        "source_only_insufficient_evidence", "source_only_graph_unused",
+    ]
+    answer_segments: list[BuildGraphAnswerSegment] = Field(min_length=1, max_length=128)
+    citation_map: PlanWorldGraphCitationMapV2 | None
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> "BuildGraphCompletionV1":
+        claims = {s.claim_id: s for s in self.answer_segments if isinstance(s, PlanWorldGraphClaimSegmentV1)}
+        claim_count = sum(isinstance(s, PlanWorldGraphClaimSegmentV1) for s in self.answer_segments)
+        if len(claims) != claim_count:
+            raise ValueError("Build Graph claim IDs must be unique")
+        if self.answer_basis != ("saved_source_plus_world_graph" if claims else "saved_source"):
+            raise ValueError("Build answer basis must follow its typed segments")
+        if self.citation_map is not None and self.citation_map.context_receipt_sha256 != self.context_receipt_sha256:
+            raise ValueError("Build citations must bind the exact receipt")
+        if self.answer_context_status.startswith("source_only_"):
+            if claims or self.citation_map is not None:
+                raise ValueError("Saved-source-only answers cannot carry Graph authority")
+        else:
+            if not claims or self.citation_map is None or len(self.citation_map.entries) != len(claims):
+                raise ValueError("Build Graph answers require one citation per claim")
+            if len({e.claim_id for e in self.citation_map.entries}) != len(claims):
+                raise ValueError("Build Graph citations must have unique claim IDs")
+            for entry in self.citation_map.entries:
+                claim = claims.get(entry.claim_id)
+                if claim is None or (entry.target_kind != claim.target_kind
+                    or entry.target_id != claim.target_id
+                    or entry.graph_revision != claim.graph_revision
+                    or entry.evidence_ref_ids != claim.evidence_ref_ids):
+                    raise ValueError("Build citation must match its Graph claim")
+        if len(self.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
+            raise ValueError("Build completion exceeds storage size limit")
+        return self
+
+
+class SourcePassageClaimV1(StrictModel):
+    kind: Literal["source_passage_claim"]
+    text: str = Field(min_length=1, max_length=4000)
+
+
+class BuildSourcePassageCitationV1(StrictModel):
+    segment_index: int = Field(strict=True, ge=0, le=127)
+    text_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    read_event_id: UUID
+    receipt: SourceReadAnchorReceiptV2
+
+
+class BuildGraphCompletionV2(StrictModel):
+    """Passage attribution, explicitly separate from admitted Graph claims."""
+    schema_: Literal["dmb_build_graph_completion_v2"] = Field(
+        default="dmb_build_graph_completion_v2", alias="schema")
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["opened_source_passages", "saved_source_and_opened_passages"]
+    answer_context_status: Literal["source_grounded", "source_grounded_partial", "source_insufficient_evidence"]
+    answer_segments: list[Annotated[
+        SourcePassageClaimV1 | SavedSourceClaimV1 | PlanWorldGraphConnectiveSegmentV1,
+        Field(discriminator="kind"),
+    ]] = Field(min_length=1, max_length=128)
+    citation_map: None = None
+    source_citations: list[BuildSourcePassageCitationV1] = Field(
+        min_length=0, max_length=MAX_CITATION_SOURCE_READ_IDS)
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> BuildGraphCompletionV2:
+        claims = {i: s for i, s in enumerate(self.answer_segments)
+                  if isinstance(s, SourcePassageClaimV1)}
+        if {c.segment_index for c in self.source_citations} != set(claims):
+            raise ValueError("Every passage claim requires exact source citations")
+        if self.answer_context_status == "source_insufficient_evidence":
+            if claims or any(not isinstance(s, PlanWorldGraphConnectiveSegmentV1) for s in self.answer_segments):
+                raise ValueError("Source abstention cannot carry factual claims")
+        elif not claims:
+            raise ValueError("Source-grounded answers require passage claims")
+        keys = [(c.segment_index, c.read_event_id, c.receipt.source_read_id) for c in self.source_citations]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Passage citations must be distinct")
+        saved = any(isinstance(s, SavedSourceClaimV1) for s in self.answer_segments)
+        if self.answer_basis != ("saved_source_and_opened_passages" if saved else "opened_source_passages"):
+            raise ValueError("Passage basis must follow its typed segments")
+        for c in self.source_citations:
+            if c.text_sha256 != hashlib.sha256(claims[c.segment_index].text.encode()).hexdigest():
+                raise ValueError("Passage citation text differs")
+            if (c.receipt.outcome != "enough" or c.receipt.truncated
+                    or c.receipt.evidence_sufficiency_status != "sufficient"
+                    or not c.receipt.content_sha256 or not c.receipt.source_revision_id):
+                raise ValueError("Passage citation requires complete, sufficient source")
+        if len(self.model_dump_json(by_alias=True).encode()) > 1_048_576:
+            raise ValueError("Build completion exceeds storage size limit")
+        return self
+
+
+class SurfaceSourcePassageCitationV1(BuildSourcePassageCitationV1):
+    """Shared exact passage receipt with its producing-input display name."""
+    source_name: str = Field(min_length=1)
+
+
+class BuildNamedGraphCompletionV3(BuildGraphCompletionV2):
+    """Build passage attribution with independently verified producing source names."""
+    schema_: Literal["dmb_build_graph_completion_v3"] = Field(
+        default="dmb_build_graph_completion_v3", alias="schema")
+    source_citations: list[SurfaceSourcePassageCitationV1] = Field(
+        min_length=0, max_length=MAX_CITATION_SOURCE_READ_IDS)
+
+
+class BuildDraftContextCompletionV1(BuildNamedGraphCompletionV3):
+    """Authored working-copy references with separately governed source citations."""
+    schema_: Literal["dmb_build_draft_context_completion_v1"] = Field(
+        default="dmb_build_draft_context_completion_v1", alias="schema")
+    answer_basis: Literal["working_draft_context"] = "working_draft_context"
+    answer_context_status: Literal["authored_grounded", "authored_grounded_partial", "source_grounded",
+        "source_grounded_partial", "creative_proposal", "insufficient_evidence"]
+    answer_segments: list[Annotated[DraftReferenceClaimV1 | RelatedPageClaim | SourcePassageClaimV1 | SavedSourceClaimV1
+        | PlanWorldGraphConnectiveSegmentV1, Field(discriminator="kind")]] = Field(min_length=1, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_shape(self):
+        if self.schema_ == "dmb_build_draft_context_completion_v1" and any(isinstance(s,RelatedPageClaim) for s in self.answer_segments):
+            raise ValueError("Historical draft completion cannot gain related-page claims")
+        claims = {i:s for i,s in enumerate(self.answer_segments) if isinstance(s,SourcePassageClaimV1)}
+        if {c.segment_index for c in self.source_citations} != set(claims):
+            raise ValueError("Draft answer source claims require exact separate source citations")
+        for citation in self.source_citations:
+            if citation.text_sha256 != sha256(claims[citation.segment_index].text.encode()).hexdigest():
+                raise ValueError("Draft answer source citation differs from its prose")
+            if (citation.receipt.outcome != "enough" or citation.receipt.truncated
+                or citation.receipt.evidence_sufficiency_status != "sufficient"
+                or not citation.receipt.content_sha256 or not citation.receipt.source_revision_id):
+                raise ValueError("Draft answer source citation requires complete, sufficient evidence")
+        keys = [(c.segment_index,c.read_event_id,c.receipt.source_read_id) for c in self.source_citations]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Draft answer source citations must be distinct")
+        drafts = any(isinstance(s,(DraftReferenceClaimV1,RelatedPageClaim)) for s in self.answer_segments)
+        if self.answer_context_status.startswith("authored_grounded") != drafts:
+            raise ValueError("Authored answer status must follow its draft references")
+        if self.answer_context_status.startswith("source_grounded") and not claims and not any(isinstance(s,SavedSourceClaimV1) for s in self.answer_segments):
+            raise ValueError("Source answer status requires source segments")
+        if self.answer_context_status in {"creative_proposal","insufficient_evidence"} and any(
+            not isinstance(s,PlanWorldGraphConnectiveSegmentV1) for s in self.answer_segments):
+            raise ValueError("Unattributed draft discussion cannot carry factual references")
+        if len(self.model_dump_json(by_alias=True).encode()) > 1_048_576:
+            raise ValueError("Build completion exceeds existing storage capacity")
+        return self
+
+
+class BuildCollaborationCompletionV1(BuildDraftContextCompletionV1):
+    schema_: Literal["dmb_build_collaboration_completion_v1"] = Field(default="dmb_build_collaboration_completion_v1", alias="schema")
+    collaboration: Collaboration | None
+
+
+class BuildConnectedPageReviewCompletionV1(BuildCollaborationCompletionV1):
+    schema_: Literal["dmb_build_connected_page_review_completion_v1"] = Field(default="dmb_build_connected_page_review_completion_v1",alias="schema")
+    collaboration: ConnectedCollaboration | None
+
+
+class BuildRelationshipReviewCompletionV1(BuildConnectedPageReviewCompletionV1):
+    schema_: Literal["dmb_build_relationship_review_completion_v1"] = Field(default="dmb_build_relationship_review_completion_v1",alias="schema")
+    collaboration: RelationshipCollaboration | None
+
+
+class BuildIntentionalResponseCompletionV1(StrictModel):
+    schema_: Literal['dmb_build_intentional_response_completion_v1'] = Field(default='dmb_build_intentional_response_completion_v1', alias='schema')
+    context_receipt_sha256: str = Field(pattern=r'^[0-9a-f]{64}$')
+    answer_basis: Literal['working_draft_context', 'saved_source', 'saved_source_and_opened_passages', 'opened_source_passages', 'conversation']
+    answer_context_status: Literal['discussion', 'authored_grounded', 'authored_grounded_partial', 'source_grounded', 'source_grounded_partial', 'creative_proposal', 'insufficient_evidence']
+    answer_segments: list[Annotated[DraftReferenceClaimV1 | RelatedPageClaim | SourcePassageClaimV1 | SavedSourceClaimV1 | PlanWorldGraphConnectiveSegmentV1, Field(discriminator='kind')]] = Field(min_length=0, max_length=128)
+    citation_map: None = None
+    source_citations: list[SurfaceSourcePassageCitationV1] = Field(max_length=MAX_CITATION_SOURCE_READ_IDS)
+    collaboration: RelationshipCollaboration | None
+
+    @model_validator(mode='after')
+    def exact_shape(self):
+        BuildDraftContextCompletionV1.validate_shape(self)
+        if not self.answer_segments and self.collaboration is None:
+            raise ValueError('An intentional response must contain prose or a valid typed object')
+        if self.answer_context_status == 'discussion' and any(not isinstance(s, PlanWorldGraphConnectiveSegmentV1) for s in self.answer_segments):
+            raise ValueError('Neutral discussion cannot carry factual reference segments')
+        if self.answer_basis == 'conversation' and (self.source_citations or any(not isinstance(s, PlanWorldGraphConnectiveSegmentV1) for s in self.answer_segments)):
+            raise ValueError('Conversation basis cannot carry factual reference segments')
+        return self
+
+
+from .relationship_review import RelationshipCollaborationV2
+
+
+class BuildIntentionalResponseCompletionV2(BuildIntentionalResponseCompletionV1):
+    schema_: Literal['dmb_build_intentional_response_completion_v2'] = Field(default='dmb_build_intentional_response_completion_v2', alias='schema')
+    collaboration: RelationshipCollaborationV2 | None
+
+
+class BuildRelationshipReviewCompletionV2(BuildRelationshipReviewCompletionV1):
+    schema_: Literal['dmb_build_relationship_review_completion_v2'] = Field(default='dmb_build_relationship_review_completion_v2', alias='schema')
+    collaboration: RelationshipCollaborationV2 | None
+
+
+from .relationship_review import RelationshipCollaborationV3
+
+
+class BuildIntentionalResponseCompletionV3(BuildIntentionalResponseCompletionV2):
+    schema_: Literal['dmb_build_intentional_response_completion_v3'] = Field(default='dmb_build_intentional_response_completion_v3', alias='schema')
+    collaboration: RelationshipCollaborationV3 | None
+
+
+class BuildRelationshipReviewCompletionV3(BuildRelationshipReviewCompletionV2):
+    schema_: Literal['dmb_build_relationship_review_completion_v3'] = Field(default='dmb_build_relationship_review_completion_v3', alias='schema')
+    collaboration: RelationshipCollaborationV3 | None
+
+
+class BuildRelatedPageCompletionV1(BuildDraftContextCompletionV1):
+    schema_: Literal["dmb_build_related_page_completion_v1"] = Field(default="dmb_build_related_page_completion_v1",alias="schema")
+
+
+class SurfaceSourceCompletionV1(StrictModel):
+    """Authored source evidence for Plan/Play, never an admitted Graph claim."""
+    schema_: Literal["dmb_surface_source_completion_v1"] = Field(default="dmb_surface_source_completion_v1", alias="schema")
+    surface_id: Literal["plan", "play"]
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["opened_source_passages"] = "opened_source_passages"
+    answer_context_status: Literal["source_grounded", "source_grounded_partial"]
+    answer_segments: list[Annotated[
+        SourcePassageClaimV1 | PlanWorldGraphConnectiveSegmentV1 | PlanWorldGraphProposalSegmentV1,
+        Field(discriminator="kind"),
+    ]] = Field(min_length=1, max_length=128)
+    citation_map: None = None
+    source_citations: list[SurfaceSourcePassageCitationV1] = Field(min_length=1, max_length=MAX_CITATION_SOURCE_READ_IDS)
+
+    @model_validator(mode="after")
+    def validate_source_claims(self):
+        claims = {i: s for i, s in enumerate(self.answer_segments) if isinstance(s, SourcePassageClaimV1)}
+        if not claims or {c.segment_index for c in self.source_citations} != set(claims):
+            raise ValueError("Every surface passage claim requires exact source citations")
+        keys = [(c.segment_index, c.read_event_id, c.receipt.source_read_id) for c in self.source_citations]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Surface passage citations must be distinct")
+        for c in self.source_citations:
+            if c.text_sha256 != hashlib.sha256(claims[c.segment_index].text.encode()).hexdigest():
+                raise ValueError("Surface passage citation text differs")
+            if (c.receipt.outcome != "enough" or c.receipt.truncated
+                    or c.receipt.evidence_sufficiency_status != "sufficient"
+                    or not c.receipt.content_sha256 or not c.receipt.source_revision_id or not c.source_name.strip()):
+                raise ValueError("Surface passage citation requires complete sufficient named source evidence")
+        if len(self.model_dump_json(by_alias=True).encode()) > 1_048_576:
+            raise ValueError("Surface completion exceeds existing storage size limit")
+        return self
+
+
+BUILD_PROPOSAL_READY_TEXT = "A preview is ready. Review it before inserting it into the page. Nothing has been saved or published."
+
+
+class BuildAuthoringCompletionV1(StrictModel):
+    """Host acknowledgement of an owned proposal, never factual grounding."""
+    schema_: Literal["dmb_build_authoring_completion_v1"] = Field(
+        default="dmb_build_authoring_completion_v1", alias="schema")
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["prepared_page_proposal"] = "prepared_page_proposal"
+    answer_context_status: Literal["proposal_ready"] = "proposal_ready"
+    answer_segments: list[PlanWorldGraphConnectiveSegmentV1] = Field(min_length=1, max_length=1)
+    citation_map: None = None
+    action_id: UUID
+    reservation_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    proposal_result_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_acknowledgement(self):
+        if self.answer_segments[0].text != BUILD_PROPOSAL_READY_TEXT:
+            raise ValueError("Proposal acknowledgement is derived by the host")
+        return self
+
+
+BUILD_IMAGE_READY_TEXT = "Your image prompt is ready in Image Studio. Review it before generating. Nothing has been generated, inserted or saved."
+
+
+class BuildImagePreparationCompletionV1(StrictModel):
+    schema_: Literal["dmb_build_image_preparation_completion_v1"] = Field(default="dmb_build_image_preparation_completion_v1", alias="schema")
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["prepared_image_direction"] = "prepared_image_direction"
+    answer_context_status: Literal["image_preparation_ready"] = "image_preparation_ready"
+    answer_segments: list[PlanWorldGraphConnectiveSegmentV1] = Field(min_length=1, max_length=1)
+    citation_map: None = None
+    action_id: UUID
+    reservation_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    preparation_result_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_acknowledgement(self):
+        if self.answer_segments[0].text != BUILD_IMAGE_READY_TEXT:
+            raise ValueError("Image preparation acknowledgement is derived by the host")
+        return self
+
+
+class SurfaceAuthoredQuoteV1(StrictModel):
+    kind: Literal["authored_quote"]
+    text: str
+    source_handle: str
+    source_kind: Literal["plan", "session", "play"]
+    source_name: str
+    object_id: str
+    revision: str
+    body_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    owner_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class SurfaceAuthoredExcerptV1(SurfaceAuthoredQuoteV1):
+    kind: Literal["authored_excerpt"]
+    block_handle: str = Field(pattern=r"^b[a-f0-9]{64}$")
+    partition_version: Literal["markdown_source_blocks_v1"]
+    byte_start: int = Field(ge=0)
+    byte_end: int = Field(gt=0)
+    block_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    entry_identity: str | None = Field(default=None,pattern=r"^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def exact_block_identity(self):
+        from .authored_excerpt_blocks import block_handle
+        if (self.source_kind=='session') != (self.entry_identity is not None):
+            raise ValueError('Authored entry identity differs from its source kind')
+        if self.source_kind!='play':
+            identity=dict(source_kind=self.source_kind,object_id=self.object_id,revision=self.revision,
+                body_sha256=self.body_sha256,owner_sha256=self.owner_sha256)
+            if self.entry_identity is not None:identity['entry_identity']=self.entry_identity
+            if self.source_handle!='q'+canonical_sha256(identity):raise ValueError('Authored parent handle changed')
+        digest = sha256(self.text.encode('utf-8')).hexdigest()
+        if (self.byte_end - self.byte_start != len(self.text.encode('utf-8'))
+                or digest != self.block_sha256
+                or self.block_handle != block_handle(self.source_handle,self.byte_start,self.byte_end,digest)):
+            raise ValueError('Authored excerpt differs from its exact block identity')
+        return self
+
+
+class SessionSummarySupportV1(SurfaceAuthoredExcerptV1):
+    """Host-resolved literal support for a synthesis, never model-authored metadata."""
+    source_kind: Literal["session"] = "session"
+    object_id: str = Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+    revision: str = Field(pattern=r"^[1-9][0-9]*$")
+    source_ordinal: int = Field(strict=True, ge=0)
+    entry_kind: Literal["scene_note", "closing_reflections"]
+    element_id: str | None
+    checkpoint_content_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def exact_session_entry(self):
+        expected = canonical_sha256({"kind": self.entry_kind, "element_id": self.element_id,
+                                     "ordinal": self.source_ordinal})
+        if expected != self.entry_identity:
+            raise ValueError("Session summary entry identity changed")
+        if (self.entry_kind == "scene_note") != bool(self.element_id):
+            raise ValueError("Session summary entry kind differs from its scene identity")
+        return self
+
+
+class SessionSummaryV1(StrictModel):
+    kind: Literal["session_summary"]
+    text: str = Field(min_length=1)
+    supports: list[SessionSummarySupportV1] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def distinct_support(self):
+        if not self.text.strip() or len({s.block_handle for s in self.supports}) != len(self.supports):
+            raise ValueError("Session summary requires nonblank prose and distinct literal supports")
+        return self
+
+
+class SurfaceLimitationV1(StrictModel):
+    kind: Literal["limitation"]
+    code: Literal["missing_requested_details", "partial_retrieval", "unresolved_conflict"]
+    text: str
+    question_phrase: str | None = None
+
+
+SurfaceEvidenceStatusV1 = Literal["graph_grounded", "graph_grounded_partial", "source_grounded", "source_grounded_partial",
+    "authored_grounded", "authored_grounded_partial", "insufficient_evidence", "creative_proposal"]
+SurfaceEvidenceSegmentV1 = Annotated[PlanWorldGraphClaimSegmentV1 | SourcePassageClaimV1 | SurfaceAuthoredQuoteV1
+    | PlanWorldGraphProposalSegmentV1 | SurfaceLimitationV1, Field(discriminator="kind")]
+
+
+class SurfaceEvidenceCompletionV1(StrictModel):
+    """Mixed evidence with selected source receipts and literal authored excerpts."""
+    schema_: Literal["dmb_surface_evidence_completion_v1"] = Field(default="dmb_surface_evidence_completion_v1", alias="schema")
+    surface_id: Literal["plan", "play"]
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["mixed_evidence"] = "mixed_evidence"
+    answer_context_status: SurfaceEvidenceStatusV1
+    answer_segments: list[SurfaceEvidenceSegmentV1] = Field(min_length=1, max_length=128)
+    citation_map: PlanWorldGraphCitationMapV2 | None = None
+    source_citations: list[SurfaceSourcePassageCitationV1] = Field(default_factory=list, max_length=MAX_CITATION_SOURCE_READ_IDS)
+
+    @model_validator(mode="after")
+    def exact_evidence(self):
+        from .surface_evidence_answer import validate_shape
+        validate_shape(self)
+        return self
+
+
+SurfaceEvidenceSegmentV2 = Annotated[PlanWorldGraphClaimSegmentV1 | SourcePassageClaimV1 | SurfaceAuthoredExcerptV1
+    | PlanWorldGraphProposalSegmentV1 | SurfaceLimitationV1, Field(discriminator="kind")]
+
+class SurfaceEvidenceCompletionV2(SurfaceEvidenceCompletionV1):
+    schema_: Literal["dmb_surface_evidence_completion_v2"] = Field(default="dmb_surface_evidence_completion_v2", alias="schema")
+    answer_segments: list[SurfaceEvidenceSegmentV2] = Field(min_length=1,max_length=128)
+
+
+class NativeSourceSectionCitationV1(StrictModel):
+    """A source-only exact section, distinct from a Graph anchor or session record."""
+    segment_index: int = Field(strict=True, ge=0)
+    text_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    read_event_id: UUID
+    catalog_event_id: UUID
+    source_artifact_id: str
+    native_source_revision_id: str
+    app_source_revision_id: UUID
+    content_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    excerpt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    section_id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    selector_policy: Literal["markdown_sections_v1"]
+    source_name: str = Field(min_length=1)
+    section_title: str = Field(min_length=1)
+    line_start: int = Field(strict=True, ge=1)
+    line_end: int = Field(strict=True, ge=1)
+
+
+class SurfaceEvidenceCompletionV3(SurfaceEvidenceCompletionV2):
+    schema_: Literal["dmb_surface_evidence_completion_v3"] = Field(default="dmb_surface_evidence_completion_v3",alias="schema")
+    native_source_citations: list[NativeSourceSectionCitationV1] = Field(default_factory=list,
+        max_length=MAX_CITATION_SOURCE_READ_IDS)
+
+
+SurfaceEvidenceSegmentV3 = Annotated[SurfaceEvidenceSegmentV2 | SessionSummaryV1, Field(discriminator="kind")]
+
+
+class SurfaceEvidenceCompletionV4(SurfaceEvidenceCompletionV3):
+    surface_id: Literal["plan", "play"] = "plan"
+    schema_: Literal["dmb_surface_evidence_completion_v4"] = Field(default="dmb_surface_evidence_completion_v4", alias="schema")
+    answer_segments: list[SurfaceEvidenceSegmentV3] = Field(min_length=1, max_length=128)
+
+
+class NativeBodyExcerptCitationV1(StrictModel):
+    """An opened native body extent, never an APP source or Graph assertion span."""
+    segment_index: int = Field(strict=True, ge=0)
+    text_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    read_event_id: UUID
+    catalog_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    source_artifact_id: str = Field(min_length=1)
+    native_source_revision_id: str = Field(min_length=1)
+    content_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    excerpt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    section_id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    selector_policy: Literal["markdown_sections_v1", "native_full_document_v1"]
+    source_name: str = Field(min_length=1)
+    section_title: str = Field(min_length=1)
+    line_start: int = Field(strict=True, ge=1)
+    line_end: int = Field(strict=True, ge=1)
+
+
+class SurfaceEvidenceCompletionV5(SurfaceEvidenceCompletionV4):
+    surface_id: Literal["plan", "play"] = "plan"
+    schema_: Literal["dmb_surface_evidence_completion_v5"] = Field(default="dmb_surface_evidence_completion_v5", alias="schema")
+    native_body_citations: list[NativeBodyExcerptCitationV1] = Field(default_factory=list,
+        max_length=MAX_CITATION_SOURCE_READ_IDS)
+
+
+from .native_statement_answer import NativeStatementClauseCitationV1
+
+
+class SurfaceEvidenceCompletionV6(SurfaceEvidenceCompletionV5):
+    surface_id: Literal["plan"] = "plan"
+    schema_: Literal['dmb_surface_evidence_completion_v6'] = Field(default='dmb_surface_evidence_completion_v6', alias='schema')
+    native_clause_citations: list[NativeStatementClauseCitationV1]
+
+
+from dungeonmind.contracts.vnext.domain import AssertionMetadata as NativeAssertionMetadata
+
+
+class NativeAssertionClaimV1(StrictModel):
+    kind: Literal['native_assertion_claim'] = 'native_assertion_claim'
+    text: str = Field(min_length=1)
+    assertion_ids: list[str] = Field(min_length=1)
+    qualifications: list[NativeAssertionMetadata] = Field(min_length=1)
+
+    @model_validator(mode='after')
+    def distinct_support(self):
+        from .native_statement_input import digest
+        if (not self.text.strip() or len(self.assertion_ids) != len(set(self.assertion_ids))
+                or len(self.qualifications) != len({digest(m) for m in self.qualifications})):
+            raise ValueError('Native assertion claim requires distinct support and qualifications')
+        return self
+
+
+SurfaceEvidenceSegmentV4 = Annotated[SurfaceEvidenceSegmentV3 | NativeAssertionClaimV1, Field(discriminator='kind')]
+
+
+class SurfaceEvidenceCompletionV7(SurfaceEvidenceCompletionV6):
+    schema_: Literal['dmb_surface_evidence_completion_v7'] = Field(default='dmb_surface_evidence_completion_v7', alias='schema')
+    answer_segments: list[SurfaceEvidenceSegmentV4] = Field(min_length=1, max_length=128)
+    native_assertion_citations: list[NativeAssertionCitation]
+
+
+class LoreSaveReviewReference(StrictModel):
+    """A Build follow-up points to an existing review without approving it."""
+
+    schema_: Literal["dmb_lore_save_review_reference_v1"] = Field(
+        default="dmb_lore_save_review_reference_v1", alias="schema"
+    )
+    conversation_id: UUID
+    turn_id: UUID
+    review_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    title: str = Field(min_length=1, max_length=200)
+
+    @property
+    def reply_text(self) -> str:
+        return f"Review and confirm the existing draft for {self.title} to create the page."
+
+
+GraphTurnCompletion = Union[LoreSaveReviewReference | SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1, "SurfaceNativeCompletionV1"]
+
+
+class GraphCompletionRejectionCode(str, Enum):
+    """Closed internal categories for fixed completion-validation failures."""
+
+    RECEIPT_BINDING = "completion_receipt_binding"
+    PLAN_BASIS_ATTRIBUTION = "plan_basis_attribution"
+    STATUS_EVIDENCE_MISMATCH = "status_evidence_mismatch"
+    GRAPH_PACKET_NOT_INCLUDED = "graph_packet_not_included"
+    CITATION_MAP_MISSING = "citation_map_missing"
+    CITATION_MAP_CLAIM_SET = "citation_map_claim_set"
+    CITATION_ENTRY_MISSING = "citation_entry_missing"
+    CLAIM_TARGET_NOT_DISPATCHED = "claim_target_not_dispatched"
+    GRAPH_REVISION_MISMATCH = "graph_revision_mismatch"
+    EVIDENCE_NOT_CANDIDATE = "evidence_not_candidate"
+    EVIDENCE_NOT_DISPATCHED = "evidence_not_dispatched"
+    EVIDENCE_ORDER = "evidence_order"
+    CITATION_EVIDENCE_MISMATCH = "citation_evidence_mismatch"
+    PRODUCING_RESPONSE_MISSING = "producing_response_missing"
+    CLAIM_BINDING_SET = "claim_binding_set"
+    CLAIM_TARGET_NOT_IN_ENVELOPE = "claim_target_not_in_envelope"
+    BINDING_EVENT_DUPLICATE = "binding_event_duplicate"
+    BINDING_EVENT_NOT_IN_ENVELOPE = "binding_event_not_in_envelope"
+    BINDING_EVENT_SUPPORT_MISMATCH = "binding_event_support_mismatch"
+    CLAIM_SUPPORT_MISSING = "claim_support_missing"
+    CITED_EVIDENCE_INSUFFICIENT = "cited_evidence_insufficient"
+    CITATION_CLAIM_MISMATCH = "citation_claim_mismatch"
+    GROUNDED_STATUS_MISMATCH = "grounded_status_mismatch"
+    PLAN_ONLY_STATUS_MISMATCH = "plan_only_status_mismatch"
+
+
+class GraphCompletionValidationError(ValueError):
+    """A ValueError with a fixed, non-content-bearing internal rejection code."""
+
+    def __init__(
+        self,
+        rejection_code: GraphCompletionRejectionCode,
+        message: str,
+    ) -> None:
+        self.rejection_code = rejection_code
+        super().__init__(message)
+
+
+def _reject_graph_completion(
+    rejection_code: GraphCompletionRejectionCode,
+    message: str,
+) -> NoReturn:
+    """Raise a backward-compatible ValueError classified by a closed code."""
+    raise GraphCompletionValidationError(rejection_code, message)
+
+
+class PlanAskHistoryAttributionV1(StrictModel):
+    """Validated provenance accompanying one completed Plan Graph Ask."""
+
+    schema_: Literal["dmb_plan_ask_history_attribution_v1"] = Field(
+        default="dmb_plan_ask_history_attribution_v1", alias="schema"
+    )
+    source_turn_id: UUID
+    source_conversation_id: UUID
+    source_sequence: int = Field(strict=True, ge=1)
+    source_turn_status: Literal["completed"] = "completed"
+    surface_resolution: Literal["resolved"] = "resolved"
+    surface_id: Literal["plan"] = "plan"
+    surface_instance_id: str = Field(min_length=1, max_length=128)
+    plan_basis: PlanAskContextBasis
+    playable_target: PlanPlayableTargetReceiptV1 | None
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["committed_plan", "committed_plan_plus_world_graph", "committed_plan_plus_session_evidence", "committed_plan_plus_world_graph_plus_session_evidence"]
+    answer_context_status: Literal[
+        "graph_grounded",
+        "graph_grounded_partial",
+        "plan_only_insufficient_evidence",
+        "plan_only_graph_unused",
+    ]
+    answer_segments: list[PlanWorldGraphAnswerSegmentV1] = Field(
+        min_length=1, max_length=128
+    )
+    citation_map: PlanWorldGraphCitationMap | None
+
+    @model_validator(mode="after")
+    def validate_attribution(self) -> "PlanAskHistoryAttributionV1":
+        if (
+            self.citation_map is not None
+            and self.citation_map.context_receipt_sha256 != self.context_receipt_sha256
+        ):
+            raise ValueError(
+                "Ask history citations must bind the exact context receipt"
+            )
+        return self
+
+
+class PlanEvidenceHistoryAttributionV1(PlanAskHistoryAttributionV1):
+    """Current Plan history retains exact mixed evidence citations and authored owners."""
+    schema_: Literal["dmb_plan_evidence_history_attribution_v1"] = Field(default="dmb_plan_evidence_history_attribution_v1", alias="schema")
+    answer_basis: Literal["mixed_evidence"]
+    answer_context_status: SurfaceEvidenceStatusV1
+    answer_segments: list[SurfaceEvidenceSegmentV1]
+    citation_map: PlanWorldGraphCitationMapV2 | None
+    source_citations: list[SurfaceSourcePassageCitationV1]
+
+    @model_validator(mode="after")
+    def mixed_history_shape(self):
+        SurfaceEvidenceCompletionV1(surface_id='plan', context_receipt_sha256=self.context_receipt_sha256,
+            answer_basis=self.answer_basis,answer_context_status=self.answer_context_status,
+            answer_segments=self.answer_segments,citation_map=self.citation_map,source_citations=self.source_citations)
+        return self
+
+
+class PlanEvidenceHistoryAttributionV2(PlanEvidenceHistoryAttributionV1):
+    schema_: Literal["dmb_plan_evidence_history_attribution_v2"] = Field(default="dmb_plan_evidence_history_attribution_v2",alias="schema")
+    answer_segments: list[SurfaceEvidenceSegmentV2]
+
+    @model_validator(mode="after")
+    def mixed_history_shape(self):
+        SurfaceEvidenceCompletionV2(surface_id='plan',context_receipt_sha256=self.context_receipt_sha256,
+            answer_basis=self.answer_basis,answer_context_status=self.answer_context_status,
+            answer_segments=self.answer_segments,citation_map=self.citation_map,source_citations=self.source_citations)
+        return self
+
+
+class PlanEvidenceHistoryAttributionV3(PlanEvidenceHistoryAttributionV2):
+    schema_: Literal["dmb_plan_evidence_history_attribution_v3"] = Field(default="dmb_plan_evidence_history_attribution_v3",alias="schema")
+    native_source_citations: list[NativeSourceSectionCitationV1]
+
+    @model_validator(mode="after")
+    def mixed_history_shape(self):
+        SurfaceEvidenceCompletionV3(surface_id='plan',context_receipt_sha256=self.context_receipt_sha256,
+            answer_basis=self.answer_basis,answer_context_status=self.answer_context_status,
+            answer_segments=self.answer_segments,citation_map=self.citation_map,
+            source_citations=self.source_citations,native_source_citations=self.native_source_citations)
+        return self
+
+
+class PlanEvidenceHistoryAttributionV4(PlanEvidenceHistoryAttributionV3):
+    schema_: Literal["dmb_plan_evidence_history_attribution_v4"] = Field(default="dmb_plan_evidence_history_attribution_v4", alias="schema")
+    answer_segments: list[SurfaceEvidenceSegmentV3]
+
+    @model_validator(mode="after")
+    def mixed_history_shape(self):
+        SurfaceEvidenceCompletionV4(surface_id="plan", context_receipt_sha256=self.context_receipt_sha256,
+            answer_basis=self.answer_basis, answer_context_status=self.answer_context_status,
+            answer_segments=self.answer_segments, citation_map=self.citation_map,
+            source_citations=self.source_citations, native_source_citations=self.native_source_citations)
+        return self
+
+
+class PlanEvidenceHistoryAttributionV5(PlanEvidenceHistoryAttributionV4):
+    schema_: Literal["dmb_plan_evidence_history_attribution_v5"] = Field(default="dmb_plan_evidence_history_attribution_v5", alias="schema")
+    native_body_citations: list[NativeBodyExcerptCitationV1]
+
+    @model_validator(mode="after")
+    def mixed_history_shape(self):
+        SurfaceEvidenceCompletionV5(surface_id="plan", context_receipt_sha256=self.context_receipt_sha256,
+            answer_basis=self.answer_basis, answer_context_status=self.answer_context_status,
+            answer_segments=self.answer_segments, citation_map=self.citation_map,
+            source_citations=self.source_citations, native_source_citations=self.native_source_citations,
+            native_body_citations=self.native_body_citations)
+        return self
+
+
+class PlanEvidenceHistoryAttributionV6(PlanEvidenceHistoryAttributionV5):
+    schema_: Literal['dmb_plan_evidence_history_attribution_v6'] = Field(default='dmb_plan_evidence_history_attribution_v6', alias='schema')
+    native_clause_citations: list[NativeStatementClauseCitationV1]
+
+    @model_validator(mode='after')
+    def mixed_history_shape(self):
+        SurfaceEvidenceCompletionV6(surface_id='plan', context_receipt_sha256=self.context_receipt_sha256,
+            answer_basis=self.answer_basis, answer_context_status=self.answer_context_status,
+            answer_segments=self.answer_segments, citation_map=self.citation_map,
+            source_citations=self.source_citations, native_source_citations=self.native_source_citations,
+            native_body_citations=self.native_body_citations, native_clause_citations=self.native_clause_citations)
+        return self
+
+
+class PlanEvidenceHistoryAttributionV7(PlanEvidenceHistoryAttributionV6):
+    schema_: Literal['dmb_plan_evidence_history_attribution_v7'] = Field(default='dmb_plan_evidence_history_attribution_v7', alias='schema')
+    answer_segments: list[SurfaceEvidenceSegmentV4]
+    native_assertion_citations: list[NativeAssertionCitation]
+
+    @model_validator(mode='after')
+    def mixed_history_shape(self):
+        SurfaceEvidenceCompletionV7(surface_id='plan', context_receipt_sha256=self.context_receipt_sha256,
+            answer_basis=self.answer_basis, answer_context_status=self.answer_context_status,
+            answer_segments=self.answer_segments, citation_map=self.citation_map, source_citations=self.source_citations,
+            native_source_citations=self.native_source_citations, native_body_citations=self.native_body_citations,
+            native_clause_citations=self.native_clause_citations, native_assertion_citations=self.native_assertion_citations)
+        return self
+
+
+class CompletedPlanAskPair(StrictModel):
+    """Visible Ask pair with optional validated Graph attribution."""
+
+    source_kind: Literal["ask"] = "ask"
+    source_sequence: int = Field(strict=True, ge=1)
+    source_record_id: UUID
+    accepted_at: datetime
+    question: str = Field(min_length=1)
+    answer: str = Field(min_length=1)
+    history_attribution: PlanEvidenceHistoryAttributionV7 | PlanEvidenceHistoryAttributionV6 | PlanEvidenceHistoryAttributionV5 | PlanEvidenceHistoryAttributionV4 | PlanEvidenceHistoryAttributionV3 | PlanEvidenceHistoryAttributionV2 | PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | MixedHistoryAttributionV1 | None = None
+
+    @model_validator(mode="after")
+    def validate_visible_text(self) -> "CompletedPlanAskPair":
+        if not self.question.strip() or not self.answer.strip():
+            raise ValueError(
+                "completed Plan Ask pairs require visible question and answer"
+            )
+        if isinstance(self.history_attribution, PlanAskHistoryAttributionV1):
+            if (
+                self.history_attribution.source_turn_id != self.source_record_id
+                or self.history_attribution.source_sequence != self.source_sequence
+            ):
+                raise ValueError("Ask history attribution must match its source turn")
+            if (
+                "\n".join(
+                    segment.text for segment in self.history_attribution.answer_segments
+                )
+                != self.answer
+            ):
+                raise ValueError(
+                    "Ask history completion segments must match its answer"
+                )
+        elif isinstance(self.history_attribution, MixedHistoryAttributionV1):
+            self.history_attribution.validate_visible_pair(record_id=self.source_record_id, sequence=self.source_sequence, answer=self.answer)
+        return self
+
+
+class GraphExecutionAccountingV1(StrictModel):
+    kind: Literal["exact_token_count", "conservative_upper_bound"]
+    estimator: str = Field(min_length=1, max_length=128)
+
+
+class GraphExecutionPolicyV1(StrictModel):
+    policy_version: str = Field(min_length=1, max_length=128)
+    allowed_graph_operations: list[str] = Field(max_length=32)
+    max_provider_attempts: int | None = Field(strict=True, ge=1, le=128)
+    max_graph_operations: int | None = Field(strict=True, ge=0, le=512)
+    max_results_per_operation: int = Field(strict=True, ge=0, le=4096)
+    max_total_provider_input_tokens: int | None = Field(strict=True, ge=1)
+    max_total_provider_output_tokens: int | None = Field(strict=True, ge=1)
+    provider_input_accounting: GraphExecutionAccountingV1
+    source_opened: Literal[False]
+
+    @model_validator(mode="after")
+    def validate_policy(self) -> "GraphExecutionPolicyV1":
+        limits = (
+            self.max_provider_attempts, self.max_graph_operations,
+            self.max_total_provider_input_tokens, self.max_total_provider_output_tokens,
+        )
+        if (
+            self.policy_version in {"plan_source_execution_uncapped_v1", "plan_native_execution_uncapped_v1"}
+            and not isinstance(self, PlanSourceExecutionPolicyV1)
+        ):
+            raise ValueError("source execution version requires the typed source policy")
+        uncapped = self.policy_version in {
+            "world_graph_execution_uncapped_v1",
+            "world_graph_execution_selected_scope_uncapped_v1",
+            "plan_source_execution_uncapped_v1", "plan_native_execution_uncapped_v1",
+        }
+        if uncapped and any(limit is not None for limit in limits):
+            raise ValueError("uncapped execution policy requires explicit null limits")
+        token_limits_optional = isinstance(self, NativePlayGraphPolicyV1)
+        if not uncapped and any(limit is None for limit in limits) and not token_limits_optional:
+            raise ValueError("null limits require an explicit uncapped execution policy")
+        if not self.allowed_graph_operations and self.policy_version not in {"plan_source_execution_uncapped_v1", "plan_native_execution_uncapped_v1"}:
+            raise ValueError("Only an explicit source-capable policy can omit Graph operations")
+        if any(not item.strip() for item in self.allowed_graph_operations):
+            raise ValueError("allowed Graph operations cannot be blank")
+        if self.allowed_graph_operations != sorted(set(self.allowed_graph_operations)):
+            raise ValueError("allowed Graph operations must be sorted and unique")
+        if (
+            self.provider_input_accounting.kind == "conservative_upper_bound"
+            and self.provider_input_accounting.estimator
+            != "utf8_json_bytes_plus_64_per_node_v1"
+        ):
+            raise ValueError("unknown conservative provider input estimator")
+        return self
+
+
+class GraphSourceScopeAnchorV2(StrictModel):
+    anchor_id: str = Field(min_length=1, max_length=256)
+    evidence_ref_id: str = Field(min_length=1, max_length=GRAPH_EVIDENCE_REF_ID_MAX_CHARS)
+    source_artifact_id: str = Field(min_length=1, max_length=256)
+    source_revision_id: str = Field(min_length=1, max_length=256)
+
+    @model_validator(mode="after")
+    def validate_pins(self) -> GraphSourceScopeAnchorV2:
+        if any(
+            not value.strip() or value != value.strip()
+            for value in (self.anchor_id, self.evidence_ref_id, self.source_artifact_id, self.source_revision_id)
+        ):
+            raise ValueError("source scope pins must be nonblank and trimmed")
+        return self
+
+
+class GraphSourceReadScopeV2(StrictModel):
+    schema_: Literal["dmb_graph_source_read_scope_v2"] = Field(
+        default="dmb_graph_source_read_scope_v2", alias="schema"
+    )
+    retrieval_session_id: str = Field(min_length=1, max_length=128)
+    world_id: str = Field(min_length=1, max_length=256)
+    campaign_id: str | None = Field(default=None, max_length=256)
+    graph_revision: str = Field(min_length=1, max_length=256)
+    admitted_anchors: list[GraphSourceScopeAnchorV2] = Field(max_length=512)
+
+    @model_validator(mode="after")
+    def validate_scope(self) -> GraphSourceReadScopeV2:
+        if any(
+            not value.strip() or value != value.strip()
+            for value in (self.retrieval_session_id, self.world_id, self.graph_revision)
+        ) or (self.campaign_id is not None and (not self.campaign_id.strip() or self.campaign_id != self.campaign_id.strip())):
+            raise ValueError("source-read scope identifiers must be nonblank and trimmed")
+        ids = [a.anchor_id for a in self.admitted_anchors]
+        if ids != sorted(set(ids)):
+            raise ValueError("source scope anchors must be sorted and unique")
+        return self
+
+
+class GraphSelectedTargetV1(StrictModel):
+    kind: Literal["object", "relationship", "assertion"]
+    target_id: str = Field(min_length=1, max_length=256)
+
+    @model_validator(mode="after")
+    def validate_id(self) -> "GraphSelectedTargetV1":
+        if self.target_id != self.target_id.strip() or any(c in self.target_id for c in "\r\n\t"):
+            raise ValueError("selected target ID must be canonical")
+        return self
+
+
+class GraphSelectedFocusV1(StrictModel):
+    kind: Literal["none", "session"]
+    session_id: str | None
+
+
+class GraphSelectedContextV1(StrictModel):
+    world_id: str = Field(min_length=1, max_length=256)
+    campaign_id: str | None
+    scope_mode: Literal["world", "campaign", "world_cross_campaign"]
+    focus: GraphSelectedFocusV1
+    admissibility: Literal["gm", "player"]
+    revision_id: str = Field(min_length=1, max_length=256)
+
+    @model_validator(mode="after")
+    def validate_context(self) -> "GraphSelectedContextV1":
+        if (self.scope_mode == "campaign") != bool(self.campaign_id):
+            raise ValueError("selected campaign context is invalid")
+        if self.focus.kind == "session":
+            if not self.campaign_id or not self.focus.session_id:
+                raise ValueError("session focus requires campaign and session")
+        elif self.focus.session_id is not None:
+            raise ValueError("none focus cannot carry session")
+        return self
+
+
+class GraphSelectedIndexCommitmentV1(StrictModel):
+    schema_: Literal["dmb_selected_source_anchor_index_commitment_v1"] = Field(default="dmb_selected_source_anchor_index_commitment_v1", alias="schema")
+    context: GraphSelectedContextV1
+    access_context_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    requested_targets: list[GraphSelectedTargetV1] = Field(min_length=1, max_length=8)
+    admitted_targets: list[GraphSelectedTargetV1] = Field(max_length=8)
+    not_visible_targets: list[GraphSelectedTargetV1] = Field(max_length=8)
+    requested_count: int = Field(strict=True, ge=1, le=8)
+    admitted_count: int = Field(strict=True, ge=0, le=8)
+    not_visible_count: int = Field(strict=True, ge=0, le=8)
+    provenance_gap_count: int = Field(strict=True, ge=0)
+    unavailable_binding_count: int = Field(strict=True, ge=0)
+    eligible_count: int = Field(strict=True, ge=0, le=512)
+    max_entries: Literal[512]
+    status: Literal["complete", "unavailable"]
+    index_scope: Literal["selected_targets"]
+    selector_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    index_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_commitment(self) -> "GraphSelectedIndexCommitmentV1":
+        arrays = [self.requested_targets, self.admitted_targets, self.not_visible_targets]
+        keys = [[(target.kind, target.target_id) for target in items] for items in arrays]
+        if any(items != sorted(set(items)) for items in keys):
+            raise ValueError("selected targets must be canonical and unique")
+        requested, admitted, hidden = map(set, keys)
+        if admitted & hidden or admitted | hidden != requested or (
+            self.requested_count, self.admitted_count, self.not_visible_count
+        ) != tuple(len(items) for items in keys):
+            raise ValueError("selected coverage partition is invalid")
+        context = self.context.model_dump(mode="json")
+        if self.access_context_sha256 != _canonical_sha256(context):
+            raise ValueError("selected access context digest changed")
+        selector = {"schema": "dm_selected_source_anchor_selector_v1", "context": context,
+            "max_entries": self.max_entries, "targets": [target.model_dump(mode="json") for target in self.requested_targets]}
+        if self.selector_sha256 != _canonical_sha256(selector):
+            raise ValueError("selected selector digest changed")
+        if (self.status == "complete") != (self.eligible_count > 0):
+            raise ValueError("selected status/count conflict")
+        return self
+
+
+class GraphSelectedSourceReadScopeV2(GraphSourceReadScopeV2):
+    initial_claim_packet_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    selected_index_commitment: GraphSelectedIndexCommitmentV1
+
+    @model_validator(mode="after")
+    def validate_selected_scope(self) -> "GraphSelectedSourceReadScopeV2":
+        commitment = self.selected_index_commitment
+        if self.graph_revision != commitment.context.revision_id or self.campaign_id != commitment.context.campaign_id or len(self.admitted_anchors) != commitment.eligible_count:
+            raise ValueError("selected scope differs from committed context/pins")
+        entries = []
+        for anchor in self.admitted_anchors:
+            item = anchor.model_dump(mode="json")
+            if item["anchor_id"].startswith("source-anchor:v1:"):
+                item["anchor_id"] = "dm-source-anchor:v1:" + item["anchor_id"][len("source-anchor:v1:"):]
+            entries.append(item)
+        index = {"schema": "dm_selected_source_anchor_index_v1", "selector_sha256": commitment.selector_sha256,
+            "status": commitment.status, "admitted_targets": [target.model_dump(mode="json") for target in commitment.admitted_targets],
+            "not_visible_targets": [target.model_dump(mode="json") for target in commitment.not_visible_targets],
+            "provenance_gap_count": commitment.provenance_gap_count, "unavailable_binding_count": commitment.unavailable_binding_count,
+            "eligible_count": commitment.eligible_count, "entries": entries}
+        if commitment.index_sha256 != _canonical_sha256(index):
+            raise ValueError("selected index digest changed")
+        return self
+
+
+class GraphExecutionPolicyV2(GraphExecutionPolicyV1):
+    source_read_scope: GraphSelectedSourceReadScopeV2 | GraphSourceReadScopeV2
+    max_source_read_calls: int = Field(strict=True, ge=0, le=8)
+    max_source_read_anchors: int = Field(strict=True, ge=0, le=8)
+    max_source_read_chars: int = Field(strict=True, ge=0, le=96000)
+    max_chars_per_source_read: int = Field(strict=True, ge=1, le=12000)
+
+    @model_validator(mode="after")
+    def validate_source_budgets(self) -> GraphExecutionPolicyV2:
+        if (self.policy_version in {"plan_world_graph_execution_selected_scope_v1", "world_graph_execution_selected_scope_uncapped_v1"}) != isinstance(self.source_read_scope, GraphSelectedSourceReadScopeV2):
+            raise ValueError("selected execution policy requires the selected scope subtype")
+        if (self.max_source_read_calls == 0) != (self.max_source_read_anchors == 0):
+            raise ValueError("disabled source-read budgets must set call and anchor limits to zero")
+        if (self.max_source_read_calls == 0) != (self.max_source_read_chars == 0):
+            raise ValueError("disabled source-read budgets must set call and character limits to zero")
+        if self.max_source_read_calls > 0 and not self.source_read_scope.admitted_anchors:
+            raise ValueError("enabled source reads require admitted source anchors")
+        return self
+
+
+class GraphExecutionPolicyV3(GraphExecutionPolicyV1):
+    """Initial scope is frozen; traversal admission is recorded in ordered events."""
+    source_read_scope: GraphSelectedSourceReadScopeV2 | GraphSourceReadScopeV2
+    max_source_read_chars: int = Field(strict=True, ge=0, le=96000)
+    max_chars_per_source_read: int = Field(strict=True, ge=1, le=12000)
+
+    @model_validator(mode="after")
+    def validate_selected_scope(self) -> "GraphExecutionPolicyV3":
+        if (self.policy_version in {"plan_world_graph_execution_selected_scope_v1", "world_graph_execution_selected_scope_uncapped_v1"}) != isinstance(self.source_read_scope, GraphSelectedSourceReadScopeV2):
+            raise ValueError("selected execution policy requires the selected scope subtype")
+        return self
+
+
+class SettledGraphExecutionPolicyV3(GraphExecutionPolicyV3):
+    """Explicit receipt settlement; historical policies keep reservation accounting."""
+
+    source_read_accounting: Literal["settled_receipts_v1"]
+
+
+class NativePlayGraphPolicyV1(SettledGraphExecutionPolicyV3):
+    """Native Play attempts/operations remain bounded; token ceilings are optional."""
+    authored_source_context: PlayAuthoredSourceContextV1 | None = Field(default=None, exclude_if=lambda value: value is None)
+    policy_version: Literal["play_world_graph_execution_v1"] = "play_world_graph_execution_v1"
+    max_provider_attempts: Annotated[int, Field(strict=True, ge=1, le=64)]
+    max_graph_operations: Annotated[int, Field(strict=True, ge=0, le=512)]
+    max_total_provider_input_tokens: Annotated[int, Field(strict=True, ge=1)] | None
+    max_total_provider_output_tokens: Annotated[int, Field(strict=True, ge=1)] | None
+
+    @model_validator(mode="after")
+    def world_only(self):
+        if (self.max_total_provider_input_tokens is None) != (self.max_total_provider_output_tokens is None):
+            raise ValueError('Play aggregate token ceilings must be both finite or both absent')
+        if self.source_read_scope.campaign_id is not None:
+            raise ValueError("Native Play source scope must be World-only")
+        return self
+
+
+class GraphProviderRoleTargetV1(StrictModel):
+    """An exact product-selected target; this does not resolve a provider route."""
+
+    provider: str = Field(min_length=1, max_length=128)
+    model: str = Field(min_length=1, max_length=256)
+    api_mode: str = Field(min_length=1, max_length=64)
+
+    @model_validator(mode="after")
+    def validate_identity(self) -> "GraphProviderRoleTargetV1":
+        if any(value != value.strip() or not value.strip()
+               for value in (self.provider, self.model, self.api_mode)):
+            raise ValueError("provider role identities must be nonblank and trimmed")
+        return self
+
+    def identity(self) -> tuple[str, str, str]:
+        return self.provider, self.model, self.api_mode
+
+
+class GraphControllerWriterRolesV1(StrictModel):
+    controller: GraphProviderRoleTargetV1
+    writer: GraphProviderRoleTargetV1
+
+    @model_validator(mode="after")
+    def validate_distinct_roles(self) -> "GraphControllerWriterRolesV1":
+        if self.controller.identity() == self.writer.identity():
+            raise ValueError("controller and writer require distinct provider role identities")
+        return self
+
+
+class ControllerWriterGraphExecutionPolicyV3(SettledGraphExecutionPolicyV3):
+    """One writer authorization after controller-owned acquisition.
+
+    No fixed controller call allowance is introduced. A known-not-sent writer
+    still consumes its sole authorization; the product fails the turn rather
+    than automatically requesting another attempt.
+    """
+
+    provider_roles: GraphControllerWriterRolesV1
+
+
+class PlanJevRetrievalPolicyV1(ControllerWriterGraphExecutionPolicyV3):
+    """Plan-owned semantic-only retrieval decisions, followed by one writer."""
+    driver_schema: Literal["dmb_plan_jev_retrieval_v1"]
+
+    @model_validator(mode="after")
+    def exact_decision_controller(self):
+        if self.provider_roles.controller.identity() != ("typesafe", "jev-1.14.0", "decision"):
+            raise ValueError("Plan retrieval requires the exact Jev decision controller")
+        return self
+
+
+class PlanNativeSourceSectionsPolicyV1(PlanJevRetrievalPolicyV1):
+    native_source_section_policy: Literal["exact_native_source_sections_v1"]
+
+
+class PlanAuthoringPolicyV1(PlanNativeSourceSectionsPolicyV1):
+    """A semantic destination decision precedes all Plan retrieval or writing."""
+    requested_work_policy: Literal['semantic_plan_destination_v1']
+    plan_authoring_capture_sha256: str | None = Field(default=None, pattern=r'^[a-f0-9]{64}$')
+
+
+class PlayNativeSourceSectionsPolicyV1(NativePlayGraphPolicyV1):
+    native_source_section_policy: Literal["exact_native_source_sections_v1"]
+
+
+class PlanCorpusSourceSectionsPolicyV1(PlanNativeSourceSectionsPolicyV1):
+    corpus_source_policy: Literal["registered_corpus_sections_v1"]
+
+
+class PlanCorpusAuthoringPolicyV1(PlanAuthoringPolicyV1):
+    corpus_source_policy: Literal["registered_corpus_sections_v1"]
+
+
+class PlanPlacementAuthoringPolicyV1(PlanCorpusAuthoringPolicyV1):
+    requested_work_policy: Literal['semantic_plan_placement_v1']
+    placement_catalog_sha256: str | None = Field(pattern=r'^[a-f0-9]{64}$')
+
+    @model_validator(mode="after")
+    def exact_placement_catalog(self):
+        if (self.placement_catalog_sha256 is None) != (self.plan_authoring_capture_sha256 is None):
+            raise ValueError('Plan placement policy requires its original capture and catalog together')
+        return self
+
+
+class PlanSourceExecutionPolicyV1(PlanPlacementAuthoringPolicyV1):
+    """Shared Plan provider lifecycle with an explicitly optional Graph scope."""
+    policy_version: Literal["plan_source_execution_uncapped_v1"] = "plan_source_execution_uncapped_v1"
+    driver_schema: Literal["dmb_plan_source_jev_retrieval_v1"] = "dmb_plan_source_jev_retrieval_v1"
+    corpus_source_policy: Literal["native_admitted_body_sections_v1"] = "native_admitted_body_sections_v1"
+    source_read_scope: GraphSelectedSourceReadScopeV2 | GraphSourceReadScopeV2 | None
+    source_authority_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    allowed_graph_operations: list[str] = Field(max_length=32)
+
+    @model_validator(mode="after")
+    def validate_selected_scope(self):
+        # A genuine Graph capability supplies its independently validated scope;
+        # absence is explicit and never encoded as a native-R Graph scope.
+        if self.source_read_scope is None and self.allowed_graph_operations:
+            raise ValueError("Graph operations require an actual Graph capability scope")
+        if self.source_read_scope is not None and not self.allowed_graph_operations:
+            raise ValueError("An actual Graph scope requires its admitted operations")
+        return self
+
+
+class PlayCorpusSourceSectionsPolicyV1(PlayNativeSourceSectionsPolicyV1):
+    corpus_source_policy: Literal["registered_corpus_sections_v1"]
+
+
+class BuildSectionControllerWriterPolicyV1(ControllerWriterGraphExecutionPolicyV3):
+    saved_source_input_policy: Literal["selected_saved_build_sections_v1"]
+
+
+class BuildActionControllerWriterPolicyV1(BuildSectionControllerWriterPolicyV1):
+    driver_schema: Literal["dmb_build_jev_actions_v1"]
+    action_capability_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    allowed_surface_operations: list[Literal["answer_from_sources", "propose_build_insertion"]] = Field(min_length=1, max_length=2)
+
+    @model_validator(mode="after")
+    def validate_operations(self):
+        if (self.allowed_surface_operations != sorted(set(self.allowed_surface_operations))
+                or "answer_from_sources" not in self.allowed_surface_operations
+                or ("propose_build_insertion" in self.allowed_surface_operations) != (self.action_capability_sha256 is not None)):
+            raise ValueError("Offered Build operations must match the frozen editor capability")
+        return self
+
+
+class BuildCompactActionControllerWriterPolicyV1(BuildActionControllerWriterPolicyV1):
+    initial_packet_codec: Literal["dmb_build_initial_packet_table_v1"]
+
+
+class BuildContinuationActionControllerWriterPolicyV1(BuildCompactActionControllerWriterPolicyV1):
+    controller_input_policy: Literal["receipt_bound_factored_controller_v1"]
+
+
+class BuildFrontierActionControllerWriterPolicyV1(BuildContinuationActionControllerWriterPolicyV1):
+    frontier_policy: Literal["evidence_bound_deferred_frontier_v1"]
+
+
+class BuildPhaseActionControllerWriterPolicyV1(BuildFrontierActionControllerWriterPolicyV1):
+    phase_input_policy: Literal["role_separated_controller_inputs_v1"]
+
+
+class BuildControllerContinuationAccountingV1(StrictModel):
+    """Empirical controller admission; role policy selects initial use, never a guarantee."""
+
+    policy: Literal["o200k_double_plus_4096_experimental_v1"]
+    tokenizer: Literal["tiktoken"]
+    tokenizer_version: str = Field(min_length=1, max_length=128)
+    encoding: Literal["o200k_base"]
+    multiplier: Literal[2]
+    reserve: Literal[4096]
+    raw_wire_limit_bytes: Literal[256_000]
+    question_limit_tokens: Literal[32_000]
+    request_limit_tokens: Literal[64_000]
+    guaranteed_upper_bound: Literal[False]
+
+
+class BuildControllerContinuationAccountingV2(BuildControllerContinuationAccountingV1):
+    policy: Literal["o200k_double_plus_4096_adaptive_context_v2"]
+    long_question_limit_tokens: Literal[262_000]
+    long_request_limit_tokens: Literal[262_000]
+    context_selection_policy: Literal["build_navigate_assess_if_default_exceeded_v1"]
+
+
+class BuildControllerContinuationAccountingV3(BuildControllerContinuationAccountingV2):
+    policy: Literal["o200k_double_plus_4096_adaptive_context_v3"]
+    context_selection_policy: Literal["build_acquisition_selection_if_default_exceeded_v2"]
+
+
+class BuildControllerContinuationAccountingV4(BuildControllerContinuationAccountingV3):
+    """Token-based admission; older descriptors retain their frozen byte bounds."""
+
+    policy: Literal["o200k_double_plus_4096_adaptive_context_v4"]
+    raw_wire_limit_bytes: None
+
+
+class BuildEstimatedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
+    controller_continuation_accounting: BuildControllerContinuationAccountingV4 | BuildControllerContinuationAccountingV3 | BuildControllerContinuationAccountingV2 | BuildControllerContinuationAccountingV1
+
+
+class BuildJointSupportActionControllerWriterPolicyV1(BuildEstimatedActionControllerWriterPolicyV1):
+    support_policy: Literal["combined_relevant_evidence_support_v1"]
+
+
+class BuildWriterContextBudgetV1(StrictModel):
+    schema_: Literal["dmb_build_writer_context_budget_v1"] = Field(alias="schema")
+    provider: Literal["openai"]
+    model: Literal["gpt-6-luna", "gpt-6.1-sol"]
+    api_mode: Literal["responses"]
+    estimator: Literal["utf8_json_bytes_plus_64_per_node_v1"]
+    context_limit_tokens: Literal[128_000]
+    max_request_bytes: Literal[128_000]
+    output_reserve_tokens: Literal[4096]
+
+    def identity(self):
+        return self.provider, self.model, self.api_mode
+
+
+class BuildWriterBudgetActionControllerWriterPolicyV1(BuildJointSupportActionControllerWriterPolicyV1):
+    writer_context_budget: BuildWriterContextBudgetV1
+
+    @model_validator(mode="after")
+    def validate_writer_budget_role(self):
+        if self.provider_roles.writer.identity() != self.writer_context_budget.identity():
+            raise ValueError("writer budget requires its exact frozen provider role")
+        return self
+
+
+class BuildReadBatchActionControllerWriterPolicyV1(BuildWriterBudgetActionControllerWriterPolicyV1):
+    acquisition_policy: Literal["jointly_judged_independent_reads_v1"]
+
+
+class BuildCitedSourceActionControllerWriterPolicyV1(BuildReadBatchActionControllerWriterPolicyV1):
+    source_writer_output_policy: Literal["cited_facts_host_limitations_v1"]
+
+
+class BuildSelectedSourceActionControllerWriterPolicyV1(BuildCitedSourceActionControllerWriterPolicyV1):
+    writer_selection_policy: Literal["source_unit_selection_event_closure_v1"]
+
+
+class BuildInitialEstimatedSelectedSourcePolicyV1(BuildSelectedSourceActionControllerWriterPolicyV1):
+    controller_initial_accounting: BuildControllerContinuationAccountingV4 | BuildControllerContinuationAccountingV3 | BuildControllerContinuationAccountingV2 | BuildControllerContinuationAccountingV1
+
+    @model_validator(mode="after")
+    def validate_initial_accounting(self):
+        if self.controller_initial_accounting != self.controller_continuation_accounting:
+            raise ValueError("initial controller accounting differs from continuation accounting")
+        return self
+
+
+class BuildEncodedAssessmentPolicyV1(BuildInitialEstimatedSelectedSourcePolicyV1):
+    assessment_codec: Literal["lossless_assessment_columns_v1"]
+
+
+class BuildImageActionPolicyV1(BuildEncodedAssessmentPolicyV1):
+    image_preparation_policy: Literal["captured_build_image_prompt_alt_v1", "captured_build_image_prompt_alt_purpose_v2"]
+    image_preparation_schema_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    allowed_surface_operations: list[Literal["answer_from_sources", "prepare_build_image", "propose_build_insertion"]] = Field(min_length=1, max_length=3)
+
+    @model_validator(mode="after")
+    def validate_image_capability(self):
+        if ("prepare_build_image" in self.allowed_surface_operations) != (self.action_capability_sha256 is not None):
+            raise ValueError("Image preparation requires the captured editor capability")
+        return self
+
+
+class BuildPrimaryWorkPolicyV1(BuildEncodedAssessmentPolicyV1):
+    primary_work_context_policy: Literal["exact_acquired_primary_work_context_v1"]
+
+
+class BuildPrimaryWorkImagePolicyV1(BuildImageActionPolicyV1):
+    primary_work_context_policy: Literal["exact_acquired_primary_work_context_v1"]
+
+
+class BuildPrimaryWorkStatusPolicyV1(BuildPrimaryWorkPolicyV1):
+    writer_status_policy: Literal["host_retrieval_status_finite_output_v1"]
+
+
+class BuildPrimaryWorkStatusImagePolicyV1(BuildPrimaryWorkImagePolicyV1):
+    writer_status_policy: Literal["host_retrieval_status_finite_output_v1"]
+
+
+class BuildWorldContextPolicyV1(BuildPrimaryWorkStatusPolicyV1):
+    world_context_policy: Literal["build_world_opened_source_context_v1"]
+
+
+class BuildWorldContextImagePolicyV1(BuildPrimaryWorkStatusImagePolicyV1):
+    world_context_policy: Literal["build_world_opened_source_context_v1"]
+
+
+class BuildNamedWorldContextPolicyV1(BuildWorldContextPolicyV1):
+    source_citation_names_policy: Literal["build_verified_source_names_v1"]
+
+
+class BuildNamedWorldContextImagePolicyV1(BuildWorldContextImagePolicyV1):
+    source_citation_names_policy: Literal["build_verified_source_names_v1"]
+
+
+class BuildContainedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
+    evidence_codec: Literal["contained_passage_slices_v1"]
+
+
+class BuildDraftWorldContextPolicyV1(BuildNamedWorldContextPolicyV1):
+    # Exact frozen literal versions semantics without changing historical digests.
+    primary_work_context_policy: Literal["exact_acquired_primary_work_context_v1", "selected_saved_work_with_full_draft_v2"]
+    working_draft_context_policy: Literal["captured_build_working_draft_context_v1"]
+    working_draft_snapshot_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    working_draft_context_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class BuildDraftWorldContextImagePolicyV1(BuildNamedWorldContextImagePolicyV1):
+    # Exact frozen literal versions semantics without changing historical digests.
+    primary_work_context_policy: Literal["exact_acquired_primary_work_context_v1", "selected_saved_work_with_full_draft_v2"]
+    working_draft_context_policy: Literal["captured_build_working_draft_context_v1"]
+    working_draft_snapshot_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    working_draft_context_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class BuildExactSavedLinesDraftPolicyV1(BuildDraftWorldContextPolicyV1):
+    saved_section_read_policy: Literal["exact_saved_lines_provider_capacity_v1"]
+    saved_source_char_count: int = Field(strict=True, ge=0)
+
+
+class BuildExactSavedLinesDraftImagePolicyV1(BuildDraftWorldContextImagePolicyV1):
+    saved_section_read_policy: Literal["exact_saved_lines_provider_capacity_v1"]
+    saved_source_char_count: int = Field(strict=True, ge=0)
+
+
+class BuildRelatedPageDraftPolicyV1(BuildExactSavedLinesDraftPolicyV1):
+    related_page_context_policy: Literal["selected_exact_related_authored_pages_v1"]
+    related_page_catalog: list[PagePointer]
+
+
+class BuildRelatedPageDraftImagePolicyV1(BuildExactSavedLinesDraftImagePolicyV1):
+    related_page_context_policy: Literal["selected_exact_related_authored_pages_v1"]
+    related_page_catalog: list[PagePointer]
+
+
+class BuildCollaborationPolicyV1(BuildRelatedPageDraftPolicyV1):
+    collaboration_output_policy: Literal["typed_author_review_collaboration_v1"]
+
+
+class BuildCollaborationImagePolicyV1(BuildRelatedPageDraftImagePolicyV1):
+    collaboration_output_policy: Literal["typed_author_review_collaboration_v1"]
+
+
+class BuildConnectedPageReviewPolicyV1(BuildCollaborationPolicyV1):
+    connected_page_review_policy: Literal["typed_connected_page_review_v1"]
+
+
+class BuildConnectedPageReviewImagePolicyV1(BuildCollaborationImagePolicyV1):
+    connected_page_review_policy: Literal["typed_connected_page_review_v1"]
+
+
+class BuildSourceQuotePolicyV1(BuildConnectedPageReviewPolicyV1):
+    source_quote_binding_policy: Literal["exact_source_quote_binding_v1", "layout_whitespace_source_quote_binding_v2"]
+
+
+class BuildSourceQuoteImagePolicyV1(BuildConnectedPageReviewImagePolicyV1):
+    source_quote_binding_policy: Literal["exact_source_quote_binding_v1", "layout_whitespace_source_quote_binding_v2"]
+
+
+class BuildRelationshipReviewPolicyV1(BuildSourceQuotePolicyV1):
+    relationship_review_policy: Literal["typed_saved_relationship_review_v1"]
+
+
+class BuildRelationshipReviewImagePolicyV1(BuildSourceQuoteImagePolicyV1):
+    relationship_review_policy: Literal["typed_saved_relationship_review_v1"]
+
+
+class _IntentionalResponseFields(StrictModel):
+    intentional_response_policy: Literal['build_intentional_response_v2']
+    requested_work_menu_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    response_resolver_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    response_capabilities_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    plan_surface_available: bool = Field(strict=True)
+
+    @model_validator(mode='after')
+    def frozen_response_contract(self):
+        from .build_intentional_response import resolution_for
+        resolution_for(self, 'discuss')
+        return self
+
+
+class BuildIntentionalResponsePolicyV2(BuildRelationshipReviewPolicyV1, _IntentionalResponseFields):
+    pass
+
+
+class BuildIntentionalResponseImagePolicyV2(BuildRelationshipReviewImagePolicyV1, _IntentionalResponseFields):
+    pass
+
+
+class BuildIntentionalResponseSourcePolicyV2(BuildNamedWorldContextPolicyV1, _IntentionalResponseFields):
+    pass
+
+
+class BuildIntentionalResponseSourceImagePolicyV2(BuildNamedWorldContextImagePolicyV1, _IntentionalResponseFields):
+    pass
+
+
+class _AuthoredGraphReferenceFields(StrictModel):
+    authored_graph_reference_policy: Literal["authored_graph_reference_context_v1"]
+    authored_graph_references_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class AuthoredBuildCollaborationPolicyV1(BuildCollaborationPolicyV1, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildCollaborationImagePolicyV1(BuildCollaborationImagePolicyV1, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildConnectedPageReviewPolicyV1(BuildConnectedPageReviewPolicyV1, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildConnectedPageReviewImagePolicyV1(BuildConnectedPageReviewImagePolicyV1, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildSourceQuotePolicyV1(BuildSourceQuotePolicyV1, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildSourceQuoteImagePolicyV1(BuildSourceQuoteImagePolicyV1, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildRelationshipReviewPolicyV1(BuildRelationshipReviewPolicyV1, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildRelationshipReviewImagePolicyV1(BuildRelationshipReviewImagePolicyV1, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildIntentionalResponsePolicyV2(BuildIntentionalResponsePolicyV2, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildIntentionalResponseImagePolicyV2(BuildIntentionalResponseImagePolicyV2, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildIntentionalResponseSourcePolicyV2(BuildIntentionalResponseSourcePolicyV2, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildIntentionalResponseSourceImagePolicyV2(BuildIntentionalResponseSourceImagePolicyV2, _AuthoredGraphReferenceFields):
+    pass
+
+
+class GraphExecutionEventBaseV1(StrictModel):
+    event_id: UUID
+    sequence: int = Field(strict=True, ge=0, le=2047)
+    kind: str
+
+
+class BuildAuthoredReferencesCapturedV1(GraphExecutionEventBaseV1):
+    kind: Literal['build_authored_references_captured_v1']
+    references: AuthoredReferenceInput
+    read_graph_revision: str
+    turn_id: UUID
+    conversation_id: UUID
+    attempt: int = Field(strict=True, ge=1)
+    submitted_intent_fingerprint: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+
+class BuildAuthoredReferenceAuthorizedV1(GraphExecutionEventBaseV1):
+    kind: Literal['build_authored_reference_authorized_v1']
+    capture_event_id: UUID
+    node_id: str
+    arguments_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+
+class BuildAuthoredReferenceReadV1(GraphExecutionEventBaseV1):
+    kind: Literal['build_authored_reference_read_v1']
+    capture_event_id: UUID
+    authorization_event_id: UUID
+    node_id: str
+    operation_event_ids: list[UUID]
+    source_read_event_ids: list[UUID]
+    returned_node_ids: list[str]
+    outcome: Literal['read', 'read_partial', 'source_gap']
+
+
+class BuildAuthoredProviderInclusionV1(GraphExecutionEventBaseV1):
+    kind: Literal['build_authored_provider_inclusion_v1']
+    capture_event_id: UUID
+    references_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    source_read_event_ids: list[UUID]
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    material_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+
+class BuildDraftContextCapturedV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_draft_context_captured_v1"]
+    record: BuildDraftContextRecordV1
+
+
+class BuildDraftProviderInclusionV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_draft_provider_inclusion_v1"]
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    draft_event_id: UUID
+    snapshot_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class ValidatedGraphOperationEventV1(GraphExecutionEventBaseV1):
+    kind: Literal["validated_graph_operation"]
+    operation_id: UUID
+    operation: str = Field(min_length=1, max_length=128)
+    request_arguments_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    graph_revision: str = Field(min_length=1, max_length=256)
+    result_packet_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    assertion_ids: list[str] = Field(max_length=512)
+    relationship_ids: list[str] = Field(max_length=512)
+    discovery_relationship_ids: list[str] = Field(default_factory=list, max_length=512, exclude_if=lambda value: not value)
+    neighborhood_replay: NeighborhoodReplay | None = Field(default=None, exclude_if=lambda value: value is None)
+    evidence_ref_ids: list[str] = Field(max_length=1024)
+    evidence_sufficiency_status: Literal["sufficient", "insufficient"]
+    coverage_status: Literal["complete", "incomplete"]
+    truncated: bool
+    source_opened: Literal[False]
+
+    @model_validator(mode="after")
+    def validate_ids(self) -> "ValidatedGraphOperationEventV1":
+        for name in ("assertion_ids", "relationship_ids", "evidence_ref_ids"):
+            values = getattr(self, name)
+            if any(not value.strip() for value in values) or values != sorted(set(values)):
+                raise ValueError(f"{name} must be nonblank, sorted, and unique")
+        discovery = self.discovery_relationship_ids
+        if len(set(discovery)) != len(discovery) or not set(discovery).issubset(self.relationship_ids):
+            raise ValueError("discovery edges must be unique returned relationships")
+        if self.neighborhood_replay is not None and (
+            [hop.relationship_id for hop in self.neighborhood_replay.hops] != discovery
+            or (self.neighborhood_replay.object_limit_pruned_count > 0 and not self.truncated)
+        ):
+            raise ValueError("neighborhood provenance differs from operation bounds")
+        return self
+
+
+class ValidatedGraphOperationEventV3(ValidatedGraphOperationEventV1):
+    kind: Literal["validated_graph_operation_v3"]
+    returned_source_pins: list[GraphSourceScopeAnchorV2] = Field(max_length=2048)
+
+    @model_validator(mode="after")
+    def validate_source_pins(self) -> "ValidatedGraphOperationEventV3":
+        ids = [pin.anchor_id for pin in self.returned_source_pins]
+        if ids != sorted(set(ids)):
+            raise ValueError("returned source pins must be sorted and unique")
+        if any(pin.evidence_ref_id not in self.evidence_ref_ids for pin in self.returned_source_pins):
+            raise ValueError("returned source pins require operation evidence")
+        return self
+
+
+class NativeSourceNavigationAuthorizedV1(GraphExecutionEventBaseV1):
+    kind: Literal["native_source_navigation_authorized_v1"]
+    navigation_id: UUID
+    provider_attempt_id: UUID
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    world_id: str
+    native_world_id: str
+    binding_version: int = Field(strict=True, ge=1)
+    origin_proof_json: str
+    origin_proof_sha256: Digest
+
+    @model_validator(mode="after")
+    def validate_origin_proof(self):
+        from .native_source_navigation import origin_payload
+        origin_payload(self)
+        return self
+
+
+class CorpusSourceSearchAuthorizedV1(GraphExecutionEventBaseV1):
+    kind: Literal["corpus_source_search_authorized_v1"]
+    search_id: UUID
+    provider_attempt_id: UUID
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    world_id: str
+    native_world_id: str
+    binding_version: int = Field(strict=True, ge=1)
+    conversation_id: UUID
+    turn_id: UUID
+    attempt: int = Field(strict=True, ge=1)
+    action_handle: str
+    query_sha256: Digest
+    query_terms: list[str]
+    source_view_json: str
+    source_view_sha256: Digest
+
+    @model_validator(mode="after")
+    def exact_view(self):
+        from .corpus_source_search import view
+        view(self)
+        if not self.query_terms or self.query_terms != sorted(set(self.query_terms)):
+            raise ValueError("Corpus query requires exact sorted lexical terms")
+        return self
+
+
+class CorpusSourceSectionMatchV1(StrictModel):
+    catalog_event_id: UUID
+    section_id: Digest
+    matched_terms: list[str]
+
+
+class CorpusSourceSearchObservedV1(GraphExecutionEventBaseV1):
+    kind: Literal["corpus_source_search_observed_v1"]
+    search_id: UUID
+    query_sha256: Digest
+    source_view_sha256: Digest
+    catalog_event_ids: list[UUID]
+    matches: list[CorpusSourceSectionMatchV1]
+    coverage: Literal["enumerated_membership_scanned", "partial"]
+    failure_code: str | None
+
+
+class NativeSourceNavigationAuthorizedV2(NativeSourceNavigationAuthorizedV1):
+    """Registry-origin grant; never an admitted Graph donor."""
+    kind: Literal["native_source_navigation_authorized_v2"]
+
+
+class NativeSourceSectionDescriptorV1(StrictModel):
+    section_id: Digest
+    label: str = Field(min_length=1)
+    line_start: int = Field(strict=True, ge=1)
+    line_end: int = Field(strict=True, ge=1)
+    char_start: int = Field(strict=True, ge=0)
+    char_end: int = Field(strict=True, ge=1)
+
+    @model_validator(mode="after")
+    def exact_range(self):
+        if self.line_end < self.line_start or self.char_end <= self.char_start:
+            raise ValueError("Native section range is invalid")
+        return self
+
+
+class NativeSourceCatalogObservedV1(GraphExecutionEventBaseV1):
+    kind: Literal["native_source_catalog_observed_v1"]
+    navigation_id: UUID
+    source_artifact_id: str
+    native_source_revision_id: str
+    content_sha256: Digest
+    app_source_revision_id: UUID | None
+    selector_policy: Literal["markdown_sections_v1"]
+    outcome: Literal["complete", "unavailable"]
+    failure_code: str | None
+    sections: list[NativeSourceSectionDescriptorV1]
+    catalog_sha256: Digest
+    lineage_sha256: Digest | None
+    observed_body_sha256: Digest | None
+    body_read_bytes: int = Field(strict=True, ge=0)
+    body_read_chars: int = Field(strict=True, ge=0)
+    body_read_elapsed_ms: int = Field(strict=True, ge=0)
+    catalog_elapsed_ms: int = Field(strict=True, ge=0)
+
+    @model_validator(mode="after")
+    def exact_catalog(self):
+        from .native_source_catalog import validate_catalog_record
+        validate_catalog_record(self)
+        return self
+
+
+class NativeSourceSectionAuthorizedV1(GraphExecutionEventBaseV1):
+    kind: Literal["native_source_section_authorized_v1"]
+    read_id: UUID
+    provider_attempt_id: UUID
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    catalog_event_id: UUID
+    catalog_sha256: Digest
+    section: NativeSourceSectionDescriptorV1
+    authorized_chars: int = Field(strict=True, ge=1)
+
+
+class NativeSourceSectionObservedV1(GraphExecutionEventBaseV1):
+    kind: Literal["native_source_section_observed_v1"]
+    read_id: UUID
+    authorization_event_id: UUID
+    catalog_event_id: UUID
+    source_artifact_id: str
+    native_source_revision_id: str
+    app_source_revision_id: UUID
+    content_sha256: Digest
+    section: NativeSourceSectionDescriptorV1
+    outcome: Literal["complete", "unavailable"]
+    failure_code: Literal["source_material_unavailable", "source_material_mismatch", "empty_section"] | None
+    text: str | None
+    excerpt_sha256: Digest | None
+    returned_chars: int = Field(strict=True, ge=0)
+    fresh_body_read_bytes: Literal[0]
+    extraction_elapsed_ms: int = Field(strict=True, ge=0)
+
+    @model_validator(mode="after")
+    def exact_excerpt(self):
+        if self.outcome == "complete":
+            if (not isinstance(self.text, str) or not self.text.strip() or self.failure_code is not None
+                    or self.returned_chars != len(self.text)
+                    or self.returned_chars != self.section.char_end-self.section.char_start
+                    or hashlib.sha256(self.text.encode("utf-8")).hexdigest() != self.excerpt_sha256):
+                raise ValueError("Native section requires exact complete excerpt bytes")
+        elif (self.text is not None or self.excerpt_sha256 is not None or self.returned_chars != 0
+                or self.failure_code is None):
+            raise ValueError("Unavailable section cannot carry evidence bytes")
+        return self
+
+
+class NativeSourceSectionObservedV2(NativeSourceSectionObservedV1):
+    """An explicit selected read may reacquire exact registry source material."""
+    kind: Literal["native_source_section_observed_v2"]
+    fresh_body_read_bytes: int = Field(strict=True, ge=0)
+    material_failure_code: str | None
+
+
+class NativeSourceProviderInclusionV1(GraphExecutionEventBaseV1):
+    kind: Literal["native_source_provider_inclusion_v1"]
+    provider_attempt_id: UUID
+    envelope_sha256: Digest
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    read_event_ids: list[UUID] = Field(min_length=1)
+    frame_sha256: Digest
+    selected_chars: int = Field(strict=True, ge=1)
+
+    @model_validator(mode="after")
+    def unique_reads(self):
+        if self.read_event_ids != sorted(set(self.read_event_ids), key=str):
+            raise ValueError("Native source inclusion read IDs must be sorted and unique")
+        return self
+
+
+class SourceScopeExtensionEventV3(GraphExecutionEventBaseV1):
+    kind: Literal["source_scope_extension_v3"]
+    origin_graph_event_id: UUID
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    execution_policy_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    world_id: str = Field(min_length=1, max_length=256)
+    native_world_id: str = Field(min_length=1, max_length=256)
+    binding_version: int = Field(strict=True, ge=1)
+    campaign_id: str | None = Field(default=None, max_length=256)
+    graph_revision: str = Field(min_length=1, max_length=256)
+    retrieval_session_id: str = Field(min_length=1, max_length=128)
+    pins: list[GraphSourceScopeAnchorV2] = Field(min_length=1, max_length=2048)
+
+    @model_validator(mode="after")
+    def validate_pins(self) -> "SourceScopeExtensionEventV3":
+        ids = [pin.anchor_id for pin in self.pins]
+        if ids != sorted(set(ids)):
+            raise ValueError("extension pins must be sorted and unique")
+        return self
+
+
+class ProviderAttemptAuthorizedEventV1(GraphExecutionEventBaseV1):
+    kind: Literal["provider_attempt_authorized"]
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    serializer_version: Literal["canonical-json-utf8-v1", "typesafe-sdk-json-v1", "openai-sdk-json-v1"]
+    provider: str = Field(min_length=1, max_length=128)
+    model: str = Field(min_length=1, max_length=256)
+    api_mode: str = Field(min_length=1, max_length=64)
+    tool_schema_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    input_accounting_kind: Literal["exact_token_count", "conservative_upper_bound", "estimated_token_count"]
+    input_estimator: str = Field(min_length=1, max_length=128)
+    input_tokens: int = Field(strict=True, ge=0)
+    output_token_reserve: int = Field(strict=True, ge=0)
+    included_assertion_ids: list[str] = Field(max_length=512)
+    included_relationship_ids: list[str] = Field(max_length=512)
+    included_evidence_ref_ids: list[str] = Field(max_length=1024)
+    included_graph_event_ids: list[UUID] = Field(max_length=512)
+
+    @model_validator(mode="after")
+    def validate_included_ids(self) -> "ProviderAttemptAuthorizedEventV1":
+        for name in ("included_assertion_ids", "included_relationship_ids", "included_evidence_ref_ids"):
+            values = getattr(self, name)
+            if any(not value.strip() for value in values) or values != sorted(set(values)):
+                raise ValueError(f"{name} must be nonblank, sorted, and unique")
+        if len(set(self.included_graph_event_ids)) != len(self.included_graph_event_ids):
+            raise ValueError("included Graph event IDs must be unique")
+        return self
+
+
+class ProviderOutcomeEventV1(GraphExecutionEventBaseV1):
+    kind: Literal["provider_outcome"]
+    provider_attempt_id: UUID
+    outcome: Literal["sdk_entered", "response_received", "known_not_sent", "outcome_unknown"]
+    status_code: int | None = Field(default=None, strict=True, ge=100, le=599)
+    request_id: str | None = Field(default=None, max_length=256)
+    response_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+class PlaySourceProviderInclusionV1(GraphExecutionEventBaseV1):
+    """Native Play-only owner witness, never raw source text or model metadata."""
+    kind: Literal["play_source_provider_inclusion_v1"]
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    provider_attempt_id: UUID
+    envelope_sha256: Digest
+    source_frame_sha256: Digest
+    source_ids: Annotated[list[Annotated[str, Field(pattern=r"^play-source:[a-f0-9]{64}$")]], Field(max_length=2)]
+
+    @model_validator(mode="after")
+    def exact_sources(self):
+        if self.source_ids != sorted(set(self.source_ids)):
+            raise ValueError("Play inclusion source handles must be sorted and unique")
+        return self
+
+
+class CompletionBindingEventV1(GraphExecutionEventBaseV1):
+    kind: Literal["completion_binding"]
+    provider_attempt_id: UUID
+    completion_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    claim_graph_event_ids: dict[str, list[UUID]] = Field(max_length=256)
+
+
+class SourceReadAuthorizationEventV2(GraphExecutionEventBaseV1):
+    kind: Literal["source_read_authorized_v2"]
+    read_call_id: UUID
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    execution_policy_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    retrieval_session_id: str = Field(min_length=1, max_length=128)
+    world_id: str = Field(min_length=1, max_length=256)
+    campaign_id: str | None = Field(default=None, max_length=256)
+    graph_revision: str = Field(min_length=1, max_length=256)
+    anchors: list[GraphSourceScopeAnchorV2] = Field(min_length=1, max_length=8)
+    max_chars: int = Field(strict=True, ge=1, le=12000)
+
+    @model_validator(mode="after")
+    def validate_context_ids(self) -> SourceReadAuthorizationEventV2:
+        if any(
+            not value.strip() or value != value.strip()
+            for value in (self.retrieval_session_id, self.world_id, self.graph_revision)
+        ) or (self.campaign_id is not None and (not self.campaign_id.strip() or self.campaign_id != self.campaign_id.strip())):
+            raise ValueError("source-read authorization identifiers must be nonblank and trimmed")
+        return self
+
+
+class SourceReadAnchorReceiptV2(StrictModel):
+    source_read_id: str = Field(min_length=1, max_length=128)
+    anchor_id: str = Field(min_length=1, max_length=256)
+    evidence_ref_id: str = Field(min_length=1, max_length=GRAPH_EVIDENCE_REF_ID_MAX_CHARS)
+    source_artifact_id: str = Field(min_length=1, max_length=256)
+    source_revision_id: str | None = Field(default=None, max_length=256)
+    outcome: Literal["enough", "partial", "empty", "denied", "truncated", "unavailable"]
+    content_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    line_start: int | None = Field(default=None, strict=True, ge=1)
+    line_end: int | None = Field(default=None, strict=True, ge=1)
+    returned_chars: int = Field(strict=True, ge=0, le=12000)
+    truncated: bool
+    evidence_sufficiency_status: Literal["sufficient", "insufficient"]
+
+    @model_validator(mode="after")
+    def validate_content(self) -> SourceReadAnchorReceiptV2:
+        if any(
+            not value.strip() or value != value.strip()
+            for value in (self.source_read_id, self.anchor_id, self.evidence_ref_id, self.source_artifact_id)
+        ) or (self.source_revision_id is not None and (not self.source_revision_id.strip() or self.source_revision_id != self.source_revision_id.strip())):
+            raise ValueError("source-read receipt identifiers must be nonblank and trimmed")
+        if (self.line_start is None) != (self.line_end is None):
+            raise ValueError("source-read line bounds must be supplied together")
+        if self.line_start is not None and self.line_end < self.line_start:
+            raise ValueError("source-read line range is reversed")
+        has_content = self.returned_chars > 0
+        if has_content != (self.content_sha256 is not None):
+            raise ValueError("source-read content length and digest must agree")
+        if has_content and self.source_revision_id is None:
+            raise ValueError("content-bearing source reads require the trusted source revision")
+        if not has_content and self.outcome == "enough":
+            raise ValueError("enough source-read outcome requires returned content")
+        if has_content and self.outcome in {"empty", "denied", "unavailable"}:
+            raise ValueError("failed source-read outcomes cannot carry content")
+        if self.outcome == "truncated" and not self.truncated:
+            raise ValueError("truncated outcome must carry the truncation marker")
+        return self
+
+
+class ValidatedSourceReadEventV2(GraphExecutionEventBaseV1):
+    kind: Literal["validated_source_read_v2"]
+    read_call_id: UUID
+    receipts: list[SourceReadAnchorReceiptV2] = Field(min_length=1, max_length=MAX_RECEIPTS_PER_SOURCE_READ_EVENT)
+
+
+class SourcePassageReuseEventV1(GraphExecutionEventBaseV1):
+    """Current admission of an original read; never a new corpus IO receipt."""
+    kind: Literal["source_passage_reused_v1"]
+    reuse_request_id: UUID
+    request_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    request_turn_revision: int = Field(strict=True, ge=1)
+    origin_turn_id: UUID
+    origin_attempt: int = Field(strict=True, ge=1)
+    origin_read_event_id: UUID
+    origin_provider_attempt_id: UUID
+    read_call_id: UUID  # Original call, retained as provenance only.
+    receipts: list[SourceReadAnchorReceiptV2] = Field(min_length=1, max_length=MAX_RECEIPTS_PER_SOURCE_READ_EVENT)
+
+    @model_validator(mode="after")
+    def validate_reused_receipts(self):
+        if any(r.outcome != "enough" or r.truncated or r.evidence_sufficiency_status != "sufficient"
+               or not r.source_revision_id or not r.content_sha256 or not r.returned_chars for r in self.receipts):
+            raise ValueError("reuse requires complete sufficient original receipts")
+        return self
+
+
+SOURCE_PASSAGE_EVENTS = (ValidatedSourceReadEventV2, SourcePassageReuseEventV1)
+
+
+def included_passage_event_ids(authorization):
+    """Source exposure union; fresh IO and reuse remain distinct in the wire."""
+    return (list(getattr(authorization, "included_source_read_event_ids", ()))
+            + list(getattr(authorization, "included_source_reuse_event_ids", ())))
+
+
+class RelatedRecapProvenanceBindingV2(StrictModel):
+    evidence_ref_id: str = Field(min_length=1, max_length=GRAPH_EVIDENCE_REF_ID_MAX_CHARS)
+    source_artifact_id: str = Field(min_length=1, max_length=256)
+    source_revision_id: str = Field(min_length=1, max_length=256)
+
+    @model_validator(mode="after")
+    def validate_ids(self) -> RelatedRecapProvenanceBindingV2:
+        if any(
+            not value.strip() or value != value.strip()
+            for value in (self.evidence_ref_id, self.source_artifact_id, self.source_revision_id)
+        ):
+            raise ValueError("related recap provenance pins must be nonblank and trimmed")
+        return self
+
+
+def related_recap_provenance_result_digest(
+    *,
+    managed_world_id: str,
+    native_world_id: str,
+    binding_version: int,
+    graph_revision: str,
+    target_kind: str,
+    target_id: str,
+    provenance_bindings: list[RelatedRecapProvenanceBindingV2],
+) -> str:
+    return _canonical_sha256({
+        "schema": "dmb_agent_related_recap_core_provenance_v2",
+        "managed_world_id": managed_world_id,
+        "native_world_id": native_world_id,
+        "binding_version": binding_version,
+        "scope_mode": "world_cross_campaign",
+        "campaign_id": None,
+        "admissibility": "gm",
+        "admissibility_version": "gm-v1",
+        "graph_revision": graph_revision,
+        "target_kind": target_kind,
+        "target_id": target_id,
+        "bindings": [
+            item.model_dump(mode="json", by_alias=True)
+            for item in provenance_bindings
+        ],
+        "status": "complete",
+        "gap_count": 0,
+    })
+
+
+class RelatedRecapContextAdmissionV2(StrictModel):
+    schema_: Literal["dmb_agent_related_recap_context_admission_v2"] = Field(
+        default="dmb_agent_related_recap_context_admission_v2", alias="schema"
+    )
+    admission_origin: Literal[
+        "initial_graph_input", "validated_graph_operation", "selected_index_admission"
+    ]
+    admission_graph_event_id: UUID | None = None
+    selected_index_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    managed_world_id: str = Field(min_length=1, max_length=128)
+    native_world_id: str = Field(min_length=1, max_length=128)
+    binding_version: int = Field(strict=True, ge=1)
+    scope_mode: Literal["world_cross_campaign"]
+    campaign_id: None = None
+    admissibility: Literal["gm"]
+    admissibility_version: Literal["gm-v1"]
+    graph_revision: str = Field(min_length=1, max_length=256)
+    target_kind: Literal["assertion", "relationship"]
+    target_id: str = Field(min_length=1, max_length=256)
+    provenance_bindings: list[RelatedRecapProvenanceBindingV2] = Field(
+        min_length=1, max_length=64
+    )
+    provenance_result_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    provenance_status: Literal["complete"]
+    provenance_gap_count: Literal[0]
+    context_index_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    context_index_status: Literal["complete"]
+    context_index_entry_count: int = Field(strict=True, ge=1, le=512)
+    context_index_max_entries: Literal[512]
+    context_anchor_id: str = Field(
+        min_length=24, max_length=256, pattern=r"^dm-context-anchor:v2:.+$"
+    )
+    descriptor_world_id: str = Field(min_length=1, max_length=128)
+    descriptor_campaign_id: str | None = Field(max_length=256)
+    descriptor_graph_revision_id: str = Field(min_length=1, max_length=256)
+    descriptor_source_artifact_id: str = Field(min_length=1, max_length=256)
+    descriptor_source_revision_id: str = Field(min_length=1, max_length=256)
+    descriptor_content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    selector_schema: Literal["dm_recap_context_section_selector_v2"]
+    selector_policy: Literal["markdown-session-recap-v2"]
+    expected_session_id: str = Field(min_length=1, max_length=64)
+    canonical_heading: str = Field(min_length=1, max_length=128)
+    legacy_session_heading: str = Field(min_length=1, max_length=128)
+    legacy_recap_marker: Literal["**Recap**:"]
+
+    @model_validator(mode="after")
+    def validate_admission(self) -> RelatedRecapContextAdmissionV2:
+        if any(
+            not value.strip() or value != value.strip()
+            for value in (
+                self.managed_world_id,
+                self.native_world_id,
+                self.graph_revision,
+                self.target_id,
+                self.descriptor_world_id,
+                self.descriptor_graph_revision_id,
+                self.descriptor_source_artifact_id,
+                self.descriptor_source_revision_id,
+                self.expected_session_id,
+                self.canonical_heading,
+            )
+        ):
+            raise ValueError("related recap admission identifiers must be trimmed")
+        if self.descriptor_campaign_id is not None and (
+            not self.descriptor_campaign_id.strip()
+            or self.descriptor_campaign_id != self.descriptor_campaign_id.strip()
+        ):
+            raise ValueError("related recap source campaign must be nonblank and trimmed")
+        if (self.admission_origin == "validated_graph_operation") != (
+            self.admission_graph_event_id is not None
+        ):
+            raise ValueError("related recap operation admission needs its exact event ID")
+        if (self.admission_origin == "selected_index_admission") != (
+            self.selected_index_sha256 is not None
+        ):
+            raise ValueError("related recap selected-index admission needs its exact commitment")
+        evidence_ref_ids = [item.evidence_ref_id for item in self.provenance_bindings]
+        if evidence_ref_ids != sorted(set(evidence_ref_ids)):
+            raise ValueError("related recap provenance bindings must be sorted and unique")
+        if not any(
+            item.source_artifact_id == self.descriptor_source_artifact_id
+            and item.source_revision_id == self.descriptor_source_revision_id
+            for item in self.provenance_bindings
+        ):
+            raise ValueError("related recap descriptor must join an exact cited provenance pair")
+        session_number = self.expected_session_id.removeprefix("session-")
+        if (not self.expected_session_id.startswith("session-")
+            or not session_number.isascii() or not session_number.isdigit()
+            or session_number.startswith("0")
+            or self.canonical_heading != f"# Session {session_number} Recap"
+            or self.legacy_session_heading != f"## Session {session_number}:"):
+            raise ValueError("related recap heading must match its Core session selector")
+        if (
+            self.descriptor_world_id != self.native_world_id
+            or self.descriptor_graph_revision_id != self.graph_revision
+        ):
+            raise ValueError("related recap descriptor differs from its frozen Core projection")
+        expected_provenance_digest = related_recap_provenance_result_digest(
+            managed_world_id=self.managed_world_id,
+            native_world_id=self.native_world_id,
+            binding_version=self.binding_version,
+            graph_revision=self.graph_revision,
+            target_kind=self.target_kind,
+            target_id=self.target_id,
+            provenance_bindings=self.provenance_bindings,
+        )
+        if self.provenance_result_sha256 != expected_provenance_digest:
+            raise ValueError("related recap provenance result digest changed")
+        return self
+
+
+class RelatedRecapContextAuthorizationEventV2(GraphExecutionEventBaseV1):
+    kind: Literal["related_recap_context_authorized_v2"]
+    read_call_id: UUID
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    execution_policy_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    admission: RelatedRecapContextAdmissionV2
+    max_chars: int = Field(strict=True, ge=1, le=12000)
+    continuation_in_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+class ValidatedRelatedRecapContextEventV2(GraphExecutionEventBaseV1):
+    kind: Literal["validated_related_recap_context_v2"]
+    read_call_id: UUID
+    authorization_event_id: UUID
+    admission_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    outcome: Literal["enough", "truncated", "empty", "unavailable"]
+    range_semantics_version: Literal[
+        "utf8-character-offset-in-markdown-session-recap-v2"
+    ]
+    source_bytes_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    section_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    page_content_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    selected_form: Literal["canonical_h1", "legacy_h2"] | None = None
+    session_heading_line: int | None = Field(default=None, strict=True, ge=1)
+    recap_marker_line: int | None = Field(default=None, strict=True, ge=1)
+    heading_line: int | None = Field(default=None, strict=True, ge=1)
+    line_start: int | None = Field(default=None, strict=True, ge=1)
+    line_end: int | None = Field(default=None, strict=True, ge=1)
+    offset_chars: int = Field(strict=True, ge=0, le=1_000_000)
+    returned_chars: int = Field(strict=True, ge=0, le=12000)
+    truncated: bool
+    continuation_in_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    continuation_out_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_read_result(self) -> ValidatedRelatedRecapContextEventV2:
+        if (self.outcome == "truncated") != self.truncated:
+            raise ValueError("related recap truncation flag must match its outcome")
+        if self.outcome == "unavailable":
+            if any(
+                value is not None
+                for value in (
+                    self.source_bytes_sha256,
+                    self.section_sha256,
+                    self.page_content_sha256,
+                    self.selected_form,
+                    self.session_heading_line,
+                    self.heading_line,
+                    self.line_start,
+                    self.line_end,
+                    self.continuation_out_sha256,
+                )
+            ) or self.recap_marker_line is not None or self.returned_chars != 0 or self.truncated:
+                raise ValueError("unavailable related recap result cannot carry content metadata")
+        else:
+            if any(
+                value is None
+                for value in (
+                    self.source_bytes_sha256,
+                    self.section_sha256,
+                    self.page_content_sha256,
+                    self.selected_form,
+                    self.session_heading_line,
+                    self.heading_line,
+                    self.line_start,
+                    self.line_end,
+                )
+            ):
+                raise ValueError("available related recap result needs verified digests and range")
+            if (self.heading_line != self.session_heading_line
+                or (self.selected_form == "canonical_h1" and (self.recap_marker_line is not None or self.line_start != self.heading_line + 1))
+                or (self.selected_form == "legacy_h2" and (self.recap_marker_line is None or self.recap_marker_line <= self.heading_line or self.line_start != self.recap_marker_line + 1))
+                or self.line_end < self.line_start - (1 if self.outcome == "empty" else 0) or self.heading_line >= self.line_start):
+                raise ValueError("related recap section line range is invalid")
+        if (self.outcome == "truncated") != (self.continuation_out_sha256 is not None):
+            raise ValueError("related recap continuation must match truncation state")
+        if self.returned_chars == 0 and self.outcome not in {"empty", "unavailable"}:
+            raise ValueError("empty related recap page must use the empty outcome")
+        if self.outcome == "empty" and self.returned_chars != 0:
+            raise ValueError("empty related recap outcome cannot return characters")
+        return self
+
+
+class RelatedRecapContextProviderInclusionEventV2(GraphExecutionEventBaseV1):
+    kind: Literal["related_recap_context_provider_inclusion_v2"]
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    included_context_event_ids: list[UUID] = Field(min_length=1, max_length=8)
+    included_context_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    included_chars: int = Field(strict=True, ge=1, le=96000)
+
+    @model_validator(mode="after")
+    def validate_included_context_ids(self) -> RelatedRecapContextProviderInclusionEventV2:
+        if len(set(self.included_context_event_ids)) != len(self.included_context_event_ids):
+            raise ValueError("included related recap result IDs must be unique")
+        return self
+
+
+def related_recap_context_inclusion_digest(
+    reads: list[ValidatedRelatedRecapContextEventV2],
+) -> str:
+    return _canonical_sha256({
+        "schema": "dmb_agent_related_recap_context_inclusion_v2",
+        "reads": [
+            {
+                "event_id": str(event.event_id),
+                "authorization_event_id": str(event.authorization_event_id),
+                "admission_sha256": event.admission_sha256,
+                "source_bytes_sha256": event.source_bytes_sha256,
+                "section_sha256": event.section_sha256,
+                "page_content_sha256": event.page_content_sha256,
+                "selected_form": event.selected_form,
+                "session_heading_line": event.session_heading_line,
+                "recap_marker_line": event.recap_marker_line,
+                "line_start": event.line_start,
+                "line_end": event.line_end,
+                "offset_chars": event.offset_chars,
+                "returned_chars": event.returned_chars,
+            }
+            for event in reads
+        ],
+    })
+
+
+class ProviderAttemptAuthorizedEventV2(ProviderAttemptAuthorizedEventV1):
+    kind: Literal["provider_attempt_authorized_v2"]
+    included_source_read_event_ids: list[UUID] = Field(max_length=8)
+
+    @model_validator(mode="after")
+    def validate_source_event_ids(self) -> ProviderAttemptAuthorizedEventV2:
+        if len(set(self.included_source_read_event_ids)) != len(self.included_source_read_event_ids):
+            raise ValueError("included source-read event IDs must be unique")
+        return self
+
+
+class ProviderAttemptAuthorizedEventV3(ProviderAttemptAuthorizedEventV2):
+    kind: Literal["provider_attempt_authorized_v3"]
+    included_source_read_event_ids: list[UUID] = Field(max_length=MAX_INCLUDED_SOURCE_READ_EVENTS_V3)
+
+
+class ProviderAttemptAuthorizedEventV5(ProviderAttemptAuthorizedEventV3):
+    kind: Literal["provider_attempt_authorized_v5"]
+    context_mode: Literal["default", "long_context"]
+    context_phase: Literal["select", "navigate", "assess", "coverage", "retention", "writer_selection"]
+    max_question_input_tokens: int = Field(strict=True, ge=0)
+    dispatch_identity_sha256: Digest
+
+
+class ProviderAttemptAuthorizedEventV4(ProviderAttemptAuthorizedEventV3):
+    kind: Literal["provider_attempt_authorized_v4"]
+    included_source_reuse_event_ids: list[UUID] = Field(max_length=MAX_INCLUDED_SOURCE_READ_EVENTS_V3)
+
+    @model_validator(mode="after")
+    def validate_reuse_ids(self):
+        ids = included_passage_event_ids(self)
+        if len(ids) != len(set(ids)) or len(ids) > MAX_INCLUDED_SOURCE_READ_EVENTS_V3:
+            raise ValueError("provider source admissions must be distinct and bounded")
+        return self
+
+
+
+
+GraphExecutionEventV2 = Annotated[
+    ValidatedGraphOperationEventV1
+    | ProviderAttemptAuthorizedEventV1
+    | ProviderAttemptAuthorizedEventV2
+    | ProviderOutcomeEventV1
+    | CompletionBindingEventV1
+    | SourceReadAuthorizationEventV2
+    | ValidatedSourceReadEventV2
+    | RelatedRecapContextAuthorizationEventV2
+    | ValidatedRelatedRecapContextEventV2
+    | RelatedRecapContextProviderInclusionEventV2,
+    Field(discriminator="kind"),
+]
+
+
+GraphExecutionEventV1 = Annotated[
+    ValidatedGraphOperationEventV1
+    | ProviderAttemptAuthorizedEventV1
+    | ProviderOutcomeEventV1
+    | CompletionBindingEventV1,
+    Field(discriminator="kind"),
+]
+
+
+def validate_provider_execution(execution) -> None:
+    """Recover provider lifecycle through its single pure transition owner."""
+    from .provider_execution import validate
+    validate(execution)
+
+
+def validate_graph_operation_execution(execution) -> None:
+    """Classic Graph membership and result budgets; not provider lifecycle."""
+    policy, events = execution.policy, execution.events
+    operation_ids: set[UUID] = set()
+    graph_by_event_id = {}
+    latest_attempt = None
+    latest_outcome = None
+    for event in events:
+        if isinstance(event, ProviderAttemptAuthorizedEventV1):
+            latest_attempt, latest_outcome = event.provider_attempt_id, None
+        elif isinstance(event, ProviderOutcomeEventV1) and event.provider_attempt_id == latest_attempt:
+            latest_outcome = event.outcome
+        elif isinstance(event, ValidatedGraphOperationEventV1):
+            if latest_outcome == "outcome_unknown":
+                raise ValueError("Graph operations cannot continue after an unknown provider outcome")
+            if event.operation not in policy.allowed_graph_operations:
+                raise ValueError("Graph operation is outside the accepted policy")
+            if event.operation_id in operation_ids:
+                raise ValueError("Graph operation ID must be unique within the turn")
+            operation_ids.add(event.operation_id)
+            graph_by_event_id[event.event_id] = event
+            if (len(event.assertion_ids) + len(event.relationship_ids) + len(event.evidence_ref_ids)
+                    > policy.max_results_per_operation):
+                raise ValueError("Graph operation result limit exceeded")
+    if policy.max_graph_operations is not None and len(graph_by_event_id) > policy.max_graph_operations:
+        raise ValueError("Graph operation policy limit exceeded")
+    for event in events:
+        if isinstance(event, ProviderAttemptAuthorizedEventV1):
+            if any(event_id not in graph_by_event_id for event_id in event.included_graph_event_ids):
+                raise ValueError("provider envelope references an unknown Graph operation event")
+
+
+class PlanWorldGraphExecutionV1(StrictModel):
+    schema_: Literal["dmb_agent_plan_world_graph_execution_v1"] = Field(
+        default="dmb_agent_plan_world_graph_execution_v1", alias="schema"
+    )
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    policy: GraphExecutionPolicyV1
+    events: list[GraphExecutionEventV1] = Field(max_length=2048)
+
+    @model_validator(mode="after")
+    def validate_execution(self) -> "PlanWorldGraphExecutionV1":
+        validate_provider_execution(self)
+        validate_graph_operation_execution(self)
+        if len(self.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
+            raise ValueError("Graph execution record exceeds the storage size limit")
+        return self
+
+
+def source_read_character_usage(
+    policy: GraphExecutionPolicyV2 | GraphExecutionPolicyV3,
+    events: Sequence[GraphExecutionEventV2 | GraphExecutionEventV3],
+) -> int:
+    """Charge settled bodies plus unresolved reservations at each admission prefix.
+
+    Call with typed execution events. Full pin, receipt and sequence validation
+    remains with the execution record; no body or authority is inferred here.
+    """
+    settled = isinstance(policy, SettledGraphExecutionPolicyV3)
+    usage = 0
+    reservations: dict[UUID, SourceReadAuthorizationEventV2] = {}
+    completed: set[UUID] = set()
+    for event in events:
+        if isinstance(policy, NativePlayGraphPolicyV1) and isinstance(event, NativeAuthoredSourceReadV1):
+            usage += len(event.excerpt.text)
+            if usage > policy.max_source_read_chars:
+                raise ValueError('Play selected-source character budget exceeded')
+        elif isinstance(event, NativeSourceSectionAuthorizedV1):
+            usage += event.authorized_chars
+            if usage > policy.max_source_read_chars:
+                raise ValueError("Native section character budget exceeded at authorization")
+        elif isinstance(event, NativeSourceSectionObservedV1) and event.outcome == "unavailable":
+            auth = next((e for e in events if isinstance(e, NativeSourceSectionAuthorizedV1)
+                         and e.event_id == event.authorization_event_id), None)
+            if auth is None:
+                raise ValueError("Native section settlement requires authorization")
+            usage -= auth.authorized_chars
+        elif isinstance(event, SourceReadAuthorizationEventV2):
+            if event.read_call_id in reservations:
+                raise ValueError("source-read call ID was authorized more than once")
+            reservations[event.read_call_id] = event
+            usage += event.max_chars * len(event.anchors)
+            if settled and usage > policy.max_source_read_chars:
+                raise ValueError("source-read character budget exceeded at authorization")
+        elif isinstance(event, SourcePassageReuseEventV1):
+            usage += sum(receipt.returned_chars for receipt in event.receipts)
+            if usage > policy.max_source_read_chars:
+                raise ValueError("reused source exposure exceeds the current reservation budget")
+        elif settled and isinstance(event, ValidatedSourceReadEventV2):
+            auth = reservations.get(event.read_call_id)
+            if auth is None or event.sequence <= auth.sequence:
+                raise ValueError("source-read settlement requires an earlier authorization")
+            if event.read_call_id in completed or len(event.receipts) != len(auth.anchors):
+                raise ValueError("source-read settlement requires one complete receipt")
+            if any(receipt.returned_chars > auth.max_chars for receipt in event.receipts):
+                raise ValueError("source-read settlement exceeds its reservation")
+            completed.add(event.read_call_id)
+            usage -= auth.max_chars * len(auth.anchors)
+            usage += sum(receipt.returned_chars for receipt in event.receipts)
+    if usage > policy.max_source_read_chars:
+        raise ValueError("source-read character budget exceeded")
+    return usage
+
+
+def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, allow_play_source_inclusion: bool = False) -> None:
+    """Shared ledger invariants; dynamic source admission is an explicit capability.
+
+    This validates structure and accounting, not Turn ownership or provider input.
+    Wire types independently close allowed policy and event variants.
+    """
+    if not allow_play_source_inclusion and any(isinstance(event, PlaySourceProviderInclusionV1) for event in execution.events):
+        raise ValueError("Play source inclusion is native-Play-only")
+    expected_policy_digest = _canonical_sha256({
+        "schema": execution.schema_,
+        "context_receipt_sha256": execution.context_receipt_sha256,
+        "policy": execution.policy.model_dump(mode="json", by_alias=True),
+    })
+    if execution.execution_policy_sha256 != expected_policy_digest:
+        raise ValueError("Graph execution policy digest does not match its frozen scope and budgets")
+    validate_provider_execution(execution)
+    validate_graph_operation_execution(execution)
+    scope = execution.policy.source_read_scope
+    if scope is None:
+        if not isinstance(execution.policy, PlanSourceExecutionPolicyV1):
+            raise ValueError("Only an explicit source-capable Plan can omit Graph scope")
+        if any(isinstance(event, (ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3,
+                SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
+                RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2))
+                for event in execution.events):
+            raise ValueError("Graph acquisition requires its independently authorized capability")
+    scope_by_anchor = {anchor.anchor_id: anchor for anchor in scope.admitted_anchors} if scope is not None else {}
+    origins: dict[UUID, ValidatedGraphOperationEventV3] = {}
+    auths: dict[UUID, SourceReadAuthorizationEventV2] = {}
+    receipts_by_event: dict[UUID, ValidatedSourceReadEventV2] = {}
+    receipts_by_call: set[UUID] = set()
+    all_read_ids: set[str] = set()
+    authorized_anchors = 0
+    latest_attempt_id: UUID | None = None
+    latest_outcome: str | None = None
+    for event in execution.events:
+        if isinstance(event, (SourceScopeExtensionEventV3, SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1)) and latest_outcome == "outcome_unknown":
+            raise ValueError("source reads cannot continue after an unknown provider outcome")
+        if isinstance(event, (ProviderAttemptAuthorizedEventV1, ProviderAttemptAuthorizedEventV2)):
+            latest_attempt_id = event.provider_attempt_id
+            latest_outcome = None
+        elif isinstance(event, ProviderOutcomeEventV1) and event.provider_attempt_id == latest_attempt_id:
+            latest_outcome = event.outcome
+        if isinstance(event, ValidatedGraphOperationEventV3):
+            if event.graph_revision != scope.graph_revision:
+                raise ValueError("source origin uses a different Graph revision")
+            origins[event.event_id] = event
+        elif isinstance(event, SourceScopeExtensionEventV3):
+            origin = origins.get(event.origin_graph_event_id)
+            if origin is None or origin.sequence >= event.sequence or event.pins != origin.returned_source_pins:
+                raise ValueError("source extension requires exact pins from an earlier validated origin")
+            if (event.context_receipt_sha256 != execution.context_receipt_sha256
+                or event.execution_policy_sha256 != execution.execution_policy_sha256
+                or event.world_id != scope.world_id or event.campaign_id != scope.campaign_id
+                or event.graph_revision != scope.graph_revision
+                or event.retrieval_session_id != scope.retrieval_session_id):
+                raise ValueError("source extension differs from the frozen scope")
+            for pin in event.pins:
+                if pin.anchor_id in scope_by_anchor and scope_by_anchor[pin.anchor_id] != pin:
+                    raise ValueError("source extension cannot rebind an admitted anchor")
+                scope_by_anchor[pin.anchor_id] = pin
+        if isinstance(event, SourceReadAuthorizationEventV2):
+            if event.read_call_id in auths:
+                raise ValueError("source-read call ID was authorized more than once")
+            if (
+                event.context_receipt_sha256 != execution.context_receipt_sha256
+                or event.execution_policy_sha256 != execution.execution_policy_sha256
+                or event.retrieval_session_id != scope.retrieval_session_id
+                or event.world_id != scope.world_id
+                or event.campaign_id != scope.campaign_id
+                or event.graph_revision != scope.graph_revision
+            ):
+                raise ValueError("source-read authorization differs from the frozen source scope")
+            anchor_ids = [anchor.anchor_id for anchor in event.anchors]
+            if len(anchor_ids) != len(set(anchor_ids)):
+                raise ValueError("source-read authorization anchor IDs must be unique")
+            if any(scope_by_anchor.get(anchor.anchor_id) != anchor for anchor in event.anchors):
+                raise ValueError("source-read authorization contains an unadmitted or changed anchor")
+            if event.max_chars > execution.policy.max_chars_per_source_read:
+                raise ValueError("source-read per-call character limit exceeded")
+            auths[event.read_call_id] = event
+            authorized_anchors += len(event.anchors)
+        elif isinstance(event, ValidatedSourceReadEventV2):
+            auth = auths.get(event.read_call_id)
+            if auth is None or event.sequence <= auth.sequence:
+                raise ValueError("validated source read requires an earlier authorization")
+            if event.read_call_id in receipts_by_call:
+                raise ValueError("source-read authorization already has a receipt")
+            if len(event.receipts) != len(auth.anchors):
+                raise ValueError("source-read receipt count must match its authorization")
+            for expected, result in zip(auth.anchors, event.receipts, strict=True):
+                if (
+                    result.anchor_id != expected.anchor_id
+                    or result.evidence_ref_id != expected.evidence_ref_id
+                    or result.source_artifact_id != expected.source_artifact_id
+                ):
+                    raise ValueError("source-read receipt pins differ from the authorized anchor")
+                if result.source_revision_id is not None and result.source_revision_id != expected.source_revision_id:
+                    raise ValueError("source-read receipt source revision differs from the admitted revision")
+                if result.returned_chars > auth.max_chars:
+                    raise ValueError("source-read returned characters exceed the authorization")
+                if result.source_read_id in all_read_ids:
+                    raise ValueError("source-read ID must be unique within the turn")
+                all_read_ids.add(result.source_read_id)
+            receipts_by_event[event.event_id] = event
+            receipts_by_call.add(event.read_call_id)
+        elif isinstance(event, SourcePassageReuseEventV1):
+            if not dynamic_source_scope:
+                raise ValueError("passage reuse requires dynamic current source admission")
+            for result in event.receipts:
+                pin = scope_by_anchor.get(result.anchor_id)
+                if pin is None or any(getattr(pin, key) != getattr(result, key) for key in
+                    ("anchor_id", "evidence_ref_id", "source_artifact_id", "source_revision_id")):
+                    raise ValueError("reused passage differs from current admitted pin")
+                if result.returned_chars > execution.policy.max_chars_per_source_read or result.source_read_id in all_read_ids:
+                    raise ValueError("reused passage exceeds per-read exposure or repeats an identity")
+                all_read_ids.add(result.source_read_id)
+            receipts_by_event[event.event_id] = event
+        elif isinstance(event, ProviderAttemptAuthorizedEventV2):
+            if any(event_id not in receipts_by_event for event_id in included_passage_event_ids(event)):
+                raise ValueError("provider envelope references an unknown or later source-read receipt")
+            if any(isinstance(receipts_by_event[eid], SourcePassageReuseEventV1) for eid in event.included_source_read_event_ids):
+                raise ValueError("reuse cannot be reported as a fresh source read")
+            if any(not isinstance(receipts_by_event[eid], SourcePassageReuseEventV1)
+                   for eid in getattr(event, "included_source_reuse_event_ids", ())):
+                raise ValueError("reuse inclusion requires an explicit reuse admission")
+    if not dynamic_source_scope and len(auths) > execution.policy.max_source_read_calls:
+        raise ValueError("source-read call budget exceeded")
+    if not dynamic_source_scope and authorized_anchors > execution.policy.max_source_read_anchors:
+        raise ValueError("source-read anchor budget exceeded")
+    source_read_character_usage(execution.policy, execution.events)
+
+    from .native_corpus import validate_native_body_events
+    if isinstance(execution.policy, PlanSourceExecutionPolicyV1):
+        validate_native_body_events(execution)
+    elif isinstance(execution.policy, NativePlayGraphPolicyV1):
+        if any(isinstance(event, NATIVE_BODY_EVENTS) and not isinstance(event,
+                (NativeAuthoredSourceReadV1, NativeBodyProviderIncludedV1)) for event in execution.events):
+            raise ValueError('Play cannot borrow autonomous body acquisition from a Plan controller')
+        from .play_authored_sources import validate_events as validate_play_authored_events
+        validate_play_authored_events(execution)
+    elif any(isinstance(event, NATIVE_BODY_EVENTS) for event in execution.events):
+        raise ValueError("Native body events require their explicit source-capable Plan policy")
+    _validate_related_recap_context_events(execution)
+    from .corpus_source_search import validate_events as validate_corpus_events
+    validate_corpus_events(execution)
+    from .native_source_navigation import validate_navigation_events
+    validate_navigation_events(execution)
+    from .native_source_catalog import validate_catalog_events
+    validate_catalog_events(execution)
+    from .native_source_sections import validate_section_events
+    validate_section_events(execution)
+    from .native_source_input import validate_inclusions
+    validate_inclusions(execution)
+
+    if len(execution.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
+        raise ValueError("Graph execution record exceeds the storage size limit")
+    if dynamic_source_scope and len(json.dumps(execution.model_dump(mode="json", by_alias=True), ensure_ascii=True).encode("utf-8")) > 1_048_576:
+        raise ValueError("Graph execution record exceeds the storage size limit")
+
+
+class PlanWorldGraphExecutionV2(StrictModel):
+    _dynamic_source_scope: ClassVar[bool] = False
+    schema_: Literal["dmb_agent_plan_world_graph_execution_v2"] = Field(
+        default="dmb_agent_plan_world_graph_execution_v2", alias="schema"
+    )
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    execution_policy_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    policy: GraphExecutionPolicyV2
+    events: list[GraphExecutionEventV2] = Field(max_length=2048)
+
+    @model_validator(mode="after")
+    def validate_execution(self) -> PlanWorldGraphExecutionV2:
+        validate_graph_execution_record(self, dynamic_source_scope=self._dynamic_source_scope)
+        return self
+
+
+class BuildSectionReadAuthorizationV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_section_read_authorized_v1"]
+    read_id: UUID
+    source_basis: BuildSourceContextBasisV1
+    source_class: Literal["saved_authored_source_not_played_truth"]
+    line_start: int = Field(strict=True, ge=1)
+    line_end: int = Field(strict=True, ge=1)
+    max_chars: int = Field(strict=True, ge=1)
+
+    @model_validator(mode="after")
+    def validate_range(self):
+        if self.line_end < self.line_start:
+            raise ValueError("Saved section range is reversed")
+        return self
+
+
+class ValidatedBuildSectionReadV1(GraphExecutionEventBaseV1):
+    kind: Literal["validated_build_section_read_v1"]
+    read_id: UUID
+    source_basis: BuildSourceContextBasisV1
+    source_class: Literal["saved_authored_source_not_played_truth"]
+    line_start: int = Field(strict=True, ge=1)
+    line_end: int = Field(strict=True, ge=1)
+    text: str = Field(min_length=1)
+    excerpt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_passage(self):
+        if (self.line_end < self.line_start or not self.text.strip()
+                or hashlib.sha256(self.text.encode("utf-8")).hexdigest() != self.excerpt_sha256
+                or len(self.text.splitlines(keepends=True)) != self.line_end - self.line_start + 1):
+            raise ValueError("Saved section content, range or hash differs")
+        return self
+
+
+class BuildSectionProviderInclusionV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_section_provider_inclusion_v1"]
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    execution_policy_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    section_event_ids: list[UUID] = Field(min_length=1, max_length=128)
+    sections_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_ids(self):
+        if self.section_event_ids != sorted(set(self.section_event_ids), key=str):
+            raise ValueError("Build inclusion read IDs must be sorted and distinct")
+        return self
+
+
+class BuildSectionSegmentBindingV1(StrictModel):
+    segment_index: int = Field(strict=True, ge=0, le=127)
+    text_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    section_event_ids: list[UUID] = Field(min_length=1, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_ids(self):
+        if self.section_event_ids != sorted(set(self.section_event_ids), key=str):
+            raise ValueError("Build answer read IDs must be sorted and distinct")
+        return self
+
+
+class BuildSectionAnswerBindingV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_section_answer_binding_v1"]
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    completion_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    bindings: list[BuildSectionSegmentBindingV1] = Field(min_length=1, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_indices(self):
+        indices = [item.segment_index for item in self.bindings]
+        if indices != sorted(set(indices)):
+            raise ValueError("Build segment bindings must be sorted and unique")
+        return self
+
+
+class PlanJevProviderAuthorizedV1(ProviderAttemptAuthorizedEventV3):
+    """Actual Jev request plus host-only parent binding, never model context."""
+    kind: Literal["plan_jev_provider_authorized_v1"]
+    decision_request_id: UUID
+    parent_request_sha256: Digest
+
+
+class PlanRequestedWorkAuthorizedV1(PlanJevProviderAuthorizedV1):
+    kind: Literal['plan_requested_work_authorized_v1']
+
+
+class PlanRequestedWorkSelectedV1(GraphExecutionEventBaseV1):
+    kind: Literal['plan_requested_work_selected_v1']
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    decision_request_id: UUID
+    controller_attempt_id: UUID
+    controller_envelope_sha256: Digest
+    controller_response_sha256: Digest
+    parent_request_sha256: Digest
+    requested_work: Literal['discuss', 'clarify', 'write_current_page', 'different_destination']
+    target_capture_sha256: str | None = Field(default=None, pattern=r'^[a-f0-9]{64}$')
+    actual_input_tokens: int | None = Field(default=None, strict=True, ge=0)
+    actual_output_tokens: int | None = Field(default=None, strict=True, ge=0)
+
+
+class PlanRequestedWorkAuthorizedV2(PlanRequestedWorkAuthorizedV1):
+    kind: Literal['plan_requested_work_authorized_v2']
+
+
+class PlanRequestedWorkSelectedV2(PlanRequestedWorkSelectedV1):
+    kind: Literal['plan_requested_work_selected_v2']
+    original_capture_sha256: str | None = Field(pattern=r'^[a-f0-9]{64}$')
+    placement_catalog_sha256: str | None = Field(pattern=r'^[a-f0-9]{64}$')
+    placement_selector: str | None
+    original_capture: dict[str, object] | None
+    placement_catalog: dict[str, object] | None
+
+    @model_validator(mode="after")
+    def retained_placement_proof(self):
+        from .plan_authoring import PlanAuthoringCaptureV1
+        from .plan_placement import PlanPlacementCatalogV1
+        if (self.original_capture is None) != (self.original_capture_sha256 is None):
+            raise ValueError('Plan placement requires its retained original capture')
+        if (self.placement_catalog is None) != (self.placement_catalog_sha256 is None):
+            raise ValueError('Plan placement requires its retained offered catalog')
+        if self.original_capture is not None:
+            original=PlanAuthoringCaptureV1.model_validate(self.original_capture)
+            if original.sha256!=self.original_capture_sha256 or self.placement_catalog is None:
+                raise ValueError('Plan placement original differs from its retained proof')
+            catalog=PlanPlacementCatalogV1.model_validate(self.placement_catalog)
+            catalog.require_original(original)
+            if catalog.sha256!=self.placement_catalog_sha256:
+                raise ValueError('Plan placement catalog differs from its retained proof')
+            if self.requested_work=='write_current_page':
+                if self.placement_selector is None or catalog.resolve(original,self.placement_selector).sha256!=self.target_capture_sha256:
+                    raise ValueError('Plan placement target differs from its retained offered selector')
+            elif self.placement_selector is not None or self.target_capture_sha256 is not None:
+                raise ValueError('Discussion cannot select a writing placement')
+        elif self.placement_selector is not None or self.target_capture_sha256 is not None or self.placement_catalog is not None:
+            raise ValueError('Uncaptured Plan work cannot invent placement authority')
+        return self
+
+
+class PlanJevWriterAuthorizedV1(ProviderAttemptAuthorizedEventV3):
+    """One tool-free Plan writer with exact host-verified evidence projection."""
+    kind: Literal["plan_jev_writer_authorized_v1"]
+    frame_sha256: Digest
+
+
+class PlanJevWriterAuthorizedV2(PlanJevWriterAuthorizedV1, ProviderAttemptAuthorizedEventV4):
+    kind: Literal["plan_jev_writer_authorized_v2"]
+
+
+class PlanJevRetrievalSelectionV1(GraphExecutionEventBaseV1):
+    kind: Literal["plan_jev_retrieval_selected_v1"]
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    decision_request_id: UUID
+    controller_attempt_id: UUID
+    controller_envelope_sha256: Digest
+    controller_response_sha256: Digest
+    parent_request_sha256: Digest
+    operation: Literal["select_candidates", "discover_more", "finish_retrieval"]
+    selected_handles: list[str]
+    exclusion_replay: RetrievalExclusionReplay | None = Field(default=None, exclude_if=lambda value: value is None)
+    actual_input_tokens: int | None = Field(default=None, strict=True, ge=0)
+    actual_output_tokens: int | None = Field(default=None, strict=True, ge=0)
+
+    @model_validator(mode="after")
+    def exact_selection_shape(self):
+        if (len(set(self.selected_handles)) != len(self.selected_handles)
+                or any(not handle.strip() for handle in self.selected_handles)
+                or (self.operation == "select_candidates") != bool(self.selected_handles)):
+            raise ValueError("Plan decision handles differ from its operation")
+        return self
+
+
+class BuildJevActionSelectionV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_jev_action_selected_v1"]
+    controller_attempt_id: UUID
+    controller_envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    machine_request_id: str = Field(min_length=1, max_length=128)
+    operation: Literal["answer_from_sources", "propose_build_insertion", "prepare_build_image"]
+    broker_operation_id: str = Field(min_length=1, max_length=256)
+    capability_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    arguments_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class BuildRequestedWorkResolutionV1(BuildJevActionSelectionV1):
+    kind: Literal['build_requested_work_resolved_v1']
+    controller_response_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    requested_work: Literal['discuss', 'draft_in_conversation', 'clarify_request', 'plan', 'write_current_page', 'prepare_image', 'review_connected_page', 'review_relationship', 'review_variant_approval', 'review_lore_page', 'change_mechanics', 'build_encounter', 'place_map_coordinates', 'save_page', 'publish_relationships', 'other_creation', 'clarify_creation']
+    intent_family: Literal['discuss', 'create']
+    menu_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    resolver_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    response_capabilities_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    resolution: dict
+
+
+class BuildReviewedActionSelectionV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_reviewed_action_selected_v1"]
+    intent: BuildGraphIntentV1
+    operation: Literal["answer_from_sources", "propose_build_insertion"]
+    broker_operation_id: str = Field(min_length=1, max_length=256)
+    capability_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    arguments_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+    @property
+    def binding(self):
+        return self.intent.reviewed_step
+
+    @model_validator(mode="after")
+    def exact_author_action(self):
+        if self.kind == 'build_reviewed_action_selected_v1' and self.intent.schema_ != 'dmb_build_graph_intent_v1':
+            raise ValueError('Historical reviewed action cannot acquire authored references')
+        if self.binding is None or self.operation != self.binding.operation:
+            raise ValueError("Reviewed action differs from the author's selected step")
+        if self.capability_sha256 != self.intent.build_write_capability_sha256:
+            raise ValueError("Reviewed action capability differs from its bound intent")
+        return self
+
+
+class BuildReviewedActionSelectionV2(BuildReviewedActionSelectionV1):
+    kind: Literal['build_reviewed_action_selected_v2']
+    intent: BuildGraphIntentV2
+
+
+class BuildPlanOutputContractV1(GraphExecutionEventBaseV1):
+    kind: Literal['build_plan_output_contract_v1']
+    policy: Literal['typed_plan_objective_v1']
+    selection_event_id: UUID
+    selection_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    draft_record_id: UUID
+    working_snapshot_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    destination_capability_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    plan_schema_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+
+class BuildPlanOutputContractV2(BuildPlanOutputContractV1):
+    kind: Literal['build_plan_output_contract_v2']
+    policy: Literal['typed_plan_selection_v1']
+
+
+class BuildWriterEvidenceSelectionV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_writer_evidence_selection_v1"]
+    policy: Literal["source_unit_selection_event_closure_v1"]
+    mode: Literal["jev", "empty_catalog"]
+    controller_attempt_id: UUID
+    controller_envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    controller_response_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    catalog_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    basis_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    terminal_disposition: dict
+    judgments: dict[str, Literal["direct_support", "qualification_or_conflict", "uncertain", "irrelevant"]] = Field(max_length=16384)
+    requested_unit_ids: list[str] = Field(max_length=16384)
+    expanded_unit_ids: list[str] = Field(max_length=16384)
+    omitted_unit_ids: list[str] = Field(max_length=16384)
+    source_event_ids: list[UUID] = Field(max_length=MAX_INCLUDED_SOURCE_READ_EVENTS_V3)
+    section_read_ids: list[UUID] = Field(max_length=128)
+
+    @model_validator(mode="after")
+    def validate_distinct_selection(self):
+        for field in ("requested_unit_ids", "expanded_unit_ids", "omitted_unit_ids",
+                      "source_event_ids", "section_read_ids"):
+            values = getattr(self, field)
+            if len(set(values)) != len(values):
+                raise ValueError("Writer evidence selection contains duplicate selectors")
+        if (self.mode == "jev") != (self.controller_response_sha256 is not None):
+            raise ValueError("Only a genuine Jev selection has a captured response")
+        return self
+
+
+class BuildWriterEvidenceSelectionV2(BuildWriterEvidenceSelectionV1):
+    """Native-body-aware closure; V1 retains its historical input meaning."""
+    kind: Literal["build_writer_evidence_selection_v2"]
+    policy: Literal["source_unit_selection_event_closure_v2"]
+
+
+class BuildWorldActionTargetV1(StrictModel):
+    action_id: str = Field(min_length=1)
+    operation: Literal["search", "object"]
+    node_id: str | None
+    request_arguments_sha256: Digest
+
+
+class BuildWorldReadSelectionV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_world_read_selected_v1"]
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    controller_attempt_id: UUID
+    controller_envelope_sha256: Digest
+    controller_response_sha256: Digest
+    machine_request_id: str = Field(min_length=1)
+    scope_sha256: Digest
+    actions: list[BuildWorldActionTargetV1] = Field(min_length=1)
+
+
+GraphExecutionEventV3 = Annotated[
+    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | ProviderAttemptAuthorizedEventV4 | ProviderAttemptAuthorizedEventV5 | PlanRequestedWorkAuthorizedV2 | PlanRequestedWorkAuthorizedV1 | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV1 | PlanJevWriterAuthorizedV2
+    | ProviderOutcomeEventV1 | CompletionBindingEventV1
+    | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
+    | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
+    | RelatedRecapContextProviderInclusionEventV2
+    | BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV1 | BuildAuthoredReferenceReadV1 | BuildAuthoredProviderInclusionV1 | RelatedPagesSelection | RelatedPageRead | RelatedPageInclusion | BuildDraftContextCapturedV1 | BuildDraftProviderInclusionV1 | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
+    | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildRequestedWorkResolutionV1 | BuildJevActionSelectionV1 | BuildReviewedActionSelectionV2 | BuildReviewedActionSelectionV1 | BuildWorldReadSelectionV1
+    | BuildPlanOutputContractV1 | BuildPlanOutputContractV2 | BuildWriterEvidenceSelectionV1 | PlanRequestedWorkSelectedV2 | PlanRequestedWorkSelectedV1 | PlanJevRetrievalSelectionV1 | CorpusSourceSearchAuthorizedV1 | CorpusSourceSearchObservedV1 | NativeSourceNavigationAuthorizedV2 | NativeSourceSectionObservedV2 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
+    | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,
+    Field(discriminator="kind"),
+]
+
+
+def validate_controller_writer_execution(execution, *, reviewed_action=None) -> None:
+    """Shared role ordering; reviewed work authority remains with its owner.
+
+    The work validator supplies an actual stored reviewed event only after its
+    capability/operation binding is validated. This accepts no writer-first flag.
+    Full Turn admission and writer reservation still require the owning checks.
+    """
+    roles = execution.policy.provider_roles
+    if reviewed_action is not None and (
+            not isinstance(reviewed_action, BuildReviewedActionSelectionV1)
+            or not any(event is reviewed_action for event in execution.events)):
+        raise ValueError("Reviewed writer requires its actual retained action event")
+    acquisition_events = (
+        RelatedPagesSelection, RelatedPageRead,
+        ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3,
+        CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1,
+        NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
+        NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1,
+        SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
+        RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2,
+        BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
+    )
+    latest_attempt = latest_outcome = writer_attempt = writer_selection = None
+    for event in execution.events:
+        if isinstance(event, BuildWriterEvidenceSelectionV1):
+            writer_selection = event
+        elif isinstance(event, ProviderAttemptAuthorizedEventV1):
+            identity = (event.provider, event.model, event.api_mode)
+            if identity == roles.controller.identity():
+                if writer_selection is not None:
+                    raise ValueError("controller cannot resume after writer evidence selection")
+                if writer_attempt is not None:
+                    raise ValueError("controller cannot resume after writer authorization")
+            elif identity == roles.writer.identity():
+                if latest_attempt is None and not (
+                        reviewed_action is not None
+                        and reviewed_action.operation == "propose_build_insertion"
+                        and reviewed_action.sequence < event.sequence):
+                    raise ValueError("first provider authorization must be controller")
+                if writer_attempt is not None:
+                    raise ValueError("only one writer authorization is permitted")
+                writer_attempt = event.provider_attempt_id
+            else:
+                raise ValueError("provider identity is outside the frozen controller/writer roles")
+            latest_attempt, latest_outcome = event.provider_attempt_id, None
+        elif isinstance(event, ProviderOutcomeEventV1):
+            if event.provider_attempt_id == latest_attempt:
+                latest_outcome = event.outcome
+        elif isinstance(event, acquisition_events):
+            if writer_selection is not None:
+                raise ValueError("acquisition cannot continue after writer evidence selection")
+            if writer_attempt is not None:
+                raise ValueError("acquisition cannot continue after writer authorization")
+            if latest_attempt is not None and latest_outcome not in {"response_received", "known_not_sent"}:
+                raise ValueError("acquisition requires a resolved controller attempt")
+        elif isinstance(event, CompletionBindingEventV1):
+            if writer_attempt is None or event.provider_attempt_id != writer_attempt:
+                raise ValueError("completion must bind the authorized writer attempt")
+
+
+class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
+    _dynamic_source_scope: ClassVar[bool] = True
+    schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
+        default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
+    )
+    policy: AuthoredBuildCollaborationPolicyV1 | AuthoredBuildCollaborationImagePolicyV1 | AuthoredBuildConnectedPageReviewPolicyV1 | AuthoredBuildConnectedPageReviewImagePolicyV1 | AuthoredBuildSourceQuotePolicyV1 | AuthoredBuildSourceQuoteImagePolicyV1 | AuthoredBuildRelationshipReviewPolicyV1 | AuthoredBuildRelationshipReviewImagePolicyV1 | AuthoredBuildIntentionalResponsePolicyV2 | AuthoredBuildIntentionalResponseImagePolicyV2 | AuthoredBuildIntentionalResponseSourcePolicyV2 | AuthoredBuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseImagePolicyV2 | BuildIntentionalResponsePolicyV2 | BuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseSourcePolicyV2 | BuildRelationshipReviewImagePolicyV1 | BuildRelationshipReviewPolicyV1 | BuildSourceQuoteImagePolicyV1 | BuildSourceQuotePolicyV1 | BuildConnectedPageReviewImagePolicyV1 | BuildConnectedPageReviewPolicyV1 | BuildCollaborationImagePolicyV1 | BuildCollaborationPolicyV1 | BuildRelatedPageDraftImagePolicyV1 | BuildRelatedPageDraftPolicyV1 | BuildExactSavedLinesDraftImagePolicyV1 | BuildExactSavedLinesDraftPolicyV1 | BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanPlacementAuthoringPolicyV1 | PlanCorpusAuthoringPolicyV1 | PlanCorpusSourceSectionsPolicyV1 | PlanAuthoringPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    events: list[GraphExecutionEventV3] = Field(max_length=2048)
+
+    @model_validator(mode="after")
+    def validate_controller_writer_phases(self) -> "PlanWorldGraphExecutionV3":
+        from .build_draft_context import validate_execution_records, validate_provider_inclusions
+        validate_execution_records(self)
+        from .authored_graph_references import validate_execution as validate_authored_execution
+        validate_authored_execution(self)
+        validate_provider_inclusions(self)
+        from .build_related_pages import validate_events as validate_related_page_events
+        validate_related_page_events(self)
+        from .plan_objective import validate_events as validate_objective_events
+        validate_objective_events(self)
+        if not isinstance(self.policy, ControllerWriterGraphExecutionPolicyV3):
+            if any(isinstance(event, (PlanJevRetrievalSelectionV1, PlanJevProviderAuthorizedV1, PlanJevWriterAuthorizedV1)) for event in self.events):
+                raise ValueError("Plan decision requires its frozen Plan policy")
+            return self
+        roles = self.policy.provider_roles
+        latest_attempt: UUID | None = None
+        latest_outcome: str | None = None
+        writer_attempt: UUID | None = None
+        action_selection = None
+        writer_selection = None
+        authorized_by_id = {}
+        from .build_primary_context import validate_reads
+        validate_reads(self,max_chars=(self.policy.saved_source_char_count if isinstance(self.policy,
+            (BuildExactSavedLinesDraftPolicyV1, BuildExactSavedLinesDraftImagePolicyV1)) else self.policy.max_chars_per_source_read))
+        for event in self.events:
+
+            if isinstance(event, BuildReviewedActionSelectionV1):
+                if (not isinstance(self.policy, BuildActionControllerWriterPolicyV1)
+                    or action_selection is not None or latest_attempt is not None or writer_attempt is not None
+                    or event.operation not in self.policy.allowed_surface_operations
+                    or event.capability_sha256 != self.policy.action_capability_sha256):
+                    raise ValueError("Reviewed action lacks its unique pre-provider capability binding")
+                action_selection = event
+            if isinstance(event, BuildJevActionSelectionV1):
+                from .build_intentional_response import enabled
+                if isinstance(event, BuildRequestedWorkResolutionV1):
+                    from .build_intentional_response import validate_resolution_metadata
+                    if not enabled(self.policy):
+                        raise ValueError('Semantic event differs from its frozen response contract')
+                    validate_resolution_metadata(event,self.policy)
+                elif enabled(self.policy):
+                    raise ValueError('Historical operation selection cannot authorize the new response policy')
+                prior = authorized_by_id.get(event.controller_attempt_id)
+                if (not isinstance(self.policy, BuildActionControllerWriterPolicyV1)
+                        or action_selection is not None or writer_attempt is not None
+                        or event.controller_attempt_id != latest_attempt or latest_outcome != "response_received"
+                        or prior is None or (prior.provider, prior.model, prior.api_mode) != roles.controller.identity()
+                        or event.controller_envelope_sha256 != prior.envelope_sha256
+                        or event.operation not in self.policy.allowed_surface_operations
+                        or event.capability_sha256 != self.policy.action_capability_sha256):
+                    raise ValueError("Build action selection differs from its acknowledged controller/capability")
+                action_selection = event
+            if isinstance(event, BuildWriterEvidenceSelectionV1):
+                if not isinstance(self.policy, BuildSelectedSourceActionControllerWriterPolicyV1):
+                    raise ValueError("Writer selection lacks its unique acknowledged controller")
+                from .build_primary_context import validate_selection_origin
+                validate_selection_origin(self,event)
+                writer_selection = event
+            if isinstance(event, ProviderAttemptAuthorizedEventV1):
+                authorized_by_id[event.provider_attempt_id] = event
+                identity = (event.provider, event.model, event.api_mode)
+                if identity == roles.writer.identity():
+                    if (isinstance(self.policy, BuildSelectedSourceActionControllerWriterPolicyV1)
+                        and (action_selection is None or action_selection.operation == "answer_from_sources")):
+                        if writer_selection is None:
+                            raise ValueError("Source writer requires a settled evidence selection")
+                        from .authored_graph_references import source_event_ids as authored_source_ids
+                        if set(event.included_source_read_event_ids) != set(writer_selection.source_event_ids) | authored_source_ids(self):
+                            raise ValueError("Source writer exposure differs from selected event closure")
+                        from .build_primary_context import validate_writer_reads
+                        validate_writer_reads(self,event)
+                    if isinstance(self.policy, BuildActionControllerWriterPolicyV1) and action_selection is None:
+                        raise ValueError("Build writer requires a recorded controller-selected operation")
+                    writer_attempt = event.provider_attempt_id
+                latest_attempt = event.provider_attempt_id
+                latest_outcome = None
+            elif isinstance(event, ProviderOutcomeEventV1):
+                if event.provider_attempt_id == latest_attempt:
+                    latest_outcome = event.outcome
+        validate_controller_writer_execution(self, reviewed_action=(
+            action_selection if isinstance(action_selection, BuildReviewedActionSelectionV1) else None))
+        validate_build_section_inclusions(self)
+        from .native_retrieval import validate_decision_phases
+        validate_decision_phases(self)
+        from .build_world_context import validate_world_events
+        validate_world_events(self)
+        return self
+
+    def effective_source_pins(self) -> dict[str, GraphSourceScopeAnchorV2]:
+        return _effective_source_pins(self)
+
+
+class PlanSourceExecutionV1(PlanWorldGraphExecutionV3):
+    """Distinct source-capable ledger using the existing provider state machine."""
+    schema_: Literal["dmb_plan_source_execution_v1"] = Field(
+        default="dmb_plan_source_execution_v1", alias="schema")
+    policy: PlanSourceExecutionPolicyV1
+    events: list[Annotated[
+        ValidatedGraphOperationEventV3 | PlanRequestedWorkAuthorizedV2 | PlanRequestedWorkAuthorizedV1
+        | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV2 | PlanJevWriterAuthorizedV1
+        | ProviderOutcomeEventV1 | CompletionBindingEventV1
+        | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2
+        | SourcePassageReuseEventV1 | RelatedRecapContextAuthorizationEventV2
+        | ValidatedRelatedRecapContextEventV2 | RelatedRecapContextProviderInclusionEventV2
+        | PlanRequestedWorkSelectedV2 | PlanRequestedWorkSelectedV1 | PlanJevRetrievalSelectionV1
+        | NativeBodySearchAuthorizedV1 | NativeBodySearchObservedV1 | NativeBodyReadAuthorizedV1
+        | NativeBodyReadObservedV1 | NativeBodyProviderIncludedV1,
+        Field(discriminator="kind"),
+    ]] = Field(max_length=2048)
+
+
+class PlanNativeWriterAuthorizedV1(PlanJevWriterAuthorizedV2):
+    kind: Literal["plan_native_writer_authorized_v1"] = "plan_native_writer_authorized_v1"
+    native_statement_read_event_ids: list[UUID]
+
+
+class PlanNativeWriterAuthorizedV2(PlanNativeWriterAuthorizedV1):
+    kind: Literal['plan_native_writer_authorized_v2'] = 'plan_native_writer_authorized_v2'
+    native_assertion_read_event_ids: list[UUID]
+
+
+class PlanNativeExecutionPolicyV1(PlanSourceExecutionPolicyV1):
+    policy_version: Literal["plan_native_execution_uncapped_v1"] = "plan_native_execution_uncapped_v1"
+    driver_schema: Literal["dmb_plan_native_jev_retrieval_v1"] = "dmb_plan_native_jev_retrieval_v1"
+    native_query_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class PlanNativeExecutionV1(PlanSourceExecutionV1):
+    schema_: Literal["dmb_plan_native_execution_v1"] = Field(
+        default="dmb_plan_native_execution_v1", alias="schema")
+    policy: PlanNativeExecutionPolicyV1
+    events: list[Annotated[
+        ValidatedGraphOperationEventV3 | PlanRequestedWorkAuthorizedV2 | PlanRequestedWorkAuthorizedV1
+        | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV2 | PlanJevWriterAuthorizedV1
+        | PlanNativeWriterAuthorizedV2 | PlanNativeWriterAuthorizedV1 | ProviderOutcomeEventV1 | CompletionBindingEventV1
+        | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2
+        | SourcePassageReuseEventV1 | RelatedRecapContextAuthorizationEventV2
+        | ValidatedRelatedRecapContextEventV2 | RelatedRecapContextProviderInclusionEventV2
+        | PlanRequestedWorkSelectedV2 | PlanRequestedWorkSelectedV1 | PlanJevRetrievalSelectionV1
+        | NativeBodySearchAuthorizedV1 | NativeBodySearchObservedV1 | NativeBodyReadAuthorizedV1
+        | NativeBodyReadObservedV1 | NativeBodyProviderIncludedV1
+        | NativePlanStatementReadAuthorizedV1 | NativePlanStatementReadObservedV1
+        | NativePlanAssertionReadAuthorizedV1 | NativePlanAssertionReadObservedV1,
+        Field(discriminator="kind"),
+    ]] = Field(max_length=2048)
+
+
+def _effective_source_pins(execution) -> dict[str, GraphSourceScopeAnchorV2]:
+    """Read the exact frozen and extended pins from an already validated ledger."""
+    scope = execution.policy.source_read_scope
+    pins = {pin.anchor_id: pin for pin in scope.admitted_anchors} if scope is not None else {}
+    for event in execution.events:
+        if isinstance(event, SourceScopeExtensionEventV3):
+            pins.update({pin.anchor_id: pin for pin in event.pins})
+    return pins
+
+
+def build_sections_digest(reads) -> str:
+    return _canonical_sha256([event.model_dump(mode="json", by_alias=True)
+        for event in sorted(reads, key=lambda item: str(item.event_id))])
+
+
+def validate_build_section_inclusions(execution) -> None:
+    from .build_draft_context import native_build_action
+    section_capable = isinstance(execution.policy,BuildSectionControllerWriterPolicyV1) or native_build_action(execution) is not None
+    reads, inclusions, attempts, outcomes = {}, {}, {}, {}
+    pending = None
+    answers = []
+    for event in execution.events:
+        if pending is not None:
+            if (not isinstance(event, ProviderAttemptAuthorizedEventV1)
+                    or event.provider_attempt_id != pending.provider_attempt_id
+                    or event.envelope_sha256 != pending.envelope_sha256):
+                raise ValueError("Saved section inclusion must immediately precede exact provider authorization")
+            pending = None
+        if isinstance(event, ValidatedBuildSectionReadV1):
+            reads[event.event_id] = event
+        elif isinstance(event, BuildSectionProviderInclusionV1):
+            latest = next(reversed(attempts.values()), None)
+            if (not section_capable
+                    or latest is None or outcomes.get(latest.provider_attempt_id) != "response_received"
+                    or (latest.provider, latest.model, latest.api_mode) != execution.policy.provider_roles.controller.identity()
+                    or event.context_receipt_sha256 != execution.context_receipt_sha256
+                    or event.execution_policy_sha256 != execution.execution_policy_sha256
+                    or event.provider_attempt_id in inclusions or event.provider_attempt_id in attempts
+                    or any(rid not in reads for rid in event.section_event_ids)
+                    or event.sections_sha256 != build_sections_digest([reads[rid] for rid in event.section_event_ids])):
+                raise ValueError("Saved section inclusion differs from exact completed reads and policy")
+            inclusions[event.provider_attempt_id] = event
+            pending = event
+        elif isinstance(event, ProviderAttemptAuthorizedEventV1):
+            attempts[event.provider_attempt_id] = event
+        elif isinstance(event, ProviderOutcomeEventV1):
+            outcomes[event.provider_attempt_id] = event.outcome
+        elif isinstance(event, BuildSectionAnswerBindingV1):
+            auth = attempts.get(event.provider_attempt_id)
+            inclusion = inclusions.get(event.provider_attempt_id)
+            if (not section_capable
+                    or answers or auth is None or inclusion is None
+                    or (auth.provider, auth.model, auth.api_mode) != execution.policy.provider_roles.writer.identity()
+                    or event.envelope_sha256 != auth.envelope_sha256
+                    or outcomes.get(event.provider_attempt_id) != "response_received"
+                    or any(not set(item.section_event_ids).issubset(inclusion.section_event_ids) for item in event.bindings)):
+                raise ValueError("Saved answer binding lacks its producing writer's exact included reads")
+            answers.append(event)
+        elif isinstance(event, CompletionBindingEventV1) and answers:
+            if (answers[0].provider_attempt_id != event.provider_attempt_id
+                    or answers[0].completion_sha256 != event.completion_sha256):
+                raise ValueError("Saved answer binding differs from final completion")
+
+
+def project_build_section_answer_bindings(execution, completion, attempt_id, bindings):
+    """Pure validation projection; only complete_turn can persist these bindings."""
+    if not bindings:
+        return execution
+    auth = next((event for event in execution.events
+        if isinstance(event, ProviderAttemptAuthorizedEventV1) and event.provider_attempt_id == attempt_id), None)
+    if auth is None:
+        raise ValueError("Saved answer binding has no producing authorization")
+    event = BuildSectionAnswerBindingV1(kind="build_section_answer_binding_v1",
+        event_id=uuid4(), sequence=len(execution.events), provider_attempt_id=attempt_id,
+        envelope_sha256=auth.envelope_sha256,
+        completion_sha256=_canonical_sha256(completion.model_dump(mode="json", by_alias=True)), bindings=bindings)
+    return type(execution).model_validate(execution.model_dump(mode="json", by_alias=True)
+        | {"events": [*[item.model_dump(mode="json", by_alias=True) for item in execution.events],
+            event.model_dump(mode="json", by_alias=True)]})
+
+
+def validate_build_section_completion(completion, execution, producing_provider_attempt_id) -> None:
+    bindings = [event for event in execution.events if isinstance(event, BuildSectionAnswerBindingV1)]
+    if not isinstance(execution.policy, BuildSectionControllerWriterPolicyV1):
+        if bindings:
+            raise ValueError("Saved section answer binding requires explicit source input policy")
+        return
+    segments = {index: segment for index, segment in enumerate(completion.answer_segments)
+        if isinstance(segment, SavedSourceClaimV1)}
+    if not segments:
+        if bindings:
+            raise ValueError("Saved answer bindings have no source segments")
+        return
+    if (len(bindings) != 1 or bindings[0].provider_attempt_id != producing_provider_attempt_id
+            or bindings[0].completion_sha256 != _canonical_sha256(completion.model_dump(mode="json", by_alias=True))
+            or {item.segment_index for item in bindings[0].bindings} != set(segments)):
+        raise ValueError("Every saved source segment needs its exact completion-bound reads")
+    reads = {event.event_id: event for event in execution.events if isinstance(event, ValidatedBuildSectionReadV1)}
+    for item in bindings[0].bindings:
+        segment = segments[item.segment_index]
+        if (item.text_sha256 != hashlib.sha256(segment.text.encode()).hexdigest()
+                or any(reads[rid].source_basis.content_sha256 != segment.content_sha256 for rid in item.section_event_ids)):
+            raise ValueError("Saved segment text or source differs from included read binding")
+
+
+def _related_recap_descriptor_key(
+    admission: RelatedRecapContextAdmissionV2,
+) -> tuple:
+    return (
+        admission.context_anchor_id,
+        admission.descriptor_campaign_id,
+        admission.descriptor_source_artifact_id,
+        admission.descriptor_source_revision_id,
+        admission.descriptor_content_sha256,
+        admission.selector_schema,
+        admission.selector_policy,
+        admission.descriptor_world_id,
+        admission.descriptor_graph_revision_id,
+        admission.expected_session_id,
+        admission.canonical_heading,
+        admission.legacy_session_heading,
+        admission.legacy_recap_marker,
+    )
+
+
+def _validate_related_recap_context_events(
+    execution: PlanWorldGraphExecutionV2,
+) -> None:
+    authorizations: dict[UUID, RelatedRecapContextAuthorizationEventV2] = {}
+    results_by_call: dict[UUID, ValidatedRelatedRecapContextEventV2] = {}
+    results_by_event: dict[UUID, ValidatedRelatedRecapContextEventV2] = {}
+    inclusion_pending: RelatedRecapContextProviderInclusionEventV2 | None = None
+    latest_attempt_id: UUID | None = None
+    latest_outcome: str | None = None
+    authorization_count = 0
+    authorized_chars = 0
+    returned_chars = 0
+
+    for event in execution.events:
+        if inclusion_pending is not None:
+            if not isinstance(event, ProviderAttemptAuthorizedEventV1):
+                raise ValueError("related recap inclusion must precede its provider authorization")
+            if (
+                event.provider_attempt_id != inclusion_pending.provider_attempt_id
+                or event.envelope_sha256 != inclusion_pending.envelope_sha256
+            ):
+                raise ValueError("related recap inclusion differs from provider authorization")
+            inclusion_pending = None
+        if (
+            isinstance(
+                event,
+                (
+                    RelatedRecapContextAuthorizationEventV2,
+                    ValidatedRelatedRecapContextEventV2,
+                    RelatedRecapContextProviderInclusionEventV2,
+                ),
+            )
+            and latest_outcome == "outcome_unknown"
+        ):
+            raise ValueError("related recap context cannot continue after an unknown provider outcome")
+        if isinstance(event, (ProviderAttemptAuthorizedEventV1, ProviderAttemptAuthorizedEventV2)):
+            latest_attempt_id = event.provider_attempt_id
+            latest_outcome = None
+        elif isinstance(event, ProviderOutcomeEventV1) and event.provider_attempt_id == latest_attempt_id:
+            latest_outcome = event.outcome
+
+        if isinstance(event, RelatedRecapContextAuthorizationEventV2):
+            if event.read_call_id in authorizations:
+                raise ValueError("related recap read call ID was authorized more than once")
+            if (
+                event.context_receipt_sha256 != execution.context_receipt_sha256
+                or event.execution_policy_sha256 != execution.execution_policy_sha256
+            ):
+                raise ValueError("related recap authorization differs from the frozen execution")
+            authorizations[event.read_call_id] = event
+            authorization_count += 1
+            authorized_chars += event.max_chars
+        elif isinstance(event, ValidatedRelatedRecapContextEventV2):
+            authorization = authorizations.get(event.read_call_id)
+            if (
+                authorization is None
+                or authorization.sequence >= event.sequence
+                or authorization.event_id != event.authorization_event_id
+            ):
+                raise ValueError("related recap result requires its earlier authorization")
+            if event.read_call_id in results_by_call:
+                raise ValueError("related recap authorization already has a result")
+            expected_admission_sha = _canonical_sha256(
+                authorization.admission.model_dump(mode="json", by_alias=True)
+            )
+            if event.admission_sha256 != expected_admission_sha:
+                raise ValueError("related recap result differs from its authorized descriptor")
+            if event.continuation_in_sha256 != authorization.continuation_in_sha256:
+                raise ValueError("related recap result continuation differs from its authorization")
+            if event.returned_chars > authorization.max_chars:
+                raise ValueError("related recap result exceeds its authorized character limit")
+            if event.outcome != "unavailable" and (
+                event.source_bytes_sha256 != authorization.admission.descriptor_content_sha256
+            ):
+                raise ValueError("related recap source bytes differ from the admitted descriptor")
+            if event.continuation_in_sha256 is None:
+                if event.offset_chars != 0:
+                    raise ValueError("initial related recap page must start at character offset zero")
+            else:
+                descriptor_key = _related_recap_descriptor_key(authorization.admission)
+                continuations = [
+                    previous
+                    for previous in results_by_event.values()
+                    if previous.continuation_out_sha256 == event.continuation_in_sha256
+                    and previous.outcome == "truncated"
+                    and _related_recap_descriptor_key(
+                        authorizations[previous.read_call_id].admission
+                    )
+                    == descriptor_key
+                ]
+                if len(continuations) != 1:
+                    raise ValueError("related recap continuation has no unique prior page")
+                previous = continuations[0]
+                if (
+                    previous.section_sha256 != event.section_sha256
+                    or previous.source_bytes_sha256 != event.source_bytes_sha256
+                    or any(getattr(previous, field) != getattr(event, field) for field in ("selected_form", "session_heading_line", "recap_marker_line", "heading_line", "line_start", "line_end"))
+                    or event.offset_chars != previous.offset_chars + previous.returned_chars
+                ):
+                    raise ValueError("related recap continuation changed section or skipped characters")
+            results_by_call[event.read_call_id] = event
+            results_by_event[event.event_id] = event
+            returned_chars += event.returned_chars
+        elif isinstance(event, RelatedRecapContextProviderInclusionEventV2):
+            if inclusion_pending is not None:
+                raise ValueError("related recap provider inclusion cannot be nested")
+            included = [results_by_event.get(event_id) for event_id in event.included_context_event_ids]
+            if any(result is None for result in included):
+                raise ValueError("related recap inclusion references an unknown or later read result")
+            reads = [result for result in included if result is not None]
+            if any(result.outcome not in {"enough", "truncated"} for result in reads):
+                raise ValueError("related recap inclusion requires content-bearing results")
+            if event.included_chars != sum(result.returned_chars for result in reads):
+                raise ValueError("related recap inclusion character count differs from read results")
+            if event.included_context_sha256 != related_recap_context_inclusion_digest(reads):
+                raise ValueError("related recap inclusion digest differs from read results")
+            inclusion_pending = event
+
+    if execution.policy.max_provider_attempts is not None and authorization_count > 8:
+        raise ValueError("related recap read call budget exceeded")
+    if authorized_chars > 96000 or returned_chars > 96000:
+        raise ValueError("related recap character budget exceeded")
+
+
+def graph_execution_policy_digest_v2(
+    context_receipt_sha256: str, policy: GraphExecutionPolicyV2
+) -> str:
+    return _canonical_sha256({
+        "schema": "dmb_agent_plan_world_graph_execution_v2",
+        "context_receipt_sha256": context_receipt_sha256,
+        "policy": policy.model_dump(mode="json", by_alias=True),
+    })
+
+
+def graph_execution_policy_digest_v3(
+    context_receipt_sha256: str, policy: GraphExecutionPolicyV3,
+) -> str:
+    return _canonical_sha256({
+        "schema": "dmb_agent_plan_world_graph_execution_v3",
+        "context_receipt_sha256": context_receipt_sha256,
+        "policy": policy.model_dump(mode="json", by_alias=True),
+    })
+
+
+PlayGraphExecutionEventV1 = Annotated[
+    BuildAuthoredReferencesCapturedV1 | NativeAuthoredSourceReadV1 | NativeBodyProviderIncludedV1 | PlaySourceProviderInclusionV1 | ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | ProviderAttemptAuthorizedEventV4
+    | ProviderOutcomeEventV1 | CompletionBindingEventV1
+    | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
+    | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
+    | RelatedRecapContextProviderInclusionEventV2 | CorpusSourceSearchAuthorizedV1 | CorpusSourceSearchObservedV1 | NativeSourceNavigationAuthorizedV2 | NativeSourceSectionObservedV2 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
+    | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,
+    Field(discriminator="kind"),
+]
+
+def validate_play_source_inclusion_events(execution) -> None:
+    pending = None
+    seen = set()
+    authorized = set()
+    latest_provider = None
+    latest_outcome = None
+    for event in execution.events:
+        if isinstance(event, PlaySourceProviderInclusionV1):
+            if (pending is not None or event.provider_attempt_id in seen or event.provider_attempt_id in authorized
+                    or (latest_provider is not None and latest_outcome not in {"response_received", "known_not_sent"})
+                    or event.context_receipt_sha256 != execution.context_receipt_sha256
+                    or event.execution_policy_sha256 != execution.execution_policy_sha256):
+                raise ValueError("Play source inclusion requires current scope and resolved prior provider")
+            pending = event
+            seen.add(event.provider_attempt_id)
+            continue
+        if pending is not None:
+            if isinstance(event, RelatedRecapContextProviderInclusionEventV2):
+                if (event.provider_attempt_id != pending.provider_attempt_id
+                        or event.envelope_sha256 != pending.envelope_sha256):
+                    raise ValueError("Play and related-corpus inclusion must bind the same request")
+                continue
+            if (not isinstance(event, ProviderAttemptAuthorizedEventV3)
+                    or event.provider_attempt_id != pending.provider_attempt_id
+                    or event.envelope_sha256 != pending.envelope_sha256):
+                raise ValueError("Play source inclusion must precede its exact provider authorization")
+            pending = None
+        if isinstance(event, ProviderAttemptAuthorizedEventV1):
+            authorized.add(event.provider_attempt_id)
+            latest_provider = event.provider_attempt_id
+            latest_outcome = None
+        elif isinstance(event, ProviderOutcomeEventV1) and event.provider_attempt_id == latest_provider:
+            latest_outcome = event.outcome
+    # An unfinished inclusion can be retained on an interrupted/failed attempt;
+    # without an acknowledged matching provider it grants no producing sources.
+
+
+class PlayWorldGraphExecutionV1(ClosedRulesModel):
+    """Native Play ledger with durable exact source and provider proofs."""
+    schema_: Literal["dmb_play_world_graph_execution_v1"] = Field(default="dmb_play_world_graph_execution_v1", alias="schema")
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    policy: PlayCorpusSourceSectionsPolicyV1 | PlayNativeSourceSectionsPolicyV1 | NativePlayGraphPolicyV1
+    events: Annotated[list[PlayGraphExecutionEventV1], Field(max_length=2048)]
+
+    def effective_source_pins(self) -> dict[str, GraphSourceScopeAnchorV2]:
+        return _effective_source_pins(self)
+
+    @model_validator(mode="after")
+    def exact_execution(self):
+        validate_play_source_inclusion_events(self)
+        validate_graph_execution_record(self, dynamic_source_scope=True, allow_play_source_inclusion=True)
+        return self
+
+
+PlanWorldGraphExecution = PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3
+class NativeStatementOutputCapturedV1(StrictModel):
+    kind: Literal["native_statement_output_captured_v1"] = "native_statement_output_captured_v1"
+    event_id: UUID
+    sequence: int = Field(ge=0, strict=True)
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    response_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    raw_output_json: str
+
+
+class NativeStatementExecutionV1(StrictModel):
+    schema_: Literal["dmb_native_statement_execution_v1"] = Field(default="dmb_native_statement_execution_v1", alias="schema")
+    context_receipt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    policy: Annotated[NativeStatementWriterPolicyV1 | NativeStatementWriterPolicyV2, Field(discriminator="policy_version")]
+    execution_policy_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    events: list[Annotated[ProviderAttemptAuthorizedEventV1 | ProviderOutcomeEventV1 |
+        NativeStatementInputEventV1 | NativeStatementOutputCapturedV1 | CompletionBindingEventV1,
+        Field(discriminator="kind")]]
+
+    @model_validator(mode="after")
+    def exact_native_execution(self):
+        from .native_statement_answer import validate_execution
+        validate_execution(self)
+        return self
+
+
+GraphTurnExecution = Annotated[
+    Union[PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3
+    | PlanSourceExecutionV1 | PlanNativeExecutionV1 | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1, "SurfaceNativeExecutionV1"],
+    Field(discriminator="schema_"),
+]
+
+
+_SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1 = "parent_initial_retrieval_with_selected_source_index_v1"
+
+_BOUNDED_SOURCE_INDEX_SELECTION_POLICY_V1 = (
+    "parent_initial_retrieval_with_bounded_source_index_v1"
+)
+
+
+class GraphEvidenceValidationView(Protocol):
+    """Read-only view of an independently validated owning receipt, not a codec."""
+    @property
+    def context_receipt_sha256(self) -> str: ...
+    @property
+    def committed_content_sha256(self) -> str: ...
+    @property
+    def graph_authority(self) -> PlanWorldGraphAuthorityV1: ...
+    @property
+    def graph_packet(self) -> PlanWorldGraphPacketV1: ...
+    @property
+    def assembled_input(self) -> PlanWorldGraphAssembledInputV1: ...
+
+
+class GraphProviderExecutionView(Protocol):
+    """Common validated provider fields, including retained V1 ledgers."""
+    @property
+    def policy(self) -> GraphExecutionPolicyV1: ...
+    @property
+    def events(self) -> Sequence[GraphExecutionEventBaseV1]: ...
+
+
+class GraphExecutionValidationView(Protocol):
+    """Actual validated ledger or its genuine prefix; grants no authority."""
+    @property
+    def execution_policy_sha256(self) -> str: ...
+    @property
+    def policy(self) -> GraphExecutionPolicyV2 | GraphExecutionPolicyV3: ...
+    @property
+    def events(self) -> Sequence[GraphExecutionEventV2 | GraphExecutionEventV3]: ...
+
+
+def validate_graph_provider_envelope(
+    inputs: GraphEvidenceValidationView, execution: GraphProviderExecutionView,
+    event: ProviderAttemptAuthorizedEventV1,
+) -> None:
+    """Shared admitted-ID, first-envelope and frozen-context-window checks."""
+    validate_graph_provider_evidence(inputs, execution, event)
+    validate_provider_envelope_accounting(inputs.assembled_input, execution, event)
+
+
+def validate_graph_provider_evidence(inputs, execution, event) -> None:
+    """Only admitted Graph IDs may appear in a provider envelope."""
+    graph_events = [e for e in execution.events if isinstance(e, ValidatedGraphOperationEventV1)]
+    included_graph_events = set(event.included_graph_event_ids)
+    included_operations = [e for e in graph_events if e.event_id in included_graph_events]
+    available_assertions = set(inputs.assembled_input.dispatched_assertion_ids) | {x for e in included_operations for x in e.assertion_ids}
+    available_relationships = set(inputs.assembled_input.dispatched_relationship_ids) | {x for e in included_operations for x in e.relationship_ids}
+    available_evidence = set(inputs.assembled_input.dispatched_evidence_ref_ids) | {x for e in included_operations for x in e.evidence_ref_ids}
+    if not set(event.included_assertion_ids).issubset(available_assertions) or not set(event.included_relationship_ids).issubset(available_relationships) or not set(event.included_evidence_ref_ids).issubset(available_evidence):
+        raise ValueError("provider envelope includes IDs absent from admitted Graph evidence")
+    operation_event_ids = {e.event_id for e in graph_events}
+    if not set(event.included_graph_event_ids).issubset(operation_event_ids):
+        raise ValueError("provider envelope references an unknown Graph operation event")
+
+
+def validate_provider_envelope_accounting(assembled, execution, event) -> None:
+    """First-call commitment and role budget over the actual owning input."""
+    from .native_context import NativeReviewedActionInputV1
+    from .build_decision_context import (
+        DEFAULT_REQUEST, LONG_LIMIT, mode_context, uses_role_accounting, validate_event,
+    )
+    from .native_retrieval import NativeRetrievalAuthorizedV1
+    if type(assembled) is NativeReviewedActionInputV1:
+        from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
+        if (type(execution.policy) is not SurfaceNativeExecutionPolicyV1
+                or type(execution.policy.action) is not NativeBuildActionV1):
+            raise ValueError('Human admission accounting requires its actual Build policy')
+        if (event.provider,event.model,event.api_mode)==execution.policy.provider_roles.controller.identity():
+            validate_event(event,execution)
+            context_limit = LONG_LIMIT if mode_context(event).context_mode == 'long_context' else DEFAULT_REQUEST
+        elif (event.provider,event.model,event.api_mode)==execution.policy.writer_context_budget.identity():
+            context_limit = execution.policy.writer_context_budget.context_limit_tokens
+        else:
+            raise ValueError('Human admission provider differs from its frozen role budget')
+    else:
+        context_limit = assembled.context_window_limit
+    if type(event) in (NativeRetrievalAuthorizedV1, ProviderAttemptAuthorizedEventV5) and uses_role_accounting(execution.policy):
+        validate_event(event, execution)
+        context_limit = LONG_LIMIT if mode_context(event).context_mode == "long_context" else DEFAULT_REQUEST
+    writer_budget = getattr(execution.policy, "writer_context_budget", None) if uses_role_accounting(execution.policy) else None
+    if writer_budget is not None and (event.provider, event.model, event.api_mode) == writer_budget.identity():
+        context_limit = writer_budget.context_limit_tokens
+        if event.output_token_reserve != writer_budget.output_reserve_tokens:
+            raise ValueError("writer reserve differs from its frozen role budget")
+    if context_limit is not None and event.input_tokens + event.output_token_reserve > context_limit:
+        raise ValueError("provider envelope exceeds the frozen context window")
+    previous_attempts = [e for e in execution.events if isinstance(e, ProviderAttemptAuthorizedEventV1)]
+    if not previous_attempts:
+        from .native_context import NativePlanRequestAdmissionV1
+        if type(assembled) is NativePlanRequestAdmissionV1:
+            from .native_retrieval import NativePlanOpeningAuthorizedV1
+            if (type(event) is not NativePlanOpeningAuthorizedV1
+                    or (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.controller.identity()
+                    or event.input_accounting_kind != execution.policy.provider_input_accounting.kind
+                    or event.input_estimator != assembled.tokenizer_name
+                    or event.output_token_reserve != assembled.output_token_reserve):
+                raise ValueError('First Plan opening requires its actual SDK role and configured accounting')
+            # Actual hash/byte/token equality is checked by the real dispatch
+            # proof owner. A request manifest is never a provider envelope.
+            return
+        if assembled.assembler_version == "reviewed_author_admission_v1":
+            selected = [e for e in execution.events if isinstance(e, BuildReviewedActionSelectionV1)]
+            from .reviewed_action import admission_manifest
+            if len(selected) != 1 or _canonical_sha256(admission_manifest(selected[0].intent)) != assembled.assembled_input_sha256:
+                raise ValueError("First provider lacks the exact author-admission manifest")
+            return
+        if (
+            event.envelope_sha256 != assembled.assembled_input_sha256
+            or event.input_tokens != assembled.provider_envelope_input_tokens
+            or event.output_token_reserve != assembled.output_token_reserve
+            or event.input_estimator != assembled.tokenizer_name
+        ):
+            raise ValueError("first provider authorization must match the frozen receipt envelope and accounting")
+
+
+def validate_selected_source_binding(
+    receipt: GraphContextReceipt,
+    execution: GraphTurnExecution | None,
+) -> None:
+    if isinstance(receipt, PlanSourceContextReceiptV1) or isinstance(execution, PlanSourceExecutionV1):
+        from .plan_source_context import validate_source_execution_binding
+        validate_source_execution_binding(receipt, execution)
+        return
+    if execution is not None and isinstance(execution.policy, PlanJevRetrievalPolicyV1):
+        if not isinstance(receipt, PlanWorldGraphContextReceiptV1):
+            raise ValueError("Plan Jev policy requires its actual Plan receipt")
+    from .corpus_source_search import validate_receipt as validate_corpus_receipt
+    validate_corpus_receipt(receipt, execution)
+    from .native_source_navigation import validate_navigation_receipt
+    validate_navigation_receipt(receipt, execution)
+    if isinstance(receipt, PlayWorldGraphContextReceiptV1):
+        from .play_graph_context import validate_play_graph_execution_binding
+        if not isinstance(execution, PlayWorldGraphExecutionV1):
+            raise ValueError("Native Play receipt requires its actual Play ledger")
+        validate_play_graph_execution_binding(receipt, execution)
+        return
+    validate_graph_selected_source_binding(_ask_graph_validation_inputs(receipt), execution)
+    for event in execution.events if execution is not None else ():
+        if isinstance(event, BuildDraftContextCapturedV1):
+            if (not isinstance(receipt, BuildGraphContextReceiptV1)
+                or event.record.snapshot.saved_basis() != receipt.source_basis.model_dump(mode="json", by_alias=True)):
+                raise ValueError("Working draft differs from its frozen Build source basis")
+        if isinstance(event, (BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
+                BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1)):
+            if (not isinstance(receipt, BuildGraphContextReceiptV1)
+                    or (hasattr(event, "source_basis") and event.source_basis != receipt.source_basis)
+                    or not isinstance(execution.policy, ControllerWriterGraphExecutionPolicyV3)):
+                raise ValueError("Saved section differs from its frozen Build source authority")
+
+
+def validate_graph_selected_source_binding(inputs: GraphEvidenceValidationInputs, execution: PlanWorldGraphExecution | None) -> None:
+    """Bind the selected policy to its immutable composite at every read/write boundary."""
+    if isinstance(execution, PlanWorldGraphExecutionV3):
+        authority = inputs.graph_authority
+        for extension in execution.events:
+            if isinstance(extension, SourceScopeExtensionEventV3) and (
+                extension.world_id != authority.managed_world_id
+                or extension.native_world_id != authority.native_world_id
+                or extension.binding_version != authority.binding_version
+                or extension.campaign_id != authority.campaign_id
+                or extension.graph_revision != authority.graph_revision
+            ):
+                raise ValueError("source extension differs from frozen managed/native authority")
+    selected_policy = inputs.graph_packet.selection_policy_version == _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1
+    selected_scope = isinstance(execution.policy.source_read_scope, GraphSelectedSourceReadScopeV2) if isinstance(execution, PlanWorldGraphExecutionV2) else False
+    if selected_policy != selected_scope:
+        raise ValueError("selected receipt policy and frozen scope differ")
+    if selected_scope:
+        selected = execution.policy.source_read_scope
+        if selected.world_id != inputs.graph_authority.managed_world_id or selected.campaign_id != inputs.graph_authority.campaign_id or selected.graph_revision != inputs.graph_authority.graph_revision or any(anchor.evidence_ref_id not in inputs.graph_packet.candidate_evidence_ref_ids for anchor in selected.admitted_anchors):
+            raise ValueError("selected scope differs from managed receipt authority")
+        composite = {"schema": "dmb_selected_retrieval_composite_v1", "selection_policy_version": _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1,
+            "initial_claim_packet_sha256": selected.initial_claim_packet_sha256,
+            "selected_index": selected.selected_index_commitment.model_dump(mode="json", by_alias=True),
+            "source_pins": [anchor.model_dump(mode="json") for anchor in selected.admitted_anchors]}
+        if _canonical_sha256(composite) != inputs.graph_packet.retrieval_packet_sha256:
+            raise ValueError("selected composite differs from frozen receipt")
+        context = selected.selected_index_commitment.context
+        if context.world_id != inputs.graph_authority.native_world_id or context.revision_id != inputs.graph_authority.graph_revision or context.scope_mode != "world_cross_campaign" or context.campaign_id != inputs.graph_authority.campaign_id or context.admissibility != "gm" or context.focus.kind != "none" or inputs.graph_authority.admissibility_version != "gm-v1":
+            raise ValueError("selected native context differs from receipt authority")
+
+
+def validate_related_recap_context_scope(
+    receipt: GraphContextReceipt,
+    execution: GraphTurnExecution | None,
+) -> None:
+    if isinstance(receipt, PlanSourceContextReceiptV1) or isinstance(execution, PlanSourceExecutionV1):
+        from .plan_source_context import validate_source_execution_binding
+        validate_source_execution_binding(receipt, execution)
+        return
+    if execution is not None and isinstance(execution.policy, PlanJevRetrievalPolicyV1):
+        if not isinstance(receipt, PlanWorldGraphContextReceiptV1):
+            raise ValueError("Plan Jev policy requires its actual Plan receipt")
+    if isinstance(receipt, PlayWorldGraphContextReceiptV1):
+        from .play_graph_context import validate_play_graph_execution_binding
+        if not isinstance(execution, PlayWorldGraphExecutionV1):
+            raise ValueError("Native Play receipt requires its actual Play ledger")
+        validate_play_graph_execution_binding(receipt, execution)
+        return
+    validate_graph_related_recap_context_scope(_ask_graph_validation_inputs(receipt), execution)
+
+
+def validate_graph_related_recap_context_scope(
+    inputs: GraphEvidenceValidationInputs,
+    execution: PlanWorldGraphExecution | None,
+) -> None:
+    """Bind related-context authorization to turn-admitted targets and Core pins."""
+    if not isinstance(execution, PlanWorldGraphExecutionV2):
+        return
+    validate_related_recap_context_scope_record(inputs, execution)
+
+
+def validate_related_recap_context_scope_record(
+    inputs: GraphEvidenceValidationView, execution: GraphExecutionValidationView,
+) -> None:
+    """Common scope checks for an already validated owning Graph receipt/ledger.
+
+    No subclass test grants or skips authority here. Callers select an admitted
+    domain and independently validate its exact receipt and execution identity.
+    """
+    authorizations = [
+        event
+        for event in execution.events
+        if isinstance(event, RelatedRecapContextAuthorizationEventV2)
+    ]
+    if not authorizations:
+        return
+    graph_scope = execution.policy.source_read_scope
+    if (
+        graph_scope.world_id != inputs.graph_authority.managed_world_id
+        or graph_scope.campaign_id != inputs.graph_authority.campaign_id
+        or graph_scope.graph_revision != inputs.graph_authority.graph_revision
+    ):
+        raise ValueError("related recap execution differs from frozen Graph authority")
+    operations = {
+        event.event_id: event
+        for event in execution.events
+        if isinstance(event, ValidatedGraphOperationEventV1)
+    }
+    selected_scope = (
+        graph_scope if isinstance(graph_scope, GraphSelectedSourceReadScopeV2) else None
+    )
+    for event in execution.events:
+        if not isinstance(event, RelatedRecapContextAuthorizationEventV2):
+            continue
+        admission = event.admission
+        authority = inputs.graph_authority
+        if (
+            admission.context_anchor_id != admission.context_anchor_id.strip()
+            or admission.managed_world_id != authority.managed_world_id
+            or admission.native_world_id != authority.native_world_id
+            or admission.binding_version != authority.binding_version
+            or admission.graph_revision != authority.graph_revision
+            or authority.scope_mode != "world"
+            or authority.campaign_id is not None
+            or authority.admissibility_version != admission.admissibility_version
+            or event.context_receipt_sha256 != inputs.context_receipt_sha256
+            or event.execution_policy_sha256 != execution.execution_policy_sha256
+        ):
+            raise ValueError("related recap authorization differs from the frozen turn authority")
+        target_ids = (
+            set(inputs.assembled_input.dispatched_assertion_ids)
+            if admission.target_kind == "assertion"
+            else set(inputs.assembled_input.dispatched_relationship_ids)
+        )
+        evidence_ref_ids = {item.evidence_ref_id for item in admission.provenance_bindings}
+        if admission.admission_origin == "initial_graph_input":
+            if (
+                admission.target_id not in target_ids
+                or not evidence_ref_ids.issubset(
+                    set(inputs.assembled_input.dispatched_evidence_ref_ids)
+                )
+            ):
+                raise ValueError("related recap target and refs were not in initial dispatched Graph input")
+        elif admission.admission_origin == "validated_graph_operation":
+            operation = operations.get(admission.admission_graph_event_id)
+            if (
+                operation is None
+                or operation.sequence >= event.sequence
+                or operation.graph_revision != authority.graph_revision
+                or admission.target_id
+                not in (
+                    set(operation.assertion_ids)
+                    if admission.target_kind == "assertion"
+                    else set(operation.relationship_ids)
+                )
+                or not evidence_ref_ids.issubset(set(operation.evidence_ref_ids))
+            ):
+                raise ValueError("related recap target and refs lack a prior validated Graph operation")
+        else:
+            if selected_scope is None:
+                raise ValueError("related recap selected-index admission requires the frozen selected scope")
+            commitment = selected_scope.selected_index_commitment
+            admitted_target = GraphSelectedTargetV1(
+                kind=admission.target_kind, target_id=admission.target_id
+            )
+            admitted_refs = {anchor.evidence_ref_id for anchor in selected_scope.admitted_anchors}
+            if (
+                admission.selected_index_sha256 != commitment.index_sha256
+                or admitted_target not in commitment.admitted_targets
+                or not evidence_ref_ids.issubset(admitted_refs)
+            ):
+                raise ValueError("related recap target and refs lack the committed selected-index admission")
+
+
+def validate_completion_against_receipt(
+    completion: PlanWorldGraphCompletion,
+    receipt: PlanWorldGraphContextReceiptV1,
+) -> None:
+    if not isinstance(receipt, PlanWorldGraphContextReceiptV1) or not isinstance(completion, (PlanWorldGraphCompletionV1, PlanWorldGraphCompletionV2)):
+        raise ValueError("Metadata-only completion validation requires the Plan contract")
+    if completion.context_receipt_sha256 != receipt.context_receipt_sha256:
+        _reject_graph_completion(
+            GraphCompletionRejectionCode.RECEIPT_BINDING,
+            "completion must bind the exact stored Graph receipt",
+        )
+    if (
+        isinstance(completion, PlanWorldGraphCompletionV2)
+        and completion.citation_map is not None
+        and any(
+            entry.source_opened or entry.source_read_ids
+            for entry in completion.citation_map.entries
+        )
+    ):
+        _reject_graph_completion(
+            GraphCompletionRejectionCode.CITATION_CLAIM_MISMATCH,
+            "source-opened citations require a V2 execution envelope",
+        )
+    packet = receipt.graph_packet
+    assembled = receipt.assembled_input
+    claims = [
+        segment
+        for segment in completion.answer_segments
+        if isinstance(segment, PlanWorldGraphClaimSegmentV1)
+    ]
+    for segment in completion.answer_segments:
+        if isinstance(segment, PlanWorldGraphPlanClaimSegmentV1) and (
+            segment.plan_content_sha256 != receipt.plan_basis.content_sha256
+        ):
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.PLAN_BASIS_ATTRIBUTION,
+                "Plan claim attribution must match the frozen Plan digest",
+            )
+
+    if completion.answer_context_status == "plan_only_insufficient_evidence":
+        if packet.evidence_sufficiency_status != "insufficient":
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.STATUS_EVIDENCE_MISMATCH,
+                "insufficient Plan-only status requires insufficient receipt evidence",
+            )
+    elif completion.answer_context_status == "plan_only_graph_unused":
+        if packet.evidence_sufficiency_status != "sufficient":
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.STATUS_EVIDENCE_MISMATCH,
+                "unused Graph status requires sufficient receipt evidence",
+            )
+    elif completion.answer_context_status == "graph_grounded":
+        if (
+            packet.evidence_sufficiency_status != "sufficient"
+            or packet.coverage_status != "complete"
+            or packet.truncated
+        ):
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.STATUS_EVIDENCE_MISMATCH,
+                "fully grounded status requires sufficient complete untruncated evidence",
+            )
+    elif completion.answer_context_status == "graph_grounded_partial":
+        if packet.evidence_sufficiency_status != "sufficient" or (
+            packet.coverage_status == "complete" and not packet.truncated
+        ):
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.STATUS_EVIDENCE_MISMATCH,
+                "partially grounded status requires incomplete or truncated evidence",
+            )
+
+    dispatched = {
+        "assertion": set(assembled.dispatched_assertion_ids),
+        "relationship": set(assembled.dispatched_relationship_ids),
+    }
+    candidate_evidence = set(packet.candidate_evidence_ref_ids)
+    dispatched_evidence = set(assembled.dispatched_evidence_ref_ids)
+    if claims:
+        if assembled.packet_disposition != "included":
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.GRAPH_PACKET_NOT_INCLUDED,
+                "Graph claims require an included Graph packet",
+            )
+        if completion.citation_map is None:
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.CITATION_MAP_MISSING,
+                "Graph claims require a citation map",
+            )
+        entries = {entry.claim_id: entry for entry in completion.citation_map.entries}
+        if len(entries) != len(completion.citation_map.entries):
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.CITATION_MAP_CLAIM_SET,
+                "citation map claim IDs must be unique",
+            )
+        for claim in claims:
+            entry = entries.get(claim.claim_id)
+            if entry is None:
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.CITATION_ENTRY_MISSING,
+                    "every Graph claim requires exactly one citation entry",
+                )
+            if claim.target_id not in dispatched[claim.target_kind]:
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.CLAIM_TARGET_NOT_DISPATCHED,
+                    "Graph claim target must be in the dispatched packet",
+                )
+            if claim.graph_revision != receipt.graph_authority.graph_revision:
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.GRAPH_REVISION_MISMATCH,
+                    "Graph claim must use the frozen Graph revision",
+                )
+            if not set(claim.evidence_ref_ids).issubset(candidate_evidence):
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.EVIDENCE_NOT_CANDIDATE,
+                    "Graph claim evidence refs must be in the frozen candidate set",
+                )
+            indexed_refs = set(claim.evidence_ref_ids) - dispatched_evidence
+            if indexed_refs and packet.selection_policy_version in {_BOUNDED_SOURCE_INDEX_SELECTION_POLICY_V1, _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1}:
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.EVIDENCE_NOT_DISPATCHED,
+                    "indexed Graph evidence requires a producing execution envelope",
+                )
+            if not set(claim.evidence_ref_ids).issubset(dispatched_evidence):
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.EVIDENCE_NOT_DISPATCHED,
+                    "Graph claim evidence refs must be in the dispatched packet",
+                )
+            if claim.evidence_ref_ids != sorted(set(claim.evidence_ref_ids)):
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.EVIDENCE_ORDER,
+                    "Graph claim evidence refs must be sorted and unique",
+                )
+            if set(entry.evidence_ref_ids) != set(claim.evidence_ref_ids):
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.CITATION_EVIDENCE_MISMATCH,
+                    "citation refs must match the Graph claim refs",
+                )
+
+
+def derive_execution_answer_context_status(
+    *, context_receipt_sha256: str,
+    answer_segments: list[PlanWorldGraphAnswerSegmentV1],
+    citation_map: PlanWorldGraphCitationMapV1 | None,
+    receipt: GraphContextReceipt,
+    execution: PlanWorldGraphExecution,
+    producing_provider_attempt_id: UUID,
+    claim_graph_event_ids: dict[str, list[UUID]],
+) -> Literal["graph_grounded", "graph_grounded_partial",
+             "plan_only_insufficient_evidence", "plan_only_graph_unused"]:
+    return derive_graph_execution_evidence_status(
+        context_receipt_sha256=context_receipt_sha256,
+        answer_segments=answer_segments, citation_map=citation_map,
+        inputs=_ask_graph_validation_inputs(receipt), execution=execution,
+        producing_provider_attempt_id=producing_provider_attempt_id,
+        claim_graph_event_ids=claim_graph_event_ids,
+    )
+
+
+def derive_graph_execution_evidence_status(
+    *,
+    context_receipt_sha256: str,
+    answer_segments: list[PlanWorldGraphAnswerSegmentV1],
+    citation_map: PlanWorldGraphCitationMapV1 | None,
+    inputs: GraphEvidenceValidationInputs,
+    execution: PlanWorldGraphExecution,
+    producing_provider_attempt_id: UUID,
+    claim_graph_event_ids: dict[str, list[UUID]],
+) -> Literal[
+    "graph_grounded",
+    "graph_grounded_partial",
+    "plan_only_insufficient_evidence",
+    "plan_only_graph_unused",
+]:
+    return derive_graph_execution_evidence_status_for_scope(
+        context_receipt_sha256=context_receipt_sha256, answer_segments=answer_segments,
+        citation_map=citation_map, inputs=inputs, execution=execution,
+        producing_provider_attempt_id=producing_provider_attempt_id,
+        claim_graph_event_ids=claim_graph_event_ids,
+        source_scope=(execution.policy.source_read_scope if isinstance(execution, PlanWorldGraphExecutionV2) else None),
+    )
+
+
+def derive_graph_execution_evidence_status_for_scope(
+    *,
+    context_receipt_sha256: str,
+    answer_segments: list[PlanWorldGraphAnswerSegmentV1],
+    citation_map: PlanWorldGraphCitationMapV1 | None,
+    inputs: GraphEvidenceValidationView,
+    execution: GraphProviderExecutionView,
+    producing_provider_attempt_id: UUID,
+    claim_graph_event_ids: dict[str, list[UUID]],
+    source_scope: GraphSourceReadScopeV2 | GraphSelectedSourceReadScopeV2 | None,
+) -> Literal[
+    "graph_grounded",
+    "graph_grounded_partial",
+    "plan_only_insufficient_evidence",
+    "plan_only_graph_unused",
+]:
+    """Validate producing-envelope evidence and derive its answer context status.
+
+    This accepts the typed completion fields separately so callers can derive a
+    status before constructing the final status-bearing completion model.
+
+    ``graph_grounded`` means every cited support packet in the producing envelope
+    is sufficient, complete, and untruncated. It does not assert corpus-wide
+    completeness.
+    """
+    if context_receipt_sha256 != inputs.context_receipt_sha256:
+        _reject_graph_completion(
+            GraphCompletionRejectionCode.RECEIPT_BINDING,
+            "completion must bind the exact stored Graph receipt",
+        )
+    auths = {
+        event.provider_attempt_id: event
+        for event in execution.events
+        if isinstance(event, ProviderAttemptAuthorizedEventV1)
+    }
+    outcomes = [
+        event for event in execution.events
+        if isinstance(event, ProviderOutcomeEventV1)
+        and event.provider_attempt_id == producing_provider_attempt_id
+    ]
+    producing = auths.get(producing_provider_attempt_id)
+    if producing is None or not outcomes or outcomes[-1].outcome != "response_received":
+        _reject_graph_completion(
+            GraphCompletionRejectionCode.PRODUCING_RESPONSE_MISSING,
+            "completion requires a durable response from its producing attempt",
+        )
+    events = {
+        event.event_id: event
+        for event in execution.events
+        if isinstance(event, ValidatedGraphOperationEventV1)
+    }
+    included_event_ids = set(producing.included_graph_event_ids)
+    included_assertions = set(producing.included_assertion_ids)
+    included_relationships = set(producing.included_relationship_ids)
+    included_evidence = set(producing.included_evidence_ref_ids)
+    dispatched = {
+        "assertion": set(inputs.assembled_input.dispatched_assertion_ids),
+        "relationship": set(inputs.assembled_input.dispatched_relationship_ids),
+    }
+    claims = [s for s in answer_segments if isinstance(s, PlanWorldGraphClaimSegmentV1)]
+    indexed_policy = (
+        inputs.graph_packet.selection_policy_version
+        in {_BOUNDED_SOURCE_INDEX_SELECTION_POLICY_V1, _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1}
+    )
+    scope_anchors: dict[str, list[GraphSourceScopeAnchorV2]] = {}
+    if source_scope is not None:
+        for anchor in source_scope.admitted_anchors:
+            scope_anchors.setdefault(anchor.evidence_ref_id, []).append(anchor)
+    source_reads_by_id: dict[str, SourceReadAnchorReceiptV2] = {}
+    if isinstance(producing, ProviderAttemptAuthorizedEventV2):
+        included_read_events = set(included_passage_event_ids(producing))
+        source_reads_by_id = {
+            read.source_read_id: read
+            for event in execution.events
+            if isinstance(event, SOURCE_PASSAGE_EVENTS)
+            and event.event_id in included_read_events
+            for read in event.receipts
+        }
+    for segment in answer_segments:
+        if isinstance(segment, SavedSourceClaimV1) and segment.content_sha256 != inputs.committed_content_sha256:
+            raise ValueError("Saved-source claim attribution must match the frozen source digest")
+        if isinstance(segment, PlanWorldGraphPlanClaimSegmentV1) and segment.plan_content_sha256 != inputs.committed_content_sha256:
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.PLAN_BASIS_ATTRIBUTION,
+                "Plan claim attribution must match the frozen Plan digest",
+            )
+    if set(claim_graph_event_ids) != {claim.claim_id for claim in claims}:
+        _reject_graph_completion(
+            GraphCompletionRejectionCode.CLAIM_BINDING_SET,
+            "completion binding must map each Graph claim exactly once",
+        )
+    if claims and citation_map is None:
+        _reject_graph_completion(
+            GraphCompletionRejectionCode.CITATION_MAP_MISSING,
+            "Graph claims require a citation map",
+        )
+    citation_entries = {} if citation_map is None else {entry.claim_id: entry for entry in citation_map.entries}
+    if claims and (len(citation_entries) != len(citation_map.entries) or set(citation_entries) != {claim.claim_id for claim in claims}):
+        _reject_graph_completion(
+            GraphCompletionRejectionCode.CITATION_MAP_CLAIM_SET,
+            "citation map must correspond one-to-one with Graph claims",
+        )
+    sufficient_sources: list[tuple[str, bool]] = []
+    for claim in claims:
+        if claim.graph_revision != inputs.graph_authority.graph_revision:
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.GRAPH_REVISION_MISMATCH,
+                "Graph claim must use the frozen Graph revision",
+            )
+        target_ids = dispatched[claim.target_kind] | (
+            included_assertions if claim.target_kind == "assertion" else included_relationships
+        )
+        if claim.target_id not in target_ids:
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.CLAIM_TARGET_NOT_IN_ENVELOPE,
+                "Graph claim target is absent from the final producing envelope",
+            )
+        if claim.evidence_ref_ids != sorted(set(claim.evidence_ref_ids)):
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.EVIDENCE_ORDER,
+                "Graph claim evidence refs must be sorted and unique",
+            )
+        refs = set(claim.evidence_ref_ids)
+        # Source-index hints are not delivered Graph evidence. A later mapped
+        # traversal can deliver evidence absent from the initial packet, but
+        # only for this claim's target and through the producing envelope.
+        traversal_refs: set[str] = set()
+        included_targets = included_assertions if claim.target_kind == "assertion" else included_relationships
+        for event_id in claim_graph_event_ids[claim.claim_id]:
+            event = events.get(event_id)
+            if (event is None or event_id not in included_event_ids
+                    or event.graph_revision != inputs.graph_authority.graph_revision):
+                continue
+            targets = event.assertion_ids if claim.target_kind == "assertion" else event.relationship_ids
+            if claim.target_id in targets and claim.target_id in included_targets:
+                traversal_refs.update(set(event.evidence_ref_ids) & included_evidence)
+        indexed_refs = (
+            refs - set(inputs.assembled_input.dispatched_evidence_ref_ids) - traversal_refs
+            if indexed_policy else set()
+        )
+        indexed_reads: dict[str, SourceReadAnchorReceiptV2] = {}
+        citation_for_claim = citation_entries.get(claim.claim_id)
+        if indexed_refs:
+            if (
+                not indexed_policy
+                or not indexed_refs.issubset(set(inputs.graph_packet.candidate_evidence_ref_ids))
+                or not isinstance(producing, ProviderAttemptAuthorizedEventV2)
+                or not isinstance(citation_for_claim, PlanWorldGraphCitationV2)
+            ):
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.EVIDENCE_NOT_DISPATCHED,
+                    "out-of-dispatch evidence requires the selected source-index policy and a producing V2 read",
+                )
+            if not indexed_refs.issubset(scope_anchors):
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.EVIDENCE_NOT_DISPATCHED,
+                    "out-of-dispatch evidence must be admitted by the frozen source scope",
+                )
+            for ref in indexed_refs:
+                matching = [
+                    source_reads_by_id[read_id]
+                    for read_id in citation_for_claim.source_read_ids
+                    if read_id in source_reads_by_id
+                    and source_reads_by_id[read_id].evidence_ref_id == ref
+                ]
+                matching = [
+                    read for read in matching
+                    if any(
+                        read.anchor_id == anchor.anchor_id
+                        and read.source_artifact_id == anchor.source_artifact_id
+                        and read.source_revision_id == anchor.source_revision_id
+                        for anchor in scope_anchors[ref]
+                    )
+                    and read.outcome in {"enough", "partial", "truncated"}
+                    and read.content_sha256 is not None
+                    and read.returned_chars > 0
+                    and read.evidence_sufficiency_status == "sufficient"
+                ]
+                if not matching:
+                    _reject_graph_completion(
+                        GraphCompletionRejectionCode.CITATION_CLAIM_MISMATCH,
+                        "indexed evidence requires sufficient content from a matching producing-attempt source read",
+                    )
+                indexed_reads[ref] = matching[0]
+            included_targets = included_assertions if claim.target_kind == "assertion" else included_relationships
+            if claim.target_id not in included_targets:
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.CLAIM_TARGET_NOT_IN_ENVELOPE,
+                    "indexed evidence requires a target included by the producing attempt",
+                )
+        mapped_ids = claim_graph_event_ids[claim.claim_id]
+        if len(mapped_ids) != len(set(mapped_ids)):
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.BINDING_EVENT_DUPLICATE,
+                "completion binding event IDs must be unique per claim",
+            )
+        support_packets: list[tuple[set[str], set[str], str, str, bool]] = []
+        if claim.target_id in dispatched[claim.target_kind] and refs.issubset(set(inputs.assembled_input.dispatched_evidence_ref_ids)):
+            if claim.target_id in (included_assertions if claim.target_kind == "assertion" else included_relationships) and refs.issubset(included_evidence):
+                support_packets.append((set(inputs.assembled_input.dispatched_assertion_ids) | set(inputs.assembled_input.dispatched_relationship_ids), set(inputs.assembled_input.dispatched_evidence_ref_ids), inputs.graph_packet.evidence_sufficiency_status, inputs.graph_packet.coverage_status, inputs.graph_packet.truncated))
+        for event_id in mapped_ids:
+            event = events.get(event_id)
+            if event is None or event_id not in included_event_ids:
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.BINDING_EVENT_NOT_IN_ENVELOPE,
+                    "citation event must be validated and present in the final producing envelope",
+                )
+            targets = set(event.assertion_ids if claim.target_kind == "assertion" else event.relationship_ids)
+            included_targets = included_assertions if claim.target_kind == "assertion" else included_relationships
+            indexed_event_support = bool(indexed_refs) and indexed_refs.issubset(set(event.evidence_ref_ids))
+            if (
+                claim.target_id in targets
+                and claim.target_id in included_targets
+                and refs.issubset(set(event.evidence_ref_ids))
+                and (refs - indexed_refs).issubset(included_evidence)
+                and (not indexed_refs or indexed_event_support)
+            ):
+                support_packets.append((targets, set(event.evidence_ref_ids), event.evidence_sufficiency_status, event.coverage_status, event.truncated))
+            else:
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.BINDING_EVENT_SUPPORT_MISMATCH,
+                    "completion binding names an event that does not support its claim",
+                )
+        if not support_packets:
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.CLAIM_SUPPORT_MISSING,
+                "Graph claim target and evidence refs lack included validated support",
+            )
+        if any(status != "sufficient" for _, _, status, _, _ in support_packets):
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.CITED_EVIDENCE_INSUFFICIENT,
+                "Graph grounded claims require sufficient cited evidence",
+            )
+        sufficient_sources.extend((status, coverage == "complete" and not truncated) for _, _, status, coverage, truncated in support_packets)
+        if indexed_refs and (
+            inputs.graph_packet.coverage_status != "complete"
+            or inputs.graph_packet.truncated
+        ):
+            sufficient_sources.append(("sufficient", False))
+        if any(read.outcome != "enough" or read.truncated for read in indexed_reads.values()):
+            sufficient_sources.append(("sufficient", False))
+        if citation_map is None:
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.CITATION_MAP_MISSING,
+                "Graph claims require a citation map",
+            )
+        entry = citation_entries.get(claim.claim_id)
+        if entry is None or entry.target_kind != claim.target_kind or entry.target_id != claim.target_id or entry.graph_revision != claim.graph_revision or entry.evidence_ref_ids != claim.evidence_ref_ids:
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.CITATION_CLAIM_MISMATCH,
+                "citation map entry must match its Graph claim",
+            )
+    if claims:
+        return (
+            "graph_grounded"
+            if all(complete for _, complete in sufficient_sources)
+            else "graph_grounded_partial"
+        )
+    initial_ids_in_envelope = bool(
+        set(inputs.assembled_input.dispatched_assertion_ids).intersection(included_assertions)
+        or set(inputs.assembled_input.dispatched_relationship_ids).intersection(included_relationships)
+        or set(inputs.assembled_input.dispatched_evidence_ref_ids).intersection(included_evidence)
+    )
+    sufficient = (
+        inputs.graph_packet.evidence_sufficiency_status == "sufficient"
+        and inputs.assembled_input.packet_disposition == "included"
+        and initial_ids_in_envelope
+    )
+    sufficient = sufficient or any(
+        event.event_id in included_event_ids
+        and event.evidence_sufficiency_status == "sufficient"
+        and (
+            set(event.assertion_ids).intersection(included_assertions)
+            or set(event.relationship_ids).intersection(included_relationships)
+            or set(event.evidence_ref_ids).intersection(included_evidence)
+        )
+        for event in events.values()
+    )
+    return "plan_only_graph_unused" if sufficient else "plan_only_insufficient_evidence"
+
+
+def validate_build_passage_completion(completion, receipt, execution, attempt_id, graph_bindings) -> None:
+    if (not isinstance(receipt, BuildGraphContextReceiptV1)
+            or not isinstance(execution, PlanWorldGraphExecutionV3)
+            or completion.context_receipt_sha256 != receipt.context_receipt_sha256
+            or graph_bindings):
+        raise ValueError("Passage completion requires its exact Build receipt and no Graph claims")
+    named = getattr(execution.policy, "source_citation_names_policy", None) == "build_verified_source_names_v1"
+    if isinstance(completion, BuildNamedGraphCompletionV3) != named:
+        raise ValueError("Named passage completion differs from its frozen capability")
+    if named and any(not c.source_name.strip() for c in completion.source_citations):
+        raise ValueError("Named passage completion requires nonblank source names")
+    validate_selected_source_binding(receipt, execution)
+    validate_build_section_completion(completion, execution, attempt_id)
+    producing = next((e for e in execution.events
+        if isinstance(e, ProviderAttemptAuthorizedEventV3) and e.provider_attempt_id == attempt_id), None)
+    outcomes = [e.outcome for e in execution.events
+        if isinstance(e, ProviderOutcomeEventV1) and e.provider_attempt_id == attempt_id]
+    roles = getattr(execution.policy, "provider_roles", None)
+    if (producing is None or outcomes[-1:] != ["response_received"] or roles is None
+            or (producing.provider, producing.model, producing.api_mode) != roles.writer.identity()
+            or producing.included_graph_event_ids or producing.included_assertion_ids
+            or producing.included_relationship_ids or producing.included_evidence_ref_ids
+            or (not isinstance(completion, BuildDraftContextCompletionV1) and not included_passage_event_ids(producing))):
+        raise ValueError("Passage completion requires a source-only producing writer response")
+    if isinstance(completion, BuildDraftContextCompletionV1):
+        from .build_draft_answer import validate_completion
+        validate_completion(completion, receipt, execution, attempt_id)
+    reads = {e.event_id: e for e in execution.events if isinstance(e, SOURCE_PASSAGE_EVENTS)
+        and e.event_id in included_passage_event_ids(producing)}
+    for citation in completion.source_citations:
+        event = reads.get(citation.read_event_id)
+        if (citation.provider_attempt_id != attempt_id or citation.envelope_sha256 != producing.envelope_sha256
+                or event is None or citation.receipt not in event.receipts):
+            raise ValueError("Passage citation was not included in its producing writer envelope")
+    for segment in completion.answer_segments:
+        if isinstance(segment, SavedSourceClaimV1) and segment.content_sha256 != receipt.source_basis.content_sha256:
+            raise ValueError("Saved source segment differs from the frozen source")
+
+
+def validate_execution_completion(
+    completion: GraphTurnCompletion,
+    receipt: GraphContextReceipt,
+    execution: GraphTurnExecution,
+    producing_provider_attempt_id: UUID,
+    claim_graph_event_ids: dict[str, list[UUID]],
+) -> None:
+    """Validate supplied status against the derived producing-envelope status."""
+    if (isinstance(receipt, SurfaceNativeContextReceiptV1)
+            or isinstance(execution, SurfaceNativeExecutionV1)):
+        from .native_completion import validate_retained_completion
+        validate_retained_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
+        return
+    if isinstance(completion, SurfaceEvidenceCompletionV1):
+        from .surface_evidence_answer import validate_completion
+        validate_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
+        return
+    if isinstance(completion, SurfaceSourceCompletionV1):
+        from .surface_source_answer import validate_surface_completion
+        validate_surface_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
+        return
+    if isinstance(completion, PlayWorldGraphCompletionV1) or isinstance(receipt, PlayWorldGraphContextReceiptV1) or isinstance(execution, PlayWorldGraphExecutionV1):
+        from .play_graph_completion import validate_play_graph_completion
+        if not (isinstance(completion, PlayWorldGraphCompletionV1) and isinstance(receipt, PlayWorldGraphContextReceiptV1)
+                and isinstance(execution, PlayWorldGraphExecutionV1)):
+            raise ValueError("Native Play completion requires its own matching receipt and ledger")
+        validate_play_graph_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
+        return
+    from .plan_objective import validate_completion as validate_objective_completion
+    validate_objective_completion(completion, execution, producing_provider_attempt_id)
+    if isinstance(completion, BuildIntentionalResponseCompletionV1):
+        from .build_intentional_response import validate_completion
+        validate_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
+        return
+    if isinstance(getattr(execution, "policy", None), BuildCitedSourceActionControllerWriterPolicyV1):
+        if not isinstance(completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)):
+            raise ValueError("Cited source policy requires its reconstructed source completion")
+        if isinstance(completion, BuildGraphCompletionV1) and (completion.citation_map is not None
+                or any(isinstance(s, PlanWorldGraphClaimSegmentV1) for s in completion.answer_segments)):
+            raise ValueError("Cited saved-only completion cannot carry Graph authority")
+    if isinstance(getattr(execution, "policy", None), BuildActionControllerWriterPolicyV1):
+        selections = [e for e in execution.events if isinstance(e, (BuildJevActionSelectionV1, BuildReviewedActionSelectionV1))]
+        expected = ("prepare_build_image" if isinstance(completion, BuildImagePreparationCompletionV1) else "propose_build_insertion" if isinstance(completion, BuildAuthoringCompletionV1) else "answer_from_sources")
+        if len(selections) != 1 or selections[0].operation != expected:
+            raise ValueError("Completion differs from the controller-selected operation")
+    if isinstance(completion, (BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)):
+        if (not isinstance(receipt, BuildGraphContextReceiptV1)
+                or not isinstance(execution, PlanWorldGraphExecutionV3)
+                or not isinstance(execution.policy, ControllerWriterGraphExecutionPolicyV3)
+                or completion.context_receipt_sha256 != receipt.context_receipt_sha256
+                or completion.provider_attempt_id != producing_provider_attempt_id
+                or claim_graph_event_ids):
+            raise ValueError("Authoring completion requires its exact Build writer and no Graph claims")
+        producing = next((e for e in execution.events
+            if isinstance(e, ProviderAttemptAuthorizedEventV3)
+            and e.provider_attempt_id == producing_provider_attempt_id), None)
+        outcomes = [e.outcome for e in execution.events
+            if isinstance(e, ProviderOutcomeEventV1) and e.provider_attempt_id == producing_provider_attempt_id]
+        if (producing is None or outcomes[-1:] != ["response_received"]
+                or (producing.provider, producing.model, producing.api_mode) != execution.policy.provider_roles.writer.identity()
+                or producing.envelope_sha256 != completion.envelope_sha256):
+            raise ValueError("Authoring completion requires the acknowledged shared writer envelope")
+        return
+    if isinstance(completion, BuildGraphCompletionV2):
+        validate_build_passage_completion(completion, receipt, execution,
+            producing_provider_attempt_id, claim_graph_event_ids)
+        return
+    if isinstance(receipt, BuildGraphContextReceiptV1) != isinstance(completion, BuildGraphCompletionV1):
+        raise ValueError("Completion and frozen receipt must identify the same surface contract")
+    validate_selected_source_binding(receipt, execution)
+    validate_build_section_completion(completion, execution, producing_provider_attempt_id)
+    if isinstance(completion, (PlanWorldGraphCompletionV2, BuildGraphCompletionV1)):
+        if not isinstance(execution, PlanWorldGraphExecutionV2):
+            raise ValueError("V2 completion requires a V2 execution record")  # noqa: TRY004
+        _validate_v2_completion_source_reads(completion, execution, producing_provider_attempt_id)
+    expected_status = derive_execution_answer_context_status(
+        context_receipt_sha256=completion.context_receipt_sha256,
+        answer_segments=completion.answer_segments,
+        citation_map=completion.citation_map,
+        receipt=receipt,
+        execution=execution,
+        producing_provider_attempt_id=producing_provider_attempt_id,
+        claim_graph_event_ids=claim_graph_event_ids,
+    )
+    if isinstance(completion, BuildGraphCompletionV1):
+        expected_status = {
+            "plan_only_insufficient_evidence": "source_only_insufficient_evidence",
+            "plan_only_graph_unused": "source_only_graph_unused",
+        }.get(expected_status, expected_status)
+    if completion.answer_context_status == expected_status:
+        return
+    if expected_status in {"graph_grounded", "graph_grounded_partial"}:
+        _reject_graph_completion(
+            GraphCompletionRejectionCode.GROUNDED_STATUS_MISMATCH,
+            "Graph grounded status does not match cited execution evidence",
+        )
+    _reject_graph_completion(
+        GraphCompletionRejectionCode.PLAN_ONLY_STATUS_MISMATCH,
+        "Plan-only status does not match evidence in the producing envelope",
+    )
+
+
+def _validate_v2_completion_source_reads(
+    completion: PlanWorldGraphCompletionV2 | BuildGraphCompletionV1, execution: PlanWorldGraphExecutionV2,
+    producing_provider_attempt_id: UUID,
+) -> None:
+    validate_graph_execution_source_citations(
+        completion.citation_map, execution, producing_provider_attempt_id
+    )
+
+
+def validate_graph_execution_source_citations(citation_map: PlanWorldGraphCitationMapV2 | None, execution: PlanWorldGraphExecutionV2, producing_provider_attempt_id: UUID) -> None:
+    if citation_map is None:
+        return
+    attempt = next((e for e in execution.events if isinstance(e, (ProviderAttemptAuthorizedEventV1, ProviderAttemptAuthorizedEventV2)) and e.provider_attempt_id == producing_provider_attempt_id), None)
+    included = set(included_passage_event_ids(attempt)) if isinstance(attempt, ProviderAttemptAuthorizedEventV2) else set()
+    reads = {read.source_read_id: read for event in execution.events if isinstance(event, SOURCE_PASSAGE_EVENTS) and event.event_id in included for read in event.receipts}
+    for citation in citation_map.entries:
+        if citation.source_opened != bool(citation.source_read_ids) or not set(citation.source_read_ids).issubset(reads):
+            _reject_graph_completion(GraphCompletionRejectionCode.CITATION_CLAIM_MISMATCH, "citation source-opened state must bind source reads in the producing envelope")
+        for read_id in citation.source_read_ids:
+            read = reads[read_id]
+            if read.outcome not in {"enough", "partial", "truncated"} or read.content_sha256 is None or read.returned_chars == 0 or read.source_revision_id is None or read.evidence_ref_id not in citation.evidence_ref_ids:
+                _reject_graph_completion(GraphCompletionRejectionCode.CITATION_CLAIM_MISMATCH, "citation source read must contain validated content for cited evidence")
 
 
 class WorldPointer(StrictModel):
@@ -368,6 +6364,10 @@ class ReopenCommand(ConversationCommand):
     conversation_id: UUID
 
 
+class ConversationTrashCommand(ConversationCommand):
+    conversation_id: UUID
+
+
 class ConversationCommandReceipt(StrictModel):
     world_id: str
     command_id: UUID
@@ -385,7 +6385,11 @@ class TurnSubmission(StrictModel):
     expected_conversation_revision: int = Field(ge=1)
     user_text: str
     provenance: TurnProvenance
-    submitted_intent_v1: SubmittedTurnIntentV1 | None = None
+    submitted_intent_v1: PlayRulesIntentV1 | SubmittedTurnIntentV1 | None = None
+    submitted_intent_v2: SubmittedTurnIntentV4 | SubmittedTurnIntentV3 | SubmittedTurnIntentV2 | BuildGraphIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1 | None = None
+    graph_context_receipt: GraphContextReceipt | None = None
+    graph_context_execution: GraphTurnExecution | None = None
+    play_context_receipt: PlayRunTurnContextReceiptV2 | None = None
 
     @model_validator(mode="after")
     def validate_submission(self) -> "TurnSubmission":
@@ -395,12 +6399,468 @@ class TurnSubmission(StrictModel):
             raise ValueError("user_text is required")
         if self.provenance.world_id != self.world_id:
             raise ValueError("turn provenance World does not match request World")
+        validate_play_context_receipt(
+            self.play_context_receipt, self.world_id, self.provenance
+        )
+        play_basis = (
+            self.submitted_intent_v1.primary_work.play_content_basis
+            if self.submitted_intent_v1 is not None
+            and self.submitted_intent_v1.primary_work is not None
+            else self.submitted_intent_v2.primary_work.play_content_basis
+            if isinstance(self.submitted_intent_v2, SubmittedTurnIntentV2)
+            else None
+        )
+        if self.play_context_receipt is not None and play_basis is not None and (
+            play_basis.edition_revision != self.play_context_receipt.edition_revision
+            or play_basis.edition_revision_id != self.play_context_receipt.edition_revision_id
+            or play_basis.content_sha256 != self.play_context_receipt.content_sha256
+        ):
+            raise ValueError("Play content basis differs from the admitted context receipt")
         if self.submitted_intent_v1 is not None and (
             self.submitted_intent_v1.world_id != self.world_id
             or self.submitted_intent_v1.message != self.user_text
         ):
             raise ValueError("submitted intent World/message must match the turn")
+        if (
+            self.submitted_intent_v1 is not None
+            and self.submitted_intent_v2 is not None
+        ):
+            raise ValueError("a turn cannot carry both submitted intent v1 and v2")
+        if (isinstance(self.graph_context_receipt, SurfaceNativeContextReceiptV1)
+                or isinstance(self.graph_context_execution, SurfaceNativeExecutionV1)):
+            from .native_execution import validate_submission
+            validate_submission(self)
+            return self
+        if isinstance(self.graph_context_receipt, NativeStatementContextReceiptV1) or (
+                self.submitted_intent_v1 is not None and self.submitted_intent_v1.native_statement_selection is not None):
+            from .native_statement_answer import validate_record
+            intent = self.submitted_intent_v1
+            if (intent is None or intent.native_statement_selection != self.graph_context_receipt.selection
+                    or self.submitted_intent_v2 is not None or self.graph_context_receipt.user_text != self.user_text
+                    or self.graph_context_execution.events):
+                raise ValueError("Native admission requires its exact intent and empty execution")
+            validate_record(self.graph_context_receipt, self.graph_context_execution, self.provenance)
+            return self
+        if isinstance(self.graph_context_receipt, PlanSourceContextReceiptV1) or isinstance(self.graph_context_execution, PlanSourceExecutionV1):
+            from .plan_source_context import validate_source_submission
+            validate_source_submission(self)
+            return self
+        if isinstance(self.submitted_intent_v1, PlayRulesIntentV1):
+            intent, receipt = self.submitted_intent_v1, self.play_context_receipt
+            if (not isinstance(receipt, PlayRunTurnContextReceiptV2)
+                    or self.graph_context_receipt is not None or self.graph_context_execution is not None
+                    or receipt.run_id != intent.primary_work.object_id
+                    or receipt.run_revision != intent.primary_work.expected_revision
+                    or receipt.beat_id != intent.play_target.beat_id
+                    or receipt.scene_id != intent.play_target.scene_id
+                    or receipt.marker_grammar_version != intent.play_target.marker_grammar_version):
+                raise ValueError("Rules-only Play requires its exact admitted source receipt")
+            return self
+        if isinstance(self.submitted_intent_v2, BuildGraphIntentV1):
+            _validate_build_submission(self)
+            return self
+        if isinstance(self.submitted_intent_v2, PlayGraphIntentV1):
+            _validate_native_play_submission(self)
+            return self
+        if self.submitted_intent_v2 is not None:
+            intent = self.submitted_intent_v2
+            if not isinstance(self.graph_context_receipt, PlanWorldGraphContextReceiptV1):
+                raise ValueError("Plan intent requires a Plan Graph receipt")
+            if self.graph_context_receipt is None:
+                raise ValueError(
+                    "auto_plan_world turn requires a frozen Graph context receipt"
+                )
+            if intent.world_id != self.world_id or intent.message != self.user_text:
+                raise ValueError("submitted intent World/message must match the turn")
+            receipt = self.graph_context_receipt
+            if (
+                receipt.plan_context_policy != intent.plan_context_policy
+                or receipt.plan_basis.world_id != self.world_id
+                or receipt.plan_basis.document_id != intent.primary_work.object_id
+                or receipt.plan_basis.object_revision
+                != intent.primary_work.expected_revision
+                or receipt.plan_basis.revision_n
+                != intent.primary_work.expected_revision_n
+                or receipt.plan_basis.content_sha256
+                != intent.primary_work.expected_content_sha256
+                or not _receipt_target_matches_intent(
+                    receipt.playable_target, intent.playable_target
+                )
+                or receipt.graph_authority.managed_world_id != self.world_id
+                or self.provenance.world_id != self.world_id
+                or self.provenance.surface_id != "plan"
+                or self.provenance.surface_instance_id != intent.surface_instance_id
+                or self.provenance.primary_work.kind != "plan"
+                or self.provenance.primary_work.object_id
+                != receipt.plan_basis.document_id
+                or self.provenance.primary_work.object_revision
+                != receipt.plan_basis.object_revision
+                or self.provenance.primary_work.work_revision_id
+                != receipt.plan_basis.work_revision_id
+                or self.provenance.primary_work.revision_n
+                != receipt.plan_basis.revision_n
+                or self.provenance.primary_work.content_sha256
+                != receipt.plan_basis.content_sha256
+            ):
+                raise ValueError(
+                    "Graph context receipt must match the submitted Plan intent"
+                )
+            _validate_initial_graph_execution(receipt, self.graph_context_execution)
+        elif self.graph_context_receipt is not None:
+            raise ValueError("Graph context receipt requires submitted intent v2")
+        if self.graph_context_execution is not None and self.submitted_intent_v2 is None:
+            raise ValueError("Graph execution requires submitted intent v2")
         return self
+
+
+def _validate_native_play_submission(submission: TurnSubmission) -> None:
+    from .play_graph_context import (
+        validate_play_graph_intent_receipt, validate_play_graph_execution_binding,
+        validate_play_graph_provenance,
+    )
+    intent, receipt, execution = submission.submitted_intent_v2, submission.graph_context_receipt, submission.graph_context_execution
+    if (not isinstance(intent, PlayGraphIntentV1) or not isinstance(receipt, PlayWorldGraphContextReceiptV1)
+            or not isinstance(execution, PlayWorldGraphExecutionV1)
+            or submission.play_context_receipt != receipt.play_basis
+            or intent.world_id != submission.world_id or intent.message != submission.user_text
+            or submission.provenance.surface_instance_id != intent.surface_instance_id):
+        raise ValueError("Native Play submission requires its exact original intent and owning receipts")
+    validate_play_graph_intent_receipt(intent, receipt)
+    validate_play_graph_provenance(receipt, submission.provenance)
+    validate_play_graph_execution_binding(receipt, execution)
+    if execution.events:
+        raise ValueError("Native Play accepted execution must start empty")
+    accounting = execution.policy.provider_input_accounting
+    if (accounting.estimator != receipt.assembled_input.tokenizer_name
+            or (accounting.kind == "conservative_upper_bound" and receipt.assembled_input.tokenizer_version != "v1")):
+        raise ValueError("Native Play receipt differs from frozen provider accounting")
+
+
+def _validate_build_submission(submission: TurnSubmission) -> None:
+    intent = submission.submitted_intent_v2
+    receipt = submission.graph_context_receipt
+    if not isinstance(intent, BuildGraphIntentV1) or not isinstance(receipt, BuildGraphContextReceiptV1):
+        raise ValueError("Build Graph intent requires its own frozen source receipt")
+    basis = receipt.source_basis
+    from .build_world_context import validate_work_intent
+    validate_work_intent(basis, intent)
+    provenance = submission.provenance
+    ref = provenance.primary_work
+    if (intent.world_id != submission.world_id or intent.message != submission.user_text
+        or basis.world_id != submission.world_id
+        or (intent.graph_request.revision_pin is not None
+            and intent.graph_request.revision_pin != receipt.graph_authority.graph_revision)
+        or provenance.surface_resolution != "resolved" or provenance.surface_id != "build"
+        or provenance.surface_instance_id != intent.surface_instance_id
+        or ref.resolution != "resolved" or ref.kind != "build"
+        or ref.object_id != basis.document_id or ref.revision != str(basis.registry_revision)
+        or ref.content_sha256 != basis.content_sha256
+        or any(x is not None for x in (ref.object_revision, ref.work_revision_id, ref.revision_n))
+        or provenance.selected_object.resolution != "absent"):
+        raise ValueError("Build Graph receipt must match the submitted source and provenance")
+    from .authored_graph_references import policy_enabled as authored_enabled
+    policy = submission.graph_context_execution.policy
+    if isinstance(intent, BuildGraphIntentV2):
+        intent.authored_references.require_world(submission.world_id)
+        authority = receipt.graph_authority
+        if any(ref.native_world_id != authority.native_world_id or ref.binding_version != authority.binding_version
+            for ref in intent.authored_references.references):
+            raise ValueError('Authored references differ from the frozen World binding')
+        if not authored_enabled(policy) or policy.authored_graph_references_sha256 != intent.authored_references.sha256:
+            raise ValueError('Authored references differ from the admitted intent and policy')
+    elif authored_enabled(policy):
+        raise ValueError('Historical Build intent cannot gain authored references')
+    binding = intent.reviewed_step
+    if binding is not None and binding.reference.conversation_id != submission.conversation_id:
+        raise ValueError("Reviewed action belongs to a different conversation")
+    author_events = [e for e in submission.graph_context_execution.events if isinstance(e, BuildReviewedActionSelectionV1)] if submission.graph_context_execution else []
+    if author_events and (binding is None or len(author_events) != 1 or author_events[0].binding != binding):
+        raise ValueError("Author selection must match the exact admitted reviewed step")
+    if binding is not None and submission.graph_context_execution:
+        events = submission.graph_context_execution.events
+        if any(isinstance(e, BuildJevActionSelectionV1) for e in events):
+            raise ValueError("A reviewed step cannot be selected again by the model")
+        if any(isinstance(e, ProviderAttemptAuthorizedEventV1) for e in events) and not author_events:
+            raise ValueError("Reviewed action must precede provider authorization")
+        if author_events:
+            from .reviewed_action import digest
+            args = {"instruction": intent.message} if binding.kind == "prepare_insertion" else {}
+            if author_events[0].arguments_sha256 != digest(args):
+                raise ValueError("Reviewed action arguments differ from the admitted request")
+    if binding is None and receipt.assembled_input.assembler_version == "reviewed_author_admission_v1":
+        raise ValueError("Host admission cannot shed its reviewed action authority")
+    if binding is not None:
+        from .reviewed_action import digest, admission_manifest
+        expected_admission = digest(admission_manifest(intent))
+        assembled = receipt.assembled_input
+        if (assembled.assembler_version != "reviewed_author_admission_v1"
+            or assembled.assembled_input_sha256 != expected_admission
+            or assembled.provider_envelope_input_tokens != 0 or assembled.output_token_reserve != 0
+            or assembled.provider_model_name != "not_dispatched" or assembled.source_token_accounting
+            or assembled.included_history or assembled.dispatched_assertion_ids or assembled.dispatched_relationship_ids
+            or assembled.dispatched_evidence_ref_ids):
+            raise ValueError("Reviewed action requires its exact model-free host admission")
+    _validate_build_receipt_provenance(receipt, provenance)
+    if not isinstance(submission.graph_context_execution, PlanWorldGraphExecutionV2):
+        raise ValueError("Build requires governed Graph source-read execution")
+    policy = submission.graph_context_execution.policy
+    if intent.build_draft_context_sha256 != getattr(policy, "working_draft_context_sha256", None):
+        raise ValueError("Build working draft policy differs from the normalized submitted intent")
+    if binding is not None and intent.build_write_capability_sha256 != getattr(policy, "action_capability_sha256", None):
+        raise ValueError("Reviewed action capability differs from the normalized submitted intent")
+    _validate_initial_graph_execution(receipt, submission.graph_context_execution)
+
+
+def _validate_build_receipt_provenance(receipt, provenance) -> None:
+    from .build_world_context import validate_work_provenance
+    validate_work_provenance(receipt.source_basis, provenance)
+    authority = receipt.graph_authority
+    expected = {
+        "dmb_build_graph_binding_v1": (authority.native_world_id, str(authority.binding_version)),
+        "world_graph_revision": (authority.native_world_id, authority.graph_revision),
+    }
+    for kind, (object_id, revision) in expected.items():
+        refs = [r for r in provenance.supporting_work if r.kind == kind]
+        if (len(refs) != 1 or refs[0].resolution != "resolved"
+            or refs[0].object_id != object_id or refs[0].revision != revision
+            or any(x is not None for x in (refs[0].object_revision, refs[0].work_revision_id,
+                                          refs[0].revision_n, refs[0].content_sha256))):
+            raise ValueError("Build source visibility or managed/native Graph binding differs")
+
+
+def _validate_initial_graph_execution(receipt, execution) -> None:
+    validate_selected_source_binding(receipt, execution)
+    if execution is not None:
+        if execution.events:
+            raise ValueError("accepted Graph execution record must start empty")
+        if execution.context_receipt_sha256 != receipt.context_receipt_sha256:
+            raise ValueError("Graph execution policy must bind the frozen receipt")
+        accounting = execution.policy.provider_input_accounting
+        if isinstance(execution, PlanWorldGraphExecutionV2):
+            scope = execution.policy.source_read_scope
+            if (
+                scope.world_id != receipt.graph_authority.managed_world_id
+                or scope.campaign_id != receipt.graph_authority.campaign_id
+                or scope.graph_revision != receipt.graph_authority.graph_revision
+                or any(a.evidence_ref_id not in receipt.graph_packet.candidate_evidence_ref_ids for a in scope.admitted_anchors)
+            ):
+                raise ValueError("V2 source-read scope must match the frozen Graph receipt")
+        validate_selected_source_binding(receipt, execution)
+        if isinstance(receipt, BuildGraphContextReceiptV1) and receipt.assembled_input.assembler_version == "reviewed_author_admission_v1":
+            return
+        if isinstance(execution.policy, BuildInitialEstimatedSelectedSourcePolicyV1):
+            descriptor = execution.policy.controller_initial_accounting
+            assembled = receipt.assembled_input
+            if (assembled.tokenizer_name != descriptor.policy
+                    or assembled.tokenizer_version != descriptor.tokenizer_version
+                    or assembled.budget_policy_version != "build_jev_initial_estimate_v1"
+                    or assembled.provider_envelope_input_tokens > descriptor.request_limit_tokens):
+                raise ValueError("initial receipt differs from frozen controller accounting")
+            return
+        if accounting.estimator != receipt.assembled_input.tokenizer_name:
+            raise ValueError("receipt tokenizer metadata differs from Graph execution policy")
+        if (
+            accounting.kind == "conservative_upper_bound"
+            and receipt.assembled_input.tokenizer_version != "v1"
+        ):
+            raise ValueError("receipt accounting differs from Graph execution policy")
+
+def _receipt_target_matches_intent(
+    receipt_target: PlanPlayableTargetReceiptV1 | None,
+    intent_target: SubmittedPlanPlayableTargetV1 | None,
+) -> bool:
+    """Compare shared target identity while retaining receipt-only grammar metadata."""
+    if receipt_target is None or intent_target is None:
+        return receipt_target is None and intent_target is None
+    # marker_grammar_version is intentionally receipt-only: its typed value and
+    # inclusion in the receipt digest remain independently validated/persisted.
+    return (
+        receipt_target.kind == intent_target.kind
+        and receipt_target.id == intent_target.id
+    )
+
+
+def validate_turn_lifecycle_fields(
+    *,
+    world_id: str,
+    provenance: TurnProvenance,
+    play_context_receipt: PlayRunTurnContextReceiptV2 | None,
+    status: TurnStatus,
+    claim_expires_at: datetime | None,
+    submitted_intent_fingerprint_v1: str | None,
+    submitted_intent_fingerprint_v2: str | None,
+) -> None:
+    try:
+        validate_play_context_receipt(play_context_receipt, world_id, provenance)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "stored Play context receipt differs from its provenance"
+        ) from exc
+    if status != "running" and claim_expires_at is not None:
+        raise ValueError("only a running turn can carry an active claim expiry")
+    if (
+        submitted_intent_fingerprint_v1 is not None
+        and submitted_intent_fingerprint_v2 is not None
+    ):
+        raise ValueError("turn cannot carry both submitted-intent fingerprints")
+
+
+def validate_turn_graph_fields(
+    *,
+    provenance: TurnProvenance,
+    submitted_intent_fingerprint_v2: str | None,
+    graph_context_receipt: GraphContextReceipt | None,
+    graph_context_execution: GraphTurnExecution | None,
+    completion: GraphTurnCompletion | None,
+    assistant_text: str | None,
+) -> None:
+    if isinstance(completion, LoreSaveReviewReference):
+        if (provenance.surface_id != "build" or provenance.primary_work.resolution != "resolved"
+                or graph_context_receipt is not None or graph_context_execution is not None
+                or submitted_intent_fingerprint_v2 is not None or assistant_text != completion.reply_text):
+            raise ValueError("Lore save reference requires a local Build result")
+        return
+    if (isinstance(graph_context_receipt, SurfaceNativeContextReceiptV1)
+            or isinstance(graph_context_execution, SurfaceNativeExecutionV1)):
+        from .native_execution import validate_turn_fields
+        validate_turn_fields(graph_context_receipt, graph_context_execution, provenance,
+            submitted_intent_fingerprint_v2, completion, assistant_text)
+        return
+    if (isinstance(graph_context_receipt, NativeStatementContextReceiptV1)
+            or isinstance(graph_context_execution, NativeStatementExecutionV1)
+            or isinstance(completion, NativeStatementCompletionV1)):
+        from .native_statement_answer import validate_record
+        validate_record(graph_context_receipt, graph_context_execution, provenance, completion, assistant_text)
+        return
+    if isinstance(graph_context_receipt, PlanSourceContextReceiptV1) or isinstance(graph_context_execution, PlanSourceExecutionV1):
+        from .plan_source_context import validate_source_provenance, validate_source_execution_binding
+        if submitted_intent_fingerprint_v2 is None:
+            raise ValueError("Source-capable Plan requires its submitted-intent fingerprint")
+        if not isinstance(graph_context_receipt, PlanSourceContextReceiptV1) or not isinstance(graph_context_execution, PlanSourceExecutionV1):
+            raise ValueError("Source-capable Plan requires its own receipt and execution")
+        validate_source_provenance(graph_context_receipt, provenance)
+        validate_source_execution_binding(graph_context_receipt, graph_context_execution)
+        bindings = [event for event in graph_context_execution.events if isinstance(event, CompletionBindingEventV1)]
+        if completion is None:
+            if assistant_text is not None or bindings:
+                raise ValueError("Source-capable Plan requires its own validated answer contract")
+            return
+        if (not isinstance(completion, SurfaceEvidenceCompletionV5) or len(bindings) != 1
+                or assistant_text != "\n".join(segment.text for segment in completion.answer_segments)):
+            raise ValueError("Source-capable Plan requires its own validated answer contract")
+        binding = bindings[0]
+        validate_execution_completion(completion, graph_context_receipt, graph_context_execution,
+            binding.provider_attempt_id, binding.claim_graph_event_ids)
+        return
+    if isinstance(graph_context_receipt, PlayWorldGraphContextReceiptV1) or isinstance(graph_context_execution, PlayWorldGraphExecutionV1) or isinstance(completion, PlayWorldGraphCompletionV1):
+        from .play_graph_context import validate_play_graph_execution_binding, validate_play_graph_provenance
+        from .play_graph_completion import validate_play_graph_completion
+        if (not isinstance(graph_context_receipt, PlayWorldGraphContextReceiptV1)
+                or not isinstance(graph_context_execution, PlayWorldGraphExecutionV1)
+                or submitted_intent_fingerprint_v2 is None):
+            raise ValueError("Stored native Play requires its own receipt, ledger and intent fingerprint")
+        validate_play_graph_provenance(graph_context_receipt, provenance)
+        validate_play_graph_execution_binding(graph_context_receipt, graph_context_execution)
+        bindings = [event for event in graph_context_execution.events if isinstance(event, CompletionBindingEventV1)]
+        if completion is None:
+            if bindings or assistant_text is not None:
+                raise ValueError("Native Play completion binding/text requires its completion")
+            return
+        if not isinstance(completion, (PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1)) or len(bindings) != 1 or assistant_text != "\n".join(segment.text for segment in completion.answer_segments):
+            raise ValueError("Stored native Play answer requires its exact typed completion and binding")
+        binding = bindings[0]
+        validate_execution_completion(completion, graph_context_receipt, graph_context_execution,
+            binding.provider_attempt_id, binding.claim_graph_event_ids)
+        return
+    if completion is not None:
+        validate_session_evidence_claims(completion.answer_segments, provenance)
+    if graph_context_receipt is not None and submitted_intent_fingerprint_v2 is None:
+        raise ValueError("Graph receipt requires a v2 submitted-intent fingerprint")
+    if graph_context_receipt is not None:
+        validate_selected_source_binding(graph_context_receipt, graph_context_execution)
+        validate_related_recap_context_scope(
+            graph_context_receipt, graph_context_execution
+        )
+    if graph_context_execution is not None:
+        if graph_context_receipt is None:
+            raise ValueError("Graph execution requires its frozen context receipt")
+        if submitted_intent_fingerprint_v2 is None:
+            raise ValueError(
+                "Graph execution requires a v2 submitted-intent fingerprint"
+            )
+        if (
+            graph_context_execution.context_receipt_sha256
+            != graph_context_receipt.context_receipt_sha256
+        ):
+            raise ValueError("Graph execution must bind the exact stored receipt")
+        has_completion_binding = any(
+            isinstance(event, CompletionBindingEventV1)
+            for event in graph_context_execution.events
+        )
+        if has_completion_binding != (completion is not None):
+            raise ValueError(
+                "completion binding must be present exactly when completion is stored"
+            )
+    if isinstance(graph_context_receipt, BuildGraphContextReceiptV1) and (
+        not isinstance(graph_context_execution, PlanWorldGraphExecutionV2)
+        or provenance.surface_id != "build"
+        or provenance.primary_work.kind != "build"
+    ):
+        raise ValueError(
+            "Build Graph receipt requires governed Build execution and provenance"
+        )
+    if isinstance(graph_context_receipt, BuildGraphContextReceiptV1):
+        _validate_build_receipt_provenance(graph_context_receipt, provenance)
+        if isinstance(
+            completion,
+            (
+                BuildGraphCompletionV1,
+                BuildNamedGraphCompletionV3,
+                BuildIntentionalResponseCompletionV1,
+                BuildGraphCompletionV2,
+                BuildAuthoringCompletionV1,
+                BuildImagePreparationCompletionV1,
+            ),
+        ) and assistant_text != "\n".join(s.text for s in completion.answer_segments):
+            raise ValueError(
+                "Build answer text must match its validated completion segments"
+            )
+    if (
+        completion is None
+        and graph_context_execution is not None
+        and any(
+            isinstance(event, BuildSectionAnswerBindingV1)
+            for event in graph_context_execution.events
+        )
+    ):
+        raise ValueError("Saved answer bindings require a completed answer")
+    if completion is not None:
+        if graph_context_receipt is None:
+            raise ValueError("Graph completion requires its frozen context receipt")
+        if graph_context_execution is None:
+            validate_completion_against_receipt(completion, graph_context_receipt)
+        else:
+            bindings = [
+                e
+                for e in graph_context_execution.events
+                if isinstance(e, CompletionBindingEventV1)
+            ]
+            if len(bindings) != 1:
+                raise ValueError(
+                    "execution completion requires exactly one completion binding"
+                )
+            binding = bindings[0]
+            if binding.completion_sha256 != _canonical_sha256(
+                completion.model_dump(mode="json", by_alias=True)
+            ):
+                raise ValueError("completion binding digest does not match completion")
+            validate_execution_completion(
+                completion,
+                graph_context_receipt,
+                graph_context_execution,
+                binding.provider_attempt_id,
+                binding.claim_graph_event_ids,
+            )
 
 
 class Turn(StrictModel):
@@ -418,16 +6878,154 @@ class Turn(StrictModel):
     submitted_intent_fingerprint_v1: str | None = Field(
         default=None, pattern=r"^[0-9a-f]{64}$"
     )
+    submitted_intent_fingerprint_v2: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
+    graph_context_receipt: GraphContextReceipt | None = None
+    graph_context_execution: GraphTurnExecution | None = None
+    play_context_receipt: PlayRunTurnContextReceiptV2 | None = None
+    completion: GraphTurnCompletion | None = None
     attempt: int = Field(ge=0)
     claim_expires_at: datetime | None = None
     accepted_at: datetime
     completed_at: datetime | None
     updated_at: datetime
 
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source, handler):
+        from pydantic_core import core_schema
+
+        original = dict(handler(source))
+        if "ref" not in original:
+            return original  # The handler has already resolved this definition.
+        reference = core_schema.definition_reference_schema(original["ref"])
+        # Preserve the original strict JSON decoder. Only Python inputs can
+        # contain existing mutable model instances that need reconstruction.
+        return core_schema.definitions_schema(
+            core_schema.json_or_python_schema(
+                json_schema=reference,
+                python_schema=core_schema.no_info_wrap_validator_function(
+                    cls.reconstruct_native_components, reference
+                ),
+            ),
+            [original],
+        )
+
+    @classmethod
+    def reconstruct_native_components(cls, value, handler):
+        # Existing BaseModel inputs otherwise skip field reconstruction. Normalize
+        # only the native family, leaving historical codecs at their own owners.
+        fields = ({name: getattr(value, name) for name in cls.model_fields}
+                  if isinstance(value, cls) else value)
+        if not isinstance(fields, Mapping):
+            return handler(value)
+        owners = {"graph_context_receipt": SurfaceNativeContextReceiptV1,
+                  "graph_context_execution": SurfaceNativeExecutionV1}
+        native = any(isinstance(fields.get(name), owner) or
+                     (isinstance(fields.get(name), Mapping) and
+                      any(fields[name].get(alias) == owner.model_fields["schema_"].default
+                          for alias in ("schema", "schema_")))
+                     for name, owner in owners.items())
+        if not native:
+            return handler(value)
+        fresh = dict(fields)
+        for name, owner in owners.items():
+            component = fresh.get(name)
+            if isinstance(component, owner):
+                if type(component) is not owner or component.schema_ != owner.model_fields["schema_"].default:
+                    raise ValueError("Native Turn component cannot change its model family")
+        def reconstruct(component):
+            if isinstance(component, BaseModel):
+                return component.model_dump(mode="python", by_alias=True)
+            if isinstance(component, Mapping):
+                return {key: reconstruct(item) for key, item in component.items()}
+            if isinstance(component, tuple):
+                return tuple(reconstruct(item) for item in component)
+            if isinstance(component, list):
+                return [reconstruct(item) for item in component]
+            return component
+
+        for name in (*owners, "provenance", "play_context_receipt"):
+            fresh[name] = reconstruct(fresh.get(name))
+        result = handler(fresh)
+        if any(type(getattr(result, name)) is not owner for name, owner in owners.items()):
+            raise ValueError("Native Turn requires its concrete component family")
+        return result
+
     @model_validator(mode="after")
     def validate_claim_expiry(self) -> "Turn":
-        if self.status != "running" and self.claim_expires_at is not None:
-            raise ValueError("only a running turn can carry an active claim expiry")
+        validate_turn_lifecycle_fields(
+            world_id=self.world_id,
+            provenance=self.provenance,
+            play_context_receipt=self.play_context_receipt,
+            status=self.status,
+            claim_expires_at=self.claim_expires_at,
+            submitted_intent_fingerprint_v1=self.submitted_intent_fingerprint_v1,
+            submitted_intent_fingerprint_v2=self.submitted_intent_fingerprint_v2,
+        )
+        if (isinstance(self.graph_context_receipt, SurfaceNativeContextReceiptV1)
+                or isinstance(self.graph_context_execution, SurfaceNativeExecutionV1)):
+            from .native_context import _join_work_context
+            from .native_execution import (_join_request_identity, _join_turn_lifecycle,
+                                           _join_context_binding, _join_turn_fields)
+            if (type(self.graph_context_receipt) is not SurfaceNativeContextReceiptV1
+                    or type(self.graph_context_execution) is not SurfaceNativeExecutionV1):
+                raise ValueError("Native Turn requires its concrete context and execution")
+            _join_work_context(self.graph_context_receipt, self.provenance,
+                               play_context_receipt=self.play_context_receipt)
+            _join_request_identity(self.graph_context_receipt, self.graph_context_execution, self)
+            _join_turn_lifecycle(self)
+            _join_context_binding(self.graph_context_receipt, self.graph_context_execution)
+            _join_turn_fields(self.graph_context_receipt, self.graph_context_execution,
+                              self.completion, self.assistant_text)
+        if isinstance(self.graph_context_execution, PlayWorldGraphExecutionV1):
+            from .authored_graph_references import validate_native_capture_identity
+            validate_native_capture_identity(self.graph_context_execution,
+                turn_id=self.turn_id, conversation_id=self.conversation_id,
+                attempt=self.attempt, fingerprint=self.submitted_intent_fingerprint_v2,
+                allow_prior_attempt=True)
+        if isinstance(self.graph_context_receipt, PlayWorldGraphContextReceiptV1) and (
+                self.play_context_receipt != self.graph_context_receipt.play_basis
+                or (self.status == "completed" and (self.completion is None or self.completed_at is None))
+                or (self.status != "completed" and self.completion is not None)):
+            raise ValueError("Native Play retained lifecycle/context must match its owning receipt")
+        if isinstance(self.graph_context_receipt, PlanSourceContextReceiptV1) and (
+                self.world_id != self.graph_context_receipt.plan_basis.world_id
+                or (self.status == "completed" and (self.completion is None or self.completed_at is None))
+                or (self.status != "completed" and self.completion is not None)):
+            raise ValueError("Source-capable Plan lifecycle requires its validated completion")
+        if isinstance(self.graph_context_receipt, NativeStatementContextReceiptV1) and (self.submitted_intent_fingerprint_v1 is None or (self.status == "completed" and self.completion is None)):
+            raise ValueError("Native receipt requires its exact submitted-intent fingerprint")
+        if not isinstance(self.graph_context_receipt, SurfaceNativeContextReceiptV1):
+            validate_turn_graph_fields(
+                provenance=self.provenance,
+                submitted_intent_fingerprint_v2=self.submitted_intent_fingerprint_v2,
+                graph_context_receipt=self.graph_context_receipt,
+                graph_context_execution=self.graph_context_execution,
+                completion=self.completion,
+                assistant_text=self.assistant_text,
+            )
+        if isinstance(self.graph_context_receipt, PlanSourceContextReceiptV1):
+            for event in self.graph_context_execution.events:
+                if isinstance(event, NativeBodySearchAuthorizedV1) and event.query_sha256 != sha256(self.user_text.encode()).hexdigest():
+                    raise ValueError("Native source search differs from its actual turn question")
+        from .reviewed_action import digest
+        for event in self.graph_context_execution.events if self.graph_context_execution is not None else ():
+            if isinstance(event, BuildReviewedActionSelectionV1):
+                if (_canonical_sha256({"schema":"dmb_reviewed_action_admission_v1", "intent":event.intent.model_dump(mode="json", by_alias=True)}) != self.graph_context_receipt.assembled_input.assembled_input_sha256
+                    or submitted_turn_intent_fingerprint_v2(event.intent) != self.submitted_intent_fingerprint_v2
+                    or event.intent.world_id != self.world_id or event.intent.message != self.user_text
+                    or event.binding.reference.conversation_id != self.conversation_id
+                    or event.intent.primary_work.object_id != self.provenance.primary_work.object_id
+                    or event.arguments_sha256 != digest({"instruction":self.user_text} if event.operation == "propose_build_insertion" else {})):
+                    raise ValueError("Retained author action differs from its admitted turn intent")
+        from .build_intentional_response import validate_turn_arguments
+        if self.graph_context_execution is not None:
+            validate_turn_arguments(self.graph_context_execution,user_text=self.user_text,turn_id=self.turn_id,attempt=self.attempt)
+        from .build_draft_context import validate_record
+        for event in self.graph_context_execution.events if self.graph_context_execution is not None else ():
+            if isinstance(event, BuildDraftContextCapturedV1):
+                validate_record(event.record, self)
         return self
 
 
@@ -437,12 +7035,35 @@ class TurnResult(StrictModel):
     turn_id: UUID
     expected_revision: int = Field(ge=1)
     assistant_text: str
+    completion: GraphTurnCompletion | None = None
+    producing_provider_attempt_id: UUID | None = None
+    claim_graph_event_ids: dict[str, list[UUID]] | None = None
+    build_section_bindings: list[BuildSectionSegmentBindingV1] = Field(default_factory=list, max_length=128)
 
     @model_validator(mode="after")
     def validate_text(self) -> "TurnResult":
-        if not self.assistant_text.strip():
-            raise ValueError("assistant_text is required")
+        if isinstance(self.completion, (SurfaceNativeCompletionV1, PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1)) and (
+                self.assistant_text != "\n".join(segment.text for segment in self.completion.answer_segments)
+                or self.producing_provider_attempt_id is None or self.claim_graph_event_ids is None):
+            raise ValueError("Native Play result requires exact answer text and explicit producer bindings")
+        if self.build_section_bindings and not isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildIntentionalResponseCompletionV1)):
+            raise ValueError("Saved section bindings require a typed Build completion")
+        if not self.assistant_text.strip() and not (self.assistant_text == '' and isinstance(self.completion, (SurfaceNativeCompletionV1, BuildIntentionalResponseCompletionV1)) and not self.completion.answer_segments and self.completion.collaboration is not None):
+            raise ValueError("assistant_text is required unless the new completion has a valid typed object")
+        if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1, BuildIntentionalResponseCompletionV1)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
+            raise ValueError("Build answer text must match its completion segments")
+        if (self.producing_provider_attempt_id is None) != (self.claim_graph_event_ids is None):
+            raise ValueError("execution completion binding inputs must be supplied together")
+        if self.completion is None and self.producing_provider_attempt_id is not None:
+            raise ValueError("completion binding inputs require a completion")
         return self
+
+
+class CitedSourceTurnResult(TurnResult):
+    """Internal producer proof, not a persisted completion field."""
+
+    writer_request_json: str = Field(min_length=1, max_length=512000)
+    raw_provider_output_json: str = Field(min_length=1, max_length=1048576)
 
 
 class TurnFailure(StrictModel):
@@ -461,7 +7082,13 @@ class TurnFailure(StrictModel):
 
 class TurnClaimReceipt(StrictModel):
     disposition: TurnClaimDisposition
-    turn: Turn
+    turn: Turn | MixedCompletedTurnV1
+
+    @model_validator(mode="after")
+    def mixed_is_completed(self):
+        if isinstance(self.turn, MixedCompletedTurnV1) and self.disposition != "completed":
+            raise ValueError("Mixed completed record cannot carry a live claim disposition")
+        return self
 
 
 class DraftSave(StrictModel):
@@ -567,3 +7194,99 @@ class LegacyImportReceipt(StrictModel):
     pointer_revision: int
     imported_turn_count: int
     recorded_at: datetime
+
+
+class CommandResolutionRequestV1(StrictModel):
+    schema_: Literal["dmb_agent_new_conversation_resolution_request_v1"] = Field(default="dmb_agent_new_conversation_resolution_request_v1", alias="schema")
+    resolution_operation_id: UUID
+    original_command: ConversationCommand
+    expected_current_pointer_revision: int = Field(ge=0)
+    expected_current_active_conversation_id: UUID | None
+
+    def fingerprint(self) -> str:
+        return _fingerprint(self.model_dump(mode="json", by_alias=True, exclude={"resolution_operation_id"}))
+
+
+class OccupiedCommandProofV1(StrictModel):
+    world_id: str
+    command_id: UUID
+    command_kind: CommandKind
+    request_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class CommandResolutionRecordV1(StrictModel):
+    schema_: Literal["dmb_agent_new_conversation_resolution_record_v1"] = Field(default="dmb_agent_new_conversation_resolution_record_v1", alias="schema")
+    request: CommandResolutionRequestV1
+    original_command_kind: Literal["new"] = "new"
+    original_request_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolution_request_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    observed_pointer: WorldPointer
+    outcome: Literal["confirmed", "retired", "submitted_binding_blocked"]
+    actor: str = Field(min_length=1)
+    recorded_at: str
+    record_serializer_version: Literal["canonical-json-ascii-v1"] = "canonical-json-ascii-v1"
+    confirmed_receipt: ConversationCommandReceipt | None
+    occupied_receipt: OccupiedCommandProofV1 | None
+    retirement_operation_id: UUID | None
+    record_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_record(self) -> "CommandResolutionRecordV1":
+        command = self.request.original_command
+        if self.original_request_fingerprint != request_fingerprint(command) or self.resolution_request_fingerprint != self.request.fingerprint():
+            raise ValueError("resolution fingerprint mismatch")
+        if self.observed_pointer.world_id != command.world_id:
+            raise ValueError("resolution World mismatch")
+        timestamp = datetime.fromisoformat(self.recorded_at.replace("Z", "+00:00"))
+        if timestamp.tzinfo is None:
+            raise ValueError("recorded time must include timezone")
+        if self.outcome == "confirmed":
+            receipt = self.confirmed_receipt
+            if receipt is None or self.occupied_receipt is not None or self.retirement_operation_id is not None or (
+                receipt.world_id != command.world_id or receipt.command_id != command.command_id or receipt.command_kind != "new"
+                or receipt.active_conversation_id != receipt.conversation_id or receipt.conversation_id == command.expected_active_conversation_id
+                or receipt.pointer_revision <= command.expected_pointer_revision
+            ):
+                raise ValueError("invalid confirmed proof")
+        elif self.outcome == "retired":
+            if self.confirmed_receipt is not None or self.occupied_receipt is not None or self.retirement_operation_id != self.request.resolution_operation_id or (
+                self.observed_pointer.revision != self.request.expected_current_pointer_revision
+                or self.observed_pointer.active_conversation_id != self.request.expected_current_active_conversation_id
+            ):
+                raise ValueError("invalid retirement proof")
+        else:
+            proof = self.occupied_receipt
+            if proof is None or self.confirmed_receipt is not None or self.retirement_operation_id is not None or (
+                proof.world_id != command.world_id or proof.command_id != command.command_id
+                or (proof.command_kind == "new" and proof.request_fingerprint == self.original_request_fingerprint)
+            ):
+                raise ValueError("invalid blocked proof")
+        if self.record_sha256 != _fingerprint(self.model_dump(mode="json", by_alias=True, exclude={"record_sha256"})):
+            raise ValueError("resolution record digest mismatch")
+        return self
+
+    @classmethod
+    def create(cls, **values) -> "CommandResolutionRecordV1":
+        # Normalize typed fields through JSON mode before hashing the immutable record.
+        values = {key: value.model_dump(mode="json", by_alias=True) if isinstance(value, BaseModel) else str(value) if isinstance(value, UUID) else value for key, value in values.items()}
+        values.update(schema="dmb_agent_new_conversation_resolution_record_v1", original_command_kind="new", record_serializer_version="canonical-json-ascii-v1")
+        return cls.model_validate({**values, "record_sha256": _fingerprint(values)})
+
+
+# Resolve shared native references only after their surface-owned intent/event
+# definitions exist. These records do not acquire historical Graph authority.
+from .native_context import SurfaceNativeContextReceiptV1  # noqa: E402
+from .native_execution import SurfaceNativeExecutionV1  # noqa: E402
+from .native_retrieval import NativeRetrievalAuthorizedV1 as NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1 as NativeRetrievalSelectedV1, NativeRetrievalSelectedV2 as NativeRetrievalSelectedV2, NativeReadBatchConcludedV1 as NativeReadBatchConcludedV1  # noqa: E402
+from .native_completion import SurfaceNativeCompletionV1  # noqa: E402
+TurnSubmission.model_rebuild()
+Turn.model_rebuild()
+TurnResult.model_rebuild()
+CitedSourceTurnResult.model_rebuild()
+
+# Resolve the explicit completed read variants after ordinary domain definitions;
+# Rules read models reuse these validators without constructing a fake Turn.
+from .rules_authority_reads import MixedCompletedTurnV1, MixedHistoryAttributionV1
+TurnClaimReceipt.model_rebuild()
+CompletedPlanAskPair.model_rebuild()

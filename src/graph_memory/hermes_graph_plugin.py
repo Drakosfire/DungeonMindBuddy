@@ -13,18 +13,32 @@ import copy
 import json
 from collections.abc import Mapping
 from contextvars import ContextVar
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Literal
+
+from apps.live_control_server.services.graph_tool_transport import (
+    GraphToolPageCache,
+    PAGED_TOOLS,
+    PAGE_BYTES,
+    TransportScope,
+)
 
 from apps.live_control_server.services.hermes_graph_interaction_tools import (
     DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
     HERMES_GRAPH_INTERACTION_TOOL_NAMES,
+    PROPOSE_BUILD_INSERTION,
     ORDERED_INTERACTION_TOOL_NAMES,
     ORDERED_MODEL_VISIBLE_TOOL_NAMES,
     QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
+    READ_RELATED_RECAP_CONTEXT_TOOL_NAME,
     execute_hermes_graph_interaction_tool_json,
     hermes_model_visible_tool_definitions,
+)
+
+from application_state.agent_conversation.rules_authority_policy import (
+    RulesCapabilityV1, LOOKUP_RULES, RULES_READ_POLICY_ID,
+    WORLD_GRAPH_RULES_READ_POLICY_ID, LookupRulesArguments, rules_tool_definition,
 )
 
 TOOLSET_NAME = "dungeonbuddy_graph"
@@ -51,6 +65,27 @@ _active_capability_policy: ContextVar["HermesCapabilityPolicy | None"] = Context
 _active_retrieval_session_id: ContextVar[str | None] = ContextVar(
     "hermes_graph_plugin_retrieval_session_id",
     default=None,
+)
+
+_active_rules_call_id: ContextVar[str | None] = ContextVar("rules_model_call_id", default=None)
+
+
+def set_active_rules_call_id(call_id: str | None) -> None:
+    _active_rules_call_id.set(call_id if isinstance(call_id, str) and call_id.strip() and len(call_id) <= 128 else None)
+
+
+def get_active_rules_call_id() -> str | None:
+    return _active_rules_call_id.get()
+
+
+_active_parent_graph_broker: ContextVar[Any | None] = ContextVar(
+    "hermes_graph_plugin_parent_broker", default=None
+)
+_parent_graph_broker_required: ContextVar[bool] = ContextVar(
+    "hermes_graph_plugin_parent_broker_required", default=False
+)
+_parent_retrieval_session_packet: ContextVar[Mapping[str, Any] | None] = ContextVar(
+    "hermes_graph_plugin_parent_retrieval_packet", default=None
 )
 
 
@@ -100,6 +135,7 @@ class HermesToolCapabilityRule:
     tool_name: str
     toolset: str = TOOLSET_NAME
     require_graph_scope: bool = True
+    require_rules_authority: bool = False
     allowed_effects: frozenset[ToolEffect] = field(
         default_factory=lambda: frozenset({"read"})
     )
@@ -122,7 +158,8 @@ class HermesCapabilityPolicy:
     graph_scope: HermesGraphScope | None
     tool_rules: tuple[HermesToolCapabilityRule, ...]
     plugin_activations: tuple[HermesPluginActivation, ...]
-    mode: Literal["graph", "conversation_only"] = "graph"
+    mode: Literal["graph", "conversation_only", "rules", "graph_rules"] = "graph"
+    rules_capability: RulesCapabilityV1 | None = None
 
     @property
     def enabled_plugin_ids(self) -> tuple[str, ...]:
@@ -159,9 +196,16 @@ def default_graph_only_capability_policy(
     graph_names = tuple(
         name
         for name in ORDERED_GRAPH_TOOL_NAMES
-        if name != QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME
+        if name not in {
+            QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
+            READ_RELATED_RECAP_CONTEXT_TOOL_NAME,
+        }
     )
-    names = tuple(ORDERED_MODEL_VISIBLE_TOOL_NAMES)
+    names = tuple(
+        name for name in ORDERED_MODEL_VISIBLE_TOOL_NAMES
+        if name not in {READ_RELATED_RECAP_CONTEXT_TOOL_NAME, PROPOSE_BUILD_INSERTION, "prepare_build_image",
+            "search_retained_source_sections", "browse_native_source_sections", "read_native_source_sections"}
+    )
     return HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME,),
         enabled_tool_names=names,
@@ -201,6 +245,25 @@ def default_graph_only_capability_policy(
     )
 
 
+def rules_capability_policy(capability: RulesCapabilityV1, *,
+                            graph_policy: HermesCapabilityPolicy | None = None) -> HermesCapabilityPolicy:
+    capability = RulesCapabilityV1.model_validate(capability)
+    graph = graph_policy is not None
+    if capability.policy_id != (WORLD_GRAPH_RULES_READ_POLICY_ID if graph else RULES_READ_POLICY_ID):
+        raise ValueError("Rules capability mode differs from Graph admission")
+    rule = HermesToolCapabilityRule(tool_name=LOOKUP_RULES, require_graph_scope=False,
+        require_rules_authority=True, allowed_effects=frozenset({"read"}))
+    if graph:
+        if validate_capability_policy_structure(graph_policy) is not None or graph_policy.mode != "graph":
+            raise ValueError("Rules composition requires a valid independent Graph policy")
+        return replace(graph_policy, mode="graph_rules", rules_capability=capability,
+            enabled_tool_names=(*graph_policy.enabled_tool_names, LOOKUP_RULES),
+            tool_rules=(*graph_policy.tool_rules, rule))
+    return HermesCapabilityPolicy(enabled_toolsets=(TOOLSET_NAME,), enabled_tool_names=(LOOKUP_RULES,),
+        graph_scope=None, tool_rules=(rule,), mode="rules", rules_capability=capability,
+        plugin_activations=(HermesPluginActivation(plugin_id=TOOLSET_NAME, toolsets=(TOOLSET_NAME,)),))
+
+
 def default_conversation_only_capability_policy() -> HermesCapabilityPolicy:
     """No World authority and no tools: a plain conversational model turn."""
     return HermesCapabilityPolicy(
@@ -213,12 +276,57 @@ def default_conversation_only_capability_policy() -> HermesCapabilityPolicy:
     )
 
 
+def parent_brokered_graph_expansion_policy(
+    scope: HermesGraphScope,
+) -> HermesCapabilityPolicy:
+    """Expose only parent-brokered expansion for metadata-only Plan grounding."""
+    policy = default_graph_only_capability_policy(scope)
+    names = ("expand_graph_retrieval",)
+    rules = tuple(policy.rule_for(name) for name in names)
+    if any(rule is None for rule in rules):
+        raise ValueError("Graph interaction rule is not present in the plugin catalog")
+    return replace(
+        policy,
+        enabled_tool_names=names,
+        tool_rules=rules,
+    )
+
+
+def parent_brokered_graph_source_policy(scope: HermesGraphScope) -> HermesCapabilityPolicy:
+    """Expose parent-brokered expansion and source reading for a V2 Plan turn."""
+    policy = default_graph_only_capability_policy(scope)
+    names = ("expand_graph_retrieval", "read_graph_source")
+    rules = tuple(policy.rule_for(name) for name in names)
+    if any(rule is None for rule in rules):
+        raise ValueError("Graph interaction rule is not present in the plugin catalog")
+    return replace(policy, enabled_tool_names=names, tool_rules=rules)
+
+
 def set_active_retrieval_session_id(session_id: str | None) -> Any:
     return _active_retrieval_session_id.set(session_id)
 
 
 def reset_active_retrieval_session_id(token: Any) -> None:
     _active_retrieval_session_id.reset(token)
+
+
+def set_parent_graph_broker(broker: Any | None, *, required: bool) -> tuple[Any, Any, Any]:
+    return (
+        _active_parent_graph_broker.set(broker),
+        _parent_graph_broker_required.set(required),
+        _parent_retrieval_session_packet.set(None),
+    )
+
+
+def reset_parent_graph_broker(tokens: tuple[Any, Any]) -> None:
+    broker_token, required_token, packet_token = tokens
+    _parent_retrieval_session_packet.reset(packet_token)
+    _active_parent_graph_broker.reset(broker_token)
+    _parent_graph_broker_required.reset(required_token)
+
+
+def get_parent_retrieval_session_packet() -> Mapping[str, Any] | None:
+    return _parent_retrieval_session_packet.get()
 
 
 def get_active_retrieval_session_id() -> str | None:
@@ -235,6 +343,7 @@ def validate_capability_policy_structure(
     if policy.mode == "conversation_only":
         if (
             policy.graph_scope is not None
+            or policy.rules_capability is not None
             or policy.plugin_activations
             or policy.enabled_toolsets
             or policy.enabled_tool_names
@@ -242,10 +351,23 @@ def validate_capability_policy_structure(
         ):
             return "hermes_conversation_policy_has_capabilities"
         return None
-    if policy.mode != "graph":
+    if policy.mode not in {"graph", "rules", "graph_rules"}:
         return "hermes_capability_policy_mode_invalid"
-    if policy.graph_scope is None:
+    if (policy.mode in {"graph", "graph_rules"}) != (policy.graph_scope is not None):
         return "hermes_capability_policy_graph_scope_required"
+    rules_enabled = policy.mode in {"rules", "graph_rules"}
+    if rules_enabled != (policy.rules_capability is not None):
+        return "hermes_capability_policy_rules_authority_required"
+    if rules_enabled:
+        try:
+            cap = RulesCapabilityV1.model_validate(policy.rules_capability)
+        except ValueError:
+            return "hermes_capability_policy_rules_authority_invalid"
+        expected = WORLD_GRAPH_RULES_READ_POLICY_ID if policy.mode == "graph_rules" else RULES_READ_POLICY_ID
+        if cap.policy_id != expected or LOOKUP_RULES not in policy.enabled_tool_names:
+            return "hermes_capability_policy_rules_authority_invalid"
+    if policy.mode == "rules" and policy.enabled_tool_names != (LOOKUP_RULES,):
+        return "hermes_rules_policy_has_foreign_tools"
     if not policy.plugin_activations:
         return "hermes_capability_policy_empty_plugin_activations"
     if not policy.enabled_toolsets:
@@ -280,6 +402,14 @@ def validate_capability_policy_structure(
     for rule in policy.tool_rules:
         if rule.toolset not in enabled_toolsets:
             return "hermes_capability_policy_rule_toolset_mismatch"
+        if type(rule.require_graph_scope) is not bool or type(rule.require_rules_authority) is not bool:
+            return "hermes_capability_policy_invalid_authority_flags"
+        if rule.tool_name == LOOKUP_RULES:
+            if (not rules_enabled or not rule.require_rules_authority or rule.require_graph_scope
+                    or rule.allowed_effects != frozenset({"read"}) or rule.toolset != TOOLSET_NAME):
+                return "hermes_capability_policy_rules_rule_invalid"
+        elif rule.require_rules_authority:
+            return "hermes_capability_policy_rules_rule_invalid"
         if not rule.allowed_effects:
             return "hermes_capability_policy_empty_effects"
         if rule.require_graph_scope and "read" not in rule.allowed_effects:
@@ -299,12 +429,14 @@ def reset_graph_root_override(token: Any) -> None:
 
 def set_active_capability_policy(policy: HermesCapabilityPolicy | None) -> Any:
     """Bind the active capability policy for the current turn."""
+    _graph_page_cache.set(GraphToolPageCache() if policy is not None else None)
     return _active_capability_policy.set(policy)
 
 
 def reset_active_capability_policy(token: Any) -> None:
     """Reset the capability-policy ContextVar token."""
     _active_capability_policy.reset(token)
+    _graph_page_cache.set(None)
 
 
 def get_active_capability_policy() -> HermesCapabilityPolicy | None:
@@ -364,6 +496,14 @@ def apply_capability_policy_to_arguments(
         )
 
     payload = dict(args) if isinstance(args, Mapping) else {}
+    if tool_name == LOOKUP_RULES:
+        if (validate_capability_policy_structure(active) is not None
+                or not rule.require_rules_authority or active.rules_capability is None):
+            return None, _policy_denied_error(code="rules_authority_required", message="Rules authority is unavailable.")
+        try:
+            payload = LookupRulesArguments.model_validate(payload).model_dump(mode="json")
+        except ValueError:
+            return None, _policy_denied_error(code="rules_arguments_invalid", message="Invalid rules lookup arguments.")
     if rule.require_graph_scope:
         scope = active.graph_scope
         # Authoritative inject — model-supplied scope cannot override the turn.
@@ -382,19 +522,119 @@ def apply_capability_policy_to_arguments(
     return payload, None
 
 
+_graph_page_cache: ContextVar[GraphToolPageCache | None] = ContextVar(
+    "graph_page_cache", default=None
+)
+
+
 def _handler_for(tool_name: str):
     def _handler(args: dict, **kwargs: Any) -> str:
         del kwargs
         try:
-            payload, denied = apply_capability_policy_to_arguments(tool_name, args)
+            payload, denied = apply_capability_policy_to_arguments(tool_name, args,
+                effect="write" if tool_name in {PROPOSE_BUILD_INSERTION, "prepare_build_image"} else "read")
             if denied is not None:
                 return denied
             assert payload is not None
-            return execute_hermes_graph_interaction_tool_json(
-                tool_name,
-                payload,
-                root=_graph_root_override.get(),
+            if tool_name == LOOKUP_RULES:
+                broker = _active_parent_graph_broker.get()
+                if not _parent_graph_broker_required.get() or not callable(broker):
+                    return _policy_denied_error(code="rules_broker_unavailable", message="No authorized parent Rules broker is available.")
+                call_id = get_active_rules_call_id()
+                if call_id is None:
+                    return _policy_denied_error(code="rules_call_identity_required", message="Rules lookup has no actual model call identity.")
+                raw, _ = broker(tool_name, payload)
+                from application_state.agent_conversation.rules_authority_packet import RulesPacketV1, RulesBudgetDiagnosticV1
+                from application_state.agent_conversation.rules_authority_events import normalized_question
+                if len(raw.encode("utf-8")) > 65536:
+                    raise ValueError("Rules packet exceeds its transport budget")
+                data = json.loads(raw)
+                if data.get("schema") == "dmb_rules_budget_diagnostic_v1":
+                    packet = RulesBudgetDiagnosticV1.model_validate_json(raw)
+                    if packet.call_id != call_id or len(raw.encode()) > 1024:
+                        raise ValueError("Rules diagnostic differs from current call")
+                else:
+                    packet = RulesPacketV1.model_validate_json(raw)
+                    cap = get_active_capability_policy().rules_capability
+                    if (packet.call_id != call_id or packet.corpus_sha256 != cap.corpus_sha256
+                            or packet.ruleset_id != cap.ruleset_id
+                            or packet.normalized_question != normalized_question(payload["question"])):
+                        raise ValueError("Rules packet differs from admitted source/query/call")
+                return raw
+            if tool_name in {"search_retained_source_sections","browse_native_source_sections","read_native_source_sections"}:
+                broker = _active_parent_graph_broker.get()
+                if not _parent_graph_broker_required.get() or not callable(broker):
+                    return _policy_denied_error(code="native_source_broker_required",message="Native source sections require the current parent owner.")
+                if get_active_rules_call_id() is None:
+                    return _policy_denied_error(code="native_source_call_identity_required",message="Source navigation has no actual model call identity.")
+                return broker(tool_name,payload)[0]
+            if tool_name in {PROPOSE_BUILD_INSERTION, "prepare_build_image"}:
+                broker = _active_parent_graph_broker.get()
+                if not _parent_graph_broker_required.get() or not callable(broker):
+                    return _policy_denied_error(code="build_insertion_broker_unavailable", message="No parent authoring capability is available.")
+                return broker(tool_name, payload)[0]
+            if _parent_graph_broker_required.get():
+                if tool_name not in PAGED_TOOLS:
+                    return _policy_denied_error(code="plan_graph_tool_not_permitted",
+                        message="Only parent-brokered Graph interactions are permitted.")
+                broker = _active_parent_graph_broker.get()
+                if not callable(broker):
+                    return _policy_denied_error(code="plan_graph_broker_unavailable",
+                        message="Parent Graph-operation broker is unavailable.")
+                result_json, retrieval_packet = broker(tool_name, payload)
+                if isinstance(retrieval_packet, Mapping):
+                    _parent_retrieval_session_packet.set(dict(retrieval_packet))
+                # Parent owns pagination and delivered evidence membership.
+                return result_json
+            cache = _graph_page_cache.get()
+            policy = get_active_capability_policy()
+            scope = None
+            if tool_name in PAGED_TOOLS and cache is not None and policy is not None:
+                session_id = get_active_retrieval_session_id()
+                graph_scope = policy.graph_scope
+                if session_id and graph_scope is not None:
+                    scope = TransportScope(
+                        session_id, graph_scope.world_id, graph_scope.revision_pin
+                    )
+                    packet = get_parent_retrieval_session_packet()
+                    if packet is not None:
+                        snapshot = packet.get("snapshot", {})
+                        if (
+                            packet.get("retrieval_session_id") != session_id
+                            or snapshot.get("world_id", snapshot.get("worldId"))
+                            != scope.world_id
+                            or snapshot.get("revision_id", snapshot.get("revisionId"))
+                            != scope.revision_id
+                        ):
+                            return _policy_denied_error(
+                                code="graph_page_scope_conflict",
+                                message="Frozen Graph packet differs from active scope.",
+                            )
+                    page = cache.continuation(tool_name, payload, scope)
+                    if page is not None:
+                        return page
+                elif "resultPageToken" in payload:
+                    return _policy_denied_error(
+                        code="graph_page_scope_unavailable",
+                        message="Active Graph scope unavailable.",
+                    )
+            if "resultPageToken" in payload and scope is None:
+                return _policy_denied_error(
+                    code="graph_page_scope_unavailable",
+                    message="Active Graph scope unavailable.",
+                )
+            clean_payload = {k: v for k, v in payload.items() if k != "resultPageToken"}
+            result_json = execute_hermes_graph_interaction_tool_json(
+                tool_name, clean_payload, root=_graph_root_override.get()
             )
+            if scope is not None and cache is not None:
+                return cache.present(tool_name, payload, scope, result_json)
+            if tool_name in PAGED_TOOLS and len(result_json.encode()) > PAGE_BYTES:
+                return _policy_denied_error(
+                    code="graph_page_scope_unavailable",
+                    message="Active Graph scope required for this oversized result.",
+                )
+            return result_json
         except Exception:
             # Adapter already fail-closes; this is a last line of defense so
             # Hermes never sees a raised exception from a graph tool.
@@ -419,7 +659,9 @@ def register(ctx: Any) -> None:
         raise RuntimeError(
             "Model-visible catalog order drifted from ORDERED_MODEL_VISIBLE_TOOL_NAMES"
         )
-    graph_names = [name for name in names if name in HERMES_GRAPH_INTERACTION_TOOL_NAMES]
+    graph_names = [
+        name for name in names if name in HERMES_GRAPH_INTERACTION_TOOL_NAMES
+    ]
     if set(graph_names) != set(HERMES_GRAPH_INTERACTION_TOOL_NAMES) or len(
         graph_names
     ) != len(HERMES_GRAPH_INTERACTION_TOOL_NAMES):
@@ -430,6 +672,12 @@ def register(ctx: Any) -> None:
         raise RuntimeError(
             "Interaction catalog order drifted from ORDERED_GRAPH_TOOL_NAMES"
         )
+
+    policy = get_active_capability_policy()
+    if policy is not None and policy.rules_capability is not None:
+        if validate_capability_policy_structure(policy) is not None:
+            raise ValueError("Invalid Rules capability at plugin registration")
+        definitions.append(rules_tool_definition())
 
     for item in definitions:
         function_schema = copy.deepcopy(item["function"])
@@ -457,6 +705,8 @@ __all__ = [
     "apply_capability_policy_to_arguments",
     "default_conversation_only_capability_policy",
     "default_graph_only_capability_policy",
+    "parent_brokered_graph_expansion_policy",
+    "parent_brokered_graph_source_policy",
     "get_active_capability_policy",
     "get_active_retrieval_session_id",
     "register",

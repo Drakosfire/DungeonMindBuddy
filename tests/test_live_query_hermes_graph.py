@@ -86,8 +86,15 @@ def isolated_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 @pytest.fixture
-def client(isolated_session: Path) -> TestClient:
-    return TestClient(create_app())
+def client(isolated_session: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    token = "synthetic-query-regression-operator-credential"
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", token)
+    return TestClient(create_app(), client=("127.0.0.1", 50000),
+                      headers={"Authorization": f"Bearer {token}"})
 
 
 _MISSING = object()
@@ -963,8 +970,8 @@ def test_graph_tool_error_events_are_typed_errors_not_abstention() -> None:
         ),
         scope=scope,
     )
-    assert recovered_state == "grounded"
-    assert recovered_answer.startswith("Tripod")
+    assert recovered_state == "error"
+    assert recovered_answer == EXECUTION_ERROR_ANSWER
 
 
 def test_scope_mismatch_events_are_redacted_from_serialized_response(
@@ -1038,8 +1045,6 @@ def test_agent_trace_preserves_plan_shell_fields(tmp_path: Path) -> None:
         "retrieval_session_id",
         "retrieval_candidate_count",
         "retrieval_claim_count",
-        "latest_recap_change_present",
-        "admitted_recap_excerpt_char_count",
         "runtime_continuity_present",
     }
     context_span = next(
@@ -1298,8 +1303,8 @@ def test_ordered_event_citation_matrix() -> None:
             _tool_event(source_anchor_ids=["anchor:recovered"]),
         ]
     )
-    assert recovered["grounding"]["state"] == "grounded"
-    assert [c["anchor_id"] for c in recovered["citations"]] == ["anchor:recovered"]
+    assert recovered["grounding"]["state"] == "error"
+    assert recovered["citations"] == []
     assert all(c["anchor_id"] != "anchor:FROM_ERROR_ONLY" for c in recovered["citations"])
 
     failed = _product_response_for_events(
@@ -1842,7 +1847,7 @@ def test_integrity_failure_still_fatal_with_claims(tmp_path: Path) -> None:
     assert response["diagnostics"]["error_code"] == "integrity_failure"
 
 
-def test_cardinality_error_recovered_by_later_evidence_still_works() -> None:
+def test_cardinality_error_without_session_cannot_use_anchor_fallback() -> None:
     _, scope = build_hermes_graph_turn_request(
         question="q",
         graph_envelope=READY_ENVELOPE,
@@ -1857,8 +1862,8 @@ def test_cardinality_error_recovered_by_later_evidence_still_works() -> None:
         ),
         scope=scope,
     )
-    assert recovered_state == "grounded"
-    assert recovered_answer.startswith("Tripod")
+    assert recovered_state == "error"
+    assert recovered_answer == EXECUTION_ERROR_ANSWER
 
 
 def test_expand_steer_mentions_neighborhood_for_multi_entity() -> None:
@@ -1919,212 +1924,8 @@ def test_nonzero_tool_calls_with_empty_evidence_still_abstains(tmp_path: Path) -
     assert response["answer"] == ABSTENTION_ANSWER
 
 
-def test_s1_empty_graph_with_latest_recap_is_partial_not_abstention(
-    tmp_path: Path,
-) -> None:
-    recap_path = tmp_path / "Session 24 - Recap.md"
-    recap_path.write_text(
-        "The party held the North Gate while Tripod Null-Calf pressed the wall.\n",
-        encoding="utf-8",
-    )
-    s1_envelope = {
-        **READY_ENVELOPE,
-        "status": "empty",
-        "matched_node_ids": [],
-        "nodes": [],
-        "warning_codes": ["graph_context_empty"],
-        "latest_recap_change": {
-            "schema": "dmb_latest_recap_change_context_v1",
-            "status": "ready",
-            "campaign_id": "longmont-c2",
-            "outcome": "memory_lag",
-            "memory_lag": True,
-            "latest_recap": {
-                "artifact_id": "longmont-c2/session-24",
-                "campaign_id": "longmont-c2",
-                "session_id": "session-24",
-                "source_recap_path": "Session 24 - Recap.md",
-            },
-            "comparison_boundary": {
-                "kind": "latest_admitted_recap_to_graph_head",
-                "recap_session_id": "session-24",
-                "graph_latest_session_id": "session-23",
-                "graph_revision_id": "revision:resolved-server",
-            },
-            "diagnostic_codes": ["latest_recap_not_in_graph_head"],
-        },
-    }
-
-    class _EchoSessionHost:
-        descriptor = HERMES_RUNTIME_DESCRIPTOR
-
-        def __init__(self) -> None:
-            self.calls: list[AgentRuntimeInvocation] = []
-
-        def run(self, invocation: AgentRuntimeInvocation) -> AgentRuntimeResult:
-            self.calls.append(invocation)
-            retrieval = invocation.context_packet.retrieval_session
-            context_updates: dict[str, Any] = {}
-            if retrieval is not None:
-                context_updates["retrieval_session_id"] = retrieval.session_id
-                context_updates["retrieval_session"] = dict(retrieval.packet)
-            return AgentRuntimeResult(
-                status="ok",
-                final_text=(
-                    "Session 24 keeps the siege at the North Gate under pressure; "
-                    "graph memory still lags at session-23."
-                ),
-                runtime_session_id="hermes-s1-empty",
-                tool_events=[
-                    _tool_event(
-                        outcome="empty",
-                        source_anchor_ids=[],
-                        matched_node_ids=[],
-                        relationship_ids=[],
-                    )
-                ],
-                context_updates=context_updates,
-                runtime_metadata={"process_isolation": "process_exclusive"},
-            )
-
-    host = _EchoSessionHost()
-    response = run_hermes_graph_query(
-        text="What changed after the latest ingested recap?",
-        packet=PACKET,
-        graph_envelope=s1_envelope,
-        agent_thread_id="agent-thread-s1",
-        turn_id="turn-s1",
-        root=tmp_path,
-        corpus_root=tmp_path,
-        agent_runtime=host,
-    )
-
-    assert host.calls
-    assert host.calls[0].context_packet.retrieval_session.packet is not None
-    assert host.calls[0].context_packet.retrieval_session.packet["latest_recap_change"]["outcome"] == "memory_lag"
-    assert "admitted_recap_excerpt" in host.calls[0].context_packet.retrieval_session.packet["latest_recap_change"]
-    assert response["grounding"]["state"] == "partial"
-    assert response["grounding"]["acceptance_state"] == "partial_coverage"
-    assert "no_admissible_claims" not in response["grounding"]["reason_codes"]
-    assert "hermes_agent_answer" in response["grounding"]["reason_codes"]
-    assert response["answer"].startswith("Session 24 keeps the siege")
-    assert "From the admitted session-24 recap" not in response["answer"]
-    assert "memory lag" not in response["answer"].lower()
-    assert response["s1_support"]["lag_disclosure"]
-    assert "memory lag" in response["s1_support"]["lag_disclosure"].lower()
-    assert "North Gate" in response["s1_support"]["admitted_recap_excerpt"]
-    assert response["latest_recap_change"]["outcome"] == "memory_lag"
-    assert "lag_disclosure" in response["latest_recap_change"]
 
 
-def test_s1_admitted_recap_read_uses_corpus_root_not_graph_store_root(
-    tmp_path: Path,
-) -> None:
-    """Live path uses world_graph_root (out/) for graph and repo_root for corpus."""
-    graph_root = tmp_path / "out"
-    graph_root.mkdir()
-    corpus_root = tmp_path / "repo"
-    corpus_root.mkdir()
-    (corpus_root / "Session 24 - Recap.md").write_text(
-        "The party held the North Gate while Tripod Null-Calf pressed the wall.\n",
-        encoding="utf-8",
-    )
-    s1_envelope = {
-        **READY_ENVELOPE,
-        "status": "empty",
-        "matched_node_ids": [],
-        "nodes": [],
-        "warning_codes": ["graph_context_empty"],
-        "latest_recap_change": {
-            "schema": "dmb_latest_recap_change_context_v1",
-            "status": "ready",
-            "campaign_id": "longmont-c2",
-            "outcome": "memory_lag",
-            "memory_lag": True,
-            "latest_recap": {
-                "artifact_id": "longmont-c2/session-24",
-                "campaign_id": "longmont-c2",
-                "session_id": "session-24",
-                "source_recap_path": "Session 24 - Recap.md",
-            },
-            "comparison_boundary": {
-                "kind": "latest_admitted_recap_to_graph_head",
-                "recap_session_id": "session-24",
-                "graph_latest_session_id": "session-23",
-                "graph_revision_id": "revision:resolved-server",
-            },
-            "diagnostic_codes": ["latest_recap_not_in_graph_head"],
-        },
-    }
-
-    class _EchoSessionHost:
-        descriptor = HERMES_RUNTIME_DESCRIPTOR
-
-        def run(self, invocation: AgentRuntimeInvocation) -> AgentRuntimeResult:
-            retrieval = invocation.context_packet.retrieval_session
-            context_updates: dict[str, Any] = {}
-            if retrieval is not None:
-                context_updates["retrieval_session_id"] = retrieval.session_id
-                context_updates["retrieval_session"] = dict(retrieval.packet)
-            return AgentRuntimeResult(
-                status="ok",
-                final_text=(
-                    "Session 24 keeps the siege at the North Gate under pressure; "
-                    "graph memory still lags at session-23."
-                ),
-                runtime_session_id="hermes-s1-roots",
-                tool_events=[
-                    _tool_event(
-                        outcome="empty",
-                        source_anchor_ids=[],
-                        matched_node_ids=[],
-                        relationship_ids=[],
-                    )
-                ],
-                context_updates=context_updates,
-                runtime_metadata={"process_isolation": "process_exclusive"},
-            )
-
-    captured: list[AgentRuntimeInvocation] = []
-
-    class _CaptureHost(_EchoSessionHost):
-        def run(self, invocation: AgentRuntimeInvocation) -> AgentRuntimeResult:
-            captured.append(invocation)
-            return super().run(invocation)
-
-    # Wrong corpus root: agent answer still fronts; excerpt is not attached.
-    wrong = run_hermes_graph_query(
-        text="What changed after the latest ingested recap?",
-        packet=PACKET,
-        graph_envelope=s1_envelope,
-        agent_thread_id="agent-thread-s1-wrong",
-        turn_id="turn-s1-wrong",
-        root=graph_root,
-        corpus_root=graph_root,
-        agent_runtime=_CaptureHost(),
-    )
-    assert wrong["answer"].startswith("Session 24 keeps the siege")
-    assert "hermes_agent_answer" in wrong["grounding"]["reason_codes"]
-    assert not (
-        captured[0].context_packet.retrieval_session.packet or {}
-    ).get("latest_recap_change", {}).get("admitted_recap_excerpt")
-
-    captured.clear()
-    right = run_hermes_graph_query(
-        text="What changed after the latest ingested recap?",
-        packet=PACKET,
-        graph_envelope=s1_envelope,
-        agent_thread_id="agent-thread-s1-right",
-        turn_id="turn-s1-right",
-        root=graph_root,
-        corpus_root=corpus_root,
-        agent_runtime=_CaptureHost(),
-    )
-    assert right["answer"].startswith("Session 24 keeps the siege")
-    assert "hermes_agent_answer" in right["grounding"]["reason_codes"]
-    assert "North Gate" in (
-        captured[0].context_packet.retrieval_session.packet or {}
-    ).get("latest_recap_change", {}).get("admitted_recap_excerpt", "")
 
 
 def test_invalid_service_history_fails_before_host(tmp_path: Path) -> None:
@@ -2191,8 +1992,8 @@ def test_invalid_history_fails_before_graph_resolution(
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
     monkeypatch.setattr(
         live_agent_loop,
-        "load_session",
-        lambda *_a, **_k: ({"campaign_id": "longmont-c2", "session": 22}, {}, [], []),
+        "load_session_packet",
+        lambda *_a, **_k: {"campaign_id": "longmont-c2", "session": 22},
     )
     monkeypatch.setattr(live_agent_loop, "session_dir", lambda: tmp_path)
 
@@ -2934,8 +2735,8 @@ def test_surface_context_resolution_span_and_query_primacy(
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
     monkeypatch.setattr(
         live_agent_loop,
-        "load_session",
-        lambda *_a, **_k: ({"campaign_id": "longmont-c2", "session": 27}, {}, [], []),
+        "load_session_packet",
+        lambda *_a, **_k: {"campaign_id": "longmont-c2", "session": 27},
     )
     monkeypatch.setattr(live_agent_loop, "session_dir", lambda: tmp_path)
     monkeypatch.setattr(
@@ -3033,7 +2834,7 @@ def test_surface_context_resolution_span_and_query_primacy(
         span for span in trace["spans"] if span.get("name") == "context_assembly"
     )
     assert context_span["attributes"]["context_schema"] == "dmb_agent_context_summary_v1"
-    assert len(context_span["attributes"]) == 14
+    assert len(context_span["attributes"]) == 12
     assert "surface_context" not in context_span["attributes"]
     assert response_without["agent_trace"]["context_summary"]["context_schema"] == (
         "dmb_agent_context_summary_v1"
@@ -3095,8 +2896,8 @@ def test_play_surface_context_resolution_span_query_primacy_and_privacy(
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
     monkeypatch.setattr(
         live_agent_loop,
-        "load_session",
-        lambda *_a, **_k: ({"campaign_id": "longmont-c2", "session": 27}, {}, [], []),
+        "load_session_packet",
+        lambda *_a, **_k: {"campaign_id": "longmont-c2", "session": 27},
     )
     monkeypatch.setattr(live_agent_loop, "session_dir", lambda: tmp_path)
 
@@ -3290,7 +3091,7 @@ def test_play_surface_context_resolution_span_query_primacy_and_privacy(
         span for span in trace["spans"] if span.get("name") == "context_assembly"
     )
     assert context_span["attributes"]["context_schema"] == "dmb_agent_context_summary_v1"
-    assert len(context_span["attributes"]) == 14
+    assert len(context_span["attributes"]) == 12
     assert "surface_context" not in context_span["attributes"]
 
     stale_trace = response_stale["agent_trace"]
@@ -3331,3 +3132,266 @@ def test_surface_context_unsupported_on_live_backend(tmp_path: Path) -> None:
             ),
         )
     assert exc.value.code == "surface_context_unsupported"
+
+
+def _q01_events():
+    """Captured Q01 shapes, with synthetic identities and no retained story text."""
+    overview = _tool_event(
+        retrieval_schema="dmb_graph_tool_overview_v1", outcome="enough",
+        source_anchor_ids=[], matched_node_ids=[], relationship_ids=[],
+    )
+    read = _tool_event(
+        tool_name="read_graph_source", retrieval_schema="dmb_read_graph_source_batch_v1",
+        outcome=None, source_anchor_ids=["anchor:one", "anchor:two"],
+    )
+    return [_cardinality_error_event("parent_evidence_bundle_required"), overview, read]
+
+
+def test_q01_recovery_reaches_answer_validation_and_preserves_failure(tmp_path):
+    events = _q01_events()
+    response = run_hermes_graph_query(
+        text="Where is Tripod?", packet=PACKET, graph_envelope=_FACTUAL_CLAIM_ENVELOPE,
+        agent_thread_id="q01", turn_id="recovery", root=tmp_path,
+        agent_runtime=_EchoRetrievalSessionHost(
+            final_response="Tripod is at the North Gate.", tool_events=events,
+        ),
+    )
+    assert response["answer"] == "Tripod is at the North Gate."
+    assert response["grounding"]["state"] == "grounded"
+    assert "assertion:loc" in response["grounding"]["accepted_claim_ids"]
+    assert response["agent_trace"]["validator_path"] == "graph_context_synthesis"
+    assert "parent_evidence_bundle_required" in response["grounding"]["diagnostic_codes"]
+    # Recovery does not mutate or remove the failed attempt.
+    assert events[0].state == "error"
+    serialized = json.dumps(response["agent_trace"])
+    assert '"state": "error"' in serialized
+    assert "parent_evidence_bundle_required" in serialized
+
+
+def test_q01_recovery_without_claims_does_not_ground_prose_or_anchors(tmp_path):
+    response = run_hermes_graph_query(
+        text="q", packet=PACKET, graph_envelope=EMPTY_CLAIM_ENVELOPE,
+        agent_thread_id="q01", turn_id="unsupported", root=tmp_path,
+        agent_runtime=_EchoRetrievalSessionHost(final_response="Invented fact", tool_events=_q01_events()),
+    )
+    assert response["grounding"]["state"] == "abstained"
+    assert response["answer"] == ABSTENTION_ANSWER
+    assert response["grounding"]["accepted_claim_ids"] == []
+    assert response["citations"] == []
+
+
+@pytest.mark.parametrize("code", ["integrity_failure", "scope_denied", "unknown_failure", "transient_failure"])
+@pytest.mark.parametrize("error_first", [True, False])
+def test_later_success_never_clears_authority_or_unknown_errors(tmp_path, code, error_first):
+    error = _cardinality_error_event(code)
+    success = _tool_event(source_anchor_ids=["anchor:later"])
+    events = [error, success] if error_first else [success, error]
+    response = run_hermes_graph_query(
+        text="q", packet=PACKET, graph_envelope=_FACTUAL_CLAIM_ENVELOPE,
+        agent_thread_id="fatal", turn_id=f"{code}-{error_first}", root=tmp_path,
+        agent_runtime=_EchoRetrievalSessionHost(final_response="Discard", tool_events=events),
+    )
+    assert response["grounding"]["state"] == "error"
+    assert response["diagnostics"]["error_code"] == code
+    assert response["answer"] == EXECUTION_ERROR_ANSWER
+
+
+@pytest.mark.parametrize("outcome", [None, "denied", "unavailable", "invented"])
+def test_refused_or_unknown_retry_does_not_recover(tmp_path, outcome):
+    events = _q01_events()
+    events[1] = _tool_event(retrieval_schema="dmb_graph_tool_overview_v1", outcome=outcome)
+    response = run_hermes_graph_query(
+        text="q", packet=PACKET, graph_envelope=_FACTUAL_CLAIM_ENVELOPE,
+        agent_thread_id="retry", turn_id=str(outcome), root=tmp_path,
+        agent_runtime=_EchoRetrievalSessionHost(final_response="Discard", tool_events=events),
+    )
+    assert response["grounding"]["state"] == "error"
+    assert response["diagnostics"]["error_code"] == "parent_evidence_bundle_required"
+
+
+@pytest.mark.parametrize("field,value", [
+    ("world_id", "foreign"), ("campaign_id", "foreign"),
+    ("revision_id", "stale"), ("admissibility", "player"),
+    ("focus", {"kind": "world"}), ("scope_mode", "world"),
+])
+def test_recovery_requires_exact_session_scope(field, value):
+    from graph_memory.interaction.session import GraphRetrievalSession, SessionSnapshot
+    _, scope = build_hermes_graph_turn_request(question="q", graph_envelope=READY_ENVELOPE, root=Path("/tmp"))
+    snapshot = SessionSnapshot(
+        world_id=scope.world_id, campaign_id=scope.campaign_id, revision_id=scope.revision_id,
+        admissibility=scope.admissibility, focus=scope.focus, scope_mode=scope.scope_mode,
+    ).model_copy(update={field: value})
+    session = GraphRetrievalSession(snapshot=snapshot, question="q")
+    state, answer, _, _, error, _ = classify_hermes_graph_result(
+        _ok_result(events=_q01_events()), scope=scope, retrieval_session=session,
+    )
+    assert state == "error"
+    assert answer == EXECUTION_ERROR_ANSWER
+    assert error == "hermes_grounding_contract_error"
+
+
+def test_rejection_with_mixed_integrity_diagnostic_is_fatal(tmp_path):
+    events = _q01_events()
+    events[0] = replace(events[0], attributes={
+        **events[0].attributes,
+        "diagnostic_codes": ["parent_evidence_bundle_required", "integrity_failure"],
+    })
+    response = run_hermes_graph_query(
+        text="q", packet=PACKET, graph_envelope=_FACTUAL_CLAIM_ENVELOPE,
+        agent_thread_id="mixed", turn_id="mixed", root=tmp_path,
+        agent_runtime=_EchoRetrievalSessionHost(final_response="Discard", tool_events=events),
+    )
+    assert response["grounding"]["state"] == "error"
+
+
+def test_q01_without_typed_session_stays_fail_closed():
+    _, scope = build_hermes_graph_turn_request(question="q", graph_envelope=READY_ENVELOPE, root=Path("/tmp"))
+    state, _, _, _, error, _ = classify_hermes_graph_result(_ok_result(events=_q01_events()), scope=scope)
+    assert state == "error"
+    assert error == "parent_evidence_bundle_required"
+
+
+def _successful_batch_event(**metadata_overrides):
+    metadata = {
+        "sourceReadCount": 2, "sourceReadTelemetryTruncated": False,
+        "sourceRead0": {"knownSourceReadSchema": "true", "opened": "true", "graph_revision": "revision:resolved-server", "outcome": "enough"},
+        "sourceRead1": {"knownSourceReadSchema": "true", "opened": "true", "graph_revision": "revision:resolved-server", "outcome": "enough"},
+        **metadata_overrides,
+    }
+    event = _tool_event(tool_name="read_graph_source", retrieval_schema="dmb_read_graph_source_batch_v1", outcome=None,
+                        source_anchor_ids=["anchor:one", "anchor:two"], matched_node_ids=[])
+    return replace(event, attributes={**event.attributes, "bounded_ids": metadata})
+
+
+def test_q01_success_count_is_invocations_not_evidence_ids_or_source_count(tmp_path):
+    events = _q01_events()[1:2] + [_successful_batch_event()]
+    response = run_hermes_graph_query(
+        text="q", packet=PACKET, graph_envelope=EMPTY_CLAIM_ENVELOPE,
+        agent_thread_id="counts", turn_id="counts", root=tmp_path,
+        agent_runtime=_EchoRetrievalSessionHost(final_response="Unsupported prose", tool_events=events),
+    )
+    assert response["grounding"]["successful_tool_count"] == 2
+    # Execution success cannot turn an unsupported answer into a grounded one.
+    assert response["grounding"]["state"] == "abstained"
+    assert response["answer"] == ABSTENTION_ANSWER
+    assert response["citations"] == []
+
+
+@pytest.mark.parametrize("outcome,expected", [("enough",1),("partial",1),("truncated",1),("empty",1),
+                                               ("denied",0),("unavailable",0),(None,0),("unknown",0)])
+def test_overview_success_count_does_not_require_evidence(outcome, expected):
+    event = _tool_event(retrieval_schema="dmb_graph_tool_overview_v1", outcome=outcome,
+                        matched_node_ids=[], source_anchor_ids=[], relationship_ids=[])
+    response = _product_response_for_events([event])
+    assert response["grounding"]["successful_tool_count"] == expected
+
+
+@pytest.mark.parametrize("overrides", [
+    {"sourceReadCount":0}, {"sourceReadCount":True}, {"sourceReadCount":9},
+    {"sourceReadTelemetryTruncated":True}, {"sourceRead1":None},
+    {"sourceRead1":{"knownSourceReadSchema":"true","opened":"true","graph_revision":"stale","outcome":"enough"}},
+    {"sourceRead1":{"knownSourceReadSchema":"false","opened":"true","graph_revision":"revision:resolved-server","outcome":"enough"}},
+    {"sourceRead1":{"knownSourceReadSchema":"true","opened":"true","graph_revision":"revision:resolved-server","outcome":"denied"}},
+    {"sourceRead1":{"knownSourceReadSchema":"true","opened":"true","graph_revision":"revision:resolved-server","outcome":[]}},
+])
+def test_incomplete_or_failed_batch_cannot_report_full_success(overrides):
+    assert _product_response_for_events([_successful_batch_event(**overrides)])["grounding"]["successful_tool_count"] == 0
+
+
+@pytest.mark.parametrize("field,value", [("state","start"),("state","error"),
+    ("world_id",None),("world_id","foreign"),("campaign_id","foreign"),
+    ("revision_pin","stale"),("admissibility","player"),("focus",None),
+    ("retrieval_schema","unknown")])
+def test_scope_or_lifecycle_failures_are_not_successes(field,value):
+    event = _tool_event(**{field:value})
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 0
+
+
+@pytest.mark.parametrize("schema", ["dmb_read_graph_source_batch_v1", "dmb_internal_read_graph_source_batch_v2"])
+def test_successful_batch_counts_once_in_both_current_transport_forms(schema):
+    event = _successful_batch_event()
+    event = replace(event, attributes={**event.attributes, "retrieval_schema":schema})
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 1
+
+
+def test_single_source_read_counts_one_but_denial_counts_zero():
+    event = _successful_batch_event(sourceReadCount=1)
+    event = replace(event, attributes={**event.attributes,
+        "retrieval_schema":"dmb_world_graph_source_anchor_read_v1", "outcome":"enough"})
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 1
+    denied = replace(event, attributes={**event.attributes, "outcome":"denied"})
+    assert _product_response_for_events([denied])["grounding"]["successful_tool_count"] == 0
+
+
+def test_success_count_does_not_double_count_start_and_completion():
+    completion = _q01_events()[1]
+    start = replace(completion, state="start")
+    assert _product_response_for_events([start,completion])["grounding"]["successful_tool_count"] == 1
+
+
+@pytest.mark.parametrize("opened", [None,"false"])
+def test_unopened_source_batch_does_not_report_success(opened):
+    event = _successful_batch_event()
+    metadata = dict(event.bounded_ids)
+    row = dict(metadata["sourceRead1"])
+    if opened is None:
+        row.pop("opened")
+    else:
+        row["opened"] = opened
+    metadata["sourceRead1"] = row
+    event = replace(event, attributes={**event.attributes,"bounded_ids":metadata})
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 0
+
+
+def test_empty_source_read_is_not_an_opened_source_success():
+    event = _tool_event(tool_name="read_graph_source", retrieval_schema="dmb_world_graph_source_anchor_read_v1",
+                        outcome="empty", matched_node_ids=[], source_anchor_ids=[])
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 0
+
+
+
+def test_single_read_without_opened_telemetry_cannot_report_success():
+    event = _tool_event(tool_name="read_graph_source", retrieval_schema="dmb_world_graph_source_anchor_read_v1",
+                        outcome="enough", matched_node_ids=[], source_anchor_ids=["anchor:one"])
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 0
+
+
+@pytest.mark.parametrize("retained_session", [False, True])
+def test_temporal_question_cannot_use_legacy_excerpt_as_answer_authority(tmp_path, retained_session):
+    legacy = {"schema": "dmb_latest_recap_change_context_v1", "outcome": "memory_lag",
+              "memory_lag": True, "diagnostic_codes": ["latest_recap_not_in_graph_head"],
+              "latest_recap": {"source_recap_path": "PRIVATE-RECAP.md"},
+              "admitted_recap_excerpt": "PRIVATE-RETAINED-EXCERPT"}
+    envelope = {**EMPTY_CLAIM_ENVELOPE, "latest_recap_change": legacy}
+    original = json.dumps(envelope, sort_keys=True)
+    class RetainedSessionHost(_EchoRetrievalSessionHost):
+        def run(self, invocation):
+            result = super().run(invocation)
+            self.retained_packet = result.context_updates["retrieval_session"]
+            if retained_session:
+                self.retained_packet["latest_recap_change"] = json.loads(json.dumps(legacy))
+            self.original_packet = json.dumps(self.retained_packet, sort_keys=True)
+            return result
+
+    host = RetainedSessionHost(final_response="Nothing changed after the latest recap.", tool_events=[])
+    response = run_hermes_graph_query(text="What changed after the latest ingested recap?",
+        packet=PACKET, graph_envelope=envelope, agent_thread_id="temporal-boundary", turn_id="temporal-turn",
+        root=tmp_path, agent_runtime=host)
+    assert response["grounding"]["state"] == "abstained"
+    assert response["answer"] == ABSTENTION_ANSWER
+    assert not response["grounding"].get("accepted_claim_ids")
+    assert not response.get("source_citations")
+    assert "s1_support" not in response and "latest_recap_change" not in response
+    assert json.dumps(envelope, sort_keys=True) == original
+    assert json.dumps(host.retained_packet, sort_keys=True) == host.original_packet
+
+
+def test_temporal_wording_keeps_ordinary_supported_claims_not_latestness(tmp_path):
+    host = _EchoRetrievalSessionHost(final_response="", tool_events=[])
+    response = run_hermes_graph_query(text="What is supported about Tripod from the latest recap?",
+        packet=PACKET, graph_envelope=READY_ENVELOPE, agent_thread_id="temporal-facts", turn_id="fact-turn",
+        root=tmp_path, agent_runtime=host)
+    assert response["grounding"]["accepted_claim_ids"]
+    assert response["graph_references"]
+    assert response["answer"] != ABSTENTION_ANSWER
+    assert "latest_recap_change" not in response and "s1_support" not in response

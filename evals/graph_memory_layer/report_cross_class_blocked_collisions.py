@@ -1,4 +1,4 @@
-"""Generate the checked-in Graph Memory cross-class blocked collision report."""
+"""Generate a Graph Memory cross-class blocked collision report."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Iterable
 
-from src.graph_memory.diagnostics.cross_class_collision_report import (
+from graph_memory.diagnostics.cross_class_collision_report import (
     BlockedCollisionRecord,
     render_blocked_collision_markdown,
     summarize_blocked_collision_records,
@@ -127,7 +127,7 @@ def load_json_payloads_from_paths(paths: Iterable[Path]) -> list[tuple[Path, Any
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out", default="Docs/Reports/GRAPH-MEMORY-CROSS-CLASS-BLOCKED-DIAGNOSTICS.md")
+    parser.add_argument("--out", default="out/graph_memory/GRAPH-MEMORY-CROSS-CLASS-BLOCKED-DIAGNOSTICS.md")
     parser.add_argument("--input", action="append", default=[], help="Repeatable relative JSON artifact path.")
     parser.add_argument("--generated-date", default=date.today().isoformat())
     args = parser.parse_args()

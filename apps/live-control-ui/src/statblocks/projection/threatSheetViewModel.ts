@@ -187,9 +187,7 @@ export function isCompleteStatblockRevisionResource(
         ))
       )
     )
-    && isRecord(ruleset)
-    && isString(ruleset.system)
-    && isString(ruleset.edition)
+    && (ruleset === null || (isRecord(ruleset) && isString(ruleset.system) && isString(ruleset.edition)))
     && isRecord(identity)
     && isString(identity.name)
     && isString(identity.size)
@@ -206,8 +204,7 @@ export function isCompleteStatblockRevisionResource(
     ))
     && isRecord(vitality)
     && isHitPointProfile(hitPoints)
-    && isRecord(movement)
-    && Array.isArray(movementModes)
+    && (movement === null || (Array.isArray(movementModes)
     && movementModes.length > 0
     && movementModes.every((mode) => (
       isRecord(mode)
@@ -215,6 +212,7 @@ export function isCompleteStatblockRevisionResource(
       && isString(mode.mode)
       && isDistance(mode.distance)
       && (mode.qualifiers === undefined || mode.qualifiers === null || isStringArray(mode.qualifiers))
+    ))
     ))
     && isRecord(abilities)
     && ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"]
@@ -241,7 +239,7 @@ export function isCompleteStatblockRevisionResource(
       || isDistance(communication.telepathy_range))
     && isRecord(challenge)
     && isString(challenge.rating)
-    && isFiniteNumber(challenge.proficiency_bonus)
+    && (challenge.proficiency_bonus === null || isFiniteNumber(challenge.proficiency_bonus))
     && Array.isArray(definition.rule_elements)
     && definition.rule_elements.length > 0
     && definition.rule_elements.every(isRuleElement)
@@ -307,7 +305,7 @@ export function threatSelectionTupleFromResolution(
 }
 
 export function threatSelectionTupleKey(tuple: ThreatSelectionTuple): string {
-  return `${tuple.worldId}\0${tuple.campaignId}\0${tuple.scopeMode}\0${tuple.revisionId}\0${tuple.threatNodeId}`;
+  return `${tuple.worldId}\0${tuple.scopeMode === "world" ? "" : tuple.campaignId}\0${tuple.scopeMode}\0${tuple.revisionId}\0${tuple.threatNodeId}`;
 }
 
 export function buildThreatQueryHydrationRequest(
@@ -317,7 +315,7 @@ export function buildThreatQueryHydrationRequest(
   return {
     schema: "dmb_threat_query_hydration_request_v1",
     worldId: scope.worldId,
-    campaignId: scope.campaignId,
+    campaignId: scope.scopeMode === "world" ? null : scope.campaignId,
     scopeMode: scope.scopeMode,
     revisionPin: scope.revisionId,
     queryText: threatNodeId,
@@ -334,7 +332,7 @@ export function selectExactThreatHit(
 ): ExactThreatSelectionResult {
   if (
     response.worldId !== requestedScope.worldId
-    || response.campaignId !== requestedScope.campaignId
+    || response.campaignId !== (requestedScope.scopeMode === "world" ? null : requestedScope.campaignId)
     || response.scopeMode !== requestedScope.scopeMode
     || response.revisionId !== requestedScope.revisionId
   ) {

@@ -155,7 +155,7 @@ def _run_arm(
         campaign_id=None,
         scope_mode=None,
         session_id=f"style-{case_id}-{arm}-{uuid.uuid4()}",
-        root=Path("/tmp"),
+        root=Path(os.environ["TMPDIR"]).resolve(),
         capability_policy=policy,
     )
     system = _build_ephemeral_system_prompt(

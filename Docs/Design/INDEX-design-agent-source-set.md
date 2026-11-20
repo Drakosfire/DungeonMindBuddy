@@ -3,22 +3,23 @@
 **Status:** ACTIVE REFERENCE / process index
 **Created:** 2026-08-02
 **Repository authority refresh:** 2026-09-26 DEMO reconciliation (repository adoption; Project Sources unchanged)
+**Repository export refresh:** 2026-11-19 — current README/DEMO roadmap copies and export-manifest navigation synchronized; Campaign roadmap retired as a historical forwarding record; all mapped copies checked against canonical files. This was not a full design/corpus audit, and user-managed Project Sources were not changed
 **Project Sources snapshot date:** 2026-08-02 — advance only after the operator actually replaces/re-observes the user-managed set
 **Repo-resident export mirror:** [`Docs/Sources/design-agent/`](../Sources/design-agent/)
 **Document class:** curated source index — not architecture or sequencing authority
 
 ## Purpose
 
-Give a fresh design/review steward the smallest current source set that can
-answer ownership, product direction, and process questions without reviving
-completed construction scaffolds.
+Give the person or agent assigned design or review work the smallest current
+source set that can answer ownership, product direction, and process questions
+without reviving completed construction scaffolds.
 
 ## Authority rule
 
 ```text
 current GitHub main + domain authority
   > active domain reference/contracts
-  > AGENTS.md + STEWARD-CYCLE process
+  > AGENTS.md + bounded assignment process
   > source anchors
   > export mirror
   > historical/superseded/project-source/chat copies
@@ -40,7 +41,7 @@ implementation sequence. Buddy product execution is sequenced by DEMO.
 | Graph/document governance | [`../Reports/graph-document-audit.md`](../Reports/graph-document-audit.md) | `ACTIVE_AUTHORITY/graph-document-audit.md` |
 | Shared interaction/chrome | [`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md) | `ACTIVE_AUTHORITY/ARCHITECTURE-surface-interaction-layer.md` |
 | Source→World authoring ownership | [`DESIGN-source-to-world-authoring-interaction-contract.md`](DESIGN-source-to-world-authoring-interaction-contract.md) | `ACTIVE_AUTHORITY/DESIGN-source-to-world-authoring-interaction-contract.md` |
-| DEMO stewardship | [`../Plans/STEWARDS-HANDOFF-demo.md`](../Plans/STEWARDS-HANDOFF-demo.md) | `ACTIVE_AUTHORITY/STEWARDS-HANDOFF-demo.md` |
+| DEMO bounded assignment | [`../Plans/STEWARDS-HANDOFF-demo.md`](../Plans/STEWARDS-HANDOFF-demo.md) | `ACTIVE_AUTHORITY/STEWARDS-HANDOFF-demo.md` |
 | DEMO product roadmap | [`../Roadmaps/ROADMAP-demo.md`](../Roadmaps/ROADMAP-demo.md) | `ACTIVE_AUTHORITY/ROADMAP-demo.md` |
 | Playable/runtime architecture | [`ARCHITECTURE-playable-material-and-runtime.md`](ARCHITECTURE-playable-material-and-runtime.md) | `ACTIVE_AUTHORITY/ARCHITECTURE-playable-material-and-runtime.md` |
 
@@ -79,30 +80,34 @@ and must not be uploaded as current authority.
 
 | Document | Classification | Reason |
 |---|---|---|
-| `ROADMAP-campaign-supergraph.md` | **SETTLEMENT_HOLD / program history** | Self-declared roadmap is stale; physical retirement waits for UI PR #761 to release the path |
+| `ROADMAP-campaign-supergraph.md` | **HISTORICAL / forwarding record** | Old sequence cannot dispatch; complete program history is pinned in Git |
 | `PR-TRACKER-campaign-supergraph.md` | **HISTORICAL / FROZEN** | CUTOVER closed; no new dispatch |
 | `STATUS-world-graph-continuity-spine.md` | **HISTORICAL / FROZEN** | August migration snapshot, not current state |
 | `PLAN-surface-interaction-hoist-build-first.md` | **SUPERSEDED** | Construction target landed; DOGFOOD-POLISH closeout owns evidence |
 | `INDEX-hermes-campaign-authoring-foundation.md` | **SUPERSEDED** | Hermes is an AgentRuntime adapter, not product architecture |
-| `JUMPSTART-docs-relevance-first.md` | **SUPERSEDED** | Use STEWARD-CYCLE |
+| `JUMPSTART-docs-relevance-first.md` | **SUPERSEDED** | Use the bounded assignment process |
 | old download-suffixed HANDOFF template | **SUPERSEDED** | Use canonical current template |
 
 These files may remain reachable for historical links. They must not be
 uploaded as current Project Sources.
 
-## Settlement hold
+## Historical Campaign roadmap
 
-`ROADMAP-campaign-supergraph.md` is the one intentionally unresolved physical
-retirement in this pass. UI PR #761 explicitly edits that path. The blocked successor handoff
-`Docs/Plans/HANDOFF-SETTLEMENT-retire-campaign-supergraph-roadmap.md`
-owns retirement only after #761 merges/closes and a fresh re-anchor confirms the
-path is free.
+`ROADMAP-campaign-supergraph.md` is a historical forwarding record, excluded from
+the current source bundle. Its full program history is pinned in Git from the
+forwarder. The two dated Plan references retain their product intent and clearly
+separate historical sequencing from current domain ownership.
+
+The bounded retirement contract and lease/consumer dispositions are in
+`Docs/Plans/HANDOFF-SETTLEMENT-retire-campaign-supergraph-roadmap.md`. No replacement
+global roadmap is introduced. Current dispatch requires an explicitly active
+bounded assignment; this reference index does not grant a write lease.
 
 ## Refresh procedure
 
 1. Pin current `main`.
 2. Reconcile this index against current domain authorities and open PR leases.
-3. Refresh mapped export copies from canonical paths; they must be byte-identical.
+3. Refresh mapped documents from canonical paths byte-for-byte. For the exported manifest only, rewrite its mapped links to the corresponding export copies and its mirror link to the export root; the mapping and snapshot dates must otherwise agree.
 4. Ensure retired files above are absent from the clean export.
 5. Upload the clean classified bundle.
 6. Advance the Project Sources snapshot date only after the user-managed set is actually replaced/re-observed.

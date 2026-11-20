@@ -1,0 +1,126 @@
+from __future__ import annotations
+
+import hashlib
+from pathlib import Path
+
+import pytest
+
+from apps.live_control_server.services import source_artifact_registry as registry
+from application_state.ingest import service as ingest_service
+from application_state.source import service as source_service
+from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
+pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
+
+def test_same_recap_is_idempotent_per_world_and_distinct_across_worlds(
+    tmp_path: Path,
+) -> None:
+    first = registry.create_recap_source_artifact(
+        tmp_path,
+        world_id="world:elderwyld",
+        campaign_id="longmont-c2",
+        session_id="session-29",
+        recap_text="Session 29\n\nMireward changes.\n",
+    )
+    first_again = registry.create_recap_source_artifact(
+        tmp_path,
+        world_id="world:elderwyld",
+        campaign_id="longmont-c2",
+        session_id="session-29",
+        recap_text="Session 29\n\nMireward changes.\n",
+    )
+    second_world = registry.create_recap_source_artifact(
+        tmp_path,
+        world_id="world:conks-and-cons",
+        campaign_id="longmont-c2",
+        session_id="session-29",
+        recap_text="Session 29\n\nMireward changes.\n",
+    )
+
+    assert first.source_artifact_id == first_again.source_artifact_id
+    assert first_again.uri == first.uri
+    assert first.source_artifact_id != second_world.source_artifact_id
+    assert first.world_id == "world:elderwyld"
+    assert second_world.world_id == "world:conks-and-cons"
+    assert first.content_sha256 == second_world.content_sha256
+    loaded, markdown = registry.load_registered_source_artifact_text(
+        tmp_path, second_world.source_artifact_id
+    )
+    assert loaded.world_id == "world:conks-and-cons"
+    assert markdown == "Session 29\n\nMireward changes.\n"
+
+
+def test_fresh_recap_requires_world_before_writing_registry_or_source_bytes(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(registry.SourceArtifactRegistryError, match="verified native world_id"):
+        registry.create_recap_source_artifact(
+            tmp_path,
+            world_id=" ",
+            campaign_id="longmont-c2",
+            session_id="session-29",
+            recap_text="Session 29\n\nNo implicit World.\n",
+        )
+
+    assert not (tmp_path / "out/registries/source_artifacts.json").exists()
+    assert not (tmp_path / "out/registries/source_content").exists()
+    assert not (tmp_path / registry.DEFAULT_SOURCE_SPAN_INDEX_DIR_REL).exists()
+
+
+def test_explicitly_registered_worldless_recap_remains_unchanged(tmp_path: Path) -> None:
+    content = "# Older recap\n"
+    legacy = GraphMemorySourceArtifact(
+        source_artifact_id="artifact:recap:longmont-c2:session-28:abc123abc123",
+        source_domain="recap",
+        campaign_id="longmont-c2",
+        session_id="session-28",
+        uri="repo://legacy/recap.md",
+        content_sha256=hashlib.sha256(content.encode()).hexdigest(),
+    )
+    registered = registry._register_source_input(artifact=legacy, content=content)
+    before = source_service.get_source_input_descriptors(source_artifact_ids=[legacy.source_artifact_id])
+    loaded = registry.get_source_artifact(legacy.source_artifact_id)
+    assert loaded == registered
+    assert loaded.world_id is None
+    assert source_service.get_source_input_descriptors(source_artifact_ids=[legacy.source_artifact_id]) == before
+    assert registry.load_registered_source_artifact_text(tmp_path, legacy.source_artifact_id)[1] == content
+
+
+def test_fresh_generation_rejects_wrong_source_world_before_run_or_client(
+    tmp_path: Path,
+    application_state_dsn: str,
+) -> None:
+    assert application_state_dsn
+    artifact = registry.create_recap_source_artifact(
+        tmp_path,
+        world_id="world:elderwyld",
+        campaign_id="longmont-c2",
+        session_id="session-29",
+        recap_text="Session 29\n\nMireward changes.\n",
+    )
+
+    original_body = source_service.get_source_markdown(
+        source_artifact_id=artifact.source_artifact_id, content_sha256=artifact.content_sha256 or "",
+    )
+    assert original_body is not None
+    from graph_memory.ingestion.native_recap_source import SourceScope
+    from apps.live_control_server.services.graph_preview_runner import run_recap_production_extraction
+    class NoCalls:
+        def run_pass(self, *_args, **_kwargs):
+            pytest.fail("foreign source reached generation")
+    with pytest.raises(registry.SourceArtifactRegistryError, match="does not match the selected"):
+        run_recap_production_extraction(
+            repo_root=tmp_path, source_artifact_id=artifact.source_artifact_id,
+            campaign_id="longmont-c2", session_id="session-29", allow_llm=True,
+            category_client=NoCalls(), ingest_context=SourceScope(
+                managed_world_id="other-managed", native_world_id="world:conks-and-cons",
+                binding_version=1, campaign_id="longmont-c2"),
+        )
+    assert ingest_service.list_extraction_runs() == []
+    assert (
+        source_service.get_source_markdown(
+            source_artifact_id=artifact.source_artifact_id,
+            content_sha256=artifact.content_sha256 or "",
+        )
+        == original_body
+    )

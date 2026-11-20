@@ -6,6 +6,8 @@ import type {
   PlayRunReferenceElement,
   PlayRunReferenceManifest,
   PlayRunReferenceManifestV2,
+  WorldOwnedCommittedRevisionV2,
+  WorldPlayRunRecordV2,
   WorkspaceCommittedRevision,
 } from "../../api/types";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
@@ -112,6 +114,44 @@ function committed(overrides: Partial<WorkspaceCommittedRevision> = {}): Workspa
   };
 }
 
+function worldPlanCommitted(overrides: Partial<WorldOwnedCommittedRevisionV2> = {}): WorldOwnedCommittedRevisionV2 {
+  return {
+    schema_version: "dmb_workspace_committed_revision_v2",
+    scope_mode: "world",
+    world_id: "world-test",
+    document_id: ARTIFACT_ID,
+    kind: "plan",
+    campaign_id: null,
+    title: "North Gate Plan",
+    status: "discarded",
+    object_revision: 9,
+    work_revision_id: "11111111-1111-4111-8111-111111111111",
+    revision_n: 3,
+    markdown: SIBLING_MARKDOWN,
+    content_sha256: CONTENT_SHA,
+    has_divergent_working_copy: true,
+    target_relpath: null,
+    ...overrides,
+  };
+}
+
+function worldRunRecord(overrides: Partial<WorldPlayRunRecordV2> = {}): WorldPlayRunRecordV2 {
+  return {
+    schema_version: "dmb_world_play_run_record_v2",
+    run_id: RUN_ID,
+    world_id: "world-test",
+    playable_artifact_id: ARTIFACT_ID,
+    playable_revision: 3,
+    playable_work_revision_id: "11111111-1111-4111-8111-111111111111",
+    playable_content_sha256: CONTENT_SHA,
+    run_revision: 4,
+    created_at: "2026-08-17T00:00:00Z",
+    updated_at: "2026-08-17T00:00:00Z",
+    progress: progress(),
+    ...overrides,
+  };
+}
+
 function manifest(overrides: Partial<PlayRunReferenceManifest> = {}): PlayRunReferenceManifest {
   return {
     schema_version: "dmb_play_run_reference_manifest_v1",
@@ -183,6 +223,39 @@ describe("slicePlayableBodies", () => {
     expect(slices.get("beat:breach")?.bodyText).not.toContain("Does Tealeaf answer");
     expect(slices.has("open-questions")).toBe(false);
     expect([...slices.keys()]).toEqual(["scene:gate", "beat:breach"]);
+  });
+
+  it.each([
+    ["# Root instructions", ""],
+    ["## Root instructions", "An intervening paragraph."],
+    ["## **Styled title**", ""],
+    ["## [Reference title](#dmb-ref:npc:guard)", ""],
+  ])("keeps %s as an ordinary boundary rather than a table caption", (heading, between) => {
+    const markdown = [
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:one beat_kind=spine -->",
+      "## Beat", "", "<!-- dmb-playable-element:v2 kind=scene id=scene:a -->",
+      "### Scene", "", "Retained Scene prose.", "", heading, "", between, "",
+      "| Key | Value |", "| --- | --- |", "| Secret | Outside Scene |", "",
+      "Root-only instructions.",
+    ].join("\n");
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual([]);
+    const slices = slicePlayableBodies(imported.doc);
+    expect(slices.get("scene:a")?.bodyText).toBe("Retained Scene prose.");
+    expect(slices.get("scene:a")?.bodyContent?.map(node => node.type)).toEqual(["paragraph"]);
+  });
+
+  it("keeps a marked Beat followed by a table as a new playable boundary", () => {
+    const imported = markdownToTiptapDoc([
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:one beat_kind=spine -->",
+      "## Beat one", "", "<!-- dmb-playable-element:v2 kind=scene id=scene:a -->",
+      "### Scene", "", "Retained Scene prose.", "",
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:two beat_kind=spine -->",
+      "## Beat two", "", "| Key | Value |", "| --- | --- |", "| Later | Beat |",
+    ].join("\n"));
+    const slices = slicePlayableBodies(imported.doc);
+    expect(slices.get("scene:a")?.bodyText).toBe("Retained Scene prose.");
+    expect(slices.get("beat:two")?.bodyContent?.map(node => node.type)).toEqual(["table"]);
   });
 
   it("keeps v2 Choice prose and marked list-item Option text disjoint", () => {
@@ -330,6 +403,22 @@ describe("admitNativeRunbook", () => {
     expect(admitted.status).toBe("integrity_failure");
     if (admitted.status === "ready") throw new Error("discarded Runbook must not reach READY");
     expect(admitted.reason).toMatch(/discarded/i);
+  });
+
+  it("admits a World Plan's exact bound revision after the Plan is discarded and its working copy diverges", () => {
+    const admitted = admitNativeRunbook({
+      run: worldRunRecord(),
+      manifest: manifest(),
+      committed: worldPlanCommitted(),
+    });
+    expect(admitted.status).toBe("ready");
+    if (!isNativeRunbookReadyV1(admitted)) throw new Error("exact World Plan revision must remain playable");
+    expect(admitted.snapshot).toEqual(expect.objectContaining({
+      kind: "plan",
+      status: "discarded",
+      has_divergent_working_copy: true,
+      revision_n: 3,
+    }));
   });
 
   it("admits the bound revision even when a divergent WorkingCopy exists", () => {
@@ -557,16 +646,52 @@ describe("admitNativeRunbook v2", () => {
     expect(admitted.beats[0]?.choices[0]?.title).toBe("Decision X");
     expect(admitted.beats[0]?.choices[0]?.bodyText).toBe("Choice X unique prose.");
     expect(admitted.beats[0]?.choices[0]?.bodyText).not.toContain("Option X1 unique text");
+    expect(admitted.beats[0]?.choices[0]?.bodyContent).toEqual([{
+      type: "paragraph",
+      content: [{ type: "text", text: "Choice X unique prose." }],
+    }]);
     expect(admitted.beats[0]?.choices[0]?.options[0]).toEqual(expect.objectContaining({
       id: "option:x1",
       title: "Option X1 unique text",
       bodyText: "",
+      bodyContent: [],
     }));
     expect(admitted.beats[0]?.choices[0]?.options[1]?.title).toBe("Option X2 unique text");
     expect(admitted.beats[0]?.choices[1]?.bodyText).toBe("Choice Y unique prose.");
     expect(admitted.beats[0]?.choices[1]?.options[0]?.title).toBe("Option Y1 unique text");
     expect(admitted.run.progress).not.toHaveProperty("relevance");
     expect(admitted.relevanceByTargetId["beat:two"]).toBe("default");
+  });
+
+  it("carries captured authored body AST through V2 admission without flattening labels or blocks", () => {
+    const richMarkdown = V2_MARKDOWN.replace(
+      "### Scene A\n\n",
+      [
+        "### Scene A",
+        "",
+        "A lengthy opening paragraph with [Lysandra Ironveil](#dmb-ref:npc:lysandra-ironveil) still attached.",
+        "",
+        "A second paragraph stays separate.",
+        "",
+        "- first authored list item",
+        "- second authored list item",
+        "",
+        "> A quoted table-read passage remains quoted.",
+        "",
+      ].join("\n"),
+    );
+    const admitted = admitNativeRunbook({
+      run: runRecord({ progress: progress({ current_beat_id: "beat:one", current_scene_id: "scene:a" }) }),
+      manifest: v2Manifest(),
+      committed: committed({ markdown: richMarkdown }),
+    });
+    if (!isNativeRunbookReadyV2(admitted)) throw new Error("expected v2 ready");
+
+    const body = admitted.beats[0]?.scenes[0]?.bodyContent;
+    expect(body?.map((node) => node.type)).toEqual(["paragraph", "paragraph", "bulletList", "blockquote"]);
+    expect(JSON.stringify(body)).toContain("Lysandra Ironveil");
+    expect(JSON.stringify(body)).toContain("second authored list item");
+    expect(JSON.stringify(body)).toContain("quoted table-read passage");
   });
 
   it("refuses READY when v2 progress has not been seeded", () => {

@@ -1,3 +1,7 @@
+import {parseWorkPlanFence,workPlanIdentity} from "../../surface/workPlans/workPlanReference";
+import {parseTableFence} from "../../preparedTables/tableGrammar";
+import { mediaMarkdown } from "../../media/mediaReferences";
+import { webSourceHref, validWebSourceTitle } from "./webSourceHref";
 import {
   playableSerializationFailures,
 } from "../playable/playableElementIdentity";
@@ -21,7 +25,7 @@ type JsonMark = {
   attrs?: Record<string, unknown> | null;
 };
 
-const INLINE_NODE_TYPES = new Set(["text", "runbookReference", "graphNodeReference"]);
+const INLINE_NODE_TYPES = new Set(["text", "runbookReference", "graphNodeReference", "mediaImage", "hardBreak"]);
 const CALLOUT_CHILD_TYPES = new Set([
   "paragraph",
   "heading",
@@ -50,7 +54,7 @@ const PANE_CHILD_TYPES = new Set([
   // Matches visitPaneBlockquote admitting supported callouts inside panes.
   "callout",
 ]);
-const SUPPORTED_MARK_TYPES = new Set(["bold", "italic", "strike", "code"]);
+const SUPPORTED_MARK_TYPES = new Set(["bold", "italic", "strike", "code", "link"]);
 
 function asNode(value: unknown): JsonNode | null {
   return value !== null && typeof value === "object" ? (value as JsonNode) : null;
@@ -90,6 +94,7 @@ export function semanticMarkdownSerializationDiagnostics(
   document: unknown,
 ): SemanticMarkdownSerializationDiagnostic[] {
   const diagnostics: SemanticMarkdownSerializationDiagnostic[] = [];
+  const seenWorkPlans=new Set<string>();
   const root = asNode(document);
   if (!root) return [warning("Editor document is not valid TipTap JSON.")];
 
@@ -98,11 +103,25 @@ export function semanticMarkdownSerializationDiagnostics(
     const children = childNodes(node);
 
     switch (type) {
+      case "surfaceWorkPlan":
+        if(parentType!=='doc')diagnostics.push(warning('Work plans must be document blocks.',type));
+        try{const key=workPlanIdentity(parseWorkPlanFence(String(node.attrs?.source)));if(seenWorkPlans.has(key))throw new Error('duplicate');seenWorkPlans.add(key);}
+        catch{diagnostics.push(warning('Invalid or duplicate work-plan reference.',type));}
+        if(children.length)diagnostics.push(warning('Work-plan reference has unexpected children.',type));
+        break;
+      case "preparedTable":
+        if(parentType !== 'doc')diagnostics.push(warning('Prepared tables must be document blocks.',type));
+        try {parseTableFence(String(node.attrs?.source));} catch {diagnostics.push(warning('Invalid prepared table.',type));}
+        if(children.length)diagnostics.push(warning('Prepared table has unexpected children.',type));
+        break;
       case "doc":
         for (const child of children) visit(child, type);
         return;
       case "paragraph":
       case "heading":
+        if (children.at(-1)?.type === "hardBreak") {
+          diagnostics.push(warning("A trailing hard break needs text after it before saving as Markdown.", "hardBreak"));
+        }
         for (const child of children) {
           const childType = typeof child.type === "string" ? child.type : "unknown";
           if (!INLINE_NODE_TYPES.has(childType)) {
@@ -111,12 +130,20 @@ export function semanticMarkdownSerializationDiagnostics(
               childType,
             ));
           }
+          if (childType === "hardBreak" && (type === "heading" || parentType === "tableCell" || parentType === "tableHeader")) {
+            diagnostics.push(warning("Hard breaks in headings or table cells cannot be saved as Markdown.", childType));
+          }
           visit(child, type);
         }
         return;
       case "text":
         for (const mark of marks(node)) {
           const markType = typeof mark.type === "string" ? mark.type : "unknown";
+          if (markType === "link" && (!webSourceHref(mark.attrs?.href)
+              || !validWebSourceTitle(mark.attrs?.title)
+              || Object.keys(mark.attrs ?? {}).some(key => key !== "href" && key !== "title"))) {
+            diagnostics.push(warning("Web source links require a valid HTTP/HTTPS href and no unsupported attributes.", type));
+          }
           if (!SUPPORTED_MARK_TYPES.has(markType)) {
             diagnostics.push(warning(
               `Text mark ${markType} is not supported by the semantic Markdown editor.`,
@@ -124,6 +151,10 @@ export function semanticMarkdownSerializationDiagnostics(
             ));
           }
         }
+        return;
+      case "mediaImage":
+        try { mediaMarkdown(String(node.attrs?.assetId ?? ''), String(node.attrs?.alt ?? ''), node.attrs?.width, node.attrs?.collapsed); }
+        catch { diagnostics.push(warning("Invalid saved image presentation or reference.", type)); }
         return;
       case "runbookReference":
       case "graphNodeReference":
@@ -262,7 +293,6 @@ export function semanticMarkdownSerializationDiagnostics(
         for (const child of children) visit(child, type);
         return;
       case "hardBreak":
-        diagnostics.push(warning("Hard breaks are not represented losslessly by the current Markdown serializer.", type));
         return;
       default:
         diagnostics.push(warning(

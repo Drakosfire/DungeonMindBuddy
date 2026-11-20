@@ -273,7 +273,7 @@ def main() -> int:
                 campaign_id=None,
                 scope_mode=None,
                 session_id=f"synthetic-host-latency-{uuid.uuid4()}",
-                root=Path("/tmp"),
+                root=Path(os.environ["TMPDIR"]).resolve(),
                 capability_policy=policy,
             )
             host_start = time.perf_counter()

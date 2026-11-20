@@ -29,9 +29,6 @@ from application_state.ingest.import_legacy import (
     import_extraction_runs_from_registry,
 )
 from application_state.ingest.service import get_extraction_run, list_extraction_runs
-from apps.live_control_server.services.ingest_run_catalog import (
-    list_canonical_extraction_runs,
-)
 from graph_memory.ingestion.extraction_run import ExtractionRun
 from graph_memory.ingestion.graph_ingest_run import (
     GraphIngestRunManifest,
@@ -542,13 +539,11 @@ def _verify_product_seam(
 ) -> tuple[ProductVerification, str | None]:
     pins_by_id = {pin.run.run_id: pin for pin in pins}
     try:
-        catalog = list_canonical_extraction_runs()
-        listed = catalog.get("runs") or []
+        listed_ids = {run.run_id for run in list_extraction_runs()}
     except Exception as exc:
         raise ApplicationStateUnavailableError(
             f"Ingest catalog unavailable: {exc}"
         ) from exc
-    listed_ids = {str(row.get("run_id")) for row in listed}
     failures: list[str] = []
     for row in dispositions:
         if row.action not in {"adopt", "noop"}:
@@ -569,10 +564,6 @@ def _verify_product_seam(
             failures.append(
                 f"{row.run_id}: catalog durable fingerprint does not match expected payload"
             )
-    service_ids = {run.run_id for run in list_extraction_runs()}
-    for row in dispositions:
-        if row.action in {"adopt", "noop"} and row.run_id not in service_ids:
-            failures.append(f"{row.run_id}: absent from list_extraction_runs()")
     if failures:
         return "failed", "; ".join(failures)
     return "passed", None

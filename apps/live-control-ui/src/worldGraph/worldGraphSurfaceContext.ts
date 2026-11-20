@@ -99,11 +99,12 @@ export function buildBuildWorldGraphProjectionRequest(input: {
 
 /**
  * Post-confirm Graph Review exact read.
- * Uses receipt.worldId (no remapping). Fail closed when campaign map is missing
- * or disagrees with the receipt world.
+ * Uses receipt.worldId unchanged. An admitted run may bind its native World
+ * independently of the source campaign. Any conflicting binding fails closed.
  */
 export function buildGraphReviewCommittedProjectionRequest(input: {
   campaignId: string;
+  verifiedWorldId?: string | null;
   sessionId?: string | null;
   receipt: { worldId: string; committedRevisionId: string };
 }): WorldGraphProjectionRequest | null {
@@ -112,7 +113,7 @@ export function buildGraphReviewCommittedProjectionRequest(input: {
   const committedRevisionId = input.receipt.committedRevisionId.trim();
   if (!campaignId || !receiptWorldId || !committedRevisionId) return null;
 
-  const mappedWorldId = getWorldIdForCampaign(campaignId);
+  const mappedWorldId = input.verifiedWorldId == null ? getWorldIdForCampaign(campaignId) : input.verifiedWorldId.trim();
   if (!mappedWorldId || mappedWorldId !== receiptWorldId) return null;
 
   const sessionId = input.sessionId?.trim() || "";

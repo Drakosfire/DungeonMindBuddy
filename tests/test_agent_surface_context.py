@@ -11,6 +11,9 @@ import pytest
 from pydantic import ValidationError
 
 from apps.live_control_server.services.agent_runtime import (
+    AgentCurrentOwnerContext,
+    AgentPlayCurrentElementContext,
+    AgentPlayCurrentMomentContext,
     AgentCurrentWorkContext,
     AgentSurfaceContext,
 )
@@ -322,3 +325,27 @@ def test_wire_requires_versioned_fields_and_rejects_internal_schema_name() -> No
                 "pointers": [],
             }
         )
+
+
+def test_saved_play_context_reaches_shared_provider_renderer_without_clipping() -> None:
+    scene = "Scene detail " * 200 + "FINAL SCENE DETAIL"
+    note = "Saved GM note " * 100 + "FINAL NOTE DETAIL"
+    context = AgentSurfaceContext(
+        surface_id="play",
+        current_owner=AgentCurrentOwnerContext(kind="world", owner_id="elderwyld", name="Elderwyld"),
+        current_play=AgentPlayCurrentMomentContext(
+            run_id=SECRET_DOC_ID, playable_artifact_id=SECRET_DOC_ID, playable_revision=1,
+            current_beat=AgentPlayCurrentElementContext(
+                kind="beat", element_id="beat:road", title="Road", body_text="", body_markdown=scene,
+            ),
+            current_scene=AgentPlayCurrentElementContext(
+                kind="scene", element_id="scene:gate", title="Gate", body_text="", body_markdown="At the gate.",
+            ),
+            edition_revision=1, saved_scene_note=note,
+        ),
+    )
+    rendered = render_agent_surface_context(context)
+    assert scene in rendered
+    assert note in rendered
+    assert 'Current World: "Elderwyld".' in rendered
+    assert len(rendered) > MODEL_BLOCK_MAX_CHARS

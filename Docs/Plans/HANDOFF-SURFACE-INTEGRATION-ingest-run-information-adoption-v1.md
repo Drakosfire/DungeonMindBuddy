@@ -231,7 +231,7 @@ Do not pre-mark SI-5B DONE.
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.tsx` | Subscribe to canonical channel; separate Gold sidecar; run_id selection; remove `getGraphIngestRuns` normal path |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewAppliedSelection.ts` | v2 run_id URL/session restore contract; legacy manifest-path identity fails closed |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewWorkbenchUtils.ts` | Canonical DB-run catalog composition; run_id dedupe; Gold available-runs enrichment cannot inject product runs |
-| Create | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewRunPicker.tsx` | Canonical run_id picker; do not reuse manifest-keyed Gold picker |
+| Create | [`GraphReviewRunPicker.tsx`](https://github.com/Drakosfire/DungeonMindBuddy/blob/a0d31f2ec70631f4d711d443561eb0c7f6b70996/apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewRunPicker.tsx) | Canonical run_id picker; do not reuse manifest-keyed Gold picker |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewLanePicker.tsx` | Use canonical picker and run_id selection |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewLoadSurface.tsx` | Draft runId/loadability semantics |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewLoadLaneSummary.tsx` | Canonical selected-run summary; compatibility locator labeled as such only if exact-run matched |

@@ -9,6 +9,8 @@ Buddy overlay and UnionSupergraph writers are tripwired.
 
 
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 
 import hashlib
@@ -89,6 +91,11 @@ def _object_proposal() -> dict[str, object]:
         "localProposalId": REVIEWED_OBJECT_ID,
         "proposalKind": "object",
         "status": "staged_local",
+        "selection": {
+            "selectionKind": "text_span",
+            "selectedText": "Post-genesis source for manual authoring.",
+            "normalizedSelectedText": "Post-genesis source for manual authoring.",
+        },
         "objectRef": {
             "label": "D2C4 Reviewed Object",
             "kind": "party",
@@ -106,6 +113,11 @@ def _link_proposal() -> dict[str, object]:
         "localProposalId": "d2c4-link-existing",
         "proposalKind": "link_existing",
         "status": "staged_local",
+        "selection": {
+            "selectionKind": "text_span",
+            "selectedText": "vial",
+            "normalizedSelectedText": "vial",
+        },
         "selectedText": "vial",
         "normalizedSelectedText": "vial",
         "existingObjectRef": {
@@ -126,6 +138,11 @@ def _relationship_proposal(source_node_id: str) -> dict[str, object]:
         "localProposalId": "d2c4-relationship",
         "proposalKind": "relationship",
         "status": "staged_local",
+        "selection": {
+            "selectionKind": "text_span",
+            "selectedText": "associated with",
+            "normalizedSelectedText": "associated with",
+        },
         "sourceObjectRef": {
             "refKind": "existing_graph_node",
             "nodeId": source_node_id,
@@ -259,22 +276,18 @@ def _write_post_genesis_graph_review_run(repo: Path) -> str:
         create_source_artifact_from_workspace_document,
         source_span_index_relpath,
     )
-    from apps.live_control_server.services.workspace_document_registry import (
-        create_workspace_document,
-        mark_workspace_document_committed,
-    )
     from graph_memory.ingestion.extraction_run import (
         ExtractionRunComponentKind,
         ExtractionRunComponentRef,
         ExtractionRunStatus,
     )
-    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+    from graph_memory.extraction.worldbuilding_plumbing_profile import (
         WORLDBUILDING_PLUMBING_PROFILE,
     )
 
 
     (repo / f"corpus/{GLASS_ORCHARD_WORLD_ID}-markdown").mkdir(parents=True, exist_ok=True)
-    document = create_workspace_document(
+    document = create_page_fixture(
         repo,
         title="D2C4 Graph Review source",
         campaign_id=GLASS_ORCHARD_WORLD_ID,
@@ -285,20 +298,18 @@ def _write_post_genesis_graph_review_run(repo: Path) -> str:
         authority_state="draft",
         visibility_state="internal",
     )
-    committed = mark_workspace_document_committed(
-        repo, document.document_id, expected_revision=document.revision
-    )
-    source = repo / committed.target_relpath
-    source.parent.mkdir(parents=True, exist_ok=True)
-    source.write_text(
-        "# D2C4 Graph Review\n\nPost-genesis source for manual authoring.\n",
-        encoding="utf-8",
-    )
+    committed = get_workspace_document(repo, document.document_id)
+    committed = save_page(repo, committed.document_id, '# D2C4 Graph Review\n\nPost-genesis source for manual authoring. The vial is associated with the reviewed object.\n')
     artifact = create_source_artifact_from_workspace_document(
         repo, document_id=committed.document_id, expected_revision=committed.revision
     )
+    from apps.live_control_server.services.source_artifact_registry import load_source_span_index
+    from graph_memory.source_span import source_span_index_to_dict
     span_rel = source_span_index_relpath(artifact.source_artifact_id)
     span_path = repo / span_rel
+    span_path.parent.mkdir(parents=True, exist_ok=True)
+    span_path.write_text(json.dumps(source_span_index_to_dict(
+        load_source_span_index(repo, artifact.source_artifact_id)), indent=2, ensure_ascii=False) + "\n")
     span_index = json.loads(span_path.read_text(encoding="utf-8"))
     span_ref_id = str(span_index["spans"][0]["source_span_id"])
     run_dir = repo / "out" / "graph_memory" / "runs" / "extraction" / "d2c4"
@@ -539,8 +550,25 @@ def test_graph_review_authoring_continuity_one_world_sequence(
         ),
         repo_root=repo,
     )
-    assert resolved_anchor.outcome != "empty"
+    from apps.live_control_server.services.source_artifact_registry import (
+        get_source_artifact,
+        load_source_span_index,
+    )
+    from apps.live_control_server.config import artifact_data_root
+    from graph_memory.retrieval.source_reader import parse_repo_uri
+
+    assert resolved_anchor.outcome == "enough"
     assert resolved_anchor.source_artifact_id == buddy_artifact_id
+    assert resolved_anchor.source_span_ref_id == anchor.source_span_ref_id
+    registered = get_source_artifact(buddy_artifact_id)
+    index = load_source_span_index(repo, buddy_artifact_id)
+    span = next(item for item in index.spans if item.source_span_id == anchor.source_span_ref_id)
+    relative = parse_repo_uri(registered.uri)
+    assert relative is not None
+    source_bytes = (artifact_data_root(repo) / relative).read_bytes()
+    lines = source_bytes.decode("utf-8").splitlines()
+    assert resolved_anchor.content == "\n".join(lines[span.start_line - 1 : span.end_line])
+    assert resolved_anchor.content_sha256 == hashlib.sha256(source_bytes).hexdigest()
     assert resolved_anchor.snapshot is not None
     assert resolved_anchor.snapshot.revision_id == d1
 

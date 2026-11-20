@@ -10,7 +10,8 @@ import type {
   PhaseTransitionMechanic_Input,
   RuleElement_Input,
   SaveEffectMechanic_Input,
-  StatblockDefinitionV1_Output,
+  RuleSection,
+  StatblockDefinitionV1_Input,
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import { ProtectedStructureBlock } from "./ProtectedStructureBlock";
 import {
@@ -18,7 +19,7 @@ import {
   getUiStatus,
   identityProtectedRemainder,
   primaryArmorClassIndexForDisplay,
-  resolveHitPointsEditTarget,
+  readHitPointsMax,
   setAbility,
   setHitPointsMax,
   setIdentityName,
@@ -27,6 +28,7 @@ import {
   setRuleElementRulesText,
   updateWorkingCopy,
   type StatblockEditorState,
+  type EditableStatblockDefinition,
 } from "./statblockEditorState";
 import "./StatblockDefinitionEditor.css";
 
@@ -109,12 +111,12 @@ function hasDirectMovementEffect(mechanic: RuleElement_Input["mechanic"]): boole
   );
 }
 
-function updateMovementMode(
-  state: StatblockEditorState,
+function updateMovementMode<D extends EditableStatblockDefinition>(
+  state: StatblockEditorState<D>,
   index: number,
   update: (mode: MovementMode_Input) => MovementMode_Input,
-): StatblockEditorState {
-  return updateWorkingCopy(state, (current) => ({
+): StatblockEditorState<D> {
+  return updateWorkingCopy(state, (current) => current.movement === null ? current : ({
     ...current,
     movement: {
       ...current.movement,
@@ -125,8 +127,8 @@ function updateMovementMode(
   }));
 }
 
-function addMovementMode(state: StatblockEditorState): StatblockEditorState {
-  return updateWorkingCopy(state, (current) => ({
+function addMovementMode<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>): StatblockEditorState<D> {
+  return updateWorkingCopy(state, (current) => current.movement === null ? current : ({
     ...current,
     movement: {
       ...current.movement,
@@ -138,8 +140,8 @@ function addMovementMode(state: StatblockEditorState): StatblockEditorState {
   }));
 }
 
-function removeMovementMode(state: StatblockEditorState, index: number): StatblockEditorState {
-  return updateWorkingCopy(state, (current) => ({
+function removeMovementMode<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>, index: number): StatblockEditorState<D> {
+  return updateWorkingCopy(state, (current) => current.movement === null ? current : ({
     ...current,
     movement: {
       ...current.movement,
@@ -148,13 +150,13 @@ function removeMovementMode(state: StatblockEditorState, index: number): Statblo
   }));
 }
 
-function updateMovementEffectReference(
-  state: StatblockEditorState,
+function updateMovementEffectReference<D extends EditableStatblockDefinition>(
+  state: StatblockEditorState<D>,
   elementKey: string,
   field: MovementEffectField,
   effectIndex: number,
   movementModeKey: string,
-): StatblockEditorState {
+): StatblockEditorState<D> {
   return updateWorkingCopy(state, (current) => ({
     ...current,
     rule_elements: current.rule_elements.map((element) => {
@@ -207,12 +209,12 @@ function updateMovementEffectReference(
   }));
 }
 
-function updateMovementQualifier(
-  state: StatblockEditorState,
+function updateMovementQualifier<D extends EditableStatblockDefinition>(
+  state: StatblockEditorState<D>,
   modeIndex: number,
   qualifierIndex: number,
   value: string,
-): StatblockEditorState {
+): StatblockEditorState<D> {
   return updateMovementMode(state, modeIndex, (mode) => ({
     ...mode,
     qualifiers: (mode.qualifiers ?? []).map((qualifier, index) =>
@@ -221,45 +223,35 @@ function updateMovementQualifier(
   }));
 }
 
-function addMovementQualifier(state: StatblockEditorState, modeIndex: number): StatblockEditorState {
+function addMovementQualifier<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>, modeIndex: number): StatblockEditorState<D> {
   return updateMovementMode(state, modeIndex, (mode) => ({
     ...mode,
     qualifiers: [...(mode.qualifiers ?? []), ""],
   }));
 }
 
-function removeMovementQualifier(
-  state: StatblockEditorState,
+function removeMovementQualifier<D extends EditableStatblockDefinition>(
+  state: StatblockEditorState<D>,
   modeIndex: number,
   qualifierIndex: number,
-): StatblockEditorState {
+): StatblockEditorState<D> {
   return updateMovementMode(state, modeIndex, (mode) => ({
     ...mode,
     qualifiers: (mode.qualifiers ?? []).filter((_qualifier, index) => index !== qualifierIndex),
   }));
 }
 
-export type StatblockDefinitionEditorProps = {
-  output: StatblockDefinitionV1_Output;
-  editorState?: StatblockEditorState;
-  onEditorStateChange?: (state: StatblockEditorState) => void;
+export type StatblockDefinitionEditorProps<D extends EditableStatblockDefinition = StatblockDefinitionV1_Input> = {
+  output: D;
+  recoveryHint?: string;
+  editRuleMechanics?: boolean;
+  editorState?: StatblockEditorState<D>;
+  onEditorStateChange?: (state: StatblockEditorState<D>) => void;
 };
 
 function readPrimaryArmorClassValue(defenses: StatblockEditorState["workingCopy"]["defenses"]): number {
   const index = primaryArmorClassIndexForDisplay(defenses);
   return defenses.armor_classes[index]?.value ?? 0;
-}
-
-function readHitPointsEditorValue(vitality: StatblockEditorState["workingCopy"]["vitality"]): number {
-  const hitPoints = vitality.hit_points;
-  const target = resolveHitPointsEditTarget(hitPoints);
-  if (target === "displayed_average") {
-    return hitPoints.displayed_average ?? 0;
-  }
-  if (target === "fixed_value") {
-    return hitPoints.fixed_value ?? 0;
-  }
-  return hitPoints.formula?.modifier ?? 0;
 }
 
 /** Full defenses JSON for disclosure; primary AC value is also editable above. */
@@ -291,17 +283,19 @@ function ruleElementProtectedStructure(
   return structure;
 }
 
-export function StatblockDefinitionEditor({
+export function StatblockDefinitionEditor<D extends EditableStatblockDefinition>({
   output,
   editorState: controlledState,
   onEditorStateChange,
-}: StatblockDefinitionEditorProps) {
+  recoveryHint,
+  editRuleMechanics,
+}: StatblockDefinitionEditorProps<D>) {
   const [uncontrolledState, setUncontrolledState] = useState(() => createEditorStateFromOutput(output));
   const state = controlledState ?? uncontrolledState;
   const workingCopy = state.workingCopy;
   const uiStatus = getUiStatus(state);
 
-  const commit = (next: StatblockEditorState) => {
+  const commit = (next: StatblockEditorState<D>) => {
     if (controlledState !== undefined) {
       onEditorStateChange?.(next);
       return;
@@ -315,12 +309,12 @@ export function StatblockDefinitionEditor({
   const primaryAcLabel = primaryAcEntry?.default
     ? "Primary AC value (default armor_classes entry)"
     : "Primary AC value (armor_classes[0]; no default flagged)";
-  const hpTarget = resolveHitPointsEditTarget(workingCopy.vitality.hit_points);
+  const hp = workingCopy.vitality.hit_points;
 
   return (
     <div className="statblock-definition-editor" data-testid="statblock-definition-editor">
       <p className="statblock-definition-editor__disclosure">
-        Session-only working copy. Changes are unsaved and will be lost on refresh.
+        {recoveryHint ?? "Session-only working copy. Changes are unsaved and will be lost on refresh."}
       </p>
       <p className="statblock-definition-editor__status" data-testid="editor-ui-status">
         Status: {uiStatus}
@@ -371,14 +365,19 @@ export function StatblockDefinitionEditor({
       <section className="statblock-definition-editor__section" aria-label="Vitality">
         <h3>Hit points</h3>
         <label>
-          Hit points (mutates vitality.hit_points.{hpTarget})
+          Maximum hit points
           <input
             type="number"
             aria-label="Hit points"
-            value={readHitPointsEditorValue(workingCopy.vitality)}
+            value={readHitPointsMax(hp)}
+            disabled={hp.method === "formula" && !hp.formula}
             onChange={(event) => commit(setHitPointsMax(state, Number(event.target.value)))}
           />
         </label>
+        {hp.method === "formula" && hp.formula && <p>
+          Formula: {hp.formula.count}d{hp.formula.die} {(hp.formula.modifier ?? 0) < 0 ? "−" : "+"} {Math.abs(hp.formula.modifier ?? 0)}.
+          Changing maximum HP adjusts the modifier; the number and type of dice stay the same.
+        </p>}
       </section>
 
       <section className="statblock-definition-editor__section" aria-label="Rule elements">
@@ -397,6 +396,46 @@ export function StatblockDefinitionEditor({
                 onChange={(event) => commit(setRuleElementName(state, element.key, event.target.value))}
               />
             </label>
+            {editRuleMechanics && <>
+              <label>Section for {element.name}
+                <select value={element.section} onChange={event => {
+                  const section = event.currentTarget.value as RuleSection;
+                  commit(updateWorkingCopy(state, current => ({
+                    ...current,
+                    rule_elements: current.rule_elements.map(rule =>
+                      rule.key === element.key ? { ...rule, section } : rule),
+                  })));
+                }}>
+                  <option value="trait">Trait</option>
+                  <option value="action">Action</option>
+                  <option value="bonus_action">Bonus action</option>
+                  <option value="reaction">Reaction</option>
+                  <option value="legendary_action">Legendary action</option>
+                  <option value="lair_action">Lair action</option>
+                  <option value="regional_effect">Regional effect</option>
+                </select>
+              </label>
+              {"attack_type" in element.mechanic && element.mechanic.reach != null &&
+                <button type="button" onClick={() => commit(updateWorkingCopy(state, current => ({
+                  ...current,
+                  rule_elements: current.rule_elements.map(rule =>
+                    rule.key === element.key && "attack_type" in rule.mechanic
+                      ? { ...rule, mechanic: { ...rule.mechanic, reach: null } }
+                      : rule),
+                })))}>Remove typed reach from {element.name}</button>}
+              {"attack_type" in element.mechanic && element.mechanic.hit_effects?.map((effect, index) =>
+                "phase_key" in effect && !workingCopy.phases?.some(phase => phase.key === effect.phase_key) &&
+                <button key={index} type="button" onClick={() => commit(updateWorkingCopy(state, current => ({
+                  ...current,
+                  rule_elements: current.rule_elements.map(rule =>
+                    rule.key === element.key && "attack_type" in rule.mechanic
+                      ? { ...rule, mechanic: { ...rule.mechanic, hit_effects: rule.mechanic.hit_effects?.filter(
+                        (_, effectIndex) => effectIndex !== index,
+                      ) } }
+                      : rule),
+                })))}>Remove unresolved phase “{effect.phase_key}” from {element.name}</button>
+              )}
+            </>}
             <label>
               Rules text
               <textarea
@@ -433,6 +472,9 @@ export function StatblockDefinitionEditor({
         ))}
       </section>
 
+      {workingCopy.movement === null ? (
+        <ProtectedStructureBlock path="movement" title="Movement" value={workingCopy.movement} />
+      ) : (
       <section className="statblock-definition-editor__section" aria-label="Movement modes">
         <h3>Movement modes</h3>
         <p>Each key is local to this definition. Mode kind and key are separate values.</p>
@@ -540,6 +582,7 @@ export function StatblockDefinitionEditor({
           Add movement mode
         </button>
       </section>
+      )}
 
       <details
         className="statblock-definition-editor__advanced"
@@ -567,7 +610,7 @@ export function StatblockDefinitionEditor({
           path="vitality"
           title="Vitality (full structure)"
           value={vitalityDisclosureValue(workingCopy.vitality)}
-          editableFieldsAbove={`hit_points.${hpTarget}`}
+          editableFieldsAbove="maximum HP and matching formula modifier"
         />
         <ProtectedStructureBlock path="ruleset" title="Ruleset" value={workingCopy.ruleset} />
         <ProtectedStructureBlock path="proficiencies" title="Proficiencies" value={workingCopy.proficiencies} />

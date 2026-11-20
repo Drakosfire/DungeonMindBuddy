@@ -412,7 +412,8 @@ export function PublishedRecapLocalAuthoring({
               role="status"
             >
               <strong>Working projection</strong>
-              <span>Local and uncommitted. Canonical recap and World memory are unchanged.</span>
+              <span>Source: Published recap.</span>
+              <span>Node changes are local and uncommitted. The canonical recap and World memory are unchanged.</span>
               {workingProjection.diagnostics.length ? (
                 <span data-testid="published-recap-working-projection-diagnostics">
                   {workingProjection.diagnostics[0]}
@@ -426,7 +427,7 @@ export function PublishedRecapLocalAuthoring({
               sourceSpans={[]}
               graphId={graphId}
               showGraphId={false}
-              documentLabel="Published recap"
+              documentLabel="Working recap"
               resetKey={`${campaignId}:${sessionId}:${graphId ?? ""}`}
               onInspectNode={handleInspectNode}
               onActiveNodeChange={onActiveNodeChange}

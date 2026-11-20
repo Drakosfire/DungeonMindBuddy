@@ -1,10 +1,17 @@
+import {exportPlanCardMarkdown, planCardScopeKey} from "../planCardEditing";
+import {planRootBoundaryPosition} from './planPlacementCatalog';
+import { isTableCaptionAt } from '../../tiptap/markdown/tableCaption';
+import type {PlanAuthoringCapture, PlanOriginalAuthoringCapture, PlanPlacementCatalog, PlanReviewApplication, PlanAuthoringReview} from "../../api/planAuthoringReviewApi";
 import { Editor, type JSONContent } from "@tiptap/core";
+import { TextSelection } from "@tiptap/pm/state";
+import type { MarkdownSourceLineTarget } from "../../markdownReader/MarkdownDocumentReader";
 
 import type {
   PlanDocumentEditProposalRequest,
   PlanDocumentEditProposalResponse,
   WorldPlanDocumentEditProposalRequest,
   WorldPlanDocumentEditProposalResponse,
+  WorldPlanSelectionAnchorV1,
 } from "../../api/types";
 import { tiptapJsonToSemanticMarkdown } from "../../tiptap/markdown/calloutMarkdown";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
@@ -17,6 +24,13 @@ import {
 } from "../../tiptap/playable/playableElementIdentity";
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorCore";
 import { planSectionTargetForSelection, type PlanSectionTarget } from "./planSectionTarget";
+import {
+  playableBodyProtectedStructureMatches,
+  resolvePlayableBodyTarget,
+  samePlayableBodyTarget,
+  type CapturedPlayableBodyRange,
+  type PlayableBodyTarget,
+} from "./planPlayableBodyTarget";
 
 export interface PlanEditEditorState {
   editor: Editor | null;
@@ -64,18 +78,33 @@ export interface WorldPlanEditEditorState {
   sourceMarkdown: string;
   draftGeneration: number;
   selectionGeneration: number;
+  playableTarget?: PlayableBodyTarget | null;
+  playableTargetGeneration?: number;
+  playableTargetStale?: boolean;
+  currentSceneTarget?: PlayableBodyTarget | null;
+  currentSceneTargetStale?: boolean;
+  playableTargetSource?: "manual" | "scene" | "selection";
+  playableTargetLabel?: string;
+  currentSceneTargetLabel?: string;
   canEdit: boolean;
 }
 
 export interface CapturedWorldPlanEditTarget {
   editor: Editor;
-  request: Omit<WorldPlanDocumentEditProposalRequest, "idempotency_key" | "instruction" | "conversation_history">;
+  request: Omit<WorldPlanDocumentEditProposalRequest, "idempotency_key" | "instruction" | "conversation_history" | "target_kind"> & {
+    target_kind: WorldPlanDocumentEditProposalRequest['target_kind'] | 'insert_at_boundary';
+  };
   from: number;
   to: number;
   editorJson: string;
   selectionJson: string;
   draftGeneration: number;
   selectionGeneration: number;
+  playableTargetGeneration?: number;
+  playableTargetSource?: "manual" | "scene" | "selection";
+  playableTargetLabel?: string;
+  playableBodyTarget?: CapturedPlayableBodyRange;
+  rootBoundary?: number;
   wholeBulletItem?: CapturedPlanEditTarget["wholeBulletItem"];
   sectionTarget?: CapturedWorldPlanSectionTarget;
 }
@@ -102,8 +131,9 @@ export interface CapturedWorldPlanSectionTarget {
   roundTripSuffix: JSONContent[];
 }
 
-export interface AdmittedWorldPlanEditProposal {
-  response: WorldPlanDocumentEditProposalResponse;
+type PlanEditApplicationIdentity=Pick<WorldPlanDocumentEditProposalResponse,"document_id"|"world_id"|"draft_sha256"|"action_id">;
+export interface AdmittedWorldPlanEditProposal<Response extends PlanEditApplicationIdentity=WorldPlanDocumentEditProposalResponse> {
+  response: Response;
   content: JSONContent[];
   canonicalMarkdown: string;
 }
@@ -127,8 +157,28 @@ export interface ExpectedWorldPlanEditAgentBinding {
   namespace: string;
 }
 
+export interface PlanAuthoringIdentity {idempotencyKey:string;conversationId:string;pointerRevision:number}
+export interface CapturedPlanAuthoringTarget {capture:PlanAuthoringCapture;target:CapturedWorldPlanEditTarget}
 export interface WorldPlanEditBridge {
+  captureAuthoring?: (identity:PlanAuthoringIdentity,applicationId?:string)=>Promise<CapturedPlanAuthoringTarget>;
+  sealAuthoring?: (target:CapturedWorldPlanEditTarget,identity:PlanAuthoringIdentity)=>Promise<PlanAuthoringCapture>;
+  capturePlacementCatalog?: (target:CapturedWorldPlanEditTarget,capture:PlanOriginalAuthoringCapture)=>Promise<PlanPlacementCatalog>;
+  captureAuthoringAt?: (position:number,identity:PlanAuthoringIdentity)=>Promise<CapturedPlanAuthoringTarget>;
+  restoreAuthoring?: (capture:PlanAuthoringCapture,identity:PlanAuthoringIdentity)=>Promise<CapturedPlanAuthoringTarget>;
+  prepareAuthoring?: (target:CapturedWorldPlanEditTarget,markdown:string,actionId:string,
+    expected:ExpectedWorldPlanEditAgentBinding,binding:()=>WorldPlanEditAgentBinding)=>Promise<PreparedPlanAuthoringApplication>;
+  saveAuthoring?: (target:CapturedWorldPlanEditTarget,prepared:PreparedPlanAuthoringApplication,
+    application:PlanReviewApplication,expected:ExpectedWorldPlanEditAgentBinding,binding:()=>WorldPlanEditAgentBinding,
+    commit:()=>Promise<PlanAuthoringReview>)=>Promise<PlanAuthoringReview>;
+  acknowledgeAuthoring?: (application:PlanReviewApplication)=>Promise<void>;
+  matchesAuthoringAfter?: (application:PlanReviewApplication)=>Promise<boolean>;
+  reconcileAuthoring?: (actionId:string,applicationId:string)=>Promise<void>;
+  authoringTitle?: ()=>string;
   capture: () => Promise<CapturedWorldPlanEditTarget>;
+  restoreSelection: (anchor: WorldPlanSelectionAnchorV1, draftSha256: string, selectedTextSha256: string,
+    expectedBasis: Pick<WorldPlanEditEditorState, "worldId" | "documentId" | "baseRevision" | "baseContentSha256">,
+    isOriginCurrent: () => boolean) => Promise<CapturedWorldPlanEditTarget>;
+  preview?: (captured: CapturedWorldPlanEditTarget, admitted: AdmittedWorldPlanEditProposal) => WorldPlanEditContextualPreview;
   apply: (
     captured: CapturedWorldPlanEditTarget,
     admitted: AdmittedWorldPlanEditProposal,
@@ -176,7 +226,26 @@ function sameWorldPlanEditorBinding(
     && current.baseContentSha256 === captured.baseContentSha256
     && current.sourceMarkdown === captured.sourceMarkdown
     && current.draftGeneration === captured.draftGeneration
-    && current.selectionGeneration === captured.selectionGeneration;
+    && current.selectionGeneration === captured.selectionGeneration
+    && current.playableTargetSource === captured.playableTargetSource
+    && (current.playableTarget?.kind ?? null) === (captured.playableTarget?.kind ?? null)
+    && (current.playableTarget?.id ?? null) === (captured.playableTarget?.id ?? null)
+    && (current.playableTargetGeneration ?? 0) === (captured.playableTargetGeneration ?? 0)
+    && (current.playableTargetStale ?? false) === (captured.playableTargetStale ?? false);
+}
+
+function effectiveWorldPlanEditState(state: WorldPlanEditEditorState): WorldPlanEditEditorState {
+  const editor = currentWorldEditor(state);
+  if (!editor.state.selection.empty) {
+    return { ...state, playableTarget: null, playableTargetStale: false, playableTargetSource: "selection" };
+  }
+  if (state.playableTarget) return { ...state, playableTargetSource: state.playableTargetSource ?? "manual" };
+  if (state.currentSceneTarget) {
+    return { ...state, playableTarget: state.currentSceneTarget,
+      playableTargetStale: state.currentSceneTargetStale, playableTargetSource: "scene",
+      playableTargetLabel: state.currentSceneTargetLabel };
+  }
+  return state;
 }
 
 function assertWorldPlanAgentBinding(
@@ -482,17 +551,25 @@ export async function captureWorldPlanEditTarget(
   input: WorldPlanEditEditorState,
   getCurrent: () => WorldPlanEditEditorState = () => input,
 ): Promise<CapturedWorldPlanEditTarget> {
+  input = effectiveWorldPlanEditState(input);
+  const getRawCurrent = getCurrent;
+  getCurrent = () => effectiveWorldPlanEditState(getRawCurrent());
   const editor = currentWorldEditor(input);
   const { from, to } = editor.state.selection;
   const editorSelectedText = editor.state.doc.textBetween(from, to, "\n");
-  const targetKind = from === to ? "insert_at_caret" : "replace_selection";
-  if (targetKind === "replace_selection" && !editorSelectedText.trim()) {
+  const playableTarget = input.playableTarget ?? null;
+  const targetKind = playableTarget ? "replace_playable_body" : from === to ? "insert_at_caret" : "replace_selection";
+  if (playableTarget && input.playableTargetStale) {
+    throw new PlanEditGuardError("The selected card is stale or no longer unique in this draft. Select it again before composing.");
+  }
+  if (!playableTarget && targetKind === "replace_selection" && !editorSelectedText.trim()) {
     throw new PlanEditGuardError("Select text or place a caret in the Plan editor.");
   }
   const json = editor.getJSON();
   const editorJson = JSON.stringify(json);
   const selectionJson = JSON.stringify(editor.state.selection.toJSON());
   const wholeBulletItem = wholeBulletItemSelection(editor, from, to, editorSelectedText);
+  const playableBodyTarget = playableTarget ? await resolvePlayableBodyTarget(editor, playableTarget) : undefined;
   if (markdownToTiptapDoc(input.sourceMarkdown).diagnostics.some((diagnostic) => diagnostic.level === "warning")) {
     throw new PlanEditGuardError("This Plan source cannot round-trip safely; resolve its Markdown warnings first.");
   }
@@ -503,10 +580,10 @@ export async function captureWorldPlanEditTarget(
     input.sourceMarkdown,
     tiptapJsonToSemanticMarkdown(json),
   );
-  const matchedSection = targetKind === "replace_selection"
+  const matchedSection = !playableTarget && targetKind === "replace_selection"
     ? planSectionTargetForSelection(editor, from, to)
     : null;
-  let selectedText = editorSelectedText;
+  let selectedText = playableTarget ? "" : editorSelectedText;
   let sectionTarget: CapturedWorldPlanSectionTarget | undefined;
   if (matchedSection) {
     const sectionSlice = rootNodesOverlappingSelection(editor, from, to, matchedSection);
@@ -540,12 +617,21 @@ export async function captureWorldPlanEditTarget(
       roundTripSuffix: baselineRootContent.slice(sectionSlice.applyRootEndIndex),
     };
   }
-  if (draftMarkdown.length > 80_000 || selectedText.length > 8_000) {
-    throw new PlanEditGuardError(matchedSection
-      ? "This heading section exceeds the 8,000-character proposal limit. Select a smaller text range directly in the editor."
-      : "The selected Plan material is too large for one proposal.");
-  }
   const draftSha256 = await sha256(draftMarkdown);
+  const selectionAnchor: WorldPlanSelectionAnchorV1 | undefined = targetKind === "replace_selection"
+    ? {
+      schema_version: "dmb_plan_selection_anchor_v1",
+      editor_format: "world-plan-tiptap-json-v1",
+      editor_json_sha256: await sha256(editorJson),
+      anchor: editor.state.selection.anchor,
+      head: editor.state.selection.head,
+      from,
+      to,
+      section: sectionTarget
+        ? { id: sectionTarget.id, apply_from: sectionTarget.applyFrom, apply_to: sectionTarget.applyTo }
+        : null,
+    }
+    : undefined;
   const live = getCurrent();
   if (!sameWorldPlanEditorBinding(input, live)
     || JSON.stringify(editor.getJSON()) !== editorJson
@@ -563,16 +649,231 @@ export async function captureWorldPlanEditTarget(
       draft_sha256: draftSha256,
       target_kind: targetKind,
       selected_text: selectedText,
+      ...(selectionAnchor ? { selection_anchor: selectionAnchor } : {}),
+      ...(playableBodyTarget ? {
+        playable_target: { ...playableBodyTarget.target },
+        body_serialization_version: playableBodyTarget.bodySerializationVersion,
+        target_body_markdown: playableBodyTarget.targetBodyMarkdown,
+        target_body_sha256: playableBodyTarget.targetBodySha256,
+      } : {}),
     },
-    from,
-    to,
+    from: playableBodyTarget?.from ?? from,
+    to: playableBodyTarget?.to ?? to,
     editorJson,
     selectionJson,
     draftGeneration: input.draftGeneration,
     selectionGeneration: input.selectionGeneration,
+    playableTargetGeneration: input.playableTargetGeneration ?? 0,
+    playableTargetSource: input.playableTargetSource,
+    playableTargetLabel: input.playableTargetLabel,
     wholeBulletItem,
     sectionTarget,
+    playableBodyTarget,
   };
+}
+
+/** Full live target for the ordinary Agent turn, without old endpoint caps. */
+export async function captureWorldPlanAuthoringTarget(
+  input:WorldPlanEditEditorState,getCurrent:()=>WorldPlanEditEditorState,identity:PlanAuthoringIdentity,
+):Promise<CapturedPlanAuthoringTarget> {
+  if(!identity.conversationId||!identity.idempotencyKey||!Number.isSafeInteger(identity.pointerRevision)||identity.pointerRevision<1)
+    throw new PlanEditGuardError("Open the current World conversation before capturing a Plan request.");
+  const target=await captureWorldPlanEditTarget(input,getCurrent);
+  const capture=await sealWorldPlanAuthoringTarget(target,identity);
+  const current=effectiveWorldPlanEditState(getCurrent());
+  if(!sameWorldPlanEditorBinding(effectiveWorldPlanEditState(input),current)
+    ||JSON.stringify(target.editor.getJSON())!==target.editorJson
+    ||JSON.stringify(target.editor.state.selection.toJSON())!==target.selectionJson)
+    throw new PlanEditGuardError("The Plan changed during capture. The request was not sent.");
+  return {capture,target};
+}
+
+/** Add the real conversation identity to an already frozen Send-time target. */
+export async function sealWorldPlanAuthoringTarget(target:CapturedWorldPlanEditTarget,identity:PlanAuthoringIdentity):Promise<PlanAuthoringCapture>{
+  if(!identity.conversationId||!identity.idempotencyKey||!Number.isSafeInteger(identity.pointerRevision)||identity.pointerRevision<1)
+    throw new PlanEditGuardError('Open the current World conversation before sealing a Plan request.');
+  const [editorHash,selectionHash]=await Promise.all([sha256(target.editorJson),sha256(target.selectionJson)]);
+  const body=target.playableBodyTarget;
+  const originalSelection=JSON.parse(target.selectionJson);
+  const capture:PlanOriginalAuthoringCapture={
+    schema:'dmb_plan_authoring_capture_v1',idempotency_key:identity.idempotencyKey,
+    conversation_id:identity.conversationId,expected_pointer_revision:identity.pointerRevision,
+    world_id:target.request.world_id,document_id:target.request.document_id,
+    base_revision:target.request.base_revision,base_content_sha256:target.request.base_content_sha256,
+    draft_markdown:target.request.draft_markdown,draft_sha256:target.request.draft_sha256,
+    editor_json:target.editorJson,editor_sha256:editorHash,selection_json:target.selectionJson,selection_sha256:selectionHash,
+    from:target.rootBoundary!==undefined?originalSelection.anchor:target.from,to:target.rootBoundary!==undefined?originalSelection.head:target.to,draft_generation:target.draftGeneration,selection_generation:target.selectionGeneration,
+    target_kind:target.request.target_kind==='insert_at_boundary'?'insert_at_caret':target.request.target_kind,selected_text:target.request.selected_text,
+    playable_target:body?{...body.target,marker_grammar_version:body.markerGrammarVersion,
+      body_scope:body.bodyScope,range_semantics_version:body.rangeSemanticsVersion,
+      body_serialization_version:body.bodySerializationVersion,
+      body_markdown:body.targetBodyMarkdown,body_sha256:body.targetBodySha256}:null,
+  };
+  return target.rootBoundary!==undefined?{...capture,schema:'dmb_plan_authoring_boundary_capture_v1',
+    target_kind:'insert_at_boundary',root_boundary:target.rootBoundary,from:target.from,to:target.to}:capture;
+}
+
+export interface PreparedPlanAuthoringApplication {
+  admitted:AdmittedWorldPlanEditProposal<PlanEditApplicationIdentity>;afterEditorJson:string;afterEditorSha256:string;
+  afterMarkdown:string;afterDraftSha256:string;
+}
+
+/** Selection restoration is deliberate; never restore document bytes to apply. */
+export async function restorePlanAuthoringTarget(capture:PlanAuthoringCapture,
+  input:WorldPlanEditEditorState,getCurrent:()=>WorldPlanEditEditorState,identity:PlanAuthoringIdentity,
+):Promise<CapturedPlanAuthoringTarget> {
+  const current=effectiveWorldPlanEditState(input),editor=currentWorldEditor(current);
+  if(current.worldId!==capture.world_id||current.documentId!==capture.document_id
+    ||current.baseRevision!==capture.base_revision||current.baseContentSha256!==capture.base_content_sha256
+    ||JSON.stringify(editor.getJSON())!==capture.editor_json)
+    throw new PlanEditGuardError('The page changed. Inspect the current page and choose a new placement.');
+  if(capture.schema==='dmb_plan_authoring_boundary_capture_v1'){
+    const position=planRootBoundaryPosition(editor,capture.root_boundary);
+    if(capture.from!==position||capture.to!==position||capture.target_kind!=='insert_at_boundary')
+      throw new PlanEditGuardError('The captured boundary differs from this page. Choose a new placement.');
+    const selection=JSON.parse(capture.selection_json);
+    const {root_boundary:rootBoundary,...shared}=capture;
+    const original:PlanOriginalAuthoringCapture={...shared,schema:'dmb_plan_authoring_capture_v1',
+      target_kind:'insert_at_caret',from:selection.anchor,to:selection.head};
+    const fresh=await restorePlanAuthoringTarget(original,input,getCurrent,identity);
+    const target:CapturedWorldPlanEditTarget={...fresh.target,from:position,to:position,rootBoundary,
+      request:{...fresh.target.request,target_kind:'insert_at_boundary'}};
+    return {target,capture:await sealWorldPlanAuthoringTarget(target,identity)};
+  }
+  editor.view.dispatch(editor.state.tr.setSelection(TextSelection.fromJSON(editor.state.doc,JSON.parse(capture.selection_json))));
+  const fresh=await captureWorldPlanAuthoringTarget(getCurrent(),getCurrent,identity);
+  if(fresh.capture.draft_sha256!==capture.draft_sha256||fresh.capture.from!==capture.from||fresh.capture.to!==capture.to
+    ||fresh.capture.target_kind!==capture.target_kind||fresh.capture.selected_text!==capture.selected_text
+    ||JSON.stringify(fresh.capture.playable_target)!==JSON.stringify(capture.playable_target))
+    throw new PlanEditGuardError('The captured target no longer identifies this page location. Choose a new placement.');
+  return fresh;
+}
+
+/** Reuse the real apply preflight on an isolated editor, before sealing any Save. */
+export async function preparePlanAuthoringApplication(target:CapturedWorldPlanEditTarget,markdown:string,actionId:string,
+  getCurrent:()=>WorldPlanEditEditorState,expected:ExpectedWorldPlanEditAgentBinding,binding:()=>WorldPlanEditAgentBinding,
+):Promise<PreparedPlanAuthoringApplication> {
+  const fragment=target.playableBodyTarget?validateFragment(markdown,undefined,true,target.playableBodyTarget.protectedReferences)
+    :validateFragment(markdown,target.sectionTarget?.protectedInventory);
+  const admitted:AdmittedWorldPlanEditProposal<PlanEditApplicationIdentity>={...fragment,response:{document_id:target.request.document_id,
+    world_id:target.request.world_id,draft_sha256:target.request.draft_sha256,action_id:actionId}};
+  const live=effectiveWorldPlanEditState(getCurrent());
+  const initial={...live,playableTarget:live.playableTarget ? {...live.playableTarget} : live.playableTarget};
+  const mounted=currentWorldEditor(initial);
+  const scope=planCardScopeKey.getState(mounted.state);
+  const cardScope=scope ? {...scope} : undefined;
+  const assertCurrent=()=>{
+    const latest=effectiveWorldPlanEditState(getCurrent());
+    if(mounted!==target.editor || !sameWorldPlanEditorBinding(initial,latest)
+      ||JSON.stringify(mounted.getJSON())!==target.editorJson
+      ||JSON.stringify(mounted.state.selection.toJSON())!==target.selectionJson
+      ||JSON.stringify(planCardScopeKey.getState(mounted.state))!==JSON.stringify(cardScope))
+      throw new PlanEditGuardError('The Plan source, editor or scene view changed during preparation. Nothing was inserted.');
+    assertWorldPlanAgentBinding(binding(),expected);
+  };
+  assertCurrent();
+  const editor=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:JSON.parse(target.editorJson)});
+  try {
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.fromJSON(editor.state.doc,JSON.parse(target.selectionJson))));
+    const state={...initial,editor};
+    await applyWorldPlanEditProposal({captured:{...target,editor},admitted,getCurrent:()=>state,
+      expectedAgentBinding:expected,getAgentBinding:binding});
+    const afterEditorJson=JSON.stringify(editor.getJSON());
+    const canonical=tiptapJsonToSemanticMarkdown(editor.getJSON());
+    const afterMarkdown=cardScope?.active
+      ?exportPlanCardMarkdown(editor,initial.sourceMarkdown,canonical,cardScope)
+      :preserveLeadingYamlFrontmatter(target.request.draft_markdown,canonical);
+    const [afterEditorSha256,afterDraftSha256]=await Promise.all([sha256(afterEditorJson),sha256(afterMarkdown)]);
+    assertCurrent();
+    return {admitted,afterEditorJson,afterEditorSha256,afterMarkdown,afterDraftSha256};
+  } finally {editor.destroy();}
+}
+
+function exactSelectionAnchor(anchor: WorldPlanSelectionAnchorV1): boolean {
+  if (!anchor || typeof anchor !== "object"
+    || Object.keys(anchor).sort().join(",") !== "anchor,editor_format,editor_json_sha256,from,head,schema_version,section,to"
+    || anchor.schema_version !== "dmb_plan_selection_anchor_v1"
+    || anchor.editor_format !== "world-plan-tiptap-json-v1"
+    || !/^[0-9a-f]{64}$/.test(anchor.editor_json_sha256)
+    || ![anchor.anchor, anchor.head, anchor.from, anchor.to].every((value) =>
+      Number.isInteger(value) && value >= 0 && value <= 1_000_000)
+    || anchor.anchor === anchor.head
+    || anchor.from !== Math.min(anchor.anchor, anchor.head)
+    || anchor.to !== Math.max(anchor.anchor, anchor.head)) return false;
+  const section = anchor.section;
+  if (section !== null && (!section || typeof section !== "object"
+    || Object.keys(section).sort().join(",") !== "apply_from,apply_to,id"
+    || !/^heading:(0|[1-9][0-9]{0,6}):[1-6]$/.test(section.id)
+    || ![section.apply_from, section.apply_to].every((value) =>
+      Number.isInteger(value) && value >= 0 && value <= 1_000_000)
+    || Number(section.id.split(":")[1]) !== section.apply_from
+    || !(section.apply_from <= anchor.from && anchor.to <= section.apply_to))) return false;
+  const canonical = JSON.stringify(anchor, (_key, value) => value && typeof value === "object" && !Array.isArray(value)
+    ? Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)))
+    : value);
+  return new TextEncoder().encode(canonical).length <= 512;
+}
+
+/** Restore only a proven saved range, then use the normal mounted-editor capture path. */
+export async function restoreWorldPlanSelection(
+  anchor: WorldPlanSelectionAnchorV1,
+  draftSha256: string,
+  selectedTextSha256: string,
+  expectedBasis: Pick<WorldPlanEditEditorState, "worldId" | "documentId" | "baseRevision" | "baseContentSha256">,
+  isOriginCurrent: () => boolean,
+  getCurrent: () => WorldPlanEditEditorState,
+): Promise<CapturedWorldPlanEditTarget> {
+  const input = getCurrent();
+  const editor = currentWorldEditor(input);
+  const editorJson = JSON.stringify(editor.getJSON());
+  const selectionJson = JSON.stringify(editor.state.selection.toJSON());
+  if (!isOriginCurrent() || input.worldId !== expectedBasis.worldId || input.documentId !== expectedBasis.documentId
+    || input.baseRevision !== expectedBasis.baseRevision
+    || input.baseContentSha256 !== expectedBasis.baseContentSha256
+    || !exactSelectionAnchor(anchor) || anchor.to > editor.state.doc.content.size
+    || await sha256(editorJson) !== anchor.editor_json_sha256) {
+    throw new PlanEditGuardError("The saved selection no longer matches this Plan. Start a fresh edit.");
+  }
+  const json = JSON.parse(editorJson) as JSONContent;
+  const draftMarkdown = preserveLeadingYamlFrontmatter(input.sourceMarkdown, tiptapJsonToSemanticMarkdown(json));
+  if (await sha256(draftMarkdown) !== draftSha256) {
+    throw new PlanEditGuardError("The Plan draft changed. Start a fresh edit.");
+  }
+  const section = planSectionTargetForSelection(editor, anchor.from, anchor.to);
+  const sectionSlice = section ? rootNodesOverlappingSelection(editor, anchor.from, anchor.to, section) : null;
+  if ((section === null) !== (anchor.section === null)
+    || (section && anchor.section && (section.id !== anchor.section.id
+      || sectionSlice?.applyFrom !== anchor.section.apply_from
+      || sectionSlice?.applyTo !== anchor.section.apply_to))) {
+    throw new PlanEditGuardError("The saved Plan section changed. Start a fresh edit.");
+  }
+  const selectedText = sectionSlice
+    ? canonicalSectionMarkdownFromDraft(draftMarkdown, sectionSlice.rootContent)
+    : editor.state.doc.textBetween(anchor.from, anchor.to, "\n");
+  if (await sha256(selectedText) !== selectedTextSha256) {
+    throw new PlanEditGuardError("The saved selected text changed. Start a fresh edit.");
+  }
+  let selection: TextSelection;
+  try {
+    selection = TextSelection.create(editor.state.doc, anchor.anchor, anchor.head);
+  } catch {
+    throw new PlanEditGuardError("The saved selection is outside this Plan. Start a fresh edit.");
+  }
+  if (selection.anchor !== anchor.anchor || selection.head !== anchor.head
+    || !isOriginCurrent()
+    || !sameWorldPlanEditorBinding(input, getCurrent())
+    || JSON.stringify(editor.getJSON()) !== editorJson
+    || JSON.stringify(editor.state.selection.toJSON()) !== selectionJson) {
+    throw new PlanEditGuardError("The Plan changed while restoring the selection. Start a fresh edit.");
+  }
+  editor.view.dispatch(editor.state.tr.setSelection(selection));
+  const captured = await captureWorldPlanEditTarget(getCurrent(), getCurrent);
+  if (JSON.stringify(captured.request.selection_anchor) !== JSON.stringify(anchor)
+    || captured.request.draft_sha256 !== draftSha256
+    || await sha256(captured.request.selected_text) !== selectedTextSha256) {
+    throw new PlanEditGuardError("The saved selection could not be recaptured. Start a fresh edit.");
+  }
+  return captured;
 }
 
 function insertionForTarget(
@@ -635,26 +936,35 @@ function insertionForTarget(
 function validateFragment(
   markdown: string,
   sectionInventory?: WorldPlanProtectedStructureEntry[],
+  playableBodyMode = false,
+  expectedProtectedReferences?: string[],
 ): { content: JSONContent[]; canonicalMarkdown: string } {
   if (!markdown.trim() || markdown.length > 12_000) {
     throw new PlanEditGuardError("Agent returned an empty or oversized edit.");
   }
   const sectionMode = sectionInventory !== undefined;
-  const referenceFreeText = sectionMode
-    ? markdown.replace(/\[[^\]]*\]\(dmb-node:[^)]+\)/g, "")
-    : markdown;
+  const startsWithFrontmatter = /^---[ \t]*\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/.test(markdown.trimStart());
+  const graphLinkFreeText = markdown.replace(/\[[^\]]*\]\(dmb-node:[^)]+\)/g, "");
+  const referenceFreeText = sectionMode ? graphLinkFreeText : markdown;
   const comments = Array.from(markdown.matchAll(/<!--[\s\S]*?-->/g), (match) => match[0]);
   const expectedMarkers = sectionMode
     ? sectionInventory.filter((entry) => entry.kind === "playable-marker").map((entry) => entry.identity)
     : [];
+  const expectedGraphReferenceCount = expectedProtectedReferences?.filter((reference) =>
+    JSON.parse(reference).type === "graphNodeReference").length ?? 0;
+  const graphLinks = Array.from(markdown.matchAll(/\[[^\]]*\]\(dmb-node:[^)]+\)/gi));
   if (
-    (!sectionMode && /^---\s*$/m.test(markdown))
+    (!sectionMode && !playableBodyMode && /^---\s*$/m.test(markdown))
+    || (playableBodyMode && startsWithFrontmatter)
+    || (playableBodyMode && /<!--\s*dmb-playable-element:/i.test(markdown))
     || /<\/?[A-Za-z][^>]*>/.test(markdown)
     || (sectionMode
       ? /(?:graphNodeReference|\bnode:[a-z0-9_-]+)/i.test(referenceFreeText)
         || JSON.stringify(comments) !== JSON.stringify(expectedMarkers)
-      : /(?:dmb-node:|graphNodeReference|\bnode:[a-z0-9_-]+)/i.test(markdown))
-    || /\[[^\]]+\]\((?:file:|\.{1,2}\/|\/)/i.test(markdown)
+      : (playableBodyMode
+        ? /(?:graphNodeReference|\bnode:[a-z0-9_-]+)/i.test(graphLinkFreeText)
+          || graphLinks.length !== expectedGraphReferenceCount
+        : /(?:dmb-node:|graphNodeReference|\bnode:[a-z0-9_-]+)/i.test(markdown)))
     || /(?:^|\n)\s*>\s*\[!(?!READ-ALOUD\]|GM-NOTE\]|DECISION-CONSEQUENCE\])[^\]]+\]/i.test(markdown)
   ) {
     throw new PlanEditGuardError("Agent proposed unsupported markup, a path, or a graph identity.");
@@ -666,6 +976,16 @@ function validateFragment(
   }
   if (semanticMarkdownSerializationDiagnostics(parsed.doc).length) {
     throw new PlanEditGuardError("Agent proposed a component the Plan editor cannot serialize safely.");
+  }
+  if (playableBodyMode && (parsed.doc.content ?? []).some((node, index, content) =>
+    node.type === "heading" && Number(node.attrs?.level) <= 2 && !isTableCaptionAt(content, index))) {
+    throw new PlanEditGuardError("Agent proposal introduced a root Plan boundary heading into the card body.");
+  }
+  if (playableBodyMode && expectedProtectedReferences !== undefined) {
+    const actualReferences = playableBodyProtectedReferences(parsed.doc.content ?? []);
+    if (JSON.stringify(actualReferences) !== JSON.stringify(expectedProtectedReferences)) {
+      throw new PlanEditGuardError("Agent proposal changed a protected card-body link or reference.");
+    }
   }
   if (sectionMode) {
     const replacementInventory = worldPlanProtectedStructureInventory(parsed.doc.content ?? []);
@@ -684,6 +1004,30 @@ function validateFragment(
     throw new PlanEditGuardError("Agent proposal does not round-trip through Plan Markdown.");
   }
   return { content: parsed.doc.content ?? [], canonicalMarkdown };
+}
+
+function playableBodyProtectedReferences(nodes: JSONContent[]): string[] {
+  const references: string[] = [];
+  const visit = (node: JSONContent) => {
+    if (node.type === "graphNodeReference") {
+      references.push(JSON.stringify({
+        type: node.type,
+        nodeId: node.attrs?.nodeId ?? null,
+        label: node.attrs?.label ?? null,
+      }));
+    } else if (node.type === "runbookReference") {
+      references.push(JSON.stringify({
+        type: node.type,
+        kind: node.attrs?.kind ?? null,
+        refType: node.attrs?.refType ?? null,
+        refId: node.attrs?.refId ?? null,
+        label: node.attrs?.label ?? null,
+      }));
+    }
+    for (const child of node.content ?? []) visit(child);
+  };
+  for (const node of nodes) visit(node);
+  return references;
 }
 
 export async function admitPlanEditProposal(
@@ -711,8 +1055,40 @@ export async function admitPlanEditProposal(
 export async function admitWorldPlanEditProposal(
   captured: CapturedWorldPlanEditTarget,
   response: WorldPlanDocumentEditProposalResponse,
+  expectedIdempotencyKey?: string,
 ): Promise<AdmittedWorldPlanEditProposal> {
   const request = captured.request;
+  if (request.target_kind === "replace_playable_body") {
+    const target = request.playable_target;
+    const bodyTarget = captured.playableBodyTarget;
+    if (!target || !bodyTarget || !expectedIdempotencyKey
+      || response.schema_version !== "dmb_world_plan_document_edit_proposal_v2"
+      || response.idempotency_key !== expectedIdempotencyKey
+      || response.target_kind !== "replace_playable_body"
+      || response.playable_target?.kind !== target.kind
+      || response.playable_target?.id !== target.id
+      || response.marker_grammar_version !== bodyTarget.markerGrammarVersion
+      || response.body_scope !== bodyTarget.bodyScope
+      || response.range_semantics_version !== bodyTarget.rangeSemanticsVersion
+      || response.body_serialization_version !== bodyTarget.bodySerializationVersion
+      || response.target_body_sha256 !== bodyTarget.targetBodySha256
+      || response.selected_text_sha256 !== null
+      || response.document_id !== request.document_id
+      || response.world_id !== request.world_id
+      || response.base_revision !== request.base_revision
+      || response.base_content_sha256 !== request.base_content_sha256
+      || response.draft_sha256 !== request.draft_sha256
+      || typeof response.action_id !== "string" || !response.action_id.trim()) {
+      throw new PlanEditGuardError("Agent proposal does not match the captured World Plan card target and request.");
+    }
+    const fragment = validateFragment(
+      response.replacement_markdown,
+      undefined,
+      true,
+      bodyTarget.protectedReferences,
+    );
+    return { response, ...fragment };
+  }
   if (
     response.schema_version !== "dmb_world_plan_document_edit_proposal_v1"
     || typeof response.action_id !== "string"
@@ -803,13 +1179,70 @@ export async function applyPlanEditProposal(args: {
   }
 }
 
+function worldPlanEditInsertion(captured: CapturedWorldPlanEditTarget, content: JSONContent[]) {
+  if(captured.rootBoundary!==undefined){
+    const position=planRootBoundaryPosition(captured.editor,captured.rootBoundary);
+    if(captured.request.target_kind!=='insert_at_boundary'||position!==captured.from||position!==captured.to)
+      throw new PlanEditGuardError('The structural insertion differs from its captured page boundary.');
+    return {range:{from:position,to:position},content};
+  }
+  return captured.playableBodyTarget
+    ? { range: { from: captured.playableBodyTarget.from, to: captured.playableBodyTarget.to }, content }
+    : captured.sectionTarget
+      ? { range: { from: captured.sectionTarget.applyFrom, to: captured.sectionTarget.applyTo }, content }
+      : insertionForTarget(captured, content);
+}
+
+export interface WorldPlanEditContextualPreview {
+  before: { markdown: string; sourceLineTarget?: MarkdownSourceLineTarget; placementLabel?: string };
+  after: { markdown: string; sourceLineTarget?: MarkdownSourceLineTarget; placementLabel?: string };
+}
+
+export function previewWorldPlanEditProposal(
+  captured: CapturedWorldPlanEditTarget,
+  admitted: AdmittedWorldPlanEditProposal,
+): WorldPlanEditContextualPreview {
+  const original = JSON.parse(captured.editorJson) as JSONContent;
+  const frozen = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: original });
+  try {
+    const frozenCapture = { ...captured, editor: frozen };
+    const insertion = worldPlanEditInsertion(frozenCapture, admitted.content);
+    let rootIndex = 0;
+    frozen.state.doc.forEach((_node, position, index) => {
+      if (position <= insertion.range.from) rootIndex = index;
+    });
+    const prefix = preserveLeadingYamlFrontmatter(captured.request.draft_markdown,
+      tiptapJsonToSemanticMarkdown({ type: "doc", content: (original.content ?? []).slice(0, rootIndex) }));
+    const before = preserveLeadingYamlFrontmatter(captured.request.draft_markdown, tiptapJsonToSemanticMarkdown(original));
+    const firstContent = before.slice(prefix.length).search(/\S/);
+    const startLine = before.startsWith(prefix)
+      ? before.slice(0, prefix.length + Math.max(firstContent, 0)).split("\n").length : undefined;
+    if (!frozen.commands.insertContentAt(insertion.range, insertion.content)) {
+      throw new PlanEditGuardError("Agent proposal cannot be previewed at this captured World Plan target.");
+    }
+    const after = preserveLeadingYamlFrontmatter(captured.request.draft_markdown, tiptapJsonToSemanticMarkdown(frozen.getJSON()));
+    const placementLabel = captured.playableBodyTarget
+      ? `Replace ${captured.playableTargetLabel || captured.playableBodyTarget.target.id} body`
+      : captured.rootBoundary!==undefined ? "Insert at captured page boundary" : captured.request.target_kind === "insert_at_caret" ? "Insert at captured caret" : "Replace captured selection";
+    const targetKey = `plan-edit-preview:${captured.request.document_id}:${captured.request.draft_sha256}:${captured.from}:${captured.to}:${admitted.response.action_id}`;
+    return { before: { markdown: before, placementLabel,
+      ...(startLine ? { sourceLineTarget: { startLine, endLine: startLine, targetKey: `${targetKey}:before` } } : {}) },
+      after: { markdown: after, placementLabel,
+        ...(startLine ? { sourceLineTarget: { startLine, endLine: startLine, targetKey: `${targetKey}:after` } } : {}) } };
+  } finally {
+    frozen.destroy();
+  }
+}
+
 export async function applyWorldPlanEditProposal(args: {
   captured: CapturedWorldPlanEditTarget;
-  admitted: AdmittedWorldPlanEditProposal;
+  admitted: AdmittedWorldPlanEditProposal<PlanEditApplicationIdentity>;
   getCurrent: () => WorldPlanEditEditorState;
   expectedAgentBinding: ExpectedWorldPlanEditAgentBinding;
   getAgentBinding: () => WorldPlanEditAgentBinding;
 }): Promise<void> {
+  const getRawCurrent = args.getCurrent;
+  args = { ...args, getCurrent: () => effectiveWorldPlanEditState(getRawCurrent()) };
   const { captured, admitted } = args;
   const initial = args.getCurrent();
   const editor = currentWorldEditor(initial);
@@ -832,10 +1265,14 @@ export async function applyWorldPlanEditProposal(args: {
     || now.request.base_revision !== captured.request.base_revision
     || now.request.base_content_sha256 !== captured.request.base_content_sha256
     || now.request.draft_sha256 !== captured.request.draft_sha256
-    || now.from !== captured.from
-    || now.to !== captured.to
+    || (captured.rootBoundary===undefined&&(now.from !== captured.from||now.to !== captured.to))
     || now.editorJson !== captured.editorJson
     || now.selectionJson !== captured.selectionJson
+    || now.playableTargetSource !== captured.playableTargetSource
+    || (captured.playableBodyTarget !== undefined
+      && (!now.playableBodyTarget || !samePlayableBodyTarget(captured.playableBodyTarget, now.playableBodyTarget)))
+    || (captured.playableBodyTarget !== undefined
+      && now.playableTargetGeneration !== captured.playableTargetGeneration)
     || admitted.response.document_id !== captured.request.document_id
     || admitted.response.world_id !== captured.request.world_id
     || admitted.response.draft_sha256 !== captured.request.draft_sha256
@@ -853,18 +1290,27 @@ export async function applyWorldPlanEditProposal(args: {
     extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
     content: editor.getJSON(),
   });
-  const insertion = captured.sectionTarget
-    ? {
-      range: { from: captured.sectionTarget.applyFrom, to: captured.sectionTarget.applyTo },
-      content: admitted.content,
-    }
-    : insertionForTarget(captured, admitted.content);
+  const insertion = worldPlanEditInsertion(captured, admitted.content);
   try {
     if (!simulated.commands.insertContentAt(insertion.range, insertion.content)) {
       throw new PlanEditGuardError("Agent proposal cannot be inserted at this World Plan target.");
     }
     const result = simulated.getJSON();
     const resultRootContent = result.content ?? [];
+    if(captured.rootBoundary!==undefined){
+      const original=(JSON.parse(captured.editorJson) as JSONContent).content??[];
+      const index=captured.rootBoundary;
+      if(resultRootContent.length!==original.length+admitted.content.length
+        ||JSON.stringify(resultRootContent.slice(0,index))!==JSON.stringify(original.slice(0,index))
+        ||JSON.stringify(resultRootContent.slice(index+admitted.content.length))!==JSON.stringify(original.slice(index)))
+        throw new PlanEditGuardError('Boundary insertion would change existing page content.');
+    }
+    if (captured.playableBodyTarget) {
+      const originalDocument = JSON.parse(captured.editorJson) as JSONContent;
+      if (!playableBodyProtectedStructureMatches(originalDocument, result, captured.playableBodyTarget)) {
+        throw new PlanEditGuardError("Agent proposal changed card identity, option edges, sibling content, or another protected Plan structure.");
+      }
+    }
     if (captured.sectionTarget) {
       const { applyRootEndIndex, applyRootStartIndex } = captured.sectionTarget;
       const originalRootContent = (JSON.parse(captured.editorJson) as JSONContent).content ?? [];
@@ -892,6 +1338,22 @@ export async function applyWorldPlanEditProposal(args: {
     const serialized = tiptapJsonToSemanticMarkdown(result);
     const reimported = markdownToTiptapDoc(serialized);
     const reserialized = tiptapJsonToSemanticMarkdown(reimported.doc);
+    if (captured.playableBodyTarget) {
+      const originalDocument = JSON.parse(captured.editorJson) as JSONContent;
+      const roundTripEditor = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: reimported.doc });
+      try {
+        roundTripEditor.state.doc.check();
+        if (!playableBodyProtectedStructureMatches(originalDocument, roundTripEditor.getJSON(), captured.playableBodyTarget)) {
+          throw new PlanEditGuardError("Agent proposal would change protected card or sibling structure after Markdown reload.");
+        }
+        const roundTripTarget = await resolvePlayableBodyTarget(roundTripEditor, captured.playableBodyTarget.target);
+        if (roundTripTarget.targetBodyMarkdown !== admitted.canonicalMarkdown) {
+          throw new PlanEditGuardError("The reviewed card body changed during Markdown reload.");
+        }
+      } finally {
+        roundTripEditor.destroy();
+      }
+    }
     if (captured.sectionTarget) {
       const { applyRootStartIndex, fullDocumentInventory, roundTripPrefix, roundTripSuffix } = captured.sectionTarget;
       const reimportedRootContent = reimported.doc.content ?? [];
@@ -929,6 +1391,11 @@ export async function applyWorldPlanEditProposal(args: {
     || finalState.baseContentSha256 !== captured.request.base_content_sha256
     || finalState.draftGeneration !== captured.draftGeneration
     || finalState.selectionGeneration !== captured.selectionGeneration
+    || finalState.playableTargetSource !== captured.playableTargetSource
+    || finalState.playableTargetStale === true
+    || (finalState.playableTargetGeneration ?? 0) !== (captured.playableTargetGeneration ?? 0)
+    || (finalState.playableTarget?.kind ?? null) !== (captured.playableBodyTarget?.target.kind ?? null)
+    || (finalState.playableTarget?.id ?? null) !== (captured.playableBodyTarget?.target.id ?? null)
     || JSON.stringify(editor.getJSON()) !== captured.editorJson
     || JSON.stringify(editor.state.selection.toJSON()) !== captured.selectionJson
   ) {

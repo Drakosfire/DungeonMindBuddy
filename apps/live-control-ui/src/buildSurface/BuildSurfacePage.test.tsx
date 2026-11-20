@@ -1,17 +1,28 @@
-import { StrictMode } from "react";
+import { SelectedWorldProvider } from "../selectedWorld/SelectedWorldContext";
+import { pdfRegionKey, retainedPdfKey, type RetainedPdf } from "../api/retainedPdfRegions";
+import type { ReactNode } from "react";
+vi.mock("./BuildPdfPreview", () => ({
+  BuildPdfPreview: ({ initialFile, initialRetained, toolbarControls }: {
+    initialFile?: File; initialRetained?: RetainedPdf; toolbarControls?: ReactNode;
+  }) => <>{initialFile?.name ?? initialRetained?.name}{toolbarControls}</>,
+}));
+import { fireEvent } from "@testing-library/react";
+import { StrictMode, useState } from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
+import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
+import type { MarkdownCanvasSessionValue } from "../markdownCanvas/markdownCanvasTypes";
+import * as markdownCanvasSessionModule from "../markdownCanvas/MarkdownCanvasSession";
 import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
-import { buildGraphObjectCardFromNodeView } from "../graphObjectCard";
-import { referenceFromGraphNode } from "../graphReference/referenceFromGraphNode";
+import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
 import { MarkdownCanvasSessionProvider, useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
-import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
+import { session23WorldGraphRecapFixture } from "../test/worldGraphRecapFixture";
 import { LegacyProjectionHostAdapter } from "../planSurface/projection/LegacyProjectionHostAdapter";
 import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
 import {
@@ -28,18 +39,27 @@ import type { BuildReferenceContextBinding } from "./reference/buildBuildSurface
 import { BUILD_REFERENCE_CONTEXT_BINDING_ID } from "./reference/buildReferenceIds";
 import { BuildReferenceCapability } from "./reference/BuildReferenceCapability";
 
-function renderBuildPage() {
+function renderBuildPage({ withConversationDock = false, managedWorld = false }: { withConversationDock?: boolean; managedWorld?: boolean } = {}) {
+  const page = <>
+    <SurfaceContextProvider>
+      <PeekRegionProvider>
+        <BuildSurfacePage />
+        <ToolHost />
+        <LegacyProjectionHostAdapter />
+      </PeekRegionProvider>
+    </SurfaceContextProvider>
+  </>;
   return render(
     <AgentInteractionProvider>
-      <SurfaceContextProvider>
-        <PeekRegionProvider>
-          <BuildSurfacePage />
-          <ToolHost />
-          <LegacyProjectionHostAdapter />
-        </PeekRegionProvider>
-      </SurfaceContextProvider>
+      {managedWorld ? <SelectedWorldProvider locationSnapshot={window.location.href}>{page}</SelectedWorldProvider>
+        : withConversationDock ? <AskPluginSlotProvider>{page}</AskPluginSlotProvider> : page}
     </AgentInteractionProvider>,
   );
+}
+
+function expectBuildSaveState(state: "unsaved" | "saved") {
+  const status = within(screen.getByTestId("build-document-status")).getByRole("status");
+  expect(status).toHaveAttribute("data-save-state", state);
 }
 
 function mockUntitledDraftCreate(documentId = DOC_ID, campaignId = "longmont-c2") {
@@ -104,12 +124,17 @@ vi.mock("../api/liveApi", async (importOriginal) => {
   return {
     ...actual,
     createWorkspaceDocument: vi.fn(),
-    listWorkspaceDocuments: vi.fn(),
+    listWorkspacePageInventory: vi.fn(),
+    listWorldContainers: vi.fn(),
     getWorkspaceDocumentSnapshot: vi.fn(),
+    getCommittedPageSnapshot: vi.fn(),
     updateWorkspaceDocumentMetadata: vi.fn(),
     prepareTiptapMarkdownWrite: vi.fn(),
     commitTiptapMarkdownWrite: vi.fn(),
     postWorldGraphProjection: vi.fn(),
+    getNativeGraphCatalog: vi.fn(),
+    inspectNativeGraph: vi.fn(),
+    listWorldMechanicsAssociations: vi.fn(),
   };
 });
 
@@ -124,6 +149,7 @@ function buildLongmontSnapshot(documentId: string, title: string, markdown = "# 
       document_id: documentId,
       title,
       campaign_id: "longmont-c1",
+      world_id: "eldyrwild",
       target_session: null,
       kind: "worldbuilding_source" as const,
       target_relpath: `out/workspace/worldbuilding/${documentId}.md`,
@@ -138,9 +164,11 @@ function buildLongmontSnapshot(documentId: string, title: string, markdown = "# 
       visibility_state: "internal" as const,
     },
     markdown,
+    committed_markdown: markdown,
+    committed_content_sha256: `sha-${documentId}`,
     content_sha256: `sha-${documentId}`,
-    file_fingerprint: "present" as const,
-    file_exists: true,
+    file_fingerprint: "postgres" as const,
+    file_exists: false,
     loaded_revision: 2,
   };
 }
@@ -193,21 +221,75 @@ function graphProjectionWithGlowkindle() {
 
 describe("BuildSurfacePage", () => {
   beforeEach(() => {
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(id => liveApi.getWorkspaceDocumentSnapshot(id));
     vi.clearAllMocks();
+    const scope = {managed_world_id:"eldyrwild",native_world_id:"eldyrwild",binding_version:3,revision_id:"native-rev",scope_mode:"world" as const,campaign_id:null};
+    vi.mocked(liveApi.getNativeGraphCatalog).mockResolvedValue({schema:"dmb_native_graph_catalog_v1",scope,catalogue:{identity:{space_id:"eldyrwild",revision_id:"native-rev"},entities:[{entity_id:"ent:glowkindle"}],admitted_assertion_ids:[],completeness:{status:"complete",reason:null},request_sha256:"request",result_digest:"result"},assertions:[]});
+    vi.mocked(liveApi.inspectNativeGraph).mockResolvedValue({schema:"dmb_native_graph_entity_v1",scope,entity:{found:true,assertions:[],evidence:[],completeness:{status:"complete",reason:null}}});
+    vi.mocked(liveApi.listWorldMechanicsAssociations).mockResolvedValue([]);
     localStorage.clear();
+    sessionStorage.clear();
     window.history.pushState({}, "", "/build");
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [],
     });
   });
 
-  it("E2: bare /build shows DOCUMENT context and empty state without creating", async () => {
-    mockUntitledDraftCreate();
-    renderBuildPage();
+  it("opens a retained PDF directly in Build from its saved document URL", async () => {
+    const locator = { source_revision_id: "saved-pdf", content_sha256: "digest",
+      page: 1, left: 0, top: 0, right: 1, bottom: 1 };
+    const key = retainedPdfKey("elderwyld") + pdfRegionKey(locator);
+    localStorage.setItem(key, JSON.stringify({ name: "MeatMindNode.pdf", locator }));
+    window.history.replaceState({}, "", "/build?world=elderwyld&pdf=saved-pdf");
+    vi.mocked(liveApi.listWorldContainers).mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{ schema_version: "dmb_world_container_record_v1", world_id: "elderwyld",
+        name: "Elderwyld", source_root_relpath: "", created_at: "" }],
+    });
+    try {
+      renderBuildPage({ managedWorld: true });
+      expect(await screen.findByRole("region", { name: "PDF workspace" }))
+        .toHaveTextContent("MeatMindNode.pdf");
+      expect(within(screen.getByRole("navigation", { name: "Command board navigation" }))
+        .getByRole("button", { name: "Open document" })).toBeInTheDocument();
+    } finally {
+      localStorage.removeItem(key);
+    }
+  });
 
-    expect(await screen.findByTestId("build-surface-empty")).toBeInTheDocument();
-    expect(screen.getByText("DOCUMENT")).toBeInTheDocument();
+  it("opens the PDF import viewer on a canvas file drop", async () => {
+    window.history.replaceState({}, "", "/build?world=elderwyld");
+    vi.mocked(liveApi.listWorldContainers).mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{schema_version: "dmb_world_container_record_v1", world_id: "elderwyld", name: "Elderwyld", source_root_relpath: "", created_at: ""}],
+    });
+    renderBuildPage({managedWorld: true});
+    await screen.findByRole("button", {name: "Switch World: Elderwyld"});
+    const canvas = await screen.findByRole("heading", {name: /Start with a spark/});
+    fireEvent.drop(canvas, {dataTransfer: {files: [new File(["%PDF"], "creature.pdf", {type: "application/pdf"})]}});
+    expect(await screen.findByRole("region", {name: "PDF workspace"})).toHaveTextContent("creature.pdf");
+    expect(canvas).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Close PDF"}));
+    expect(screen.queryByText("creature.pdf")).not.toBeInTheDocument();
+  });
+
+  it("E2: bare /build shows a framed landing and shared conversation dock without creating", async () => {
+    mockUntitledDraftCreate();
+    const { container } = renderBuildPage({ withConversationDock: true });
+
+    const landing = await screen.findByTestId("build-surface-empty");
+    expect(landing).toHaveClass("build-empty-landing");
+    expect(landing.closest(".build-surface-shell")).toBe(landing);
+    expect(landing.closest('[data-document-surface="build"]')).not.toBeNull();
+    expect(landing).toHaveTextContent("Start with a spark.");
+    expect(landing).toHaveTextContent("Build a world around it.");
+    expect(landing).toHaveTextContent("Open a page");
+    expect(landing).toHaveTextContent("Start something new");
+    expect(landing).toHaveTextContent("Bring your lore");
+    expect(landing.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(container.querySelector(".plan-conversation-dock")).toBeInTheDocument();
+    expect(screen.queryByText("Source actions")).not.toBeInTheDocument();
     expect(screen.getByTestId("build-document-create-open")).toBeInTheDocument();
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
@@ -245,7 +327,7 @@ describe("BuildSurfacePage", () => {
     });
 
     renderBuildPage();
-    await user.click(screen.getByTestId("build-document-create-open"));
+    await user.click(screen.getByRole("button", { name: "Make this page yours →" }));
     await user.selectOptions(screen.getByTestId("build-document-create-destination"), "campaign:longmont-c2");
     await user.type(screen.getByTestId("build-document-create-title"), "Ironveil Property");
     await user.click(screen.getByTestId("build-document-create-submit"));
@@ -263,10 +345,116 @@ describe("BuildSurfacePage", () => {
       authority_state: "draft",
       visibility_state: "internal",
     });
-    // Blank new drafts default to Edit so the canvas is immediately usable.
+    await waitFor(() => expect(screen.getByTestId("build-markdown-editor")).toHaveTextContent("Start with a spark"));
+    expect(screen.getByTestId("build-navbar-save")).toBeEnabled();
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    // New starter drafts remain immediately editable.
     expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
-    expect(screen.getByTestId("build-source-mode-edit")).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Edit", exact: true }));
+    expect(screen.getAllByRole("button", { name: "Document", exact: true })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Read source" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit source" })).not.toBeInTheDocument();
     expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_ID);
+  });
+
+  it("keeps navbar Save disabled until a new blank source has edits", async () => {
+    const user = userEvent.setup();
+    const createdId = "33333333-3333-4333-8333-333333333333";
+    let activeSession: MarkdownCanvasSessionValue | null = null;
+    const useSession = markdownCanvasSessionModule.useMarkdownCanvasSession;
+    const sessionSpy = vi.spyOn(markdownCanvasSessionModule, "useMarkdownCanvasSession").mockImplementation(() => {
+      activeSession = useSession();
+      return activeSession;
+    });
+    mockUntitledDraftCreate(createdId, "longmont-c2");
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue({
+      schema_version: "dmb_workspace_document_record_v1",
+      document_id: createdId,
+      title: "First notes",
+      campaign_id: "longmont-c2",
+      target_session: null,
+      kind: "worldbuilding_source",
+      target_relpath: `out/workspace/worldbuilding/${createdId}.md`,
+      status: "active",
+      content_status: "draft",
+      revision: 1,
+      created_at: "2026-07-22T00:00:00Z",
+      updated_at: "2026-07-22T00:00:00Z",
+      source_domain: "worldbuilding",
+      document_class: "lore",
+      authority_state: "draft",
+      visibility_state: "internal",
+    });
+
+    renderBuildPage();
+    await user.click(screen.getByTestId("build-document-create-open"));
+    await user.selectOptions(screen.getByTestId("build-document-create-destination"), "campaign:longmont-c2");
+    await user.type(screen.getByTestId("build-document-create-title"), "First notes");
+    await user.click(screen.getByRole("checkbox",{name:"Start with worldbuilding prompts"}));
+    await user.click(screen.getByTestId("build-document-create-submit"));
+
+    await screen.findByTestId("build-markdown-editor");
+    await waitFor(() => expect(activeSession?.editor).not.toBeNull());
+    expect(activeSession?.phase).toBe("ready_clean");
+    expect(activeSession?.saveDisabled).toBe(true);
+    expect(screen.getByTestId("build-navbar-save")).toBeDisabled();
+    act(() => activeSession!.editor!.chain().focus().insertContent("A first note").run());
+    await waitFor(() => expectBuildSaveState("unsaved"));
+    expect(activeSession?.saveDisabled).toBe(false);
+    expect(screen.getByTestId("build-navbar-save")).toBeEnabled();
+    sessionSpy.mockRestore();
+  });
+
+  it("keeps one editor usable with Tools open and navigates changed duplicate headings", async () => {
+    const user = userEvent.setup();
+    const snapshot = buildLongmontSnapshot(DOC_ID, "Mirathorn", "# Mirathorn\n\n## Guard\n\n## Guard\n");
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot);
+    let current!: MarkdownCanvasSessionValue;
+    function Probe() { current = useMarkdownCanvasSession(); return null; }
+    function Workspace() {
+      const [tools, setTools] = useState<AppChromeToolsGeneration | null>(null);
+      return <AppChrome activeRoute="build" editorTools={tools} editToolboxLayout="dock" workspaceLayout="bounded">
+        <MarkdownCanvasSessionProvider documentId={DOC_ID} surface="build" kind="worldbuilding_source" saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}>
+          <BuildReferenceCapability documentId={DOC_ID}><BuildSurfaceShell onEditorTools={setTools} /><Probe /></BuildReferenceCapability>
+        </MarkdownCanvasSessionProvider>
+      </AppChrome>;
+    }
+    render(<AgentInteractionProvider><SurfaceContextProvider><PeekRegionProvider><Workspace /><ToolHost /></PeekRegionProvider></SurfaceContextProvider></AgentInteractionProvider>);
+    const mountedEditor = await screen.findByTestId("build-markdown-editor");
+    await user.click(screen.getByRole("button", { name: "Edit", exact: true }));
+    const outline = screen.getByRole("navigation", { name: "On this page" });
+    const guards = within(outline).getAllByRole("button", { name: "Guard", exact: true });
+    expect(guards).toHaveLength(2);
+    await user.click(guards[1]);
+    const secondHeadingPosition = current.editor!.state.selection.from;
+    await user.click(screen.getByRole("button", { name: "Tools", exact: true }));
+    await act(async () => { current.editor!.chain().focus().insertContentAt(1, "New ").run(); });
+    expect(screen.getByTestId("build-markdown-editor")).toBe(mountedEditor);
+    expect(current.dirty).toBe(true);
+    expect(current.editor!.getText()).toContain("New Mirathorn");
+    expect(within(screen.getByRole("navigation", { name: "On this page" })).getByRole("button", { name: "New Mirathorn", exact: true })).toBeInTheDocument();
+    const updatedGuards = within(screen.getByRole("navigation", { name: "On this page" })).getAllByRole("button", { name: "Guard", exact: true });
+    await user.click(updatedGuards[1]);
+    expect(current.editor!.state.selection.from).toBe(secondHeadingPosition + 4);
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+
+  it("opens a saved source directly editable with live outline and formatting beside it", async () => {
+    const user = userEvent.setup();
+    const snapshot = buildLongmontSnapshot(DOC_ID, "Mirathorn", "# Mirathorn\n\n## Guard headquarters\n");
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null, schema_version: "dmb_workspace_document_registry_v1", records: [snapshot.record] });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot);
+    window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    renderBuildPage();
+    const editor = await screen.findByTestId("build-markdown-editor");
+    expect(editor.querySelector("[contenteditable=\"true\"]")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Read source" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("build-navbar-save")).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Edit", exact: true }));
+    expect(within(screen.getByRole("navigation", { name: "On this page" })).getByRole("button", { name: "Guard headquarters" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Text formatting" })).toBeInTheDocument();
+    expect(editor.querySelector("[contenteditable=\"true\"]")).not.toBeNull();
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
   });
 
   it("loads snapshot markdown when reopening with documentId", async () => {
@@ -305,7 +493,7 @@ describe("BuildSurfacePage", () => {
     });
     expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
+      expectBuildSaveState("saved");
     });
   });
 
@@ -398,7 +586,7 @@ describe("BuildSurfacePage", () => {
         visibility_state: "internal" as const,
       },
     ];
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records,
     });
@@ -445,12 +633,16 @@ describe("BuildSurfacePage", () => {
       expect(screen.getByTestId("build-document-status")).toHaveTextContent(/Unsaved|dirty|local/i);
     });
 
-    await user.selectOptions(screen.getByTestId("build-document-select"), DOC_B);
+    await user.click(screen.getByTestId("build-document-select"));
+    await user.click(screen.getByRole("button", { name: "Pages", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Source B", exact: true }));
     await waitFor(() => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Source B");
     });
 
-    await user.selectOptions(screen.getByTestId("build-document-select"), DOC_ID);
+    await user.click(screen.getByTestId("build-document-select"));
+    await user.click(screen.getByRole("button", { name: "Pages", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Source A", exact: true }));
     await waitFor(() => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Source A");
     });
@@ -470,54 +662,64 @@ describe("BuildSurfacePage", () => {
       "",
       `/build?documentId=${DOC_ID}&campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`,
     );
-    mockUntitledDraftCreate(DOC_ID, "longmont-c2");
-    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
-      schema: "dmb_world_graph_projection_v1",
+    const snapshot = buildLongmontSnapshot(DOC_ID, "Pointer source");
+    const record = { ...snapshot.record, campaign_id: "longmont-c2" };
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({ ...snapshot, record });
+    const completeObject = vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockResolvedValue({
+      schema: "dmb_world_graph_object_projection_v1",
+      found: true,
+      completeness: { status: "complete", truncatedFields: [] },
       snapshot: session23WorldGraphRecapFixture.snapshot,
-      summary: {
-        nodeCount: 1,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [session23WorldGraphRecapFixture.nodeViews.pc_caelynn],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
+      requestedNodeId: "pc_caelynn",
+      resolvedNodeId: "pc_caelynn",
+      node: session23WorldGraphRecapFixture.nodeViews.pc_caelynn,
+      relatedNodes: [],
+      semanticFingerprint: "fp-entry-fixture",
     });
-    renderBuildPage();
-    expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
-    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
-    expect(new URLSearchParams(window.location.search).get("graphNodeId")).toBe("pc_caelynn");
-    expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
+    try {
+      const { unmount } = renderBuildPage();
+      expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByTestId("build-graph-object-context")).toHaveTextContent("Caelynn"));
+      expect(liveApi.getCommittedPageSnapshot).toHaveBeenCalledWith(DOC_ID);
+      expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+      const params = new URLSearchParams(window.location.search);
+      expect(params.get("documentId")).toBe(DOC_ID);
+      expect(params.get("graphNodeId")).toBe("pc_caelynn");
+      expect(params.get("graphRevision")).toBe(session23WorldGraphRecapFixture.snapshot.revisionId);
+      expect(completeObject).toHaveBeenCalledTimes(1);
+      expect(completeObject).toHaveBeenCalledWith({
+        schema: "dmb_world_graph_object_projection_request_v1",
+        worldId: "eldyrwild", campaignId: "longmont-c2", nodeId: "pc_caelynn",
+        admissibility: "gm", revisionPin: session23WorldGraphRecapFixture.snapshot.revisionId,
+        originSurface: "build", focus: { kind: "none", sessionId: null },
+      });
+      expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
+      unmount();
+      completeObject.mockClear();
+      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+        ...snapshot, record: { ...record, world_id: "different-world" },
+      });
+      renderBuildPage();
+      await waitFor(() => expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Pointer source"));
+      await waitFor(() => expectBuildSaveState("saved"));
+      expect(liveApi.getCommittedPageSnapshot).toHaveBeenLastCalledWith(DOC_ID);
+      expect(screen.queryByTestId("build-graph-object-context")).not.toBeInTheDocument();
+      expect(completeObject).not.toHaveBeenCalled();
+      expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
+      expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+    } finally {
+      completeObject.mockRestore();
+    }
   });
 
-  it("E5: BuildSurfacePage → ToolHost → Find existing → View → content renderer", async () => {
+  it("E5: BuildSurfacePage → ToolHost → shared native inspection", async () => {
     const user = userEvent.setup();
-    const glowkindle = {
-      nodeId: "npc-glowkindle",
-      label: "Glowkindle",
-      kind: "npc",
-      role: "merchant",
-      aliases: ["Glow"],
-      sourceDomains: ["recap"],
-      evidenceBadges: [],
-      adjacency: [],
-      suggestedExpansions: [],
-      evidenceRefIds: [],
-      sourceArtifactIds: [],
-      anchoredToFocusSession: true,
-      summary: "A friendly merchant.",
-    };
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
       schema_version: "dmb_workspace_document_snapshot_v1",
       record: {
         schema_version: "dmb_workspace_document_record_v1",
         document_id: DOC_ID,
+        world_id: "eldyrwild",
         title: "Faction Notes",
         campaign_id: "longmont-c1",
         target_session: null,
@@ -539,34 +741,6 @@ describe("BuildSurfacePage", () => {
       file_exists: false,
       loaded_revision: 1,
     });
-    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
-      schema: "dmb_world_graph_projection_v1",
-      snapshot: {
-        worldId: "eldyrwild",
-        campaignId: "longmont-c1",
-        revisionId: "rev-1",
-        headRevisionId: "rev-1",
-        isHead: true,
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-        scopeMode: "campaign",
-      },
-      summary: {
-        nodeCount: 1,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [glowkindle],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
-    });
-
     window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
     renderBuildPage();
 
@@ -585,18 +759,13 @@ describe("BuildSurfacePage", () => {
       within(host as HTMLElement).getByRole("button", { name: "Find existing object" }),
     ).toHaveAttribute("aria-pressed", "true");
 
-    await user.type(screen.getByLabelText("Find objects"), "glow");
-    await user.click(screen.getByRole("button", { name: "View" }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
-    });
-    expect(
-      within(screen.getByTestId("graph-object-projection-card")).getByText("Glowkindle"),
-    ).toBeInTheDocument();
+    await user.type(screen.getByRole("searchbox",{name:"Find an object"}), "glow");
+    await user.click(screen.getByRole("button",{name:"ent:glowkindle",exact:true}));
+    expect(await screen.findByRole("article",{name:"Reviewed object details"})).toHaveTextContent("ent:glowkindle");
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
   });
 
-  it("E11: View/Expand/relationship/close/lens leave document authority unchanged", async () => {
+  it("E11: native object inspection and close leave dirty document authority unchanged", async () => {
     const user = userEvent.setup();
     const markdownBody = "# Faction Notes\n\nKeep this body intact.\n";
     const editorJson = {
@@ -614,6 +783,7 @@ describe("BuildSurfacePage", () => {
       record: {
         schema_version: "dmb_workspace_document_record_v1",
         document_id: DOC_ID,
+        world_id: "eldyrwild",
         title: "Faction Notes",
         campaign_id: "eldyrwild",
         target_session: null,
@@ -651,108 +821,7 @@ describe("BuildSurfacePage", () => {
     local.tiptap_json = editorJson;
     window.localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify(local));
 
-    const glowNodeView = {
-      node_id: "npc-glowkindle",
-      label: "Glowkindle",
-      kind: "npc",
-      role: "merchant",
-      aliases: ["Glow"],
-      source_domains: ["recap"],
-      evidence_badges: [],
-      adjacency: [
-        {
-          edge_id: "edge-inn",
-          node_id: "location-inn",
-          label: "The Inn",
-          kind: "location",
-          predicate: "located_in",
-          direction: "outgoing" as const,
-          anchored_to_focus_session: true,
-          source_domains: ["recap"],
-          evidence_ref_ids: [],
-          campaign_scope: "longmont-c1",
-        },
-      ],
-      anchored_to_focus_session: true,
-      summary: "A friendly merchant.",
-    };
-
-    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
-      schema: "dmb_world_graph_projection_v1",
-      snapshot: {
-        worldId: "eldyrwild",
-        campaignId: "longmont-c1",
-        revisionId: "rev-1",
-        headRevisionId: "rev-1",
-        isHead: true,
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-        scopeMode: "campaign",
-      },
-      summary: {
-        nodeCount: 2,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [
-        {
-          nodeId: "npc-glowkindle",
-          label: "Glowkindle",
-          kind: "npc",
-          role: "merchant",
-          aliases: ["Glow"],
-          sourceDomains: ["recap"],
-          evidenceBadges: [],
-          adjacency: [
-            {
-              edgeId: "edge-inn",
-              nodeId: "location-inn",
-              label: "The Inn",
-              kind: "location",
-              predicate: "located_in",
-              direction: "outgoing",
-              anchoredToFocusSession: true,
-              sourceDomains: ["recap"],
-              evidenceRefIds: [],
-              sessionIds: [],
-              campaignScope: "longmont-c1",
-            },
-          ],
-          suggestedExpansions: [],
-          evidenceRefIds: [],
-          sourceArtifactIds: [],
-          anchoredToFocusSession: true,
-          summary: "A friendly merchant.",
-        },
-        {
-          nodeId: "location-inn",
-          label: "The Inn",
-          kind: "location",
-          role: "location",
-          aliases: [],
-          sourceDomains: ["recap"],
-          evidenceBadges: [],
-          adjacency: [],
-          suggestedExpansions: [],
-          evidenceRefIds: [],
-          sourceArtifactIds: [],
-          anchoredToFocusSession: true,
-          summary: "Meeting place.",
-        },
-      ],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
-    });
-
     let latestContext: BuildReferenceContextBinding | null = null;
-    let openGraphReference: ReturnType<typeof useAgentInteraction>["openGraphReference"] | null = null;
-    let closeProjection: (() => void) | null = null;
 
     function AuthorityProbe() {
       const session = useMarkdownCanvasSession();
@@ -774,8 +843,6 @@ describe("BuildSurfacePage", () => {
 
     function InteractionProbe() {
       const interaction = useAgentInteraction();
-      openGraphReference = interaction.openGraphReference;
-      closeProjection = interaction.close;
       const binding = interaction.surfaceInteractionPublication?.projectionBindings.find(
         (entry) => entry.id === BUILD_REFERENCE_CONTEXT_BINDING_ID,
       );
@@ -864,79 +931,21 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
     });
-    await user.type(screen.getByLabelText("Find objects"), "glow");
-    await user.click(screen.getByRole("button", { name: "View" }));
-    await waitFor(() => {
-      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
-    });
+    await user.type(screen.getByRole("searchbox",{name:"Find an object"}), "glow");
+    await user.click(screen.getByRole("button", { name: "ent:glowkindle", exact:true }));
+    expect(await screen.findByRole("article",{name:"Reviewed object details"})).toHaveTextContent("ent:glowkindle");
 
     await user.click(screen.getByRole("button", { name: "Close toolbox" }));
     await waitFor(() => {
-      expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
+      expect(screen.queryByRole("article",{name:"Reviewed object details"})).not.toBeInTheDocument();
     });
 
-    expect(openGraphReference).not.toBeNull();
-    act(() => {
-      openGraphReference!({
-        resolution: {
-          kind: "resolved_graph",
-          locator: "dmb-node:npc-glowkindle",
-          reference: referenceFromGraphNode(glowNodeView),
-          graphNodeId: "npc-glowkindle",
-          graphObject: buildGraphObjectCardFromNodeView(glowNodeView),
-          graphScope: {
-            worldId: "eldyrwild",
-            campaignId: "longmont-c1",
-            scopeMode: "campaign",
-            revisionId: "rev-1",
-          },
-          projectionState: "ready",
-          message: "Resolved graph node Glowkindle.",
-        },
-        glanceOnly: true,
-      });
-    });
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Expand" })).toBeInTheDocument();
-    });
-    await user.click(screen.getByRole("button", { name: "Expand" }));
-    await waitFor(() => {
-      expect(screen.queryByRole("button", { name: "Expand" })).not.toBeInTheDocument();
-      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByRole("button", { name: /Open related object .*The Inn/i }));
-    await waitFor(() => {
-      expect(
-        within(screen.getByTestId("graph-object-projection-card")).getByText("The Inn"),
-      ).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByRole("button", { name: "Close toolbox" }));
-    await waitFor(() => {
-      expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
-    });
-
-    await waitFor(() => expect(latestContext).not.toBeNull());
-    act(() => {
-      latestContext!.selectCampaign("longmont-c2");
-    });
-    await waitFor(() => {
-      expect(new URLSearchParams(window.location.search).get("campaign")).toBe("longmont-c2");
-    });
-    act(() => {
-      latestContext!.selectCampaign("longmont-c1");
-    });
-    await waitFor(() => {
-      expect(new URLSearchParams(window.location.search).get("campaign")).toBe("longmont-c1");
-    });
-
-    expect(closeProjection).not.toBeNull();
+    await waitFor(() => expect(latestContext?.worldId).toBe("eldyrwild"));
     const after = readAuthoritySnapshot();
     expect(after).toEqual(before);
   });
 
-  it("E3: shared Edit Save commits dirty document via prepare/commit", async () => {
+  it("E3: navbar Save commits dirty document via prepare/commit", async () => {
     const user = userEvent.setup();
     const dirtyMarkdown = "# Dirty faction draft\n";
     const editorJson = {
@@ -1009,13 +1018,13 @@ describe("BuildSurfacePage", () => {
     const { unmount } = renderBuildPage();
 
     await waitFor(() => {
-      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+      expectBuildSaveState("unsaved");
     });
     expect(screen.queryByTestId("build-save-button")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Edit" }));
     await user.click(
-      within(screen.getByTestId("surface-edit-host")).getByRole("button", { name: /Save/i }),
+      screen.getByTestId("build-navbar-save"),
     );
 
     await waitFor(() => {
@@ -1042,7 +1051,7 @@ describe("BuildSurfacePage", () => {
     renderBuildPage();
 
     await waitFor(() => {
-      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
+      expectBuildSaveState("saved");
     });
     expect(liveApi.getWorkspaceDocumentSnapshot).toHaveBeenCalledWith(DOC_ID);
   });
@@ -1132,7 +1141,7 @@ describe("BuildSurfacePage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+      expectBuildSaveState("unsaved");
     });
 
     await user.click(screen.getByRole("button", { name: "Edit" }));
@@ -1149,7 +1158,7 @@ describe("BuildSurfacePage", () => {
     );
   });
 
-  it("E4: graph projection failure leaves canvas dirty with Edit Save available", async () => {
+  it("E4: native inspection failure leaves canvas dirty with Edit Save available", async () => {
     const user = userEvent.setup();
     const editorJson = {
       type: "doc",
@@ -1182,7 +1191,7 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
       expect(screen.getByTestId("build-markdown-editor")).toBeInTheDocument();
-      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+      expectBuildSaveState("unsaved");
     });
 
     const stored = JSON.parse(
@@ -1250,11 +1259,9 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
     });
-    await user.type(screen.getByLabelText("Find objects"), "glow");
-    await user.click(screen.getByRole("button", { name: "View" }));
-    await waitFor(() => {
-      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
-    });
+    await user.type(screen.getByRole("searchbox",{name:"Find an object"}), "glow");
+    await user.click(screen.getByRole("button", { name: "ent:glowkindle", exact:true }));
+    expect(await screen.findByRole("article",{name:"Reviewed object details"})).toHaveTextContent("ent:glowkindle");
 
     window.history.pushState({}, "", `/build?documentId=${DOC_B}&campaign=longmont-c1`);
     window.dispatchEvent(new PopStateEvent("popstate"));
@@ -1265,7 +1272,7 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expect(latestContext?.documentId).toBe(DOC_B);
     });
-    expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
+    expect(screen.queryByRole("article",{name:"Reviewed object details"})).not.toBeInTheDocument();
     expect(saveCommandDocumentId).toBe(DOC_B);
 
     const invokeRetained = retainedSaveA!;
@@ -1291,7 +1298,7 @@ describe("BuildSurfacePage", () => {
     };
     const snapshot = buildLongmontSnapshot(DOC_ID, "Ironveil Property", "# Ironveil Property\n");
 
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [snapshot.record],
     });
@@ -1315,13 +1322,14 @@ describe("BuildSurfacePage", () => {
     window.localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify(local));
 
     // Hold registry refresh so the list stays stale after rename; selector must overlay live title.
-    let resolveList: ((value: Awaited<ReturnType<typeof liveApi.listWorkspaceDocuments>>) => void) | null =
+    let resolveList: ((value: Awaited<ReturnType<typeof liveApi.listWorkspacePageInventory>>) => void) | null =
       null;
     let listCalls = 0;
-    vi.mocked(liveApi.listWorkspaceDocuments).mockImplementation(() => {
+    vi.mocked(liveApi.listWorkspacePageInventory).mockImplementation(() => {
       listCalls += 1;
       if (listCalls === 1) {
         return Promise.resolve({
+          campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
           schema_version: "dmb_workspace_document_registry_v1",
           records: [snapshot.record],
         });
@@ -1341,7 +1349,7 @@ describe("BuildSurfacePage", () => {
     const { unmount } = renderBuildPage();
 
     await waitFor(() => {
-      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+      expectBuildSaveState("unsaved");
     });
     expect(screen.getByTestId("build-document-rename-open")).not.toBeDisabled();
 
@@ -1364,12 +1372,13 @@ describe("BuildSurfacePage", () => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Ironveil Manufactory Grounds");
     });
     // Stale list still held — selector must already show Canvas title.
+    fireEvent.click(screen.getByTestId("build-document-select"));
     expect(
-      within(screen.getByTestId("build-document-select")).getByRole("option", {
+      within(screen.getByRole("dialog", { name: "Open document" })).getByRole("button", {
         name: "Ironveil Manufactory Grounds",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+    expectBuildSaveState("unsaved");
 
     vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
       schema_version: "dmb_tiptap_markdown_write_prepare_v1",
@@ -1435,7 +1444,7 @@ describe("BuildSurfacePage", () => {
         content_status: "committed",
       },
     });
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [
         {
@@ -1453,14 +1462,15 @@ describe("BuildSurfacePage", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Ironveil Manufactory Grounds");
-      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
+      expectBuildSaveState("saved");
     });
-    expect(await screen.findByTestId("build-source-reader")).toHaveTextContent(
+    expect(await screen.findByTestId("build-markdown-editor")).toHaveTextContent(
       /western warehouse is empty during festival season/i,
     );
 
     // Avoid leaking the held list promise.
     resolveList?.({
+      campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [
         {
@@ -1473,10 +1483,10 @@ describe("BuildSurfacePage", () => {
     });
   });
 
-  it("rename does not cold-reload World Graph projection", async () => {
+  it("rename does not cold-reload native object inspection", async () => {
     const user = userEvent.setup();
     const snapshot = buildLongmontSnapshot(DOC_ID, "Ironveil Property");
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [snapshot.record],
     });
@@ -1492,14 +1502,15 @@ describe("BuildSurfacePage", () => {
     renderBuildPage();
 
     await waitFor(() => expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument());
-    await user.click(screen.getByTestId("build-source-mode-edit"));
+    await user.click(screen.getByRole("button", { name: "Edit", exact: true }));
     await waitFor(() => expect(screen.getByTestId("build-markdown-editor")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(screen.getByRole("button", { name: /Find existing object/ }));
     await waitFor(() => {
       expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
     });
-    const projectionCallsBefore = vi.mocked(liveApi.postWorldGraphProjection).mock.calls.length;
+    await screen.findByRole("searchbox",{name:"Find an object"});
+    const projectionCallsBefore = vi.mocked(liveApi.getNativeGraphCatalog).mock.calls.length;
     expect(projectionCallsBefore).toBeGreaterThan(0);
 
     await user.click(screen.getByTestId("build-document-rename-open"));
@@ -1511,12 +1522,10 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Ironveil Manufactory Grounds");
     });
-    expect(vi.mocked(liveApi.postWorldGraphProjection).mock.calls.length).toBe(projectionCallsBefore);
+    expect(vi.mocked(liveApi.getNativeGraphCatalog).mock.calls.length).toBe(projectionCallsBefore);
 
-    await user.type(screen.getByLabelText("Find objects"), "glow");
-    await user.click(screen.getByRole("button", { name: "View" }));
-    await waitFor(() => {
-      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
-    });
+    await user.type(screen.getByRole("searchbox",{name:"Find an object"}), "glow");
+    await user.click(screen.getByRole("button", { name: "ent:glowkindle", exact:true }));
+    expect(await screen.findByRole("article",{name:"Reviewed object details"})).toHaveTextContent("ent:glowkindle");
   });
 });

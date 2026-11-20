@@ -9,6 +9,7 @@ import { ROUTE_COMPATIBILITY_PUBLICATIONS } from "../agentInteraction/surfaceInt
 import { usePublishSurfaceInteraction } from "../agentInteraction/usePublishSurfaceInteraction";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import type { SurfaceInteractionPublication } from "../surfaceInteraction/types";
+import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
 import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
 import { AppChrome } from "./AppChrome";
 
@@ -29,12 +30,14 @@ function IndexRouteChromeHarness({
 }) {
   usePublishSurfaceInteraction(ROUTE_COMPATIBILITY_PUBLICATIONS.index);
   return (
-    <>
-      <AppChrome activeRoute="index" pageActions={pageActions} editorTools={editorTools}>
-        <main>content</main>
-      </AppChrome>
-      <ToolHost />
-    </>
+    <PeekRegionProvider>
+      <>
+        <AppChrome activeRoute="index" pageActions={pageActions} editorTools={editorTools}>
+          <main>content</main>
+        </AppChrome>
+        <ToolHost />
+      </>
+    </PeekRegionProvider>
   );
 }
 
@@ -51,22 +54,24 @@ function PublicationChromeHarness({
   const { surfaceInteractionPublication } = useAgentInteraction();
   const editTarget = surfaceInteractionPublication?.editCommands[0]?.target;
   return (
-    <>
-      <AppChrome activeRoute="index" pageActions={pageActions} editorTools={editorTools}>
-        <main>
-          <div data-testid="effective-surface">
-            {surfaceInteractionPublication?.identity.surfaceId ?? "none"}
-          </div>
-          <div data-testid="edit-target">
-            {editTarget ? `${editTarget.kind}:${editTarget.id}` : "none"}
-          </div>
-          <div data-testid="tool-ids">
-            {(surfaceInteractionPublication?.tools.map((tool) => tool.id) ?? []).join(",")}
-          </div>
-        </main>
-      </AppChrome>
-      <ToolHost />
-    </>
+    <PeekRegionProvider>
+      <>
+        <AppChrome activeRoute="index" pageActions={pageActions} editorTools={editorTools}>
+          <main>
+            <div data-testid="effective-surface">
+              {surfaceInteractionPublication?.identity.surfaceId ?? "none"}
+            </div>
+            <div data-testid="edit-target">
+              {editTarget ? `${editTarget.kind}:${editTarget.id}` : "none"}
+            </div>
+            <div data-testid="tool-ids">
+              {(surfaceInteractionPublication?.tools.map((tool) => tool.id) ?? []).join(",")}
+            </div>
+          </main>
+        </AppChrome>
+        <ToolHost />
+      </>
+    </PeekRegionProvider>
   );
 }
 

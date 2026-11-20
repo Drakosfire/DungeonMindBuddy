@@ -2,27 +2,53 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from datetime import datetime
+from hashlib import sha256
+import json
+from threading import Lock
 from typing import Any
 from uuid import UUID
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
+from pydantic import ValidationError
+from pydantic_core import to_json
 
 from application_state.agent_conversation.types import (
+    CompletedPlanAskPair,
     Conversation,
     ConversationCommandReceipt,
-    CompletedPlanAskPair,
+    CommandResolutionRecordV1,
     Draft,
     HistoricalReference,
     LegacyImportReceipt,
     PlanAskContextBasis,
+    PlanAskHistoryAttributionV1,
+    PlanEvidenceHistoryAttributionV1, PlanEvidenceHistoryAttributionV2, SurfaceEvidenceCompletionV2,
+    PlanEvidenceHistoryAttributionV3, SurfaceEvidenceCompletionV3,
+    PlanEvidenceHistoryAttributionV4, SurfaceEvidenceCompletionV4,
+    PlanEvidenceHistoryAttributionV5, SurfaceEvidenceCompletionV5, PlanEvidenceHistoryAttributionV6, SurfaceEvidenceCompletionV6, PlanEvidenceHistoryAttributionV7, SurfaceEvidenceCompletionV7,
+    SurfaceEvidenceCompletionV1,
+    CompletionBindingEventV1,
+    GraphTurnCompletion,
+    GraphTurnExecution,
+    PlanWorldGraphExecution,
+    PlayRulesIntentV1,
     Turn,
     TurnProvenance,
     WorldPointer,
-    request_fingerprint as model_fingerprint,
+    decode_plan_playable_target_reference,
     turn_idempotency_fingerprint,
+    validate_completion_against_receipt,
+    validate_execution_completion,
 )
+from application_state.agent_conversation.context_trace_store import close_context_trace_locked
+from application_state.agent_conversation.types import (
+    request_fingerprint as model_fingerprint,
+)
+from .rules_authority_reads import MixedCompletedTurnV1, MixedHistoryAttributionV1, TurnReadModel
 from application_state.errors import ApplicationStateIntegrityError
 
 _CONVERSATION_COLS = """
@@ -30,12 +56,36 @@ _CONVERSATION_COLS = """
     created_at, updated_at, archived_at
 """
 _WORLD_COLS = "world_id, active_conversation_id, pointer_revision AS revision"
-_TURN_COLS = """
+_TURN_BASE_COLS = """
     turn_id, conversation_id, world_id, idempotency_key, sequence, revision,
     status, user_text, assistant_text, failure_code, surface_resolution,
     surface_id, surface_instance_id, submitted_intent_fingerprint_v1, attempt,
+    submitted_intent_fingerprint_v2, graph_context_receipt, completion,
+    graph_context_execution, play_context_receipt,
     claim_expires_at, accepted_at, completed_at, updated_at
 """
+def _rules_summary_select(owner: str) -> str:
+    # The correlated PK lookup shares the turn statement snapshot. SQL byte CASE
+    # happens before any summary transfer; no ledger/source body is selected.
+    return f"""(SELECT jsonb_build_object(
+        'state', x.payload->>'state', 'revision', x.revision,
+        'oversized', x.accepted_binding IS NOT NULL AND octet_length(x.accepted_binding::text)>40960,
+        'binding', CASE WHEN octet_length(x.accepted_binding::text)<=40960 THEN x.accepted_binding ELSE NULL END,
+        'seal', x.accepted_binding_sha256)
+        FROM agent.turn_rules_execution x
+        WHERE x.turn_id={owner}.turn_id AND x.product_attempt={owner}.attempt) AS rules_summary"""
+
+
+_TURN_COLS = (
+    _TURN_BASE_COLS
+    + ", answer_composition_kind, "
+    + _rules_summary_select("agent.turn")
+)
+_TURN_COLS_T = (
+    ", ".join(f"t.{column.strip()}" for column in _TURN_BASE_COLS.split(","))
+    + ", t.answer_composition_kind, "
+    + _rules_summary_select("t")
+)
 _DRAFT_COLS = """
     world_id, conversation_id, draft_id, revision, body, request_fingerprint,
     surface_resolution, surface_id, surface_instance_id,
@@ -77,6 +127,10 @@ def _reference_values(reference: HistoricalReference) -> tuple[Any, ...]:
 def _turn_references(
     conn: psycopg.Connection, turn_id: UUID
 ) -> tuple[HistoricalReference, list[HistoricalReference], HistoricalReference]:
+    return _references_from_rows(_turn_reference_rows(conn, turn_id))
+
+
+def _turn_reference_rows(conn, turn_id, *, lock=False):
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
@@ -86,10 +140,115 @@ def _turn_references(
             WHERE turn_id = %s
             ORDER BY CASE reference_role WHEN 'primary' THEN 0 WHEN 'supporting' THEN 1 ELSE 2 END,
                      ordinal
-            """,
+            LIMIT 35
+            """ + (" FOR SHARE" if lock else ""),
             (turn_id,),
         )
         rows = cur.fetchall()
+    return rows
+
+
+def _lock_plan_session_image(conn, world_id, turn_id):
+    """Read the complete storage image without constructing mutable JSON models.
+
+    This is a transaction-local guard input, not an admission receipt. Its caller
+    must retain the root lock, validate the initial complete Turn and join fresh
+    source/Rules owners before IO. SQL NULL and JSON null remain distinct.
+    """
+    json_columns = frozenset({"graph_context_receipt", "graph_context_execution",
+                              "completion", "play_context_receipt"})
+    columns = tuple(name.strip() for name in _TURN_BASE_COLS.split(","))
+    selected = ", ".join(
+        f"pg_catalog.jsonb_send({name}) AS {name}" if name in json_columns else name
+        for name in (*columns, "answer_composition_kind", "request_fingerprint",
+                     "idempotency_fingerprint", "submitted_intent_schema"))
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(f"SELECT {selected} FROM agent.turn "
+                    "WHERE world_id=%s AND turn_id=%s FOR UPDATE", (world_id, turn_id))
+        row = cur.fetchone()
+        if row is None:
+            return None
+        references = _turn_reference_rows(conn, turn_id, lock=True)
+        # Apply the existing provenance bound and structural refusal owner.
+        _references_from_rows(references)
+        # Keep Rules' existing SQL transfer caps before moving either JSON body.
+        # Individual columns preserve SQL NULL, JSON null and scalar types.
+        cur.execute("SELECT turn_id,product_attempt,revision, "
+                    "CASE WHEN octet_length(payload::text)<=327680 "
+                    "THEN pg_catalog.jsonb_send(payload) ELSE NULL END AS payload, "
+                    "accepted_binding IS NOT NULL AND "
+                    "octet_length(accepted_binding::text)>40960 AS binding_oversized, "
+                    "CASE WHEN octet_length(accepted_binding::text)<=40960 "
+                    "THEN pg_catalog.jsonb_send(accepted_binding) ELSE NULL END AS accepted_binding, "
+                    "accepted_binding_sha256 FROM agent.turn_rules_execution "
+                    "WHERE turn_id=%s AND product_attempt=%s FOR SHARE",
+                    (turn_id, row["attempt"]))
+        rules = cur.fetchone()
+        if rules is not None and rules["payload"] is None:
+            raise ApplicationStateIntegrityError("Rules ledger exceeds its SQL transfer cap")
+        if rules is not None and rules["binding_oversized"]:
+            raise ApplicationStateIntegrityError("Rules accepted binding exceeds its SQL transfer cap")
+
+    def scalar(value):
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            return bytes(value)
+        if value is None or type(value) in (str, int, bool, UUID, datetime):
+            return value
+        raise ApplicationStateIntegrityError("Session storage image contains an unexpected scalar")
+
+    return (tuple((name, scalar(value)) for name, value in row.items()),
+            tuple(tuple((name, scalar(value)) for name, value in reference.items())
+                  for reference in references),
+            None if rules is None else tuple((name, scalar(value)) for name, value in rules.items()))
+
+
+def _update_plan_session_execution(conn, *, world_id, turn_id, before, execution):
+    """Persist an admitted complete execution and verify its exact storage ACK.
+
+    Only the session admission owner may call this with its freshly locked image.
+    No success is published here: the transaction still has to commit. A trigger
+    changing any other root/child field causes refusal and caller rollback.
+    """
+    prior = dict(before[0])
+    if (prior["world_id"], prior["turn_id"], prior["status"]) != (world_id, turn_id, "running"):
+        raise ApplicationStateIntegrityError("Session execution ACK requires its running locked root")
+    started = database_clock(conn)
+    with conn.cursor(row_factory=dict_row) as cur:
+        # One parameter owns both the actual update and expected PostgreSQL
+        # encoding. Do not compare JSONB semantic equality or Python JSON hashes.
+        cur.execute("WITH expected AS (SELECT %s::jsonb AS execution) "
+                    "UPDATE agent.turn SET graph_context_execution=expected.execution, "
+                    "revision=revision+1,updated_at=clock_timestamp() FROM expected "
+                    "WHERE world_id=%s AND turn_id=%s AND status='running' "
+                    "AND revision=%s AND attempt=%s AND claim_expires_at>clock_timestamp() "
+                    "RETURNING pg_catalog.jsonb_send(agent.turn.graph_context_execution) AS actual, "
+                    "pg_catalog.jsonb_send(expected.execution) AS expected",
+                    (Jsonb(execution.model_dump(mode="json", by_alias=True)),
+                     world_id, turn_id, prior["revision"], prior["attempt"]))
+        acknowledgement = cur.fetchone()
+    if acknowledgement is None:
+        return None
+    if bytes(acknowledgement["actual"]) != bytes(acknowledgement["expected"]):
+        raise ApplicationStateIntegrityError("Session execution differs from its actual SQL acknowledgement")
+    after = _lock_plan_session_image(conn, world_id, turn_id)
+    finished = database_clock(conn)
+    if after is None:
+        raise ApplicationStateIntegrityError("Session root disappeared after execution acknowledgement")
+    current = dict(after[0])
+    expected = prior | {"revision": prior["revision"] + 1,
+                        "updated_at": current["updated_at"],
+                        "graph_context_execution": bytes(acknowledgement["expected"])}
+    if (current != expected or after[1:] != before[1:]
+            or not started <= current["updated_at"] <= finished):
+        raise ApplicationStateIntegrityError("Session execution acknowledgement changed its locked storage image")
+    return after
+
+
+def _references_from_rows(rows):
+    # One primary + up to32 supporting + one selected. The SQL sentinel row
+    # detects excess rather than silently truncating a corrupt provenance set.
+    if len(rows)>34:
+        raise ApplicationStateIntegrityError("turn provenance exceeds its transfer bound")
     primary = next((r for r in rows if r["reference_role"] == "primary"), None)
     selected = next((r for r in rows if r["reference_role"] == "selected"), None)
     if primary is None or selected is None:
@@ -103,9 +262,42 @@ def _turn_references(
     )
 
 
-def _turn_from_row(conn: psycopg.Connection, row: dict[str, Any]) -> Turn:
-    primary, supporting, selected = _turn_references(conn, row["turn_id"])
-    provenance = TurnProvenance(
+def _turn_reference_page(conn: psycopg.Connection, rows: list[dict[str, Any]]):
+    """Batch only IDs admitted by the bounded owning turn query, never caller IDs."""
+    if not rows:
+        return {}
+    if len(rows) > 100:
+        raise ApplicationStateIntegrityError(
+            "turn reference page exceeds its read bound"
+        )
+    admitted = {row["turn_id"]: [] for row in rows}
+    if len(admitted) != len(rows):
+        raise ApplicationStateIntegrityError("turn page contains duplicate identities")
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """SELECT admitted.turn_id,r.*
+            FROM unnest(%s::uuid[]) AS admitted(turn_id)
+            CROSS JOIN LATERAL (
+                SELECT reference_role,ordinal,resolution,kind,object_id,revision,
+                    content_sha256,object_revision,work_revision_id,revision_n
+                FROM agent.turn_reference WHERE turn_id=admitted.turn_id
+                ORDER BY CASE reference_role WHEN 'primary' THEN 0 WHEN 'supporting' THEN 1 ELSE 2 END,ordinal
+                LIMIT 35
+            ) r
+            ORDER BY admitted.turn_id,CASE r.reference_role WHEN 'primary' THEN 0 WHEN 'supporting' THEN 1 ELSE 2 END,r.ordinal""",
+            (list(admitted),),
+        )
+        for reference in cur.fetchall():
+            admitted[reference["turn_id"]].append(reference)
+    return {
+        identity: _references_from_rows(references)
+        for identity, references in admitted.items()
+    }
+
+
+def turn_provenance(row, references):
+    primary, supporting, selected = references
+    return TurnProvenance(
         world_id=row["world_id"],
         surface_resolution=row["surface_resolution"],
         surface_id=row["surface_id"],
@@ -114,14 +306,180 @@ def _turn_from_row(conn: psycopg.Connection, row: dict[str, Any]) -> Turn:
         supporting_work=supporting,
         selected_object=selected,
     )
-    return Turn(
-        **{
-            key: row[key]
-            for key in row
-            if key not in {"surface_resolution", "surface_id", "surface_instance_id"}
-        },
-        provenance=provenance,
+
+
+def _turn_from_row(
+    conn: psycopg.Connection, row: dict[str, Any], *, references=None, proposal_payloads=None
+) -> TurnReadModel:
+    from .rules_authority_reads import (
+        CompletedTurnEnvelopeV1,
+        MixedCompletedTurnV1,
     )
+    provenance = turn_provenance(
+        row,
+        references
+        if references is not None
+        else _turn_references(conn, row["turn_id"]),
+    )
+    fields = {
+        key: row[key]
+        for key in row
+        if key
+        not in {
+            "surface_resolution",
+            "surface_id",
+            "surface_instance_id",
+            "answer_composition_kind",
+            "rules_summary",
+        }
+    } | {"provenance": provenance}
+    # psycopg returns JSON arrays as Python lists. Decode the native JSON columns
+    # in JSON mode so strict immutable tuple fields retain their wire semantics.
+    from .types import (
+        PlayWorldGraphContextReceiptV1,
+        PlayWorldGraphExecutionV1,
+        PlayWorldGraphCompletionV1,
+    )
+    import json
+    from .native_statement_input import NativeStatementContextReceiptV1
+    from .native_statement_answer import NativeStatementCompletionV1
+    from .types import NativeStatementExecutionV1, PlanSourceContextReceiptV1, PlanSourceExecutionV1, PlanNativeContextReceiptV1, PlanNativeExecutionV1
+
+    from .native_context import SurfaceNativeContextReceiptV1
+    from .native_execution import SurfaceNativeExecutionV1
+    from .native_completion import SurfaceNativeCompletionV1
+
+    column_codecs = (
+        ("graph_context_receipt", SurfaceNativeContextReceiptV1),
+        ("graph_context_execution", SurfaceNativeExecutionV1),
+        ("completion", SurfaceNativeCompletionV1),
+        ("graph_context_receipt", PlanNativeContextReceiptV1),
+        ("graph_context_execution", PlanNativeExecutionV1),
+        ("graph_context_receipt", PlanSourceContextReceiptV1),
+        ("graph_context_execution", PlanSourceExecutionV1),
+        ("graph_context_receipt", PlayWorldGraphContextReceiptV1),
+        ("graph_context_execution", PlayWorldGraphExecutionV1),
+        ("completion", PlayWorldGraphCompletionV1),
+        ("graph_context_receipt", NativeStatementContextReceiptV1),
+        ("graph_context_execution", NativeStatementExecutionV1),
+        ("completion", NativeStatementCompletionV1),
+    )
+    shared_models = (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1, SurfaceNativeCompletionV1)
+    integrity_models = (*shared_models, NativeStatementContextReceiptV1,
+                        NativeStatementExecutionV1, NativeStatementCompletionV1)
+    matched_codecs = {
+        key: model for key, model in column_codecs
+        if isinstance(fields.get(key), dict)
+        and fields[key].get("schema") == model.model_fields["schema_"].default
+    }
+    shared_base = (row["answer_composition_kind"] == "base"
+                   and any(model in shared_models for model in matched_codecs.values()))
+    for key, model in matched_codecs.items():
+        if shared_base:
+            # One complete wire decoder owns shared-native database freshness.
+            # Parsing each column here and then constructing a Python Turn would
+            # reconstruct the same mutable components a second time.
+            break
+        value = fields.get(key)
+        if isinstance(value, dict) and value.get("schema") == model.model_fields["schema_"].default:
+            try:
+                fields[key] = model.model_validate_json(json.dumps(value, ensure_ascii=False))
+            except ValidationError as exc:
+                if model in (NativeStatementContextReceiptV1, NativeStatementExecutionV1, NativeStatementCompletionV1, SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1, SurfaceNativeCompletionV1):
+                    raise ApplicationStateIntegrityError("Stored native context failed typed validation") from exc
+                raise
+    shared_turn = None
+    root_error = None
+    if shared_base:
+        try:
+            shared_turn = Turn.model_validate_json(to_json(fields))
+        except ValidationError as exc:
+            # Preserve component-codec error priority before summary/root checks,
+            # without a second decode of either the components or the Turn.
+            bad_columns = {error["loc"][0] for error in exc.errors(include_url=False)
+                           if error["loc"]}
+            for key, model in matched_codecs.items():
+                if key in bad_columns:
+                    if model in integrity_models:
+                        raise ApplicationStateIntegrityError("Stored native context failed typed validation") from exc
+                    raise
+            root_error = exc
+    marker = row["answer_composition_kind"]
+    summary = row["rules_summary"]
+    # Mixed Rules bodies must reach their existing owner before Turn text equality.
+    if marker == "base":
+        from .rules_authority_reads import validate_base_composition_summary
+
+        validate_base_composition_summary(summary)
+        if root_error is not None:
+            if matched_codecs.get("graph_context_receipt") in integrity_models:
+                raise ApplicationStateIntegrityError("Native completion differs from its captured producing output") from root_error
+            raise root_error
+        try:
+            turn = shared_turn if shared_base else Turn(**fields)
+        except ValidationError as exc:
+            if isinstance(fields.get("graph_context_receipt"), (NativeStatementContextReceiptV1, SurfaceNativeContextReceiptV1)):
+                raise ApplicationStateIntegrityError("Native completion differs from its captured producing output") from exc
+            raise
+        from .build_authoring import validate_stored_proposal
+
+        validate_stored_proposal(conn, turn, turn.completion, proposal_payloads=proposal_payloads)
+        return turn
+    if marker!='rules_mixed_v1':
+        raise ApplicationStateIntegrityError('mixed turn has missing or invalid accepted Rules summary')
+    try:
+        from .rules_authority_reads import read_completed_binding_summary
+        binding=read_completed_binding_summary(summary,world_id=fields['world_id'],
+            conversation_id=fields['conversation_id'],turn_id=fields['turn_id'],
+            attempt=fields['attempt'],revision=fields['revision'])
+        body = fields["assistant_text"]
+        envelope = CompletedTurnEnvelopeV1(
+            **{key: fields[key] for key in CompletedTurnEnvelopeV1.model_fields}
+        )
+        if binding.base_disposition == "approved":
+            base_text = "\n".join(
+                body[item.text_start : item.text_end]
+                for item in binding.segment_map
+                if item.domain == "base"
+            )
+            base_turn = Turn(**(fields | {"assistant_text": base_text}))
+            from .build_authoring import validate_stored_proposal
+
+            validate_stored_proposal(conn, base_turn, base_turn.completion, proposal_payloads=proposal_payloads)
+            projection = {"kind": "approved", "turn": base_turn}
+        elif binding.base_disposition == "absent":
+            if any(
+                fields[key] is not None
+                for key in (
+                    "graph_context_receipt",
+                    "graph_context_execution",
+                    "completion",
+                )
+            ):
+                raise ValueError("absent base carries Graph authority")
+            projection = {"kind": "absent"}
+        else:
+            if fields["completion"] is not None:
+                from .native_completion import require_object_only_completion
+                require_object_only_completion(fields['completion'])
+            projection = {
+                "kind": "unclaimed",
+                "graph_context_receipt": fields["graph_context_receipt"],
+                "graph_context_execution": fields["graph_context_execution"],
+                'completion':fields['completion'],
+            }
+        return MixedCompletedTurnV1(
+            schema="dmb_mixed_completed_turn_v1",
+            envelope=envelope,
+            assistant_text=body,
+            accepted_binding=binding,
+            accepted_binding_sha256=summary["seal"],
+            base_projection=projection,
+        )
+    except (ValueError, TypeError, KeyError, ValidationError) as exc:
+        raise ApplicationStateIntegrityError(
+            "stored mixed turn failed Rules/base integrity validation"
+        ) from exc
 
 
 def _draft_references(
@@ -455,27 +813,36 @@ def advance_conversation_for_turn(
     return None if row is None else (int(row[0]), int(row[1]))
 
 
-def get_active_conversation(
+def get_active_conversation_snapshot(
     conn: psycopg.Connection, world_id: str
-) -> Conversation | None:
+) -> tuple[WorldPointer | None, Conversation | None]:
+    columns = ", ".join(f"c.{column.strip()}" for column in _CONVERSATION_COLS.split(","))
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
-            SELECT c.{_CONVERSATION_COLS.replace(", ", ", c.")}
+            SELECT w.active_conversation_id, w.pointer_revision, {columns}
             FROM agent.world_state AS w
-            JOIN agent.conversation AS c
+            LEFT JOIN agent.conversation AS c
               ON c.conversation_id = w.active_conversation_id AND c.world_id = w.world_id
             WHERE w.world_id = %s
             """,
             (world_id,),
         )
         row = cur.fetchone()
-    return None if row is None else Conversation.model_validate(row)
+    if row is None:
+        return None, None
+    pointer = WorldPointer(
+        world_id=world_id,
+        active_conversation_id=row.pop("active_conversation_id"),
+        revision=row.pop("pointer_revision"),
+    )
+    owner = Conversation.model_validate(row) if row["conversation_id"] is not None else None
+    return pointer, owner
 
 
 def get_turn_by_world_key(
     conn: psycopg.Connection, world_id: str, idempotency_key: UUID
-) -> tuple[Turn, str, str, str | None] | None:
+) -> tuple[TurnReadModel, str, str, str | None, str | None] | None:
     """Find the durable turn receipt in a World, regardless of its conversation."""
 
     with conn.cursor(row_factory=dict_row) as cur:
@@ -496,10 +863,11 @@ def get_turn_by_world_key(
         request_hash,
         idempotency_hash,
         row["submitted_intent_fingerprint_v1"],
+        row["submitted_intent_fingerprint_v2"],
     )
 
 
-def get_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> Turn | None:
+def get_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> TurnReadModel | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"SELECT {_TURN_COLS} FROM agent.turn WHERE world_id = %s AND turn_id = %s",
@@ -509,7 +877,7 @@ def get_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> Turn | N
     return None if row is None else _turn_from_row(conn, row)
 
 
-def lock_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> Turn | None:
+def lock_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> TurnReadModel | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"SELECT {_TURN_COLS} FROM agent.turn WHERE world_id = %s AND turn_id = %s FOR UPDATE",
@@ -519,20 +887,32 @@ def lock_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> Turn | 
     return None if row is None else _turn_from_row(conn, row)
 
 
-def list_turns(
+def list_turn_page(
     conn: psycopg.Connection,
     world_id: str,
     conversation_id: UUID,
     *,
     limit: int,
     before_sequence: int | None,
-) -> list[Turn]:
+    lookahead: bool,
+) -> tuple[list[TurnReadModel], bool]:
+    rows, references, proposals, more = _turn_page_inputs(
+        conn, world_id, conversation_id, limit=limit,
+        before_sequence=before_sequence, lookahead=lookahead,
+    )
+    return [
+        _turn_from_row(conn, row, references=references[row["turn_id"]], proposal_payloads=proposals)
+        for row in rows
+    ], more
+
+
+def _turn_page_inputs(conn, world_id, conversation_id, *, limit, before_sequence, lookahead):
     clauses = ["world_id = %s", "conversation_id = %s"]
     params: list[Any] = [world_id, conversation_id]
     if before_sequence is not None:
         clauses.append("sequence < %s")
         params.append(before_sequence)
-    params.append(limit)
+    params.append(limit + int(lookahead))
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
@@ -542,7 +922,205 @@ def list_turns(
             params,
         )
         rows = cur.fetchall()
-    return [_turn_from_row(conn, row) for row in reversed(rows)]
+    page = rows[:limit]
+    references = _turn_reference_page(conn, page)
+    action_ids = set()
+    for row in page:
+        completion = row["completion"]
+        if not isinstance(completion, dict) or completion.get("schema") not in {
+            "dmb_build_authoring_completion_v1", "dmb_build_image_preparation_completion_v1",
+        }:
+            continue
+        try:
+            action_ids.add(UUID(completion["action_id"]))
+        except (KeyError, ValueError, TypeError, AttributeError):
+            # The turn codec owns malformed completion errors.
+            continue
+    proposal_payloads = {}
+    if action_ids:
+        proposal_payloads = dict(conn.execute(
+            "SELECT action_id, payload FROM agent.build_proposal "
+            "WHERE world_id=%s AND action_id=ANY(%s)",
+            (world_id, list(action_ids)),
+        ).fetchall())
+    return tuple(reversed(page)), references, proposal_payloads, len(rows) > limit
+
+
+_BUILD_DIALOGUE_CACHE_LIMIT = 128
+_BUILD_DIALOGUE_VALUE_BYTES = 65_536
+_build_dialogue_cache: OrderedDict[bytes, bytes] = OrderedDict()
+_build_dialogue_lock = Lock()
+
+
+def _build_dialogue_item(turn):
+    envelope = turn.envelope if isinstance(turn, MixedCompletedTurnV1) else turn
+    completion = getattr(envelope, "completion", None)
+    collaboration = getattr(completion, "collaboration", None)
+    object_only = getattr(completion, "schema_", None) in {
+        "dmb_build_intentional_response_completion_v1",
+        "dmb_build_intentional_response_completion_v2",
+        "dmb_build_intentional_response_completion_v3",
+        "dmb_surface_native_completion_v1",
+    } and collaboration is not None
+    if envelope.status != "completed" or (not turn.assistant_text and not object_only):
+        return None
+    result = {
+        "turn_id": str(envelope.turn_id), "user": envelope.user_text, "assistant": turn.assistant_text,
+        "user_sha256": sha256(envelope.user_text.encode()).hexdigest(),
+        "assistant_sha256": sha256(turn.assistant_text.encode()).hexdigest(),
+    }
+    if object_only:
+        from .native_statement_input import digest
+        payload = collaboration.model_dump(mode="json")
+        result.update(collaboration=payload, collaboration_sha256=digest(payload))
+    return result
+
+
+def _cached_build_dialogue_item(conn, row, references, proposals):
+    completion = row["completion"]
+    execution = row["graph_context_execution"]
+    cacheable = (row["answer_composition_kind"] == "base" and row["status"] == "completed"
+                 and isinstance(completion, dict) and completion.get("schema") == "dmb_surface_native_completion_v1"
+                 and isinstance(execution, dict) and execution.get("schema") == "dmb_surface_native_execution_v1")
+    if not cacheable:
+        return _build_dialogue_item(_turn_from_row(conn, row, references=references, proposal_payloads=proposals))
+    # The underlying codec is pure for this completion family. Include every
+    # input, including Rules summary and the fresh typed provenance witnesses.
+    key = sha256(to_json((row, references), inf_nan_mode="constants")).digest()
+    with _build_dialogue_lock:
+        cached = _build_dialogue_cache.get(key)
+        if cached is not None:
+            _build_dialogue_cache.move_to_end(key)
+    if cached is not None:
+        return json.loads(cached)
+    item = _build_dialogue_item(_turn_from_row(conn, row, references=references, proposal_payloads=proposals))
+    encoded = to_json(item)
+    if len(encoded) <= _BUILD_DIALOGUE_VALUE_BYTES:
+        with _build_dialogue_lock:
+            _build_dialogue_cache[key] = encoded
+            _build_dialogue_cache.move_to_end(key)
+            if len(_build_dialogue_cache) > _BUILD_DIALOGUE_CACHE_LIMIT:
+                _build_dialogue_cache.popitem(last=False)
+    return item
+
+
+def list_build_dialogue(conn, world_id: str, conversation_id: UUID) -> list[dict[str, Any]]:
+    rows, references, proposals, _ = _turn_page_inputs(
+        conn, world_id, conversation_id, limit=6, before_sequence=None, lookahead=False,
+    )
+    return [item for row in rows if (item := _cached_build_dialogue_item(
+        conn, row, references[row["turn_id"]], proposals,
+    )) is not None]
+
+
+def get_retry_history_anchor(
+    conn: psycopg.Connection, world_id: str, conversation_id: UUID, turn_id: UUID
+) -> tuple[int, UUID] | None:
+    return conn.execute(
+        """
+        SELECT t.sequence, COALESCE(r.root_id, t.turn_id)
+        FROM agent.turn t
+        JOIN agent.conversation c USING (world_id, conversation_id)
+        LEFT JOIN agent.turn_retry r
+          ON r.successor_id = t.turn_id AND r.world_id = t.world_id
+          AND r.conversation_id = t.conversation_id
+        WHERE t.world_id = %s AND t.conversation_id = %s AND t.turn_id = %s
+        """,
+        (world_id, conversation_id, turn_id),
+    ).fetchone()
+
+
+def list_retry_attempt_page(
+    conn: psycopg.Connection,
+    world_id: str,
+    conversation_id: UUID,
+    root_id: UUID,
+    *,
+    before_sequence: int,
+    limit: int,
+) -> tuple[list[TurnReadModel], bool]:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            SELECT {_TURN_COLS_T}
+            FROM (
+                SELECT successor_id AS turn_id FROM agent.turn_retry
+                WHERE root_id = %s AND world_id = %s AND conversation_id = %s
+                UNION ALL SELECT %s::uuid
+            ) lineage
+            JOIN agent.turn t ON t.turn_id = lineage.turn_id
+            WHERE t.world_id = %s AND t.conversation_id = %s AND t.sequence < %s
+            ORDER BY t.sequence DESC LIMIT %s
+            """,
+            (root_id, world_id, conversation_id, root_id,
+             world_id, conversation_id, before_sequence, limit + 1),
+        )
+        rows = cur.fetchall()
+    page = rows[:limit]
+    references = _turn_reference_page(conn, page)
+    turns = [
+        _turn_from_row(conn, row, references=references[row["turn_id"]])
+        for row in reversed(page)
+    ]
+    return turns, len(rows) > limit
+
+
+def list_retained_graph_tools(conn, world_id, conversation_id, turn_ids, authority):
+    """Project only graph navigation metadata for the already selected history page."""
+    if not turn_ids:
+        return []
+    return conn.execute("""
+        SELECT t.turn_id, t.attempt, o.event
+        FROM agent.turn t JOIN agent.turn_context_trace x
+          ON x.turn_id=t.turn_id AND x.attempt=t.attempt
+        CROSS JOIN LATERAL jsonb_array_elements(CASE
+          WHEN jsonb_typeof(x.payload->'observations')='array' THEN x.payload->'observations'
+          ELSE '[]'::jsonb END) WITH ORDINALITY AS o(event, ordinal)
+        WHERE t.world_id=%s AND t.conversation_id=%s AND t.turn_id=ANY(%s)
+          AND t.status='completed' AND (CASE
+            WHEN t.graph_context_receipt->>'schema'='dmb_plan_source_context_receipt_v1'
+            THEN t.graph_context_receipt->'graph_capability'->'graph_authority'
+            ELSE t.graph_context_receipt->'graph_authority' END)=%s
+          AND x.payload->>'world_id'=t.world_id
+          AND x.payload->>'conversation_id'=t.conversation_id::text
+          AND x.payload->>'turn_id'=t.turn_id::text
+          AND x.payload->'attempt'=to_jsonb(t.attempt)
+          AND x.payload->>'capture_status'='complete'
+          AND x.payload->>'terminal_status'='completed'
+          AND x.payload->>'closed_at' IS NOT NULL
+          AND o.event->>'kind'='graph_tool'
+        ORDER BY t.sequence DESC, o.ordinal DESC
+        """, (world_id, conversation_id, list(turn_ids), Jsonb(authority.model_dump(mode='json')))).fetchall()
+
+
+def list_retained_source_turns(conn, current, anchor_ids) -> list[TurnReadModel]:
+    """Filter one existing history window before materializing heavy ledgers."""
+    from .source_passage_reuse import source_graph_basis
+    graph = source_graph_basis(current.graph_context_receipt)
+    if graph is None:
+        return []
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(f"""
+            WITH history AS (
+                SELECT turn_id FROM agent.turn WHERE world_id=%s AND conversation_id=%s
+                AND sequence<%s ORDER BY sequence DESC LIMIT 50
+            )
+            SELECT {_TURN_COLS} FROM agent.turn
+            WHERE turn_id IN (SELECT turn_id FROM history) AND status='completed'
+              AND (CASE WHEN graph_context_receipt->>'schema'='dmb_plan_source_context_receipt_v1'
+                THEN graph_context_receipt->'graph_capability'->'graph_authority'
+                ELSE graph_context_receipt->'graph_authority' END)=%s
+              AND EXISTS (
+                SELECT 1 FROM jsonb_array_elements(graph_context_execution->'events') AS e
+                CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN e->>'kind'='validated_source_read_v2'
+                    THEN e->'receipts' ELSE '[]'::jsonb END) AS r
+                WHERE r->>'anchor_id'=ANY(%s))
+            ORDER BY sequence
+            """, (current.world_id, current.conversation_id, current.sequence,
+                Jsonb(graph.graph_authority.model_dump(mode='json')), sorted(anchor_ids)))
+        rows=cur.fetchall()
+    references=_turn_reference_page(conn,rows)
+    return [_turn_from_row(conn,row,references=references[row['turn_id']]) for row in rows]
 
 
 def list_completed_plan_ask_context(
@@ -560,8 +1138,8 @@ def list_completed_plan_ask_context(
 
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            """
-            SELECT t.turn_id, t.sequence, t.accepted_at, t.user_text, t.assistant_text
+            f"""
+            SELECT {_TURN_COLS_T}
             FROM agent.world_state AS w
             JOIN agent.conversation AS c
               ON c.world_id = w.world_id
@@ -598,16 +1176,145 @@ def list_completed_plan_ask_context(
             ),
         )
         rows = cur.fetchall()
-    return [
-        CompletedPlanAskPair(
-            source_sequence=row["sequence"],
-            source_record_id=row["turn_id"],
-            accepted_at=row["accepted_at"],
-            question=row["user_text"],
-            answer=row["assistant_text"],
+    pairs: list[CompletedPlanAskPair] = []
+    references = _turn_reference_page(conn, rows)
+    for row in reversed(rows):
+        try:
+            turn = _turn_from_row(conn, row, references=references[row["turn_id"]])
+            history_attribution = _plan_ask_history_attribution(turn)
+            envelope = turn.envelope if isinstance(turn, MixedCompletedTurnV1) else turn
+        except ApplicationStateIntegrityError:
+            raise
+        except (KeyError, TypeError, ValueError, ValidationError) as exc:
+            raise ApplicationStateIntegrityError(
+                "stored Plan Ask provenance or Graph completion is malformed"
+            ) from exc
+        pairs.append(
+            CompletedPlanAskPair(
+                source_sequence=envelope.sequence,
+                source_record_id=envelope.turn_id,
+                accepted_at=envelope.accepted_at,
+                question=envelope.user_text,
+                answer=turn.assistant_text or "",
+                history_attribution=history_attribution,
+            )
         )
-        for row in reversed(rows)
+    return pairs
+
+
+def _plan_ask_history_attribution(
+    turn: TurnReadModel,
+) -> PlanAskHistoryAttributionV1 | PlanEvidenceHistoryAttributionV1 | MixedHistoryAttributionV1 | None:
+    """Project validated receipt/completion metadata without inferring legacy provenance."""
+    if isinstance(turn, MixedCompletedTurnV1):
+        base = (_plan_ask_history_attribution(turn.base_projection.turn)
+            if turn.base_projection.kind == "approved" else None)
+        return MixedHistoryAttributionV1(schema="dmb_mixed_history_attribution_v1",
+            source_sequence=turn.envelope.sequence, accepted_binding=turn.accepted_binding,
+            base_attribution=base)
+    receipt = turn.graph_context_receipt
+    completion = turn.completion
+    if receipt is None and completion is None:
+        return None
+    if receipt is None or completion is None:
+        raise ApplicationStateIntegrityError(
+            "completed Plan Ask has an incomplete Graph receipt/completion pair"
+        )
+    if (
+        turn.status != "completed"
+        or turn.provenance.surface_resolution != "resolved"
+        or turn.provenance.surface_id != "plan"
+        or not turn.provenance.surface_instance_id
+    ):
+        raise ApplicationStateIntegrityError(
+            "Graph Ask provenance does not identify its completed Plan surface"
+        )
+
+    primary = turn.provenance.primary_work
+    try:
+        turn_basis = PlanAskContextBasis(
+            world_id=turn.world_id,
+            document_id=primary.object_id,
+            object_revision=primary.object_revision,
+            work_revision_id=primary.work_revision_id,
+            revision_n=primary.revision_n,
+            content_sha256=primary.content_sha256,
+        )
+    except (ValidationError, TypeError, ValueError) as exc:
+        raise ApplicationStateIntegrityError(
+            "Graph Ask primary Plan basis is incomplete"
+        ) from exc
+    if (
+        primary.resolution != "resolved"
+        or primary.kind != "plan"
+        or receipt.plan_basis != turn_basis
+    ):
+        raise ApplicationStateIntegrityError(
+            "Graph Ask receipt basis does not match its persisted Plan provenance"
+        )
+
+    stored_targets = [
+        reference
+        for reference in turn.provenance.supporting_work
+        if reference.kind == "dmb_plan_playable_target_v1"
     ]
+    try:
+        stored_target = (
+            decode_plan_playable_target_reference(stored_targets[0])
+            if stored_targets
+            else None
+        )
+        if turn.graph_context_execution is None:
+            validate_completion_against_receipt(completion, receipt)
+        else:
+            bindings = [
+                event for event in turn.graph_context_execution.events
+                if isinstance(event, CompletionBindingEventV1)
+            ]
+            if len(bindings) != 1:
+                raise ValueError("Graph Ask execution requires one completion binding")
+            binding = bindings[0]
+            validate_execution_completion(
+                completion, receipt, turn.graph_context_execution,
+                binding.provider_attempt_id, binding.claim_graph_event_ids,
+            )
+    except (ValidationError, TypeError, ValueError) as exc:
+        raise ApplicationStateIntegrityError(
+            "Graph Ask receipt or completion failed integrity validation"
+        ) from exc
+    if stored_target != receipt.playable_target:
+        raise ApplicationStateIntegrityError(
+            "Graph Ask receipt target does not match persisted Plan target provenance"
+        )
+    expected_answer = "\n".join(segment.text for segment in completion.answer_segments)
+    if turn.assistant_text != expected_answer:
+        raise ApplicationStateIntegrityError(
+            "Graph Ask completion segments do not match the stored answer text"
+        )
+
+    current = isinstance(completion, SurfaceEvidenceCompletionV1)
+    history_type = PlanEvidenceHistoryAttributionV7 if isinstance(completion,SurfaceEvidenceCompletionV7) else PlanEvidenceHistoryAttributionV6 if isinstance(completion,SurfaceEvidenceCompletionV6) else PlanEvidenceHistoryAttributionV5 if isinstance(completion,SurfaceEvidenceCompletionV5) else PlanEvidenceHistoryAttributionV4 if isinstance(completion,SurfaceEvidenceCompletionV4) else PlanEvidenceHistoryAttributionV3 if isinstance(completion,SurfaceEvidenceCompletionV3) else PlanEvidenceHistoryAttributionV2 if isinstance(completion,SurfaceEvidenceCompletionV2) else PlanEvidenceHistoryAttributionV1 if current else PlanAskHistoryAttributionV1
+    return history_type(
+        **({'source_citations':completion.source_citations} if current else {}),
+        **({'native_source_citations':completion.native_source_citations} if isinstance(completion,SurfaceEvidenceCompletionV3) else {}),
+        **({'native_assertion_citations':completion.native_assertion_citations} if isinstance(completion,SurfaceEvidenceCompletionV7) else {}),
+        **({'native_body_citations':completion.native_body_citations} if isinstance(completion,SurfaceEvidenceCompletionV5) else {}),
+        **({'native_clause_citations':completion.native_clause_citations} if hasattr(completion,'native_clause_citations') else {}),
+        source_turn_id=turn.turn_id,
+        source_conversation_id=turn.conversation_id,
+        source_sequence=turn.sequence,
+        source_turn_status="completed",
+        surface_resolution="resolved",
+        surface_id="plan",
+        surface_instance_id=turn.provenance.surface_instance_id,
+        plan_basis=receipt.plan_basis,
+        playable_target=receipt.playable_target,
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis=completion.answer_basis,
+        answer_context_status=completion.answer_context_status,
+        answer_segments=completion.answer_segments,
+        citation_map=completion.citation_map,
+    )
 
 
 def insert_turn(
@@ -617,6 +1324,7 @@ def insert_turn(
     request_fingerprint: str,
     idempotency_fingerprint: str,
     submitted_intent_fingerprint_v1: str | None = None,
+    submitted_intent_fingerprint_v2: str | None = None,
     submission: Any,
     sequence: int,
     now: datetime,
@@ -626,6 +1334,9 @@ def insert_turn(
     attempt: int = 0,
 ) -> Turn:
     provenance: TurnProvenance = submission.provenance
+    graph_context_receipt = getattr(submission, "graph_context_receipt", None)
+    graph_context_execution = getattr(submission, "graph_context_execution", None)
+    play_context_receipt = getattr(submission, "play_context_receipt", None)
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
@@ -633,10 +1344,17 @@ def insert_turn(
                 turn_id, conversation_id, world_id, idempotency_key, idempotency_fingerprint, sequence,
                 revision, status, request_fingerprint, user_text, assistant_text,
                 failure_code, surface_resolution, surface_id, surface_instance_id,
-                submitted_intent_fingerprint_v1, attempt, claim_expires_at, accepted_at,
-                completed_at, updated_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s, %s, %s, %s, %s, %s, %s,
-                      %s, %s, NULL, %s, %s, %s)
+                submitted_intent_fingerprint_v1, submitted_intent_fingerprint_v2, submitted_intent_schema,
+                graph_context_receipt, completion, graph_context_execution,
+                play_context_receipt,
+                attempt, claim_expires_at,
+                accepted_at, completed_at, updated_at
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s,
+                1, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s,
+                %s, NULL, %s, %s, %s
+            )
             RETURNING {_TURN_COLS}
             """,
             (
@@ -655,6 +1373,25 @@ def insert_turn(
                 provenance.surface_id,
                 provenance.surface_instance_id,
                 submitted_intent_fingerprint_v1,
+                submitted_intent_fingerprint_v2,
+                ("dmb_play_rules_intent_v1" if isinstance(submission.submitted_intent_v1, PlayRulesIntentV1) else None),
+                (
+                    None
+                    if graph_context_receipt is None
+                    else Jsonb(
+                        graph_context_receipt.model_dump(mode="json", by_alias=True)
+                    )
+                ),
+                None,
+                (
+                    None
+                    if graph_context_execution is None
+                    else Jsonb(graph_context_execution.model_dump(mode="json", by_alias=True))
+                ),
+                (
+                    None if play_context_receipt is None else
+                    Jsonb(play_context_receipt.model_dump(mode="json", by_alias=True))
+                ),
                 attempt,
                 now,
                 now if status in {"completed", "failed", "interrupted"} else None,
@@ -762,7 +1499,10 @@ def complete_claimed_turn(
     world_id: str,
     turn_id: UUID,
     expected_revision: int,
+    expected_attempt: int,
     assistant_text: str,
+    completion: GraphTurnCompletion | None,
+    graph_context_execution: GraphTurnExecution | None = None,
 ) -> Turn | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
@@ -770,15 +1510,166 @@ def complete_claimed_turn(
             UPDATE agent.turn
             SET status = 'completed', revision = revision + 1,
                 assistant_text = %s, failure_code = NULL,
+                completion = %s,
+                graph_context_execution = %s,
                 claim_expires_at = NULL,
                 completed_at = clock_timestamp(), updated_at = clock_timestamp()
+            WHERE world_id = %s AND turn_id = %s AND status = 'running'
+              AND revision = %s AND attempt = %s
+              AND claim_expires_at > clock_timestamp()
+            RETURNING {_TURN_COLS}
+            """,
+            (
+                assistant_text,
+                None
+                if completion is None
+                else Jsonb(completion.model_dump(mode="json", by_alias=True)),
+                (
+                    None
+                    if graph_context_execution is None
+                    else Jsonb(graph_context_execution.model_dump(mode="json", by_alias=True))
+                ),
+                world_id,
+                turn_id,
+                expected_revision,
+                expected_attempt,
+            ),
+        )
+        row = cur.fetchone()
+    if row is not None:
+        close_context_trace_locked(
+            conn, world_id=world_id, turn_id=turn_id, attempt=expected_attempt,
+            status="completed", closed_at=row["completed_at"],
+        )
+    return None if row is None else _turn_from_row(conn, row)
+
+
+def complete_prepared_build_turn(
+    conn: psycopg.Connection,
+    *,
+    world_id: str,
+    turn_id: UUID,
+    expected_revision: int,
+    expected_attempt: int,
+    assistant_text: str,
+    completion: GraphTurnCompletion | None,
+    graph_context_execution: PlanWorldGraphExecution | None = None,
+) -> Turn | None:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            UPDATE agent.turn
+            SET status = 'completed', revision = revision + 1,
+                assistant_text = %s, failure_code = NULL,
+                completion = %s,
+                graph_context_execution = %s,
+                claim_expires_at = NULL,
+                completed_at = clock_timestamp(), updated_at = clock_timestamp()
+            WHERE world_id = %s AND turn_id = %s AND status IN ('running', 'interrupted')
+              AND revision = %s AND attempt = %s
+            RETURNING {_TURN_COLS}
+            """,
+            (
+                assistant_text,
+                None
+                if completion is None
+                else Jsonb(completion.model_dump(mode="json", by_alias=True)),
+                (
+                    None
+                    if graph_context_execution is None
+                    else Jsonb(graph_context_execution.model_dump(mode="json", by_alias=True))
+                ),
+                world_id,
+                turn_id,
+                expected_revision,
+                expected_attempt,
+            ),
+        )
+        row = cur.fetchone()
+    if row is not None:
+        # Recovery does not rewrite the terminal incident trace of the original
+        # interrupted attempt. An open trace can close normally; closed evidence
+        # remains immutable even though the persisted proposal is now deliverable.
+        trace_row = conn.execute(
+            "SELECT payload->>'closed_at' FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s FOR UPDATE",
+            (turn_id, expected_attempt),
+        ).fetchone()
+        if trace_row is None or trace_row[0] is None:
+            close_context_trace_locked(
+                conn, world_id=world_id, turn_id=turn_id, attempt=expected_attempt,
+                status="completed", closed_at=row["completed_at"],
+            )
+    return None if row is None else _turn_from_row(conn, row)
+
+
+def update_graph_execution(
+    conn: psycopg.Connection,
+    *,
+    world_id: str,
+    turn_id: UUID,
+    expected_revision: int,
+    execution: GraphTurnExecution,
+) -> Turn | None:
+    """Persist one validated execution append under the caller's locked row."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            UPDATE agent.turn
+            SET graph_context_execution = %s, revision = revision + 1,
+                updated_at = clock_timestamp()
             WHERE world_id = %s AND turn_id = %s AND status = 'running'
               AND revision = %s AND claim_expires_at > clock_timestamp()
             RETURNING {_TURN_COLS}
             """,
-            (assistant_text, world_id, turn_id, expected_revision),
+            (
+                Jsonb(execution.model_dump(mode="json", by_alias=True)),
+                world_id,
+                turn_id,
+                expected_revision,
+            ),
         )
         row = cur.fetchone()
+    return None if row is None else _turn_from_row(conn, row)
+
+
+def interrupt_expired_graph_execution(
+    conn: psycopg.Connection,
+    *,
+    world_id: str,
+    turn_id: UUID,
+    expected_revision: int,
+    expected_attempt: int,
+    execution: GraphTurnExecution,
+    failure_code: str,
+) -> Turn | None:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            UPDATE agent.turn
+            SET graph_context_execution = %s, status = 'interrupted',
+                revision = revision + 1, failure_code = %s,
+                claim_expires_at = NULL, completed_at = clock_timestamp(),
+                updated_at = clock_timestamp()
+            WHERE world_id = %s AND turn_id = %s AND status = 'running'
+              AND revision = %s AND attempt = %s
+              AND claim_expires_at <= clock_timestamp()
+            RETURNING {_TURN_COLS}
+            """,
+            (
+                Jsonb(execution.model_dump(mode="json", by_alias=True)),
+                failure_code,
+                world_id,
+                turn_id,
+                expected_revision,
+                expected_attempt,
+            ),
+        )
+        row = cur.fetchone()
+    if row is not None:
+        close_context_trace_locked(
+            conn, world_id=world_id, turn_id=turn_id, attempt=expected_attempt,
+            status="interrupted", closed_at=row["completed_at"],
+        )
     return None if row is None else _turn_from_row(conn, row)
 
 
@@ -788,6 +1679,7 @@ def fail_claimed_turn(
     world_id: str,
     turn_id: UUID,
     expected_revision: int,
+    expected_attempt: int,
     status: str,
     failure_code: str,
 ) -> Turn | None:
@@ -802,12 +1694,18 @@ def fail_claimed_turn(
                 claim_expires_at = NULL,
                 completed_at = clock_timestamp(), updated_at = clock_timestamp()
             WHERE world_id = %s AND turn_id = %s AND status = 'running'
-              AND revision = %s AND claim_expires_at > clock_timestamp()
+              AND revision = %s AND attempt = %s
+              AND claim_expires_at > clock_timestamp()
             RETURNING {_TURN_COLS}
             """,
-            (status, failure_code, world_id, turn_id, expected_revision),
+            (status, failure_code, world_id, turn_id, expected_revision, expected_attempt),
         )
         row = cur.fetchone()
+    if row is not None:
+        close_context_trace_locked(
+            conn, world_id=world_id, turn_id=turn_id, attempt=expected_attempt,
+            status=status, closed_at=row["completed_at"],
+        )
     return None if row is None else _turn_from_row(conn, row)
 
 
@@ -1096,6 +1994,9 @@ def insert_legacy_turn(
             "idempotency_key": idempotency_key,
             "user_text": legacy_turn.user_text,
             "provenance": provenance,
+            # Verified transcripts have no current submitted intent. Keep the
+            # shared fresh-writer contract strict rather than guessing one.
+            "submitted_intent_v1": None,
         },
     )
     return insert_turn(
@@ -1112,3 +2013,121 @@ def insert_legacy_turn(
         assistant_text=assistant_text,
         failure_code="legacy_unanswered" if assistant_text is None else None,
     )
+
+
+
+def _resolution_row(row: dict[str, Any] | None) -> CommandResolutionRecordV1 | None:
+    if row is None:
+        return None
+    try:
+        record = CommandResolutionRecordV1.model_validate(row["record"])
+    except ValidationError as exc:
+        raise ApplicationStateIntegrityError("stored command resolution is invalid") from exc
+    command = record.request.original_command
+    if (row["world_id"] != command.world_id or row["resolution_operation_id"] != record.request.resolution_operation_id
+        or row["original_command_id"] != command.command_id or row["outcome"] != record.outcome
+        or row["original_request_fingerprint"] != record.original_request_fingerprint
+        or row["resolution_request_fingerprint"] != record.resolution_request_fingerprint
+        or row["occupied_command_id"] != (None if record.outcome == "retired" else command.command_id)):
+        raise ApplicationStateIntegrityError("stored command resolution columns disagree")
+    return record
+
+
+def get_command_resolution(conn: psycopg.Connection, world_id: str, operation_id: UUID) -> CommandResolutionRecordV1 | None:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("SELECT * FROM agent.command_resolution WHERE world_id=%s AND resolution_operation_id=%s", (world_id, operation_id))
+        return _resolution_row(cur.fetchone())
+
+
+def get_command_retirement(conn: psycopg.Connection, world_id: str, command_id: UUID) -> CommandResolutionRecordV1 | None:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("SELECT * FROM agent.command_resolution WHERE world_id=%s AND original_command_id=%s AND outcome='retired'", (world_id, command_id))
+        return _resolution_row(cur.fetchone())
+
+
+def insert_command_resolution(conn: psycopg.Connection, record: CommandResolutionRecordV1) -> CommandResolutionRecordV1:
+    command = record.request.original_command
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("""INSERT INTO agent.command_resolution(world_id,resolution_operation_id,original_command_id,
+            original_request_fingerprint,resolution_request_fingerprint,outcome,occupied_command_id,record)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""", (command.world_id, record.request.resolution_operation_id,
+            command.command_id, record.original_request_fingerprint, record.resolution_request_fingerprint, record.outcome,
+            None if record.outcome == "retired" else command.command_id, Jsonb(record.model_dump(mode="json", by_alias=True))))
+        result = _resolution_row(cur.fetchone())
+    if result is None:
+        raise ApplicationStateIntegrityError("command resolution did not persist")
+    return result
+
+
+def complete_mixed_claimed_turn(
+    conn,
+    *,
+    world_id,
+    turn_id,
+    expected_revision,
+    expected_attempt,
+    assistant_text,
+    completion,
+    graph_context_execution,
+):
+    """Same UOW as accepted Rules storage; never commit a base-only intermediate."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""UPDATE agent.turn SET status='completed',revision=revision+1,assistant_text=%s,failure_code=NULL,
+            completion=%s,graph_context_execution=%s,answer_composition_kind='rules_mixed_v1',claim_expires_at=NULL,
+            completed_at=clock_timestamp(),updated_at=clock_timestamp()
+            WHERE world_id=%s AND turn_id=%s AND status='running' AND revision=%s AND attempt=%s AND claim_expires_at>clock_timestamp()
+            RETURNING {_TURN_COLS}""",
+            (
+                assistant_text,
+                Jsonb(completion.model_dump(mode="json", by_alias=True))
+                if completion is not None
+                else None,
+                Jsonb(graph_context_execution.model_dump(mode="json", by_alias=True))
+                if graph_context_execution is not None
+                else None,
+                world_id,
+                turn_id,
+                expected_revision,
+                expected_attempt,
+            ),
+        )
+        row = cur.fetchone()
+    if row is None:
+        return None
+    completed = _turn_from_row(conn, row)
+    close_context_trace_locked(
+        conn,
+        world_id=world_id,
+        turn_id=turn_id,
+        attempt=expected_attempt,
+        status="completed",
+        closed_at=row["completed_at"],
+    )
+    return completed
+
+
+def interrupt_expired_rules_claim(
+    conn, *, world_id, turn_id, expected_revision, expected_attempt, failure_code
+):
+    """Fence an expired Rules dispatch without inventing Graph execution data."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""UPDATE agent.turn SET status='interrupted',revision=revision+1,failure_code=%s,
+            claim_expires_at=NULL,completed_at=clock_timestamp(),updated_at=clock_timestamp()
+            WHERE world_id=%s AND turn_id=%s AND status='running' AND revision=%s AND attempt=%s
+                AND (claim_expires_at IS NULL OR claim_expires_at<=clock_timestamp()) RETURNING {_TURN_COLS}""",
+            (failure_code, world_id, turn_id, expected_revision, expected_attempt),
+        )
+        row = cur.fetchone()
+    if row is None:
+        return None
+    close_context_trace_locked(
+        conn,
+        world_id=world_id,
+        turn_id=turn_id,
+        attempt=expected_attempt,
+        status="interrupted",
+        closed_at=row["completed_at"],
+    )
+    return _turn_from_row(conn,row)

@@ -7,11 +7,20 @@ import type { ManagedWorldGraphProjectionResponse, WorldGraphProjection } from "
 import { SelectedWorldProvider } from "../selectedWorld/SelectedWorldContext";
 import {
   WorldGraphLensProvider,
-  WorldGraphLensProjectionProvider,
+  WorldGraphLensProjectionProvider as ProjectionProvider,
+  useWorldGraphLensProjectionDemand,
   useOptionalWorldGraphLensInformationChannel,
   useWorldGraphLens,
   useWorldGraphLensProjection,
 } from "./index";
+
+function Demand({ children }: { children: ReactNode }) {
+  useWorldGraphLensProjectionDemand(true);
+  return children;
+}
+function WorldGraphLensProjectionProvider(props: Parameters<typeof ProjectionProvider>[0]) {
+  return createElement(ProjectionProvider, props, createElement(Demand, null, props.children));
+}
 
 function headProjection(
   snapshotOverrides: Partial<WorldGraphProjection["snapshot"]> = {},
@@ -65,10 +74,7 @@ describe("WorldGraphLensProjectionProvider", () => {
     vi.restoreAllMocks();
     liveApi.setNativeGraphAccessToken(null);
     window.history.pushState({}, "", "/plan");
-    vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue({
-      schema: "dmb_ingestion_source_bundle_v1",
-      campaigns: {},
-    } as never);
+    vi.spyOn(liveApi, "getSourceSessions").mockResolvedValue([]);
   });
 
   it("marks verified head responses ready", async () => {
@@ -79,6 +85,7 @@ describe("WorldGraphLensProjectionProvider", () => {
     await waitFor(() => expect(result.current.projectionState).toBe("ready"));
     expect(result.current.projection?.snapshot.revisionId).toBe("rev-head");
     expect(result.current.projectionError).toBeNull();
+    expect(result.current.managedBinding).toBeNull();
   });
 
   it("fails closed when response identity does not match the request", async () => {
@@ -90,6 +97,7 @@ describe("WorldGraphLensProjectionProvider", () => {
 
     await waitFor(() => expect(result.current.projectionState).toBe("error"));
     expect(result.current.projection).toBeNull();
+    expect(result.current.managedBinding).toBeNull();
     expect(result.current.projectionError).toMatch(/campaign longmont-c1 does not match requested campaign longmont-c2/);
   });
 
@@ -183,11 +191,31 @@ describe("WorldGraphLensProjectionProvider", () => {
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({
       schema: "dmb_managed_world_graph_projection_request_v1",
       managedWorldId: worldId,
-    }));
+    }), expect.any(AbortSignal));
     expect(spy).toHaveBeenCalledTimes(1);
     expect(nativeSpy).not.toHaveBeenCalled();
     expect(result.current.projection?.snapshot.worldId).toBe("eldyrwild");
     expect(result.current.projection?.snapshot.campaignId).toBe("");
+    expect(result.current.managedBinding).toEqual({managedWorldId:worldId,nativeWorldId:"eldyrwild",bindingVersion:1});
+  });
+
+  it("retires the verified binding together with projection bytes during refresh", async () => {
+    const worldId="elderwyld";
+    window.history.pushState({},"",`/plan?world=${worldId}`);
+    vi.spyOn(liveApi,"listWorldContainers").mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[{schema_version:"dmb_world_container_record_v1",world_id:worldId,name:"World",source_root_relpath:"corpus/world",created_at:"2026-01-01T00:00:00Z"}]});
+    const packet:ManagedWorldGraphProjectionResponse={schema:"dmb_managed_world_graph_projection_v1",managedWorldId:worldId,nativeWorldId:"eldyrwild",bindingVersion:1,projection:headProjection({worldId:"eldyrwild",campaignId:"",scopeMode:"world"})};
+    let finish!:(value:ManagedWorldGraphProjectionResponse)=>void;
+    const spy=vi.spyOn(liveApi,"postManagedWorldGraphProjection").mockResolvedValueOnce(packet).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}));
+    let refresh=0;
+    const managedWrapper=({children}:{children:ReactNode})=>createElement(SelectedWorldProvider,{locationSnapshot:window.location.href},createElement(WorldGraphLensProvider,{planCampaignId:worldId},createElement(WorldGraphLensProjectionProvider,{defaultCampaignId:worldId,revisionRefreshToken:refresh},children)));
+    const {result,rerender}=renderHook(()=>useWorldGraphLensProjection(),{wrapper:managedWrapper});
+    await waitFor(()=>expect(result.current.managedBinding?.bindingVersion).toBe(1));
+    refresh=1;rerender();
+    expect(result.current.projection).toBeNull();expect(result.current.managedBinding).toBeNull();
+    await waitFor(()=>expect(spy).toHaveBeenCalledTimes(2));
+    act(()=>finish({...packet,bindingVersion:2,projection:headProjection({worldId:"eldyrwild",campaignId:"",scopeMode:"world",revisionId:"rev-new",headRevisionId:"rev-new"})}));
+    await waitFor(()=>expect(result.current.managedBinding?.bindingVersion).toBe(2));
+    expect(result.current.projection?.snapshot.revisionId).toBe("rev-new");
   });
 
   it("retries a managed projection after the local Graph credential changes", async () => {
@@ -271,6 +299,7 @@ describe("WorldGraphLensProjectionProvider", () => {
     const { result } = renderHook(() => useWorldGraphLensProjection(), { wrapper: managedWrapper });
     await waitFor(() => expect(result.current.projectionState).toBe("error"));
     expect(result.current.projection).toBeNull();
+    expect(result.current.managedBinding).toBeNull();
     expect(result.current.projectionError).toMatch(/does not match selected World elderwyld/);
   });
 
@@ -283,6 +312,7 @@ describe("WorldGraphLensProjectionProvider", () => {
 
     await waitFor(() => expect(result.current.projectionState).toBe("error"));
     expect(result.current.projection).toBeNull();
+    expect(result.current.managedBinding).toBeNull();
     expect(result.current.projectionError).toMatch(/head claim is inconsistent/);
   });
 
@@ -338,6 +368,7 @@ describe("WorldGraphLensProjectionProvider", () => {
     expect(result.current.requestKey).toBe(requestKey);
     expect(result.current.projectionState).toBe("loading");
     expect(result.current.projection).toBeNull();
+    expect(result.current.managedBinding).toBeNull();
 
     await act(async () => {
       resolveSecond(headProjection({ revisionId: "rev-2", headRevisionId: "rev-2" }));
@@ -512,12 +543,14 @@ describe("WorldGraphLensProjectionProvider", () => {
     });
 
     await waitFor(() => expect(result.current.channel).not.toBeNull());
-    const channel = result.current.channel!;
-    const descriptor = channel.descriptor;
+    const retired = result.current.channel!;
 
     refreshToken = "r1";
     rerender();
-    expect(result.current.channel).toBe(channel);
+    const channel = result.current.channel!;
+    expect(channel).not.toBe(retired);
+    expect(retired.getSnapshot().state.status).toBe("loading");
+    const descriptor = channel.descriptor;
 
     await act(async () => {
       const campaignId = result.current.projection.request?.campaignId ?? "longmont-c2";
@@ -579,7 +612,9 @@ describe("WorldGraphLensProjectionProvider", () => {
     refreshToken = "r1";
     rerender();
     await waitFor(() => expect(channel.getSnapshot().generation).toBeGreaterThan(first.generation));
-    expect(result.current.channel).toBe(channel);
+    expect(result.current.channel).not.toBe(channel);
+    await waitFor(() => expect(result.current.channel?.getSnapshot().state.status).toBe("ready"));
+    expect(channel.getSnapshot().state.status).toBe("loading");
   });
 
   it("does not introduce a second World Graph request path", async () => {

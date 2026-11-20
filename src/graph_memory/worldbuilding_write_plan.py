@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Mapping, Sequence
 
 from graph_memory.candidate_graph_preview import (
     CandidateEdge,
     CandidateGraphPreview,
     CandidateNode,
+    validate_candidate_graph_preview,
 )
 from graph_memory.candidate_graph_to_contribution import (
     CandidateGraphMappingError,
@@ -30,6 +31,9 @@ from graph_memory.candidate_semantic_promote_matrix import (
     CandidateSemanticPromoteError,
     map_reviewed_worldbuilding_semantics_to_kernel,
     semantic_diagnostics,
+)
+from graph_memory.extraction.worldbuilding_profile_catalog import (
+    PUBLISHABLE_WORLDBUILDING_PROFILES, SOURCE_OBSERVATION_WORLDBUILDING_PROFILES,
 )
 from graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
@@ -46,7 +50,6 @@ from apps.live_control_server.models.world_graph_mutation_context import (
     MutationObject,
     WorldGraphMutationContext,
     identity_snapshot_from_context,
-    mutation_context_from_store,
 )
 
 
@@ -398,7 +401,7 @@ def _canonical_decision_snapshot(value: Any) -> list[dict[str, Any]]:
             )
         if candidate_kind == "node":
             allowed = _NODE_DECISIONS
-        elif candidate_kind == "edge":
+        elif candidate_kind in {"edge", "source_observation"}:
             allowed = _EDGE_DECISIONS
         else:
             raise WorldbuildingWritePlanError(
@@ -431,7 +434,7 @@ def _canonical_decision_snapshot(value: Any) -> list[dict[str, Any]]:
     if result != sorted(
         result,
         key=lambda item: (
-            0 if item["candidate_kind"] == "node" else 1,
+            {"node": 0, "edge": 1, "source_observation": 2}[item["candidate_kind"]],
             item["assertion_id"],
         ),
     ):
@@ -653,6 +656,7 @@ def _validate_dispositions(
     dict[str, CandidateEdge],
 ]:
     nodes, edges = _candidate_kind_map(preview)
+    observations = {o.observation_id: o for o in preview.source_observations}
     by_id: dict[str, tuple[str, str | None]] = {}
     for raw in dispositions:
         item = _disposition_input(raw)
@@ -667,6 +671,9 @@ def _validate_dispositions(
         elif item.assertion_id in edges:
             candidate_kind = "edge"
             allowed = _EDGE_DECISIONS
+        elif item.assertion_id in observations:
+            candidate_kind = "source_observation"
+            allowed = _EDGE_DECISIONS
         else:
             raise WorldbuildingWritePlanError(
                 f"unknown candidate assertion_id {item.assertion_id!r}",
@@ -680,7 +687,7 @@ def _validate_dispositions(
             )
         by_id[item.assertion_id] = (item.decision, item.target_node_id)
 
-    expected = set(nodes) | set(edges)
+    expected = set(nodes) | set(edges) | set(observations)
     supplied = set(by_id)
     if supplied != expected:
         missing = sorted(expected - supplied)
@@ -698,7 +705,7 @@ def _validate_dispositions(
             "decision": by_id[assertion_id][0],
             "target_node_id": by_id[assertion_id][1],
         }
-        for candidate_kind, candidates in (("node", nodes), ("edge", edges))
+        for candidate_kind, candidates in (("node", nodes), ("edge", edges), ("source_observation", observations))
         for assertion_id in sorted(candidates)
     ]
     return by_id, snapshot, nodes, edges
@@ -733,25 +740,10 @@ def _occupied_identity_ids(context: WorldGraphMutationContext) -> set[str]:
 
 
 def _assert_create_new_id_is_free(
-    authority: WorldGraphMutationContext | Any,
+    context: WorldGraphMutationContext,
     node_id: str,
 ) -> None:
-    """Reject create-new when the id is already occupied.
-
-    Existing-world plans pass a ``WorldGraphMutationContext``. First-world
-    materialization still passes the empty in-memory baseline store; adapt it
-    here so that first-world behavior does not have to change in this slice.
-    """
-    context = (
-        authority
-        if isinstance(authority, WorldGraphMutationContext)
-        else mutation_context_from_store(
-            authority,
-            world_id="",
-            revision_id="",
-            head_revision_id="",
-        )
-    )
+    """Reject create-new when the id is already occupied in the admitted context."""
     if node_id in _occupied_identity_ids(context):
         raise WorldbuildingWritePlanError(
             f"create_new node ID {node_id!r} already exists in the pinned parent",
@@ -795,7 +787,9 @@ def _resolve_bind_target(
     raw_type = (node.node_type or "").strip().lower()
     if raw_type in {"character", "pc", "npc"}:
         allowed_target_kinds = {"pc", "npc"}
-    elif raw_type in {"collective", "organization", "party", "faction", "group"}:
+    elif raw_type == "organization":
+        allowed_target_kinds = {"faction"}
+    elif raw_type in {"collective", "party", "faction", "group"}:
         allowed_target_kinds = {"party", "faction"}
     else:
         allowed_target_kinds = {_candidate_kernel_kind(node)}
@@ -1020,7 +1014,7 @@ def build_worldbuilding_write_plan(
     revision = _nonblank(source_revision_id, field="source_revision_id")
     uri = _nonblank(source_uri, field="source_uri")
     profile = _nonblank(extraction_profile, field="extraction_profile")
-    if profile != WORLDBUILDING_EXTRACTION_PROFILE:
+    if profile not in PUBLISHABLE_WORLDBUILDING_PROFILES:
         raise WorldbuildingWritePlanError(
             "worldbuilding write plans require the exact BLD-08 extraction profile",
             code="unsupported_worldbuilding_profile",
@@ -1030,6 +1024,13 @@ def build_worldbuilding_write_plan(
             "worldbuilding candidate must keep session_id null",
             code="run_scope_mismatch",
         )
+    report = validate_candidate_graph_preview(preview)
+    if any(issue.severity == "error" for issue in report.issues):
+        raise WorldbuildingWritePlanError("candidate graph structural validation failed", code="invalid_candidate")
+    if profile in SOURCE_OBSERVATION_WORLDBUILDING_PROFILES and preview.version != "0.2":
+        raise WorldbuildingWritePlanError("observation profile requires candidate v0.2", code="invalid_candidate")
+    if preview.version == "0.2" and profile not in SOURCE_OBSERVATION_WORLDBUILDING_PROFILES:
+        raise WorldbuildingWritePlanError("source observations require the exact observation profile", code="unsupported_worldbuilding_profile")
     parent = _admit_parent_context(
         mutation_context,
         expected_parent_revision_id,
@@ -1145,6 +1146,45 @@ def build_worldbuilding_write_plan(
             deferred_ids.append(node_id)
             candidate_effect_map[node_id] = []
             identity_snapshot[node_id] = "deferred_by_operator"
+
+    for observation in sorted(preview.source_observations, key=lambda item: item.observation_id):
+        observation_id = observation.observation_id
+        decision, _ = disposition_map[observation_id]
+        subject_id = observation.subject_candidate_node_id
+        if decision == "accept" and subject_id not in node_id_map:
+            raise WorldbuildingWritePlanError("accepted source observation requires an accepted subject", code="observation_subject_unresolved")
+        # Use the same typed source-observation contract as existing bound places.
+        # The temporary mapping record is never emitted as a new node identity.
+        source_node = replace(nodes[subject_id], node_id=observation_id,
+            label=observation.title, description=observation.description,
+            evidence_refs=observation.evidence_refs, semantic_state=observation.semantic_state,
+            confidence=observation.confidence, warnings=observation.warnings,
+            proposed_action=observation.proposed_action, aliases=(), corpus_ref=None,
+            session_actions=(), enriched_by=None)
+        try:
+            require_single_verified_source_artifact(preview=preview,
+                verified_artifact_id=artifact, nodes=[source_node], edges=[])
+            map_reviewed_worldbuilding_semantics_to_kernel(object_id=observation_id,
+                semantic=observation.semantic_state, proposed_action=observation.proposed_action,
+                confidence=observation.confidence, warnings=observation.warnings,
+                acceptance_state="accepted" if decision == "accept" else "rejected")
+            proposals, _ = map_connect_existing_support_assertions(source_node,
+                durable_node_id=node_id_map.get(subject_id, subject_id),
+                source_revision_id=revision, verified_source_artifact_id=artifact,
+                campaign_scope=campaign_scope, campaign_id=campaign_scope,
+                source_domain="worldbuilding", session_id=None, source_uri=uri,
+                acceptance_state="accepted" if decision == "accept" else "rejected",
+                identity_resolution_outcome="human_override",
+                kind_override=_candidate_kernel_kind(nodes[subject_id]),
+                predicate=WORLDBUILDING_BIND_SUPPORT_PREDICATE)
+        except (CandidateGraphMappingError, CandidateSemanticPromoteError) as exc:
+            raise _mapping_error(exc) from exc
+        if decision == "defer":
+            deferred_ids.append(observation_id)
+            candidate_effect_map[observation_id] = []
+        else:
+            (accepted if decision == "accept" else rejected).extend(proposals)
+            candidate_effect_map[observation_id] = [item.assertion_id for item in proposals]
 
     for edge_id in sorted(edges):
         edge = edges[edge_id]
@@ -1282,7 +1322,7 @@ def build_worldbuilding_write_plan(
         ),
         "rejected_candidate_count": sum(
             disposition_map[assertion_id][0] == "reject"
-            for assertion_id in set(nodes) | set(edges)
+            for assertion_id in set(nodes) | set(edges) | {o.observation_id for o in preview.source_observations}
         ),
         "deferred_candidate_count": len(deferred_ids),
         "accepted_assertion_count": len(contribution.accepted_assertions),
@@ -1449,12 +1489,12 @@ def verify_worldbuilding_write_plan(
                 "plan source_domain must be worldbuilding",
                 code="plan_verification_failed",
             )
-        if top_fields["extraction_profile"] != WORLDBUILDING_EXTRACTION_PROFILE:
+        if top_fields["extraction_profile"] not in PUBLISHABLE_WORLDBUILDING_PROFILES:
             raise WorldbuildingWritePlanError(
                 "plan extraction_profile is not the BLD-08 profile",
                 code="plan_verification_failed",
             )
-        if context.extraction_profile != WORLDBUILDING_EXTRACTION_PROFILE:
+        if context.extraction_profile not in PUBLISHABLE_WORLDBUILDING_PROFILES:
             raise WorldbuildingWritePlanError(
                 "verification context extraction_profile is not the BLD-08 profile",
                 code="plan_verification_failed",

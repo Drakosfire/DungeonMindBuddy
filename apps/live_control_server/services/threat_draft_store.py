@@ -30,7 +30,7 @@ from apps.live_control_server.models.threat_draft import (
     require_draft_id,
     parse_threat_draft,
 )
-from src.live_play.live_store import load_json, write_json
+from live_store import load_json, write_json
 
 DEFAULT_STORE_REL = "out/threat_drafts"
 INDEX_NAME = "index.json"
@@ -221,14 +221,25 @@ def _remove_draft_file(root: Path, draft_id: str) -> None:
 
 
 def create_threat_draft(
-    root: Path, request: CreateThreatDraftRequest | CreateWorldThreatDraftRequest
+    root: Path, request: CreateThreatDraftRequest | CreateWorldThreatDraftRequest,
+    *, stable_id: uuid.UUID | None = None,
 ) -> ThreatDraft:
     now = _utc_now_iso()
     world_owned = isinstance(request, CreateWorldThreatDraftRequest)
+    if stable_id is not None and not world_owned:
+        raise ThreatDraftStoreError("Stable creation requires a World draft", status_code=422)
+    creation_fields = {}
+    if stable_id is not None:
+        from hashlib import sha256
+        from json import dumps
+
+        payload = dumps(request.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+        creation_fields["creation_intent_sha256"] = sha256(payload.encode()).hexdigest()
     draft_model = ThreatDraftV2 if world_owned else ThreatDraftV1
     draft = draft_model(
+        **creation_fields,
         **({"scope_mode": "world"} if world_owned else {}),
-        draft_id=str(uuid.uuid4()),
+        draft_id=str(stable_id or uuid.uuid4()),
         version=1,
         world_id=request.world_id,
         campaign_id=request.campaign_id,
@@ -251,6 +262,16 @@ def create_threat_draft(
     )
     with _store_lock(root):
         index = _load_index(root)
+        if stable_id is not None and _draft_path(root, draft.draft_id).exists():
+            existing = _load_draft_unlocked(root, draft.draft_id)
+            if existing.world_id != draft.world_id or type(existing) is not type(draft):
+                raise ThreatDraftStoreError("Draft creation identity belongs to another scope", status_code=409)
+            if existing.creation_intent_sha256 != draft.creation_intent_sha256:
+                raise ThreatDraftStoreError("Draft creation intent changed", status_code=409)
+            if draft.draft_id not in index.draft_ids:
+                index.draft_ids.append(draft.draft_id)
+                _save_index(root, index)
+            return existing
         if draft.draft_id in index.draft_ids:
             raise ThreatDraftStoreError(
                 "draft_id collision",
@@ -272,10 +293,28 @@ def create_threat_draft(
     return draft
 
 
-def get_threat_draft(root: Path, draft_id: str) -> ThreatDraft:
+@contextmanager
+def locked_threat_draft(root: Path, draft_id: str) -> Iterator[ThreatDraft]:
+    """Read a committed snapshot while excluding concurrent draft writers.
+
+    Keep consumers short: no provider or Graph calls under this lock. Consumers
+    that join APP state acquire the filesystem lock before APP transaction locks.
+    """
+    with locked_threat_drafts(root, [draft_id]) as drafts:
+        yield drafts[draft_id]
+
+
+@contextmanager
+def locked_threat_drafts(root: Path, draft_ids: list[str]) -> Iterator[dict[str, ThreatDraft]]:
+    """One store lock for a batch CAS recheck. No nested lock or external IO."""
     with _store_lock(root):
-        committed_id = _require_committed_draft_id(root, draft_id)
-        return _load_draft_unlocked(root, committed_id)
+        yield {draft_id: _load_draft_unlocked(root, _require_committed_draft_id(root, draft_id))
+               for draft_id in draft_ids}
+
+
+def get_threat_draft(root: Path, draft_id: str) -> ThreatDraft:
+    with locked_threat_draft(root, draft_id) as draft:
+        return draft
 
 
 def find_threat_draft_for_candidate(
@@ -311,6 +350,37 @@ def read_committed_draft_version(root: Path, draft_id: str) -> int:
         return _load_draft_unlocked(root, committed_id).version
 
 
+def saved_mechanics_draft_ids(root: Path, *, world_id: str) -> tuple[str, ...]:
+    with _store_lock(root):
+        drafts = (_load_draft_unlocked(root, key) for key in _load_index(root).draft_ids)
+        return tuple(
+            draft.draft_id for draft in drafts
+            if isinstance(draft, ThreatDraftV2)
+            and draft.world_id == world_id
+            and draft.workflow_state == "mechanics_saved"
+            and draft.accepted_mechanics_ref is not None
+        )
+
+
+def archive_saved_threat_draft(
+    root: Path, *, world_id: str, draft_id: str, expected_version: int, authorize_world=None
+) -> None:
+    """Remove a saved statblock from discovery while preserving exact references."""
+    with _store_lock(root):
+        index = _load_index(root)
+        draft_id = _require_committed_draft_id(root, draft_id)
+        draft = _load_draft_unlocked(root, draft_id)
+        if draft.world_id != world_id or not draft.accepted_mechanics_ref:
+            raise ThreatDraftStoreError("Saved statblock unavailable", status_code=404)
+        if draft.version != expected_version:
+            raise ThreatDraftStoreError("Saved statblock changed", status_code=409)
+        if authorize_world is not None:
+            authorize_world(draft.world_id)
+        if draft_id not in index.archived_draft_ids:
+            index.archived_draft_ids.append(draft_id)
+            _save_index(root, index)
+
+
 def list_threat_drafts(
     root: Path,
     *,
@@ -330,7 +400,10 @@ def list_threat_drafts(
     with _store_lock(root):
         index = _load_index(root)
         summaries: list[ThreatDraftSummary] = []
+        archived = set(index.archived_draft_ids)
         for draft_id in index.draft_ids:
+            if draft_id in archived:
+                continue
             try:
                 draft = _load_draft_unlocked(root, draft_id)
             except ThreatDraftStoreError as exc:
@@ -357,6 +430,7 @@ def list_threat_drafts(
                     name=draft.name,
                     threat_kind=draft.threat_kind,
                     workflow_state=draft.workflow_state,
+                    saved_revision_id=(draft.accepted_mechanics_ref.revision_id if draft.accepted_mechanics_ref else None),
                     updated_at=draft.updated_at,
                 )
             )

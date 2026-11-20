@@ -1,54 +1,42 @@
 # Graph Memory Layer Evals
 
-## Status map (2026-06-28)
+## Current extraction owners and historical fixtures
 
 This directory is **proof machinery**, not architecture ownership. Durable contracts live in `src/graph_memory`. Runtime wiring lives in `apps/live_control_server` and `apps/live-control-ui`.
 
 | Bucket | Location | Status |
 |--------|----------|--------|
-| **Active runtime runner** | `graph_preview_runner.py` | Used by live recap graph ingest; **still calls compact stub extractor** — wire category pipeline |
-| **Proven extraction pipeline** | `category_graph_model_study.py`, `artifacts/.../anchor_quote_n3/` | 7-pass category-decomposed extraction; **target for product runtime** |
-| **Manual gold fixtures** | `examples/session_23_candidate_graph_gold/`, `examples/session_24_manual_projection_dogfood/` | Hand-authored gold; compare extractor output here |
+| **Product runtime runner** | `src/graph_memory/extraction/graph_preview_runner.py` | Calls the registered category extractor; no compact preview path |
+| **Category extraction and eval harness** | `src/graph_memory/extraction/category_candidate_graph_extractor.py`, `category_graph_model_study.py` | Product owner and harness; historical results remain pinned below |
+| **Manual gold fixtures** | `../graph_benchmark_gold/candidate_graph/longmont-c2/session-23/`, `examples/session_24_manual_projection_dogfood/` | Hand-authored gold; compare extractor output here |
 | **Multi-pass contract (design reference)** | `examples/multi_pass_extraction_contract/`, `examples/eval_only_extractor_harness/` | Broader 9-pass contract; category study is the graduated slice |
-| **Runtime extraction stub** | `src/graph_memory/extraction/preview_candidate_graph_extractor.py` | Single compact call (~12-node cap); replace with category pipeline |
 | **Generated graph runs** | `artifacts/graph_ingest_runs/`, `out/graph_memory/runs/` | Dogfood/local outputs; Session 24 manual run is projection gold import (`llm_extraction: false`) |
 | **Static UI prototype** | `examples/static_preview_graph_ui_prototype/` | Review-only HTML |
 | **Live extractor harness** | `examples/live_extractor_prompt_harness/`, `runs/live_extractor_prompt_harness/` | Manual prompts; untrusted `candidate_output.json` |
 | **Contract validators** | `validate_*.py`, `report_*.py` | No-LLM gates and diagnostic reports |
 
 **Session 24 manual projection:** projection benchmark gold, not extractor evidence.  
-**Category-decomposed extraction (`anchor_quote_n3`):** proven quality path — 5 category node passes + beat + edge on Session 22 (`gpt-5.4-mini`, n=3, node recall ~0.80–0.88). Runtime still uses compact `preview_candidate_graph_extractor` until `run_category_pipeline` is wired.
+**Category-decomposed extraction (`anchor_quote_n3`):** historical quality study — 5 category node passes + beat + edge on Session 22 (`gpt-5.4-mini`, n=3, node recall ~0.80–0.88). The product uses `src/graph_memory/extraction/category_candidate_graph_extractor.py`; these historical measurements do not establish current extraction quality.
 
-Authority map: `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md`
+Historical layout reference: `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md`. Current extraction ownership is in the runtime modules above.
 
 ---
 
 ## Purpose
 
-This directory is the evaluation scaffold for the Graph Memory Layer experiment. It gives the experiment a dedicated, non-production place for smoke checks, future baseline captures, and later shadow artifacts.
-
-## Current Phase
-
-PR 1 is baseline/fork tracking only. It establishes branch safety documentation, baseline artifact directories, and a no-LLM smoke runner.
-
-The smoke runner must not require an OpenAI key, environment variables, network access, production retrieval imports, or graph-memory implementation modules.
-
-## Non-Goals for PR 1
-
-- No graph schemas.
-- No graph retrieval.
-- No RDF export.
-- No LLM extraction.
-- No production retrieval behavior changes.
-- No benchmark output regeneration or reinterpretation.
+This directory is the evaluation scaffold for the Graph Memory Layer experiment. It holds retained fixtures, validators, reports and opt-in studies; product runtime owners are listed above.
 
 ## Expected Commands
 
-Run the scaffold-only/default smoke check during bootstrap work:
+Start with the no-write baseline validator below. These fixture-specific checks
+are not a substitute for the owning runtime or release verification.
 
-```bash
-uv run python -m evals.graph_memory_layer.run_smoke
-```
+The June 2026 scaffold and fork-policy procedure is
+[historical](../../Docs/Experiments/GRAPH-MEMORY-FORK-TRACKING.md).
+Its `run_smoke` command currently fails because the required experiment document
+was archived. The old `experiment/graph-memory-layer` / `graph-exp/` naming rules
+do not allocate current lanes. Follow the repository's [agent policy](../../AGENTS.md)
+and the active handoff instead. The retained CLI and its tests are unchanged.
 
 Validate the frozen baseline case manifest with the no-LLM baseline validator:
 
@@ -112,24 +100,6 @@ uv run python -m evals.graph_memory_layer.validate_real_structure_gate
 ```
 
 This validates the gate manifest for the first future real-structure materializer. It does not materialize real data, read session-memory JSONL, scan corpus files, parse Markdown/Tiptap output, call an LLM, or change retrieval behavior. The gate admits exactly one future source family and keeps real materialization deferred to a later PR under validation and reporting constraints.
-
-Once fork enforcement is active for later stacked PRs, run strict branch-policy validation:
-
-```bash
-uv run python -m evals.graph_memory_layer.run_smoke --check-git-context
-```
-
-Strict git-context mode accepts the experiment root branch (`experiment/graph-memory-layer`) and any stacked branch that starts with `graph-exp/`. For a handoff that must be validated against one exact branch, add `--expected-branch`:
-
-```bash
-uv run python -m evals.graph_memory_layer.run_smoke --check-git-context --expected-branch graph-exp/01-freeze-baseline-reports
-```
-
-## Future PRs
-
-Later phases may add graph materialization, graph reports, graph-shadow retrieval, entity candidates, relationship candidates, taxonomy governance, and live retrieval shadow mode.
-
-Any LLM-backed experiment must be added behind explicit CLI flags in a later PR.
 
 ## Session-Memory Sentence-Unit Materializer
 
@@ -449,7 +419,7 @@ Current rung: Live Extractor Prompt/Harness v0. Purpose: render one-shot/two-sho
 
 ## Encounter/Job Dogfood Projection Fixture
 
-Validates and reports a deterministic no-LLM dogfood projection bundle for the encounter/job extraction stack. The fixture exercises `encounter_job_pass`, deterministic party participation attachment, encounter/job edge guidance, and dynamic node vocabulary selection against a synthetic Glowkindle rat-job source packet.
+Validates and reports a deterministic no-LLM dogfood projection bundle for the encounter/job extraction stack. The fixture exercises `encounter_job_pass`, source-backed party participation, encounter/job edge guidance, and dynamic node vocabulary selection against a synthetic Glowkindle rat-job source packet.
 
 It does not call an LLM, scan corpus files, mutate corpus files, write graph memory, connect `/plan`, connect Agent Interaction, promote facts, promote canon, or change runtime behavior.
 
@@ -457,3 +427,5 @@ It does not call an LLM, scan corpus files, mutate corpus files, write graph mem
 PYTHONPATH=. uv run python -m evals.graph_memory_layer.validate_encounter_job_dogfood_projection
 PYTHONPATH=. uv run python -m evals.graph_memory_layer.report_encounter_job_dogfood_projection
 ```
+
+Use `--write` to save the generated Markdown under `out/graph_memory/encounter_job_dogfood_projection/`. The [historical report](https://github.com/Drakosfire/DungeonMindBuddy/blob/ef271c93d0a1ed50ef7410547a3e487fbf7f173f/evals/graph_memory_layer/artifacts/encounter_job_dogfood_projection/c1s1_glowkindle_fixture_report.md) is pinned in Git.

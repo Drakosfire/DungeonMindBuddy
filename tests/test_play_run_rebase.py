@@ -219,7 +219,6 @@ def _create_committed_runbook(
 
 def _create_run(root: Path, snapshot: WorkspaceDocumentSnapshot):
     return create_or_replay_play_run(
-        root,
         run_id=RUN_ID_A,
         playable_artifact_id=snapshot.record.document_id,
         expected_playable_revision=_playable(snapshot)[0],
@@ -229,7 +228,7 @@ def _create_run(root: Path, snapshot: WorkspaceDocumentSnapshot):
 
 def _seal(root: Path, snapshot: WorkspaceDocumentSnapshot):
     record = _create_run(root, snapshot)
-    manifest = seal_or_replay_play_run_reference_manifest(root, RUN_ID_A)
+    manifest = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
     return record, manifest
 
 
@@ -252,7 +251,6 @@ def _advance(root: Path, snapshot: WorkspaceDocumentSnapshot, markdown: str):
 
 def _rebase(root: Path, snapshot: WorkspaceDocumentSnapshot, *, expected_run_revision: int):
     return rebase_or_replay_play_run(
-        root,
         run_id=RUN_ID_A,
         expected_run_revision=expected_run_revision,
         target_playable_revision=_playable(snapshot)[0],
@@ -281,7 +279,7 @@ def _record_snapshot(record) -> object:
 
 
 def _manifest_snapshot(root: Path, run_id: str = RUN_ID_A):
-    manifest = get_play_run_reference_manifest(root, run_id)
+    manifest = get_play_run_reference_manifest(run_id)
     return (manifest.playable_revision, manifest.playable_content_sha256)
 
 
@@ -300,7 +298,7 @@ def _rebase_failure_leaves_source(
 
     source = _create_committed_runbook(tmp_path)
     created = _seal(tmp_path, source)[0]
-    source_manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    source_manifest = get_play_run_reference_manifest(RUN_ID_A)
     target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
     real_replace_manifest = play_repository.replace_manifest
 
@@ -317,12 +315,11 @@ def test_surviving_refs_rebase_replaces_binding_and_manifest(tmp_path: Path) -> 
     source = _create_committed_runbook(tmp_path)
     _seal(tmp_path, source)
     before = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
     )
-    source_run = _record_snapshot(get_play_run(tmp_path, RUN_ID_A))
+    source_run = _record_snapshot(get_play_run(RUN_ID_A))
     source_manifest = _manifest_snapshot(tmp_path)
     target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
 
@@ -337,11 +334,11 @@ def test_surviving_refs_rebase_replaces_binding_and_manifest(tmp_path: Path) -> 
     assert rebased.playable_content_sha256 == target.content_sha256
     assert rebased.run_revision == 3
     assert rebased.rebased_from_run_revision == 2
-    assert _record_snapshot(get_play_run(tmp_path, RUN_ID_A)) != source_run
+    assert _record_snapshot(get_play_run(RUN_ID_A)) != source_run
     assert _manifest_snapshot(tmp_path) != source_manifest
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
     assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
-    manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    manifest = get_play_run_reference_manifest(RUN_ID_A)
     assert manifest.playable_revision == _playable(target)[0]
     assert manifest.playable_content_sha256 == target.content_sha256
     assert {element.element_id for element in manifest.elements} >= {
@@ -359,7 +356,7 @@ def test_empty_progress_can_cross_full_element_replacement(tmp_path: Path) -> No
     assert rebased.progress.current_scene_id is None
     assert rebased.playable_revision == _playable(target)[0]
     assert rebased.run_revision == 2
-    manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    manifest = get_play_run_reference_manifest(RUN_ID_A)
     assert {element.element_id for element in manifest.elements} == {
         "beat:dock",
         "scene:harbor",
@@ -370,12 +367,11 @@ def test_removed_refs_block_before_intent(tmp_path: Path) -> None:
     source = _create_committed_runbook(tmp_path)
     _seal(tmp_path, source)
     replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
     )
-    run_before = _record_snapshot(get_play_run(tmp_path, RUN_ID_A))
+    run_before = _record_snapshot(get_play_run(RUN_ID_A))
     manifest_before = _manifest_snapshot(tmp_path)
     target = _advance(tmp_path, source, REPLACED_TARGET_MARKDOWN)
 
@@ -383,7 +379,7 @@ def test_removed_refs_block_before_intent(tmp_path: Path) -> None:
         _rebase(tmp_path, target, expected_run_revision=2)
     assert exc_info.value.status_code == 409
     assert "current_scene_id" in str(exc_info.value)
-    assert _record_snapshot(get_play_run(tmp_path, RUN_ID_A)) == run_before
+    assert _record_snapshot(get_play_run(RUN_ID_A)) == run_before
     assert _manifest_snapshot(tmp_path) == manifest_before
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
@@ -392,7 +388,6 @@ def test_operator_clears_blocker_then_rebase_succeeds(tmp_path: Path) -> None:
     source = _create_committed_runbook(tmp_path)
     _seal(tmp_path, source)
     replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
@@ -401,7 +396,6 @@ def test_operator_clears_blocker_then_rebase_succeeds(tmp_path: Path) -> None:
     with pytest.raises(PlayRunRebaseError):
         _rebase(tmp_path, target, expected_run_revision=2)
     cleared = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=2,
         progress=PlayRunProgress(
@@ -423,7 +417,6 @@ def test_wrong_target_snapshot_is_409(tmp_path: Path) -> None:
     target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
     with pytest.raises(PlayRunRebaseError) as exc_info:
         rebase_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=1,
             target_playable_revision=_playable(target)[0],
@@ -439,7 +432,7 @@ def test_missing_source_manifest_empty_progress_is_allowed(tmp_path: Path) -> No
     target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
     rebased = _rebase(tmp_path, target, expected_run_revision=created.run_revision)
     assert rebased.run_revision == created.run_revision + 1
-    assert get_play_run_reference_manifest(tmp_path, RUN_ID_A).playable_revision == _playable(target)[0]
+    assert get_play_run_reference_manifest(RUN_ID_A).playable_revision == _playable(target)[0]
     assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
 
 
@@ -447,7 +440,6 @@ def test_missing_source_manifest_with_progress_is_409(tmp_path: Path) -> None:
     source = _create_committed_runbook(tmp_path)
     created = _create_run(tmp_path, source)
     progressed = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=created.run_revision,
         progress=_progress(),
@@ -461,8 +453,8 @@ def test_missing_source_manifest_with_progress_is_409(tmp_path: Path) -> None:
 
 def test_intent_write_failure_leaves_source_pair(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     created, source_manifest, target, real_replace = _rebase_failure_leaves_source(tmp_path, monkeypatch)
-    assert get_play_run(tmp_path, RUN_ID_A).run_revision == created.run_revision
-    assert get_play_run_reference_manifest(tmp_path, RUN_ID_A) == source_manifest
+    assert get_play_run(RUN_ID_A).run_revision == created.run_revision
+    assert get_play_run_reference_manifest(RUN_ID_A) == source_manifest
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
     monkeypatch.setattr("application_state.play.repository.replace_manifest", real_replace)
     recovered = _rebase(tmp_path, target, expected_run_revision=created.run_revision)
@@ -487,7 +479,7 @@ def test_completed_replay_proves_target_pair(tmp_path: Path) -> None:
     leftover.write_text("{}\n", encoding="utf-8")
     again = _rebase(tmp_path, target, expected_run_revision=1)
     assert again == first
-    assert get_play_run(tmp_path, RUN_ID_A) == first
+    assert get_play_run(RUN_ID_A) == first
     assert leftover.is_file()
 
 
@@ -499,7 +491,6 @@ def test_p2b2_can_select_target_only_id_after_rebase(tmp_path: Path) -> None:
     target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
     rebased = _rebase(tmp_path, target, expected_run_revision=1)
     updated = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=rebased.run_revision,
         progress=_progress(
@@ -521,7 +512,6 @@ def test_p2a_old_binding_conflicts_after_rebase(tmp_path: Path) -> None:
     _rebase(tmp_path, target, expected_run_revision=1)
     with pytest.raises(PlayRunRegistryError) as exc_info:
         create_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A,
             playable_artifact_id=created.playable_artifact_id,
             expected_playable_revision=_playable(source)[0],
@@ -529,7 +519,6 @@ def test_p2a_old_binding_conflicts_after_rebase(tmp_path: Path) -> None:
         )
     assert exc_info.value.status_code == 409
     replayed = create_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         playable_artifact_id=created.playable_artifact_id,
         expected_playable_revision=_playable(target)[0],
@@ -601,19 +590,18 @@ def test_each_progress_field_blocks_before_intent(
     source = _create_committed_runbook(tmp_path)
     _seal(tmp_path, source)
     replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=progress,
     )
-    run_before = _record_snapshot(get_play_run(tmp_path, RUN_ID_A))
+    run_before = _record_snapshot(get_play_run(RUN_ID_A))
     manifest_before = _manifest_snapshot(tmp_path)
     target = _advance(tmp_path, source, markdown)
     with pytest.raises(PlayRunRebaseError) as exc_info:
         _rebase(tmp_path, target, expected_run_revision=2)
     assert exc_info.value.status_code == 409
     assert needle in str(exc_info.value) or "current_scene_id" in str(exc_info.value) or "current_beat_id" in str(exc_info.value) or "resolved_beat_ids" in str(exc_info.value) or "selections" in str(exc_info.value) or "notes_by_element_id" in str(exc_info.value)
-    assert _record_snapshot(get_play_run(tmp_path, RUN_ID_A)) == run_before
+    assert _record_snapshot(get_play_run(RUN_ID_A)) == run_before
     assert _manifest_snapshot(tmp_path) == manifest_before
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
@@ -625,7 +613,7 @@ def test_malformed_target_markdown_is_409_before_intent(tmp_path: Path) -> None:
     with pytest.raises(PlayRunRebaseError) as exc_info:
         _rebase(tmp_path, target, expected_run_revision=created.run_revision)
     assert exc_info.value.status_code == 409
-    assert get_play_run(tmp_path, RUN_ID_A) == created
+    assert get_play_run(RUN_ID_A) == created
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
 
@@ -640,7 +628,6 @@ def test_progress_and_rebase_linearize_on_run_lock(tmp_path: Path) -> None:
         try:
             results.append(
                 replace_play_run_progress(
-                    tmp_path,
                     run_id=RUN_ID_A,
                     expected_run_revision=1,
                     progress=_progress(
@@ -672,7 +659,7 @@ def test_progress_and_rebase_linearize_on_run_lock(tmp_path: Path) -> None:
     assert len(results) == 1
     assert len(errors) == 1
     assert getattr(errors[0], "status_code", None) == 409
-    current = get_play_run(tmp_path, RUN_ID_A)
+    current = get_play_run(RUN_ID_A)
     assert current.run_revision == 2
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
@@ -690,8 +677,8 @@ def test_p2b1_replay_after_rebase_does_not_rewrite(tmp_path: Path) -> None:
     _seal(tmp_path, source)
     target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
     _rebase(tmp_path, target, expected_run_revision=1)
-    before = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
-    replayed = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    before = get_play_run_reference_manifest(RUN_ID_A)
+    replayed = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
     assert replayed == before
     assert replayed.playable_revision == _playable(target)[0]
 
@@ -708,7 +695,7 @@ def test_deleted_target_manifest_blocks_completed_replay(tmp_path: Path) -> None
     leftover.write_text("{}\n", encoding="utf-8")
     again = _rebase(tmp_path, target, expected_run_revision=1)
     assert again == first
-    assert get_play_run(tmp_path, RUN_ID_A) == first
+    assert get_play_run(RUN_ID_A) == first
     assert leftover.is_file()
 
 
@@ -719,7 +706,6 @@ def test_unsorted_persisted_resolved_beats_are_not_legitimized(
     source = _create_committed_runbook(tmp_path)
     _seal(tmp_path, source)
     replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(selections={}, notes_by_element_id={}),
@@ -763,7 +749,6 @@ def test_progress_mutation_is_not_completed_rebase_replay(tmp_path: Path) -> Non
     source = _create_committed_runbook(tmp_path, markdown=SURVIVING_TARGET_MARKDOWN)
     _seal(tmp_path, source)
     progressed = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(
@@ -776,14 +761,14 @@ def test_progress_mutation_is_not_completed_rebase_replay(tmp_path: Path) -> Non
     )
     assert progressed.run_revision == 2
     assert progressed.rebased_from_run_revision is None
-    run_before = get_play_run(tmp_path, RUN_ID_A)
+    run_before = get_play_run(RUN_ID_A)
     with pytest.raises(PlayRunRebaseError) as exc_info:
         _rebase(tmp_path, source, expected_run_revision=1)
     assert exc_info.value.status_code == 409
-    assert get_play_run(tmp_path, RUN_ID_A) == run_before
+    assert get_play_run(RUN_ID_A) == run_before
     noop = _rebase(tmp_path, source, expected_run_revision=2)
     assert noop.run_revision == 2
-    assert get_play_run(tmp_path, RUN_ID_A) == noop
+    assert get_play_run(RUN_ID_A) == noop
 
 
 

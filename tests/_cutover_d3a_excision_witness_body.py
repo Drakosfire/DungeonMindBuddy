@@ -326,14 +326,17 @@ def _exercise_source_admission() -> None:
     )
     from dungeonmind.infrastructure.memory.repositories import InMemorySourceRepository
 
-    token = "sha256:" + ("ab" * 32)
+    from hashlib import sha256
+    body = b"Synthetic import-isolation source body"
+    digest = sha256(body).hexdigest()
+    token = "sha256:" + digest
     artifact = SimpleNamespace(
         source_artifact_id="artifact:worldbuilding:a",
         source_domain="worldbuilding",
         campaign_id=CAMPAIGN_ID,
         session_id=None,
         uri="object://artifact:worldbuilding:a",
-        content_sha256="ab" * 32,
+        content_sha256=digest,
         artifact_kind="markdown",
         document_class="lore",
         authority_state="reviewed",
@@ -347,7 +350,8 @@ def _exercise_source_admission() -> None:
         updated_at=NOW,
     )
     adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
-        sources=InMemorySourceRepository()
+        sources=InMemorySourceRepository(), world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id="rev:synthetic")),
     )
     admitted = adapter.prove_or_admit(
         WorldGraphSourceAdmissionRequest(
@@ -355,6 +359,7 @@ def _exercise_source_admission() -> None:
             campaign_id=CAMPAIGN_ID,
             source_artifact=artifact,
             source_revision_token=token,
+            source_body=body, expected_head_revision_id="rev:synthetic",
             source_uri="object://artifact:worldbuilding:a",
         )
     )

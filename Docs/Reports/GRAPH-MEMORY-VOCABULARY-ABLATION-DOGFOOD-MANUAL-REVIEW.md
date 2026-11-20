@@ -22,13 +22,13 @@ Gold remains useful as a review key, but strict gold matching is not the product
 
 - Metric report: `Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-EXPANDED-BEDS.md`
 - Prompt review: `Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-PROMPT-REVIEW.md`
-- Manual review bundle: `evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/baseline_vs_edge_and_node_manual_review.json`
-- Manual review summary: `evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/baseline_vs_edge_and_node_manual_review.md`
+- Manual review bundle: `evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/baseline_vs_edge_and_node_manual_review.json`
+- Manual review summary: `evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/baseline_vs_edge_and_node_manual_review.md`
 - Raw candidate graphs:
-  - `evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/c1s1-stonebridge_baseline_candidate_graph.json`
-  - `evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/c1s1-stonebridge_edge_and_node_packet_candidate_graph.json`
-  - `evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/mirathorn-city_baseline_candidate_graph.json`
-  - `evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/mirathorn-city_edge_and_node_packet_candidate_graph.json`
+  - `evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/c1s1-stonebridge_baseline_candidate_graph.json`
+  - `evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/c1s1-stonebridge_edge_and_node_packet_candidate_graph.json`
+  - `evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/mirathorn-city_baseline_candidate_graph.json`
+  - `evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/mirathorn-city_edge_and_node_packet_candidate_graph.json`
 
 The primary qualitative comparison below focuses on `baseline` vs `edge_and_node_packet`, because that is the clearest before/after version of "no vocabulary" vs "node and edge vocabulary injected."
 
@@ -80,7 +80,7 @@ Diagnostics now show `session_graph_context_warnings: []` and `inserted_party_an
 
 ## 4. C1S1 Stonebridge Review (Corrected Party-Context Rerun)
 
-Artifacts: `evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/c1s1-stonebridge_baseline_candidate_graph.json` and `..._edge_and_node_packet_candidate_graph.json` (generated 2026-06-30T20:19:17Z).
+Artifacts: `evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/c1s1-stonebridge_baseline_candidate_graph.json` and `..._edge_and_node_packet_candidate_graph.json` (generated 2026-06-30T20:19:17Z).
 
 ### 4.1 Baseline Strengths
 

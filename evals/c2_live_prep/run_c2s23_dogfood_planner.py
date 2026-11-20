@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.agent.corpus_path_tools import read_paths_from_tool_trace  # noqa: E402
+from corpus.tool_trace import read_paths_from_tool_trace  # noqa: E402
 from src.agent.planner import (  # noqa: E402
     _planner_tools_responses,
     _resolve_planner_model,
@@ -39,7 +39,7 @@ from src.agent.planner import (  # noqa: E402
 )
 from src.agent.planner_cache import load_or_build_planner_instructions  # noqa: E402
 from src.agent.synthesis import _load_api_key  # noqa: E402
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
+from bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 
 SEED_PATH = ROOT / "evals/c2_live_prep/benchmarks/c2s23_dogfood_questions.seed.json"
 DEFAULT_CORPUS = ROOT / "corpus/eldyrwild-markdown"
@@ -223,6 +223,7 @@ def main() -> int:
         help="Comma-separated sessions to merge into planner session-memory JSONL (empty to disable)",
     )
     parser.add_argument("--cache-root", type=Path, default=None)
+    parser.add_argument("--no-update-latest", action="store_true", help="Leave checkout-local latest artifacts untouched.")
     args = parser.parse_args()
 
     load_dungeonmindbuddy_dotenv()
@@ -322,7 +323,7 @@ def main() -> int:
         "source_sessions": seed.get("source_sessions"),
         "model_id": model_id,
         "corpus_fingerprint": corpus_fp,
-        "session_memory_jsonl": str(sm_path.relative_to(ROOT)) if sm_path else None,
+        "session_memory_jsonl": str(sm_path.relative_to(ROOT) if sm_path.is_relative_to(ROOT) else sm_path) if sm_path else None,
         "question_count": len(rows),
         "aggregate": {
             "cost_usd": {
@@ -349,9 +350,10 @@ def main() -> int:
 
     summary_path = out_dir / "c2s23_dogfood_planner_summary.json"
     summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
-    last_mirror = ROOT / "evals/c2_live_prep/artifacts/last_c2s23_dogfood_planner_summary.json"
-    last_mirror.parent.mkdir(parents=True, exist_ok=True)
-    last_mirror.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    if not args.no_update_latest:
+        last_mirror = ROOT / "evals/c2_live_prep/artifacts/last_c2s23_dogfood_planner_summary.json"
+        last_mirror.parent.mkdir(parents=True, exist_ok=True)
+        last_mirror.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
 
     md_lines = [
         "# C2S23 dogfood — planner run",
@@ -383,10 +385,11 @@ def main() -> int:
 
     report_md = out_dir / "c2s23_dogfood_planner_report.md"
     report_md.write_text("\n".join(md_lines), encoding="utf-8")
-    last_md = ROOT / "evals/c2_live_prep/artifacts/last_c2s23_dogfood_planner_report.md"
-    last_md.write_text("\n".join(md_lines), encoding="utf-8")
+    if not args.no_update_latest:
+        last_md = ROOT / "evals/c2_live_prep/artifacts/last_c2s23_dogfood_planner_report.md"
+        last_md.write_text("\n".join(md_lines), encoding="utf-8")
 
-    print(json.dumps({"ok": True, "output_dir": str(out_dir.relative_to(ROOT)), "summary": summary_path.name}, indent=2))
+    print(json.dumps({"ok": True, "output_dir": str(out_dir.relative_to(ROOT) if out_dir.is_relative_to(ROOT) else out_dir), "summary": summary_path.name}, indent=2))
     return 0
 
 

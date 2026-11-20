@@ -1,507 +1,78 @@
-from __future__ import annotations
-
-import shutil
-from pathlib import Path
+"""Retired file forms refuse before storage, lookup or extraction."""
 
 import pytest
-from fastapi.testclient import TestClient
 
-from apps.live_control_server.config import SESSION_DIR_ENV
-from apps.live_control_server.main import create_app
-
-ROOT = Path(__file__).resolve().parents[1]
-SEED_SESSION = ROOT / "evals/c2_live_prep/live/session_22"
-CORPUS_ENV = "DUNGEONMIND_RECAP_INGEST_CORPUS_ROOT"
+from apps.live_control_server.routes import recap_ingest as route
+from tests.test_live_recap_ingest_graph_preview_api import client_env as client_env
+from tests.test_live_recap_ingest_graph_preview_api import process_body
 
 
-def _seed_corpus(tmp_path: Path) -> Path:
-    corpus = tmp_path / "corpus/eldyrwild-markdown"
-    campaign = corpus / "Longmont Campaign/Campaign 2"
-    (campaign / "_ingest_staging").mkdir(parents=True, exist_ok=True)
-    (campaign / "Session Recaps").mkdir(parents=True, exist_ok=True)
-    return corpus
-
-
-@pytest.fixture
-def isolated_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    for name in ("live_packet.json", "surface_layout.json", "current_state.json"):
-        shutil.copy2(SEED_SESSION / name, tmp_path / name)
-    (tmp_path / "event_log.jsonl").write_text("", encoding="utf-8")
-    (tmp_path / "job_queue.jsonl").write_text("", encoding="utf-8")
-    monkeypatch.setenv(SESSION_DIR_ENV, str(tmp_path))
-    corpus = _seed_corpus(tmp_path)
-    monkeypatch.setenv(CORPUS_ENV, str(corpus))
-    return tmp_path
-
-
-@pytest.fixture
-def client(isolated_session: Path) -> TestClient:
-    return TestClient(create_app())
-
-
-def _raw_text() -> str:
-    return (
-        "Session 22 Recap\n\n"
-        "The group turns their focus toward the Reach road.\n\n"
-        "After another failed attempt to contact Mirathorn, Caeylynn keeps watch."
-    )
-
-
-def test_stage_preview_accepts_raw_text_and_returns_status_schema(client: TestClient, isolated_session: Path) -> None:
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "stage_preview",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "raw_text": _raw_text(),
-            "slug": "Mireward Road and Lysandro",
-        },
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["schema"] == "dmb_raw_recap_ingest_status_v1"
-    assert body["campaign_id"] == "longmont-c2"
-    assert "recap_preview_created" in body["states"]
-    assert body["authority"]["canonical_recap"] == "canon_play"
-    assert isinstance(body["entity_spelling_audit"], list)
-
-
-def test_stage_preview_stages_and_previews_only(client: TestClient, isolated_session: Path) -> None:
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "stage_preview",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "raw_text": _raw_text(),
-            "slug": "Mireward Road and Lysandro",
-        },
-    )
-    assert response.status_code == 200
-    body = response.json()
-    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
-    staged = corpus / str(body["paths"]["staged_raw_notes"])
-    canonical = corpus / str(body["paths"]["canonical_recap"])
-    assert staged.is_file()
-    assert not canonical.exists()
-
-
-def test_stage_preview_reuses_existing_staged_notes_as_review_gate(
-    client: TestClient, isolated_session: Path
-) -> None:
-    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
-    staged = corpus / "Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md"
-    staged.write_text("Existing staged notes are the review source.", encoding="utf-8")
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "stage_preview",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "raw_text": "Different pasted notes should not overwrite without force.",
-            "slug": "Mireward Road and Lysandro",
-        },
-    )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "breadcrumb_required"
-    assert "staged_raw_notes_reused" in body["states"]
-    assert "staged_raw_notes_conflict" in body["states"]
-    assert "recap_preview_created" in body["states"]
-    assert "staged raw notes already exists; pasted raw text was not used" in body["warnings"]
-    assert staged.read_text(encoding="utf-8") == "Existing staged notes are the review source."
-    assert (
-        "Review the preview generated from the existing staged notes, "
-        "or enable --force-stage to overwrite them with the pasted text."
-    ) in body["next_actions"]
-
-
-def test_stage_preview_rejects_empty_raw_text(client: TestClient) -> None:
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "stage_preview",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "raw_text": "   ",
-            "slug": "Mireward Road and Lysandro",
-        },
-    )
-    assert response.status_code == 422
-
-
-def test_stage_preview_rejects_raw_path_input(client: TestClient) -> None:
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "stage_preview",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "raw_text": _raw_text(),
-            "raw_path": "/tmp/notes.md",
-            "slug": "Mireward Road and Lysandro",
-        },
-    )
-    assert response.status_code == 422
-
-
-def test_apply_normalize_requires_non_generic_slug_or_title(client: TestClient) -> None:
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "apply_normalize",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "slug": "Recap",
-        },
-    )
-    assert response.status_code == 422
-
-
-def test_apply_normalize_rejects_tool_shaped_ingest_slug(client: TestClient) -> None:
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "apply_normalize",
-            "campaign_id": "longmont-c2",
-            "session": 23,
-            "slug": "ingest",
-        },
-    )
-    assert response.status_code == 422
-    assert "non-generic slug or title" in response.json()["detail"]
-
-    response_with_title = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "apply_normalize",
-            "campaign_id": "longmont-c2",
-            "session": 23,
-            "slug": "ingest",
-            "title": "Session 23 - Mireward Gate Battle",
-        },
-    )
-    assert response_with_title.status_code == 422
-    assert "non-generic slug or title" in response_with_title.json()["detail"]
-
-
-def test_apply_normalize_reuses_staged_raw_and_returns_breadcrumb_required(
-    client: TestClient, isolated_session: Path
-) -> None:
-    stage = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "stage_preview",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "raw_text": _raw_text(),
-            "slug": "Mireward Road and Lysandro",
-        },
-    )
-    assert stage.status_code == 200
-    apply = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "apply_normalize",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "slug": "Mireward Road and Lysandro",
-        },
-    )
-    assert apply.status_code == 200
-    body = apply.json()
-    assert body["status"] == "breadcrumb_required"
-    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
-    canonical = corpus / str(body["paths"]["canonical_recap"])
-    assert canonical.exists()
-
-
-def test_materialize_session_memory_returns_breadcrumb_required_when_missing(
-    client: TestClient,
-) -> None:
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "materialize_session_memory",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "slug": "Mireward Road and Lysandro",
-            "check": True,
-        },
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "breadcrumb_required"
-    assert "session_memory_skipped" in body["states"]
-
-
-def test_build_frontmatter_seed_writes_reviewable_seed(
-    client: TestClient,
-    isolated_session: Path,
-) -> None:
-    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
-    normalized = corpus / (
-        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/"
-        "Session 22 - Mireward Road and Lysandro.md"
-    )
-    normalized.parent.mkdir(parents=True, exist_ok=True)
-    normalized.write_text(
-        "---\ntitle: Session 22 - Mireward Road and Lysandro\n---\nThe group travels.\n",
-        encoding="utf-8",
-    )
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "build_frontmatter_seed",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "slug": "Mireward Road and Lysandro",
-        },
-    )
-
-    assert response.status_code == 200
-    body = response.json()
-    seed = corpus / str(body["paths"]["frontmatter_seed"])
-    assert seed.is_file()
-    assert "frontmatter_seed_built" in body["states"]
-    assert "frontmatter_seed_found" in body["states"]
-    assert "breadcrumb_required" in body["states"]
-
-
-def test_run_breadcrumb_ingest_writes_artifact_without_materializing(
-    client: TestClient,
-    isolated_session: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
-    normalized = corpus / (
-        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/"
-        "Session 22 - Mireward Road and Lysandro.md"
-    )
-    seed = corpus / (
-        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/"
-        "Session 22 - Mireward Road and Lysandro.frontmatter_seed.md"
-    )
-    normalized.parent.mkdir(parents=True, exist_ok=True)
-    normalized.write_text(
-        "---\ntitle: Session 22 - Mireward Road and Lysandro\n---\nThe group travels.\n",
-        encoding="utf-8",
-    )
-    seed.parent.mkdir(parents=True, exist_ok=True)
-    seed.write_text(
-        '---\nsource_recap_path: "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"\nroute: "Longmont Campaign/Campaign 2/PCs/caelynn/"\n---\n',
-        encoding="utf-8",
-    )
-
-    def _fake_run_breadcrumb(**kwargs: object) -> dict[str, object]:
-        out_path = kwargs["out_path"]
-        assert isinstance(out_path, Path)
-        out_path.write_text("---\n---\nBreadcrumbed", encoding="utf-8")
-        return {"artifact_path": str(out_path), "cost_usd": 0.0}
-
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"operation": "inspect_status"},
+        {"operation":"materialize_preview_supergraph"},
+        {"materialize_after_extract":True},
+        {"materialize_after_extract":False},
+        {"candidate_graph_path":"out/manual.json"},
+        {"operation":"inspect_graph_preview"},
+        {"operation": "reconcile_normalized_recap"},
+        {"operation": "build_graph_preview_bundle"},
+        {"raw_text": " "},
+        {"include_graph_extraction": False},
+        {"managed_world_id": None},
+        {"session": 0},
+        {"session":True},
+        {"session":8.5},
+        {"campaign_id": " "},
+        {"slug": "old filename"},
+        {"title": "old canonical title"},
+        {"force_stage": True},
+        {"force_recap": True},
+        {"keep_basename": "old.md"},
+        {"extract_graph": True},
+    ],
+)
+def test_invalid_or_retired_process_forms_stop_before_owner(
+    client_env, monkeypatch, change
+):
+    client, _ = client_env
     monkeypatch.setattr(
-        "apps.live_control_server.routes.recap_ingest._run_routing_only_breadcrumb",
-        _fake_run_breadcrumb,
+        route, "extract_recap", lambda **_: pytest.fail("source/provider reached")
     )
+    reply = client.post("/api/live/recap-ingest", json=process_body(**change))
+    assert reply.status_code == 422, reply.text
 
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "run_breadcrumb_ingest",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "slug": "Mireward Road and Lysandro",
+
+def test_missing_local_gm_stops_before_source_owner(client_env, monkeypatch):
+    client, _ = client_env
+    client.headers.pop("Authorization")
+    monkeypatch.setattr(
+        route, "extract_recap", lambda **_: pytest.fail("source/provider reached")
+    )
+    reply = client.post("/api/live/recap-ingest", json=process_body())
+    assert reply.status_code in {401, 403}, reply.text
+
+
+def test_hosted_resolver_does_not_admit_raw_process(client_env):
+    import asyncio
+    import json
+
+    from starlette.requests import Request
+
+    payload = json.dumps(process_body()).encode()
+
+    async def receive():
+        return {"type": "http.request", "body": payload, "more_body": False}
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/live/recap-ingest",
+            "headers": [],
         },
+        receive,
     )
-
-    assert response.status_code == 200
-    body = response.json()
-    breadcrumb = corpus / str(body["paths"]["breadcrumbed_recap"])
-    assert breadcrumb.is_file()
-    assert "breadcrumb_ingest_ran" in body["states"]
-    assert "breadcrumb_found" in body["states"]
-    assert "session_memory_materialized" not in body["states"]
-
-
-def test_api_never_writes_live_workspace_files(client: TestClient, isolated_session: Path) -> None:
-    watched = {
-        name: (isolated_session / name).read_bytes()
-        for name in ("live_packet.json", "event_log.jsonl", "job_queue.jsonl", "current_state.json")
-    }
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "stage_preview",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "raw_text": _raw_text(),
-            "slug": "Mireward Road and Lysandro",
-        },
-    )
-    assert response.status_code == 200
-    for name, value in watched.items():
-        assert (isolated_session / name).read_bytes() == value
-
-
-def test_api_never_writes_embedding_or_retrieval_indexes(client: TestClient, isolated_session: Path) -> None:
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "stage_preview",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "raw_text": _raw_text(),
-            "slug": "Mireward Road and Lysandro",
-        },
-    )
-    assert response.status_code == 200
-    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
-    for file in corpus.rglob("*"):
-        if not file.is_file():
-            continue
-        assert "embedding" not in file.name.lower()
-        assert file.suffix not in {".faiss", ".npy"}
-
-
-def test_invalid_operation_rejected(client: TestClient) -> None:
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "not_valid",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "slug": "Mireward Road and Lysandro",
-        },
-    )
-    assert response.status_code == 422
-
-
-def _seed_duplicate_normalized(corpus: Path) -> tuple[Path, Path]:
-    norm_dir = corpus / "Longmont Campaign/Campaign 2/Session Recaps/_normalized"
-    norm_dir.mkdir(parents=True, exist_ok=True)
-    canonical = norm_dir / "Session 23 - Mireward Gate Battle.md"
-    generic = norm_dir / "Session 23 - ingest.md"
-    canonical.write_text(
-        "---\ntitle: Session 23 - Mireward Gate Battle\n---\nThe gate battle.\n",
-        encoding="utf-8",
-    )
-    generic.write_text(
-        "---\ntitle: Session 23 - ingest\n---\nTool-shaped duplicate.\n",
-        encoding="utf-8",
-    )
-    return canonical, generic
-
-
-def test_inspect_status_flags_duplicate_normalized_recaps(
-    client: TestClient, isolated_session: Path
-) -> None:
-    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
-    _seed_duplicate_normalized(corpus)
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={"operation": "inspect_status", "campaign_id": "longmont-c2", "session": 23},
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] != "needs_reconciliation"
-    assert "normalized_recap_duplicates" in body["states"]
-    candidates = body["ingest_report"]["normalized_recap_candidates"]
-    assert {row["basename"] for row in candidates} == {
-        "Session 23 - Mireward Gate Battle",
-        "Session 23 - ingest",
-    }
-    recommended = [row for row in candidates if row["recommended"]]
-    assert len(recommended) == 1
-    assert recommended[0]["basename"] == "Session 23 - Mireward Gate Battle"
-    generic_row = next(row for row in candidates if row["basename"] == "Session 23 - ingest")
-    assert generic_row["is_generic"] is True
-
-
-def test_reconcile_normalized_recap_archives_rejected_duplicate(
-    client: TestClient, isolated_session: Path
-) -> None:
-    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
-    canonical, generic = _seed_duplicate_normalized(corpus)
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "reconcile_normalized_recap",
-            "campaign_id": "longmont-c2",
-            "session": 23,
-            "keep_basename": "Session 23 - Mireward Gate Battle",
-        },
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert "normalized_recap_reconciled" in body["states"]
-    assert "normalized_recap_duplicates" not in body["states"]
-    assert canonical.is_file()
-    assert not generic.exists()
-    archive_dir = generic.parent / "_archive"
-    archived = list(archive_dir.glob("Session 23 - ingest__*.md"))
-    assert len(archived) == 1
-    assert body["ingest_report"]["reconciled_kept_basename"] == "Session 23 - Mireward Gate Battle"
-
-
-def test_reconcile_rejects_generic_keep_basename(
-    client: TestClient, isolated_session: Path
-) -> None:
-    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
-    _seed_duplicate_normalized(corpus)
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "reconcile_normalized_recap",
-            "campaign_id": "longmont-c2",
-            "session": 23,
-            "keep_basename": "Session 23 - ingest",
-        },
-    )
-    assert response.status_code == 422
-    assert "generic" in response.json()["detail"]
-
-
-def test_reconcile_requires_more_than_one_candidate(
-    client: TestClient, isolated_session: Path
-) -> None:
-    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
-    norm_dir = corpus / "Longmont Campaign/Campaign 2/Session Recaps/_normalized"
-    norm_dir.mkdir(parents=True, exist_ok=True)
-    (norm_dir / "Session 23 - Mireward Gate Battle.md").write_text("solo", encoding="utf-8")
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "reconcile_normalized_recap",
-            "campaign_id": "longmont-c2",
-            "session": 23,
-            "keep_basename": "Session 23 - Mireward Gate Battle",
-        },
-    )
-    assert response.status_code == 422
-
-
-def test_inspect_status_is_read_only_and_reports_disk(client: TestClient, isolated_session: Path) -> None:
-    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
-    recap = corpus / "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
-    recap.parent.mkdir(parents=True, exist_ok=True)
-    recap.write_text("canonical on disk", encoding="utf-8")
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "inspect_status",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "slug": "Mireward Road and Lysandro",
-        },
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["schema"] == "dmb_raw_recap_ingest_status_v1"
-    assert "ingest_status_inspected" in body["states"]
-    assert "recap_reused" in body["states"]
-    assert "corpus_impact" in body["ingest_report"]
-    assert recap.read_text(encoding="utf-8") == "canonical on disk"
+    with pytest.raises(ValueError, match="outside source admission"):
+        asyncio.run(route.resolve_native_recap_hosted_world(request))

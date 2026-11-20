@@ -4,12 +4,16 @@ from __future__ import annotations
 import json
 import os
 import re
+from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal, Mapping
+from typing import Any, Callable, Literal, Mapping, NamedTuple
 
+from graph_memory.projection.markdown_mentions import markdown_protected_ranges
+import yaml
 from pydantic import BaseModel, Field
 
 from apps.live_control_server.config import repo_root
+from apps.live_control_server.services.corpus_normalized_recap import frontmatter_end_line
 from apps.live_control_server.services.recap_artifacts import (
     GraphRunRef,
     RecapArtifactRecord,
@@ -17,7 +21,7 @@ from apps.live_control_server.services.recap_artifacts import (
     ensure_recap_artifacts_registry,
     resolve_recap_artifact_record,
 )
-from src.graph_memory.anchor_quotes import (
+from graph_memory.anchor_quotes import (
     anchor_quote_matches_to_dicts,
     coerce_anchor_quotes,
     find_anchor_quote_matches,
@@ -118,12 +122,6 @@ class GraphPreviewSurfaceResponse(BaseModel):
     candidates: list[GraphPreviewCandidateRow] = Field(default_factory=list)
 
 
-class GraphPreviewRunsResponse(BaseModel):
-    schema_version: Literal["dmb_graph_preview_surface_v1"] = GRAPH_PREVIEW_SURFACE_SCHEMA
-    version: str = GRAPH_PREVIEW_SURFACE_VERSION
-    runs: list[GraphPreviewRunSummary] = Field(default_factory=list)
-
-
 class RecapGraphChip(BaseModel):
     label: str
     tone: Literal["new", "recurring", "evidence", "warning", "neutral"] = "neutral"
@@ -174,10 +172,15 @@ def artifacts_root(root: Path) -> Path:
     return root / DEFAULT_ARTIFACTS_REL
 
 
-def _paragraph_text_for_span(recap_text: str, span: Mapping[str, Any]) -> str:
-    lines = recap_text.splitlines()
-    start = int(span.get("line_start") or span.get("start_line") or 0)
-    end = int(span.get("line_end") or span.get("end_line") or 0)
+def _span_line_bounds(span: Mapping[str, Any]) -> tuple[int, int]:
+    return (
+        int(span.get("line_start") or span.get("start_line") or 0),
+        int(span.get("line_end") or span.get("end_line") or 0),
+    )
+
+
+def _paragraph_text_for_span(lines: list[str], span: Mapping[str, Any]) -> str:
+    start, end = _span_line_bounds(span)
     if start < 1 or end < start:
         return ""
     return "\n".join(lines[start - 1 : end])
@@ -320,26 +323,25 @@ def discover_graph_preview_runs(
     return deduped
 
 
-def _graph_from_run_dir(root: Path, run_dir: str) -> dict[str, Any] | None:
-    try:
-        resolved = _resolve_run_dir(root, run_dir)
-    except GraphPreviewSurfaceError:
-        return None
+class _LoadedRun(NamedTuple):
+    path: Path
+    validation: dict[str, Any]
+    graph: dict[str, Any] | None
+
+
+def _load_run_graph(resolved: Path) -> tuple[dict[str, Any], dict[str, Any] | None]:
     validation_path = resolved / "validation_report.json"
     candidate_path = resolved / "candidate_output.json"
-    if validation_path.is_file():
-        validation = _load_json(validation_path)
-        if validation.get("reconciled_candidate_graph"):
-            return dict(validation["reconciled_candidate_graph"])
+    validation = _load_json(validation_path) if validation_path.is_file() else {}
+    if validation.get("reconciled_candidate_graph"):
+        return validation, dict(validation["reconciled_candidate_graph"])
     if candidate_path.is_file():
         envelope = _load_json(candidate_path)
-        return dict(envelope.get("candidate_graph") or envelope)
-    return None
+        return validation, dict(envelope.get("candidate_graph") or envelope)
+    return validation, None
 
 
-def _run_has_resolvable_evidence(root: Path, run_dir: str) -> bool:
-    """Cheap probe: does any evidence ref carry a source_span_ref_id we can locate?"""
-    graph = _graph_from_run_dir(root, run_dir)
+def _has_evidence_ids(graph: dict[str, Any] | None) -> bool:
     if graph is None:
         return False
     for section in ("nodes", "edges", "beats", "ignored_items", "deferred_items"):
@@ -352,18 +354,32 @@ def _run_has_resolvable_evidence(root: Path, run_dir: str) -> bool:
     return False
 
 
-def _pick_latest_run(root: Path, runs: list[GraphPreviewRunSummary]) -> GraphPreviewRunSummary | None:
-    if not runs:
-        return None
-    # Prefer runs whose evidence can actually be located in the source (spref-backed),
-    # so the source-highlight panel has something to render. Among resolvable runs,
-    # prefer canonical-IR-valid; otherwise fall back to IR-valid, then most recent.
-    resolvable = [r for r in runs if _run_has_resolvable_evidence(root, r.run_dir)]
-    if resolvable:
-        valid_resolvable = [r for r in resolvable if r.canonical_ir_valid]
-        return (valid_resolvable or resolvable)[-1]
-    valid = [r for r in runs if r.canonical_ir_valid]
-    return (valid or runs)[-1]
+def _pick_latest_run(
+    root: Path, runs: list[GraphPreviewRunSummary],
+) -> tuple[GraphPreviewRunSummary, _LoadedRun | None] | None:
+    newest_canonical = None
+    newest_with_evidence = None
+    newest = None
+    # Retain only payloads that can still win.
+    for run in reversed(runs):
+        if not run.canonical_ir_valid and newest_with_evidence is not None:
+            continue
+        try:
+            resolved = _resolve_run_dir(root, run.run_dir)
+        except GraphPreviewSurfaceError:
+            loaded = None
+        else:
+            loaded = _LoadedRun(resolved, *_load_run_graph(resolved))
+        candidate = (run, loaded)
+        if newest is None:
+            newest = candidate
+        if run.canonical_ir_valid and newest_canonical is None:
+            newest_canonical = candidate
+        if loaded is not None and _has_evidence_ids(loaded.graph):
+            if run.canonical_ir_valid:
+                return candidate
+            newest_with_evidence = candidate
+    return newest_with_evidence or newest_canonical or newest
 
 
 def _object_id(section: str, obj: Mapping[str, Any]) -> str:
@@ -386,6 +402,9 @@ def _object_kind(section: str, obj: Mapping[str, Any]) -> str:
 def _session_from_span_ref(span_ref_id: str | None) -> int | None:
     if not span_ref_id:
         return None
+    compact = re.match(r"spref:c[0-9]+s([0-9]+)(?:-recap)?(?=:|$)", span_ref_id)
+    if compact:
+        return int(compact.group(1))
     marker = "session-"
     if marker not in span_ref_id:
         return None
@@ -415,28 +434,20 @@ CANONICAL_LABEL_OVERRIDES = {
 
 
 def _strip_yaml_frontmatter_lines(lines: list[str]) -> list[str]:
-    if not lines or lines[0].strip() != "---":
-        return lines
-    for index in range(1, len(lines)):
-        if lines[index].strip() == "---":
-            return lines[index + 1 :]
-    return lines
+    end = frontmatter_end_line(lines)
+    return lines if end is None else lines[end + 1 :]
 
 
 def _frontmatter_text(markdown: str) -> str:
     lines = markdown.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return ""
-    for index in range(1, len(lines)):
-        if lines[index].strip() == "---":
-            return "\n".join(lines[1:index])
-    return ""
+    end = frontmatter_end_line(lines)
+    return "" if end is None else "\n".join(lines[1:end])
 
 
 def _session_from_recap_path(path: str | None) -> int | None:
     if not path:
         return None
-    match = re.search(r"Session\s+(\d+)", path)
+    match = re.search(r"Session\s+(\d+)", Path(path).name)
     return int(match.group(1)) if match else None
 
 
@@ -451,17 +462,6 @@ def _label_from_slug(slug: str) -> str:
     if slug in CANONICAL_LABEL_OVERRIDES:
         return CANONICAL_LABEL_OVERRIDES[slug]
     return " ".join(part.capitalize() for part in slug.split("_") if part)
-
-
-def _clean_seed_value(value: str) -> str:
-    return value.strip().strip("'\"")
-
-
-def _parse_inline_aliases(value: str) -> list[str]:
-    raw = value.strip()
-    if not raw.startswith("[") or not raw.endswith("]"):
-        return []
-    return [_clean_seed_value(part) for part in raw[1:-1].split(",") if _clean_seed_value(part)]
 
 
 def _candidate_aliases(label: str, slug: str | None = None, extra_aliases: list[str] | None = None) -> list[str]:
@@ -479,56 +479,32 @@ def _candidate_aliases(label: str, slug: str | None = None, extra_aliases: list[
 
 
 def _parse_seed_entities(seed_markdown: str) -> list[dict[str, Any]]:
-    frontmatter = _frontmatter_text(seed_markdown)
+    try:
+        metadata = yaml.safe_load(_frontmatter_text(seed_markdown))
+    except yaml.YAMLError as exc:
+        raise GraphPreviewSurfaceError("invalid recap seed frontmatter") from exc
+    index = metadata.get("entity_index") if isinstance(metadata, Mapping) else None
+    if not isinstance(index, Mapping):
+        return []
+
     entities: list[dict[str, Any]] = []
-    current_section: str | None = None
-    current: dict[str, Any] | None = None
-    collecting_aliases = False
-
-    def flush() -> None:
-        nonlocal current
-        if current and current.get("slug"):
-            entities.append(current)
-        current = None
-
-    for raw_line in frontmatter.splitlines():
-        stripped = raw_line.strip()
-        if not stripped:
+    for section, rows in index.items():
+        if not isinstance(rows, list):
             continue
-        if raw_line.startswith("  ") and not raw_line.startswith("    ") and stripped.endswith(":"):
-            current_section = stripped[:-1]
-            collecting_aliases = False
-            continue
-        if stripped.startswith("- slug:"):
-            flush()
-            slug = _clean_seed_value(stripped.split(":", 1)[1])
-            role = ENTITY_SECTION_ROLES.get(current_section or "", "node")
-            current = {"slug": slug, "role": role, "aliases": []}
-            collecting_aliases = False
-            continue
-        if current is None:
-            continue
-        if stripped.startswith("route:"):
-            current["route"] = _clean_seed_value(stripped.split(":", 1)[1])
-            collecting_aliases = False
-            continue
-        if stripped.startswith("proposed_route:"):
-            current["route"] = _clean_seed_value(stripped.split(":", 1)[1])
-            collecting_aliases = False
-            continue
-        if stripped.startswith("subject_type:"):
-            current["role"] = _clean_seed_value(stripped.split(":", 1)[1])
-            collecting_aliases = False
-            continue
-        if stripped.startswith("aliases_in_recap:"):
-            current["aliases"].extend(_parse_inline_aliases(stripped.split(":", 1)[1]))
-            collecting_aliases = True
-            continue
-        if collecting_aliases and stripped.startswith("- "):
-            current["aliases"].append(_clean_seed_value(stripped[2:]))
-            continue
-        collecting_aliases = False
-    flush()
+        for row in rows:
+            if not isinstance(row, Mapping) or not isinstance(row.get("slug"), str) or not row["slug"].strip():
+                continue
+            aliases = row.get("aliases_in_recap")
+            entity = {
+                "slug": row["slug"].strip(),
+                "role": row.get("subject_type", ENTITY_SECTION_ROLES.get(section, "node")),
+                "aliases": [alias.strip() for alias in aliases if isinstance(alias, str) and alias.strip()]
+                if isinstance(aliases, list) else [],
+            }
+            for key, value in row.items():
+                if key in ("route", "proposed_route"):
+                    entity["route"] = value
+            entities.append(entity)
     return entities
 
 
@@ -574,89 +550,99 @@ def _levenshtein_at_most_two(left: str, right: str) -> bool:
     right = right.lower()
     if abs(len(left) - len(right)) > 2:
         return False
-    previous = list(range(len(right) + 1))
-    for i, left_char in enumerate(left, 1):
-        current = [i]
-        row_min = i
-        for j, right_char in enumerate(right, 1):
-            value = min(
-                previous[j] + 1,
-                current[j - 1] + 1,
-                previous[j - 1] + (left_char != right_char),
+    previous = {column: column for column in range(min(2, len(right)) + 1)}
+    for row, left_char in enumerate(left, 1):
+        # Outside this band, the prefix length difference alone exceeds two edits.
+        current = {0: row} if row <= 2 else {}
+        for column in range(max(1, row - 2), min(len(right), row + 2) + 1):
+            current[column] = min(
+                previous.get(column, 3) + 1,
+                current.get(column - 1, 3) + 1,
+                previous.get(column - 1, 3) + (left_char != right[column - 1]),
             )
-            current.append(value)
-            row_min = min(row_min, value)
-        if row_min > 2:
+        if min(current.values()) > 2:
             return False
         previous = current
-    return previous[-1] <= 2
+    return previous[len(right)] <= 2
+
+
+def _prepare_node_matchers(
+    nodes: Mapping[str, RecapGraphNode], aliases_by_node: Mapping[str, list[str]],
+) -> list[tuple[RecapGraphNode, list[re.Pattern[str]], list[str]]]:
+    matchers = []
+    for object_id, aliases in aliases_by_node.items():
+        node = nodes.get(object_id)
+        if not node:
+            continue
+        exact = [
+            re.compile(rf"(?<![\w]){re.escape(alias)}(?![\w])")
+            for alias in sorted(set(aliases), key=len, reverse=True)
+            if alias and alias[0].isupper()
+        ]
+        fuzzy = [
+            alias for alias in aliases if alias.isalpha() and len(alias) >= 5
+        ] if node.role in {"pc", "npc"} else []
+        matchers.append((node, exact, fuzzy))
+    return matchers
 
 
 def _span_links_for_nodes(
     paragraph: str,
     span_ref_id: str,
-    nodes: Mapping[str, RecapGraphNode],
-    aliases_by_node: Mapping[str, list[str]],
+    matchers: list[tuple[RecapGraphNode, list[re.Pattern[str]], list[str]]],
+    within_two_edits: Callable[[str, str], bool],
+    protected_ranges: list[tuple[int, int]],
 ) -> list[RecapGraphLink]:
-    link_candidates: list[tuple[int, int, int, RecapGraphLink]] = []
-    for object_id, aliases in aliases_by_node.items():
-        node = nodes.get(object_id)
-        if not node:
-            continue
-        for alias in sorted(set(aliases), key=len, reverse=True):
-            if not alias or not alias[0].isupper():
-                continue
-            for match in re.finditer(rf"(?<![\w]){re.escape(alias)}(?![\w])", paragraph):
+    link_candidates: list[tuple[int, int, int, RecapGraphNode]] = []
+    words = None
+    for node, exact, fuzzy_aliases in matchers:
+        for pattern in exact:
+            for match in pattern.finditer(paragraph):
                 link_candidates.append(
                     (
                         match.start(),
                         -(match.end() - match.start()),
                         0,
-                        RecapGraphLink(
-                            href=f"dmb-node:{object_id}",
-                            object_id=object_id,
-                            label=node.label,
-                            source_span_ref_id=span_ref_id,
-                            char_start=match.start(),
-                            char_end=match.end(),
-                            evidence_ref_ids=[f"mention:{object_id}:{span_ref_id}"],
-                        ),
+                        node,
                     )
                 )
-        if node.role not in {"pc", "npc"}:
+        if not fuzzy_aliases:
             continue
-        fuzzy_aliases = [alias for alias in aliases if alias.isalpha() and len(alias) >= 5 and " " not in alias]
-        for word_match in re.finditer(r"\b[A-Z][A-Za-z]{4,}\b", paragraph):
+        if words is None:
+            words = list(re.finditer(r"\b[A-Z][A-Za-z]{4,}\b", paragraph))
+        for word_match in words:
             word = word_match.group(0)
             for alias in fuzzy_aliases:
                 if word == alias or word[0].lower() != alias[0].lower():
                     continue
-                if _levenshtein_at_most_two(word, alias):
+                if within_two_edits(word, alias):
                     link_candidates.append(
                         (
                             word_match.start(),
                             -(word_match.end() - word_match.start()),
                             1,
-                            RecapGraphLink(
-                                href=f"dmb-node:{object_id}",
-                                object_id=object_id,
-                                label=node.label,
-                                source_span_ref_id=span_ref_id,
-                                char_start=word_match.start(),
-                                char_end=word_match.end(),
-                                evidence_ref_ids=[f"fuzzy-mention:{object_id}:{span_ref_id}"],
-                            ),
+                            node,
                         )
                     )
                     break
 
     links: list[RecapGraphLink] = []
     occupied_until = -1
-    for _, _, _, link in sorted(link_candidates, key=lambda item: item[:3]):
-        if link.char_start < occupied_until:
+    for start, negative_length, priority, node in sorted(link_candidates, key=lambda item: item[:3]):
+        end = start - negative_length
+        if start < occupied_until or any(start < stop and end > begin for begin, stop in protected_ranges):
             continue
-        links.append(link)
-        occupied_until = link.char_end
+        evidence_kind = "mention" if priority == 0 else "fuzzy-mention"
+        links.append(RecapGraphLink(
+            href=f"dmb-node:{node.object_id}",
+            object_id=node.object_id,
+            label=node.label,
+            source_span_ref_id=span_ref_id,
+            char_start=start,
+            char_end=end,
+            evidence_ref_ids=[f"{evidence_kind}:{node.object_id}:{span_ref_id}"],
+        ))
+        occupied_until = end
     return links
 
 
@@ -678,24 +664,6 @@ def _candidate_node_chips(candidate: GraphPreviewCandidateRow) -> list[RecapGrap
     if candidate.evidence_count:
         chips.append(RecapGraphChip(label=f"{candidate.evidence_count} evidence", tone="evidence"))
     return chips
-
-
-def _insert_markdown_node_links(
-    paragraph: str,
-    links: list[RecapGraphLink],
-) -> str:
-    ordered = sorted(links, key=lambda link: (link.char_start, -(link.char_end - link.char_start)))
-    chunks: list[str] = []
-    cursor = 0
-    for link in ordered:
-        if link.char_start < cursor or link.char_start >= link.char_end:
-            continue
-        chunks.append(paragraph[cursor : link.char_start])
-        label = _markdown_link_text(paragraph[link.char_start : link.char_end])
-        chunks.append(f"[{label}]({link.href})")
-        cursor = link.char_end
-    chunks.append(paragraph[cursor:])
-    return "".join(chunks)
 
 
 def _recap_graph_nodes_for_candidates(
@@ -727,7 +695,7 @@ def _enrich_evidence_ref(
     ref: Mapping[str, Any],
     *,
     span_lookup: Mapping[str, Mapping[str, Any]],
-    recap_text: str,
+    recap_lines: list[str],
     recap_path: str,
     entity_label: str | None,
 ) -> GraphPreviewEvidenceRef:
@@ -740,7 +708,7 @@ def _enrich_evidence_ref(
         span = span_lookup[spref]
         line_start = int(span.get("line_start") or span.get("start_line") or 0) or None
         line_end = int(span.get("line_end") or span.get("end_line") or 0) or None
-        paragraph = _paragraph_text_for_span(recap_text, span)
+        paragraph = _paragraph_text_for_span(recap_lines, span)
 
     anchor_quotes = coerce_anchor_quotes(ref.get("anchor_quotes"))
     raw_matches = list(ref.get("anchor_quote_matches") or [])
@@ -775,7 +743,7 @@ def _build_candidates(
     graph: Mapping[str, Any],
     *,
     span_lookup: Mapping[str, Mapping[str, Any]],
-    recap_text: str,
+    recap_lines: list[str],
     recap_path: str,
 ) -> list[GraphPreviewCandidateRow]:
     rows: list[GraphPreviewCandidateRow] = []
@@ -788,7 +756,7 @@ def _build_candidates(
                 _enrich_evidence_ref(
                     ref,
                     span_lookup=span_lookup,
-                    recap_text=recap_text,
+                    recap_lines=recap_lines,
                     recap_path=recap_path,
                     entity_label=label,
                 )
@@ -810,33 +778,9 @@ def _build_candidates(
     return rows
 
 
-def build_graph_preview_surface(
-    root: Path,
-    run_dir: str,
-    *,
-    run_bundle_dir: Path | None = None,
-    artifact_record: RecapArtifactRecord | None = None,
-) -> GraphPreviewSurfaceResponse:
-    resolved_run = _resolve_run_dir(root, run_dir)
-    rel_run_dir = resolved_run.relative_to(root.resolve()).as_posix()
-
-    validation_path = resolved_run / "validation_report.json"
-    run_summary_path = resolved_run / "run_summary.json"
-    candidate_path = resolved_run / "candidate_output.json"
-
-    validation = _load_json(validation_path) if validation_path.is_file() else {}
-    run_summary = _load_json(run_summary_path) if run_summary_path.is_file() else {}
-
-    graph: dict[str, Any] | None = None
-    if validation.get("reconciled_candidate_graph"):
-        graph = dict(validation["reconciled_candidate_graph"])
-    elif candidate_path.is_file():
-        envelope = _load_json(candidate_path)
-        graph = dict(envelope.get("candidate_graph") or envelope)
-
-    if graph is None:
-        raise GraphPreviewSurfaceError(f"no graph artifact in run_dir: {rel_run_dir}")
-
+def _prepare_preview_source(
+    root: Path, run_bundle_dir: Path | None, artifact_record: RecapArtifactRecord | None,
+) -> tuple[Path, dict[str, Mapping[str, Any]], list[str], str]:
     bundle = run_bundle_dir
     if bundle is None and artifact_record is not None:
         bundle = root / artifact_record.run_bundle_uri
@@ -859,12 +803,31 @@ def build_graph_preview_surface(
         source_recap_path=artifact_record.source_recap_path if artifact_record else None,
     )
 
-    candidates = _build_candidates(
-        graph,
-        span_lookup=span_lookup,
-        recap_text=recap_text,
-        recap_path=recap_path,
-    )
+    return bundle, span_lookup, recap_text.splitlines(), recap_path
+
+
+def build_graph_preview_surface(
+    root: Path,
+    run_dir: str,
+    *,
+    run_bundle_dir: Path | None = None,
+    artifact_record: RecapArtifactRecord | None = None,
+    _loaded_run: _LoadedRun | None = None,
+) -> GraphPreviewSurfaceResponse:
+    if _loaded_run is None:
+        resolved_run = _resolve_run_dir(root, run_dir)
+        validation, graph = _load_run_graph(resolved_run)
+    else:
+        resolved_run, validation, graph = _loaded_run
+    rel_run_dir = resolved_run.relative_to(root.resolve()).as_posix()
+    run_summary_path = resolved_run / "run_summary.json"
+    run_summary = _load_json(run_summary_path) if run_summary_path.is_file() else {}
+
+    if graph is None:
+        raise GraphPreviewSurfaceError(f"no graph artifact in run_dir: {rel_run_dir}")
+
+    bundle, span_lookup, recap_lines, recap_path = _prepare_preview_source(root, run_bundle_dir, artifact_record)
+    candidates = _build_candidates(graph, span_lookup=span_lookup, recap_lines=recap_lines, recap_path=recap_path)
 
     evidence_ref_count = sum(len(c.evidence_refs) for c in candidates)
     resolvable = sum(
@@ -904,6 +867,7 @@ def build_graph_preview_surface(
     )
 
 
+
 def build_latest_graph_preview_surface(
     root: Path | None = None,
     *,
@@ -918,23 +882,26 @@ def build_latest_graph_preview_surface(
         campaign_id=campaign_id,
         session_id=session_id,
     )
-    runs = discover_graph_preview_runs(
-        base,
-        artifact_id=record.artifact_id,
-        campaign_id=record.campaign_id,
-        session_id=record.session_id,
-    )
+    loaded_run = None
     run_dir = record.default_graph_run_uri
     if not run_dir:
+        runs = discover_graph_preview_runs(
+            base,
+            artifact_id=record.artifact_id,
+            campaign_id=record.campaign_id,
+            session_id=record.session_id,
+        )
         picked = _pick_latest_run(base, runs)
         if picked is None:
             raise GraphPreviewSurfaceError("no graph preview runs discovered", status_code=404)
-        run_dir = picked.run_dir
+        run, loaded_run = picked
+        run_dir = run.run_dir
     return build_graph_preview_surface(
         base,
         run_dir,
         run_bundle_dir=base / record.run_bundle_uri,
         artifact_record=record,
+        _loaded_run=loaded_run,
     )
 
 
@@ -954,6 +921,7 @@ def build_recap_graph_presentation(
         session_id=session_id,
     )
     bundle = run_bundle_dir or (root / record.run_bundle_uri)
+    loaded_run = None
     selected_run = run_dir or record.default_graph_run_uri
     if not selected_run:
         runs = discover_graph_preview_runs(
@@ -977,51 +945,72 @@ def build_recap_graph_presentation(
                 nodes={},
                 links=[],
             )
-        selected_run = picked.run_dir
+        run, loaded_run = picked
+        selected_run = run.run_dir
 
-    surface = build_graph_preview_surface(
-        root,
-        selected_run,
-        run_bundle_dir=bundle,
-        artifact_record=record,
+    if loaded_run is None:
+        resolved_run = _resolve_run_dir(root, selected_run)
+        _, graph = _load_run_graph(resolved_run)
+    else:
+        resolved_run, _, graph = loaded_run
+    rel_run_dir = resolved_run.relative_to(root.resolve()).as_posix()
+    if graph is None:
+        raise GraphPreviewSurfaceError(f"no graph artifact in run_dir: {rel_run_dir}")
+    _, span_lookup, recap_lines, recap_path = _prepare_preview_source(root, bundle, record)
+    candidates = _build_candidates(
+        {"nodes": graph.get("nodes")}, span_lookup=span_lookup, recap_lines=recap_lines, recap_path=recap_path,
     )
-    span_index = _load_json(bundle / "source_span_index.json")
-    span_lookup = {
-        key: sp
-        for sp in span_index.get("spans", [])
-        if isinstance(sp, Mapping)
-        for key in [_span_lookup_key(sp)]
-        if key is not None
-    }
-    recap_text, _ = _recap_text_for_run_bundle(
-        root,
-        bundle,
-        source_recap_path=record.source_recap_path,
-    )
-    nodes, aliases_by_node = _recap_graph_nodes_for_candidates(surface.candidates)
-    seeded_nodes, seeded_aliases = _route_seed_nodes(root, surface.recap_source_path)
+    nodes, aliases_by_node = _recap_graph_nodes_for_candidates(candidates)
+    seeded_nodes, seeded_aliases = _route_seed_nodes(root, recap_path)
     for object_id, node in seeded_nodes.items():
         nodes.setdefault(object_id, node)
-        aliases_by_node.setdefault(object_id, seeded_aliases.get(object_id, [node.label]))
+        aliases = aliases_by_node.setdefault(object_id, [])
+        aliases.extend(alias for alias in seeded_aliases.get(object_id, [node.label]) if alias not in aliases)
 
-    lines = recap_text.splitlines()
+    source = "\n".join(recap_lines)
+    line_offsets = [0]
+    for line in recap_lines:
+        line_offsets.append(line_offsets[-1] + len(line) + 1)
+    fence_end = frontmatter_end_line(recap_lines)
+    body_start = 0 if fence_end is None else line_offsets[fence_end + 1]
+    protected_ranges = [(0, body_start)] if body_start else []
+    protected_ranges.extend(
+        (start + body_start, end + body_start)
+        for start, end in markdown_protected_ranges(source[body_start:])
+    )
+    edits: list[tuple[int, int, RecapGraphLink]] = []
+    matchers = _prepare_node_matchers(nodes, aliases_by_node)
+    within_two_edits = lru_cache(maxsize=4096)(_levenshtein_at_most_two)
     all_links: list[RecapGraphLink] = []
     for span_ref_id, span in span_lookup.items():
-        paragraph = _paragraph_text_for_span(recap_text, span)
-        if paragraph.lstrip().startswith("---"):
+        paragraph = _paragraph_text_for_span(recap_lines, span)
+        start, _ = _span_line_bounds(span)
+        if not paragraph:
             continue
-        span_links = _span_links_for_nodes(paragraph, span_ref_id, nodes, aliases_by_node)
-        if not span_links:
+        offset = line_offsets[start - 1]
+        span_end = offset + len(paragraph)
+        protected_in_span = [
+            (begin - offset, end - offset)
+            for begin, end in protected_ranges
+            if begin < span_end and end > offset
+        ]
+        span_links = _span_links_for_nodes(paragraph, span_ref_id, matchers, within_two_edits, protected_in_span)
+        edits.extend((offset + link.char_start, offset + link.char_end, link) for link in span_links)
+    chunks: list[str] = []
+    cursor = 0
+    for start, end, link in sorted(edits, key=lambda edit: (edit[0], edit[0] - edit[1])):
+        if start < cursor:
             continue
-        start = int(span["line_start"])
-        end = int(span["line_end"])
-        lines[start - 1 : end] = [_insert_markdown_node_links(paragraph, span_links)]
-        all_links.extend(span_links)
-    display_lines = _strip_yaml_frontmatter_lines(lines)
+        chunks.append(source[cursor:start])
+        chunks.append(f"[{_markdown_link_text(source[start:end])}]({link.href})")
+        cursor = end
+        all_links.append(link)
+    chunks.append(source[cursor:])
+    display_lines = _strip_yaml_frontmatter_lines("".join(chunks).splitlines())
 
     return RecapGraphPresentationResponse(
-        run_dir=surface.run_dir,
-        recap_source_path=surface.recap_source_path,
+        run_dir=rel_run_dir,
+        recap_source_path=recap_path,
         markdown="\n".join(display_lines).strip(),
         nodes=nodes,
         links=sorted(all_links, key=lambda link: (link.source_span_ref_id, link.char_start, link.object_id)),

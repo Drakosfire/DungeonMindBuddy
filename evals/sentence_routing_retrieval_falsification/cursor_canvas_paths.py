@@ -15,7 +15,9 @@ existing path); there is **no** repo-local ``canvases/`` bootstrap copy.
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
+from typing import Any
 
 
 def _repo_root_from_eval_file() -> Path:
@@ -66,3 +68,74 @@ def ensure_canvas_file_for_patch(canvas_path: Path) -> Path:
         f"--canvas-tsx to an existing .canvas.tsx. Default directory: {path.parent} "
         f"(override parent with DMB_CURSOR_CANVAS_DIR)."
     )
+
+
+
+def replace_generated_block(
+    text: str, block: str, *, begin: str, end: str
+) -> str:
+    """Replace one ordered marker pair, preserving all surrounding text."""
+    if begin not in text or end not in text:
+        raise ValueError(f"canvas is missing the generated-block markers ({begin!r} / {end!r})")
+    if text.count(begin) != 1 or text.count(end) != 1:
+        raise ValueError(f"Expected one generated block marker pair ({begin!r} / {end!r})")
+    start = text.index(begin)
+    stop = text.index(end)
+    if stop < start:
+        raise ValueError("Generated block end marker precedes its begin marker")
+    return text[:start] + block + text[stop + len(end):]
+
+
+def patch_candidate_canvas_paths(
+    block: str, paths: list[Path], *, begin: str, end: str
+) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for canvas_path in paths:
+        p = canvas_path.expanduser().resolve()
+        try:
+            ensure_canvas_file_for_patch(p)
+            text = p.read_text(encoding="utf-8")
+        except OSError as exc:
+            out.append({"path": str(p), "error": f"{type(exc).__name__}: {exc}"})
+            continue
+        if begin not in text or end not in text:
+            out.append(
+                {
+                    "path": str(p),
+                    "error": f"ValueError: Canvas must contain {begin!r} and {end!r}",
+                }
+            )
+            continue
+        pre, rest = text.split(begin, 1)
+        _mid, post = rest.split(end, 1)
+        if post.startswith("\n\n"):
+            post = post[1:]
+        new_text = pre + block + post
+        if new_text != text:
+            p.write_text(new_text, encoding="utf-8")
+            out.append({"canvas_updated": str(p)})
+        else:
+            out.append({"canvas_unchanged": str(p)})
+    return out
+
+
+def summarize_candidate_canvas_results(
+    canvas_paths: list[Path], per_file: list[dict[str, Any]],
+) -> dict[str, Any]:
+    errors = [x for x in per_file if "error" in x]
+    updated = [str(x["canvas_updated"]) for x in per_file if "canvas_updated" in x]
+    unchanged = [str(x["canvas_unchanged"]) for x in per_file if "canvas_unchanged" in x]
+    return {
+        "enabled": True,
+        "targets": [str(p.expanduser().resolve()) for p in canvas_paths],
+        "updated": updated,
+        "unchanged": unchanged,
+        "errors": errors,
+    }
+
+
+def load_candidate_canvas_document(path: Path) -> dict[str, Any]:
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(doc, dict) or doc.get("schema") != "dmb_breadcrumb_query_candidates_v1":
+        raise SystemExit("candidates file must declare schema dmb_breadcrumb_query_candidates_v1")
+    return doc

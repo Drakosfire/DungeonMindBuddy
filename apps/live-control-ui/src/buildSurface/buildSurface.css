@@ -2,21 +2,107 @@
 @import "../tiptap/tiptapSpike.css";
 @import "../graphReference/graphReference.css";
 
-.build-surface-empty {
-  width: min(720px, calc(100% - 2rem));
-  margin: 0 auto;
-  padding: 1.5rem 0 7rem;
+.build-empty-landing {
+  min-height: clamp(25rem, calc(100dvh - 20rem), 38rem);
+  position: relative;
+  isolation: isolate;
+  align-content: center;
+  gap: clamp(1.15rem, 2.7vw, 1.8rem);
+  overflow: hidden;
+}
+.build-empty-landing::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 84% 16%, rgb(197 157 75 / 11%), transparent 29%),
+    radial-gradient(ellipse at 12% 92%, rgb(139 105 52 / 7%), transparent 34%);
+}
+.build-empty-landing__welcome {
   display: grid;
-  gap: 0.75rem;
-  color: var(--fg, #e8eaef);
+  grid-template-columns: minmax(0, 1.1fr) minmax(14rem, .9fr);
+  align-items: center;
+  gap: clamp(1.25rem, 4vw, 3rem);
+}
+.build-empty-landing__hero { max-width: 42rem; }
+.build-empty-landing__eyebrow {
+  margin: 0 0 .55rem; color: #876728; font-family: var(--ui-font-interface, sans-serif);
+  font-size: .72rem; font-weight: 800; letter-spacing: .14em;
+}
+.build-empty-landing h1 {
+  max-width: 17ch; margin: 0; color: #342d23; font-size: clamp(2.05rem, 4.3vw, 3.25rem);
+  font-weight: 700; line-height: 1.03; letter-spacing: -.025em;
+}
+.build-empty-landing h1 em { color: #9a7025; font-style: italic; }
+.build-empty-landing__intro {
+  max-width: 48ch; margin: 1rem 0 0; color: #5d513e; font-size: clamp(1rem, 1.65vw, 1.12rem); line-height: 1.65;
+}
+.build-empty-landing__illustration {
+  min-width: 0; padding: .7rem .65rem .55rem; border: 1px solid #d8c59e; border-radius: 48% 48% .55rem .55rem / 24% 24% .55rem .55rem;
+  background: linear-gradient(155deg, rgb(255 252 242 / 73%), rgb(228 210 171 / 45%));
+  box-shadow: inset 0 0 0 5px rgb(255 251 239 / 46%), 0 8px 24px rgb(104 79 35 / 8%);
+}
+.build-empty-landing__illustration svg { display: block; width: 100%; height: auto; overflow: visible; }
+.build-empty-landing__contour { fill: none; stroke: #bda979; stroke-width: 1.2; opacity: .48; }
+.build-empty-landing__route { fill: none; stroke: #b48a3d; stroke-width: 1.8; stroke-dasharray: 3 5; }
+.build-empty-landing__node { fill: #f6edda; stroke: #a67c33; stroke-width: 2; }
+.build-empty-landing__page > path:first-child { fill: #fffaf0; stroke: #8f6d36; stroke-width: 1.6; }
+.build-empty-landing__page > path:not(:first-child) { fill: none; stroke: #a48650; stroke-width: 1.7; stroke-linecap: round; }
+.build-empty-landing__page .build-empty-landing__page-star { fill: #c28d32; stroke: none; }
+.build-empty-landing__spark { fill: #bf913e; }
+.build-empty-landing__illustration-caption {
+  display: flex; justify-content: center; align-items: center; gap: .55rem; color: #78623b;
+  font: 800 .62rem/1.2 var(--ui-font-interface, sans-serif); letter-spacing: .13em;
+}
+.build-empty-landing__illustration-caption i { width: .22rem; height: .22rem; border-radius: 50%; background: #b48a3d; }
+.build-empty-landing__begin > .build-empty-landing__eyebrow { margin-bottom: .75rem; }
+.build-empty-landing__paths {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem;
+}
+.build-empty-landing__paths > button {
+  min-width: 0; display: grid; grid-template-columns: 2rem minmax(0,1fr); align-items: start; gap: .65rem;
+  padding: .85rem .8rem; border: 1px solid #d8c79f; border-radius: .5rem; background: rgb(239 226 201 / 78%);
+  transition: transform 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+.build-empty-landing__paths > button:hover { transform: translateY(-2px); border-color: #bb9958; background: #f3e8d2; }
+.build-empty-landing__step {
+  display: grid; place-items: center; width: 1.8rem; height: 1.8rem; border: 1px solid #c2a365; border-radius: 50%;
+  color: #876728; font: 700 .7rem/1 var(--ui-font-interface, sans-serif);
+}
+.build-empty-landing__path-label {
+  margin: .1rem 0 .3rem; color: #876728; font: 800 .6rem/1.3 var(--ui-font-interface, sans-serif); letter-spacing: .08em;
+}
+.build-empty-landing__paths h2 { margin: 0 0 .3rem; color: #3c3122; font-size: 1.08rem; }
+.build-empty-landing__paths p:not(.build-empty-landing__path-label) { margin: 0; color: #655842; font: .82rem/1.45 var(--ui-font-interface, sans-serif); }
+.build-empty-landing__paths strong { color: #4c3b20; }
+.build-empty-landing__footnote {
+  display: flex; align-items: center; gap: .55rem; margin: 0; padding-top: .8rem; border-top: 1px solid #d4c29d; color: #75664e;
+  font: .78rem/1.45 var(--ui-font-interface, sans-serif);
+}
+.build-empty-landing__footnote span { color: #a77c32; font-size: 1rem; }
+.build-empty-landing__status {
+  margin: 0; padding: 1rem 1.2rem; border-left: 3px solid #b48b3c; background: #efe2c9;
+  color: #4a3d2c; line-height: 1.5;
+}
+.build-empty-landing--error .build-empty-landing__status { border-left-color: #9a4b3e; }
+@media (prefers-reduced-motion: reduce) {
+  .build-empty-landing__paths > button { transition: none; }
+  .build-empty-landing__paths > button:hover { transform: none; }
 }
 
 .build-surface-context__row {
+  min-width: 0;
+  flex: 1;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }
+
+/* Keep the source-browser shortcut beside the picker in the shared navbar rail. */
+.app-chrome-header .surface-context-host .build-browse-recaps { order: 11; }
 
 .build-surface-context__save-status {
   max-width: 16rem;
@@ -133,6 +219,52 @@
 .build-surface-editor .ProseMirror {
   min-height: 16rem;
   outline: none;
+}
+
+/* A flex child with auto width otherwise adopts the profile select's intrinsic
+   width plus both layers of padding, widening the entire Build page on phones. */
+.app-wrap:has(.build-ingest-toolbar) {
+  width: 100%;
+  min-width: 0;
+}
+
+.build-extraction-slot {
+  min-width: 0;
+}
+
+.build-extraction-slot:has(.build-extraction-menu[open]) {
+  flex-basis: 100%;
+}
+
+.build-extraction-menu > summary {
+  cursor: pointer;
+  color: var(--ui-text-secondary);
+  padding: 0.3rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.build-extraction-menu > .build-ingest-toolbar {
+  margin-top: 0.5rem;
+}
+
+.build-ingest-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.build-ingest-toolbar > label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.build-ingest-toolbar select {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .build-ingest-toolbar {
@@ -342,4 +474,307 @@
   background: rgba(18, 20, 26, 0.55);
   color: #e0af68;
   font-size: 0.92rem;
+}
+
+/* Long Build sources keep a compact outline within reach without changing source. */
+.build-source-reader__outline {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 1;
+  min-width: 0;
+  max-width: 42rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 8px;
+  background: var(--surface, #171d28);
+}
+
+.build-source-reader__outline summary {
+  cursor: pointer;
+  padding: 0.65rem 0.85rem;
+  font-weight: 600;
+}
+
+.build-source-reader__outline summary span {
+  margin-inline-start: 0.5rem;
+  color: var(--muted, #a8b8ca);
+  font-size: 0.85em;
+  font-weight: 400;
+}
+
+.build-source-reader__outline nav {
+  max-height: min(40vh, 24rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 0.85rem 0.65rem;
+}
+
+.build-source-reader__outline ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.build-source-reader__outline a {
+  display: block;
+  padding: 0.3rem 0.25rem;
+  color: inherit;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  border-radius: 4px;
+}
+
+.build-source-reader__outline a:hover {
+  background: rgba(130, 160, 200, 0.12);
+  text-decoration: underline;
+}
+
+.build-source-reader__outline a:focus-visible {
+  outline: 2px solid var(--accent, #e0af68);
+  outline-offset: 1px;
+}
+
+.build-source-reader .markdown-document-reader :is(h1, h2, h3, h4, h5, h6) {
+  scroll-margin-top: 4rem;
+}
+
+.markdown-document-outline { min-width: 0; }
+.markdown-document-outline ol { list-style: none; padding: 0; margin: 0.5rem 0; }
+.markdown-document-outline li { margin: 0.25rem 0; }
+.markdown-document-outline a { display: block; padding: 0.3rem; overflow-wrap: anywhere; color: inherit; text-decoration: none; border-radius: 0.25rem; }
+.markdown-document-outline a:hover, .markdown-document-outline a:focus-visible { background: var(--surface-hover, #283543); }
+.shared-document-mode { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.build-workspace-projection { flex: 1; width: 100%; min-height: 0; overflow: hidden; }
+.build-workspace-projection .build-surface-with-graph-context {
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%; margin: 0; padding: 0;
+  container-type: inline-size;
+  border: 0; border-radius: 0; background: transparent; box-shadow: none;
+}
+.build-workspace-projection .build-surface-shell {
+  grid-template-columns: minmax(0, 1fr);
+  box-sizing: border-box;
+  min-width: 0;
+  width: min(54rem, 100%); margin-inline: auto; padding: clamp(.75rem, 2.5cqi, 1.5rem);
+  border: 1px solid var(--ui-border-paper, #c8b78f); border-radius: 0.45rem;
+  background: var(--ui-background-paper, #f5ead4); color: var(--ui-text-on-paper, #3a3124);
+  box-shadow: 0 2px 12px #0002; font-family: var(--ui-font-document, Georgia, serif);
+}
+.build-workspace-projection .build-surface-editor.tiptap-spike-editor {
+  --fg: var(--ui-text-on-paper, #3a3124);
+  --fg-mute: #75664e;
+  --border: var(--ui-border-paper, #c8b78f);
+  --bg-card: transparent;
+  --bg-input: #eee0c5;
+  --accent: #795b26;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+.build-workspace-projection .build-source-reader__title { font-size: clamp(1.65rem, 3vw, 2.15rem); }
+
+/* The shared Edit drawer is fixed over the left edge. Build alone reserves that
+   space so its paper reflows instead of hiding text behind the companion. */
+@media (min-width: 42.001rem) {
+  body:has([data-document-surface="build"])
+    .app-shell--edit-dock:has(.app-edit-toolbox--docked.open)
+    .app-wrap
+    .build-workspace-projection
+    .build-surface-with-graph-context {
+    width: min(76rem, calc(100% - var(--app-edit-host-dock-width) - 2rem));
+    max-width: none;
+    margin-left: calc(var(--app-edit-host-dock-width) + 1rem);
+    margin-right: 1rem;
+  }
+}
+@media (max-width: 42rem) {
+  .build-workspace-projection .build-surface-with-graph-context { width: 100%; padding: 0; }
+  .build-empty-landing { min-height: auto; }
+  .build-empty-landing__welcome { grid-template-columns: 1fr; gap: 1rem; }
+  .build-empty-landing__illustration { max-width: 24rem; justify-self: center; border-radius: 1.25rem; }
+  .build-empty-landing__paths { grid-template-columns: 1fr; }
+}
+
+/* Build authoring companions float without intercepting the document. Their
+   selectors outrank the shared narrow Edit-dock backdrop rule. */
+body:has([data-document-surface="build"])
+  .app-shell--edit-dock
+  .app-edit-toolbox--docked
+  .app-edit-toolbox-backdrop,
+body:has([data-document-surface="build"])
+  .app-tools-toolbox
+  .app-tools-toolbox-backdrop {
+  display: none !important;
+  pointer-events: none !important;
+}
+.build-source-actions { position: relative; }
+.build-source-actions > summary { cursor: pointer; padding: .35rem .55rem; white-space: nowrap; }
+.build-source-actions__menu { position: absolute; top: calc(100% + .4rem); right: 0; z-index: 110;
+  width: min(25rem, calc(100vw - 3rem)); padding: .75rem; display: flex; flex-wrap: wrap; gap: .5rem;
+  border: 1px solid var(--ui-border, #3c4657); border-radius: .5rem; background: var(--ui-background-panel, #171d28); }
+.build-source-actions:not([open]) > div { display: none; }
+.build-surface-context__row { align-items: center; }
+.build-navbar-save { padding: .35rem .8rem; }
+.build-surface-shell .markdown-document-outline button { text-align: left; }
+.markdown-document-outline li > button { width: 100%; text-align: left; padding: .35rem; }
+.build-surface-editor .tiptap { min-height: 60vh; outline: none; }
+.build-surface-editor .tiptap:focus-visible { outline: 1px solid #b99a56; outline-offset: .5rem; }
+.build-source-evidence { margin-bottom: 1rem; font-family: var(--ui-font-interface, sans-serif); }
+.build-source-evidence .build-source-reader { padding: .75rem; border: 1px solid #b8a780; }
+.build-empty-document-prompt {
+  display: grid;
+  grid-template-columns: minmax(4rem, 6.5rem) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(.8rem, 2.3vw, 1.45rem);
+  margin: 0 0 .65rem;
+  padding: clamp(1rem, 2.5vw, 1.65rem);
+  overflow: hidden;
+  border: 1px solid #d4bd8e;
+  border-radius: .7rem;
+  background:
+    radial-gradient(ellipse at 9% 18%, rgb(255 255 255 / 62%), transparent 42%),
+    linear-gradient(125deg, #fbf5e8, #f2e5cc 72%, #eee0c1);
+  box-shadow: inset 0 0 0 4px rgb(255 251 239 / 44%), 0 5px 16px rgb(63 46 20 / 7%);
+}
+.build-empty-document-prompt__art {
+  display: grid;
+  place-items: center;
+  color: #98783b;
+}
+.build-empty-document-prompt__art svg { display: block; width: 100%; max-width: 7rem; height: auto; overflow: visible; }
+.build-empty-document-prompt__copy { min-width: 0; }
+.build-empty-document-prompt__eyebrow {
+  margin: 0 0 .35rem;
+  color: #876728;
+  font-family: var(--ui-font-interface, sans-serif);
+  font-size: .66rem;
+  font-weight: 800;
+  letter-spacing: .13em;
+}
+.build-empty-document-prompt h2 {
+  margin: 0;
+  color: #3c3122;
+  font-size: clamp(1.3rem, 2.5vw, 1.75rem);
+  font-style: italic;
+  line-height: 1.2;
+}
+.build-empty-document-prompt__copy > p:not(.build-empty-document-prompt__eyebrow) {
+  margin: .4rem 0 0;
+  color: #655842;
+  font-size: .92rem;
+  line-height: 1.5;
+}
+.build-empty-document-prompt__starters { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .85rem; }
+.build-empty-document-prompt__starters button {
+  padding: .38rem .75rem;
+  border: 1px solid #c9ae77;
+  border-radius: 999px;
+  background: rgb(255 251 240 / 68%);
+  color: #56472e;
+  font-family: var(--ui-font-interface, sans-serif);
+  font-size: .8rem;
+  cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease, transform .16s ease;
+}
+.build-empty-document-prompt__starters button:hover {
+  transform: translateY(-1px);
+  border-color: #a78645;
+  background: #fffaf0;
+}
+.build-empty-document-prompt__starters button:focus-visible { outline: 2px solid #946f29; outline-offset: 2px; }
+.build-workspace-projection .conversation-dock__launcher {
+  position: static;
+  justify-self: end;
+  margin: .5rem 1rem;
+}
+
+@media (max-width: 42rem) {
+  .build-empty-document-prompt { grid-template-columns: 3.5rem minmax(0, 1fr); gap: .7rem; padding: .9rem; }
+  .build-empty-document-prompt__art svg { max-width: 4.5rem; }
+  .build-empty-document-prompt__starters { gap: .35rem; margin-top: .65rem; }
+  .build-empty-document-prompt__starters button { padding: .34rem .62rem; font-size: .76rem; }
+
+  body:has([data-document-surface="build"])
+    .app-shell--edit-dock:has(.app-edit-toolbox--docked.open)
+    .app-edit-toolbox--docked
+    .app-edit-toolbox-drawer,
+  body:has([data-document-surface="build"])
+    .app-tools-toolbox
+    .app-tools-toolbox-drawer {
+    top: auto; bottom: 0; left: 0; right: 0; width: 100%; height: 42dvh; max-height: 42dvh;
+    border-top: 1px solid #3c4657; border-radius: .6rem .6rem 0 0;
+  }
+
+  /* Keep the bottom-sheet overlap scrollable: the paper's final lines can be
+     brought above Edit instead of remaining trapped beneath it. */
+  body:has([data-document-surface="build"])
+    .app-shell--edit-dock:has(.app-edit-toolbox--docked.open)
+    .app-wrap
+    .build-workspace-projection
+    .conversation-dock__reader {
+    padding-block-end: calc(42dvh + 1rem + env(safe-area-inset-bottom));
+    scroll-padding-block-end: calc(42dvh + 1rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Keep actions in the workspace frame; paper is reserved for authored content. */
+.build-document-create--context { margin-left: auto; display: flex; flex-wrap: wrap; gap: .5rem; }
+.build-document-create--context [data-testid="build-document-create-open"], .build-studio-start {
+  background: #d9aa50; color: #292218; border: 1px solid #a47d34; font-weight: 700;
+}
+.build-empty-landing__paths > button { color: #3c3122; text-align: left; font: inherit; cursor: pointer; }
+.build-empty-landing__paths > button:focus-visible { outline: 3px solid #91651e; outline-offset: 3px; }
+.build-studio-start { width: fit-content; padding: .65rem 1rem; border-radius: .4rem; }
+.build-draft-recovery { display: inline-flex; }
+.build-discard-draft { font-size: .8rem; padding: .35rem .55rem; color: #e6bcb1; background: transparent; border: 1px solid #735b57; }
+.build-starter-choice { display: flex; align-items: center; gap: .4rem; }
+@media (max-width: 600px) { .build-document-create--context { margin-left: 0; width: 100%; } }
+
+.build-document-create--context .build-starter-choice { flex-basis: 100%; }
+.build-document-create--context .surface-context-popover:first-child { order: 2; }
+.build-document-create--context .surface-context-popover:last-child { order: 1; }
+@media (max-width: 600px) {
+  .build-document-create--context { position: relative; }
+  .build-document-create--context .surface-context-popover { position: static; }
+  .build-document-create--context .surface-context-popover__panel {
+    left: 0; right: 0; width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box;
+  }
+}
+
+.build-run-review-host:has(> :not([hidden])) { max-height: 60vh; min-height: 12rem; overflow: auto; border-top: 1px solid #59616f; }
+.build-run-review { padding: 1rem; }
+.build-run-review > header { display: flex; gap: 1rem; align-items: center; justify-content: space-between; }
+.build-run-review > header h2 { margin: 0; font-size: 1.1rem; }
+
+/* Review portals remain inside the Build reader's explicit shrinking track. */
+.build-workspace-projection .build-run-review-host,
+.build-workspace-projection .build-run-review {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.build-workspace-projection .build-surface-editor-shell {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.build-pdf-workspace {
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+}
+
+.build-pdf-workspace__toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--panel, #151923);
 }

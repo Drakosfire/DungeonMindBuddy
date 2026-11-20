@@ -1,4 +1,6 @@
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture, page_text
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 import hashlib
 from pathlib import Path
@@ -9,12 +11,8 @@ from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.source_artifact_registry import load_source_span_index
-from apps.live_control_server.services.workspace_document_registry import (
-    create_workspace_document,
-    mark_workspace_document_committed,
-)
 from graph_memory.source_span import source_span_index_to_dict
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
 )
 
@@ -34,7 +32,9 @@ def client(
         lambda: tmp_path,
         raising=False,
     )
-    return TestClient(create_app())
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    return TestClient(create_app(), client=("127.0.0.1", 50000))
 
 
 def test_historical_recap_projection_rejects_query_selectors(
@@ -47,6 +47,18 @@ def test_historical_recap_projection_rejects_query_selectors(
 
     assert response.status_code == 422
     assert "does not accept query parameters" in str(response.json()["detail"])
+
+
+def test_historical_recap_projection_rejects_duplicate_managed_world_selector(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        "/api/live/graph-preview/extraction-runs/exact-run/recap-projection"
+        "?managed_world_id=elderwyld&managed_world_id=conks-and-cons"
+    )
+
+    assert response.status_code == 422
+    assert "accepts one managed_world_id selector" in str(response.json()["detail"])
 
 
 class _FixtureCategoryClient:
@@ -155,7 +167,7 @@ def _patch_build_extraction(
 
 
 def _commit_source(tmp_path: Path, *, body: str = "Mirathorn is a river city.\n"):
-    record = create_workspace_document(
+    record = create_page_fixture(
         tmp_path,
         title="Lore",
         campaign_id="eldyrwild",
@@ -168,13 +180,13 @@ def _commit_source(tmp_path: Path, *, body: str = "Mirathorn is a river city.\n"
     target = tmp_path / (record.target_relpath or "")
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(body, encoding="utf-8")
-    committed = mark_workspace_document_committed(tmp_path, record.document_id)
+    committed = get_workspace_document(tmp_path, record.document_id)
     digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
     return committed, digest
 
 
 def test_launch_requires_committed_source(client: TestClient, tmp_path: Path) -> None:
-    record = create_workspace_document(
+    record = create_page_fixture(
         tmp_path,
         title="Draft lore",
         campaign_id="eldyrwild",
@@ -316,6 +328,7 @@ def test_launch_ignores_client_allow_llm_false_and_executes(
     assert f"sourceArtifactId={payload['source_artifact_id']}" in href
     assert f"documentId={committed.document_id}" in href
     assert f"revision={committed.revision}" in href
+    assert href.startswith("/build?")
     assert "latest" not in href
 
 
@@ -348,7 +361,7 @@ def test_launch_reaches_reviewable_with_exact_handoff(
     assert (
         handoff["href"]
         == (
-            "/ingest"
+            "/build"
             f"?extractionRunId={run_id}"
             f"&sourceArtifactId={payload['source_artifact_id']}"
             f"&documentId={committed.document_id}"
@@ -397,6 +410,7 @@ def test_generic_exact_get_returns_recap_run(client: TestClient, tmp_path: Path)
 
     artifact = create_recap_source_artifact(
         tmp_path,
+        world_id="eldyrwild",
         campaign_id="eldyrwild",
         session_id="session-1",
         recap_text="The party reached Mirathorn.\n",
@@ -407,6 +421,7 @@ def test_generic_exact_get_returns_recap_run(client: TestClient, tmp_path: Path)
         source_domain="recap",
         campaign_id="eldyrwild",
         session_id="session-1",
+        lineage={"native_world_id": "eldyrwild", "campaign_id": "eldyrwild"},
     )
 
     generic = client.get(f"/api/live/graph-preview/extraction-runs/{run.run_id}")
@@ -473,7 +488,7 @@ def test_launch_bounded_profile_records_exact_profile_and_applies_validator(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Build launch with BLD-08 profile records that profile and enforces its validator."""
-    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+    from graph_memory.extraction.worldbuilding_extraction_profile import (
         WORLDBUILDING_PROFILE_ID,
         WORLDBUILDING_PROFILE_VERSION,
     )
@@ -551,7 +566,7 @@ def test_launch_default_uses_bounded_shepherds_flock_profile(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+    from graph_memory.extraction.worldbuilding_extraction_profile import (
         WORLDBUILDING_PROFILE_ID,
         WORLDBUILDING_PROFILE_VERSION,
     )
@@ -581,7 +596,7 @@ def test_launch_still_allows_explicit_plumbing_profile(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+    from graph_memory.extraction.worldbuilding_plumbing_profile import (
         WORLDBUILDING_PLUMBING_PROFILE_ID,
         WORLDBUILDING_PLUMBING_PROFILE_VERSION,
     )
@@ -633,3 +648,54 @@ def test_launch_rejects_malformed_profile_selectors_with_422(
     )
     assert launch.status_code == 422, launch.text
     assert detail_fragment in launch.json()["detail"]
+
+
+def test_build_launch_retains_run_under_separate_artifact_root(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.config import ARTIFACT_DATA_ROOT_ENV
+    from graph_memory.extraction.worldbuilding_extraction_profile import (
+        WORLDBUILDING_PROFILE_ID, WORLDBUILDING_PROFILE_VERSION,
+    )
+
+    code, data = tmp_path / "code", tmp_path / "data"
+    code.mkdir()
+    data.mkdir()
+    monkeypatch.setenv(ARTIFACT_DATA_ROOT_ENV, str(data))
+    monkeypatch.setattr("apps.live_control_server.routes.graph_preview.repo_root", lambda: code)
+    committed, digest = _commit_source(data)
+    original = page_text(data, committed.document_id).encode("utf-8")
+    captured: list[dict[str, Any]] = []
+    _patch_build_extraction(monkeypatch, capture=captured)
+    launch = client.post("/api/live/graph-preview/extraction-runs", json={
+        "document_id": committed.document_id,
+        "expected_revision": committed.revision,
+        "expected_content_sha256": digest,
+        "profile_id": WORLDBUILDING_PROFILE_ID,
+        "profile_version": WORLDBUILDING_PROFILE_VERSION,
+    })
+    assert launch.status_code == 200, launch.text
+    assert launch.headers["content-type"].startswith("application/json")
+    assert captured[0]["repo_root"] == code
+    payload = launch.json()
+    run = payload["run"]
+    assert run["status"] == "reviewable", payload
+    assert payload["failure_kind"] is None
+    assert run["source_domain"] == "worldbuilding"
+    assert payload["source_content_sha256"] == digest
+    readback = client.get(f"/api/live/graph-preview/extraction-runs/{run['run_id']}")
+    assert readback.status_code == 200, readback.text
+    assert readback.json()["run_id"] == run["run_id"]
+    from application_state.ingest.components import get_component_bytes
+    from apps.live_control_server.services.graph_run_registry import (
+        get_reviewable_extraction_run, load_run_source_input,
+    )
+    stored = get_reviewable_extraction_run(code, run["run_id"])
+    assert load_run_source_input(code, stored)[1] == original
+    for component in run["components"].values():
+        if component["kind"] != "source_artifact":
+            body = get_component_bytes(run_id=run["run_id"], kind=component["kind"],
+                                       content_sha256=component["sha256"])
+            assert hashlib.sha256(body).hexdigest() == component["sha256"].removeprefix("sha256:")
+    assert page_text(data, committed.document_id).encode("utf-8") == original
+    assert not (code / "out").exists()

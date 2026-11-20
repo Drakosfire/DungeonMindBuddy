@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from evals.graph_memory_layer.encounter_job_dogfood_fixture import dogfood_result_to_payload, run_glowkindle_encounter_job_dogfood
 from evals.graph_memory_layer.report_encounter_job_dogfood_projection import render_report
 from evals.graph_memory_layer.validate_encounter_job_dogfood_projection import EXPECTED_FALSE, validate_payload
@@ -31,15 +33,11 @@ def test_fixture_runner_produces_required_nodes():
     } <= node_ids
 
 
-def test_fixture_runner_produces_required_deterministic_party_edges():
+def test_fixture_runner_preserves_source_supported_party_participation():
     payload = _payload()
-    for source, target, rel in (
-        ("node:heroes-party", "quest_clear_glowkindle_rats", "pursues"),
-        ("node:heroes-party", "enc_glowkindle_cellar_rats", "participates_in"),
-    ):
-        edge = _edge(payload, source, target, rel)
-        assert edge["context_anchor"] is True
-        assert "deterministic_party_participation" in edge["warnings"]
+    edge = _edge(payload, "node:heroes-party", "enc_glowkindle_cellar_rats", "participates_in")
+    assert edge["evidence_refs"]
+    assert "deterministic_party_participation" not in edge["warnings"]
 
 
 def test_fixture_runner_produces_source_supported_encounter_job_edges():
@@ -56,10 +54,10 @@ def test_diagnostics_are_present_in_payload_and_report():
     cons_diag = payload["diagnostics"]["consolidation_diagnostics"]
     for key in ("dynamic_node_vocabulary_packet", "node_vocabulary_ablation", "encounter_job_edge_guidance"):
         assert key in result_diag
-    for key in ("party_participation_attachment", "encounter_job_pass", "edge_predicate_issues", "dropped_edges_missing_endpoints"):
+    for key in ("encounter_job_pass", "edge_predicate_issues", "dropped_edges_missing_endpoints"):
         assert key in cons_diag
     report = render_report(payload)
-    for text in ("dynamic_node_vocabulary_packet", "node_vocabulary_ablation", "encounter_job_edge_guidance", "party_participation_attachment", "encounter_job_pass", "edge_predicate_issues", "dropped_edges_missing_endpoints"):
+    for text in ("dynamic_node_vocabulary_packet", "node_vocabulary_ablation", "encounter_job_edge_guidance", "encounter_job_pass", "edge_predicate_issues", "dropped_edges_missing_endpoints"):
         assert text in report
 
 
@@ -84,5 +82,7 @@ def test_report_contains_required_sections_and_non_goal_language():
 
 def test_validator_default_does_not_write(tmp_path: Path):
     artifact_path = tmp_path / "missing.json"
-    validate_payload(_payload(), compare_artifact=True, artifact_path=artifact_path)
+    with pytest.raises(FileNotFoundError, match="Comparison fixture is missing"):
+        validate_payload(_payload(), artifact_path=artifact_path)
+    validate_payload(_payload(), compare_artifact=False, artifact_path=artifact_path)
     assert not artifact_path.exists()

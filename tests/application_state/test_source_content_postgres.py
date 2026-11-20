@@ -146,3 +146,61 @@ def test_supplied_source_revision_id_is_an_exact_assertion(
             content_sha256=hashlib.sha256(other_markdown.encode("utf-8")).hexdigest(),
             source_revision_id=requested,
         )
+
+
+def test_owned_source_metadata_is_batched_exact_and_read_only(application_state_dsn, monkeypatch):
+    from application_state.source import repository, service
+    ids = ['owned', 'foreign', 'unowned']
+    for identity, owner in zip(ids, ['world:one', 'world:two', None]):
+        persist_source_markdown(source_artifact_id=identity, source_domain='worldbuilding',
+            world_id=owner, campaign_id=None, session_id=None, markdown='Private body ' + identity, lineage={})
+    def snapshot():
+        with psycopg.connect(application_state_dsn) as conn:
+            return conn.execute('SELECT to_jsonb(a) FROM source.artifact a ORDER BY source_artifact_id').fetchall(), conn.execute('SELECT to_jsonb(r) FROM source.revision r ORDER BY source_artifact_id').fetchall()
+    before = snapshot()
+    calls = []
+    query = repository.owned_source_artifacts
+    def observed(conn, **fields):
+        assert conn.execute('SHOW transaction_read_only').fetchone()[0] == 'on'
+        calls.append(fields)
+        return query(conn, **fields)
+    monkeypatch.setattr(repository, 'owned_source_artifacts', observed)
+    monkeypatch.setattr(repository, 'get_source_markdown', lambda *a, **kw: pytest.fail('Metadata must not load bodies'))
+    assert service.owned_source_artifacts(source_artifact_ids=['owned', 'foreign', 'unowned', 'missing', 'owned'], world_id='world:one') == {'owned'}
+    assert calls == [dict(source_artifact_ids=['owned', 'foreign', 'unowned', 'missing'], world_id='world:one')]
+    assert snapshot() == before
+
+
+def test_empty_owned_source_metadata_needs_no_database(monkeypatch):
+    from application_state.source import service
+    monkeypatch.setattr(service, 'load_runtime_dsn', lambda: pytest.fail('Empty metadata batch needs no database'))
+    assert not service.owned_source_artifacts(source_artifact_ids=[], world_id='world:one')
+
+
+def test_owned_source_metadata_storage_failure_propagates(application_state_dsn, monkeypatch):
+    from application_state.source import repository, service
+    def unavailable(*a, **kw):
+        raise psycopg.OperationalError('Synthetic metadata store unavailable')
+    monkeypatch.setattr(repository, 'owned_source_artifacts', unavailable)
+    with pytest.raises(psycopg.OperationalError, match='Synthetic metadata'):
+        service.owned_source_artifacts(source_artifact_ids=['owned'], world_id='world:one')
+
+
+def test_work_object_keyset_keeps_timestamp_ties_and_world_scope(application_state_dsn):
+    from application_state.content.repository import list_work_objects
+
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("""
+            INSERT INTO content.work_object
+              (work_object_id, kind, world_id, title, status, object_revision, created_at, updated_at)
+            SELECT gen_random_uuid(), 'plan', world_id, 'Plan ' || n, 'active', 1, now(), now()
+            FROM (VALUES ('bench-world'), ('foreign-world')) AS worlds(world_id)
+            CROSS JOIN generate_series(1, 3) AS n
+        """)
+        full = list_work_objects(conn, kind="plan", world_id="bench-world")
+        first = list_work_objects(conn, kind="plan", world_id="bench-world", limit=2)
+        cursor = (first[-1].updated_at, first[-1].work_object_id)
+        second = list_work_objects(conn, kind="plan", world_id="bench-world", limit=2, before=cursor)
+        assert len(first) == 2 and len(second) == 1
+        assert first + second == full
+        assert all(record.world_id == "bench-world" for record in full)

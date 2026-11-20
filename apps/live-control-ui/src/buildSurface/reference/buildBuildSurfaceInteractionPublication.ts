@@ -1,24 +1,18 @@
-import { GRAPH_REFERENCE_RESOLUTION_BINDING_ID } from "../../graphReference/projectionBindings";
-import type {
-  GraphReferenceResolution,
-} from "../../graphReference/types";
-import type { WorldGraphProjection } from "../../api/types";
-import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
+import { STATBLOCK_WORKBENCH_TOOL, STATBLOCK_WORKBENCH_PROJECTION } from "../../statblocks/statblockWorkbenchProjection";
+import { RULES_LOOKUP_TOOL, RULES_LOOKUP_PROJECTION } from "../../rulesLookup/rulesLookupProjection";
 import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
 import type {
   SurfaceInteractionEditCommandContribution,
   SurfaceInteractionPublication,
 } from "../../surfaceInteraction/types";
-import type { SurfaceInformationChannel } from "../../surfaceInformation";
 import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "../buildDocumentCommands";
 import { BUILD_SURFACE_LABEL } from "../buildSurfaceConfig";
 import {
   BUILD_FIND_EXISTING_TOOL_ID,
   BUILD_REFERENCE_CONTEXT_BINDING_ID,
   BUILD_REFERENCE_SEARCH_PROJECTION_ID,
-  BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
 } from "./buildReferenceIds";
-import type { BuildGraphLensResolution } from "./resolveBuildGraphLens";
+import type {InspectionPin} from "../../api/nativeGraphInspection";
 
 const BUILD_SURFACE_ID = "build" as const;
 const BUILD_WORLD_REFERENCE_GROUP_ID = "build-world-reference" as const;
@@ -28,29 +22,11 @@ const BUILD_DOCUMENT_EDIT_GROUP_ID = "build-document" as const;
 const BUILD_DOCUMENT_EDIT_GROUP_LABEL = "Document" as const;
 const BUILD_DOCUMENT_EDIT_GROUP_ORDER = 0;
 
-const EMPTY_GRAPH_REFERENCE_RESOLUTION: GraphReferenceResolution = {
-  kind: "unresolved",
-  locator: "",
-  reference: null,
-  projectionState: null,
-  message: "No object selected.",
-};
-
 export interface BuildReferenceContextBinding {
-  schema: "dmb_build_reference_context_v2";
+  schema: "dmb_build_reference_context_v3";
   documentId: string;
-  documentCampaignId: string;
-  lens: BuildGraphLensResolution;
-  selectCampaign: (campaignId: string) => void;
-  viewExact: (nodeId: string) => void;
-  /**
-   * Insert a graph-node chip into the Build markdown canvas.
-   * Pass a node id only; the capability resolves the current READY observation,
-   * verifies the committed live editor gate, and applies object-level campaign
-   * admission before inserting.
-   */
-  insertChip: (nodeId: string) => void;
-  /** Editor/document capability only; not graph observation state. */
+  worldId: string;
+  insertChip: (pin: InspectionPin, nodeId: string, label: string) => void;
   editorInsertDisabled: boolean;
 }
 
@@ -62,10 +38,10 @@ export interface BuildDocumentSavePublication {
 
 export interface BuildSurfaceInteractionPublicationInput {
   documentId: string | null;
-  acceptedDocument: { documentId: string; campaignId: string } | null;
+  acceptedDocument: { documentId: string; worldId: string | null } | null;
   referenceContext: BuildReferenceContextBinding | null;
-  worldGraphChannel: SurfaceInformationChannel<WorldGraphProjection> | null;
   documentSave?: BuildDocumentSavePublication | null;
+  layoutActions?: readonly { id: string; label: string; enabled: boolean; invoke: () => void }[];
 }
 
 function buildBuildIdentity(documentId: string | null) {
@@ -75,26 +51,26 @@ function buildBuildIdentity(documentId: string | null) {
   });
 }
 
-function buildEmptyInventoryPublication(documentId: string | null): SurfaceInteractionPublication {
+function buildDocumentIndependentPublication(documentId: string | null): SurfaceInteractionPublication {
   return {
     surfaceId: BUILD_SURFACE_ID,
     label: BUILD_SURFACE_LABEL,
     identity: buildBuildIdentity(documentId),
     canvas: null,
     agentContext: null,
-    tools: [],
+    tools: [RULES_LOOKUP_TOOL, STATBLOCK_WORKBENCH_TOOL],
     editCommands: [],
-    projections: [],
+    projections: [RULES_LOOKUP_PROJECTION, STATBLOCK_WORKBENCH_PROJECTION],
     projectionBindings: [],
   };
 }
 
 function isAcceptedDocument(
   documentId: string | null,
-  acceptedDocument: { documentId: string; campaignId: string } | null,
-): acceptedDocument is { documentId: string; campaignId: string } {
+  acceptedDocument: { documentId: string; worldId: string | null } | null,
+): acceptedDocument is { documentId: string; worldId: string | null } {
   if (!documentId?.trim() || !acceptedDocument) return false;
-  return acceptedDocument.documentId === documentId && acceptedDocument.campaignId.trim() !== "";
+  return acceptedDocument.documentId === documentId;
 }
 
 function buildDocumentSaveCommand(
@@ -125,25 +101,23 @@ function buildDocumentSaveCommand(
 export function buildBuildSurfaceInteractionPublication(
   input: BuildSurfaceInteractionPublicationInput,
 ): SurfaceInteractionPublication {
-  const { documentId, acceptedDocument, referenceContext, worldGraphChannel, documentSave = null } = input;
+  const { documentId, acceptedDocument, referenceContext, documentSave = null, layoutActions = [] } = input;
 
-  if (!isAcceptedDocument(documentId, acceptedDocument) || referenceContext == null) {
-    return buildEmptyInventoryPublication(documentId);
+  if (!isAcceptedDocument(documentId, acceptedDocument)) {
+    return buildDocumentIndependentPublication(documentId);
   }
 
   const admittedDocumentId = acceptedDocument.documentId;
-  const lens = referenceContext.lens;
-  // selection_required stays enabled (campaign picker is the action).
-  // invalid lenses disable the Tool with the resolver's exact reason.
-  const toolAvailability =
-    lens.status === "invalid"
-      ? { status: "disabled" as const, disabledReason: lens.reason }
-      : { status: "enabled" as const };
-
   const editCommands = documentSave
     ? [buildDocumentSaveCommand(admittedDocumentId, documentSave)]
     : [];
 
+  editCommands.push(...layoutActions.map((action, itemOrder): SurfaceInteractionEditCommandContribution => ({
+    id: `build-layout-${action.id}`, label: action.label, eyebrow: 'Layout',
+    placement: { groupId: 'build-layout', groupLabel: 'Page layout', groupOrder: 10, itemOrder },
+    availability: action.enabled ? { status: 'enabled' } : { status: 'disabled', disabledReason: 'Select an eligible block in an editable document.' },
+    target: { kind: 'document', id: admittedDocumentId }, invoke: action.invoke,
+  })));
   return {
     surfaceId: BUILD_SURFACE_ID,
     label: BUILD_SURFACE_LABEL,
@@ -154,6 +128,7 @@ export function buildBuildSurfaceInteractionPublication(
     },
     agentContext: null,
     tools: [
+      RULES_LOOKUP_TOOL,
       {
         id: BUILD_FIND_EXISTING_TOOL_ID,
         label: "Find existing object",
@@ -164,41 +139,25 @@ export function buildBuildSurfaceInteractionPublication(
           groupOrder: BUILD_WORLD_REFERENCE_GROUP_ORDER,
           itemOrder: 0,
         },
-        availability: toolAvailability,
+        availability: referenceContext ? {status: "enabled"} : {status: "disabled", disabledReason: "Open a document in a managed World to find its objects."},
         activation: {
           kind: "projection",
           projectionId: BUILD_REFERENCE_SEARCH_PROJECTION_ID,
         },
       },
+      STATBLOCK_WORKBENCH_TOOL,
     ],
     editCommands,
     projections: [
+      RULES_LOOKUP_PROJECTION,
       {
         id: BUILD_REFERENCE_SEARCH_PROJECTION_ID,
         kind: "tool",
         preferredSize: "wide",
-        bindingIds: [
-          BUILD_REFERENCE_CONTEXT_BINDING_ID,
-          BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
-        ],
+        bindingIds: [BUILD_REFERENCE_CONTEXT_BINDING_ID],
       },
-      {
-        id: GRAPH_REFERENCE_PROJECTION_ID,
-        kind: "content",
-        preferredSize: "wide",
-        bindingIds: [GRAPH_REFERENCE_RESOLUTION_BINDING_ID],
-      },
+      STATBLOCK_WORKBENCH_PROJECTION,
     ],
-    projectionBindings: [
-      { id: BUILD_REFERENCE_CONTEXT_BINDING_ID, value: referenceContext },
-      {
-        id: BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
-        value: worldGraphChannel,
-      },
-      {
-        id: GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
-        value: EMPTY_GRAPH_REFERENCE_RESOLUTION,
-      },
-    ],
+    projectionBindings: [{ id: BUILD_REFERENCE_CONTEXT_BINDING_ID, value: referenceContext }],
   };
 }

@@ -4,10 +4,13 @@ React product surfaces for DungeonMindBuddy. The UI talks to the merged FastAPI
 server; it does not treat corpus files, browser state, or surface-local state as
 a substitute for server/graph authority.
 
-The root launcher is the normal product entry. Plan, Ingest / Graph Review,
+The landing page at `/` links to the product surfaces. Open the graph visualizer at `/graph`. Plan, Ingest / Graph Review,
 Build, and Combat Tracker are first-class doors; the older `/surface` Live
 Control module board remains reachable for legacy smoke coverage but is not the
 current product composition model.
+
+Theme asset sources, font credits and the remaining parchment permission decision
+are recorded in the [statblock theme notice](src/statblocks/render/statblock-theme/README.md).
 
 ## Current surface model
 
@@ -73,7 +76,7 @@ for the closed workstream and residual product tracks.
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 22 (the frontend package declares `22.x`)
 - DungeonBuddy live-control FastAPI server running (defaults from
   `apps/live_control_server/config.py`)
 
@@ -93,46 +96,62 @@ server and `MODEL_POLICY.json`; do not put API keys into Vite/client env.
 
 ```bash
 cd apps/live-control-ui
-pnpm install
-pnpm dev        # http://localhost:5173 — proxies /api to the server
-pnpm test       # Vitest
-pnpm build      # typecheck + production bundle
+npm ci
+npm run dev        # http://localhost:5173 — proxies /api to the server
+npm test       # Vitest
+npm run build      # typecheck + production bundle
 ```
 
 Focused verification commonly uses:
 
 ```bash
-pnpm exec vitest run src/workspaceDocument/ src/markdownCanvas/ src/planSurface/ src/buildSurface/
-pnpm exec tsc -b
-pnpm build
+npm exec -- vitest run src/workspaceDocument/ src/markdownCanvas/ src/planSurface/ src/buildSurface/
+npm exec -- tsc -b
+npm run build
 ```
 
 ## Manual smoke
 
-Play first-time setup is **not** just `uvicorn` plus `pnpm dev`. Configure
+The first hosted release supported DungeonMind sign-in, World selection,
+read-only Graph and sign-out. Additional workspace routes and operations depend
+on the deployed revision, configured admission and release evidence. Workspace
+links may carry the selected World; an available workspace does not imply that
+every operation is enabled. Use the
+[production deployment runbook](../../Docs/Runbooks/RUNBOOK-buddy-production-deployment.md)
+for hosted sign-in, admission, Graph, and sign-out checks. Qualify write workflows
+with their approved disposable World/provider targets. The smoke steps below
+use the local operator profile, including legacy `/surface` Chat.
+
+
+Play first-time setup is **not** just `uvicorn` plus `npm run dev`. Configure
 `DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL` and run
 `uv run python scripts/bootstrap_local_play.py apply` first. See
 [`Docs/Runbooks/RUNBOOK-local-play-dogfood.md`](../../Docs/Runbooks/RUNBOOK-local-play-dogfood.md).
 
 After that bootstrap, ordinary runtime is:
 
+The repository `./run` launcher defaults the API to
+`DMB_DEPLOYMENT_ENVIRONMENT=local` and `DMB_AUTH_MODE=local_operator`. If you
+start Uvicorn manually, set both explicitly:
+
 Terminal 1:
 
 ```bash
 cd /path/to/DungeonMindBuddy
-uv run uvicorn apps.live_control_server.main:app --reload
+DMB_DEPLOYMENT_ENVIRONMENT=local DMB_AUTH_MODE=local_operator uv run uvicorn apps.live_control_server.main:app --reload --host 127.0.0.1
 ```
 
 Terminal 2:
 
 ```bash
 cd apps/live-control-ui
-pnpm dev
+npm run dev
 ```
 
-**Start at the launcher:** open `http://127.0.0.1:5173/`, then choose the
-surface from the launcher or site nav. Deep links are useful for targeted
-verification but are not the normal product door.
+Open the landing page at `http://127.0.0.1:5173/`. Follow its Graph, Plan, and
+Play links. Then open `/graph`, `/plan`, and `/play` directly in fresh tabs.
+Confirm Graph renders the visualizer and Plan and Play show their respective
+World selection screens when opened without a selected World.
 
 ### Plan smoke
 
@@ -162,13 +181,12 @@ verification but are not the normal product door.
 
 ### Combat Tracker
 
-**Combat Tracker** opens the mature Mireward command-board tracker
-(`evals/c2_live_prep/mireward-prep/combat.html`) at `/combat` (alias
-`/combat.html`) — circular initiative, HP, statblock drilldown, import/export.
-It is not the older Live Control React `CombatRosterModule`.
+Select a managed World and open **Combat Tracker** at `/combat`. Confirm
+that the selected World’s encounters load or that Buddy shows **No encounters yet**.
+Opening the page should leave encounter state untouched.
 
-From `/`, open **Combat Tracker** and confirm the saved/bootstrap combat state
-loads as expected.
+The historical Mireward command board lives in
+[`evals/c2_live_prep/mireward-prep/combat.html`](../../evals/c2_live_prep/mireward-prep/combat.html).
 
 ## Legacy `/surface` board
 
@@ -180,15 +198,6 @@ through AppChrome + Surface Interaction + Surface Context instead.
 Legacy Chat smoke, when specifically needed, still uses `/surface` and the
 existing server live-turn path.
 
-## Tiptap spike routes
-
-The isolated `/tiptap-callout-spike` route remains an experimental exception:
-its editable working-board document is stored only in browser `localStorage`.
-Tiptap JSON is the editable source and semantic Markdown is a derived export.
-The spike performs no backend or corpus writes. See
-[`src/tiptap/state/README.md`](src/tiptap/state/README.md) for that experiment's
-schema and data-flow boundary.
-
 ## Backend regression
 
 From repo root:
@@ -196,3 +205,52 @@ From repo root:
 ```bash
 uv run pytest tests/test_live_control_server.py -q
 ```
+
+### Standalone native Graph build
+
+Run the native Graph tests through the main Vitest configuration with
+`npm test -- nativeGraphDemo worldGraphCanvas`.
+
+From this directory, build the standalone demo with
+`npm exec -- vite build --config native-demo.vite.config.ts`. Its default output
+is `dist-native-demo/`, which the build clears before writing. Git and the Docker
+build context ignore this directory.
+
+If you set `NATIVE_DEMO_BUILD_OUTDIR`, use a dedicated disposable directory. The
+build clears that destination too. Use a fresh temporary directory when you
+need an isolated build.
+
+```sh
+native_demo_output="$(mktemp -d)"
+NATIVE_DEMO_BUILD_OUTDIR="$native_demo_output" npm exec -- vite build --config native-demo.vite.config.ts
+```
+
+### Concurrent visual verification
+
+Run `npm run ui:visual` from this directory. To run another verification at
+the same time, set a distinct unused port, for example
+`BUDDY_UI_VISUAL_PORT=5185 npm run ui:visual`. Each port has its own Ladle
+preview build under `out/` at the repository root. Explicit port overrides
+also get a matching `out/ui-visual-playwright-<port>/` artifact directory.
+
+### Legacy Mireward prep viewer
+
+From this directory, run `BUDDY_MIREWARD_PREP=1 npm run dev -- --host 127.0.0.1 --port 5187 --strictPort`
+and open `http://127.0.0.1:5187/index.html`. Use a separate loopback port
+because the viewer owns legacy page paths, including `/index.html`, and serves
+supporting files from the checkout.
+
+## Statblock v1 upstream contract test
+
+From this UI directory, point the test at a DungeonMindServer checkout or export
+at commit `7273be812c0158b8e4aa645d0ff19acc0e1639b1`. This revision supplies
+the generated client, OpenAPI schema, and the vendored human-adjudicated fixture. Update the
+pin when refreshing the vendored contract.
+
+```bash
+DMB_STATBLOCK_CONTRACT_SERVER_ROOT=/absolute/path/to/pinned/DungeonMindServer \
+  npm exec -- vitest run src/contracts/dungeonbuddy-statblocks-v1/dungeonbuddyStatblockV1Contract.test.ts
+```
+
+The two fixture tests run from the Buddy checkout. Set the override to also run
+the generated-client and OpenAPI comparison against Server.

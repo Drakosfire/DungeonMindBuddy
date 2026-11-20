@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from src.graph_memory.extraction.extraction_profile import (
+from graph_memory.extraction.extraction_profile import (
     ExtractionPassSpec,
     ExtractionProfile,
     register_extraction_profile,
 )
-from src.graph_memory.extraction.recap_extraction_profile import (
+from graph_memory.extraction.recap_extraction_profile import (
     DEFAULT_SEMANTIC_STATE,
     EVIDENCE_RULE,
 )
@@ -60,7 +60,6 @@ WORLDBUILDING_PLUMBING_PROFILE = register_extraction_profile(
             "canon_state": "worldbuilding_draft",
         },
         enable_encounter_job_pass=False,
-        enable_party_participation_attachment=False,
         enable_encounter_job_edge_guidance=False,
         enable_dynamic_node_vocabulary_packet=False,
         allow_null_session=True,

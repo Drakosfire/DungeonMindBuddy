@@ -221,3 +221,20 @@ uv run pytest \
 ## Fixture provenance
 
 `fixtures/session_20_raw_notes.txt` is a copy of repo-root `Session 20 Recap.txt`. Update both together if the gold input changes (and re-author Scope-A gold via `tests/test_session_20_scope_a_gold.py`).
+
+## Regrade a saved Scope-B trace
+
+From the repository root, run the standalone grader on a full trace export:
+
+```sh
+uv run python scripts/regrade_scope_b.py "$TRACE_BUNDLE"
+```
+
+The JSON bundle needs a `scenario` object and a `tool_trace` array. Supply the
+recorded response as `final_text` or `detail.final_text`. Set `corpus_path`
+to the matching corpus snapshot. Without it, the grader uses the current
+directory unless the bundle supplies `corpus_dir`.
+
+Exit 0 with `{}` means the trace passed. Exit 1 prints the grading findings.
+Exit 2 indicates missing arguments, a missing trace array, or a missing
+scenario object. Ordinary sidecar summaries may omit the full trace.

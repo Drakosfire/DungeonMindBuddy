@@ -1,0 +1,706 @@
+"""Actual Jev → reads → one SDK writer → atomic APP completion, no network."""
+import asyncio
+import json
+import httpx
+import pytest
+from generationengine import GenerationEngineError
+from application_state.agent_conversation import AgentConversationService
+from application_state.agent_conversation.rules_authority_policy import rules_capability
+from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
+from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRuntime
+from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+from apps.live_control_server.services import agent_turn_service as owner
+from graph_memory.interaction.session import GraphReferent
+from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
+from tests.test_plan_jev_driver import Decisions, fixture_reads
+from tests.test_rules_lookup_broker import args
+
+
+class WriterWire(httpx.AsyncBaseTransport):
+    def __init__(self, adapter, text, *, status='completed', extra_output=(), phase=None):
+        self.adapter, self.text, self.status, self.extra_output = adapter, text, status, extra_output
+        self.calls=[]; self.closed=False; self.phase=phase
+    async def handle_async_request(self, request):
+        self.calls.append(request)
+        fresh=AgentConversationService().list_turns(self.adapter.world_id,self.adapter.turn.conversation_id)[-1]
+        assert fresh.graph_context_execution.events[-1].outcome == 'sdk_entered'
+        body=json.loads(request.content)
+        assert isinstance(body['input'],list) and body['tools'] == []
+        assert body['text']['format']['type'] == 'json_schema'
+        assert isinstance(body['text']['format']['schema'], dict)
+        assert 'coding agent' not in body['instructions'] and 'cwd' not in body['instructions']
+        return httpx.Response(200,request=request,json={'id':'resp_plan_writer','object':'response','created_at':1,
+            'status':self.status,'model':'gpt-6-luna','service_tier':'fast','output':[{'type':'message','id':'msg_plan_writer',
+                'role':'assistant','status':'completed','content':[{'type':'output_text','text':self.text,'annotations':[]} ],
+                **({'phase':self.phase} if self.phase is not None else {})},
+                *self.extra_output], 'usage':{'input_tokens':600,'output_tokens':100,'total_tokens':700,
+                    'input_tokens_details':{'cached_tokens':400},'output_tokens_details':{'reasoning_tokens':60}},
+            **({'incomplete_details':{'reason':'max_output_tokens'}} if self.status=='incomplete' else {})})
+    async def aclose(self): self.closed=True
+
+
+def graph_answer():
+    return {'schema':'dmb_surface_evidence_answer_v5','limitations':[],'requested_detail_gaps':[],
+        'answer_segments':[{'kind':'graph_claim','claim_id':'claim:1',
+        'text':'The park journal reports a wooden walkway.','target_kind':'assertion','target_id':'assertion:pond',
+        'passage_handles':[]}]}
+
+
+
+def stage_graph(adapter):
+    adapter.bootstrap.retrieval_session.referents=[GraphReferent(id='pond',label='Park pond')]
+    fixture_reads(adapter)
+    rules=PlanRulesRuntime(adapter,rules_capability(graph=True))
+    driver=PlanJevDriver(adapter)  # no Rules selected; final writer still binds an empty Rules frame
+    proof=asyncio.run(driver.run(transport=Decisions(),api_key='synthetic-not-secret'))
+    return PlanJevWriter(adapter,proof,rules)
+
+
+def test_actual_plan_writer_accepts_source_citation_and_exact_prompt(plan_adapter):
+    writer=stage_graph(plan_adapter)
+    wire=WriterWire(plan_adapter,json.dumps(graph_answer()))
+    completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
+    assert completed.status == 'completed' and len(wire.calls)==1 and wire.closed
+    entry=completed.completion.citation_map.entries[0]
+    assert not entry.source_opened and entry.source_read_ids == []
+    assert entry.evidence_ref_ids == ['evidence:park:0']
+    assert writer.call['usage'] == {'status':'reported','input_tokens':600,'output_tokens':100,
+        'total_tokens':700,'cached_input_tokens':400,'uncached_input_tokens':200,'reasoning_tokens':60}
+    assert writer.call['request_summary'] == {'reasoning_effort':'low'}
+    prompts=[row for row in plan_adapter.context_capture.trace.observations if row.kind=='prompt_reference']
+    assert prompts[-1].payload_sha256==writer.prepared.body_sha256
+    assert prompts[-1].api_mode=='responses'
+    assert not writer.authorize(writer.prepared)
+    # Check actual SDK bytes: evidence appears once, machine proof remains host-side.
+    body = json.loads(wire.calls[0].content)
+    assert 'dmb_surface_source_answer_v1' not in body['instructions']
+    assert body['instructions'].count("Ground each factual clause in that claim's own admitted evidence.") == 1
+    assert 'Graph claims use their admitted Graph records' in body['instructions']
+    assert 'native_source_claim uses its selected section_handles' in body['instructions']
+    assert 'A source saying someone asked for a description does not supply that description' in body['instructions']
+    assert body['service_tier'] == 'fast'
+    assert writer.call['response_service_tier'] == 'fast'
+    assert body['reasoning'] == {'effort':'low'}
+    frame = json.loads(body['input'][0]['content'])
+    assert all('assertion_ids' not in row and 'relationship_ids' not in row
+               for row in frame['retrieval_results'])
+    passage = frame['opened_passages'][0]
+    assert body['input'][0]['content'].count(passage['text']) == 1
+    for field in ('source_artifact_id', 'source_revision_id', 'context_receipt_sha256',
+                  'execution_policy_sha256', 'content_sha256'):
+        assert field not in frame
+        assert field not in passage
+    assert entry.target_id == 'assertion:pond'
+    assert entry.source_read_ids == []
+
+
+def test_actual_plan_writer_accepts_rules_and_no_graph(plan_adapter):
+    a=plan_adapter
+    a.request=a.request.model_copy(update={'message':args().question})
+    a.submitted_intent=owner._submitted_turn_intent(a.request,world_id=a.world_id)
+    rules=PlanRulesRuntime(a,rules_capability(graph=True))
+    driver=PlanJevDriver(a,rules=rules)
+    proof=asyncio.run(driver.run(transport=Decisions(),api_key='synthetic-not-secret'))
+    writer=PlanJevWriter(a,proof,rules)
+    capsule=rules.frame().supports[0]
+    answer={'schema':'dmb_rules_mixed_answer_v1','base_output':None,
+        'rules_segments':[{'kind':'rules_claim','text':capsule.excerpt_text,'support_ids':[str(capsule.support_id)]}],
+        'ordered_refs':[{'domain':'rules','segment_index':0}]}
+    wire=WriterWire(a,json.dumps(answer))
+    completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
+    assert isinstance(completed,MixedCompletedTurnV1) and completed.envelope.status=='completed'
+    assert len(wire.calls)==1 and wire.closed
+    assert rules.native.record.execution.events[-1].api_mode=='responses'
+
+
+def test_incomplete_plan_reply_is_not_sealed_accepted_or_retried(plan_adapter):
+    writer=stage_graph(plan_adapter)
+    wire=WriterWire(plan_adapter,json.dumps(graph_answer()),status='incomplete')
+    with pytest.raises(GenerationEngineError): asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
+    turn=plan_adapter.service.list_turns(plan_adapter.world_id,plan_adapter.turn.conversation_id)[0]
+    assert len(wire.calls)==1 and wire.closed and turn.status!='completed'
+    assert not any(row.kind=='native_provider_outcome' for row in writer.rules.native.record.execution.events)
+    assert writer.call['usage']['input_tokens']==600 and writer.call['usage']['output_tokens']==100
+    assert writer.output_limit_exceeded
+    assert any(row.kind=='context_snapshot' and any(item.text==json.dumps(graph_answer()) for item in row.materials)
+        for row in plan_adapter.context_capture.trace.observations)
+
+
+def test_unexpected_sdk_tool_output_cannot_be_sealed_as_empty_tool_list(plan_adapter):
+    writer=stage_graph(plan_adapter)
+    wire=WriterWire(plan_adapter,json.dumps(graph_answer()),extra_output=({'type':'function_call',
+        'id':'fc1','call_id':'call1','name':'unsupported','arguments':'{}','status':'completed'},))
+    with pytest.raises(ValueError,match='unexpected tool'): asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
+    turn=plan_adapter.service.list_turns(plan_adapter.world_id,plan_adapter.turn.conversation_id)[0]
+    assert len(wire.calls)==1 and wire.closed and turn.status!='completed'
+    assert not any(row.kind=='native_provider_outcome' for row in writer.rules.native.record.execution.events)
+
+
+def test_transport_close_failure_does_not_hide_an_already_accepted_turn(plan_adapter):
+    writer=stage_graph(plan_adapter)
+    class CloseFailure(WriterWire):
+        async def aclose(self):
+            self.closed=True
+            raise RuntimeError('synthetic close failure')
+    wire=CloseFailure(plan_adapter,json.dumps(graph_answer()))
+    with pytest.raises(RuntimeError,match='close failure'):
+        asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
+    turn=plan_adapter.service.list_turns(plan_adapter.world_id,plan_adapter.turn.conversation_id)[0]
+    assert len(wire.calls)==1 and wire.closed and turn.status!='completed'
+
+
+def test_unused_graph_can_return_a_labeled_proposal_without_factual_connective(plan_adapter):
+    writer=stage_graph(plan_adapter)
+    answer={'schema':'dmb_surface_evidence_answer_v5','limitations':[],'requested_detail_gaps':[],
+        'answer_segments':[{'kind':'proposal','label':'invented_idea','text':'We could begin beside the pond.'}]}
+    wire=WriterWire(plan_adapter,json.dumps(answer))
+    completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
+    assert completed.status=='completed' and len(wire.calls)==1
+    assert completed.completion.answer_context_status=='creative_proposal'
+
+
+def test_plan_writer_stops_renewal_and_uses_its_final_revision(plan_adapter,monkeypatch):
+    writer=stage_graph(plan_adapter)
+    original_stop=plan_adapter.stop
+    original_complete=writer.rules.complete
+    renewed=[]
+    def stop_with_one_final_renewal():
+        renewer=plan_adapter.fence.renewer
+        with renewer._lock:
+            turn=renewer._turn
+            renewer._turn=plan_adapter.service.renew_turn_claim(turn.world_id,turn.conversation_id,turn.turn_id,
+                expected_revision=turn.revision,lease_seconds=120)
+            renewed.append(renewer._turn)
+        return original_stop()
+    def complete(turn,reply):
+        assert not plan_adapter.fence.renewer._thread.is_alive()
+        assert turn.revision==renewed[-1].revision
+        return original_complete(turn,reply)
+    monkeypatch.setattr(plan_adapter,'stop',stop_with_one_final_renewal)
+    monkeypatch.setattr(writer.rules,'complete',complete)
+    wire=WriterWire(plan_adapter,json.dumps(graph_answer()))
+    completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
+    assert completed.status=='completed' and completed.revision==renewed[-1].revision+1
+    assert len(wire.calls)==1
+
+
+def test_plan_writer_refuses_completion_when_renewal_error_is_reported(plan_adapter,monkeypatch):
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    writer=stage_graph(plan_adapter)
+    original_stop=plan_adapter.stop
+    def failed_stop():
+        with plan_adapter.fence.renewer._lock:
+            plan_adapter.fence.renewer._error=RuntimeError('synthetic renewal uncertainty')
+        return original_stop()
+    monkeypatch.setattr(plan_adapter,'stop',failed_stop)
+    monkeypatch.setattr(writer.rules,'complete',lambda *_args:pytest.fail('uncertain renewal reached completion'))
+    wire=WriterWire(plan_adapter,json.dumps(graph_answer()))
+    with pytest.raises(AgentTurnServiceError) as error:
+        asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
+    assert error.value.code=='turn_claim_indeterminate' and len(wire.calls)==1 and wire.closed
+    turn=plan_adapter.service.list_turns(plan_adapter.world_id,plan_adapter.turn.conversation_id)[0]
+    assert turn.status!='completed'
+
+
+def test_session_quote_name_and_owner_come_from_exact_writer_input(plan_adapter):
+    from dataclasses import replace
+    from uuid import uuid4
+    from application_state.agent_conversation.rules_authority_types import canonical_sha256
+    a=plan_adapter
+    run=str(uuid4())
+    packet={'title':'Synthetic park outing','world_id':a.world_id,'run_id':run,
+        'review_revision':54,'ended_at':'2026-10-18T12:51:00Z',
+        'sources':[{'kind':'scene_note','element_id':'crossing','text':'The boardwalk was pulled under.'}]}
+    packet['sha256']=canonical_sha256(packet)
+    a.work=replace(a.work,session_evidence={'sessions':[packet]})
+    rules=PlanRulesRuntime(a,rules_capability(graph=True))
+    proof=asyncio.run(PlanJevDriver(a).run(transport=Decisions(),api_key='synthetic-not-secret'))
+    writer=PlanJevWriter(a,proof,rules)
+    source=next(row for row in writer.projection.frame['authored_sources'] if row['source_kind']=='session')
+    candidate={'schema':'dmb_surface_evidence_answer_v5','limitations':[],'requested_detail_gaps':[],
+        'answer_segments':[{'kind':'authored_excerpt','selection_id':writer.projection.frame['session_evidence'][0]['sources'][0]['text_blocks'][0]['selection_id']}]}
+    wire=WriterWire(a,json.dumps(candidate))
+    completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
+    assert len(wire.calls)==1
+    segment=completed.completion.answer_segments[0]
+    assert segment.source_name=='Synthetic park outing — notes and reflections'
+    assert segment.owner_sha256==packet['sha256'] and segment.object_id==run and segment.revision=='54'
+    saved=AgentConversationService().list_turns(a.world_id,completed.conversation_id)[-1]
+    assert saved.completion==completed.completion
+
+
+@pytest.mark.parametrize("field", ["_build_native_acquisition_services", "_plan_graph_read_services"])
+def test_active_native_acquisition_refuses_writer_before_authorization_or_sdk_send(plan_adapter, field):
+    writer = stage_graph(plan_adapter)
+    before = plan_adapter.fence.turn.graph_context_execution.model_dump(mode='json')
+    wire = WriterWire(plan_adapter, json.dumps(graph_answer()))
+    setattr(plan_adapter, field, object())
+    try:
+        with pytest.raises(GenerationEngineError):
+            asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+        assert wire.calls == []
+        assert writer.prepared is None
+        assert plan_adapter.fence.turn.graph_context_execution.model_dump(mode='json') == before
+    finally:
+        setattr(plan_adapter, field, None)
+
+
+def test_actual_writer_seals_image_prompt_as_creative_direction_not_a_fact(plan_adapter):
+    writer=stage_graph(plan_adapter)
+    prompt='A broken timber boardwalk above dark fen water. No town or tower.'
+    answer={'schema':'dmb_surface_evidence_answer_v5','limitations':[],'requested_detail_gaps':[],'answer_segments':[
+        {'kind':'proposal','label':'image_prompt','text':prompt}]}
+    wire=WriterWire(plan_adapter,json.dumps(answer))
+    completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
+    assert completed.status=='completed' and len(wire.calls)==1
+    assert completed.completion.answer_segments[0].label=='image_prompt'
+    assert completed.completion.answer_segments[0].text==prompt
+    assert completed.completion.citation_map is None
+    stored=AgentConversationService().list_turns(plan_adapter.world_id,completed.conversation_id)[-1]
+    assert stored.completion.answer_segments[0].text==prompt
+    body=json.loads(wire.calls[0].content)
+    assert '"label":"image_prompt"' in body['instructions']
+    assert body['tools']==[]
+
+
+def test_identical_notes_and_closing_reflections_select_distinct_frozen_entries(plan_adapter):
+    from dataclasses import replace
+    from uuid import uuid4
+    from application_state.agent_conversation.rules_authority_types import canonical_sha256
+    a=plan_adapter; run=str(uuid4());text='A saved recollection.\r\n'
+    packet=dict(title='Synthetic park outing',world_id=a.world_id,run_id=run,review_revision=4,
+        sources=[dict(kind='scene_note',element_id='one',text=text),
+                 dict(kind='scene_note',element_id='two',text=text),
+                 dict(kind='closing_reflections',text=text)])
+    packet['sha256']=canonical_sha256(packet)
+    a.work=replace(a.work,session_evidence={'sessions':[packet]})
+    rules=PlanRulesRuntime(a,rules_capability(graph=True))
+    proof=asyncio.run(PlanJevDriver(a).run(transport=Decisions(),api_key='synthetic'))
+    writer=PlanJevWriter(a,proof,rules)
+    entries=writer.projection.frame['session_evidence'][0]['sources']
+    handles=[entry['text_blocks'][0]['selection_id'] for entry in entries]
+    assert len(set(handles))==3
+    payload=dict(schema='dmb_surface_evidence_answer_v5',limitations=[],requested_detail_gaps=[],
+        answer_segments=[dict(kind='authored_excerpt',selection_id=handle) for handle in handles])
+    wire=WriterWire(a,json.dumps(payload));completed=asyncio.run(writer.run(transport=wire,api_key='synthetic'))
+    segments=completed.completion.answer_segments
+    assert [s.text for s in segments]==[text]*3
+    assert len({s.source_handle for s in segments})==3 and len({s.entry_identity for s in segments})==3
+    assert all(s.owner_sha256==packet['sha256'] and s.source_kind=='session' for s in segments)
+    reopened=AgentConversationService().inspect_turn(world_id=a.world_id,turn_id=a.turn.turn_id)
+    assert reopened.completion==completed.completion and len(wire.calls)==1
+
+
+@pytest.mark.parametrize('malformed', [False, True])
+def test_empty_acquisition_completes_typed_gaps_without_repair_or_fabricated_evidence(plan_adapter, malformed):
+    from dataclasses import replace
+    plan_adapter.bootstrap = replace(plan_adapter.bootstrap, completed_discovery_query=plan_adapter.request.message)
+    rules = PlanRulesRuntime(plan_adapter, rules_capability(graph=True))
+    driver = PlanJevDriver(plan_adapter)
+    proof = asyncio.run(driver.run(transport=Decisions(), api_key='synthetic-not-secret'))
+    assert proof['graph_packets'] == {} and not plan_adapter.source_payloads
+    writer = PlanJevWriter(plan_adapter, proof, rules)
+    answer = {'schema':'dmb_surface_evidence_answer_v5', 'answer_segments':[],
+        'limitations':['missing_requested_details','partial_retrieval'],
+        'requested_detail_gaps':[plan_adapter.request.message if malformed else {'question_phrase':plan_adapter.request.message}]}
+    wire = WriterWire(plan_adapter, json.dumps(answer))
+    if malformed:
+        with pytest.raises(GenerationEngineError):
+            asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+        assert plan_adapter.fence.turn.status != 'completed'
+    else:
+        completed = asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+        assert completed.status == 'completed'
+        assert completed.completion.citation_map is None
+        assert not completed.completion.source_citations
+        assert all(segment.kind == 'limitation' for segment in completed.completion.answer_segments)
+        fresh = AgentConversationService().list_turns(plan_adapter.world_id, completed.conversation_id)[-1]
+        assert fresh.status == 'completed' and fresh.assistant_text
+    assert len(wire.calls) == 1 and wire.closed
+    actual = json.loads(wire.calls[0].content)
+    assert '{"question_phrase":"exact phrase from user_question"}' in actual['instructions']
+
+
+def test_session_excerpts_and_corpus_claim_keep_distinct_producing_owners(plan_adapter):
+    from dataclasses import replace
+    from uuid import uuid4
+    from application_state.agent_conversation.rules_authority_types import canonical_sha256
+    from tests.test_surface_source_answers import stage
+    a=plan_adapter; run=str(uuid4())
+    packet=dict(title='Synthetic park outing',world_id=a.world_id,run_id=run,review_revision=4,
+        sources=[dict(kind='scene_note',element_id='crossing',text='Rehearsal stopped beside the pond.'),
+                 dict(kind='closing_reflections',text='Resume with the keeper still waiting. No fight occurred.')])
+    packet['sha256']=canonical_sha256(packet)
+    a.work=replace(a.work,session_evidence={'sessions':[packet]})
+    writer=stage(a)
+    entries=writer.projection.frame['session_evidence'][0]['sources']
+    payload=dict(schema='dmb_surface_evidence_answer_v5',limitations=[],requested_detail_gaps=[],
+        answer_segments=[*[dict(kind='authored_excerpt',selection_id=e['text_blocks'][0]['selection_id']) for e in entries],
+            dict(kind='source_passage_claim',text='The journal describes a wooden walkway.',
+                 passage_handles=[writer.projection.frame['opened_passages'][0]['passage_handle']])])
+    wire=WriterWire(a,json.dumps(payload))
+    completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
+    assert len(wire.calls)==1
+    body=json.loads(wire.calls[0].content)
+    assert 'session recollections or Plan/Play content as source_passage_claim or graph_claim' in body['instructions']
+    segments=completed.completion.answer_segments
+    assert [s.text for s in segments[:2]]==[s['text'] for s in packet['sources']]
+    assert all(s.source_kind=='session' and s.object_id==run and s.revision=='4'
+               and s.owner_sha256==packet['sha256'] for s in segments[:2])
+    assert len({s.entry_identity for s in segments[:2]})==2
+    assert len(completed.completion.source_citations)==1
+    assert completed.completion.source_citations[0].segment_index==2
+    assert completed.completion.source_citations[0].source_name=='Synthetic park journal'
+    reopened=AgentConversationService().inspect_turn(world_id=a.world_id,turn_id=completed.turn_id)
+    assert reopened.completion==completed.completion
+
+
+def test_actual_large_writer_selects_short_id_and_stores_exact_internal_block(request,monkeypatch):
+    from tests import test_plan_jev_dispatch as setup
+    from application_state.agent_conversation.authored_excerpt_blocks import partition
+    from application_state.agent_conversation.surface_evidence_answer import PLAN_POLICY as SELECTOR_POLICY
+    original=setup._pinned_plan_work
+    text='# Synthetic preparation 🦉\r\n'+''.join(f'\r\nParagraph {index}.\r\n' for index in range(100))
+    monkeypatch.setattr(setup,'_pinned_plan_work',lambda _:original(text))
+    adapter=request.getfixturevalue('plan_adapter');writer=stage_graph(adapter)
+    blocks=writer.projection.frame['committed_plan_blocks']
+    assert len(blocks)>=100
+    chosen=blocks[94]
+    payload={'schema':SELECTOR_POLICY,'limitations':[],'requested_detail_gaps':[],
+        'answer_segments':[{'kind':'authored_excerpt','selection_id':chosen['selection_id']}]}
+    wire=WriterWire(adapter,json.dumps(payload))
+    completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
+    assert len(wire.calls)==1 and completed.status=='completed'
+    internal=partition(text,writer.projection.frame['authored_sources'][0]['handle'])[94]
+    excerpt=completed.completion.answer_segments[0]
+    assert excerpt.block_handle==internal.block_handle and excerpt.text==internal.text
+    assert excerpt.block_handle!=chosen['selection_id']
+    assert all(block.block_handle not in wire.calls[0].content.decode() for block in partition(text,writer.projection.frame['authored_sources'][0]['handle']))
+    reopened=adapter.service.inspect_turn(world_id=completed.world_id,turn_id=completed.turn_id)
+    assert reopened.completion==completed.completion
+
+
+def unvalidated_texts(adapter):
+    return [material.text for row in adapter.context_capture.trace.observations
+            if row.kind == 'context_snapshot' and row.stage == 'after'
+            for material in row.materials if material.item_id.startswith('unvalidated-provider-answer:')]
+
+
+def writer_failures(adapter):
+    return [(row.phase, row.code) for row in adapter.context_capture.trace.observations
+            if row.kind == 'failure' and row.code.startswith('plan_writer_')]
+
+
+def test_rejected_native_capture_retains_exact_debug_output_without_acceptance(plan_adapter, monkeypatch):  # noqa: F811
+    writer = stage_graph(plan_adapter)
+    raw = json.dumps(graph_answer())
+    wire = WriterWire(plan_adapter, raw)
+    monkeypatch.setattr(writer.rules, 'capture_reply', lambda _reply: False)
+    with pytest.raises(ValueError, match='capture was not acknowledged'):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert len(wire.calls) == 1 and wire.closed
+    assert unvalidated_texts(plan_adapter) == [raw]
+    assert writer_failures(plan_adapter) == [('delivery', 'plan_writer_native_capture_unacknowledged')]
+    assert writer.call['usage']['input_tokens'] == 600
+    assert writer.call['usage']['output_tokens'] == 100
+    assert plan_adapter.fence.turn.completion is None
+    assert not any(e.kind == 'native_provider_outcome' for e in writer.rules.native.record.execution.events)
+    prompts = [row for row in plan_adapter.context_capture.trace.observations if row.kind == 'prompt_reference']
+    assert prompts[-1].payload_sha256 == writer.prepared.body_sha256
+
+
+def test_incomplete_generation_debug_output_is_not_retried_or_accepted(plan_adapter):  # noqa: F811
+    writer = stage_graph(plan_adapter)
+    raw = '{"incomplete":'
+    wire = WriterWire(plan_adapter, raw, status='incomplete')
+    with pytest.raises(GenerationEngineError):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert len(wire.calls) == 1 and wire.closed
+    assert unvalidated_texts(plan_adapter) == [raw]
+    assert writer_failures(plan_adapter) == [('provider', 'plan_writer_generation_rejected')]
+    assert writer.output_limit_exceeded and plan_adapter.fence.turn.completion is None
+
+
+def test_unexpected_tool_reply_preserves_only_actual_output_text_as_debug(plan_adapter):  # noqa: F811
+    writer = stage_graph(plan_adapter)
+    raw = json.dumps(graph_answer())
+    wire = WriterWire(plan_adapter, raw, extra_output=({'type':'function_call',
+        'id':'fc1','call_id':'call1','name':'unsupported','arguments':'{}','status':'completed'},))
+    with pytest.raises(ValueError, match='unexpected tool'):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert unvalidated_texts(plan_adapter) == [raw]
+    assert writer_failures(plan_adapter) == [('delivery', 'plan_writer_unexpected_output')]
+    assert len(wire.calls) == 1 and wire.closed and plan_adapter.fence.turn.completion is None
+
+
+def test_completion_refusal_keeps_debug_output_and_phase(plan_adapter, monkeypatch):  # noqa: F811
+    writer = stage_graph(plan_adapter)
+    raw = json.dumps(graph_answer())
+    def refuse(*_args):
+        raise ValueError('synthetic completion refusal with private details')
+    monkeypatch.setattr(writer.rules, 'complete', refuse)
+    wire = WriterWire(plan_adapter, raw)
+    with pytest.raises(ValueError, match='synthetic completion refusal'):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert unvalidated_texts(plan_adapter) == [raw]
+    assert writer_failures(plan_adapter) == [('delivery', 'plan_writer_completion_rejected')]
+    assert len(wire.calls) == 1 and wire.closed and plan_adapter.fence.turn.completion is None
+    assert 'private details' not in json.dumps([row.model_dump(mode='json')
+        for row in plan_adapter.context_capture.trace.observations if row.kind == 'failure'])
+
+
+def test_failed_debug_capture_is_not_retried_or_accepted(plan_adapter, monkeypatch):  # noqa: F811
+    writer = stage_graph(plan_adapter)
+    calls = []
+    def refuse(*_args, **_kwargs):
+        calls.append(True)
+        raise ValueError('synthetic Debug persistence failure')
+    monkeypatch.setattr(plan_adapter.context_capture, 'answer_draft', refuse)
+    wire = WriterWire(plan_adapter, json.dumps(graph_answer()))
+    with pytest.raises(ValueError, match='Debug persistence failure'):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert len(calls) == len(wire.calls) == 1 and wire.closed
+    assert writer_failures(plan_adapter) == [('delivery', 'plan_writer_draft_rejected')]
+    assert plan_adapter.fence.turn.completion is None
+
+
+def test_transport_failure_has_no_invented_debug_reply_or_retry(plan_adapter):  # noqa: F811
+    writer = stage_graph(plan_adapter)
+    class FailedWire(WriterWire):
+        async def handle_async_request(self, request):
+            self.calls.append(request)
+            raise httpx.ConnectError('synthetic network failure', request=request)
+    wire = FailedWire(plan_adapter, '')
+    with pytest.raises(GenerationEngineError):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert unvalidated_texts(plan_adapter) == []
+    assert writer_failures(plan_adapter) == [('provider', 'plan_writer_generation_rejected')]
+    assert len(wire.calls) == 1 and wire.closed and plan_adapter.fence.turn.completion is None
+    assert writer.call['usage']['input_tokens'] is None
+    assert writer.call['usage']['output_tokens'] is None
+
+
+@pytest.mark.parametrize('model,status,phase,code,error_type', [
+    ('gpt-6-luna', 'failed', 'provider', 'plan_writer_generation_rejected', GenerationEngineError),
+    ('unexpected-model', 'completed', 'delivery', 'plan_writer_response_model_mismatch', ValueError),
+])
+def test_exact_reply_guard_records_safe_reason_and_actual_debug_text(plan_adapter, model, status, phase, code, error_type):  # noqa: F811
+    writer = stage_graph(plan_adapter)
+    raw = json.dumps(graph_answer())
+    class ChangedWire(WriterWire):
+        async def handle_async_request(self, request):
+            response = await super().handle_async_request(request)
+            body = response.json()
+            body['model'], body['status'] = model, status
+            return httpx.Response(200, request=request, json=body)
+    wire = ChangedWire(plan_adapter, raw)
+    with pytest.raises(error_type):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert unvalidated_texts(plan_adapter) == [raw]
+    assert writer_failures(plan_adapter) == [(phase, code)]
+    assert len(wire.calls) == 1 and wire.closed and plan_adapter.fence.turn.completion is None
+
+
+
+def test_incomplete_reply_preserves_primary_failure_when_debug_capture_fails(plan_adapter, monkeypatch):  # noqa: F811
+    writer = stage_graph(plan_adapter)
+    calls = []
+    def refuse(*_args, **_kwargs):
+        calls.append(True)
+        raise ValueError('synthetic private Debug failure')
+    monkeypatch.setattr(plan_adapter.context_capture, 'answer_draft', refuse)
+    wire = WriterWire(plan_adapter, '{"incomplete":', status='incomplete')
+    with pytest.raises(GenerationEngineError) as error:
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert error.value.failure.code.value == 'PROVIDER_INCOMPLETE'
+    assert error.value.__cause__ is not None
+    assert str(error.value.__cause__) != 'synthetic private Debug failure'
+    assert writer.failure_stage == 'generation'
+    assert writer.output_limit_exceeded
+    assert writer_failures(plan_adapter) == [
+        ('provider', 'plan_writer_generation_rejected'), ('delivery', 'plan_writer_draft_rejected')]
+    assert len(calls) == len(wire.calls) == 1 and wire.closed
+    assert plan_adapter.fence.turn.completion is None
+    assert writer.call['usage']['input_tokens'] == 600
+    assert writer.call['usage']['output_tokens'] == 100
+
+
+def test_structured_writer_rejects_empty_source_support_in_one_actual_sdk_call(plan_adapter):  # noqa: F811
+    writer = stage_graph(plan_adapter)
+    raw = json.dumps({'schema':'dmb_surface_evidence_answer_v5', 'limitations':[], 'requested_detail_gaps':[],
+        'answer_segments':[{'kind':'source_passage_claim','text':'Unsupported claim.','passage_handles':[]}]})
+    wire = WriterWire(plan_adapter, raw)
+    with pytest.raises(GenerationEngineError) as error:
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert error.value.failure.code.value == 'STRUCTURED_OUTPUT_INVALID'
+    assert len(wire.calls) == 1 and wire.closed
+    assert json.loads(wire.calls[0].content)['text']['format'] == writer.output_format
+    assert unvalidated_texts(plan_adapter) == [raw]
+    assert plan_adapter.fence.turn.completion is None
+    assert not any(e.kind == 'native_provider_outcome' for e in writer.rules.native.record.execution.events)
+    assert writer.call['usage']['input_tokens'] == 600 and writer.call['usage']['output_tokens'] == 100
+
+
+
+def phase_message(phase, text):
+    return {'type':'message','id':'msg_final','role':'assistant','status':'completed',
+            'phase':phase,'content':[{'type':'output_text','text':text,'annotations':[]}]}
+
+
+def test_commentary_then_final_is_grounded_and_completed_without_aggregate_parsing(plan_adapter):
+    writer = stage_graph(plan_adapter)
+    commentary = '{"unvalidated":"commentary"}<fim_suffix>'
+    final = json.dumps(graph_answer())
+    wire = WriterWire(plan_adapter, commentary, phase='commentary',
+        extra_output=(phase_message('final_answer', final),))
+    completed = asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert completed.status == 'completed'
+    assert completed.completion.citation_map.entries[0].evidence_ref_ids == ['evidence:park:0']
+    assert len(wire.calls) == 1 and wire.closed
+    assert unvalidated_texts(plan_adapter) == [commentary + final]
+    reopened = plan_adapter.service.inspect_turn(world_id=completed.world_id, turn_id=completed.turn_id)
+    assert reopened.completion == completed.completion
+
+
+@pytest.mark.parametrize('extra', [(), (phase_message('final_answer', '{}'), phase_message('final_answer', '{}')),
+    (phase_message(None, '{}'),)])
+def test_missing_duplicate_or_mixed_final_never_completes(plan_adapter, extra):
+    writer = stage_graph(plan_adapter)
+    wire = WriterWire(plan_adapter, 'commentary', phase='commentary', extra_output=extra)
+    with pytest.raises(GenerationEngineError):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert len(wire.calls) == 1 and wire.closed
+    assert plan_adapter.fence.turn.completion is None
+
+
+@pytest.mark.parametrize('corruption', ['text', 'response', 'missing'])
+def test_selected_reply_association_cannot_be_changed(plan_adapter, monkeypatch, corruption):
+    from apps.live_control_server.services.plan_jev_writer import PlanWriterProvider
+    original = PlanWriterProvider._result_from_response
+    def corrupt(provider, response):
+        result = original(provider, response)
+        if corruption == 'text':
+            changed = graph_answer()
+            changed['answer_segments'][0]['text'] = 'A changed provider result.'
+            return result.model_copy(update={'text':json.dumps(changed)})
+        if corruption == 'response':
+            provider.actual_response = response.model_copy(deep=True)
+        else:
+            provider._selected_reply = None
+        return result
+    monkeypatch.setattr(PlanWriterProvider, '_result_from_response', corrupt)
+    writer = stage_graph(plan_adapter)
+    wire = WriterWire(plan_adapter, json.dumps(graph_answer()))
+    with pytest.raises(ValueError, match='complete exact SDK reply'):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert len(wire.calls) == 1 and wire.closed
+    assert writer_failures(plan_adapter) == [('delivery', 'plan_writer_response_identity_mismatch')]
+    assert plan_adapter.fence.turn.completion is None
+    assert not any(e.kind == 'native_provider_outcome' for e in writer.rules.native.record.execution.events)
+
+
+def test_selected_reply_capture_is_single_use(plan_adapter, monkeypatch):
+    writer = stage_graph(plan_adapter)
+    original = writer.capture
+    captured = []
+    def record(*args):
+        captured.append(args)
+        return original(*args)
+    monkeypatch.setattr(writer, 'capture', record)
+    wire = WriterWire(plan_adapter, json.dumps(graph_answer()))
+    completed = asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert completed.status == 'completed'
+    with pytest.raises(ValueError, match='complete exact SDK reply'):
+        original(*captured[0])
+    assert len(wire.calls) == 1
+
+
+def test_final_phase_does_not_authorize_unsupported_claim(plan_adapter):
+    writer = stage_graph(plan_adapter)
+    unsupported = graph_answer()
+    unsupported['answer_segments'][0]['target_id'] = 'assertion:not-admitted'
+    final = json.dumps(unsupported)
+    wire = WriterWire(plan_adapter, 'commentary', phase='commentary',
+        extra_output=(phase_message('final_answer', final),))
+    with pytest.raises(GenerationEngineError, match="supplied schema"):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert len(wire.calls) == 1 and wire.closed
+    assert plan_adapter.fence.turn.completion is None
+    assert unvalidated_texts(plan_adapter) == ['commentary' + final]
+
+
+def test_equal_text_distinct_receipts_bind_only_the_selected_graph_target(plan_adapter):
+    from copy import deepcopy
+    from dataclasses import replace
+    from hashlib import sha256
+    from jsonschema import Draft202012Validator
+    from application_state.agent_conversation.native_answer_output import NativeAnswerError, parse_native_answer
+
+    a = plan_adapter
+    a.bootstrap.retrieval_session.referents = [GraphReferent(id='pond', label='Park pond')]
+    fixture_reads(a, anchors=2, source_text='The park journal records a wooden walkway.',
+                  claim_anchor_indexes=(1,))
+    rules = PlanRulesRuntime(a, rules_capability(graph=True))
+    proof = asyncio.run(PlanJevDriver(a).run(transport=Decisions(), api_key='synthetic-not-secret'))
+    writer = PlanJevWriter(a, proof, rules)
+    frame = writer.projection.frame
+    record = next(row for row in frame['graph_records'] if row['target_id'] == 'assertion:pond')
+    matching = [row for row in frame['opened_passages'] if row['evidence'] in record['evidence']]
+    other = [row for row in frame['opened_passages'] if row['evidence'] not in record['evidence']]
+    assert len(matching) == len(other) == 1
+    assert matching[0]['text'] == other[0]['text']
+    candidate = graph_answer()
+    candidate['answer_segments'][0]['passage_handles'] = [matching[0]['passage_handle']]
+    wrong = deepcopy(candidate)
+    wrong['answer_segments'][0]['passage_handles'] = [other[0]['passage_handle']]
+    validator = Draft202012Validator(writer.output_format['schema'])
+    validator.validate(candidate)
+    assert not validator.is_valid(wrong)
+    wire = WriterWire(a, json.dumps(candidate))
+    completed = asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert completed.status == 'completed' and len(wire.calls) == 1
+    entry = completed.completion.citation_map.entries[0]
+    assert entry.source_opened and entry.evidence_ref_ids == ['evidence:park:1']
+    assert entry.source_read_ids == ['read:anchor:park:1']
+    saved = AgentConversationService().list_turns(a.world_id, completed.conversation_id)[-1]
+    assert saved.completion == completed.completion
+    # Even bypassing producer syntax cannot bypass the unchanged final binding gate.
+    with pytest.raises(NativeAnswerError) as error:
+        parse_native_answer(json.dumps(wrong), saved, writer.authorization.provider_attempt_id,
+                            support=a.build_claim_evidence[writer.authorization.provider_attempt_id])
+    assert (error.value.stage, error.value.reason) == ('binding', 'mixed_evidence_binding')
+    assert 'Selected passage does not belong to Graph target' in str(error.value.__cause__)
+    # Historical format verification never permits a current dispatch downgrade.
+    body = json.loads(writer.prepared.body)
+    body['text']['format']['name'] = 'plan_evidence_selectors_v2'
+    raw = json.dumps(body).encode()
+    downgraded = replace(writer.prepared, body=raw, body_size=len(raw), body_sha256=sha256(raw).hexdigest())
+    writer.prepared = None
+    with pytest.raises(ValueError, match='differs from staged'):
+        writer.authorize(downgraded)
+    assert json.loads(wire.calls[0].content)['text']['format']['name'] == 'plan_evidence_selectors_v3'
+
+
+
+def test_context_capacity_refusal_preserves_gate_cause_without_provider_entry(plan_adapter):
+    from apps.live_control_server.services.build_failure_diagnostic import failure_code
+    from apps.live_control_server.services.build_jev_writer import WriterCapacityError
+    writer = stage_graph(plan_adapter)
+    writer.messages.append({'role': 'user', 'content': 'x' * writer.context_limit})
+    wire = WriterWire(plan_adapter, '')
+    with pytest.raises(GenerationEngineError) as failure:
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert failure_code(failure.value) == 'build_writer_context_over_budget'
+    causes = []; current = failure.value
+    while current is not None and id(current) not in {id(c) for c in causes}:
+        causes.append(current)
+        current = current.__cause__ or (None if current.__suppress_context__ else current.__context__)
+    capacity = next(c for c in causes if type(c) is WriterCapacityError)
+    assert capacity.actual > capacity.limit == writer.context_limit
+    assert 'writing provider was not called' in str(capacity)
+    assert wire.calls == [] and wire.closed
+    assert writer.call is None and writer.prepared is None
+    assert unvalidated_texts(plan_adapter) == [] and plan_adapter.fence.turn.completion is None
+    failures = [(r.phase,r.code) for r in plan_adapter.context_capture.trace.observations if r.kind == 'failure']
+    assert failures == [('context_build', 'build_writer_context_over_budget')]

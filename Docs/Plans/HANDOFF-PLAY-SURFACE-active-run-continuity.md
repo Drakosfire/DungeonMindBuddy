@@ -762,7 +762,7 @@ After merge, re-anchor before choosing the next slice.
 
 Candidate next work is **not automatically fixed here**:
 
-- Lane B can proceed only after the retained `agent/play-command-board-disk-saves` worktree is dispositioned.
+- PRIME/ARCHITECTURE later dispositioned the absent `agent/play-command-board-disk-saves` worktree reference as unverified historical bookkeeping: the current worktree, local/remote branch, and expected-directory inventories found no match. It no longer blocks Lane B. If matching assets appear later, inventory and disposition them before migration. The generic Combat design is tracked in PR #1323; C0's APP-STATE authority, revision guard, ruleset pin, and save inventory gates remain.
 - The remaining checkout-local Play persistence problem should be re-evaluated from this slice’s concrete active-selection evidence and Lane B’s Combat evidence before extracting a shared persistence seam.
 - Beat/Scene/Decision + Plan→Playable remains a reviewed design task before another native table implementation.
 

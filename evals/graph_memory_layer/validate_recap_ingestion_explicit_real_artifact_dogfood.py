@@ -7,9 +7,9 @@ from typing import Any
 
 from evals.graph_memory_layer.build_recap_ingestion_projection_payload_fixture import build_projection_payload_fixture_from_materialization
 from evals.graph_memory_layer.recap_ingestion_real_artifact_dogfood import FIXTURE_ID, build_dogfood_materializer_inputs, load_dogfood_manifest, validate_dogfood_manifest
-from src.graph_memory.recap_ingestion_materialize import materialize_recap_ingestion_source_artifacts
-from src.graph_memory.recap_ingestion_materializer_report import KNOWN_ARTIFACT_FAMILIES, analyze_recap_ingestion_materializer_output, recap_ingestion_materializer_report_to_dict
-from src.graph_memory.recap_ingestion_projection_readiness import assess_recap_ingestion_projection_readiness, recap_ingestion_projection_readiness_to_dict
+from graph_memory.recap_ingestion_materialize import materialize_recap_ingestion_source_artifacts
+from graph_memory.recap_ingestion_materializer_report import KNOWN_ARTIFACT_FAMILIES, analyze_recap_ingestion_materializer_output, recap_ingestion_materializer_report_to_dict
+from graph_memory.recap_ingestion_projection_readiness import assess_recap_ingestion_projection_readiness, recap_ingestion_projection_readiness_to_dict
 
 ABSOLUTE_PATH_RE = re.compile(r"(/workspace/|/home/|/mnt/|\b[A-Za-z]:\\)")
 FORBIDDEN_FIELDS = {"full_text", "text", "content", "raw_content", "raw_text", "file_contents", "path", "input_path", "raw_path", "file_path", "internal_path", "payload_kind", "source_unit_projection", "projection_card", "plan_chip", "plan_card", "plan_items", "agent_payload", "agent_interaction", "runtime_ui_payload", "ui_payload", "entity", "entities", "alias", "aliases", "relationship", "relationships", "fact", "facts", "canon_promotion", "fact_promotion", "identity_merge"}

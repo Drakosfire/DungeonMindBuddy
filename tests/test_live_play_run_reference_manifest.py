@@ -229,7 +229,7 @@ def test_replay_after_advance_returns_exact_sidecar(
     created = _create_run(client, snapshot)
     first = client.put(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
     assert first.status_code == 200
-    manifest_before = get_play_run_reference_manifest(root, RUN_ID_A)
+    manifest_before = get_play_run_reference_manifest(RUN_ID_A)
 
     advanced = _commit_record(root, snapshot.record, ADVANCED_MARKDOWN)
     assert advanced.loaded_revision > created["playable_revision"]
@@ -237,7 +237,7 @@ def test_replay_after_advance_returns_exact_sidecar(
     replayed = client.put(f"/api/live/play-runs/{RUN_ID_A}/reference-manifest")
     assert replayed.status_code == 200
     assert replayed.json() == first.json()
-    assert get_play_run_reference_manifest(root, RUN_ID_A) == manifest_before
+    assert get_play_run_reference_manifest(RUN_ID_A) == manifest_before
     assert not leftover_manifest_path(root, RUN_ID_A).exists()
     assert "scene:harbor" not in json.dumps(replayed.json())
 

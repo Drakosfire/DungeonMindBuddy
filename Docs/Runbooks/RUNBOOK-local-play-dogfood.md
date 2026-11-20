@@ -18,6 +18,9 @@ configured safe Buddy application-state DSN
 ```
 
 ## Prerequisites
+Build PDF region review and local Graph PDF evidence use Poppler. For these
+workflows, install `poppler-utils` on Debian or Ubuntu and verify that
+`command -v pdftoppm` and `command -v pdftotext` both return a path.
 
 - PostgreSQL is already running.
 - A **separate** Buddy logical database name is available. Recommended:
@@ -28,12 +31,18 @@ configured safe Buddy application-state DSN
   `dungeonmind_cutover_live`, or the configured World Graph database.
 - The same PostgreSQL **server** may host both databases.
 
+The example DSN below targets the shared durable APP-STATE instance. Compose
+project names do not isolate this database across checkouts. For parallel
+dogfood that needs isolated state, provision a separate disposable PostgreSQL
+target using the [recovery runbook](RUNBOOK-application-state-authority-recovery.md#restore-into-a-second-clean-target-recovery-witness).
+Confirm the configured host, port, and database name before running bootstrap.
+
 ## First setup / after application-state schema changes
 
 1. Configure repo `.env` or `.env.development` with a safe Buddy DSN:
 
    ```bash
-   DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL=postgresql://USER:PASSWORD@127.0.0.1:54329/dungeonbuddy_application_state
+   DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL=postgresql://USER:PASSWORD@127.0.0.1:54331/dungeonbuddy_application_state
    ```
 
 2. Run the explicit bootstrap:
@@ -43,8 +52,9 @@ configured safe Buddy application-state DSN
    ```
 
 That command may create the standard Buddy logical database when it is missing,
-upgrade it to Alembic head, and adopt leftover legacy Runbooks. It never starts
-a Play Run and never seeds a fake Runbook.
+and upgrade it to Alembic head. Runbooks are created and saved through Buddy’s
+normal controls in the Content database. Bootstrap does not discover or import
+workspace files, start a Play Run, or seed content.
 
 Inspect without mutating:
 
@@ -53,20 +63,25 @@ uv run python scripts/bootstrap_local_play.py check
 ```
 
 Do not run bootstrap on every server restart. Re-run `apply` after application-state
-schema changes, or when `check` reports `NEEDS BOOTSTRAP`.
+schema changes, or when `check` reports `NEEDS BOOTSTRAP`. Both commands return
+exit code 2 when Play is not `READY`. A freshly migrated application-state
+schema with no committed Runbook reports application state `READY` and Play
+`NOT READY`; that result does not mean the schema migration failed.
 
 ## Normal runtime
 
 Terminal 1:
 
 ```bash
-uv run uvicorn apps.live_control_server.main:app --reload
+DMB_DEPLOYMENT_ENVIRONMENT=local DMB_AUTH_MODE=local_operator \
+  uv run uvicorn apps.live_control_server.main:app --reload --host 127.0.0.1
 ```
 
 Terminal 2:
 
 ```bash
-pnpm --dir apps/live-control-ui dev
+npm --prefix apps/live-control-ui ci
+npm run dev
 ```
 
 Then open `http://127.0.0.1:5173/`, choose **Play**, or go to
@@ -99,8 +114,12 @@ the first Playable document in Play; do not ask bootstrap to invent one.
 
 - Do not start FastAPI hoping it will create the database or migrate.
 - Do not reuse the World Graph DSN.
-- Do not run `scripts/live_dogfood_check.py` for this path. That script is the
-  statblock/combat session-dir checker.
+
+Use `scripts/bootstrap_local_play.py check` for current Play readiness. The
+retired statblock/combat session-file preflight remains available as
+[historical source](https://github.com/Drakosfire/DungeonMindBuddy/blob/7437655daa637def7948226af76169faed76d82b/scripts/live_dogfood_check.py).
+The separate `scripts/live_dogfood_reset.py` tool remains available for its
+documented disposable-session workflows.
 
 ## Related
 

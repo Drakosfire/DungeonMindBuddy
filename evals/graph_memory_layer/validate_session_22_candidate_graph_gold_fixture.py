@@ -4,7 +4,7 @@ import json
 
 from evals.graph_memory_layer.session_22_candidate_graph_gold_fixture import *
 from evals.graph_memory_layer.session_22_recap_ingest_fixture import load_manifest, validate_manifest
-from src.graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
+from graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
 
 
 def _assert(condition: bool, message: object) -> None:

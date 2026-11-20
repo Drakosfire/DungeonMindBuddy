@@ -1,3 +1,7 @@
+import {parseWorkPlanFence,workPlanIdentity} from "../../surface/workPlans/workPlanReference";
+import {parseTableFence} from "../../preparedTables/tableGrammar";
+import { webSourceHref, validWebSourceTitle } from "./webSourceHref";
+import { mediaAssetId, imagePresentation } from "../../media/mediaReferences";
 import type {
   Blockquote,
   Heading,
@@ -292,7 +296,14 @@ function visitLink(node: Link, state: VisitorState): TiptapNode[] {
     return sourceTextNodes(node, state);
   }
 
-  warn(state, "Ordinary Markdown links are not supported by the mounted editor schema.", nodeStartLine(node));
+  const href = webSourceHref(url);
+  if (href && validWebSourceTitle(node.title)) {
+    const children = visitInlineChildren(node.children, state);
+    if (children.length > 0 && children.every(child => child.type === "text")) {
+      return withMark(children, { type: "link", attrs: { href, ...(node.title == null ? {} : {title: node.title}) } });
+    }
+  }
+  warn(state, "Ordinary Markdown links require an admitted URL, text label, and a plain-text optional title.", nodeStartLine(node));
   return sourceTextNodes(node, state);
 }
 
@@ -313,9 +324,7 @@ function visitInlineNode(node: PhrasingContent, state: VisitorState): TiptapNode
     case "delete":
       return withMark(visitInlineChildren(node.children, state), { type: "strike" });
     case "break": {
-      warn(state, "Explicit Markdown hard breaks are not supported yet.", nodeStartLine(node));
-      const text = textNode(" ");
-      return text ? [text] : [];
+      return [{ type: "hardBreak" }];
     }
     case "link":
       return visitLink(node, state);
@@ -323,7 +332,13 @@ function visitInlineNode(node: PhrasingContent, state: VisitorState): TiptapNode
       warn(state, "Ordinary Markdown links are not supported by the mounted editor schema.", nodeStartLine(node));
       return sourceTextNodes(node, state);
     }
-    case "image":
+    case "image": {
+      const assetId = mediaAssetId(node.url);
+      const presentation = imagePresentation(node.title);
+      if (assetId && (!node.title || presentation) && node.alt?.trim() && !/[\r\n]/.test(node.alt)) return [{type:"mediaImage",attrs:{assetId,alt:node.alt,...(presentation ?? {})}}];
+      warn(state, "Only saved Buddy image references are supported.", nodeStartLine(node));
+      return sourceTextNodes(node,state);
+    }
     case "imageReference": {
       warn(state, "Markdown images are not supported yet.", nodeStartLine(node));
       return sourceTextNodes(node, state);
@@ -394,14 +409,10 @@ function visitHeading(node: Heading, context: AdmissionContext, state: VisitorSt
   }
   if (allowsSourceFormChecks(context)) {
     const firstLine = spanLines(node, state)[0] ?? "";
-    if (!firstLine.startsWith("#")) {
-      if (/^\s{1,3}#/.test(firstLine)) {
-        warn(state, "Indented Markdown blocks and list continuations are not supported yet.", nodeStartLine(node));
-      } else {
-        // Setext heading: the parser established the heading; only its spelling is unsupported.
-        warn(state, "Setext-style headings are not supported; use ATX # headings.", nodeEndLine(node));
-      }
+    if (/^\s{1,3}#/.test(firstLine)) {
+      warn(state, "Indented Markdown blocks and list continuations are not supported yet.", nodeStartLine(node));
     }
+    // The AST already identifies Setext headings; export uses canonical ATX spelling.
   }
   return { type: "heading", attrs: { level: node.depth }, content: visitInlineChildren(node.children, state) };
 }
@@ -1265,6 +1276,21 @@ function visitBlockNode(node: RootContent, context: AdmissionContext, state: Vis
     case "table":
       return visitTable(node, context, state);
     case "code": {
+      if(node.lang==='dmb-work-plan-v1'&&context==='document'){
+        const source=spanLines(node,state).join('\n');
+        try{parseWorkPlanFence(source);return [{type:'surfaceWorkPlan',attrs:{source}}];}
+        catch{warn(state,'Invalid or unclosed work-plan reference.',nodeStartLine(node));return [paragraphFromText(node.value)];}
+      }
+      if (node.lang === 'dmb-roll-table-v1' && context === 'document') {
+        const source=spanLines(node,state).join('\n');
+        try {
+          parseTableFence(source);
+          return [{type:'preparedTable',attrs:{source}}];
+        } catch {
+          warn(state,'Invalid or unclosed prepared table.',nodeStartLine(node));
+          return [paragraphFromText(node.value)];
+        }
+      }
       const firstLine = spanLines(node, state)[0] ?? "";
       const fenced = node.lang != null || /`{3,}|~{3,}/.test(firstLine);
       warn(
@@ -1335,5 +1361,13 @@ export function analyzeMarkdownBody(
     diagnostics: [],
   };
   const content = visitBlockChildren(parseMarkdownAst(markdownBody).children, "document", state);
+  const tableIds=new Set<string>();
+  for(const node of content) {
+    if(node.type === 'surfaceWorkPlan'){const ref=parseWorkPlanFence(String(node.attrs?.source));const key='work-plan:'+workPlanIdentity(ref);if(tableIds.has(key))warn(state,'Duplicate work-plan reference.',1);tableIds.add(key);continue;}
+    if(node.type !== 'preparedTable')continue;
+    const table=parseTableFence(String(node.attrs?.source));
+    if(tableIds.has(table.table_id))warn(state,'Duplicate prepared table ID.',1);
+    tableIds.add(table.table_id);
+  }
   return { content, diagnostics: dedupeDiagnostics(state.diagnostics) };
 }

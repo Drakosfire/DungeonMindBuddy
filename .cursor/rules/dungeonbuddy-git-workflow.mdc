@@ -21,17 +21,17 @@ For DungeonMindBuddy right now:
 - Clear commit messages and nano-commit review stories matter more than branch ceremony.
 - Do not push secrets.
 
-## Handoff durability is steward work, not an implementation lane
+## Handoff durability follows the bounded assignment
 
-The designing steward owns an implementation handoff until it is durably present on `main`.
+The person or agent explicitly assigned design ownership pins the handoff at a durable ref before dispatch. Responsibilities come from the bounded assignment, not a standing Steward role.
 
-- A handoff may be committed to `main` as `BLOCKED` while an activation prerequisite remains false.
+- A handoff may be pinned at any durable ref as `BLOCKED` while an activation prerequisite remains false.
 - A BLOCKED handoff is documentation/design authority only. It does not create a branch/worktree lane and its §4 paths are not leased.
-- Only an `ACTIVE` handoff may be used to allocate and dispatch an implementation lane.
-- When a BLOCKED handoff's gate becomes true, the steward re-anchors, records the newly knowable activation facts, changes it to ACTIVE, and only then creates the implementation branch/worktree.
+- Only an explicitly authorized `ACTIVE` handoff may be used to allocate and dispatch an implementation lane.
+- When a BLOCKED handoff's gate becomes true, the explicitly named owner re-anchors, records the newly knowable activation facts, changes it to ACTIVE, and only then creates the implementation branch/worktree.
 - The implementation worker consumes the checked-in ACTIVE handoff; it does not create, land, or activate its own authority document unless explicitly assigned a design/architecture slice.
 
-A narrow guarded handoff commit to `main` is therefore not a documentation implementation lane. It is the steward making dispatch authority durable. If future branch protection requires a PR instead, the steward still owns that transaction.
+A handoff commit is not an implementation lane. It makes the bounded assignment durable. Follow the assignment and repository policy for any required review or integration path.
 
 ## Parallel work is normal
 
@@ -84,7 +84,7 @@ whether work can wait
 whether explicit ownership transfer is required
 ```
 
-The steward then chooses one of:
+The named owner then chooses one of:
 
 ```text
 split the seam
@@ -120,8 +120,8 @@ After merge:
 
 A predecessor merge does not itself activate or dispatch a checked-in successor handoff.
 
-Independent lanes may continue when the merged change does not invalidate their base assumptions, write lease, or predecessor contract; the steward must make that judgment explicitly rather than assuming every merge forces every worktree to restart.
+Independent lanes may continue when the merged change does not invalidate their base assumptions, write lease, or predecessor contract; the named owner must make that judgment explicitly rather than assuming every merge forces every worktree to restart.
 
 ## When to tighten this rule
 
-Revisit branch protection/release policy when Buddy ships on a schedule, shares `main` with a larger team, or CI must become a blocking release gate. That future release discipline should not erase the worktree/write-lease model for concurrent development or transfer handoff-authority ownership from the steward to the implementation worker.
+Revisit branch protection/release policy when Buddy ships on a schedule, shares `main` with a larger team, or CI must become a blocking release gate. That future release discipline should not erase the worktree/write-lease model for concurrent development or transfer handoff-authority ownership from the named owner to the implementation worker.

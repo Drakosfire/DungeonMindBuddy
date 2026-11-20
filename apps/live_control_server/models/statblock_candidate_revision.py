@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import (
+from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
     AssetOptionsV1,
     EncounterContextV1,
     GenerationIntentV1,

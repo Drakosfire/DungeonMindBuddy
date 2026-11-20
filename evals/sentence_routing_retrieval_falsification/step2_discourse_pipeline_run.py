@@ -525,7 +525,7 @@ def main() -> int:
 
     if not args.no_llm:
         from src.agent.synthesis import _load_api_key
-        from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+        from bootstrap_env import load_dungeonmindbuddy_dotenv
 
         load_dungeonmindbuddy_dotenv()
         if not (_load_api_key() or "").strip():
@@ -565,7 +565,7 @@ def main() -> int:
             default_eldyrwild_corpus_root,
         )
 
-        from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+        from bootstrap_env import load_dungeonmindbuddy_dotenv
 
         load_dungeonmindbuddy_dotenv()
         minimal = build_minimal_session_events_scenario(raw)

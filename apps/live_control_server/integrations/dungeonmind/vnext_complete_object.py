@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 from dataclasses import dataclass
 from typing import Any
 
@@ -172,8 +173,8 @@ def _distinct_subject_values(
     return sorted(values)
 
 
-def _display_values(
-    assertions: tuple[ParsedAssertion, ...], entity_id: str
+def world_object_display_values(
+    assertions: tuple[ParsedAssertion, ...], entity_id: str, *, allow_multiple: bool = False
 ) -> tuple[str, str, str | None]:
     names = _distinct_subject_values(
         assertions,
@@ -181,7 +182,7 @@ def _display_values(
         predicate="dnd5e:name",
         value_kind=ParsedLiteralValue,
     )
-    if len(names) > 1:
+    if len(names) > 1 and not allow_multiple:
         raise VNextCompleteObjectProjectionError(
             f"ambiguous dnd5e:name for {entity_id}"
         )
@@ -191,7 +192,7 @@ def _display_values(
         predicate="dnd5e:classification",
         value_kind=ParsedTermRefValue,
     )
-    if len(classifications) > 1:
+    if len(classifications) > 1 and not allow_multiple:
         raise VNextCompleteObjectProjectionError(
             f"ambiguous dnd5e:classification for {entity_id}"
         )
@@ -202,8 +203,8 @@ def _display_values(
         value_kind=ParsedLiteralValue,
     )
     return (
-        names[0] if names else entity_id,
-        _wire_term(classifications[0]) if classifications else "entity",
+        " / ".join(names) if names else entity_id,
+        _wire_term(classifications[0]) if len(classifications) == 1 else "entity",
         summaries[0] if len(summaries) == 1 else None,
     )
 
@@ -357,12 +358,24 @@ def _map_relationship(
             if source_by_id[evidence_by_id[evidence_id].source_artifact_id].session_id
         }
     )
+    label = predicate.replace("_", " ")
+    for entry in assertion.metadata.domain_metadata:
+        if entry.schema_term != "dungeonbuddy.domain_metadata:world_context_v1":
+            continue
+        payload = thaw_json_value(entry.payload)
+        if not isinstance(payload, dict):
+            continue
+        reviewed_label = payload.get("relationship_label")
+        reviewed_context = payload.get("relationship_context")
+        if isinstance(reviewed_label, str) and isinstance(reviewed_context, str):
+            label = f"{reviewed_label} — {reviewed_context}"
+            break
     return WorldGraphObjectProjectionRelationship(
         edge_id=assertion.assertion_id,
         source_node_id=assertion.subject_entity_id,
         target_node_id=value.entity_id,
         predicate=predicate,
-        label=predicate.replace("_", " "),
+        label=label,
         direction=direction,
         session_ids=session_ids,
         visibility=_visibility(assertion),
@@ -414,6 +427,7 @@ def project_complete_world_object_vnext(
     source_reader: KnowledgeSourceReader,
     request: WorldGraphObjectProjectionRequest,
     read_identity: DungeonBuddyVNextReadIdentity,
+    allow_multiple_display_values: bool = False,
 ) -> WorldGraphObjectProjectionResult:
     """Project one exact native-vNext complete entity into the existing Buddy DTO."""
     if read_identity.space_id != parsed_revision.space_id:
@@ -430,9 +444,11 @@ def project_complete_world_object_vnext(
     focus_campaign = request.focus.campaign_id or request.campaign_id
     projection_input = DungeonBuddyVNextProjectionInput(
         world_id=request.world_id,
-        scope_mode="world",
+        scope_mode=request.scope_mode,
         role=request.admissibility,
-        campaign_id=focus_campaign if request.focus.kind == "session" else None,
+        campaign_id=request.campaign_id if request.scope_mode == "campaign" else (
+            focus_campaign if request.focus.kind == "session" else None
+        ),
         session_id=request.focus.session_id
         if request.focus.kind == "session"
         else None,
@@ -445,6 +461,8 @@ def project_complete_world_object_vnext(
     )
     service = EntityReadService()
     complete = service.get_complete_entity(context, request.node_id)
+    if request.scope_mode == "campaign" and complete.found and not complete.assertions:
+        raise VNextCompleteObjectProjectionError("object has no admitted campaign presence")
     snapshot = WorldGraphProjectionSnapshot(
         world_id=read_identity.space_id,
         campaign_id=request.campaign_id,
@@ -453,7 +471,7 @@ def project_complete_world_object_vnext(
         is_head=read_identity.is_head,
         focus=request.focus.to_projection_focus(),
         admissibility=request.admissibility,
-        scope_mode="world",
+        scope_mode=request.scope_mode,
     )
     completeness = SelectedObjectCompletenessView(
         status=complete.completeness.status,
@@ -506,7 +524,10 @@ def project_complete_world_object_vnext(
         for item in complete.assertions
         if item.subject_entity_id == request.node_id
     )
-    label, kind, summary = _display_values(selected_assertions, request.node_id)
+    label, kind, summary = world_object_display_values(
+        selected_assertions, request.node_id,
+        allow_multiple=allow_multiple_display_values,
+    )
     relationships = [
         _map_relationship(
             item,
@@ -552,8 +573,9 @@ def project_complete_world_object_vnext(
             else relationship.source_node_id
         )
         related_result = related_results[related_id]
-        related_label, related_kind, related_summary = _display_values(
-            related_result.assertions, related_id
+        related_label, related_kind, related_summary = world_object_display_values(
+            related_result.assertions, related_id,
+            allow_multiple=allow_multiple_display_values,
         )
         relationship_badges = _evidence_badges(
             relationship.evidence_ref_ids,
@@ -582,8 +604,9 @@ def project_complete_world_object_vnext(
         adjacency.append(adjacency_row)
 
     for related_id, related_result in related_results.items():
-        related_label, related_kind, related_summary = _display_values(
-            related_result.assertions, related_id
+        related_label, related_kind, related_summary = world_object_display_values(
+            related_result.assertions, related_id,
+            allow_multiple=allow_multiple_display_values,
         )
         touching = [
             item

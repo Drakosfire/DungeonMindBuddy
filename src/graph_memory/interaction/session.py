@@ -36,6 +36,7 @@ OperationName = Literal[
     "coverage",
     "source_read",
     "search",
+    "observations",
 ]
 
 OperationStatus = Literal["started", "completed", "partial", "failed", "blocked"]
@@ -76,6 +77,32 @@ class SourceAnchorState(BaseModel):
     supporting_claim_ids: list[str] = Field(default_factory=list)
 
 
+class SourceReadReceiptV2(BaseModel):
+    """Private turn-session proof for one resolved, content-bearing source read."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    schema_: Literal["dmb_internal_source_read_receipt_v2"] = Field(
+        default="dmb_internal_source_read_receipt_v2", alias="schema"
+    )
+    source_read_id: str
+    retrieval_session_id: str
+    graph_revision: str
+    anchor_id: str
+    evidence_ref_id: str
+    source_artifact_id: str
+    source_revision_id: str
+    source_revision_sha256: str
+    locator_kind: Literal["source_span", "heading", "json_pointer"]
+    locator_identity: str
+    source_span_ref_id: str | None = None
+    outcome: Literal["enough", "partial", "truncated"]
+    read_content_sha256: str
+    line_start: int | None = None
+    line_end: int | None = None
+    truncated: bool = False
+
+
 class SourceReadEntry(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
@@ -87,6 +114,9 @@ class SourceReadEntry(BaseModel):
     line_end: int | None = None
     truncated: bool = False
     source_artifact_id: str | None = None
+    receipt_v2: SourceReadReceiptV2 | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class RetrievalOperationEvent(BaseModel):
@@ -224,6 +254,14 @@ class GraphRetrievalSession(BaseModel):
             ],
             "diagnostics": list(self.diagnostics),
         }
+        if self.source_reads:
+            packet["source_reads"] = [
+                read.model_dump(mode="json", by_alias=True) for read in self.source_reads
+            ]
+            packet["operations"] = [
+                operation.model_dump(mode="json", by_alias=True)
+                for operation in self.operations
+            ]
         if isinstance(self.latest_recap_change, dict):
             packet["latest_recap_change"] = dict(self.latest_recap_change)
         return packet
@@ -241,4 +279,5 @@ __all__ = [
     "SessionSnapshot",
     "SourceAnchorState",
     "SourceReadEntry",
+    "SourceReadReceiptV2",
 ]

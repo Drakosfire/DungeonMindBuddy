@@ -8,8 +8,8 @@ from typing import Any
 import blake3
 import pytest
 
-from src.contracts.schema_validation import validate_instance
-from src.ingestion.entity_extractor import (
+from contracts.schema_validation import validate_instance
+from ingestion.entity_extractor import (
     _build_recap_system_prompt,
     _build_recap_user_prompt,
     _call_recap_extractor,
@@ -18,8 +18,8 @@ from src.ingestion.entity_extractor import (
     OpenAIResponsesEntityClient,
     run_entity_extraction,
 )
-from src.ingestion.recap_models import ClaimRecord, EventRecord, RecapExtractionResult
-from src.store import FactStore
+from ingestion.recap_models import ClaimRecord, EventRecord, RecapExtractionResult
+from store import FactStore
 
 
 def _legacy_source_anchors(text: str, *, path: str = "fixture/recap_models.md") -> list[dict[str, Any]]:

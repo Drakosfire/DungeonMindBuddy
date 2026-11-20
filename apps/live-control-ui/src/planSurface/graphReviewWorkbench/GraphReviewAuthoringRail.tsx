@@ -10,7 +10,6 @@ import {
   buildManualGraphAuthoringSelection,
   type GraphAuthoringSelection,
 } from "./graphAuthoringSelection";
-import { GraphReviewAuthoringPreparePreviewPanel } from "./GraphReviewAuthoringPreparePreviewPanel";
 import { GraphReviewLocalStagingTray } from "./GraphReviewLocalStagingTray";
 import { GraphReviewMergeCandidatesPanel } from "./GraphReviewMergeCandidatesPanel";
 import type { GraphObjectMergeCandidate } from "./graphObjectMergeCandidates";
@@ -72,14 +71,11 @@ export function GraphReviewAuthoringRail({
   const {
     campaignId,
     sessionId,
-    hasGold,
     liveRun,
     projection,
     goldProjection,
     deltaIndex,
     reloadLiveProjection,
-    reloadGoldProjectionAndVerifyCommit,
-    selectGoldNodeCard,
     authorDraft,
     stageNodeFromSelection,
   } = useGraphReviewLiveState();
@@ -473,36 +469,16 @@ export function GraphReviewAuthoringRail({
               onRefreshProjection={reloadLiveProjection}
             />
           </details>
-          {hasGold || authorDraft.localProposals.length > 0 ? (
-            <details
-              className="graph-review-gold-fixture-draft-panel"
-              data-testid="graph-review-gold-fixture-draft-panel"
-            >
-              <summary>
-                Gold fixture draft (whole-graph legacy path)
-              </summary>
-              <GraphReviewLocalStagingTray
-                proposals={authorDraft.localProposals}
-                onUpdateStatus={authorDraft.updateProposalStatus}
-                onReset={authorDraft.resetLocalDraft}
-                selectedText={authorDraft.selectedText}
-                onStageNodeFromSelection={stageNodeFromSelection}
-              />
-              <GraphReviewAuthoringPreparePreviewPanel
-                campaignId={campaignId}
-                sessionId={sessionId}
-                hasGold={hasGold}
-                workflow={authorDraft}
-                onReloadAndVerifyCommit={reloadGoldProjectionAndVerifyCommit}
-                onShowCommittedObject={(targetId) => {
-                  selectGoldNodeCard(targetId);
-                }}
-                canShowCommittedObject={(targetId) =>
-                  Boolean(goldProjection?.node_views[targetId])
-                }
-              />
-            </details>
-          ) : null}
+          <details className="graph-review-local-staging-panel">
+            <summary>Local proposal notes</summary>
+            <GraphReviewLocalStagingTray
+              proposals={authorDraft.localProposals}
+              onUpdateStatus={authorDraft.updateProposalStatus}
+              onReset={authorDraft.resetLocalDraft}
+              selectedText={authorDraft.selectedText}
+              onStageNodeFromSelection={stageNodeFromSelection}
+            />
+          </details>
         </div>
       ) : null}
     </aside>

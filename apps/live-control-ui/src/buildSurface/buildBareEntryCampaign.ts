@@ -22,9 +22,9 @@ export function readBuildLastCampaignId(): BuildKnownCampaignId | null {
   }
 }
 
-export function writeBuildLastCampaignId(campaignId: string): void {
+export function writeBuildLastCampaignId(campaignId: string | null): void {
   if (typeof window === "undefined") return;
-  const trimmed = campaignId.trim();
+  const trimmed = campaignId?.trim() ?? "";
   if (!isBuildKnownCampaignId(trimmed)) return;
   try {
     window.localStorage.setItem(BUILD_LAST_CAMPAIGN_STORAGE_KEY, trimmed);
@@ -76,7 +76,7 @@ export function resolveBareBuildCampaignId(input?: {
  * loadable-scope policy.
  */
 export function resolveBuildCreateCampaignChoices(input: {
-  documents?: ReadonlyArray<{ campaign_id: string }> | null;
+  documents?: ReadonlyArray<{ campaign_id: string | null }> | null;
   activeCampaignId?: string | null;
 }): string[] {
   const choices: string[] = [];

@@ -9,7 +9,6 @@ vi.mock("../../api/liveApi", async () => {
   return {
     ...actual,
     getLatestGraphIngestRun: vi.fn(),
-    getUnionSupergraphProjection: vi.fn(),
   };
 });
 
@@ -21,7 +20,6 @@ const context = {
 describe("GraphIngestProjectionPanel", () => {
   beforeEach(() => {
     vi.mocked(liveApi.getLatestGraphIngestRun).mockReset();
-    vi.mocked(liveApi.getUnionSupergraphProjection).mockReset();
     vi.mocked(liveApi.getLatestGraphIngestRun).mockResolvedValue({
       run: {
         status: "ready",
@@ -53,7 +51,6 @@ describe("GraphIngestProjectionPanel", () => {
       ).toBeInTheDocument(),
     );
     expect(screen.queryByRole("button", { name: /Open Union Graph/i })).not.toBeInTheDocument();
-    expect(liveApi.getUnionSupergraphProjection).not.toHaveBeenCalled();
     expect(liveApi.getLatestGraphIngestRun).toHaveBeenCalled();
   });
 });

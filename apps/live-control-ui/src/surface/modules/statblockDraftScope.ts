@@ -1,3 +1,4 @@
+import {validGenerationScope,type GenerationScope} from '../../guidedTour/protocol';
 import type {
   ReadStatblockCandidateResponseV1,
   TerminalGenerationDispositionV1,
@@ -48,6 +49,9 @@ export interface StoredGenerationAttempt {
   client_request_id: string;
   /** Null means unresolved, including transport loss. Clear cannot discard it. */
   candidate_id: string | null;
+  /** Attribution only: generation/retry authority remains this existing attempt. */
+  tour_scope?: GenerationScope | null;
+  tour_dispatch_instance_id?:string;
   /** Present only after exact Buddy-local terminal journal proof is validated. */
   terminal_disposition?: TerminalGenerationDispositionV1;
 }
@@ -103,6 +107,7 @@ export function readGenerationAttempt(scope: StatblockDraftScope): StoredGenerat
     || typeof attempt.client_request_id !== "string" || !attempt.client_request_id.trim()
     || (attempt.candidate_id !== null && (typeof attempt.candidate_id !== "string" || !attempt.candidate_id.trim()))
   ) throw new Error("Stored generation attempt is invalid; generation is blocked rather than replaced.");
+  if (attempt.tour_scope != null && (!validGenerationScope(attempt.tour_scope) || attempt.tour_scope.worldId !== scope.worldId || typeof attempt.tour_dispatch_instance_id!=="string" || !attempt.tour_dispatch_instance_id.trim())) throw new Error("Stored generation tour attribution is invalid.");
   if (attempt.terminal_disposition !== undefined) {
     assertTerminalDisposition(scope, attempt, attempt.terminal_disposition);
   }
@@ -119,6 +124,7 @@ export function persistGenerationAttempt(
     || existing.client_request_id !== attempt.client_request_id
     || existing.expected_draft_version !== attempt.expected_draft_version
   )) throw new Error("Unresolved generation must resume the same draft, request and source version.");
+  if (existing && existing.draft_id===attempt.draft_id && existing.client_request_id===attempt.client_request_id && (JSON.stringify(existing.tour_scope??null)!==JSON.stringify(attempt.tour_scope??null)||existing.tour_dispatch_instance_id!==attempt.tour_dispatch_instance_id)) throw new Error("Generation attribution cannot be replaced on retry.");
   const serialized = JSON.stringify(attempt);
   const key = generationAttemptKey(scope);
   localStorage.setItem(key, serialized);

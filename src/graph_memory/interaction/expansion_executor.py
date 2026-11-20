@@ -8,8 +8,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
+from apps.live_control_server.config import artifact_data_root
 from apps.live_control_server.services import world_graph_retrieval as retrieval_service
 from apps.live_control_server.services.world_graph_retrieval import (
     WorldGraphRetrievalServiceError,
@@ -45,6 +46,7 @@ ExpansionOperation = Literal[
     "neighborhood",
     "search",
     "support",
+    "observations",
 ]
 
 # Shared cap for search/neighborhood seed lists. object/support allow at most one.
@@ -86,6 +88,27 @@ class ExpandGraphRetrievalRequest(BaseModel):
         max_length=_MAX_EXPAND_TARGETS,
     )
     query_text: str | None = Field(default=None, alias="queryText")
+    observation_ids: list[str] = Field(
+        default_factory=list, alias="observationIds", max_length=8,
+        description="Reviewed assertion IDs from pointers; object or observations, governed Build only.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_observation_ids(self):
+        if self.observation_ids and (
+            self.operation not in {"object", "observations"}
+            or len(set(self.observation_ids)) != len(self.observation_ids)
+            or any(not value.strip() or value != value.strip() for value in self.observation_ids)
+        ):
+            raise ValueError("observationIds require object and distinct nonblank IDs")
+        if self.operation == "observations" and (
+            not self.observation_ids or self.targets or self.query_text is not None or self.depth != 1
+        ):
+            raise ValueError("observations requires IDs only, without targets or query")
+        return self
+
+    include_sources: bool = Field(default=False, alias="includeSources", strict=True)
+
     depth: Literal[1, 2] = 1
     historical_revision_id: str | None = Field(
         default=None,
@@ -174,10 +197,14 @@ def _session_or_raise(session_id: str):
     return session
 
 
-def _target_node_ids(request: ExpandGraphRetrievalRequest, session) -> list[str]:
+def resolve_expansion_target_ids(request: ExpandGraphRetrievalRequest, session) -> list[str]:
     if request.targets:
         # Schema admits node targets only; every target id is a node id.
         return [t.id for t in request.targets]
+    # Search with zero seeds is explicit discovery. Preflight context is a
+    # starting point, not a compulsory seed set that consumes the result bound.
+    if request.operation in {"search", "observations"}:
+        return []
     selected = session.selected_referent_ids()
     if selected:
         return selected
@@ -294,9 +321,15 @@ def _dispatch_expansion(
     ctx: dict[str, Any],
     focus: WorldGraphRetrievalFocus,
     node_ids: list[str],
-    root: Path | None,
 ):
+    # Mounted Graph authority comes from server configuration, never the
+    # Harness code/source repository. World and revision remain frozen in ctx.
     del focus  # focus already embedded in ctx
+    if request.observation_ids:
+        raise WorldGraphRetrievalServiceError(
+            "Selected observations require the governed Build parent broker.",
+            code="selected_observations_unavailable", status_code=422,
+        )
     if request.operation == "object":
         obj_req = WorldGraphObjectRequest.model_validate(
             {
@@ -305,7 +338,9 @@ def _dispatch_expansion(
                 "nodeId": node_ids[0],
             }
         )
-        return retrieval_service.get_campaign_object(obj_req, root=root)
+        return retrieval_service.get_campaign_object_with_reviewed_sources(
+            obj_req
+        )
     if request.operation == "neighborhood":
         neigh_req = WorldGraphNeighborhoodRequest.model_validate(
             {
@@ -315,7 +350,7 @@ def _dispatch_expansion(
                 "maxDepth": request.depth,
             }
         )
-        return retrieval_service.get_object_neighborhood(neigh_req, root=root)
+        return retrieval_service.get_object_neighborhood(neigh_req)
     if request.operation == "support":
         evidence_req = WorldGraphEvidenceRequest.model_validate(
             {
@@ -324,7 +359,7 @@ def _dispatch_expansion(
                 "target": {"kind": "node", "id": node_ids[0]},
             }
         )
-        return retrieval_service.get_object_evidence(evidence_req, root=root)
+        return retrieval_service.get_object_evidence(evidence_req)
     search_req = WorldGraphSearchRequest.model_validate(
         {
             **ctx,
@@ -333,7 +368,7 @@ def _dispatch_expansion(
             "seedNodeIds": node_ids,
         }
     )
-    return retrieval_service.search_campaign_graph(search_req, root=root)
+    return retrieval_service.search_campaign_graph(search_req)
 
 
 def execute_expand_graph_retrieval(
@@ -341,6 +376,8 @@ def execute_expand_graph_retrieval(
     *,
     root: Path | None = None,
 ) -> dict[str, Any]:
+    # root is the Harness repository, not an alternate Graph store.
+    del root
     try:
         request = ExpandGraphRetrievalRequest.model_validate(
             _normalize_interaction_arguments(arguments)
@@ -352,6 +389,12 @@ def execute_expand_graph_retrieval(
             "message": "Invalid expand_graph_retrieval arguments",
             "statusCode": 422,
             "diagnostics": [{"code": "invalid_arguments", "message": str(exc), "severity": "error"}],
+        }
+
+    if request.include_sources:
+        return {
+            "schema": "dmb_world_graph_retrieval_error_v1", "code": "parent_evidence_bundle_required",
+            "message": "Source bundles require the governed parent broker.", "statusCode": 403, "diagnostics": [],
         }
 
     session = _session_or_raise(request.retrieval_session_id)
@@ -376,7 +419,7 @@ def execute_expand_graph_retrieval(
     started = time.perf_counter()
     focus = _focus_for_request(session.snapshot.focus)
     ctx = _request_context_payload(session, focus)
-    node_ids = _target_node_ids(request, session)
+    node_ids = resolve_expansion_target_ids(request, session)
     cardinality_error = _target_cardinality_error(
         operation=request.operation,
         requested_count=len(request.targets),
@@ -387,13 +430,12 @@ def execute_expand_graph_retrieval(
     operation: OperationName = request.operation  # type: ignore[assignment]
 
     try:
-        result = _dispatch_expansion(
+        expanded = _dispatch_expansion(
             request=request,
             session=session,
             ctx=ctx,
             focus=focus,
             node_ids=node_ids,
-            root=root,
         )
     except WorldGraphRetrievalServiceError as exc:
         return {
@@ -410,10 +452,28 @@ def execute_expand_graph_retrieval(
             ],
             "retrievalSessionId": session.id,
         }
-    if isinstance(result, dict) and result.get("schema") == "dmb_world_graph_retrieval_error_v1":
-        return {**result, "retrievalSessionId": session.id}
+    if (
+        isinstance(expanded, dict)
+        and expanded.get("schema") == "dmb_world_graph_retrieval_error_v1"
+    ):
+        return {**expanded, "retrievalSessionId": session.id}
 
+    reviewed_observations = []
+    observation_gaps = []
+    observation_missing = []
+    if request.operation == "object":
+        result, reviewed_observations, observation_gaps, observation_missing = expanded
+    else:
+        result = expanded
     result_dict = result.model_dump(mode="json", by_alias=True)
+    if request.operation == "object":
+        result_dict["reviewedSourceObservations"] = [
+            row.model_dump(mode="json", by_alias=True) for row in reviewed_observations
+        ]
+        result_dict["reviewedSourceObservationCoverage"] = {
+            "gapCodes": observation_gaps,
+            "missingIds": observation_missing,
+        }
     new_claims = claims_from_retrieval_result(
         result_dict,
         revision_id=session.snapshot.revision_id,
@@ -489,7 +549,13 @@ def execute_read_graph_source(
     arguments: Mapping[str, Any],
     *,
     root: Path | None = None,
+    receipt_version: Literal[1, 2] = 1,
+    native_services: Any = None,
+    native_principal: Any = None,
+    native_authority: Any = None,
 ) -> dict[str, Any]:
+    if receipt_version not in (1, 2):
+        raise ValueError("unsupported internal source-read receipt version")
     try:
         request = ReadGraphSourceRequest.model_validate(
             _normalize_interaction_arguments(arguments)
@@ -507,10 +573,41 @@ def execute_read_graph_source(
     admitted = {anchor.anchor_id: anchor for anchor in session.source_anchors}
     focus = _focus_for_request(session.snapshot.focus)
     reads: list[dict[str, Any]] = []
+    internal_reads: list[dict[str, Any]] = []
+    batch_reads: dict[str, Any] = {}
+    if receipt_version == 2:
+        authorized_requests = tuple(
+            WorldGraphSourceAnchorReadRequest.model_validate({
+                **_request_context_payload(session, focus),
+                "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+                "anchorId": anchor_id, "maxChars": request.max_chars,
+            })
+            for anchor_id in request.anchor_ids if anchor_id in admitted
+        )
+        if authorized_requests:
+            try:
+                batch = retrieval_service.read_source_anchors_internal_v2(
+                    authorized_requests, repo_root=artifact_data_root(default=root),
+                    **({"native_services": native_services} if native_services is not None else {}),
+                    **({"native_principal": native_principal, "native_authority": native_authority} if native_principal is not None else {}),
+                )
+                if len(batch) != len(authorized_requests) or any(
+                    not isinstance(item, WorldGraphRetrievalServiceError)
+                    and item.result.anchor_id != expected.anchor_id
+                    for expected, item in zip(authorized_requests, batch, strict=True)
+                ):
+                    raise WorldGraphRetrievalServiceError(
+                        "Source-read batch does not match admitted selectors",
+                        code="source_batch_unverifiable", status_code=409,
+                    )
+                batch_reads = {expected.anchor_id: item
+                               for expected, item in zip(authorized_requests, batch, strict=True)}
+            except WorldGraphRetrievalServiceError as exc:
+                # A failed batch must never be replayed as independent reads.
+                batch_reads = {expected.anchor_id: exc for expected in authorized_requests}
     for anchor_id in request.anchor_ids:
         if anchor_id not in admitted:
-            reads.append(
-                {
+            denied_read = {
                     "schema": "dmb_world_graph_source_anchor_read_v1",
                     "outcome": "denied",
                     "anchorId": anchor_id,
@@ -522,7 +619,11 @@ def execute_read_graph_source(
                         }
                     ],
                 }
-            )
+            reads.append(denied_read)
+            if receipt_version == 2:
+                internal_reads.append({
+                    "sourceReadId": None, "result": denied_read, "receipt": None,
+                })
             continue
         try:
             read_req = WorldGraphSourceAnchorReadRequest.model_validate(
@@ -533,10 +634,17 @@ def execute_read_graph_source(
                     "maxChars": request.max_chars,
                 }
             )
-            result = retrieval_service.read_source_anchor(read_req, root=root)
+            resolved = batch_reads[anchor_id] if receipt_version == 2 else None
+            if isinstance(resolved, WorldGraphRetrievalServiceError):
+                raise resolved
+            result = (
+                resolved.result if resolved is not None
+                else retrieval_service.read_source_anchor(
+                    read_req, repo_root=artifact_data_root(default=root)
+                )
+            )
         except WorldGraphRetrievalServiceError as exc:
-            reads.append(
-                {
+            failed_read = {
                     "schema": "dmb_world_graph_retrieval_error_v1",
                     "code": getattr(exc, "code", None) or "world_graph_retrieval_error",
                     "message": str(exc),
@@ -551,14 +659,92 @@ def execute_read_graph_source(
                         }
                     ],
                 }
-            )
+            reads.append(failed_read)
+            if receipt_version == 2:
+                internal_reads.append({
+                    "sourceReadId": None, "result": failed_read, "receipt": None,
+                })
             continue
         result_dict = result.model_dump(mode="json", by_alias=True)
-        reads.append(result_dict)
         source_read_id = f"source-read:{uuid.uuid4().hex[:12]}"
         opened = result_dict.get("outcome") in {"enough", "partial", "truncated"} and (
             result_dict.get("content") is not None
         )
+        receipt_v2 = None
+        if receipt_version == 2 and opened:
+            from graph_memory.interaction.session import SourceReadReceiptV2
+
+            snapshot = result.snapshot
+            source_digest = str(
+                resolved.source_revision_sha256 if resolved is not None else ""
+            ).removeprefix("sha256:").lower()
+            read_digest = str(result.content_sha256 or "").removeprefix("sha256:").lower()
+            if (
+                resolved is None or snapshot is None
+                or snapshot.world_id != session.snapshot.world_id
+                or snapshot.campaign_id != session.snapshot.campaign_id
+                or snapshot.revision_id != session.snapshot.revision_id
+                or resolved.graph_revision != session.snapshot.revision_id
+                or result.anchor_id != anchor_id
+                or not result.evidence_ref_id
+                or result.evidence_ref_id != resolved.evidence_ref_id
+                or not result.source_artifact_id
+                or result.source_artifact_id != resolved.source_artifact_id
+                or result.source_span_ref_id != resolved.source_span_ref_id
+                or resolved.locator_kind not in {"source_span", "heading", "json_pointer"}
+                or result.locator_kind != resolved.locator_kind
+                or not resolved.locator_identity
+                or (
+                    resolved.locator_kind == "source_span"
+                    and not result.source_span_ref_id
+                )
+                or not resolved.source_revision_id
+                or not resolved.source_revision_sha256
+                or not result.content_sha256
+                or len(source_digest) != 64
+                or any(character not in "0123456789abcdef" for character in source_digest)
+                or len(read_digest) != 64
+                or any(character not in "0123456789abcdef" for character in read_digest)
+                or (resolved.locator_kind != "json_pointer" and read_digest != source_digest)
+            ):
+                result_dict = {
+                    "schema": "dmb_world_graph_retrieval_error_v1",
+                    "code": "source_receipt_unverifiable",
+                    "message": "The admitted source read has no verifiable binding.",
+                    "statusCode": 409,
+                    "anchorId": anchor_id,
+                    "diagnostics": [],
+                }
+                opened = False
+            else:
+                receipt_v2 = SourceReadReceiptV2(
+                    source_read_id=source_read_id,
+                    retrieval_session_id=session.id,
+                    graph_revision=snapshot.revision_id,
+                    anchor_id=anchor_id,
+                    evidence_ref_id=result.evidence_ref_id,
+                    source_artifact_id=result.source_artifact_id,
+                    source_revision_id=resolved.source_revision_id,
+                    source_revision_sha256=resolved.source_revision_sha256,
+                    source_span_ref_id=result.source_span_ref_id,
+                    locator_kind=resolved.locator_kind,
+                    locator_identity=resolved.locator_identity,
+                    outcome=result.outcome,
+                    read_content_sha256=result.content_sha256,
+                    line_start=result.line_start,
+                    line_end=result.line_end,
+                    truncated=result.truncated,
+                )
+        reads.append(result_dict)
+        if receipt_version == 2:
+            internal_reads.append({
+                "sourceReadId": source_read_id,
+                "result": result_dict,
+                "receipt": (
+                    receipt_v2.model_dump(mode="json", by_alias=True)
+                    if receipt_v2 is not None else None
+                ),
+            })
         session.source_reads.append(
             SourceReadEntry(
                 source_read_id=source_read_id,
@@ -577,6 +763,7 @@ def execute_read_graph_source(
                     if result_dict.get("sourceArtifactId") is None
                     else str(result_dict.get("sourceArtifactId"))
                 ),
+                receipt_v2=receipt_v2,
             )
         )
         for anchor in session.source_anchors:
@@ -601,6 +788,12 @@ def execute_read_graph_source(
         )
 
     replace_session(session)
+    if receipt_version == 2:
+        return {
+            "schema": "dmb_internal_read_graph_source_batch_v2",
+            "retrievalSessionId": session.id,
+            "reads": internal_reads,
+        }
     if len(reads) == 1:
         return {**reads[0], "retrievalSessionId": session.id}
     return {

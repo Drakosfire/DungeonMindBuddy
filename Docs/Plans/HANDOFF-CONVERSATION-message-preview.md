@@ -1,0 +1,10 @@
+# Lightweight saved-message preview
+
+Status: ACTIVE — PRIME owns implementation and verification.
+Topology: stacked child of PR #2107 at a4f01f1fad1ddf9ab932fd2850f470912c5309c4. Parent #2107 merged at d0d99a60993e08355563a52e831df65dc87d8af8; protected delivery/ordinary Trash proof remains in progress. Merge order #2106 (merged99c8f367 and delivered with ordinary Continue/reload proof), #2107, then this PR. Reuse codex/conversation-message-preview and existing dependencies. No migration or provider call.
+
+Outcome: the conversation library browses retained message text without hydrating Graph context, execution ledgers or proposal validators. APP's persisted message is the history artifact; a preview is not new grounding, action authority or a claim that its source is currently available. Explicitly distinguish preview from full details. References, saved objects, prior attempts, full accepted-record validation and export remain through the existing full-detail owner, loaded on request. Do not duplicate transcript storage, derive new acceptance, or silently label unloaded details absent. Existing Continue/Trash/Restore authority stays unchanged.
+
+Write lease: this handoff, predecessor handoff settlement; agent_conversation/library.py; conversation_library route; UI ConversationLibrary, conversationLibraryApi, exact liveApi credential selector and owning tests; host worldHistory tests; dedicated PostgreSQL message-projection tests; existing CI selector line for those tests. No other runtime paths or schema/World/Graph changes. Preserve all live ingestion paths during delivery.
+
+Validation: real PostgreSQL exact saved text/order/pagination/World/Trash reads; ensure no heavy turn hydration/ledger read; full-detail and export unchanged; explicit UI detail loading, pagination, scope-change races; actual retained-history byte comparison and before/after latency without provider calls; independent Bugbot review and CI. Merge/deliver after #2107; ordinary preview/detail/Continue proof, no operator acceptance inferred from tests.

@@ -17,7 +17,7 @@ from typing import Any, Iterable
 
 import blake3
 
-from src.session_memory.breadcrumb_smoke import (
+from .breadcrumb_smoke import (
     ALLOWED_TAG_TYPES,
     TAG_RE,
     normalize_corpus_route,
@@ -25,7 +25,7 @@ from src.session_memory.breadcrumb_smoke import (
     parse_inline_tags,
     route_exists,
 )
-from src.session_memory.capture import (
+from .capture import (
     SentenceUnit,
     capture_sentence_units,
 )

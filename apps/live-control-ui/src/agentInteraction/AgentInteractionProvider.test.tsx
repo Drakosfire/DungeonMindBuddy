@@ -623,10 +623,10 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     });
   });
 
-  it("preserves valid Plan content across a same-identity update", () => {
+  it("preserves declared native content across a same-identity update", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     act(() => {
-      result.current.publishProjectionSurface(makePlanPublication());
+      result.current.publishSurfaceInteractionPublication(makeBuildGraphReferencePublication());
     });
     act(() => {
       result.current.registerGraphReferenceBinding(makePlanBinding());
@@ -638,7 +638,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     expect(result.current.activeGraphReference?.locator).toBe(resolution.locator);
 
     act(() => {
-      result.current.publishProjectionSurface(makePlanPublication({ label: "Plan (revised)" }));
+      result.current.updateSurfaceInteractionPublication(makeBuildGraphReferencePublication({ label: "Build (revised)" }));
     });
 
     expect(result.current.active?.kind).toBe("content");
@@ -646,10 +646,10 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     expect(result.current.graphReferenceProjectionState).toBe("ready");
   });
 
-  it("invalidates Plan content when a same-identity update drops the render context", () => {
+  it("invalidates native content when a same-identity update removes its capability", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     act(() => {
-      result.current.publishProjectionSurface(makePlanPublication());
+      result.current.publishSurfaceInteractionPublication(makeBuildGraphReferencePublication());
     });
     act(() => {
       result.current.registerGraphReferenceBinding(makePlanBinding());
@@ -660,7 +660,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     expect(result.current.active?.kind).toBe("content");
 
     act(() => {
-      result.current.publishProjectionSurface(makePlanPublication({ context: null, tools: [] }));
+      result.current.updateSurfaceInteractionPublication(withoutGraphReference(makeBuildGraphReferencePublication()));
     });
 
     expect(result.current.active).toBeNull();
@@ -676,10 +676,15 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     const staleClose = result.current.close;
 
     act(() => {
-      result.current.publishProjectionSurface(makePlanPublication());
+      result.current.publishSurfaceInteractionPublication(makeBuildGraphReferencePublication());
     });
     act(() => {
-      staleOpenTool("recap");
+      result.current.registerGraphReferenceBinding(makePlanBinding());
+    });
+    expect(result.current.graphReferenceBinding).not.toBeNull();
+
+    act(() => {
+      staleOpenTool("build-find-existing-object");
       staleOpenGraphReference({
         reference: { refType: "creature", refId: "creature:bubbles", label: "Bubbles" } as never,
         resolution,
@@ -694,16 +699,18 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     expect(result.current.activeGraphReference).toBeNull();
 
     act(() => {
-      result.current.openTool("recap");
+      result.current.openTool("build-find-existing-object");
     });
-    expect(result.current.active?.key).toBe("recap");
+    expect(result.current.active?.key).toBe(BUILD_REFERENCE_SEARCH_PROJECTION_ID);
   });
 
-  it("blocks a stale Plan registrar invoked after Ingest publication before rerender", () => {
+  it("blocks a stale native registrar invoked after Ingest publication before rerender", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     act(() => {
-      result.current.publishProjectionSurface(makePlanPublication());
+      result.current.publishSurfaceInteractionPublication(makeBuildGraphReferencePublication());
     });
+    act(() => { result.current.registerGraphReferenceBinding(makePlanBinding()); });
+    expect(result.current.graphReferenceBinding).not.toBeNull();
     const staleRegister = result.current.registerGraphReferenceBinding;
 
     act(() => {
@@ -714,11 +721,13 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     expect(result.current.graphReferenceBinding).toBeNull();
   });
 
-  it("blocks a stale Plan registrar invoked after Ingest publication has rendered", () => {
+  it("blocks a stale native registrar invoked after Ingest publication has rendered", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     act(() => {
-      result.current.publishProjectionSurface(makePlanPublication());
+      result.current.publishSurfaceInteractionPublication(makeBuildGraphReferencePublication());
     });
+    act(() => { result.current.registerGraphReferenceBinding(makePlanBinding()); });
+    expect(result.current.graphReferenceBinding).not.toBeNull();
     const staleRegister = result.current.registerGraphReferenceBinding;
 
     act(() => {
@@ -857,10 +866,11 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
   });
 
-  it("clears open graph-reference content when a same-identity update disables projections", () => {
+  it("clears open graph-reference content when its publication is released", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    let release: (() => void) | undefined;
     act(() => {
-      result.current.publishProjectionSurface(makePlanPublication());
+      release = result.current.publishSurfaceInteractionPublication(makeBuildGraphReferencePublication());
     });
     act(() => {
       result.current.registerGraphReferenceBinding(makePlanBinding());
@@ -871,20 +881,18 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     expect(result.current.active?.kind).toBe("content");
 
     act(() => {
-      result.current.publishProjectionSurface(
-        makePlanPublication({ context: null, tools: [] }),
-      );
+      release!();
     });
 
-    expect(result.current.projectionSurface?.projectionsEnabled).toBe(false);
+    expect(result.current.surfaceInteractionPublication).toBeNull();
     expect(result.current.active).toBeNull();
     expect(result.current.activeGraphReference).toBeNull();
   });
 
-  it("clears Plan binding when context is lost and rejects fresh registration", () => {
+  it("clears native binding on capability loss and rejects fresh registration", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     act(() => {
-      result.current.publishProjectionSurface(makePlanPublication());
+      result.current.publishSurfaceInteractionPublication(makeBuildGraphReferencePublication());
     });
     act(() => {
       result.current.registerGraphReferenceBinding(makePlanBinding());
@@ -896,15 +904,10 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     expect(result.current.active?.kind).toBe("content");
 
     act(() => {
-      result.current.publishProjectionSurface(
-        makePlanPublication({
-          context: null,
-          tools: [{ id: "recap", label: "Recap", size: "wide" as const }],
-        }),
-      );
+      result.current.updateSurfaceInteractionPublication(withoutGraphReference(makeBuildGraphReferencePublication()));
     });
 
-    expect(result.current.projectionSurface?.projectionsEnabled).toBe(false);
+    expect(result.current.surfaceInteractionPublication?.projections.some((entry) => entry.id === GRAPH_REFERENCE_PROJECTION_ID)).toBe(false);
     expect(result.current.graphReferenceBinding).toBeNull();
     expect(result.current.active).toBeNull();
     expect(result.current.activeGraphReference).toBeNull();
@@ -917,9 +920,9 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     expect(result.current.active).toBeNull();
     expect(result.current.activeGraphReference).toBeNull();
 
-    // Context returning must not resurrect prior content without a fresh operator action.
+    // Capability returning must not resurrect prior content without a fresh operator action.
     act(() => {
-      result.current.publishProjectionSurface(makePlanPublication());
+      result.current.updateSurfaceInteractionPublication(makeBuildGraphReferencePublication());
     });
     expect(result.current.graphReferenceBinding).toBeNull();
     expect(result.current.active).toBeNull();
@@ -1024,11 +1027,11 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     expect(result.current.active).toBeNull();
   });
 
-  it("lets binder effects republish a Plan binding under a new Plan instance lease", () => {
+  it("lets binder effects republish a native binding under a new instance lease", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     act(() => {
-      result.current.publishProjectionSurface(
-        makePlanPublication({}, { instanceKey: "plan\u001finstance-a" }),
+      result.current.publishSurfaceInteractionPublication(
+        makeBuildGraphReferencePublication({ identity: buildSurfaceInteractionIdentity({ surfaceId: "build", instanceParts: ["build", "instance-a"] }) }),
       );
     });
     let cleanup: (() => void) | undefined;
@@ -1038,8 +1041,8 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     expect(result.current.graphReferenceBinding).not.toBeNull();
 
     act(() => {
-      result.current.publishProjectionSurface(
-        makePlanPublication({}, { instanceKey: "plan\u001finstance-b" }),
+      result.current.publishSurfaceInteractionPublication(
+        makeBuildGraphReferencePublication({ identity: buildSurfaceInteractionIdentity({ surfaceId: "build", instanceParts: ["build", "instance-b"] }) }),
       );
     });
     expect(result.current.graphReferenceBinding).toBeNull();
@@ -1186,7 +1189,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
   it("clears graph-reference binding and active projection when invalid chrome fragment invalidates effective publication", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     act(() => {
-      result.current.publishProjectionSurface(makePlanPublication());
+      result.current.publishSurfaceInteractionPublication(makeBuildGraphReferencePublication());
     });
     act(() => {
       result.current.registerGraphReferenceBinding(makePlanBinding());
@@ -1200,7 +1203,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     act(() => {
       result.current.publishAppChromeCompatibility(
         buildAppChromeCompatibilityFragment({
-          pageActions: [{ id: "recap", label: "Duplicate recap", onClick: vi.fn() }],
+          pageActions: [{ id: "build-find-existing-object", label: "Duplicate reference tool", onClick: vi.fn() }],
           editorTools: null,
           basePublication: result.current.surfaceInteractionBasePublication,
           editCommandTarget: null,
@@ -1283,7 +1286,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     expect(result.current.graphReviewDiagnosticsPayload).toEqual(payload);
   });
 
-  function makeBuildGraphReferencePublication(): SurfaceInteractionPublication {
+  function makeBuildGraphReferencePublication(overrides: Partial<SurfaceInteractionPublication> = {}): SurfaceInteractionPublication {
     return {
       surfaceId: "build",
       label: "Build",
@@ -1326,7 +1329,12 @@ describe("AgentInteractionProvider projection lease semantics", () => {
         },
       ],
       projectionBindings: [],
+      ...overrides,
     };
+  }
+
+  function withoutGraphReference(publication: SurfaceInteractionPublication): SurfaceInteractionPublication {
+    return { ...publication, projections: publication.projections.filter((entry) => entry.id !== GRAPH_REFERENCE_PROJECTION_ID) };
   }
 
   function makePublicationWithoutGraphReferenceCapability(): SurfaceInteractionPublication {
@@ -1346,7 +1354,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     };
   }
 
-  it("regression: Plan still registers binding and opens graph reference when binding is present", () => {
+  it("does not infer legacy Plan reference authority from its surface identity", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     act(() => {
       result.current.publishProjectionSurface(makePlanPublication());
@@ -1357,9 +1365,9 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     act(() => {
       openResolution(result.current.openGraphReference);
     });
-    expect(result.current.graphReferenceBinding).not.toBeNull();
-    expect(result.current.active?.kind).toBe("content");
-    expect(result.current.activeGraphReference?.locator).toBe(resolution.locator);
+    expect(result.current.graphReferenceBinding).toBeNull();
+    expect(result.current.active).toBeNull();
+    expect(result.current.activeGraphReference).toBeNull();
   });
 
   it("allows graph-reference register and open on Build when publication declares capability and binding is present", () => {
@@ -1409,7 +1417,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
   it("rejects openGraphReference when declaration is present but binding is not registered", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     act(() => {
-      result.current.publishProjectionSurface(makePlanPublication());
+      result.current.publishSurfaceInteractionPublication(makeBuildGraphReferencePublication());
     });
     act(() => {
       openResolution(result.current.openGraphReference);

@@ -3,7 +3,7 @@
  *
  * `window.location` remains source of truth. React observes popstate.
  * Eligible unmodified same-tab clicks on primary in-app hrefs push history
- * instead of loading a new document. Combat and modified/native gestures
+ * instead of loading a new document. Modified/native gestures
  * stay with the browser.
  */
 
@@ -11,14 +11,16 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 
 export type AppLocationRoute =
   | "index"
+  | "graph"
   | "surface"
-  | "tiptap-callout-spike"
   | "plan"
   | "play"
   | "ingest"
-  | "build";
+  | "build"
+  | "combat"
+  | "statblock";
 
-const PRIMARY_APP_PATHNAMES = new Set(["/", "/plan", "/play", "/ingest", "/build"]);
+const PRIMARY_APP_PATHNAMES = new Set(["/", "/graph", "/plan", "/play", "/ingest", "/build", "/combat", "/statblock"]);
 
 export interface NavigationClickLike {
   defaultPrevented: boolean;
@@ -54,12 +56,14 @@ export function pathnameFromLocationSnapshot(snapshot: string): string {
 
 export function appRouteFromPathname(pathname: string): AppLocationRoute {
   const path = normalizeAppPathname(pathname);
-  if (path === "/surface" || path === "/live-control") return "surface";
-  if (path === "/tiptap-callout-spike") return "tiptap-callout-spike";
+  if (path === "/graph") return "graph";
+  if (path === "/surface") return "surface";
   if (path === "/plan") return "plan";
   if (path === "/play") return "play";
   if (path === "/ingest") return "ingest";
   if (path === "/build") return "build";
+  if (path === "/combat") return "combat";
+  if (path === "/statblock") return "statblock";
   return "index";
 }
 
@@ -98,7 +102,7 @@ export function shouldInterceptPrimaryNavigationClick(
   return isPrimaryAppHref(href);
 }
 
-export function navigatePrimaryAppHref(href: string): void {
+export function navigatePrimaryAppHref(href: string, options?: { allowBuildTargetChange: boolean }): void {
   const url = resolveSameOriginUrl(href);
   if (!url) return;
   const pathname = normalizeAppPathname(url.pathname);
@@ -106,7 +110,9 @@ export function navigatePrimaryAppHref(href: string): void {
   if (normalizeAppPathname(window.location.pathname) === pathname) {
     const currentWorld = new URLSearchParams(window.location.search).get("world");
     const nextWorld = url.searchParams.get("world");
-    if (currentWorld === nextWorld) return;
+    const changesBuildTarget = pathname === "/build" && (options?.allowBuildTargetChange
+      || (url.searchParams.has("draft") && url.searchParams.has("revision")));
+    if (currentWorld === nextWorld && pathname !== "/statblock" && !changesBuildTarget) return;
   }
   const next = `${pathname}${url.search}${url.hash}`;
   if (getAppLocationSnapshot() === next) return;

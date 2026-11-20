@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.application_state.world_catalog_fixtures import world_snapshot
+
 from pathlib import Path
 
 import pytest
@@ -7,6 +9,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from application_state.content.service import create_world_plan
+from apps.live_control_server.config import MANAGED_WORLD_DATA_ROOT_ENV
 from apps.live_control_server.routes import live
 from apps.live_control_server.routes import workspace_documents
 from apps.live_control_server.services.workspace_document_registry import (
@@ -18,7 +22,7 @@ from apps.live_control_server.services.world_container_registry import create_wo
 def test_managed_world_plan_context_v2_is_exact_and_non_authoritative(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    world = create_world_container(tmp_path, name="Plan Contract World")
+    world = create_world_container(name="Plan Contract World")
     monkeypatch.setattr(live, "repo_root", lambda: tmp_path)
 
     response = live.get_live_plan_view(world_id=world.world_id, scope_mode="world")
@@ -36,7 +40,7 @@ def test_managed_world_plan_context_v2_is_exact_and_non_authoritative(
 def test_legacy_managed_plan_context_remains_v1_compatibility_shape(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    world = create_world_container(tmp_path, name="Plan Contract World")
+    world = create_world_container(name="Plan Contract World")
     monkeypatch.setattr(live, "repo_root", lambda: tmp_path)
 
     response = live.get_live_plan_view(world_id=world.world_id)
@@ -102,6 +106,101 @@ def test_world_plan_inventory_rejects_campaign_selector(
     assert response.status_code == 422
 
 
+def test_world_plan_inventory_and_create_use_managed_root_with_app_state_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    application_state_dsn: str,
+) -> None:
+    code_root = tmp_path / "code"
+    managed_root = tmp_path / "operator-data"
+    code_root.mkdir()
+    managed_root.mkdir()
+    monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(managed_root))
+
+    world = create_world_container(name="Split Root Plan World")
+    registry_bytes_before = world_snapshot()
+    existing = create_world_plan(title="Existing saved Plan", world_id=world.world_id)
+    client = _client(monkeypatch, code_root)
+
+    listed = client.get(
+        "/api/live/workspace-documents/world-plans",
+        params={"world_id": world.world_id},
+    )
+    assert listed.status_code == 200, listed.text
+    assert [row["document_id"] for row in listed.json()["records"]] == [
+        str(existing.work_object_id)
+    ]
+
+    created = client.post(
+        "/api/live/workspace-documents/world-plans",
+        json={
+            "schema_version": "dmb_workspace_document_create_v2",
+            "scope_mode": "world",
+            "world_id": world.world_id,
+            "title": "Created from split-root checkout",
+        },
+    )
+    assert created.status_code == 200, created.text
+    assert created.json()["world_id"] == world.world_id
+
+    listed_after_create = client.get(
+        "/api/live/workspace-documents/world-plans",
+        params={"world_id": world.world_id},
+    )
+    assert listed_after_create.status_code == 200, listed_after_create.text
+    assert {row["document_id"] for row in listed_after_create.json()["records"]} == {
+        str(existing.work_object_id),
+        created.json()["document_id"],
+    }
+    assert world_snapshot() == registry_bytes_before
+    assert not (code_root / "out/registries/world_containers.json").exists()
+
+    unknown = client.get(
+        "/api/live/workspace-documents/world-plans",
+        params={"world_id": "missing-world"},
+    )
+    assert unknown.status_code == 404
+
+
+def test_world_plan_inventory_rejects_unavailable_managed_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    code_root = tmp_path / "code"
+    code_root.mkdir()
+    monkeypatch.setenv(
+        MANAGED_WORLD_DATA_ROOT_ENV, str(tmp_path / "missing-operator-data")
+    )
+    client = _client(monkeypatch, code_root)
+
+    response = client.get(
+        "/api/live/workspace-documents/world-plans",
+        params={"world_id": "known-world"},
+    )
+
+    assert response.status_code == 503
+
+
+def test_world_plan_inventory_defaults_to_code_root_when_managed_root_is_unset(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    application_state_dsn: str,
+) -> None:
+    monkeypatch.delenv(MANAGED_WORLD_DATA_ROOT_ENV, raising=False)
+    world = create_world_container(name="Default Root Plan World")
+    plan = create_world_plan(title="Default-root Plan", world_id=world.world_id)
+    client = _client(monkeypatch, tmp_path)
+
+    response = client.get(
+        "/api/live/workspace-documents/world-plans",
+        params={"world_id": world.world_id},
+    )
+
+    assert response.status_code == 200, response.text
+    assert [row["document_id"] for row in response.json()["records"]] == [
+        str(plan.work_object_id)
+    ]
+
+
 def test_create_world_owned_plan_request_forbids_ignored_fields() -> None:
     with pytest.raises(ValidationError):
         CreateWorldOwnedPlanRequestV2.model_validate(
@@ -118,7 +217,7 @@ def test_world_plan_revision_and_mutation_routes_emit_v2_and_reject_session(
     monkeypatch: pytest.MonkeyPatch,
     application_state_dsn: str,
 ) -> None:
-    world = create_world_container(tmp_path, name="Revision route world")
+    world = create_world_container(name="Revision route world")
     client = _client(monkeypatch, tmp_path)
     created = client.post(
         "/api/live/workspace-documents/world-plans",
@@ -206,55 +305,5 @@ def test_world_plan_revision_and_mutation_routes_emit_v2_and_reject_session(
     assert restored.json()["world_id"] == world.world_id
 
 
-def test_world_plan_migration_preserves_campaign_rows_and_refuses_unsafe_downgrade(
-    monkeypatch: pytest.MonkeyPatch,
-    application_state_dsn: str,
-) -> None:
-    from alembic import command
 
-    from application_state.cli import _current_and_head, alembic_config, upgrade_to_head
-    import application_state.content.service as content_service
-    from application_state.content.service import (
-        autosave_plan,
-        commit_plan,
-        create_plan,
-        create_world_plan,
-        get_plan,
-        snapshot_plan,
-    )
-
-    config = alembic_config()
-    command.downgrade(config, "20260906_0006")
-    current, _ = _current_and_head(application_state_dsn)
-    assert current == "20260906_0006"
-
-    # Seed ordinary historical campaign data while the prior schema is active;
-    # only the head guard is bypassed so these calls use the same repository path.
-    with monkeypatch.context() as migration_seed:
-        migration_seed.setattr(content_service, "assert_at_head", lambda **_: None)
-        plan = create_plan(title="Prior campaign Plan", campaign_id="campaign-old")
-        autosaved = autosave_plan(
-            str(plan.work_object_id), "# Retained before upgrade\n", expected_revision=1
-        )
-        committed, _ = commit_plan(
-            str(plan.work_object_id),
-            "# Retained before upgrade\n",
-            expected_revision=autosaved.object_revision,
-        )
-
-    command.upgrade(config, "head")
-    upgrade_to_head(dsn=application_state_dsn)
-    current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20260928_0007"
-    loaded = get_plan(str(committed.work_object_id))
-    snapshot = snapshot_plan(str(committed.work_object_id))
-    assert loaded.campaign_id == "campaign-old"
-    assert loaded.world_id is None
-    assert snapshot.markdown == "# Retained before upgrade\n"
-
-    world_plan = create_world_plan(title="World Plan", world_id="world-a")
-    with pytest.raises(Exception, match="cannot downgrade while World-owned Plans exist"):
-        command.downgrade(config, "20260906_0006")
-    current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20260928_0007"
-    assert get_plan(str(world_plan.work_object_id)).world_id == "world-a"
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

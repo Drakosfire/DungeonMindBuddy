@@ -679,7 +679,7 @@ export interface AgentInteractionTurn {
     proposalSummary: string;
     replacementMarkdown: string;
     applied: boolean;
-    targetKind: "replace_selection" | "insert_at_caret";
+    targetKind: "replace_selection" | "insert_at_caret" | "replace_playable_body" | "insert_at_boundary";
   } | null;
 }
 
@@ -764,8 +764,35 @@ export interface WorldPlanAgentTurnResolvedSummary {
   pointerStatus: "absent" | "accepted" | "recovered" | "rejected" | "reused";
 }
 
+export interface WorldPlanSelectedPlayableTargetV1 {
+  schema: "dmb_plan_playable_target_v1";
+  kind: "scene" | "beat" | "choice" | "option";
+  id: string;
+}
+
+export interface WorldPlanContextPolicyV1 {
+  schema: "dmb_plan_context_policy_v1";
+  policy: "auto_plan_world";
+}
+
+export interface WorldPlanContextPolicyV2 {
+  schema:'dmb_plan_context_policy_v2';policy:'auto_plan_world';graph_source:'reviewed_native_graph';
+}
+
+export interface WorldPlanGraphContextFailureV1 {
+  schema: "dmb_plan_world_graph_context_failure_v1";
+  status: "pre_dispatch_failed";
+  failure_code: string;
+  provider_dispatched: false;
+  automatic_downgrade: false;
+}
+
 /** Accepted generic turn route, bound to one saved Plan in a verified World. */
 export interface WorldPlanAgentTurnRequestV1 {
+  plan_requested_operation?: "discuss" | "write_current_page";
+  authored_references?: AuthoredReferencesV2;
+  plan_authoring_capture?: import("./planAuthoringReviewApi").PlanOriginalAuthoringCapture | null;
+  plan_placement_catalog?: import("./planAuthoringReviewApi").PlanPlacementCatalog | null;
   schema: "dmb_agent_turn_request_v1";
   client_thread_id: string;
   turn_id: string;
@@ -778,14 +805,83 @@ export interface WorldPlanAgentTurnRequestV1 {
     expected_revision_n: number;
     expected_content_sha256: string;
   };
+  plan_context_policy?: WorldPlanContextPolicyV1|WorldPlanContextPolicyV2;
+  playable_target?: WorldPlanSelectedPlayableTargetV1 | null;
   client_work_state: "saved_clean" | "saved_dirty";
   graph_request: { mode: "none" };
   graph_selection: null;
   message: string;
 }
 
+/** Exact saved session content admitted by the Play reader. */
+export interface WorldPlayContentBasis {
+  edition_revision: number;
+  edition_revision_id: string | null;
+  content_sha256: string;
+}
+
+export interface WorldPlayTarget {
+  beat_id: string;
+  scene_id: string | null;
+  marker_grammar_version: "v2";
+}
+
+/** Play submits an admitted World Run. The server resolves its Graph binding and revision. */
+export interface WorldPlayAgentTurnRequestV1 {
+  authored_references?: AuthoredReferencesV2;
+  schema: "dmb_agent_turn_request_v1";
+  client_thread_id: string;
+  turn_id: string;
+  surface: { surface_id: "play"; instance_id: string };
+  owner_scope: { kind: "world"; world_id: string };
+  primary_work: { kind: "run"; object_id: string; expected_revision: number; play_content_basis: WorldPlayContentBasis };
+  play_target: WorldPlayTarget;
+  client_work_state: "saved_clean";
+  graph_request: { mode: "none" } | {
+    mode: "world";
+    world_id: string;
+    campaign_id: null;
+    revision_pin: null;
+    focus: { kind: "none"; session_id: null; campaign_id: null };
+  };
+  graph_selection: null;
+  message: string;
+}
+
+export type ReviewedStepReference = {conversation_id:string;source_turn_id:string;command_id:string};
+
+/** Build retains a verified saved basis and separately captured authored working context. */
+export interface WorldBuildAgentTurnRequestV1 {
+  build_authored_references?: AuthoredReferenceInput;
+  retry_of?: {turn_id:string;revision:number;retained_snapshot_sha256?:string};
+  reviewed_step?: ReviewedStepReference;
+  build_draft_context?: {snapshot:WorldBuildDraftSnapshotV1;conversation_id:string;expected_pointer_revision:number};
+  build_write_capability?: Omit<import("./buildDocumentProposalApi").BuildProposalRequest, "instruction" | "origin">;
+  schema: "dmb_agent_turn_request_v1";
+  client_thread_id: string;
+  turn_id: string;
+  surface: { surface_id: "build"; instance_id: string };
+  owner_scope: { kind: "world"; world_id: string };
+  primary_work: { kind: "build"; object_id: string; expected_revision: number; expected_content_sha256: string };
+  client_work_state: "saved_clean" | "saved_dirty";
+  graph_request: { mode: "none" } | WorldPlayAgentTurnRequestV1["graph_request"];
+  graph_selection: null;
+  message: string;
+}
+
 /** Wire shape returned by the accepted generic turn route; runtime-validated by its caller. */
+export interface LoreSaveReviewReference {
+  schema: "dmb_lore_save_review_reference_v1";
+  conversation_id: string;
+  turn_id: string;
+  review_sha256: string;
+  title: string;
+}
+
 export interface WorldPlanAgentTurnResponseV1 {
+  lore_save_review?: LoreSaveReviewReference;
+  plan_proposal?: import("./planAuthoringReviewApi").PlanAuthoredProposal | null;
+  knowledge_context?: WorldBuildKnowledgeContext;
   schema: "dmb_agent_turn_response_v1";
   client_thread_id: string;
   turn_id: string;
@@ -810,7 +906,7 @@ export interface WorldPlanAgentTurnResponseV1 {
   };
   client_work_state_reported: "none" | "saved_clean" | "saved_dirty" | "new_unsaved";
   graph: {
-    status: "not_requested" | "ready" | "empty" | "unavailable" | "rejected";
+    status: "not_requested" | "ready" | "empty" | "unavailable" | "rejected" | "replayed";
     world_id: string | null;
     campaign_id: string | null;
     scope_mode: "world" | "campaign" | null;
@@ -837,6 +933,677 @@ export interface WorldPlanAgentTurnResponseV1 {
     trace: Record<string, unknown>;
   };
 }
+
+export type WorldPlanGraphAnswerContextStatusV1 =
+  | "graph_grounded"
+  | "graph_grounded_partial"
+  | "plan_only_insufficient_evidence"
+  | "plan_only_graph_unused";
+
+export interface WorldPlanGraphExecutionProjectionV1 {
+  schema: "dmb_agent_plan_world_graph_execution_projection_v1";
+  claimability:
+    | "safe_to_reclaim_without_dispatch"
+    | "explicit_new_attempt_required"
+    | "blocked_unknown_or_sent"
+    | "completed";
+  authorization_state:
+    | "none"
+    | "authorized"
+    | "sdk_entered"
+    | "response_received"
+    | "known_not_sent"
+    | "outcome_unknown";
+  automatic_redispatch: false;
+}
+
+export interface WorldPlanGraphContextReceiptV1 {
+  schema: "dmb_agent_plan_world_graph_context_receipt_v1";
+  receipt_serializer_version: "canonical-json-utf8-v1";
+  context_receipt_sha256: string;
+  plan_context_policy: WorldPlanContextPolicyV1|WorldPlanContextPolicyV2;
+  plan_basis: {
+    world_id: string;
+    document_id: string;
+    object_revision: number;
+    work_revision_id: string;
+    revision_n: number;
+    content_sha256: string;
+  };
+  playable_target: {
+    schema: "dmb_plan_playable_target_receipt_v1";
+    kind: "scene" | "beat" | "choice" | "option";
+    id: string;
+    marker_grammar_version: "v1" | "v2";
+  } | null;
+  graph_authority: {
+    managed_world_id: string;
+    native_world_id: string;
+    binding_version: number;
+    scope_mode: "world";
+    campaign_id: null;
+    admissibility_version: string;
+    graph_revision: string;
+  };
+  graph_packet: {
+    schema: "dmb_plan_world_graph_packet_v1";
+    packet_serializer_version: "canonical-json-utf8-v1";
+    selection_policy_version: string;
+    evidence_sufficiency_policy_version: string;
+    retrieval_packet_sha256: string;
+    candidate_assertion_ids: string[];
+    candidate_relationship_ids: string[];
+    candidate_evidence_ref_ids: string[];
+    retrieval_status: "complete" | "empty";
+    evidence_sufficiency_status: "sufficient" | "insufficient";
+    result_limit: number;
+    coverage_status: "complete" | "incomplete";
+    truncated: boolean;
+    omission_reasons: string[];
+  };
+  assembled_input: {
+    packet_disposition: "included" | "omitted_insufficient";
+    packet_disposition_reason: "insufficient_evidence" | null;
+    assembler_version: string;
+    budget_policy_version: string;
+    provider_model_name: string;
+    provider_model_version: string;
+    tokenizer_name: string;
+    tokenizer_version: string;
+    provider_envelope_input_tokens: number;
+    output_token_reserve: number;
+    context_window_limit: number | null;
+    dispatched_packet_sha256: string | null;
+    dispatched_assertion_ids: string[];
+    dispatched_relationship_ids: string[];
+    dispatched_evidence_ref_ids: string[];
+    source_token_accounting: Array<{
+      source_kind: "plan" | "history" | "graph" | "instructions" | "tools" | "message";
+      source_id: string;
+      input_tokens: number;
+    }>;
+    included_history: Array<{ turn_id: string; answer_sha256: string }>;
+    assembled_input_sha256: string;
+  };
+  evidence_mode: "metadata_only";
+  source_opened: false;
+}
+
+/** Native Play source commitments; never reinterpreted as a Plan receipt. */
+export interface WorldPlayRunContextReceiptV2 extends WorldPlayContentBasis, WorldPlayTarget {
+  schema: "dmb_play_run_turn_context_receipt_v2";
+  world_id: string; run_id: string; run_revision: number;
+  runbook_object_id: string; runbook_object_revision: number;
+  runbook_work_revision_id: string; runbook_revision_n: number; runbook_content_sha256: string;
+  scene_note: string | null; scene_note_sha256: string | null;
+}
+export interface WorldPlaySourceLocator {
+  world_id: string; run_id: string; run_revision: number;
+  edition: WorldPlayContentBasis; beat_id: string; scene_id: string | null;
+}
+export interface WorldPlaySourceManifestEntry {
+  source_id: string; source_kind: "current_moment" | "scene_note";
+  locator: WorldPlaySourceLocator; payload_sha256: string; payload_utf8_bytes: number;
+  text_sha256: string; text_utf8_bytes: number; text_codepoints: number;
+}
+export interface PlayAuthoredSourceContextV1 {
+  schema:'dmb_play_authored_source_context_v1';
+  authority:Extract<PlanSourceContextReceiptV1['source_authority'],{schema_version:'dmb_native_corpus_authority_v1'}>;
+  references:AuthoredReferencesV2;
+}
+export interface WorldPlayGraphContextReceiptV1 {
+  authored_source_context?:PlayAuthoredSourceContextV1;
+  schema: "dmb_play_world_graph_context_receipt_v1";
+  receipt_serializer_version: "canonical-json-utf8-v1"; context_receipt_sha256: string;
+  play_graph_policy: { schema: "dmb_play_graph_policy_v1"; policy: "native_play_world_v1" };
+  play_basis: WorldPlayRunContextReceiptV2;
+  play_sources: { schema: "dmb_play_source_manifest_v1"; entries: WorldPlaySourceManifestEntry[]; manifest_sha256: string };
+  play_source_frame_sha256: string; retrieval_session_id: string;
+  graph_authority: WorldPlanGraphContextReceiptV1["graph_authority"];
+  graph_packet: Omit<WorldPlanGraphContextReceiptV1["graph_packet"], "schema"> & { schema: "dmb_play_world_graph_packet_v1" };
+  assembled_input: Omit<WorldPlanGraphContextReceiptV1["assembled_input"], "source_token_accounting"> & {
+    source_token_accounting: { source_kind: "play" | "history" | "graph" | "instructions" | "tools" | "message" | "rules"; source_id: string; input_tokens: number }[];
+  };
+  evidence_mode: "metadata_only"; source_opened: false;
+}
+
+export interface WorldPlayGraphCompletionV1 {
+  schema: "dmb_play_world_graph_completion_v1"; context_receipt_sha256: string;
+  answer_basis: "play_sources" | "world_graph" | "play_sources_plus_world_graph" | "nonfactual_context";
+  answer_context_status: "graph_grounded" | "graph_grounded_partial" | "play_only_insufficient_evidence" | "play_only_graph_unused";
+  answer_segments: (Extract<WorldPlanGraphAnswerSegmentV1, { kind: "graph_claim" | "connective" }> | {
+    kind: "play_context_claim"; text: string; source_ids: string[];
+  })[];
+  citation_map: WorldPlanGraphCitationMapV2 | null;
+}
+export type PlaySurfaceNativeContextResponseV1=AgentSurfaceNativeContextResponseV1 & {
+  receipt:SurfaceNativeContextReceiptV1 & {work_context:Extract<SurfaceNativeWorkContextV1,{surface_id:'play'}>};
+  completion:SurfaceNativeCompletionV1|null;
+};
+export type WorldPlayAgentContextV1=LegacyWorldPlayAgentContextV1|PlaySurfaceNativeContextResponseV1;
+export interface LegacyWorldPlayAgentContextV1 {
+  schema: "dmb_agent_play_world_graph_context_response_v1";
+  receipt: WorldPlayGraphContextReceiptV1; completion: WorldPlayGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletion | null;
+  execution: WorldPlanGraphExecutionProjectionV1 | null; delivery_replay: boolean;
+}
+
+export type WorldPlanGraphAnswerSegmentV1 =
+  | {
+    kind: "graph_claim";
+    claim_id: string;
+    text: string;
+    target_kind: "assertion" | "relationship";
+    target_id: string;
+    graph_revision: string;
+    evidence_ref_ids: string[];
+  }
+  | { kind: "session_evidence_claim"; text:string;run_id:string;review_revision:number;evidence_sha256:string }
+  | { kind: "plan_claim"; text: string; plan_content_sha256: string }
+  | { kind: "proposal"; text: string; label: "invented_idea" | "image_prompt" }
+  | { kind: "connective"; text: string };
+
+export interface WorldPlanGraphCitationV1 {
+  claim_id: string;
+  target_kind: "assertion" | "relationship";
+  target_id: string;
+  graph_revision: string;
+  evidence_ref_ids: string[];
+  source_opened: false;
+}
+
+export interface WorldPlanGraphCitationMapV1 {
+  schema: "dmb_graph_citation_map_v1";
+  context_receipt_sha256: string;
+  entries: WorldPlanGraphCitationV1[];
+}
+
+export interface WorldPlanGraphCitationV2 extends Omit<WorldPlanGraphCitationV1, "source_opened"> {
+  source_opened: boolean;
+  source_read_ids: string[];
+}
+
+export interface WorldPlanGraphCitationMapV2 {
+  schema: "dmb_graph_citation_map_v2";
+  context_receipt_sha256: string;
+  entries: WorldPlanGraphCitationV2[];
+}
+
+export interface WorldPlanGraphCompletionV1 {
+  schema: "dmb_plan_world_graph_completion_v1";
+  context_receipt_sha256: string;
+  answer_basis: "committed_plan" | "committed_plan_plus_world_graph" | "committed_plan_plus_session_evidence" | "committed_plan_plus_world_graph_plus_session_evidence";
+  answer_context_status: WorldPlanGraphAnswerContextStatusV1;
+  answer_segments: WorldPlanGraphAnswerSegmentV1[];
+  citation_map: WorldPlanGraphCitationMapV1 | null;
+}
+
+export interface WorldPlanGraphCompletionV2 extends Omit<WorldPlanGraphCompletionV1, "schema" | "citation_map"> {
+  schema: "dmb_plan_world_graph_completion_v2";
+  citation_map: WorldPlanGraphCitationMapV2 | null;
+}
+
+/** Exact policy-only response envelope defined by SERVER's accepted wire contract. */
+export interface LegacyWorldPlanAgentPlanContextV2 {
+  schema: "dmb_agent_plan_world_graph_context_response_v2";
+  receipt: WorldPlanGraphContextReceiptV1;
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletion | null;
+  execution: WorldPlanGraphExecutionProjectionV1 | null;
+  delivery_replay: boolean;
+  source_open_targets?: WorldPlanSourceOpenTargetV2[];
+  evidence_anchor_statuses?: WorldPlanEvidenceAnchorStatusV1[];
+  related_recap_context_statuses?: WorldPlanRelatedRecapContextStatusV2[];
+}
+
+/** Native body ownership and optional Graph capability remain distinct. */
+export interface PlanSourceContextReceiptV1 {
+  schema:'dmb_plan_source_context_receipt_v1';receipt_serializer_version:'canonical-json-utf8-v1';
+  context_receipt_sha256:string;plan_context_policy:WorldPlanContextPolicyV1|WorldPlanContextPolicyV2;
+  plan_basis:WorldPlanGraphContextReceiptV1['plan_basis'];playable_target:WorldPlanGraphContextReceiptV1['playable_target'];
+  source_authority:{schema:'dmb_native_corpus_unavailable_v1';managed_world_id:string;
+    failure_code:'native_source_identity_unavailable'|'native_source_head_unavailable'|'native_source_authority_unavailable'} | {
+    schema_version:'dmb_native_corpus_authority_v1';managed_world_id:string;native_world_id:string;binding_version:number;
+    provisioning_id:string|null;revision_id:string;domain_ref:{authority_id:string;revision:string;descriptor_sha256:string};
+    profile_ref:{authority_id:string;revision:string;descriptor_sha256:string};acquisition_epoch:number;
+    scope:'gm_world_cross_campaign_source_inspection';role:'gm'};
+  graph_capability:WorldPlanGraphContextReceiptV1|null;
+  assembled_input:{assembler_version:'plan_source_jev_initial_v1';provider_model_name:string;provider_model_version:string;
+    tokenizer_name:string;tokenizer_version:string;provider_envelope_input_tokens:number;output_token_reserve:number;
+    context_window_limit:number|null;included_history:WorldPlanGraphContextReceiptV1['assembled_input']['included_history'];assembled_input_sha256:string};
+}
+export interface NativePlanQueryAuthorityV1 {
+  schema:'dmb_native_plan_query_authority_v1';managed_world_id:string;native_world_id:string;binding_version:number;
+  revision_id:string;domain_ref:{authority_id:string;revision:string;descriptor_sha256:string};
+  profile_ref:{authority_id:string;revision:string;descriptor_sha256:string};acquisition_epoch:number;
+  role:'gm';scope_mode:'world'|'campaign';campaign_id:string|null;session_id:string|null;
+}
+export interface NativePlanQueryV1 {
+  schema:'dmb_native_plan_query_v1';authority:NativePlanQueryAuthorityV1;question:string;search_result_sha256:string;
+  discovered_entity_ids:string[];matches:{statement_id:string;discovered_entity_ids:string[];discovery_assertion_ids:string[];
+    campaign_id:string;logical_source:{namespace:string;object_id:string};episode:string;label:string}[];
+  status:'complete'|'partial';gap_codes:string[];universal_absence_claimed:false;
+}
+export interface NativePlanQueryV2 extends Omit<NativePlanQueryV1,'schema'> {
+  schema:'dmb_native_plan_query_v2';assertion_matches:{assertion_id:string;subject_entity_id:string;discovered_entity_ids:string[];assertion_sha256:string;label:string}[];
+}
+export interface NativeAuthoredTargetV1 {
+  node_id:string;selection_revision_id:string;matches:NativePlanQueryV1['matches'];
+  assertion_matches:NativePlanQueryV2['assertion_matches'];status:'complete'|'partial'|'unavailable';gap_codes:string[];
+}
+export interface NativeGraphQueryV3 extends Omit<NativePlanQueryV2,'schema'> {
+  schema:'dmb_native_graph_query_v3';authored_targets:NativeAuthoredTargetV1[];
+}
+export interface NativeGraphQueryV4 extends Omit<NativeGraphQueryV3,'schema'> {
+  schema:'dmb_native_graph_query_v4';object_matches:{entity_id:string;label:string}[];
+  discovery_hops?: {relationship_id:string;from_node_id:string;to_node_id:string}[];
+}
+export interface PlanNativeContextReceiptV1 extends Omit<PlanSourceContextReceiptV1,'schema'|'graph_capability'> {
+  schema:'dmb_plan_native_context_receipt_v1';graph_capability:null;
+  native_query:NativePlanQueryV2|NativePlanQueryV1|{schema:'dmb_native_plan_query_unavailable_v1';managed_world_id:string;
+    reason:'native_graph_binding_unavailable'|'native_graph_head_unavailable'};
+}
+export interface AgentPlanNativeContextResponseV1 extends Omit<AgentPlanSourceContextResponseV1,'schema'|'receipt'|'completion'> {
+  schema:'dmb_agent_plan_native_context_response_v1';receipt:PlanNativeContextReceiptV1;completion:SurfaceEvidenceCompletionV7|SurfaceEvidenceCompletionV6|null;
+}
+export interface AgentPlanSourceContextResponseV1 extends Omit<LegacyWorldPlanAgentPlanContextV2,'schema'|'receipt'|'completion'> {
+  schema:'dmb_agent_plan_source_context_response_v1';receipt:PlanSourceContextReceiptV1;completion:SurfaceEvidenceCompletionV5|null;
+}
+/** Shared native wire records; Core and APP retain admission/acceptance authority. */
+export type SurfaceNativeWorkContextV1 =
+  | {surface_id:'build';source_basis:WorldBuildGraphReceiptV1['source_basis']}
+  | {surface_id:'plan';plan_basis:WorldPlanGraphContextReceiptV1['plan_basis'];plan_context_policy:WorldPlanContextPolicyV2;playable_target:WorldPlanGraphContextReceiptV1['playable_target']}
+  | {surface_id:'play';play_basis:WorldPlayRunContextReceiptV2;play_sources:WorldPlayGraphContextReceiptV1['play_sources'];play_source_frame_sha256:string};
+/** Request admission is not a provider-envelope/token-count witness. */
+export interface NativePlanRequestAdmissionV1 {
+  assembler_version:'native_plan_request_admission_v1';
+  manifest_sha256:string;submitted_intent_sha256:string;dialogue_sha256:string;
+  tokenizer_name:string;tokenizer_version:string;
+  context_window_limit:number|null;output_token_reserve:number;
+}
+export interface NativeBuildQueryPendingV1 {
+  schema:'dmb_native_build_query_pending_v1';
+  authority:NativePlanQueryV2['authority'];
+  question:string;
+}
+export interface DeferredBuildCitationMembership {
+  context_receipt_sha256:string;
+  producing_provider_attempt_id:string;
+  statements:[string,string][];
+  assertions:[string,string][];
+}
+export interface SurfaceNativeContextReceiptV1 {
+  schema:'dmb_surface_native_context_receipt_v1';receipt_serializer_version:'canonical-json-utf8-v1';
+  context_receipt_sha256:string;provenance_sha256:string;work_context:SurfaceNativeWorkContextV1;
+  source_authority:PlanSourceContextReceiptV1['source_authority'];
+  native_query:NativeBuildQueryPendingV1|NativeGraphQueryV4|NativeGraphQueryV3|NativePlanQueryV2|Extract<PlanNativeContextReceiptV1['native_query'],{schema:'dmb_native_plan_query_unavailable_v1'}>;
+  assembled_input:(Omit<PlanSourceContextReceiptV1['assembled_input'],'assembler_version'> & {assembler_version:'surface_native_initial_v1'|'native_build_semantic_initial_v2'})
+    | {assembler_version:'reviewed_author_admission_v1';submitted_intent_sha256:string;assembled_input_sha256:string}
+    | NativePlanRequestAdmissionV1;
+}
+export interface ConversationLorePageDraft {
+  kind: 'lore_page';
+  destination: {instruction: string; title: string};
+}
+export interface SurfaceNativeCompletionV1 {
+  schema:'dmb_surface_native_completion_v1';surface_id:'build'|'plan'|'play';context_receipt_sha256:string;
+  producing_provider_attempt_id:string;answer_basis:'mixed_evidence';
+  answer_context_status:SurfaceEvidenceCompletionV1['answer_context_status']|'discussion';
+  answer_segments:(Exclude<SurfaceEvidenceCompletionV7['answer_segments'][number],{kind:'graph_claim'|'authored_quote'}>
+    | Extract<WorldBuildRelatedPageCompletionV1['answer_segments'][number],{kind:'draft_reference_claim'|'related_page_claim'|'saved_source_claim'}>
+    | {kind:'discussion';text:string}
+    | {kind:'statblock_pdf_claim';text:string;scope:import('./nativeGraphInspection').InspectionPin;assertion_id:string;evidence_ref_id:string})[];
+  collaboration:ConversationCollaborationV3|ConversationConnectedPageProposal|ConversationRelationshipProposal|ConversationLorePageDraft|null;
+  saved_source_citations:{segment_index:number;text_sha256:string;section_event_ids:string[]}[];
+  native_body_citations:NativeBodyExcerptCitationV1[];native_clause_citations:NativeStatementClauseCitationV1[];
+  native_assertion_citations:NativeAssertionCitation[];
+}
+export interface AgentSurfaceNativeContextResponseV1 {
+  schema:'dmb_agent_surface_native_context_response_v1';receipt:SurfaceNativeContextReceiptV1;
+  completion:SurfaceNativeCompletionV1|WorldBuildAuthoringCompletionV1|WorldBuildImagePreparationCompletionV1|null;execution:WorldPlanGraphExecutionProjectionV1|null;delivery_replay:boolean;
+  deferred_build_citations?:DeferredBuildCitationMembership;
+}
+export type PlanSurfaceNativeContextResponseV1 = AgentSurfaceNativeContextResponseV1 & {
+  completion:SurfaceNativeCompletionV1|null;
+  receipt:SurfaceNativeContextReceiptV1 & {work_context:Extract<SurfaceNativeWorkContextV1,{surface_id:'plan'}>};
+};
+export type BuildSurfaceNativeContextResponseV1 = AgentSurfaceNativeContextResponseV1 & {
+  receipt:SurfaceNativeContextReceiptV1 & {work_context:Extract<SurfaceNativeWorkContextV1,{surface_id:'build'}>};
+};
+export type WorldBuildKnowledgeContext = WorldBuildKnowledgeContextV1 | BuildSurfaceNativeContextResponseV1;
+export type WorldPlanAgentPlanContextV2 = LegacyWorldPlanAgentPlanContextV2 | AgentPlanSourceContextResponseV1 | AgentPlanNativeContextResponseV1 | PlanSurfaceNativeContextResponseV1;
+
+export interface WorldBuildGraphReceiptV1 extends Omit<WorldPlanGraphContextReceiptV1, "schema" | "plan_context_policy" | "plan_basis" | "playable_target"> {
+  schema: "dmb_build_graph_context_receipt_v1";
+  source_basis: { world_id: string; document_id: string; registry_revision: number; content_sha256: string; visibility: "internal" | "player_safe" };
+}
+export type WorldBuildGraphAnswerStatus = "graph_grounded" | "graph_grounded_partial" | "source_only_insufficient_evidence" | "source_only_graph_unused";
+export interface WorldBuildGraphCompletionV1 extends Omit<WorldPlanGraphCompletionV2, "schema" | "answer_basis" | "answer_context_status" | "answer_segments"> {
+  schema: "dmb_build_graph_completion_v1";
+  answer_basis: "saved_source" | "saved_source_plus_world_graph";
+  answer_context_status: WorldBuildGraphAnswerStatus;
+  answer_segments: (Extract<WorldPlanGraphAnswerSegmentV1, {kind: "graph_claim" | "connective"}> | {kind: "saved_source_claim"; text: string; content_sha256: string})[];
+}
+export interface WorldBuildSourcePassageCitationV1 {
+  segment_index: number;
+  text_sha256: string;
+  provider_attempt_id: string;
+  envelope_sha256: string;
+  read_event_id: string;
+  receipt: {
+    source_read_id: string; anchor_id: string; evidence_ref_id: string;
+    source_artifact_id: string; source_revision_id: string;
+    outcome: "enough"; content_sha256: string;
+    line_start: number | null; line_end: number | null;
+    returned_chars: number; truncated: false; evidence_sufficiency_status: "sufficient";
+  };
+}
+export type WorldBuildSourceAnswerStatus = "source_grounded" | "source_grounded_partial" | "source_insufficient_evidence";
+export interface WorldBuildGraphCompletionV2 {
+  schema: "dmb_build_graph_completion_v2";
+  context_receipt_sha256: string;
+  answer_basis: "opened_source_passages" | "saved_source_and_opened_passages";
+  answer_context_status: WorldBuildSourceAnswerStatus;
+  answer_segments: ({kind: "source_passage_claim"; text: string} | {kind: "connective"; text: string}
+    | {kind: "saved_source_claim"; text: string; content_sha256: string})[];
+  citation_map: null;
+  source_citations: WorldBuildSourcePassageCitationV1[];
+}
+export interface WorldBuildNamedGraphCompletionV3 extends Omit<WorldBuildGraphCompletionV2,'schema'|'source_citations'> {
+  schema: "dmb_build_graph_completion_v3";
+  source_citations: (WorldBuildSourcePassageCitationV1 & {source_name:string})[];
+}
+export interface WorldBuildDraftContextCompletionV1 extends Omit<WorldBuildNamedGraphCompletionV3,
+  'schema' | 'answer_basis' | 'answer_context_status' | 'answer_segments'> {
+  schema: 'dmb_build_draft_context_completion_v1';
+  answer_basis: 'working_draft_context';
+  answer_context_status: 'authored_grounded' | 'authored_grounded_partial' | 'source_grounded'
+    | 'source_grounded_partial' | 'creative_proposal' | 'insufficient_evidence';
+  answer_segments: (WorldBuildGraphCompletionV2['answer_segments'][number]
+    | {kind:'draft_reference_claim'; text:string; draft_record_id:string})[];
+}
+export interface WorldBuildRelatedPageCompletionV1 extends Omit<WorldBuildDraftContextCompletionV1,'schema'|'answer_segments'> {
+  schema:'dmb_build_related_page_completion_v1';
+  answer_segments:(WorldBuildDraftContextCompletionV1['answer_segments'][number]
+    | {kind:'related_page_claim'; text:string; read_id:string; page:{world_id:string;document_id:string;registry_revision:number;title:string;visibility:'internal'|'player_safe';content_sha256:string}})[];
+}
+export type ConversationCollaborationV1 = {kind:"plan";steps:{text:string;kind:"discuss"|"prepare_insertion"}[]} | {kind:"questions";questions:{text:string}[]};
+export type ConversationCollaborationV2 = {kind:'plan';objective:string;steps:{text:string;kind:'discuss'|'prepare_insertion'}[]} | {kind:'questions';questions:{text:string}[]};
+export type ConversationCollaborationV3 = {kind:'plan';objective:string;steps:{text:string;kind:'discuss'|'prepare_insertion';selected:boolean}[]} | {kind:'questions';questions:{text:string}[]};
+export type ConversationCollaboration = ConversationCollaborationV1 | ConversationCollaborationV2 | ConversationCollaborationV3;
+export interface WorldBuildCollaborationCompletionV1 extends Omit<WorldBuildRelatedPageCompletionV1,"schema"> {
+  schema:"dmb_build_collaboration_completion_v1";
+  collaboration:ConversationCollaborationV1|null;
+}
+export interface ConversationConnectedPageProposal {kind:'connected_page';title:string;read_id:string;quote:string;person_label:string|null;relationships:('owns'|'operates')[];instructions:string}
+export interface WorldBuildConnectedPageReviewCompletionV1 extends Omit<WorldBuildCollaborationCompletionV1,'schema'|'collaboration'> {
+  schema:'dmb_build_connected_page_review_completion_v1';
+  collaboration:ConversationCollaborationV1|ConversationConnectedPageProposal|null;
+}
+export interface ConversationRelationshipProposal {kind:'relationship';read_id:string;quote:string;source:{label:string;kind:string};target:{label:string;kind:string};predicate:string;label:string;context:string}
+export interface WorldBuildRelationshipReviewCompletionV1 extends Omit<WorldBuildConnectedPageReviewCompletionV1,'schema'|'collaboration'> {
+ schema:'dmb_build_relationship_review_completion_v1';
+ collaboration:ConversationCollaborationV1|ConversationConnectedPageProposal|ConversationRelationshipProposal|null;
+}
+export interface WorldBuildIntentionalResponseCompletionV1 extends Omit<WorldBuildRelationshipReviewCompletionV1,'schema'|'answer_basis'|'answer_context_status'> {
+ schema:'dmb_build_intentional_response_completion_v1';
+ answer_basis:'working_draft_context'|'saved_source'|'saved_source_and_opened_passages'|'opened_source_passages'|'conversation';
+ answer_context_status:WorldBuildRelationshipReviewCompletionV1['answer_context_status']|'discussion';
+}
+export interface WorldBuildIntentionalResponseCompletionV2 extends Omit<WorldBuildIntentionalResponseCompletionV1,'schema'|'collaboration'> {
+ schema:'dmb_build_intentional_response_completion_v2';
+ collaboration:ConversationCollaborationV2|ConversationConnectedPageProposal|ConversationRelationshipProposal|null;
+}
+export interface WorldBuildRelationshipReviewCompletionV2 extends Omit<WorldBuildRelationshipReviewCompletionV1,'schema'|'collaboration'> {
+ schema:'dmb_build_relationship_review_completion_v2';
+ collaboration:ConversationCollaborationV2|ConversationConnectedPageProposal|ConversationRelationshipProposal|null;
+}
+export interface WorldBuildIntentionalResponseCompletionV3 extends Omit<WorldBuildIntentionalResponseCompletionV2,'schema'|'collaboration'> {
+ schema:'dmb_build_intentional_response_completion_v3';
+ collaboration:ConversationCollaborationV3|ConversationConnectedPageProposal|ConversationRelationshipProposal|null;
+}
+export interface WorldBuildRelationshipReviewCompletionV3 extends Omit<WorldBuildRelationshipReviewCompletionV2,'schema'|'collaboration'> {
+ schema:'dmb_build_relationship_review_completion_v3';
+ collaboration:ConversationCollaborationV3|ConversationConnectedPageProposal|ConversationRelationshipProposal|null;
+}
+export type WorldBuildSourceCompletion = WorldBuildIntentionalResponseCompletionV3 | WorldBuildRelationshipReviewCompletionV3 | WorldBuildIntentionalResponseCompletionV2 | WorldBuildRelationshipReviewCompletionV2 | WorldBuildIntentionalResponseCompletionV1 | WorldBuildRelationshipReviewCompletionV1 | WorldBuildConnectedPageReviewCompletionV1 | WorldBuildCollaborationCompletionV1 | WorldBuildRelatedPageCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3 | WorldBuildDraftContextCompletionV1;
+
+export interface SurfaceSourceCompletionV1 {
+  schema: "dmb_surface_source_completion_v1";
+  surface_id: "plan" | "play";
+  context_receipt_sha256: string;
+  answer_basis: "opened_source_passages";
+  answer_context_status: "source_grounded" | "source_grounded_partial";
+  answer_segments: ({kind:"source_passage_claim";text:string} | {kind:"connective";text:string}
+    | {kind:"proposal";text:string;label:"invented_idea"|"image_prompt"})[];
+  citation_map: null;
+  source_citations: (WorldBuildSourcePassageCitationV1 & {source_name:string})[];
+}
+export interface SurfaceEvidenceCompletionV1 {
+  schema: "dmb_surface_evidence_completion_v1";
+  surface_id: "plan" | "play";
+  context_receipt_sha256: string;
+  answer_basis: "mixed_evidence";
+  answer_context_status: "graph_grounded" | "graph_grounded_partial" | "source_grounded" | "source_grounded_partial"
+    | "authored_grounded" | "authored_grounded_partial" | "insufficient_evidence" | "creative_proposal";
+  answer_segments: (Extract<WorldPlanGraphAnswerSegmentV1, {kind:"graph_claim"|"proposal"}> | {kind:"source_passage_claim";text:string}
+    | {kind:"authored_quote";text:string;source_handle:string;source_kind:"plan"|"session"|"play";source_name:string;
+        object_id:string;revision:string;body_sha256:string;owner_sha256:string}
+    | {kind:"limitation";code:"missing_requested_details"|"partial_retrieval"|"unresolved_conflict";text:string;question_phrase:string|null})[];
+  citation_map: WorldPlanGraphCitationMapV2 | null;
+  source_citations: (WorldBuildSourcePassageCitationV1 & {source_name:string})[];
+}
+export interface SurfaceEvidenceCompletionV2 extends Omit<SurfaceEvidenceCompletionV1,"schema"|"answer_segments"> {
+  schema:"dmb_surface_evidence_completion_v2";
+  answer_segments:(Exclude<SurfaceEvidenceCompletionV1['answer_segments'][number],{kind:"authored_quote"}>
+    | (Omit<Extract<SurfaceEvidenceCompletionV1['answer_segments'][number],{kind:"authored_quote"}>,"kind">
+      & {kind:"authored_excerpt";block_handle:string;partition_version:"markdown_source_blocks_v1";
+         byte_start:number;byte_end:number;block_sha256:string;entry_identity:string|null}))[];
+}
+export interface NativeSourceSectionCitationV1 {
+  segment_index:number;text_sha256:string;provider_attempt_id:string;envelope_sha256:string;
+  read_event_id:string;catalog_event_id:string;source_artifact_id:string;native_source_revision_id:string;
+  app_source_revision_id:string;content_sha256:string;excerpt_sha256:string;section_id:string;
+  selector_policy:"markdown_sections_v1";source_name:string;section_title:string;line_start:number;line_end:number;
+}
+export interface SurfaceEvidenceCompletionV3 extends Omit<SurfaceEvidenceCompletionV2,"schema"> {
+  schema:"dmb_surface_evidence_completion_v3";
+  native_source_citations:NativeSourceSectionCitationV1[];
+}
+export type SessionSummarySupport = Extract<SurfaceEvidenceCompletionV2['answer_segments'][number],{kind:"authored_excerpt"}> & {
+  source_kind:"session";source_ordinal:number;entry_kind:"scene_note"|"closing_reflections";
+  element_id:string|null;checkpoint_content_sha256:string;
+};
+export interface SessionSummarySegment {kind:"session_summary";text:string;supports:SessionSummarySupport[]}
+export interface SurfaceEvidenceCompletionV4 extends Omit<SurfaceEvidenceCompletionV3,"schema"|"surface_id"|"answer_segments"> {
+  schema:"dmb_surface_evidence_completion_v4";surface_id:"plan"|"play";
+  answer_segments:(SurfaceEvidenceCompletionV3['answer_segments'][number]|SessionSummarySegment)[];
+}
+export interface AgentNativeSourceSectionReadResponseV1 {
+  schema:"dmb_agent_native_source_section_read_v1";world_id:string;turn_id:string;citation_index:number;
+  citation:NativeSourceSectionCitationV1;content:string;
+}
+export interface NativeBodyExcerptCitationV1 extends Omit<NativeSourceSectionCitationV1,'catalog_event_id'|'app_source_revision_id'|'selector_policy'> {
+  catalog_sha256:string;selector_policy:'markdown_sections_v1'|'native_full_document_v1';
+}
+export interface SurfaceEvidenceCompletionV5 extends Omit<SurfaceEvidenceCompletionV4,'schema'|'surface_id'> {
+  schema:'dmb_surface_evidence_completion_v5';surface_id:'plan'|'play';native_body_citations:NativeBodyExcerptCitationV1[];
+}
+export interface SurfaceEvidenceCompletionV6 extends Omit<SurfaceEvidenceCompletionV5,'schema'|'surface_id'> {
+  surface_id:'plan';
+  schema:'dmb_surface_evidence_completion_v6';native_clause_citations:NativeStatementClauseCitationV1[];
+}
+export interface NativeAssertionCitationV1 {
+  segment_index:number;assertion_id:string;read_event_id:string;provider_attempt_id:string;envelope_sha256:string;context_receipt_sha256:string;
+  managed_world_id:string;native_world_id:string;read_revision_id:string;assertion_sha256:string;evidence_ref_id:string;
+  source_artifact_id:string;source_revision_id:string;body_sha256:string;start_byte:number;end_byte:number;span_sha256:string;
+}
+export type NativeAssertionPdfCitationV1 = Omit<NativeAssertionCitationV1,'body_sha256'|'start_byte'|'end_byte'|'span_sha256'> & {
+  region:import('./retainedPdfRegions').PdfLocator;
+};
+export type NativeAssertionCitation = NativeAssertionCitationV1 | NativeAssertionPdfCitationV1;
+export interface NativeAssertionClaimV1 {
+  kind:'native_assertion_claim';text:string;assertion_ids:string[];qualifications:Record<string,unknown>[];
+}
+export interface SurfaceEvidenceCompletionV7 extends Omit<SurfaceEvidenceCompletionV6,'schema'|'answer_segments'> {
+  schema:'dmb_surface_evidence_completion_v7';answer_segments:(SurfaceEvidenceCompletionV6['answer_segments'][number]|NativeAssertionClaimV1)[];
+  native_assertion_citations:NativeAssertionCitation[];
+}
+export type NativeAssertionSourceReadV1 = {
+  schema:'dmb_native_assertion_source_read_v1';world_id:string;turn_id:string;citation_index:number;citation:NativeAssertionCitationV1;content:string;
+} | {
+  schema:'dmb_native_assertion_pdf_source_read_v1';world_id:string;turn_id:string;citation_index:number;
+  citation:NativeAssertionPdfCitationV1;png_base64:string;
+};
+export interface AgentNativeBodyExcerptReadResponseV2 {
+  schema:'dmb_agent_native_body_excerpt_read_v2';world_id:string;turn_id:string;citation_index:number;
+  citation:NativeBodyExcerptCitationV1;content:string;display_label:string|null;
+}
+export type SurfaceEvidenceCompletion = SurfaceEvidenceCompletionV1 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV5 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV7;
+export interface AgentSourcePassageReadResponseV1 {
+  schema: "dmb_agent_source_passage_read_v1";
+  target: {schema: "dmb_agent_source_passage_open_target_v1"; kind: "source_passage";
+    world_id: string; turn_id: string; citation_index: number};
+  citation: WorldBuildSourcePassageCitationV1 | (WorldBuildSourcePassageCitationV1 & {source_name:string});
+  content: string;
+}
+
+export interface WorldBuildAuthoringCompletionV1 {
+  schema: "dmb_build_authoring_completion_v1";
+  context_receipt_sha256: string;
+  answer_basis: "prepared_page_proposal";
+  answer_context_status: "proposal_ready";
+  answer_segments: {kind: "connective"; text: string}[];
+  citation_map: null;
+  action_id: string;
+  reservation_sha256: string;
+  proposal_result_sha256: string;
+  provider_attempt_id: string;
+  envelope_sha256: string;
+}
+
+export interface WorldBuildImagePreparationCompletionV1 {
+  schema: "dmb_build_image_preparation_completion_v1";
+  context_receipt_sha256: string;
+  answer_basis: "prepared_image_direction";
+  answer_context_status: "image_preparation_ready";
+  answer_segments: {kind: "connective"; text: string}[];
+  citation_map: null;
+  action_id: string;
+  reservation_sha256: string;
+  preparation_result_sha256: string;
+  provider_attempt_id: string;
+  envelope_sha256: string;
+}
+
+export interface SavedBuildSectionTargetV1 {
+  schema: "dmb_saved_build_section_target_v1";
+  kind: "saved_build_section";
+  world_id: string; turn_id: string; segment_index: number;
+  section_event_id: string; section_read_id: string;
+  source_basis: WorldBuildGraphReceiptV1["source_basis"];
+  source_class: "saved_authored_source_not_played_truth";
+  line_start: number; line_end: number; excerpt_sha256: string; text_sha256: string;
+}
+export interface SavedBuildSectionReadV1 {
+  schema: "dmb_saved_build_section_read_v1";
+  target: SavedBuildSectionTargetV1;
+  content: string;
+}
+
+export interface WorldBuildKnowledgeContextV1 extends Omit<LegacyWorldPlanAgentPlanContextV2, "schema" | "receipt" | "completion"> {
+  schema: "dmb_build_graph_context_response_v1";
+  saved_source_name: string | null;
+  saved_source_sections?: SavedBuildSectionTargetV1[];
+  receipt: WorldBuildGraphReceiptV1;
+  completion: WorldBuildGraphCompletionV1 | WorldBuildSourceCompletion | WorldBuildAuthoringCompletionV1 | WorldBuildImagePreparationCompletionV1 | null;
+}
+
+export interface WorldPlanEvidenceAnchorStatusV1 {
+  schema: "dmb_agent_evidence_anchor_status_v1";
+  claim_id: string;
+  status: "available" | "no_anchor" | "partial" | "overflow";
+  target_count: number;
+}
+
+export interface WorldPlanRelatedRecapContextStatusV2 {
+  schema: "dmb_agent_related_recap_context_status_v2";
+  claim_id: string;
+  status: "available" | "multiple_choices" | "no_context" | "metadata_unavailable" | "partial" | "overflow";
+  choice_count: number;
+}
+
+export interface WorldPlanSourceOpenAuthorityV1 {
+  claim_id: string;
+  source_artifact_id: string;
+  source_name: string | null;
+  source_revision_id: string;
+  managed_world_id: string;
+  native_world_id: string;
+  binding_version: number;
+  scope_mode: "world";
+  campaign_id: null;
+  focus: { kind: "none"; session_id: null; campaign_id: null };
+  admissibility: "gm";
+  graph_revision: string;
+}
+
+export type WorldPlanSourceOpenTargetV2 = WorldPlanSourceOpenAuthorityV1 & (
+  | {
+    schema: "dmb_agent_evidence_anchor_open_target_v1";
+    kind: "evidence_anchor";
+    anchor_id: string;
+    evidence_ref_id: string;
+    source_read_id: string | null;
+    read_outcome: "enough" | "partial" | "truncated" | null;
+  }
+  | {
+    schema: "dmb_agent_related_recap_context_open_target_v2";
+    kind: "related_recap_context";
+    context_anchor_id: string;
+    provenance_evidence_ref_id: string;
+    source_campaign_id: string | null;
+    source_uri: string;
+    content_sha256: string;
+    expected_session_id: string;
+    canonical_heading: string;
+    legacy_session_heading: string;
+    legacy_recap_marker: "**Recap**:";
+    selector_schema: "dm_recap_context_section_selector_v2";
+    selector_policy: "markdown-session-recap-v2";
+  }
+);
+
+export interface WorldPlanAgentTurnResponseV2 extends Omit<WorldPlanAgentTurnResponseV1, "schema"> {
+  schema: "dmb_agent_turn_response_v2";
+  plan_context: WorldPlanAgentPlanContextV2;
+}
+
+export interface WorldRulesAgentTurnResponseV1 extends Omit<WorldPlanAgentTurnResponseV1, 'schema' | 'knowledge_context'> {
+  schema: 'dmb_agent_rules_turn_response_v1';
+  rules_context: import('./rulesLookupTypes').RulesAnswerContext;
+}
+export interface WorldPlayGraphTurnResponseV1 extends Omit<WorldPlanAgentTurnResponseV1, "schema" | "knowledge_context"> {
+  schema: "dmb_agent_play_graph_turn_response_v1"; play_context: WorldPlayAgentContextV1;
+}
+export type WorldPlaySourceBasisV1 = Omit<WorldPlayGraphContextReceiptV1['play_basis'], 'schema' | 'scene_note'> & {
+  schema: 'dmb_agent_play_source_basis_v1';
+};
+export interface WorldPlaySourceContextV1 {
+  schema: 'dmb_agent_play_source_context_v1';
+  basis: WorldPlaySourceBasisV1; basis_sha256: string; delivery_replay: boolean;
+}
+export interface WorldPlaySourceTurnResponseV1 extends Omit<WorldPlanAgentTurnResponseV1, 'schema' | 'knowledge_context'> {
+  schema: 'dmb_agent_play_source_turn_response_v1'; play_source_context: WorldPlaySourceContextV1;
+}
+export interface WorldPlayRulesTurnResponseV1 extends Omit<WorldRulesAgentTurnResponseV1, 'schema'> {
+  schema: 'dmb_agent_play_rules_turn_response_v1'; play_source_context: WorldPlaySourceContextV1;
+}
+export type WorldPlanAgentTurnResponse =
+  | WorldPlanAgentTurnResponseV1
+  | WorldPlanAgentTurnResponseV2
+  | WorldRulesAgentTurnResponseV1
+  | WorldPlaySourceTurnResponseV1
+  | WorldPlayRulesTurnResponseV1
+  | WorldPlayGraphTurnResponseV1;
 
 export interface AgentConversationHistoryReferenceV1 {
   resolution: "resolved" | "absent" | "unresolved" | "unavailable";
@@ -867,6 +1634,16 @@ export type AgentConversationTurnLifecycleV1 =
   | "interrupted";
 
 export interface WorldAgentConversationHistoryTurnV1 {
+  lore_save_review?: LoreSaveReviewReference;
+  conversation_draft_available?: true;
+  variant_draft_reviewed?: true;
+  variant_approval_requested?: true;
+  plan_requested_operation?: "discuss" | "write_current_page";
+  authored_references?: AuthoredReferenceInput;
+  native_statement_context?: NativeStatementAnswerContextV1;
+  plan_proposal?: import("./planAuthoringReviewApi").PlanAuthoredProposal | null;
+  retry_context?: import("./conversationRetryApi").TurnRetryContext | null;
+  knowledge_context?: WorldBuildKnowledgeContext;
   turn_id: string;
   sequence: number;
   lifecycle_status: AgentConversationTurnLifecycleV1;
@@ -885,6 +1662,74 @@ export interface WorldAgentConversationHistoryResponseV1 {
   turns: WorldAgentConversationHistoryTurnV1[];
   next_before_sequence: number | null;
 }
+
+export interface WorldAgentConversationHistoryTurnV2 extends WorldAgentConversationHistoryTurnV1 {
+  /** Absent on legacy turns; present on a policy-bearing turn with a frozen receipt. */
+  plan_context?: Omit<WorldPlanAgentPlanContextV2, "delivery_replay"> & {
+    delivery_replay?: boolean;
+  };
+}
+
+export interface WorldAgentConversationHistoryPlayTurnV2 extends WorldAgentConversationHistoryTurnV1 {
+  play_context: WorldPlayAgentContextV1;
+}
+export interface WorldAgentConversationHistoryPlayTurnV3 extends WorldAgentConversationHistoryTurnV3 {
+  play_context: WorldPlayAgentContextV1;
+}
+
+export interface WorldAgentConversationHistoryResponseV2 extends Omit<WorldAgentConversationHistoryResponseV1, "schema" | "turns"> {
+  schema: "dmb_agent_conversation_history_v2";
+  turns: (WorldAgentConversationHistoryTurnV2 | WorldAgentConversationHistoryPlayTurnV2)[];
+}
+
+/** Opt-in history projection carrying the persisted server idempotency key. */
+export interface WorldAgentConversationHistoryTurnV3 extends WorldAgentConversationHistoryTurnV1 {
+  idempotency_key: string;
+}
+
+export interface WorldAgentConversationHistoryPlanTurnV3 extends WorldAgentConversationHistoryTurnV3 {
+  plan_context: Omit<WorldPlanAgentPlanContextV2, "delivery_replay"> & {
+    delivery_replay?: boolean;
+  };
+}
+
+export interface WorldAgentConversationHistoryResponseV3 extends Omit<WorldAgentConversationHistoryResponseV1, "schema" | "turns"> {
+  schema: "dmb_agent_conversation_history_v3";
+  turns: (WorldAgentConversationHistoryPlanTurnV3 | WorldAgentConversationHistoryPlayTurnV3 | WorldAgentConversationHistoryTurnV3)[];
+}
+
+export interface WorldAgentConversationHistoryMixedTurnV1 extends WorldAgentConversationHistoryTurnV3 {
+  schema: 'dmb_agent_conversation_history_mixed_turn_v1';
+  lifecycle_status: 'completed'; assistant_text: string;
+  rules_context: import('./rulesLookupTypes').RulesAnswerContext;
+}
+export interface WorldAgentConversationHistoryPlaySourceTurnV1 extends WorldAgentConversationHistoryTurnV3 {
+  schema: 'dmb_agent_conversation_history_play_source_turn_v1'; play_source_context: WorldPlaySourceContextV1;
+}
+export interface WorldAgentConversationHistoryPlayRulesTurnV1 extends Omit<WorldAgentConversationHistoryMixedTurnV1, 'schema'> {
+  schema: 'dmb_agent_conversation_history_play_rules_turn_v1'; play_source_context: WorldPlaySourceContextV1;
+}
+export interface WorldAgentConversationHistoryResponseV4 extends Omit<WorldAgentConversationHistoryResponseV1, 'schema' | 'turns'> {
+  schema: 'dmb_agent_conversation_history_v4';
+  turns: (WorldAgentConversationHistoryPlaySourceTurnV1 | WorldAgentConversationHistoryPlayRulesTurnV1 | WorldAgentConversationHistoryMixedTurnV1 | WorldAgentConversationHistoryPlayTurnV2 | WorldAgentConversationHistoryPlayTurnV3 | WorldAgentConversationHistoryPlanTurnV3 | WorldAgentConversationHistoryTurnV3 | WorldAgentConversationHistoryTurnV2 | WorldAgentConversationHistoryTurnV1)[];
+}
+
+export type WorldAgentConversationHistoryTurn =
+  | WorldAgentConversationHistoryTurnV1
+  | WorldAgentConversationHistoryTurnV2
+  | WorldAgentConversationHistoryTurnV3
+  | WorldAgentConversationHistoryPlanTurnV3
+  | WorldAgentConversationHistoryMixedTurnV1
+  | WorldAgentConversationHistoryPlaySourceTurnV1
+  | WorldAgentConversationHistoryPlayRulesTurnV1
+  | WorldAgentConversationHistoryPlayTurnV2
+  | WorldAgentConversationHistoryPlayTurnV3;
+
+export type WorldAgentConversationHistoryResponse =
+  | WorldAgentConversationHistoryResponseV1
+  | WorldAgentConversationHistoryResponseV2
+  | WorldAgentConversationHistoryResponseV3
+  | WorldAgentConversationHistoryResponseV4;
 
 export interface WorldAgentNewConversationRequestV1 {
   schema: "dmb_agent_new_conversation_v1";
@@ -937,20 +1782,39 @@ export interface PlanDocumentEditProposalResponse {
 
 export interface WorldPlanDocumentEditProposalRequest {
   idempotency_key: string;
+  continuation_of_action_id?: string | null;
+  expected_active_conversation_id?: string | null;
+  expected_pointer_revision?: number | null;
   document_id: string;
   world_id: string;
   base_revision: number;
   base_content_sha256: string;
   draft_markdown: string;
   draft_sha256: string;
-  target_kind: "replace_selection" | "insert_at_caret";
+  target_kind: "replace_selection" | "insert_at_caret" | "replace_playable_body";
   selected_text: string;
+  selection_anchor?: WorldPlanSelectionAnchorV1;
+  playable_target?: { kind: "scene" | "beat" | "choice" | "option"; id: string };
+  body_serialization_version?: "plan-playable-body-markdown-v1";
+  target_body_markdown?: string;
+  target_body_sha256?: string;
   instruction: string;
   conversation_history: { role: "user" | "assistant"; content: string }[];
 }
 
+export interface WorldPlanSelectionAnchorV1 {
+  schema_version: "dmb_plan_selection_anchor_v1";
+  editor_format: "world-plan-tiptap-json-v1";
+  editor_json_sha256: string;
+  anchor: number;
+  head: number;
+  from: number;
+  to: number;
+  section: { id: string; apply_from: number; apply_to: number } | null;
+}
+
 export interface WorldPlanDocumentEditProposalResponse {
-  schema_version: "dmb_world_plan_document_edit_proposal_v1";
+  schema_version: "dmb_world_plan_document_edit_proposal_v1" | "dmb_world_plan_document_edit_proposal_v2";
   action_id: string;
   idempotency_key: string;
   document_id: string;
@@ -958,8 +1822,14 @@ export interface WorldPlanDocumentEditProposalResponse {
   base_revision: number;
   base_content_sha256: string;
   draft_sha256: string;
-  target_kind: "replace_selection" | "insert_at_caret";
-  selected_text_sha256: string;
+  target_kind: "replace_selection" | "insert_at_caret" | "replace_playable_body";
+  selected_text_sha256: string | null;
+  playable_target?: { kind: "scene" | "beat" | "choice" | "option"; id: string };
+  marker_grammar_version?: "v1" | "v2";
+  body_scope?: "heading_body" | "beat_direct_body" | "option_item_content";
+  range_semantics_version?: "plan-playable-ranges-v1";
+  body_serialization_version?: "plan-playable-body-markdown-v1";
+  target_body_sha256?: string;
   replacement_markdown: string;
   summary: string;
   assumptions: string[];
@@ -968,6 +1838,35 @@ export interface WorldPlanDocumentEditProposalResponse {
   model_latency_ms: number;
   wall_latency_ms: number;
   usage: Record<string, number> | null;
+  consultation?: WorldPlanEditConsultationProjection;
+}
+
+export interface WorldPlanEditConsultationProjection {
+  origin_conversation_id: string;
+  origin_pointer_revision: number;
+  result: {
+    kind: "clarification" | "proposal" | "context_unavailable";
+    result_id: string;
+    message: string;
+    [key: string]: unknown;
+  };
+  source_open_targets: WorldPlanSourceOpenTargetV2[];
+  graph_revision: string | null;
+}
+
+export interface WorldPlanEditClarificationResponse {
+  schema_version: "dmb_world_plan_edit_clarification_v1";
+  action_id: string;
+  idempotency_key: string;
+  document_id: string;
+  world_id: string;
+  base_revision: number;
+  base_content_sha256: string;
+  draft_sha256: string;
+  selected_text_sha256: string;
+  kind: "clarification" | "context_unavailable";
+  message: string;
+  consultation: WorldPlanEditConsultationProjection;
 }
 
 export interface WorldPlanActionBasis {
@@ -979,22 +1878,59 @@ export interface WorldPlanActionBasis {
   content_sha256: string;
 }
 
+export interface WorldPlanPlayableTargetReceiptV1 {
+  schema_version: "dmb_plan_playable_target_receipt_v1";
+  kind: "scene" | "beat" | "choice" | "option";
+  id: string;
+  marker_grammar_version: "v1" | "v2";
+  body_scope: "heading_body" | "beat_direct_body" | "option_item_content";
+  range_semantics_version: "plan-playable-ranges-v1";
+  body_serialization_version: "plan-playable-body-markdown-v1";
+  target_body_sha256: string;
+}
+
 export interface WorldPlanActionProjection {
   action_id: string;
   action_type: "compose" | "revise";
   status: "pending" | "completed" | "failed" | "indeterminate";
   basis: WorldPlanActionBasis;
   instruction: string;
+  selection_anchor?: WorldPlanSelectionAnchorV1 | null;
   assistant_summary: string | null;
+  consultation?: {
+    receipt: {
+      origin_conversation_id?: string;
+      origin_pointer_revision?: number;
+      surface_instance_id?: string;
+      draft_sha256: string;
+      selected_text_sha256: string;
+      continuation?: { continuation_of_action_id: string } | null;
+    };
+    result: {
+      kind: "clarification" | "proposal" | "context_unavailable";
+      result_id: string;
+      message: string;
+    } | null;
+  } | null;
+  source_open_targets?: WorldPlanSourceOpenTargetV2[];
   action_sequence: number;
   accepted_at: string;
   completed_at: string | null;
+  playable_target_receipt: WorldPlanPlayableTargetReceiptV1 | null;
 }
 
 export interface WorldPlanActionProjectionPage {
   schema_version: "dmb_world_plan_action_projection_v1";
   basis: WorldPlanActionBasis;
   actions: WorldPlanActionProjection[];
+}
+
+export interface WorldPlanActionConversationProjectionPage {
+  schema_version: "dmb_world_plan_action_conversation_projection_v1";
+  world_id: string;
+  conversation_id: string;
+  actions: WorldPlanActionProjection[];
+  next_before_action_sequence: number | null;
 }
 
 export interface AgentInteractionThread {
@@ -1295,37 +2231,17 @@ export interface ResolvedRollResponse {
   provenance: Record<string, unknown>;
 }
 
-export type RecapIngestOperation =
-  | "stage_preview"
-  | "generate_recap_memory"
-  | "apply_normalize"
-  | "build_frontmatter_seed"
-  | "run_breadcrumb_ingest"
-  | "materialize_session_memory"
-  | "build_graph_preview_bundle"
-  | "materialize_preview_supergraph"
-  | "inspect_graph_preview"
-  | "inspect_status"
-  | "reconcile_normalized_recap";
-
 export interface RecapIngestRequest {
-  operation: RecapIngestOperation;
+  name_review?: {review_id: string; decisions: Array<{id: string; replacement: string | null}>};
+  session_evidence?: Array<{run_id:string;review_revision:number;sha256:string}>;
+  operation: "generate_recap_memory";
   campaign_id: string;
+  managed_world_id?: string;
   session: number;
   raw_text?: string;
-  slug?: string;
-  title?: string;
-  keep_basename?: string;
-  force_stage?: boolean;
-  force_recap?: boolean;
-  check?: boolean;
-  candidate_graph_path?: string;
   force_graph_run?: boolean;
-  extract_graph?: boolean;
   graph_model_id?: string | null;
-  materialize_after_extract?: boolean;
   include_graph_extraction?: boolean;
-  include_legacy_breadcrumb?: boolean;
 }
 
 export interface RecapGraphExtractedNode {
@@ -1361,15 +2277,6 @@ export interface RecapGraphPreviewReport {
   next_actions?: string[];
   can_open_union_graph?: boolean;
   blocked_reason?: string | null;
-}
-
-export interface NormalizedRecapCandidate {
-  basename: string;
-  relpath: string;
-  size_bytes: number;
-  modified_at: string;
-  is_generic: boolean;
-  recommended: boolean;
 }
 
 export interface RecapIngestStatus {
@@ -1600,94 +2507,6 @@ export interface CombatEncounterState {
   updated_at: string;
 }
 
-export interface CombatEntityPatchRequest {
-  name?: string | null;
-  team?: CombatTeam | null;
-  init?: number | null;
-  ac?: number | string | null;
-  hp?: number | string | null;
-  max_hp?: number | string | null;
-  temp_hp?: number | null;
-  defeated?: boolean | null;
-  notes?: string | null;
-  conditions?: string[] | null;
-}
-
-export interface CombatHpDeltaRequest {
-  action: "damage" | "heal" | "set_temp_hp";
-  amount: number;
-}
-
-export interface CombatTurnRequest {
-  direction?: "next" | "previous";
-}
-
-export interface CombatSetActiveRequest {
-  entity_id?: string | null;
-}
-
-export interface CombatMutationResponse {
-  schema_version: "dmb_combat_mutation_v1";
-  encounter: CombatEncounterState;
-  diagnostics: string[];
-}
-
-export interface CombatSaveSummary {
-  save_id: string;
-  title: string;
-  encounter_id: string;
-  entity_count: number;
-  round: number;
-  updated_at?: string | null;
-}
-
-export interface CombatSavesListResponse {
-  schema_version: "dmb_combat_saves_list_v1";
-  saves: CombatSaveSummary[];
-  backups: string[];
-}
-
-export interface CombatSaveSlotResponse {
-  schema_version: "dmb_combat_save_slot_v1";
-  encounter: CombatEncounterState;
-  saves: CombatSaveSummary[];
-  backups: string[];
-  diagnostics: string[];
-}
-
-export interface LoadCombatSaveRequest {
-  save_id: string;
-}
-
-export interface NewCombatEncounterRequest {
-  title?: string | null;
-  encounter_id?: string | null;
-}
-
-export interface SaveCurrentCombatRequest {
-  save_id: string;
-  title?: string | null;
-}
-
-export interface AddGeneratedStatblockCombatRequest {
-  team?: CombatTeam;
-  count?: number;
-  name_override?: string | null;
-  initiative?: number | null;
-  insert_after_entity_id?: string | null;
-  group_key?: string | null;
-  notes?: string | null;
-  hp_override?: number | null;
-  max_hp_override?: number | null;
-}
-
-export interface AddGeneratedStatblockCombatResponse {
-  schema_version: "dmb_add_generated_statblock_to_combat_v1";
-  added_entities: CombatEntity[];
-  encounter: CombatEncounterState;
-  diagnostics: string[];
-}
-
 export interface StatblockPromotionWarning {
   code: string;
   message: string;
@@ -1781,14 +2600,12 @@ export type WorkspaceDocumentContentStatus = "draft" | "committed";
 export type WorldbuildingAuthorityState = "draft" | "reviewed" | "canonical";
 export type WorldbuildingVisibilityState = "internal" | "player_safe";
 
-export interface WorkspaceDocumentRecord {
+interface WorkspaceDocumentRecordFields {
   schema_version: "dmb_workspace_document_record_v1";
   document_id: string;
   title: string;
-  campaign_id: string;
   world_id?: string | null;
   target_session: number | null;
-  kind: WorkspaceDocumentKind;
   target_relpath: string | null;
   status: WorkspaceDocumentStatus;
   content_status: WorkspaceDocumentContentStatus;
@@ -1799,7 +2616,13 @@ export interface WorkspaceDocumentRecord {
   document_class?: string | null;
   authority_state?: WorldbuildingAuthorityState | null;
   visibility_state?: WorldbuildingVisibilityState | null;
+  connected_page_operation_id?: string | null;
 }
+
+export type WorkspaceDocumentRecord = WorkspaceDocumentRecordFields & (
+  | { kind: "plan" | "runbook"; campaign_id: string }
+  | { kind: "worldbuilding_source"; world_id: string; campaign_id: string | null }
+);
 
 export interface WorkspaceDocumentsListResponse {
   schema_version: "dmb_workspace_document_registry_v1";
@@ -1887,6 +2710,9 @@ export interface WorkspaceDocumentRevisionRequest {
 export interface WorkspaceDocumentSnapshot {
   schema_version: "dmb_workspace_document_snapshot_v1";
   record: WorkspaceDocumentRecord;
+  /** Saved Page body; null means no committed Page revision. Editor body remains separate. */
+  committed_markdown?: string | null;
+  committed_content_sha256?: string | null;
   markdown: string;
   content_sha256: string;
   file_fingerprint: string;
@@ -2025,6 +2851,7 @@ export interface WorldPlayRunRecordV2 {
   updated_at: string;
   progress: PlayRunProgress;
   rebased_from_run_revision?: number;
+  lifecycle_status?: "active" | "trashed";
 }
 
 export type AnyPlayRunRecord = PlayRunRecord | WorldPlayRunRecordV2;
@@ -2032,6 +2859,7 @@ export type AnyPlayRunRecord = PlayRunRecord | WorldPlayRunRecordV2;
 export interface WorldPlayRunsListResponseV2 {
   schema_version: "dmb_world_play_runs_list_v2";
   records: WorldPlayRunRecordV2[];
+  source_titles?: Record<string, string>;
 }
 
 export interface PlayRunsListResponse {
@@ -2041,6 +2869,13 @@ export interface PlayRunsListResponse {
 
 export interface PlayActiveRunState {
   schema_version: PlayActiveRunSchema;
+  run_id: string | null;
+  selected_at: string | null;
+}
+
+export interface WorldPlayActiveRunStateV2 {
+  schema_version: "dmb_world_play_active_run_v2";
+  world_id: string;
   run_id: string | null;
   selected_at: string | null;
 }
@@ -2140,6 +2975,7 @@ export type PlayRunReferenceManifest =
   | PlayRunReferenceManifestV2;
 
 export interface TiptapMarkdownWritePrepareRequest {
+  title?: string;
   document_id: string;
   markdown: string;
   expected_revision?: number | null;
@@ -2170,6 +3006,7 @@ export interface TiptapMarkdownWritePrepareResponse {
 }
 
 export interface TiptapMarkdownWriteCommitRequest {
+  title?: string;
   document_id: string;
   markdown: string;
   writer_confirm_token: string;
@@ -2234,6 +3071,7 @@ export interface ExtractionRunComponentRef {
 }
 
 export interface ExtractionRunRecord {
+  revision?: number;
   schema_version: "dmb_extraction_run_v1";
   version: string;
   run_id: string;
@@ -2256,23 +3094,6 @@ export interface ExtractionRunRecord {
   supersedes_run_id?: string | null;
 }
 
-export type HistoricalRecapSourceStatus = "available" | "unavailable";
-
-export interface HistoricalRecapInspectionResponse {
-  schema: "dmb_historical_recap_inspection_v1";
-  runId: string;
-  runStatus: string;
-  sourceDomain: string;
-  sourceArtifactId: string;
-  campaignId?: string | null;
-  sessionId?: string | null;
-  sourceStatus: HistoricalRecapSourceStatus;
-  sourceUri?: string | null;
-  sourceSha256?: string | null;
-  sourceProse?: string | null;
-  unavailableReason?: string | null;
-}
-
 export type HistoricalRecapWorldProjectionResponse = Omit<
   WorldGraphRecapProjection,
   "schema"
@@ -2286,6 +3107,8 @@ export type HistoricalRecapWorldProjectionResponse = Omit<
   campaignId: string;
   sessionId: string;
   worldId: string;
+  managedWorldId?: string | null;
+  bindingVersion?: number | null;
   sourceSha256: string;
   sourceStatus: "available" | "unavailable";
   graphStatus: "available" | "unavailable";
@@ -2593,20 +3416,6 @@ export interface GraphPreviewSurfaceResponse {
   recap_source_path?: string | null;
   health: GraphPreviewHealth;
   candidates: GraphPreviewCandidateRow[];
-}
-
-export interface GraphPreviewRunSummary {
-  run_dir: string;
-  model_id?: string | null;
-  run_index?: number | null;
-  canonical_ir_valid?: boolean | null;
-  scenario_estimated_cost_usd?: number | null;
-}
-
-export interface GraphPreviewRunsResponse {
-  schema_version: "dmb_graph_preview_surface_v1";
-  version: string;
-  runs: GraphPreviewRunSummary[];
 }
 
 export interface RecapGraphRunRef {
@@ -3015,6 +3824,7 @@ export interface GraphProjectionNodeView {
   summary?: string | null;
   /** Cross-campaign provenance when projection scopeMode is world. */
   campaign_scope?: string | null;
+  campaign_scope_unknown?: boolean;
   /** Authored overlay metadata (A6+) */
   source?: string | null;
   authored?: boolean;
@@ -3183,6 +3993,7 @@ export interface WorldGraphProjectionNodeView {
   aliases: string[];
   sourceDomains: string[];
   campaignScope?: string | null;
+  campaignScopeUnknown?: boolean;
   summary?: string | null;
   anchoredToFocusSession: boolean;
   evidenceBadges: WorldGraphProjectionEvidenceBadge[];
@@ -3239,6 +4050,25 @@ export interface WorldGraphObjectProjectionCompleteness {
   truncatedFields: string[];
 }
 
+/** Reviewed source context is distinct from authored Graph properties and node summaries. */
+export interface WorldGraphObjectReviewedSourceObservation {
+  assertionId: string;
+  subjectNodeId: string;
+  observationKind: "session_observation";
+  text: string;
+  entityKind: string;
+  reviewId: string;
+  contributionId: string;
+  publicationRevisionId: string;
+  sourceArtifactId: string;
+  sourceRevisionId: string;
+  evidenceRefIds: string[];
+  campaignScope: string | null;
+  visibility: string;
+  epistemicKind: string;
+  temporalScope: Record<string, unknown> | null;
+}
+
 export interface WorldGraphObjectProjectionResult {
   schema: "dmb_world_graph_object_projection_v1";
   found: boolean;
@@ -3250,6 +4080,9 @@ export interface WorldGraphObjectProjectionResult {
   relatedNodes: WorldGraphProjectionNodeView[];
   relationships?: unknown[];
   assertions?: unknown[];
+  reviewedSourceObservations?: WorldGraphObjectReviewedSourceObservation[];
+  coverageGapCodes?: string[];
+  coverageMissingIds?: string[];
   sourceBindings?: unknown[];
   semanticFingerprint: string | null;
   telemetry?: {
@@ -3340,6 +4173,7 @@ export interface WorldGraphSourceAnchorReadResponse {
   anchorId: string;
   evidenceRefId: string | null;
   sourceArtifactId: string | null;
+  sourceName: string | null;
   sourceDomain: string | null;
   locatorKind: "heading" | "json_pointer" | "unsupported" | string | null;
   mediaType: string | null;
@@ -3348,6 +4182,57 @@ export interface WorldGraphSourceAnchorReadResponse {
   lineStart: number | null;
   lineEnd: number | null;
   truncated: boolean;
+  diagnostics: Array<{ code: string; message: string; severity: string }>;
+}
+
+export interface WorldGraphRecapContextReadRequestV2 {
+  schema: "dmb_recap_context_read_request_v2";
+  worldId: string;
+  campaignId: string;
+  scopeMode: "world";
+  focus: WorldGraphProjectionFocus;
+  admissibility: "gm";
+  revisionPin: string;
+  contextAnchorId: string;
+  maxChars?: number;
+  continuation?: string | null;
+}
+
+export interface WorldGraphRecapContextDescriptor {
+  contextAnchorId: string;
+  worldId: string;
+  campaignId: string | null;
+  graphRevisionId: string;
+  sourceArtifactId: string;
+  sourceRevisionId: string;
+  sourceUri: string;
+  contentSha256: string;
+  expectedSessionId: string;
+  canonicalHeading: string;
+  legacySessionHeading: string;
+  legacyRecapMarker: "**Recap**:";
+  selectorSchema: "dm_recap_context_section_selector_v2";
+  selectorPolicy: "markdown-session-recap-v2";
+}
+
+export interface WorldGraphRecapContextReadResponseV2 {
+  schema: "dmb_recap_context_read_v2";
+  outcome: "enough" | "truncated" | "empty" | "unavailable";
+  snapshot: WorldGraphSourceAnchorReadSnapshot;
+  contextAnchorId: string;
+  context: WorldGraphRecapContextDescriptor | null;
+  mediaType: string | null;
+  content: string | null;
+  selectedForm: "canonical_h1" | "legacy_h2" | null;
+  sessionHeadingLine: number | null;
+  recapMarkerLine: number | null;
+  headingLine: number | null;
+  lineStart: number | null;
+  lineEnd: number | null;
+  sectionSha256: string | null;
+  offsetChars: number;
+  truncated: boolean;
+  nextContinuation: string | null;
   diagnostics: Array<{ code: string; message: string; severity: string }>;
 }
 
@@ -3512,225 +4397,6 @@ export interface PartyRegistrySessionRosterWriteCommitResponse {
   diagnostics: string[];
 }
 
-export type GraphGoldAuthoringProposalStatus = "staged" | "accepted_local" | "rejected_local";
-export type GraphGoldAuthoringProposalType = "node_from_span" | "node_assertion" | "relationship_assertion" | "existing_object_link_intent";
-export type GraphGoldAuthoringLaneRole = "gold" | "live";
-
-export interface GraphGoldAuthoringRelationshipNodeRef {
-  lane_role: GraphGoldAuthoringLaneRole;
-  node_id: string;
-  label: string;
-}
-
-export interface GraphGoldAuthoringLocalProposalBase {
-  proposal_id: string;
-  proposal_type: GraphGoldAuthoringProposalType;
-  created_at_iso: string;
-  status: GraphGoldAuthoringProposalStatus;
-}
-
-export interface GraphGoldAuthoringNodeFromSpanProposal extends GraphGoldAuthoringLocalProposalBase {
-  proposal_type: "node_from_span";
-  lane_role: GraphGoldAuthoringLaneRole;
-  source_text: string;
-  source_offsets?: { start: number; end: number } | null;
-  suggested_label: string;
-  suggested_kind?: string | null;
-}
-
-export interface GraphGoldAuthoringNodeAssertionProposal extends GraphGoldAuthoringLocalProposalBase {
-  proposal_type: "node_assertion";
-  lane_role: GraphGoldAuthoringLaneRole;
-  node_id: string;
-  label: string;
-  kind?: string | null;
-  role?: string | null;
-}
-
-export interface GraphGoldAuthoringRelationshipAssertionProposal extends GraphGoldAuthoringLocalProposalBase {
-  proposal_type: "relationship_assertion";
-  lane_role: GraphGoldAuthoringLaneRole | "mixed";
-  source_node: GraphGoldAuthoringRelationshipNodeRef;
-  target_node: GraphGoldAuthoringRelationshipNodeRef;
-  predicate: string;
-}
-
-export interface GraphGoldAuthoringExistingObjectLinkIntentProposal extends GraphGoldAuthoringLocalProposalBase {
-  proposal_type: "existing_object_link_intent";
-  selected_node: GraphGoldAuthoringRelationshipNodeRef;
-  candidate: {
-    candidate_id: string;
-    label: string;
-    source: GraphReviewExistingObjectCandidate["source"];
-    confidence: GraphReviewExistingObjectCandidate["confidence"];
-    score?: number | null;
-  };
-}
-
-export type GraphGoldAuthoringLocalProposal =
-  | GraphGoldAuthoringNodeFromSpanProposal
-  | GraphGoldAuthoringNodeAssertionProposal
-  | GraphGoldAuthoringRelationshipAssertionProposal
-  | GraphGoldAuthoringExistingObjectLinkIntentProposal;
-
-export interface GraphGoldAuthoringPrepareRequest {
-  schema: "dmb_graph_gold_authoring_prepare_request_v1";
-  campaign_id: string;
-  session_id: string;
-  fixture_version?: string | null;
-  proposals: GraphGoldAuthoringLocalProposal[];
-  include_rejected?: boolean;
-}
-
-export interface GraphGoldAuthoringPrepareDiagnostic {
-  code: string;
-  message: string;
-  source_proposal_id?: string | null;
-  severity: "error" | "warning" | "info";
-}
-
-export interface GraphGoldAuthoringProposalCounts {
-  total: number;
-  accepted_local: number;
-  staged: number;
-  rejected_local: number;
-  candidate_operations: number;
-  ignored: number;
-  blocked: number;
-}
-
-export interface GraphGoldAuthoringNormalizedProposal {
-  proposal_id: string;
-  proposal_type: GraphGoldAuthoringProposalType;
-  status: GraphGoldAuthoringProposalStatus;
-  eligible_for_operation: boolean;
-  summary: string;
-  diagnostics: GraphGoldAuthoringPrepareDiagnostic[];
-}
-
-export interface GraphGoldAuthoringPreviewOperation {
-  operation_id: string;
-  operation_type: "add_node" | "assert_node" | "add_edge" | "link_existing_intent" | "ignored" | "blocked";
-  source_proposal_id: string;
-  label: string;
-  summary: string;
-  gold_shape_preview?: Record<string, unknown> | null;
-  requires_manual_review: boolean;
-  diagnostics: GraphGoldAuthoringPrepareDiagnostic[];
-}
-
-export interface GraphGoldAuthoringCommitRequest {
-  schema: "dmb_graph_gold_authoring_commit_request_v1";
-  campaign_id: string;
-  session_id: string;
-  fixture_version?: string | null;
-  proposals: GraphGoldAuthoringLocalProposal[];
-  expected_prepare_fingerprint?: string | null;
-  expected_fixture_state_fingerprint?: string | null;
-  commit_message?: string | null;
-  operator_note?: string | null;
-}
-
-export interface GraphGoldAuthoringCommitChangedCounts {
-  nodes_added: number;
-  nodes_asserted: number;
-  edges_added: number;
-  link_intents_recorded: number;
-  operations_skipped: number;
-}
-
-export interface GraphGoldAuthoringCommittedOperation {
-  operation_id: string;
-  operation_type: string;
-  source_proposal_id: string;
-  status: "applied" | "recorded_assertion" | "recorded_intent";
-  target_id?: string | null;
-  summary: string;
-}
-
-export interface GraphGoldAuthoringSkippedOperation {
-  operation_id: string;
-  operation_type: string;
-  source_proposal_id: string;
-  reason: string;
-  diagnostics: GraphGoldAuthoringPrepareDiagnostic[];
-}
-
-export interface GraphGoldAuthoringCommitDiagnostic {
-  code: string;
-  message: string;
-  source_proposal_id?: string | null;
-  severity: "error" | "warning" | "info";
-}
-
-export interface GraphGoldAuthoringCommitResponse {
-  schema: "dmb_graph_gold_authoring_commit_response_v1";
-  campaign_id: string;
-  session_id: string;
-  fixture_relpath: string;
-  backup_relpath?: string | null;
-  event_log_relpath?: string | null;
-  commit_id: string;
-  committed_at_iso: string;
-  commit_status: "committed" | "blocked" | "partial";
-  prepare_fingerprint: string;
-  applied_operations: GraphGoldAuthoringCommittedOperation[];
-  skipped_operations: GraphGoldAuthoringSkippedOperation[];
-  diagnostics: GraphGoldAuthoringCommitDiagnostic[];
-  changed_counts: GraphGoldAuthoringCommitChangedCounts;
-}
-
-export interface GraphGoldAuthoringVerifyCommitRequest {
-  schema: "dmb_graph_gold_authoring_verify_commit_request_v1";
-  campaign_id: string;
-  session_id: string;
-  commit_id: string;
-  applied_operations: GraphGoldAuthoringCommittedOperation[];
-}
-
-export interface GraphGoldAuthoringVerifiedOperation {
-  operation_id: string;
-  operation_type: string;
-  source_proposal_id: string;
-  target_id?: string | null;
-  verification_status: "found_in_gold_projection" | "found_in_fixture_only" | "recorded_event_only" | "not_expected_in_projection" | "missing";
-  summary: string;
-}
-
-export interface GraphGoldAuthoringVerifyDiagnostic {
-  code: string;
-  message: string;
-  operation_id?: string | null;
-  severity: "error" | "warning" | "info";
-}
-
-export interface GraphGoldAuthoringVerifyCommitResponse {
-  schema: "dmb_graph_gold_authoring_verify_commit_response_v1";
-  campaign_id: string;
-  session_id: string;
-  commit_id: string;
-  verification_status: "verified" | "partial" | "missing" | "blocked";
-  checked_operations: GraphGoldAuthoringVerifiedOperation[];
-  diagnostics: GraphGoldAuthoringVerifyDiagnostic[];
-}
-
-export interface GraphGoldAuthoringPrepareResponse {
-  schema: "dmb_graph_gold_authoring_prepare_response_v1";
-  campaign_id: string;
-  session_id: string;
-  fixture_relpath?: string | null;
-  validation_status: "ready" | "ready_with_warnings" | "blocked";
-  proposal_counts: GraphGoldAuthoringProposalCounts;
-  normalized_proposals: GraphGoldAuthoringNormalizedProposal[];
-  proposed_operations: GraphGoldAuthoringPreviewOperation[];
-  blocking_errors: GraphGoldAuthoringPrepareDiagnostic[];
-  warnings: GraphGoldAuthoringPrepareDiagnostic[];
-  preview_summary: string;
-  prepare_fingerprint: string;
-  fixture_state_fingerprint: string;
-  write_performed: false;
-}
-
 export interface GraphAuthoringDiagnostic {
   code: string;
   message: string;
@@ -3781,6 +4447,7 @@ export interface GraphObjectAuthoringProposalPayload {
 }
 
 export interface GraphObjectAuthoringPrepareRequest {
+  documentSource?: {documentId:string;revision:number;contentSha256:string};
   campaignId: string;
   campaignRel?: string | null;
   sessionId?: string | null;
@@ -3814,9 +4481,9 @@ export interface GraphAuthoringOverlaySummary {
 export interface GraphObjectAuthoringPrepareResponse {
   prepared: boolean;
   campaign_id: string;
-  overlay_path: string;
-  event_log_path: string;
-  current_overlay_token: string;
+  overlay_path: string | null;
+  event_log_path: string | null;
+  current_overlay_token: string | null;
   proposed_assertions_digest: string;
   confirm_token: string;
   assertion_count: number;
@@ -3837,6 +4504,7 @@ export interface GraphObjectAuthoringPrepareResponse {
 }
 
 export interface GraphObjectAuthoringCommitRequest {
+  documentSource?: {documentId:string;revision:number;contentSha256:string};
   campaignId: string;
   campaignRel?: string | null;
   sessionId?: string | null;
@@ -3896,84 +4564,6 @@ export interface GraphObjectAuthoringCommitResponse {
   audit_status?: "recorded" | "degraded" | "skipped" | null;
 }
 
-export interface GraphMergeReconciliationDiagnostic {
-  code: string;
-  message: string;
-  severity: "error" | "warning" | "info";
-  assertion_id?: string | null;
-  node_id?: string | null;
-}
-
-export interface GraphMergeReconciliationPlanSummary {
-  merge_assertion_count: number;
-  applicable_assertion_count: number;
-  already_materialized_assertion_count: number;
-  skipped_assertion_count: number;
-  redirect_count: number;
-  edge_rewire_count: number;
-  edge_dedupe_count: number;
-}
-
-export interface GraphMergeReconciliationApplySummary {
-  redirects_added: number;
-  merge_records_added: number;
-  survivor_nodes_created: number;
-  survivor_nodes_updated: number;
-  merged_away_nodes_marked: number;
-  edges_rewired: number;
-  edges_deduped: number;
-}
-
-export interface GraphMergeReconciliationPrepareRequest {
-  campaignId: string;
-  campaignRel?: string | null;
-  sessionId?: string | null;
-  previewUnionStorePath: string;
-  materializationPassId?: string | null;
-}
-
-export interface GraphMergeReconciliationPrepareResponse {
-  prepared: boolean;
-  campaign_id: string;
-  session_id?: string | null;
-  overlay_path: string;
-  union_store_path: string;
-  materialization_pass_id: string;
-  overlay_token: string;
-  union_store_token: string;
-  plan_digest: string;
-  confirm_token: string;
-  summary: GraphMergeReconciliationPlanSummary;
-  diagnostics: GraphMergeReconciliationDiagnostic[];
-  no_mutation_guarantees: string[];
-}
-
-export interface GraphMergeReconciliationApplyRequest {
-  campaignId: string;
-  campaignRel?: string | null;
-  sessionId?: string | null;
-  previewUnionStorePath: string;
-  materializationPassId: string;
-  confirmToken: string;
-  overlayToken: string;
-  unionStoreToken: string;
-}
-
-export interface GraphMergeReconciliationApplyResponse {
-  applied: boolean;
-  campaign_id: string;
-  session_id?: string | null;
-  overlay_path: string;
-  union_store_path: string;
-  backup_path?: string | null;
-  materialization_pass_id: string;
-  applied_assertion_ids: string[];
-  skipped_assertion_ids: string[];
-  summary: GraphMergeReconciliationApplySummary;
-  diagnostics: GraphMergeReconciliationDiagnostic[];
-  no_mutation_guarantees: string[];
-}
-
 // --- Extract → World Graph promote (PR011A2) ---
 
 export type ExtractPromotionReviewItemKind = "object" | "relationship" | "attribute" | "alias";
@@ -4011,15 +4601,6 @@ export interface ExtractPromoteReviewSummary {
   standingAcceptedProposalsCount?: number | null;
 }
 
-export interface ExtractPromoteStatusResponse {
-  schema: "dmb_extract_promote_status_v1";
-  worldId: string;
-  initialized: boolean;
-  worldState: "initialized" | "uninitialized" | "unreadable";
-  headRevisionId?: string | null;
-  diagnostics: string[];
-}
-
 export interface ExactRunReviewEvidence {
   sourceArtifactId: string;
   sourceSpanRefId: string;
@@ -4031,6 +4612,11 @@ export interface ExactRunReviewEvidence {
 }
 
 export interface ExactRunReviewAssertion {
+  nodeType?: string | null;
+  contributionKind?: string | null;
+  relationshipType?: string | null;
+  fromCandidateNodeId?: string | null;
+  toCandidateNodeId?: string | null;
   assertionId: string;
   kind: "object" | "relationship";
   label: string;
@@ -4077,6 +4663,28 @@ export interface ExactRunEvidenceQuoteCorrection {
   replacementQuote: string;
 }
 
+export interface WorldbuildingEvidenceRefCorrection {
+  assertionId: string;
+  evidenceIndex: number;
+  expectedRefSha256: string;
+  parts: {sourceSpanRefId: string; quoteAssignments: {originalQuoteIndex: number; replacementQuote: string}[]}[];
+}
+export interface WorldbuildingFrozenSpanCatalog {
+  schema: "dmb_worldbuilding_frozen_span_catalog_v1";
+  parentRunId: string; parentRevision: number; parentStatus: "reviewable";
+  worldId: string; sourceArtifactId: string; sourceSha256: string;
+  spanIndexSha256: string; parentCandidateSha256: string;
+  spans: {sourceSpanRefId: string; startLine: number; endLine: number; paragraphText: string}[];
+  evidenceRefs: {assertionId: string; evidenceIndex: number; refSha256: string}[];
+}
+export interface WorldbuildingEvidenceCorrectionRequest {
+  schema: "dmb_worldbuilding_evidence_correction_request_v2";
+  parentRunId: string; expectedParentRevision: number; expectedParentStatus: "reviewable";
+  worldId: string; sourceArtifactId: string; sourceSha256: string;
+  spanIndexSha256: string; parentCandidateSha256: string;
+  corrections: WorldbuildingEvidenceRefCorrection[];
+}
+
 export interface ExactRunEvidenceCorrectionResponse {
   schema: "dmb_exact_run_evidence_correction_response_v1";
   runId: string;
@@ -4085,6 +4693,12 @@ export interface ExactRunEvidenceCorrectionResponse {
   candidateSha256: string;
   correctionDigest: string;
   status: "reviewable";
+}
+
+export interface RecapEvidenceCorrectionResponse extends Omit<ExactRunEvidenceCorrectionResponse, "schema"> {
+  schema: "dmb_recap_evidence_correction_response_v1";
+  semanticState: "held" | "accepted" | "rejected";
+  semanticBasisSha256: string;
 }
 
 export type FirstWorldDecision = "create_new" | "reject" | "accept";
@@ -4108,11 +4722,13 @@ export interface FirstWorldGraphPlanSummary {
 }
 
 export interface FirstWorldGraphPlan {
-  schema: "dmb_first_world_graph_plan_v1";
+  schema: "dmb_first_world_graph_plan_v3";
+  sourceEvidenceSha256: string;
   planId: string;
   planDigest: string;
   decisionDigest: string;
   worldId: string;
+  nativeTarget: {nativeWorldId: string; provisioningId: string; bindingVersion: number};
   runId: string;
   sourceArtifactId: string;
   sourceRevisionId: string;
@@ -4163,6 +4779,7 @@ export interface FirstWorldGraphConfirmReceipt {
 export interface ExtractPromotePrepareRequest {
   schema: "dmb_extract_promote_prepare_request_v2";
   runId: string;
+  managedWorldId: string;
   nodeIds?: string[] | null;
 }
 
@@ -4204,6 +4821,18 @@ export interface ExtractPromoteConfirmReceipt {
   appliedAssertionCount: number;
   auditStatus: "ok" | "degraded";
   warnings: string[];
+}
+
+export interface FirstWorldConfirmNonapplication {
+  schema: "dmb_first_world_confirm_not_invoked_v1";
+  worldId: string;
+  nativeWorldId: string;
+  initializationId: string;
+  planId: string;
+  planDigest: string;
+  initializationInvoked: false;
+  validationMessage: string;
+  failure: Record<string, unknown>;
 }
 
 export interface ExtractPromoteErrorBody {
@@ -4302,7 +4931,7 @@ export interface ThreatDraftRulesetRefV1 {
 }
 
 export interface ThreatDraftGenerationIntentV1 {
-  ruleset: ThreatDraftRulesetRefV1;
+  ruleset: ThreatDraftRulesetRefV1 | null;
   target_cr?: string | null;
   complexity?: string | null;
   must_include: string[];
@@ -4323,28 +4952,6 @@ export interface ThreatDraftGraphContextSnapshotV1 {
 }
 
 /** Bootstrap lifecycle states from `WorldGraphBootstrapStatusResponse`. */
-export type WorldGraphBootstrapStateV1 =
-  | "ready"
-  | "invalid_bundle"
-  | "active"
-  | "active_head_advanced"
-  | "blocked_existing_world"
-  | "inconsistent_lineage"
-  | "error";
-
-/** CamelCase wire shape from `/api/live/world-graph-bootstrap/status`. */
-export interface WorldGraphBootstrapStatusV1 {
-  schema: "dmb_world_graph_bootstrap_status_v1";
-  state: WorldGraphBootstrapStateV1 | string;
-  worldId: string;
-  campaignId: string;
-  /** False for certification failures (`invalid_bundle`); true when the locked bundle certified. */
-  bundleValid?: boolean;
-  currentHeadRevisionId?: string | null;
-  initialHeadRevisionId?: string | null;
-  diagnostics?: Array<{ code: string; message: string; severity?: string }>;
-}
-
 export interface ThreatDraftFocusV1 {
   session?: number | null;
   prep_label?: string | null;
@@ -4655,7 +5262,7 @@ export type ThreatMechanicsDisposition =
 export interface ThreatQueryHydrationRequestV1 {
   schema: "dmb_threat_query_hydration_request_v1";
   worldId: string;
-  campaignId: string;
+  campaignId: string | null;
   scopeMode: "campaign" | "world";
   revisionPin: string;
   queryText: string;
@@ -4740,7 +5347,7 @@ export interface ThreatQueryHydrationHitV1 {
 export interface ThreatQueryHydrationResponseV1 {
   schema: "dmb_threat_query_hydration_response_v1";
   worldId: string;
-  campaignId: string;
+  campaignId: string | null;
   scopeMode: "campaign" | "world";
   revisionId: string;
   queryText: string;
@@ -5163,4 +5770,198 @@ export interface BuildSourceNavigationResponse {
   canHighlight: boolean;
   message: string;
   diagnostics: string[];
+}
+
+
+export interface WorldAgentNewConversationStatusV1 {
+  schema: "dmb_agent_new_conversation_status_v1";
+  world_id: string;
+  command_id: string;
+  command_kind: "new";
+  expected_pointer_revision: number;
+  expected_active_conversation_id: string | null;
+  request_fingerprint: string;
+  status: "confirmed" | "absent";
+  receipt: null | {
+    schema: "dmb_agent_new_conversation_receipt_v1";
+    conversation_id: string;
+    active_conversation_id: string;
+    pointer_revision: number;
+    recorded_at: string;
+  };
+}
+
+
+export interface WorldCommandResolutionRequestV1 {
+  schema: "dmb_agent_new_conversation_resolution_request_v1";
+  resolution_operation_id: string;
+  original_command: { world_id: string; command_id: string; expected_pointer_revision: number; expected_active_conversation_id: string | null };
+  expected_current_pointer_revision: number;
+  expected_current_active_conversation_id: string | null;
+}
+
+export interface WorldCommandResolutionRecordV1 {
+  schema: "dmb_agent_new_conversation_resolution_record_v1";
+  request: WorldCommandResolutionRequestV1;
+  original_command_kind: "new";
+  original_request_fingerprint: string;
+  resolution_request_fingerprint: string;
+  observed_pointer: { world_id: string; active_conversation_id: string | null; revision: number };
+  outcome: "confirmed" | "retired" | "submitted_binding_blocked";
+  actor: string;
+  recorded_at: string;
+  record_serializer_version: "canonical-json-ascii-v1";
+  confirmed_receipt: null | { world_id: string; command_id: string; command_kind: "new";
+    conversation_id: string; active_conversation_id: string; pointer_revision: number; recorded_at: string };
+  occupied_receipt: null | { world_id: string; command_id: string; command_kind: "new" | "archive" | "reopen" | "trash" | "restore";
+    request_fingerprint: string; receipt_sha256: string };
+  retirement_operation_id: string | null;
+  record_sha256: string;
+}
+
+export interface WorldCommandResolutionResponseV1 {
+  schema: "dmb_agent_new_conversation_resolution_response_v1";
+  status: "terminal" | "absent";
+  record: WorldCommandResolutionRecordV1 | null;
+}
+
+export interface ActionPromptReference {
+  owner_kind: 'plan_action'; world_id: string; action_id: string;
+  authorization_event_id: string; provider_attempt_id: string;
+  provider: string; model: string; api_mode: string; serializer_version: string;
+  payload_sha256: string; payload_utf8_bytes: number;
+}
+export interface ActionPromptIndex {
+  schema: 'dmb_plan_action_prompt_index_v1'; world_id: string; action_id: string;
+  references: ActionPromptReference[];
+}
+export interface ActionPromptEvidence {
+  schema: 'dmb_plan_action_prompt_evidence_v1'; world_id: string; action_id: string;
+  reference: ActionPromptReference; payload_json: string;
+}
+
+
+export interface ActionTerminalDiagnosticRead {
+  schema: "dmb_plan_action_terminal_diagnostic_read_v1";
+  world_id: string;
+  action_id: string;
+  status: "pending" | "failed" | "completed" | "indeterminate";
+  availability: "captured" | "unavailable";
+  diagnostic: null | {
+    schema_version: "dmb_plan_action_terminal_diagnostic_v1";
+    world_id: string;
+    action_id: string;
+    attribution: "provider_attempt" | "action_only";
+    availability: "captured" | "unavailable";
+    unavailable_reason: "invalid_reported_by_host" | "invalid_observed_at_parent" | "missing_or_not_retained" | "contradictory_binding" | null;
+    runtime_status: "ok" | "error" | "unavailable";
+    error_origin: "runtime_result" | "parent_adapter";
+    error_category: "provider_lifecycle_unavailable" | "request_budget_veto" | "hermes_turn_error" | "prompt_capture_unavailable" | "other" | "unavailable";
+    provider_attempt_id: string | null;
+    authorization_event_id: string | null;
+    callback_sequence: number | null;
+    parent_acknowledged: boolean | null;
+    matching_transition_event_id: string | null;
+    latest_durable_outcome_event_id: string | null;
+    latest_durable_outcome: "sdk_entered" | "response_received" | "outcome_unknown" | "known_not_sent" | null;
+    failure: null | {
+      phase: "provider_lifecycle";
+      reason: "lifecycle_ack_denied" | "provider_transport_ambiguous" | "provider_exception_ambiguous" | "provider_response_incomplete";
+      transition: "sdk_entered" | "response_received" | "outcome_unknown";
+      acknowledged: boolean;
+      transportExceptionClass: "RemoteProtocolError" | "ReadTimeout" | "ConnectError" | "ConnectionError" | null;
+      responseStatus: "incomplete" | "failed" | "other" | null;
+      incompleteReason: "max_output_tokens" | "length" | "content_filter" | "unspecified" | "other" | null;
+    };
+  };
+}
+
+
+/** Exact authored working copy; carries no insertion or World evidence authority. */
+export interface WorldBuildDraftSnapshotV1 {
+  schema: 'dmb_build_draft_snapshot_v1';
+  world_id: string;
+  document_id: string;
+  registry_revision: number;
+  content_sha256: string;
+  visibility: 'internal' | 'player_safe';
+  draft_markdown: string;
+  draft_sha256: string;
+  editor_sha256: string;
+  draft_generation: number;
+}
+
+
+/** Author input identity, distinct from retrieved evidence and Graph mutations. */
+export interface AuthoredGraphReferenceV1 {
+  schema: 'dmb_authored_graph_reference_v1';
+  managed_world_id: string;
+  native_world_id: string;
+  binding_version: number;
+  graph_revision: string;
+  node_id: string;
+  label: string;
+}
+export interface AuthoredGraphReferencesV1 {
+  schema: 'dmb_authored_graph_references_v1';
+  references: AuthoredGraphReferenceV1[];
+}
+
+export interface AuthoredSourceReferenceV1 {
+ schema:'dmb_authored_source_reference_v1';managed_world_id:string;native_world_id:string;
+ binding_version:number;knowledge_revision:string;source_artifact_id:string;source_revision_id:string;
+ evidence_ref_id:string;content_sha256:string;selection_kind:'section'|'full_document';section_id:string|null;label:string;
+}
+export type AuthoredReference=AuthoredGraphReferenceV1|AuthoredSourceReferenceV1;
+export interface AuthoredReferencesV2 {schema:'dmb_authored_references_v2';references:AuthoredReference[]}
+export type AuthoredReferenceInput=AuthoredGraphReferencesV1|AuthoredReferencesV2;
+
+export interface AgentConnectedPageOriginV1 {
+  schema:'dmb_agent_connected_page_origin_v1';
+  world_id:string;
+  turn_id:string;
+  read_id:string;
+  origin:import('./connectedPageApi').SavedExcerptOrigin;
+}
+
+/** Native source attribution, deliberately outside classic Graph context types. */
+export interface NativeStatementSelectionV1 {
+  schema: 'dmb_native_statement_selection_v1'; managedWorldId:string; campaignId:string;
+  revisionId:string; subjectId:string; domainRef:Record<string,string>; profileRef:Record<string,string>;
+}
+export interface NativeStatementSupportV1 {
+  statement_id:string; payload:Record<string,unknown>; semantic_digest:string; assertion_ids:string[];
+  publication_receipt:Record<string,unknown>; result_mappings:Record<string,unknown>[];
+  ancestry:Record<string,unknown>[]; source_artifact_id:string; source_revision_id:string;
+  source_body_sha256:string; clause_start_byte:number; clause_end_byte:number;
+  clause_sha256:string; clause_text:string;
+}
+export interface NativeStatementReceiptV1 {
+  schema:'dmb_native_statement_context_receipt_v1'; selection:NativeStatementSelectionV1;
+  frame:{schema:'dmb_native_statement_frame_v1';authority:'native_vnext';managed_world_id:string;
+    native_world_id:string;binding_version:number;campaign_id:string;role:'gm'|'player';revision_id:string;
+    domain_ref:Record<string,string>;profile_ref:Record<string,string>;subject_id:string;
+    status:'complete'|'partial'|'no_visible_statements';gap_codes:string[];
+    supports:NativeStatementSupportV1[];universal_absence_claimed:false};
+  user_text:string;provenance_sha256:string;context_receipt_sha256:string;
+}
+export interface NativeStatementClauseCitationV1 {
+  segment_index:number;statement_id:string;provider_attempt_id:string;envelope_sha256:string;
+  context_receipt_sha256:string;managed_world_id:string;native_world_id:string;campaign_id:string;
+  read_revision_id:string;publication_revision_id:string;source_artifact_id:string;source_revision_id:string;
+  body_sha256:string;start_byte:number;end_byte:number;clause_sha256:string;semantic_digest:string;
+}
+export interface NativeStatementCompletionV1 {
+  schema:'dmb_native_statement_completion_v1';surface_id:'plan';context_receipt_sha256:string;
+  answer_context_status:'source_attributed'|'source_attributed_partial'|'insufficient_evidence';
+  answer_segments:{kind:'source_report'|'proposal'|'limitation';text:string;statement_ids:string[]}[];
+  native_clause_citations:NativeStatementClauseCitationV1[];
+}
+export interface NativeStatementAnswerContextV1 {
+  schema:'dmb_native_statement_answer_context_v1';receipt:NativeStatementReceiptV1;
+  completion:NativeStatementCompletionV1|null;delivery_replay:boolean;
+}
+export interface NativeStatementClauseReadV1 {
+  schema:'dmb_native_statement_clause_read_v1';world_id:string;turn_id:string;citation_index:number;
+  citation:NativeStatementClauseCitationV1;content:string;
 }

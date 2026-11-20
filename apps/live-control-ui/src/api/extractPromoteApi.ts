@@ -4,19 +4,23 @@
 
 import type {
   ExactRunReviewPackage,
+  RecapEvidenceCorrectionResponse,
   ExactRunEvidenceCorrectionResponse,
+  WorldbuildingEvidenceCorrectionRequest,
+  WorldbuildingFrozenSpanCatalog,
   ExactRunEvidenceQuoteCorrection,
   ExtractPromoteConfirmReceipt,
   ExtractPromoteConfirmRequest,
   ExtractPromoteErrorBody,
   ExtractPromotePrepareRequest,
   ExtractPromotePrepareResponse,
-  ExtractPromoteStatusResponse,
   FirstWorldGraphConfirmReceipt,
   FirstWorldGraphConfirmRequest,
   FirstWorldGraphPlan,
   FirstWorldGraphPrepareRequest,
 } from "./types";
+
+import { authenticatedApiFetch, usesLoopbackLiveApi } from "./liveApi";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
 
@@ -51,8 +55,8 @@ async function parseJsonBody<T>(response: Response): Promise<T> {
   }
 }
 
-async function extractPromoteFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${baseUrl}${path}`, {
+async function extractPromoteFetch<T>(path: string, init?: RequestInit, authenticated = false): Promise<T> {
+  const response = authenticated ? (await authenticatedApiFetch(path, init)).response : await fetch(`${baseUrl}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -79,28 +83,56 @@ async function extractPromoteFetch<T>(path: string, init?: RequestInit): Promise
   return parseJsonBody<T>(response);
 }
 
-export async function getExtractPromoteStatus(): Promise<ExtractPromoteStatusResponse> {
-  return extractPromoteFetch<ExtractPromoteStatusResponse>("/api/live/extract-promote/status");
-}
-
 export async function getExactRunReviewPackage(runId: string): Promise<ExactRunReviewPackage> {
   return extractPromoteFetch<ExactRunReviewPackage>(
     `/api/live/extract-promote/runs/${encodeURIComponent(runId)}/review-package`,
   );
 }
 
-export async function correctExactRunEvidence(input: {
-  parentRunId: string;
-  parentCandidateSha256: string;
-  corrections: ExactRunEvidenceQuoteCorrection[];
-}): Promise<ExactRunEvidenceCorrectionResponse> {
+export async function getWorldbuildingFrozenSpans(runId: string): Promise<WorldbuildingFrozenSpanCatalog> {
+  return extractPromoteFetch<WorldbuildingFrozenSpanCatalog>(
+    `/api/live/extract-promote/runs/${encodeURIComponent(runId)}/frozen-source-spans`);
+}
+
+export async function correctExactRunEvidence(input: WorldbuildingEvidenceCorrectionRequest): Promise<ExactRunEvidenceCorrectionResponse> {
   return extractPromoteFetch<ExactRunEvidenceCorrectionResponse>(
     `/api/live/extract-promote/runs/${encodeURIComponent(input.parentRunId)}/evidence-corrections`,
     {
       method: "POST",
-      body: JSON.stringify({ schema: "dmb_exact_run_evidence_correction_request_v1", ...input }),
+      body: JSON.stringify(input),
     },
   );
+}
+
+/** Only this recap mutation uses the authenticated GM transport. */
+export async function correctRecapRunEvidence(input: {
+  parentRunId: string;
+  parentCandidateSha256: string;
+  corrections: ExactRunEvidenceQuoteCorrection[];
+}, worldId?: string): Promise<RecapEvidenceCorrectionResponse> {
+  const query = worldId && !usesLoopbackLiveApi()
+    ? `?managed_world_id=${encodeURIComponent(worldId)}` : "";
+  const { response } = await authenticatedApiFetch(
+    `/api/live/extract-promote/runs/${encodeURIComponent(input.parentRunId)}/recap-evidence-corrections${query}`,
+    { method: "POST", body: JSON.stringify({ schema: "dmb_exact_run_evidence_correction_request_v1", ...input }) },
+  );
+  if (!response.ok) {
+    let body: ExtractPromoteErrorBody | null = null;
+    try { body = await parseJsonBody<ExtractPromoteErrorBody>(response); } catch { /* HTTP remains authoritative. */ }
+    throw new ExtractPromoteApiError(body?.message || `Quote correction failed (HTTP ${response.status}).`,
+      response.status, body?.code ?? null, body);
+  }
+  const result = await parseJsonBody<RecapEvidenceCorrectionResponse>(response);
+  const digest = (value: unknown) => typeof value === "string" && /^(?:sha256:)?[a-f0-9]{64}$/.test(value);
+  if (result?.schema !== "dmb_recap_evidence_correction_response_v1"
+    || result.status !== "reviewable" || typeof result.runId !== "string" || !result.runId.trim()
+    || result.runId === input.parentRunId || result.parentRunId !== input.parentRunId
+    || result.parentCandidateSha256 !== input.parentCandidateSha256
+    || !digest(result.candidateSha256) || !digest(result.correctionDigest)
+    || !digest(result.semanticBasisSha256) || !["held", "accepted", "rejected"].includes(result.semanticState)) {
+    throw new ExtractPromoteApiError("The correction receipt could not be verified. Recover the saved request deliberately.", 0);
+  }
+  return result;
 }
 
 export async function prepareExtractPromote(
@@ -111,6 +143,7 @@ export async function prepareExtractPromote(
   const payload: ExtractPromotePrepareRequest = {
     schema: "dmb_extract_promote_prepare_request_v2",
     runId: body.runId,
+    managedWorldId: body.managedWorldId,
     ...(body.nodeIds != null ? { nodeIds: body.nodeIds } : {}),
   };
   return extractPromoteFetch<ExtractPromotePrepareResponse>("/api/live/extract-promote/prepare", {
@@ -151,6 +184,7 @@ export async function prepareFirstWorldGraph(
       method: "POST",
       body: JSON.stringify(payload),
     },
+    true,
   );
 }
 
@@ -169,5 +203,6 @@ export async function confirmFirstWorldGraph(
       method: "POST",
       body: JSON.stringify(payload),
     },
+    true,
   );
 }

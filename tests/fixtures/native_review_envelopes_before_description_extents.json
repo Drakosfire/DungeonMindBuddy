@@ -1,0 +1,313 @@
+{
+  "schema": "synthetic-native-review-envelopes-v1",
+  "captured_from_commit": "1da4f8f60793103298ae2f2fadd1f30bd379c32f",
+  "key_purpose": "public synthetic test signing key, never a runtime credential",
+  "cases": {
+    "recap": {
+      "envelope": {
+        "purpose": "dmb_native_recap_confirm_v1",
+        "producer": "dungeonbuddy:reviewed-recap",
+        "principal": "synthetic-operator",
+        "binding": {
+          "native_world_id": "synthetic-native-world",
+          "binding_version": 3
+        },
+        "parent_context": {
+          "revision_id": "rev:synthetic-parent",
+          "source_epoch": 2
+        },
+        "review": {
+          "managed_world_id": "synthetic-managed-world",
+          "run_id": "synthetic-retained-run",
+          "expected_run_revision": 5,
+          "candidate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expected_parent_revision_id": "rev:synthetic-parent",
+          "expected_source_authority_epoch": 2,
+          "selections": [
+            {
+              "kind": "node",
+              "record_id": "synthetic-node",
+              "action": "create",
+              "entity_id": null,
+              "facts": [
+                {
+                  "field": "label",
+                  "index": null,
+                  "metadata": {
+                    "evidence_ref_ids": [
+                      "ev:synthetic-legacy-support"
+                    ],
+                    "visibility": {
+                      "kind": "labels_any",
+                      "labels": [
+                        "dungeonbuddy.visibility:gm"
+                      ]
+                    },
+                    "epistemic_basis": "asserted",
+                    "claim_mode": "dungeonbuddy.claim:fact",
+                    "standing": "provisional",
+                    "temporal_scope": {
+                      "kind": "timeless",
+                      "valid_from": null,
+                      "valid_until": null,
+                      "schema_term": null,
+                      "payload": null
+                    },
+                    "domain_metadata": []
+                  }
+                },
+                {
+                  "field": "node_type",
+                  "index": null,
+                  "metadata": {
+                    "evidence_ref_ids": [
+                      "ev:synthetic-legacy-support"
+                    ],
+                    "visibility": {
+                      "kind": "labels_any",
+                      "labels": [
+                        "dungeonbuddy.visibility:gm"
+                      ]
+                    },
+                    "epistemic_basis": "asserted",
+                    "claim_mode": "dungeonbuddy.claim:fact",
+                    "standing": "provisional",
+                    "temporal_scope": {
+                      "kind": "timeless",
+                      "valid_from": null,
+                      "valid_until": null,
+                      "schema_term": null,
+                      "payload": null
+                    },
+                    "domain_metadata": []
+                  }
+                },
+                {
+                  "field": "description",
+                  "index": null,
+                  "metadata": {
+                    "evidence_ref_ids": [
+                      "ev:synthetic-legacy-support"
+                    ],
+                    "visibility": {
+                      "kind": "labels_any",
+                      "labels": [
+                        "dungeonbuddy.visibility:gm"
+                      ]
+                    },
+                    "epistemic_basis": "asserted",
+                    "claim_mode": "dungeonbuddy.claim:fact",
+                    "standing": "provisional",
+                    "temporal_scope": {
+                      "kind": "timeless",
+                      "valid_from": null,
+                      "valid_until": null,
+                      "schema_term": null,
+                      "payload": null
+                    },
+                    "domain_metadata": []
+                  }
+                }
+              ],
+              "metadata": null
+            },
+            {
+              "kind": "beat",
+              "record_id": "synthetic-source-excerpt",
+              "action": "create",
+              "entity_id": null,
+              "facts": [
+                {
+                  "field": "summary",
+                  "index": null,
+                  "metadata": {
+                    "evidence_ref_ids": [
+                      "ev:synthetic-legacy-support"
+                    ],
+                    "visibility": {
+                      "kind": "labels_any",
+                      "labels": [
+                        "dungeonbuddy.visibility:gm"
+                      ]
+                    },
+                    "epistemic_basis": "asserted",
+                    "claim_mode": "dungeonbuddy.claim:fact",
+                    "standing": "provisional",
+                    "temporal_scope": {
+                      "kind": "timeless",
+                      "valid_from": null,
+                      "valid_until": null,
+                      "schema_term": null,
+                      "payload": null
+                    },
+                    "domain_metadata": []
+                  }
+                }
+              ],
+              "metadata": null
+            }
+          ],
+          "campaign_id": "synthetic-campaign",
+          "source_admission_run_id": "synthetic-admission"
+        },
+        "prepared_change_id": "recap-review:synthetic-legacy",
+        "prepared_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "expires_at": "2026-01-01T00:00:00Z"
+      },
+      "token": "v1.eyJiaW5kaW5nIjp7ImJpbmRpbmdfdmVyc2lvbiI6MywibmF0aXZlX3dvcmxkX2lkIjoic3ludGhldGljLW5hdGl2ZS13b3JsZCJ9LCJleHBpcmVzX2F0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwYXJlbnRfY29udGV4dCI6eyJyZXZpc2lvbl9pZCI6InJldjpzeW50aGV0aWMtcGFyZW50Iiwic291cmNlX2Vwb2NoIjoyfSwicHJlcGFyZWRfY2hhbmdlX2lkIjoicmVjYXAtcmV2aWV3OnN5bnRoZXRpYy1sZWdhY3kiLCJwcmVwYXJlZF9kaWdlc3QiOiJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiIiwicHJpbmNpcGFsIjoic3ludGhldGljLW9wZXJhdG9yIiwicHJvZHVjZXIiOiJkdW5nZW9uYnVkZHk6cmV2aWV3ZWQtcmVjYXAiLCJwdXJwb3NlIjoiZG1iX25hdGl2ZV9yZWNhcF9jb25maXJtX3YxIiwicmV2aWV3Ijp7ImNhbXBhaWduX2lkIjoic3ludGhldGljLWNhbXBhaWduIiwiY2FuZGlkYXRlX3NoYTI1NiI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLCJleHBlY3RlZF9wYXJlbnRfcmV2aXNpb25faWQiOiJyZXY6c3ludGhldGljLXBhcmVudCIsImV4cGVjdGVkX3J1bl9yZXZpc2lvbiI6NSwiZXhwZWN0ZWRfc291cmNlX2F1dGhvcml0eV9lcG9jaCI6MiwibWFuYWdlZF93b3JsZF9pZCI6InN5bnRoZXRpYy1tYW5hZ2VkLXdvcmxkIiwicnVuX2lkIjoic3ludGhldGljLXJldGFpbmVkLXJ1biIsInNlbGVjdGlvbnMiOlt7ImFjdGlvbiI6ImNyZWF0ZSIsImVudGl0eV9pZCI6bnVsbCwiZmFjdHMiOlt7ImZpZWxkIjoibGFiZWwiLCJpbmRleCI6bnVsbCwibWV0YWRhdGEiOnsiY2xhaW1fbW9kZSI6ImR1bmdlb25idWRkeS5jbGFpbTpmYWN0IiwiZG9tYWluX21ldGFkYXRhIjpbXSwiZXBpc3RlbWljX2Jhc2lzIjoiYXNzZXJ0ZWQiLCJldmlkZW5jZV9yZWZfaWRzIjpbImV2OnN5bnRoZXRpYy1sZWdhY3ktc3VwcG9ydCJdLCJzdGFuZGluZyI6InByb3Zpc2lvbmFsIiwidGVtcG9yYWxfc2NvcGUiOnsia2luZCI6InRpbWVsZXNzIiwicGF5bG9hZCI6bnVsbCwic2NoZW1hX3Rlcm0iOm51bGwsInZhbGlkX2Zyb20iOm51bGwsInZhbGlkX3VudGlsIjpudWxsfSwidmlzaWJpbGl0eSI6eyJraW5kIjoibGFiZWxzX2FueSIsImxhYmVscyI6WyJkdW5nZW9uYnVkZHkudmlzaWJpbGl0eTpnbSJdfX19LHsiZmllbGQiOiJub2RlX3R5cGUiLCJpbmRleCI6bnVsbCwibWV0YWRhdGEiOnsiY2xhaW1fbW9kZSI6ImR1bmdlb25idWRkeS5jbGFpbTpmYWN0IiwiZG9tYWluX21ldGFkYXRhIjpbXSwiZXBpc3RlbWljX2Jhc2lzIjoiYXNzZXJ0ZWQiLCJldmlkZW5jZV9yZWZfaWRzIjpbImV2OnN5bnRoZXRpYy1sZWdhY3ktc3VwcG9ydCJdLCJzdGFuZGluZyI6InByb3Zpc2lvbmFsIiwidGVtcG9yYWxfc2NvcGUiOnsia2luZCI6InRpbWVsZXNzIiwicGF5bG9hZCI6bnVsbCwic2NoZW1hX3Rlcm0iOm51bGwsInZhbGlkX2Zyb20iOm51bGwsInZhbGlkX3VudGlsIjpudWxsfSwidmlzaWJpbGl0eSI6eyJraW5kIjoibGFiZWxzX2FueSIsImxhYmVscyI6WyJkdW5nZW9uYnVkZHkudmlzaWJpbGl0eTpnbSJdfX19LHsiZmllbGQiOiJkZXNjcmlwdGlvbiIsImluZGV4IjpudWxsLCJtZXRhZGF0YSI6eyJjbGFpbV9tb2RlIjoiZHVuZ2VvbmJ1ZGR5LmNsYWltOmZhY3QiLCJkb21haW5fbWV0YWRhdGEiOltdLCJlcGlzdGVtaWNfYmFzaXMiOiJhc3NlcnRlZCIsImV2aWRlbmNlX3JlZl9pZHMiOlsiZXY6c3ludGhldGljLWxlZ2FjeS1zdXBwb3J0Il0sInN0YW5kaW5nIjoicHJvdmlzaW9uYWwiLCJ0ZW1wb3JhbF9zY29wZSI6eyJraW5kIjoidGltZWxlc3MiLCJwYXlsb2FkIjpudWxsLCJzY2hlbWFfdGVybSI6bnVsbCwidmFsaWRfZnJvbSI6bnVsbCwidmFsaWRfdW50aWwiOm51bGx9LCJ2aXNpYmlsaXR5Ijp7ImtpbmQiOiJsYWJlbHNfYW55IiwibGFiZWxzIjpbImR1bmdlb25idWRkeS52aXNpYmlsaXR5OmdtIl19fX1dLCJraW5kIjoibm9kZSIsIm1ldGFkYXRhIjpudWxsLCJyZWNvcmRfaWQiOiJzeW50aGV0aWMtbm9kZSJ9LHsiYWN0aW9uIjoiY3JlYXRlIiwiZW50aXR5X2lkIjpudWxsLCJmYWN0cyI6W3siZmllbGQiOiJzdW1tYXJ5IiwiaW5kZXgiOm51bGwsIm1ldGFkYXRhIjp7ImNsYWltX21vZGUiOiJkdW5nZW9uYnVkZHkuY2xhaW06ZmFjdCIsImRvbWFpbl9tZXRhZGF0YSI6W10sImVwaXN0ZW1pY19iYXNpcyI6ImFzc2VydGVkIiwiZXZpZGVuY2VfcmVmX2lkcyI6WyJldjpzeW50aGV0aWMtbGVnYWN5LXN1cHBvcnQiXSwic3RhbmRpbmciOiJwcm92aXNpb25hbCIsInRlbXBvcmFsX3Njb3BlIjp7ImtpbmQiOiJ0aW1lbGVzcyIsInBheWxvYWQiOm51bGwsInNjaGVtYV90ZXJtIjpudWxsLCJ2YWxpZF9mcm9tIjpudWxsLCJ2YWxpZF91bnRpbCI6bnVsbH0sInZpc2liaWxpdHkiOnsia2luZCI6ImxhYmVsc19hbnkiLCJsYWJlbHMiOlsiZHVuZ2VvbmJ1ZGR5LnZpc2liaWxpdHk6Z20iXX19fV0sImtpbmQiOiJiZWF0IiwibWV0YWRhdGEiOm51bGwsInJlY29yZF9pZCI6InN5bnRoZXRpYy1zb3VyY2UtZXhjZXJwdCJ9XSwic291cmNlX2FkbWlzc2lvbl9ydW5faWQiOiJzeW50aGV0aWMtYWRtaXNzaW9uIn19.499208f7f941af2555d627a25d0236b397d638771fc1efd1121d54071d4d1cbe"
+    },
+    "worldbuilding": {
+      "envelope": {
+        "purpose": "dmb_native_worldbuilding_confirm_v1",
+        "producer": "dungeonbuddy:reviewed-worldbuilding",
+        "principal": "synthetic-operator",
+        "binding": {
+          "native_world_id": "synthetic-native-world",
+          "binding_version": 3
+        },
+        "parent_context": {
+          "revision_id": "rev:synthetic-parent",
+          "source_epoch": 2
+        },
+        "review": {
+          "managed_world_id": "synthetic-managed-world",
+          "run_id": "synthetic-retained-run",
+          "expected_run_revision": 5,
+          "candidate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expected_parent_revision_id": "rev:synthetic-parent",
+          "expected_source_authority_epoch": 2,
+          "selections": [
+            {
+              "kind": "node",
+              "record_id": "synthetic-node",
+              "action": "create",
+              "entity_id": null,
+              "facts": [
+                {
+                  "field": "label",
+                  "index": null,
+                  "metadata": {
+                    "evidence_ref_ids": [
+                      "ev:synthetic-legacy-support"
+                    ],
+                    "visibility": {
+                      "kind": "labels_any",
+                      "labels": [
+                        "dungeonbuddy.visibility:gm"
+                      ]
+                    },
+                    "epistemic_basis": "asserted",
+                    "claim_mode": "dungeonbuddy.claim:fact",
+                    "standing": "provisional",
+                    "temporal_scope": {
+                      "kind": "timeless",
+                      "valid_from": null,
+                      "valid_until": null,
+                      "schema_term": null,
+                      "payload": null
+                    },
+                    "domain_metadata": []
+                  }
+                },
+                {
+                  "field": "node_type",
+                  "index": null,
+                  "metadata": {
+                    "evidence_ref_ids": [
+                      "ev:synthetic-legacy-support"
+                    ],
+                    "visibility": {
+                      "kind": "labels_any",
+                      "labels": [
+                        "dungeonbuddy.visibility:gm"
+                      ]
+                    },
+                    "epistemic_basis": "asserted",
+                    "claim_mode": "dungeonbuddy.claim:fact",
+                    "standing": "provisional",
+                    "temporal_scope": {
+                      "kind": "timeless",
+                      "valid_from": null,
+                      "valid_until": null,
+                      "schema_term": null,
+                      "payload": null
+                    },
+                    "domain_metadata": []
+                  }
+                },
+                {
+                  "field": "description",
+                  "index": null,
+                  "metadata": {
+                    "evidence_ref_ids": [
+                      "ev:synthetic-legacy-support"
+                    ],
+                    "visibility": {
+                      "kind": "labels_any",
+                      "labels": [
+                        "dungeonbuddy.visibility:gm"
+                      ]
+                    },
+                    "epistemic_basis": "asserted",
+                    "claim_mode": "dungeonbuddy.claim:fact",
+                    "standing": "provisional",
+                    "temporal_scope": {
+                      "kind": "timeless",
+                      "valid_from": null,
+                      "valid_until": null,
+                      "schema_term": null,
+                      "payload": null
+                    },
+                    "domain_metadata": []
+                  }
+                }
+              ],
+              "metadata": null
+            },
+            {
+              "kind": "beat",
+              "record_id": "synthetic-source-excerpt",
+              "action": "create",
+              "entity_id": null,
+              "facts": [
+                {
+                  "field": "summary",
+                  "index": null,
+                  "metadata": {
+                    "evidence_ref_ids": [
+                      "ev:synthetic-legacy-support"
+                    ],
+                    "visibility": {
+                      "kind": "labels_any",
+                      "labels": [
+                        "dungeonbuddy.visibility:gm"
+                      ]
+                    },
+                    "epistemic_basis": "asserted",
+                    "claim_mode": "dungeonbuddy.claim:fact",
+                    "standing": "provisional",
+                    "temporal_scope": {
+                      "kind": "timeless",
+                      "valid_from": null,
+                      "valid_until": null,
+                      "schema_term": null,
+                      "payload": null
+                    },
+                    "domain_metadata": []
+                  }
+                }
+              ],
+              "metadata": null
+            }
+          ],
+          "workspace_document_id": "synthetic-document",
+          "workspace_document_revision": 1
+        },
+        "prepared_change_id": "worldbuilding-review:synthetic-legacy",
+        "prepared_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "expires_at": "2026-01-01T00:00:00Z"
+      },
+      "token": "v1.eyJiaW5kaW5nIjp7ImJpbmRpbmdfdmVyc2lvbiI6MywibmF0aXZlX3dvcmxkX2lkIjoic3ludGhldGljLW5hdGl2ZS13b3JsZCJ9LCJleHBpcmVzX2F0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwYXJlbnRfY29udGV4dCI6eyJyZXZpc2lvbl9pZCI6InJldjpzeW50aGV0aWMtcGFyZW50Iiwic291cmNlX2Vwb2NoIjoyfSwicHJlcGFyZWRfY2hhbmdlX2lkIjoid29ybGRidWlsZGluZy1yZXZpZXc6c3ludGhldGljLWxlZ2FjeSIsInByZXBhcmVkX2RpZ2VzdCI6ImJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmIiLCJwcmluY2lwYWwiOiJzeW50aGV0aWMtb3BlcmF0b3IiLCJwcm9kdWNlciI6ImR1bmdlb25idWRkeTpyZXZpZXdlZC13b3JsZGJ1aWxkaW5nIiwicHVycG9zZSI6ImRtYl9uYXRpdmVfd29ybGRidWlsZGluZ19jb25maXJtX3YxIiwicmV2aWV3Ijp7ImNhbmRpZGF0ZV9zaGEyNTYiOiJhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhIiwiZXhwZWN0ZWRfcGFyZW50X3JldmlzaW9uX2lkIjoicmV2OnN5bnRoZXRpYy1wYXJlbnQiLCJleHBlY3RlZF9ydW5fcmV2aXNpb24iOjUsImV4cGVjdGVkX3NvdXJjZV9hdXRob3JpdHlfZXBvY2giOjIsIm1hbmFnZWRfd29ybGRfaWQiOiJzeW50aGV0aWMtbWFuYWdlZC13b3JsZCIsInJ1bl9pZCI6InN5bnRoZXRpYy1yZXRhaW5lZC1ydW4iLCJzZWxlY3Rpb25zIjpbeyJhY3Rpb24iOiJjcmVhdGUiLCJlbnRpdHlfaWQiOm51bGwsImZhY3RzIjpbeyJmaWVsZCI6ImxhYmVsIiwiaW5kZXgiOm51bGwsIm1ldGFkYXRhIjp7ImNsYWltX21vZGUiOiJkdW5nZW9uYnVkZHkuY2xhaW06ZmFjdCIsImRvbWFpbl9tZXRhZGF0YSI6W10sImVwaXN0ZW1pY19iYXNpcyI6ImFzc2VydGVkIiwiZXZpZGVuY2VfcmVmX2lkcyI6WyJldjpzeW50aGV0aWMtbGVnYWN5LXN1cHBvcnQiXSwic3RhbmRpbmciOiJwcm92aXNpb25hbCIsInRlbXBvcmFsX3Njb3BlIjp7ImtpbmQiOiJ0aW1lbGVzcyIsInBheWxvYWQiOm51bGwsInNjaGVtYV90ZXJtIjpudWxsLCJ2YWxpZF9mcm9tIjpudWxsLCJ2YWxpZF91bnRpbCI6bnVsbH0sInZpc2liaWxpdHkiOnsia2luZCI6ImxhYmVsc19hbnkiLCJsYWJlbHMiOlsiZHVuZ2VvbmJ1ZGR5LnZpc2liaWxpdHk6Z20iXX19fSx7ImZpZWxkIjoibm9kZV90eXBlIiwiaW5kZXgiOm51bGwsIm1ldGFkYXRhIjp7ImNsYWltX21vZGUiOiJkdW5nZW9uYnVkZHkuY2xhaW06ZmFjdCIsImRvbWFpbl9tZXRhZGF0YSI6W10sImVwaXN0ZW1pY19iYXNpcyI6ImFzc2VydGVkIiwiZXZpZGVuY2VfcmVmX2lkcyI6WyJldjpzeW50aGV0aWMtbGVnYWN5LXN1cHBvcnQiXSwic3RhbmRpbmciOiJwcm92aXNpb25hbCIsInRlbXBvcmFsX3Njb3BlIjp7ImtpbmQiOiJ0aW1lbGVzcyIsInBheWxvYWQiOm51bGwsInNjaGVtYV90ZXJtIjpudWxsLCJ2YWxpZF9mcm9tIjpudWxsLCJ2YWxpZF91bnRpbCI6bnVsbH0sInZpc2liaWxpdHkiOnsia2luZCI6ImxhYmVsc19hbnkiLCJsYWJlbHMiOlsiZHVuZ2VvbmJ1ZGR5LnZpc2liaWxpdHk6Z20iXX19fSx7ImZpZWxkIjoiZGVzY3JpcHRpb24iLCJpbmRleCI6bnVsbCwibWV0YWRhdGEiOnsiY2xhaW1fbW9kZSI6ImR1bmdlb25idWRkeS5jbGFpbTpmYWN0IiwiZG9tYWluX21ldGFkYXRhIjpbXSwiZXBpc3RlbWljX2Jhc2lzIjoiYXNzZXJ0ZWQiLCJldmlkZW5jZV9yZWZfaWRzIjpbImV2OnN5bnRoZXRpYy1sZWdhY3ktc3VwcG9ydCJdLCJzdGFuZGluZyI6InByb3Zpc2lvbmFsIiwidGVtcG9yYWxfc2NvcGUiOnsia2luZCI6InRpbWVsZXNzIiwicGF5bG9hZCI6bnVsbCwic2NoZW1hX3Rlcm0iOm51bGwsInZhbGlkX2Zyb20iOm51bGwsInZhbGlkX3VudGlsIjpudWxsfSwidmlzaWJpbGl0eSI6eyJraW5kIjoibGFiZWxzX2FueSIsImxhYmVscyI6WyJkdW5nZW9uYnVkZHkudmlzaWJpbGl0eTpnbSJdfX19XSwia2luZCI6Im5vZGUiLCJtZXRhZGF0YSI6bnVsbCwicmVjb3JkX2lkIjoic3ludGhldGljLW5vZGUifSx7ImFjdGlvbiI6ImNyZWF0ZSIsImVudGl0eV9pZCI6bnVsbCwiZmFjdHMiOlt7ImZpZWxkIjoic3VtbWFyeSIsImluZGV4IjpudWxsLCJtZXRhZGF0YSI6eyJjbGFpbV9tb2RlIjoiZHVuZ2VvbmJ1ZGR5LmNsYWltOmZhY3QiLCJkb21haW5fbWV0YWRhdGEiOltdLCJlcGlzdGVtaWNfYmFzaXMiOiJhc3NlcnRlZCIsImV2aWRlbmNlX3JlZl9pZHMiOlsiZXY6c3ludGhldGljLWxlZ2FjeS1zdXBwb3J0Il0sInN0YW5kaW5nIjoicHJvdmlzaW9uYWwiLCJ0ZW1wb3JhbF9zY29wZSI6eyJraW5kIjoidGltZWxlc3MiLCJwYXlsb2FkIjpudWxsLCJzY2hlbWFfdGVybSI6bnVsbCwidmFsaWRfZnJvbSI6bnVsbCwidmFsaWRfdW50aWwiOm51bGx9LCJ2aXNpYmlsaXR5Ijp7ImtpbmQiOiJsYWJlbHNfYW55IiwibGFiZWxzIjpbImR1bmdlb25idWRkeS52aXNpYmlsaXR5OmdtIl19fX1dLCJraW5kIjoiYmVhdCIsIm1ldGFkYXRhIjpudWxsLCJyZWNvcmRfaWQiOiJzeW50aGV0aWMtc291cmNlLWV4Y2VycHQifV0sIndvcmtzcGFjZV9kb2N1bWVudF9pZCI6InN5bnRoZXRpYy1kb2N1bWVudCIsIndvcmtzcGFjZV9kb2N1bWVudF9yZXZpc2lvbiI6MX19.c06267430e7262f940dece57f0330361642ce8c772dc282b05f8d794e952993d"
+    }
+  }
+}

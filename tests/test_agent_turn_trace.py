@@ -427,3 +427,296 @@ def test_truncated_complete_calls_mark_usage_and_cost_partial() -> None:
     assert trace["cost"]["status"] == "partial"
     assert trace["usage"]["observed_model_call_count"] == 65
     assert trace["usage"]["model_call_count"] == 2
+
+
+def test_retained_trace_allowlist_size_and_unknown_accounting():
+    from apps.live_control_server.services.agent_turn_trace import MAX_LOG_BYTES, retained_trace_payload
+    trace = AgentTurnTraceBuilder(agent_thread_id='thread', turn_id='client', runtime='test', backend='test', mode='test').finalize(status='error')
+    trace['unexpected'] = {'secret': PRIVACY_SENTINEL}
+    trace['spans'] = [{'name': 'work', 'duration_ms': 12, 'attributes': {'unexpected': PRIVACY_SENTINEL, 'count': 2}}] * 1000
+    trace['context_summary'] = {'unexpected': PRIVACY_SENTINEL, 'count': 3}
+    saved = retained_trace_payload(trace)
+    blob = 'dmb_agent_turn_trace ' + trace_json_bytes(saved)
+    assert PRIVACY_SENTINEL not in blob
+    assert len(blob.encode('utf-8')) <= MAX_LOG_BYTES
+    assert saved['retention']['complete'] is False
+    assert saved['retention']['original_spans'] == 1000
+    assert saved['usage']['model_call_count'] is None
+    assert saved['retention']['provider_accounting'] == 'unknown'
+    assert saved['spans'][0]['attributes'] == {'count': 2}
+
+
+def test_failed_log_attempt_does_not_change_response_or_repeat(monkeypatch):
+    import apps.live_control_server.services.agent_turn_trace as module
+    calls = []
+    def fail(trace):
+        calls.append(trace)
+        raise OSError('private sink unavailable')
+    monkeypatch.setattr(module, 'emit_baseline_trace_log', fail)
+    builder = AgentTurnTraceBuilder(agent_thread_id=None, turn_id='client', runtime='test', backend='test', mode='test')
+    assert builder.finalize_and_log(status='error')['status'] == 'error'
+    assert builder.finalize_and_log(status='error')['status'] == 'error'
+    assert builder.logged and len(calls) == 1
+
+
+def test_uvicorn_launch_enables_only_trace_logger_and_is_idempotent(monkeypatch):
+    import io
+    from logging.config import dictConfig
+    from uvicorn.config import LOGGING_CONFIG
+    from apps.live_control_server.services.agent_turn_trace import LOGGER, configure_turn_trace_logging
+    # Restore process logging after reproducing the real launch configuration.
+    handlers, level, propagate, disabled = list(LOGGER.handlers), LOGGER.level, LOGGER.propagate, LOGGER.disabled
+    stream = io.StringIO()
+    try:
+        dictConfig(LOGGING_CONFIG)
+        monkeypatch.setattr('sys.stdout', stream)
+        configure_turn_trace_logging()
+        configure_turn_trace_logging()
+        import asyncio
+        from types import SimpleNamespace
+        from apps.live_control_server import main
+        monkeypatch.setattr("apps.live_control_server.services.build_jev_runtime.prepare_default_build_runtime", lambda: None)
+        monkeypatch.setattr(main, "get_hermes_graph_agent_host", lambda: None)
+        monkeypatch.setattr(main, "shutdown_hermes_graph_agent_host", lambda: None)
+        async def startup():
+            async with main.lifespan(SimpleNamespace(state=SimpleNamespace())):
+                pass
+        asyncio.run(startup())
+        assert sum(bool(getattr(h, 'dmb_turn_trace', False)) for h in LOGGER.handlers) == 1
+        builder = AgentTurnTraceBuilder(agent_thread_id=None, turn_id='client', runtime='test', backend='test', mode='test')
+        builder.finalize_and_log(status='ok', observed_model_call_count=0)
+        builder.finalize_and_log(status='ok', observed_model_call_count=0)
+        lines = stream.getvalue().splitlines()
+        assert len(lines) == 1
+        assert json.loads(lines[0].removeprefix('dmb_agent_turn_trace '))['turn_id'] == 'client'
+        assert LOGGER.propagate is False
+    finally:
+        for handler in list(LOGGER.handlers):
+            if handler not in handlers:
+                handler.close()
+        LOGGER.handlers = handlers
+        LOGGER.setLevel(level)
+        LOGGER.propagate = propagate
+        LOGGER.disabled = disabled
+
+
+def test_durable_binding_is_log_only_and_preserves_client_identity(monkeypatch):
+    from types import SimpleNamespace
+    from uuid import uuid4
+    import apps.live_control_server.services.agent_turn_trace as module
+    emitted = []
+    monkeypatch.setattr(module, 'emit_baseline_trace_log', lambda trace: emitted.append(trace))
+    turn = SimpleNamespace(turn_id=uuid4(), conversation_id=uuid4(), attempt=2)
+    builder = AgentTurnTraceBuilder(agent_thread_id=None, turn_id='client', runtime='test', backend='test', mode='test')
+    builder.bind_durable_turn(turn)
+    response = builder.finalize_and_log(status='ok')
+    assert response['turn_id'] == 'client'
+    assert 'correlation' not in response
+    assert emitted[0]['correlation'] == {'durable_turn_id': str(turn.turn_id), 'conversation_id': str(turn.conversation_id), 'attempt': 2}
+
+
+def test_emitted_line_drops_unknown_metric_names_and_values(caplog):
+    builder = AgentTurnTraceBuilder(agent_thread_id="thread", turn_id="client", runtime="test", backend="test", mode="test")
+    trace = builder.finalize(status="ok", model_calls=[map_hermes_observer_to_model_call(
+        _observer_payload(api_request_id="request-1"), status="ok", sequence=1)])
+    trace["spans"] = [{"name": "read", "duration_ms": 17, "attributes": {"count": 3}}]
+    trace["context_summary"] = {"history_message_count": 4}
+    bags = [trace["usage"], trace["cost"], trace["context_summary"], trace["spans"][0]["attributes"],
+            trace["model_calls"][0]["usage"], trace["model_calls"][0]["cost"], trace["model_calls"][0]["request_summary"]]
+    for bag in bags:
+        bag["PRIVATE_PROMPT_SENTINEL_123"] = 1
+        bag["PRIVATE_CREDENTIAL_SENTINEL_456"] = True
+        bag["PRIVATE_NULL_SENTINEL_789"] = None
+        bag["unexpected"] = PRIVACY_SENTINEL
+    with caplog.at_level(logging.INFO, logger="dmb.agent.turn_trace"):
+        emit_baseline_trace_log(trace)
+    line = next(r.getMessage() for r in caplog.records if r.name == "dmb.agent.turn_trace")
+    assert "SENTINEL" not in line
+    saved = json.loads(line.removeprefix("dmb_agent_turn_trace "))
+    assert saved["usage"]["input_tokens"] == 100
+    assert saved["usage"]["cached_input_tokens"] == 0
+    assert saved["context_summary"] == {"history_message_count": 4}
+    assert saved["spans"][0]["duration_ms"] == 17
+    assert saved["spans"][0]["attributes"] == {"count": 3}
+    assert saved["model_calls"][0]["request_summary"]["message_count"] == 4
+    assert saved["retention"]["scope"] == "allowlisted_metadata"
+
+
+
+def test_unknown_optional_buckets_do_not_become_zero():
+    from apps.live_control_server.services.agent_turn_trace import retained_trace_payload
+
+    # Synthetic 11-controller + 1-writer fixture with the observed totals;
+    # it contains no source text or copied private request payloads.
+    calls = [{"usage": {"status": "reported", "input_tokens": input_count,
+        "output_tokens": output_count, "total_tokens": input_count + output_count,
+        "cached_input_tokens": None}} for input_count, output_count in
+        zip([8000] * 10 + [10241], [900] * 10 + [1441])]
+    calls.append({"usage": {"status": "reported", "input_tokens": 11766,
+        "output_tokens": 532, "total_tokens": 12298, "cached_input_tokens": 0,
+        "reasoning_tokens": 173}})
+    usage = aggregate_usage(calls)
+    assert usage["status"] == "reported"
+    assert (usage["input_tokens"], usage["output_tokens"], usage["total_tokens"]) == (102007, 10973, 112980)
+    for field in ("cached_input_tokens", "cache_write_input_tokens", "uncached_input_tokens", "reasoning_tokens"):
+        assert usage[field] is None
+    trace = retained_trace_payload({"schema": SCHEMA, "usage": usage, "model_calls": calls})
+    assert trace["usage"]["cached_input_tokens"] is None
+    assert trace["usage"]["reasoning_tokens"] is None
+    assert calls[-1]["usage"]["reasoning_tokens"] == 173
+    assert usage["model_call_count"] == 12
+
+
+def test_optional_buckets_sum_independently_and_preserve_explicit_zero():
+    calls = [{"usage": {"status": "reported", "input_tokens": 10, "output_tokens": 2,
+        "total_tokens": 12, "cached_input_tokens": 0, "reasoning_tokens": 1}},
+        {"usage": {"status": "reported", "input_tokens": 20, "output_tokens": 3,
+        "total_tokens": 23, "cached_input_tokens": 0, "reasoning_tokens": 4}}]
+    usage = aggregate_usage(calls)
+    assert usage["cached_input_tokens"] == 0
+    assert usage["reasoning_tokens"] == 5
+    assert usage["cache_write_input_tokens"] is None
+    assert usage["total_tokens"] == 35  # reasoning is informational
+    partial = aggregate_usage([*calls, {"usage": {"status": "unavailable"}}])
+    assert partial["status"] == "partial"
+    assert partial["cached_input_tokens"] == 0  # reported retained subset only
+    assert partial["usage_reported_call_count"] == 2
+    assert partial["model_call_count"] == 3
+    truncated = aggregate_usage(calls, truncated=True, observed_model_call_count=65)
+    assert truncated["status"] == "partial"
+    assert truncated["observed_model_call_count"] == 65
+    assert truncated["model_call_count"] == 2
+    assert truncated["cached_input_tokens"] == 0
+
+
+def test_invalid_aggregate_counts_are_unknown_and_never_crash():
+    for value in (None, True, False, -1, 1.2, float("nan"), float("inf"), "3", "garbage"):
+        usage = aggregate_usage([{"usage": {"status": "reported", "input_tokens": 10,
+            "output_tokens": value, "total_tokens": 12, "cached_input_tokens": value}}])
+        assert usage["output_tokens"] is None
+        assert usage["cached_input_tokens"] is None
+        assert usage["input_tokens"] == 10
+        assert usage["status"] == "partial"
+    assert aggregate_usage([])["status"] == "unavailable"
+    assert (
+        aggregate_usage([{"usage": {"status": "unavailable"}}])["input_tokens"] is None
+    )
+
+
+def test_captured_error_accounting_is_immutable_private_and_explicitly_overridable():
+    from apps.live_control_server.services.agent_turn_trace import (
+        retained_trace_payload,
+    )
+
+    known = map_hermes_observer_to_model_call(
+        _observer_payload(api_request_id="prior"), status="ok", sequence=1
+    )
+    unknown = map_hermes_observer_to_model_call(
+        _observer_payload(api_request_id="tail", usage={}), status="error", sequence=2
+    )
+    unknown["usage"] = {"status": "unavailable"}
+    unknown["cost"] = {"status": "unavailable", "usd": None}
+    known["headers"] = {"authorization": PRIVACY_SENTINEL}
+    builder = AgentTurnTraceBuilder(
+        agent_thread_id=None,
+        turn_id="client",
+        runtime="test",
+        backend="test",
+        mode="test",
+    )
+    builder.capture_accounting(
+        model_calls=[known, unknown],
+        extra_warnings=["observed_warning", PRIVACY_SENTINEL + " private prompt"],
+        observed_model_call_count=2,
+    )
+    known["usage"]["input_tokens"] = 999999
+    assert PRIVACY_SENTINEL not in repr(builder._captured_accounting)
+    trace = retained_trace_payload(builder.finalize(status="error"))
+    assert len(trace["model_calls"]) == 2
+    assert trace["usage"]["input_tokens"] == 100
+    assert trace["usage"]["status"] == "partial"
+    assert trace["cost"]["status"] == "partial"
+    builder = AgentTurnTraceBuilder(
+        agent_thread_id=None,
+        turn_id="client",
+        runtime="test",
+        backend="test",
+        mode="test",
+    )
+    builder.capture_accounting(
+        model_calls=[unknown],
+        extra_warnings=["observed_warning"],
+        observed_model_call_count=1,
+    )
+    empty = builder.finalize(status="ok", model_calls=[], observed_model_call_count=0)
+    assert empty["model_calls"] == []
+    assert empty["usage"]["model_call_count"] == 0
+    assert "observed_warning" not in empty["warnings"]
+
+
+def test_captured_accounting_retains_count_when_details_are_capped():
+    known = map_hermes_observer_to_model_call(
+        _observer_payload(api_request_id="synthetic"), status="ok", sequence=1
+    )
+    builder = AgentTurnTraceBuilder(
+        agent_thread_id=None, turn_id="client", runtime="test", backend="test", mode="test"
+    )
+    builder.capture_accounting(model_calls=[known] * 500, observed_model_call_count=500)
+    saved = builder.finalize(status="error")
+    assert len(saved["model_calls"]) < 500
+    assert saved["usage"]["model_call_count"] == len(saved["model_calls"])
+    assert saved["usage"]["observed_model_call_count"] == 500
+    assert saved["usage"]["status"] == "partial"
+    assert saved["cost"]["status"] == "partial"
+    assert "model_calls_truncated" in saved["warnings"]
+
+
+def test_known_unpriced_cache_writes_are_retained_without_a_misleading_cost():
+    usage = normalize_model_call_usage(_hermes_usage(uncached=700,cache_read=100,cache_write=200,output=10))
+    assert usage["input_tokens"] == 1000
+    assert usage["cache_write_input_tokens"] == 200
+    assert usage["uncached_input_tokens"] == 700
+    cost = estimate_model_call_cost(model="gpt-6-luna",usage=usage)
+    assert cost["status"] == "unavailable"
+    assert cost["pricing_table_matched"] is True
+    assert "usd" not in cost
+
+
+def test_unpriced_write_call_makes_aggregate_cost_partial_not_zero_complete():
+    first = map_hermes_observer_to_model_call(
+        _observer_payload(api_request_id="writes",usage=_hermes_usage(cache_write=200)),
+        status="ok",sequence=1,
+    )
+    second = map_hermes_observer_to_model_call(
+        _observer_payload(api_request_id="no-writes",usage=_hermes_usage(cache_write=0)),
+        status="ok",sequence=2,
+    )
+    usage = aggregate_usage([first,second])
+    assert usage["cache_write_input_tokens"] == 200
+    cost = aggregate_cost([first,second])
+    assert cost["status"] == "partial"
+
+
+def test_cumulative_host_work_counts_failures_and_keeps_nested_totals_inclusive(monkeypatch):
+    import pytest
+    from apps.live_control_server.services import agent_turn_trace as module
+    trace = AgentTurnTraceBuilder(agent_thread_id=None, turn_id=None, runtime="test", backend="test", mode="test")
+    ticks = iter((0., 1., 2., 4., 5., 8.))
+    monkeypatch.setattr(module.time, "monotonic", lambda: next(ticks))
+    with trace.measure_host_work("retrieval_selection_apply"):
+        with trace.measure_host_work("native_source_append"):
+            pass
+    failure = ConnectionError("private diagnostic detail")
+    with pytest.raises(ConnectionError) as caught:
+        with trace.measure_host_work("retrieval_selection_apply"):
+            raise failure
+    assert caught.value is failure
+    spans = {span["name"]: span for span in trace.spans}
+    outer = spans["retrieval_selection_apply"]
+    assert outer["kind"] == "cumulative" and outer["duration_ms"] == 7000.
+    assert outer["status"] == "error"
+    assert outer["attributes"] == {"count": 2, "error_count": 1, "max_duration_ms": 4000.}
+    assert spans["native_source_append"]["duration_ms"] == 1000.
+    retained = module.retained_trace_payload({"spans": trace.spans})
+    assert retained["spans"][1]["attributes"] == outer["attributes"]
+    assert "private diagnostic detail" not in json.dumps(retained)

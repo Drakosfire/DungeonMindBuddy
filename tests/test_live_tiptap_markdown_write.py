@@ -1,3 +1,4 @@
+from tests.page_fixtures import create_page_fixture
 from pathlib import Path
 
 import pytest
@@ -302,8 +303,8 @@ def test_world_plan_write_is_bound_to_exact_world_before_prepare_and_commit(
         create_world_owned_plan_v2,
     )
 
-    world_a = create_world_container(tmp_path, name="World A")
-    world_b = create_world_container(tmp_path, name="World B")
+    world_a = create_world_container(name="World A")
+    world_b = create_world_container(name="World B")
     plan = create_world_owned_plan_v2(
         tmp_path, world_id=world_a.world_id, title="A Plan"
     )
@@ -375,11 +376,8 @@ def test_eval_prepare_diagnostics_do_not_treat_file_as_authority(tmp_path: Path)
 
 
 def test_omitted_write_mode_remains_authoring_for_worldbuilding(tmp_path: Path):
-    from apps.live_control_server.services.workspace_document_registry import (
-        create_workspace_document,
-    )
 
-    record = create_workspace_document(
+    record = create_page_fixture(
         tmp_path,
         title="Legacy",
         campaign_id="eldyrwild",
@@ -400,12 +398,11 @@ def test_omitted_write_mode_remains_authoring_for_worldbuilding(tmp_path: Path):
 
 
 def test_source_import_write_mode_threads_through_prepare_commit(tmp_path: Path):
-    from apps.live_control_server.services.workspace_document_registry import (
-        create_workspace_document,
-    )
 
-    (tmp_path / "corpus" / "eldyrwild-markdown").mkdir(parents=True)
-    record = create_workspace_document(
+    from apps.live_control_server.services.world_container_registry import create_world_container
+    create_world_container(name="Eldyrwild")
+    assert not (tmp_path / "corpus" / "eldyrwild-markdown").exists()
+    record = create_page_fixture(
         tmp_path,
         title="Imported",
         campaign_id="longmont-c2",
@@ -438,6 +435,8 @@ def test_source_import_write_mode_threads_through_prepare_commit(tmp_path: Path)
         ),
     )
     assert response.writer_ok is True
-    assert (tmp_path / (record.target_relpath or "")).read_text(
-        encoding="utf-8"
-    ) == markdown
+    from apps.live_control_server.services.workspace_document_registry import get_committed_page_snapshot
+    assert get_committed_page_snapshot(tmp_path, record.document_id).markdown == markdown
+    assert not list(tmp_path.rglob("*.md"))
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

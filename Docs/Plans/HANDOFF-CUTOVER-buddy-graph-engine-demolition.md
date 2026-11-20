@@ -1636,7 +1636,6 @@ workflows; they are not UnionSupergraphStore loads):
 
 ```text
 GET  /api/live/graph-preview/artifacts
-GET  /api/live/graph-preview/runs
 GET  /api/live/graph-preview/latest
 GET  /api/live/graph-preview/graph-ingest/runs
 GET  /api/live/graph-preview/graph-ingest/latest
@@ -1644,9 +1643,6 @@ GET  /api/live/graph-preview/extraction-runs/{run_id}
 GET  /api/live/graph-preview/extraction-runs/{run_id}/build-context
 POST /api/live/graph-preview/extraction-runs
 POST /api/live/graph-preview/existing-object-resolver/candidates
-POST /api/live/graph-preview/gold-authoring/prepare
-POST /api/live/graph-preview/gold-authoring/commit
-POST /api/live/graph-preview/gold-authoring/verify-commit
 GET  /api/live/graph-preview/gold-review/sessions
 GET  /api/live/graph-preview/gold-review/compare
 GET  /api/live/graph-preview/gold-review/evidence
@@ -1656,6 +1652,8 @@ GET  /api/live/graph-preview/manual-review/beds
 GET  /api/live/graph-preview/manual-review/beds/{bed_id}
 GET  /api/live/graph-preview/recap
 ```
+
+The unbounded `GET /api/live/graph-preview/runs` catalog is removed by the 2026-10-20 read-efficiency slice (Buddy PR #1520): no current UI client consumes it, and exact-run review plus `/latest` remain available. This supersedes the earlier keep-list entry; do not restore the catalog.
 
 Required module splits so the retained router is import-block-safe:
 
@@ -1762,9 +1760,11 @@ After D.2C4, those prepare/commit handlers must be import-block-safe
 (`WorldGraphAuthority` only). D.3A's static gate treats them as mounted
 REWRITE_PORT survivors, not FAIL_CLOSED.
 
-Gold-authoring under `/api/live/graph-preview/gold-authoring/*` is fixture
-JSON preview, not the UnionSupergraph file writer. It stays mounted unless
-inventory proves a retired-namespace import on the boot graph.
+The subsequent ingestion-demolition scope removes
+`/api/live/graph-preview/gold-authoring/*` and its fixture mutation services.
+Evaluation fixtures belong to evaluator tooling. Read-only gold comparison,
+local proposal notes and native reviewed authoring remain separate; this
+supersedes the earlier requirement to retain the fixture writer.
 
 #### 6.1.5 World-graph-bootstrap — 410, not unmount
 

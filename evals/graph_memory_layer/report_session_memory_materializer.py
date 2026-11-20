@@ -4,8 +4,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from src.graph_memory.report import render_graph_report_markdown
-from src.graph_memory.session_memory_materialize import (
+from graph_memory.report import render_graph_report_markdown
+from graph_memory.session_memory_materialize import (
     load_session_memory_jsonl,
     materialize_validate_and_report_session_memory,
     session_memory_coverage,

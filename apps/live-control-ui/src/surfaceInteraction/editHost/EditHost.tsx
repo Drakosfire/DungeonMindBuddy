@@ -54,8 +54,8 @@ function targetsMatch(
   return left.kind === right.kind && left.id === right.id;
 }
 
-function layoutDefaultOpen(layout: "overlay" | "dock"): boolean {
-  return layout === "dock";
+function layoutDefaultOpen(layout: "overlay" | "dock", surfaceId: string | null): boolean {
+  return layout === "dock" && surfaceId !== "plan" && surfaceId !== "build";
 }
 
 function mergeGroupsWithPanels(
@@ -75,6 +75,7 @@ function mergeGroupsWithPanels(
     );
     if (existing) {
       existing.panel = attachment.panel;
+      if (attachment.groupDefaultOpen !== undefined) existing.groupDefaultOpen = attachment.groupDefaultOpen;
       continue;
     }
     merged.push({
@@ -122,7 +123,7 @@ export function EditHost({
     : [];
   const hasInventory = matchingCommands.length > 0 || matchingPanels.length > 0;
 
-  const defaultOpen = layoutDefaultOpen(layout);
+  const defaultOpen = layoutDefaultOpen(layout, identity?.surfaceId ?? null);
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const toggleRef = useRef<HTMLButtonElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
@@ -189,6 +190,8 @@ export function EditHost({
     if (!isOpen || !hasInventory) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
+      // Native top-layer dialogs own Escape; leave the underlying drawer intact.
+      if (event.target instanceof Element && event.target.closest("dialog[open][data-native-escape-owner]")) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       setHostOpen(false, "dismiss");

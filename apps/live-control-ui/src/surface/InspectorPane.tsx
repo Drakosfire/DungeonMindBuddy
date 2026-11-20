@@ -38,15 +38,22 @@ function isReadableTargetType(
 
 export function InspectorPane({ state, onClose, onCommandAccepted }: InspectorPaneProps) {
   const [readState, setReadState] = useState<InspectorReadState>({ status: "idle" });
+  const isOpen = state.status === "open";
+  const target = isOpen ? state.target : null;
+  const targetType = target?.target_type;
+  const targetId = target?.target_id;
 
   useEffect(() => {
-    if (state.status === "closed" || state.target == null) {
+    const request = isOpen && targetType !== undefined && targetId !== undefined
+      ? { target_type: targetType, target_id: targetId }
+      : null;
+    if (!request) {
       setReadState({ status: "idle" });
       return;
     }
-    const target = state.target;
+    const selectedRequest = request;
 
-    if (!isReadableTargetType(target.target_type)) {
+    if (!isReadableTargetType(selectedRequest.target_type)) {
       setReadState({
         status: "unsupported",
         message: "Read renderer not implemented for this target type yet.",
@@ -59,14 +66,8 @@ export function InspectorPane({ state, onClose, onCommandAccepted }: InspectorPa
       setReadState({ status: "loading" });
       try {
         const [artifact, capabilities] = await Promise.all([
-          getArtifact({
-            target_type: target.target_type,
-            target_id: target.target_id,
-          }),
-          getCapabilities({
-            target_type: target.target_type,
-            target_id: target.target_id,
-          }),
+          getArtifact(selectedRequest),
+          getCapabilities(selectedRequest),
         ]);
         if (!cancelled) {
           setReadState({ status: "ready", artifact, capabilities });
@@ -83,7 +84,7 @@ export function InspectorPane({ state, onClose, onCommandAccepted }: InspectorPa
     return () => {
       cancelled = true;
     };
-  }, [state]);
+  }, [isOpen, targetId, targetType]);
 
   async function handleSubmitCommand(command: ProjectionCommand): Promise<ProjectionWriteResult> {
     return postCommand(command);

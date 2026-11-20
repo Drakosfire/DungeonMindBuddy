@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.application_state.session_encounter_helpers import session_request
+
 import json
 from pathlib import Path
 
@@ -476,21 +478,15 @@ def test_world_play_run_is_not_campaign_product_continuity_inventory(
         create_world_play_run,
         list_play_run_aggregates,
     )
-    from tests.application_state.play_runtime_helpers import SOURCE_MARKDOWN
+    from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN
 
     created = create_world_runbook(title="Inventory World Runbook", world_id="inventory-world")
     work_object, revision = commit_runbook(
         str(created.work_object_id),
-        SOURCE_MARKDOWN,
+        V2_SOURCE_MARKDOWN,
         expected_revision=created.object_revision,
     )
-    world_run = create_world_play_run(
-        world_id="inventory-world",
-        run_id="abababab-abab-4bab-8bab-abababababab",
-        playable_artifact_id=work_object.work_object_id,
-        expected_playable_revision=revision.revision_n,
-        expected_playable_content_sha256=revision.content_sha256,
-    )
+    world_run = create_world_play_run(world_id="inventory-world", run_id="abababab-abab-4bab-8bab-abababababab", request=session_request(world_id="inventory-world", playable_artifact_id=work_object.work_object_id, expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)).aggregate
 
     campaign_runs = list_play_run_aggregates()
     assert world_run.run.run_id not in {item.run.run_id for item in campaign_runs}

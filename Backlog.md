@@ -2,6 +2,8 @@
 
 This file is the **root dispatch inventory** for independent DungeonMindBuddy work that does not already have a sequencing owner.
 
+See the [Maintenance queue](Docs/Backlog/MAINTENANCE.md) for technical follow-ups, the [release rehearsal checklist](Docs/Runbooks/RELEASE-REHEARSAL-buddy-checklist.md) for deployment evidence, and [Backlog-DONE.md](Backlog-DONE.md) for retained implementation history.
+
 Cross-project / AI-tooling items live in `~/.cursor/learnings/Backlog.md` instead. Completed and superseded history remains in Git history and, when intentionally archived as a terminal implementation record, `Backlog-DONE.md`.
 
 ## Status contract
@@ -26,198 +28,270 @@ Terminal work leaves this file rather than accumulating under `DONE` / `DROPPED`
 6. **One slice, one independently useful capability.** “Design and implement,” immediate UX plus future architecture, or multiple authority boundaries must be split before READY.
 7. **No shadow sequencing.** Root backlog never overrides a tracker/roadmap because its note happens to be newer.
 
-**Current verification anchor:** `main` at `df15db4c695240ce08b5812d43ca398cd70ff6ac` (PR #694 merged), observed 2026-09-08 after successful Stage 5A human dogfood.
+**Audit anchor:** remote `main@fcaab28ab1db7ce2c024152d15ca844e4c3bb3ef`, 2026-10-19.
+This is a document reconciliation anchor, not fresh acceptance of every retained idea.
 
 ### Current sequencing posture
 
-`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md` owns the current C1/C2 demo-readiness sequence. Root backlog does **not** independently sequence historical source coverage, graph-object richness/provenance, recap presentation, navigation-shell residuals, Agent-on-Ingest/cross-surface Agent work, real-material save/reopen, or the later move of durable authorities off the laptop.
+[ROADMAP-demo.md](Docs/Roadmaps/ROADMAP-demo.md) is the sole Buddy product
+sequencing owner. It records the delivered local authoring/Play baseline,
+remaining acceptance and candidates currently under operator discussion.
+The old demo-ready roadmap and 2026-09-08 dispatch snapshot are historical.
+Do not infer a current blocker or READY assignment from them.
 
-PR #694 removed full-document loads among the primary React surfaces and the post-merge human dogfood was a material product win. Persistent-AppChrome Stage 5B work is therefore conditional on a concrete residual remount/restart failure rather than an automatic successor. Current steward direction is substrate-first: preserve/recover the useful prototype-era context through durable DB-backed authority and controlled DungeonMind projection before doing the deliberate fun/readable styling pass.
+---
+## Product ideas at a glance
+
+One row per product idea. These rows are pointers, not separate status records. The referenced notes own their scope; the product roadmap owns sequencing.
+
+| Idea | Next useful slice or decision |
+| --- | --- |
+| [Delightful Buddy landing page](#idea-delightful-buddy-landing-page--captured-2026-11-16) | [Home implementation #3965](https://github.com/Drakosfire/DungeonMindBuddy/pull/3965) merged; assess actual hosted sign-in and any remaining acceptance. |
+| [Inviting canvases with no graph loaded](#idea-inviting-canvases-with-no-graph-loaded--captured-2026-11-16) | Audit every surface and identify the right empty canvas and next action. |
+| [Shared page composer residuals](#idea-high-priority--shared-grid-page-constructor) | Manual foundation merged; physical print and ordinary chat-directed layout remain separate acceptance work. |
+| [Shared agent actions across surfaces](#idea-shared-agent-actions-across-surfaces) | Prove one inline text edit in Build and Plan through their native saves; then test a sourced Graph relationship. |
+| [Agent page-formatting benchmarks](#idea-agent-page-formatting-benchmarks) | Compare Buddy on repeatable Build formatting tasks; preserve content and prove the saved rendered result. |
+| [Report a bug from Buddy](#idea-report-a-bug-from-buddy) | One page and agent entry flow, with screenshot drop and a link to the filed issue. |
+| [Layered map editor](Docs/Backlog/IDEA-layered-map-editor.md) | One durable map with editable overlays. Share coordinates where justified, not a single UI with page layout. |
+| [App-wide theming](#idea-app-wide-theme-system) | One shared design system, selectable and customizable themes, with reviewed agent proposals. |
+| [Composable spatial workspace](#deferred-composable-spatial-workspace) | Saved canvas arrangements; not page composition or a separate theme system. |
+| [Standalone Elderwyld demo World and timeline](#idea-standalone-elderwyld-demo-world-and-timeline) | Author a populated, shareable setting history for signed-out Buddy without using collaborative campaign material. |
+| [Connected campaign arcs](Docs/Backlog/IDEA-connected-campaign-arcs.md) | Explore the source-backed Wandering Forest arc across sessions; use unrelated material as a negative control. |
+| [Step through Buddy's work](Docs/Backlog/IDEA-conversation-search-replay.md) | Merged local replay mechanisms; retain hosted and broader trace acceptance gaps. |
+| [AW workflow capabilities](Docs/Backlog/IDEA-aw-workflow-capabilities.md) | Draft/variant/link/Combat mechanisms merged; ordinary live qualification remains open. |
+| [Campaign recap contributor](Docs/Backlog/IDEA-recap-contributor.md) | One campaign, two accounts, GM publication, and a spoiler-isolation witness. |
+| [Deeper Build document hierarchy](Docs/Backlog/IDEA-build-document-hierarchy.md) | Retain only if dogfood shows a navigation gap after the merged picker and recap browser. |
+| [Independent source archive and restore](#deferred-define-independent-source-artifact-archive-and-restore) | Define what discovery and old citations do before designing controls. |
+| [Background relationship suggestions](#deferred-background-suggestions-for-missing-world-graph-relationships) | One opt-in, source-backed suggested relationship with duplicate suppression. |
+| [Create a campaign inside an existing World](#deferred-create-a-campaign-inside-an-existing-world) | Define membership ownership and prove ordinary scoped creation. |
+| [Propose edits to a related page](#deferred-propose-edits-to-an-existing-related-page-from-the-current-workspace) | Target one existing passage without leaving or corrupting the current draft. |
+
+## [IDEA] Delightful Buddy landing page — captured 2026-11-16
+
+**Context:** Hosted Buddy sign-in dogfood surfaced the need for a welcoming first view.
+**Action:** [#3965](https://github.com/Drakosfire/DungeonMindBuddy/pull/3965) merged the first view and entry points, including synthetic local browser witnesses. Actual hosted sign-in and deployment remain unverified; assess those and retain any remaining first-visit or return-visit gap.
+**Surfaces when:** Revisiting Buddy Home, hosted entry, or onboarding.
+
+## [IDEA] Inviting canvases with no graph loaded — captured 2026-11-16
+
+**Context:** Hosted dogfood reached Buddy with no graph available to load.
+**Action:** Audit Home, Graph, Plan, Play, Ingest, Build, and Combat Tracker without a loaded graph. For each surface, check that the canvas feels open and inviting and offers the next action appropriate to that surface. Where a graph is optional, check that users can still start working. Check loading, access denial, and failure separately so those states remain understandable.
+**Surfaces when:** Reviewing shared navigation, World selection, or empty states across Buddy.
+
+## Dated evidence pointers — 2026-11-17
+
+- Hosted signed-in presenter demo World: [#3837](https://github.com/Drakosfire/DungeonMindBuddy/issues/3837) owns scope and acceptance. This is not the signed-out demo or full cross-surface demo [#410](https://github.com/Drakosfire/DungeonMindBuddy/issues/410).
+- Hosted incremental ordinary reply text: [#3838](https://github.com/Drakosfire/DungeonMindBuddy/issues/3838) owns scope and acceptance. Build construction SSE and status updates are not that witness.
+- Design input: [#3683](https://github.com/Drakosfire/DungeonMindBuddy/pull/3683) captures shared themes, spatial workspace, signed-out original Elderwyld content, shared agent actions, formatting benchmarks and bug-report ideas. This is design context, not authorization to implement or a change to roadmap sequencing.
+- Maintenance: the 2026-11-17 audit was a historical snapshot. On 2026-11-18, six of the 20 Buddy issue-linked rows in [the queue](Docs/Backlog/MAINTENANCE.md) had closed with distinct dispositions; [#4012](https://github.com/Drakosfire/DungeonMindBuddy/pull/4012) reconciled those rows while retaining open residuals. Broader demo [#410](https://github.com/Drakosfire/DungeonMindBuddy/issues/410) and source-anchor acceptance [#783](https://github.com/Drakosfire/DungeonMindBuddy/issues/783) remain open, not closed by nearby implementation.
+
+## Research held for evidence or selection
+
+- [Answer-citation experiments](#idea-resume-answer-citation-experiments-after-fundamentals-settle--captured-2026-11-10) remain parked, distinct from retrieval-only work.
+- [Retrieval controller comparison](#deferred-compare-retrieval-controllers-using-existing-native-actions): use existing native actions and the ordinary benchmark harness if independent evaluation identifies a controller bottleneck. Keep 70/72 as the existing regression reference, not a fresh holdout or a release claim. Use fresh questions and keep the writer out of retrieval experiments.
+- [Frozen TL01 verbatim grounding](#deferred-verbatim-source-phrase-grounding-in-the-frozen-tl01-evaluation) resumes only when a real product consumer selects it.
+- **Party hubs in recap Graph preview:** Decide if inferred party hubs belong in author review and how they remain distinct from reviewed facts; [prior evidence and owner](https://github.com/Drakosfire/DungeonMindBuddy/blob/6b2d4844fd4e0045f55042c3c88dce5c00be583b/Backlog.md#L105).
+
+# Retained scope and dispatch conditions
+## [IDEA] Resume answer-citation experiments after fundamentals settle — captured 2026-11-10
+**Kind:** RESEARCH / RESPONSE ASSESSMENT
+**Owner:** Buddy response composition
+**Captured:** 2026-11-10
+**Last verified:** 2026-11-10
+**Context:** The operator selected ingestion delivery reconciliation and completion of older fundamentals, explicitly parking citation work. Voice design is separately deferred to the operator; the tighter prompt is a fixed control.
+**Insight:** The citation-first Q15 pilot reached the actual provider wire and all eight response segments used structured citation handles before prose. Selected citations passed review, but coverage fell9/9→8/9 by omitting the approximate Abyssal-like scroll clue. No adoption or retry is justified by that one result.
+**Action:** Preserve the failed pilot and baseline. Do not resume answer-citation optimization, schema-order experiments, additional citation judges or prompt layers during fundamentals closeout. Existing source-integrity and citation checks remain in force; this is no waiver of them.
+**Surfaces when:** Ingestion delivery, QA fundamentals, bounded worldbuilding and real collaborative follow-through have settled and the operator explicitly selects citation work again. This entry grants no implementation or provider authority.
+**Refs:** `Docs/Plans/HANDOFF-COMPOSITION-citation-first-experiment.md`; PR2357; retained `out/response-writing-contract-v1/citation-first-experiment-v1/`.
+
+
+## [IDEA] High priority — shared grid page constructor
+**Priority:** HIGH — explicitly requested by the operator.
+**Kind:** DESIGN → bounded implementation slices
+**Owner:** Build / shared Surface authoring
+**Captured:** 2026-10-24
+**Last verified:** 2026-11-17 @ `28f4cab85a6a7eebabc4e89ce24166b86e198380`.
+**Delivered foundation:** Manual mixed-content rows, revision-bound presentation, row controls, image/text composition and contextual disclosure are merged through [#3689](https://github.com/Drakosfire/DungeonMindBuddy/pull/3689), [#3690](https://github.com/Drakosfire/DungeonMindBuddy/pull/3690), [#3697](https://github.com/Drakosfire/DungeonMindBuddy/pull/3697), [#3711](https://github.com/Drakosfire/DungeonMindBuddy/pull/3711) and [#3774](https://github.com/Drakosfire/DungeonMindBuddy/pull/3774). Do not dispatch “build the first image grid” again. Local composer checks cover native editing/Undo, narrow layout, explicit Save/cold reopen and unchanged semantic Markdown for presentation-only edits; these are not physical print or every hosted-path acceptance.
+
+**Residuals:** Physical sticker-sheet/print sizing, pagination and cutout proof remain separate. Ordinary chat-directed movement of an existing image is also separate: the local executor experiment is not normal-chat routing or model/held-out qualification, and is not a merged capability. Keep content/citation/asset identity, semantic reading order, stale rejection and explicit Save acceptance as gates. Shared agent actions and broader unscheduled design ambitions are not complete.
+
+**Historical design context:** Edge authoring requested intentional text/art/table/callout placement in Tiptap rather than a freeform map. The [composer design](Docs/Backlog/DESIGN-build-page-composer.md) retains the specification and broader proposals; it does not create an implementation assignment or replace roadmap priorities.
+
+**Surfaces when:** Planning remaining Build composition acceptance or agent layout. Product sequencing remains owned by `Docs/Roadmaps/ROADMAP-demo.md`; this reconciliation activates no new slice.
+
+**Original design context:** Edge authoring dogfood began with the need to place artwork intentionally. The subsequent product discussion selected a shared page composer as the design target, not a standalone image-grid feature. It did not authorize implementation.
+
+**Design direction:** Keep Tiptap as the editor. Add opt-in, content-height rows with independent resizable slots for ordinary paragraphs, images, tables and callouts. Tables remain semantic blocks inside slots, not a layout primitive. Keep normal documents and spatial/map work separate.
+
+**Proposal:** [Build page composer](Docs/Backlog/DESIGN-build-page-composer.md) defines row guides, minimum heights, reading order, revision and draft recovery, and the separate sticker-sheet print test.
+
+**Original first-slice design:** Author a real two-column Build section with editable text and an image, then prove that the same grid can place a table and a callout without special layout primitives. Insert or move an existing block, snap column boundaries, and change block order only through an explicit move. Decide revision ownership and serialization before coding. Reuse existing node editing/resize behavior where applicable without confusing image width with column placement.
+
+**Design acceptance:** Save, reload and reopen the same layout and content. Undo/redo preserves both. Narrow screens stack content in a stable reading order; semantic Markdown, retrieval and exact citation references preserve that order and content for the saved revision. Layout-only changes must not silently reorder or alter semantic text. Preserve keyboard access, ordinary editing, and unsaved/recovered drafts. Do not require nested grids, overlap, arbitrary positioning, or map-coordinate machinery for this slice.
+
+
+**Refs:** Edge source `bba72416-9dfe-49bb-add0-21a346e9a421`; `apps/live-control-ui/src/tiptap/extensions/MediaImageNode.tsx`; `apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.ts`; conversation `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`.
+
+## [IDEA] Standalone Elderwyld demo World and timeline
+
+**Goal:** Create a populated Elderwyld demo World with its own chronology, separate from the played campaigns. Write original setting history and demo material rather than copying, paraphrasing, or anonymizing jointly authored recaps. The demo should feel like a lived-in World without sharing prose Alan does not solely own.
+
+**First slice:** Author one coherent arc with dated Events and connected people, places, and objects. Give it a few original, citable sources, a Build handout, and a Plan scene that can be run in Play. Bundle those records with the demo Graph and Conversation evidence so one story carries across the surfaces.
+
+**Release boundary:** Use a standalone demo World and independently review its sources, citations, assets, and any conversation or trace captures before public use. Exclude live campaign records and player contributions; use only original demo material or assets cleared for this use. Signed-out edits and Play progress stay temporary, with no database writes or link to the live World. This item is content groundwork, not approval to publish or implement the guest runtime.
 
 ---
 
-# READY
+## [IDEA] Shared agent actions across surfaces
 
-## [READY] Publish Statblock Workbench as a Build Tool capability
-**Kind:** CODE  
-**Owner:** Build / Surface Interaction  
-**Captured:** 2026-08-11  
-**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`  
-**Depends on:** shared Tool Host merged in PR #501; native Build Surface Interaction publication merged in PR #506; shared Threat projection/lens merged in PR #512. The Threat/Statblock roadmap still explicitly leaves this capability in root backlog until sequenced elsewhere.
+**Goal:** Enable Buddy to act wherever it makes sense in the product, without duplicating each surface's editor or giving the agent a generic write path.
 
-**Problem:** Build can natively publish/search/inspect World Graph capabilities through shared hosts, but Statblock Workbench authoring is not yet an ordinary Build Tool capability.
+**Current boundary:** Build and Plan already share the inline proposal and review UI. Build saves authored Pages and their revision-bound presentation; Plan saves native prep with playable structure. Ordinary Markdown proposals do not carry layout operations. See `apps/live-control-ui/src/surface/SurfacePageProposal.tsx` and `apps/live-control-ui/src/planSurface/agentEdit/planAgentEditProposal.ts`.
 
-**Slice:** Publish the existing Workbench launcher/inventory through the active Build Surface Interaction lease. Reuse the shared Tool Host and existing Workbench; do not create Build-local tool chrome or couple Threat viewing to Workbench ownership.
+**Shared contract to test:** The surface exposes authorized operations for the current object. Buddy proposes a typed change against an exact target and revision. The user reviews the actual effect; the domain owner validates and commits it through its existing write path, then returns a durable receipt. Keep chat answers, proposed changes, and saved effects distinct. Retry must reconcile the receipt, not apply twice.
 
-**Exit proof:** From an admitted Build document, the shared Tool Host exposes the Workbench capability, opens the existing Workbench, survives surface/document lease replacement correctly, and leaves Plan behavior and graph/document authority unchanged.
-
-**Refs:** PRs #501, #506, #512; `Docs/Design/ARCHITECTURE-surface-interaction-layer.md`; `Docs/Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`; `apps/live-control-ui/src/surfaceInteraction/`.
-
-## [READY] Define durable source archive / restore lifecycle
-**Kind:** DESIGN  
-**Owner:** APP-STATE / source lifecycle  
-**Captured:** 2026-08-11  
-**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`  
-**Depends on:** Stage 2A durable APP-STATE authority on `54331`; immutable `source.artifact` / `source.revision` identity and exact source-Markdown service; local editor discard remains a separate non-destructive concept.
-
-**Problem:** Durable source removal is a server-owned lifecycle operation, but the now-real APP-STATE source authority has no explicit archive/restore contract. A local “discard my edits” action must never be confused with changing durable source visibility or identity.
-
-**Slice:** Define archive, visibility, restore, collision, audit, confirmation, and exact-identity semantics for one APP-STATE durable source. Do not implement local-draft discard in this slice. Do not hard-delete by default without a named contract reason.
-
-**Exit proof:** One checked-in contract/decision + bounded implementation handoff makes archive vs local discard unambiguous, defines recoverability and exact artifact/revision identity after restore, and identifies the authorized APP-STATE server write boundary.
-
-**Refs:** `Docs/Reports/REPORT-application-state-durability-drill.md`; `Docs/Reports/REPORT-stage-2b-c1-c2-repopulation.md`; `src/application_state/source/service.py`; `Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md`.
+**First proof:** Run “Rewrite this paragraph without changing the facts or citations” in Build and Plan. Use the shared inline review and each native save path. Reopen and verify the edit and citations, unchanged Plan scene/table boundaries, cancellation with no durable write, and stale-proposal rejection when the user types while Buddy works. Then test one source-backed Graph relationship through its native review and write path to see whether the contract travels beyond text. Layout capabilities remain separate until the target supports them safely.
 
 ---
 
-# BLOCKED
+## [IDEA] Agent page-formatting benchmarks
+**Owner:** Build authoring + Buddy benchmark harness
+**Captured:** 2026-11-15
+**Goal:** Give the agent a repeatable improvement loop for turning existing Build content into useful, readable pages. Score formatting separately from drafting or retrieval.
 
-## [BLOCKED] Generation liveness via lease heartbeat
-**Kind:** CROSS-REPO CONTRACT + CODE  
-**Owner:** DungeonMind generation lifecycle → Buddy consumer  
-**Captured:** 2026-07-30  
-**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`  
-**Depends on:** a first-class pollable DungeonMind generation-operation / lease-heartbeat contract that Buddy can consume without guessing provider latency.
+**First benchmark:** Freeze representative input Pages, a plain-language layout brief per task, and the current normal Buddy agent/action path as the baseline. Start with existing composer actions: place artwork beside prose, arrange a real table and callout, and revise the layout on a saved page. Evaluate the actual saved revision and a cold browser reopen at desktop and narrow widths, not the chat response or screenshots alone. Add text over art and sticker/print cases only once the corresponding tools exist.
 
-**Problem:** A real generation can outlive Buddy's fixed client timeout, producing a false product failure while DungeonMind continues successfully.
+**Scoring and guardrails:** Hard fail on lost or rewritten content, incorrect reading order, broken source citations, lost asset references, or a claimed save that cannot reopen. For passing runs, grade whether the layout follows the brief and is readable, then compare retries, tool calls, and time. Use structural assertions plus a small blind visual rubric; don't require pixel-perfect matches. Tune on a development set, keep a sealed holdout, and repeat baseline/candidate runs to separate improvements from variance. No benchmark run or tooling activation is implied by this entry.
 
-**Slice when unblocked:** First prove/land the provider liveness contract; then change Buddy generation UX to treat a fresh lease as heartbeat and fail on stalled/dead lease plus a safety ceiling. Revise-generation liveness remains a successor unless the same contract covers it naturally.
+## [IDEA] Report a bug from Buddy
+**Owner:** Shared Surface authoring + Buddy agent
+**Captured:** 2026-11-15
+**Goal:** Let someone report a problem where it happens, either through a **Report a bug** page action or by asking Buddy in conversation. Both open the same reviewable draft, not separate intake systems.
 
-**Unblock proof:** Pinned DungeonMind API/contract exposes exact operation identity plus truthful live/stalled/terminal status or lease freshness, with restart/timeout semantics documented.
+**First slice:** Reuse the PDF extractor's screenshot drop/file-picker behavior (and paste where supported). Preview and allow removal of the image, capture a short title and what happened, and optionally show a reviewed page/build label. Buddy can draft the same fields, but the user sees the exact issue body, attachment, tracker, and visibility before pressing Submit. File one issue in the configured GitHub repository (or the configured equivalent ticket tracker) from the service, and return its link in the originating page or conversation.
 
-**Refs:** Buddy DungeonMind statblock client/config; DungeonMind generation-operation/lease domain.
+**Acceptance:** Prove both entry points create the same kind of linked ticket. Cancel sends nothing. A retry does not file duplicates, and a failed submit keeps the report editable. Keep screenshots private by default; if the tracker or attachment would be public, make that visible and require explicit approval of the exact content or use a private intake. Don't auto-attach World content, conversation, logs, cookies, or secrets. Reuse the upload interaction, not the PDF-extraction pipeline. This entry does not authorize implementation or ticket submission.
 
-## [BLOCKED] Define authored-worldbuilding elevation through DungeonMind authority
-**Kind:** CROSS-REPO AUTHORITY CONTRACT / DESIGN  
-**Owner:** DungeonMind World write authority → Buddy Build/Graph Review consumer  
-**Captured:** 2026-07-24  
-**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`  
-**Depends on:** a controlled DungeonMind write/elevation contract for authored worldbuilding. Buddy no longer owns World Graph storage, contribution replay, or graph-truth transitions after CUTOVER.
+## [DEFERRED] Define independent source-artifact archive and restore
+**Owner:** APP-STATE / source lifecycle
+**Captured:** 2026-08-11
+**Last verified:** 2026-11-10 @ `8a9ad7902`
+**Trigger:** An operator needs to withdraw or restore an independently admitted source, such as a recap, while preserving exact historical evidence.
 
-**Problem:** Reviewed authored lore still needs an explicit path to become publishable World truth when the GM chooses, but the pre-cutover READY item incorrectly assumed Buddy could choose and own that authority transition itself.
+**Current boundary:** Workspace Trash handles Build and Plan documents and Play sessions. The source service persists immutable artifact and revision identities and serves their Markdown, metadata and scope. It exposes no independent archive or restore operation.
 
-**Slice when unblocked:** Consume one DungeonMind-owned elevation contract from Buddy. Preserve source identity/evidence, require an explicit actor/confirmation boundary, define replay/idempotency and failure semantics, and keep worldbuilding draft distinct from campaign played chronology. Never silently relabel `worldbuilding_draft` as played canon.
+**Next slice on trigger:** Define what source archive changes for discovery, what historical citations can still open, and what exact identity restore preserves. Then identify the owning mutation before adding any UI.
 
-**Unblock proof:** DungeonMind exposes a reviewed, durable contract that names the write authority, identity/evidence semantics, replay behavior, admissibility, and exact resulting World revision semantics without requiring Buddy to reconstruct or mutate graph storage directly.
+**Refs:** `src/application_state/source/service.py`; `apps/live_control_server/routes/workspace_lifecycle.py`; #1445–#1447.
 
-**Refs:** `Docs/Design/ARCHITECTURE-campaign-supergraph.md`; current DungeonMind CUTOVER boundary; historical `src/graph_memory/candidate_semantic_promote_matrix.py` / `worldbuilding_plumbing_profile.py` are design ancestry, not current write authority.
 
 ---
 
-# IDEA
+# Cross-owner questions — not implementation blockers by default
 
-## [IDEA] Graph exploration controller lab — oracle traces to System One policy
-**Kind:** RESEARCH / EVALUATION / AGENT RETRIEVAL  
-**Owner:** Agent retrieval / DungeonMind graph-read consumer  
-**Captured:** 2026-09-26  
-**Last verified:** 2026-09-26 after review of current Agent graph-query benchmark  
-**Depends on:** the existing Agent graph-query benchmark and a normally product-readable pinned World/revision. This does not own sequencing and must re-anchor against the post-CUTOVER DungeonMind/Buddy read boundary before promotion.
+- **Generation liveness:** reproduce any false timeout against the current
+  GenerationEngine/SERVER path before assigning an owner or designing heartbeat
+  machinery. The old claim that DungeonMind owns provider generation is stale.
+  OverMind's open backlog-consolidation proposal (#22) is reference, not activation.
+- **Authored lore publication:** current governed ingestion/review/publication
+  supersedes the pre-cutover missing-elevation premise. Remaining source fidelity,
+  semantic richness and fresh-World acceptance belong to the product roadmap and
+  the owning knowledge contracts, not a duplicate root BLOCKED item.
 
-**Problem:** The existing graph-query benchmark already distinguishes product loadability, oracle retrieval, and real-Agent orchestration, but its oracle layer is manual/scripted. DungeonBuddy has enough real corpus and challenging gold to turn that layer into a constrained graph-navigation game. A strong code agent can play the game using only legal bounded graph actions; its trajectories and failures can reveal the smallest reusable action algebra needed for difficult retrieval. Those state/action traces can later benchmark cheaper policies, including a System One / Jev-style controller.
 
-**Research direction:** Start with a deliberately tiny read-only action set such as resolve, expand, follow, open evidence, and supported/insufficient stop. Record every legal alternative, chosen action, observation, evidence admitted, budget, and termination. Classify failures before adding actions. New actions must be general graph operations, not benchmark-specific semantic shortcuts. Retrieval quality is scored separately from final answer synthesis.
+## [DEFERRED] Background suggestions for missing World graph relationships
+**Owner:** Buddy suggestions and review
+**Captured:** 2026-10-13
+**Last verified:** 2026-11-10 @ `8a9ad7902`
+**Trigger:** The operator selects proactive source-backed suggestions as a product capability.
 
-**Critical constraints:** No arbitrary repository/corpus search by the explorer; no raw storage/SQL bypass; no visibility/admissibility bypass; no parallel graph authority; no hidden full LLM behind one giant search action; Jev is a later controller experiment, not the first implementation dependency.
+**Current boundary:** Agent-requested saved-source relationship review already exists (#1751, #1753). It validates exact supporting quotes and requires confirmation before publication. No background candidate scheduler or cross-run suppression workflow was found in current callers. The original Sara/Frank example requires fresh verification before it can serve as a defect.
 
-**Promotion trigger:** The current graph-query benchmark can run against one pinned, product-readable revision and there is a clean seam for exposing legal bounded actions without creating another retrieval backend.
+**Next slice on trigger:** Reuse the existing candidate/review/publication owners for one opt-in suggestion flow. Define when a suggestion is useful, how prior review suppresses repeats, and when to ask the author.
 
-**Likely first slice on promotion:** Build only the bounded read-only graph-exploration environment and deterministic trace contract. Code-agent oracle automation, action-set discovery, and Jev/System One comparison remain successors.
+**Refs:** `src/application_state/agent_conversation/relationship_review.py`; `tests/application_state/test_relationship_review_postgres.py`; #1751, #1753.
 
-**Detailed capture:** Docs/Backlog/BACKLOG-graph-exploration-system-one-controller-lab.md  
-**Parent benchmark:** Docs/Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md
+## [DEFERRED] Compare retrieval controllers using existing native actions
+**Owner:** Retrieval evaluation
+**Captured:** 2026-09-26
+**Last verified:** 2026-11-10 @ `8a9ad7902`
+**Trigger:** Independent evaluation identifies controller choice as a measured retrieval bottleneck and the operator selects a comparison.
+
+**Current boundary:** Native retrieval, Jev decision drivers, trace capture and independent benchmark assessment already exist. The old proposal's first step of constructing a new exploration environment must be re-scoped around those owners.
+
+**Concrete deferred candidate:** [#3845](https://github.com/Drakosfire/DungeonMindBuddy/issues/3845) records local typed-decision-model comparison. It does not change the trigger above or select a production controller.
+
+**Next slice on trigger:** Pin one ordinary request and its admitted evidence. Compare controller decisions through the same existing native actions and benchmark assessment. Measure support, coverage, latency and calls. Determine whether successful traces warrant further controller research.
+
+**Refs:** `src/application_state/agent_conversation/native_retrieval.py`; `apps/live_control_server/services/build_jev_driver.py`; `apps/live_control_server/services/plan_jev_driver.py`; `evals/buddy_benchmark/`; [original research capture](Docs/Backlog/BACKLOG-graph-exploration-system-one-controller-lab.md) as historical design input.
+
 
 ---
 
-# DEFERRED
 
-## [DEFERRED] Composable spatial workspace + instant theme packs
-**Kind:** PRODUCT DESIGN / FRONTEND ARCHITECTURE / RESEARCH  
-**Owner:** Buddy presentation layer / future spatial workspace  
-**Captured:** 2026-09-26  
-**Last verified:** 2026-09-26 @ `24e0565145ad578783c3b9ed3b0b672d9f6b3f30` after UI-F1–F4 substrate work merged/reviewed  
-**Trigger:** a basic demo-ready Buddy presentation is accepted and the product can afford exploratory spatial/composable UI work without delaying the demo.
+## [IDEA] App-wide theme system
 
-**Problem:** The long-term presentation dream is a fast, composable workspace where the GM can arrange reusable Buddy components freely on a large/infinite spatial surface, save different workspace arrangements, zoom between overview and detail, and swap pre-baked visual themes (for example D&D/fantasy → sci-fi) instantly without changing component semantics, data, or layout ownership. This is intentionally **not** the current demo-readiness priority.
+**Owner:** Buddy shared presentation and surface owners
+**Captured:** 2026-09-26 (theme ambition; clarified in the 2026-11-14 product discussion)
+**Trigger:** Operator selects coherent, selectable styling as a product capability.
 
-**Design direction to preserve:**
+Use one shared vocabulary of semantic color, typography, spacing, focus and interaction tokens and consistent components across surfaces. Ship a selectable default and alternate theme before expanding to customization. Users and the agent should target the same bounded, typed theme settings; agent changes are reviewable and reversible, not arbitrary CSS or an independent styling path. Keep the existing palette as the default until selected otherwise. Reuse the [presentation substrate](Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md). A single surface can prove the shared contract, but do not create a Graph-only theme fork.
 
-```text
-Buddy domain / durable state
-        ↓
-presentation model
-        ↓
-Buddy component registry
-        ↓
-presentation engine
-  ├─ Flow
-  ├─ Page / Print
-  └─ Spatial / infinite workspace
+<a id="deferred-composable-spatial-workspace-and-selectable-themes"></a>
 
-theme pack is orthogonal:
-  component + layout stay the same
-  semantic CSS/theme tokens repaint the workspace
-```
+## [DEFERRED] Composable spatial workspace
 
-Keep these concerns independent:
+**Owner:** Buddy presentation
+**Captured:** 2026-09-26
+**Last verified:** 2026-11-10 @ `8a9ad7902`
+**Trigger:** The operator selects saved spatial composition for implementation.
 
-- **component meaning:** World object, Scene, Runbook, ToolHost, Agent, Combat, note, map, etc.;
-- **spatial layout:** x/y/size/z/collapse/group/camera/workspace preset only;
-- **theme:** semantic paint/typography/radius/border/shadow/icon treatment only;
-- **durable authority:** remains in Buddy/DungeonMind/APP-STATE; the spatial layer references objects and must not copy their bodies into a second truth store.
+**Current boundary:** Shared presentation components and graph canvas exist; saved multi-object workspace arrangements are not established by this backlog. The page composer handles ordered document layout. [App-wide theming](#idea-app-wide-theme-system) owns styling.
 
-Performance is a first-class requirement because the ordinary development/client machine may be weak. A future spatial engine should therefore prefer viewport culling, cheap pan/zoom, level-of-detail rendering, stable component identity, and avoiding full expensive component renders when zoomed far out.
+**Next slice on trigger:** Investigate existing canvas/projection components and define one saved arrangement with clear ownership of positions, sizes and camera state. Preserve low-cost pan/zoom and do not conflate coordinate mutation with theme or semantic document truth.
 
-**Next slice on trigger:** Design/research only. Re-anchor against the then-current presentation substrate and compare at least:
-
-1. a library-backed spatial engine (tldraw is a current candidate, not a decision);
-2. a deliberately small Buddy-owned spatial engine;
-3. whether the existing `Drakosfire/Canvas` package should remain Page/Print-only rather than serving spatial work.
-
-Freeze a minimal `SpatialWorkspacePort` / spatial-item contract and a theme-pack token contract before implementation. Explicitly decide persistence ownership for workspace arrangement and camera state. Do **not** start by building freeform interaction mechanics, merging Page and Spatial canvas concerns, or coupling themes to domain components.
-
-**Desired eventual experience:** the same ObjectSheet/Scene/Runbook/etc. can be moved around a saved infinite workspace, switch between workspace presets such as “At the Table” and “Worldbuilding,” and instantly change visual language (fantasy, sci-fi, clean, etc.) by swapping theme tokens without rebuilding or reauthoring the components.
-
-**Refs:** `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md`; `Docs/Design/ui-language/DESIGN-interaction-layer-language.md`; F1–F4 presentation-substrate work; `Drakosfire/Canvas` as Page/Print-layout research ancestry only.
+**Refs:** [presentation substrate plan](Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md); `apps/live-control-ui/src/localWorld/worldGraphCanvas/`.
 
 
-## [DEFERRED] Define campaign creation inside an existing World
-**Kind:** DESIGN / CROSS-BOUNDARY AUTHORITY  
-**Owner:** Buddy campaign lifecycle + DungeonMind campaign scope  
-**Captured:** 2026-08-11  
-**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`  
-**Trigger:** creating a genuinely new campaign becomes an immediate product/dogfood need.
+## [DEFERRED] Create a campaign inside an existing World
+**Owner:** Buddy campaign UX + DungeonMind campaign membership
+**Captured:** 2026-08-11
+**Last verified:** 2026-11-10 @ Buddy `8a9ad7902`, DungeonMind `430c1a6d`
+**Trigger:** An operator needs to start a new campaign in an existing World through ordinary controls.
 
-**Problem:** The old READY item predates the completed DungeonMind cutover and assumed a world-container model that no longer describes authority correctly. One World now has one authoritative World Supergraph; campaign is assertion/evidence/chronology/visibility scope, while Buddy owns application/source/work state.
+**Current boundary:** DungeonMind's campaign ingest-context route requires an existing campaign membership. Buddy's #1860 restored two retained memberships via an offline repair. Neither provides a user-facing creation operation.
 
-**Next slice on trigger:** Re-decompose campaign creation into its actual authority boundaries before writing a contract: Buddy campaign/application identity and source/work bindings vs DungeonMind campaign-scoped assertion semantics. Freeze only the independently useful first contract; do not fork or duplicate World identity implicitly.
+**Next slice on trigger:** Define a DungeonMind-owned membership creation operation and the minimal Buddy flow that uses it. Prove the new campaign can be selected and admit its own sources in the existing World.
 
-**Refs:** `Docs/Design/ARCHITECTURE-campaign-supergraph.md`; `Docs/Design/CONTRACT-world-container-v1.md` as historical design evidence; `Docs/Roadmaps/ROADMAP-con-ready.md`.
+**Refs:** [Campaign membership repair](Docs/Plans/HANDOFF-BUILD-elderwyld-campaign-membership.md); `src/dungeonmind/service/api.py` in DungeonMind.
 
-## [DEFERRED] Verbatim `source_phrase` grounding vs renderer snippets
-**Kind:** EVALUATION / EVIDENCE CONTRACT  
-**Owner:** Temporal/grounding evaluation  
-**Captured:** 2026-08-01  
-**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`; no current demo-readiness trigger observed  
-**Trigger:** phrase-level extraction again requires this renderer path.
 
-**Problem:** Development phrase-grounding fails deterministically when the required verbatim phrase is not present in the renderer-produced cited snippet.
+## [DEFERRED] Verbatim source phrase grounding in the frozen TL01 evaluation
+**Owner:** Temporal grounding evaluation
+**Captured:** 2026-08-01
+**Last verified:** 2026-11-10 @ `8a9ad7902`
+**Trigger:** A real product use case selects a temporal capability that consumes this renderer, as required by the TL01 close decision.
 
-**Next slice on trigger:** Prove one known-good smoke case grounds through both lanes before touching cohorts/prompts; keep sealed cohorts/gold unchanged.
+**Current boundary:** The original renderer check still fails when its cited snippet lacks the requested verbatim phrase. TL01 evaluation remains frozen. Current recap ingestion and source reads use exact stored spans (#1941, #1965), but those changes do not resolve this separate evaluation defect.
 
-**Refs:** `Docs/Design/DECISION-tl01-temporal-prompt-calibration-close.md`; `Docs/Reports/REPORT-tl01g-grounding-path-recovery.md`; PRs #468, #486, #500.
+**Next slice on trigger:** Reproduce the retained failure through the selected consumer, then prove a known-good phrase grounds through both relevant lanes before revising cohorts or prompts.
 
-## [DEFERRED] Ecology/resource extraction pass
-**Kind:** DESIGN / EXPERIMENT  
-**Owner:** Graph extraction  
-**Captured:** 2026-07-18  
-**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`; no current demo-readiness trigger observed  
-**Trigger:** current extraction dogfood shows species/flora/fauna/resource duplication materially harms preparation or retrieval.
+**Refs:** [TL01 close decision](Docs/Design/DECISION-tl01-temporal-prompt-calibration-close.md), section 7; `evals/graph_memory_layer/temporal_shadow_grounding_path.py`; #1941, #1965.
 
-**Problem:** Ecology/resource concepts repeatedly blur actor/object boundaries, but current product priorities do not justify inventing a new extraction pass without fresh dogfood pressure.
 
-**Next slice on trigger:** Reproduce the defect on the current DungeonMind/Buddy extraction boundary, then design a bounded `ecology_resource_pass` and compare it against the current path before implementation.
+---
 
-**Refs:** `Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-MANUAL-REVIEW.md`; `Docs/Plans/HANDOFF-prime-design-graph-memory-extraction-taxonomy.md`.
+## [DEFERRED] Propose edits to an existing related page from the current workspace
+**Owner:** Build authoring
+**Captured:** 2026-10-16
+**Last verified:** 2026-11-10 @ `8a9ad7902`
+**Trigger:** The operator asks to revise an existing related page while retaining the current workspace.
+
+**Current boundary:** Related saved-page context, connected-page creation and saved-source relationship reviews have shipped. Build text proposals still capture one page as their mutation target. A request for a different page returns a destination mismatch or requires handoff. The broad original ticket's connected-page and relationship portions are already covered.
+
+**Next slice on trigger:** Capture an explicit existing destination document and passage, show an editable proposal through the shared review host, and preserve the originating workspace. After saving, reuse the existing source and reviewed publication flow for any proposed Graph changes.
+
+**Refs:** `apps/live_control_server/services/build_document_proposal.py`; `src/application_state/agent_conversation/collaboration.py`; `src/application_state/agent_conversation/relationship_review.py`; #2127, #2129, #2273.
 
 ---
 
@@ -227,262 +301,43 @@ The rows below preserve discoverability for capabilities removed from root witho
 
 | Capability / residual | Status owner | Root disposition / owner health |
 |---|---|---|
-| C1/C2 historical source coverage, durable provenance, rich recap/object/Threat experience, session navigation, shell residuals, real-material save/reopen, Agent-on-Ingest/cross-surface Agent, observability, off-laptop durable authorities | `Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md` + `Docs/Plans/STEWARDS-ANCHOR-con-ready.md` | Delegated. This is the current execution program; root backlog must not shadow its STOP-driven sequencing. |
-| Build ready-state Reload / Discard-local actions | Demo-Ready Stage 6 / current Markdown Canvas ownership | Removed from root READY on 2026-09-08. It belongs with the real-material edit/save/reopen dogfood rather than an independent pre-Stage-6 dispatch. |
-| Hermes optimistic transcript + multiline composer | Demo-Ready Stage 7 Agent work | Removed from root READY on 2026-09-08. Useful UX remains, but Agent-on-Ingest/context/observability sequencing owns when it should ship. |
-| Hermes prompt/configuration quality + revision-aware cross-turn evidence deduplication | Demo-Ready Stage 7 / Agent observability | Removed from root IDEA on 2026-09-08. Reproduce against the assembled cross-surface Agent before creating an independent slice. |
-| First-class statblock and roll-table display across surfaces | Demo-Ready Stage 4 + `Docs/Roadmaps/ROADMAP-threat-statblock-authoring-projection.md` | Removed from root IDEA. Rich-object/Threat dogfood and the Threat owner decide the split; do not build a second cross-surface status lane here. |
+| Remaining C1/C2 source coverage and the authoring, preparation and Play journey | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) | The [DEMO bounded assignment](Docs/Plans/STEWARDS-HANDOFF-demo.md) describes the mandate. The [old Demo-Ready ladder](Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md) and [CON-READY anchor](Docs/Plans/STEWARDS-ANCHOR-con-ready.md) are historical evidence. |
+| Build ready-state Reload / Discard-local actions | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) / Markdown Canvas ownership | Removed from root READY on 2026-09-08. It belongs with the real-material edit/save/reopen dogfood rather than an independent pre-Stage-6 dispatch. |
+| Hermes optimistic transcript + multiline composer | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) / Agent interaction | Removed from root READY on 2026-09-08. Useful UX remains, but Agent-on-Ingest/context/observability sequencing owns when it should ship. |
+| Hermes prompt/configuration quality + revision-aware cross-turn evidence deduplication | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) / Agent observability | Removed from root IDEA on 2026-09-08. Reproduce against the assembled cross-surface Agent before creating an independent slice. |
+| First-class statblock and roll-table display across surfaces | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) and owning Threat/Play contracts | Assess remaining cross-surface behavior there; the Build Workbench launcher is already delivered. |
 | Durable Combat board / easy roster loading | CON-READY / Play + Combat authorities | Removed from root IDEA. Combat remains a real product need, but it is later than current Demo-Ready continuity and must be re-anchored when Play/Combat resumes. |
-| Native Play board usability / Beat-first current moment | `Docs/Plans/STEWARDS-ANCHOR-con-ready.md` + current Play design authorities | Removed from root IDEA. BF3B and further Play work remain parked behind the current continuity program. |
-| Hermes copyable authoring artifact, grounded-answer→Threat authoring, graph chips, Revise UX, mechanic-editor expansion, liveness UX, durable telemetry, statblock presentation/media evolution | `Docs/Plans/PR-TRACKER-threat-statblock-authoring-projection.md` / Threat roadmap | Delegated; that owner remains the status authority for these domain capabilities. |
-| Historical Campaign-Supergraph residual labels such as PR380E/PR380F and exact-run review sequencing | current Demo-Ready/CUTOVER-era authorities, not the old tracker by default | Historical design ancestry only. Do not dispatch directly from stale PR380 labels without re-anchoring against the post-cutover DungeonMind boundary. |
+| Native Play board usability / Beat-first current moment | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) and owning Play design | Re-anchor with DEMO when Play work resumes. |
+| Rich Threat authoring, statblock presentation/media, and related conversation behavior | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) and current owning handoffs | The [Threat roadmap](Docs/Roadmaps/ROADMAP-threat-statblock-authoring-projection.md) retains historical design and acceptance wording. |
+| Historical Campaign-Supergraph residual labels such as PR380E/PR380F and exact-run review sequencing | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) and current owning contracts | Historical design ancestry only. Do not dispatch directly from stale PR380 labels without re-anchoring against the post-cutover DungeonMind boundary. |
 | Broad “durable database persistence for GM work across worktrees” umbrella | Stage 2A/2B proof + domain-specific successors | Retired as a root umbrella on 2026-09-08. Durable APP-STATE on `54331` and durable DungeonMind World on `54330` now exist and have recovery proof; remaining Combat/statblock/source-coverage/off-laptop work has narrower owners. History remains in Git. |
 | Broad “move durable Buddy runtime state out of checkout-local `out/`” umbrella | Stage 2A/2B + Demo-Ready Stage 2C/8 + domain owners | Retired as a root umbrella on 2026-09-08. Checkout-local `out/` is no longer accepted product authority for the recovered core state; surviving residuals must be named by domain rather than reopening the umbrella. |
 | Browser-local statblock draft persistence with untrusted receipt restore | Statblock Workbench / future durable draft owner if dogfood requires it | Retired from root READY on 2026-09-08. Browser-only storage is no longer an acceptable durability target. The safety insight survives: restoring mutable draft bytes must never restore a trusted validation receipt; any successor should use a domain-owned durable authority plus fresh validation. |
 | Build/Plan shared Threat projection + campaign-useful glance | merged PR #512 | Implemented; regressions should be filed as current defects rather than reviving the old capability ticket. |
 | Abandoned `/surface` / `SurfaceShell` cleanup | current source tree | Removed from active backlog after current-tree search found no owner to dispatch; resurrect only from a concrete current consumer. |
 
-## Captured UI/product goals — non-status design input
+## Retained UI/product design input
 
-These goals preserve the 2026-09-09 fresh-eyes Buddy UI audit and the Of Conks / Hempholm prototype comparison as **design input only**. They do not own sequence and are not dispatchable from root. The Demo-Ready roadmap, CON-READY/Play authorities, Threat roadmap, and future dogfood STOP decisions own decomposition and ordering.
+The earlier detailed nine-goal inventory is in Git at the audit anchor. Keep the
+following pressures without treating them as nine parallel implementation plans:
 
-**Interaction language (2026-09-10):** shell regions, peek/glance grammar, steal/ignore from Mobbin + Of Conks, and the recommended first peek-not-overlay slice live in [`Docs/Design/ui-language/DESIGN-interaction-layer-language.md`](Docs/Design/ui-language/DESIGN-interaction-layer-language.md). What we liked about Of Conks paint (parchment instruments vs boutique packet, keep vs discard) is captured in [`Docs/Design/ui-language/EVIDENCE-of-conks-styling.md`](Docs/Design/ui-language/EVIDENCE-of-conks-styling.md). Design-agent pickup for the series (not a write lease): [`Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md`](Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md). That folder is the living UI language; `ARCHITECTURE-surface-interaction-layer.md` remains chrome **ownership**.
+- GM-oriented navigation and a compact shared shell, preserving context/drafts.
+- Playable content and usable World objects before technical/debug metadata.
+- Ingest as source-faithful memory review; Build as ordinary authoring.
+- Combat and roll tools integrated into the session, with owned runtime state.
+- Contextual optional Agent help and low-cost presentation iteration.
+- Cards' purpose, capacity, editing, boundaries and linked detail; see the current
+  roadmap and OverMind's captured operator design request.
 
-The forcing product question behind all of them is:
+Recent navigation, notes, shared toolbar, recovery, media and session-evidence
+work is already recorded in the roadmap. Reproduce a residual before dispatching
+an old UI repair. Of Conks and other prototype evidence remain reference material;
+a prototype is not a new durable authority.
 
-> Can a GM move through **prepare → run → capture/review → update World → resume** with less friction than a well-organized Markdown workspace, while DungeonMind/APP-STATE authority remains trustworthy but mostly invisible?
 
-### Goal 1 — Orient Buddy around the GM journey, not subsystem taxonomy
 
-**Outcome:** The application explains where the GM is in the campaign and what they can do next without requiring them to understand graph, run, revision, publication, or ingestion architecture.
+## Consolidation record
 
-**User stories:**
-
-- As a GM opening DungeonBuddy, I can immediately see the current campaign/session state and resume the most likely next task.
-- As a GM moving from preparation into play and then post-session review, I can follow the workflow without translating between architectural surface names and my table work.
-- As a GM who wants technical detail, I can still inspect exact IDs, revisions, publication state, and evidence through an Advanced/operator path rather than losing that truth.
-- As a returning GM, the home/index experience tells me what is prepared, what was last played, what needs review, and what can be resumed.
-
-**Scope guardrail:** This is information architecture, navigation, terminology, and workflow framing. It does not change DungeonMind authority, APP-STATE ownership, or invent automatic campaign-state transitions.
-
-### Goal 2 — Make the shared shell coherent, responsive, and context-preserving
-
-**Outcome:** Plan, Play, Ingest, and Build feel like modes of one application rather than independently composed workbenches competing for fixed screen real estate.
-
-**User stories:**
-
-- As a GM on desktop or a narrow viewport, I can use the primary work area without drawers, rails, scrims, and the Agent bar overlapping or squeezing it into an unusable strip.
-- As a GM opening a tool or object, I can understand what is primary content and what is temporary chrome, and dismiss secondary UI predictably.
-- As a GM switching surfaces, I preserve the campaign/session/document context that should survive the switch and do not inherit stale controls from the prior surface.
-- As a GM, I do not lose persistent screen space to an unavailable global feature.
-
-**Scope guardrail:** Prefer one responsive shared drawer/pane composition and explicit mobile behavior. Do not add another fixed rail to solve an existing fixed-rail problem. Persistent AppChrome remains conditional on an observed remount failure rather than being assumed necessary.
-
-### Goal 3 — Make native Play a table instrument, not a debugger cockpit
-
-**Outcome:** Keep native Play's durable state model and cockpit composition, but make the current moment scan and behave like a GM handout at the table.
-
-**User stories:**
-
-- As a GM running a session, the current Scene/Beat gets most of the useful viewport while navigation and presence remain cheap.
-- As a GM scanning the current moment, I can distinguish At the table, read-aloud, GM notes, rules, warnings, and wait/succeed/fail material without reading one undifferentiated body blob.
-- As a GM making or recording a Decision, I use native durable option identity/persistence, and after selection the relevant Scene choices visibly become more or less prominent rather than relevance existing only as text below the Decision.
-- As a GM, I can inspect a Scene without accidentally making it current, and I can deliberately Make Current when I am ready.
-- As a GM, At a Glance shows actual nearby/openable people, places, threats, or tools instead of spending a rail on a count such as “Scenes N”.
-- As a GM, current-moment material reads as a paper instrument inside dark product chrome: dark AppChrome/rails around a warm parchment Scene/Beat/object/mechanics surface.
-
-**Scope guardrail:** Preserve native Decision CAS/persistence, Inspect vs Make Current, exact object identity, collapsible rails, and Scene-centered current-moment semantics. Do **not** merge or revive `ofConks*` adventure code, prep-HTML hosting, branch enums, hardcoded media maps, or packet-specific product surfaces.
-
-#### Dogfood seed — pasted Runbook Markdown → native Play projection (2026-09-14)
-
-Session 28 prep confirmed that the existing authoring/runtime seams already form a useful bridge:
-
-```text
-external/agent-authored dmb-playable-element:v2 Markdown
-→ paste into a real Runbook opened through Plan
-→ SemanticMarkdownPaste / native TipTap structure
-→ Save to Markdown / exact committed WorkRevision
-→ /play Start exact Run
-→ Run UUID + pinned Runbook revision + content SHA
-→ sealed v2 reference manifest
-→ native v2 admission
-→ Play Current Moment cockpit
-```
-
-This should remain the preferred interoperability direction: an external planning agent can hand back constrained Playable Markdown and the GM can paste/edit it as the exact Runbook rather than creating a derivative Plan→Play export.
-
-The same dogfood exposed three concrete Play residuals worth preserving for the next time Play interaction work is pulled:
-
-1. **Semantic blocks are authored but flattened in Play.** Plan preserves `READ-ALOUD`, `GM-NOTE`, `RULES`, and `WARNING` semantics, while the current v2 Play projection reduces Beat/Scene content to `title + bodyText`. A future Play slice should render those existing semantics rather than invent a second authoring grammar.
-2. **Session-wide / persistent pressure has no native table home.** Material such as “capture Thrin alive,” “Meatwings maintain network sight,” or other rules true across several Scenes survives in the Runbook but is awkward when it lives outside a Beat and invisible to Current Moment. Revisit a lightweight persistent-pressure / active-instruction presentation before adding another bespoke block type.
-3. **Beat-to-Beat table navigation is missing.** Current Play can inspect and Make Current Scenes only within the current Beat. The durable Runtime already carries `current_beat_id`; today advancing to another authored Beat requires a manual progress-API workaround. A future interaction slice should add truthful cross-Beat orientation/navigation without weakening exact Run binding or CAS semantics.
-
-**When revisiting:** dogfood a real multi-Beat Runbook first. Preserve exact Runbook revision binding, explicit Runtime mutation, Inspect-vs-Make-Current semantics, and existing playable IDs. Treat Combat integration as a neighboring Play concern, not a reason to encode combat state into Runbook prose.
-
-This is deliberately **non-status design input**, not an immediate successor to the current continuity/corpus work.
-
-### Goal 4 — Present World objects for table use first and inspection second
-
-**Outcome:** A complete surface-neutral World object remains exact underneath, while the default Play/object presentation leads with what helps the GM use it now.
-
-**User stories:**
-
-- As a GM clicking Karsemine, Nar Granitetooth, or another World object, I first see a readable sheet with type, title, an At-the-table summary, relevant hooks/rules/source material, and connected objects as openable chips.
-- As a GM hovering an object, I get one useful glance line rather than taxonomy, graph adjacency, and provenance diagnostics.
-- As a GM following a connected object, I click a chip and remain in the table flow rather than entering a graph-browser row/list experience.
-- As a GM who needs provenance, I can expand Advanced to inspect node ID, World revision, evidence counts/anchors, raw relationship detail, and other diagnostic identity.
-- As a GM opening a Threat, the same parchment hierarchy can expose exact mechanics and a clear Add to Combat action.
-
-**Scope guardrail:** Presentation must consume the complete admitted object rather than reinterpreting or truncating graph truth. Current-state/timeline reduction, media asset contracts, and map-pin resolution are later capabilities unless separately dispatched. IDs move under Advanced; they are not removed.
-
-### Goal 5 — Turn Ingest into a GM memory-review workflow
-
-**Outcome:** Normal Ingest usage answers “what did DungeonBuddy learn from this session, and what needs my decision?” while exact pipeline state remains available for diagnosis.
-
-**User stories:**
-
-- As a GM reviewing Session 25, I can see a concise summary such as proposed updates, accepted-looking updates, decisions needed, and unresolved identities before opening technical details.
-- As a GM reviewing proposed memory, I can approve, reject, or resolve the material that needs judgment and understand what publication will change.
-- As a GM, publishing approved changes is an explicit action; merely inspecting historical source material never mutates World truth.
-- As an operator debugging a problem, I can still inspect exact run identity, lifecycle state, proposal/receipt bindings, and validation diagnostics under Advanced.
-
-**Scope guardrail:** This is a presentation/workflow reframe over the governed write path. Do not weaken exact-run binding, explicit confirmation, stale-fail-closed behavior, or DungeonMind write authority to make the UI simpler.
-
-### Goal 6 — Give Build an obvious authoring job
-
-**Outcome:** Build communicates what the GM is creating, why they are creating it, and how that authored material relates to the campaign without presenting a mostly empty generic source canvas.
-
-**User stories:**
-
-- As a GM entering Build, I understand that I am authoring reusable world/campaign source material and can choose a meaningful starting intent instead of confronting an unexplained “New source”.
-- As a GM creating an NPC, location, faction, encounter idea, or other worldbuilding source, I can work in a calm document-first canvas and use World references without needing to understand graph storage.
-- As a GM, I can save, leave, reopen, and continue the same durable authored material.
-- As a GM, I can distinguish “I wrote this source” from “this is now published World truth”; authoring does not silently elevate canon.
-
-**Scope guardrail:** Exact creation templates/categories should be proved by real authoring demand rather than pre-building a taxonomy of forms. World elevation remains a separate governed DungeonMind authority capability.
-
-### Goal 7 — Integrate Combat into Play instead of maintaining a parallel product model
-
-**Outcome:** Combat remains a recognizable tabletop tool but becomes an ordinary Play mode with durable application state and contextual entry/exit.
-
-**User stories:**
-
-- As a GM looking at a relevant Threat or Beat, I can add/open combat through a real table-facing control without rebuilding the creature or roster manually.
-- As a GM entering Combat, I can load the relevant roster quickly, operate initiative/HP/turn state, and return to the current Scene without losing where I was.
-- As a GM who closes or restarts the application, I can trust the documented durability semantics of active combat rather than discovering that this one major workflow only lived in browser-local state.
-- As a GM in Combat, I see combat-relevant tools; unrelated ingestion/operator controls do not appear merely because they share old toolbox infrastructure.
-
-**Scope guardrail:** Combat is a Play mode/lens, not a peer graph or new authority system. Durable Combat state and roster-loading are later CON-READY/Play capabilities and must be re-anchored before dispatch.
-
-### Goal 8 — Make the Agent contextual where it exists
-
-**Outcome:** The Agent feels like an interaction capability of the current work rather than a permanently visible global promise that often says to open another surface.
-
-**User stories:**
-
-- As a GM asking about the object, prose selection, Scene, or document I am already looking at, the Agent receives that current context without requiring me to paste or restate it.
-- As a GM on a surface where Agent interaction is not yet useful, I do not lose persistent space to a disabled bar advertising unavailable functionality.
-- As a GM moving between supported surfaces, I can tell what context the Agent currently has and avoid accidentally asking against stale campaign/session/object state.
-- As an advanced user debugging an answer, I can inspect model, token, cost, timing, retrieval, graph/source context, and tool-step traces without making that telemetry the default conversation UI.
-
-**Scope guardrail:** Agent context consumes the same selected World object and surface/document context as the product. It must not invent a parallel graph interpretation or use chat history as campaign truth.
-
-### Goal 9 — Make presentation iteration cheap before the next broad UI design pass
-
-**Updated:** 2026-09-25
-**Roadmap owner:** `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` UI Presentation Substrate sidequest.
-**Sequencing plan:** `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md`.
-
-**Outcome:** Preserve Buddy's mature frontend interaction/runtime kernel while
-building a lightweight presentation layer that can be changed rapidly on a
-resource-constrained development laptop.
-
-Preserve as substrate:
-
-```text
-SurfaceInteraction contracts + leases
-Tool/Edit/Projection host authority
-Peek interaction semantics
-MarkdownCanvasSession + document commands
-graphReference contracts
-World-object view-model boundaries
-Play durable identity/state
-```
-
-Add the missing cheap-to-change layer:
-
-```text
-semantic CSS tokens
-small UI primitives/patterns
-backend-free isolated component workshop
-static representative Buddy fixtures
-small canonical screenshot suite
-controller ↔ presentation separation
-```
-
-Preferred lightweight tooling direction:
-
-- Vite remains the dev foundation;
-- plain CSS custom properties for tokens;
-- CSS Modules / narrowly scoped CSS for new reusable presentation;
-- Ladle for backend-free isolated UI development;
-- Base UI selectively for headless accessibility/focus mechanics;
-- Playwright only for a small explicit/CI visual-regression set.
-
-The target workflow is:
-
-```text
-idea
-→ fixture
-→ visual prototype
-→ desktop/narrow comparison
-→ optional visual regression
-→ production integration
-```
-
-Routine presentation work should not require DungeonMind, PostgreSQL,
-APP-STATE, an ingest run, or a backend server.
-
-**Canvas convergence remains a required checkpoint, but moves later to UI-F5.**
-Once the presentation lab exists, test one representative TipTap-backed
-Runbook/Plan document through a Buddy-owned adapter into standalone Canvas as a
-read-only Page/Print projection. Only then decide whether Flow / Page / Board
-should become alternate projections of one authoritative Buddy work object and
-where freeform/spatial mechanics belong.
-
-**Non-goals:** no frontend rewrite, no TipTap replacement, no repository merge,
-no Tailwind/CSS-in-JS migration, no large pre-styled component framework, no
-source→World semantics, no WorldKeeper/DungeonMind behavior change, and no
-freeform-board implementation before the convergence proof.
-
-### Supporting UI engineering constraint — make redesign cheaper than preservation
-
-This is not a GM-facing capability and should not be dispatched as one giant refactor. It is a constraint on slices implementing the goals above:
-
-- stop growing multi-thousand-line production components and giant route-specific stylesheets when a touched seam can be extracted cleanly;
-- converge on reusable layout, typography, spacing, parchment, and dark-chrome tokens instead of adding one-off paint;
-- eliminate overlapping fixed-position composition rather than compensating with more z-index/responsive exceptions (see `Docs/Design/ui-language/DESIGN-interaction-layer-language.md`);
-- keep one trustworthy fast frontend verification path so visual/product work does not rely only on narrow handoff-specific tests;
-- require each cleanup to be justified by a product slice or a separately bounded maintainability defect, not by a broad rewrite program.
-
-### Of Conks design-evidence locator
-
-Read these as visual/interaction evidence only; **do not merge the dogfood branches wholesale**.
-
-| Evidence | Locator |
-|---|---|
-| Table-ready prototype / PR #578 | `dogfood/of-conks-hempholm-table-ready` @ `88e4d65e7ed69afe262008749194e2b948ce4c43` |
-| Prototype paint | `apps/live-control-ui/src/playSurface/beats/beats.css`; `graphReference/playObjectSheetProjection.css`; `PlayObjectSheetProjection.tsx` on that branch |
-| End-to-end follow-on | `dogfood/of-conks-end-to-end` @ `b40d893f` — UI-hardening dogfood, **not** the Hempholm parchment prototype |
-| Boutique packet CSS/JS/HTML | `evals/of_conks_end_to_end_dogfood/packet/` on the e2e branch (added `fe70b6d6`); `of-conks-packet.css` is **not** on `88e4d65e` |
-| What we liked / keep vs discard | [`Docs/Design/ui-language/EVIDENCE-of-conks-styling.md`](Docs/Design/ui-language/EVIDENCE-of-conks-styling.md) |
-| Native Play composition | `apps/live-control-ui/src/playSurface/playSurface.css`; `PlayGraphObjectSheet.tsx`; current Play cockpit/design authorities on `main` |
-| Parchment survivor on main | `apps/live-control-ui/src/statblocks/projection/threatSheetProjection.css` and Threat glance/sheet presentation |
-
-Design synthesis: **keep native state/persistence/composition; steal prototype table hierarchy and visual grammar.** Navigation/presence should be cheap; the current card should be expensive. Dark room chrome, warm paper instruments, and dark ops handouts (roll / prepared encounter) are complementary parts of one product, not competing themes. Do not merge dogfood branches wholesale.
-
-## Hygiene history
-
-- 2026-08-16 pass 1: 74 active headings → 29; see `Docs/Reports/BACKLOG-HYGIENE-2026-08-16.md`.
-- 2026-08-16 pass 2: converted root backlog from “worth doing” list to strict dispatch inventory; tracker-owned work delegated without duplicate status and READY reduced to seven bounded slices.
-- 2026-09-08 pass 3: re-anchored after PR #694 and the Stage 2A/2B durability work. Status-bearing headings reduced **17 → 7** (`2 READY`, `2 BLOCKED`, `3 DEFERRED`). Demo-Ready/CON-READY/Threat-owned work moved to pointer-only delegation; pre-cutover graph-authority assumptions were corrected; broad durability umbrellas were retired after real APP-STATE/World recovery proof; browser-local statblock persistence was retired as a product durability target.
+- **2026-11-14 (operator local date):** Moved release checks and maintenance follow-ups out of the root inventory, retaining each owner's open gates and [the pinned original root evidence](https://github.com/Drakosfire/DungeonMindBuddy/blob/6b2d4844fd4e0045f55042c3c88dce5c00be583b/Backlog.md). Historical hygiene notes remain at [the transfer base](https://github.com/Drakosfire/DungeonMindBuddy/blob/6b2d4844fd4e0045f55042c3c88dce5c00be583b/Backlog.md#L295-L354).
+- Preserved [layered maps](https://github.com/Drakosfire/DungeonMindBuddy/pull/2383), [campaign arcs](https://github.com/Drakosfire/DungeonMindBuddy/pull/3328), [search replay](https://github.com/Drakosfire/DungeonMindBuddy/pull/3640), and [recap contributor](https://github.com/Drakosfire/DungeonMindBuddy/pull/3655) as separate, unscheduled captures. Split [#2389](https://github.com/Drakosfire/DungeonMindBuddy/pull/2389) into delivered Build browsing, the residual hierarchy question, and the existing extraction fix lane.
+- Adopted the historical evaluation corrections from [#3186](https://github.com/Drakosfire/DungeonMindBuddy/pull/3186), preserving the current native-action controller trigger and the frozen benchmark evidence. This changes backlog ownership/discoverability only, not implementation or acceptance.

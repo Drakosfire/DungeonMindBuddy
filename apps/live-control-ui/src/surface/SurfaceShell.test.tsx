@@ -3,28 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
-import * as recapIngestApi from "../api/recapIngestApi";
-import type { RecapIngestStatus } from "../api/types";
 
 import { mockCatalog, mockLayout, mockPlanView, mockRollEvent, mockState } from "../test/fixtures";
 import { SurfaceShell } from "./SurfaceShell";
-
-function inspectStatus(): RecapIngestStatus {
-  return {
-    schema: "dmb_raw_recap_ingest_status_v1",
-    campaign_id: "longmont-c2",
-    session: 22,
-    status: "ready_for_planning_activation",
-    states: ["ingest_status_inspected", "ready_for_planning_activation"],
-    paths: {},
-    authority: {},
-    warnings: [],
-    errors: [],
-    next_actions: [],
-    ingest_report: {},
-    entity_spelling_audit: [],
-  };
-}
 
 describe("SurfaceShell", () => {
   afterEach(() => {
@@ -152,9 +133,7 @@ describe("SurfaceShell", () => {
 
   it("does not remount ingestion when another pane expands", async () => {
     const user = userEvent.setup();
-    const inspectSpy = vi
-      .spyOn(recapIngestApi, "postRecapIngest")
-      .mockResolvedValue(inspectStatus());
+    window.history.replaceState({}, "", "/surface");
 
     const layout = {
       ...mockLayout,
@@ -182,16 +161,23 @@ describe("SurfaceShell", () => {
       />,
     );
 
-    await screen.findByText("Raw Recap Ingestion");
-    const callsBeforeExpand = inspectSpy.mock.calls.length;
-    expect(callsBeforeExpand).toBeGreaterThan(0);
+    const navigation = await screen.findByRole("navigation", { name: "Ingest workspace navigation" });
+    const ingestion = navigation.closest(".ingestion-module");
+    expect(ingestion).not.toBeNull();
+    const title = within(navigation).getByRole("textbox", { name: "Draft title (optional)" });
+    await user.clear(title);
+    await user.type(title, "Retained draft during pane expansion");
+    expect(title).toHaveValue("Retained draft during pane expansion");
 
     const recordPanel = document.querySelector('.surface-grid [data-module-id="record"]')!;
     await user.click(within(recordPanel as HTMLElement).getByRole("button", { name: /^Expand$/i }));
 
     expect(screen.getByText(/Resolved T-WX roll 7/)).toBeInTheDocument();
-    expect(inspectSpy).toHaveBeenCalledTimes(callsBeforeExpand);
-    inspectSpy.mockRestore();
+    const navigationAfterExpand = await screen.findByRole("navigation", { name: "Ingest workspace navigation" });
+    expect(navigationAfterExpand).toBe(navigation);
+    expect(navigationAfterExpand.closest(".ingestion-module")).toBe(ingestion);
+    expect(within(navigationAfterExpand).getByRole("textbox", { name: "Draft title (optional)" })).toBe(title);
+    expect(title).toHaveValue("Retained draft during pane expansion");
   });
 
   it("selects timeline target via callback when enabled", async () => {

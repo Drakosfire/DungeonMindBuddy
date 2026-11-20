@@ -6,7 +6,6 @@ import type {
 
 export type PlayWorkspace =
   | { kind: "current" }
-  | { kind: "scenes" }
   | { kind: "scene-inspect"; sceneId: string };
 
 export type CurrentMoment =

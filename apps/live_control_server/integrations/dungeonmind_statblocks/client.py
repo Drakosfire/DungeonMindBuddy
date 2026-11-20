@@ -5,6 +5,7 @@ import json
 from typing import Any, Protocol, TypeVar
 
 import httpx
+from pydantic import BaseModel, ValidationError
 
 from apps.live_control_server.integrations.dungeonmind_statblocks.config import (
     API_PREFIX,
@@ -66,6 +67,16 @@ def _source_definition_digest(source_definition: dict[str, Any]) -> str:
     return source_definition_digest_from_body(source_definition)
 
 
+def _dump_definition_request(request: BaseModel) -> dict[str, Any]:
+    payload = request.model_dump(mode="json", by_alias=True, exclude_none=True)
+    definition = payload["definition"]
+    # The producer requires these keys even when the source leaves them unknown.
+    definition.setdefault("ruleset", None)
+    definition.setdefault("movement", None)
+    definition["challenge"].setdefault("proficiency_bonus", None)
+    return payload
+
+
 def verify_exact_revision_mechanics_integrity(
     revision: ExactRevisionResourceV1,
 ) -> None:
@@ -115,6 +126,8 @@ class StatblockV1Client(Protocol):
     def create_statblock(
         self, body: dict[str, Any] | CreateStatblockRequestV1
     ) -> CreateStatblockResult: ...
+
+    def append_revision(self, statblock_id: str, body: dict[str, Any]) -> ExactRevisionResourceV1: ...
 
 
 class DungeonMindStatblockV1Client:
@@ -166,12 +179,12 @@ class DungeonMindStatblockV1Client:
             payload = self._decode_json(body, status_code=status)
             try:
                 return ReadinessResponseV1.model_validate(payload)
-            except Exception:
+            except ValidationError:
                 pass
             envelope: ErrorEnvelopeV1 | None
             try:
                 envelope = ErrorEnvelopeV1.model_validate(payload)
-            except Exception:
+            except ValidationError:
                 envelope = None
             if envelope is None:
                 raise downstream_unexpected(
@@ -212,6 +225,21 @@ class DungeonMindStatblockV1Client:
                 "exact revision response identity does not match request"
             )
         verify_exact_revision_mechanics_integrity(revision)
+        return revision
+
+    def append_revision(self, statblock_id: str, body: dict[str, Any]) -> ExactRevisionResourceV1:
+        """Append one exact parent with the producer's idempotent CAS contract."""
+        from .generated.models import AppendRevisionRequestV1
+        from .definition_digest import source_definition_digest_from_body
+        safe = validate_statblock_id(statblock_id)
+        request = AppendRevisionRequestV1.model_validate(body)
+        payload = self._request_json("POST", f"{API_PREFIX}/statblocks/{safe}/revisions",
+            json_body=_dump_definition_request(request))
+        revision = self._parse_model(ExactRevisionResourceV1, payload)
+        verify_exact_revision_mechanics_integrity(revision)
+        if (revision.statblock_id != safe or getattr(revision.parent_revision_id,"root",revision.parent_revision_id) != request.parent_revision_id
+            or revision.definition_digest != source_definition_digest_from_body(request.definition.model_dump(mode="json"))):
+            raise downstream_unexpected("Appended revision differs from its exact requested parent or definition")
         return revision
 
     def generate_candidate(self, body: dict[str, Any]) -> GeneratedStatblockCandidateV1:
@@ -294,7 +322,7 @@ class DungeonMindStatblockV1Client:
         """SBW05a: POST definition validation; bind receipt to returned digest."""
         json_body: dict[str, Any]
         if isinstance(body, ValidateDefinitionRequestV1):
-            json_body = body.model_dump(mode="json", by_alias=True, exclude_none=True)
+            json_body = _dump_definition_request(body)
         else:
             json_body = body
         payload = self._request_json(
@@ -330,7 +358,7 @@ class DungeonMindStatblockV1Client:
             else CreateStatblockRequestV1.model_validate(body)
         )
         if any(
-            element.explains is not None
+            element.explains
             for element in request.definition.rule_elements
         ):
             raise downstream_invalid_request(
@@ -339,7 +367,10 @@ class DungeonMindStatblockV1Client:
                 error_code="unsupported_rule_element_explains",
                 details={"field_path": "definition.rule_elements[*].explains"},
             )
-        json_body = request.model_dump(mode="json", by_alias=True, exclude_none=True)
+        json_body = _dump_definition_request(request)
+        from .definition_digest import omit_empty_explains
+
+        omit_empty_explains(json_body["definition"])
         idempotency_key = json_body.get("idempotency_key")
         if not isinstance(idempotency_key, str) or not idempotency_key.strip():
             raise downstream_invalid_request("create request missing idempotency_key")
@@ -465,7 +496,7 @@ class DungeonMindStatblockV1Client:
     def _parse_model(self, model_type: type[ModelT], payload: Any) -> ModelT:
         try:
             return model_type.model_validate(payload)
-        except Exception:
+        except ValidationError:
             # Validation errors retain the rejected payload; raise outside that context.
             pass
         raise downstream_unexpected(
@@ -557,7 +588,7 @@ class DungeonMindStatblockV1Client:
             return None, None, {}
         try:
             envelope = ErrorEnvelopeV1.model_validate(payload)
-        except Exception:
+        except ValidationError:
             return None, None, {}
         return (
             self._public_text(envelope.error.code),

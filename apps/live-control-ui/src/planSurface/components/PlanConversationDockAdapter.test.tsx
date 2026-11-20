@@ -1,0 +1,126 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useState } from "react";
+import { createPortal } from "react-dom";
+import { describe, it, expect, vi } from "vitest";
+import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractionProvider";
+import { AskPluginSlotProvider, useRegisterAskPluginPresence } from "../../agentInteraction/AskPluginSlot";
+import { AgentInteractionChrome } from "../../agentInteraction/AgentInteractionChrome";
+import { PlanConversationDockAdapter, type PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
+
+function Plugin({hosts}:{hosts:PlanConversationPresentationHosts}) {
+  useRegisterAskPluginPresence(true);
+  const [draft,setDraft]=useState("");
+  return <>
+    {hosts.composer&&createPortal(<label>Message Buddy<input value={draft} onChange={e=>setDraft(e.target.value)}/></label>,hosts.composer)}
+    {hosts.messages&&createPortal(<p>Existing reply</p>,hosts.messages)}
+    {hosts.context&&createPortal(<><p>Full committed Plan context</p><input aria-label="Context search" defaultValue="" /></>,hosts.context)}
+  </>;
+}
+function Fixture() {
+  return <AgentInteractionProvider><AskPluginSlotProvider>
+    <PlanConversationDockAdapter contextLabel="Warehouse · Full saved Plan" reader={<textarea aria-label="Plan draft" defaultValue="Preparation"/>}>
+      {hosts=><Plugin hosts={hosts}/>}
+    </PlanConversationDockAdapter>
+    <AgentInteractionChrome/>
+  </AskPluginSlotProvider></AgentInteractionProvider>;
+}
+describe("PlanConversationDockAdapter",()=>{
+  it("can resize to the entire Plan workspace without replacing its drafts", async()=>{
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({height:720} as DOMRect);
+    try {
+      const user=userEvent.setup(); render(<Fixture/>);
+      const reader=screen.getByLabelText("Plan draft");
+      await user.click(await screen.findByRole("button",{name:"Open",exact:true}));
+      const input=await screen.findByLabelText("Message Buddy");
+      await user.type(input,"Unsent question");
+      const resize=screen.getByRole("separator",{name:"Resize conversation"});
+      fireEvent.keyDown(resize,{key:"End"});
+      expect(resize).toHaveAttribute("aria-valuemax","688");
+      expect(resize).toHaveAttribute("aria-valuenow","688");
+      fireEvent.keyDown(resize,{key:"Home"});
+      expect(resize).toHaveAttribute("aria-valuenow","280");
+      expect(screen.getByLabelText("Plan draft")).toBe(reader);
+      expect(reader).toHaveValue("Preparation");
+      expect(input).toHaveValue("Unsent question");
+    } finally { rect.mockRestore(); }
+  });
+  it("keeps reader and typed composer mounted while existing pane state expands and collapses",async()=>{
+    const user=userEvent.setup();render(<Fixture/>);
+    await user.click(await screen.findByRole("button",{name:"Open",exact:true}));
+    const input=await screen.findByLabelText("Message Buddy"),reader=screen.getByLabelText("Plan draft");
+    await user.type(input,"Remember the sleepers");
+    await waitFor(()=>expect(screen.getByRole("log")).toBeVisible());
+    expect(screen.getByRole("separator", {name:"Resize conversation"})).toHaveAttribute("aria-valuenow", "640");
+    await user.click(screen.getByRole("button",{name:"Close conversation",exact:true}));
+    expect(screen.getByLabelText("Message Buddy")).toBe(input);
+    expect(input).toHaveValue("Remember the sleepers");
+    expect(input).not.toBeVisible();
+    expect(screen.queryByRole("log")).toBeNull();
+    reader.focus();
+    expect(screen.queryByRole("log")).toBeNull();
+    expect(screen.getByLabelText("Plan draft")).toBe(reader);
+    await user.click(screen.getByRole("button",{name:"Open",exact:true}));
+    expect(screen.getByRole("log")).toHaveTextContent("Existing reply");
+    expect(screen.queryByTestId("agent-interaction-chrome")).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText("Message Buddy")).toHaveLength(1);
+    expect(screen.getAllByTestId("agent-interaction-open")).toHaveLength(1);
+  });
+  it("keeps the reader usable when no Ask host provider exists",()=>{
+    render(<PlanConversationDockAdapter contextLabel="Plan" reader={<textarea aria-label="Unhosted Plan"/>}>{()=>null}</PlanConversationDockAdapter>);
+    expect(screen.getByLabelText("Unhosted Plan")).toBeEnabled();
+    expect(screen.queryByRole("log")).not.toBeInTheDocument();
+  });
+  it("uses inspectable context without opening another overlay or submitting a request",async()=>{
+    const user=userEvent.setup();render(<Fixture/>);
+    await user.click(await screen.findByRole("button",{name:"Open",exact:true}));
+    expect(screen.queryByText("Full committed Plan context")).toBeNull();
+    await user.click(screen.getByTitle("Conversation options"));
+    await user.click(screen.getByRole("button",{name:"Show context"}));
+    expect(screen.getByText("Full committed Plan context")).toBeVisible();
+    const search = screen.getByLabelText("Context search");
+    await user.type(search, "Retain search");
+    await user.click(screen.getByRole("button",{name:"Close conversation"}));
+    await user.click(screen.getByRole("button",{name:"Open",exact:true}));
+    await user.click(screen.getByTitle("Conversation options"));
+    await user.click(screen.getByRole("button",{name:"Show context"}));
+    expect(screen.getByLabelText("Context search")).toBe(search);
+    expect(search).toHaveValue("Retain search");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+});
+
+
+it("uses the existing dragon entrance for fullscreen and full close without opening Edit or creating another composer", async()=>{
+  const user=userEvent.setup();render(<Fixture/>);
+  await user.click(await screen.findByRole("button",{name:"Open",exact:true}));
+  const draft=screen.getByLabelText("Message Buddy");await user.type(draft,"Unsent plan question");
+  await user.click(screen.getByRole("button",{name:"Expand conversation fullscreen"}));
+  expect(screen.getByRole("dialog",{name:"World conversation"})).toContainElement(draft);
+  await user.click(screen.getByRole("button",{name:"Restore conversation dock"}));
+  await user.click(screen.getByRole("button",{name:"Close conversation"}));
+  const entrance=screen.getByRole("button",{name:"Open",exact:true});expect(entrance).toHaveFocus();
+  await user.keyboard("{Enter}");expect(draft).toHaveValue("Unsent plan question");expect(draft).toHaveFocus();
+  expect(screen.getAllByLabelText("Message Buddy")).toHaveLength(1);
+  expect(screen.queryByRole("button",{name:"Close Edit"})).toBeNull();
+});
+
+
+it.each([false, true])("dismisses More by pointer and keeps Close reachable (fullscreen=%s)", async fullscreen => {
+  const user = userEvent.setup(); render(<Fixture/>);
+  await user.click(await screen.findByRole("button", {name:"Open",exact:true}));
+  if (fullscreen) await user.click(screen.getByRole("button", {name:"Expand conversation fullscreen"}));
+  const summary = screen.getByTitle("Conversation options");
+  const details = summary.parentElement as HTMLDetailsElement;
+  await user.click(summary); expect(details.open).toBe(true);
+  await user.click(summary); expect(details.open).toBe(false);
+  await user.click(summary);
+  await user.click(screen.getByLabelText("Message Buddy")); expect(details.open).toBe(false);
+  await user.click(summary);
+  await user.click(screen.getByRole("button", {name:"Close conversation"}));
+  expect(details.open).toBe(false); expect(screen.queryByRole("log")).toBeNull();
+  await user.click(screen.getByRole("button", {name:"Open",exact:true}));
+  expect(details.open).toBe(false);
+  await user.click(summary); fireEvent.keyDown(summary, {key:"Escape"});
+  expect(details.open).toBe(false); expect(summary).toHaveFocus();
+});

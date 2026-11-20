@@ -129,6 +129,50 @@ class WorldGraphPublicationReceipt:
 
 
 @dataclass(frozen=True)
+class WorldbuildingPublicationDiscoveryRequest:
+    world_id: str
+    revision_id: str
+    run_id: str
+    source_artifact_id: str
+    source_revision_id: str
+    source_uri: str
+    preview: Any
+
+
+@dataclass(frozen=True)
+class WorldbuildingPublishedFacet:
+    candidate_id: str
+    candidate_kind: Literal["node", "edge", "source_observation"]
+    facet: Literal["existence", "description", "alias", "observation", "relationship"]
+    assertion_id: str
+    subject_node_id: str
+    verdict: Literal["accepted", "rejected"]
+
+
+@dataclass(frozen=True)
+class WorldbuildingHistoricalPublication:
+    native_operation_id: str
+    review_id: str
+    parent_revision_id: str
+    published_revision_id: str
+    reviewed_contribution_id: str
+    reviewed_contribution_sha256: str
+    facets: tuple[WorldbuildingPublishedFacet, ...]
+    unmapped_assertion_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class WorldbuildingPublicationHistory:
+    world_id: str
+    revision_id: str
+    run_id: str
+    source_artifact_id: str
+    source_revision_id: str
+    publications: tuple[WorldbuildingHistoricalPublication, ...]
+    scanned_revision_count: int
+
+
+@dataclass(frozen=True)
 class WorldGraphExpectedChildFacts:
     """Product facts the authority must prove on a published child."""
 
@@ -195,6 +239,16 @@ class WorldGraphAuthority(Protocol):
         publication must match those bindings or fail closed as integrity.
         ``operation_namespace`` selects the product family's review-operation
         mapping. Threat must keep D.2A's historical derivation.
+        """
+
+    def discover_worldbuilding_publications(
+        self, request: WorldbuildingPublicationDiscoveryRequest,
+    ) -> WorldbuildingPublicationHistory:
+        """Read historical publication facets proven against a sealed preview.
+
+        Complete zero results prove no matching terminal publication at this pin.
+        Unavailable/corrupt authority raises; unmapped native facts remain explicit.
+        Never reprepare, confirm, admit a source, or consult today's identity ledger.
         """
 
     def verify_child(

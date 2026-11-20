@@ -43,7 +43,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from src.ingestion.frontmatter import split_frontmatter
+from ingestion.frontmatter import split_frontmatter
 
 PARTY_REGISTRY_SCHEMA = "party_registry_v1"
 PARTY_REGISTRY_V2_SCHEMA = "party_registry_v2"
@@ -195,6 +195,16 @@ def build_party_context_for_campaign(
     corpus_root: Path | None = None,
     campaign_rel: str | None = None,
 ) -> PartyContext:
+    if campaign_rel is None and campaign_id.strip() not in CAMPAIGN_CORPUS:
+        # Native campaigns need not have an optional local party registry.
+        # Do not invent a path or borrow another campaign's identities.
+        return PartyContext(
+            campaign_id=campaign_id,
+            session=_session_key(session),
+            party_names=(),
+            members=(),
+            warnings=("no local corpus registered for campaign",),
+        )
     root, rel = resolve_campaign_corpus(
         campaign_id,
         corpus_root=corpus_root,

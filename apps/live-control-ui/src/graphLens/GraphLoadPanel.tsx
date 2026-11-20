@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import type { PlanGraphProjectionState } from "../planSurface/reference/graphAwareReferenceResolver";
+import type { GraphReferenceProjectionState } from "../graphReference/types";
 import { useOptionalPlanGraphLens } from "./WorldGraphLensContext";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import "./graphLens.css";
@@ -39,7 +39,7 @@ export interface PlanGraphLoadLensControls {
 }
 
 export interface PlanGraphLoadPanelProps {
-  projectionState: PlanGraphProjectionState;
+  projectionState: GraphReferenceProjectionState | "idle";
   projectionError?: string | null;
   nodeCount: number;
   /** When false, hide the “select at least one campaign” warning. Default true. */
@@ -52,10 +52,11 @@ export interface PlanGraphLoadPanelProps {
 }
 
 function formatProjectionLoadStatus(
-  projectionState: PlanGraphProjectionState,
+  projectionState: GraphReferenceProjectionState | "idle",
   nodeCount: number,
   projectionError: string | null | undefined,
 ): string {
+  if (projectionState === "idle") return "Not loaded";
   if (projectionState === "loading") {
     return "Loading…";
   }
@@ -73,7 +74,7 @@ function formatProjectionLoadStatus(
 function formatLensStatusLine(
   summaryLabel: string,
   focusValidationStatus: PlanGraphFocusValidationStatus,
-  projectionState: PlanGraphProjectionState,
+  projectionState: GraphReferenceProjectionState | "idle",
   nodeCount: number,
   projectionError: string | null | undefined,
 ): string {

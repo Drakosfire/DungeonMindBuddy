@@ -1,0 +1,126 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+import {readConversationTurns,readExportTurns,resumeConversation,changeConversationLifecycle,readConversationMessages,readActiveConversationMessages} from './conversationLibraryApi';
+import {authenticatedApiFetch} from './liveApi';
+vi.mock('./liveApi',async original=>({...await original<typeof import('./liveApi')>(),authenticatedApiFetch:vi.fn()}));
+const cid='11111111-1111-4111-8111-111111111111',tid='22222222-2222-4222-8222-222222222222';
+const source={world_id:'world',conversation_id:cid,turn_id:tid,document_id:'page',surface_id:'build'};
+const object={kind:'questions',questions:[{text:'Which shop?'}],source};
+const page=()=>({schema:'dmb_conversation_library_turns_v3',world_id:'world',conversation_id:cid,turns:[{turn_id:tid,sequence:1,status:'completed',user_text:'Ask me',assistant_text:'',retry_context:null,reply_object:object}],next_before_sequence:null});
+function response(body:unknown){vi.mocked(authenticatedApiFetch).mockResolvedValue({response:Response.json(body)} as Awaited<ReturnType<typeof authenticatedApiFetch>>);}
+beforeEach(()=>vi.clearAllMocks());
+it('admits exact read-only object scope and preserves empty prose',async()=>{response(page());expect((await readConversationTurns('world',cid)).turns[0].assistant_text).toBe('');});
+it.each(['world_id','conversation_id','turn_id','surface_id','document_id'])('refuses a foreign or missing object %s',async field=>{const value=page();value.turns[0].reply_object={...object,source:{...source,[field]:field==='document_id'?'':'foreign'}};response(value);await expect(readConversationTurns('world',cid)).rejects.toThrow();});
+it.each([
+ {kind:'questions',questions:[],source},
+ {kind:'questions',questions:[{text:' '}],source},
+ {...object,execute:true},
+ {kind:'questions',questions:[{text:'Question',answer:'invented'}],source},
+ {kind:'page_object',object_kind:'execute',source},
+])('refuses malformed typed objects',async object=>{const value=page();response({...value,turns:[{...value.turns[0],retry_context:null,reply_object:object}]});await expect(readConversationTurns('world',cid)).rejects.toThrow();});
+it('refuses objects on incomplete turns and an obsolete projection schema',async()=>{const value=page();response({...value,turns:[{...value.turns[0],status:'running'}]});await expect(readConversationTurns('world',cid)).rejects.toThrow();response({...value,schema:'dmb_conversation_library_turns_v1'});await expect(readConversationTurns('world',cid)).rejects.toThrow();});
+it('admits page labels without making their review executable',async()=>{const value=page();response({...value,turns:[{...value.turns[0],reply_object:{kind:'page_object',object_kind:'plan',source}}]});expect((await readConversationTurns('world',cid)).turns[0].reply_object?.kind).toBe('page_object');});
+
+it('retains captured reference input and rejects a foreign World',async()=>{
+ const references={schema:'dmb_authored_references_v2',references:[{schema:'dmb_authored_graph_reference_v1',managed_world_id:'world',native_world_id:'native',binding_version:1,graph_revision:'revision',node_id:'node',label:'Selected object'}]};
+ const value=page();response({...value,turns:[{...value.turns[0],authored_references:references}]});
+ expect((await readConversationTurns('world',cid)).turns[0].authored_references).toEqual(references);
+ references.references[0].managed_world_id='foreign';response({...value,turns:[{...value.turns[0],authored_references:references}]});
+ await expect(readConversationTurns('world',cid)).rejects.toThrow('reference input');
+});
+
+it('accepts only the exact durable reopen receipt',async()=>{
+ const command={world_id:'world',conversation_id:cid,command_id:tid,expected_pointer_revision:4,expected_active_conversation_id:null};
+ const receipt={world_id:'world',conversation_id:cid,command_id:tid,command_kind:'reopen',active_conversation_id:cid,pointer_revision:5,recorded_at:'2026-11-05T12:00:00Z'};
+ response(receipt);expect(await resumeConversation(command)).toEqual(receipt);
+ for(const patch of [{command_kind:'new'},{world_id:'foreign'},{active_conversation_id:null},{pointer_revision:6},{command_id:cid},{conversation_id:tid}]){response({...receipt,...patch});await expect(resumeConversation(command)).rejects.toThrow(/switch/);}
+});
+
+it('validates lifecycle receipt operation and exact resulting active pointer',async()=>{
+ const command={world_id:'world',conversation_id:cid,command_id:tid,expected_pointer_revision:4,expected_active_conversation_id:cid};
+ const receipt={world_id:'world',conversation_id:cid,command_id:tid,command_kind:'trash',active_conversation_id:null,pointer_revision:5,recorded_at:'2026-11-05T12:00:00Z'};
+ response(receipt);expect(await changeConversationLifecycle(command,'trash')).toEqual(receipt);
+ for(const patch of [{command_kind:'restore'},{active_conversation_id:cid},{world_id:'foreign'},{pointer_revision:6}]){response({...receipt,...patch});await expect(changeConversationLifecycle(command,'trash')).rejects.toThrow('lifecycle');}
+ response({...receipt,command_kind:'restore'});expect((await changeConversationLifecycle({...command,expected_active_conversation_id:null},'restore')).active_conversation_id).toBeNull();
+});
+
+it('accepts exact saved-message previews but never full-detail metadata in that contract',async()=>{
+ const preview={schema:'dmb_conversation_messages_v1',world_id:'world',conversation_id:cid,messages:[{turn_id:tid,sequence:2,status:'completed',user_text:'Original question',assistant_text:'Saved answer'}],next_before_sequence:2};
+ response(preview);expect((await readConversationMessages('world',cid)).messages[0].assistant_text).toBe('Saved answer');
+ for(const patch of [{world_id:'foreign'},{conversation_id:tid},{next_before_sequence:3},{messages:[{...preview.messages[0],reply_object:null}]},{messages:[{...preview.messages[0],sequence:0}]}]){response({...preview,...patch});await expect(readConversationMessages('world',cid)).rejects.toThrow();}
+ response(preview);await expect(readConversationMessages('world',cid,2)).rejects.toThrow();
+});
+
+
+it('admits only scoped active-message metadata without execution or action grants',async()=>{
+ const v={schema:'dmb_active_conversation_messages_v4',world_id:'world',conversation_state:'active',conversation_id:cid,active_conversation_id:cid,pointer_revision:4,
+  messages:[{turn_id:tid,idempotency_key:tid,revision:2,sequence:3,status:'completed',user_text:'Question',assistant_text:'Answer',citation_preview:null,reply_object:null,authored_references:null,provenance:{world_id:'world',surface_id:'build'}}],next_before_sequence:3};
+ response(v);expect((await readActiveConversationMessages('world')).messages[0].assistant_text).toBe('Answer');
+ for(const patch of [{world_id:'foreign'},{active_conversation_id:tid},{pointer_revision:-1},{next_before_sequence:4},{messages:[{...v.messages[0],completion:{}}]},{messages:[{...v.messages[0],provenance:{world_id:'foreign'}}]}]){response({...v,...patch});await expect(readActiveConversationMessages('world')).rejects.toThrow();}
+ response(v);await expect(readActiveConversationMessages('world',3)).rejects.toThrow();
+ response({...v,conversation_state:'absent',conversation_id:null,active_conversation_id:null,messages:[],next_before_sequence:null});expect((await readActiveConversationMessages('world')).conversation_state).toBe('absent');
+});
+
+it('validates saved statblock links as scoped display metadata',async()=>{
+ const reference={name:'Meat Mind',world_id:'world',draft_id:'33333333-3333-4333-8333-333333333333',revision_id:'rev_dda9582a88ad4724997306791736975b'};
+ const v={schema:'dmb_active_conversation_messages_v4',world_id:'world',conversation_state:'active',conversation_id:cid,active_conversation_id:cid,pointer_revision:4,
+  messages:[{turn_id:tid,idempotency_key:tid,revision:2,sequence:3,status:'completed',user_text:'Find the Meat Mind statblock',assistant_text:'Found it',citation_preview:null,reply_object:null,authored_references:null,provenance:{world_id:'world',surface_id:'plan'},saved_statblocks:[reference]}],next_before_sequence:null};
+ response(v);expect((await readActiveConversationMessages('world')).messages[0]?.saved_statblocks).toEqual([reference]);
+ for(const bad of [{...reference,world_id:'foreign'},{...reference,draft_id:'not-a-uuid'},{...reference,revision_id:'latest'},{...reference,extra:true}]){
+  response({...v,messages:[{...v.messages[0],saved_statblocks:[bad]}]});await expect(readActiveConversationMessages('world')).rejects.toThrow('invalid');
+ }
+});
+
+it('loads saved selections in the lightweight contract and rejects foreign or forged input',async()=>{
+ const ref={schema:'dmb_authored_graph_reference_v1',managed_world_id:'world',native_world_id:'native',binding_version:1,graph_revision:'pinned',node_id:'node',label:'Selected object'};
+ const bundle={schema:'dmb_authored_references_v2',references:[ref]};
+ const v={schema:'dmb_active_conversation_messages_v4',world_id:'world',conversation_state:'active',conversation_id:cid,active_conversation_id:cid,pointer_revision:4,
+  messages:[{turn_id:tid,idempotency_key:tid,revision:2,sequence:3,status:'interrupted',user_text:'Question',assistant_text:null,citation_preview:null,reply_object:null,authored_references:bundle,provenance:{world_id:'world',surface_id:'plan'}}],next_before_sequence:null};
+ response(v);expect((await readActiveConversationMessages('world')).messages[0].authored_references).toEqual(bundle);
+ for(const refs of [{...bundle,references:[{...ref,managed_world_id:'foreign'}]},{...bundle,authority:'granted'},{...bundle,schema:'unknown'}]){
+  response({...v,messages:[{...v.messages[0],authored_references:refs}]});await expect(readActiveConversationMessages('world')).rejects.toThrow();
+ }
+ const {authored_references:_,...missing}=v.messages[0];response({...v,messages:[missing]});await expect(readActiveConversationMessages('world')).rejects.toThrow();
+});
+
+
+it('admits a scoped Plan connected-page descriptor but rejects other surfaces or missing v4 fields',async()=>{
+ const provenance={world_id:'world',surface_id:'plan',primary_work:{object_id:'saved-plan'}};
+ const object={kind:'page_object',object_kind:'connected_page',source:{world_id:'world',conversation_id:cid,turn_id:tid,document_id:'saved-plan',surface_id:'plan'}};
+ const row={turn_id:tid,idempotency_key:tid,revision:2,sequence:3,status:'completed',user_text:'Create a page',assistant_text:'Preview ready',citation_preview:null,authored_references:null,reply_object:object,provenance};
+ const page={schema:'dmb_active_conversation_messages_v4',world_id:'world',conversation_state:'active',conversation_id:cid,active_conversation_id:cid,pointer_revision:4,messages:[row],next_before_sequence:null};
+ response(page);expect((await readActiveConversationMessages('world')).messages[0].reply_object).toEqual(object);
+ for(const bad of [{...object,object_kind:'relationship'},{...object,source:{...object.source,world_id:'foreign'}},{...object,source:{...object.source,document_id:'another-plan'}},{...object,source:{...object.source,turn_id:cid}}]){
+  response({...page,messages:[{...row,reply_object:bad}]});await expect(readActiveConversationMessages('world')).rejects.toThrow();
+ }
+ const {reply_object:_,...old}=row;response({...page,messages:[old]});await expect(readActiveConversationMessages('world')).rejects.toThrow();
+ response({...page,schema:'dmb_active_conversation_messages_v3'});await expect(readActiveConversationMessages('world')).rejects.toThrow();
+});
+
+it('requires the transcript cursor to advance to the first turn of a nonempty page', async () => {
+ const value = page();
+ response({...value, next_before_sequence: 1});
+ expect((await readConversationTurns('world', cid, 2)).next_before_sequence).toBe(1);
+ response({...value, next_before_sequence: 2});
+ await expect(readConversationTurns('world', cid, 2)).rejects.toThrow('Transcript cursor');
+ response({...value, turns: [], next_before_sequence: 2});
+ await expect(readConversationTurns('world', cid, 2)).rejects.toThrow('Transcript cursor');
+ response({...value, turns: []});
+ expect((await readConversationTurns('world', cid, 2)).turns).toEqual([]);
+});
+
+it.each([422, 403])('negotiates legacy export only for the selector rejection (status %i)', async status => {
+ const fetch = vi.mocked(authenticatedApiFetch);
+ response(page());
+ fetch.mockResolvedValueOnce({
+  response: Response.json({detail: 'Unexpected or repeated conversation selector'}, {status}),
+ } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+ const result = readExportTurns('world', cid);
+ if (status === 422) {
+  await expect(result).resolves.toEqual({...page(), page_sha256: null});
+  expect(fetch.mock.calls.map(([url]) => new URLSearchParams(String(url).split('?')[1]).get('view')))
+   .toEqual(['full', null]);
+ } else {
+  await expect(result).rejects.toMatchObject({status});
+  expect(fetch).toHaveBeenCalledTimes(1);
+ }
+});

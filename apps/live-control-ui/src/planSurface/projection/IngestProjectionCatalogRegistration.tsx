@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 
-import { IngestionModule } from "../../modules/IngestionModule";
 import type { SurfaceInteractionProjectionDescriptor } from "../../surfaceInteraction/types";
 import type { ProjectionCatalogRenderRequest } from "../../surfaceInteraction/projection/projectionCatalog";
 import type { ProjectionKind, ProjectionSize } from "../../surfaceInteraction/projection/types";
-import { GraphReviewDiagnosticsToolPanel } from "../graphReviewWorkbench/GraphReviewDiagnosticsToolPanel";
+
 import {
   GRAPH_REVIEW_DIAGNOSTICS_BINDING_ID,
   GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID,
@@ -15,6 +14,11 @@ import {
   stabilizeStringSetMembership,
 } from "./projectionBindings";
 import { useProjection } from "./projectionContext";
+
+import { deferredComponent } from "../../ui/deferredComponent";
+
+const IngestionModule = deferredComponent(() => import("../../modules/IngestionModule").then(module => ({ default: module.IngestionModule })), "ingestion");
+const GraphReviewDiagnosticsToolPanel = deferredComponent(() => import("../graphReviewWorkbench/GraphReviewDiagnosticsToolPanel").then(module => ({ default: module.GraphReviewDiagnosticsToolPanel })), "diagnostics");
 
 export interface IngestProjectionDefinition {
   projectionId: string;

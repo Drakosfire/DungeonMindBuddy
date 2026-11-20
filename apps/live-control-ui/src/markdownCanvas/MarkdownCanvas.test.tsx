@@ -94,6 +94,7 @@ describe("MarkdownCanvas", () => {
       expect(screen.getByTestId("markdown-canvas")).toBeInTheDocument();
     });
     expect(screen.getByTestId("markdown-canvas-editor")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Page layout" })).not.toBeInTheDocument();
   });
 
   it("admits committed_clean only when local CAS matches snapshot", async () => {

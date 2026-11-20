@@ -1,3 +1,4 @@
+import "../src/statblocks/render/statblockCampaignTheme.css";
 import type { GlobalProvider } from "@ladle/react";
 
 import "../src/ui/tokens.css";

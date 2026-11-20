@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+        ResolvedSourceAnchorReadV2, DirectWorldGraphReadServices,
+    )
 
 from apps.live_control_server.config import (
     WorldGraphAuthorityConfigurationError,
+    artifact_data_root,
     repo_root as default_repo_root,
     require_mounted_dungeonmind_world_graph,
 )
@@ -20,6 +27,13 @@ from graph_memory.retrieval.models import (
     WorldGraphSourceAnchorReadRequest,
     WorldGraphSourceAnchorReadResult,
     WorldGraphRetrievalResult,
+    RecapContextIndexRequestV2,
+    RecapContextIndexResultV2,
+    RecapContextReadRequestV2,
+    RecapContextReadResultV2,
+)
+from apps.live_control_server.models.world_graph_object_projection import (
+    WorldGraphObjectReviewedSourceObservation,
 )
 
 
@@ -92,7 +106,7 @@ def _require_mounted_native_read(root: Path | None) -> None:
 
 
 def _resolved_repo_root(*, root: Path | None, repo_root: Path | None) -> Path:
-    """Resolve the registry/file root for worldbuilding SourceSpan reads."""
+    """Resolve the repository holding admitted source bytes."""
     if repo_root is not None:
         return Path(repo_root).resolve()
     if root is not None:
@@ -101,7 +115,7 @@ def _resolved_repo_root(*, root: Path | None, repo_root: Path | None) -> Path:
             candidate / "corpus"
         ).exists():
             return candidate
-    return default_repo_root().resolve()
+    return artifact_data_root(default=default_repo_root())
 
 
 def search_campaign_graph(
@@ -134,6 +148,30 @@ def get_campaign_object(
 
     try:
         return direct.get_object_direct(
+            direct.direct_services_from_config(request.world_id), request
+        )
+    except direct.DirectWorldGraphReadError as exc:
+        raise _map_direct_error(exc) from None
+
+
+def get_campaign_object_with_reviewed_sources(
+    request: WorldGraphObjectRequest,
+    *,
+    root: Path | None = None,
+) -> tuple[
+    WorldGraphRetrievalResult,
+    list[WorldGraphObjectReviewedSourceObservation],
+    list[str],
+    list[str],
+]:
+    """Internal Harness object expansion at its frozen native Graph revision."""
+    _require_mounted_native_read(root)
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
+
+    try:
+        return direct.get_object_with_reviewed_sources_direct(
             direct.direct_services_from_config(request.world_id), request
         )
     except direct.DirectWorldGraphReadError as exc:
@@ -197,11 +235,108 @@ def read_source_anchor(
         raise _map_direct_error(exc) from None
 
 
+def read_source_anchor_internal_v2(
+    request: WorldGraphSourceAnchorReadRequest,
+    *,
+    root: Path | None = None,
+    repo_root: Path | None = None,
+) -> "ResolvedSourceAnchorReadV2":
+    """Return the authoritative revision alongside the unchanged V1 read view."""
+    _require_mounted_native_read(root)
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
+
+    try:
+        return direct.read_source_anchor_direct_v2(
+            direct.direct_services_from_config(request.world_id),
+            request,
+            repo_root=_resolved_repo_root(root=root, repo_root=repo_root),
+        )
+    except direct.DirectWorldGraphReadError as exc:
+        raise _map_direct_error(exc) from None
+
+
+def read_source_anchors_internal_v2(
+    requests: tuple[WorldGraphSourceAnchorReadRequest, ...],
+    *,
+    root: Path | None = None,
+    repo_root: Path | None = None,
+    native_services: DirectWorldGraphReadServices | None = None,
+    native_principal=None,
+    native_authority=None,
+) -> tuple[ResolvedSourceAnchorReadV2 | WorldGraphRetrievalServiceError, ...]:
+    """Resolve one pinned native batch, then preserve each body's outcome."""
+    _require_mounted_native_read(root)
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+
+    if not requests:
+        raise WorldGraphRetrievalServiceError(
+            "Source-read batch must not be empty", code="invalid_request", status_code=422,
+        )
+    if native_principal is not None:
+        from .native_graph_inspection import InspectionUnavailable, open_neighborhood_anchor
+
+        results = []
+        for request in requests:
+            try:
+                results.append(open_neighborhood_anchor(request, native_principal, include_receipt=True, authority=native_authority))
+            except InspectionUnavailable:
+                results.append(WorldGraphRetrievalServiceError(
+                    "The selected native source is unavailable.",
+                    code="native_source_unavailable", status_code=404,
+                ))
+        return tuple(results)
+    try:
+        results = direct.read_source_anchors_direct_v2(
+            native_services if native_services is not None else direct.direct_services_from_config(requests[0].world_id), requests,
+            repo_root=_resolved_repo_root(root=root, repo_root=repo_root),
+        )
+    except direct.DirectWorldGraphReadError as exc:
+        raise _map_direct_error(exc) from None
+    return tuple(_map_direct_error(item) if isinstance(item, direct.DirectWorldGraphReadError)
+                 else item for item in results)
+
+
 __all__ = [
     "WorldGraphRetrievalServiceError",
     "get_campaign_object",
     "get_object_evidence",
     "get_object_neighborhood",
     "read_source_anchor",
+    "read_source_anchor_internal_v2",
+    "read_source_anchors_internal_v2",
     "search_campaign_graph",
 ]
+
+
+def list_recap_context_v2(
+    request: RecapContextIndexRequestV2,
+    *,
+    root: Path | None = None,
+) -> RecapContextIndexResultV2:
+    _require_mounted_native_read(root)
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    try:
+        return direct.list_recap_context_direct_v2(
+            direct.direct_services_from_config(request.world_id), request
+        )
+    except direct.DirectWorldGraphReadError as exc:
+        raise _map_direct_error(exc) from None
+
+
+def read_recap_context_v2(
+    request: RecapContextReadRequestV2,
+    *,
+    root: Path | None = None,
+    repo_root: Path | None = None,
+) -> RecapContextReadResultV2:
+    _require_mounted_native_read(root)
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    try:
+        return direct.read_recap_context_direct_v2(
+            direct.direct_services_from_config(request.world_id), request,
+            repo_root=_resolved_repo_root(root=root, repo_root=repo_root),
+        )
+    except direct.DirectWorldGraphReadError as exc:
+        raise _map_direct_error(exc) from None

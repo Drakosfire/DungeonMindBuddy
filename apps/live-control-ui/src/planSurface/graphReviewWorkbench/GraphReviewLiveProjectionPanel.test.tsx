@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   getGoldGraphProjection,
-  getUnionSupergraphProjection,
   postWorldGraphProjection,
   resolveGraphReviewExistingObjectCandidates,
 } from "../../api/liveApi";
@@ -48,7 +47,6 @@ vi.mock("../../api/liveApi", async () => {
   return {
     ...actual,
     getGoldGraphProjection: vi.fn(),
-    getUnionSupergraphProjection: vi.fn(),
     postWorldGraphProjection: vi.fn(),
     resolveGraphReviewExistingObjectCandidates: vi.fn(),
   };
@@ -112,7 +110,6 @@ const projectionWithMention: UnionSupergraphProjectionResponse = {
 describe("GraphReviewLiveProjectionPanel", () => {
   beforeEach(() => {
     sessionStorage.removeItem("graph-object-authoring-staged:longmont-c2:session-23");
-    vi.mocked(getUnionSupergraphProjection).mockReset();
     vi.mocked(getGoldGraphProjection).mockReset();
     vi.mocked(resolveGraphReviewExistingObjectCandidates).mockReset();
     vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValue({
@@ -143,7 +140,6 @@ describe("GraphReviewLiveProjectionPanel", () => {
         "Select a live graph-ingest run to render its source projection.",
       ),
     ).toBeInTheDocument();
-    expect(getUnionSupergraphProjection).not.toHaveBeenCalled();
   });
 
   it("marks preview-unavailable runs retired without calling the Union API", async () => {
@@ -160,7 +156,6 @@ describe("GraphReviewLiveProjectionPanel", () => {
         screen.getByTestId("graph-review-union-preview-retired"),
       ).toBeInTheDocument(),
     );
-    expect(getUnionSupergraphProjection).not.toHaveBeenCalled();
   });
 
   it("marks store-preview retired and does not call the Union projection API", async () => {
@@ -174,14 +169,13 @@ describe("GraphReviewLiveProjectionPanel", () => {
         screen.getByTestId("graph-review-union-preview-retired"),
       ).toBeInTheDocument(),
     );
-    expect(getUnionSupergraphProjection).not.toHaveBeenCalled();
     expect(
       screen.getByText(/UnionSupergraph store preview for this live\/candidate lane is retired/i),
     ).toBeInTheDocument();
     expect(screen.queryByTestId("graph-projection-reader")).not.toBeInTheDocument();
   });
 
-  it("never calls getUnionSupergraphProjection for preview-ready live runs", async () => {
+  it("keeps uncommitted preview runs out of Gold and the native reader", async () => {
     renderGraphReviewLiveHarness({
       liveRun: baseRun,
       hasGold: false,
@@ -193,7 +187,6 @@ describe("GraphReviewLiveProjectionPanel", () => {
         screen.getByTestId("graph-review-union-preview-retired"),
       ).toBeInTheDocument(),
     );
-    expect(getUnionSupergraphProjection).not.toHaveBeenCalled();
     expect(getGoldGraphProjection).not.toHaveBeenCalled();
     expect(screen.queryByTestId("graph-projection-reader")).not.toBeInTheDocument();
   });
@@ -210,30 +203,35 @@ describe("GraphReviewLiveProjectionPanel", () => {
         screen.getByTestId("graph-review-union-preview-retired"),
       ).toBeInTheDocument(),
     );
-    expect(getUnionSupergraphProjection).not.toHaveBeenCalled();
     // Gold fetch remains for other surfaces; live store-preview lane stays retired.
     await waitFor(() => expect(getGoldGraphProjection).toHaveBeenCalled());
     expect(screen.queryByTestId("graph-review-projection-layout")).not.toBeInTheDocument();
   });
 
+  it("aborts pending gold reads as review lanes are replaced", () => {
+    const load = vi.mocked(getGoldGraphProjection);
+    load.mockImplementation(() => new Promise(() => {}));
+    const first = renderGraphReviewLiveHarness({
+      hasGold: true,
+      sessionId: "session-23",
+      children: <GraphReviewLiveProjectionPanel />,
+    });
+    const firstSignal = load.mock.calls[0][1];
+    expect(firstSignal?.aborted).toBe(false);
+    first.unmount();
+    const second = renderGraphReviewLiveHarness({
+      hasGold: true,
+      sessionId: "session-24",
+      children: <GraphReviewLiveProjectionPanel />,
+    });
+    expect(firstSignal?.aborted).toBe(true);
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(load.mock.calls[1][1]?.aborted).toBe(false);
+    second.unmount();
+    expect(load.mock.calls[1][1]?.aborted).toBe(true);
+  });
+
   it("switches from candidate projection to committed panel after receipt adoption", async () => {
-    const candidateProjection: UnionSupergraphProjectionResponse = {
-      ...projection,
-      node_views: {
-        "object-1": {
-          node_id: "object-1",
-          label: "Candidate Hesta",
-          kind: "npc",
-          role: "character",
-          summary: "candidate",
-          evidence_ref_ids: [],
-          edge_ids: [],
-          beat_ids: [],
-          source_span_ids: [],
-        },
-      },
-    };
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(candidateProjection);
 
     const committed: WorldGraphProjection = {
       schema: "dmb_world_graph_projection_v1",
@@ -333,7 +331,6 @@ describe("GraphReviewLiveProjectionPanel", () => {
     await waitFor(() =>
       expect(screen.getByTestId("graph-review-union-preview-retired")).toBeInTheDocument(),
     );
-    expect(getUnionSupergraphProjection).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByTestId("adopt-receipt"));
 

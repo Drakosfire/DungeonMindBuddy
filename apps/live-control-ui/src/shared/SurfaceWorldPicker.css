@@ -1,0 +1,8 @@
+.surface-world-picker { padding:1.4rem; border:1px solid var(--play-border, #3e495c); border-radius:12px; background:var(--play-surface, #1a202c); }
+.surface-world-picker > h2 { margin-top:0; }
+.surface-world-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr)); gap:.75rem; list-style:none; padding:0; margin-bottom:0; }
+.surface-world-list a { display:flex; flex-direction:column; gap:.35rem; padding:1rem; border:1px solid var(--play-border, #3e495c); border-radius:8px; color:var(--play-text, #e4e9f1); text-decoration:none; }
+.surface-world-list a:hover { background:var(--play-surface-active, #252f3e); border-color:var(--play-accent, #d4a344); }
+.surface-world-list a span { color:var(--play-muted, #aebbcf); font-size:.9rem; }
+
+.plan-world-entry { max-width: 64rem; margin-inline: auto; }

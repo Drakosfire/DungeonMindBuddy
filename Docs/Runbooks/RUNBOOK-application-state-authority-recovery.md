@@ -15,6 +15,14 @@
 
 Buddy APP-STATE and DungeonMind World are separate authorities. Never point Buddy at a DungeonMind database; the tooling blocks World DSNs as targets.
 
+The APP-STATE Compose file uses the fixed container `dungeonbuddy-app-state`,
+loopback port `54331`, and volume `dungeonbuddy_app_state_data`. A different
+Compose project name still refers to those same resources. For a restore
+rehearsal or isolated parallel dogfood, provision a
+[second clean target](#restore-into-a-second-clean-target-recovery-witness)
+with a separate DSN. Before any migration or restore, check the host, port,
+and database name against the intended target.
+
 ## Operating law
 
 1. **No migrate-on-start.** Schema changes are explicit: `uv run python scripts/bootstrap_local_play.py apply` (or `python -m application_state.cli upgrade`) with the target DSN configured. Neither the compose service nor the Buddy API migrates on boot.
@@ -30,7 +38,7 @@ Buddy APP-STATE and DungeonMind World are separate authorities. Never point Budd
 
 ```bash
 # 1. Start the durable substrate
-docker compose -f compose.postgres.app-state.yml up -d
+docker compose -f compose.postgres.app-state.yml up -d --wait
 
 # 2. Point this shell at the durable authority (local dev default credentials)
 export DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL=\
@@ -45,7 +53,41 @@ uv run python scripts/application_state_authority.py check
 uv run python scripts/application_state_authority.py fingerprint --out out/application_state/birth.fingerprint.json
 ```
 
+The startup command waits for PostgreSQL to accept TCP connections. Before migrating or checking a restore, use the intended DSN to confirm that an authenticated query succeeds.
+
+## PostgreSQL client prerequisites
+
+The local Compose service pins PostgreSQL 16. Use PostgreSQL 16 client tools on
+the host that runs the recovery CLI, with PostgreSQL 16 on both the backup
+source and the restore target. Verify the clients before starting a recovery.
+
+```bash
+pg_dump --version
+pg_restore --version
+```
+
+Both commands should report major version 16. Install the PostgreSQL 16 client
+tools and adjust PATH if either command is missing or resolves to another major.
+The CLI checks that the required executable exists. This procedure covers
+same-major recovery. Qualify cross-major restores independently before using
+them for APP-STATE.
+
+## Client deadlines and cancellation
+
+Pass `--timeout-seconds N` to `backup` or `restore` to limit the PostgreSQL
+client subprocess. The default leaves the client deadline unset. The option
+does not time database inspection or fingerprinting. Ctrl-C during the client
+call reports an interruption. After a timeout or interruption, use a fresh
+backup output path or discard and recreate the disposable restore target
+before retrying. Restore replays in one transaction. A timeout may occur
+after the database commits but before the client reports success.
+
 ## Routine backup
+
+Choose a fresh dump path in an existing directory on a filesystem that supports
+hard links. Backup stages all three files and publishes the dump after its
+sidecars. If a process is killed during publication, use a fresh path for the
+retry and inspect any leftover files before removing them.
 
 ```bash
 uv run python scripts/application_state_authority.py backup \
@@ -53,7 +95,7 @@ uv run python scripts/application_state_authority.py backup \
   --out out/application_state/authority-backup-$(date -u +%Y%m%dT%H%M%SZ).dump
 ```
 
-Produces the custom-format dump plus `.sha256` and `.fingerprint.json` sidecars. The command fingerprints the source before and after the dump; if the source changed mid-backup it fails — recapture, never claim a stale dump is current authority. Restore will refuse the dump if either sidecar is missing or the dump bytes no longer match the SHA-256 sidecar.
+Produces the custom-format dump plus `.sha256` and `.fingerprint.json` sidecars. The command fingerprints the same PostgreSQL snapshot that `pg_dump` imports and checks the source again after the dump; if the source changed mid-backup it fails — recapture, never claim a stale dump is current authority. Restore will refuse the dump if either sidecar is missing or the dump bytes no longer match the SHA-256 sidecar.
 
 ## Restore into a second clean target (recovery witness)
 
@@ -100,7 +142,8 @@ Set `DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL` in `.env` to the durable coord
 | `check` exits 0, OBSERVED | reachable and at head; not a READY claim | capture `--expect-fingerprint` before treating it as recovered |
 | `check` exits 2, unreachable | authority container down or wrong DSN | start the compose service; verify coordinates |
 | `check` exits 2, behind head | schema not migrated | explicit `apply` with the target DSN configured |
-| `check` / `restore` exits 2, NOT_READY | live fingerprint does not match expected | do not bless the target; investigate per-domain mismatch output |
+| Restore replay fails or is interrupted | target state needs verification | discard and recreate the disposable target before retrying |
+| `check` / `restore` exits 2, NOT_READY | live fingerprint does not match expected | investigate per-domain mismatches and recreate the disposable target before retrying |
 | `restore` refuses SHA-256 mismatch / missing sidecar | dump bytes are unverified or tampered | recapture; never restore an unverified dump |
 | `restore` refuses non-empty target | target already holds APP-STATE | use a second clean target; destructive restore is out of scope |
 | `backup` reports source changed | writes during dump | recapture; never claim a stale dump |
@@ -109,3 +152,36 @@ Set `DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL` in `.env` to the durable coord
 ## History
 
 - **2026-09-07:** the previous APP-STATE database lived on the tmpfs dev server (54329) and was destroyed by an ordinary container stop before any backup existed. This runbook and the durable substrate are the corrective authority. Repopulation of C1/C2 content through supported product seams is the Stage 2B successor.
+
+## Historical adoption commands
+
+Run these commands from the Buddy repository root with the repository's
+Python environment. For database-backed adoption, confirm that the configured
+application-state database is the intended recovery target.
+
+- Preview World catalog metadata adoption using an explicit export and its
+  expected SHA-256. Add `--apply` after reviewing the preview.
+
+  ```sh
+  uv run python -m scripts.adopt_world_catalog \
+    --input "$WORLD_CATALOG_JSON" --expected-sha256 "$WORLD_CATALOG_SHA256"
+  ```
+
+- Preview source input metadata adoption from an explicit registry export.
+  Artifact bodies must already exist in application state with the exact
+  artifact and digest binding. Add `--apply` after reviewing the preview.
+
+  ```sh
+  uv run python -m scripts.adopt_source_input_descriptors \
+    --registry-json "$SOURCE_INPUTS_JSON"
+  ```
+
+- Adopt a single historical connected-page operation under the selected data
+  root. This command applies immediately. Use a disposable copy for rehearsal.
+  It adopts the operation record without creating pages or publishing Graph
+  changes.
+
+  ```sh
+  uv run python -m scripts.adopt_connected_page_operation \
+    --root "$BUDDY_DATA_ROOT" "$CONNECTED_PAGE_OPERATION"
+  ```

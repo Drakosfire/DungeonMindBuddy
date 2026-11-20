@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from src.contracts.schema_validation import validate_instance
+from contracts.schema_validation import validate_instance
 
 
 class FrontmatterError(ValueError):

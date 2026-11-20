@@ -667,7 +667,7 @@ function safePlanEditForPersistence(turn: AgentInteractionTurn): AgentInteractio
     typeof edit.proposalSummary !== "string"
     || typeof edit.replacementMarkdown !== "string"
     || typeof edit.applied !== "boolean"
-    || !["replace_selection", "insert_at_caret"].includes(edit.targetKind)
+    || !["replace_selection", "insert_at_caret", "replace_playable_body"].includes(edit.targetKind)
     || edit.proposalSummary.length > 500
     || edit.replacementMarkdown.length > 12_000
   ) return null;

@@ -16,9 +16,12 @@ import type {
   TableRow,
 } from "mdast";
 
+import { GraphNodeHoverToken, presentationForNodeId, useGraphNodeChipRuntime } from "../graphReference";
+import { isValidGraphNodeId } from "../tiptap/references/runbookReferences";
+import { parsePlayableHtmlComment } from "../tiptap/playable/playableElementIdentity";
 import { parseMarkdownAst } from "../tiptap/markdown/parseMarkdownAst";
 import { splitLeadingYamlFrontmatter, stripLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
-import { createHeadingIdRegistry, type HeadingIdRegistry } from "./markdownReaderHeadingId";
+import { createHeadingIdRegistry, extractPlainTextFromPhrasing, type HeadingIdRegistry } from "./markdownReaderHeadingId";
 import { classifyImageUrl, classifyLinkUrl } from "./markdownReaderUrlPolicy";
 
 export interface MarkdownSourceLineTarget {
@@ -33,7 +36,11 @@ export interface MarkdownSourceLineTarget {
 export interface MarkdownDocumentReaderProps {
   /** Exact saved Markdown (may include leading YAML frontmatter). */
   markdown: string;
+  /** Parsed body of the same source, with leading frontmatter removed. */
+  parsedBody?: ReturnType<typeof parseMarkdownAst>;
   className?: string;
+  /** Hide canonical standalone Buddy structure comments in presentation only. */
+  hidePlayableMarkers?: boolean;
   /** When set, highlight rendered blocks intersecting the full-source line range. */
   sourceLineTarget?: MarkdownSourceLineTarget | null;
 }
@@ -41,6 +48,7 @@ export interface MarkdownDocumentReaderProps {
 type DefinitionMap = Map<string, Definition>;
 
 type RenderContext = {
+  hidePlayableMarkers: boolean;
   bodyMarkdown: string;
   definitions: DefinitionMap;
   headingIds: HeadingIdRegistry;
@@ -218,11 +226,12 @@ function renderSafeLink(args: {
   key: string;
 }): ReactNode {
   const kind = classifyLinkUrl(args.url);
-  if (kind === "safe_external" || kind === "safe_mailto" || kind === "fragment") {
+  if (kind === "surface_document" || kind === "safe_external" || kind === "safe_mailto" || kind === "fragment") {
     const isExternal = kind === "safe_external";
     return (
       <a
         key={args.key}
+        data-document-reference=""
         href={args.url}
         title={args.title ?? undefined}
         {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
@@ -276,7 +285,21 @@ function renderImage(node: Image, key: string): ReactNode {
   );
 }
 
+function SavedGraphReference({ nodeId, label }: { nodeId: string; label: string }) {
+  const { nodeViews, activeNodeId, onSelectNode, deltaByNodeId } = useGraphNodeChipRuntime();
+  // Only explicit durable node IDs qualify; ordinary names never become guessed graph links.
+  const presentation = presentationForNodeId(nodeViews, nodeId, label);
+  const delta = deltaByNodeId?.[nodeId];
+  return <GraphNodeHoverToken presentation={presentation} label={label || nodeId}
+    pinned={activeNodeId === nodeId} onSelect={() => onSelectNode(nodeId)}
+    deltaStatus={delta?.status} deltaLabel={delta?.label} deltaSummary={delta?.summary} />;
+}
+
 function renderLink(node: Link, ctx: RenderContext, key: string): ReactNode {
+  const nodeId = node.url.startsWith("dmb-node:") ? node.url.slice(9)
+    : node.url.startsWith("#dmb-ref:graph-node:") ? node.url.slice(20) : null;
+  if (nodeId && isValidGraphNodeId(nodeId)) return <SavedGraphReference key={key} nodeId={nodeId}
+    label={extractPlainTextFromPhrasing(node.children)} />;
   return renderSafeLink({
     url: node.url,
     title: node.title,
@@ -295,12 +318,7 @@ function renderLinkReference(node: LinkReference, ctx: RenderContext, key: strin
       </span>
     );
   }
-  return renderSafeLink({
-    url: definition.url,
-    title: definition.title,
-    children: label,
-    key,
-  });
+  return renderLink({ type: "link", url: definition.url, title: definition.title, children: node.children }, ctx, key);
 }
 
 function renderImageReference(node: ImageReference, ctx: RenderContext, key: string): ReactNode {
@@ -487,6 +505,7 @@ function renderNode(node: RootContent | Content | PhrasingContent, ctx: RenderCo
     case "imageReference":
       return renderImageReference(node, ctx, key);
     case "html": {
+      if (ctx.hidePlayableMarkers && parsePlayableHtmlComment(node.value).status === "canonical") return null;
       const highlight = highlightClass(key, ctx);
       return (
         <pre
@@ -514,17 +533,19 @@ function renderNode(node: RootContent | Content | PhrasingContent, ctx: RenderCo
  */
 export function MarkdownDocumentReader({
   markdown,
+  parsedBody,
   className,
   sourceLineTarget = null,
+  hidePlayableMarkers = false,
 }: MarkdownDocumentReaderProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const scrolledTargetKeyRef = useRef<string | null>(null);
 
-  const bodyMarkdown = useMemo(
-    () => stripLeadingYamlFrontmatter(markdown).markdown,
-    [markdown],
+  const bodyMarkdown = useMemo(() => stripLeadingYamlFrontmatter(markdown).markdown, [markdown]);
+  const ast = useMemo(
+    () => parsedBody ?? parseMarkdownAst(bodyMarkdown),
+    [bodyMarkdown, parsedBody],
   );
-  const ast = useMemo(() => parseMarkdownAst(bodyMarkdown), [bodyMarkdown]);
   const definitions = useMemo(() => collectDefinitions(ast), [ast]);
   const highlightKeys = useMemo(
     () => resolveHighlightKeys(ast, markdown, sourceLineTarget),
@@ -545,6 +566,7 @@ export function MarkdownDocumentReader({
   }, [sourceLineTarget, highlightKeys, markdown]);
 
   const ctx: RenderContext = {
+    hidePlayableMarkers,
     bodyMarkdown,
     definitions,
     headingIds: createHeadingIdRegistry(),

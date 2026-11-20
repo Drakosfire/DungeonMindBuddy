@@ -1,5 +1,5 @@
 import type { GoldReviewSessionSummary } from "../../api/types";
-import { goldReviewSessionLabel } from "../sessionCampaignContext";
+import { goldReviewSessionLabel } from "../../graphLens/sessionCampaignContext";
 
 interface GraphGoldReviewSessionPickerProps {
   sessions: GoldReviewSessionSummary[];

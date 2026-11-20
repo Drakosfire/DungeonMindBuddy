@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from src.ingestion.frontmatter import FrontmatterParseError, split_frontmatter
+from apps.live_control_server.services.corpus_index_helpers import (
+    _display_path,
+    _mtime_iso,
+    _safe_under,
+    _text_value,
+    _title_from_body,
+    parse_loose_frontmatter,
+)
+from ingestion.frontmatter import FrontmatterParseError, split_frontmatter
 
 CORPUS_MARKDOWN_ROOT = Path("corpus") / "eldyrwild-markdown"
 SCHEMA_VERSION = "dmb_statblock_corpus_index_v1"
@@ -46,7 +53,6 @@ SHEPHERDS_FLOCK_INFO_TAGS: dict[str, str] = {
 }
 
 _CR_FILENAME_RE = re.compile(r"_statblock_cr(?P<cr>half|\d+(?:_\d+)?|\d+)", re.I)
-_HEADING_RE = re.compile(r"^#\s+(.+)$", re.M)
 
 
 class StatblockCorpusIndexItem(BaseModel):
@@ -72,39 +78,6 @@ class StatblockCorpusIndexResponse(BaseModel):
     diagnostics: list[str] = Field(default_factory=list)
 
 
-def _parse_scalar(raw: str) -> str | int | None:
-    value = raw.strip()
-    if value in {"", "null", "NULL", "None", "none", "~"}:
-        return None
-    if (value.startswith('"') and value.endswith('"')) or (
-        value.startswith("'") and value.endswith("'")
-    ):
-        return value[1:-1]
-    if value.isdigit():
-        return int(value)
-    return value
-
-
-def _parse_loose_frontmatter_block(block: str) -> dict[str, Any]:
-    payload: dict[str, Any] = {}
-    for line in block.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or ":" not in stripped:
-            continue
-        key, raw_value = stripped.split(":", 1)
-        key = key.strip()
-        if key:
-            payload[key] = _parse_scalar(raw_value)
-    return payload
-
-
-def _text_value(value: Any) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
 def _cr_from_filename(name: str) -> str | None:
     match = _CR_FILENAME_RE.search(name)
     if not match:
@@ -123,33 +96,9 @@ def _format_cr_label(cr: str | None) -> str | None:
     return f"CR {cr}"
 
 
-def _title_from_body(body: str) -> str | None:
-    match = _HEADING_RE.search(body)
-    if not match:
-        return None
-    return match.group(1).strip()
-
-
 def _index_id_from_path(corpus_display_path: str) -> str:
     slug = Path(corpus_display_path).stem.lower()
     return re.sub(r"[^a-z0-9]+", "-", slug).strip("-") or "statblock"
-
-
-def _safe_under(root: Path, path: Path) -> bool:
-    try:
-        path.resolve().relative_to(root.resolve())
-    except ValueError:
-        return False
-    return True
-
-
-def _display_path(root: Path, path: Path) -> str:
-    return path.relative_to(root.resolve()).as_posix()
-
-
-def _mtime_iso(path: Path) -> str:
-    ts = path.stat().st_mtime
-    return datetime.fromtimestamp(ts, tz=UTC).isoformat()
 
 
 def _parse_statblock_file(
@@ -168,7 +117,7 @@ def _parse_statblock_file(
     try:
         block, body = split_frontmatter(text)
         if block is not None:
-            frontmatter = _parse_loose_frontmatter_block(block)
+            frontmatter = parse_loose_frontmatter(block, allow_commented_fields=False)
     except FrontmatterParseError:
         pass
 

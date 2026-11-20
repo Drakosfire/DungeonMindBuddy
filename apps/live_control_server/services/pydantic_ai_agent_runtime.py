@@ -152,10 +152,12 @@ def inject_authoritative_tool_args(
         if scope is None:
             raise ValueError("Threat hydration requires an authoritative graph scope")
         args["worldId"] = scope.world_id
-        args["campaignId"] = scope.campaign_id
+        args["campaignId"] = scope.campaign_id if scope.scope_mode == "campaign" else None
+        args["scopeMode"] = scope.scope_mode
         args["revisionPin"] = scope.revision_id
         args.pop("world_id", None)
         args.pop("campaign_id", None)
+        args.pop("scope_mode", None)
         args.pop("revision_pin", None)
     if tool_name in GRAPH_SESSION_TOOLS and retrieval is not None:
         args["retrievalSessionId"] = retrieval.session_id
@@ -214,13 +216,12 @@ def _scope_capability_packet(invocation: AgentRuntimeInvocation) -> str:
             "intentHint": packet.get("intent_hint"),
             "availableExpansions": list(packet.get("available_expansions") or []),
         }
-        latest = packet.get("latest_recap_change")
-        if isinstance(latest, Mapping):
-            latest_packet = dict(latest)
-            excerpt = latest_packet.pop("admitted_recap_excerpt", None)
-            initial["latestRecapChange"] = latest_packet
-            if isinstance(excerpt, str) and excerpt.strip():
-                initial["admittedRecapExcerpt"] = excerpt.strip()
+        for private_key, model_key in (
+            ("initial_opened_source_reads", "openedSourceReads"),
+            ("initial_source_read_coverage", "sourceReadCoverage"),
+        ):
+            if private_key in packet:
+                initial[model_key] = packet[private_key]
         payload["initialClaimPacket"] = initial
     return (
         "Turn capability policy (runtime-enforced; also required on tool calls).\n"
@@ -309,6 +310,7 @@ class _TurnCollector:
         summary = _summarize_tool_result(raw_result)
         state = "error" if forced_error or summary["is_error"] else "completion"
         attributes = self._scope_attributes(args)
+        attributes["bounded_ids"].update(summary["source_read_metadata"])
         attributes.update(
             {
                 "retrieval_schema": summary["retrieval_schema"],

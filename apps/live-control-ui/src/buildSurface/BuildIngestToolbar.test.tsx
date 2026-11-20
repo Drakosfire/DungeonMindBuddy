@@ -83,6 +83,7 @@ function snapshot(documentId: string, revision: number, sha: string, contentStat
       created_at: "2026-07-22T00:00:00Z",
       updated_at: "2026-07-22T00:00:00Z",
       source_domain: "worldbuilding",
+      profile_id: "worldbuilding_shepherds_flock_v0@0.1",
       document_class: "lore",
       authority_state: "draft" as const,
       visibility_state: "internal" as const,
@@ -110,6 +111,47 @@ describe("BuildIngestToolbar", () => {
     vi.mocked(liveApi.admitNativeWorldSource).mockResolvedValue(
       nativeSourceStatus("admitted"),
     );
+  });
+
+  it("offers Recap source configuration without changing the existing document",async()=>{
+    const user=userEvent.setup();
+    render(<BuildCanvasTestProvider documentId={DOC_ID}><BuildIngestToolbar documentId={DOC_ID}/></BuildCanvasTestProvider>);
+    await screen.findByRole('combobox',{name:'Run mode'});
+    await user.selectOptions(screen.getByRole('combobox',{name:'Run mode'}),'recap');
+    expect(screen.getByLabelText('Recap source campaign')).toBeInTheDocument();
+    expect(screen.getByLabelText('Recap source session')).toBeInTheDocument();
+    expect(screen.getByText('Select a verified World to extract this recap.')).toBeInTheDocument();
+    expect(screen.getByTestId('build-extract-button')).toBeDisabled();
+    expect(liveApi.launchExtractionRun).not.toHaveBeenCalled();
+  });
+
+  it("portals a single collapsed menu outside the session without resetting selection on close", async () => {
+    const user = userEvent.setup();
+    const target = document.createElement("div");
+    document.body.append(target);
+    try {
+      const view = render(<BuildCanvasTestProvider documentId={DOC_ID}>
+        <BuildIngestToolbar documentId={DOC_ID} target={target} />
+      </BuildCanvasTestProvider>);
+      const menu = target.querySelector("details")!;
+      expect(menu.open).toBe(false);
+      expect(view.container.querySelector("[data-testid=build-ingest-toolbar]")).toBeNull();
+      expect(target.querySelectorAll("[data-testid=build-ingest-toolbar]")).toHaveLength(1);
+      await user.click(screen.getByText("Extraction", { exact: true }));
+      expect(menu.open).toBe(true);
+      await user.selectOptions(screen.getByLabelText("Extraction approach"), "gazetteer");
+      expect(await screen.findByTestId("build-native-source-status")).toHaveTextContent("pending");
+      await user.click(screen.getByText("Extraction", { exact: true }));
+      expect(menu.open).toBe(false);
+      await user.click(screen.getByText("Extraction", { exact: true }));
+      expect(screen.getByLabelText("Extraction approach")).toHaveValue("gazetteer");
+      expect(liveApi.launchExtractionRun).not.toHaveBeenCalled();
+      expect(liveApi.admitNativeWorldSource).not.toHaveBeenCalled();
+      view.unmount();
+      expect(target.childElementCount).toBe(0);
+    } finally {
+      target.remove();
+    }
   });
 
   it("shows saved-but-pending native admission and retries the exact selected revision", async () => {
@@ -141,7 +183,7 @@ describe("BuildIngestToolbar", () => {
   it("launches extraction and enables Graph Review for a reviewable exact run", async () => {
     const user = userEvent.setup();
     const href =
-      `/ingest?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`;
+      `/build?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`;
     vi.mocked(liveApi.launchExtractionRun).mockResolvedValue({
       schema_version: "dmb_extraction_run_launch_v1",
       run: {
@@ -150,6 +192,7 @@ describe("BuildIngestToolbar", () => {
         run_id: RUN_ID,
         source_artifact_id: ARTIFACT,
         source_domain: "worldbuilding",
+      profile_id: "worldbuilding_shepherds_flock_v0@0.1",
         status: "reviewable",
       },
       source_artifact_id: ARTIFACT,
@@ -179,7 +222,8 @@ describe("BuildIngestToolbar", () => {
       profile_version: "0.1",
     });
     const link = await screen.findByTestId("build-open-graph-review");
-    expect(link).toHaveAttribute("href", href);
+    expect(link.tagName).toBe("BUTTON");
+    expect(link).not.toHaveAttribute("href");
   });
 
   it("keeps Graph Review disabled and shows diagnostics when launch fails model execution", async () => {
@@ -192,6 +236,7 @@ describe("BuildIngestToolbar", () => {
         run_id: RUN_ID,
         source_artifact_id: ARTIFACT,
         source_domain: "worldbuilding",
+      profile_id: "worldbuilding_shepherds_flock_v0@0.1",
         status: "failed",
       },
       source_artifact_id: ARTIFACT,
@@ -201,7 +246,7 @@ describe("BuildIngestToolbar", () => {
       failure_kind: "model",
       diagnostics: ["OPENAI_API_KEY missing after loading server env"],
       graph_review_handoff: {
-        href: `/ingest?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
+        href: `/build?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
         extraction_run_id: RUN_ID,
         source_artifact_id: ARTIFACT,
         document_id: DOC_ID,
@@ -229,6 +274,7 @@ describe("BuildIngestToolbar", () => {
         run_id: RUN_ID,
         source_artifact_id: ARTIFACT,
         source_domain: "worldbuilding",
+      profile_id: "worldbuilding_shepherds_flock_v0@0.1",
         status: "reviewable",
       },
       source_artifact_id: ARTIFACT,
@@ -236,7 +282,7 @@ describe("BuildIngestToolbar", () => {
       document_revision: 2,
       source_content_sha256: "sha-2",
       graph_review_handoff: {
-        href: `/ingest?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
+        href: `/build?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
         extraction_run_id: RUN_ID,
         source_artifact_id: ARTIFACT,
         document_id: DOC_ID,
@@ -246,12 +292,9 @@ describe("BuildIngestToolbar", () => {
 
     render(<BuildCanvasTestProvider documentId={DOC_ID}><BuildIngestToolbar documentId={DOC_ID} /></BuildCanvasTestProvider>);
     const link = await screen.findByTestId("build-open-graph-review");
-    expect(link).toHaveAttribute(
-      "href",
-      expect.stringContaining(`extractionRunId=${RUN_ID}`),
-    );
-    expect(link).toHaveAttribute("href", expect.stringContaining(`documentId=${DOC_ID}`));
-    expect(link.getAttribute("href")).not.toContain("latest");
+    expect(link.tagName).toBe("BUTTON");
+    expect(link).toHaveTextContent("Review extracted knowledge");
+    expect(link).not.toHaveAttribute("href");
   });
 
   it("drops reviewable document A handoff when selection changes to B", async () => {
@@ -264,6 +307,7 @@ describe("BuildIngestToolbar", () => {
         run_id: RUN_ID,
         source_artifact_id: ARTIFACT,
         source_domain: "worldbuilding",
+      profile_id: "worldbuilding_shepherds_flock_v0@0.1",
         status: "reviewable",
       },
       source_artifact_id: ARTIFACT,
@@ -271,7 +315,7 @@ describe("BuildIngestToolbar", () => {
       document_revision: 2,
       source_content_sha256: "sha-2",
       graph_review_handoff: {
-        href: `/ingest?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
+        href: `/build?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
         extraction_run_id: RUN_ID,
         source_artifact_id: ARTIFACT,
         document_id: DOC_ID,
@@ -295,6 +339,7 @@ describe("BuildIngestToolbar", () => {
         run_id: RUN_B,
         source_artifact_id: "artifact:worldbuilding:b",
         source_domain: "worldbuilding",
+      profile_id: "worldbuilding_shepherds_flock_v0@0.1",
         status: "prepared",
       },
       source_artifact_id: "artifact:worldbuilding:b",
@@ -302,7 +347,7 @@ describe("BuildIngestToolbar", () => {
       document_revision: 5,
       source_content_sha256: "sha-b",
       graph_review_handoff: {
-        href: `/ingest?extractionRunId=${RUN_B}&sourceArtifactId=artifact:worldbuilding:b&documentId=${DOC_B}&revision=5`,
+        href: `/build?extractionRunId=${RUN_B}&sourceArtifactId=artifact:worldbuilding:b&documentId=${DOC_B}&revision=5`,
         extraction_run_id: RUN_B,
         source_artifact_id: "artifact:worldbuilding:b",
         document_id: DOC_B,
@@ -332,6 +377,7 @@ describe("BuildIngestToolbar", () => {
         run_id: RUN_ID,
         source_artifact_id: ARTIFACT,
         source_domain: "worldbuilding",
+      profile_id: "worldbuilding_shepherds_flock_v0@0.1",
         status: "reviewable",
       },
       source_artifact_id: ARTIFACT,
@@ -339,7 +385,7 @@ describe("BuildIngestToolbar", () => {
       document_revision: 2,
       source_content_sha256: "sha-2",
       graph_review_handoff: {
-        href: `/ingest?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
+        href: `/build?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
         extraction_run_id: RUN_ID,
         source_artifact_id: ARTIFACT,
         document_id: DOC_ID,
@@ -376,6 +422,7 @@ describe("BuildIngestToolbar", () => {
         run_id: RUN_B,
         source_artifact_id: ARTIFACT,
         source_domain: "worldbuilding",
+      profile_id: "worldbuilding_shepherds_flock_v0@0.1",
         status: "reviewable",
       },
       source_artifact_id: ARTIFACT,
@@ -384,7 +431,7 @@ describe("BuildIngestToolbar", () => {
       source_content_sha256: "sha-2",
       diagnostics: [],
       graph_review_handoff: {
-        href: `/ingest?extractionRunId=${RUN_B}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
+        href: `/build?extractionRunId=${RUN_B}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
         extraction_run_id: RUN_B,
         source_artifact_id: ARTIFACT,
         document_id: DOC_ID,
@@ -392,10 +439,7 @@ describe("BuildIngestToolbar", () => {
       },
     });
 
-    expect(await screen.findByTestId("build-open-graph-review")).toHaveAttribute(
-      "href",
-      expect.stringContaining(`extractionRunId=${RUN_B}`),
-    );
+    expect((await screen.findByTestId("build-open-graph-review")).tagName).toBe("BUTTON");
     expect(screen.getByTestId("build-extraction-refresh")).not.toBeDisabled();
     expect(await screen.findByTestId("build-extraction-run-id")).toHaveTextContent(RUN_B);
   });

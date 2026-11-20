@@ -3,8 +3,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from src.graph_memory.projection_readiness import assess_projection_readiness, render_projection_readiness_report
-from src.graph_memory.session_memory_materialize import materialize_session_memory_jsonl
+from graph_memory.projection_readiness import assess_projection_readiness, render_projection_readiness_report
+from graph_memory.session_memory_materialize import materialize_session_memory_jsonl
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INPUT_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "examples" / "session_memory_sentence_units_minimal.jsonl"

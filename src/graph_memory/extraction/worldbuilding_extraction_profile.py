@@ -15,12 +15,12 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from src.graph_memory.extraction.extraction_profile import (
+from graph_memory.extraction.extraction_profile import (
     ExtractionPassSpec,
     ExtractionProfile,
     register_extraction_profile,
 )
-from src.graph_memory.extraction.recap_extraction_profile import EVIDENCE_RULE
+from graph_memory.extraction.recap_extraction_profile import EVIDENCE_RULE
 
 WORLDBUILDING_PROFILE_ID = "worldbuilding_shepherds_flock_v0"
 WORLDBUILDING_PROFILE_VERSION = "0.1"
@@ -186,7 +186,6 @@ WORLDBUILDING_PROFILE = register_extraction_profile(
         evidence_rule=EVIDENCE_RULE,
         default_semantic_state=DEFAULT_SEMANTIC_STATE,
         enable_encounter_job_pass=False,
-        enable_party_participation_attachment=False,
         enable_encounter_job_edge_guidance=False,
         enable_dynamic_node_vocabulary_packet=False,
         enable_session_relationship_sweep=False,

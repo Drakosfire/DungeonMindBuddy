@@ -4,36 +4,97 @@ from __future__ import annotations
 
 import hashlib
 import json
+from contextlib import ExitStack, contextmanager, nullcontext
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
+from typing import TYPE_CHECKING
+
+from pydantic import ValidationError
 
 from application_state.agent_conversation import repository as repo
+from application_state.agent_conversation.context_trace import (
+    ContextTraceObservation,
+    TraceSourcePassage,
+    TraceHistoricalSourceReferenceV1,
+    TurnContextTraceV1,
+)
+from application_state.agent_conversation.context_trace_store import (
+    TurnContextTraceStore,
+    append_source_passages_locked,
+    begin_context_trace_locked,
+    close_context_trace_locked,
+)
 from application_state.agent_conversation.types import (
     ArchiveCommand,
+    CompletedPlanAskPair,
+    CompletionBindingEventV1,
     Conversation,
     ConversationCommand,
     ConversationCommandReceipt,
-    CompletedPlanAskPair,
+    CommandResolutionRequestV1,
+    CommandResolutionRecordV1,
+    OccupiedCommandProofV1,
+    _fingerprint,
     Draft,
     DraftSave,
     DraftSubmit,
     DraftSubmitReceipt,
+    GraphExecutionEventV1,
+    GraphExecutionEventV2,
     LegacyImport,
     LegacyImportReceipt,
     PlanAskContextBasis,
+    PlanWorldGraphExecutionV3,
+    PlayRunTurnContextReceiptV2,
+    SourceScopeExtensionEventV3,
+    ValidatedGraphOperationEventV3,
+    GraphExecutionEventV3,
+    BuildGraphContextReceiptV1,
+    BuildSectionReadAuthorizationV1,
+    ValidatedBuildSectionReadV1,
+    BuildSectionProviderInclusionV1,
+    BuildSectionAnswerBindingV1,
+    project_build_section_answer_bindings,
+    validate_selected_source_binding,
+    ProviderAttemptAuthorizedEventV1,
+    ProviderAttemptAuthorizedEventV2,
+    ProviderAttemptAuthorizedEventV3,
+    ProviderOutcomeEventV1,
+    RelatedRecapContextAuthorizationEventV2,
+    RelatedRecapContextProviderInclusionEventV2,
     ReopenCommand,
+    ConversationTrashCommand,
+    SourceReadAuthorizationEventV2,
     SubmittedTurnIntentV1,
+    SubmittedTurnIntentV2,
+    BuildGraphIntentV1,
+    PlayGraphIntentV1, PlayWorldGraphExecutionV1, PlaySourceProviderInclusionV1,
     Turn,
     TurnClaimReceipt,
     TurnFailure,
     TurnResult,
     TurnSubmission,
+    ValidatedGraphOperationEventV1,
+    ValidatedRelatedRecapContextEventV2,
+    ValidatedSourceReadEventV2,
     WorldPointer,
     request_fingerprint,
     submitted_turn_intent_fingerprint_v1,
+    submitted_turn_intent_fingerprint_v2,
     turn_idempotency_fingerprint,
+    validate_completion_against_receipt,
+    validate_execution_completion,
+    validate_related_recap_context_scope,
+    _ask_graph_validation_inputs,
+    validate_graph_provider_envelope,
 )
-from application_state.cli import assert_at_head
+from .rules_authority_reads import MixedCompletedTurnV1, TurnReadModel
+from .rules_authority_completion import (
+    MixedTurnResultV1, BuildRulesMixedTurnResultV1, NativeRulesMixedTurnResultV1,
+    RulesCitedSourceTurnResultV1,
+)
+from .rules_authority_passages import RulesHistoricalPassageRequestV1, RulesHistoricalPassageV1
+from application_state.cli import assert_at_head, assert_connection_at_head
 from application_state.config import load_runtime_dsn
 from application_state.errors import (
     ApplicationStateConflictError,
@@ -42,6 +103,16 @@ from application_state.errors import (
     ApplicationStateValidationError,
 )
 from application_state.unit_of_work import unit_of_work
+
+if TYPE_CHECKING:
+    from application_state.build_proposal.types import BuildWriteCapability
+    from .rules_authority_types import RulesScopeV1
+    from .rules_authority_events import (
+        RulesToolAuthorizedV1, RulesProviderAuthorizedV1,
+        RulesProviderIncludedV1, RulesProviderOutcomeV1,
+    )
+    from .rules_authority_store import RulesLedgerRecordV1
+    from .rules_authority_runtime import RulesLocalReader, RulesLookupDeliveryV1
 
 DEFAULT_TURN_CLAIM_LEASE_SECONDS = 60
 MAX_TURN_CLAIM_LEASE_SECONDS = 300
@@ -68,6 +139,69 @@ def _validate_turn_claim_lease(lease_seconds: int) -> None:
         raise ApplicationStateValidationError(
             f"turn claim lease must be between 1 and {MAX_TURN_CLAIM_LEASE_SECONDS} seconds"
         )
+
+
+def _validate_source_passage_observations(
+    execution,
+    event: ValidatedSourceReadEventV2,
+    passages: list[TraceSourcePassage] | None,
+    *,
+    trace_active: bool,
+    trace_capture_status: str | None,
+) -> list[TraceSourcePassage]:
+    supplied = passages or []
+    if not trace_active:
+        if supplied:
+            raise ApplicationStateValidationError("source passage capture requires an active turn trace")
+        return []
+    authorization = next(
+        (
+            item for item in execution.events
+            if isinstance(item, SourceReadAuthorizationEventV2)
+            and item.read_call_id == event.read_call_id
+        ),
+        None,
+    )
+    if authorization is None:
+        raise ApplicationStateIntegrityError("validated source read has no persisted authorization")
+    receipt_by_id = {item.source_read_id: item for item in event.receipts}
+    expected_ids = {
+        item.source_read_id for item in event.receipts
+        if item.content_sha256 is not None and item.returned_chars > 0
+    }
+    if {item.source_read_id for item in supplied} != expected_ids:
+        if not supplied and expected_ids and trace_capture_status == "incomplete":
+            # The caller must suppress these bytes from model context; the trace
+            # records its safe incompleteness code and the ledger keeps the read
+            # receipt without making uncaptured text look inspectable.
+            return []
+        raise ApplicationStateValidationError(
+            "active context trace requires the exact text for every content-bearing source receipt"
+        )
+    if len(supplied) != len(expected_ids):
+        raise ApplicationStateValidationError("source passage observations must be unique")
+    supplied_by_id = {item.source_read_id: item for item in supplied}
+    for passage in supplied:
+        receipt = receipt_by_id[passage.source_read_id]
+        if (
+            passage.source_read_event_id != event.event_id
+            or passage.read_call_id != event.read_call_id
+            or passage.world_id != authorization.world_id
+            or passage.graph_revision != authorization.graph_revision
+            or passage.anchor_id != receipt.anchor_id
+            or passage.evidence_ref_id != receipt.evidence_ref_id
+            or passage.source_artifact_id != receipt.source_artifact_id
+            or passage.source_revision_id != receipt.source_revision_id
+            or passage.line_start != receipt.line_start
+            or passage.line_end != receipt.line_end
+            or passage.outcome != receipt.outcome
+            or passage.returned_chars != receipt.returned_chars
+            or passage.content_sha256 != receipt.content_sha256
+        ):
+            raise ApplicationStateValidationError(
+                "captured passage differs from its validated source-read receipt"
+            )
+    return [supplied_by_id[item.source_read_id] for item in event.receipts if item.source_read_id in supplied_by_id]
 
 
 def _fingerprint_payload(payload: object) -> str:
@@ -107,12 +241,16 @@ def _expect_pointer(command: ConversationCommand, pointer: WorldPointer) -> None
         )
 
 
-def _archive_active(conn, pointer: WorldPointer, now: datetime) -> None:
+def _archive_active(conn, pointer: WorldPointer, now: datetime, *, authorize_write=None) -> None:
     if pointer.active_conversation_id is None:
+        if authorize_write is not None:
+            authorize_write()
         return
     active = repo.lock_conversation(conn, pointer.world_id, pointer.active_conversation_id)
     if active is None or active.status != "active":
         raise ApplicationStateIntegrityError("World active pointer does not reference an active conversation")
+    if authorize_write is not None:
+        authorize_write()
     archived = repo.update_conversation_state(
         conn,
         world_id=pointer.world_id,
@@ -133,8 +271,346 @@ def _ready_dsn() -> str:
     return dsn
 
 
+@contextmanager
+def _measure_provider_append_transaction(measure):
+    with ExitStack() as stack:
+        with measure("first_jev_send_schema_check"):
+            dsn = _ready_dsn()
+        with measure("first_jev_send_transaction_open"):
+            conn = stack.enter_context(unit_of_work(dsn))
+        yield conn
+        with measure("first_jev_send_commit_and_close"):
+            stack.close()
+
+
+def _ordinary_mutation_turn(turn: TurnReadModel | None, conversation_id: UUID) -> Turn | None:
+    if isinstance(turn, MixedCompletedTurnV1):
+        if turn.envelope.conversation_id != conversation_id:
+            raise ApplicationStateNotFoundError("turn not found in verified World conversation")
+        raise ApplicationStateConflictError("completed mixed Rules answer cannot accept an ordinary mutation")
+    return turn
+
+
+def _validated_base_execution_locked(
+    conn, turn: Turn, result: TurnResult, *, prepared_recovery: bool = False,
+    mixed_output_context=None, native_output_verified=False,
+):
+    """Validate the unchanged base-domain completion without committing a Turn."""
+    from .native_execution import SurfaceNativeExecutionV1
+    if isinstance(turn.graph_context_execution, SurfaceNativeExecutionV1):
+        from .native_rules_output import NativeRulesNormalizedOutputV1
+        from .rules_authority_types import canonical_sha256
+        if not native_output_verified and not isinstance(mixed_output_context,NativeRulesNormalizedOutputV1):
+            raise ApplicationStateValidationError('Shared native completion requires its locked producing-output owner')
+        if result is None or result.completion is None or result.claim_graph_event_ids != {} or result.build_section_bindings:
+            raise ApplicationStateValidationError('Shared native completion requires its exact native binding')
+        binding=CompletionBindingEventV1(kind='completion_binding',event_id=uuid4(),
+            sequence=len(turn.graph_context_execution.events),provider_attempt_id=result.producing_provider_attempt_id,
+            completion_sha256=canonical_sha256(result.completion),claim_graph_event_ids={})
+        try:
+            execution=SurfaceNativeExecutionV1.model_validate_json(json.dumps(
+                turn.graph_context_execution.model_dump(mode='json',by_alias=True)
+                | {'events':[e.model_dump(mode='json',by_alias=True) for e in [*turn.graph_context_execution.events,binding]]}))
+            validate_execution_completion(result.completion,turn.graph_context_receipt,execution,
+                result.producing_provider_attempt_id,result.claim_graph_event_ids)
+        except (ValueError,TypeError,KeyError,AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        return execution
+    from .types import NativeStatementExecutionV1
+    if isinstance(turn.graph_context_execution, NativeStatementExecutionV1):
+        from .native_statement_answer import accept_result
+        try:
+            return accept_result(turn, result)
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+    from .types import (
+        BuildAuthoringCompletionV1,
+        BuildImagePreparationCompletionV1,
+        BuildActionControllerWriterPolicyV1,
+        BuildCitedSourceActionControllerWriterPolicyV1,
+    )
+
+    from .types import PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1
+    from .native_rules_output import NativeRulesNormalizedOutputV1
+    if (isinstance(result.completion, (PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1))
+            and not native_output_verified
+            and not isinstance(mixed_output_context, NativeRulesNormalizedOutputV1)):
+        raise ApplicationStateValidationError("Native Play requires its actual producing-output proof owner before completion")
+    execution = turn.graph_context_execution
+    if isinstance(result, RulesCitedSourceTurnResultV1) and (
+            mixed_output_context is None or not isinstance(getattr(execution, "policy", None),
+                BuildCitedSourceActionControllerWriterPolicyV1)):
+        raise ApplicationStateValidationError("Mixed base output proof requires atomic mixed acceptance and current Build source policy")
+    if prepared_recovery and not isinstance(
+        getattr(execution, "policy", None), BuildActionControllerWriterPolicyV1
+    ):
+        raise ApplicationStateValidationError(
+            "Recovery requires the controller-selected Build action policy"
+        )
+    if execution is not None:
+        if (
+            result.completion is None
+            or result.producing_provider_attempt_id is None
+            or result.claim_graph_event_ids is None
+        ):
+            raise ApplicationStateValidationError(
+                "execution completion requires a producing attempt and claim evidence binding"
+            )
+        if isinstance(
+            execution.policy, BuildCitedSourceActionControllerWriterPolicyV1
+        ) and (isinstance(result, RulesCitedSourceTurnResultV1) or not isinstance(
+            result.completion,
+            (BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1),
+        )):
+            from .source_writer_output import validate_completion_proof
+
+            try:
+                if isinstance(result, RulesCitedSourceTurnResultV1):
+                    from .rules_authority_output import validate_build_base_completion
+                    rules_execution, output_proof, answer = mixed_output_context
+                    captured = conn.execute(
+                        "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                        (turn.turn_id, turn.attempt),
+                    ).fetchone()
+                    validate_build_base_completion(result, turn, rules_execution=rules_execution,
+                        output_proof=output_proof, answer=answer, trace=captured[0] if captured else {})
+                else:
+                    captured = conn.execute(
+                        "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                        (turn.turn_id, turn.attempt),
+                    ).fetchone()
+                    validate_completion_proof(result, turn, captured[0] if captured else {})
+            except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+        payload = result.completion.model_dump(mode="json", by_alias=True)
+        digest = hashlib.sha256(
+            json.dumps(
+                payload,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest()
+        try:
+            execution = project_build_section_answer_bindings(
+                execution,
+                result.completion,
+                result.producing_provider_attempt_id,
+                result.build_section_bindings,
+            )
+        except ValueError as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        binding = CompletionBindingEventV1(
+            event_id=uuid4(),
+            sequence=len(execution.events),
+            kind="completion_binding",
+            provider_attempt_id=result.producing_provider_attempt_id,
+            completion_sha256=digest,
+            claim_graph_event_ids=result.claim_graph_event_ids,
+        )
+        try:
+            execution_type = type(execution)
+            execution = execution_type.model_validate(
+                execution.model_dump(mode="json", by_alias=True)
+                | {
+                    "events": [
+                        *[
+                            e.model_dump(mode="json", by_alias=True)
+                            for e in execution.events
+                        ],
+                        binding.model_dump(mode="json", by_alias=True),
+                    ]
+                }
+            )
+            validate_execution_completion(
+                result.completion,
+                turn.graph_context_receipt,
+                execution,
+                result.producing_provider_attempt_id,
+                result.claim_graph_event_ids,
+            )
+        except ValueError as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+    if turn.graph_context_receipt is None:
+        from .types import LoreSaveReviewReference
+        if isinstance(result.completion, LoreSaveReviewReference):
+            if result.producing_provider_attempt_id is not None or result.assistant_text != result.completion.reply_text:
+                raise ApplicationStateValidationError("Lore save reference must be a local result")
+            return None
+        if result.completion is not None:
+            raise ApplicationStateValidationError(
+                "Graph completion requires a frozen context receipt"
+            )
+    else:
+        if result.completion is None:
+            raise ApplicationStateValidationError(
+                "Graph receipt turn requires a completion envelope"
+            )
+        if execution is None:
+            try:
+                validate_completion_against_receipt(
+                    result.completion, turn.graph_context_receipt
+                )
+            except ValueError as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+    from .build_authoring import validate_stored_proposal
+
+    validate_stored_proposal(conn, turn, result.completion)
+    return execution
+
+
 class AgentConversationService:
     """Stateless storage boundary. World verification belongs to the caller."""
+
+    def conversation_draft_turn_ids(self, world_id: str, conversation_id: UUID, turn_ids: list[UUID]) -> set[UUID]:
+        if not turn_ids:
+            return set()
+        with unit_of_work(_ready_dsn()) as conn:
+            rows = conn.execute(
+                """
+                SELECT turn_id FROM agent.conversation_draft_revision
+                WHERE world_id = %s AND conversation_id = %s AND turn_id = ANY(%s)
+                    AND revision = 1
+                """,
+                (_world_id(world_id), conversation_id, turn_ids),
+            )
+            return {row[0] for row in rows}
+
+    def reviewed_variant_turn_ids(self, world_id: str, conversation_id: UUID, turn_ids: list[UUID]) -> set[UUID]:
+        from .conversation_drafts import CANONICAL_REVIEWED_DRAFT
+
+        with unit_of_work(_ready_dsn()) as conn:
+            rows = conn.execute(
+                f"""
+                SELECT t.turn_id FROM agent.turn t
+                WHERE t.world_id = %s AND t.conversation_id = %s AND t.turn_id = ANY(%s)
+                  AND t.status = 'completed' AND t.surface_id = 'build'
+                  AND {CANONICAL_REVIEWED_DRAFT}
+                """,
+                (_world_id(world_id), conversation_id, turn_ids),
+            )
+            return {row[0] for row in rows}
+
+    def open_conversation_draft(self, world_id: str, conversation_id: UUID, turn_id: UUID):
+        from .conversation_drafts import open_draft
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return open_draft(conn, world_id=_world_id(world_id),
+                              conversation_id=conversation_id, turn_id=turn_id)
+
+    def conversation_variant_approval(self, world_id: str, conversation_id: UUID, turn_id: UUID):
+        from .conversation_variant_save import approval_handoff, requested_approval
+
+        world_id = _world_id(world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = repo.get_turn(conn, world_id, turn_id)
+            envelope = turn.envelope if isinstance(turn, MixedCompletedTurnV1) else turn
+            if envelope is None or envelope.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError("Approval turn not found")
+            primary = envelope.provenance.primary_work
+            if not requested_approval(turn) or primary.resolution != "resolved":
+                return {"status": "not_requested"}
+            return approval_handoff(
+                conn, world_id=world_id, conversation_id=conversation_id, prior_to=envelope.sequence,
+                accepted_at=envelope.accepted_at, page_id=primary.object_id, page_kind=primary.kind,
+            )
+
+    def edit_conversation_draft(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, markdown: str,
+    ):
+        from .conversation_drafts import edit_draft
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return edit_draft(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, expected_revision=expected_revision, markdown=markdown,
+            )
+
+    def store_conversation_variant_review(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        revision: int, review_id: UUID, definition: dict, base_locator: dict,
+    ) -> None:
+        from .conversation_variant_save import store_review
+
+        with unit_of_work(_ready_dsn()) as conn:
+            store_review(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, revision=revision, review_id=review_id,
+                definition=definition, base_locator=base_locator,
+            )
+
+    def store_conversation_variant_correction(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        review_id: UUID, expected_revision: int, definition: dict, markdown: str,
+    ):
+        from .conversation_variant_save import store_correction
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return store_correction(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, review_id=review_id, expected_revision=expected_revision,
+                definition=definition, markdown=markdown,
+            )
+
+    def open_conversation_variant_review(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *, review_id: UUID,
+    ):
+        from .conversation_variant_save import open_review
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return open_review(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, review_id=review_id,
+            )
+
+    def open_saved_conversation_variant_receipt(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *, review_id: UUID,
+    ):
+        from .conversation_variant_save import open_saved_receipt
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return open_saved_receipt(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, review_id=review_id,
+            )
+
+    def find_conversation_variant_save(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        revision: int, create_request: dict,
+    ):
+        from .conversation_variant_save import find_save
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return find_save(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, revision=revision, create_request=create_request,
+            )
+
+    def claim_conversation_variant_save(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        revision: int, create_request: dict,
+    ):
+        from .conversation_variant_save import claim_save
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return claim_save(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, revision=revision, create_request=create_request,
+            )
+
+    def record_conversation_variant_receipt(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        revision: int, receipt: dict,
+    ):
+        from .conversation_variant_save import record_receipt
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return record_receipt(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, revision=revision, receipt=receipt,
+            )
 
     def get_world_pointer(self, world_id: str) -> WorldPointer:
         world_id = _world_id(world_id)
@@ -149,8 +625,7 @@ class AgentConversationService:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
         with unit_of_work(dsn) as conn:
-            pointer = repo.get_world_state(conn, world_id)
-            active = repo.get_active_conversation(conn, world_id)
+            pointer, active = repo.get_active_conversation_snapshot(conn, world_id)
         if pointer is None or pointer.active_conversation_id is None:
             if active is not None:
                 raise ApplicationStateIntegrityError("active conversation exists without a World pointer")
@@ -184,12 +659,92 @@ class AgentConversationService:
         with unit_of_work(dsn) as conn:
             return repo.list_conversations(conn, world_id, status=status, limit=limit)
 
+    def get_new_conversation_receipt(self, command: ConversationCommand) -> ConversationCommandReceipt | None:
+        """Read an exact original command receipt without creating World state."""
+        _world_id(command.world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            conn.execute("SET TRANSACTION READ ONLY")
+            receipt = _receipt_replay(conn, command, command_kind="new")
+        if receipt is not None and (
+            receipt.world_id != command.world_id or receipt.command_id != command.command_id
+            or receipt.active_conversation_id != receipt.conversation_id
+            or receipt.conversation_id == command.expected_active_conversation_id
+            or receipt.pointer_revision <= command.expected_pointer_revision
+        ):
+            raise ApplicationStateIntegrityError("stored new conversation receipt is invalid")
+        return receipt
+
+    def get_command_resolution(self, request: CommandResolutionRequestV1) -> CommandResolutionRecordV1 | None:
+        _world_id(request.original_command.world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            conn.execute("SET TRANSACTION READ ONLY")
+            record = repo.get_command_resolution(conn, request.original_command.world_id, request.resolution_operation_id)
+        if record is not None and record.resolution_request_fingerprint != request.fingerprint():
+            raise ApplicationStateConflictError("resolution operation ID has a different binding")
+        return record
+
+    def resolve_new_conversation(self, request: CommandResolutionRequestV1, *, actor: str, authorize_world=None) -> CommandResolutionRecordV1:
+        command = request.original_command
+        _world_id(command.world_id)
+        if not actor.strip():
+            raise ApplicationStateValidationError("resolution actor is required")
+        with unit_of_work(_ready_dsn()) as conn:
+            pointer = _lock_pointer(conn, command.world_id)
+            previous = repo.get_command_resolution(conn, command.world_id, request.resolution_operation_id)
+            if previous is not None:
+                if authorize_world is not None:
+                    authorize_world()
+                if previous.resolution_request_fingerprint != request.fingerprint():
+                    raise ApplicationStateConflictError("resolution operation ID has a different binding")
+                return previous
+            found = repo.get_command_receipt(conn, command.world_id, command.command_id)
+            retired = repo.get_command_retirement(conn, command.world_id, command.command_id)
+            if found is not None and retired is not None:
+                raise ApplicationStateIntegrityError("successful and retired command coexist")
+            if retired is not None:
+                if retired.original_request_fingerprint != request_fingerprint(command):
+                    raise ApplicationStateConflictError("retired command has a different binding")
+                raise ApplicationStateConflictError("use_original_resolution_record")
+            confirmed = occupied = None
+            if found is not None:
+                receipt, fingerprint = found
+                if receipt.command_kind == "new" and fingerprint == request_fingerprint(command):
+                    outcome = "confirmed"
+                    confirmed = receipt
+                else:
+                    outcome = "submitted_binding_blocked"
+                    occupied = OccupiedCommandProofV1(world_id=command.world_id, command_id=command.command_id,
+                        command_kind=receipt.command_kind, request_fingerprint=fingerprint,
+                        receipt_sha256=_fingerprint({"receipt": receipt.model_dump(mode="json"), "request_fingerprint": fingerprint}))
+            else:
+                if pointer.revision != request.expected_current_pointer_revision or pointer.active_conversation_id != request.expected_current_active_conversation_id:
+                    raise ApplicationStateConflictError("World active conversation changed; refresh before resolving")
+                outcome = "retired"
+            try:
+                record = CommandResolutionRecordV1.create(request=request,
+                    original_request_fingerprint=request_fingerprint(command), resolution_request_fingerprint=request.fingerprint(),
+                    observed_pointer=pointer, outcome=outcome, actor=actor, recorded_at=_now().isoformat(),
+                    confirmed_receipt=confirmed, occupied_receipt=occupied,
+                    retirement_operation_id=request.resolution_operation_id if outcome == "retired" else None)
+            except ValidationError as exc:
+                raise ApplicationStateIntegrityError("command resolution evidence is invalid") from exc
+            if authorize_world is not None:
+                authorize_world()
+            return repo.insert_command_resolution(conn, record)
+
     def new_conversation(self, command: ConversationCommand) -> ConversationCommandReceipt:
         world_id = _world_id(command.world_id)
         dsn = _ready_dsn()
         now = _now()
         with unit_of_work(dsn) as conn:
             pointer = _lock_pointer(conn, world_id)
+            retirement = repo.get_command_retirement(conn, world_id, command.command_id)
+            if retirement is not None:
+                if repo.get_command_receipt(conn, world_id, command.command_id) is not None:
+                    raise ApplicationStateIntegrityError("successful and retired command coexist")
+                if retirement.original_request_fingerprint != request_fingerprint(command):
+                    raise ApplicationStateConflictError("retired command has a different binding")
+                raise ApplicationStateConflictError("new_conversation_request_retired")
             replay = _receipt_replay(conn, command, command_kind="new")
             if replay is not None:
                 return replay
@@ -233,6 +788,8 @@ class AgentConversationService:
         now = _now()
         with unit_of_work(dsn) as conn:
             pointer = _lock_pointer(conn, world_id)
+            if repo.get_command_retirement(conn, world_id, command.command_id) is not None:
+                raise ApplicationStateConflictError("command ID is retired")
             replay = _receipt_replay(conn, command, command_kind="archive")
             if replay is not None:
                 return replay
@@ -261,14 +818,18 @@ class AgentConversationService:
                 recorded_at=now,
             )
 
-    def reopen_conversation(self, command: ReopenCommand) -> ConversationCommandReceipt:
+    def reopen_conversation(self, command: ReopenCommand, *, authorize_write=None) -> ConversationCommandReceipt:
         world_id = _world_id(command.world_id)
         dsn = _ready_dsn()
         now = _now()
         with unit_of_work(dsn) as conn:
             pointer = _lock_pointer(conn, world_id)
+            if repo.get_command_retirement(conn, world_id, command.command_id) is not None:
+                raise ApplicationStateConflictError("command ID is retired")
             replay = _receipt_replay(conn, command, command_kind="reopen")
             if replay is not None:
+                if authorize_write is not None:
+                    authorize_write()
                 return replay
             _expect_pointer(command, pointer)
             target = repo.lock_conversation(conn, world_id, command.conversation_id)
@@ -276,7 +837,7 @@ class AgentConversationService:
                 raise ApplicationStateNotFoundError("conversation not found in verified World")
             if target.status != "archived":
                 raise ApplicationStateConflictError("only an archived conversation can be reopened")
-            _archive_active(conn, pointer, now)
+            _archive_active(conn, pointer, now, authorize_write=authorize_write)
             reopened = repo.update_conversation_state(
                 conn,
                 world_id=world_id,
@@ -310,11 +871,64 @@ class AgentConversationService:
                 recorded_at=now,
             )
 
-    def accept_turn(self, submission: TurnSubmission) -> Turn:
+    def set_conversation_trash(self, command: ConversationTrashCommand, *, restore: bool) -> ConversationCommandReceipt:
+        """Reversible lifecycle using the existing World command/pointer owner."""
+        command = ConversationTrashCommand.model_validate_json(command.model_dump_json())
+        world_id = _world_id(command.world_id)
+        kind = "restore" if restore else "trash"
+        now = _now()
+        with unit_of_work(_ready_dsn()) as conn:
+            pointer = _lock_pointer(conn, world_id)
+            if repo.get_command_retirement(conn, world_id, command.command_id) is not None:
+                raise ApplicationStateConflictError("command ID is retired")
+            replay = _receipt_replay(conn, command, command_kind=kind)
+            if replay is not None:
+                return replay
+            _expect_pointer(command, pointer)
+            target = repo.lock_conversation(conn, world_id, command.conversation_id)
+            if target is None:
+                raise ApplicationStateNotFoundError("conversation not found in verified World")
+            if (restore and target.status != "trashed") or (not restore and target.status == "trashed"):
+                raise ApplicationStateConflictError("conversation lifecycle changed; refresh before retrying")
+            if (target.status == "active") != (pointer.active_conversation_id == target.conversation_id):
+                raise ApplicationStateIntegrityError("conversation status differs from its World pointer")
+            changed = repo.update_conversation_state(
+                conn, world_id=world_id, conversation_id=target.conversation_id,
+                expected_revision=target.revision, status="archived" if restore else "trashed",
+                next_turn_sequence=target.next_turn_sequence, now=now, archived_at=target.archived_at or now,
+            )
+            if changed is None:
+                raise ApplicationStateConflictError("conversation changed during lifecycle update")
+            new_pointer = repo.update_world_state(
+                conn, world_id=world_id,
+                active_conversation_id=None if pointer.active_conversation_id == target.conversation_id else pointer.active_conversation_id,
+                pointer_revision=pointer.revision + 1, now=now,
+            )
+            return repo.insert_command_receipt(
+                conn, world_id=world_id, command_id=command.command_id, command_kind=kind,
+                request_fingerprint=request_fingerprint(command),
+                expected_pointer_revision=command.expected_pointer_revision,
+                expected_active_conversation_id=command.expected_active_conversation_id,
+                conversation_id=target.conversation_id,
+                result_active_conversation_id=new_pointer.active_conversation_id,
+                result_pointer_revision=new_pointer.revision, recorded_at=now,
+            )
+
+    def accept_turn(
+        self, submission: TurnSubmission, *, build_retry_capability: BuildWriteCapability | None = None
+    ) -> TurnReadModel:
+        # StrictModel/model_copy is mutable. Re-run the submission owner before
+        # fingerprints, idempotent replay or any database mutation. JSON mode
+        # also checks copied dictionary fields through their actual wire codecs.
+        try:
+            submission = TurnSubmission.model_validate_json(submission.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
         world_id = _world_id(submission.world_id)
         if submission.provenance.world_id != world_id:
             raise ApplicationStateValidationError("turn provenance must match verified World")
         submitted_intent = submission.submitted_intent_v1
+        submitted_intent_v2 = submission.submitted_intent_v2
         if submitted_intent is not None and (
             submitted_intent.world_id != world_id
             or submitted_intent.message != submission.user_text
@@ -322,38 +936,98 @@ class AgentConversationService:
             raise ApplicationStateValidationError(
                 "submitted intent World/message must match the turn"
             )
-        dsn = _ready_dsn()
         now = _now()
         fingerprint = request_fingerprint(submission)
         stable_fingerprint = turn_idempotency_fingerprint(
-            world_id, submission.user_text, submission.provenance
+            world_id, submission.user_text, submission.provenance,
+            submission.play_context_receipt,
         )
         submitted_intent_fingerprint = (
             None if submitted_intent is None else submitted_turn_intent_fingerprint_v1(submitted_intent)
         )
+        submitted_intent_fingerprint_v2 = (
+            None
+            if submitted_intent_v2 is None
+            else submitted_turn_intent_fingerprint_v2(submitted_intent_v2)
+        )
 
-        def matching_receipt(existing) -> Turn:
+        def matching_receipt(existing) -> TurnReadModel:
             (
                 turn,
                 _old_request_fingerprint,
                 _old_idempotency_fingerprint,
                 old_submitted_intent_fingerprint,
+                old_submitted_intent_fingerprint_v2,
             ) = existing
-            if old_submitted_intent_fingerprint is None:
+            if isinstance(turn, MixedCompletedTurnV1):
+                turn_meta = turn.envelope
+                projection = turn.base_projection
+                if projection.kind == "approved":
+                    graph_receipt = projection.turn.graph_context_receipt
+                    graph_execution = projection.turn.graph_context_execution
+                elif projection.kind == "unclaimed":
+                    graph_receipt = projection.graph_context_receipt
+                    graph_execution = projection.graph_context_execution
+                else:
+                    graph_receipt = None
+                    graph_execution = None
+            else:
+                turn_meta = turn
+                graph_receipt = turn.graph_context_receipt
+                graph_execution = turn.graph_context_execution
+            if (
+                turn_meta.play_context_receipt is not None
+                and turn_meta.play_context_receipt != submission.play_context_receipt
+            ):
+                raise ApplicationStateConflictError(
+                    "turn idempotency key was already used with a different Play context receipt"
+                )
+            if (
+                old_submitted_intent_fingerprint is None
+                and old_submitted_intent_fingerprint_v2 is None
+            ):
                 raise ApplicationStateConflictError(
                     "legacy-receipt-unverifiable: the stored turn has no submitted-intent fingerprint"
                 )
-            if submitted_intent_fingerprint is None:
+            if submitted_intent_fingerprint is None and submitted_intent_fingerprint_v2 is None:
                 raise ApplicationStateConflictError(
                     "turn idempotency key requires its submitted-intent fingerprint"
                 )
-            if old_submitted_intent_fingerprint != submitted_intent_fingerprint:
+            if submitted_intent_fingerprint is not None and (
+                old_submitted_intent_fingerprint != submitted_intent_fingerprint
+                or old_submitted_intent_fingerprint_v2 is not None
+            ):
                 raise ApplicationStateConflictError(
                     "turn idempotency key was already used with different submitted intent"
                 )
+            if submitted_intent_fingerprint_v2 is not None and (
+                old_submitted_intent_fingerprint_v2 != submitted_intent_fingerprint_v2
+                or old_submitted_intent_fingerprint is not None
+                or graph_receipt != submission.graph_context_receipt
+                or (
+                    (graph_execution is None)
+                    != (submission.graph_context_execution is None)
+                )
+                or (
+                    graph_execution is not None
+                    and submission.graph_context_execution is not None
+                    and (
+                        graph_execution.context_receipt_sha256
+                        != submission.graph_context_execution.context_receipt_sha256
+                        or graph_execution.policy
+                        != submission.graph_context_execution.policy
+                    )
+                )
+            ):
+                raise ApplicationStateConflictError(
+                    "turn idempotency key was already used with different submitted intent or Graph receipt"
+                )
             return turn
 
-        with unit_of_work(dsn) as conn:
+        with unit_of_work() as conn:
+            assert_connection_at_head(conn)
+            from .work_plan import validate_bound_intent
+            validate_bound_intent(conn, world_id, submitted_intent_v2, submission.idempotency_key)
             # Read the receipt before touching mutable pointer/CAS state. The
             # second read under the World pointer lock closes a concurrent
             # first-delivery race before any conversation revision advances.
@@ -362,10 +1036,28 @@ class AgentConversationService:
             )
             if existing is not None:
                 return matching_receipt(existing)
-            if submitted_intent_fingerprint is None:
+            if submitted_intent_fingerprint is None and submitted_intent_fingerprint_v2 is None:
                 raise ApplicationStateValidationError(
                     "submitted intent v1 is required for ordinary turn acceptance"
                 )
+            play_receipt = submission.play_context_receipt
+            if isinstance(play_receipt, PlayRunTurnContextReceiptV2):
+                # Acquire the Run lock before the conversation/pointer locks,
+                # matching Trash's lock order. Existing receipts above remain
+                # replayable after Trash; only new admissions are refused.
+                if isinstance(submitted_intent_v2, PlayGraphIntentV1) or (
+                        submitted_intent is not None and submitted_intent.schema_ == "dmb_play_rules_intent_v1"):
+                    from .play_graph_persistence import lock_and_validate_native_play_basis
+                    lock_and_validate_native_play_basis(conn, play_receipt)
+                else:
+                    run = conn.execute(
+                        "SELECT world_id,lifecycle_status FROM play.run WHERE run_id=%s FOR UPDATE",
+                        (play_receipt.run_id,),
+                    ).fetchone()
+                    if run is None or run[0] != world_id:
+                        raise ApplicationStateNotFoundError("Play session is unavailable in this World")
+                    if run[1] != "active":
+                        raise ApplicationStateConflictError("Play session is in Trash")
             pointer = _lock_pointer(conn, world_id)
             existing = repo.get_turn_by_world_key(
                 conn, world_id, submission.idempotency_key
@@ -379,6 +1071,8 @@ class AgentConversationService:
                 raise ApplicationStateNotFoundError("conversation not found in verified World")
             if conversation.status != "active":
                 raise ApplicationStateConflictError("conversation is archived")
+            from .retry import validate_predecessor, retain_edge
+            retry_parent = validate_predecessor(conn, submission, build_retry_capability)
             advanced = repo.advance_conversation_for_turn(
                 conn,
                 world_id=world_id,
@@ -389,23 +1083,28 @@ class AgentConversationService:
             if advanced is None:
                 raise ApplicationStateConflictError("conversation revision mismatch")
             _, sequence = advanced
-            return repo.insert_turn(
+            admitted = repo.insert_turn(
                 conn,
                 turn_id=uuid4(),
                 request_fingerprint=fingerprint,
                 idempotency_fingerprint=stable_fingerprint,
                 submitted_intent_fingerprint_v1=submitted_intent_fingerprint,
+                submitted_intent_fingerprint_v2=submitted_intent_fingerprint_v2,
                 submission=submission,
                 sequence=sequence,
                 now=now,
             )
+            from .work_plan import retain_bound_intent
+            retain_bound_intent(conn, admitted, submitted_intent_v2)
+            retain_edge(conn, admitted, retry_parent)
+            return admitted
 
     def reconcile_turn(
         self,
         world_id: str,
         idempotency_key: UUID,
-        submitted_intent: SubmittedTurnIntentV1,
-    ) -> Turn | None:
+        submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1,
+    ) -> TurnReadModel | None:
         """Find an exact World receipt before resolving mutable current context.
 
         A legacy receipt has no lossless submitted-intent identity and therefore
@@ -416,22 +1115,147 @@ class AgentConversationService:
             raise ApplicationStateValidationError(
                 "submitted intent World does not match verified World"
             )
-        digest = submitted_turn_intent_fingerprint_v1(submitted_intent)
+        if isinstance(submitted_intent, (SubmittedTurnIntentV2, BuildGraphIntentV1, PlayGraphIntentV1)):
+            digest_v1 = None
+            digest_v2 = submitted_turn_intent_fingerprint_v2(submitted_intent)
+        else:
+            digest_v1 = submitted_turn_intent_fingerprint_v1(submitted_intent)
+            digest_v2 = None
         dsn = _ready_dsn()
         with unit_of_work(dsn) as conn:
             existing = repo.get_turn_by_world_key(conn, world_id, idempotency_key)
         if existing is None:
             return None
-        turn, _request_hash, _idempotency_hash, stored_digest = existing
-        if stored_digest is None:
+        turn, _request_hash, _idempotency_hash, stored_digest, stored_digest_v2 = existing
+        if stored_digest is None and stored_digest_v2 is None:
             raise ApplicationStateConflictError(
                 "legacy-receipt-unverifiable: the stored turn has no submitted-intent fingerprint"
             )
-        if stored_digest != digest:
+        if (
+            (digest_v1 is not None and stored_digest != digest_v1)
+            or (digest_v2 is not None and stored_digest_v2 != digest_v2)
+            or (digest_v1 is not None and stored_digest_v2 is not None)
+            or (digest_v2 is not None and stored_digest is not None)
+        ):
             raise ApplicationStateConflictError(
                 "turn idempotency key was already used with different submitted intent"
             )
         return turn
+
+    def admit_lore_save_followup(self, *, world_id, **request):
+        from .lore_page_confirmation import admit_lore_save_followup
+
+        return admit_lore_save_followup(_ready_dsn(), world_id=_world_id(world_id), **request)
+
+    def resolve_lore_save_followup(self, *, world_id, conversation_id, current_turn_id):
+        from .lore_page_confirmation import resolve_lore_save_followup
+
+        return resolve_lore_save_followup(
+            _ready_dsn(), world_id=_world_id(world_id), conversation_id=conversation_id,
+            current_turn_id=current_turn_id,
+        )
+
+    def prepare_lore_save_review(self, *, world_id, principal_subject, confirmation):
+        from .lore_page_confirmation import prepare_lore_save_review
+
+        prepare_lore_save_review(_ready_dsn(), world_id=_world_id(world_id),
+            principal_subject=principal_subject, confirmation=confirmation)
+
+    def confirm_lore_page(self, *, world_id, principal_subject, confirmation, verify_source):
+        from .lore_page_confirmation import confirm_lore_page
+
+        return confirm_lore_page(
+            _ready_dsn(), world_id=_world_id(world_id), principal_subject=principal_subject,
+            confirmation=confirmation, verify_source=verify_source,
+        )
+
+    def inspect_turn(self, *, world_id: str, turn_id: UUID) -> TurnReadModel:
+        """Load one historical turn in its verified World; no pointer/head lookup."""
+        world_id = _world_id(world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = repo.get_turn(conn, world_id, turn_id)
+            if turn is None:
+                raise ApplicationStateNotFoundError("turn not found in verified World")
+            return turn
+
+    def begin_rules_execution(self, scope: RulesScopeV1, *, expected_turn_revision: int) -> RulesLedgerRecordV1:
+        """Internal parent port; caller already admitted current operator/World."""
+        from .rules_authority_store import open_execution_locked
+        with unit_of_work(_ready_dsn()) as conn:
+            record = open_execution_locked(conn, scope, expected_turn_revision=expected_turn_revision)
+        return record
+
+    def authorize_rules_lookup(self, scope: RulesScopeV1, *, expected_turn_revision: int,
+                               expected_ledger_revision: int, event: RulesToolAuthorizedV1) -> RulesLedgerRecordV1:
+        """Commit exact call authority before the parent starts a local read."""
+        from .rules_authority_events import RulesToolAuthorizedV1
+        from .rules_authority_store import append_lookup_event_locked
+        if not isinstance(event, RulesToolAuthorizedV1):
+            raise ApplicationStateValidationError("Rules lookup requires a tool authorization")
+        with unit_of_work(_ready_dsn()) as conn:
+            record, _ = append_lookup_event_locked(conn, scope,
+                expected_turn_revision=expected_turn_revision,
+                expected_ledger_revision=expected_ledger_revision, event=event)
+        return record
+
+    def authorize_plan_jev_rules_lookup(self, scope: RulesScopeV1, *, expected_turn_revision: int,
+            expected_ledger_revision: int, event, parent_request_json: str) -> RulesLedgerRecordV1:
+        from .rules_authority_events import RulesPlanJevToolAuthorizedV1
+        from .rules_authority_store import append_lookup_event_locked
+        if not isinstance(event, RulesPlanJevToolAuthorizedV1):
+            raise ApplicationStateValidationError("Plan Jev Rules lookup requires its typed decision operation")
+        with unit_of_work(_ready_dsn()) as conn:
+            record, _ = append_lookup_event_locked(conn, scope,
+                expected_turn_revision=expected_turn_revision, expected_ledger_revision=expected_ledger_revision,
+                event=event, plan_jev_parent_request_json=parent_request_json)
+        return record
+
+    def execute_rules_lookup(self, scope: RulesScopeV1, *, expected_turn_revision: int,
+                             call_id: str, local_reader: RulesLocalReader) -> RulesLookupDeliveryV1:
+        """Serialize/reload/read/seal; return source bytes only after commit.
+
+        local_reader is an internal bounded local-source adapter, never model or
+        HTTP input. It must not dispatch inference/network work under this lock.
+        """
+        from .rules_authority_runtime import execute_local_lookup_locked
+        with unit_of_work(_ready_dsn()) as conn:
+            delivery = execute_local_lookup_locked(conn, scope,
+                expected_turn_revision=expected_turn_revision, call_id=call_id,
+                local_reader=local_reader)
+        return delivery
+
+    def append_rules_provider_event(self, scope: RulesScopeV1, *, expected_turn_revision: int,
+                                    expected_ledger_revision: int,
+                                    event: RulesProviderAuthorizedV1 | RulesProviderIncludedV1 | RulesProviderOutcomeV1,
+                                    prepared_request_json: str | None = None) -> RulesLedgerRecordV1:
+        """Internal exact-input/lifecycle append; no dispatch permission on failure."""
+        from .rules_authority_store import append_provider_event_locked
+        with unit_of_work(_ready_dsn()) as conn:
+            record, _ = append_provider_event_locked(conn, scope,
+                expected_turn_revision=expected_turn_revision,
+                expected_ledger_revision=expected_ledger_revision, event=event,
+                prepared_request_json=prepared_request_json)
+        return record
+
+    def inspect_rules_passage(
+        self, request: RulesHistoricalPassageRequestV1
+    ) -> RulesHistoricalPassageV1:
+        """Caller verifies current World/operator admission; inspect one cited capsule."""
+        from .rules_authority_passages import read_historical_rules_passage
+
+        if _world_id(request.world_id) != request.world_id:
+            raise ApplicationStateValidationError(
+                "Rules passage World must be canonical"
+            )
+        with unit_of_work(_ready_dsn()) as conn:
+            return read_historical_rules_passage(conn, request)
+
+    def source_name_labels(self, world_id: str, conversation_id: UUID, turn_ids: list[UUID]) -> list[dict]:
+        """Frozen display-only source labels for one already selected history page."""
+        from .source_display import read_source_names
+        world_id = _world_id(world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            return read_source_names(conn, world_id, conversation_id, turn_ids)
 
     def list_turns(
         self,
@@ -440,23 +1264,64 @@ class AgentConversationService:
         *,
         limit: int = 50,
         before_sequence: int | None = None,
-    ) -> list[Turn]:
+    ) -> list[TurnReadModel]:
+        turns, _ = self.list_turn_page(
+            world_id, conversation_id, limit=limit, before_sequence=before_sequence,
+            lookahead=False,
+        )
+        return turns
+
+    def list_build_dialogue(self, world_id: str, conversation_id: UUID) -> list[dict[str, Any]]:
+        """Exact dialogue from the newest six owned turn slots."""
+        world_id = _world_id(world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            if repo.get_conversation(conn, world_id, conversation_id) is None:
+                raise ApplicationStateNotFoundError("conversation not found in verified World")
+            return repo.list_build_dialogue(conn, world_id, conversation_id)
+
+    def list_turn_page(
+        self,
+        world_id: str,
+        conversation_id: UUID,
+        *,
+        limit: int,
+        before_sequence: int | None,
+        lookahead: bool = True,
+        connection=None,
+    ) -> tuple[list[TurnReadModel], bool]:
         world_id = _world_id(world_id)
         if not 1 <= limit <= 100:
             raise ApplicationStateValidationError("turn page limit must be between 1 and 100")
         if before_sequence is not None and before_sequence < 1:
             raise ApplicationStateValidationError("before_sequence must be positive")
-        dsn = _ready_dsn()
-        with unit_of_work(dsn) as conn:
-            if repo.get_conversation(conn, world_id, conversation_id) is None:
-                raise ApplicationStateNotFoundError("conversation not found in verified World")
-            return repo.list_turns(
-                conn,
-                world_id,
-                conversation_id,
-                limit=limit,
-                before_sequence=before_sequence,
-            )
+        if connection is None:
+            with unit_of_work(_ready_dsn()) as conn:
+                return self.list_turn_page(
+                    world_id, conversation_id, limit=limit,
+                    before_sequence=before_sequence, lookahead=lookahead,
+                    connection=conn,
+                )
+        conn = connection
+        if repo.get_conversation(conn, world_id, conversation_id) is None:
+            raise ApplicationStateNotFoundError("conversation not found in verified World")
+        return repo.list_turn_page(
+            conn,
+            world_id,
+            conversation_id,
+            limit=limit,
+            before_sequence=before_sequence,
+            lookahead=lookahead,
+        )
+
+    def retained_graph_navigation(self, *, world_id, conversation_id, authority, previous_turns):
+        """Read a metadata projection of the caller's one canonical history page."""
+        from .retained_graph_navigation import from_history
+        world_id = _world_id(world_id)
+        if world_id != authority.managed_world_id:
+            raise ApplicationStateValidationError('Navigation authority belongs to another World')
+        with unit_of_work(_ready_dsn()) as conn:
+            return from_history(conn, world_id=world_id, conversation_id=conversation_id,
+                authority=authority, previous_turns=previous_turns)
 
     def list_completed_plan_ask_context(
         self,
@@ -495,7 +1360,62 @@ class AgentConversationService:
             )
         return receipt.turn
 
-    def claim_turn(
+    def claim_build_with_draft(self, world_id, conversation_id, turn_id, *,
+                               expected_revision, lease_seconds, draft):
+        """Commit the claimed attempt, its trace origin and exact working draft together."""
+        from .build_draft_context import BuildDraftContextRecordV1, native_build_action
+        from .native_context import is_semantic_build_input
+        from .types import BuildDraftContextCapturedV1
+
+        capture = None
+
+        def start_capture(conn, claimed):
+            nonlocal capture
+            execution = claimed.graph_context_execution
+            if (execution is None or native_build_action(execution) is None
+                    or not is_semantic_build_input(claimed.graph_context_receipt)
+                    or execution.events):
+                raise ApplicationStateValidationError("Atomic draft capture requires fresh ordinary Build admission")
+            trace = begin_context_trace_locked(
+                conn, world_id=claimed.world_id, conversation_id=claimed.conversation_id,
+                turn_id=claimed.turn_id, expected_revision=claimed.revision, attempt=claimed.attempt,
+                trace_id=uuid4(), started_at=datetime.now(UTC),
+            )
+            record = BuildDraftContextRecordV1(
+                record_id=uuid4(), turn_id=claimed.turn_id, conversation_id=claimed.conversation_id,
+                attempt=claimed.attempt, submitted_intent_fingerprint=claimed.submitted_intent_fingerprint_v2,
+                expected_pointer_revision=draft.expected_pointer_revision, snapshot=draft.snapshot,
+            )
+            if draft.conversation_id != claimed.conversation_id:
+                raise ApplicationStateValidationError("Working draft belongs to a different conversation")
+            event = BuildDraftContextCapturedV1(
+                event_id=uuid4(), sequence=0, kind="build_draft_context_captured_v1", record=record,
+            )
+            updated, fresh = self._append_graph_execution_event(
+                claimed.world_id, claimed.conversation_id, claimed.turn_id,
+                expected_revision=claimed.revision, expected_attempt=claimed.attempt,
+                event=event, duplicate_key="event_id", _connection=conn,
+            )
+            if not fresh:
+                raise ApplicationStateConflictError("Working draft capture was already committed")
+            capture = trace, record
+            return updated
+
+        claim = self._claim_turn(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            lease_seconds=lease_seconds, after_claim=start_capture,
+        )
+        return claim, capture
+
+    def claim_turn(self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+                   expected_revision: int, lease_seconds: int = DEFAULT_TURN_CLAIM_LEASE_SECONDS
+                   ) -> TurnClaimReceipt:
+        return self._claim_turn(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            lease_seconds=lease_seconds,
+        )
+
+    def _claim_turn(
         self,
         world_id: str,
         conversation_id: UUID,
@@ -503,18 +1423,29 @@ class AgentConversationService:
         *,
         expected_revision: int,
         lease_seconds: int = DEFAULT_TURN_CLAIM_LEASE_SECONDS,
+        after_claim=None,
     ) -> TurnClaimReceipt:
         world_id = _world_id(world_id)
         _validate_turn_claim_lease(lease_seconds)
-        dsn = _ready_dsn()
-        with unit_of_work(dsn) as conn:
+        interrupted_after_dispatch = False
+        interrupted_domain = "Graph"
+        with unit_of_work() as conn:
+            assert_connection_at_head(conn)
             turn = repo.lock_turn(conn, world_id, turn_id)
+            if isinstance(turn, MixedCompletedTurnV1):
+                if turn.envelope.conversation_id != conversation_id:
+                    raise ApplicationStateNotFoundError(
+                        "turn not found in verified World conversation"
+                    )
+                return TurnClaimReceipt(disposition="completed", turn=turn)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError(
                     "turn not found in verified World conversation"
                 )
             if turn.status == "completed":
                 return TurnClaimReceipt(disposition="completed", turn=turn)
+            from .retry import require_leaf
+            require_leaf(conn, turn)
             now = repo.database_clock(conn)
             if (
                 turn.status == "running"
@@ -526,22 +1457,1481 @@ class AgentConversationService:
                 raise ApplicationStateConflictError(
                     "turn claim fence changed before it could be acquired"
                 )
-            if turn.status not in {"accepted", "failed", "interrupted", "running"}:
-                raise ApplicationStateConflictError(
-                    "turn is not eligible for a runtime claim"
+            if turn.graph_context_execution is not None and any(
+                isinstance(event, ProviderAttemptAuthorizedEventV1)
+                for event in turn.graph_context_execution.events
+            ):
+                if turn.status == "running" and (
+                    turn.claim_expires_at is None or turn.claim_expires_at <= now
+                ):
+                    execution = turn.graph_context_execution
+                    auths = [
+                        e
+                        for e in execution.events
+                        if isinstance(e, ProviderAttemptAuthorizedEventV1)
+                    ]
+                    latest = auths[-1]
+                    outcomes = [
+                        e
+                        for e in execution.events
+                        if isinstance(e, ProviderOutcomeEventV1)
+                        and e.provider_attempt_id == latest.provider_attempt_id
+                    ]
+                    outcome_unknown = False
+                    if not outcomes or outcomes[-1].outcome not in {
+                        "response_received",
+                        "known_not_sent",
+                        "outcome_unknown",
+                    }:
+                        outcome_unknown = True
+                        unknown = ProviderOutcomeEventV1(
+                            event_id=uuid4(),
+                            sequence=len(execution.events),
+                            kind="provider_outcome",
+                            provider_attempt_id=latest.provider_attempt_id,
+                            outcome="outcome_unknown",
+                        )
+                        execution_type = type(execution)
+                        # This is a wire projection: validate it in JSON mode,
+                        # including frozen dataclasses and immutable tuple fields.
+                        execution = execution_type.model_validate_json(json.dumps(
+                            execution.model_dump(mode="json", by_alias=True)
+                            | {"events": [e.model_dump(mode="json", by_alias=True)
+                                          for e in [*execution.events, unknown]]}
+                        ))
+                    interrupted = repo.interrupt_expired_graph_execution(
+                        conn,
+                        world_id=world_id,
+                        turn_id=turn_id,
+                        expected_revision=expected_revision,
+                        expected_attempt=turn.attempt,
+                        execution=execution,
+                        failure_code=(
+                            "provider_outcome_unknown"
+                            if outcome_unknown
+                            else "provider_authorized_nonreclaimable"
+                        ),
+                    )
+                    if interrupted is None:
+                        raise ApplicationStateConflictError(
+                            "expired Graph provider claim could not be fenced"
+                        )
+                    from .rules_authority_store import fail_execution_locked
+
+                    fail_execution_locked(conn, turn)
+                    interrupted_after_dispatch = True
+                else:
+                    raise ApplicationStateConflictError(
+                        "Graph execution with a prior provider authorization cannot be reclaimed"
+                    )
+            if not interrupted_after_dispatch:
+                from .rules_authority_store import (
+                    load_turn_rules_locked,
+                    fail_execution_locked,
                 )
-            claimed = repo.claim_turn(
-                conn,
-                world_id=world_id,
-                turn_id=turn_id,
-                expected_revision=expected_revision,
-                lease_seconds=lease_seconds,
+                from .rules_authority_events import (
+                    RulesProviderAuthorizedV1,
+                    RulesProviderOutcomeV1,
+                )
+
+                rules = load_turn_rules_locked(conn, turn)
+                dispatches = (
+                    [
+                        event
+                        for event in rules.execution.events
+                        if isinstance(event, RulesProviderAuthorizedV1)
+                    ]
+                    if rules is not None
+                    else []
+                )
+                if dispatches:
+                    if turn.status != "running":
+                        raise ApplicationStateConflictError(
+                            "Rules execution with a prior provider authorization cannot be reclaimed"
+                        )
+                    latest = dispatches[-1]
+                    outcomes = [
+                        event
+                        for event in rules.execution.events
+                        if isinstance(event, RulesProviderOutcomeV1)
+                        and event.provider_attempt_id == latest.provider_attempt_id
+                    ]
+                    unknown = not outcomes or outcomes[-1].status == "unknown"
+                    fail_execution_locked(conn, turn)
+                    interrupted = repo.interrupt_expired_rules_claim(
+                        conn,
+                        world_id=world_id,
+                        turn_id=turn_id,
+                        expected_revision=expected_revision,
+                        expected_attempt=turn.attempt,
+                        failure_code="rules_provider_outcome_unknown"
+                        if unknown
+                        else "rules_provider_authorized_nonreclaimable",
+                    )
+                    if interrupted is None:
+                        raise ApplicationStateConflictError(
+                            "expired Rules provider claim could not be fenced"
+                        )
+                    interrupted_after_dispatch = True
+                    interrupted_domain = "Rules"
+                elif rules is not None and rules.execution.state == "active":
+                    # A new product attempt must never inherit old source cache or
+                    # pending output authority, even when nothing was dispatched.
+                    fail_execution_locked(conn, turn)
+            if not interrupted_after_dispatch:
+                if turn.status not in {"accepted", "failed", "interrupted", "running"}:
+                    raise ApplicationStateConflictError(
+                        "turn is not eligible for a runtime claim"
+                    )
+                if turn.status == "running" and (
+                    turn.claim_expires_at is None or turn.claim_expires_at <= now
+                ):
+                    close_context_trace_locked(
+                        conn,
+                        world_id=world_id,
+                        turn_id=turn_id,
+                        attempt=turn.attempt,
+                        status="interrupted",
+                        closed_at=now,
+                    )
+                claimed = repo.claim_turn(
+                    conn,
+                    world_id=world_id,
+                    turn_id=turn_id,
+                    expected_revision=expected_revision,
+                    lease_seconds=lease_seconds,
+                )
+                if claimed is None:
+                    raise ApplicationStateConflictError(
+                        "turn claim expired or changed while it was being acquired"
+                    )
+                if after_claim is not None:
+                    claimed = after_claim(conn, claimed)
+                return TurnClaimReceipt(disposition="claimed", turn=claimed)
+        if interrupted_after_dispatch:
+            raise ApplicationStateConflictError(
+                f"expired {interrupted_domain} provider claim was recorded as potentially sent and cannot be reclaimed"
             )
-            if claimed is None:
-                raise ApplicationStateConflictError(
-                    "turn claim expired or changed while it was being acquired"
+
+    def append_native_statement_events(self, world_id, conversation_id, turn_id, *,
+                                       expected_revision, expected_attempt, events):
+        """One native writer append under the existing claimed-turn attempt fence."""
+        from .types import NativeStatementExecutionV1
+        from .native_statement_answer import validate_record
+        from .retry import require_leaf
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = _ordinary_mutation_turn(repo.lock_turn(conn, _world_id(world_id), turn_id), conversation_id)
+            if (turn is None or turn.conversation_id != conversation_id or turn.status != "running"
+                    or turn.revision != expected_revision or turn.attempt != expected_attempt
+                    or turn.claim_expires_at is None or turn.claim_expires_at <= repo.database_clock(conn)):
+                raise ApplicationStateConflictError("Native writer append is fenced by its current claimed attempt")
+            require_leaf(conn, turn)
+            if not isinstance(turn.graph_context_execution, NativeStatementExecutionV1):
+                raise ApplicationStateValidationError("Native writer requires its own frozen execution")
+            try:
+                execution = NativeStatementExecutionV1.model_validate(
+                    turn.graph_context_execution.model_dump(mode="python", by_alias=True) |
+                    {"events": [*turn.graph_context_execution.events, *events]})
+                validate_record(turn.graph_context_receipt, execution, turn.provenance)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            updated = repo.update_graph_execution(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=execution)
+            if updated is None:
+                raise ApplicationStateConflictError("Native writer claim expired during append")
+            return updated, True
+
+    def _lock_execution_append_turn(self, conn, world_id, turn_id):
+        return repo.lock_turn(conn, world_id, turn_id)
+
+    def _persist_execution_append(self, conn, *, world_id, turn_id, expected_revision, execution):
+        return repo.update_graph_execution(conn, world_id=world_id, turn_id=turn_id,
+            expected_revision=expected_revision, execution=execution)
+
+    def _materialize_execution_source(self, materialize, conn, turn):
+        return materialize(conn, turn)
+
+    def _bind_execution_append(self, context, execution):
+        from .native_execution import validate_context_binding
+        return validate_context_binding(context, execution)
+
+    def _append_graph_execution_event(
+        self,
+        world_id: str,
+        conversation_id: UUID,
+        turn_id: UUID,
+        *,
+        expected_revision: int,
+        expected_attempt: int,
+        event: GraphExecutionEventV1 | GraphExecutionEventV2 | GraphExecutionEventV3,
+        duplicate_key: str,
+        source_passages: list[TraceSourcePassage] | None = None,
+        build_source_markdown: str | None = None,
+        writer_selection_proof: dict | None = None,
+        native_play_prepared_request_json: str | None = None,
+        plan_jev_input_proof: dict | None = None,
+        plan_jev_selection_proof: dict | None = None,
+        build_world_selection_proof: dict | None = None,
+        plan_jev_writer_proof: dict | None = None,
+        native_source_materializer=None,
+        build_draft_provider_request_json: str | None = None,
+        related_page_proof: dict | None = None,
+        requested_work_proof: dict | None = None,
+        related_page_materializer=None,
+        saved_statblock_materializer=None,
+        authored_object_result_proof=None,
+        authored_prepared_request_json=None,
+        plan_authoring_reservation=None,
+        prepared_decision_json=None,
+        native_writer_proof=None,
+        opening_authorization=None,
+        _connection=None,
+        _measure=None,
+    ) -> tuple[Turn, bool]:
+        world_id = _world_id(world_id)
+        from .plan_authoring import lock_authoring_writer,validate_authoring_writer
+        measure = _measure or (lambda _name: nullcontext())
+        if _connection is not None:
+            transaction = nullcontext(_connection)
+        elif _measure is not None:
+            transaction = _measure_provider_append_transaction(measure)
+        else:
+            transaction = unit_of_work(_ready_dsn())
+        with transaction as conn:
+            action=(lock_authoring_writer(conn,plan_authoring_reservation,world_id=world_id,
+                conversation_id=conversation_id,turn_id=turn_id) if plan_authoring_reservation is not None else None)
+            with measure("first_jev_send_locked_turn_read"):
+                turn = self._lock_execution_append_turn(conn, world_id, turn_id)
+            turn = _ordinary_mutation_turn(turn, conversation_id)
+            if turn is None or turn.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError("turn not found in verified World conversation")
+            from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, NativeBuildActionV1, NativePlayActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
+            from .types import PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV5
+            native_plan_decision = (
+                type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+                and type(turn.graph_context_execution.policy.action) in NATIVE_PLAN_ACTION_TYPES
+                and isinstance(event, PlanJevProviderAuthorizedV1)
+                and plan_jev_input_proof is not None)
+            # Build retains its actual mode-bound prepared-input owner below.
+            # A shared root must not replace it with a Plan authorization codec.
+            native_build_decision = (
+                type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+                and type(turn.graph_context_execution.policy.action) is NativeBuildActionV1
+                and type(event) is ProviderAttemptAuthorizedEventV5
+                and isinstance(prepared_decision_json, str))
+            from .native_retrieval import NativeRetrievalAuthorizedV1
+            native_surface_retrieval = (
+                type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+                and type(turn.graph_context_execution.policy.action) in (NativeBuildActionV1,NativePlayActionV1)
+                and type(event) is NativeRetrievalAuthorizedV1
+                and plan_jev_input_proof is not None)
+            native_writer = (type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+                and type(event) in NATIVE_WRITER_TYPES and native_writer_proof is not None)
+            if (isinstance(turn.graph_context_execution, SurfaceNativeExecutionV1)
+                    and isinstance(event, ProviderAttemptAuthorizedEventV1)
+                    and not (native_plan_decision or native_build_decision or native_surface_retrieval or native_writer)):
+                raise ApplicationStateValidationError(
+                    "Shared native provider requires its exact prepared-input admission owner")
+            validate_authoring_writer(conn,action,turn,event)
+            if isinstance(event, ProviderOutcomeEventV1):
+                from .native_plan_opening import validate_opening_sdk_entry
+                try:
+                    validate_opening_sdk_entry(turn.graph_context_execution, event, opening_authorization)
+                except ValueError as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            from .work_plan import retained_bound_intent
+            bound_intent = retained_bound_intent(conn, turn)
+            from .types import BuildReviewedActionSelectionV1, BuildJevActionSelectionV1
+            if isinstance(event, BuildReviewedActionSelectionV1):
+                from .work_plan import validate_bound_intent
+                if bound_intent is None or bound_intent != event.intent:
+                    raise ApplicationStateValidationError("Reviewed event differs from admitted intent")
+                validate_bound_intent(conn, world_id, bound_intent, turn.idempotency_key)
+            if bound_intent is not None:
+                if isinstance(event, BuildJevActionSelectionV1):
+                    raise ApplicationStateValidationError("Model cannot select an admitted reviewed action again")
+                if isinstance(event, ProviderAttemptAuthorizedEventV1) and not any(isinstance(e, BuildReviewedActionSelectionV1) for e in turn.graph_context_execution.events):
+                    raise ApplicationStateValidationError("Reviewed action must precede provider authorization")
+            from .types import BuildRequestedWorkResolutionV1
+            if isinstance(event, BuildRequestedWorkResolutionV1):
+                from .build_intentional_response import validate_selection
+                captured = conn.execute("SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s", (turn.turn_id, turn.attempt)).fetchone()
+                try:
+                    validate_selection(turn, event, requested_work_proof, captured[0] if captured else None)
+                except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            from .types import BuildDraftProviderInclusionV1
+            if isinstance(event, BuildDraftProviderInclusionV1):
+                from .build_draft_context import validate_inclusion_input
+                try:
+                    validate_inclusion_input(event, turn.graph_context_execution, build_draft_provider_request_json)
+                except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            from .types import BuildDraftContextCapturedV1
+            if isinstance(event, BuildDraftContextCapturedV1):
+                from .build_draft_context import validate_record
+                try:
+                    validate_record(event.record, turn)
+                except (ValueError, TypeError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            from .types import SourcePassageReuseEventV1
+            if isinstance(event, SourcePassageReuseEventV1):
+                raise ApplicationStateValidationError("reuse requires its retained-source transaction owner")
+            execution = turn.graph_context_execution
+            if execution is None:
+                raise ApplicationStateValidationError("turn has no Graph execution policy")
+            if turn.status != "running" or turn.revision != expected_revision or turn.attempt != expected_attempt:
+                raise ApplicationStateConflictError("Graph execution append is fenced by a stale claim")
+            with measure("first_jev_send_claim_clock"):
+                now = repo.database_clock(conn)
+            if turn.claim_expires_at is None or turn.claim_expires_at <= now:
+                raise ApplicationStateConflictError("Graph execution claim has expired")
+            if native_writer:
+                if (not isinstance(native_writer_proof,dict) or set(native_writer_proof) !=
+                        {'prepared_request_json','work_proof','expected_rules_revision'}):
+                    raise ApplicationStateValidationError("Native writer requires its exact producing-input proof")
+                captured = conn.execute(
+                    "SELECT payload->>'capture_status' FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                    (turn.turn_id,turn.attempt)).fetchone()
+                if captured is None or captured[0] != 'recording':
+                    raise ApplicationStateValidationError("Native writer requires its active protected capture")
+                prior = [item for item in execution.events if isinstance(item,ProviderAttemptAuthorizedEventV1)
+                    and item.provider_attempt_id == event.provider_attempt_id]
+                if prior and prior != [event]:
+                    raise ApplicationStateConflictError("Native writer identity was reused with changed content")
+                if not prior and event.sequence != len(execution.events):
+                    raise ApplicationStateConflictError("Native writer execution sequence is stale")
+                try:
+                    prospective = execution if prior else execution.model_copy(
+                        update={'events': [*execution.events, event]})
+                    from .native_execution import validate_context_binding
+                    prospective = validate_context_binding(turn.graph_context_receipt, prospective)
+                    from .rules_authority_store import admit_native_writer_input_locked
+                    _rules,fresh = admit_native_writer_input_locked(conn,turn,prospective,event,
+                        expected_revision=native_writer_proof["expected_rules_revision"],
+                        prepared_request_json=native_writer_proof["prepared_request_json"],
+                        work_proof=native_writer_proof["work_proof"])
+                except (ValueError,KeyError,TypeError,AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+                if not fresh:
+                    return turn,False
+                updated = self._persist_execution_append(conn,world_id=world_id,turn_id=turn_id,
+                    expected_revision=expected_revision,execution=prospective)
+                if updated is None:
+                    raise ApplicationStateConflictError("Native writer claim expired during atomic admission")
+                return updated,True
+            from .build_related_pages import RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion, validate_inclusion as validate_related_inclusion, validate_selection as validate_related_selection
+            try:
+                if isinstance(event,RelatedPageInclusion):
+                    validate_related_inclusion(event,turn.graph_context_execution,(related_page_proof or {}).get("request_json"))
+                if isinstance(event,RelatedPagesSelection):
+                    captured=conn.execute("SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",(turn.turn_id,turn.attempt)).fetchone()
+                    validate_related_selection(turn,event,related_page_proof,captured[0] if captured else None)
+                from .build_saved_statblock import BuildSavedStatblockReadV1, validate_prior_read, validate_read
+                if isinstance(event, BuildSavedStatblockReadV1):
+                    validate_read(event, turn.graph_context_execution)
+                    if event.reused_from_turn_id is not None:
+                        previous = repo.get_turn(conn, turn.world_id, event.reused_from_turn_id)
+                        validate_prior_read(event, turn, previous)
+                    if not callable(saved_statblock_materializer) or saved_statblock_materializer() != event:
+                        raise ValueError("Saved statblock read lacks its exact mechanics materialization")
+                if isinstance(event,RelatedPageRead):
+                    if not callable(related_page_materializer) or related_page_materializer()!=(event.page.model_dump(mode="json")|{"markdown":event.markdown}):
+                        raise ValueError("Related page read lacks its exact source-owner materialization")
+            except (ValueError,KeyError,TypeError,AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2
+            if native_source_materializer is None and isinstance(event, (BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2)):
+                raise ApplicationStateValidationError('Native authored event requires its immutable read transaction owner')
+            from .native_corpus import NATIVE_BODY_EVENTS
+            if native_source_materializer is None and isinstance(event, NATIVE_BODY_EVENTS):
+                raise ApplicationStateValidationError("Native body event requires its immutable source transaction owner")
+            from .types import NativeSourceCatalogObservedV1, NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1, CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1
+            if native_source_materializer is None and isinstance(event, (CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1, NativeSourceCatalogObservedV1,
+                    NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1)):
+                raise ApplicationStateValidationError("Native source event requires its immutable source transaction owner")
+            from .types import PlanJevProviderAuthorizedV1, PlanJevRetrievalPolicyV1
+            from .types import PlanJevWriterAuthorizedV1
+            if isinstance(event, PlanJevWriterAuthorizedV1):
+                from .plan_jev_graph_packet import verify_writer_input
+                try:
+                    if not isinstance(plan_jev_writer_proof, dict) or set(plan_jev_writer_proof) != {"prepared_request_json", "evidence"}:
+                        raise ValueError("Plan writer requires its actual prepared-input proof")
+                    captured = conn.execute("SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                        (turn.turn_id, turn.attempt)).fetchone()
+                    verify_writer_input(turn, event, plan_jev_writer_proof["prepared_request_json"],
+                        plan_jev_writer_proof["evidence"], captured[0] if captured else None)
+                except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            elif (isinstance(execution.policy, PlanJevRetrievalPolicyV1)
+                    and isinstance(event, ProviderAttemptAuthorizedEventV1)
+                    and (event.provider, event.model, event.api_mode) == execution.policy.provider_roles.writer.identity()):
+                raise ApplicationStateValidationError("Plan Jev writer requires its exact evidence projection admission")
+            if isinstance(event, PlanJevProviderAuthorizedV1):
+                from .plan_jev_decision import verify_input
+                try:
+                    parent=verify_input(turn, event, plan_jev_input_proof)
+                    if (type(execution) is SurfaceNativeExecutionV1
+                            and type(execution.policy.action) is NativePlayActionV1
+                            and not any(type(prior) is NativeRetrievalAuthorizedV1 for prior in execution.events)):
+                        from .native_play_work import proof_from_host,validate_owner_locked
+                        _frame,_sessions,proof=proof_from_host(turn.graph_context_receipt.work_context,
+                            turn.provenance,parent.play_work,turn.idempotency_key)
+                        validate_owner_locked(conn,turn.graph_context_receipt.work_context,turn.provenance,proof)
+                except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            elif (isinstance(execution.policy, PlanJevRetrievalPolicyV1)
+                    and isinstance(event, ProviderAttemptAuthorizedEventV1)
+                    and (event.provider, event.model, event.api_mode) == execution.policy.provider_roles.controller.identity()):
+                raise ApplicationStateValidationError("Plan Jev controller requires its own prepared-input admission")
+            if isinstance(event, (BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1)):
+                receipt = turn.graph_context_receipt
+                from .native_context import SurfaceNativeContextReceiptV1, BuildWorkContextV1
+                native=type(receipt) is SurfaceNativeContextReceiptV1 and type(receipt.work_context) is BuildWorkContextV1
+                basis=receipt.work_context.source_basis if native else receipt.source_basis if isinstance(receipt,BuildGraphContextReceiptV1) else None
+                if basis is None or event.source_basis!=basis:
+                    raise ApplicationStateValidationError('Saved section differs from frozen Build source')
+                if native and isinstance(event,BuildSectionReadAuthorizationV1):
+                    from .native_retrieval import current_selection
+                    from .build_section import saved_section_catalog
+                    try:
+                        selection=current_selection(turn)
+                        catalog=saved_section_catalog(build_source_markdown,basis)
+                        handles=[h for h,(_,lines) in catalog.items() if lines==(event.line_start,event.line_end)]
+                        if selection.operation!='select_candidates' or len(handles)!=1 or handles[0] not in selection.selected_handles:
+                            raise ValueError('Saved section lacks its actual selected parent handle')
+                        if any(isinstance(prior,(BuildSectionReadAuthorizationV1,ValidatedBuildSectionReadV1)) and prior.read_id!=event.read_id and (prior.line_start,prior.line_end)==(event.line_start,event.line_end) for prior in execution.events):
+                            raise ValueError('Saved section cannot be reacquired')
+                    except (ValueError,TypeError,AttributeError) as exc:
+                        raise ApplicationStateValidationError(str(exc)) from exc
+                if isinstance(event, ValidatedBuildSectionReadV1):
+                    from application_state.agent_conversation.build_section import exact_saved_section
+                    try:
+                        exact = exact_saved_section(build_source_markdown, basis.content_sha256,
+                            event.line_start, event.line_end)
+                    except (TypeError, ValueError, UnicodeError) as exc:
+                        raise ApplicationStateValidationError("Immutable Build passage proof is unavailable or invalid") from exc
+                    if native and len(build_source_markdown)!=execution.policy.action.saved_source_char_count:
+                        raise ApplicationStateValidationError('Saved source size differs from its frozen native work')
+                    if (getattr(turn.graph_context_execution.policy, "saved_section_read_policy", None) == "exact_saved_lines_provider_capacity_v1"
+                        and len(build_source_markdown) != turn.graph_context_execution.policy.saved_source_char_count):
+                        raise ApplicationStateValidationError("Saved source size differs from its frozen exact-line policy")
+                    if event.text != exact:
+                        raise ApplicationStateValidationError("Saved passage is not the exact immutable source slice")
+            if isinstance(event, PlaySourceProviderInclusionV1):
+                raise ApplicationStateValidationError("Native Play source inclusion requires its actual prepared-input proof owner")
+            if native_play_prepared_request_json is not None:
+                from .types import PlayWorldGraphContextReceiptV1
+                from .play_graph_input import MAX_REQUEST_BYTES
+                if (not isinstance(execution, PlayWorldGraphExecutionV1)
+                        or not isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1)
+                        or not isinstance(event, ProviderAttemptAuthorizedEventV3)
+                        or not isinstance(native_play_prepared_request_json, str)
+                        or len(native_play_prepared_request_json.encode("utf-8")) > MAX_REQUEST_BYTES
+                        or hashlib.sha256(native_play_prepared_request_json.encode("utf-8")).hexdigest() != event.envelope_sha256):
+                    raise ApplicationStateValidationError("Native Play input snapshot differs from its owning provider")
+            from .types import ProviderAttemptAuthorizedEventV5
+            if isinstance(event, ProviderAttemptAuthorizedEventV5):
+                from .build_decision_context import validate_prepared
+                try:
+                    from .native_context import is_semantic_build_input
+                    fresh_select = (native_build_decision and event.context_phase=='select'
+                        and is_semantic_build_input(turn.graph_context_receipt)
+                        and not any(isinstance(e,ProviderAttemptAuthorizedEventV5) for e in execution.events))
+                    host_phase = 'select' if fresh_select else None
+                    if native_build_decision and event.context_phase=='writer_selection':
+                        from .writer_evidence_selection import validate_prepared_selection, is_semantic_state
+                        captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',(turn.turn_id,turn.attempt)).fetchone()
+                        request,_ = validate_prepared_selection(turn,event,prepared_decision_json,captured[0] if captured else {})
+                        if is_semantic_state(request['state']):
+                            host_phase = 'writer_selection'
+                    validate_prepared(event, execution, prepared_decision_json,host_phase=host_phase)
+                except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            elif prepared_decision_json is not None:
+                raise ApplicationStateValidationError("Decision context proof has no owning authorization")
+            trace_row = conn.execute(
+                "SELECT payload->>'capture_status' FROM agent.turn_context_trace "
+                "WHERE turn_id=%s AND attempt=%s",
+                (turn_id, expected_attempt),
+            ).fetchone()
+            trace_active = trace_row is not None
+            trace_capture_status = trace_row[0] if trace_row is not None else None
+            for prior in execution.events:
+                # Inclusion and outcome events share the authorization attempt ID.
+                # Only an earlier authorization can be its duplicate.
+                if duplicate_key == "provider_attempt_id" and not isinstance(prior, ProviderAttemptAuthorizedEventV1):
+                    continue
+                if (isinstance(event, BuildSectionReadAuthorizationV1)
+                        and duplicate_key == "read_id" and not isinstance(prior, BuildSectionReadAuthorizationV1)):
+                    continue
+                if getattr(prior, duplicate_key, None) == getattr(event, duplicate_key, None):
+                    if (
+                        isinstance(prior, ValidatedGraphOperationEventV1)
+                        and isinstance(event, ValidatedGraphOperationEventV1)
+                    ):
+                        if isinstance(execution, (PlanWorldGraphExecutionV3, PlayWorldGraphExecutionV1)):
+                            if prior == event:
+                                return turn, False
+                            raise ApplicationStateConflictError("Graph origin was reused with changed content")
+                        if prior.request_arguments_sha256 == event.request_arguments_sha256:
+                            return turn, False
+                        raise ApplicationStateConflictError("Graph operation ID was reused with changed arguments")
+                    if isinstance(prior, ValidatedSourceReadEventV2) and isinstance(event, ValidatedSourceReadEventV2):
+                        if prior != event:
+                            raise ApplicationStateConflictError("source-read event ID was reused with changed content")
+                        source_observations = _validate_source_passage_observations(
+                            execution, prior, source_passages, trace_active=trace_active,
+                            trace_capture_status=trace_capture_status,
+                        )
+                        if trace_active and source_observations:
+                            persisted = append_source_passages_locked(
+                                conn, world_id=world_id, turn_id=turn_id, attempt=expected_attempt,
+                                event_id=prior.event_id, passages=source_observations,
+                            )
+                            if persisted is None:
+                                raise ApplicationStateIntegrityError("active context trace disappeared during source read")
+                        elif source_observations:
+                            raise ApplicationStateValidationError("source passage trace is not active")
+                        return turn, False
+                    if prior == event:
+                        return turn, False
+                    raise ApplicationStateConflictError("Graph execution event ID was reused with changed content")
+            if isinstance(execution, PlanWorldGraphExecutionV3):
+                from .rules_authority_store import load_turn_rules_locked
+                from .rules_authority_events import RulesPlanPacketProviderAuthorizedV1
+                rules = load_turn_rules_locked(conn, turn)
+                writer = next((item for item in rules.execution.events
+                    if isinstance(item, RulesPlanPacketProviderAuthorizedV1)), None) if rules else None
+                if writer is not None and not (
+                    isinstance(event, ProviderOutcomeEventV1)
+                    and event.provider_attempt_id == writer.provider_attempt_id
+                ):
+                    raise ApplicationStateValidationError(
+                        "Plan packet final writer forbids later Graph reads or providers"
+                    )
+            from .types import PlanJevRetrievalSelectionV1, PlanRequestedWorkSelectedV1
+            if isinstance(event, (PlanJevRetrievalSelectionV1, PlanRequestedWorkSelectedV1)):
+                from .plan_jev_decision import verify_selection
+                try:
+                    captured = conn.execute(
+                        "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                        (turn.turn_id, turn.attempt),
+                    ).fetchone()
+                    verify_selection(turn, event, plan_jev_selection_proof, captured[0] if captured else None)
+                    if isinstance(event, PlanJevRetrievalSelectionV1) and event.operation == "finish_retrieval":
+                        from .rules_authority_store import load_turn_rules_locked
+                        from .rules_authority_events import RulesToolAuthorizedV1, RulesQueryObservedV1
+                        rules = load_turn_rules_locked(conn, turn)
+                        if rules is not None:
+                            calls = {item.call_id for item in rules.execution.events if isinstance(item, RulesToolAuthorizedV1)}
+                            observed = {item.call_id for item in rules.execution.events if isinstance(item, RulesQueryObservedV1)}
+                            if calls != observed:
+                                raise ValueError("Plan retrieval cannot finish with an unresolved Rules read")
+                except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            from .types import BuildWorldReadSelectionV1
+            if isinstance(event, BuildWorldReadSelectionV1):
+                from .build_world_context import verify_world_selection
+                captured = conn.execute("SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                    (turn.turn_id, turn.attempt)).fetchone()
+                try:
+                    verify_world_selection(turn, event, build_world_selection_proof, captured[0] if captured else {})
+                except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            from .types import BuildAuthoredReferencesCapturedV1
+            if isinstance(event, BuildAuthoredReferencesCapturedV1):
+                if (event.turn_id != turn.turn_id or event.conversation_id != turn.conversation_id
+                    or event.attempt != turn.attempt or event.submitted_intent_fingerprint != turn.submitted_intent_fingerprint_v2):
+                    raise ApplicationStateValidationError('Authored reference capture belongs to another request or attempt')
+            from .types import BuildAuthoredReferenceReadV1
+            if isinstance(event, BuildAuthoredReferenceReadV1):
+                from .authored_graph_references import validate_object_result_proof
+                try:
+                    validate_object_result_proof(event, execution, authored_object_result_proof)
+                except (ValueError, KeyError, TypeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            from .types import BuildAuthoredProviderInclusionV1
+            if isinstance(event, BuildAuthoredProviderInclusionV1):
+                from .authored_graph_references import validate_provider_inclusion, load_protected_source_material
+                try:
+                    validate_provider_inclusion(event, execution, authored_prepared_request_json, load_protected_source_material(conn, turn))
+                except (ValueError, KeyError, TypeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            play_body_inclusion = None
+            from .native_corpus import NativeBodyProviderIncludedV1
+            if isinstance(event, NativeBodyProviderIncludedV1) and isinstance(execution, PlayWorldGraphExecutionV1):
+                raise ApplicationStateValidationError('Play selected-source inclusion requires its actual prepared-input owner')
+            section_inclusion = None
+            from .native_source_input import CAPABILITIES, prove_input
+            if (isinstance(execution.policy, CAPABILITIES)
+                    and isinstance(event, ProviderAttemptAuthorizedEventV3)
+                    and not isinstance(event, PlanJevProviderAuthorizedV1)
+                    and any(isinstance(e, NativeSourceSectionObservedV1) and e.outcome == "complete"
+                            for e in execution.events)):
+                raw = (plan_jev_writer_proof.get("prepared_request_json")
+                    if isinstance(plan_jev_writer_proof,dict) else native_play_prepared_request_json)
+                try:
+                    if not isinstance(raw,str):
+                        raise ValueError("Native sections require the exact prepared producing input")
+                    section_inclusion = prove_input(turn,event,raw,sequence=event.sequence+1)
+                except (ValueError,TypeError,KeyError,AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            if native_play_prepared_request_json is not None and getattr(execution.policy, 'authored_source_context', None) is not None:
+                from .play_authored_sources import prove_input as prove_play_body_input
+                try:
+                    play_body_inclusion = prove_play_body_input(turn, event,
+                        native_play_prepared_request_json, sequence=event.sequence+1+(1 if section_inclusion is not None else 0), event_id=uuid4())
+                except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            native_inclusion = None
+            if native_play_prepared_request_json is not None:
+                from .types import PlayWorldGraphContextReceiptV1
+                from .play_graph_input import prove_play_source_input
+                from .play_graph_source_owner import resolve_native_play_source_owner, resolve_native_play_sessions
+                if (not isinstance(execution, PlayWorldGraphExecutionV1)
+                        or not isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1)
+                        or not isinstance(event, ProviderAttemptAuthorizedEventV3)):
+                    raise ApplicationStateValidationError("Native Play input proof requires its own provider/receipt/ledger")
+                try:
+                    native_inclusion = prove_play_source_input(turn.graph_context_receipt, execution, event,
+                        prepared_request_json=native_play_prepared_request_json,
+                        submission_id=turn.idempotency_key, original_message=turn.user_text, event_id=uuid4(),
+                        owner_resolver=lambda frame: resolve_native_play_source_owner(conn, turn, frame),
+                        session_owner_resolver=lambda sessions: resolve_native_play_sessions(conn, turn, sessions),
+                        native_section_inclusion=section_inclusion,
+                        authored_source_inclusion=play_body_inclusion)
+                except ValueError as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            from .types import PlanSourceContextReceiptV1
+            if isinstance(event, PlanJevWriterAuthorizedV1) and isinstance(turn.graph_context_receipt, PlanSourceContextReceiptV1):
+                from .native_corpus import prove_body_writer_input
+                try:
+                    native_inclusion = prove_body_writer_input(turn, event,
+                        plan_jev_writer_proof['prepared_request_json'], sequence=len(execution.events), event_id=uuid4())
+                except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            # Materialize only after every existing owner/Rules writer fence.
+            source_batch = None
+            if native_source_materializer is not None:
+                event = self._materialize_execution_source(native_source_materializer, conn, turn)
+                if isinstance(event, (tuple, list)):
+                    from .native_corpus import NativeDirectSourceAuthorizedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1
+                    from .native_reads import (_NativeReadOperation, authorize_direct_sources_locked,
+                        authorize_body_reads_locked, observe_body_reads_locked)
+                    family = ({authorize_direct_sources_locked: NativeDirectSourceAuthorizedV1,
+                        authorize_body_reads_locked: NativeBodyReadAuthorizedV1,
+                        observe_body_reads_locked: NativeBodyReadObservedV1}.get(native_source_materializer.producer)
+                        if type(native_source_materializer) is _NativeReadOperation else None)
+                    if type(event) is not tuple or not event or family is None or any(type(item) is not family for item in event):
+                        raise ApplicationStateValidationError("Native source groups require their exact closed producer and event family")
+                    source_batch = event
+                produced = source_batch or (event,)
+                prior_by_id = {prior.event_id: prior for prior in execution.events}
+                known = [prior_by_id.get(item.event_id) for item in produced]
+                if any(known):
+                    if not all(known) or any(prior != item for prior, item in zip(known, produced)):
+                        raise ApplicationStateConflictError("Native source events were partially reused or changed")
+                    return turn, False
+                if source_batch is not None:
+                    event = source_batch[-1]
+            produced = source_batch or (event,)
+            if any(item.sequence != len(execution.events) + index + (1 if native_inclusion is not None else 0)
+                    for index, item in enumerate(produced)):
+                raise ApplicationStateConflictError("Graph execution event sequence is stale")
+            if isinstance(event, ProviderAttemptAuthorizedEventV1):
+                receipt = turn.graph_context_receipt
+                assert receipt is not None
+                try:
+                    from .types import PlanSourceContextReceiptV1
+                    if native_plan_decision or native_build_decision or native_surface_retrieval:
+                        # Each concrete surface checked its actual prepared wire.
+                        # Share first-envelope accounting without constructing a
+                        # classic Graph view or borrowing another work identity.
+                        from .types import validate_provider_envelope_accounting
+                        validate_provider_envelope_accounting(receipt.assembled_input, execution, event)
+                    elif isinstance(receipt, PlanSourceContextReceiptV1):
+                        from .plan_source_context import validate_source_provider_envelope
+                        validate_source_provider_envelope(receipt, execution, event)
+                    else:
+                        validate_graph_provider_envelope(
+                            _ask_graph_validation_inputs(receipt), execution, event
+                        )
+                except ValueError as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            if trace_active and isinstance(event, ProviderAttemptAuthorizedEventV3):
+                from . import types as graph_types
+                payload = conn.execute(
+                    "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                    (turn_id, expected_attempt),
+                ).fetchone()[0]
+                captured = {(item.get("source_read_event_id"), item.get("source_read_id"), item.get("content_sha256"))
+                            for item in payload["observations"] if item.get("kind") in {"source_passage", "source_passage_reuse"}}
+                authored_ids, authored_captured = set(), set()
+                from .authored_graph_references import policy_enabled, require_writer_inclusion, load_protected_source_material
+                if (policy_enabled(execution.policy) and (event.provider,event.model,event.api_mode)
+                    == execution.policy.provider_roles.writer.identity()):
+                    try:
+                        require_writer_inclusion(execution,event)
+                        inclusion=next(e for e in execution.events if isinstance(e,graph_types.BuildAuthoredProviderInclusionV1)
+                            and e.provider_attempt_id==event.provider_attempt_id)
+                        authored_ids=set(inclusion.source_read_event_ids)
+                        material=load_protected_source_material(conn,turn)
+                        authored_captured={(p['source_read_event_id'],p['source_read_id'],p['content_sha256'])
+                            for p in material['observations'] if p['source_read_event_id'] in {str(eid) for eid in authored_ids}}
+                    except (ValueError,KeyError,TypeError) as exc:
+                        raise ApplicationStateValidationError(str(exc)) from exc
+                for read_event in execution.events:
+                    if isinstance(read_event, graph_types.SOURCE_PASSAGE_EVENTS) and read_event.event_id in graph_types.included_passage_event_ids(event):
+                        source_capture=authored_captured if read_event.event_id in authored_ids else captured
+                        if any(read.returned_chars and (str(read_event.event_id), read.source_read_id, read.content_sha256) not in source_capture for read in read_event.receipts):
+                            raise ApplicationStateValidationError("provider inclusion requires captured source passages")
+            if isinstance(event, ValidatedGraphOperationEventV1):
+                receipt = turn.graph_context_receipt
+                assert receipt is not None
+                from .types import PlanSourceContextReceiptV1
+                if isinstance(receipt, PlanSourceContextReceiptV1):
+                    from .plan_source_context import require_graph
+                    receipt = require_graph(receipt)
+                if event.graph_revision != receipt.graph_authority.graph_revision:
+                    raise ApplicationStateValidationError("Graph operation event must use the frozen Graph revision")
+            source_observations: list[TraceSourcePassage] = []
+            if isinstance(event, ValidatedSourceReadEventV2):
+                source_observations = _validate_source_passage_observations(
+                    execution, event, source_passages, trace_active=trace_active,
+                    trace_capture_status=trace_capture_status,
                 )
-            return TurnClaimReceipt(disposition="claimed", turn=claimed)
+            elif source_passages:
+                raise ApplicationStateValidationError("passage observations require a validated source-read event")
+            from .types import BuildWriterEvidenceSelectionV1
+            if isinstance(event, BuildWriterEvidenceSelectionV1):
+                from .writer_evidence_selection import validate_selection_proof
+                captured = conn.execute(
+                    "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                    (turn.turn_id, turn.attempt),
+                ).fetchone()
+                try:
+                    validate_selection_proof(turn, event, captured[0] if captured else {}, writer_selection_proof)
+                except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            events = [*execution.events, *([native_inclusion] if native_inclusion is not None else []), *produced,
+                *([section_inclusion] if section_inclusion is not None else []),
+                *([play_body_inclusion] if play_body_inclusion is not None else [])]
+            try:
+                if isinstance(execution, SurfaceNativeExecutionV1):
+                    with measure("first_jev_send_prospective_validation"):
+                        updated_execution = self._bind_execution_append(turn.graph_context_receipt,
+                            execution.model_copy(update={"events": events}))
+                else:
+                    execution_type = type(execution)
+                    updated_execution = execution_type.model_validate_json(json.dumps(
+                        execution.model_dump(mode="json", by_alias=True)
+                        | {"events": [e.model_dump(mode="json", by_alias=True) for e in events]}
+                    ))
+                    if turn.graph_context_receipt is not None:
+                        validate_related_recap_context_scope(
+                            turn.graph_context_receipt, updated_execution
+                        )
+                        validate_selected_source_binding(turn.graph_context_receipt, updated_execution)
+            except ValueError as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            with measure("first_jev_send_update_and_readback"):
+                updated = self._persist_execution_append(
+                    conn, world_id=world_id, turn_id=turn_id,
+                    expected_revision=expected_revision, execution=updated_execution,
+                )
+            if (
+                updated is not None and isinstance(event, ValidatedSourceReadEventV2)
+                and trace_active and source_observations
+            ):
+                persisted = append_source_passages_locked(
+                    conn, world_id=world_id, turn_id=turn_id, attempt=expected_attempt,
+                    event_id=event.event_id, passages=source_observations,
+                )
+                if persisted is None:
+                    raise ApplicationStateIntegrityError("active context trace disappeared during source read")
+        if updated is None:
+            raise ApplicationStateConflictError("Graph execution append lost its claim fence")
+        return updated, True
+
+    def append_validated_graph_operation(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        operation_event: ValidatedGraphOperationEventV1 | ValidatedGraphOperationEventV3,
+    ) -> tuple[Turn, bool]:
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=operation_event, duplicate_key="operation_id",
+        )
+
+    def extend_source_scope(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        extension: SourceScopeExtensionEventV3,
+    ) -> tuple[Turn, bool]:
+        """Admit only exact earlier parent-validated origin pins under the live claim."""
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=extension, duplicate_key="event_id",
+        )
+
+    def authorize_provider_attempt(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        provider_attempt_event: ProviderAttemptAuthorizedEventV1,
+    ) -> tuple[Turn, bool]:
+        """A True result is a fresh durable one-shot dispatch authorization."""
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=provider_attempt_event,
+            duplicate_key="provider_attempt_id",
+        )
+
+    def authorize_native_writer(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, expected_rules_revision, authorization,
+            prepared_request_json, work_proof, authoring_reservation=None):
+        """A fresh shared writer plus its Rules input are one dispatch admission."""
+        from .native_execution import NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
+        if type(authorization) not in NATIVE_WRITER_TYPES:
+            raise ApplicationStateValidationError("The concrete shared writer authorization is required")
+        return self._append_graph_execution_event(world_id,conversation_id,turn_id,
+            expected_revision=expected_revision,expected_attempt=expected_attempt,event=authorization,
+            duplicate_key='provider_attempt_id',plan_authoring_reservation=authoring_reservation,
+            native_writer_proof=dict(prepared_request_json=prepared_request_json,work_proof=work_proof,
+                expected_rules_revision=expected_rules_revision))
+
+    def authorize_plan_jev_writer(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, authorization, producer_proof, authoring_reservation=None):
+        from .types import PlanJevWriterAuthorizedV1
+        if not isinstance(authorization, PlanJevWriterAuthorizedV1):
+            raise ApplicationStateValidationError("Typed Plan Jev writer authorization required")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=authorization, duplicate_key="provider_attempt_id", plan_jev_writer_proof=producer_proof,plan_authoring_reservation=authoring_reservation)
+
+    def authorize_plan_jev_provider(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, authorization, producer_proof):
+        from .types import PlanJevProviderAuthorizedV1
+        if not isinstance(authorization, PlanJevProviderAuthorizedV1):
+            raise ApplicationStateValidationError("Typed Plan Jev authorization required")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=authorization, duplicate_key="provider_attempt_id", plan_jev_input_proof=producer_proof)
+
+    def record_plan_jev_retrieval_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection, producer_proof):
+        from .types import PlanJevRetrievalSelectionV1
+        if not isinstance(selection, PlanJevRetrievalSelectionV1):
+            raise ApplicationStateValidationError("Typed Plan Jev selection required")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key="event_id", plan_jev_selection_proof=producer_proof)
+
+    def record_plan_requested_work_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection, producer_proof):
+        from .types import PlanRequestedWorkSelectedV1
+        if not isinstance(selection, PlanRequestedWorkSelectedV1):
+            raise ApplicationStateValidationError('Typed Plan requested-work selection required')
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key='event_id', plan_jev_selection_proof=producer_proof)
+
+    def record_build_jev_action_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection):
+        from .types import BuildJevActionSelectionV1
+        if not isinstance(selection, BuildJevActionSelectionV1):
+            raise ApplicationStateValidationError("A typed Build selection is required")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key="event_id")
+
+    def record_build_requested_work_resolution(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection, producer_proof):
+        from .types import BuildRequestedWorkResolutionV1
+        if not isinstance(selection, BuildRequestedWorkResolutionV1):
+            raise ApplicationStateValidationError('A typed semantic resolution is required')
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key='event_id', requested_work_proof=producer_proof)
+
+    def record_build_reviewed_action_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection):
+        from .types import BuildReviewedActionSelectionV1
+        if not isinstance(selection, BuildReviewedActionSelectionV1):
+            raise ApplicationStateValidationError("A typed reviewed selection is required")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key="event_id")
+
+    def record_build_plan_output_contract(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event):
+        from .types import BuildPlanOutputContractV1
+        if not isinstance(event, BuildPlanOutputContractV1):
+            raise ApplicationStateValidationError('A typed plan output contract is required')
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=event, duplicate_key='event_id')
+
+    def record_build_world_read_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection, producer_proof):
+        from .types import BuildWorldReadSelectionV1
+        if not isinstance(selection, BuildWorldReadSelectionV1):
+            raise ApplicationStateValidationError("A typed Build World selection is required")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key="event_id", build_world_selection_proof=producer_proof)
+
+    def record_build_writer_evidence_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection, producer_proof=None):
+        from .types import BuildWriterEvidenceSelectionV1
+        if not isinstance(selection, BuildWriterEvidenceSelectionV1):
+            raise ApplicationStateValidationError("A typed writer evidence selection is required")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key="event_id", writer_selection_proof=producer_proof)
+
+    def record_provider_outcome(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        outcome: ProviderOutcomeEventV1,
+        opening_authorization=None,
+        measure=None,
+    ) -> tuple[Turn, bool]:
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=outcome, duplicate_key="event_id",
+            opening_authorization=opening_authorization, _measure=measure,
+        )
+
+    def record_build_section_inclusion(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, inclusion: BuildSectionProviderInclusionV1,
+    ) -> tuple[Turn, bool]:
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=inclusion, duplicate_key="event_id")
+
+    def _append_native_read_operation(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, producer, **arguments):
+        from .native_reads import _NativeReadOperation
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=None, duplicate_key="event_id",
+            native_source_materializer=_NativeReadOperation(producer, arguments))
+
+    def authorize_native_read(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, record_kind, record_ids):
+        from .native_reads import authorize_read
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_read, event_id=event_id, record_kind=record_kind, record_ids=record_ids)
+
+    def observe_native_read(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, authorization_event_id, reads, unavailable_ids):
+        from .native_reads import observe_read
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=observe_read, event_id=event_id, authorization_event_id=authorization_event_id,
+            reads=reads, unavailable_ids=unavailable_ids)
+
+    def capture_native_authored_references(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id):
+        from .authored_graph_references import capture_native_input
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=capture_native_input, event_id=event_id)
+
+    def authorize_native_authored_reference(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, node_id):
+        from .authored_graph_references import authorize_native_reference
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_native_reference, event_id=event_id, node_id=node_id)
+
+    def observe_native_authored_reference(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, authorization_event_id, materialize):
+        from .authored_graph_references import observe_native_reference
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=observe_native_reference, event_id=event_id,
+            authorization_event_id=authorization_event_id, materialize=materialize)
+
+    def observe_native_authored_source(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, reference_index, materialize):
+        from .authored_graph_references import observe_native_source_reference
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=observe_native_source_reference, event_id=event_id,
+            reference_index=reference_index, materialize=materialize)
+
+    def authorize_native_direct_sources(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, grants):
+        from .native_reads import authorize_direct_sources_locked
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_direct_sources_locked, grants=grants)
+
+    def observe_native_direct_source(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, authorization_event_id, read):
+        from .native_reads import observe_direct_source_locked
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=observe_direct_source_locked, event_id=event_id,
+            authorization_event_id=authorization_event_id, read=read)
+
+    def conclude_native_read_batch(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, selection_event_id):
+        from .native_batch_completion import conclude_selected_batch
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=conclude_selected_batch, event_id=event_id, selection_event_id=selection_event_id)
+
+    def authorize_initial_native_source_search(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id):
+        from .native_reads import authorize_initial_source_search_locked
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_initial_source_search_locked, event_id=event_id)
+
+    def authorize_native_plan_request_search(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id):
+        from .native_reads import authorize_request_source_search_locked
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_request_source_search_locked, event_id=event_id)
+
+    def authorize_native_body_search(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id):
+        from .native_reads import authorize_body_search_locked
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_body_search_locked, event_id=event_id)
+
+    def observe_native_body_search(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, authorization_event_id, capture):
+        from .native_reads import observe_body_search_locked
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=observe_body_search_locked, event_id=event_id,
+            authorization_event_id=authorization_event_id, capture=capture)
+
+    def authorize_native_body_reads(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, grants):
+        from .native_reads import authorize_body_reads_locked
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_body_reads_locked, grants=grants)
+
+    def observe_native_body_reads(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, reads, read):
+        from .native_reads import observe_body_reads_locked
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=observe_body_reads_locked, reads=reads, read=read)
+
+    def authorize_native_source_section(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *, expected_revision: int,
+        expected_attempt: int, event_id: UUID, read_id: UUID, catalog_event_id: UUID, section_id: str,
+    ) -> tuple[Turn, bool]:
+        from .native_source_sections import authorize_section_locked
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt, event=None, duplicate_key="event_id",
+            native_source_materializer=lambda conn, turn: authorize_section_locked(conn, turn,
+                event_id=event_id, read_id=read_id, catalog_event_id=catalog_event_id, section_id=section_id))
+
+    def materialize_native_source_section(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *, expected_revision: int,
+        expected_attempt: int, event_id: UUID, read_id: UUID, material,
+    ):
+        from .native_source_sections import materialize_section_locked
+        observed = []
+        def produce(conn, turn):
+            event = materialize_section_locked(conn, turn, event_id=event_id, read_id=read_id, material=material)
+            observed.append(event)
+            return event
+        turn, fresh = self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt, event=None,
+            duplicate_key="event_id", native_source_materializer=produce)
+        return turn, fresh, observed[0]
+
+    def materialize_native_source_catalog(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, navigation_id: UUID, event_id: UUID,
+    ):
+        from .native_source_catalog import materialize_catalog_locked
+        material = []
+        def produce(conn, turn):
+            event, body = materialize_catalog_locked(conn, turn,
+                navigation_id=navigation_id, event_id=event_id)
+            material.append(body)
+            return event
+        turn, fresh = self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=None, duplicate_key="event_id", native_source_materializer=produce)
+        return turn, fresh, material[0] if fresh else None
+
+    def authorize_corpus_source_search(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, authorization):
+        from .corpus_source_search import validate_search_authorization
+        from .types import CorpusSourceSearchAuthorizedV1
+        if not isinstance(authorization, CorpusSourceSearchAuthorizedV1):
+            raise ApplicationStateValidationError('Corpus search requires its exact authorization')
+        def produce(conn, turn):
+            for prior in turn.graph_context_execution.events:
+                if prior.event_id == authorization.event_id:
+                    if prior != authorization:
+                        raise ApplicationStateConflictError('Corpus search identity was reused with changed content')
+                    return prior
+            validate_search_authorization(turn, authorization)
+            return authorization
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=None, duplicate_key='event_id', native_source_materializer=produce)
+
+    def record_corpus_source_search(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, observation):
+        from .types import CorpusSourceSearchObservedV1
+        if not isinstance(observation, CorpusSourceSearchObservedV1):
+            raise ApplicationStateValidationError('Corpus search requires its exact observation')
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=None, duplicate_key='event_id', native_source_materializer=lambda conn, turn: observation)
+
+    def authorize_native_source_navigation(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, authorization,
+    ) -> tuple[Turn, bool]:
+        from .types import NativeSourceNavigationAuthorizedV1
+        if not isinstance(authorization, NativeSourceNavigationAuthorizedV1):
+            raise ApplicationStateValidationError("Native navigation requires its exact authorization event")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=authorization, duplicate_key="event_id")
+
+    def authorize_build_section_read(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        authorization: BuildSectionReadAuthorizationV1,source_markdown: str | None = None,
+    ) -> tuple[Turn, bool]:
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=authorization, duplicate_key="read_id",build_source_markdown=source_markdown)
+
+    def record_build_draft_inclusion(self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, inclusion, prepared_request_json: str):
+        from .types import BuildDraftProviderInclusionV1
+        if not isinstance(inclusion, BuildDraftProviderInclusionV1):
+            raise ApplicationStateValidationError("Working draft inclusion requires its typed event")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=inclusion, duplicate_key="event_id",
+            build_draft_provider_request_json=prepared_request_json)
+
+    def record_build_saved_statblock(self, world_id, conversation_id, turn_id, *,
+                                     expected_revision, expected_attempt, event, materializer):
+        from .build_saved_statblock import BuildSavedStatblockReadV1
+        if not isinstance(event, BuildSavedStatblockReadV1):
+            raise ApplicationStateValidationError("Saved statblock read requires its typed event")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=event, duplicate_key="event_id", saved_statblock_materializer=materializer)
+
+    def record_build_related_pages(self, world_id, conversation_id, turn_id, *, expected_revision, expected_attempt,
+                                   event, producer_proof=None, materializer=None):
+        from .build_related_pages import RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion
+        if not isinstance(event,(RelatedPagesSelection,RelatedPageRead,RelatedPageInclusion)):
+            raise ApplicationStateValidationError("Related page owner requires its typed event")
+        return self._append_graph_execution_event(world_id,conversation_id,turn_id,
+            expected_revision=expected_revision,expected_attempt=expected_attempt,event=event,
+            duplicate_key="event_id",related_page_proof=producer_proof,related_page_materializer=materializer)
+
+    def record_build_authored_reference(self, world_id, conversation_id, turn_id, *,
+        expected_revision, expected_attempt, event, object_result_proof=None, prepared_request_json=None):
+        from .types import BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1, BuildAuthoredReferenceReadV1, BuildAuthoredProviderInclusionV1
+        if not isinstance(event, (BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1, BuildAuthoredReferenceReadV1, BuildAuthoredProviderInclusionV1)):
+            raise ApplicationStateValidationError('Authored context requires its typed host event')
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt, event=event, duplicate_key='event_id', authored_object_result_proof=object_result_proof, authored_prepared_request_json=prepared_request_json)
+
+    def settle_build_native_query(self, world_id, conversation_id, turn_id, *,
+                                  expected_revision, expected_attempt, settlement):
+        from .native_execution import NativeBuildQuerySettledV1
+
+        if type(settlement) is not NativeBuildQuerySettledV1:
+            raise ApplicationStateValidationError("Build Graph settlement requires its typed catalog")
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=settlement, duplicate_key="event_id",
+        )
+
+    def record_build_draft_context(self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, event):
+        from .types import BuildDraftContextCapturedV1
+        if not isinstance(event, BuildDraftContextCapturedV1):
+            raise ApplicationStateValidationError("Working draft requires its typed capture event")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=event, duplicate_key="event_id")
+
+    def record_validated_build_section(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        receipt: ValidatedBuildSectionReadV1, source_markdown: str,
+    ) -> tuple[Turn, bool]:
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=receipt, duplicate_key="event_id", build_source_markdown=source_markdown)
+
+    def admit_retained_source_passages(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, request: dict,
+    ) -> tuple[Turn, bool]:
+        """Select and persist retained evidence under one reset/claim fence."""
+        from . import types as t
+        from .source_passage_reuse import retained_candidates
+        world_id = _world_id(world_id)
+        if (not isinstance(request, dict) or set(request) != {"anchor_ids", "max_chars", "elapsed_ms", "request_id"}
+                or not isinstance(request["anchor_ids"], list)
+                or not 1 <= len(request["anchor_ids"]) <= 8
+                or any(not isinstance(a, str) or not a for a in request["anchor_ids"])
+                or len(set(request["anchor_ids"])) != len(request["anchor_ids"])
+                or type(request["max_chars"]) is not int or not 1 <= request["max_chars"] <= 12000
+                or type(request["elapsed_ms"]) not in {int, float} or not 0 <= request["elapsed_ms"] < float("inf")):
+            raise ApplicationStateValidationError("invalid retained source selection")
+        try:
+            request_id = UUID(str(request["request_id"]))
+        except (ValueError, TypeError) as exc:
+            raise ApplicationStateValidationError("invalid reuse request identity") from exc
+        request_sha = t.canonical_sha256({"anchor_ids": request["anchor_ids"], "max_chars": request["max_chars"]})
+        with unit_of_work(_ready_dsn()) as conn:
+            pointer = repo.lock_world_state(conn, world_id)
+            conversation = repo.lock_conversation(conn, world_id, conversation_id)
+            turn = _ordinary_mutation_turn(repo.lock_turn(conn, world_id, turn_id), conversation_id)
+            if (pointer.active_conversation_id != conversation_id or conversation is None
+                    or conversation.status != "active" or turn is None
+                    or turn.status != "running"
+                    or turn.attempt != expected_attempt or turn.claim_expires_at is None
+                    or turn.claim_expires_at <= repo.database_clock(conn)):
+                raise ApplicationStateConflictError("retained passage admission lost its active claim")
+            execution = turn.graph_context_execution
+            if (turn.provenance.surface_id not in {"plan", "play"}
+                    or not isinstance(execution, (t.PlanWorldGraphExecutionV3, t.PlayWorldGraphExecutionV1))):
+                raise ApplicationStateValidationError("retained passages require current native Plan/Play")
+            prior = [e for e in execution.events if isinstance(e, t.SourcePassageReuseEventV1)
+                and e.reuse_request_id == request_id]
+            if prior:
+                if any(e.request_sha256 != request_sha or e.request_turn_revision != expected_revision for e in prior):
+                    raise ApplicationStateConflictError("reuse request identity changed its selection")
+                return turn, False
+            if turn.revision != expected_revision:
+                raise ApplicationStateConflictError("retained passage admission lost its revision")
+            latest_provider = next((e for e in reversed(execution.events)
+                if isinstance(e, (t.ProviderAttemptAuthorizedEventV1, t.ProviderAttemptAuthorizedEventV2))), None)
+            latest_outcome = next((e for e in reversed(execution.events)
+                if isinstance(e, t.ProviderOutcomeEventV1) and latest_provider is not None
+                and e.provider_attempt_id == latest_provider.provider_attempt_id), None)
+            if latest_provider is None or latest_outcome is None or latest_outcome.outcome != "response_received":
+                raise ApplicationStateValidationError("retained passage admission requires an acknowledged current provider")
+            if isinstance(execution, t.PlanWorldGraphExecutionV3):
+                from .rules_authority_store import load_turn_rules_locked
+                from .rules_authority_events import RulesPlanPacketProviderAuthorizedV1
+                rules = load_turn_rules_locked(conn, turn)
+                if rules and any(isinstance(e, RulesPlanPacketProviderAuthorizedV1) for e in rules.execution.events):
+                    raise ApplicationStateValidationError("Plan packet final writer forbids later Graph reads or providers")
+            pins = execution.effective_source_pins()
+            if any(a not in pins for a in request["anchor_ids"]) or request["max_chars"] > execution.policy.max_chars_per_source_read:
+                raise ApplicationStateValidationError("retained passage selection differs from current scope")
+            captured = conn.execute("SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s FOR UPDATE",
+                (turn_id, expected_attempt)).fetchone()
+            if not captured or captured[0].get("capture_status") != "recording":
+                return turn, False  # No complete current trace: ordinary fresh reader remains available.
+            used = {r.anchor_id for e in execution.events if isinstance(e, t.SOURCE_PASSAGE_EVENTS) for r in e.receipts}
+            pending = set(request["anchor_ids"]) - used
+            if not pending:
+                return turn, False
+            candidates = retained_candidates(conn, turn, pending, request["max_chars"])
+            events, passages = [], []
+            usage = t.source_read_character_usage(execution.policy, execution.events)
+            for candidate in candidates:
+                if usage + candidate.receipt.returned_chars > execution.policy.max_source_read_chars:
+                    continue
+                event, passage = candidate.admission(len(execution.events) + len(events), request["elapsed_ms"],
+                    request_id, request_sha, expected_revision)
+                events.append(event); passages.append(passage)
+                usage += candidate.receipt.returned_chars
+            if not events:
+                return turn, False
+            updated_execution = type(execution).model_validate({**execution.model_dump(mode="python", by_alias=True),
+                "events": [*execution.events, *events]})
+            updated = repo.update_graph_execution(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=updated_execution)
+            if updated is None:
+                raise ApplicationStateConflictError("retained passage admission lost its claim")
+            for event, passage in zip(events, passages, strict=True):
+                if append_source_passages_locked(conn, world_id=world_id, turn_id=turn_id,
+                        attempt=expected_attempt, event_id=event.event_id, passages=[passage]) is None:
+                    raise ApplicationStateIntegrityError("retained passage trace disappeared")
+            return updated, True
+
+    def authorize_source_read(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        authorization: SourceReadAuthorizationEventV2,
+    ) -> tuple[Turn, bool]:
+        """Persist the one-shot source-read authorization before the external read."""
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=authorization,
+            duplicate_key="read_call_id",
+        )
+
+    def record_validated_source_read(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        receipt: ValidatedSourceReadEventV2,
+        source_passages: list[TraceSourcePassage] | None = None,
+    ) -> tuple[Turn, bool]:
+        """Persist the validated receipt and optional exact trace passages atomically."""
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=receipt,
+            duplicate_key="event_id", source_passages=source_passages,
+        )
+
+    def start_context_trace(
+        self, *, world_id: str, conversation_id: UUID, turn_id: UUID,
+        expected_revision: int, attempt: int, trace_id: UUID, started_at: datetime,
+    ) -> TurnContextTraceV1:
+        """Start optional trace capture under the active turn claim."""
+        return TurnContextTraceStore().begin(
+            world_id=_world_id(world_id), conversation_id=conversation_id,
+            turn_id=turn_id, expected_revision=expected_revision, attempt=attempt,
+            trace_id=trace_id, started_at=started_at,
+        )
+
+    def append_context_trace(
+        self, *, world_id: str, conversation_id: UUID, turn_id: UUID,
+        expected_revision: int, attempt: int, trace_id: UUID,
+        observation: ContextTraceObservation,
+    ) -> TurnContextTraceV1:
+        return TurnContextTraceStore().append(
+            world_id=_world_id(world_id), conversation_id=conversation_id,
+            turn_id=turn_id, expected_revision=expected_revision, attempt=attempt,
+            trace_id=trace_id, observation=observation,
+        )
+
+    def mark_context_trace_incomplete(
+        self, *, world_id: str, conversation_id: UUID, turn_id: UUID,
+        expected_revision: int, attempt: int, trace_id: UUID, failure_code: str,
+    ) -> TurnContextTraceV1:
+        return TurnContextTraceStore().mark_incomplete(
+            world_id=_world_id(world_id), conversation_id=conversation_id,
+            turn_id=turn_id, expected_revision=expected_revision, attempt=attempt,
+            trace_id=trace_id, failure_code=failure_code,
+        )
+
+    def read_historical_source_passage(self, reference: TraceHistoricalSourceReferenceV1) -> TraceSourcePassage:
+        return TurnContextTraceStore().read_historical_passage(reference)
+
+    def list_context_trace_attempts(
+        self, *, world_id: str, turn_id: UUID,
+    ) -> list[TurnContextTraceV1]:
+        return TurnContextTraceStore().list_attempts(
+            world_id=_world_id(world_id), turn_id=turn_id,
+        )
+
+    def authorize_related_recap_context(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        authorization: RelatedRecapContextAuthorizationEventV2,
+    ) -> tuple[Turn, bool]:
+        """Persist the parent-authorized context scope before the Buddy read."""
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=authorization,
+            duplicate_key="read_call_id",
+        )
+
+    def record_validated_related_recap_context(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        result: ValidatedRelatedRecapContextEventV2,
+    ) -> tuple[Turn, bool]:
+        """Persist context-read metadata without passage text or continuation tokens."""
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=result, duplicate_key="event_id",
+        )
+
+    def record_related_recap_context_inclusion(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        inclusion: RelatedRecapContextProviderInclusionEventV2,
+    ) -> tuple[Turn, bool]:
+        """Persist context inclusion before its matching provider authorization."""
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=inclusion, duplicate_key="event_id",
+        )
+
+    def authorize_provider_attempt_v2(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        provider_attempt_event: ProviderAttemptAuthorizedEventV2,
+        prepared_decision_json: str | None = None,
+    ) -> tuple[Turn, bool]:
+        """Authorize a V2 provider envelope that may include validated source reads."""
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=provider_attempt_event,
+            duplicate_key="provider_attempt_id", prepared_decision_json=prepared_decision_json,
+        )
+
+    def authorize_build_opening_with_prompt(
+        self, world_id, conversation_id, turn_id, *, expected_revision, expected_attempt,
+        provider_attempt_event, prepared_decision_json, trace_id, prompt, authorized,
+    ):
+        from .context_trace_store import append_opening_prompt_locked
+        from .native_context import NativeBuildQueryPendingV1
+        from .types import ProviderAttemptAuthorizedEventV5
+
+        if (type(provider_attempt_event) is not ProviderAttemptAuthorizedEventV5
+                or provider_attempt_event.context_phase != "select"
+                or provider_attempt_event.provider_attempt_id != prompt.provider_attempt_id
+                or len(prepared_decision_json.encode("utf-8")) != prompt.payload_utf8_bytes):
+            raise ApplicationStateValidationError("opening prompt does not bind the prepared decision")
+        with unit_of_work(_ready_dsn()) as conn:
+            turn, fresh = self._append_graph_execution_event(
+                world_id, conversation_id, turn_id, expected_revision=expected_revision,
+                expected_attempt=expected_attempt, event=provider_attempt_event,
+                duplicate_key="provider_attempt_id", prepared_decision_json=prepared_decision_json,
+                _connection=conn,
+            )
+            if not fresh:
+                raise ApplicationStateConflictError("opening provider authorization is already committed")
+            if not isinstance(getattr(turn.graph_context_receipt, 'native_query', None), NativeBuildQueryPendingV1):
+                raise ApplicationStateValidationError("opening prompt requires pending Build Graph admission")
+            trace = append_opening_prompt_locked(conn, turn, trace_id, prompt, authorized)
+        return turn, fresh, trace
+
+    def authorize_native_play_provider(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        provider_attempt_event: ProviderAttemptAuthorizedEventV3,
+        prepared_request_json: str,
+    ) -> tuple[Turn, bool]:
+        """Atomically commit exact Play source inclusion + provider authorization.
+
+        A fresh=False replay is not another SDK send permission. The caller also
+        owns the general actual-envelope validation and Rules-domain fence.
+        """
+        if not isinstance(prepared_request_json, str):
+            raise ApplicationStateValidationError("Native Play requires its actual prepared input snapshot")
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=provider_attempt_event,
+            duplicate_key="provider_attempt_id", native_play_prepared_request_json=prepared_request_json,
+        )
 
     def renew_turn_claim(
         self,
@@ -557,6 +2947,7 @@ class AgentConversationService:
         dsn = _ready_dsn()
         with unit_of_work(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, turn_id)
+            turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError(
                     "turn not found in verified World conversation"
@@ -574,36 +2965,645 @@ class AgentConversationService:
             )
         return renewed
 
+    def reserve_plan_authoring_action(self, *, capture, turn_id: UUID, expected_revision: int):
+        """Reserve an Agent-owned current-Plan proposal under both owners' locks."""
+        from .plan_authoring import PlanAuthoringCaptureV1, parse_authoring_capture, reserve_authoring_locked
+        if not isinstance(capture,PlanAuthoringCaptureV1):
+            raise ApplicationStateValidationError('Exact live Plan authoring capture required')
+        with unit_of_work(_ready_dsn()) as conn:
+            return reserve_authoring_locked(conn,capture=parse_authoring_capture(
+                capture.model_dump(mode='json',by_alias=True)),turn_id=turn_id,expected_revision=expected_revision)
+
     def complete_turn(self, result: TurnResult) -> Turn:
+        return self._complete_turn(result, prepared_recovery=False)
+
+    def complete_native_base_turn(self, result: TurnResult, *, output_proof,
+                                  expected_rules_revision: int, work_proof=None) -> Turn:
+        """Accept a captured native answer and close its unused Rules scope atomically."""
+        return self._complete_turn(result, prepared_recovery=False,
+            native_output_proof=output_proof, expected_rules_revision=expected_rules_revision,native_work_proof=work_proof)
+
+    def complete_plan_authoring_turn(self,result:TurnResult,*,proposal,output_proof,expected_rules_revision:int,work_proof=None):
+        """Native evidence acceptance and the Plan result share one transaction."""
+        return self._complete_turn(result,prepared_recovery=False,native_output_proof=output_proof,
+            expected_rules_revision=expected_rules_revision,authoring_proposal=proposal,native_work_proof=work_proof)
+
+    def complete_plan_authoring_mixed_turn(self,result:NativeRulesMixedTurnResultV1,*,proposal,work_proof=None):
+        if not isinstance(result,NativeRulesMixedTurnResultV1):
+            raise ApplicationStateValidationError('Plan authoring requires its actual native mixed output proof')
+        return self._complete_mixed_turn(result,authoring_proposal=proposal,native_work_proof=work_proof)
+
+    def get_plan_authoring_proposal(self,world_id:str,action_id:UUID):
+        """Read the same saved object; missing or mismatched owners never regenerate."""
+        from .plan_authoring import validate_stored_authoring_result
+        from application_state.plan_action_dialogue import repository as actions
+        with unit_of_work(_ready_dsn()) as conn:
+            action=actions.lock_authoring_action(conn,action_id)
+            if action is None or action.basis.world_id!=_world_id(world_id):
+                raise ApplicationStateNotFoundError('Plan authoring action not found in this World')
+            if action.status!='completed':
+                return None
+            origin=action.authoring_origin
+            if origin is None:
+                raise ApplicationStateValidationError('Action is not an Agent-authored Plan proposal')
+            turn=repo.get_turn(conn,world_id,origin.turn_id)
+            return validate_stored_authoring_result(action,turn)
+
+    def get_plan_authoring_proposal_for_turn(self, *, world_id: str, conversation_id: UUID,
+                                           turn_id: UUID, attempt: int):
+        """Join a completed authoring turn to its sole Plan-owned saved result."""
+        from .plan_authoring import validate_stored_authoring_result, turn_parts
+        from application_state.plan_action_dialogue import repository as actions
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = repo.get_turn(conn, _world_id(world_id), turn_id)
+            envelope, _ = turn_parts(turn) if turn is not None else (None, None)
+            if (envelope is None or envelope.conversation_id != conversation_id
+                    or envelope.attempt != attempt or envelope.status != 'completed'):
+                raise ApplicationStateIntegrityError('Plan proposal has no exact completed Agent attempt')
+            action = actions.get_authoring_for_turn(conn, world_id=world_id, turn_id=turn_id, attempt=attempt)
+            if action is None or action.status != 'completed':
+                raise ApplicationStateIntegrityError('Completed Plan writing has no paired Plan proposal')
+            return validate_stored_authoring_result(action, turn)
+
+    def recover_prepared_build_turn(self, result: TurnResult) -> Turn:
+        """Recover an immutable acknowledged proposal, never a provider claim."""
+        return self._complete_turn(result, prepared_recovery=True)
+
+    def _complete_turn(self, result: TurnResult, *, prepared_recovery: bool,
+                       native_output_proof=None, expected_rules_revision=None, authoring_proposal=None, native_work_proof=None) -> Turn:
+        from .types import BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1
+        if prepared_recovery and not isinstance(result.completion, (BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)):
+            raise ApplicationStateValidationError("Recovery requires a typed prepared Build proposal")
         world_id = _world_id(result.world_id)
         dsn = _ready_dsn()
+        from .plan_authoring import lock_authoring_owners,validate_authoring_transaction,validate_stored_authoring_result
+        from application_state.plan_action_dialogue import repository as actions
         with unit_of_work(dsn) as conn:
+            from .lore_page_review import ProposedLorePage
+            from .types import LoreSaveReviewReference
+            if isinstance(result.completion, LoreSaveReviewReference):
+                from .lore_page_confirmation import resolve_lore_save_followup_locked
+
+                reference = resolve_lore_save_followup_locked(
+                    conn, world_id=world_id, conversation_id=result.conversation_id, current_turn_id=result.turn_id,
+                )
+                if reference != result.completion:
+                    raise ApplicationStateConflictError("The current lore review changed")
+            if isinstance(getattr(result.completion, "collaboration", None), ProposedLorePage):
+                repo.lock_conversation(conn, world_id, result.conversation_id)
+            action=(lock_authoring_owners(conn,authoring_proposal,world_id=world_id,
+                conversation_id=result.conversation_id,turn_id=result.turn_id) if authoring_proposal is not None else None)
             turn = repo.lock_turn(conn, world_id, result.turn_id)
+            turn = _ordinary_mutation_turn(turn, result.conversation_id)
             if turn is None or turn.conversation_id != result.conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
+            validate_authoring_transaction(conn,action,authoring_proposal,turn,result,native_output_proof)
             if turn.status == "completed":
+                stored_binding = None
+                if turn.graph_context_execution is not None:
+                    stored_binding = next(
+                        (
+                            event
+                            for event in turn.graph_context_execution.events
+                            if isinstance(event, CompletionBindingEventV1)
+                        ),
+                        None,
+                    )
                 if (
                     turn.assistant_text == result.assistant_text
+                    and turn.completion == result.completion
+                    and [item for event in (turn.graph_context_execution.events if turn.graph_context_execution else [])
+                        if isinstance(event, BuildSectionAnswerBindingV1) for item in event.bindings] == result.build_section_bindings
                     and turn.revision == result.expected_revision + 1
+                    and (
+                        turn.graph_context_execution is None
+                        or (
+                            stored_binding is not None
+                            and stored_binding.provider_attempt_id == result.producing_provider_attempt_id
+                            and stored_binding.claim_graph_event_ids == result.claim_graph_event_ids
+                        )
+                    )
                 ):
+                    if action is not None and validate_stored_authoring_result(action,turn)!=authoring_proposal:
+                        raise ApplicationStateConflictError('Replayed Plan proposal differs from the stored result')
                     return turn
                 raise ApplicationStateConflictError(
                     "completed turn has a different recorded result or a different claim fence"
                 )
-            if turn.revision != result.expected_revision or turn.status != "running":
+            from .retry import require_leaf
+            require_leaf(conn, turn)
+            allowed_status = {"running", "interrupted"} if prepared_recovery else {"running"}
+            if turn.revision != result.expected_revision or turn.status not in allowed_status:
                 raise ApplicationStateConflictError("turn revision or lifecycle state changed")
-            updated = repo.complete_claimed_turn(
+            native_output_verified = False
+            recovered_rules_state = None
+            if prepared_recovery:
+                from .build_authoring import _native_build,validate_prepared_native_authoring
+                if _native_build(turn):
+                    captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                        (turn.turn_id,turn.attempt)).fetchone()
+                    try:
+                        recovered_rules_state=validate_prepared_native_authoring(conn,turn,result,
+                            trace=captured[0] if captured else {})
+                    except (ValueError,TypeError,AttributeError,KeyError,UnicodeError) as exc:
+                        raise ApplicationStateValidationError(str(exc)) from exc
+                    native_output_verified = True
+            conversation_variant = None
+            if native_output_proof is not None:
+                from .native_rules_output import NativeRulesOutputProofV1, normalize_unused_native_output
+                from .rules_authority_store import load_turn_rules_locked
+                current = load_turn_rules_locked(conn, turn)
+                if (current is None or current.revision != expected_rules_revision
+                        or not isinstance(native_output_proof, NativeRulesOutputProofV1)):
+                    raise ApplicationStateConflictError("Native completion differs from its Rules ledger")
+                try:
+                    captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                        (turn.turn_id,turn.attempt)).fetchone()
+                    from .types import BuildAuthoringCompletionV1,BuildImagePreparationCompletionV1
+                    if isinstance(result.completion,(BuildAuthoringCompletionV1,BuildImagePreparationCompletionV1)):
+                        from .build_authoring import normalize_native_authoring
+                        completion,bindings,text=normalize_native_authoring(conn,turn,current.execution,native_output_proof,
+                            trace=captured[0] if captured else None,work_proof=native_work_proof)
+                    else:
+                        completion, bindings, text, conversation_variant = normalize_unused_native_output(
+                            turn, current.execution, native_output_proof, work_proof=native_work_proof,
+                            trace=captured[0] if captured else None, include_variant=True)
+                    if (completion != result.completion or bindings != result.claim_graph_event_ids
+                            or text != result.assistant_text or result.producing_provider_attempt_id
+                                != (native_output_proof.producing_provider_attempt_id
+                                    if completion is not None else None)):
+                        raise ValueError("Native result differs from its actual captured output")
+                except (ValueError, KeyError, TypeError, AttributeError, UnicodeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+                native_output_verified = True
+            execution = _validated_base_execution_locked(conn, turn, result,
+                prepared_recovery=prepared_recovery, native_output_verified=native_output_verified)
+            from .rules_authority_store import close_unused_locked
+            # A recovered object does not reopen or erase the failed unused capability.
+            if recovered_rules_state != 'failed':
+                close_unused_locked(conn, turn)
+            completion_update = repo.complete_prepared_build_turn if prepared_recovery else repo.complete_claimed_turn
+            updated = completion_update(
                 conn,
                 world_id=world_id,
                 turn_id=turn.turn_id,
                 expected_revision=result.expected_revision,
+                expected_attempt=turn.attempt,
                 assistant_text=result.assistant_text,
+                completion=result.completion,
+                graph_context_execution=execution,
             )
-        if updated is None:
-            raise ApplicationStateConflictError(
-                "turn claim expired or was fenced before completion"
-            )
+            if updated is None:
+                raise ApplicationStateConflictError(
+                    "turn claim expired or was fenced before completion"
+                )
+            from .types import BuildIntentionalResponseCompletionV1, BuildRequestedWorkResolutionV1, SurfaceNativeCompletionV1
+
+            if conversation_variant is not None:
+                from apps.live_control_server.services.conversation_variant_save import variant_review_is_valid
+                if not variant_review_is_valid(conversation_variant.definition, native_output_proof.variant_validation):
+                    conversation_variant = None
+            selected_draft = False
+            if isinstance(result.completion, (BuildIntentionalResponseCompletionV1, SurfaceNativeCompletionV1)) and execution is not None:
+                selected_draft = any(
+                    isinstance(event, BuildRequestedWorkResolutionV1)
+                    and event.requested_work == "draft_in_conversation"
+                    and event.operation == "answer_from_sources"
+                    and event.resolution["barrier"] is None
+                    for event in execution.events
+                )
+                if selected_draft:
+                    from .conversation_drafts import create_draft
+
+                    if not result.assistant_text.strip():
+                        raise ApplicationStateValidationError("Conversation draft requires Markdown text")
+                    markdown = result.assistant_text
+                    if conversation_variant is not None:
+                        from apps.live_control_server.services.conversation_variant_markdown import render_variant_markdown
+
+                        markdown = render_variant_markdown(conversation_variant.definition)
+                    create_draft(
+                        conn, world_id=world_id, conversation_id=turn.conversation_id,
+                        turn_id=turn.turn_id, markdown=markdown,
+                    )
+            if conversation_variant is not None:
+                from .build_saved_statblock import BuildSavedStatblockReadV1
+                from .conversation_variant_save import store_review
+
+                if not selected_draft:
+                    raise ApplicationStateValidationError("Statblock review requires a conversation draft")
+                bases = [
+                    event for event in execution.events
+                    if isinstance(event, BuildSavedStatblockReadV1)
+                    and event.event_id == conversation_variant.base_event_id
+                ]
+                if len(bases) != 1:
+                    raise ApplicationStateValidationError("Statblock review requires an exact base read")
+                store_review(
+                    conn, world_id=world_id, conversation_id=turn.conversation_id,
+                    turn_id=turn.turn_id, revision=1, review_id=uuid4(),
+                    definition=conversation_variant.definition.model_dump(mode="json"),
+                    base_locator=bases[0].locator.model_dump(mode="json"),
+                )
+            if action is not None:
+                actions.finish_authoring_result(conn,action,authoring_proposal,updated)
         return updated
+
+    def complete_mixed_turn(self,result:MixedTurnResultV1,*,work_proof=None)->MixedCompletedTurnV1:
+        return self._complete_mixed_turn(result,native_work_proof=work_proof)
+
+    def _complete_mixed_turn(self, result: MixedTurnResultV1, *, authoring_proposal=None,native_work_proof=None) -> MixedCompletedTurnV1:
+        """Accept both domains and an optional owned Plan result in one transaction."""
+        from .rules_authority_completion import prepare_rules_acceptance
+        from .rules_authority_store import (
+            load_turn_rules_locked,
+            persist_accepted_locked,
+        )
+        from .rules_authority_types import RulesScopeV1, canonical_sha256
+
+        from .rules_authority_policy import capability_for_policy_sha256
+        from .rules_authority_output import (
+            parse_answer,
+            verify_build_output,
+        )
+        from .rules_authority_types import RulesSupportRefV1
+
+        from .lore_page_review import ProposedLorePage
+
+        if isinstance(getattr(getattr(result.base_result, "completion", None), "collaboration", None),
+                      ProposedLorePage):
+            raise ApplicationStateValidationError("Confirmable lore review requires an ordinary Build completion")
+        scope = result.scope
+        world_id = _world_id(scope.world_id)
+        if (capability_for_policy_sha256(scope.capability_policy_sha256) is not None
+                and not isinstance(result, (BuildRulesMixedTurnResultV1, NativeRulesMixedTurnResultV1))):
+            raise ApplicationStateValidationError("Current runtime Rules completion requires actual outer output proof")
+        from .plan_authoring import lock_authoring_owners,validate_authoring_transaction,validate_stored_authoring_result
+        from application_state.plan_action_dialogue import repository as actions
+        with unit_of_work(_ready_dsn()) as conn:
+            action=(lock_authoring_owners(conn,authoring_proposal,world_id=world_id,
+                conversation_id=scope.conversation_id,turn_id=scope.turn_id) if authoring_proposal is not None else None)
+            turn = repo.lock_turn(conn, world_id, scope.turn_id)
+            if turn is not None:
+                validate_authoring_transaction(conn,action,authoring_proposal,turn,result,
+                    result.output_proof if isinstance(result,NativeRulesMixedTurnResultV1) else None)
+            if isinstance(turn, MixedCompletedTurnV1):
+                if turn.envelope.conversation_id != scope.conversation_id:
+                    raise ApplicationStateNotFoundError(
+                        "turn not found in verified World conversation"
+                    )
+                # Read only frozen scope metadata, never source bodies on replay.
+                frozen = conn.execute(
+                    """SELECT revision,CASE WHEN octet_length((payload->'scope')::text)<=4096
+                    THEN payload->'scope' ELSE NULL END FROM agent.turn_rules_execution
+                    WHERE turn_id=%s AND product_attempt=%s""",
+                    (scope.turn_id, scope.product_attempt),
+                ).fetchone()
+                try:
+                    exact_scope = (
+                        RulesScopeV1.model_validate_json(json.dumps(frozen[1]))
+                        if frozen and frozen[1] is not None
+                        else None
+                    )
+                except ValueError as exc:
+                    raise ApplicationStateIntegrityError(
+                        "accepted Rules scope is malformed"
+                    ) from exc
+                if exact_scope is None:
+                    raise ApplicationStateIntegrityError(
+                        "accepted Rules scope is missing or oversized"
+                    )
+                binding = turn.accepted_binding
+                if (
+                    exact_scope.world_id,
+                    exact_scope.conversation_id,
+                    exact_scope.turn_id,
+                    exact_scope.product_attempt,
+                    exact_scope.execution_id,
+                    exact_scope.corpus_sha256,
+                    exact_scope.ruleset_id,
+                ) != (
+                    binding.world_id,
+                    binding.conversation_id,
+                    binding.turn_id,
+                    binding.product_attempt,
+                    binding.execution_id,
+                    binding.corpus_sha256,
+                    binding.ruleset_id,
+                ):
+                    raise ApplicationStateIntegrityError(
+                        "accepted Rules scope differs from its sealed binding"
+                    )
+                base = turn.base_projection
+                base_matches = (
+                    result.base_result is None
+                    if base.kind != "approved"
+                    else result.base_result is not None
+                    and base.turn.completion == result.base_result.completion
+                    and base.turn.assistant_text == result.base_result.assistant_text
+                    and [
+                        item
+                        for event in (
+                            base.turn.graph_context_execution.events
+                            if base.turn.graph_context_execution
+                            else []
+                        )
+                        if isinstance(event, BuildSectionAnswerBindingV1)
+                        for item in event.bindings
+                    ]
+                    == result.base_result.build_section_bindings
+                )
+                if base.kind=='unclaimed' and base.completion is not None:
+                    base_matches=(result.base_result is not None
+                        and result.base_result.completion==base.completion
+                        and result.base_result.assistant_text==''
+                        and result.base_result.producing_provider_attempt_id==binding.producing_provider_attempt_id
+                        and result.base_result.claim_graph_event_ids=={})
+                if (
+                    base.kind == "approved"
+                    and base.turn.graph_context_execution is not None
+                ):
+                    graph_binding = next(
+                        item
+                        for item in base.turn.graph_context_execution.events
+                        if isinstance(item, CompletionBindingEventV1)
+                    )
+                    base_matches = (
+                        base_matches
+                        and graph_binding.claim_graph_event_ids
+                        == result.base_result.claim_graph_event_ids
+                    )
+                if isinstance(result, BuildRulesMixedTurnResultV1):
+                    try:
+                        proof = result.output_proof
+                        base_segments = (tuple(item.text for item in result.base_result.completion.answer_segments)
+                            if result.base_result is not None else ())
+                        derived = parse_answer(proof.raw_output_json).composition(
+                            base_completion=None if result.base_result is None else result.base_result.completion,
+                            supplied_refs=tuple(RulesSupportRefV1(support_id=item.support_id,
+                                support_sha256=item.support_sha256) for item in binding.support_table),
+                            base_segments=base_segments, base_disposition=result.composition.base_disposition)
+                        if (hashlib.sha256(proof.prepared_request_json.encode()).hexdigest() != binding.request_envelope_sha256
+                                or derived != result.composition):
+                            raise ValueError("Replayed output differs from accepted producing request/composition")
+                    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                        raise ApplicationStateValidationError(str(exc)) from exc
+                elif isinstance(result, NativeRulesMixedTurnResultV1):
+                    try:
+                        proof = result.output_proof
+                        base_segments = (tuple(item.text for item in result.base_result.completion.answer_segments)
+                            if result.base_result is not None else ())
+                        supplied = tuple(RulesSupportRefV1(
+                            support_id=item.support_id,
+                            support_sha256=item.support_sha256,
+                        ) for item in binding.support_table)
+                        from .rules_authority_output import parse_producing_answer, producing_rules_frame
+                        from .rules_authority_types import RulesAcceptedBindingV2, producing_supports_sha256
+                        from .rules_authority_plan_packet import ModelRulesFrame
+                        from pydantic import TypeAdapter
+                        request_bytes = proof.prepared_request_json.encode("utf-8")
+                        output_bytes = proof.raw_output_json.encode("utf-8")
+                        sealed = conn.execute(
+                            """SELECT e.value->>'authorization_id',e.value->>'api_request_id',
+                            e.value->>'request_envelope_sha256',e.value->>'output_sha256',
+                            (e.value->>'output_utf8_bytes')::integer,
+                            (SELECT jsonb_agg(jsonb_build_object(
+                                'request_envelope_sha256',CASE WHEN inc.value->>'request_envelope_sha256' ~ '^[a-f0-9]{64}$'
+                                    THEN inc.value->>'request_envelope_sha256' ELSE NULL END,
+                                'support_refs',CASE WHEN jsonb_typeof(inc.value->'support_refs')='array'
+                                    THEN CASE WHEN jsonb_array_length(inc.value->'support_refs')<=16
+                                      AND octet_length((inc.value->'support_refs')::text)<=4096
+                                      THEN inc.value->'support_refs' ELSE NULL END
+                                    ELSE NULL END))
+                             FROM (SELECT i.value FROM jsonb_array_elements(r.payload->'events') i(value)
+                               WHERE i.value->>'kind' IN ('provider_included',
+                                 'plan_packet_provider_included','build_provider_included')
+                               AND i.value->>'provider_attempt_id'=e.value->>'provider_attempt_id'
+                               LIMIT 2) inc)
+                            FROM agent.turn_rules_execution r
+                            CROSS JOIN LATERAL jsonb_array_elements(r.payload->'events') AS e(value)
+                            WHERE r.turn_id=%s AND r.product_attempt=%s
+                            AND e.value->>'kind'='native_provider_outcome'
+                            AND e.value->>'provider_attempt_id'=%s
+                            AND octet_length(e.value::text)<=2048""",
+                            (scope.turn_id, scope.product_attempt,
+                             str(result.producing_provider_attempt_id)),
+                        ).fetchall()
+                        if len(sealed) != 1:
+                            raise ValueError("Replayed native output has no unique compact provider witness")
+                        if (hashlib.sha256(request_bytes).hexdigest() != binding.request_envelope_sha256
+                                or len(output_bytes) != proof.raw_output_utf8_bytes
+                                or hashlib.sha256(output_bytes).hexdigest() != proof.raw_output_sha256
+                                or (proof.authorization_id, proof.api_request_id,
+                                    proof.request_envelope_sha256, proof.raw_output_sha256,
+                                    proof.raw_output_utf8_bytes) != sealed[0][:5]):
+                            raise ValueError("Replayed native output differs from its sealed raw producer")
+                        frame = producing_rules_frame(proof.prepared_request_json)
+                        if isinstance(binding, RulesAcceptedBindingV2):
+                            maps = sealed[0][5]
+                            if (not isinstance(maps, list) or len(maps) != 1
+                                    or maps[0]['request_envelope_sha256'] != binding.request_envelope_sha256
+                                    or maps[0]['support_refs'] is None):
+                                raise ValueError("Replay has no unique bounded producing support map")
+                            supplied = TypeAdapter(tuple[RulesSupportRefV1, ...]).validate_json(
+                                json.dumps(maps[0]['support_refs']))
+                            if producing_supports_sha256(supplied) != binding.producing_support_refs_sha256:
+                                raise ValueError("Replayed producing support map differs from its accepted seal")
+                        elif isinstance(frame, ModelRulesFrame):
+                            raise ValueError("Semantic Rules replay requires its committed complete support map")
+                        derived = parse_producing_answer(proof.raw_output_json,
+                            proof.prepared_request_json, supplied).composition(
+                            base_completion=None if result.base_result is None else result.base_result.completion,
+                            supplied_refs=supplied,
+                            base_segments=base_segments,
+                            base_disposition=result.composition.base_disposition,
+                        )
+                        if derived != result.composition:
+                            raise ValueError("Replayed native output differs from the accepted composition")
+                    except (ValueError, KeyError, TypeError, AttributeError, UnicodeError) as exc:
+                        raise ApplicationStateValidationError(str(exc)) from exc
+                if (
+                    exact_scope == scope
+                    and frozen[0] == result.expected_rules_revision + 1
+                    and turn.envelope.revision == result.expected_turn_revision + 1
+                    and turn.envelope.attempt == scope.product_attempt
+                    and turn.assistant_text == result.assistant_text
+                    and binding.composition_sha256
+                    == canonical_sha256(result.composition)
+                    and binding.producing_provider_attempt_id
+                    == result.producing_provider_attempt_id
+                    and base_matches
+                ):
+                    if action is not None and validate_stored_authoring_result(action,turn)!=authoring_proposal:
+                        raise ApplicationStateConflictError('Replayed Plan proposal differs from the stored mixed result')
+                    return turn
+                raise ApplicationStateConflictError(
+                    "completed mixed turn has a different result or acceptance fence"
+                )
+            if turn is None or turn.conversation_id != scope.conversation_id:
+                raise ApplicationStateNotFoundError(
+                    "turn not found in verified World conversation"
+                )
+            now = repo.database_clock(conn)
+            if (
+                turn.status != "running"
+                or turn.revision != result.expected_turn_revision
+                or turn.attempt != scope.product_attempt
+                or turn.claim_expires_at is None
+                or turn.claim_expires_at <= now
+            ):
+                raise ApplicationStateConflictError(
+                    "mixed completion is fenced by a stale or expired claim"
+                )
+            current = load_turn_rules_locked(conn, turn)
+            if (
+                current is None
+                or current.execution.scope != scope
+                or current.revision != result.expected_rules_revision
+            ):
+                raise ApplicationStateConflictError(
+                    "mixed completion differs from its frozen Rules execution"
+                )
+            output_context = None
+            if isinstance(result, BuildRulesMixedTurnResultV1):
+                captured = conn.execute(
+                    "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                    (turn.turn_id, turn.attempt),
+                ).fetchone()
+                try:
+                    proof = result.output_proof
+                    answer = verify_build_output(current.execution,
+                        producing_provider_attempt_id=result.producing_provider_attempt_id,
+                        prepared_request_json=proof.prepared_request_json, raw_output_json=proof.raw_output_json,
+                        trace=captured[0] if captured else {})
+                    output_context = (current.execution, proof, answer)
+                except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            elif isinstance(result, NativeRulesMixedTurnResultV1):
+                try:
+                    from .native_rules_output import normalize_native_mixed_output
+
+                    proof = result.output_proof
+                    from .native_rules_output import sealed_native_producer
+                    capture, graph_support = sealed_native_producer(turn, current.execution, proof)
+                    from .native_execution import SurfaceNativeExecutionV1
+                    if type(turn.graph_context_execution) is SurfaceNativeExecutionV1:
+                        from .native_rules_output import normalize_shared_native_output
+                        captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                            (turn.turn_id,turn.attempt)).fetchone()
+                        normalized=normalize_shared_native_output(turn.graph_context_receipt,turn.graph_context_execution,
+                            current.execution,proof,capture,trace=captured[0] if captured else None,
+                            idempotency_key=turn.idempotency_key,submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,
+                            world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
+                            provenance=turn.provenance,work_proof=native_work_proof,play_context_receipt=turn.play_context_receipt)
+                    else:
+                        normalized = normalize_native_mixed_output(
+                            turn, turn.graph_context_execution, current.execution,
+                            proof, capture, graph_support=graph_support,
+                        )
+                    if (normalized.composition != result.composition
+                            or normalized.assistant_text != result.assistant_text):
+                        raise ValueError("Native mixed result differs from its actual outer output normalization")
+                    if normalized.base_completion is None:
+                        if result.base_result is not None:
+                            raise ValueError("Native unclaimed output cannot attach a base completion")
+                    elif (result.base_result is None
+                            or result.base_result.completion != normalized.base_completion
+                            or result.base_result.assistant_text != "\n".join(
+                                item.text for item in normalized.base_completion.answer_segments)
+                            or result.base_result.producing_provider_attempt_id
+                                != result.producing_provider_attempt_id
+                            or result.base_result.claim_graph_event_ids
+                                != normalized.claim_graph_event_ids):
+                        raise ValueError("Native base result differs from its owning Plan/Play normalization")
+                    output_context = normalized
+                except (ValueError, KeyError, TypeError, AttributeError, UnicodeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            disposition = result.composition.base_disposition
+            base_result = result.base_result
+            execution = turn.graph_context_execution
+            completion = None
+            segments = ()
+            graph_used = False
+            if disposition == "approved":
+                execution = _validated_base_execution_locked(conn, turn, base_result, mixed_output_context=output_context)
+                completion = base_result.completion
+                segments = tuple(item.text for item in completion.answer_segments)
+                graph_used = any(item.kind in {'graph_claim','native_assertion_claim'} for item in completion.answer_segments)
+            elif disposition == "absent":
+                if turn.graph_context_receipt is not None or execution is not None:
+                    raise ApplicationStateValidationError(
+                        "absent base cannot retain Graph authority"
+                    )
+            elif turn.graph_context_receipt is None or execution is None:
+                raise ApplicationStateValidationError(
+                    "unclaimed base requires genuine Graph receipt and execution"
+                )
+            elif base_result is not None:
+                from .native_completion import require_object_only_completion
+                require_object_only_completion(base_result.completion)
+                execution=_validated_base_execution_locked(conn,turn,base_result,mixed_output_context=output_context)
+                completion=base_result.completion
+            try:
+                if isinstance(result, NativeRulesMixedTurnResultV1):
+                    if (output_context is None
+                            or output_context.composition != result.composition
+                            or output_context.assistant_text != result.assistant_text):
+                        raise ValueError("Native mixed result differs from its actual outer output normalization")
+                elif output_context is not None:
+                    derived = output_context[2].composition(base_completion=completion, supplied_refs=next(
+                        e.support_refs for e in current.execution.events
+                        if e.kind == "build_provider_included" and e.provider_attempt_id == result.producing_provider_attempt_id),
+                        base_segments=segments, base_disposition=disposition)
+                    if derived != result.composition or derived.render(segments) != result.assistant_text:
+                        raise ValueError("Mixed result differs from its actual outer output normalization")
+                accepted, binding = prepare_rules_acceptance(
+                    current.execution,
+                    result.composition,
+                    producing_provider_attempt_id=result.producing_provider_attempt_id,
+                    accepted_turn_revision=turn.revision + 1,
+                    event_id=uuid4(),
+                    base_segments=segments,
+                    graph_used=graph_used,
+                )
+            except ValueError as exc:
+                raise ApplicationStateValidationError(
+                    "Rules completion lacks exact producing evidence or composition"
+                ) from exc
+            if execution is not None:
+                from .rules_authority_reads import (
+                    validate_graph_producer_join,
+                    validate_unclaimed_receipt_owner,
+                )
+
+                try:
+                    validate_graph_producer_join(execution, binding)
+                    if disposition == "unclaimed":
+                        validate_unclaimed_receipt_owner(
+                            turn, turn.graph_context_receipt
+                        )
+                except ValueError as exc:
+                    raise ApplicationStateValidationError(
+                        "Rules/base producing request or provenance differs"
+                    ) from exc
+            persist_accepted_locked(conn, current, accepted, binding)
+            updated = repo.complete_mixed_claimed_turn(
+                conn,
+                world_id=world_id,
+                turn_id=turn.turn_id,
+                expected_revision=turn.revision,
+                expected_attempt=turn.attempt,
+                assistant_text=result.assistant_text,
+                completion=completion,
+                graph_context_execution=execution,
+            )
+            if updated is None:
+                raise ApplicationStateConflictError(
+                    "mixed completion lost its turn claim fence"
+                )
+            if action is not None:
+                actions.finish_authoring_result(conn,action,authoring_proposal,updated)
+            return updated
 
     def fail_turn(self, failure: TurnFailure, *, interrupted: bool = False) -> Turn:
         world_id = _world_id(failure.world_id)
@@ -611,6 +3611,7 @@ class AgentConversationService:
         dsn = _ready_dsn()
         with unit_of_work(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, failure.turn_id)
+            turn = _ordinary_mutation_turn(turn, failure.conversation_id)
             if turn is None or turn.conversation_id != failure.conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
             if turn.status == status:
@@ -624,18 +3625,21 @@ class AgentConversationService:
                 )
             if turn.revision != failure.expected_revision or turn.status != "running":
                 raise ApplicationStateConflictError("turn revision or lifecycle state changed")
+            from .rules_authority_store import fail_execution_locked
+            fail_execution_locked(conn, turn)
             updated = repo.fail_claimed_turn(
                 conn,
                 world_id=world_id,
                 turn_id=turn.turn_id,
                 expected_revision=failure.expected_revision,
+                expected_attempt=turn.attempt,
                 status=status,
                 failure_code=failure.failure_code,
             )
-        if updated is None:
-            raise ApplicationStateConflictError(
-                "turn claim expired or was fenced before failure was recorded"
-            )
+            if updated is None:
+                raise ApplicationStateConflictError(
+                    "turn claim expired or was fenced before failure was recorded"
+                )
         return updated
 
     def get_draft(self, world_id: str, conversation_id: UUID, draft_id: UUID) -> Draft:
@@ -724,8 +3728,12 @@ class AgentConversationService:
                     old_fingerprint,
                     _old_idempotency_fingerprint,
                     old_submitted_intent_fingerprint,
+                    old_submitted_intent_fingerprint_v2,
                 ) = existing
-                if old_submitted_intent_fingerprint is not None:
+                if (
+                    old_submitted_intent_fingerprint is not None
+                    or old_submitted_intent_fingerprint_v2 is not None
+                ):
                     raise ApplicationStateConflictError(
                         "turn idempotency key was already used by an Agent turn"
                     )

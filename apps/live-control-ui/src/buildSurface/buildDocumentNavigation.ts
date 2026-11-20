@@ -7,13 +7,15 @@ import { workspaceDocumentSelectionSearch } from "../workspaceDocument/workspace
 export function buildDocumentSelectionSearch(
   currentSearch: string | null | undefined,
   documentId: string,
-  campaignId: string,
+  campaignId: string | null,
 ): string {
   const base = workspaceDocumentSelectionSearch(currentSearch, documentId);
   const params = new URLSearchParams(base.startsWith("?") ? base.slice(1) : base);
-  const trimmedCampaign = campaignId.trim();
+  const trimmedCampaign = campaignId?.trim() ?? "";
   if (trimmedCampaign) {
     params.set("campaign", trimmedCampaign);
+  } else {
+    params.delete("campaign");
   }
   const query = params.toString();
   return query ? `?${query}` : "";

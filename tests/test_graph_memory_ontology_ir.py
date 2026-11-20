@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from src.graph_memory.ontology_ir import GraphBundle, OntologyIRValidationError, TaxonomyRef, validate_scalar_properties
+from graph_memory.ontology_ir import GraphBundle, OntologyIRValidationError, TaxonomyRef, validate_scalar_properties
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

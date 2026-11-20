@@ -1,3 +1,4 @@
+import "./surfaceNavbar.css";
 import { useMemo } from "react";
 
 import { useOptionalSurfaceContext } from "./useSurfaceContext";

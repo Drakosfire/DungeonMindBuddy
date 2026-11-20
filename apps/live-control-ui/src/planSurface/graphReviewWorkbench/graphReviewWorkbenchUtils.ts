@@ -5,7 +5,7 @@ import type {
   GraphReviewLane,
 } from "../../api/types";
 import { requestedSessionFromLocation } from "../graphGoldReview/graphGoldReviewUtils";
-import { formatReviewCampaignLabel, goldReviewSessionLabel } from "../sessionCampaignContext";
+import { formatReviewCampaignLabel, goldReviewSessionLabel } from "../../graphLens/sessionCampaignContext";
 
 export interface GraphReviewCatalogRun {
   run: ExtractionRunRecord;
@@ -292,8 +292,6 @@ export function buildGraphReviewCatalog(
     return left.sessionId.localeCompare(right.sessionId);
   });
 }
-
-export const GRAPH_REVIEW_RUNS_CHANGED_EVENT = "dmb:graph-runs-changed";
 
 export function catalogSessionsForReviewCampaign(
   sessions: GraphReviewCatalogSession[],

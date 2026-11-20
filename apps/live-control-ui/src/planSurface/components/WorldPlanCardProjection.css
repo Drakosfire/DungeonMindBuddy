@@ -1,0 +1,34 @@
+.world-plan-document-view[hidden] { display: none !important; }
+.world-plan-cards { min-width: 0; width: 100%; }
+.world-plan-cards--reader .world-plan-card__content { max-width: none; }
+.world-plan-scene-reader__heading { min-width: 0; }
+.world-plan-scene-reader__title { margin: 0; }
+.world-plan-scene-reader__context { min-width: 0; padding: 0; }
+.world-plan-scene-reader__context-title h3 { margin: 0 0 .4rem; }
+.world-plan-scene-reader__objective > :first-child,
+.world-plan-scene-reader__details-content > :first-child { margin-top: 0; }
+.world-plan-scene-reader__objective > :last-child,
+.world-plan-scene-reader__details-content > :last-child { margin-bottom: 0; }
+.world-plan-scene-reader__beat-details { margin-top: .5rem; }
+.world-plan-scene-reader__beat-details summary { cursor: pointer; }
+.world-plan-scene-reader__details-content { margin-top: .5rem; }
+.world-plan-card__edit-target { padding: .3rem .55rem; border: 1px solid #9d8965; border-radius: .35rem; background: transparent; color: inherit; cursor: pointer; }
+.world-plan-card__edit-target:disabled { opacity: .55; cursor: default; }
+.world-plan-cards--blocked { padding: 1rem; border: 1px solid #9f6b42; border-radius: .5rem; }
+.world-plan-scene-navigation {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  min-width: 0;
+  flex: 1 1 14rem;
+  max-width: 30rem;
+}
+.world-plan-scene-navigation select {
+  min-width: 0;
+  width: 100%;
+  flex: 1;
+}
+.world-plan-scene-navigation button { flex: 0 0 auto; }
+.world-plan-document-view [data-dmb-playable-kind="scene"] {
+  scroll-margin-top: calc(var(--app-chrome-top, 0px) + 1rem);
+}

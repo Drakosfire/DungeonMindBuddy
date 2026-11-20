@@ -1,9 +1,10 @@
+import type { PagePresentation } from "../pageComposer/presentation";
 import { tiptapJsonToSemanticMarkdown } from "../markdown/calloutMarkdown";
 import { hasBlockingMarkdownImportDiagnostics } from "../markdown/markdownToTiptap";
 import { migrateLegacyTiptapReferenceLabels } from "../references/runbookReferences";
 import { preserveLeadingYamlFrontmatter } from "../markdown/stripLeadingYamlFrontmatter";
 
-export const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA = "dmb_workspace_document_local_state_v5" as const;
+export const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA = "dmb_workspace_document_local_state_v6" as const;
 const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA_V4 = "dmb_workspace_document_local_state_v4" as const;
 const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA_V3 = "dmb_workspace_document_local_state_v3" as const;
 const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA_V2 = "dmb_workspace_document_local_state_v2" as const;
@@ -15,12 +16,17 @@ export interface WorkspaceDocumentLocalState {
   schema_version: typeof WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA;
   document_id: string;
   title: string;
-  campaign_id: string;
+  campaign_id: string | null;
   kind: WorkspaceDocumentLocalKind;
   target_session: number | null;
   surface: WorkspaceDocumentLocalSurface;
   base_revision: number;
   base_content_sha256: string;
+  /** Separate layout CAS/recovery identity; absent means a legacy, uncomposed draft. */
+  base_page_presentation_sha256?: string | null;
+  page_presentation?: PagePresentation | null;
+  /** Intermediate editor blocks have no complete source binding yet; retain JSON. */
+  page_presentation_pending?: boolean;
   tiptap_json: unknown;
   exported_markdown: string;
   /**
@@ -174,7 +180,7 @@ function migrateV4LocalState(value: Record<string, unknown>): WorkspaceDocumentL
 export function buildInitialWorkspaceDocumentLocalState(args: {
   documentId: string;
   title: string;
-  campaignId: string;
+  campaignId: string | null;
   kind: WorkspaceDocumentLocalKind;
   targetSession: number | null;
   surface: WorkspaceDocumentLocalSurface;
@@ -209,7 +215,7 @@ export function buildInitialWorkingBoardState(
   descriptor: {
     documentId: string;
     title: string;
-    campaignId: string;
+    campaignId: string | null;
     kind?: "plan" | "runbook";
     targetSession?: number | null;
     session?: number;
@@ -235,10 +241,10 @@ export function isWorkspaceDocumentLocalState(value: unknown): value is Workspac
   if (!isObject(value)) return false;
 
   return (
-    value.schema_version === WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA
+    (value.schema_version === WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA || value.schema_version === "dmb_workspace_document_local_state_v5")
     && typeof value.document_id === "string"
     && typeof value.title === "string"
-    && typeof value.campaign_id === "string"
+    && (typeof value.campaign_id === "string" || (value.kind === "worldbuilding_source" && value.campaign_id === null))
     && isWorkspaceDocumentLocalKind(value.kind)
     && (value.target_session === null || typeof value.target_session === "number")
     && isWorkspaceDocumentLocalSurface(value.surface)
@@ -263,7 +269,7 @@ function deriveWorkspaceDocumentMarkdown(
   // Persisted authority bit — not live parser diagnostics — gates re-derivation.
   // A polish upgrade that learns previously unsupported syntax must not regenerate
   // exported_markdown from an older lossy TipTap projection.
-  if (state.exported_markdown_authoritative) {
+  if (state.exported_markdown_authoritative || state.page_presentation !== undefined) {
     return state;
   }
   const editableBody = tiptapJsonToSemanticMarkdown(state.tiptap_json);
@@ -276,7 +282,7 @@ function deriveWorkspaceDocumentMarkdown(
 
 function parseStoredWorkspaceDocumentLocalState(parsed: unknown): WorkspaceDocumentLocalState | null {
   if (isWorkspaceDocumentLocalState(parsed)) {
-    return deriveWorkspaceDocumentMarkdown(parsed);
+    return deriveWorkspaceDocumentMarkdown({ ...parsed, schema_version: WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA });
   }
   if (isObject(parsed)) {
     const migrated = migrateV4LocalState(parsed)
@@ -372,7 +378,7 @@ export function finalizePromotedWorkspaceDocumentLocalState(
     committedRevision: number;
     normalizedContentSha256: string;
     title: string;
-    campaignId: string;
+    campaignId: string | null;
     targetSession: number | null;
     kind: WorkspaceDocumentLocalKind;
     surface: WorkspaceDocumentLocalSurface;

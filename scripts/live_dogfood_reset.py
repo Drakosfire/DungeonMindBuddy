@@ -96,8 +96,8 @@ def build_plan(
         session_targets.append(current_combat)
 
     generated_targets: list[Path] = []
-    generated_dir = validate_generated_corpus_dir(generated_corpus_dir(root), root)
-    if purge_generated_corpus and generated_dir.exists():
+    if purge_generated_corpus:
+        generated_dir = validate_generated_corpus_dir(generated_corpus_dir(root), root)
         generated_targets.extend(sorted(path for path in generated_dir.glob("*.md") if path.is_file()))
 
     return ResetPlan(

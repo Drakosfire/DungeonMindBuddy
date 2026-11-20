@@ -1,0 +1,40 @@
+# Secrets, credentials, and local state never enter the image build context.
+.env
+.env.*
+.aws/
+**/.aws/
+.git/
+.gitignore
+.run/
+.venv/
+**/.venv/
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+apps/live-control-ui/dist-native-demo/
+out/
+**/out/
+# Exclude campaign data at the repository root. Keep the src/corpus package.
+/corpus/
+tests/
+**/tests/
+evals/
+/Session 20 Recap.txt
+/session-23-recap.txt
+Docs/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/*.pem
+**/*.key
+**/serviceAccountKey.json
+**/secrets.txt
+
+# Local UI build outputs, caches, and overrides.
+apps/live-control-ui/build/
+apps/live-control-ui/.npm-cache/
+apps/live-control-ui/**/*.tsbuildinfo
+apps/live-control-ui/**/*.local

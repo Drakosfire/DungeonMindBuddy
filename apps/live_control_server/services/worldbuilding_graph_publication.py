@@ -7,11 +7,15 @@ in ``first_world_graph_publication.py``. Product code talks only to
 
 from __future__ import annotations
 
+import copy
 import hashlib
+from collections.abc import Callable
 import hmac
 import json
 import os
 import secrets
+from dataclasses import asdict, replace
+from types import SimpleNamespace
 from typing import Any, Mapping
 
 from apps.live_control_server import config as live_config
@@ -28,6 +32,9 @@ from apps.live_control_server.models.extract_promote import (
     WorldbuildingWritePlanConfirmRequest,
     WorldbuildingWritePlanPrepareRequest,
     WorldbuildingWritePlanResponse,
+    WorldbuildingPublicationBinding,
+    WorldbuildingNativeVocabularyBinding,
+    WorldbuildingSourceAdmissionBinding,
 )
 from apps.live_control_server.ports.world_graph_authority import (
     WorldGraphAuthority,
@@ -41,13 +48,12 @@ from apps.live_control_server.ports.world_graph_authority_access import (
 from apps.live_control_server.services.extract_promote import (
     ExtractPromoteError,
     _diagnostic,
-    _load_typed_worldbuilding_preview_for_run,
+    _load_worldbuilding_publication_input,
 )
 from apps.live_control_server.services.promotable_ingest_run import (
     PromotableIngestRunError,
     resolve_promotable_ingest_run,
 )
-from graph_memory.extract_promote_ops import DEFAULT_WORLD_ID
 from graph_memory.worldbuilding_write_plan import (
     WorldbuildingDispositionInput,
     WorldbuildingWritePlanError,
@@ -56,6 +62,127 @@ from graph_memory.worldbuilding_write_plan import (
     materialize_worldbuilding_contribution,
     verify_worldbuilding_write_plan,
 )
+
+from apps.live_control_server.services.source_artifact_registry import get_source_artifact, load_source_input_bytes, SourceArtifactRegistryError
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document, WorkspaceDocumentRegistryError
+from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding, WorldGraphProjectionServiceError
+
+
+def _registered_publication_binding(resolved):
+    try:
+        return _load_registered_publication_binding(resolved)
+    except (SourceArtifactRegistryError, WorkspaceDocumentRegistryError, WorldGraphProjectionServiceError) as exc:
+        unavailable = getattr(exc, "status_code", 409) >= 500
+        raise ExtractPromoteError(
+            "Registered World/source storage is unavailable" if unavailable else "Registered World/source ownership is unavailable",
+            code="worldbuilding_source_unavailable" if unavailable else "worldbuilding_source_binding_missing",
+            status_code=503 if unavailable else 409,
+        ) from exc
+
+
+def _load_registered_publication_binding(resolved):
+    root = live_config.repo_root()
+    artifact = get_source_artifact(resolved.source_artifact_id)
+    if (not artifact.workspace_document_id or not artifact.workspace_document_revision
+            or not artifact.world_id or artifact.world_id != resolved.world_id
+            or resolved.source_domain != "worldbuilding" or resolved.session_id
+            or artifact.content_sha256 != resolved.source_revision_id.removeprefix("sha256:")):
+        raise ExtractPromoteError("An exact registered Build source is required",
+                                 code="worldbuilding_source_binding_missing", status_code=409)
+    document = get_workspace_document(root, artifact.workspace_document_id)
+    if (document.kind != "worldbuilding_source" or document.world_id != artifact.world_id
+            or document.status != "active"):
+        raise ExtractPromoteError("Registered source ownership changed",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
+    binding = resolve_managed_world_binding(artifact.world_id)
+    return WorldbuildingPublicationBinding(
+        managed_world_id=binding.managed_world_id, native_world_id=binding.native_world_id,
+        binding_version=binding.binding_version, document_id=artifact.workspace_document_id,
+        document_revision=artifact.workspace_document_revision,
+        source_artifact_id=artifact.source_artifact_id, source_sha256=artifact.content_sha256,
+    )
+
+
+def _world_scoped_preview(preview, binding):
+    # Registered Build envelopes carry the managed owner in campaign_id.
+    # Compile a native World-scoped view only after registered ownership is proved.
+    if preview.campaign_id not in (None, "", binding.managed_world_id):
+        raise ExtractPromoteError("Candidate has genuine campaign ownership",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
+    return replace(preview, campaign_id=None)
+
+
+def _prepare_source_admission(resolved, binding, *, expected_head_revision_id):
+    from apps.live_control_server.ports.world_graph_source_admission import (
+        WorldGraphSourceAdmissionRequest, WorldGraphSourceAdmissionError,
+    )
+    from apps.live_control_server.ports.world_graph_source_admission_access import (
+        get_world_graph_source_admission_authority,
+    )
+    artifact = get_source_artifact(resolved.source_artifact_id)
+    if artifact.campaign_id not in (None, "", binding.managed_world_id):
+        raise ExtractPromoteError("Build source has genuine campaign ownership",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
+    try:
+        source_body = load_source_input_bytes(artifact)
+    except SourceArtifactRegistryError as exc:
+        raise ExtractPromoteError(str(exc), code="worldbuilding_source_binding_changed",
+                                  status_code=exc.status_code) from exc
+    digest = hashlib.sha256(source_body).hexdigest()
+    if digest != binding.source_sha256:
+        raise ExtractPromoteError("Frozen source digest changed",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
+    data = artifact.model_dump()
+    data.update(world_id=binding.native_world_id, campaign_id=None)
+    # Derived transport only; the registered managed-World artifact is unchanged.
+    transport = SimpleNamespace(**data)
+    try:
+        identity = get_world_graph_source_admission_authority().prove_or_admit(
+            WorldGraphSourceAdmissionRequest(
+                world_id=binding.native_world_id, campaign_id=None,
+                source_artifact=transport, source_revision_token=resolved.source_revision_id,
+                source_uri=resolved.sealed_source_uri, source_body=source_body,
+                expected_head_revision_id=expected_head_revision_id,
+            )
+        )
+        result = WorldbuildingSourceAdmissionBinding.model_validate(asdict(identity))
+    except WorldGraphSourceAdmissionError as exc:
+        raise ExtractPromoteError(str(exc), code=exc.code, status_code=409) from exc
+    except (ValueError, TypeError) as exc:
+        raise ExtractPromoteError("Source proof is not a canonical World-owned identity",
+                                 code="worldbuilding_source_binding_changed", status_code=409) from exc
+    if (result.source_artifact_id != binding.source_artifact_id
+            or result.content_sha256 != digest
+            or result.buddy_source_revision_id != resolved.source_revision_id):
+        raise ExtractPromoteError("Source admission identity disagrees with frozen input",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
+    return result
+
+
+def _reprove_source_admission(plan):
+    from apps.live_control_server.ports.world_graph_source_admission import WorldGraphSourceAdmissionError
+    from apps.live_control_server.ports.world_graph_source_admission_access import (
+        get_world_graph_source_admission_authority,
+    )
+    sealed = plan.source_admission
+    if sealed is None:
+        raise _legacy_reprepare_error()
+    try:
+        actual = get_world_graph_source_admission_authority().prove(
+            world_id=plan.world_id, source_artifact_id=sealed.source_artifact_id,
+            source_revision_id=sealed.source_revision_id,
+            source_revision_token=sealed.buddy_source_revision_id,
+        )
+        proof = WorldbuildingSourceAdmissionBinding.model_validate(asdict(actual))
+    except WorldGraphSourceAdmissionError as exc:
+        raise ExtractPromoteError(str(exc), code=exc.code, status_code=409) from exc
+    except (ValueError, TypeError) as exc:
+        raise ExtractPromoteError("Source proof is not a canonical World-owned identity",
+                                 code="worldbuilding_source_binding_changed", status_code=409) from exc
+    if proof != sealed:
+        raise ExtractPromoteError("Prepared source catalog authority changed",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
+
 
 _PORT_ERROR_MAP: dict[str, tuple[str, int]] = {
     "authority_unavailable": ("authority_unavailable", 503),
@@ -129,6 +256,152 @@ def _identity_snapshot_digest(snapshot: Mapping[str, Any]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _worldbuilding_native_vocabulary_binding() -> dict[str, Any]:
+    """Pin the exact additive vocabulary pair used by Build publication."""
+    try:
+        from dungeonmind_dnd.application.world_object_vocabulary import (
+            builtin_world_object_v6_vocabulary_ref,
+            load_builtin_world_object_v6_vocabulary,
+        )
+        from dungeonmind_dnd.application.world_property_vocabulary import (
+            builtin_world_property_v4_vocabulary_ref,
+            load_builtin_world_property_v4_vocabulary,
+        )
+
+        object_vocabulary = builtin_world_object_v6_vocabulary_ref()
+        property_vocabulary = builtin_world_property_v4_vocabulary_ref()
+        property_catalog = load_builtin_world_property_v4_vocabulary()
+        paired_object_vocabulary = property_catalog.world_object_vocabulary
+        if paired_object_vocabulary != object_vocabulary:
+            raise ValueError("world-property-v4 is not paired with world-object-v6")
+        predicates = {
+            item.term for item in load_builtin_world_object_v6_vocabulary().predicates
+        }
+        if "dnd5e:governs" not in predicates:
+            raise ValueError("world-object-v6 does not define dnd5e:governs")
+        return WorldbuildingNativeVocabularyBinding(
+            world_object_vocabulary=object_vocabulary.model_dump(mode="json"),
+            world_property_vocabulary=property_vocabulary.model_dump(mode="json"),
+        ).model_dump(mode="json", by_alias=True)
+    except Exception as exc:
+        raise ExtractPromoteError(
+            "Build publication requires the pinned world-object-v6/world-property-v4 vocabulary pair",
+            code="worldbuilding_native_vocabulary_unavailable",
+            status_code=503,
+            diagnostics=[_diagnostic("worldbuilding_native_vocabulary_unavailable", str(exc))],
+        ) from exc
+
+
+def _qualify_worldbuilding_native_edges(
+    *,
+    preview: Any,
+    effect: Mapping[str, Any],
+    native_vocabulary_binding: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Validate accepted Build relationships and express v6-only terms natively.
+
+    The sealed write plan remains in Buddy vocabulary. This deterministic
+    projection runs only after plan verification, and the source predicate and
+    exact vocabulary refs stay alongside the native predicate for audit.
+    """
+    from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
+        CURRENT_WORLD_BUILDING_V6_TARGET,
+        edge_endpoint_kind_admission_reason,
+        resolve_buddy_predicate_mapping_v4,
+    )
+    from graph_memory.candidate_graph_to_contribution import kernel_kind_for_node_type
+
+    effect_data = (
+        effect.model_dump(mode="json", by_alias=True)
+        if callable(getattr(effect, "model_dump", None))
+        else dict(effect)
+    )
+    result = copy.deepcopy(effect_data)
+    nodes = {node.node_id: node for node in preview.nodes}
+    edges = {edge.edge_id: edge for edge in preview.edges}
+    node_id_map = dict(result.get("node_id_map") or {})
+    proposals = result.get("accepted_proposals")
+    if not isinstance(proposals, list):
+        raise ExtractPromoteError(
+            "verified worldbuilding plan has no accepted proposal list",
+            code="worldbuilding_native_relation_inexpressible",
+            status_code=409,
+        )
+
+    for assertion in proposals:
+        if not isinstance(assertion, dict) or assertion.get("assertion_kind") != "edge":
+            continue
+        if assertion.get("predicate") != "governs":
+            continue
+        value = assertion.get("value")
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except ValueError:
+                value = None
+        value = dict(value) if isinstance(value, dict) else {}
+        edge_id = str(value.get("extract_edge_id") or "").strip()
+        edge = edges.get(edge_id)
+        if edge is None or edge.relationship_type != "governs":
+            raise ExtractPromoteError(
+                "accepted governs assertion is not bound to its exact candidate edge",
+                code="worldbuilding_native_relation_inexpressible",
+                status_code=409,
+                diagnostics=[_diagnostic("worldbuilding_native_relation_inexpressible", edge_id or "missing edge id")],
+            )
+        source = nodes.get(edge.from_node_id)
+        target_node = nodes.get(edge.to_node_id)
+        if source is None or target_node is None:
+            raise ExtractPromoteError(
+                "accepted governs edge has a missing candidate endpoint",
+                code="worldbuilding_native_relation_inexpressible",
+                status_code=409,
+            )
+        mapping = resolve_buddy_predicate_mapping_v4(
+            edge.relationship_type, target=CURRENT_WORLD_BUILDING_V6_TARGET
+        )
+        reason = edge_endpoint_kind_admission_reason(
+            buddy_predicate=edge.relationship_type,
+            from_buddy_kind=kernel_kind_for_node_type(source.node_type),
+            to_buddy_kind=kernel_kind_for_node_type(target_node.node_type),
+            target=CURRENT_WORLD_BUILDING_V6_TARGET,
+        )
+        reverse = bool(mapping[1]) if mapping is not None else False
+        expected_subject = node_id_map.get(edge.to_node_id if reverse else edge.from_node_id)
+        expected_target = node_id_map.get(edge.from_node_id if reverse else edge.to_node_id)
+        if (
+            mapping is None
+            or mapping[0] != "dnd5e:governs"
+            or reason is not None
+            or assertion.get("subject_node_id") != expected_subject
+            or assertion.get("target_node_id") != expected_target
+        ):
+            raise ExtractPromoteError(
+                "accepted governs edge is not admitted by the pinned World vocabulary",
+                code="worldbuilding_native_relation_inexpressible",
+                status_code=409,
+                diagnostics=[
+                    _diagnostic(
+                        "worldbuilding_native_relation_inexpressible",
+                        reason or "mapped assertion endpoints or predicate disagree with candidate edge",
+                    )
+                ],
+            )
+        assertion["predicate"] = mapping[0]
+        if reverse:
+            assertion["subject_node_id"], assertion["target_node_id"] = (
+                assertion["target_node_id"],
+                assertion["subject_node_id"],
+            )
+        assertion["value"] = {
+            **value,
+            "buddy_predicate": edge.relationship_type,
+            "dm_predicate": mapping[0],
+            "native_vocabulary_binding": dict(native_vocabulary_binding),
+        }
+    return result
+
+
 def _prepare_binding_key() -> bytes:
     explicit = os.environ.get(_PREPARE_BINDING_KEY_ENV, "").strip()
     if explicit:
@@ -145,10 +418,16 @@ def _prepare_binding_message(
     plan_id: str,
     plan_digest: str,
     identity_snapshot_digest: str,
+    publication_binding: Mapping[str, Any] | None = None,
+    source_admission: Mapping[str, Any] | None = None,
+    native_vocabulary_binding: Mapping[str, Any] | None = None,
 ) -> bytes:
     payload = json.dumps(
         {
             "schema": _PREPARE_BINDING_SCHEMA,
+            "publication_binding": publication_binding,
+            "source_admission": source_admission,
+            "native_vocabulary_binding": native_vocabulary_binding,
             "world_id": world_id,
             "parent_revision_id": parent_revision_id,
             "plan_id": plan_id,
@@ -169,6 +448,9 @@ def _sign_prepare_binding(
     plan_id: str,
     plan_digest: str,
     identity_snapshot_digest: str,
+    publication_binding: Mapping[str, Any] | None = None,
+    source_admission: Mapping[str, Any] | None = None,
+    native_vocabulary_binding: Mapping[str, Any] | None = None,
 ) -> str:
     digest = hmac.new(
         _prepare_binding_key(),
@@ -178,6 +460,9 @@ def _sign_prepare_binding(
             plan_id=plan_id,
             plan_digest=plan_digest,
             identity_snapshot_digest=identity_snapshot_digest,
+            publication_binding=publication_binding,
+            source_admission=source_admission,
+            native_vocabulary_binding=native_vocabulary_binding,
         ),
         hashlib.sha256,
     ).hexdigest()
@@ -194,6 +479,12 @@ def _require_prepare_binding(
         plan_id=str(plan.plan_id),
         plan_digest=str(plan.plan_digest),
         identity_snapshot_digest=_identity_snapshot_digest(snapshot),
+        publication_binding=plan.publication_binding.model_dump(mode="json") if plan.publication_binding else None,
+        source_admission=plan.source_admission.model_dump(mode="json") if plan.source_admission else None,
+        native_vocabulary_binding=(
+            plan.native_vocabulary_binding.model_dump(mode="json", by_alias=True)
+            if plan.native_vocabulary_binding else None
+        ),
     )
     provided = str(getattr(plan, "prepare_binding", None) or "").strip()
     if not provided or not hmac.compare_digest(provided, expected):
@@ -256,8 +547,15 @@ def _evidence_id_on_child(present: set[str], expected_id: str) -> bool:
     """
     if expected_id in present:
         return True
-    marker = f"{expected_id}:dmv1:"
-    return any(item.startswith(marker) for item in present)
+    for marker in (":dmv1:", ":dm-extraction-v3:"):
+        prefix = expected_id + marker
+        for item in present:
+            if not item.startswith(prefix):
+                continue
+            digest = item[len(prefix):]
+            if len(digest) == 64 and all(char in "0123456789abcdef" for char in digest):
+                return True
+    return False
 
 
 def _identity_snapshot_payload(plan: WorldbuildingWritePlanResponse) -> dict[str, Any]:
@@ -407,24 +705,27 @@ def _verify_worldbuilding_child(
 def prepare_worldbuilding(
     request: WorldbuildingWritePlanPrepareRequest,
 ) -> WorldbuildingWritePlanResponse:
-    """Prepare one exact BLD-08 worldbuilding run into an inert v2 write plan."""
+    """Prepare a plan and admit exact source provenance, never graph facts."""
     try:
         resolved = resolve_promotable_ingest_run(request.run_id, root=live_config.repo_root())
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
 
-    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(
-        resolved
-    )
+    publication_input = _load_worldbuilding_publication_input(resolved)
+    typed_preview, expected_profile = publication_input.preview, publication_input.profile_id
+    publication_binding = _registered_publication_binding(resolved)
+    native_vocabulary_binding = _worldbuilding_native_vocabulary_binding()
+    typed_preview = _world_scoped_preview(typed_preview, publication_binding)
+    native_world_id = publication_binding.native_world_id
     authority = get_world_graph_authority()
     try:
         mutation_context = authority.mutation_context(
-            DEFAULT_WORLD_ID, request.expected_parent_revision_id
+            native_world_id, request.expected_parent_revision_id
         )
     except WorldGraphAuthorityError as exc:
         if exc.code == "revision_unavailable":
             try:
-                head = authority.current_head(DEFAULT_WORLD_ID)
+                head = authority.current_head(native_world_id)
             except WorldGraphAuthorityError:
                 raise _authority_error(exc) from exc
             if head.revision_id != request.expected_parent_revision_id:
@@ -445,14 +746,14 @@ def prepare_worldbuilding(
         plan = build_worldbuilding_write_plan(
             preview=typed_preview,
             mutation_context=mutation_context,
-            world_id=DEFAULT_WORLD_ID,
+            world_id=native_world_id,
             expected_parent_revision_id=request.expected_parent_revision_id,
             run_id=resolved.run_id,
             source_artifact_id=resolved.source_artifact_id,
             source_revision_id=resolved.source_revision_id,
             source_uri=resolved.sealed_source_uri,
             extraction_profile=expected_profile,
-            campaign_scope=resolved.campaign_id or None,
+            campaign_scope=None,
             dispositions=[
                 WorldbuildingDispositionInput(
                     assertion_id=item.assertion_id,
@@ -465,8 +766,16 @@ def prepare_worldbuilding(
     except WorldbuildingWritePlanError as exc:
         raise _write_plan_error(exc) from exc
 
+    # Reject accepted relationships that the sealed native vocabulary cannot
+    # express before returning a plan the operator might review.
+    _qualify_worldbuilding_native_edges(
+        preview=typed_preview,
+        effect=plan.effect,
+        native_vocabulary_binding=native_vocabulary_binding,
+    )
+
     try:
-        head = authority.current_head(DEFAULT_WORLD_ID)
+        head = authority.current_head(native_world_id)
     except WorldGraphAuthorityError as exc:
         raise _authority_error(exc) from exc
     if head.revision_id != request.expected_parent_revision_id:
@@ -485,6 +794,7 @@ def prepare_worldbuilding(
     response = WorldbuildingWritePlanResponse(
         schema=WORLD_BUILDING_WRITE_PLAN_SCHEMA,
         version=2,
+        publication_binding=publication_binding,
         plan_id=plan.plan_id,
         plan_digest=plan.plan_digest,
         decision_digest=plan.decision_digest,
@@ -500,6 +810,7 @@ def prepare_worldbuilding(
         effect=plan.effect,
         summary=plan.summary,
         diagnostics=plan.diagnostics,
+        native_vocabulary_binding=native_vocabulary_binding,
     )
     try:
         verify_worldbuilding_write_plan(
@@ -507,14 +818,14 @@ def prepare_worldbuilding(
             preview=typed_preview,
             mutation_context=mutation_context,
             context=WorldbuildingWritePlanVerificationContext(
-                world_id=DEFAULT_WORLD_ID,
+                world_id=native_world_id,
                 parent_revision_id=request.expected_parent_revision_id,
                 run_id=resolved.run_id,
                 source_artifact_id=resolved.source_artifact_id,
                 source_revision_id=resolved.source_revision_id,
                 source_uri=resolved.sealed_source_uri,
                 extraction_profile=expected_profile,
-                campaign_scope=resolved.campaign_id or None,
+                campaign_scope=None,
             ),
             require_current_head=False,
         )
@@ -527,15 +838,32 @@ def prepare_worldbuilding(
             status_code=500,
             diagnostics=[_diagnostic("plan_verification_failed", str(exc))],
         ) from exc
+    admitted = _prepare_source_admission(
+        resolved, publication_binding, expected_head_revision_id=plan.parent_revision_id,
+    )
+    if _registered_publication_binding(resolved) != publication_binding:
+        raise ExtractPromoteError("World binding changed after source admission",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
+    try:
+        admitted_head = authority.current_head(native_world_id)
+    except WorldGraphAuthorityError as exc:
+        raise _authority_error(exc) from exc
+    if admitted_head.revision_id != request.expected_parent_revision_id:
+        raise ExtractPromoteError("Parent changed after source admission",
+                                 code="stale_parent_revision", status_code=409)
+    response = response.model_copy(update={"source_admission": admitted})
     snapshot = _identity_snapshot_payload(response)
     return response.model_copy(
         update={
             "prepare_binding": _sign_prepare_binding(
-                world_id=DEFAULT_WORLD_ID,
+                world_id=native_world_id,
                 parent_revision_id=response.parent_revision_id,
                 plan_id=response.plan_id,
                 plan_digest=response.plan_digest,
                 identity_snapshot_digest=_identity_snapshot_digest(snapshot),
+                publication_binding=publication_binding.model_dump(mode="json"),
+                source_admission=admitted.model_dump(mode="json"),
+                native_vocabulary_binding=native_vocabulary_binding,
             )
         }
     )
@@ -543,6 +871,7 @@ def prepare_worldbuilding(
 
 def confirm_worldbuilding(
     request: WorldbuildingWritePlanConfirmRequest,
+    *, authorize_write: Callable[[], None] | None = None,
 ) -> WorldbuildingWritePlanConfirmReceipt:
     """Rebuild-verify a v2 plan and publish or recover one DungeonMind child."""
     plan = request.plan
@@ -570,25 +899,48 @@ def confirm_worldbuilding(
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
 
-    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(
-        resolved
-    )
+    publication_input = _load_worldbuilding_publication_input(resolved)
+    typed_preview, expected_profile = publication_input.preview, publication_input.profile_id
+    publication_binding = _registered_publication_binding(resolved)
+    native_vocabulary_binding = _worldbuilding_native_vocabulary_binding()
+    typed_preview = _world_scoped_preview(typed_preview, publication_binding)
+    native_world_id = publication_binding.native_world_id
+    if plan.publication_binding is None or plan.publication_binding != publication_binding:
+        raise ExtractPromoteError("World/source binding changed; prepare again",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
+    if (
+        plan.native_vocabulary_binding is None
+        or plan.native_vocabulary_binding.model_dump(mode="json", by_alias=True)
+        != native_vocabulary_binding
+    ):
+        raise ExtractPromoteError(
+            "Worldbuilding vocabulary changed; prepare again",
+            code="worldbuilding_native_vocabulary_changed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "worldbuilding_native_vocabulary_changed",
+                    "prepared World vocabulary refs do not match the current pinned pair",
+                )
+            ],
+        )
     verify_context = WorldbuildingWritePlanVerificationContext(
-        world_id=DEFAULT_WORLD_ID,
+        world_id=native_world_id,
         parent_revision_id=plan.parent_revision_id,
         run_id=resolved.run_id,
         source_artifact_id=resolved.source_artifact_id,
         source_revision_id=resolved.source_revision_id,
         source_uri=resolved.sealed_source_uri,
         extraction_profile=expected_profile,
-        campaign_scope=resolved.campaign_id or None,
+        campaign_scope=None,
     )
     authority = get_world_graph_authority()
     snapshot = _identity_snapshot_payload(plan)
     _require_prepare_binding(plan, snapshot)
+    _reprove_source_admission(plan)
     try:
         mutation_context = authority.mutation_context(
-            DEFAULT_WORLD_ID,
+            native_world_id,
             plan.parent_revision_id,
             sealed_identity_snapshot=snapshot,
         )
@@ -603,10 +955,15 @@ def confirm_worldbuilding(
             context=verify_context,
             require_current_head=False,
         )
+        native_effect = _qualify_worldbuilding_native_edges(
+            preview=typed_preview,
+            effect=verified["effect"],
+            native_vocabulary_binding=native_vocabulary_binding,
+        )
         contribution = materialize_worldbuilding_contribution(
             world_id=verified["world_id"],
             plan_digest=verified["plan_digest"],
-            effect=verified["effect"],
+            effect=native_effect,
         )
     except WorldbuildingWritePlanError as exc:
         raise _write_plan_error(exc) from exc
@@ -649,6 +1006,7 @@ def confirm_worldbuilding(
         return _receipt_from_publication(
             receipt=recovered,
             verified=verified,
+            resolved=resolved, publication_binding=publication_binding,
             contribution=contribution,
             parent=parent,
             materialized_accepted=materialized_accepted,
@@ -683,6 +1041,11 @@ def confirm_worldbuilding(
         accepted_assertion_ids=tuple(materialized_accepted),
         operation_namespace="worldbuilding",
     )
+    if _registered_publication_binding(resolved) != publication_binding:
+        raise ExtractPromoteError("World/source binding changed before publication",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
+    if authorize_write is not None:
+        authorize_write()
     try:
         receipt = authority.publish(publish_request)
     except WorldGraphAuthorityError as exc:
@@ -703,6 +1066,7 @@ def confirm_worldbuilding(
             return _receipt_from_publication(
                 receipt=recovered,
                 verified=verified,
+            resolved=resolved, publication_binding=publication_binding,
                 contribution=contribution,
                 parent=parent,
                 materialized_accepted=materialized_accepted,
@@ -716,6 +1080,7 @@ def confirm_worldbuilding(
     return _receipt_from_publication(
         receipt=receipt,
         verified=verified,
+            resolved=resolved, publication_binding=publication_binding,
         contribution=contribution,
         parent=parent,
         materialized_accepted=materialized_accepted,
@@ -728,6 +1093,8 @@ def confirm_worldbuilding(
 def _receipt_from_publication(
     *,
     receipt: WorldGraphPublicationReceipt,
+    resolved,
+    publication_binding,
     verified: Mapping[str, Any],
     contribution: Any,
     parent: str,
@@ -759,6 +1126,11 @@ def _receipt_from_publication(
         outcome = "published_audit_degraded"
         warnings.extend(codes)
     accepted = list(materialized_accepted)
+    if _registered_publication_binding(resolved) != publication_binding:
+        raise ExtractPromoteError(
+            "World/source binding changed; completed publication remains in the original native World",
+            code="worldbuilding_source_binding_changed", status_code=409,
+        )
     return _confirm_receipt(
         outcome=outcome,
         verified=verified,

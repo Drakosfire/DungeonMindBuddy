@@ -1,6 +1,6 @@
 # Design — Source-to-World authoring interaction contract
 
-**Status:** ACCEPTED BUDDY INTERACTION AUTHORITY — consumer migration not yet implemented
+**Status:** ACCEPTED BUDDY INTERACTION AUTHORITY — implementation is partial and path-specific
 **Date:** 2026-09-25
 **Workstream:** `CON-READY / DOGFOOD-CONTINUITY`
 **Authority re-anchor:** `main@08e4c39967e63bc3b60791748129ca3eaa42f161`
@@ -26,9 +26,19 @@ read source
 → continue from source or World
 ```
 
-The existing Buddy controls and governed-write path remain historical
-implementation evidence. The accepted destination is the WorldKeeper consumer
-boundary described here.
+The WorldKeeper consumer boundary below remains the accepted ownership model.
+Implementation has progressed since this decision: the accepted
+[PLAY-1 consumer proof](../Reports/REPORT-CON-READY-PLAY-worldkeeper-consumer-proof-v1.md)
+covered a bounded proposal-to-prepare/commit seam, without changing production
+routes or proving all operations in this design. The current
+[native Graph service](../../apps/live_control_server/services/native_graph_explorer.py)
+also uses WorldKeeper to prepare and commit supported create/connect intents;
+its [request models](../../apps/live_control_server/models/native_graph_explorer.py)
+and [owning tests](../../tests/test_native_graph_explorer.py) show the bounded
+operations and review/confirmation behavior. This is evidence of specific
+implemented paths, not blanket completion of this design or proof of hosted
+deployment or availability. Check the current routes and release evidence for
+the environment in question.
 
 ## Accepted ownership boundary
 
@@ -64,9 +74,10 @@ admission, durable-ID allocation or prediction, a general application read
 layer, or durable publication recovery. It coordinates the semantic change
 lifecycle through DungeonMind's authority.
 
-Current Buddy-side semantic translation is migration evidence, not permanent
-product ownership. PR #745 establishes authority only; it does not perform the
-consumer migration.
+Buddy-side semantic translation remains a consumer responsibility, not ownership
+of WorldKeeper semantics. PR #745 established this authority; the later PLAY-1
+proof and native Graph path provide bounded implementation evidence. Neither
+establishes that every operation or surface described here has migrated.
 
 ## Durable reference versus source occurrence
 
@@ -184,18 +195,15 @@ Completed prerequisites:
 - DungeonMind V5.4 atomic operation-result semantics;
 - WorldKeeper WK-5 consumer seam.
 
-Next, but **not authorized by this document**: reconcile PLAY-0 / PR #753 so
-its single PLAY-1 Buddy → WorldKeeper consumer-proof handoff includes the
-accepted custom-predicate contract. PLAY-1 owns implementation dispatch after
-its own activation conditions; PR #752 creates no parallel implementation
-lease. Its isolated proof uses an injected `WorldChangeService` and an
-in-memory DungeonMind repository, not a production vNext repository factory.
+The original next step, the PLAY-1 consumer proof, is complete; its
+[accepted historical report](../Reports/REPORT-CON-READY-PLAY-worldkeeper-consumer-proof-v1.md)
+records its exact scope and limits. The proof used an injected service and an
+in-memory repository; it did not itself switch production routes.
 
-Still not authorized: V2-3 derived gold, extraction/model ablation,
-Agent-assisted authoring, identity reconciliation, generic graph-editor work,
-or production write switching/runtime/bridge-genesis migration hidden inside
-#745. The latter work remains in later vNext/cutover slices, consistent with
-the V6.1 foundation boundary.
+This document describes interaction authority, not a current implementation
+lease. Re-anchor on the current repository policy and an explicitly authorized
+handoff before undertaking further work. The historical V2-3 derived-gold
+ablation remains separately parked in the transferred plan.
 
 ## Reconciliation with prior authorities
 
@@ -205,5 +213,5 @@ the V6.1 foundation boundary.
 - `HANDOFF-CON-READY-worldkeeper-sidequest-v1.md` is complete/historical.
 - `ARCHITECTURE-campaign-supergraph.md` continues to own durable World
   architecture.
-- `PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md` owns current
-  sequencing and keeps V2-3 unauthorized.
+- [`PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`](../Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md)
+  is historical execution authority; V2-3 remains separately parked.

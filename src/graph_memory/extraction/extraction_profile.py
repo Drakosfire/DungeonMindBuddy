@@ -16,9 +16,10 @@ class ExtractionPassSpec:
     default_node_type: str | None
     instruction: str
     progress_label: str
-    kind: str = "node"  # node | beat | encounter_job | edge | claimed_fill
+    kind: str = "node"  # node | beat | encounter_job | edge | edge_review
     include_dispositions: bool = False
     allowed_node_types: tuple[str, ...] | None = None
+    predicate_capabilities: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -36,12 +37,8 @@ class ExtractionProfile:
     evidence_rule: str
     default_semantic_state: Mapping[str, str]
     enable_encounter_job_pass: bool = False
-    enable_party_participation_attachment: bool = False
     enable_encounter_job_edge_guidance: bool = False
     enable_dynamic_node_vocabulary_packet: bool = False
-    # Post-sanitize LLM fill onto deterministic PC/companion anchors using
-    # known-entity mention claims. Descriptions + evidence only.
-    enable_party_claimed_fill: bool = False
     # Recap-oriented session relationship sweep (session-sized counts, refugee/
     # siege/evac guidance). Profiles that own evergreen prose must set False.
     enable_session_relationship_sweep: bool = True
@@ -61,6 +58,9 @@ class ExtractionProfile:
     # controller before VALIDATED/REVIEWABLE. Descriptive policy mappings alone
     # are not sufficient — wire a callable when the profile declares bounds.
     post_extraction_validator: PostExtractionValidator | None = None
+    source_section_retainer: Callable[..., tuple[dict[str, Any], dict[str, Any]]] | None = None
+
+    edge_review_pass: ExtractionPassSpec | None = None
 
     @property
     def qualified_id(self) -> str:

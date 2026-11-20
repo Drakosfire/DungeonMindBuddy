@@ -74,7 +74,7 @@ describe("PlanDocumentCreateControl", () => {
       "You're making another path.",
     );
     expect(screen.getByTestId("plan-document-create-same-session")).toHaveTextContent(
-      "1 other prep is already aimed at Session 27",
+      "1 other Plan is already aimed at Session 27",
     );
 
     const sessionInput = screen.getByTestId("plan-document-create-session");
@@ -133,10 +133,10 @@ describe("PlanDocumentCreateControl", () => {
 
     await user.click(screen.getByTestId("plan-document-create-open"));
     expect(screen.getByTestId("plan-document-create-same-session")).toHaveTextContent(
-      "2 other preps are already aimed at Session 27",
+      "2 other Plans are already aimed at Session 27",
     );
     expect(screen.getByTestId("plan-document-create-title-error")).toHaveTextContent(
-      'Another active prep for Session 27 is already titled "C2 Session 27 Prep"',
+      'Another active Plan for Session 27 is already titled "C2 Session 27 Prep"',
     );
     expect(screen.getByTestId("plan-document-create-title-error")).toHaveTextContent(
       'Choose a different name, such as "If the siege breaks"',

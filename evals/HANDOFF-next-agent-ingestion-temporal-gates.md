@@ -354,7 +354,7 @@ The fact schema has `observed_at`, `valid_from`, `valid_until` fields. The tempo
 | Entity schema | `schemas/v0.1/entity.schema.json` | `entity_tags` at lines 79-81; `entity_type` enum at lines 57-65 |
 | Context formatter | `src/agent/context_formatter.py` | Entity header with tags at lines 79-84 |
 | Store merge logic | `src/store.py` | Alias cap `_MAX_ALIASES_PER_ENTITY = 20` line 30; tag merge `_MAX_ENTITY_TAGS_MERGED = 20` line 31; merge in `add_entities` lines 202-236 |
-| Status report | `report/REPORT-current-status.md` | Current counts, nano experiment notes |
+| Status report | [Historical status report](https://github.com/Drakosfire/DungeonMindBuddy/blob/3fbf800e0f134ba9a1396156c22c18c614c8f72d/report/REPORT-current-status.md) | Current counts, nano experiment notes |
 | Batch ingest tool | `tools/batch_ingest_corpus.py` | Script for running corpus-wide ingest |
 | Corpus frontmatter tool | `tools/corpus_split_and_frontmatter.py` | Session splitting + frontmatter annotation |
 | Temporal schema design doc | `Docs/Design/SCHEMA-document-temporal-metadata-v0.2.md` | Forward-only temporal metadata contract and examples |

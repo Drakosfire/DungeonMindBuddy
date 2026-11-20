@@ -1,7 +1,8 @@
 # Design Agent / Project Sources Export
 
 **Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies
-**Export refreshed:** 2026-09-26 DEMO reconciliation (repository mirror only)
+**Canonical content rechecked at:** `3836a2c74e7e5bf67e86d060e8b14cffe63bab3a`, with the bounded Campaign roadmap/caller retirement in this change
+**Repository refresh:** 2026-11-19. The README and DEMO roadmap exports were refreshed, the manifest links were repaired, the Campaign roadmap and its two dated sequencing callers were retired as current dispatch authority, and all 22 mapped exports were checked. This is not a full design/corpus audit; user-managed Project Sources were not changed.
 **Canonical source-set index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../../Design/INDEX-design-agent-source-set.md)
 
 This directory is the clean pickup point for refreshing ChatGPT immediate /
@@ -58,15 +59,24 @@ Do not upload as current:
 - `JUMPSTART-docs-relevance-first.md` — superseded;
 - download-suffixed historical copies.
 
-The Campaign roadmap's canonical path remains temporarily unrevised only because
-live UI PR #761 explicitly owns that path. Exclusion from this export is
-deliberate.
+The Campaign roadmap remains excluded from this export. Its canonical path is a
+historical forwarding record with the complete former body pinned in Git.
+The bounded settlement contract and caller dispositions are recorded in
+`Docs/Plans/HANDOFF-SETTLEMENT-retire-campaign-supergraph-roadmap.md`.
+Current work follows domain contracts and explicitly active bounded handoffs;
+this export does not provide a replacement global sequence.
 
 ## Maintenance rule
 
 Never repair an export copy in place. Repair the canonical document first, then
 refresh its mapped export copy byte-for-byte. The canonical source index owns
-the mapping.
+the mapping. The exported manifest is the sole exception: its mapped links point to
+the matching bundle copies, and its mirror link points to the bundle root.
+Other copied documents retain their canonical relative links; open the canonical
+document when following links outside this upload set.
 
-The old CON-READY and Playable sequence copies still on disk are historical
-2026-09-25 exports; exclude them from the current upload set.
+The historical 2026-09-25 exports remain available at these pinned links.
+
+- [ROADMAP-con-ready.md](https://github.com/Drakosfire/DungeonMindBuddy/blob/19424706b02166aec8592fd17fd66b36c20835d3/Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-con-ready.md)
+- [ROADMAP-playable-hoist-dungeonmind-kernel.md](https://github.com/Drakosfire/DungeonMindBuddy/blob/19424706b02166aec8592fd17fd66b36c20835d3/Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-playable-hoist-dungeonmind-kernel.md)
+- [STEWARDS-ANCHOR-con-ready.md](https://github.com/Drakosfire/DungeonMindBuddy/blob/19424706b02166aec8592fd17fd66b36c20835d3/Docs/Sources/design-agent/ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md)

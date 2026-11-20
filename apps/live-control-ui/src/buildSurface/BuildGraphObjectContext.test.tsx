@@ -6,9 +6,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
-import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
+import { session23WorldGraphRecapFixture } from "../test/worldGraphRecapFixture";
 import { BuildGraphObjectContext } from "./BuildGraphObjectContext";
+import { SelectedWorldProvider } from "../selectedWorld/SelectedWorldContext";
 import { BuildSurfacePage } from "./BuildSurfacePage";
 
 const buildSurfaceDir = path.dirname(fileURLToPath(import.meta.url));
@@ -59,6 +61,53 @@ describe("BuildGraphObjectContext", () => {
     );
   });
 
+  it("sends the native binding and revision with an explicit Build link", async () => {
+    window.history.replaceState({}, "", "/build?world=elderwyld&nativeWorld=elderwyld&bindingVersion=3&graphRevision=rev:fixture&graphNodeId=pc_caelynn");
+    const classic = vi.spyOn(liveApi, "postWorldGraphCompleteObject");
+    const native = vi.spyOn(liveApi, "postNativeWorldGraphCompleteObject")
+      .mockResolvedValue(completeObjectFixture());
+
+    render(<BuildGraphObjectContext />);
+
+    expect(await screen.findByText("Caelynn")).toBeInTheDocument();
+    expect(native).toHaveBeenCalledWith(
+      expect.objectContaining({ worldId: "elderwyld", scopeMode: "world", revisionPin: "rev:fixture", nodeId: "pc_caelynn" }),
+      { managed_world_id: "elderwyld", native_world_id: "elderwyld", binding_version: 3,
+        revision_id: "rev:fixture", scope_mode: "world", campaign_id: null },
+    );
+    expect(classic).not.toHaveBeenCalled();
+  });
+
+  it("opens a native object on the Build page after World admission", async () => {
+    window.history.replaceState({}, "", "/build?world=elderwyld&nativeWorld=elderwyld&bindingVersion=3&graphRevision=rev:fixture&graphNodeId=pc_caelynn");
+    vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{
+        schema_version: "dmb_world_container_record_v1", world_id: "elderwyld",
+        name: "Elderwyld", source_root_relpath: "", created_at: "",
+      }],
+    });
+    vi.spyOn(liveApi, "listWorkspacePageInventory").mockResolvedValue({
+      campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
+      schema_version: "dmb_workspace_document_registry_v1", records: [],
+    });
+    const native = vi.spyOn(liveApi, "postNativeWorldGraphCompleteObject")
+      .mockResolvedValue(completeObjectFixture());
+
+    render(
+      <SelectedWorldProvider locationSnapshot={window.location.href}>
+        <AgentInteractionProvider>
+          <PeekRegionProvider><SurfaceContextProvider>
+            <BuildSurfacePage />
+          </SurfaceContextProvider></PeekRegionProvider>
+        </AgentInteractionProvider>
+      </SelectedWorldProvider>,
+    );
+
+    expect(await screen.findByText("Caelynn")).toBeInTheDocument();
+    expect(native).toHaveBeenCalledTimes(1);
+  });
+
   it("surfaces partial completeness instead of ordinary ready", async () => {
     window.history.replaceState(
       {},
@@ -107,17 +156,20 @@ describe("BuildGraphObjectContext", () => {
       `/build?documentId=${documentId}&campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`,
     );
     vi.spyOn(liveApi, "createWorkspaceDocument");
-    vi.spyOn(liveApi, "listWorkspaceDocuments").mockResolvedValue({
+    vi.spyOn(liveApi, "listWorkspacePageInventory").mockResolvedValue({
+      campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [],
     });
-    vi.spyOn(liveApi, "getWorkspaceDocumentSnapshot").mockResolvedValue({
+    vi.spyOn(liveApi, "getWorkspaceDocumentSnapshot").mockImplementation(id => liveApi.getCommittedPageSnapshot(id));
+    vi.spyOn(liveApi, "getCommittedPageSnapshot").mockResolvedValue({
       schema_version: "dmb_workspace_document_snapshot_v1",
       record: {
         schema_version: "dmb_workspace_document_record_v1",
         document_id: documentId,
         title: "Untitled worldbuilding source",
         campaign_id: "longmont-c2",
+        world_id: "eldyrwild",
         target_session: null,
         kind: "worldbuilding_source",
         target_relpath: `out/workspace/worldbuilding/${documentId}.md`,
@@ -140,12 +192,12 @@ describe("BuildGraphObjectContext", () => {
     vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockResolvedValue(completeObjectFixture());
     render(
       <AgentInteractionProvider>
-        <SurfaceContextProvider>
+        <PeekRegionProvider><SurfaceContextProvider>
           <BuildSurfacePage />
-        </SurfaceContextProvider>
+        </SurfaceContextProvider></PeekRegionProvider>
       </AgentInteractionProvider>,
     );
-    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
   });

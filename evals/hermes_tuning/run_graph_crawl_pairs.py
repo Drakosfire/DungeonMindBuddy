@@ -465,7 +465,7 @@ def build_request(
         revision_pin=scope.revision_pin,
         session_id=session_id,
         retrieval_session_id=retrieval_session_id,
-        root=Path("/tmp"),
+        root=Path(os.environ["TMPDIR"]).resolve(),
         surface_context_block=build_context(case),
         capability_policy=policy,
     )
@@ -764,14 +764,14 @@ def main() -> int:
         raise SystemExit(
             "the remaining four cases require --resume after PRIME's pilot check-in"
         )
-    if args.resume and not args.output.resolve().is_relative_to(Path("/tmp")):
+    if args.resume and not args.output.resolve().is_relative_to(Path(os.environ["TMPDIR"]).resolve()):
         raise SystemExit(
-            "resuming the cohort must keep the cumulative raw artifact under /tmp"
+            "resuming the cohort must keep the cumulative raw artifact under the task scratch directory"
         )
     if args.stop_after == 2 and (
-        args.output is None or not args.output.resolve().is_relative_to(Path("/tmp"))
+        args.output is None or not args.output.resolve().is_relative_to(Path(os.environ["TMPDIR"]).resolve())
     ):
-        raise SystemExit("the two-pair pilot must write to an explicit /tmp path")
+        raise SystemExit("the two-pair pilot must write to an explicit path under the task scratch directory")
     if not args.resume and args.output:
         try:
             validate_fresh_output(args.output, resume=False)

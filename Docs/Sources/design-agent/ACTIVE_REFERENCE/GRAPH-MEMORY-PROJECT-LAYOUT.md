@@ -1,8 +1,8 @@
 # Graph Memory Project Layout
 
-This note records the current path boundary for graph-memory work. It is intentionally short: durable contracts should be easy to find without turning evaluation directories into architecture owners.
+This note retains the June 2026 layout for historical context. Its union-store and file-output sections are not the current runtime authority. Product extraction now lives in `src/graph_memory/extraction/graph_preview_runner.py` and `category_candidate_graph_extractor.py`; the compact preview extractor has been removed.
 
-**Current anchors:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md) · [`INDEX-design-agent-source-set.md`](INDEX-design-agent-source-set.md) · [`../Reports/graph-document-audit.md`](../Reports/graph-document-audit.md)
+**Historical anchors:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md) · [`INDEX-design-agent-source-set.md`](INDEX-design-agent-source-set.md) · [`../Reports/graph-document-audit.md`](../Reports/graph-document-audit.md)
 
 ## Boundaries
 
@@ -23,9 +23,8 @@ This note records the current path boundary for graph-memory work. It is intenti
 | `apps/live_control_server/services/union_supergraph_projection_adapter.py` | Build projection payload from union store |
 | `apps/live_control_server/routes/graph_preview.py` | Graph preview API for `/plan` and ingest UI |
 | `apps/live-control-ui/src/modules/IngestionModule.tsx` | One-click recap + graph projection UI |
-| `evals/graph_memory_layer/graph_preview_runner.py` | Source-span bundle + candidate extraction runner (used by runtime) |
-| `evals/graph_memory_layer/category_graph_model_study.py` | **Proven** category-decomposed extraction (`run_category_pipeline`); target for product runtime |
-| `src/graph_memory/extraction/preview_candidate_graph_extractor.py` | **Temporary bridge** — single compact GPT call (~12-node cap); not the quality path |
+| `src/graph_memory/extraction/graph_preview_runner.py` | Product source-span and registered category-extraction runner |
+| `src/graph_memory/extraction/category_candidate_graph_extractor.py` | Product category-decomposed extraction; the eval study exercises this owner |
 
 **Proven extraction pipeline** (category study, `anchor_quote_n3` n=3 on Session 22, `gpt-5.4-mini`, node recall ~0.80–0.88):
 
@@ -41,10 +40,10 @@ normalized recap
 → projection payload (recap chips / node views)
 ```
 
-**What one-click ingest runs today** (stub until category pipeline is wired):
+**Current product extraction path** (publication remains a separate reviewed operation):
 
 ```text
-normalized recap → source spans → preview_candidate_graph_extractor (single gpt-5-mini call, ~12-node cap) → …
+registered source → source spans → category passes → deterministic assembly → candidate validation → retained extraction output
 ```
 
 ### Durable graph contracts (`src/graph_memory`)
@@ -55,7 +54,7 @@ normalized recap → source spans → preview_candidate_graph_extractor (single 
 | `projection/` | Recap projection, focus overlay, node view |
 | `ingestion/` | Graph ingest run manifest, validation |
 | `evidence/` | Source artifact, evidence ref, source domain |
-| `extraction/` | Preview candidate graph extractor (stub; graduate `run_category_pipeline` here) |
+| `extraction/` | Product category extraction, registered profiles and execution adapters |
 | `candidate_graph_preview.py` | Candidate graph preview IR helpers |
 
 ### Proof / eval only (`evals/graph_memory_layer`)
@@ -64,9 +63,8 @@ normalized recap → source spans → preview_candidate_graph_extractor (single 
 |--------|-------|--------|
 | Active validators | `validate_*.py`, `report_*.py` at eval root | Contract gates and diagnostic reports |
 | Manual gold fixtures | `examples/session_23_candidate_graph_gold/`, `examples/session_24_manual_projection_dogfood/` | Hand-authored gold; **not** runtime extractor output |
-| Category-decomposed extraction (proven, eval harness) | `category_graph_model_study.py`, `artifacts/category_graph_model_study/2026-06-26/anchor_quote_n3/` | 7-pass pipeline (5 category node + beat + edge); **target for product runtime** |
+| Category extraction evaluation | `category_graph_model_study.py`, `artifacts/category_graph_model_study/2026-06-26/anchor_quote_n3/` | Historical seven-pass measurements; current product owner is listed above |
 | Multi-pass contract (design reference) | `examples/multi_pass_extraction_contract/`, `examples/eval_only_extractor_harness/` | Broader 9-pass contract sketch for Session 23; category study is the graduated slice |
-| Preview compact extractor (runtime stub) | `src/graph_memory/extraction/preview_candidate_graph_extractor.py` | Single-call bridge wired today; replace with category pipeline |
 | Generated graph runs | `artifacts/graph_ingest_runs/`, `out/graph_memory/runs/` | Local/generated; gitignored or artifact-only |
 | Static UI prototypes | `examples/static_preview_graph_ui_prototype/` | Review-only HTML |
 | Live extractor harness | `examples/live_extractor_prompt_harness/`, `runs/live_extractor_prompt_harness/` | Manual prompt render + untrusted candidate output |

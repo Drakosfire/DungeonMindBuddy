@@ -34,11 +34,12 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphObjectAuthoringError,
     GraphObjectAuthoringPrepareRequest,
     build_assertions_from_proposals,
-    build_confirm_token,
     classify_graph_review_expressibility,
     prepare_graph_object_authoring_write,
     stable_json_digest,
+    VerifiedGraphReviewSpan,
 )
+from graph_memory.evidence.source_artifact import build_world_scoped_recap_source_artifact_id
 
 CAMPAIGN_ID = "longmont-c1"
 TEST_CAMPAIGN_REL = "Test Campaign/A5"
@@ -173,10 +174,46 @@ def fake_resolved_source(*, campaign_id: str = CAMPAIGN_ID, world_id: str | None
 @pytest.fixture(autouse=True)
 def graph_review_unit_seams(monkeypatch: pytest.MonkeyPatch) -> FakeSourceAdmission:
     monkeypatch.setenv(GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, "d2c4-unit-test-key")
+    # These unit tests isolate proposal/signature behavior; registered ownership
+    # and distinct native routing are exercised by test_graph_object_authoring_world_binding.
+    from apps.live_control_server.services.graph_object_authoring_binding import GraphReviewPublicationContext
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_object_authoring_binding.resolve_publication_context",
+        lambda request, resolved, **_: GraphReviewPublicationContext(request.world_id or request.campaign_id, request.campaign_id),
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.source_artifact_registry.load_source_input_bytes",
+        lambda artifact: b"Synthetic proposal unit-test body",
+    )
     fake = FakeSourceAdmission()
     monkeypatch.setattr(
         "apps.live_control_server.ports.world_graph_source_admission_access.get_world_graph_source_admission_authority",
         lambda: fake,
+    )
+    def verified_unit_spans(*, assertions, resolved_source, **_kwargs):
+        artifact = resolved_source.source_artifact
+        return {
+            assertion.assertion_id: VerifiedGraphReviewSpan(
+                assertion_id=assertion.assertion_id,
+                evidence_ref_id=f"grauth-ev:{artifact.source_artifact_id}:{assertion.assertion_id}",
+                source_artifact_id=artifact.source_artifact_id,
+                source_revision_id=resolved_source.source_revision_id,
+                source_domain="worldbuilding",
+                source_span_ref_id=f"unit:{assertion.assertion_id}",
+                source_content_sha256="ab" * 32,
+                span_content_sha256="cd" * 32,
+                span_index_sha256="ef" * 32,
+                visibility_state="internal",
+            )
+            for assertion in assertions
+        }
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_object_authoring_prepare.verify_graph_review_assertion_spans",
+        verified_unit_spans,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_object_authoring_commit.verify_graph_review_assertion_spans",
+        verified_unit_spans,
     )
     return fake
 
@@ -271,7 +308,7 @@ def relationship_proposal(**overrides) -> dict[str, object]:
             "label": "Bonogo",
             "kind": "pc",
         },
-        "relationshipType": "has_member",
+        "relationshipType": "associated_with",
         "direction": "directed",
         "visibility": _visibility(),
         "graphScopes": ["recap_graph", "campaign_memory_graph"],
@@ -623,33 +660,14 @@ def test_prepare_response_includes_no_mutation_guarantees(store: GraphAuthoringO
         prepare_request(),
         corpus_root=store.corpus_root,
     )
-    assert "Prepare wrote nothing." in response.no_mutation_guarantees
+    assert "Prepared a World Graph change; no graph assertions were published." in response.no_mutation_guarantees
+    assert response.event_count == 0
     assert any("graph gold" in item.lower() for item in response.no_mutation_guarantees)
 
 
 def test_confirm_token_uses_stable_json_digest() -> None:
     assert stable_json_digest({"a": 1}) == stable_json_digest({"a": 1})
     assert stable_json_digest({"a": 1}) != stable_json_digest({"a": 2})
-
-
-def test_build_confirm_token_changes_when_assertions_change() -> None:
-    request_a = prepare_request(proposals=[object_proposal()])
-    request_b = prepare_request(proposals=[object_proposal(localProposalId="local-object-2")])
-    assertions_a, _ = build_assertions_from_proposals(request_a)
-    assertions_b, _ = build_assertions_from_proposals(request_b)
-    token_a = build_confirm_token(
-        campaign_id=CAMPAIGN_ID,
-        overlay_path="/tmp/overlay.json",
-        current_overlay_token="abc",
-        assertions=assertions_a,
-    )
-    token_b = build_confirm_token(
-        campaign_id=CAMPAIGN_ID,
-        overlay_path="/tmp/overlay.json",
-        current_overlay_token="abc",
-        assertions=assertions_b,
-    )
-    assert token_a != token_b
 
 
 def test_classify_object_is_expressible() -> None:
@@ -730,7 +748,12 @@ def test_prepare_recap_selector_resolves_server_owned_source(
     )
 
     assert response.prepared is True
-    assert response.source_artifact_id == "artifact:recap:longmont-c1:session-2:" + digest[:12]
+    assert response.source_artifact_id == build_world_scoped_recap_source_artifact_id(
+        world_id=CAMPAIGN_ID,
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-2",
+        content_sha256=digest,
+    )
     assert response.source_revision_id == f"sha256:{digest}"
     assert response.expected_parent_revision_id == "rev:d0"
     assert authority.revision_id == "rev:d0"

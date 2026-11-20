@@ -8,7 +8,7 @@ import {
   resolveInitialReviewCampaignId,
   resolveSessionRecapContext,
   syncReviewCampaignUrl,
-} from "../sessionCampaignContext";
+} from "../../graphLens/sessionCampaignContext";
 import { GraphIngestProjectionPanel } from "./GraphIngestProjectionPanel";
 import {
   filterNumericRecapArtifactRecords,

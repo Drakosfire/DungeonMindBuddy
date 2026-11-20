@@ -4,15 +4,12 @@ import {
   getGoldGraphProjection,
   getGoldReviewEvidence,
   postWorldGraphProjection,
-  verifyGraphGoldAuthoringCommit,
   LiveApiError,
 } from "../../api/liveApi";
 import type {
   ExtractPromoteConfirmReceipt,
   ExtractPromotePrepareResponse,
   GoldGraphProjectionResponse,
-  GraphGoldAuthoringCommitResponse,
-  GraphGoldAuthoringVerifyCommitResponse,
   GoldReviewCompareResponse,
   GoldReviewEvidenceDiffResponse,
   GraphReviewLane,
@@ -80,6 +77,8 @@ export interface UseGraphReviewLiveReviewStateOptions {
   sessionId: string;
   liveRun: GraphReviewCatalogRun | null;
   committedBinding?: GraphReviewCommittedBinding | null;
+  /** Exact native World from the admitted run, independent of source campaign aliases. */
+  committedWorldId?: string | null;
   hasGold?: boolean;
   compare?: GoldReviewCompareResponse | null;
   compareStatus?: "idle" | "loading" | "ready" | "error";
@@ -106,6 +105,7 @@ export function useGraphReviewLiveReviewState({
   sessionId,
   liveRun,
   committedBinding = null,
+  committedWorldId = null,
   hasGold = false,
   compare = null,
   goldLane = null,
@@ -222,8 +222,8 @@ export function useGraphReviewLiveReviewState({
       return;
     }
 
-    // CUTOVER D.3A: store-backed UnionSupergraph preview is retired. Do not
-    // call getUnionSupergraphProjection; committed DungeonMind projection remains.
+    // Store-backed Union preview is retired; committed DungeonMind projection
+    // remains the native authority.
     setProjectionStatus("retired");
   }, [liveRun, liveRunKey]);
 
@@ -322,6 +322,7 @@ export function useGraphReviewLiveReviewState({
           campaignId: trimmedCampaign,
           sessionId,
           receipt: adoption.receipt,
+          verifiedWorldId: committedWorldId,
         });
       if (!request) {
         if (!committedBindingsEqual(adoptBinding, committedBindingRef.current)) {
@@ -405,7 +406,7 @@ export function useGraphReviewLiveReviewState({
         throw error instanceof Error ? error : new Error(message);
       }
     },
-    [campaignId, sessionId],
+    [campaignId, sessionId, committedWorldId],
   );
 
   const adoptCommittedReceipt = useCallback(
@@ -451,31 +452,27 @@ export function useGraphReviewLiveReviewState({
   );
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setGoldProjection(null);
     setGoldProjectionError(null);
     if (!hasGold || !campaignId || !sessionId) {
       setGoldProjectionStatus("idle");
-      return () => {
-        cancelled = true;
-      };
+      return;
     }
     setGoldProjectionStatus("loading");
-    void getGoldGraphProjection({ campaignId, sessionId })
+    void getGoldGraphProjection({ campaignId, sessionId }, controller.signal)
       .then((response) => {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setGoldProjection(response);
         setGoldProjectionStatus("ready");
       })
       .catch((error) => {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setGoldProjection(null);
         setGoldProjectionStatus("error");
         setGoldProjectionError(friendlyProjectionError(error));
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [campaignId, hasGold, sessionId]);
 
   const selectGoldNodeCard = useCallback(
@@ -515,43 +512,7 @@ export function useGraphReviewLiveReviewState({
     [projection?.node_views, selectGoldNodeCard],
   );
 
-  const reloadGoldProjectionAndVerifyCommit = useCallback(
-    async (
-      commitResponse: GraphGoldAuthoringCommitResponse,
-    ): Promise<GraphGoldAuthoringVerifyCommitResponse> => {
-      try {
-        const refreshed = await reloadGoldProjection();
-        const verification = await verifyGraphGoldAuthoringCommit({
-          schema: "dmb_graph_gold_authoring_verify_commit_request_v1",
-          campaign_id: commitResponse.campaign_id,
-          session_id: commitResponse.session_id,
-          commit_id: commitResponse.commit_id,
-          applied_operations: commitResponse.applied_operations,
-        });
-        const firstVisible = verification.checked_operations.find(
-          (operation) =>
-            operation.verification_status === "found_in_gold_projection" &&
-            operation.target_id &&
-            refreshed.node_views[operation.target_id],
-        );
-        if (firstVisible?.target_id) {
-          selectGoldNodeCard(firstVisible.target_id, refreshed);
-        }
-        return verification;
-      } catch (error) {
-        setGoldProjectionStatus("error");
-        setGoldProjectionError(friendlyProjectionError(error));
-        throw error;
-      }
-    },
-    [reloadGoldProjection, selectGoldNodeCard],
-  );
-
-  const authorDraft = useGraphReviewAuthorDraftWorkflow({
-    campaignId,
-    sessionId,
-    onReloadAndVerifyCommit: reloadGoldProjectionAndVerifyCommit,
-  });
+  const authorDraft = useGraphReviewAuthorDraftWorkflow();
 
   useEffect(() => {
     setSelectedSourceSpanId(null);
@@ -768,7 +729,6 @@ export function useGraphReviewLiveReviewState({
     goldProjectionStatus,
     goldProjectionError,
     reloadGoldProjection,
-    reloadGoldProjectionAndVerifyCommit,
     deltaIndex,
     sourceSpanDeltaIndex,
     paragraphSourceSpans,

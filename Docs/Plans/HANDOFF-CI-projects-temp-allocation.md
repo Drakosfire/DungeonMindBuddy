@@ -1,0 +1,108 @@
+# CI: keep local frontend verification off the root filesystem
+
+Status: ACTIVE. PR topology: parallel-independent.
+
+## Authority and lane
+
+The coordinator adopts this bounded repair under the user's request to fix
+continuing temporary-file disk exhaustion. Design base was main
+573d72f9a5e4f296fdb7de055b85882a568969bb. Publication re-anchor is main
+49ac23cebc1194d84ae7bc67d2e7a63cf5060010, confirmed through the read-only GitHub
+connector on 2026-11-10. Only unrelated BUILD paths advanced. Direct Git fetch
+was network-policy blocked; both matching commits were already present locally.
+The lane was rebased onto the new main with unchanged implementation blobs.
+Branch: codex/frontend-projects-temp-allocator.
+
+## Invariant
+
+The local frontend verifier must not silently allocate its source worktree,
+dependency installation, subprocess temporary files or caches on root-backed
+system temp/home storage. Default to the verified Projects workspace, validate
+storage before allocation, and fail closed. Explicit root and filesystem UUID
+configuration supports another authorized executor without an automatic fallback.
+Keep exact-SHA evidence, the global resource lock, failures and owned cleanup.
+
+## Ownership and scope
+
+Exclusive expected write lease: scripts/ci_local_frontend.py;
+tests/test_ci_local_frontend.py; this handoff; the narrow local-verification
+instructions in AGENTS.md. Open CI PRs 2288, 2298, 2299 and 2302 were inspected;
+none owns the allocator/test paths. Product lanes are independent. No frontend
+product change, global setting, live data cleanup, merge or deployment.
+
+## Verification
+
+Run the verifier guard tests with real Git fixture worktrees and all test scratch
+on Projects. Cover unset/hostile ambient TMPDIR, root/default selection, wrong UUID,
+missing/unwritable roots, symlink escape, child cache/temp routing, and existing
+success/failure/interruption cleanup. Run adjacent contract guards and inventory.
+Do not equate stubbed npm contract tests with a full frontend suite.
+
+## Retention
+
+Task root: /home/drakosfire/Projects/.codex/frontend-temp-allocator-20261110.
+Its worktree, scratch and cache are owned by this repair. Retain source and evidence
+for review; no existing files, shared caches or other worktrees are deleted.
+Clean up retained reproducible task artifacts only after review and authorization.
+
+## Implementation evidence
+
+The allocator ignores ambient temp/cache defaults, checks the resolved workspace
+and evidence filesystem before allocation, and passes task-owned temp/cache
+settings to Node/npm/Git children. The tiny persistent `/tmp` lock remains the
+same inode/coordination boundary. `--workspace-root` plus `--workspace-uuid`
+provides explicit portability; there is no automatic storage fallback.
+
+Local guard result: 46 passed, including real fixture Git worktrees, a real child
+Python temp-path probe, cancellation cleanup and storage failure cases. Actual
+host preflight confirms the expected Projects UUID. AST parsing and diff whitespace
+checks pass. Existing Python plugin deprecation warnings remain.
+
+The adjacent contract suite is 13 passed / 1 failed on both the candidate and an
+isolated exact-base 573d72f9a checkout: inventory lacks classification for
+`apps/live-control-ui/src/media/MediaImageWizard.edit.test.tsx`. The inventory
+command reports that same inherited failure. No classification is silently added
+outside this lease. No npm download, full frontend run or product build is claimed.
+
+Retained paths under the task root: `worktrees/buddy` (implementation, about 313 MB),
+`verification/baseline` (exact-base failure witness, about 313 MB), `scratch`
+(test fixtures/logs, about 3 MB), `cache` (empty). All are on the Projects UUID.
+No prior data, shared caches or other-task files were removed; reclaimed bytes: 0.
+Only newly generated fixture worktrees/temp directories were cleaned by their tests.
+The worktree is not on main. After review/publication, request scoped cleanup of
+retained reproducible artifacts; preserve implementation commits and evidence first.
+
+
+Independent review identified two boundary gaps on the first candidate: npm
+accepts mixed-case environment aliases, and `--repo` may name a subdirectory.
+Both were reproduced without network access. The repair removes all inherited
+case variants of npm's cache key and resolves the actual Git top-level before
+checking repository-local destinations. Owning regressions cover both paths.
+
+
+## Bounded inventory repair and renewed base
+
+The coordinator explicitly adopts a one-entry split of the shared inventory lease
+for PR2392: add `apps/live-control-ui/src/media/MediaImageWizard.edit.test.tsx`
+to `ci/test-classification.json`'s existing fast lane, beside its sibling test.
+Read-only live PR2288/2298/2299/2302 classification patches affect only other
+entries/config hashes; their local classification files are clean. No overlapping
+media-entry edit exists. This repairs inventory completeness without changing
+selectors, test bodies, contracts or runner commands. It is not a test exemption.
+
+The lane is rebased onto independently verified main
+168d19f983d08e388f8735b426e56ba829eefbbb; intervening QA paths are unrelated.
+The prior inherited failure and original evidence remain historical facts. Run
+the exact updated head's guards/inventory and publish only the narrow repair;
+independent review and merge authority remain separate.
+
+
+## Final integration refresh
+
+Main advanced to b8e67118bafd697bec15c543a9fa45e3656cf030 after the prior green
+hosted composition. Its changes are confined to unrelated QA handoff updates and
+existing backend fixture files. The merge attempt was denied because that exact
+base was untested; no merge occurred. The coordinator directs a rebase and fresh
+local/hosted evidence plus independent review before considering another merge.
+The allocator, its tests and the one-entry inventory correction are unchanged.
+No deployment, global setting change or preexisting data cleanup is authorized.

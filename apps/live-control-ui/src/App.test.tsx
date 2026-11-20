@@ -1,80 +1,65 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
 import * as liveApi from "./api/liveApi";
-import * as ingestRunCatalogApi from "./ingestSurface/ingestRunCatalogApi";
 import type {
   WorldGraphProjection,
   WorldGraphProjectionRequest,
   WorkspaceCommittedRevision,
   WorkspaceDocumentSnapshot,
 } from "./api/types";
-import type { AppChromeTools, AppChromeToolsGeneration } from "./chrome/AppChrome";
-import { buildViewExactTestSeam } from "./buildSurface/reference/BuildReferenceCapability";
 import { fixtureWorkspaceDocumentRecord, FIXTURE_DOC_ID } from "./planSurface/config/planSessionDescriptor";
 import { NORTH_GATE_RUNBOOK_TARGET_RELPATH } from "./tiptap/descriptors/tiptapRunbookDescriptors";
 import { makeCapabilityResponse, makeRollTableArtifact, mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
 
-const stableTiptapAction = () => undefined;
-const stableTiptapEditorTools: AppChromeTools = {
-  pinnedActions: [
-    {
-      id: "tiptap-lock-editor",
-      eyebrow: "Edit state",
-      label: "Lock editor",
-      onClick: stableTiptapAction,
-    },
-  ],
-  sections: [
-    {
-      id: "tiptap-insert-blocks",
-      title: "Insert blocks",
-      defaultOpen: true,
-      actions: [
-        {
-          id: "insert-gm",
-          eyebrow: "Insert",
-          label: "GM Note",
-          onClick: stableTiptapAction,
-        },
-      ],
-    },
-  ],
-};
-const stableTiptapEditorToolsGeneration: AppChromeToolsGeneration = {
-  target: { kind: "spike", id: "tiptap-callout-spike" },
-  tools: stableTiptapEditorTools,
-};
-
-vi.mock("./tiptap/TiptapCalloutBridgeSpike", () => ({
-  TiptapCalloutBridgeSpike({
-    onEditorToolsChange,
-  }: {
-    onEditorToolsChange?: (tools: AppChromeToolsGeneration | null) => void;
-  }) {
-    useEffect(() => {
-      onEditorToolsChange?.(stableTiptapEditorToolsGeneration);
-      return () => onEditorToolsChange?.(null);
-    }, [onEditorToolsChange]);
-    return (
-      <main className="tiptap-spike-page">
-        <header className="tiptap-spike-header">
-          <h1>Tiptap Session Runbook Editor</h1>
-        </header>
-        <div data-testid="tiptap-editor" />
-      </main>
-    );
+const playShellHarness = vi.hoisted(() => ({ active: false }));
+const indexGraphApiHarness = vi.hoisted(() => ({
+  api: {
+    readGraph: vi.fn(),
+    prepare: vi.fn(),
+    confirm: vi.fn(),
+    readOperation: vi.fn(),
   },
 }));
+vi.mock("./nativeGraphDemo/buddyIndexGraphApi", () => ({
+  createBuddyIndexGraphApi: () => indexGraphApiHarness.api,
+}));
+vi.mock("./localWorld/indexedDbLocalWorldRepository", async importOriginal => {
+  const actual = await importOriginal<typeof import("./localWorld/indexedDbLocalWorldRepository")>();
+  const { InMemoryLocalWorldRepository } = await import("./localWorld/inMemoryLocalWorldRepository");
+  return { ...actual, openIndexedDbLocalWorldRepository: async () => ({
+    status: "opened" as const, repository: new InMemoryLocalWorldRepository(),
+  }) };
+});
+
+vi.mock("./selectedWorld/SelectedWorldContext", async importOriginal => {
+  const actual = await importOriginal<typeof import("./selectedWorld/SelectedWorldContext")>();
+  return { ...actual, SelectedWorldProvider: (props: { children: React.ReactNode; locationSnapshot: string }) =>
+    playShellHarness.active ? <>{props.children}</> : <actual.SelectedWorldProvider {...props} /> };
+});
+
+const indexGraph = {
+  world_id: "private-app-test-space",
+  revision_id: "revision-app-test-1",
+  graph_sha256: "sha256:app-test-graph",
+  nodes: [
+    { id: "entity:lina", name: "Lina", kind: "person" },
+    { id: "entity:pike", name: "Pike", kind: "person" },
+  ],
+  edges: [{ id: "assertion:knows", source_id: "entity:lina", target_id: "entity:pike", predicate: "knows" }],
+  storage: "postgres",
+  limitations: ["Event typing is not available in this native profile."],
+  capabilities: { create: true, connect: true, rename: false, delete: false, object_kinds: ["person", "location"] },
+};
 
 vi.mock("./api/liveApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./api/liveApi")>();
   return {
     ...actual,
     getSurface: vi.fn(),
+    getSurfaceSessionViews: vi.fn(),
     getEvents: vi.fn(),
     getJobs: vi.fn(),
     getPlanView: vi.fn(),
@@ -87,6 +72,7 @@ vi.mock("./api/liveApi", async (importOriginal) => {
     commitTiptapMarkdownWrite: vi.fn(),
     listWorkspaceDocuments: vi.fn(),
     getWorkspaceDocument: vi.fn(),
+    getWorkspaceDocumentAny: vi.fn(),
     getWorkspaceDocumentSnapshot: vi.fn(),
     getPlayActiveRun: vi.fn(),
     putPlayActiveRun: vi.fn(),
@@ -99,14 +85,6 @@ vi.mock("./api/liveApi", async (importOriginal) => {
     putPlayRun: vi.fn(),
     putPlayRunReferenceManifest: vi.fn(),
     putPlayRunProgress: vi.fn(),
-  };
-});
-
-vi.mock("./ingestSurface/ingestRunCatalogApi", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./ingestSurface/ingestRunCatalogApi")>();
-  return {
-    ...actual,
-    getExtractionRunCatalog: vi.fn(),
   };
 });
 
@@ -172,12 +150,27 @@ function matchingWorldGraphProjection(
 describe("App inspector integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    playShellHarness.active = false;
     window.history.pushState({}, "", "/");
     localStorage.clear();
+    indexGraphApiHarness.api.readGraph.mockResolvedValue(indexGraph);
+    indexGraphApiHarness.api.prepare.mockResolvedValue({
+      status: "prepared", operation_id: "app-test-op", parent_revision_id: indexGraph.revision_id, review: { summary: "Create an object." },
+    });
+    indexGraphApiHarness.api.confirm.mockResolvedValue({ status: "committed", graph: indexGraph });
+    indexGraphApiHarness.api.readOperation.mockResolvedValue({ status: "not_found", operation_id: "app-test-op" });
     vi.mocked(liveApi.getSurface).mockResolvedValue({
       catalog: mockCatalog,
       layout: mockLayout,
       state: mockState,
+    });
+    vi.mocked(liveApi.getSurfaceSessionViews).mockResolvedValue({
+      catalog: mockCatalog,
+      layout: mockLayout,
+      state: mockState,
+      events: [],
+      jobs: [],
+      plan_view: mockPlanView,
     });
     vi.mocked(liveApi.getEvents).mockResolvedValue({ events: [] });
     vi.mocked(liveApi.getJobs).mockResolvedValue({ jobs: [] });
@@ -185,10 +178,6 @@ describe("App inspector integration", () => {
     vi.mocked(liveApi.getGraphIngestRuns).mockResolvedValue({
       schema_version: "dmb_graph_ingest_run_registry_v1",
       version: "test",
-      runs: [],
-    });
-    vi.mocked(ingestRunCatalogApi.getExtractionRunCatalog).mockResolvedValue({
-      schema_version: "dmb_extraction_run_catalog_v1",
       runs: [],
     });
     vi.mocked(liveApi.getGoldReviewSessions).mockResolvedValue({
@@ -219,6 +208,10 @@ describe("App inspector integration", () => {
       if (documentId === FIXTURE_DOC_ID) {
         return northGateRunbookRecord();
       }
+      return fixtureWorkspaceDocumentRecord({ document_id: documentId });
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentAny).mockImplementation(async (documentId) => {
+      if (documentId === FIXTURE_DOC_ID) return northGateRunbookRecord();
       return fixtureWorkspaceDocumentRecord({ document_id: documentId });
     });
     vi.mocked(liveApi.createWorkspaceDocument).mockImplementation(async (payload) => {
@@ -294,36 +287,57 @@ describe("App inspector integration", () => {
     );
   });
 
-  it("renders the launcher and Index Agent chrome at the root route", async () => {
+  it("renders the Buddy graph at /graph with older browser Worlds kept secondary", async () => {
+    window.history.pushState({}, "", "/graph");
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: /command board/i })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Open" })).toBeInTheDocument();
-    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "index");
-    expect(screen.getByRole("link", { name: /plan prep surface/i })).toHaveAttribute("href", "/plan");
-    expect(screen.getByRole("link", { name: /play runbook table deck/i })).toHaveAttribute("href", "/play");
-    expect(screen.getByRole("link", { name: /ingest memory review/i })).toHaveAttribute("href", "/ingest");
-    expect(screen.getByRole("link", { name: /build worldbuilding source/i })).toHaveAttribute("href", "/build");
-    expect(screen.getByRole("link", { name: /combat tracker north reach gate tracker/i })).toHaveAttribute(
-      "href",
-      "/combat",
-    );
+    expect(await screen.findByRole("heading", { name: /buddy graph playground/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
+    expect(screen.getByText("Buddy playground · private graph")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Graph tools" }));
+    expect(screen.getByRole("button", { name: "Add object" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "More graph actions" }));
+    expect(screen.getByRole("button", { name: "Export snapshot" })).toBeInTheDocument();
+    expect(screen.getByText("Existing browser-only Worlds and notes")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "My World" })).not.toBeInTheDocument();
+
+    await userEvent.setup().click(screen.getByText("Existing browser-only Worlds and notes"));
+    expect(await screen.findByRole("heading", { name: "My World" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create World" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Edit World title" })).toBeInTheDocument();
+    const navigation = screen.getByRole("navigation", { name: "Command board navigation" });
+    fireEvent.click(within(navigation).getByRole("button", { name: "Open navigation" }));
+    expect(within(navigation).getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan");
+    expect(within(navigation).getByRole("link", { name: "Build" })).toHaveAttribute("href", "/build");
     expect(screen.queryByRole("link", { name: /live control/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /live play/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /retrieval/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /tiptap|developer spike/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Graph tools" }));
+    expect(within(screen.getByTestId("surface-context-module")).getByRole("button", { name: "Add object" })).toBeInTheDocument();
+    await userEvent.setup().type(screen.getByLabelText("Create a World"), "Chrome-owned World");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Create World" }));
+    expect(await screen.findByRole("heading", { name: "Chrome-owned World" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Graph tools" }));
+    expect(within(screen.getByTestId("surface-context-module")).getByRole("button", { name: "Add object" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Projection" })).not.toBeInTheDocument();
     expect(liveApi.getSurface).not.toHaveBeenCalled();
   });
 
-  it("keeps primary site nav to core product surfaces", () => {
+  it("links the landing page to core product surfaces and opens Graph", async () => {
     render(<App />);
 
-    const nav = screen.getByRole("navigation", { name: "Command board navigation" });
+    const nav = await screen.findByRole("navigation", { name: "Command board navigation" });
+    fireEvent.click(within(nav).getByRole("button", { name: "Open navigation" }));
     const links = within(nav).getAllByRole("link");
+    expect(screen.getByRole("heading", { name: "Your world, ready for the table." })).toBeInTheDocument();
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "/",
+      "/graph",
       "/plan",
       "/play",
       "/ingest",
@@ -333,6 +347,9 @@ describe("App inspector integration", () => {
     expect(within(nav).queryByRole("link", { name: "Live Control" })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("link", { name: "Live play" })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("link", { name: "Tiptap Spike" })).not.toBeInTheDocument();
+    fireEvent.click(within(nav).getByRole("link", { name: "Graph" }));
+    expect(window.location.pathname).toBe("/graph");
+    expect(await screen.findByRole("heading", { name: /buddy graph playground/i })).toBeInTheDocument();
   });
   it("opens empty inspector from app chrome control", async () => {
     const user = userEvent.setup();
@@ -343,49 +360,58 @@ describe("App inspector integration", () => {
       expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
     });
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(liveApi.getSurfaceSessionViews).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(screen.getByRole("button", { name: /inspector/i }));
-    expect(screen.getByText(/Select a timeline ref or record event to inspect/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Select a timeline ref or record event to inspect/i)).toBeInTheDocument();
   });
 
   it("renders plan surface from /plan", async () => {
-    const user = userEvent.setup();
-    window.history.pushState({}, "", "/plan");
-    render(<App />);
-
-    expect(await screen.findByTestId("plan-canvas-title")).toHaveTextContent(/C2 Session 23 Prep/i);
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
+    const worlds = vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{
+        schema_version: "dmb_world_container_record_v1",
+        world_id: "eldyrwild",
+        name: "Eldyrwild",
+        source_root_relpath: "",
+        created_at: "2026-01-01T00:00:00Z",
+      }],
     });
-    await user.click(screen.getByRole("button", { name: "Tools" }));
-    await user.click(screen.getByRole("button", { name: "Recap" }));
-    const toolbox = await screen.findByRole("navigation", { name: "Toolbox tools" });
-    expect(toolbox).toBeInTheDocument();
-    expect(document.querySelectorAll(".surface-projection-host")).toHaveLength(1);
-    expect(within(toolbox).queryByRole("button", { name: "Ingest Recap" })).not.toBeInTheDocument();
-    expect(within(toolbox).queryByRole("button", { name: "Graph Preview" })).not.toBeInTheDocument();
-    expect(within(toolbox).queryByRole("button", { name: "Graph Gold Review" })).not.toBeInTheDocument();
-    expect(within(toolbox).queryByRole("button", { name: "Graph Review" })).not.toBeInTheDocument();
-    expect(within(toolbox).queryByRole("button", { name: "Vocabulary Review" })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Plan canvas")).toBeInTheDocument();
-    expect(liveApi.getPlanView).toHaveBeenCalled();
+    const recoveryKey = "dmb:world-plan-local-draft:v2:eldyrwild";
+    const recovery = JSON.stringify({
+      schema_version: "dmb_plan_promotion_recovery_v2", scope_mode: "world",
+      world_id: "eldyrwild", document_id: null, title: "Unsaved session",
+      markdown: "# Recollections\nStill drafting.", revision: null,
+    });
+    localStorage.setItem(recoveryKey, recovery);
+    try {
+      window.history.pushState({}, "", "/plan");
+      render(<App />);
+
+      expect(await screen.findByRole("heading", { name: "Plan your next session" })).toBeInTheDocument();
+      const picker = screen.getByRole("region", { name: "Choose your World" });
+      expect(await within(picker).findByRole("link", { name: /Eldyrwild/ })).toHaveAttribute("href", "/plan?world=eldyrwild");
+      expect(screen.queryByTestId("plan-canvas-title")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Plan canvas")).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Toolbox tools" })).not.toBeInTheDocument();
+      expect(liveApi.getPlanView).not.toHaveBeenCalled();
+      expect(liveApi.listWorkspaceDocuments).not.toHaveBeenCalled();
+      expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+      expect(localStorage.getItem(recoveryKey)).toBe(recovery);
+    } finally {
+      worlds.mockRestore();
+    }
   });
 
-  it("renders memory ingest from /ingest", async () => {
+  it("renders the first-use Ingest landing from /ingest", async () => {
     window.history.pushState({}, "", "/ingest");
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "Graph Review Workbench" })).toBeInTheDocument();
-    expect(screen.queryByText(/Review extracted graph runs against gold/i)).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Ingest" })).toHaveClass("active");
-    expect(await screen.findByLabelText("Campaign")).toBeInTheDocument();
-    expect(screen.getByLabelText("Focus session")).toBeInTheDocument();
-    expect(screen.queryByText(/No canonical ExtractionRuns are stored yet/i)).not.toBeInTheDocument();
-    expect(screen.queryByTestId("graph-review-catalog-error")).not.toBeInTheDocument();
-    expect(liveApi.getPlanView).toHaveBeenCalled();
-    expect(ingestRunCatalogApi.getExtractionRunCatalog).toHaveBeenCalled();
+    expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ingest", hidden: true })).toHaveClass("active");
+    expect(screen.queryByRole("heading", { name: "Graph Review Workbench" })).not.toBeInTheDocument();
     expect(liveApi.getGraphIngestRuns).not.toHaveBeenCalled();
-    expect(liveApi.getGoldReviewSessions).toHaveBeenCalled();
+    expect(liveApi.getGoldReviewSessions).not.toHaveBeenCalled();
   });
 
   it("E1 bare /build: real App shows empty state and New source without auto-create", async () => {
@@ -397,29 +423,14 @@ describe("App inspector integration", () => {
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Build" })).toHaveClass("active");
+    expect(screen.getByRole("link", { name: "Build", hidden: true })).toHaveClass("active");
   });
 
-  it("E1/E5: real App /build route renders composition and viewExact seam", async () => {
-    buildViewExactTestSeam.reset();
+  it("E1/E5: real App /build route renders composition and native object inspection", async () => {
     const buildDocId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-    const glowkindleNode = {
-      nodeId: "npc-glowkindle",
-      label: "Glowkindle",
-      kind: "npc",
-      role: "merchant",
-      aliases: ["Glow"],
-      sourceDomains: ["recap"],
-      evidenceBadges: [],
-      adjacency: [],
-      suggestedExpansions: [],
-      evidenceRefIds: [],
-      sourceArtifactIds: [],
-      anchoredToFocusSession: true,
-      summary: "A friendly merchant.",
-    };
     const buildRecord = fixtureWorkspaceDocumentRecord({
       document_id: buildDocId,
+      world_id: "eldyrwild",
       title: "Faction Notes",
       campaign_id: "longmont-c1",
       target_session: null,
@@ -442,44 +453,31 @@ describe("App inspector integration", () => {
         file_exists: true,
       }),
     );
-    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
-      schema: "dmb_world_graph_projection_v1",
-      snapshot: {
-        worldId: "eldyrwild",
-        campaignId: "longmont-c1",
-        revisionId: "rev-1",
-        headRevisionId: "rev-1",
-        isHead: true,
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-        scopeMode: "campaign",
-      },
-      summary: {
-        nodeCount: 1,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [glowkindleNode],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
-    });
+    const scope = {managed_world_id:"eldyrwild",native_world_id:"eldyrwild",binding_version:3,revision_id:"native-rev",scope_mode:"world" as const,campaign_id:null};
+    const nativeCatalog = {schema:"dmb_native_graph_catalog_v1",scope,catalogue:{identity:{space_id:"eldyrwild",revision_id:"native-rev"},entities:[{entity_id:"ent:glowkindle"}],admitted_assertion_ids:[],completeness:{status:"complete",reason:null},request_sha256:"request",result_digest:"result"},assertions:[]};
+    const nativeDetail = {schema:"dmb_native_graph_entity_v1",scope,entity:{found:true,assertions:[],evidence:[],completeness:{status:"complete",reason:null}}};
 
+
+    const fetchSpy=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{
+      const path=new URL(String(input),window.location.origin).pathname;
+      const value=path==='/api/live/world-containers'?{schema_version:'dmb_world_container_registry_v1',records:[{schema_version:'dmb_world_container_record_v1',world_id:'eldyrwild',name:'World',source_root_relpath:'',created_at:'2026-01-01T00:00:00Z'}]}
+        :path===`/api/live/workspace-documents/${buildDocId}`?buildRecord
+        :path.startsWith(`/api/live/workspace-documents/${buildDocId}/snapshot`)?fixtureSnapshot({record:buildRecord,markdown:'# Faction Notes\n',content_sha256:'sha-build-e1',loaded_revision:2,file_fingerprint:'present',file_exists:true})
+        :path==='/api/live/native-graph-inspection/catalog'?nativeCatalog
+        :path==='/api/live/native-graph-inspection/read'?nativeDetail
+        :path.startsWith('/api/live/world-mechanics/associations')?[]:undefined;
+      if(value===undefined)throw new Error(`Unhandled App fixture request: ${path}`);
+      return new Response(JSON.stringify(value),{status:200,headers:{'Content-Type':'application/json'}});
+    });
+    liveApi.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    try {
     window.history.pushState({}, "", `/build?documentId=${buildDocId}&campaign=longmont-c1`);
     render(<App />);
 
     expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
-    expect(screen.getByTestId("build-source-mode-read")).toHaveAttribute("aria-pressed", "true");
-    expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
+    expect(screen.getByTestId("build-markdown-editor")).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Build" })).toHaveClass("active");
-    expect(screen.getByTestId("agent-interaction-chrome")).toBeInTheDocument();
-    expect(screen.getByTestId("agent-interaction-bar")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Build", hidden: true })).toHaveClass("active");
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
@@ -494,29 +492,17 @@ describe("App inspector integration", () => {
     await waitFor(() => {
       expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
     });
-    await user.type(screen.getByLabelText("Find objects"), "glow");
-    await user.click(screen.getByRole("button", { name: "View" }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
-    });
-    expect(
-      within(screen.getByTestId("graph-object-projection-card")).getByText("Glowkindle"),
-    ).toBeInTheDocument();
-    expect(buildViewExactTestSeam.lastGraphNodeId).toBe("npc-glowkindle");
-    expect(buildViewExactTestSeam.lastGraphScope).toEqual({
-      worldId: "eldyrwild",
-      campaignId: "longmont-c1",
-      scopeMode: "campaign",
-      revisionId: "rev-1",
-    });
+    await user.type(await screen.findByRole("searchbox",{name:"Find an object"}), "glow");
+    await user.click(screen.getByRole("button", { name: "ent:glowkindle", exact:true }));
+    expect(await screen.findByRole("article",{name:"Reviewed object details"})).toHaveTextContent("ent:glowkindle");
+    expect(fetchSpy.mock.calls.some(([url,options])=>String(url)==='/api/live/native-graph-inspection/read'&&JSON.parse(String(options?.body)).scope.revision_id==='native-rev')).toBe(true);
 
     await waitFor(() => {
       expect(document.querySelectorAll(".surface-projection-host")).toHaveLength(1);
     });
     expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
     expect(document.querySelectorAll('[data-testid="surface-edit-host"]')).toHaveLength(1);
-    expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
+    } finally { liveApi.setNativeGraphAccessToken(null); fetchSpy.mockRestore(); }
   });
 
   it("E7: route remount keeps singular ToolHost, EditHost, and Agent chrome", async () => {
@@ -535,43 +521,71 @@ describe("App inspector integration", () => {
       content_status: "committed",
       revision: 2,
     });
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
-      fixtureSnapshot({
+    const planId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const planRecord = {
+      schema_version: "dmb_world_owned_plan_record_v2", scope_mode: "world",
+      document_id: planId, title: "E7 saved Plan", campaign_id: null, world_id: "eldyrwild",
+      target_session: null, kind: "plan", target_relpath: `out/workspace/plan/${planId}.md`,
+      status: "active", content_status: "committed", revision: 1,
+      created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z",
+    } satisfies import("./api/types").WorldOwnedPlanRecordV2;
+    const planMarkdown = "# E7 saved Plan\nA quiet gate.\n";
+    const planDigest = "b".repeat(64);
+    const snapshot = fixtureSnapshot({
         record: buildRecord,
         markdown: "# Faction Notes\n",
         content_sha256: "sha-build-e7",
         loaded_revision: 2,
         file_fingerprint: "present",
         file_exists: true,
-      }),
-    );
-    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
-      schema: "dmb_world_graph_projection_v1",
-      snapshot: {
-        worldId: "eldyrwild",
-        campaignId: "longmont-c1",
-        revisionId: "rev-1",
-        headRevisionId: "rev-1",
-        isHead: true,
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-        scopeMode: "campaign",
-      },
-      summary: {
-        nodeCount: 0,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
+      });
+    const snapshotRead = vi.mocked(liveApi.getWorkspaceDocumentSnapshot);
+    const priorSnapshot = snapshotRead.getMockImplementation();
+    snapshotRead.mockResolvedValue(snapshot);
+    const priorDocument = vi.mocked(liveApi.getWorkspaceDocumentAny).getMockImplementation();
+    const page = vi.spyOn(liveApi, "getCommittedPageSnapshot").mockResolvedValue(snapshot);
+    const worlds = vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{ schema_version: "dmb_world_container_record_v1", world_id: "eldyrwild",
+        name: "Eldyrwild", source_root_relpath: "", created_at: "2026-01-01T00:00:00Z" }],
     });
+    vi.mocked(liveApi.getWorkspaceDocumentAny).mockImplementation(async (id) => {
+      if (id === planId) return planRecord;
+      if (id === buildDocId) return buildRecord;
+      throw new Error(`Unexpected E7 document: ${id}`);
+    });
+    const inventory = vi.spyOn(liveApi, "listWorkspacePageInventory").mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1", records: [buildRecord],
+      campaign_tags: null, next_before_updated_at: null, next_before_document_id: null,
+    });
+    const context = vi.spyOn(liveApi, "getManagedWorldPlanContext").mockResolvedValue({
+      schema_version: "dmb_managed_world_plan_context_v2", scope_mode: "world",
+      world_id: "eldyrwild", campaign_id: null, session: null, authoritative: false,
+      generated_at: "2026-01-01T00:00:00Z", derived_from: ["managed_world_container"], timeline: [],
+    });
+    const plans = vi.spyOn(liveApi, "listWorldOwnedPlans").mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v2", scope_mode: "world",
+      world_id: "eldyrwild", records: [planRecord],
+    });
+    const planSnapshot = vi.spyOn(liveApi, "getWorldOwnedPlanSnapshot").mockResolvedValue({
+      schema_version: "dmb_workspace_document_snapshot_v2", record: planRecord,
+      markdown: planMarkdown, content_sha256: planDigest, file_fingerprint: "present",
+      file_exists: true, loaded_revision: 1,
+    });
+    const committed = vi.spyOn(liveApi, "getWorldOwnedPlanCommittedRevision").mockResolvedValue({
+      schema_version: "dmb_workspace_committed_revision_v2", scope_mode: "world",
+      world_id: "eldyrwild", campaign_id: null, document_id: planId, kind: "plan",
+      title: planRecord.title, status: "active", object_revision: 1,
+      work_revision_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", revision_n: 1,
+      markdown: planMarkdown, content_sha256: planDigest, has_divergent_working_copy: false,
+      target_relpath: planRecord.target_relpath,
+    });
+    const history = vi.spyOn(liveApi, "getWorldAgentConversationHistory").mockResolvedValue({
+      schema: "dmb_agent_conversation_history_v1", world_id: "eldyrwild",
+      conversation_state: "absent", conversation_id: null, active_conversation_id: null,
+      pointer_revision: 0, turns: [], next_before_sequence: null,
+    });
+    try {
 
     window.history.pushState({}, "", `/build?documentId=${buildDocId}&campaign=longmont-c1`);
     const { unmount: unmountBuild } = render(<App />);
@@ -580,22 +594,38 @@ describe("App inspector integration", () => {
     await waitFor(() => {
       expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
       expect(document.querySelectorAll('[data-testid="surface-edit-host"]')).toHaveLength(1);
-      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(0);
     });
 
+    expect(page).toHaveBeenCalledWith(buildDocId);
+    expect(screen.getByTestId("build-markdown-editor")).toHaveTextContent("Faction Notes");
     unmountBuild();
+    expect(document.querySelectorAll('[data-testid="surface-tool-host"], [data-testid="surface-edit-host"], [data-testid="agent-interaction-chrome"], .plan-conversation-dock')).toHaveLength(0);
 
-    window.history.pushState({}, "", "/plan");
+    window.history.pushState({}, "", `/plan?world=eldyrwild&documentId=${planId}`);
     const { unmount: unmountPlan } = render(<App />);
 
-    expect(await screen.findByTestId("plan-canvas-title")).toHaveTextContent(/C2 Session 23 Prep/i);
+    await waitFor(() => {
+      const editor = screen.getByLabelText("Markdown plan");
+      expect(editor).toBeInTheDocument();
+      expect(editor).toHaveTextContent("A quiet gate.");
+    });
+    expect(planSnapshot).toHaveBeenCalledWith(planId);
+    expect(context).toHaveBeenCalledWith("eldyrwild");
+    expect(plans).toHaveBeenCalledWith("eldyrwild");
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Open", exact: true }));
+    expect(await screen.findByPlaceholderText("Ask Buddy, or tell it what to change…")).toBeInTheDocument();
     await waitFor(() => {
       expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
-      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
+      expect(document.querySelectorAll(".plan-conversation-dock")).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(0);
+      expect(screen.getAllByPlaceholderText("Ask Buddy, or tell it what to change…")).toHaveLength(1);
       expect(document.querySelectorAll('[data-testid="surface-edit-host"]').length).toBeLessThanOrEqual(1);
     });
 
+    await waitFor(() => expect(committed).toHaveBeenCalledWith(planId));
     unmountPlan();
+    expect(document.querySelectorAll('[data-testid="surface-tool-host"], [data-testid="surface-edit-host"], [data-testid="agent-interaction-chrome"], .plan-conversation-dock')).toHaveLength(0);
 
     window.history.pushState({}, "", `/build?documentId=${buildDocId}&campaign=longmont-c1`);
     render(<App />);
@@ -604,74 +634,46 @@ describe("App inspector integration", () => {
     await waitFor(() => {
       expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
       expect(document.querySelectorAll('[data-testid="surface-edit-host"]')).toHaveLength(1);
-      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(0);
     });
+    expect(screen.getByTestId("build-markdown-editor")).toHaveTextContent("Faction Notes");
+    expect(page).toHaveBeenCalledTimes(2);
+    } finally {
+      history.mockRestore(); committed.mockRestore(); planSnapshot.mockRestore();
+      plans.mockRestore(); context.mockRestore(); inventory.mockRestore();
+      worlds.mockRestore(); page.mockRestore();
+      snapshotRead.mockReset();
+      if (priorSnapshot) snapshotRead.mockImplementation(priorSnapshot);
+      const documentRead = vi.mocked(liveApi.getWorkspaceDocumentAny);
+      documentRead.mockReset();
+      if (priorDocument) documentRead.mockImplementation(priorDocument);
+    }
   });
 
-  it("renders the shared editor toolbar collapsed on the Tiptap spike route", async () => {
-    const runbookRecord = fixtureWorkspaceDocumentRecord({
-      document_id: FIXTURE_DOC_ID,
-      kind: "runbook",
-      title: "North Gate Session Runbook",
-      target_relpath: NORTH_GATE_RUNBOOK_TARGET_RELPATH,
-      target_session: 23,
-      revision: 1,
-    });
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
-      schema_version: "dmb_workspace_document_registry_v1",
-      records: [runbookRecord],
-    });
-    vi.mocked(liveApi.getWorkspaceDocument).mockResolvedValue(runbookRecord);
-    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(runbookRecord);
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
-      fixtureSnapshot({
-        record: runbookRecord,
-        loaded_revision: runbookRecord.revision,
-        markdown: "",
-      }),
-    );
+  describe("current Play shell", () => {
+  // World route admission has its own real-provider suite. This shell cohort keeps
+  // the campaign API scope fixed while exercising App routing and current-v2 cards.
+  beforeEach(() => { playShellHarness.active = true; });
 
-    window.history.pushState({}, "", "/tiptap-callout-spike");
-    render(<App />);
-
-    // Authority-safe open: runbook kind accepted; editor shell mounts under App chrome.
-    expect(await screen.findByRole("heading", { name: "Tiptap Session Runbook Editor" })).toBeInTheDocument();
-    expect(screen.getByTestId("tiptap-editor")).toBeInTheDocument();
-    expect(screen.queryByText(/wrong document kind|Failed to load runbook/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan");
-    expect(screen.queryByRole("link", { name: "Live play" })).not.toBeInTheDocument();
-
-    const editToggle = await screen.findByRole("button", { name: "Edit" });
-    expect(editToggle).toHaveAttribute("aria-expanded", "false");
-  });
-
+  function nativeReadyCalls() {
+    return vi.mocked(liveApi.getPlayRun).mock.calls.filter(([, options]) => options?.ensureNativeReady === true);
+  }
   const PLAY_RUN_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
   const PLAY_ARTIFACT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   const PLAY_SHA = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
   const PLAY_MARKDOWN = [
-    "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
-    "## Gate",
-    "",
-    "Scene intro.",
-    "",
-    "<!-- dmb-playable-element:v1 kind=beat id=beat:approach -->",
-    "### Approach",
-    "",
-    "Approach body.",
+    "<!-- dmb-playable-element:v2 kind=beat id=beat:approach -->",
+    "## Approach", "",
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->",
+    "### Gate", "", "Approach body.",
     "",
   ].join("\n");
   const PLAY_SHA_R4 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
   const PLAY_MARKDOWN_R4 = [
-    "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
-    "## Gate",
-    "",
-    "R4 replacement scene.",
-    "",
-    "<!-- dmb-playable-element:v1 kind=beat id=beat:approach -->",
-    "### Approach",
-    "",
+    "<!-- dmb-playable-element:v2 kind=beat id=beat:approach -->",
+    "## Approach", "",
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->",
+    "### Gate", "",
     "R4 replacement beat that must not mix with R3 Approach body.",
     "",
   ].join("\n");
@@ -764,8 +766,8 @@ describe("App inspector integration", () => {
       created_at: "2026-08-17T00:00:00Z",
       updated_at: "2026-08-17T00:00:00Z",
       progress: {
-        current_scene_id: null,
-        current_beat_id: null,
+        current_scene_id: "scene:gate",
+        current_beat_id: "beat:approach",
         resolved_beat_ids: [] as string[],
         selections: {} as Record<string, string>,
         notes_by_element_id: {} as Record<string, string>,
@@ -777,16 +779,15 @@ describe("App inspector integration", () => {
     const record = playRunRecord();
     vi.mocked(liveApi.getPlayRun).mockResolvedValue(record);
     vi.mocked(liveApi.getPlayRunReferenceManifest).mockResolvedValue({
-      schema_version: "dmb_play_run_reference_manifest_v1",
+      schema_version: "dmb_play_run_reference_manifest_v2",
       run_id: PLAY_RUN_ID,
       playable_artifact_id: PLAY_ARTIFACT_ID,
       playable_revision: 3,
       playable_content_sha256: PLAY_SHA,
       sealed_at: "2026-08-17T00:00:00Z",
-      elements: [
-        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
-        { kind: "scene", element_id: "scene:gate" },
-      ],
+      beats: [{ beat_id: "beat:approach" }],
+      scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }],
+      choices: [], options: [], edges: [],
     });
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
       fixtureSnapshot({
@@ -808,6 +809,29 @@ describe("App inspector integration", () => {
     return record;
   }
 
+  it("rejects old card grammar in the real App without publishing or writing session authority", async () => {
+    mockReadyPlayRun();
+    vi.mocked(liveApi.getCommittedWorkspaceRevision).mockResolvedValue(playCommittedRevision({
+      markdown: "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->\n## Gate\nOld card source.\n",
+    }));
+    vi.mocked(liveApi.getPlayRunReferenceManifest).mockResolvedValue({
+      schema_version: "dmb_play_run_reference_manifest_v1", run_id: PLAY_RUN_ID,
+      playable_artifact_id: PLAY_ARTIFACT_ID, playable_revision: 3, playable_content_sha256: PLAY_SHA,
+      sealed_at: "2026-08-17T00:00:00Z", elements: [{kind:"scene",element_id:"scene:gate"}],
+    });
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+    const blocked = await screen.findByTestId("play-status-unsupported_playable");
+    expect(blocked).toHaveTextContent("Play requires v2 markers");
+    expect(blocked).toHaveAttribute("data-play-campaign-id", "");
+    expect(blocked).toHaveAttribute("data-play-document-id", "");
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
+    expect(liveApi.putPlayActiveRun).not.toHaveBeenCalled();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+    expect(liveApi.putPlayRun).not.toHaveBeenCalled();
+    expect(liveApi.putPlayRunReferenceManifest).not.toHaveBeenCalled();
+  });
+
   it("mounts /play through shared AppChrome without auto-selecting a Run", async () => {
     vi.mocked(liveApi.listPlayRuns).mockResolvedValue({
       schema_version: "dmb_play_runs_list_v1",
@@ -817,21 +841,21 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Play" })).toHaveClass("active");
+    expect(screen.getByRole("link", { name: "Play", hidden: true })).toHaveClass("active");
     expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Choose a Run" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Existing Runs" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Start a Run" })).toBeInTheDocument();
-    expect(liveApi.getPlayActiveRun).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("heading", { name: "Bring your next session to life" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Earlier campaign sessions" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Bring your next session to life" })).toBeInTheDocument();
+    expect(liveApi.getPlayActiveRun).toHaveBeenCalledTimes(2);
     expect(liveApi.getPlayRun).not.toHaveBeenCalled();
     expect(liveApi.putPlayRun).not.toHaveBeenCalled();
     expect(liveApi.putPlayActiveRun).not.toHaveBeenCalled();
-    expect(screen.getByTestId("play-start-run-submit")).toBeDisabled();
-    expect(await screen.findByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toHaveAttribute(
+    expect(screen.queryByTestId("play-start-run-submit")).not.toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Resume session/ })).toHaveAttribute(
       "href",
       `/play?run=${PLAY_RUN_ID}`,
     );
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
     expect(screen.queryByText(/ofConks/i)).not.toBeInTheDocument();
   });
 
@@ -845,7 +869,7 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", "/play");
     render(<App />);
 
-    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/play");
     expect(window.location.search).toBe(`?run=${PLAY_RUN_ID}`);
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
@@ -874,7 +898,7 @@ describe("App inspector integration", () => {
     expect(liveApi.getPlayRun).not.toHaveBeenCalled();
     expect(liveApi.putPlayRun).not.toHaveBeenCalled();
     expect(liveApi.putPlayActiveRun).not.toHaveBeenCalled();
-    expect(await screen.findByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: /Resume session/ })).toHaveAttribute(
       "href",
       `/play?run=${PLAY_RUN_ID}`,
     );
@@ -895,14 +919,9 @@ describe("App inspector integration", () => {
     expect(await screen.findByTestId("play-active-run-warning")).toHaveTextContent(
       /Resume state is unavailable/i,
     );
-    expect(screen.getByTestId("play-local-setup-hint")).toHaveTextContent(
-      /Local Play setup is incomplete/i,
-    );
-    expect(screen.getByTestId("play-local-setup-hint")).toHaveTextContent(
-      /uv run python scripts\/bootstrap_local_play.py check/,
-    );
+    expect(screen.getByTestId("play-local-setup-hint")).toHaveTextContent("Local Play setup is incomplete");
     await waitFor(() => {
-      expect(screen.getByTestId("play-existing-runs")).toHaveTextContent(
+      expect(screen.getByTestId("play-run-chooser")).toHaveTextContent(
         /DungeonBuddy application state is unavailable/i,
       );
     });
@@ -921,7 +940,7 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Resume session/ })).toBeInTheDocument();
     expect(screen.queryByTestId("play-local-setup-hint")).not.toBeInTheDocument();
     expect(screen.queryByText(/Local Play setup is incomplete/i)).not.toBeInTheDocument();
   });
@@ -937,12 +956,12 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", "/play");
     render(<App />);
 
-    expect(await screen.findByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: /Resume session/ })).toHaveAttribute(
       "href",
       `/play?run=${PLAY_RUN_ID}`,
     );
-    expect(await screen.findByTestId("play-start-run-unavailable")).toBeInTheDocument();
-    expect(screen.getByTestId("play-existing-runs")).toBeInTheDocument();
+    expect(screen.getByRole("heading", {name:"Bring your next session to life"})).toBeInTheDocument();
+    expect(screen.getByRole("link", {name:/Resume session/})).toBeInTheDocument();
     expect(liveApi.putPlayRun).not.toHaveBeenCalled();
   });
 
@@ -951,13 +970,13 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
 
-    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
     await waitFor(() => expect(liveApi.putPlayActiveRun).toHaveBeenCalledWith(PLAY_RUN_ID));
-    await userEvent.setup().click(screen.getByTestId("play-start-new-run"));
+    await userEvent.setup().click(screen.getByTestId("play-load-run"));
 
     expect(window.location.search).toBe("?choose=1");
     expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Start a Run" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Bring your next session to life" })).toBeInTheDocument();
     expect(liveApi.putPlayRun).not.toHaveBeenCalled();
   });
 
@@ -969,7 +988,7 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
 
-    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
     expect(await screen.findByTestId("play-active-run-save-warning")).toHaveTextContent(
       /Run is open, but Resume state could not be saved/i,
     );
@@ -987,16 +1006,15 @@ describe("App inspector integration", () => {
       selected_at: "2026-08-17T00:00:00Z",
     });
     const manifestFor = (run: typeof firstRun) => ({
-      schema_version: "dmb_play_run_reference_manifest_v1" as const,
+      schema_version: "dmb_play_run_reference_manifest_v2" as const,
       run_id: run.run_id,
       playable_artifact_id: run.playable_artifact_id,
       playable_revision: run.playable_revision,
       playable_content_sha256: run.playable_content_sha256,
       sealed_at: "2026-08-17T00:00:00Z",
-      elements: [
-        { kind: "beat" as const, element_id: "beat:approach", scene_id: "scene:gate" },
-        { kind: "scene" as const, element_id: "scene:gate" },
-      ],
+      beats: [{ beat_id: "beat:approach" }],
+      scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }],
+      choices: [], options: [], edges: [],
     });
     let releaseFirst: (value: ReturnType<typeof activeState>) => void = () => undefined;
     const delayedFirst = new Promise<ReturnType<typeof activeState>>((resolve) => {
@@ -1032,12 +1050,12 @@ describe("App inspector integration", () => {
 
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
-    expect(await screen.findByText(`Run ${PLAY_RUN_ID}`)).toBeInTheDocument();
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toHaveAttribute("data-play-run-id", PLAY_RUN_ID);
     await waitFor(() => expect(liveApi.putPlayActiveRun).toHaveBeenCalledWith(PLAY_RUN_ID));
 
     window.history.pushState({}, "", `/play?run=${otherRunId}`);
     window.dispatchEvent(new PopStateEvent("popstate"));
-    expect(await screen.findByText(`Run ${otherRunId}`)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-play-run-id", otherRunId));
     expect(liveApi.putPlayActiveRun).toHaveBeenCalledTimes(1);
 
     releaseFirst(activeState(PLAY_RUN_ID));
@@ -1049,56 +1067,15 @@ describe("App inspector integration", () => {
     expect(liveApi.putPlayRun).not.toHaveBeenCalled();
   });
 
-  it("navigates to the exact new Run only after create and seal are confirmed", async () => {
-    const user = userEvent.setup();
-    vi.spyOn(crypto, "randomUUID").mockReturnValue(PLAY_RUN_ID);
-    mockReadyPlayRun();
-    vi.mocked(liveApi.listPlayRuns).mockResolvedValue({
-      schema_version: "dmb_play_runs_list_v1",
-      records: [],
-    });
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
-      schema_version: "dmb_workspace_document_registry_v1",
-      records: [
-        fixtureWorkspaceDocumentRecord({
-          document_id: PLAY_ARTIFACT_ID,
-          title: "North Gate Runbook",
-          kind: "runbook",
-          revision: 3,
-          content_status: "committed",
-        }),
-      ],
-    });
-    vi.mocked(liveApi.putPlayRun).mockResolvedValue(playRunRecord());
-    vi.mocked(liveApi.putPlayRunReferenceManifest).mockResolvedValue({
-      schema_version: "dmb_play_run_reference_manifest_v1",
-      run_id: PLAY_RUN_ID,
-      playable_artifact_id: PLAY_ARTIFACT_ID,
-      playable_revision: 3,
-      playable_content_sha256: PLAY_SHA,
-      sealed_at: "2026-08-17T00:00:00Z",
-      elements: [
-        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
-        { kind: "scene", element_id: "scene:gate" },
-      ],
-    });
-    window.history.pushState({}, "", "/play");
+  it("requires a World before offering session creation from the root chooser", async () => {
+    window.history.pushState({}, "", "/play?choose=1");
     render(<App />);
-
-    await user.click(await screen.findByTestId(`play-start-runbook-${PLAY_ARTIFACT_ID}`));
-    await user.click(screen.getByTestId("play-start-run-submit"));
-
-    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
-    expect(liveApi.putPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, {
-      playable_artifact_id: PLAY_ARTIFACT_ID,
-      expected_playable_revision: 3,
-      expected_playable_content_sha256: PLAY_SHA,
-    });
-    expect(liveApi.putPlayRunReferenceManifest).toHaveBeenCalledWith(PLAY_RUN_ID);
-    await waitFor(() => expect(liveApi.putPlayActiveRun).toHaveBeenCalledWith(PLAY_RUN_ID));
-    expect(liveApi.putPlayActiveRun).toHaveBeenCalledTimes(1);
-    expect(window.location.pathname).toBe("/play");
-    expect(window.location.search).toBe(`?run=${PLAY_RUN_ID}`);
+    expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
+    expect(screen.queryByTestId("play-start-run-submit")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-current-moment-cockpit")).not.toBeInTheDocument();
+    expect(liveApi.putPlayRun).not.toHaveBeenCalled();
+    expect(liveApi.putPlayRunReferenceManifest).not.toHaveBeenCalled();
+    expect(liveApi.putPlayActiveRun).not.toHaveBeenCalled();
   });
 
   it("loads only the exact Run UUID from /play?run=", async () => {
@@ -1106,14 +1083,13 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
 
-    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
-    expect(liveApi.getPlayRun).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(`Run ${PLAY_RUN_ID}`)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "North Gate Runbook" })).toBeInTheDocument();
+    expect(nativeReadyCalls()).toHaveLength(1);
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-play-run-id", PLAY_RUN_ID);
+    expect(screen.getByRole("heading", { name: "Gate", exact: true })).toBeInTheDocument();
     expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-campaign-id", "longmont-c2");
     expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-document-id", PLAY_ARTIFACT_ID);
-    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "play");
     expect(screen.queryByTestId("play-run-chooser")).not.toBeInTheDocument();
     expect(document.querySelectorAll(".surface-projection-host").length).toBeLessThanOrEqual(1);
     expect(screen.queryByText(/ofConks/i)).not.toBeInTheDocument();
@@ -1129,7 +1105,7 @@ describe("App inspector integration", () => {
 
     expect(await screen.findByTestId("play-status-miss")).toBeInTheDocument();
     expect(liveApi.getPlayRun).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
   });
 
   it("blocks recovery-pending Runs before presenting mutation controls", async () => {
@@ -1140,8 +1116,8 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByTestId("play-status-recovery_pending")).toBeInTheDocument();
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
-    expect(screen.queryByRole("checkbox", { name: "Resolved" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Make .+ current$/ })).not.toBeInTheDocument();
   });
 
   it("blocks a newer committed Runbook without overlaying Runtime", async () => {
@@ -1157,39 +1133,33 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByTestId("play-status-integrity_failure")).toBeInTheDocument();
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
     expect(screen.queryByText(/Newer prose that must not render/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("checkbox", { name: "Resolved" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Make .+ current$/ })).not.toBeInTheDocument();
     expect(screen.getByTestId("play-status-integrity_failure")).toHaveAttribute("data-play-campaign-id", "");
     expect(screen.getByTestId("play-status-integrity_failure")).toHaveAttribute("data-play-document-id", "");
-    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "play");
-    expect(screen.getByTestId("agent-interaction-chrome")).not.toHaveTextContent(PLAY_ARTIFACT_ID);
   });
 
   it("does not publish unadmitted campaign or document authority after integrity failure", async () => {
     mockReadyPlayRun();
     vi.mocked(liveApi.getPlayRunReferenceManifest).mockResolvedValue({
-      schema_version: "dmb_play_run_reference_manifest_v1",
+      schema_version: "dmb_play_run_reference_manifest_v2",
       run_id: PLAY_RUN_ID,
       playable_artifact_id: PLAY_ARTIFACT_ID,
       playable_revision: 99,
       playable_content_sha256: PLAY_SHA,
       sealed_at: "2026-08-17T00:00:00Z",
-      elements: [
-        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
-        { kind: "scene", element_id: "scene:gate" },
-      ],
+      beats: [{ beat_id: "beat:approach" }],
+      scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }],
+      choices: [], options: [], edges: [],
     });
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
 
     expect(await screen.findByTestId("play-status-integrity_failure")).toBeInTheDocument();
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
     expect(screen.getByTestId("play-status-integrity_failure")).toHaveAttribute("data-play-campaign-id", "");
     expect(screen.getByTestId("play-status-integrity_failure")).toHaveAttribute("data-play-document-id", "");
-    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "play");
-    expect(screen.getByTestId("agent-interaction-chrome")).not.toHaveTextContent("longmont-c2");
-    expect(screen.getByTestId("agent-interaction-chrome")).not.toHaveTextContent(PLAY_ARTIFACT_ID);
   });
 
   it("discards a stale exact-Run load after the route changes", async () => {
@@ -1203,16 +1173,15 @@ describe("App inspector integration", () => {
       return { ...playRunRecord(), run_id: otherRunId };
     });
     vi.mocked(liveApi.getPlayRunReferenceManifest).mockImplementation(async (runId) => ({
-      schema_version: "dmb_play_run_reference_manifest_v1",
+      schema_version: "dmb_play_run_reference_manifest_v2",
       run_id: runId,
       playable_artifact_id: PLAY_ARTIFACT_ID,
       playable_revision: 3,
       playable_content_sha256: PLAY_SHA,
       sealed_at: "2026-08-17T00:00:00Z",
-      elements: [
-        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
-        { kind: "scene", element_id: "scene:gate" },
-      ],
+      beats: [{ beat_id: "beat:approach" }],
+      scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }],
+      choices: [], options: [], edges: [],
     }));
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
       fixtureSnapshot({
@@ -1239,18 +1208,18 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", `/play?run=${otherRunId}`);
     window.dispatchEvent(new PopStateEvent("popstate"));
 
-    expect(await screen.findByText(`Run ${otherRunId}`)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-play-run-id", otherRunId));
     resolveFirst(playRunRecord());
     await waitFor(() => {
-      expect(screen.queryByText(`Run ${PLAY_RUN_ID}`)).not.toBeInTheDocument();
+      expect(screen.getByTestId("play-current-moment-cockpit")).not.toHaveAttribute("data-play-run-id", PLAY_RUN_ID);
     });
-    expect(screen.getByText(`Run ${otherRunId}`)).toBeInTheDocument();
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-play-run-id", otherRunId);
   });
 
   it("does not keep R3 authored content READY after a concurrent rebase 409 reconciliation", async () => {
     const user = userEvent.setup();
     mockReadyPlayRun();
-    const r3Run = playRunRecord();
+    const r3Run = { ...playRunRecord(), progress: { ...playRunRecord().progress, current_scene_id: null } };
     const r4Run = {
       ...playRunRecord(),
       playable_revision: 4,
@@ -1269,16 +1238,15 @@ describe("App inspector integration", () => {
     });
     vi.mocked(liveApi.getPlayRun).mockImplementation(async () => (boundRevision === 3 ? r3Run : r4Run));
     vi.mocked(liveApi.getPlayRunReferenceManifest).mockImplementation(async () => ({
-      schema_version: "dmb_play_run_reference_manifest_v1",
+      schema_version: "dmb_play_run_reference_manifest_v2",
       run_id: PLAY_RUN_ID,
       playable_artifact_id: PLAY_ARTIFACT_ID,
       playable_revision: boundRevision,
       playable_content_sha256: boundRevision === 3 ? PLAY_SHA : PLAY_SHA_R4,
       sealed_at: "2026-08-17T00:00:00Z",
-      elements: [
-        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
-        { kind: "scene", element_id: "scene:gate" },
-      ],
+      beats: [{ beat_id: "beat:approach" }],
+      scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }],
+      choices: [], options: [], edges: [],
     }));
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async () =>
       fixtureSnapshot({
@@ -1308,19 +1276,20 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
 
-    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
-    expect(screen.getByText("Approach body.")).toBeInTheDocument();
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", {name:"Show scene: Gate", exact:true}));
+    expect(screen.getByTestId("play-workspace-inspect")).toHaveTextContent("Approach body.");
     expect(screen.queryByText(/R4 replacement beat/i)).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("checkbox", { name: "Resolved" }));
+    await user.click(screen.getByTestId("play-make-current"));
 
     await waitFor(() => {
-      expect(screen.queryByText("Approach body.")).not.toBeInTheDocument();
+      expect(screen.getByTestId("play-workspace-inspect")).toHaveTextContent("R4 replacement beat that must not mix with R3 Approach body.");
     });
     expect(screen.queryByTestId("play-cas-conflict")).not.toBeInTheDocument();
-    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
-    expect(screen.getByText(/R4 replacement beat that must not mix with R3 Approach body/i)).toBeInTheDocument();
-    expect(screen.getByText(/Runbook revision 4/i)).toBeInTheDocument();
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
+    expect(screen.getByTestId("play-workspace-inspect")).toHaveTextContent("R4 replacement beat that must not mix with R3 Approach body.");
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-current-scene-id", "scene:gate");
   });
 
   it("loads a v2 Run through native-ready GET and does not PUT seed progress", async () => {
@@ -1330,9 +1299,9 @@ describe("App inspector integration", () => {
 
     expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
     expect(screen.queryByText("v2 Run READY")).not.toBeInTheDocument();
-    expect(screen.getByTestId("play-current-beat")).toHaveTextContent("Beat 1");
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-current-beat-id", "beat:one");
     expect(screen.getByTestId("play-current-scene")).toHaveTextContent("No Scene is current");
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-grammar", "v2");
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
     expect(seeded.progress.current_beat_id).toBe("beat:one");
@@ -1344,10 +1313,10 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
-    expect(screen.getByTestId("play-current-beat")).toHaveTextContent("Beat 2");
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-current-beat-id", "beat:two");
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-grammar", "v2");
   });
 
   it("does not PUT seed progress when native-ready GET already returns a current Beat", async () => {
@@ -1356,11 +1325,11 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
-    expect(screen.getByTestId("play-current-beat")).toHaveTextContent("Beat 1");
-    expect(liveApi.getPlayRun).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-current-beat-id", "beat:one");
+    expect(nativeReadyCalls()).toHaveLength(1);
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-grammar", "v2");
   });
 
   it("does not seed when native-ready GET refuses a mismatched v2 authority set", async () => {
@@ -1377,7 +1346,7 @@ describe("App inspector integration", () => {
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
     expect(screen.queryByTestId("play-current-moment-cockpit")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
   });
 
   it("admits the Run returned by native-ready GET after a rebase, without a seed PUT", async () => {
@@ -1421,14 +1390,14 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
-    expect(screen.getByTestId("play-current-beat")).toHaveTextContent("Rebased");
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-current-beat-id", "beat:rebased");
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
-    expect(liveApi.getPlayRun).toHaveBeenCalledTimes(1);
+    expect(nativeReadyCalls()).toHaveLength(1);
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.getPlayRunReferenceManifest).toHaveBeenCalledTimes(1);
     expect(liveApi.getCommittedWorkspaceRevision).toHaveBeenCalledTimes(1);
     expect(vi.mocked(liveApi.getCommittedWorkspaceRevision).mock.calls[0]?.[1]).toBe(4);
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-grammar", "v2");
   });
 
   it("reflects Make Current from the returned authoritative v2 Run", async () => {
@@ -1451,7 +1420,7 @@ describe("App inspector integration", () => {
     expect(screen.queryByText("v2 Run READY")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Make Scene A current" }));
     expect(await screen.findByTestId("play-workspace-current")).toHaveTextContent("Scene A unique body.");
-    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("Scene A");
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-current-scene-id", "scene:a");
     expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1);
     expect(vi.mocked(liveApi.putPlayRunProgress).mock.calls[0]?.[1]).toEqual({
       expected_run_revision: seeded.run_revision,
@@ -1460,7 +1429,8 @@ describe("App inspector integration", () => {
         current_scene_id: "scene:a",
       }),
     });
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-grammar", "v2");
   });
 
+  });
 });

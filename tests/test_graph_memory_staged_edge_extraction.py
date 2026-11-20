@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.graph_memory.extraction.staged_edge_extraction import (
+from graph_memory.extraction.staged_edge_extraction import (
     assemble_staged_edges,
     bind_phrase_to_node,
     bind_relation_candidate,

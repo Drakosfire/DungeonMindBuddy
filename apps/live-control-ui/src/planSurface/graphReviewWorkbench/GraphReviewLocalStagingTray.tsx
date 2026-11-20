@@ -35,11 +35,11 @@ export function GraphReviewLocalStagingTray({
       aria-label="Local staged proposals"
     >
       <header>
-        <p className="plan-surface-kicker">Gold fixture draft</p>
-        <h3>Whole-graph gold proposals</h3>
+        <p className="plan-surface-kicker">Local proposal notes</p>
+        <h3>Staged review notes</h3>
         <p className="graph-review-muted">
-          Legacy path for gold fixture edits across the full recap graph. Individual
-          object links, merges, and relationships belong in Review staged memory above.
+          These notes stay in this review session. Publish object links, merges and
+          relationships through Review staged memory above.
         </p>
         <button type="button" onClick={onReset} disabled={!proposals.length}>
           Reset local draft

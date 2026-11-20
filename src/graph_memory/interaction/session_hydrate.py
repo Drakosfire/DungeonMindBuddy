@@ -5,10 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from pydantic import ValidationError
-
 from graph_memory.interaction.claims import GraphClaim
-from graph_memory.interaction.schema_constants import GRAPH_RETRIEVAL_SESSION_SCHEMA
 from graph_memory.interaction.session import (
     CoverageState,
     GraphReferent,
@@ -18,15 +15,7 @@ from graph_memory.interaction.session import (
     SourceAnchorState,
     SourceReadEntry,
 )
-from graph_memory.interaction.session_store import create_session, replace_session
-
-# Explicit legacy packet schemas that may invent missing claim fields.
-# Current `dmb_graph_retrieval_session_v1` is fail-closed: no invention.
-_LEGACY_CLAIM_COMPAT_PACKET_SCHEMAS: frozenset[str] = frozenset()
-
-
-def _packet_schema(packet: Mapping[str, Any]) -> str:
-    return str(packet.get("schema") or "").strip()
+from graph_memory.interaction.session_store import replace_session
 
 
 def _hydrate_scope_mode(snapshot_raw: Mapping[str, Any], packet: Mapping[str, Any]) -> str:
@@ -41,11 +30,7 @@ def _hydrate_scope_mode(snapshot_raw: Mapping[str, Any], packet: Mapping[str, An
     return text if text in {"campaign", "world"} else "campaign"
 
 
-def _hydrate_claim(
-    item: Mapping[str, Any],
-    *,
-    packet_schema: str,
-) -> GraphClaim | None:
+def _hydrate_claim(item: Mapping[str, Any]) -> GraphClaim | None:
     """Validate one claim dict. Returns None only for empty claim_id rows."""
     claim_id = str(item.get("claim_id") or "").strip()
     if not claim_id:
@@ -53,25 +38,11 @@ def _hydrate_claim(
     raw = dict(item)
     raw["claim_id"] = claim_id
 
-    if packet_schema in _LEGACY_CLAIM_COMPAT_PACKET_SCHEMAS:
-        # Reserved: only an explicitly recognized legacy schema may invent
-        # missing fields. Current packets never enter this branch.
-        if not raw.get("authority_class"):
-            raw["authority_class"] = "unknown"
-        if not raw.get("claim_kind"):
-            raw["claim_kind"] = "attribute"
-        # revision_id is never invented — even legacy packets must carry it.
-
-    try:
-        return GraphClaim.model_validate(raw)
-    except ValidationError:
-        # Fail closed: do not rebind to snapshot revision or invent kind/authority.
-        raise
+    return GraphClaim.model_validate(raw)
 
 
 def hydrate_session_from_packet(packet: Mapping[str, Any]) -> GraphRetrievalSession:
     """Rebuild a local session from a Hermes host packet projection."""
-    packet_schema = _packet_schema(packet) or GRAPH_RETRIEVAL_SESSION_SCHEMA
     snapshot_raw = packet.get("snapshot") if isinstance(packet.get("snapshot"), Mapping) else {}
     snapshot = SessionSnapshot(
         world_id=str(snapshot_raw.get("world_id") or packet.get("world_id") or ""),
@@ -104,7 +75,7 @@ def hydrate_session_from_packet(packet: Mapping[str, Any]) -> GraphRetrievalSess
     for item in packet.get("claim_ledger") or packet.get("claims") or []:
         if not isinstance(item, Mapping):
             continue
-        claim = _hydrate_claim(item, packet_schema=packet_schema)
+        claim = _hydrate_claim(item)
         if claim is not None:
             claims.append(claim)
 
@@ -168,11 +139,7 @@ def hydrate_session_from_packet(packet: Mapping[str, Any]) -> GraphRetrievalSess
     )
     if not session.id:
         raise ValueError("retrieval session packet missing id")
-    # Prefer replace so repeated hydrations in the child overwrite cleanly.
-    try:
-        return replace_session(session)
-    except Exception:
-        return create_session(session)
+    return replace_session(session)
 
 
 __all__ = ["hydrate_session_from_packet"]

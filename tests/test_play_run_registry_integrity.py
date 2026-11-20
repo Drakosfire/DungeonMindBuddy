@@ -106,7 +106,6 @@ def _create_committed_runbook(root: Path) -> WorkspaceDocumentSnapshot:
 def _create_run(root: Path, snapshot: WorkspaceDocumentSnapshot, *, run_id: str) -> None:
     revision_n, sha = playable_binding(snapshot)
     create_or_replay_play_run(
-        root,
         run_id=run_id,
         playable_artifact_id=snapshot.record.document_id,
         expected_playable_revision=revision_n,
@@ -140,7 +139,7 @@ def test_list_orders_mixed_timestamp_precision_by_time_then_run_id(
     _create_run(tmp_path, snapshot, run_id=RUN_ID_C)
     _create_run(tmp_path, snapshot, run_id=RUN_ID_D)
 
-    assert [record.run_id for record in list_play_runs(tmp_path)] == [
+    assert [record.run_id for record in list_play_runs()] == [
         RUN_ID_C,
         RUN_ID_A,
         RUN_ID_B,
@@ -158,7 +157,7 @@ def test_persisted_run_id_must_match_filename_identity(tmp_path: Path) -> None:
     path.replace(mismatched)
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
-        get_play_run(tmp_path, RUN_ID_A)
+        get_play_run(RUN_ID_A)
 
     assert exc_info.value.status_code == 404
     assert mismatched.is_file()
@@ -220,7 +219,6 @@ def test_new_run_commit_holds_runbook_mutation_lock_through_atomic_write(
         try:
             created_records.append(
                 create_or_replay_play_run(
-                    tmp_path,
                     run_id=RUN_ID_A,
                     playable_artifact_id=snapshot.record.document_id,
                     expected_playable_revision=playable_binding(snapshot)[0],

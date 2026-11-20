@@ -1,229 +1,445 @@
-from __future__ import annotations
+"""Ordinary Process owns exact DB intake; providers are replaced with fixture output."""
 
+import hashlib
 import json
-import shutil
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
+from apps.live_control_server.routes import recap_ingest as route
+from apps.live_control_server.services import recap_ingest_context
+from apps.live_control_server.services.graph_run_registry import (
+    load_reviewable_extraction_data,
+)
+from apps.live_control_server.services.source_artifact_registry import (
+    load_registered_source_artifact_bytes,
+)
+from graph_memory.ingestion.native_recap_source import SourceScope
+from tests.test_recap_managed_standing_context import seed_binding
 
 ROOT = Path(__file__).resolve().parents[1]
-SEED_SESSION = ROOT / "evals/c2_live_prep/live/session_22"
-CORPUS_ENV = "DUNGEONMIND_RECAP_INGEST_CORPUS_ROOT"
-FIXTURE_DIR = ROOT / "tests/fixtures/graph_memory/category_preview_runner"
-CANDIDATE_FIXTURE = FIXTURE_DIR / "candidate_graph_fixture.json"
-
-
-@pytest.fixture(autouse=True)
-def _ingest_application_state(application_state_dsn: str) -> str:
-    return application_state_dsn
+TOKEN = "synthetic-process-operator-token-000000"
 
 
 @pytest.fixture
-def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, Path, Path]:
-    for name in ("live_packet.json", "surface_layout.json", "current_state.json"):
-        shutil.copy2(SEED_SESSION / name, tmp_path / name)
-    (tmp_path / "event_log.jsonl").write_text("", encoding="utf-8")
-    (tmp_path / "job_queue.jsonl").write_text("", encoding="utf-8")
+def client_env(application_state_dsn, tmp_path, monkeypatch):
+    assert "dungeonbuddy_app_state_test_" in application_state_dsn
+    for name, value in {
+        "DMB_DEPLOYMENT_ENVIRONMENT": "local",
+        "DMB_AUTH_MODE": "local_operator",
+        "DMB_AGENT_GRAPH_AUTH_MODE": "local_operator",
+        "DMB_AGENT_GRAPH_AUTH_ENVIRONMENT": "local",
+        "DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN": TOKEN,
+        "DMB_ARTIFACT_DATA_ROOT": str(tmp_path),
+        "DMB_MANAGED_WORLD_DATA_ROOT": str(tmp_path),
+        "DUNGEONMIND_LIVE_SESSION_DIR": str(tmp_path),
+    }.items():
+        monkeypatch.setenv(name, value)
+    from apps.live_control_server.config import SESSION_DIR_ENV
+
     monkeypatch.setenv(SESSION_DIR_ENV, str(tmp_path))
-
-    corpus = tmp_path / "external-corpus"
-    graph_runs = ROOT / "out/graph_memory/runs/longmont-c2/session-22"
-    shutil.rmtree(graph_runs, ignore_errors=True)
-    source_registry = ROOT / "out/registries"
-    shutil.rmtree(source_registry, ignore_errors=True)
-    campaign = corpus / "Longmont Campaign/Campaign 2"
-    (campaign / "_ingest_staging").mkdir(parents=True, exist_ok=True)
-    (campaign / "Session Recaps").mkdir(parents=True, exist_ok=True)
-    monkeypatch.setenv(CORPUS_ENV, str(corpus))
-    monkeypatch.setenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", "out/graph_memory/runs")
-
-    candidate = ROOT / "out/test_recap_ingest_graph_preview/candidate_graph_fixture.json"
-    candidate.parent.mkdir(parents=True, exist_ok=True)
-    candidate.write_text(CANDIDATE_FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
-    try:
-        yield TestClient(create_app()), corpus, candidate
-    finally:
-        shutil.rmtree(graph_runs, ignore_errors=True)
-
-
-def _prepare_normalized(client: TestClient) -> None:
-    raw = "Session 22 Recap\n\nThe group scouts the Mireward road and regroups at dusk."
-    stage = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "stage_preview",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "raw_text": raw,
-            "slug": "Mireward Road Dogfood",
-        },
+    monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        "apps.live_control_server.routes.graph_preview.repo_root", lambda: tmp_path
     )
-    assert stage.status_code == 200
-    apply = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "apply_normalize",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "slug": "Mireward Road Dogfood",
-        },
+    seed_binding(tmp_path, "elderwyld", "world:elderwyld", version=3)
+    from apps.live_control_server.services import known_character_context
+    monkeypatch.setattr(known_character_context, "read_known_character_catalog", lambda *_: {
+        "status": "no_native_head", "entities": [],
+        "native_pin": {"native_world_id": "world:elderwyld", "binding_version": 3},
+    })
+    _write_synthetic_session(tmp_path)
+    (tmp_path / "event_log.jsonl").write_text("")
+    (tmp_path / "job_queue.jsonl").write_text("")
+    # A corpus directory cannot even be opened. It is not part of Process.
+    poison = tmp_path / "not-a-corpus"
+    poison.write_text("not source authority")
+    monkeypatch.setenv("DUNGEONMIND_RECAP_INGEST_CORPUS_ROOT", str(poison))
+    scope = SourceScope(
+        managed_world_id="elderwyld",
+        native_world_id="world:elderwyld",
+        binding_version=3,
+        campaign_id="longmont-c2",
     )
-    assert apply.status_code == 200
+
+    def resolve(**kw):
+        if kw != {"managed_world_id": "elderwyld", "campaign_id": "longmont-c2"}:
+            raise ValueError("foreign source scope")
+        return scope
+
+    monkeypatch.setattr(recap_ingest_context, "resolve_recap_source_scope", resolve)
+    _patch_fake_category_extract(monkeypatch)
+    import httpx
+
+    monkeypatch.setattr(
+        httpx.HTTPTransport,
+        "handle_request",
+        lambda *_: pytest.fail("Provider HTTP forbidden"),
+    )
+    with TestClient(
+        create_app(),
+        client=("127.0.0.1", 50000),
+        headers={"Authorization": "Bearer " + TOKEN},
+    ) as client:
+        yield client, tmp_path
 
 
-def _stamp_fixture_candidate(
-    client: TestClient,
-    corpus: Path,
-    candidate: Path,
-) -> None:
-    """Give a manual candidate the exact identity packaging now requires."""
+def process_body(**changes):
+    return {
+        "operation": "generate_recap_memory",
+        "managed_world_id": "elderwyld",
+        "campaign_id": "longmont-c2",
+        "session": 8,
+        "raw_text": "# A recap\n\nA keeper scouts the Mireward road.",
+        "include_graph_extraction": True,
+        **changes,
+    }
+
+
+def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
+    client_env,
+):
+    client, root = client_env
+    body = process_body()
+    response = client.post("/api/live/recap-ingest", json=body)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["paths"] == {}
+    graph = result["ingest_report"]["graph_preview"]
+    assert graph["status"] == "candidate_validation_ready"
+    data = load_reviewable_extraction_data(root, graph["extraction_run_id"])
+    source, raw = load_registered_source_artifact_bytes(
+        root, graph["source_artifact_id"]
+    )
+    assert raw == body["raw_text"].encode() + b"\n"
+    assert source.world_id == "world:elderwyld" and source.session_id == "session-8"
+    assert data.source_bytes == raw and data.candidate_bytes and data.span_bytes
+    assert source.content_sha256 == hashlib.sha256(raw).hexdigest()
+    assert not (root / "Longmont Campaign").exists()
+    # Native source admission and Graph publication are separate commands.
+    assert result["native_recap_source"] is None
+
+
+def test_exact_reuse_force_and_changed_text_keep_distinct_attempts(client_env):
+    client, root = client_env
+
+    def run(**kw):
+        reply = client.post("/api/live/recap-ingest", json=process_body(**kw))
+        assert reply.status_code == 200, reply.text
+        return reply.json()["ingest_report"]["graph_preview"]
+
+    first = run()
+    reused = run()
+    assert reused["extraction_run_id"] == first["extraction_run_id"]
+    fresh = run(force_graph_run=True)
+    assert fresh["extraction_run_id"] != first["extraction_run_id"]
+    changed = run(raw_text="A second visit to the Mireward road.")
+    assert changed["source_artifact_id"] != first["source_artifact_id"]
+    original, _ = load_registered_source_artifact_bytes(
+        root, first["source_artifact_id"]
+    )
+    assert (
+        original.content_sha256
+        == hashlib.sha256(process_body()["raw_text"].encode() + b"\n").hexdigest()
+    )
+    assert load_reviewable_extraction_data(
+        root, first["extraction_run_id"]
+    ).candidate_bytes
+
+
+def test_failed_extraction_keeps_source_and_attempt(client_env, monkeypatch):
+    client, root = client_env
+    import graph_memory.extraction.graph_preview_runner as producer
+
+    def fail(*a, **kw):
+        raise RuntimeError("synthetic extraction failure")
+
+    monkeypatch.setattr(producer, "extract_category_candidate_graph", fail)
+    response = client.post("/api/live/recap-ingest", json=process_body())
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["status"] == "error"
+    graph = result["ingest_report"]["graph_preview"]
+    assert graph["extraction_run_status"] == "failed"
+    _, raw = load_registered_source_artifact_bytes(root, graph["source_artifact_id"])
+    assert raw == process_body()["raw_text"].encode() + b"\n"
+
+
+def test_failed_process_requires_explicit_retry(client_env, monkeypatch):
+    from application_state.ingest.service import get_extraction_run, list_extraction_runs
+    import graph_memory.extraction.graph_preview_runner as producer
+
+    client, _ = client_env
+    response = client.post("/api/live/recap-ingest", json=process_body())
+    assert response.status_code == 200, response.text
+    older_success = response.json()["ingest_report"]["graph_preview"]
+    calls = []
+
+    def fail(*a, **kw):
+        calls.append(1)
+        raise RuntimeError("synthetic extraction failure")
+
+    monkeypatch.setattr(producer, "extract_category_candidate_graph", fail)
+
+    def process(**kw):
+        reply = client.post("/api/live/recap-ingest", json=process_body(**kw))
+        assert reply.status_code == 200, reply.text
+        assert reply.json()["status"] == "error"
+        return reply.json()["ingest_report"]["graph_preview"]
+
+    failed = process(force_graph_run=True)
+    before = get_extraction_run(failed["extraction_run_id"])
+    runs_before = list_extraction_runs()
+    repeated = process()
+    assert len(calls) == 1, "ordinary repeat silently executed a new attempt"
+    assert repeated["extraction_run_id"] == failed["extraction_run_id"]
+    assert repeated["extraction_run_id"] != older_success["extraction_run_id"]
+    assert repeated["next_actions"] == ["force_graph_run"]
+    assert get_extraction_run(before.run_id) == before
+    assert list_extraction_runs() == runs_before
+
+    retried = process(force_graph_run=True)
+    assert len(calls) == 2
+    assert retried["extraction_run_id"] != failed["extraction_run_id"]
+    changed = process(raw_text="A keeper returned to the Mireward road.")
+    assert len(calls) == 3
+    assert changed["source_artifact_id"] != failed["source_artifact_id"]
+    assert get_extraction_run(before.run_id) == before
+
+
+@pytest.mark.parametrize("status", ["prepared", "incomplete"])
+def test_pending_process_reopens_saved_attempt_without_dispatch(
+    client_env, monkeypatch, status
+):
+    from application_state.ingest.service import (
+        get_extraction_run, list_extraction_runs, update_extraction_run,
+    )
+    from apps.live_control_server.services.graph_preview_runner import DEEPSEEK_MODEL
+    from graph_memory.ingestion.extraction_run import ExtractionRunStatus
+    import graph_memory.extraction.graph_preview_runner as producer
+
+    client, root = client_env
+    saved = _prepare_process_attempt(root)
+    if status == "incomplete":
+        saved = update_extraction_run(
+            saved.run_id, expected_revision=saved.revision,
+            status=ExtractionRunStatus.INCOMPLETE,
+        )
+    before = list_extraction_runs()
+    calls = []
+
+    def fail(*a, **kw):
+        calls.append(1)
+        raise RuntimeError("unexpected duplicate dispatch")
+
+    monkeypatch.setattr(producer, "extract_category_candidate_graph", fail)
+    reply = client.post("/api/live/recap-ingest", json=process_body())
+    assert reply.status_code == 200, reply.text
+    graph = reply.json()["ingest_report"]["graph_preview"]
+    assert not calls, "ordinary repeat silently dispatched while an attempt was saved"
+    assert saved.lineage["model_id"] == DEEPSEEK_MODEL
+    assert graph["extraction_run_id"] == saved.run_id
+    assert graph["extraction_run_status"] == status
+    assert graph["status"] == ("failed" if status == "incomplete" else status)
+    assert graph["next_actions"] == (["force_graph_run"] if status == "incomplete" else [])
+    assert "graph_candidate_ready" not in reply.json()["states"]
+    assert get_extraction_run(saved.run_id) == saved
+    assert list_extraction_runs() == before
+
+
+@pytest.mark.parametrize("change", ["model", "profile"])
+def test_other_saved_configuration_does_not_reuse_pending_attempt(
+    client_env, monkeypatch, change
+):
+    from application_state.ingest.service import get_extraction_run
+    import graph_memory.extraction.graph_preview_runner as producer
+
+    client, root = client_env
+    options = {"model_id": "synthetic-other-model"} if change == "model" else {
+        "profile": "category_encounter_job_preview"
+    }
+    saved = _prepare_process_attempt(root, **options)
+    calls = []
+
+    def fail(*a, **kw):
+        calls.append(1)
+        raise RuntimeError("new configuration dispatched")
+
+    monkeypatch.setattr(producer, "extract_category_candidate_graph", fail)
+    reply = client.post("/api/live/recap-ingest", json=process_body())
+    assert reply.status_code == 200, reply.text
+    graph = reply.json()["ingest_report"]["graph_preview"]
+    assert calls == [1]
+    assert graph["extraction_run_id"] != saved.run_id
+    assert graph["extraction_run_status"] == "failed"
+    assert get_extraction_run(saved.run_id) == saved
+
+
+def _prepare_process_attempt(root, **options):
+    from apps.live_control_server.services.graph_preview_runner import (
+        DEEPSEEK_MODEL, run_recap_production_extraction,
+    )
     from apps.live_control_server.services.source_artifact_registry import (
         create_recap_source_artifact,
     )
-    from src.graph_memory.extraction.graph_ingest_packaging import (
-        _with_candidate_graph_identity,
+
+    # The real prepare-only controller, without a fabricated Build reservation
+    # or a provider call. Its exact configuration must be saved before dispatch.
+    source = create_recap_source_artifact(
+        root, world_id="world:elderwyld", campaign_id="longmont-c2",
+        session_id="session-8", recap_text=process_body()["raw_text"],
     )
-
-    status = client.post(
-        "/api/live/recap-ingest",
-        json={"operation": "inspect_status", "campaign_id": "longmont-c2", "session": 22},
-    )
-    assert status.status_code == 200
-    rel = status.json().get("paths", {}).get("normalized_recap")
-    assert rel, status.json()
-    recap = Path(str(rel))
-    if not recap.is_absolute():
-        recap = corpus / recap
-    artifact = create_recap_source_artifact(
-        ROOT,
-        campaign_id="longmont-c2",
-        session_id="session-22",
-        recap_path=recap,
-    )
-    graph = _with_candidate_graph_identity(
-        json.loads(candidate.read_text(encoding="utf-8")),
-        campaign_id="longmont-c2",
-        session_id="session-22",
-        source_artifact_id=artifact.source_artifact_id,
-    )
-    candidate.write_text(
-        json.dumps(graph, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    return run_recap_production_extraction(
+        repo_root=root, campaign_id="longmont-c2", session_id="session-8",
+        source_artifact_id=source.source_artifact_id, allow_llm=False,
+        ingest_context=SourceScope(
+            managed_world_id="elderwyld", native_world_id="world:elderwyld",
+            binding_version=3, campaign_id="longmont-c2",
+        ),
+        **{"model_id": DEEPSEEK_MODEL, **options},
+    ).run
 
 
-def _patch_retired_union_materialize(monkeypatch: pytest.MonkeyPatch) -> None:
-    """D.3B retired UnionSupergraph materialization; keep the recap producer path."""
-    import apps.live_control_server.routes.recap_ingest as recap_routes
-    from apps.live_control_server.services.recap_graph_preview_ingest import (
-        build_recap_graph_preview_bundle,
-    )
-
-    def _build_only(**kwargs):  # noqa: ANN003
-        kwargs.pop("manifest_path", None)
-        return build_recap_graph_preview_bundle(**kwargs)
-
-    monkeypatch.setattr(
-        recap_routes, "materialize_recap_preview_supergraph", _build_only
-    )
-
-
-def test_recap_ingest_build_graph_preview_bundle_from_normalized_recap(client_env: tuple[TestClient, Path, Path]) -> None:
-    client, _corpus, _candidate = client_env
-    _prepare_normalized(client)
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={"operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2", "session": 22},
-    )
-
-    assert response.status_code == 200
-    body = response.json()
-    graph = body["ingest_report"]["graph_preview"]
-    assert graph["status"] == "source_span_bundle_ready"
-    assert (ROOT / graph["manifest_path"]).is_file()
-    assert "graph_source_bundle_ready" in body["states"]
-    assert "Candidate graph extraction has not run yet" in graph["blocked_reason"]
-
-
-def test_recap_ingest_materialize_preview_supergraph_blocks_without_candidate_graph(client_env: tuple[TestClient, Path, Path]) -> None:
-    client, _corpus, _candidate = client_env
-    _prepare_normalized(client)
-    client.post(
-        "/api/live/recap-ingest",
-        json={"operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2", "session": 22},
-    )
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={"operation": "materialize_preview_supergraph", "campaign_id": "longmont-c2", "session": 22},
-    )
-
-    assert response.status_code == 200
-    graph = response.json()["ingest_report"]["graph_preview"]
-    assert "Candidate graph extraction has not run yet" in graph["blocked_reason"]
-    assert graph["preview_union_store_path"] is None
-
-
-def test_recap_ingest_materialize_preview_supergraph_with_candidate_graph_path(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    client, corpus, candidate = client_env
-    _prepare_normalized(client)
-    _stamp_fixture_candidate(client, corpus, candidate)
-    _patch_retired_union_materialize(monkeypatch)
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "materialize_preview_supergraph",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "candidate_graph_path": candidate.relative_to(ROOT).as_posix(),
+def _write_synthetic_session(tmp_path: Path) -> None:
+    """Create minimal synthetic session state for the database-backed route test."""
+    packet = {
+        "schema_version": "0.1.0",
+        "campaign_id": "synthetic-campaign",
+        "session": 1,
+        "packet_id": "packet:synthetic-session",
+        "created_at": "2026-10-28T00:00:00Z",
+        "source_paths": [{"path": "synthetic-recap.md", "role": "fixture"}],
+        "latency_modes": [],
+        "known_roll_tables": [],
+        "current_state_seed": {
+            "day_label": "Synthetic Day One",
+            "party_position": "Synthetic Test Room",
+            "route_intent": "Exercise recap routing",
+            "active_weather": None,
+            "next_suggested_beat": None,
         },
+        "open_loops": [],
+        "roll_stack": [],
+        "surface_catalog": [
+            {
+                "module_id": "chat",
+                "title": "Synthetic Chat",
+                "default_slot": "main",
+                "required": True,
+                "enabled_by_default": True,
+            },
+            {
+                "module_id": "record",
+                "title": "Synthetic Record",
+                "default_slot": "sidebar",
+                "required": True,
+                "enabled_by_default": True,
+            },
+        ],
+    }
+    layout = {
+        "schema_version": "0.1.0",
+        "layout_version": 1,
+        "updated_at": "2026-10-28T00:00:00Z",
+        "campaign_id": "synthetic-campaign",
+        "session": 1,
+        "modules": [
+            {
+                "module_id": "chat",
+                "slot": "main",
+                "order": 0,
+                "enabled": True,
+                "collapsed": False,
+            },
+            {
+                "module_id": "record",
+                "slot": "sidebar",
+                "order": 0,
+                "enabled": True,
+                "collapsed": False,
+            },
+        ],
+    }
+    initial_state = {
+        "schema_version": "0.1.0",
+        "campaign_id": "synthetic-campaign",
+        "session": 1,
+        "derived": True,
+        "authoritative": False,
+        "derived_from": ["live_packet.json", "surface_layout.json"],
+        "generated_at": "2026-10-28T00:00:00Z",
+    }
+    for filename, value in (
+        ("live_packet.json", packet),
+        ("surface_layout.json", layout),
+        ("current_state.json", initial_state),
+    ):
+        (tmp_path / filename).write_text(
+            json.dumps(value, sort_keys=True) + "\n", encoding="utf-8"
+        )
+
+
+def _live_extraction_payload(
+    *,
+    source_artifact_id: str,
+    spref: str,
+    source_text: str,
+    span_index: dict,
+    location_label: str = "Mireward road",
+) -> dict:
+    from graph_memory.extraction.category_candidate_graph_extractor import (
+        CategoryGraphExtractionOptions,
+        FixtureCategoryGraphPassClient,
+        run_category_pipeline,
     )
-
-    assert response.status_code == 200, response.text
-    body = response.json()
-    graph = body["ingest_report"]["graph_preview"]
-    assert graph["status"] == "candidate_validation_ready"
-    assert (ROOT / graph["manifest_path"]).is_file()
-    assert "graph_candidate_ready" in body["states"]
-    from apps.live_control_server.services.graph_run_registry import get_extraction_run
-
-    run = get_extraction_run(ROOT, graph["extraction_run_id"])
-    assert run.source_artifact_id == graph["source_artifact_id"]
-
-
-def test_recap_ingest_rejects_unsafe_candidate_graph_path(client_env: tuple[TestClient, Path, Path]) -> None:
-    client, _corpus, _candidate = client_env
-    _prepare_normalized(client)
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "build_graph_preview_bundle",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "candidate_graph_path": "../escape.json",
-        },
-    )
-
-    assert response.status_code == 422
-
-
-def _live_extraction_payload(*, source_artifact_id: str, spref: str) -> dict:
     from tests.fixtures.graph_memory.category_extraction_helpers import (
-        canonical_candidate_graph_from_passes,
+        minimal_category_pass_outputs,
     )
 
-    graph = canonical_candidate_graph_from_passes(spref=spref)
+    # Bind the quote to its actual paragraph, never the generated frontmatter.
+    lines = source_text.splitlines()
+    matches = [
+        span["source_span_id"]
+        for span in span_index["spans"]
+        if location_label in "\n".join(lines[span["start_line"] - 1 : span["end_line"]])
+    ]
+    assert matches, "synthetic fixture must quote a real source paragraph"
+    spref = matches[0]
+    # Exercise packaging with one location actually named in these source fixtures.
+    # Keep the fake independent of the checkout's real standing-party registry.
+    outputs = minimal_category_pass_outputs(
+        spref, node_label=location_label, node_id="node:fixture-location"
+    )
+    node = outputs["actor_pass"]["observation_nodes"][0]
+    node["node_type"] = "location"
+    outputs["actor_pass"] = {"observation_nodes": []}
+    outputs["location_pass"] = {"observation_nodes": [node]}
+    outputs["beat_pass"] = {"observation_beats": []}
+    result = run_category_pipeline(
+        FixtureCategoryGraphPassClient(outputs),
+        CategoryGraphExtractionOptions(
+            campaign_id="longmont-c2",
+            session_id="session-22",
+            session_number=22,
+            source_span_index=span_index,
+            source_text=source_text,
+            source_artifact_id=source_artifact_id,
+            source_ref_id=f"{source_artifact_id}:text",
+            model_id="gpt-5.4-mini",
+        ),
+    )
+    graph = result.candidate_graph
     graph["source_artifact_ids"] = [source_artifact_id]
-    for collection in ("nodes", "edges", "beats", "ignored_items", "deferred_items", "proposed_writes"):
+    for collection in (
+        "nodes",
+        "edges",
+        "beats",
+        "ignored_items",
+        "deferred_items",
+        "proposed_writes",
+    ):
         for item in graph.get(collection) or []:
             if not isinstance(item, dict):
                 continue
@@ -239,7 +455,9 @@ def _live_extraction_payload(*, source_artifact_id: str, spref: str) -> dict:
                         "source_ref_id": f"{source_artifact_id}:text",
                         "source_anchor_id": ref.get("source_anchor_id")
                         or f"anchor:{ref.get('source_span_ref_id') or spref}",
-                        "label": ref.get("label") or ref.get("source_span_ref_id") or spref,
+                        "label": ref.get("label")
+                        or ref.get("source_span_ref_id")
+                        or spref,
                         "evidence_role": ref.get("evidence_role") or "source_evidence",
                         "can_open_source": True,
                         "can_highlight_span": True,
@@ -250,9 +468,11 @@ def _live_extraction_payload(*, source_artifact_id: str, spref: str) -> dict:
     return graph
 
 
-def _patch_fake_category_extract(monkeypatch: pytest.MonkeyPatch) -> None:
-    import src.graph_memory.extraction.graph_preview_runner as prod_runner
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+def _patch_fake_category_extract(
+    monkeypatch: pytest.MonkeyPatch, *, location_label: str = "Mireward road"
+) -> None:
+    import graph_memory.extraction.graph_preview_runner as prod_runner
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionResult,
     )
 
@@ -276,7 +496,13 @@ def _patch_fake_category_extract(monkeypatch: pytest.MonkeyPatch) -> None:
             or options.source_span_index.get("source_artifact_id")
             or ""
         ).strip()
-        graph = _live_extraction_payload(source_artifact_id=artifact, spref=spref)
+        graph = _live_extraction_payload(
+            source_artifact_id=artifact,
+            spref=spref,
+            source_text=options.source_text,
+            span_index=dict(options.source_span_index),
+            location_label=location_label,
+        )
         if options.campaign_id:
             graph["campaign_id"] = options.campaign_id
         if options.session_id:
@@ -287,791 +513,9 @@ def _patch_fake_category_extract(monkeypatch: pytest.MonkeyPatch) -> None:
             pass_outputs={},
             pass_telemetry={},
             consolidation_diagnostics={},
-            model_id=options.model_id or "gpt-5.4-mini",
+            model_id=options.model_id or "deepseek/deepseek-v4.1-flash-1017",
             total_cost_usd=0.0,
             diagnostics={"extraction_mode": "category_decomposed"},
-            known_entity_mentions={
-                "schema": "dmb_known_entity_mention_sidecar_v0",
-                "version": "0.1",
-                "campaign_id": options.campaign_id,
-                "session_id": options.session_id,
-                "mentions": [],
-                "ambiguous_surfaces": [],
-                "diagnostics": {"mention_count": 0, "empty_contract": True},
-            },
         )
 
     monkeypatch.setattr(prod_runner, "extract_category_candidate_graph", fake_extract)
-
-
-def test_recap_ingest_build_graph_preview_bundle_with_extract_graph_fake_client(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from apps.live_control_server.services.graph_run_registry import get_extraction_run
-    from graph_memory.ingestion.extraction_run import ExtractionRunStatus
-
-    client, _corpus, _candidate = client_env
-    _prepare_normalized(client)
-    _patch_fake_category_extract(monkeypatch)
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "build_graph_preview_bundle",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "extract_graph": True,
-            "graph_model_id": "gpt-5.4-mini",
-        },
-    )
-
-    assert response.status_code == 200, response.text
-    graph = response.json()["ingest_report"]["graph_preview"]
-    assert graph["status"] == "candidate_validation_ready"
-    assert graph["extraction_mode"] == "category_decomposed"
-    assert graph["model_id"] == "gpt-5.4-mini"
-    assert graph["candidate_node_count"] >= 1
-    assert (ROOT / graph["candidate_graph_path"]).is_file()
-
-    run_id = graph["extraction_run_id"]
-    assert run_id
-    run = get_extraction_run(ROOT, run_id)
-    assert run.status in {ExtractionRunStatus.REVIEWABLE, ExtractionRunStatus.FAILED}
-    assert run.status == ExtractionRunStatus.REVIEWABLE
-    assert run.source_artifact_id == graph["source_artifact_id"]
-    candidate = json.loads((ROOT / graph["candidate_graph_path"]).read_text(encoding="utf-8"))
-    assert run.source_artifact_id in (candidate.get("source_artifact_ids") or [])
-    for node in candidate.get("nodes") or []:
-        for ref in node.get("evidence_refs") or []:
-            assert ref.get("source_artifact_id") == run.source_artifact_id
-
-
-def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_union(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A typed-validation-failed candidate must not become candidate-ready or materialize."""
-    import src.graph_memory.extraction.graph_preview_runner as prod_runner
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
-        CategoryGraphExtractionResult,
-    )
-
-    client, _corpus, _candidate = client_env
-    _prepare_normalized(client)
-
-    def fake_invalid_extract(options, *, client=None, progress_callback=None):  # noqa: ANN001
-        spans = list(options.source_span_index.get("spans") or [])
-        spref = "invalid-span"
-        for span in spans:
-            if not isinstance(span, dict):
-                continue
-            candidate = str(
-                span.get("source_span_id")
-                or span.get("source_span_ref_id")
-                or span.get("span_id")
-                or ""
-            ).strip()
-            if candidate:
-                spref = candidate
-                break
-        artifact = str(
-            options.source_artifact_id
-            or options.source_span_index.get("source_artifact_id")
-            or "artifact:missing"
-        ).strip()
-        graph = _live_extraction_payload(source_artifact_id=artifact, spref=spref)
-        for node in graph.get("nodes") or []:
-            if isinstance(node, dict):
-                node["semantic_state"] = {
-                    "canon_state": "not_a_valid_canon_state",
-                    "lifecycle_state": "candidate",
-                    "evidence_role": "source_evidence",
-                    "authority_state": "llm_generated",
-                    "visibility_state": "unknown",
-                }
-        return CategoryGraphExtractionResult(
-            candidate_graph=graph,
-            envelope={"candidate_graph": graph},
-            pass_outputs={},
-            pass_telemetry={},
-            consolidation_diagnostics={},
-            model_id=options.model_id or "gpt-5.4-mini",
-            total_cost_usd=0.0,
-            diagnostics={"extraction_mode": "category_decomposed"},
-            known_entity_mentions={
-                "schema": "dmb_known_entity_mention_sidecar_v0",
-                "version": "0.1",
-                "campaign_id": options.campaign_id,
-                "session_id": options.session_id,
-                "mentions": [],
-                "ambiguous_surfaces": [],
-                "diagnostics": {"mention_count": 0, "empty_contract": True},
-            },
-        )
-
-    monkeypatch.setattr(prod_runner, "extract_category_candidate_graph", fake_invalid_extract)
-
-    build = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "build_graph_preview_bundle",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "extract_graph": True,
-            "force_graph_run": True,
-            "graph_model_id": "gpt-5.4-mini",
-        },
-    )
-    assert build.status_code == 200
-    graph = build.json()["ingest_report"]["graph_preview"]
-    assert graph["status"] != "candidate_validation_ready"
-    assert graph["status"] != "preview_union_store_ready"
-    assert graph["extraction_run_status"] == "failed"
-    assert graph["extraction_mode"] == "llm_blocked"
-    assert graph["blocked_reason"]
-    assert "validation" in graph["blocked_reason"].lower() or "typed" in graph[
-        "blocked_reason"
-    ].lower() or "semantic" in graph["blocked_reason"].lower()
-    assert graph.get("preview_union_store_path") in (None, "")
-
-    materialize = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "materialize_preview_supergraph",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "extract_graph": True,
-            "force_graph_run": True,
-            "materialize_after_extract": True,
-            "graph_model_id": "gpt-5.4-mini",
-        },
-    )
-    assert materialize.status_code == 200
-    mat_graph = materialize.json()["ingest_report"]["graph_preview"]
-    assert mat_graph["status"] != "preview_union_store_ready"
-    assert mat_graph["extraction_run_status"] == "failed"
-    assert mat_graph.get("preview_union_store_path") in (None, "")
-    assert mat_graph["can_open_union_graph"] is False
-
-
-def test_recap_ingest_packaged_span_index_resolves_evidence_for_surface(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Every candidate EvidenceRef must resolve against the packaged canonical span index."""
-    from apps.live_control_server.services.graph_preview_surface import (
-        _enrich_evidence_ref,
-        _span_lookup_key,
-    )
-    from src.graph_memory.source_span import (
-        SOURCE_SPAN_INDEX_SCHEMA,
-        source_span_index_from_dict,
-    )
-
-    client, _corpus, _candidate = client_env
-    _prepare_normalized(client)
-    _patch_fake_category_extract(monkeypatch)
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "build_graph_preview_bundle",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "extract_graph": True,
-            "graph_model_id": "gpt-5.4-mini",
-        },
-    )
-    assert response.status_code == 200
-    graph = response.json()["ingest_report"]["graph_preview"]
-    assert graph["status"] == "candidate_validation_ready"
-    run_dir = ROOT / graph["run_dir"]
-    candidate = json.loads((ROOT / graph["candidate_graph_path"]).read_text(encoding="utf-8"))
-    span_index_path = run_dir / "source_span_index.json"
-    span_index = json.loads(span_index_path.read_text(encoding="utf-8"))
-    assert span_index.get("schema") == SOURCE_SPAN_INDEX_SCHEMA
-    assert span_index.get("source_artifact_id") == graph["source_artifact_id"]
-    # Canonical v1 loader must accept the packaged file (no invented :full_text entries).
-    validated = source_span_index_from_dict(span_index)
-    assert validated.source_artifact_id == graph["source_artifact_id"]
-    assert validated.spans
-    assert all(":span:" in span.source_span_id for span in validated.spans)
-    assert not any(
-        str(span.get("source_span_id") or "").endswith(":full_text")
-        for span in (span_index.get("spans") or [])
-        if isinstance(span, dict)
-    )
-
-    manifest = json.loads((ROOT / graph["manifest_path"]).read_text(encoding="utf-8"))
-    assert manifest["source"]["source_artifact_id"] == graph["source_artifact_id"]
-    assert (
-        manifest["artifacts"]["source_span_index"]["schema"] == SOURCE_SPAN_INDEX_SCHEMA
-    )
-    provenance = json.loads((run_dir / "provenance_index.json").read_text(encoding="utf-8"))
-    assert all(
-        row.get("artifact_id") == graph["source_artifact_id"]
-        for row in provenance.get("source_artifacts") or []
-        if isinstance(row, dict)
-    )
-    assert graph["source_artifact_id"] in (candidate.get("source_artifact_ids") or [])
-    assert (run_dir / "source_spans" / "recap_full_text.md").is_file()
-
-    span_lookup = {
-        key: sp
-        for sp in span_index.get("spans") or []
-        if isinstance(sp, dict)
-        for key in [_span_lookup_key(sp)]
-        if key is not None
-    }
-    recap_text = (run_dir / "source_spans" / "recap_full_text.md").read_text(encoding="utf-8")
-    recap_path = graph.get("normalized_recap_path") or ""
-
-    evidence_refs = []
-    for collection in ("nodes", "edges", "beats", "ignored_items", "deferred_items"):
-        for item in candidate.get(collection) or []:
-            if not isinstance(item, dict):
-                continue
-            label = str(item.get("label") or item.get("title") or "")
-            for ref in item.get("evidence_refs") or []:
-                if isinstance(ref, dict):
-                    evidence_refs.append((ref, label))
-    assert evidence_refs
-
-    for ref, label in evidence_refs:
-        enriched = _enrich_evidence_ref(
-            ref,
-            span_lookup=span_lookup,
-            recap_text=recap_text,
-            recap_path=recap_path,
-            entity_label=label or None,
-        )
-        assert enriched.source_artifact_id == graph["source_artifact_id"]
-        assert enriched.source_span_ref_id
-        assert enriched.source_span_ref_id in span_lookup
-        assert enriched.paragraph_text and enriched.paragraph_text.strip()
-        assert enriched.line_start is not None and enriched.line_start >= 1
-        assert enriched.line_end is not None and enriched.line_end >= enriched.line_start
-        assert enriched.can_highlight_span is True or enriched.anchor_quote_matches
-        assert enriched.anchor_quotes or enriched.anchor_quote_matches
-
-
-def test_recap_ingest_materialize_preview_supergraph_extracts_without_candidate_path(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    client, _corpus, _candidate = client_env
-    _prepare_normalized(client)
-    _patch_fake_category_extract(monkeypatch)
-    _patch_retired_union_materialize(monkeypatch)
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "materialize_preview_supergraph",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "extract_graph": True,
-            "materialize_after_extract": True,
-        },
-    )
-
-    assert response.status_code == 200, response.text
-    graph = response.json()["ingest_report"]["graph_preview"]
-    assert graph["status"] == "candidate_validation_ready"
-    assert graph["extraction_mode"] == "category_decomposed"
-    assert graph["candidate_graph_path"] is not None
-    from apps.live_control_server.services.graph_run_registry import get_extraction_run
-
-    run = get_extraction_run(ROOT, graph["extraction_run_id"])
-    assert run.source_artifact_id == graph["source_artifact_id"]
-
-
-def test_recap_ingest_extract_graph_missing_api_key_returns_llm_blocked(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    client, _corpus, _candidate = client_env
-    _prepare_normalized(client)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.setattr(
-        "src.graph_memory.extraction.category_candidate_graph_extractor.load_dungeonmindbuddy_dotenv",
-        lambda: None,
-    )
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "build_graph_preview_bundle",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "extract_graph": True,
-            "force_graph_run": True,
-        },
-    )
-
-    assert response.status_code == 200
-    graph = response.json()["ingest_report"]["graph_preview"]
-    assert graph["status"] == "source_span_bundle_ready"
-    assert graph["extraction_mode"] == "llm_blocked"
-    assert graph["blocked_reason"]
-    assert graph["can_open_union_graph"] is False
-
-
-def test_recap_ingest_rejects_candidate_path_with_extract_graph(
-    client_env: tuple[TestClient, Path, Path]
-) -> None:
-    client, _corpus, candidate = client_env
-    _prepare_normalized(client)
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "build_graph_preview_bundle",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "candidate_graph_path": candidate.relative_to(ROOT).as_posix(),
-            "extract_graph": True,
-        },
-    )
-
-    assert response.status_code == 422
-    assert "cannot be combined" in response.json()["detail"]
-
-
-def test_recap_ingest_generate_recap_memory_without_graph_extraction(
-    client_env: tuple[TestClient, Path, Path]
-) -> None:
-    client, _corpus, _candidate = client_env
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "generate_recap_memory",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
-            "slug": "Mireward Road Dogfood",
-            "check": True,
-            "include_graph_extraction": False,
-            "include_legacy_breadcrumb": True,
-        },
-    )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "ready_for_planning_activation"
-    assert "session_memory_materialized" in body["states"]
-    assert "graph_preview" not in body["ingest_report"]
-
-
-def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    client, _corpus, _candidate = client_env
-    _patch_fake_category_extract(monkeypatch)
-    _patch_retired_union_materialize(monkeypatch)
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "generate_recap_memory",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
-            "slug": "Mireward Road Dogfood",
-            "check": True,
-            "include_graph_extraction": True,
-            "graph_model_id": "gpt-5.4-mini",
-        },
-    )
-
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert body["status"] != "ready_for_planning_activation"
-    assert "graph_candidate_ready" in body["states"]
-    graph = body["ingest_report"]["graph_preview"]
-    assert graph["status"] == "candidate_validation_ready"
-    assert graph["extraction_mode"] == "category_decomposed"
-    assert graph["model_id"] == "gpt-5.4-mini"
-    assert "legacy_breadcrumb_skipped" in " ".join(body["warnings"])
-
-
-def test_generate_recap_memory_reuses_preview_graph_without_force(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    client, _corpus, _candidate = client_env
-    _prepare_normalized(client)
-    _patch_fake_category_extract(monkeypatch)
-    _patch_retired_union_materialize(monkeypatch)
-
-    payload = {
-        "operation": "generate_recap_memory",
-        "campaign_id": "longmont-c2",
-        "session": 22,
-        "slug": "Mireward Road Dogfood",
-        "check": True,
-        "include_graph_extraction": True,
-        "graph_model_id": "gpt-5.4-mini",
-    }
-    first = client.post("/api/live/recap-ingest", json=payload)
-    assert first.status_code == 200, first.text
-    first_graph = first.json()["ingest_report"]["graph_preview"]
-    assert first_graph["status"] == "candidate_validation_ready"
-    first_manifest = first_graph["manifest_path"]
-
-    second = client.post("/api/live/recap-ingest", json=payload)
-    assert second.status_code == 200, second.text
-    second_graph = second.json()["ingest_report"]["graph_preview"]
-    assert second_graph["manifest_path"] == first_manifest
-
-
-def test_generate_recap_memory_force_graph_run_starts_new_preview_run(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    client, _corpus, _candidate = client_env
-    _prepare_normalized(client)
-    _patch_fake_category_extract(monkeypatch)
-    _patch_retired_union_materialize(monkeypatch)
-
-    payload = {
-        "operation": "generate_recap_memory",
-        "campaign_id": "longmont-c2",
-        "session": 22,
-        "slug": "Mireward Road Dogfood",
-        "check": True,
-        "include_graph_extraction": True,
-        "graph_model_id": "gpt-5.4-mini",
-    }
-    first = client.post("/api/live/recap-ingest", json=payload)
-    assert first.status_code == 200, first.text
-    first_manifest = first.json()["ingest_report"]["graph_preview"]["manifest_path"]
-
-    forced = client.post("/api/live/recap-ingest", json={**payload, "force_graph_run": True})
-    assert forced.status_code == 200, forced.text
-    forced_graph = forced.json()["ingest_report"]["graph_preview"]
-    assert forced_graph["status"] == "candidate_validation_ready"
-    assert forced_graph["manifest_path"] != first_manifest
-
-
-def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    client, corpus, _candidate = client_env
-    _patch_fake_category_extract(monkeypatch)
-    _patch_retired_union_materialize(monkeypatch)
-    staged = corpus / "Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md"
-    staged.write_text(
-        "Session 22 Recap\n\nBonogo scouts the Mireward road and regroups at dusk.",
-        encoding="utf-8",
-    )
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "generate_recap_memory",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "raw_text": "Different pasted text should not replace staged notes.",
-            "slug": "Mireward Road Dogfood",
-            "check": True,
-            "include_graph_extraction": True,
-            "graph_model_id": "gpt-5.4-mini",
-        },
-    )
-
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert body["status"] != "ready_for_planning_activation"
-    assert "staged_raw_notes_conflict" in body["states"]
-    assert "graph_candidate_ready" in body["states"]
-    assert body["ingest_report"]["staged_raw_notes_reused_existing"] is True
-    assert "Different pasted text" not in staged.read_text(encoding="utf-8")
-    graph = body["ingest_report"]["graph_preview"]
-    assert graph["status"] == "candidate_validation_ready"
-
-
-def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_success(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    import src.graph_memory.extraction.graph_preview_runner as prod_runner
-
-    client, _corpus, _candidate = client_env
-    shutil.rmtree(ROOT / "out/graph_memory/runs/longmont-c2/session-22", ignore_errors=True)
-
-    def fake_extract_blocked(*_args, **_kwargs):  # noqa: ANN002, ANN003
-        raise RuntimeError("test llm blocked")
-
-    monkeypatch.setattr(prod_runner, "extract_category_candidate_graph", fake_extract_blocked)
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "generate_recap_memory",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
-            "slug": "Mireward Road Dogfood",
-            "check": True,
-            "include_graph_extraction": True,
-        },
-    )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] != "ready_for_planning_activation"
-    graph = body["ingest_report"]["graph_preview"]
-    assert graph["status"] == "source_span_bundle_ready"
-    assert graph["extraction_mode"] == "llm_blocked"
-    assert graph["blocked_reason"] == "test llm blocked"
-    assert any("preview graph extraction blocked" in warning for warning in body["warnings"])
-
-
-def test_real_recap_manifest_adapts_to_extraction_run(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Regression: real recap preview producer manifest adapts to ExtractionRun."""
-    from graph_memory.ingestion.graph_ingest_run import (
-        GraphIngestRunManifest,
-        adapt_recap_manifest_to_extraction_run,
-    )
-
-    client, corpus, candidate = client_env
-    _prepare_normalized(client)
-    _stamp_fixture_candidate(client, corpus, candidate)
-    _patch_retired_union_materialize(monkeypatch)
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "materialize_preview_supergraph",
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "candidate_graph_path": candidate.relative_to(ROOT).as_posix(),
-        },
-    )
-    assert response.status_code == 200, response.text
-    graph = response.json()["ingest_report"]["graph_preview"]
-    manifest_path = ROOT / graph["manifest_path"]
-    assert manifest_path.is_file()
-    assert manifest_path.name == "graph_ingest_run_manifest.json"
-
-    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    manifest = GraphIngestRunManifest.model_validate(payload)
-    run = adapt_recap_manifest_to_extraction_run(manifest)
-
-    assert run.run_id == manifest.run_id
-    assert run.campaign_id == manifest.campaign_id == "longmont-c2"
-    assert run.session_id == manifest.session_id
-    assert run.source_domain == (manifest.source.source_domain or "recap")
-    assert run.source_artifact_id == manifest.source.source_artifact_id
-    assert run.source_artifact_id
-    assert run.lineage["adapter"] == "graph_ingest_run_manifest_v0"
-    assert run.lineage["legacy_status"] == manifest.status.value
-
-    # Component mappings preserve recap artifact URIs and digests.
-    assert "source_artifact" in run.components
-    source_component = run.components["source_artifact"]
-    assert source_component.uri in {
-        manifest.source.input_path_record or "",
-        manifest.source.normalized_recap_path or "",
-    }
-    assert source_component.sha256 == manifest.source.normalized_recap_sha256
-
-    role_to_component = {
-        "source_span_index": "source_span_index",
-        "candidate_graph": "candidate_graph",
-        "candidate_validation_report": "validation_report",
-        "pass_outputs": "pass_outputs",
-        "pass_telemetry": "pass_telemetry",
-        "consolidation_diagnostics": "consolidation_diagnostics",
-        "raw_model_response": "raw_model_response",
-        "provenance_index": "provenance_index",
-    }
-    for key, artifact in manifest.artifacts.items():
-        mapped_key = role_to_component.get(key)
-        if mapped_key is None:
-            continue
-        assert mapped_key in run.components, f"missing adapted component for manifest role {key}"
-        mapped = run.components[mapped_key]
-        assert mapped.uri == artifact.uri
-        assert mapped.sha256 == artifact.sha256
-
-
-@pytest.fixture
-def recap_inspection_client(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn: str
-) -> TestClient:
-    monkeypatch.setattr("apps.live_control_server.routes.graph_preview.repo_root", lambda: tmp_path)
-    monkeypatch.setattr(
-        "apps.live_control_server.services.graph_run_registry.repo_root",
-        lambda: tmp_path,
-        raising=False,
-    )
-    return TestClient(create_app())
-
-
-def test_recap_inspection_route_returns_validated_source(
-    recap_inspection_client: TestClient, tmp_path: Path
-) -> None:
-    from tests.test_graph_run_registry import _validated_recap_run
-
-    run, _artifact, _source_path = _validated_recap_run(tmp_path)
-    response = recap_inspection_client.get(
-        f"/api/live/graph-preview/extraction-runs/{run.run_id}/recap-inspection"
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["schema"] == "dmb_historical_recap_inspection_v1"
-    assert body["runId"] == run.run_id
-    assert body["runStatus"] == "validated"
-    assert body["sourceStatus"] == "available"
-    assert "Session Recap" in (body.get("sourceProse") or "")
-
-
-def test_recap_inspection_route_reads_durable_source_when_file_missing(
-    recap_inspection_client: TestClient, tmp_path: Path
-) -> None:
-    from tests.test_graph_run_registry import _validated_recap_run
-
-    run, _artifact, source_path = _validated_recap_run(tmp_path)
-    source_path.unlink()
-    response = recap_inspection_client.get(
-        f"/api/live/graph-preview/extraction-runs/{run.run_id}/recap-inspection"
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["sourceStatus"] == "available"
-    assert "Session Recap" in (body.get("sourceProse") or "")
-
-
-def test_recap_inspection_route_unknown_run_404(recap_inspection_client: TestClient) -> None:
-    response = recap_inspection_client.get(
-        "/api/live/graph-preview/extraction-runs/not-a-real-run/recap-inspection"
-    )
-    assert response.status_code == 404
-
-
-def test_recap_inspection_route_rejects_worldbuilding(
-    recap_inspection_client: TestClient, tmp_path: Path
-) -> None:
-    from apps.live_control_server.services.graph_run_registry import create_extraction_run
-    from apps.live_control_server.services.source_artifact_registry import (
-        create_source_artifact_from_workspace_document,
-    )
-    from apps.live_control_server.services.workspace_document_registry import (
-        create_workspace_document,
-        mark_workspace_document_committed,
-    )
-
-    record = create_workspace_document(
-        tmp_path,
-        title="Lore",
-        campaign_id="eldyrwild",
-        kind="worldbuilding_source",
-        source_domain="worldbuilding",
-        document_class="lore",
-        authority_state="draft",
-        visibility_state="internal",
-    )
-    committed = mark_workspace_document_committed(
-        tmp_path, record.document_id, expected_revision=1
-    )
-    target = tmp_path / committed.target_relpath
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text("# Lore\n\nBody.\n", encoding="utf-8")
-    artifact = create_source_artifact_from_workspace_document(
-        tmp_path,
-        document_id=committed.document_id,
-        expected_revision=committed.revision,
-    )
-    run = create_extraction_run(
-        tmp_path,
-        source_artifact_id=artifact.source_artifact_id,
-        source_domain="worldbuilding",
-    )
-    response = recap_inspection_client.get(
-        f"/api/live/graph-preview/extraction-runs/{run.run_id}/recap-inspection"
-    )
-    assert response.status_code == 422
-    assert "not applicable" in response.json()["detail"]
-
-
-def test_recap_writer_and_discovery_use_configured_root(client_env, monkeypatch):
-    from apps.live_control_server.services.graph_ingest_run_registry import discover_graph_ingest_runs
-
-    client, _corpus, _candidate = client_env
-    configured = "out/test_recap_ingest_graph_preview/configured-runs"
-    monkeypatch.setenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", configured)
-    _prepare_normalized(client)
-    try:
-        response = client.post("/api/live/recap-ingest", json={
-            "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2", "session": 22,
-        })
-        assert response.status_code == 200, response.text
-        graph = response.json()["ingest_report"]["graph_preview"]
-        assert graph["status"] == "source_span_bundle_ready"
-        assert graph["manifest_path"].startswith(configured + "/longmont-c2/session-22/")
-        assert (ROOT / graph["manifest_path"]).is_file()
-        runs = discover_graph_ingest_runs(ROOT, campaign_id="longmont-c2", session_id="session-22")
-        assert any(run.manifest_path == graph["manifest_path"] for run in runs)
-    finally:
-        shutil.rmtree(ROOT / configured, ignore_errors=True)
-
-
-def test_recap_preview_uses_configured_immutable_content_root(client_env, monkeypatch):
-    client, _corpus, _candidate = client_env
-    configured = "out/test_recap_ingest_graph_preview/recap-content"
-    monkeypatch.setenv("DUNGEONMIND_RECAP_SOURCE_CONTENT_ROOT", configured)
-    _prepare_normalized(client)
-    try:
-        response = client.post("/api/live/recap-ingest", json={
-            "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2", "session": 22,
-        })
-        assert response.status_code == 200, response.text
-        graph = response.json()["ingest_report"]["graph_preview"]
-        assert graph["status"] == "source_span_bundle_ready"
-        snapshots = list((ROOT / configured / "longmont-c2/session-22").glob("*.md"))
-        assert len(snapshots) == 1
-        assert "Mireward road" in snapshots[0].read_text()
-        registry = json.loads((ROOT / "out/registries/source_artifacts.json").read_text())
-        assert any(record["uri"].startswith("repo://" + configured + "/") for record in registry["records"])
-    finally:
-        shutil.rmtree(ROOT / configured, ignore_errors=True)
-
-
-def test_unmocked_candidate_completion_recovers_without_provider_replay(client_env, monkeypatch):
-    import src.graph_memory.extraction.graph_preview_runner as production
-    from apps.live_control_server.services import recap_graph_preview_ingest as service
-
-    client, _corpus, _candidate = client_env
-    _prepare_normalized(client)
-    _patch_fake_category_extract(monkeypatch)
-    built = client.post("/api/live/recap-ingest", json={
-        "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2", "session": 22,
-        "extract_graph": True, "graph_model_id": "gpt-5.4-mini",
-    })
-    assert built.status_code == 200, built.text
-    initial = built.json()["ingest_report"]["graph_preview"]
-    assert initial["status"] == "candidate_validation_ready"
-    assert initial["extraction_run_status"] == "reviewable"
-
-    def forbidden(*args, **kwargs):
-        pytest.fail("Recovery must not dispatch a provider or invoke retired materialization")
-
-    monkeypatch.setattr(production, "extract_category_candidate_graph", forbidden)
-    monkeypatch.setattr(service, "_materialize_preview_union_store_from_graph_ingest_run", forbidden)
-    monkeypatch.setattr(service, "_PreviewUnionMaterializeOptions", forbidden)
-    request = {"operation": "generate_recap_memory", "campaign_id": "longmont-c2", "session": 22,
-               "include_graph_extraction": True, "include_legacy_breadcrumb": False,
-               "graph_model_id": "gpt-5.4-mini"}
-    for _ in range(2):
-        response = client.post("/api/live/recap-ingest", json=request)
-        assert response.status_code == 200, response.text
-        body = response.json()
-        graph = body["ingest_report"]["graph_preview"]
-        assert graph["status"] == "candidate_validation_ready"
-        assert graph["extraction_run_id"] == initial["extraction_run_id"]
-        assert graph["source_artifact_id"] == initial["source_artifact_id"]
-        assert graph["candidate_graph_path"] == initial["candidate_graph_path"]
-        assert graph["next_actions"] == ["review_candidate"]
-        assert not graph["can_open_union_graph"]
-        assert not graph["preview_union_store_path"]
-        assert not graph["blocked_reason"]
-        assert body["status"] != "ready_for_planning_activation"
-        assert "session_memory_materialized" not in body["states"]

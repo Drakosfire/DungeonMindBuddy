@@ -11,34 +11,75 @@
 #   DUNGEONMIND_SERVER_PORT   default 7860
 #   BUDDY_API_PORT            default 8000
 #   BUDDY_UI_PORT             default 5173
-#   RUN_NO_RELOAD=1           disable --reload / Vite HMR extras
+#   RUN_NO_RELOAD=1           disable Buddy API reload; DungeonMindServer and Vite keep their defaults
+#   DMB_AGENT_GRAPH_LOCAL_PROFILE  opt in to an owner-private local Graph profile
+#   DMB_MANAGED_WORLD_DATA_ROOT    existing stable managed-World root for that profile
 #
 # Ctrl+C stops everything started by this script.
 
 set -euo pipefail
 
+# The local launcher is the explicit local-operator boundary. The API also
+# rejects any forwarded request metadata before honoring loopback-local access.
+export DMB_DEPLOYMENT_ENVIRONMENT="${DMB_DEPLOYMENT_ENVIRONMENT:-local}"
+export DMB_AUTH_MODE="${DMB_AUTH_MODE:-local_operator}"
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
+
+source "$ROOT/scripts/local_pdf_ocr_env.sh"
+configure_local_pdf_ocr "$ROOT"
 
 DMS_ROOT="${DUNGEONMIND_SERVER_ROOT:-$ROOT/../DungeonMindServer}"
 DMS_PORT="${DUNGEONMIND_SERVER_PORT:-7860}"
 API_PORT="${BUDDY_API_PORT:-8000}"
-UI_PORT="${BUDDY_UI_PORT:-5173}"
-
-RUN_DIR="$ROOT/.run"
-mkdir -p "$RUN_DIR"
-
-PIDS=()
+if [[ -n "${DMB_AGENT_GRAPH_LOCAL_PROFILE:-}" ]]; then
+  UI_PORT="${BUDDY_UI_PORT:-5202}"
+else
+  UI_PORT="${BUDDY_UI_PORT:-5173}"
+fi
 
 log() { printf '[run] %s\n' "$*"; }
 die() { printf '[run] ERROR: %s\n' "$*" >&2; exit 1; }
 
+for port in "$DMS_PORT" "$API_PORT" "$UI_PORT"; do
+  if [[ ! "$port" =~ ^[1-9][0-9]{0,4}$ ]] || (( port > 65535 )); then
+    die "service ports must be decimal integers from 1 to 65535 (received: $port)"
+  fi
+done
+if [[ "$DMS_PORT" == "$API_PORT" || "$DMS_PORT" == "$UI_PORT" || "$API_PORT" == "$UI_PORT" ]]; then
+  die "DungeonMindServer, Buddy API, and Buddy UI require distinct ports"
+fi
+
+RUN_DIR="$ROOT/.run"
+mkdir -p "$RUN_DIR"
+command -v flock >/dev/null 2>&1 || die "missing required command: flock"
+exec {launch_lock}>>"$RUN_DIR/launcher.lock"
+flock -n "$launch_lock" || die "another launcher owns $RUN_DIR; stop it before starting another from this checkout"
+
+PIDS=()
+PID_FILES=()
+BUDDY_UI_PID=""
+
 port_listening() {
   local port="$1"
+  local output status
   if command -v ss >/dev/null 2>&1; then
-    ss -ltn 2>/dev/null | grep -E ":${port}\\b" >/dev/null
+    output=$(ss -H -ltn "sport = :$port") || die "ss failed while checking port $port"
+    [[ -n "$output" ]]
+  elif command -v lsof >/dev/null 2>&1; then
+    if output=$(lsof -iTCP:"$port" -sTCP:LISTEN 2>&1); then
+      return 0
+    else
+      status=$?
+      if [[ "$status" == 1 && -z "$output" ]]; then
+        return 1
+      fi
+      printf '%s\n' "$output" >&2
+      die "lsof failed while checking port $port"
+    fi
   else
-    lsof -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1
+    die "listener detection requires ss or lsof"
   fi
 }
 
@@ -50,33 +91,67 @@ cleanup() {
   local pid
   log "stopping services…"
   for pid in "${PIDS[@]:-}"; do
-    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-      kill "$pid" 2>/dev/null || true
+    if [[ -n "$pid" ]]; then
+      # The child may still be starting and have no separate group yet.
+      kill -- "-$pid" 2>/dev/null || kill -- "$pid" 2>/dev/null || true
     fi
   done
   # Give children a moment; then force if needed.
   sleep 1
   for pid in "${PIDS[@]:-}"; do
-    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-      kill -9 "$pid" 2>/dev/null || true
+    if [[ -n "$pid" ]]; then
+      # The child may still be starting and have no separate group yet.
+      kill -9 -- "-$pid" 2>/dev/null || kill -9 -- "$pid" 2>/dev/null || true
     fi
   done
-  rm -f "$RUN_DIR"/*.pid
+  if (( ${#PID_FILES[@]} )); then
+    rm -f -- "${PID_FILES[@]}"
+  fi
   log "stopped"
 }
 
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
+require_cmd setsid
+require_cmd python3
 require_cmd uv
+require_cmd node
+node_version="$(node --version)" || die "Could not read the Node.js version. Install Node 22 and retry."
+[[ "$node_version" =~ ^v22\.[0-9]+\.[0-9]+$ ]] || die "Buddy requires Node 22. Found $node_version. Switch to Node 22 and retry."
 require_cmd npm
+require_cmd curl
 
 [[ -d "$DMS_ROOT" ]] || die "DungeonMindServer not found at $DMS_ROOT (set DUNGEONMIND_SERVER_ROOT)"
 [[ -f "$ROOT/apps/live_control_server/main.py" ]] || die "not a DungeonMindBuddy checkout: $ROOT"
 [[ -d "$ROOT/apps/live-control-ui" ]] || die "missing apps/live-control-ui"
 
+if [[ -n "${DMB_AGENT_GRAPH_LOCAL_PROFILE:-}" ]]; then
+  [[ -n "${DUNGEONMIND_SERVER_ROOT:-}" ]] || die "local Graph profile requires explicit DUNGEONMIND_SERVER_ROOT"
+  [[ -n "${DMB_MANAGED_WORLD_DATA_ROOT:-}" ]] || die "local Graph profile requires DMB_MANAGED_WORLD_DATA_ROOT"
+  # An occupied service port may be a different checkout or profile. Do not
+  # kill it or claim that this launcher's code/configuration is serving it.
+  if port_listening "$DMS_PORT"; then
+    die "local Graph profile cannot verify an existing DungeonMindServer listener; stop its owning launcher first"
+  fi
+  if port_listening "$API_PORT" || port_listening "$UI_PORT"; then
+    die "local Graph profile cannot verify an existing API/UI listener; stop its owning launcher first"
+  fi
+  profile_args=(
+    --ui-port "$UI_PORT" --api-port "$API_PORT" --server-root "$DMS_ROOT"
+  )
+  if [[ -n "${DMB_AGENT_GRAPH_REQUIRED_WORLD_ID:-}" ]]; then
+    profile_args+=(--require-world "$DMB_AGENT_GRAPH_REQUIRED_WORLD_ID")
+  fi
+  if ! uv run python scripts/preflight_local_graph_profile.py "${profile_args[@]}"; then
+    die "local Graph access is not configured; no service was started"
+  fi
+fi
+
 start_dms() {
   if port_listening "$DMS_PORT"; then
-    log "DungeonMindServer already listening on :$DMS_PORT — leaving it alone"
+    log "DungeonMindServer already listening on :$DMS_PORT — leaving it alone (revision unverified)"
     return 0
   fi
   log "starting DungeonMindServer in $DMS_ROOT on :$DMS_PORT"
@@ -84,14 +159,15 @@ start_dms() {
     cd "$DMS_ROOT"
     # Prefer the repo's uv-managed env; fall back to python if needed.
     if [[ -f dev_server.py ]]; then
-      exec uv run python dev_server.py
+      exec setsid uv run python dev_server.py
     else
-      exec uv run uvicorn app:app --host 127.0.0.1 --port "$DMS_PORT" --reload
+      exec setsid uv run uvicorn app:app --host 127.0.0.1 --port "$DMS_PORT" --reload
     fi
-  ) >"$RUN_DIR/dungeonmind-server.log" 2>&1 &
+  ) {launch_lock}>&- > >(python3 "$ROOT/scripts/rotate_launcher_log.py" "$RUN_DIR/dungeonmind-server.log") 2>&1 &
   local pid=$!
   PIDS+=("$pid")
   echo "$pid" >"$RUN_DIR/dungeonmind-server.pid"
+  PID_FILES+=("$RUN_DIR/dungeonmind-server.pid")
 }
 
 start_buddy_api() {
@@ -106,14 +182,32 @@ start_buddy_api() {
   fi
   (
     cd "$ROOT"
-    exec uv run uvicorn apps.live_control_server.main:app \
+    exec setsid uv run uvicorn apps.live_control_server.main:app \
       --host 127.0.0.1 \
       --port "$API_PORT" \
       "${reload_args[@]}"
-  ) >"$RUN_DIR/buddy-api.log" 2>&1 &
+  ) {launch_lock}>&- > >(python3 "$ROOT/scripts/rotate_launcher_log.py" "$RUN_DIR/buddy-api.log") 2>&1 &
   local pid=$!
   PIDS+=("$pid")
   echo "$pid" >"$RUN_DIR/buddy-api.pid"
+  PID_FILES+=("$RUN_DIR/buddy-api.pid")
+}
+
+prepare_buddy_ui_dependencies() {
+  if port_listening "$UI_PORT"; then
+    return 0
+  fi
+  local ui="$ROOT/apps/live-control-ui"
+  local stamp="$ui/node_modules/.buddy-package-lock.sha256"
+  local fingerprint
+  fingerprint=$(sha256sum "$ui/package-lock.json") || die "cannot fingerprint UI lockfile"
+  if [[ -f "$stamp" && "$(<"$stamp")" == "$fingerprint" ]]; then
+    return 0
+  fi
+  log "installing UI deps (npm ci)…"
+  rm -f -- "$stamp" || die "cannot invalidate UI dependency stamp"
+  npm --prefix "$ui" ci || die "UI dependency installation failed"
+  printf '%s\n' "$fingerprint" >"$stamp"
 }
 
 start_buddy_ui() {
@@ -121,31 +215,65 @@ start_buddy_ui() {
     log "DungeonBuddy UI already listening on :$UI_PORT — leaving it alone"
     return 0
   fi
+  require_cmd lsof
+  require_cmd ps
   log "starting DungeonBuddy UI on :$UI_PORT"
-  if [[ ! -d "$ROOT/apps/live-control-ui/node_modules" ]]; then
-    log "installing UI deps (npm ci)…"
-    npm --prefix "$ROOT/apps/live-control-ui" ci
-  fi
   (
     cd "$ROOT/apps/live-control-ui"
     # Polling avoids ENOSPC/inotify watch exhaustion on busy Linux hosts.
     export CHOKIDAR_USEPOLLING="${CHOKIDAR_USEPOLLING:-1}"
     export CHOKIDAR_INTERVAL="${CHOKIDAR_INTERVAL:-2000}"
     export VITE_LIVE_API_PROXY_TARGET="${VITE_LIVE_API_PROXY_TARGET:-http://127.0.0.1:${API_PORT}}"
-    exec npm run dev -- --host 127.0.0.1 --port "$UI_PORT"
-  ) >"$RUN_DIR/buddy-ui.log" 2>&1 &
+    exec setsid npm run dev -- --host 127.0.0.1 --port "$UI_PORT" --strictPort
+  ) {launch_lock}>&- > >(python3 "$ROOT/scripts/rotate_launcher_log.py" "$RUN_DIR/buddy-ui.log") 2>&1 &
   local pid=$!
   PIDS+=("$pid")
+  BUDDY_UI_PID="$pid"
   echo "$pid" >"$RUN_DIR/buddy-ui.pid"
+  PID_FILES+=("$RUN_DIR/buddy-ui.pid")
+}
+
+check_owned_services() {
+  local i
+  for i in "${!PIDS[@]}"; do
+    if ! kill -0 "${PIDS[i]}" 2>/dev/null; then
+      die "service exited — check ${PID_FILES[i]%.pid}.log"
+    fi
+  done
+}
+
+probe_service() {
+  local body
+  body=$(curl -fsS --max-time 1 --max-filesize 8388608 "$1" 2>/dev/null) || return 1
+  case "$2" in
+    dms) python3 -c 'import json, sys; d = json.load(sys.stdin); sys.exit(not (d["service"] == "dungeonmind-api" and d["status"] == "ok"))' <<<"$body" 2>/dev/null ;;
+    api) python3 -c 'import json, sys; sys.exit(json.load(sys.stdin)["info"]["title"] != "DungeonMindBuddy Live Control")' <<<"$body" 2>/dev/null ;;
+    ui) [[ "$body" == *'<title>DungeonMind — Live Control</title>'* && "$body" == *'<div id="root"></div>'* ]] ;;
+    *) return 1 ;;
+  esac
+}
+
+owned_ui_is_listening() {
+  [[ -n "$BUDDY_UI_PID" ]] || return 0
+  local listeners pid group
+  listeners=$(lsof -nP -t -iTCP:"$UI_PORT" -sTCP:LISTEN 2>/dev/null) || return 1
+  for pid in $listeners; do
+    group=$(ps -o pgid= -p "$pid") || continue
+    if [[ "${group//[[:space:]]/}" == "$BUDDY_UI_PID" ]]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 wait_http() {
   local url="$1"
   local label="$2"
-  local tries="${3:-40}"
-  local i
-  for ((i = 1; i <= tries; i++)); do
-    if curl -fsS -o /dev/null "$url" 2>/dev/null; then
+  local probe_deadline=$((SECONDS + 30))
+  while (( SECONDS < probe_deadline && SECONDS < startup_deadline )); do
+    check_owned_services
+    if probe_service "$url" "$3" && { [[ "$3" != ui ]] || owned_ui_is_listening; }; then
+      check_owned_services
       log "$label ready ($url)"
       return 0
     fi
@@ -158,17 +286,36 @@ wait_http() {
 log "Buddy root: $ROOT"
 log "DungeonMindServer: $DMS_ROOT"
 
+prepare_buddy_ui_dependencies
 start_dms
 start_buddy_api
 start_buddy_ui
 
-wait_http "http://127.0.0.1:${DMS_PORT}/docs" "DungeonMindServer" 60 || true
-wait_http "http://127.0.0.1:${API_PORT}/docs" "DungeonBuddy API" 60 || true
-wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" 60 || true
+startup_deadline=$((SECONDS + 90))
+stack_status="local stack up"
+if [[ -n "${DMB_AGENT_GRAPH_LOCAL_PROFILE:-}" ]]; then
+  wait_http "http://127.0.0.1:${DMS_PORT}/health" "DungeonMindServer API health" dms || die "DungeonMindServer API health unavailable"
+  wait_http "http://127.0.0.1:${API_PORT}/openapi.json" "DungeonBuddy API health" api || die "DungeonBuddy API health unavailable"
+  wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" ui || die "DungeonBuddy UI unavailable"
+else
+  wait_http "http://127.0.0.1:${DMS_PORT}/health" "DungeonMindServer" dms || stack_status="local stack partially ready"
+  wait_http "http://127.0.0.1:${API_PORT}/openapi.json" "DungeonBuddy API" api || stack_status="local stack partially ready"
+  wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" ui || {
+    stack_status="local stack partially ready"
+    [[ -z "${BUDDY_UI_PID:-}" ]] || die "DungeonBuddy UI unavailable — check $RUN_DIR/buddy-ui.log"
+  }
+fi
 
+if [[ -n "${BUDDY_UI_PID:-}" ]] && ! kill -0 "$BUDDY_UI_PID" 2>/dev/null; then
+  die "DungeonBuddy UI exited during startup — check $RUN_DIR/buddy-ui.log"
+fi
+
+if [[ -n "${DMB_AGENT_GRAPH_LOCAL_PROFILE:-}" ]]; then
+  stack_status="local stack health checks passed"
+fi
 cat <<EOF
 
-[run] local stack up
+[run] $stack_status
 
   DungeonMindServer  http://127.0.0.1:${DMS_PORT}/docs
   DungeonBuddy API   http://127.0.0.1:${API_PORT}/docs
@@ -177,6 +324,10 @@ cat <<EOF
   logs: $RUN_DIR/*.log
 
 EOF
+
+if [[ -n "${DMB_AGENT_GRAPH_LOCAL_PROFILE:-}" ]]; then
+  log "local Graph access configured; Graph-backed answer not yet accepted by this launch"
+fi
 
 if [[ ${#PIDS[@]} -eq 0 ]]; then
   log "nothing new started (all ports already occupied); exiting"
@@ -187,10 +338,6 @@ fi
 log "Ctrl+C to stop processes started by this script"
 # Keep the launcher alive while children run.
 while true; do
-  for pid in "${PIDS[@]:-}"; do
-    if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
-      die "process $pid exited early — check $RUN_DIR/*.log"
-    fi
-  done
+  check_owned_services
   sleep 2
 done

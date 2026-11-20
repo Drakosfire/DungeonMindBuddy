@@ -7,13 +7,24 @@ from pathlib import Path
 from apps.live_control_server.models.historical_recap_projection import (
     HistoricalRecapWorldProjectionResponse,
 )
-from apps.live_control_server.config import world_graph_root
+from apps.live_control_server.config import (
+    ManagedWorldDataRootError,
+    managed_world_data_root,
+    world_graph_root,
+)
 from apps.live_control_server.services.graph_run_registry import (
     GraphRunRegistryError,
     get_extraction_run,
+    validate_recap_source_run_world_binding,
 )
 from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+    DirectWorldGraphReadError,
+    direct_services_from_config,
     extract_span_from_revision_bound_text,
+)
+from apps.live_control_server.services.managed_world_graph_projection import (
+    VerifiedManagedWorldBinding,
+    resolve_managed_world_binding,
 )
 from apps.live_control_server.services.world_graph_projection import (
     WorldGraphProjectionServiceError,
@@ -192,6 +203,8 @@ def apply_durable_source_provenance(
 def build_historical_recap_world_projection(
     root: Path,
     run_id: str,
+    *,
+    managed_world_id: str | None = None,
 ) -> HistoricalRecapWorldProjectionResponse:
     """Return only a complete source + current-World projection.
 
@@ -200,7 +213,7 @@ def build_historical_recap_world_projection(
     """
 
     try:
-        run = get_extraction_run(root, run_id)
+        run = get_extraction_run(run_id)
     except GraphRunRegistryError as exc:
         raise _error(
             str(exc),
@@ -254,10 +267,111 @@ def build_historical_recap_world_projection(
             code="world_binding_unavailable",
             status_code=409,
         )
+    try:
+        native_world_id = validate_recap_source_run_world_binding(
+            source_world_id=source.world_id,
+            campaign_id=run.campaign_id,
+            lineage=run.lineage,
+        )
+    except GraphRunRegistryError as exc:
+        raise _error(
+            str(exc),
+            code="source_binding_mismatch",
+            status_code=exc.status_code,
+        ) from exc
+    if not native_world_id:
+        raise _error(
+            "exact run has no verified native World context",
+            code="world_binding_unavailable",
+            status_code=409,
+        )
+
+    frozen_context = run.lineage.get("world_campaign_ingest_context")
+    frozen_managed_world_id: str | None = None
+    frozen_binding_version: int | None = None
+    if isinstance(frozen_context, dict):
+        frozen_managed_world_id = frozen_context["managed_world_id"]
+        frozen_binding_version = frozen_context["binding_version"]
+
+    selected_binding: VerifiedManagedWorldBinding | None = None
+    binding_root: Path | None = None
+    if managed_world_id is not None:
+        if not managed_world_id.strip() or managed_world_id != managed_world_id.strip():
+            raise _error(
+                "selected managed World identity is invalid",
+                code="selected_world_invalid",
+                status_code=422,
+            )
+        if frozen_managed_world_id is None or frozen_binding_version is None:
+            raise _error(
+                "exact ExtractionRun has no frozen managed World binding context",
+                code="managed_world_context_unavailable",
+                status_code=409,
+            )
+        if managed_world_id != frozen_managed_world_id:
+            raise _error(
+                "selected managed World does not match the exact ExtractionRun context",
+                code="selected_world_mismatch",
+                status_code=409,
+            )
+        try:
+            binding_root = managed_world_data_root(root)
+            selected_binding = resolve_managed_world_binding(
+                managed_world_id,
+                root=binding_root,
+            )
+        except ManagedWorldDataRootError as exc:
+            raise _error(
+                "managed World registry is unavailable",
+                code="managed_world_unavailable",
+                status_code=503,
+            ) from exc
+        except WorldGraphProjectionServiceError as exc:
+            raise _error(
+                str(exc),
+                code=exc.code,
+                status_code=exc.status_code,
+            ) from exc
+        if (
+            selected_binding.managed_world_id != frozen_managed_world_id
+            or selected_binding.native_world_id != native_world_id
+            or selected_binding.binding_version != frozen_binding_version
+        ):
+            raise _error(
+                "managed World binding no longer matches the exact ExtractionRun context",
+                code="managed_world_binding_changed",
+                status_code=409,
+            )
+
+    revision_pin = None
+    if isinstance(frozen_context, dict):
+        revision_pin = frozen_context.get("head_revision_id")
+        if not revision_pin:
+            raise _error(
+                "exact ExtractionRun has no retained graph revision",
+                code="historical_graph_revision_unavailable",
+                status_code=409,
+            )
+        try:
+            graph = direct_services_from_config(native_world_id).bundle.world_graph
+            retained = graph.get_revision(native_world_id, revision_pin)
+        except DirectWorldGraphReadError as exc:
+            raise _error(str(exc), code=exc.code, status_code=exc.status_code) from exc
+        if (
+            retained is None
+            or retained.revision.graph_schema != frozen_context["graph_schema"]
+            or retained.revision.graph_payload_sha256 != frozen_context["graph_payload_sha256"]
+        ):
+            raise _error(
+                "retained graph revision does not match the exact ExtractionRun context",
+                code="historical_graph_revision_mismatch",
+                status_code=409,
+            )
 
     request = WorldGraphProjectionRequest(
         schema="dmb_world_graph_projection_request_v1",
-        world_id=source.world_id,
+        world_id=native_world_id,
+        revision_pin=revision_pin,
         campaign_id=run.campaign_id,
         focus={
             "kind": "session",
@@ -271,7 +385,6 @@ def build_historical_recap_world_projection(
         world = project_world_graph(
             request,
             root=world_graph_root(),
-            hydrate_product_local_excerpts=False,
         )
     except WorldGraphProjectionServiceError as exc:
         raise HistoricalRecapProjectionError(
@@ -280,6 +393,49 @@ def build_historical_recap_world_projection(
             status_code=exc.status_code,
             diagnostics=exc.diagnostics,
         ) from exc
+
+    if revision_pin is not None and world.snapshot.revision_id != revision_pin:
+        raise _error(
+            "World Graph projection returned a different revision",
+            code="projection_revision_mismatch",
+            status_code=502,
+        )
+
+    if managed_world_id is not None and world.snapshot.world_id != native_world_id:
+        raise _error(
+            "World Graph projection returned a different native World",
+            code="projection_world_mismatch",
+            status_code=502,
+        )
+
+    if (
+        selected_binding is not None
+        and binding_root is not None
+        and managed_world_id is not None
+    ):
+        try:
+            current_binding = resolve_managed_world_binding(
+                managed_world_id,
+                root=binding_root,
+            )
+        except ManagedWorldDataRootError as exc:
+            raise _error(
+                "managed World registry became unavailable during projection",
+                code="managed_world_unavailable",
+                status_code=503,
+            ) from exc
+        except WorldGraphProjectionServiceError as exc:
+            raise _error(
+                str(exc),
+                code=exc.code,
+                status_code=exc.status_code,
+            ) from exc
+        if current_binding != selected_binding:
+            raise _error(
+                "managed World binding changed during projection; retry the read",
+                code="managed_world_binding_changed",
+                status_code=409,
+            )
 
     world = apply_durable_source_provenance(
         world,
@@ -301,7 +457,13 @@ def build_historical_recap_world_projection(
         source_revision_id=str(source.source_revision_id),
         campaign_id=run.campaign_id,
         session_id=run.session_id,
-        world_id=source.world_id,
+        world_id=native_world_id,
+        managed_world_id=(
+            selected_binding.managed_world_id if selected_binding is not None else None
+        ),
+        binding_version=(
+            selected_binding.binding_version if selected_binding is not None else None
+        ),
         source_sha256=f"sha256:{source.content_sha256}",
         graph_id=snapshot.revision_id,
         snapshot=snapshot,

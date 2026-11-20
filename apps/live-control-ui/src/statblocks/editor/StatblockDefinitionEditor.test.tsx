@@ -4,7 +4,7 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AttackMechanic_Output, RuleElement_Output } from "../../contracts/dungeonbuddy-statblocks-v1/client";
-import { baseCandidateDefinition, complexCandidateDefinition } from "./editorFixtures";
+import { baseCandidateDefinition, complexCandidateDefinition } from "../../test/statblockEditorFixtures";
 import { StatblockDefinitionEditor } from "./StatblockDefinitionEditor";
 import {
   createEditorStateFromOutput,
@@ -390,4 +390,16 @@ describe("StatblockDefinitionEditor", () => {
     expect(mechanicPre()).toBe(mechanicBeforeEdits);
     expect(JSON.parse(mechanicPre()!)).toEqual(beforeSpellMechanic);
   });
+});
+
+
+it("edits maximum HP instead of the raw modifier and discloses formula reconciliation", async () => {
+  const output=baseCandidateDefinition();
+  output.vitality.hit_points={method:"formula",formula:{count:3,die:6,modifier:6},displayed_average:null,fixed_value:null};
+  render(<ControlledEditor output={output}/>);
+  const input=screen.getByLabelText("Hit points") as HTMLInputElement;
+  expect(input.value).toBe("16");
+  await userEvent.clear(input);await userEvent.type(input,"28");
+  expect(input.value).toBe("28");
+  expect(screen.getByText(/Changing maximum HP adjusts the modifier/).textContent).toContain("3d6 + 18");
 });

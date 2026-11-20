@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.agent.scope_relevance import (
+from reducer.scope_relevance import (
     build_entity_document_index,
     build_entity_evidence_index,
     build_evidence_document_index,

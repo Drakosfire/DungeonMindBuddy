@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
+from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from uuid import uuid4
 
@@ -18,16 +18,26 @@ from application_state.agent_conversation.types import (
     HistoricalReference,
     LegacyImport,
     LegacyTurn,
+    PlayRunTurnContextReceiptV1,
+    PlayContentBasis,
+    PlayRunTurnContextReceiptV2,
+    PlayGraphBindingReceiptV1,
     ReopenCommand,
     SubmittedGraphFocusIntentV1,
     SubmittedGraphRequestIntentV1,
     SubmittedGraphSelectionIntentV1,
+    SubmittedPlanPlayableTargetV1,
     SubmittedPrimaryWorkIntentV1,
     SubmittedTurnIntentV1,
     TurnFailure,
     TurnProvenance,
     TurnResult,
     TurnSubmission,
+    decode_play_run_turn_context_references,
+    decode_play_graph_binding_references,
+    encode_play_graph_binding_reference,
+    encode_play_run_turn_context_references,
+    validate_play_context_receipt,
     submitted_turn_intent_fingerprint_v1,
 )
 from application_state.config import APPLICATION_STATE_DSN_ENV
@@ -37,6 +47,255 @@ from application_state.errors import (
     ApplicationStateUnavailableError,
     ApplicationStateValidationError,
 )
+
+
+def _play_run_receipt() -> PlayRunTurnContextReceiptV1:
+    return PlayRunTurnContextReceiptV1(
+        schema="dmb_play_run_turn_context_receipt_v1",
+        run_id="run-1",
+        run_revision=7,
+        runbook_object_id="runbook-1",
+        runbook_object_revision=4,
+        runbook_work_revision_id=uuid4(),
+        runbook_revision_n=3,
+        runbook_content_sha256="a" * 64,
+        beat_id="beat:a",
+        scene_id="scene:arrival",
+    )
+
+
+def test_play_v2_receipt_and_basis_validate_utf8_note_and_typed_witnesses() -> None:
+    from application_state.agent_conversation.types import encode_play_run_turn_context_references
+
+    witness = _play_run_receipt()
+    primary, supporting = encode_play_run_turn_context_references(witness)
+    provenance = TurnProvenance(
+        world_id="world-one",
+        surface_resolution="resolved",
+        surface_id="play",
+        primary_work=primary,
+        supporting_work=supporting,
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    note = ""
+    v2_witness = witness.model_dump(mode="python", by_alias=True) | {
+        "schema": "dmb_play_run_turn_context_receipt_v2"
+    }
+    receipt = PlayRunTurnContextReceiptV2(
+        **v2_witness,
+        world_id="world-one",
+        edition_revision=0,
+        content_sha256=witness.runbook_content_sha256,
+        scene_note=note,
+        scene_note_sha256=hashlib.sha256(note.encode("utf-8")).hexdigest(),
+    )
+    assert receipt.scene_note == ""  # A saved empty note differs from no note.
+    assert receipt.model_dump(mode="json", by_alias=True)["schema"] == (
+        "dmb_play_run_turn_context_receipt_v2"
+    )
+    validate_play_context_receipt(receipt, "world-one", provenance)
+    without_saved_note = PlayRunTurnContextReceiptV2.model_validate(
+        receipt.model_dump(mode="python", by_alias=True)
+        | {"scene_note": None, "scene_note_sha256": None}
+    )
+    assert without_saved_note.scene_note is None and without_saved_note != receipt
+    with pytest.raises((ValueError, ValidationError), match="Runbook origin"):
+        PlayRunTurnContextReceiptV2.model_validate(
+            receipt.model_dump(mode="python", by_alias=True)
+            | {"content_sha256": "b" * 64}
+        )
+    assert PlayContentBasis(edition_revision=0, content_sha256="b" * 64)
+    with pytest.raises((ValueError, ValidationError), match="only valid for Run"):
+        SubmittedPrimaryWorkIntentV1(
+            kind="plan", object_id="plan-1", expected_revision=1,
+            play_content_basis=PlayContentBasis(
+                edition_revision=0, content_sha256="b" * 64
+            ),
+        )
+    with pytest.raises((ValueError, ValidationError), match="digest"):
+        PlayRunTurnContextReceiptV2.model_validate(
+            receipt.model_dump(mode="python", by_alias=True)
+            | {"scene_note_sha256": "c" * 64}
+        )
+    with pytest.raises((ValueError, ValidationError), match="revision ID"):
+        PlayContentBasis(
+            edition_revision=1, edition_revision_id=None, content_sha256="b" * 64
+        )
+    with pytest.raises((ValueError, ValidationError), match="32 KiB"):
+        PlayRunTurnContextReceiptV2(
+            **v2_witness,
+            world_id="world-one",
+            edition_revision=0,
+            content_sha256=witness.runbook_content_sha256,
+            scene_note="é" * 16385,
+            scene_note_sha256=hashlib.sha256(("é" * 16385).encode()).hexdigest(),
+        )
+    with pytest.raises((ValueError, ValidationError), match="witnesses"):
+        validate_play_context_receipt(receipt, "world-two", provenance)
+
+
+def test_play_graph_binding_codec_requires_exact_play_graph_basis() -> None:
+    primary, supporting = encode_play_run_turn_context_references(_play_run_receipt())
+    receipt = PlayGraphBindingReceiptV1(
+        schema="dmb_play_graph_binding_receipt_v1",
+        managed_world_id="world-one",
+        native_world_id="native-world-one",
+        binding_version=4,
+    )
+    graph = HistoricalReference(
+        resolution="resolved",
+        kind="world_graph_revision",
+        object_id=receipt.native_world_id,
+        revision="graph-revision-7",
+    )
+    binding = encode_play_graph_binding_reference(receipt)
+    base = dict(
+        world_id=receipt.managed_world_id,
+        surface_resolution="resolved",
+        surface_id="play",
+        primary_work=primary,
+        supporting_work=[*supporting, graph, binding],
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    provenance = TurnProvenance(**base)
+    assert decode_play_graph_binding_references(provenance) == receipt
+    assert (
+        decode_play_graph_binding_references(
+            TurnProvenance(**(base | {"supporting_work": [*supporting, graph]}))
+        )
+        is None
+    )
+    for changed in (
+        {"supporting_work": [*supporting, binding]},
+        {"supporting_work": [*supporting, graph, binding, binding]},
+        {"supporting_work": [*supporting, graph, graph, binding]},
+        {"supporting_work": [graph, binding]},
+        {
+            "supporting_work": [
+                *supporting,
+                graph.model_copy(update={"object_id": "foreign-world"}),
+                binding,
+            ]
+        },
+        {
+            "supporting_work": [
+                *supporting,
+                graph,
+                binding.model_copy(update={"revision": "04"}),
+            ]
+        },
+        {
+            "supporting_work": [
+                *supporting,
+                graph,
+                binding.model_copy(update={"content_sha256": "a" * 64}),
+            ]
+        },
+        {"surface_id": "plan"},
+        {
+            "selected_object": HistoricalReference(
+                resolution="resolved", kind="scene", object_id="scene-1"
+            )
+        },
+    ):
+        with pytest.raises((ValueError, ValidationError)):
+            TurnProvenance(**(base | changed))
+    legacy = TurnProvenance(**(base | {"supporting_work": [graph]}))
+    assert decode_play_graph_binding_references(legacy) is None
+
+
+def test_play_run_context_codec_validates_complete_reserved_group() -> None:
+    receipt = _play_run_receipt()
+    primary, supporting = encode_play_run_turn_context_references(receipt)
+    assert decode_play_run_turn_context_references(primary, supporting) == receipt
+    base = dict(
+        world_id="world-one",
+        surface_resolution="resolved",
+        surface_id="play",
+        primary_work=primary,
+        supporting_work=supporting,
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    assert TurnProvenance(**base).primary_work == primary
+    legacy_run = TurnProvenance(
+        **(
+            base
+            | {
+                "supporting_work": [
+                    HistoricalReference(
+                        resolution="resolved",
+                        kind="runbook",
+                        object_id="historical-runbook",
+                        revision="old-revision",
+                    )
+                ]
+            }
+        )
+    )
+    assert (
+        decode_play_run_turn_context_references(
+            legacy_run.primary_work, legacy_run.supporting_work
+        )
+        is None
+    )
+    for changed in (
+        {"supporting_work": supporting[:1]},
+        {"supporting_work": supporting + [supporting[1]]},
+        {"supporting_work": supporting + [supporting[2]]},
+        {"supporting_work": supporting + [supporting[0]]},
+        {
+            "supporting_work": supporting
+            + [
+                HistoricalReference(
+                    resolution="resolved",
+                    kind="runbook",
+                    object_id="other-runbook",
+                )
+            ]
+        },
+        {"primary_work": primary.model_copy(update={"revision": "0"})},
+        {"primary_work": primary.model_copy(update={"revision": "07"})},
+        {
+            "supporting_work": [
+                supporting[0].model_copy(update={"revision": "5"}),
+                *supporting[1:],
+            ]
+        },
+        {
+            "supporting_work": [
+                supporting[0],
+                supporting[1].model_copy(update={"revision": "v1"}),
+            ]
+        },
+        {
+            "supporting_work": [
+                supporting[0],
+                supporting[1].model_copy(update={"content_sha256": "b" * 64}),
+            ]
+        },
+        {"surface_id": "plan"},
+    ):
+        with pytest.raises((ValueError, ValidationError)):
+            TurnProvenance(**(base | changed))
+    with pytest.raises((ValueError, ValidationError)):
+        TurnProvenance(
+            **(base | {"primary_work": HistoricalReference(resolution="absent")})
+        )
+    assert (
+        decode_play_run_turn_context_references(
+            HistoricalReference(resolution="resolved", kind="plan", object_id="plan-1"),
+            [],
+        )
+        is None
+    )
+    without_scene = receipt.model_copy(update={"scene_id": None})
+    minimal_primary, minimal_supporting = encode_play_run_turn_context_references(
+        without_scene
+    )
+    assert (
+        decode_play_run_turn_context_references(minimal_primary, minimal_supporting)
+        == without_scene
+    )
 
 
 def _ref(
@@ -107,6 +366,8 @@ def _without_0012_fields(value):
                     "object_revision",
                     "work_revision_id",
                     "revision_n",
+                    "play_content_basis",
+                    "play_context_receipt",
                 }
                 and item is None
             )
@@ -144,6 +405,128 @@ def test_additive_null_provenance_fields_preserve_legacy_fingerprint_shape() -> 
     assert request_fingerprint(
         provenance.model_copy(update={"surface_instance_id": "plan-pane-2"})
     ) != request_fingerprint(provenance)
+
+
+def test_graphless_turn_request_fingerprint_omits_new_null_policy_fields() -> None:
+    from application_state.agent_conversation.types import request_fingerprint
+
+    submission = TurnSubmission(
+        world_id="fingerprint-graphless-world",
+        conversation_id=uuid4(),
+        idempotency_key=uuid4(),
+        expected_conversation_revision=2,
+        user_text="Keep the old request fingerprint shape.",
+        provenance=_provenance("fingerprint-graphless-world"),
+        submitted_intent_v1=_submitted_intent(
+            "fingerprint-graphless-world", "Keep the old request fingerprint shape."
+        ),
+    )
+    payload = _without_0012_fields(
+        submission.model_dump(
+            mode="json",
+            exclude={
+                "idempotency_key",
+                "submitted_intent_v1",
+                "submitted_intent_v2",
+                "graph_context_receipt",
+                "graph_context_execution",
+            },
+        )
+    )
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    expected = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+    assert request_fingerprint(submission) == expected
+
+
+def test_graph_execution_records_enforce_event_order_and_policy() -> None:
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV1,
+        PlanWorldGraphExecutionV1,
+        ValidatedGraphOperationEventV1,
+    )
+
+    policy = GraphExecutionPolicyV1(
+        policy_version="test-v1",
+        allowed_graph_operations=["search_assertions"],
+        max_provider_attempts=2,
+        max_graph_operations=2,
+        max_results_per_operation=8,
+        max_total_provider_input_tokens=100,
+        max_total_provider_output_tokens=50,
+        provider_input_accounting=GraphExecutionAccountingV1(
+            kind="conservative_upper_bound",
+            estimator="utf8_json_bytes_plus_64_per_node_v1",
+        ),
+        source_opened=False,
+    )
+    operation = ValidatedGraphOperationEventV1(
+        event_id=uuid4(), sequence=1, kind="validated_graph_operation",
+        operation_id=uuid4(), operation="search_assertions",
+        request_arguments_sha256="a" * 64, graph_revision="revision-1",
+        result_packet_sha256="b" * 64, assertion_ids=[], relationship_ids=[],
+        evidence_ref_ids=[], evidence_sufficiency_status="insufficient",
+        coverage_status="incomplete", truncated=False, source_opened=False,
+    )
+    with pytest.raises(ValidationError, match="contiguous sequence"):
+        PlanWorldGraphExecutionV1(
+            schema="dmb_agent_plan_world_graph_execution_v1",
+            context_receipt_sha256="c" * 64,
+            policy=policy,
+            events=[operation],
+        )
+    with pytest.raises(ValidationError, match="max_provider_attempts"):
+        GraphExecutionPolicyV1.model_validate(
+            policy.model_dump() | {"max_provider_attempts": 0}
+        )
+    with pytest.raises(ValidationError, match="conservative provider input estimator"):
+        GraphExecutionPolicyV1.model_validate(
+            policy.model_dump()
+            | {
+                "provider_input_accounting": {
+                    "kind": "conservative_upper_bound",
+                    "estimator": "unrecognized-estimator",
+                }
+            }
+        )
+    oversized_events = [
+        operation.model_dump() | {
+            "event_id": uuid4(),
+            "operation_id": uuid4(),
+            "sequence": sequence,
+        }
+        for sequence in range(2049)
+    ]
+    with pytest.raises(ValidationError, match="at most 2048"):
+        PlanWorldGraphExecutionV1.model_validate(
+            {
+                "schema": "dmb_agent_plan_world_graph_execution_v1",
+                "context_receipt_sha256": "c" * 64,
+                "policy": policy.model_dump(),
+                "events": oversized_events,
+            }
+        )
+
+    long_ids = [f"{'x' * 2048}{index:04d}" for index in range(512)]
+    oversized_operation = ValidatedGraphOperationEventV1(
+        event_id=uuid4(), sequence=0, kind="validated_graph_operation",
+        operation_id=uuid4(), operation="search_assertions",
+        request_arguments_sha256="a" * 64, graph_revision="revision-1",
+        result_packet_sha256="b" * 64, assertion_ids=long_ids,
+        relationship_ids=[], evidence_ref_ids=[],
+        evidence_sufficiency_status="insufficient",
+        coverage_status="incomplete", truncated=False, source_opened=False,
+    )
+    large_policy = GraphExecutionPolicyV1.model_validate(
+        policy.model_dump() | {"max_results_per_operation": 4096}
+    )
+    with pytest.raises(ValidationError, match="storage size limit"):
+        PlanWorldGraphExecutionV1(
+            schema="dmb_agent_plan_world_graph_execution_v1",
+            context_receipt_sha256="c" * 64,
+            policy=large_policy,
+            events=[oversized_operation],
+        )
 
 
 def test_content_reference_requires_complete_typed_revision_and_resolved_identity() -> (
@@ -229,10 +612,24 @@ def test_content_reference_requires_complete_typed_revision_and_resolved_identit
 
 
 def test_submitted_turn_intent_v1_fingerprint_covers_replayable_semantics() -> None:
+    from application_state.agent_conversation.types import _fingerprint
+
     intent = _submitted_intent("intent-world", "Where is the caravan?")
     fingerprint = submitted_turn_intent_fingerprint_v1(intent)
+    historical_payload = intent.model_dump(
+        mode="json", by_alias=True, exclude={"client_thread_id"}
+    )
+    if isinstance(historical_payload.get("primary_work"), dict):
+        historical_payload["primary_work"].pop("play_content_basis", None)
+    if historical_payload.get("playable_target") is None:
+        historical_payload.pop("playable_target", None)
+    if historical_payload.get("selected_knowledge") is None:
+        historical_payload.pop("selected_knowledge", None)
 
+    historical_payload.pop("native_statement_selection", None)
+    assert fingerprint == "fe758d54d25df53b685862ef66bf36857bdd6cd44ba8dc3c42a35e82a6e342a3"
     assert len(fingerprint) == 64
+    assert fingerprint == _fingerprint(historical_payload)
     assert submitted_turn_intent_fingerprint_v1(intent) == fingerprint
     assert submitted_turn_intent_fingerprint_v1(
         intent.model_copy(update={"message": "Where is the caravan now?"})
@@ -265,6 +662,16 @@ def test_submitted_turn_intent_v1_fingerprint_covers_replayable_semantics() -> N
         }
     )
     plan_fingerprint = submitted_turn_intent_fingerprint_v1(plan_intent)
+    pre_target_payload = plan_intent.model_dump(
+        mode="json", by_alias=True, exclude={"client_thread_id"}
+    )
+    pre_target_payload.pop("playable_target", None)
+    pre_target_payload["primary_work"].pop("play_content_basis", None)
+    pre_target_payload.pop("selected_knowledge", None)
+    pre_target_payload.pop("native_statement_selection", None)
+    assert plan_fingerprint == hashlib.sha256(
+        json.dumps(pre_target_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
     assert submitted_turn_intent_fingerprint_v1(
         plan_intent.model_copy(
             update={
@@ -274,6 +681,33 @@ def test_submitted_turn_intent_v1_fingerprint_covers_replayable_semantics() -> N
             }
         )
     ) != plan_fingerprint
+    targeted_intent = plan_intent.model_copy(update={
+        "playable_target": SubmittedPlanPlayableTargetV1(
+            schema="dmb_plan_playable_target_v1", kind="scene", id="scene:arrival"
+        )
+    })
+    with pytest.raises(ValueError, match="graphless saved Plan turn"):
+        SubmittedTurnIntentV1.model_validate({
+            **targeted_intent.model_dump(mode="python", by_alias=True),
+            "client_work_state": "new_unsaved",
+            "primary_work": None,
+        })
+    targeted_fingerprint = submitted_turn_intent_fingerprint_v1(targeted_intent)
+    assert targeted_fingerprint != plan_fingerprint
+    assert submitted_turn_intent_fingerprint_v1(
+        targeted_intent.model_copy(update={
+            "playable_target": SubmittedPlanPlayableTargetV1(
+                schema="dmb_plan_playable_target_v1", kind="scene", id="scene:departure"
+            )
+        })
+    ) != targeted_fingerprint
+    assert submitted_turn_intent_fingerprint_v1(
+        targeted_intent.model_copy(update={
+            "playable_target": SubmittedPlanPlayableTargetV1(
+                schema="dmb_plan_playable_target_v1", kind="beat", id="beat:arrival"
+            )
+        })
+    ) != targeted_fingerprint
     graph_intent = intent.model_copy(
         update={
             "graph_request": SubmittedGraphRequestIntentV1(
@@ -557,6 +991,8 @@ def test_v1_accept_race_keeps_one_receipt_and_rejects_conflicting_intent(
 def test_turn_claim_expiry_fences_old_worker_and_terminal_retries(
     application_state_dsn: str,
 ) -> None:
+    from unittest.mock import patch
+
     import psycopg
 
     service = AgentConversationService()
@@ -572,14 +1008,16 @@ def test_turn_claim_expiry_fences_old_worker_and_terminal_retries(
             "turn-claim-world", "Recover this claimed turn."
         ),
     )
-    accepted = service.accept_turn(submission)
-    first = service.claim_turn(
-        "turn-claim-world",
-        conversation.conversation_id,
-        accepted.turn_id,
-        expected_revision=accepted.revision,
-        lease_seconds=60,
-    )
+    with patch.object(psycopg, "connect", wraps=psycopg.connect) as connect:
+        accepted = service.accept_turn(submission)
+        first = service.claim_turn(
+            "turn-claim-world",
+            conversation.conversation_id,
+            accepted.turn_id,
+            expected_revision=accepted.revision,
+            lease_seconds=60,
+        )
+    assert connect.call_count == 2  # One per committed operation.
     assert first.disposition == "claimed"
     assert first.turn.status == "running"
     assert first.turn.attempt == 1
@@ -743,8 +1181,8 @@ def test_claim_recovery_migration_preserves_completed_legacy_turn(
     command.downgrade(alembic_config(), "20261002_0012")
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261003_0014",
-        "20261003_0014",
+        "20261020_0042",
+        "20261020_0042",
     )
 
     loaded = AgentConversationService().list_turns(
@@ -1298,3 +1736,1684 @@ def test_storage_boundary_requires_nonblank_world_and_fails_closed_when_db_is_do
         ApplicationStateUnavailableError, match="PostgreSQL is unavailable"
     ):
         service.get_world_pointer("unavailable-world")
+
+
+def _v2_graph_execution_fixture():
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV2,
+        GraphSourceReadScopeV2,
+        GraphSourceScopeAnchorV2,
+        PlanWorldGraphExecutionV2,
+        graph_execution_policy_digest_v2,
+    )
+
+    context_digest = "a" * 64
+    scope = GraphSourceReadScopeV2(
+        retrieval_session_id="retrieval-session-1",
+        world_id="source-read-world",
+        campaign_id=None,
+        graph_revision="graph-revision-1",
+        admitted_anchors=[
+            GraphSourceScopeAnchorV2(
+                anchor_id="anchor-1",
+                evidence_ref_id="evidence-1",
+                source_artifact_id="artifact-1",
+                source_revision_id="source-revision-1",
+            )
+        ],
+    )
+    policy = GraphExecutionPolicyV2(
+        policy_version="test-policy-v2",
+        allowed_graph_operations=["search_assertions"],
+        max_provider_attempts=2,
+        max_graph_operations=2,
+        max_results_per_operation=8,
+        max_total_provider_input_tokens=100,
+        max_total_provider_output_tokens=50,
+        provider_input_accounting=GraphExecutionAccountingV1(
+            kind="exact_token_count", estimator="synthetic-tokenizer"
+        ),
+        source_opened=False,
+        source_read_scope=scope,
+        max_source_read_calls=2,
+        max_source_read_anchors=2,
+        max_source_read_chars=24000,
+        max_chars_per_source_read=12000,
+    )
+    policy_digest = graph_execution_policy_digest_v2(context_digest, policy)
+    execution = PlanWorldGraphExecutionV2(
+        schema="dmb_agent_plan_world_graph_execution_v2",
+        context_receipt_sha256=context_digest,
+        execution_policy_sha256=policy_digest,
+        policy=policy,
+        events=[],
+    )
+    return execution, scope, policy_digest
+
+
+def _related_recap_admission_fixture(
+    *,
+    admission_origin: str = "initial_graph_input",
+    evidence_ref_id: str = "evidence-initial",
+    target_id: str = "assertion-1",
+    admission_graph_event_id=None,
+    selected_index_sha256=None,
+    artifact_id: str = "legacy-artifact",
+    source_revision_id: str = "legacy-source-revision",
+    descriptor_campaign_id: str | None = None,
+):
+    from application_state.agent_conversation.types import (
+        RelatedRecapContextAdmissionV2,
+        RelatedRecapProvenanceBindingV2,
+        related_recap_provenance_result_digest,
+    )
+
+    binding = RelatedRecapProvenanceBindingV2(
+        evidence_ref_id=evidence_ref_id,
+        source_artifact_id=artifact_id,
+        source_revision_id=source_revision_id,
+    )
+    provenance_digest = related_recap_provenance_result_digest(
+        managed_world_id="indexed-world",
+        native_world_id="native-indexed-world",
+        binding_version=1,
+        graph_revision="graph-revision-1",
+        target_kind="assertion",
+        target_id=target_id,
+        provenance_bindings=[binding],
+    )
+    return RelatedRecapContextAdmissionV2(
+        admission_origin=admission_origin,
+        admission_graph_event_id=admission_graph_event_id,
+        selected_index_sha256=selected_index_sha256,
+        managed_world_id="indexed-world",
+        native_world_id="native-indexed-world",
+        binding_version=1,
+        scope_mode="world_cross_campaign",
+        campaign_id=None,
+        admissibility="gm",
+        admissibility_version="gm-v1",
+        graph_revision="graph-revision-1",
+        target_kind="assertion",
+        target_id=target_id,
+        provenance_bindings=[binding],
+        provenance_result_sha256=provenance_digest,
+        provenance_status="complete",
+        provenance_gap_count=0,
+        context_index_sha256="c" * 64,
+        context_index_status="complete",
+        context_index_entry_count=1,
+        context_index_max_entries=512,
+        context_anchor_id="dm-context-anchor:v2:session-22",
+        descriptor_world_id="native-indexed-world",
+        descriptor_campaign_id=descriptor_campaign_id,
+        descriptor_graph_revision_id="graph-revision-1",
+        descriptor_source_artifact_id=artifact_id,
+        descriptor_source_revision_id=source_revision_id,
+        descriptor_content_sha256="d" * 64,
+        selector_schema="dm_recap_context_section_selector_v2",
+        selector_policy="markdown-session-recap-v2",
+        expected_session_id="session-22",
+        canonical_heading="# Session 22 Recap", legacy_session_heading="## Session 22:", legacy_recap_marker="**Recap**:",
+    )
+
+
+def _related_recap_execution_fixture():
+    from application_state.agent_conversation.types import (
+        PlanWorldGraphContextReceiptV1,
+        PlanWorldGraphExecutionV2,
+        graph_execution_policy_digest_v2,
+        plan_world_graph_context_receipt_digest,
+    )
+
+    receipt, original_execution, *_rest = _indexed_graph_completion_fixture()
+    authority = receipt.graph_authority.model_copy(
+        update={"admissibility_version": "gm-v1"}
+    )
+    receipt_without_digest = receipt.model_copy(
+        update={
+            "graph_authority": authority,
+            "context_receipt_sha256": "0" * 64,
+        }
+    )
+    receipt_digest = plan_world_graph_context_receipt_digest(receipt_without_digest)
+    receipt = PlanWorldGraphContextReceiptV1.model_validate(
+        receipt_without_digest.model_dump(mode="json", by_alias=True)
+        | {"context_receipt_sha256": receipt_digest}
+    )
+    policy = original_execution.policy
+    policy_digest = graph_execution_policy_digest_v2(receipt_digest, policy)
+    execution = PlanWorldGraphExecutionV2(
+        schema="dmb_agent_plan_world_graph_execution_v2",
+        context_receipt_sha256=receipt_digest,
+        execution_policy_sha256=policy_digest,
+        policy=policy,
+        events=[],
+    )
+    return receipt, execution
+
+
+def _selected_related_recap_execution_fixture():
+    from application_state.agent_conversation.types import (
+        GraphExecutionPolicyV2,
+        GraphSelectedContextV1,
+        GraphSelectedFocusV1,
+        GraphSelectedIndexCommitmentV1,
+        GraphSelectedSourceReadScopeV2,
+        GraphSelectedTargetV1,
+        GraphSourceScopeAnchorV2,
+        PlanWorldGraphContextReceiptV1,
+        PlanWorldGraphExecutionV2,
+        _canonical_sha256,
+        graph_execution_policy_digest_v2,
+        plan_world_graph_context_receipt_digest,
+    )
+
+    receipt, base = _related_recap_execution_fixture()
+    target = GraphSelectedTargetV1(kind="assertion", target_id="assertion-1")
+    context = GraphSelectedContextV1(
+        world_id="native-indexed-world", campaign_id=None,
+        scope_mode="world_cross_campaign",
+        focus=GraphSelectedFocusV1(kind="none", session_id=None),
+        admissibility="gm", revision_id="graph-revision-1",
+    )
+    anchor = GraphSourceScopeAnchorV2(
+        anchor_id="selected-anchor", evidence_ref_id="evidence-indexed",
+        source_artifact_id="artifact-indexed",
+        source_revision_id="source-revision-indexed",
+    )
+    context_json = context.model_dump(mode="json")
+    selector_sha = _canonical_sha256({
+        "schema": "dm_selected_source_anchor_selector_v1",
+        "context": context_json,
+        "max_entries": 512,
+        "targets": [target.model_dump(mode="json", by_alias=True)],
+    })
+    index = {
+        "schema": "dm_selected_source_anchor_index_v1",
+        "selector_sha256": selector_sha,
+        "status": "complete",
+        "admitted_targets": [target.model_dump(mode="json", by_alias=True)],
+        "not_visible_targets": [],
+        "provenance_gap_count": 0,
+        "unavailable_binding_count": 0,
+        "eligible_count": 1,
+        "entries": [anchor.model_dump(mode="json")],
+    }
+    commitment = GraphSelectedIndexCommitmentV1(
+        context=context, access_context_sha256=_canonical_sha256(context_json),
+        requested_targets=[target], admitted_targets=[target], not_visible_targets=[],
+        requested_count=1, admitted_count=1, not_visible_count=0,
+        provenance_gap_count=0, unavailable_binding_count=0, eligible_count=1,
+        max_entries=512, status="complete", index_scope="selected_targets",
+        selector_sha256=selector_sha, index_sha256=_canonical_sha256(index),
+    )
+    selected_scope = GraphSelectedSourceReadScopeV2(
+        retrieval_session_id="selected-context-session", world_id="indexed-world",
+        campaign_id=None, graph_revision="graph-revision-1", admitted_anchors=[anchor],
+        initial_claim_packet_sha256="a" * 64,
+        selected_index_commitment=commitment,
+    )
+    selected_policy_version = "plan_world_graph_execution_selected_scope_v1"
+    selected_selection_policy = "parent_initial_retrieval_with_selected_source_index_v1"
+    packet = receipt.graph_packet.model_copy(
+        update={"selection_policy_version": selected_selection_policy}
+    )
+    composite = {
+        "schema": "dmb_selected_retrieval_composite_v1",
+        "selection_policy_version": selected_selection_policy,
+        "initial_claim_packet_sha256": selected_scope.initial_claim_packet_sha256,
+        "selected_index": commitment.model_dump(mode="json", by_alias=True),
+        "source_pins": [anchor.model_dump(mode="json")],
+    }
+    packet = packet.model_copy(
+        update={"retrieval_packet_sha256": _canonical_sha256(composite)}
+    )
+    receipt_without_digest = receipt.model_copy(
+        update={"graph_packet": packet, "context_receipt_sha256": "0" * 64}
+    )
+    receipt_digest = plan_world_graph_context_receipt_digest(receipt_without_digest)
+    receipt = PlanWorldGraphContextReceiptV1.model_validate(
+        receipt_without_digest.model_dump(mode="json", by_alias=True)
+        | {"context_receipt_sha256": receipt_digest}
+    )
+    policy = GraphExecutionPolicyV2.model_validate(
+        base.policy.model_dump(mode="json", by_alias=True)
+        | {
+            "policy_version": selected_policy_version,
+            "source_read_scope": selected_scope.model_dump(mode="json", by_alias=True),
+        }
+    )
+    policy_digest = graph_execution_policy_digest_v2(receipt_digest, policy)
+    execution = PlanWorldGraphExecutionV2(
+        schema="dmb_agent_plan_world_graph_execution_v2",
+        context_receipt_sha256=receipt_digest,
+        execution_policy_sha256=policy_digest,
+        policy=policy, events=[],
+    )
+    return receipt, execution, commitment.index_sha256
+
+
+def _indexed_graph_completion_fixture(
+    *,
+    selection_policy: str = "parent_initial_retrieval_with_bounded_source_index_v1",
+    include_read: bool = True,
+    include_read_in_attempt: bool = True,
+    cite_read: bool = True,
+    read_outcome: str = "enough",
+    read_truncated: bool = False,
+    packet_coverage: str = "complete",
+    packet_truncated: bool = False,
+    read_anchor_id: str = "anchor-indexed",
+    read_revision: str = "source-revision-indexed",
+    graph_target: str = "assertion-1",
+    graph_evidence_ref: str = "evidence-indexed",
+):
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV2,
+        GraphSourceReadScopeV2,
+        GraphSourceScopeAnchorV2,
+        PlanAskContextBasis,
+        PlanContextPolicyV1,
+        PlanWorldGraphAssembledInputV1,
+        PlanWorldGraphAuthorityV1,
+        PlanWorldGraphCitationMapV2,
+        PlanWorldGraphCitationV2,
+        PlanWorldGraphClaimSegmentV1,
+        PlanWorldGraphCompletionV2,
+        PlanWorldGraphContextReceiptV1,
+        PlanWorldGraphPacketV1,
+        PlanWorldGraphExecutionV2,
+        ProviderAttemptAuthorizedEventV2,
+        ProviderOutcomeEventV1,
+        SourceReadAnchorReceiptV2,
+        SourceReadAuthorizationEventV2,
+        ValidatedGraphOperationEventV1,
+        ValidatedSourceReadEventV2,
+        plan_world_graph_context_receipt_digest,
+        graph_execution_policy_digest_v2,
+    )
+
+    initial_ref = "evidence-initial"
+    indexed_ref = "evidence-indexed"
+    indexed_anchor = GraphSourceScopeAnchorV2(
+        anchor_id="anchor-indexed",
+        evidence_ref_id=indexed_ref,
+        source_artifact_id="artifact-indexed",
+        source_revision_id="source-revision-indexed",
+    )
+    packet = PlanWorldGraphPacketV1(
+        packet_serializer_version="canonical-json-utf8-v1",
+        selection_policy_version=selection_policy,
+        evidence_sufficiency_policy_version="test-sufficiency-v1",
+        retrieval_packet_sha256="a" * 64,
+        candidate_assertion_ids=["assertion-1"],
+        candidate_relationship_ids=[],
+        candidate_evidence_ref_ids=sorted([initial_ref, indexed_ref]),
+        retrieval_status="complete",
+        evidence_sufficiency_status="sufficient",
+        result_limit=8,
+        coverage_status=packet_coverage,
+        truncated=packet_truncated,
+        omission_reasons=[],
+    )
+    assembled = PlanWorldGraphAssembledInputV1(
+        assembler_version="test-assembler-v1",
+        budget_policy_version="test-budget-v1",
+        provider_model_name="test-model",
+        provider_model_version="test-model-v1",
+        tokenizer_name="test-tokenizer",
+        tokenizer_version="test-tokenizer-v1",
+        provider_envelope_input_tokens=10,
+        output_token_reserve=10,
+        context_window_limit=100,
+        packet_disposition="included",
+        dispatched_packet_sha256="b" * 64,
+        dispatched_assertion_ids=["assertion-1"],
+        dispatched_relationship_ids=[],
+        dispatched_evidence_ref_ids=[initial_ref],
+        source_token_accounting=[],
+        included_history=[],
+        assembled_input_sha256="c" * 64,
+    )
+    receipt_without_digest = PlanWorldGraphContextReceiptV1.model_construct(
+        schema_="dmb_agent_plan_world_graph_context_receipt_v1",
+        receipt_serializer_version="canonical-json-utf8-v1",
+        context_receipt_sha256="0" * 64,
+        plan_context_policy=PlanContextPolicyV1(policy="auto_plan_world"),
+        plan_basis=PlanAskContextBasis(
+            world_id="indexed-world",
+            document_id="plan-main",
+            object_revision=1,
+            work_revision_id=uuid4(),
+            revision_n=1,
+            content_sha256="d" * 64,
+        ),
+        playable_target=None,
+        graph_authority=PlanWorldGraphAuthorityV1(
+            managed_world_id="indexed-world",
+            native_world_id="native-indexed-world",
+            binding_version=1,
+            scope_mode="world",
+            campaign_id=None,
+            admissibility_version="gm-v1",
+            graph_revision="graph-revision-1",
+        ),
+        graph_packet=packet,
+        assembled_input=assembled,
+        evidence_mode="metadata_only",
+        source_opened=False,
+    )
+    receipt_digest = plan_world_graph_context_receipt_digest(receipt_without_digest)
+    receipt = PlanWorldGraphContextReceiptV1.model_validate(
+        receipt_without_digest.model_dump(mode="json", by_alias=True)
+        | {"context_receipt_sha256": receipt_digest}
+    )
+
+    scope = GraphSourceReadScopeV2(
+        retrieval_session_id="indexed-session",
+        world_id="indexed-world",
+        campaign_id=None,
+        graph_revision="graph-revision-1",
+        admitted_anchors=[indexed_anchor],
+    )
+    policy = GraphExecutionPolicyV2(
+        policy_version="test-policy-v2",
+        allowed_graph_operations=["search_assertions"],
+        max_provider_attempts=1,
+        max_graph_operations=1,
+        max_results_per_operation=8,
+        max_total_provider_input_tokens=100,
+        max_total_provider_output_tokens=50,
+        provider_input_accounting=GraphExecutionAccountingV1(
+            kind="exact_token_count", estimator="synthetic-tokenizer"
+        ),
+        source_opened=False,
+        source_read_scope=scope,
+        max_source_read_calls=1,
+        max_source_read_anchors=1,
+        max_source_read_chars=12000,
+        max_chars_per_source_read=12000,
+    )
+    policy_digest = graph_execution_policy_digest_v2(receipt_digest, policy)
+    read_auth_id = uuid4()
+    read_event_id = uuid4()
+    graph_event_id = uuid4()
+    attempt_id = uuid4()
+    read_auth = SourceReadAuthorizationEventV2(
+        event_id=read_auth_id,
+        sequence=0,
+        kind="source_read_authorized_v2",
+        read_call_id=uuid4(),
+        context_receipt_sha256=receipt_digest,
+        execution_policy_sha256=policy_digest,
+        retrieval_session_id=scope.retrieval_session_id,
+        world_id=scope.world_id,
+        campaign_id=None,
+        graph_revision=scope.graph_revision,
+        anchors=[indexed_anchor],
+        max_chars=100,
+    )
+    read_event = ValidatedSourceReadEventV2(
+        event_id=read_event_id,
+        sequence=1,
+        kind="validated_source_read_v2",
+        read_call_id=read_auth.read_call_id,
+        receipts=[SourceReadAnchorReceiptV2(
+            source_read_id="indexed-read-1",
+            anchor_id=read_anchor_id,
+            evidence_ref_id=indexed_ref,
+            source_artifact_id="artifact-indexed",
+            source_revision_id=read_revision,
+            outcome=read_outcome,
+            content_sha256="e" * 64,
+            line_start=1,
+            line_end=2,
+            returned_chars=20,
+            truncated=read_truncated,
+            evidence_sufficiency_status="sufficient",
+        )],
+    )
+    graph_event = ValidatedGraphOperationEventV1(
+        event_id=graph_event_id,
+        sequence=2,
+        kind="validated_graph_operation",
+        operation_id=uuid4(),
+        operation="search_assertions",
+        request_arguments_sha256="f" * 64,
+        graph_revision="graph-revision-1",
+        result_packet_sha256="1" * 64,
+        assertion_ids=[graph_target],
+        relationship_ids=[],
+        evidence_ref_ids=[graph_evidence_ref],
+        evidence_sufficiency_status="sufficient",
+        coverage_status="complete",
+        truncated=False,
+        source_opened=False,
+    )
+    attempt = ProviderAttemptAuthorizedEventV2(
+        event_id=uuid4(),
+        sequence=3,
+        kind="provider_attempt_authorized_v2",
+        provider_attempt_id=attempt_id,
+        envelope_sha256="2" * 64,
+        serializer_version="canonical-json-utf8-v1",
+        provider="test-provider",
+        model="test-model",
+        api_mode="messages",
+        tool_schema_sha256="3" * 64,
+        input_accounting_kind="exact_token_count",
+        input_estimator="synthetic-tokenizer",
+        input_tokens=5,
+        output_token_reserve=5,
+        included_assertion_ids=["assertion-1"],
+        included_relationship_ids=[],
+        included_evidence_ref_ids=[],
+        included_graph_event_ids=[graph_event_id],
+        included_source_read_event_ids=(
+            [read_event_id] if include_read and include_read_in_attempt else []
+        ),
+    )
+    outcome = ProviderOutcomeEventV1(
+        event_id=uuid4(),
+        sequence=4,
+        kind="provider_outcome",
+        provider_attempt_id=attempt_id,
+        outcome="sdk_entered",
+    )
+    response = ProviderOutcomeEventV1(
+        event_id=uuid4(),
+        sequence=5,
+        kind="provider_outcome",
+        provider_attempt_id=attempt_id,
+        outcome="response_received",
+        response_sha256="4" * 64,
+    )
+    execution_events = [read_auth, read_event, graph_event, attempt, outcome, response]
+    if not include_read:
+        execution_events.remove(read_auth)
+        execution_events.remove(read_event)
+        # Keep contiguous event numbering after removing the source read events.
+        execution_events = [event.model_copy(update={"sequence": i}) for i, event in enumerate(execution_events)]
+    execution = PlanWorldGraphExecutionV2(
+        schema="dmb_agent_plan_world_graph_execution_v2",
+        context_receipt_sha256=receipt_digest,
+        execution_policy_sha256=policy_digest,
+        policy=policy,
+        events=execution_events,
+    )
+    claim = PlanWorldGraphClaimSegmentV1(
+        kind="graph_claim",
+        claim_id="claim-indexed",
+        text="The indexed source supports this claim.",
+        target_kind="assertion",
+        target_id="assertion-1",
+        graph_revision="graph-revision-1",
+        evidence_ref_ids=[indexed_ref],
+    )
+    citation = PlanWorldGraphCitationV2(
+        claim_id=claim.claim_id,
+        target_kind=claim.target_kind,
+        target_id=claim.target_id,
+        graph_revision=claim.graph_revision,
+        evidence_ref_ids=claim.evidence_ref_ids,
+        source_read_ids=["indexed-read-1"] if cite_read else [],
+        source_opened=cite_read,
+    )
+    completion = PlanWorldGraphCompletionV2(
+        context_receipt_sha256=receipt_digest,
+        answer_basis="committed_plan_plus_world_graph",
+        answer_context_status="graph_grounded_partial",
+        answer_segments=[claim],
+        citation_map=PlanWorldGraphCitationMapV2(
+            context_receipt_sha256=receipt_digest,
+            entries=[citation],
+        ),
+    )
+    return receipt, execution, completion, attempt_id, graph_event_id
+
+
+def test_source_index_completion_requires_read_and_target_bound_graph_event() -> None:
+    from application_state.agent_conversation.types import (
+        GraphCompletionValidationError,
+        PlanWorldGraphCitationMapV1,
+        PlanWorldGraphCitationV1,
+        PlanWorldGraphCompletionV1,
+        validate_completion_against_receipt,
+        validate_execution_completion,
+    )
+
+    receipt, execution, completion, attempt_id, graph_event_id = (
+        _indexed_graph_completion_fixture()
+    )
+    assert validate_execution_completion(
+        completion.model_copy(update={"answer_context_status": "graph_grounded"}),
+        receipt,
+        execution,
+        attempt_id,
+        {"claim-indexed": [graph_event_id]},
+    ) is None
+    with pytest.raises(GraphCompletionValidationError, match="lack included validated support"):
+        validate_execution_completion(
+            completion,
+            receipt,
+            execution,
+            attempt_id,
+            {"claim-indexed": []},
+        )
+
+    v1_completion = PlanWorldGraphCompletionV1(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis="committed_plan_plus_world_graph",
+        answer_context_status="graph_grounded",
+        answer_segments=completion.answer_segments,
+        citation_map=PlanWorldGraphCitationMapV1(
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            entries=[PlanWorldGraphCitationV1(
+                claim_id="claim-indexed",
+                target_kind="assertion",
+                target_id="assertion-1",
+                graph_revision="graph-revision-1",
+                evidence_ref_ids=["evidence-indexed"],
+                source_opened=False,
+            )],
+        ),
+    )
+    with pytest.raises(GraphCompletionValidationError, match="producing execution envelope"):
+        validate_completion_against_receipt(v1_completion, receipt)
+
+    partial_receipt, partial_execution, partial_completion, partial_attempt, partial_graph = (
+        _indexed_graph_completion_fixture(read_outcome="truncated", read_truncated=True)
+    )
+    assert validate_execution_completion(
+        partial_completion,
+        partial_receipt,
+        partial_execution,
+        partial_attempt,
+        {"claim-indexed": [partial_graph]},
+    ) is None
+    with pytest.raises(GraphCompletionValidationError):
+        validate_execution_completion(
+            partial_completion.model_copy(update={"answer_context_status": "graph_grounded"}),
+            partial_receipt,
+            partial_execution,
+            partial_attempt,
+            {"claim-indexed": [partial_graph]},
+        )
+
+    incomplete_receipt, incomplete_execution, incomplete_completion, incomplete_attempt, incomplete_graph = (
+        _indexed_graph_completion_fixture(packet_coverage="incomplete")
+    )
+    with pytest.raises(GraphCompletionValidationError):
+        validate_execution_completion(
+            incomplete_completion.model_copy(update={"answer_context_status": "graph_grounded"}),
+            incomplete_receipt,
+            incomplete_execution,
+            incomplete_attempt,
+            {"claim-indexed": [incomplete_graph]},
+        )
+    assert validate_execution_completion(
+        incomplete_completion,
+        incomplete_receipt,
+        incomplete_execution,
+        incomplete_attempt,
+        {"claim-indexed": [incomplete_graph]},
+    ) is None
+
+    missing_read = _indexed_graph_completion_fixture(include_read=False, cite_read=False)
+    with pytest.raises(GraphCompletionValidationError, match="indexed evidence requires sufficient content"):
+        validate_execution_completion(
+            missing_read[2], missing_read[0], missing_read[1], missing_read[3],
+            {"claim-indexed": [missing_read[4]]},
+        )
+
+    nonproducing_read = _indexed_graph_completion_fixture(include_read_in_attempt=False)
+    with pytest.raises(GraphCompletionValidationError, match="source-opened state"):
+        validate_execution_completion(
+            nonproducing_read[2], nonproducing_read[0], nonproducing_read[1], nonproducing_read[3],
+            {"claim-indexed": [nonproducing_read[4]]},
+        )
+
+    wrong_target = _indexed_graph_completion_fixture(graph_target="assertion-other")
+    with pytest.raises(GraphCompletionValidationError, match="does not support its claim"):
+        validate_execution_completion(
+            wrong_target[2], wrong_target[0], wrong_target[1], wrong_target[3],
+            {"claim-indexed": [wrong_target[4]]},
+        )
+
+    wrong_ref = _indexed_graph_completion_fixture(graph_evidence_ref="evidence-other")
+    with pytest.raises(GraphCompletionValidationError, match="does not support its claim"):
+        validate_execution_completion(
+            wrong_ref[2], wrong_ref[0], wrong_ref[1], wrong_ref[3],
+            {"claim-indexed": [wrong_ref[4]]},
+        )
+
+    with pytest.raises(ValidationError, match="pins differ"):
+        _indexed_graph_completion_fixture(read_anchor_id="anchor-other")
+    with pytest.raises(ValidationError, match="source revision differs"):
+        _indexed_graph_completion_fixture(read_revision="source-revision-other")
+
+    unknown_policy = _indexed_graph_completion_fixture(selection_policy="future-policy-v9")
+    with pytest.raises(GraphCompletionValidationError, match="does not support its claim"):
+        validate_execution_completion(
+            unknown_policy[2], unknown_policy[0], unknown_policy[1], unknown_policy[3],
+            {"claim-indexed": [unknown_policy[4]]},
+        )
+
+
+def test_graph_execution_v2_source_read_scope_receipt_and_budget_are_strict() -> None:
+    from application_state.agent_conversation.types import (
+        PlanWorldGraphExecutionV2,
+        SourceReadAnchorReceiptV2,
+        SourceReadAuthorizationEventV2,
+        ValidatedSourceReadEventV2,
+    )
+
+    execution, scope, policy_digest = _v2_graph_execution_fixture()
+    auth = SourceReadAuthorizationEventV2(
+        event_id=uuid4(), sequence=0, kind="source_read_authorized_v2",
+        read_call_id=uuid4(), context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=policy_digest,
+        retrieval_session_id=scope.retrieval_session_id,
+        world_id=scope.world_id, campaign_id=scope.campaign_id,
+        graph_revision=scope.graph_revision, anchors=scope.admitted_anchors,
+        max_chars=12000,
+    )
+    result = ValidatedSourceReadEventV2(
+        event_id=uuid4(), sequence=1, kind="validated_source_read_v2",
+        read_call_id=auth.read_call_id,
+        receipts=[SourceReadAnchorReceiptV2(
+            source_read_id="source-read:one", anchor_id="anchor-1",
+            evidence_ref_id="evidence-1", source_artifact_id="artifact-1",
+            source_revision_id="source-revision-1", outcome="partial",
+            content_sha256="b" * 64, line_start=2, line_end=4,
+            returned_chars=17, truncated=False,
+            evidence_sufficiency_status="insufficient",
+        )],
+    )
+    stored = execution.model_copy(update={"events": [auth, result]})
+    restored = PlanWorldGraphExecutionV2.model_validate(
+        stored.model_dump(mode="json", by_alias=True)
+    )
+    assert restored == stored
+    serialized_receipt = restored.model_dump(mode="json", by_alias=True)["events"][1]["receipts"][0]
+    assert "content" not in serialized_receipt
+    assert SourceReadAnchorReceiptV2(
+        source_read_id="source-read:empty", anchor_id="anchor-1",
+        evidence_ref_id="evidence-1", source_artifact_id="artifact-1",
+        outcome="empty", returned_chars=0, truncated=False,
+        evidence_sufficiency_status="insufficient",
+    ).content_sha256 is None
+
+    with pytest.raises(ValidationError, match="frozen source scope"):
+        PlanWorldGraphExecutionV2.model_validate(
+            execution.model_dump(mode="json", by_alias=True)
+            | {"events": [auth.model_dump(mode="json", by_alias=True) | {"retrieval_session_id": "other-session"}]}
+        )
+    with pytest.raises(ValidationError, match="unadmitted or changed anchor"):
+        PlanWorldGraphExecutionV2.model_validate(
+            execution.model_dump(mode="json", by_alias=True)
+            | {"events": [auth.model_dump(mode="json", by_alias=True) | {"anchors": [scope.admitted_anchors[0].model_dump(mode="json") | {"source_revision_id": "other-revision"}]}]}
+        )
+    with pytest.raises(ValidationError, match="frozen source scope"):
+        PlanWorldGraphExecutionV2.model_validate(
+            execution.model_dump(mode="json", by_alias=True)
+            | {"events": [auth.model_dump(mode="json", by_alias=True) | {"graph_revision": "other-graph-revision"}]}
+        )
+    with pytest.raises(ValidationError, match="unadmitted or changed anchor"):
+        PlanWorldGraphExecutionV2.model_validate(
+            execution.model_dump(mode="json", by_alias=True)
+            | {"events": [auth.model_dump(mode="json", by_alias=True) | {"anchors": [scope.admitted_anchors[0].model_dump(mode="json") | {"anchor_id": "not-admitted"}]}]}
+        )
+    with pytest.raises(ValidationError):
+        PlanWorldGraphExecutionV2.model_validate(
+            execution.model_dump(mode="json", by_alias=True)
+            | {"events": [auth.model_dump(mode="json", by_alias=True) | {"max_chars": 12001}]}
+        )
+    with pytest.raises(ValidationError, match="trusted source revision"):
+        SourceReadAnchorReceiptV2(
+            source_read_id="source-read:missing-revision", anchor_id="anchor-1",
+            evidence_ref_id="evidence-1", source_artifact_id="artifact-1",
+            outcome="enough", content_sha256="c" * 64,
+            line_start=1, line_end=1, returned_chars=1, truncated=False,
+            evidence_sufficiency_status="sufficient",
+        )
+
+
+def test_related_recap_context_uses_independent_turn_admitted_provenance() -> None:
+    from application_state.agent_conversation.types import (
+        PlanWorldGraphExecutionV2,
+        RelatedRecapContextAuthorizationEventV2,
+        ValidatedRelatedRecapContextEventV2,
+        _canonical_sha256,
+        validate_related_recap_context_scope,
+        validate_selected_source_binding,
+    )
+
+    receipt, execution = _related_recap_execution_fixture()
+    admission = _related_recap_admission_fixture()
+    authorization = RelatedRecapContextAuthorizationEventV2(
+        event_id=uuid4(), sequence=0, kind="related_recap_context_authorized_v2",
+        read_call_id=uuid4(), context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256,
+        admission=admission, max_chars=12000,
+    )
+    result = ValidatedRelatedRecapContextEventV2(
+        event_id=uuid4(), sequence=1, kind="validated_related_recap_context_v2",
+        read_call_id=authorization.read_call_id,
+        authorization_event_id=authorization.event_id,
+        admission_sha256=_canonical_sha256(admission.model_dump(mode="json", by_alias=True)),
+        outcome="enough",
+        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v2",
+        source_bytes_sha256=admission.descriptor_content_sha256,
+        section_sha256="e" * 64, page_content_sha256="f" * 64,
+        heading_line=12, selected_form="canonical_h1", session_heading_line=12, recap_marker_line=None, line_start=13, line_end=38, offset_chars=0,
+        returned_chars=37, truncated=False,
+    )
+    stored = PlanWorldGraphExecutionV2.model_validate(
+        execution.model_dump(mode="json", by_alias=True)
+        | {"events": [authorization.model_dump(mode="json", by_alias=True),
+                       result.model_dump(mode="json", by_alias=True)]}
+    )
+
+    # This old opaque provenance ref is in the frozen initial Graph input, but
+    # deliberately absent from the read-eligible source-anchor scope.
+    assert admission.provenance_bindings[0].evidence_ref_id == "evidence-initial"
+    assert admission.provenance_bindings[0].evidence_ref_id not in {
+        anchor.evidence_ref_id for anchor in stored.policy.source_read_scope.admitted_anchors
+    }
+    validate_selected_source_binding(receipt, stored)
+    validate_related_recap_context_scope(receipt, stored)
+    serialized = stored.model_dump(mode="json", by_alias=True)
+    encoded_result = serialized["events"][1]
+    assert "content" not in encoded_result
+    assert "source_uri" not in encoded_result
+    assert "continuation" not in encoded_result
+
+    unadmitted_target = _related_recap_admission_fixture(target_id="not-dispatched")
+    bad_authorization = authorization.model_copy(update={"admission": unadmitted_target})
+    bad_execution = PlanWorldGraphExecutionV2.model_validate(
+        execution.model_dump(mode="json", by_alias=True)
+        | {"events": [bad_authorization.model_dump(mode="json", by_alias=True)]}
+    )
+    with pytest.raises(ValueError, match="not in initial dispatched Graph input"):
+        validate_related_recap_context_scope(receipt, bad_execution)
+
+    read_scope_only = _related_recap_admission_fixture(
+        evidence_ref_id="evidence-indexed",
+        artifact_id="artifact-indexed",
+        source_revision_id="source-revision-indexed",
+    )
+    read_scope_authorization = authorization.model_copy(update={"admission": read_scope_only})
+    read_scope_execution = PlanWorldGraphExecutionV2.model_validate(
+        execution.model_dump(mode="json", by_alias=True)
+        | {"events": [read_scope_authorization.model_dump(mode="json", by_alias=True)]}
+    )
+    with pytest.raises(ValueError, match="not in initial dispatched Graph input"):
+        validate_related_recap_context_scope(receipt, read_scope_execution)
+
+
+def test_related_recap_context_may_bind_a_prior_validated_graph_operation() -> None:
+    from application_state.agent_conversation.types import (
+        PlanWorldGraphExecutionV2,
+        RelatedRecapContextAuthorizationEventV2,
+        ValidatedGraphOperationEventV1,
+        validate_related_recap_context_scope,
+    )
+
+    receipt, base = _related_recap_execution_fixture()
+    operation = ValidatedGraphOperationEventV1(
+        event_id=uuid4(), sequence=0, kind="validated_graph_operation",
+        operation_id=uuid4(), operation="search_assertions",
+        request_arguments_sha256="1" * 64, graph_revision="graph-revision-1",
+        result_packet_sha256="2" * 64, assertion_ids=["assertion-1"],
+        relationship_ids=[], evidence_ref_ids=["evidence-from-operation"],
+        evidence_sufficiency_status="sufficient", coverage_status="complete",
+        truncated=False, source_opened=False,
+    )
+    admission = _related_recap_admission_fixture(
+        admission_origin="validated_graph_operation",
+        admission_graph_event_id=operation.event_id,
+        evidence_ref_id="evidence-from-operation",
+    )
+    authorization = RelatedRecapContextAuthorizationEventV2(
+        event_id=uuid4(), sequence=1, kind="related_recap_context_authorized_v2",
+        read_call_id=uuid4(), context_receipt_sha256=base.context_receipt_sha256,
+        execution_policy_sha256=base.execution_policy_sha256,
+        admission=admission, max_chars=100,
+    )
+    stored = PlanWorldGraphExecutionV2.model_validate(
+        base.model_dump(mode="json", by_alias=True)
+        | {"events": [operation.model_dump(mode="json", by_alias=True),
+                       authorization.model_dump(mode="json", by_alias=True)]}
+    )
+    validate_related_recap_context_scope(receipt, stored)
+
+    after_authorization = authorization.model_copy(update={"sequence": 0})
+    later_operation = operation.model_copy(update={"sequence": 1})
+    reordered = PlanWorldGraphExecutionV2.model_validate(
+        base.model_dump(mode="json", by_alias=True)
+        | {"events": [after_authorization.model_dump(mode="json", by_alias=True),
+                       later_operation.model_dump(mode="json", by_alias=True)]}
+    )
+    with pytest.raises(ValueError, match="prior validated Graph operation"):
+        validate_related_recap_context_scope(receipt, reordered)
+
+
+def test_related_recap_context_may_bind_a_committed_selected_index() -> None:
+    from application_state.agent_conversation.types import (
+        PlanWorldGraphExecutionV2,
+        RelatedRecapContextAuthorizationEventV2,
+        validate_related_recap_context_scope,
+    )
+
+    receipt, base, index_sha256 = _selected_related_recap_execution_fixture()
+    admission = _related_recap_admission_fixture(
+        admission_origin="selected_index_admission",
+        selected_index_sha256=index_sha256,
+        evidence_ref_id="evidence-indexed",
+        artifact_id="artifact-indexed",
+        source_revision_id="source-revision-indexed",
+        descriptor_campaign_id="longmont-c2",
+    )
+    authorization = RelatedRecapContextAuthorizationEventV2(
+        event_id=uuid4(),
+        sequence=0,
+        kind="related_recap_context_authorized_v2",
+        read_call_id=uuid4(),
+        context_receipt_sha256=base.context_receipt_sha256,
+        execution_policy_sha256=base.execution_policy_sha256,
+        admission=admission,
+        max_chars=100,
+    )
+    stored = PlanWorldGraphExecutionV2.model_validate(
+        base.model_dump(mode="json", by_alias=True)
+        | {"events": [authorization.model_dump(mode="json", by_alias=True)]}
+    )
+    assert admission.campaign_id is None
+    assert admission.descriptor_campaign_id == "longmont-c2"
+    validate_related_recap_context_scope(receipt, stored)
+
+    changed_index = admission.model_copy(update={"selected_index_sha256": "9" * 64})
+    rejected = PlanWorldGraphExecutionV2.model_validate(
+        base.model_dump(mode="json", by_alias=True)
+        | {
+            "events": [
+                authorization.model_copy(update={"admission": changed_index}).model_dump(
+                    mode="json", by_alias=True
+                )
+            ]
+        }
+    )
+    with pytest.raises(ValueError, match="committed selected-index admission"):
+        validate_related_recap_context_scope(receipt, rejected)
+
+    with pytest.raises(ValidationError, match="source campaign must be nonblank"):
+        _related_recap_admission_fixture(descriptor_campaign_id=" ")
+    missing_campaign = _related_recap_admission_fixture().model_dump(
+        mode="json", by_alias=True
+    )
+    missing_campaign.pop("descriptor_campaign_id")
+    from application_state.agent_conversation.types import RelatedRecapContextAdmissionV2
+
+    with pytest.raises(ValidationError, match="descriptor_campaign_id"):
+        RelatedRecapContextAdmissionV2.model_validate(missing_campaign)
+
+
+def test_related_recap_continuation_binds_exact_descriptor_campaign() -> None:
+    from application_state.agent_conversation.types import (
+        PlanWorldGraphExecutionV2,
+        RelatedRecapContextAuthorizationEventV2,
+        ValidatedRelatedRecapContextEventV2,
+        _canonical_sha256,
+    )
+
+    _receipt, execution = _related_recap_execution_fixture()
+    first_admission = _related_recap_admission_fixture(
+        descriptor_campaign_id="longmont-c2"
+    )
+    first_authorization = RelatedRecapContextAuthorizationEventV2(
+        event_id=uuid4(),
+        sequence=0,
+        kind="related_recap_context_authorized_v2",
+        read_call_id=uuid4(),
+        context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256,
+        admission=first_admission,
+        max_chars=100,
+    )
+    first_result = ValidatedRelatedRecapContextEventV2(
+        event_id=uuid4(),
+        sequence=1,
+        kind="validated_related_recap_context_v2",
+        read_call_id=first_authorization.read_call_id,
+        authorization_event_id=first_authorization.event_id,
+        admission_sha256=_canonical_sha256(
+            first_admission.model_dump(mode="json", by_alias=True)
+        ),
+        outcome="truncated",
+        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v2",
+        source_bytes_sha256=first_admission.descriptor_content_sha256,
+        section_sha256="e" * 64,
+        page_content_sha256="f" * 64,
+        heading_line=12, selected_form="canonical_h1", session_heading_line=12, recap_marker_line=None,
+        line_start=13,
+        line_end=38,
+        offset_chars=0,
+        returned_chars=100,
+        truncated=True,
+        continuation_out_sha256="1" * 64,
+    )
+    changed_campaign = _related_recap_admission_fixture(
+        descriptor_campaign_id="longmont-c1"
+    )
+    second_authorization = RelatedRecapContextAuthorizationEventV2(
+        event_id=uuid4(),
+        sequence=2,
+        kind="related_recap_context_authorized_v2",
+        read_call_id=uuid4(),
+        context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256,
+        admission=changed_campaign,
+        max_chars=100,
+        continuation_in_sha256="1" * 64,
+    )
+    second_result = ValidatedRelatedRecapContextEventV2(
+        event_id=uuid4(),
+        sequence=3,
+        kind="validated_related_recap_context_v2",
+        read_call_id=second_authorization.read_call_id,
+        authorization_event_id=second_authorization.event_id,
+        admission_sha256=_canonical_sha256(
+            changed_campaign.model_dump(mode="json", by_alias=True)
+        ),
+        outcome="enough",
+        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v2",
+        source_bytes_sha256=changed_campaign.descriptor_content_sha256,
+        section_sha256="e" * 64,
+        page_content_sha256="2" * 64,
+        heading_line=12, selected_form="canonical_h1", session_heading_line=12, recap_marker_line=None,
+        line_start=13,
+        line_end=38,
+        offset_chars=100,
+        returned_chars=40,
+        truncated=False,
+        continuation_in_sha256="1" * 64,
+    )
+    with pytest.raises(ValidationError, match="continuation has no unique prior page"):
+        PlanWorldGraphExecutionV2.model_validate(
+            execution.model_dump(mode="json", by_alias=True)
+            | {
+                "events": [
+                    first_authorization.model_dump(mode="json", by_alias=True),
+                    first_result.model_dump(mode="json", by_alias=True),
+                    second_authorization.model_dump(mode="json", by_alias=True),
+                    second_result.model_dump(mode="json", by_alias=True),
+                ]
+            }
+        )
+
+
+def test_related_recap_context_inclusion_is_separate_and_dispatch_fenced() -> None:
+    from application_state.agent_conversation.types import (
+        PlanWorldGraphExecutionV2,
+        ProviderAttemptAuthorizedEventV2,
+        RelatedRecapContextAuthorizationEventV2,
+        RelatedRecapContextProviderInclusionEventV2,
+        ValidatedRelatedRecapContextEventV2,
+        _canonical_sha256,
+        related_recap_context_inclusion_digest,
+        _validate_v2_completion_source_reads,
+    )
+
+    _receipt, execution = _related_recap_execution_fixture()
+    admission = _related_recap_admission_fixture()
+    authorization = RelatedRecapContextAuthorizationEventV2(
+        event_id=uuid4(), sequence=0, kind="related_recap_context_authorized_v2",
+        read_call_id=uuid4(), context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256,
+        admission=admission, max_chars=12000,
+    )
+    result = ValidatedRelatedRecapContextEventV2(
+        event_id=uuid4(), sequence=1, kind="validated_related_recap_context_v2",
+        read_call_id=authorization.read_call_id,
+        authorization_event_id=authorization.event_id,
+        admission_sha256=_canonical_sha256(admission.model_dump(mode="json", by_alias=True)),
+        outcome="enough",
+        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v2",
+        source_bytes_sha256=admission.descriptor_content_sha256,
+        section_sha256="e" * 64, page_content_sha256="f" * 64,
+        heading_line=12, selected_form="canonical_h1", session_heading_line=12, recap_marker_line=None, line_start=13, line_end=38, offset_chars=0,
+        returned_chars=37, truncated=False,
+    )
+    attempt_id = uuid4()
+    envelope_sha = "a" * 64
+    inclusion = RelatedRecapContextProviderInclusionEventV2(
+        event_id=uuid4(), sequence=2,
+        kind="related_recap_context_provider_inclusion_v2",
+        provider_attempt_id=attempt_id, envelope_sha256=envelope_sha,
+        included_context_event_ids=[result.event_id],
+        included_context_sha256=related_recap_context_inclusion_digest([result]),
+        included_chars=result.returned_chars,
+    )
+    pending = PlanWorldGraphExecutionV2.model_validate(
+        execution.model_dump(mode="json", by_alias=True)
+        | {"events": [authorization.model_dump(mode="json", by_alias=True),
+                       result.model_dump(mode="json", by_alias=True),
+                       inclusion.model_dump(mode="json", by_alias=True)]}
+    )
+    assert not any(
+        isinstance(event, ProviderAttemptAuthorizedEventV2)
+        for event in pending.events
+    )
+
+    attempt = ProviderAttemptAuthorizedEventV2(
+        event_id=uuid4(), sequence=3, kind="provider_attempt_authorized_v2",
+        provider_attempt_id=attempt_id, envelope_sha256=envelope_sha,
+        serializer_version="canonical-json-utf8-v1", provider="test-provider",
+        model="test-model", api_mode="messages", tool_schema_sha256="b" * 64,
+        input_accounting_kind="exact_token_count", input_estimator="synthetic-tokenizer",
+        input_tokens=5, output_token_reserve=5, included_assertion_ids=[],
+        included_relationship_ids=[], included_evidence_ref_ids=[],
+        included_graph_event_ids=[], included_source_read_event_ids=[],
+    )
+    dispatched = PlanWorldGraphExecutionV2.model_validate(
+        pending.model_dump(mode="json", by_alias=True)
+        | {"events": [*pending.model_dump(mode="json", by_alias=True)["events"],
+                       attempt.model_dump(mode="json", by_alias=True)]}
+    )
+    assert dispatched.events[-1] == attempt
+
+    mismatched = attempt.model_copy(update={"envelope_sha256": "c" * 64})
+    with pytest.raises(ValidationError, match="differs from provider authorization"):
+        PlanWorldGraphExecutionV2.model_validate(
+            pending.model_dump(mode="json", by_alias=True)
+            | {"events": [*pending.model_dump(mode="json", by_alias=True)["events"],
+                           mismatched.model_dump(mode="json", by_alias=True)]}
+        )
+
+    receipt, source_execution, completion, source_attempt_id, _ = _indexed_graph_completion_fixture()
+    context_citation = completion.citation_map.entries[0].model_copy(
+        update={
+            "source_read_ids": [admission.context_anchor_id],
+            "source_opened": True,
+        }
+    )
+    invalid_completion = completion.model_copy(
+        update={
+            "citation_map": completion.citation_map.model_copy(
+                update={"entries": [context_citation]}
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="bind source reads in the producing envelope"):
+        _validate_v2_completion_source_reads(
+            invalid_completion, source_execution, source_attempt_id
+        )
+
+
+def test_graph_execution_v2_source_opened_requires_included_successful_read() -> None:
+    from application_state.agent_conversation.types import (
+        PlanWorldGraphCitationMapV2,
+        PlanWorldGraphCitationV2,
+        PlanWorldGraphClaimSegmentV1,
+        PlanWorldGraphCompletionV2,
+        PlanWorldGraphExecutionV2,
+        ProviderAttemptAuthorizedEventV2,
+        SourceReadAnchorReceiptV2,
+        SourceReadAuthorizationEventV2,
+        ValidatedSourceReadEventV2,
+        _validate_v2_completion_source_reads,
+    )
+
+    execution, scope, policy_digest = _v2_graph_execution_fixture()
+    auth = SourceReadAuthorizationEventV2(
+        event_id=uuid4(), sequence=0, kind="source_read_authorized_v2",
+        read_call_id=uuid4(), context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=policy_digest,
+        retrieval_session_id=scope.retrieval_session_id, world_id=scope.world_id,
+        campaign_id=None, graph_revision=scope.graph_revision,
+        anchors=scope.admitted_anchors, max_chars=12000,
+    )
+    read_event = ValidatedSourceReadEventV2(
+        event_id=uuid4(), sequence=1, kind="validated_source_read_v2",
+        read_call_id=auth.read_call_id,
+        receipts=[SourceReadAnchorReceiptV2(
+            source_read_id="source-read:opened", anchor_id="anchor-1",
+            evidence_ref_id="evidence-1", source_artifact_id="artifact-1",
+            source_revision_id="source-revision-1", outcome="partial",
+            content_sha256="d" * 64, line_start=1, line_end=2,
+            returned_chars=20, truncated=True,
+            evidence_sufficiency_status="insufficient",
+        )],
+    )
+    attempt = ProviderAttemptAuthorizedEventV2(
+        event_id=uuid4(), sequence=2, kind="provider_attempt_authorized_v2",
+        provider_attempt_id=uuid4(), envelope_sha256="e" * 64,
+        serializer_version="canonical-json-utf8-v1", provider="test-provider",
+        model="test-model", api_mode="messages", tool_schema_sha256="f" * 64,
+        input_accounting_kind="exact_token_count", input_estimator="synthetic-tokenizer",
+        input_tokens=5, output_token_reserve=5, included_assertion_ids=[],
+        included_relationship_ids=[], included_evidence_ref_ids=[],
+        included_graph_event_ids=[], included_source_read_event_ids=[read_event.event_id],
+    )
+    stored = execution.model_copy(update={"events": [auth, read_event, attempt]})
+    stored = PlanWorldGraphExecutionV2.model_validate(stored.model_dump(mode="json", by_alias=True))
+    citation = PlanWorldGraphCitationV2(
+        claim_id="claim-1", target_kind="assertion", target_id="assertion-1",
+        graph_revision=scope.graph_revision, evidence_ref_ids=["evidence-1"],
+        source_read_ids=["source-read:opened"], source_opened=True,
+    )
+    completion = PlanWorldGraphCompletionV2(
+        context_receipt_sha256=execution.context_receipt_sha256,
+        answer_basis="committed_plan_plus_world_graph",
+        answer_context_status="graph_grounded_partial",
+        answer_segments=[PlanWorldGraphClaimSegmentV1(
+            kind="graph_claim", claim_id="claim-1", text="A supported claim.",
+            target_kind="assertion", target_id="assertion-1",
+            graph_revision=scope.graph_revision, evidence_ref_ids=["evidence-1"],
+        )],
+        citation_map=PlanWorldGraphCitationMapV2(
+            context_receipt_sha256=execution.context_receipt_sha256, entries=[citation]
+        ),
+    )
+    _validate_v2_completion_source_reads(completion, stored, attempt.provider_attempt_id)
+
+    failed_read_event = ValidatedSourceReadEventV2(
+        event_id=uuid4(), sequence=1, kind="validated_source_read_v2",
+        read_call_id=auth.read_call_id, receipts=[SourceReadAnchorReceiptV2(
+            source_read_id="source-read:empty", anchor_id="anchor-1",
+            evidence_ref_id="evidence-1", source_artifact_id="artifact-1",
+            outcome="empty", returned_chars=0, truncated=False,
+            evidence_sufficiency_status="insufficient",
+        )],
+    )
+    failed_attempt = attempt.model_copy(
+        update={"sequence": 2, "included_source_read_event_ids": [failed_read_event.event_id]}
+    )
+    failed_execution = PlanWorldGraphExecutionV2.model_validate(
+        execution.model_dump(mode="json", by_alias=True)
+        | {"events": [
+            auth.model_dump(mode="json", by_alias=True),
+            failed_read_event.model_dump(mode="json", by_alias=True),
+            failed_attempt.model_dump(mode="json", by_alias=True),
+        ]}
+    )
+    closed_citation = PlanWorldGraphCitationV2(
+        claim_id="claim-1", target_kind="assertion", target_id="assertion-1",
+        graph_revision=scope.graph_revision, evidence_ref_ids=["evidence-1"],
+        source_read_ids=[], source_opened=False,
+    )
+    closed_completion = PlanWorldGraphCompletionV2.model_validate(
+        completion.model_dump(mode="json", by_alias=True)
+        | {"citation_map": {
+            "schema": "dmb_graph_citation_map_v2",
+            "context_receipt_sha256": execution.context_receipt_sha256,
+            "entries": [closed_citation.model_dump(mode="json", by_alias=True)],
+        }}
+    )
+    _validate_v2_completion_source_reads(
+        closed_completion, failed_execution, failed_attempt.provider_attempt_id
+    )
+    failed_citation = closed_citation.model_copy(
+        update={"source_read_ids": ["source-read:empty"], "source_opened": True}
+    )
+    opened_failed_completion = PlanWorldGraphCompletionV2.model_validate(
+        completion.model_dump(mode="json", by_alias=True)
+        | {"citation_map": {
+            "schema": "dmb_graph_citation_map_v2",
+            "context_receipt_sha256": execution.context_receipt_sha256,
+            "entries": [failed_citation.model_dump(mode="json", by_alias=True)],
+        }}
+    )
+    with pytest.raises(ValueError, match="validated content"):
+        _validate_v2_completion_source_reads(
+            opened_failed_completion, failed_execution, failed_attempt.provider_attempt_id
+        )
+    with pytest.raises(ValidationError, match="derived from source read IDs"):
+        PlanWorldGraphCitationV2(
+            claim_id="claim-1", target_kind="assertion", target_id="assertion-1",
+            graph_revision=scope.graph_revision, evidence_ref_ids=["evidence-1"],
+            source_read_ids=[], source_opened=True,
+        )
+
+
+def test_graph_execution_v2_enforces_each_aggregate_source_budget() -> None:
+    from application_state.agent_conversation.types import (
+        GraphExecutionPolicyV2,
+        PlanWorldGraphExecutionV2,
+        SourceReadAuthorizationEventV2,
+        graph_execution_policy_digest_v2,
+    )
+
+    base, scope, _ = _v2_graph_execution_fixture()
+    base_policy = base.policy.model_dump(mode="json", by_alias=True)
+
+    def make_auth(sequence: int, call_id):
+        return SourceReadAuthorizationEventV2(
+            event_id=uuid4(), sequence=sequence, kind="source_read_authorized_v2",
+            read_call_id=call_id, context_receipt_sha256=base.context_receipt_sha256,
+            execution_policy_sha256="0" * 64,
+            retrieval_session_id=scope.retrieval_session_id, world_id=scope.world_id,
+            campaign_id=None, graph_revision=scope.graph_revision,
+            anchors=scope.admitted_anchors, max_chars=12000,
+        )
+
+    def execution_with(policy_fields, auths):
+        policy = GraphExecutionPolicyV2.model_validate(base_policy | policy_fields)
+        policy_digest = graph_execution_policy_digest_v2(base.context_receipt_sha256, policy)
+        events = [
+            auth.model_copy(update={"execution_policy_sha256": policy_digest})
+            for auth in auths
+        ]
+        return PlanWorldGraphExecutionV2.model_validate({
+            "schema": "dmb_agent_plan_world_graph_execution_v2",
+            "context_receipt_sha256": base.context_receipt_sha256,
+            "execution_policy_sha256": policy_digest,
+            "policy": policy.model_dump(mode="json", by_alias=True),
+            "events": [event.model_dump(mode="json", by_alias=True) for event in events],
+        })
+
+    with pytest.raises(ValidationError, match="call budget exceeded"):
+        execution_with(
+            {"max_source_read_calls": 1},
+            [make_auth(0, uuid4()), make_auth(1, uuid4())],
+        )
+    with pytest.raises(ValidationError, match="anchor budget exceeded"):
+        execution_with(
+            {"max_source_read_anchors": 1},
+            [make_auth(0, uuid4()), make_auth(1, uuid4())],
+        )
+    with pytest.raises(ValidationError, match="character budget exceeded"):
+        execution_with(
+            {"max_source_read_chars": 10000},
+            [make_auth(0, uuid4())],
+        )
+
+
+@pytest.mark.parametrize("version", [1, 2])
+@pytest.mark.parametrize("corruption", [None, "missing", "nonproducing", "wrong_target", "wrong_ref", "excluded_ref"])
+def test_historical_graph_operation_evidence_outside_initial_dispatch(
+    version: int, corruption: str | None,
+) -> None:
+    from application_state.agent_conversation.types import (
+        PlanWorldGraphCompletionV1, PlanWorldGraphExecutionV1, PlanWorldGraphExecutionV2,
+        GraphCompletionValidationError, validate_execution_completion,
+    )
+    receipt, execution, completion, attempt_id, graph_event_id = _indexed_graph_completion_fixture(
+        selection_policy="historical-graph-metadata-v1", include_read=False, cite_read=False,
+        graph_target="assertion-other" if corruption == "wrong_target" else "assertion-1",
+        graph_evidence_ref="evidence-other" if corruption == "wrong_ref" else "evidence-indexed",
+    )
+    payload = execution.model_dump(mode="json", by_alias=True)
+    attempt = next(event for event in payload["events"] if event["kind"] == "provider_attempt_authorized_v2")
+    attempt["included_evidence_ref_ids"] = [] if corruption == "excluded_ref" else ["evidence-indexed"]
+    if corruption == "nonproducing":
+        attempt["included_graph_event_ids"] = []
+    if version == 1:
+        payload["schema"] = "dmb_agent_plan_world_graph_execution_v1"
+        for field in ["source_read_scope", "max_source_read_calls", "max_source_read_anchors", "max_source_read_chars", "max_chars_per_source_read"]:
+            payload["policy"].pop(field)
+        attempt["kind"] = "provider_attempt_authorized"
+        attempt.pop("included_source_read_event_ids")
+        payload.pop("execution_policy_sha256")
+        execution = PlanWorldGraphExecutionV1.model_validate(payload)
+        completion_payload = completion.model_dump(mode="json", by_alias=True)
+        completion_payload["schema"] = "dmb_plan_world_graph_completion_v1"
+        completion_payload["citation_map"]["schema"] = "dmb_graph_citation_map_v1"
+        completion_payload["citation_map"]["entries"][0].pop("source_read_ids")
+        completion = PlanWorldGraphCompletionV1.model_validate(completion_payload)
+    else:
+        execution = PlanWorldGraphExecutionV2.model_validate(payload)
+    completion = completion.model_copy(update={"answer_context_status": "graph_grounded"})
+    mapping = {"claim-indexed": [] if corruption == "missing" else [graph_event_id]}
+    assert "evidence-indexed" not in receipt.assembled_input.dispatched_evidence_ref_ids
+    assert completion.citation_map.entries[0].source_opened is False
+    if corruption is None:
+        assert validate_execution_completion(completion, receipt, execution, attempt_id, mapping) is None
+    else:
+        with pytest.raises(GraphCompletionValidationError):
+            validate_execution_completion(completion, receipt, execution, attempt_id, mapping)
+
+
+def test_reset_fingerprint_full_canonical_unicode_vector():
+    from application_state.agent_conversation.types import request_fingerprint
+    command = ConversationCommand(world_id="wörld😀", command_id=uuid4(), expected_pointer_revision=0, expected_active_conversation_id=None)
+    encoded = json.dumps({"world_id": "wörld😀", "expected_pointer_revision": 0, "expected_active_conversation_id": None}, sort_keys=True, separators=(",", ":"))
+    assert request_fingerprint(command) == hashlib.sha256(encoded.encode()).hexdigest()
+    assert request_fingerprint(command.model_copy(update={"command_id": uuid4()})) == request_fingerprint(command)
+    assert request_fingerprint(command.model_copy(update={"expected_pointer_revision": 1})) != request_fingerprint(command)
+
+
+@pytest.mark.parametrize("patch", [
+    {"session_heading_line":2}, {"selected_form":"legacy_h2"}, {"recap_marker_line":2},
+    {"selected_form":"legacy_h2","recap_marker_line":1}, {"line_start":3},
+    {"kind":"validated_related_recap_context_v1"},
+])
+def test_related_recap_v2_audit_rejects_forged_geometry_and_retired_kind(patch):
+    from pydantic import ValidationError
+    from application_state.agent_conversation.types import ValidatedRelatedRecapContextEventV2
+    data = dict(event_id=uuid4(),sequence=1,kind="validated_related_recap_context_v2",read_call_id=uuid4(),
+        authorization_event_id=uuid4(),admission_sha256="a"*64,outcome="enough",
+        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v2",
+        source_bytes_sha256="b"*64,section_sha256="c"*64,page_content_sha256="d"*64,
+        selected_form="canonical_h1",session_heading_line=1,recap_marker_line=None,
+        heading_line=1,line_start=2,line_end=3,offset_chars=0,returned_chars=10,truncated=False)
+    with pytest.raises(ValidationError):
+        ValidatedRelatedRecapContextEventV2.model_validate(data | patch)
+
+
+@pytest.mark.parametrize("patch", [
+    {"expected_session_id":"session-022"}, {"expected_session_id":"session-0"},
+    {"canonical_heading":"# Session 21 Recap"}, {"legacy_session_heading":"## Session 21:"},
+    {"legacy_recap_marker":"Recap:"}, {"schema":"dmb_agent_related_recap_context_admission_v1"},
+    {"context_anchor_id":"dm-context-anchor:v1:session-22"},
+])
+def test_related_recap_v2_admission_rejects_retired_or_forged_selector(patch):
+    from pydantic import ValidationError
+    from application_state.agent_conversation.types import RelatedRecapContextAdmissionV2
+    data = _related_recap_admission_fixture().model_dump(mode="json",by_alias=True)
+    with pytest.raises(ValidationError):
+        RelatedRecapContextAdmissionV2.model_validate(data | patch)
+
+
+def _source_admission_v3_fixture():
+    from application_state.agent_conversation.types import (
+        GraphExecutionPolicyV3, GraphSourceScopeAnchorV2, PlanWorldGraphExecutionV3,
+        SourceScopeExtensionEventV3, ValidatedGraphOperationEventV3,
+        graph_execution_policy_digest_v3,
+    )
+    receipt, legacy, _ = _selected_related_recap_execution_fixture()
+    values = legacy.policy.model_dump(mode="json", by_alias=True)
+    values.pop("max_source_read_calls")
+    values.pop("max_source_read_anchors")
+    values.update(max_source_read_chars=96000, max_graph_operations=32, max_results_per_operation=256,
+        provider_input_accounting={"kind": "exact_token_count", "estimator": receipt.assembled_input.tokenizer_name})
+    policy = GraphExecutionPolicyV3.model_validate(values)
+    execution = PlanWorldGraphExecutionV3(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        execution_policy_sha256=graph_execution_policy_digest_v3(receipt.context_receipt_sha256, policy),
+        policy=policy, events=[],
+    )
+    pins = [GraphSourceScopeAnchorV2(anchor_id=f"traversal-{i:02}", evidence_ref_id=f"returned-evidence-{i}",
+        source_artifact_id=f"artifact-{i}", source_revision_id=f"source-revision-{i}") for i in range(9)]
+    origin = ValidatedGraphOperationEventV3(event_id=uuid4(), sequence=0, kind="validated_graph_operation_v3",
+        operation_id=uuid4(), operation=policy.allowed_graph_operations[0], request_arguments_sha256="a"*64,
+        graph_revision=policy.source_read_scope.graph_revision, result_packet_sha256="b"*64,
+        assertion_ids=[], relationship_ids=[], evidence_ref_ids=sorted(pin.evidence_ref_id for pin in pins),
+        evidence_sufficiency_status="sufficient", coverage_status="complete", truncated=False,
+        source_opened=False, returned_source_pins=pins)
+    authority = receipt.graph_authority
+    extension = SourceScopeExtensionEventV3(event_id=uuid4(), sequence=1, kind="source_scope_extension_v3",
+        origin_graph_event_id=origin.event_id, context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256, world_id=authority.managed_world_id,
+        native_world_id=authority.native_world_id, binding_version=authority.binding_version,
+        campaign_id=authority.campaign_id, graph_revision=authority.graph_revision,
+        retrieval_session_id=policy.source_read_scope.retrieval_session_id, pins=pins)
+    return receipt, execution, origin, extension
+
+
+def _v3_events(execution, events):
+    return type(execution).model_validate(execution.model_dump(mode="json", by_alias=True)
+        | {"events": [event.model_dump(mode="json", by_alias=True) for event in events]})
+
+
+def test_source_admission_v3_preserves_selected_commitment_and_legacy_bytes():
+    from application_state.agent_conversation.types import PlanWorldGraphExecutionV2, validate_selected_source_binding
+    receipt, execution, origin, extension = _source_admission_v3_fixture()
+    extended = _v3_events(execution, [origin, extension])
+    validate_selected_source_binding(receipt, extended)
+    assert extended.policy == execution.policy
+    assert len(extended.effective_source_pins()) == 10
+    assert "max_source_read_calls" not in extended.policy.model_dump()
+    _, v2, _ = _selected_related_recap_execution_fixture()
+    encoded = v2.model_dump_json(by_alias=True)
+    assert PlanWorldGraphExecutionV2.model_validate_json(encoded).model_dump_json(by_alias=True) == encoded
+
+
+@pytest.mark.parametrize("change", ["missing_origin", "late_origin", "pin", "evidence", "world", "native_world", "binding", "revision", "session", "rebind"])
+def test_source_admission_v3_rejects_unproven_extensions(change):
+    from application_state.agent_conversation.types import validate_selected_source_binding
+    receipt, execution, origin, extension = _source_admission_v3_fixture()
+    if change == "missing_origin":
+        extension = extension.model_copy(update={"origin_graph_event_id": uuid4()})
+    elif change == "late_origin":
+        origin, extension = origin.model_copy(update={"sequence": 1}), extension.model_copy(update={"sequence": 0})
+    elif change in {"pin", "evidence"}:
+        pins = [*extension.pins]
+        pins[0] = pins[0].model_copy(update={"source_revision_id" if change == "pin" else "evidence_ref_id": "forged"})
+        extension = extension.model_copy(update={"pins": pins})
+    elif change == "rebind":
+        pin = execution.policy.source_read_scope.admitted_anchors[0].model_copy(update={"source_revision_id": "rebound"})
+        origin = origin.model_copy(update={"returned_source_pins": [pin], "evidence_ref_ids": [pin.evidence_ref_id]})
+        extension = extension.model_copy(update={"pins": [pin]})
+    else:
+        field = {"world": "world_id", "native_world": "native_world_id", "binding": "binding_version", "revision": "graph_revision", "session": "retrieval_session_id"}[change]
+        extension = extension.model_copy(update={field: 99 if change == "binding" else "foreign"})
+    events = [extension, origin] if change == "late_origin" else [origin, extension]
+    with pytest.raises(ValueError):
+        validate_selected_source_binding(receipt, _v3_events(execution, events))
+
+
+def test_source_admission_v3_requires_origin_evidence_and_bounded_storage():
+    receipt, execution, origin, extension = _source_admission_v3_fixture()
+    with pytest.raises(ValueError, match="operation evidence"):
+        type(origin).model_validate(origin.model_dump(mode="json") | {"evidence_ref_ids": []})
+    # Actual serialized capacity, rather than a silent pin or event truncation.
+    events = []
+    for i in range(32):
+        events.append(origin.model_copy(update={"event_id": uuid4(), "operation_id": uuid4(), "sequence": i,
+            "assertion_ids": sorted(f"{i:02}-{j:03}-" + "x"*240 for j in range(150))}))
+    with pytest.raises(ValueError, match="storage size"):
+        _v3_events(execution, events)
+
+
+def test_source_admission_v3_retains_character_batch_and_event_bounds():
+    from application_state.agent_conversation.types import SourceReadAuthorizationEventV2
+    _, execution, origin, extension = _source_admission_v3_fixture()
+    scope = execution.policy.source_read_scope
+    events = [origin, extension]
+    for i in range(8):
+        events.append(SourceReadAuthorizationEventV2(event_id=uuid4(), sequence=len(events), kind="source_read_authorized_v2",
+            read_call_id=uuid4(), context_receipt_sha256=execution.context_receipt_sha256,
+            execution_policy_sha256=execution.execution_policy_sha256, retrieval_session_id=scope.retrieval_session_id,
+            world_id=scope.world_id, graph_revision=scope.graph_revision, anchors=[extension.pins[i]], max_chars=12000))
+    _v3_events(execution, events)
+    ninth = events[-1].model_copy(update={"event_id": uuid4(), "read_call_id": uuid4(), "sequence": len(events)})
+    with pytest.raises(ValueError, match="character budget"):
+        _v3_events(execution, [*events, ninth])
+    with pytest.raises(ValueError, match="at most 8"):
+        SourceReadAuthorizationEventV2.model_validate(ninth.model_dump(mode="json") | {"anchors": extension.pins})
+    with pytest.raises(ValueError):
+        _v3_events(execution, [*events]*205)
+
+
+_UNCAPPED_LIMITS = dict.fromkeys((
+    "max_provider_attempts", "max_graph_operations",
+    "max_total_provider_input_tokens", "max_total_provider_output_tokens",
+))
+
+
+@pytest.mark.parametrize("version", [1, 2, 3])
+def test_explicit_uncapped_policy_retains_ledger_and_historical_enforcement(version):
+    from application_state.agent_conversation.types import (
+        GraphExecutionPolicyV1, PlanWorldGraphExecutionV1,
+        graph_execution_policy_digest_v2, graph_execution_policy_digest_v3,
+    )
+    if version == 3:
+        _, original, _, _ = _source_admission_v3_fixture()
+    else:
+        original, _, _ = _v2_graph_execution_fixture()
+        if version == 1:
+            fields = GraphExecutionPolicyV1.model_fields
+            original = PlanWorldGraphExecutionV1(
+                context_receipt_sha256=original.context_receipt_sha256,
+                policy={k: v for k, v in original.policy.model_dump().items() if k in fields},
+                events=[],
+            )
+    encoded = original.model_dump_json(by_alias=True)
+    assert type(original).model_validate_json(encoded).model_dump_json(by_alias=True) == encoded
+    policy_data = original.policy.model_dump(mode="json", by_alias=True) | _UNCAPPED_LIMITS | {
+        "policy_version": "world_graph_execution_selected_scope_uncapped_v1" if version == 3
+        else "world_graph_execution_uncapped_v1",
+    }
+    policy = type(original.policy).model_validate(policy_data)
+    payload = original.model_dump(mode="json", by_alias=True) | {"policy": policy.model_dump(mode="json", by_alias=True)}
+    if version > 1:
+        digest = graph_execution_policy_digest_v3 if version == 3 else graph_execution_policy_digest_v2
+        payload["execution_policy_sha256"] = digest(original.context_receipt_sha256, policy)
+        assert payload["execution_policy_sha256"] != original.execution_policy_sha256
+    events = []
+    for _ in range(9):
+        event = {
+            "event_id": str(uuid4()), "sequence": len(events),
+            "kind": "validated_graph_operation_v3" if version == 3 else "validated_graph_operation",
+            "operation_id": str(uuid4()), "operation": policy.allowed_graph_operations[0],
+            "request_arguments_sha256": "a" * 64, "graph_revision": policy.source_read_scope.graph_revision if version > 1 else "revision-1",
+            "result_packet_sha256": "b" * 64, "assertion_ids": [], "relationship_ids": [],
+            "evidence_ref_ids": [], "evidence_sufficiency_status": "insufficient",
+            "coverage_status": "incomplete", "truncated": False, "source_opened": False,
+        }
+        if version == 3:
+            event["returned_source_pins"] = []
+        events.append(event)
+    for _ in range(5):
+        attempt = str(uuid4())
+        event = {
+            "event_id": str(uuid4()), "sequence": len(events),
+            "kind": "provider_attempt_authorized_v3" if version == 3 else "provider_attempt_authorized",
+            "provider_attempt_id": attempt, "envelope_sha256": "c" * 64,
+            "serializer_version": "canonical-json-utf8-v1", "provider": "synthetic",
+            "model": "synthetic", "api_mode": "messages", "tool_schema_sha256": "d" * 64,
+            "input_accounting_kind": policy.provider_input_accounting.kind,
+            "input_estimator": policy.provider_input_accounting.estimator,
+            "input_tokens": 1000, "output_token_reserve": 1000,
+            "included_assertion_ids": [], "included_relationship_ids": [],
+            "included_evidence_ref_ids": [], "included_graph_event_ids": [],
+        }
+        if version == 3:
+            event["included_source_read_event_ids"] = []
+        events.append(event)
+        for outcome in ("sdk_entered", "response_received"):
+            events.append({"event_id": str(uuid4()), "sequence": len(events),
+                "kind": "provider_outcome", "provider_attempt_id": attempt, "outcome": outcome})
+    payload["events"] = events
+    accepted = type(original).model_validate(payload)
+    assert len(accepted.events) == 24
+    serialized = accepted.model_dump_json(by_alias=True)
+    assert type(accepted).model_validate_json(serialized).model_dump_json(by_alias=True) == serialized
+    # Null does not disable ordering, evidence, uncertainty or per-result constraints.
+    with pytest.raises(ValueError, match="contiguous"):
+        type(original).model_validate(payload | {"events": events[1:]})
+    invalid = [dict(e) for e in events]
+    invalid[9]["included_graph_event_ids"] = [str(uuid4())]
+    with pytest.raises(ValueError, match="unknown Graph"):
+        type(original).model_validate(payload | {"events": invalid})
+    invalid = [dict(e) for e in events]
+    invalid[11]["outcome"] = "outcome_unknown"
+    with pytest.raises(ValueError, match="resolved prior attempt"):
+        type(original).model_validate(payload | {"events": invalid})
+    finite_payload = payload | {"policy": original.policy.model_dump(mode="json", by_alias=True)}
+    if version > 1:
+        finite_payload["execution_policy_sha256"] = original.execution_policy_sha256
+    with pytest.raises(ValueError, match="policy limit"):
+        type(original).model_validate(finite_payload)
+    for field, finite_limit, message in (
+        ("max_provider_attempts", 4, "provider attempt policy limit"),
+        ("max_graph_operations", 8, "Graph operation policy limit"),
+        ("max_total_provider_input_tokens", 4999, "token budget"),
+        ("max_total_provider_output_tokens", 4999, "token budget"),
+    ):
+        finite_policy = type(policy).model_validate(original.policy.model_dump(mode="json", by_alias=True) | {
+            "max_provider_attempts": 128, "max_graph_operations": 512,
+            "max_total_provider_input_tokens": 100000, "max_total_provider_output_tokens": 100000,
+            field: finite_limit,
+        })
+        finite_payload = payload | {"policy": finite_policy.model_dump(mode="json", by_alias=True)}
+        if version > 1:
+            finite_payload["execution_policy_sha256"] = digest(original.context_receipt_sha256, finite_policy)
+        with pytest.raises(ValueError, match=message):
+            type(original).model_validate(finite_payload)
+    # The four aggregate limits are required and the new version is intentional.
+    for field in _UNCAPPED_LIMITS:
+        with pytest.raises(ValueError, match="required"):
+            type(policy).model_validate({k: v for k, v in policy_data.items() if k != field})
+        for wrong in (True, "1", 1):
+            with pytest.raises(ValueError):
+                type(policy).model_validate(policy_data | {field: wrong})
+        with pytest.raises(ValueError, match="explicit uncapped"):
+            type(policy).model_validate(original.policy.model_dump(by_alias=True) | {field: None})
+
+
+def test_uncapped_related_context_records_more_than_eight_calls():
+    from application_state.agent_conversation.types import (
+        RelatedRecapContextAuthorizationEventV2, graph_execution_policy_digest_v2,
+    )
+    _, finite = _related_recap_execution_fixture()
+    policy = type(finite.policy).model_validate(finite.policy.model_dump(mode="json", by_alias=True) | _UNCAPPED_LIMITS | {"policy_version": "world_graph_execution_uncapped_v1"})
+    digest = graph_execution_policy_digest_v2(finite.context_receipt_sha256, policy)
+    events = [RelatedRecapContextAuthorizationEventV2(
+        event_id=uuid4(), sequence=i, kind="related_recap_context_authorized_v2", read_call_id=uuid4(),
+        context_receipt_sha256=finite.context_receipt_sha256, execution_policy_sha256=digest,
+        admission=_related_recap_admission_fixture(), max_chars=1,
+    ) for i in range(9)]
+    payload = finite.model_dump(mode="json", by_alias=True) | {"policy": policy.model_dump(mode="json", by_alias=True),
+        "execution_policy_sha256": digest, "events": [e.model_dump(mode="json", by_alias=True) for e in events]}
+    assert len(type(finite).model_validate(payload).events) == 9
+    old = finite.model_dump(mode="json", by_alias=True) | {"events": [e.model_copy(update={"execution_policy_sha256": finite.execution_policy_sha256}).model_dump(mode="json", by_alias=True) for e in events]}
+    with pytest.raises(ValueError, match="read call budget"):
+        type(finite).model_validate(old)
+
+
+@pytest.mark.parametrize("opened", [False, True])
+@pytest.mark.parametrize("mutation", [None, "omitted-event", "omitted-ref", "unrelated-target", "foreign-revision", "truncated", "mixed-index", "unrelated-event"])
+def test_delivered_traversal_evidence_does_not_require_every_passage(opened, mutation):
+    from application_state.agent_conversation.types import (
+        GraphCompletionValidationError, validate_execution_completion,
+    )
+    receipt, execution, completion, attempt_id, event_id = _indexed_graph_completion_fixture(
+        include_read=opened, cite_read=opened,
+    )
+    refs = ["evidence-indexed", "evidence-second", "evidence-third"]
+    events = []
+    for event in execution.events:
+        if event.event_id == event_id:
+            event = event.model_copy(update={"evidence_ref_ids": refs,
+                **({"assertion_ids": ["unrelated"]} if mutation == "unrelated-target" else {}),
+                **({"graph_revision": "foreign"} if mutation == "foreign-revision" else {}),
+                **({"truncated": True, "coverage_status": "incomplete"} if mutation == "truncated" else {})})
+        if getattr(event, "provider_attempt_id", None) == attempt_id and event.kind == "provider_attempt_authorized_v2":
+            included = refs[:-1] if mutation == "omitted-ref" else (refs[1:] if mutation == "mixed-index" else refs)
+            event = event.model_copy(update={"included_evidence_ref_ids": included,
+                **({"included_graph_event_ids": []} if mutation == "omitted-event" else {})})
+        events.append(event)
+    if mutation == "unrelated-event":
+        mapped = next(event for event in events if event.event_id == event_id)
+        unrelated = mapped.model_copy(update={"event_id": uuid4(), "operation_id": uuid4(),
+            "assertion_ids": ["unrelated-target"]})
+        events = [event.model_copy(update={"evidence_ref_ids": ["evidence-initial"]})
+            if event.event_id == event_id else event for event in events]
+        events.insert(0, unrelated)
+        events = [event.model_copy(update={"sequence": i,
+            **({"included_graph_event_ids": [event_id, unrelated.event_id]}
+                if event.kind == "provider_attempt_authorized_v2" else {})})
+            for i, event in enumerate(events)]
+    execution = execution.model_copy(update={"events": events})
+    claim = completion.answer_segments[0].model_copy(update={"evidence_ref_ids": refs})
+    citation = completion.citation_map.entries[0].model_copy(update={"evidence_ref_ids": refs})
+    completion = completion.model_copy(update={"answer_segments": [claim],
+        "answer_context_status": "graph_grounded_partial" if mutation == "truncated" else "graph_grounded",
+        "citation_map": completion.citation_map.model_copy(update={"entries": [citation]})})
+    # An index-only ref must still be opened; omitted-ref is not repaired by
+    # globally present refs from some unrelated operation.
+    rejected = mutation in {"omitted-event", "unrelated-target", "foreign-revision", "unrelated-event", "omitted-ref"} or (
+        mutation == "mixed-index" and not opened)
+    if rejected:
+        with pytest.raises((GraphCompletionValidationError, ValueError)):
+            validate_execution_completion(completion, receipt, execution, attempt_id, {"claim-indexed": [event_id]})
+    else:
+        validate_execution_completion(completion, receipt, execution, attempt_id, {"claim-indexed": [event_id]})
+        assert citation.source_opened is opened
+        assert citation.source_read_ids == (["indexed-read-1"] if opened else [])

@@ -1,0 +1,48 @@
+name: Local verifier contract guards
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - ci/contracts.json
+      - Dockerfile.production
+      - .github/actions/setup-python-toolchain/action.yml
+      - scripts/ci_contract.py
+      - tests/test_ci_contract.py
+      - scripts/ci_local_frontend.py
+      - tests/test_ci_local_frontend.py
+      - .github/workflows/local-verifier.yml
+      - .github/workflows/hosted-validation.yml
+      - .github/workflows/world-ownership-core.yml
+      - AGENTS.md
+concurrency:
+  group: local-verifier-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+permissions:
+  contents: read
+jobs:
+  verifier-guards:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - name: Local verifier guards
+        run: >-
+          uv run --no-project --no-config
+          --with pytest==9.0.2 --with pyyaml==6.0.3
+          --with iniconfig==2.3.0 --with packaging==26.0
+          --with pluggy==1.6.0 --with pygments==2.19.2
+          python -m pytest --noconftest -q
+          tests/test_ci_local_frontend.py tests/test_ci_contract.py
+      - name: Test classification inventory
+        run: python scripts/ci_contract.py inventory

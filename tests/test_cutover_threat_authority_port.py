@@ -401,7 +401,17 @@ def _explode_buddy_graph_runtime(monkeypatch) -> None:
     monkeypatch.setattr(builtins, "__import__", _guarded_import)
 
 
-def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "verification_recovery,publication_recovery",
+    [(mode, None) for mode in (None, "passed", "failed", "unavailable", "parent_unavailable")]
+    + [(None, mode) for mode in (
+        "before_write", "after_write", "lookup_unavailable", "head_changed",
+        "retry_before_write", "retry_after_write", "retry_lookup_unavailable", "retry_parent_unavailable",
+    )],
+)
+def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(
+    tmp_path, monkeypatch, verification_recovery, publication_recovery
+):
     """Handoff §16.10: begin → identity → proposal → confirm with no Buddy graph."""
     import uuid
 
@@ -449,6 +459,62 @@ def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(tmp_path, m
     monkeypatch.setattr(commit_svc, "world_graph_root", lambda: absent)
     _install_fake_authority(monkeypatch, fake)
     _explode_buddy_graph_runtime(monkeypatch)
+    verification_calls = []
+    original_verify = fake.verify_child
+
+    def verify_child(*, receipt, expected):
+        verification_calls.append(receipt.published_revision_id)
+        if verification_recovery is not None and len(verification_calls) == 1:
+            raise WorldGraphAuthorityError("child proof temporarily unavailable", code="authority_unavailable")
+        if verification_recovery == "unavailable":
+            raise WorldGraphAuthorityError("child proof still unavailable", code="authority_unavailable")
+        if verification_recovery == "failed":
+            return WorldGraphVerificationResult(status="failed", codes=("child_mismatch",))
+        return original_verify(receipt=receipt, expected=expected)
+
+    monkeypatch.setattr(fake, "verify_child", verify_child)
+
+    native_requests = []
+    recovery_results = []
+    original_publish = fake.publish
+    original_recover = fake.recover
+
+    def publish(request):
+        native_requests.append(request)
+        attempt = len(native_requests)
+        if publication_recovery not in {None, "after_write"} and attempt == 1:
+            raise WorldGraphAuthorityError("publication unavailable before write", code="authority_unavailable")
+        if publication_recovery in {"retry_before_write", "retry_lookup_unavailable"} and attempt == 2:
+            raise WorldGraphAuthorityError("retry unavailable before write", code="authority_unavailable")
+        receipt = original_publish(request)
+        if (publication_recovery == "after_write" and attempt == 1
+            or publication_recovery == "retry_after_write" and attempt == 2):
+            raise WorldGraphAuthorityError("publication response lost", code="authority_unavailable")
+        return receipt
+
+    def recover(*args, **kwargs):
+        if (publication_recovery == "lookup_unavailable"
+            or publication_recovery == "retry_lookup_unavailable" and len(recovery_results) == 1):
+            recovery_results.append("unavailable")
+            raise WorldGraphAuthorityError("recovery unavailable", code="authority_unavailable")
+        receipt = original_recover(*args, **kwargs)
+        recovery_results.append("found" if receipt is not None else "absent")
+        if publication_recovery == "head_changed" and receipt is None:
+            fake.heads["world_1"] = "rev:unrelated-child"
+        if publication_recovery == "retry_parent_unavailable" and receipt is None:
+            original_read = fake.read_revision
+
+            def read_revision(world_id, revision_id):
+                if revision_id == parent:
+                    raise WorldGraphAuthorityError("retry parent unavailable", code="revision_unavailable")
+                return original_read(world_id, revision_id)
+
+            monkeypatch.setattr(fake, "read_revision", read_revision)
+        return receipt
+
+    monkeypatch.setattr(fake, "publish", publish)
+    monkeypatch.setattr(fake, "recover", recover)
+
 
 
     draft = _create_draft(tmp_path)
@@ -513,6 +579,29 @@ def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(tmp_path, m
         world_root=absent,
     )
     assert first.response.commit is not None
+    for request in native_requests:
+        assert request.authority_operation_id == first.response.commit.expected_contribution_id
+        assert request.expected_parent_revision_id == parent
+        assert request.actor == first.response.commit.created_by
+        assert request.accepted_assertion_ids == tuple(first.response.commit.accepted_assertion_ids)
+    pending_cases = {
+        "lookup_unavailable": ("publication_commit_recovery_pending", "committing", 1, ["unavailable"]),
+        "head_changed": ("publication_commit_uncommitted", "uncommitted", 1, ["absent"]),
+        "retry_before_write": ("publication_commit_uncommitted", "uncommitted", 2, ["absent", "absent"]),
+        "retry_lookup_unavailable": ("publication_commit_recovery_pending", "committing", 2, ["absent", "unavailable"]),
+        "retry_parent_unavailable": ("publication_commit_recovery_pending", "committing", 1, ["absent"]),
+    }
+    if publication_recovery in pending_cases:
+        label, state, attempts, recoveries = pending_cases[publication_recovery]
+        assert first.response.result_label == label
+        assert first.response.commit.state == state
+        assert first.response.commit.committed_revision_id is None
+        assert first.response.commit.merge_attempt_count == attempts
+        assert first.merge_calls == attempts == len(native_requests)
+        assert recovery_results == recoveries
+        assert not verification_calls and not fake.publications and fake.publish_calls == 0
+        assert not absent.exists()
+        return
     assert first.response.result_label in {
         "publication_commit_verified",
         "publication_commit_committed_unverified",
@@ -520,7 +609,18 @@ def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(tmp_path, m
     child = first.response.commit.committed_revision_id
     assert child
     assert fake.publish_calls == 1
+    assert first.response.commit.verification_status == (
+        "passed" if verification_recovery is None else "not_started"
+    )
+    if verification_recovery == "parent_unavailable":
+        original_read = fake.read_revision
 
+        def read_revision(world_id, revision_id):
+            if revision_id == parent:
+                raise WorldGraphAuthorityError("parent unavailable", code="revision_unavailable")
+            return original_read(world_id, revision_id)
+
+        monkeypatch.setattr(fake, "read_revision", read_revision)
 
     retry = commit_svc.confirm_threat_publication(
         tmp_path,
@@ -541,6 +641,28 @@ def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(tmp_path, m
     assert retry.response.commit.committed_revision_id == child
     assert fake.publish_calls == 1
     assert not absent.exists()
+    expected_status = {
+        None: "passed", "passed": "passed", "failed": "failed",
+        "unavailable": "not_started", "parent_unavailable": "not_started",
+    }[verification_recovery]
+    assert retry.response.commit.verification_status == expected_status
+    assert retry.response.result_label == (
+        "publication_commit_verified" if expected_status == "passed"
+        else "publication_commit_committed_unverified"
+    )
+    expected_calls = 1 if verification_recovery in {None, "parent_unavailable"} else 2
+    assert verification_calls == [child] * expected_calls
+    if verification_recovery == "failed":
+        assert retry.response.commit.verification_codes == ["child_mismatch"]
+    expected_requests = 2 if publication_recovery in {"before_write", "retry_after_write"} else 1
+    assert len(native_requests) == first.merge_calls == expected_requests
+    assert first.response.commit.merge_attempt_count == expected_requests
+    assert retry.merge_calls == 0
+    expected_recoveries = {
+        "before_write": ["absent"], "after_write": ["found"],
+        "retry_after_write": ["absent", "found"],
+    }.get(publication_recovery, [])
+    assert recovery_results == expected_recoveries
 
 
 def _publish_request(

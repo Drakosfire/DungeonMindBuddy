@@ -9,10 +9,9 @@ import {
   type ReactNode,
 } from "react";
 
-import { getSourceBundle } from "../api/liveApi";
-import type { IngestionSourceBundle } from "../api/types";
+import { getSourceSessions } from "../api/liveApi";
 import {
-  buildFocusOptionsFromBundles,
+  buildFocusOptionsFromSessions,
   isFocusValidationBlocking,
   optionsIncludeFocus,
   type PlanGraphFocusValidationStatus,
@@ -62,11 +61,13 @@ const PlanGraphLensContext = createContext<PlanGraphLensContextValue | null>(nul
 
 interface PlanGraphLensProviderProps {
   planCampaignId: string;
+  /** Inert routes retain lens state without fetching legacy focus bundles. */
+  loadFocusOptions?: boolean;
   /** Server-verified managed World; legacy C1/C2 controls do not apply. */
   managedWorldId?: string | null;
   children: ReactNode;
-  /** Injectable for tests; defaults to live `getSourceBundle`. */
-  loadBundle?: typeof getSourceBundle;
+  /** Injectable for tests; defaults to live `getSourceSessions`. */
+  loadSessions?: typeof getSourceSessions;
   /**
    * Test override: skip network and use these options immediately.
    * When set (including `[]`), bundle loading is skipped.
@@ -102,6 +103,7 @@ export function effectiveFocusValidationStatus(
 
 interface BundleLoadState {
   ready: boolean;
+  demandGeneration: number;
   loadedCampaignIds: readonly ReviewCampaignId[];
   failedCampaignIds: readonly ReviewCampaignId[];
   /** Campaign selection this load result belongs to. */
@@ -110,6 +112,7 @@ interface BundleLoadState {
 
 const BUNDLE_LOAD_IDLE: BundleLoadState = {
   ready: false,
+  demandGeneration: -1,
   loadedCampaignIds: [],
   failedCampaignIds: [],
   selectedCampaignKey: "",
@@ -118,10 +121,18 @@ const BUNDLE_LOAD_IDLE: BundleLoadState = {
 export function PlanGraphLensProvider({
   planCampaignId,
   managedWorldId = null,
+  loadFocusOptions = true,
   children,
-  loadBundle = getSourceBundle,
+  loadSessions = getSourceSessions,
   focusOptions: focusOptionsOverride,
 }: PlanGraphLensProviderProps) {
+  // Adjust this component's state during render so children never commit a
+  // previous demand's validation on re-entry. Effects alone reset too late.
+  const [demand, setDemand] = useState({ enabled: loadFocusOptions, generation: 0 });
+  const demandGeneration = demand.generation + (demand.enabled === loadFocusOptions ? 0 : 1);
+  if (demand.enabled !== loadFocusOptions) {
+    setDemand({ enabled: loadFocusOptions, generation: demandGeneration });
+  }
   const [lens, setLens] = useState<PlanGraphLens>(() =>
     managedWorldId ? { selectedCampaignIds: [], focus: null } : resolvePlanGraphLens(
       planCampaignId,
@@ -139,6 +150,7 @@ export function PlanGraphLensProvider({
     if (focusOptionsOverride !== undefined) {
       return {
         ready: true,
+        demandGeneration,
         loadedCampaignIds: sortCampaignIds(
           focusOptionsOverride.map((option) => option.campaignId),
         ),
@@ -151,6 +163,7 @@ export function PlanGraphLensProvider({
   const [storedValidation, setStoredValidation] = useState<{
     status: PlanGraphFocusValidationStatus;
     boundKey: string;
+    demandGeneration: number;
   }>(() => {
     const initialLens = managedWorldId ? { selectedCampaignIds: [], focus: null } : resolvePlanGraphLens(
       planCampaignId,
@@ -159,8 +172,15 @@ export function PlanGraphLensProvider({
     return {
       status: initialLens.focus ? "pending" : "none",
       boundKey: planGraphLensValidationKey(initialLens),
+      demandGeneration,
     };
   });
+  const successfulSessions = useRef<{
+    selection: string;
+    generation: number;
+    loader: typeof getSourceSessions;
+    bundles: Map<ReviewCampaignId, number[]>;
+  } | null>(null);
   const [bundleReloadToken, setBundleReloadToken] = useState(0);
   /**
    * Operator override is valid only while this exact lens key is current.
@@ -174,7 +194,9 @@ export function PlanGraphLensProvider({
     : "";
   const currentValidationKey = planGraphLensValidationKey(lens);
 
-  const focusValidationStatus = effectiveFocusValidationStatus(
+  const focusValidationStatus = !loadFocusOptions || storedValidation.demandGeneration !== demandGeneration
+    ? (lens.focus ? "pending" : "none")
+    : effectiveFocusValidationStatus(
     storedValidation,
     currentValidationKey,
     lens.focus != null,
@@ -184,11 +206,12 @@ export function PlanGraphLensProvider({
     (status: PlanGraphFocusValidationStatus, boundKey: string) => {
       setStoredValidation((previous) =>
         previous.status === status && previous.boundKey === boundKey
+          && previous.demandGeneration === demandGeneration
           ? previous
-          : { status, boundKey },
+          : { status, boundKey, demandGeneration },
       );
     },
-    [],
+    [demandGeneration],
   );
 
   const setSelectedCampaignIds = useCallback(
@@ -280,10 +303,18 @@ export function PlanGraphLensProvider({
 
   // Load grounded focus options for the selected campaigns.
   useEffect(() => {
+    if (!loadFocusOptions) {
+      successfulSessions.current = null;
+      setFocusOptions([]);
+      setBundleLoadState(BUNDLE_LOAD_IDLE);
+      return;
+    }
     if (focusOptionsOverride !== undefined) {
+      successfulSessions.current = null;
       setFocusOptions(focusOptionsOverride);
       setBundleLoadState({
         ready: true,
+        demandGeneration,
         loadedCampaignIds: sortCampaignIds(
           focusOptionsOverride.map((option) => option.campaignId),
         ),
@@ -295,9 +326,11 @@ export function PlanGraphLensProvider({
 
     const selected = lens.selectedCampaignIds;
     if (selected.length === 0) {
+      successfulSessions.current = null;
       setFocusOptions([]);
       setBundleLoadState({
         ready: true,
+        demandGeneration,
         loadedCampaignIds: [],
         failedCampaignIds: [],
         selectedCampaignKey,
@@ -305,51 +338,64 @@ export function PlanGraphLensProvider({
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
+    const { signal } = controller;
     setBundleLoadState({
       ...BUNDLE_LOAD_IDLE,
       selectedCampaignKey,
     });
 
+    const previous = successfulSessions.current;
+    const bundles = previous?.selection === selectedCampaignKey
+      && previous.generation === demandGeneration && previous.loader === loadSessions
+      ? new Map(previous.bundles)
+      : new Map<ReviewCampaignId, number[]>();
+    successfulSessions.current = null;
+    setFocusOptions(buildFocusOptionsFromSessions(selected, bundles));
+
     void (async () => {
-      const bundles = new Map<ReviewCampaignId, IngestionSourceBundle>();
       const failedCampaignIds: ReviewCampaignId[] = [];
       await Promise.all(
-        selected.map(async (campaignId) => {
+        selected.filter((campaignId) => !bundles.has(campaignId)).map(async (campaignId) => {
           try {
-            const bundle = await loadBundle("campaign-ingested", campaignId);
-            if (!cancelled) bundles.set(campaignId, bundle);
+            const bundle = await loadSessions(campaignId, signal);
+            if (signal.aborted) return;
+            bundles.set(campaignId, bundle);
+            setFocusOptions(buildFocusOptionsFromSessions(selected, bundles));
           } catch {
-            if (!cancelled) failedCampaignIds.push(campaignId);
+            if (!signal.aborted) failedCampaignIds.push(campaignId);
           }
         }),
       );
-      if (cancelled) return;
-      setFocusOptions(buildFocusOptionsFromBundles(selected, bundles));
+      if (signal.aborted) return;
+      successfulSessions.current = { selection: selectedCampaignKey, generation: demandGeneration, loader: loadSessions, bundles };
       setBundleLoadState({
         ready: true,
+        demandGeneration,
         loadedCampaignIds: [...bundles.keys()],
         failedCampaignIds,
         selectedCampaignKey,
       });
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [
     bundleReloadToken,
+    demandGeneration,
+    loadFocusOptions,
     focusOptionsOverride,
-    loadBundle,
+    loadSessions,
     selectedCampaignKey,
     lens.selectedCampaignIds,
   ]);
 
   // Validate active focus against grounded options once bundles resolve for this selection.
   useEffect(() => {
+    if (!loadFocusOptions) return;
     const bundlesMatchSelection =
       bundleLoadState.ready
-      && bundleLoadState.selectedCampaignKey === selectedCampaignKey;
+      && bundleLoadState.selectedCampaignKey === selectedCampaignKey
+      && bundleLoadState.demandGeneration === demandGeneration;
 
     if (!bundlesMatchSelection) {
       bindValidation(lens.focus ? "pending" : "none", currentValidationKey);
@@ -389,9 +435,12 @@ export function PlanGraphLensProvider({
     setFocus(null);
   }, [
     bindValidation,
+    demandGeneration,
+    loadFocusOptions,
     bundleLoadState.failedCampaignIds,
     bundleLoadState.loadedCampaignIds,
     bundleLoadState.ready,
+    bundleLoadState.demandGeneration,
     bundleLoadState.selectedCampaignKey,
     currentValidationKey,
     focusKey,
@@ -416,7 +465,7 @@ export function PlanGraphLensProvider({
       lens,
       derived,
       summaryLabel,
-      focusOptions,
+      focusOptions: loadFocusOptions ? focusOptions : [],
       focusValidationStatus,
       setSelectedCampaignIds,
       toggleCampaign,
@@ -426,6 +475,7 @@ export function PlanGraphLensProvider({
     }),
     [
       acceptUnverifiedFocus,
+      loadFocusOptions,
       derived,
       focusOptions,
       focusValidationStatus,

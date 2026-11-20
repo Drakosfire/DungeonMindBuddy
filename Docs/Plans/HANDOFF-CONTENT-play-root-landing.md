@@ -1,0 +1,5 @@
+# CONTENT: root Play landing
+
+ACTIVE serial. Operator requests a useful root `/play?choose=1` landing and correction of the inert Load action. PRIME owns codex/play-root-landing from 6677f08ce71bc18259f7c431e3e0ab798b5292fb. Existing PR1190 is older unmerged welcome work; inspect for lessons, do not adopt stale implementation or change its branch.
+
+Scope: PlaySurfacePage.tsx and tests, a focused read-only PlayWorldPicker component/tests, playSurface.css, this contract. Explain Play and session-copy editing/notes; root offers verified World choices rather than claiming the unselected campaign inventory is all saved sessions. World chooser offers Plan as normal authoring/start entry; retain older Runbook start under explicit secondary disclosure. Hide Load while already choosing; retain it for an open session/status. No API/schema/runtime admission changes, data creation or mutation during rendered verification. Existing session recovery, exact pinned Plan start and legacy session links remain. Tests, independent review, PR, PRIME merge, local5202 adoption, exact root rendered verification. Release by settlement comment.

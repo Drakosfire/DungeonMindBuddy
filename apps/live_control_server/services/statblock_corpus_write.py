@@ -18,7 +18,7 @@ from apps.live_control_server.services.statblock_draft_store import (
     update_statblock_draft_record,
 )
 from apps.live_control_server.services.statblock_workbench import StatblockWorkbenchAction
-from src.agent.corpus_writer import write_corpus_file
+from corpus.corpus_writer import write_corpus_file
 
 SCHEMA_VERSION_PREPARE = "dmb_statblock_corpus_write_prepare_v1"
 SCHEMA_VERSION_COMMIT = "dmb_statblock_corpus_write_commit_v1"

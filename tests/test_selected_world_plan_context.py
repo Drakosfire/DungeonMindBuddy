@@ -13,7 +13,7 @@ from apps.live_control_server.services.world_container_registry import create_wo
 def test_managed_plan_view_is_grounded_and_contains_no_c2_session(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    world = create_world_container(tmp_path, name="Of Conks")
+    world = create_world_container(name="Of Conks")
     monkeypatch.setattr("apps.live_control_server.routes.live.repo_root", lambda: tmp_path)
     body = live.get_live_plan_view(world_id=world.world_id)
     assert body["schema_version"] == "dmb_managed_world_plan_context_v1"
@@ -66,7 +66,7 @@ def test_managed_ask_uses_exact_world_packet_not_c2(
 ) -> None:
     world_id = "of-conks-cons-demo"
     calls: list[dict] = []
-    monkeypatch.setattr(live, "get_world_container", lambda _root, _id: SimpleNamespace(world_id=world_id))
+    monkeypatch.setattr(live, "get_world_container", lambda _id: SimpleNamespace(world_id=world_id))
     monkeypatch.setattr(
         live,
         "get_workspace_document",
@@ -112,7 +112,7 @@ def test_legacy_c2_query_does_not_require_managed_world_registry(
     monkeypatch.setattr(
         live,
         "get_world_container",
-        lambda _root, _id: pytest.fail("legacy query consulted managed World registry"),
+        lambda _id: pytest.fail("legacy query consulted managed World registry"),
     )
     monkeypatch.setattr(
         live,
@@ -174,3 +174,5 @@ def test_managed_hermes_service_does_not_load_legacy_session(
         surface_context=AgentSurfaceContextRequest.model_validate(request["surface_context"]),
     )
     assert response == {"packet": {"campaign_id": world_id, "session": 1}, "session_base": None}
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

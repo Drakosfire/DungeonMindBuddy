@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.graph_memory.candidate_graph_preview import (
+from graph_memory.candidate_graph_preview import (
     CANDIDATE_GRAPH_PREVIEW_SCHEMA,
     CANDIDATE_GRAPH_PREVIEW_VERSION,
     candidate_graph_preview_from_dict,

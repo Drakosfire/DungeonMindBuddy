@@ -30,7 +30,7 @@ from graph_memory.extract_promote_ops import (
     ExtractPromotePrepareResult,
     prepare_extract_promote,
 )
-from graph_memory.candidate_graph_to_contribution import verify_source_revision
+from graph_memory.candidate_graph_to_contribution import verify_source_bytes_revision
 from graph_memory.candidate_graph_to_contribution import kernel_kind_for_node_type
 from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
     CURRENT_V5_TARGET,
@@ -65,8 +65,11 @@ def canonical_candidate_digest(candidate_graph: Mapping[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def validate_candidate_document_integrity(candidate_graph: Mapping[str, Any]):
+def validate_candidate_document_integrity(candidate_graph: Mapping[str, Any], *, allow_source_observations: bool = False):
     """Return the exact typed preview while treating unsupported kinds as eligibility."""
+    if candidate_graph.get("version") == "0.2" and not allow_source_observations:
+        from graph_memory.candidate_graph_to_contribution import CandidateGraphMappingError
+        raise CandidateGraphMappingError("candidate v0.2 requires source-observation review")
     digest = canonical_candidate_digest(candidate_graph)
     classification = classify_candidate_document_integrity(candidate_graph)
     if classification.parse_error:
@@ -96,9 +99,10 @@ def validate_candidate_document_integrity(candidate_graph: Mapping[str, Any]):
     return classification.preview
 
 
-def _integrity_and_eligibility(
+def project_candidate_graph_for_admission(
     candidate_graph: Mapping[str, Any],
 ) -> tuple[dict[str, Any], list[CandidateAdmissionDisposition], str]:
+    """Pure eligibility projection; the complete raw candidate retains authority."""
     digest = canonical_candidate_digest(candidate_graph)
     raw = copy.deepcopy(dict(candidate_graph))
     validate_candidate_document_integrity(raw)
@@ -338,6 +342,8 @@ def _admit_confirmable_recap_source(
     source_artifact: Any | None,
     source_admission: Any | None,
     candidate_digest: str,
+    source_body: bytes | None,
+    expected_head_revision_id: str,
 ) -> AdmittedSourceIdentity:
     if not source_artifact_id or not verified_revision_id or not source_uri:
         raise CandidateAdmissionNotConfirmableError(
@@ -347,12 +353,16 @@ def _admit_confirmable_recap_source(
     _scope_check_recap_source_artifact(
         artifact, world_id=world_id, campaign_id=campaign_id
     )
+    if not isinstance(source_body, bytes):
+        raise CandidateAdmissionNotConfirmableError("confirmable source admission requires exact source bytes")
     request = WorldGraphSourceAdmissionRequest(
         world_id=world_id,
         campaign_id=campaign_id,
         source_artifact=artifact,
         source_revision_token=verified_revision_id,
         source_uri=source_uri,
+        source_body=source_body,
+        expected_head_revision_id=expected_head_revision_id,
     )
     try:
         return _source_admission_authority(source_admission).prove_or_admit(request)
@@ -374,6 +384,12 @@ def _seal_source_admission(
         "source_revision_id": admitted.source_revision_id,
         "buddy_source_revision_id": admitted.buddy_source_revision_id,
         "content_sha256": admitted.content_sha256,
+        **({"source_locator": admitted.source_locator} if admitted.source_locator else {}),
+        **({"artifact_uri": admitted.artifact_uri} if admitted.artifact_uri else {}),
+        **(
+            {"catalog_fingerprint_sha256": admitted.catalog_fingerprint_sha256}
+            if admitted.catalog_fingerprint_sha256 else {}
+        ),
     }
     sealed["effect"] = effect
     sealed["proposal_digest"] = compute_proposal_digest(effect)
@@ -381,16 +397,21 @@ def _seal_source_admission(
 
 
 def prepare_candidate_graph_admission(
-    *, candidate_graph: Mapping[str, Any], **prepare_kwargs: Any
+    *, candidate_graph: Mapping[str, Any], source_body: bytes | None = None,
+    **prepare_kwargs: Any
 ) -> ExtractPromotePrepareResult:
     """Prepare and seal one exact candidate against one pinned parent."""
     source_admission = prepare_kwargs.pop("source_admission", None)
     source_artifact = prepare_kwargs.pop("source_artifact", None)
-    projected, dispositions, digest = _integrity_and_eligibility(candidate_graph)
+    projected, dispositions, digest = project_candidate_graph_for_admission(candidate_graph)
+    prepare_kwargs["candidate_identity_sha256"] = digest
+    context = prepare_kwargs.get("mutation_context")
+    if context is not None and context.reviewed_corpus_bindings:
+        prepare_kwargs["mutation_context"] = replace(context, exact_candidate_sha256=digest)
     has_structurally_admissible_nodes = bool(projected.get("nodes"))
     has_standing_context = prepare_kwargs.get("registry_context_graph") is not None
     if has_structurally_admissible_nodes or has_standing_context:
-        result = prepare_extract_promote(candidate_graph=projected, **prepare_kwargs)
+        result = prepare_extract_promote(candidate_graph=projected, source_body=source_body, **prepare_kwargs)
     else:
         mutation_context = prepare_kwargs.get("mutation_context")
         world_id = str(prepare_kwargs.get("world_id") or "eldyrwild")
@@ -402,10 +423,9 @@ def prepare_candidate_graph_admission(
                 )
             mutation_context = mutation_context_from_world_root(world_root, world_id)
         source_uri = str(prepare_kwargs.get("source_uri") or "")
-        source_revision_id = verify_source_revision(
-            source_uri=source_uri,
+        source_revision_id = verify_source_bytes_revision(
+            source_body=source_body,
             source_revision_id=str(prepare_kwargs.get("source_revision_id") or ""),
-            repo_root=prepare_kwargs.get("repo_root"),
             disclose_computed_digest=bool(
                 prepare_kwargs.get("disclose_source_digest", True)
             ),
@@ -473,6 +493,42 @@ def prepare_candidate_graph_admission(
     effect = dict(result.review_package.get("effect") or {})
     confirmable = bool(effect.get("accepted_proposals"))
     result = replace(result, confirmable=confirmable)
+    admitted: AdmittedSourceIdentity | None = None
+    if confirmable:
+        admitted = _admit_confirmable_recap_source(
+            world_id=result.world_id,
+            campaign_id=str(
+                prepare_kwargs.get("campaign_scope")
+                or candidate_graph.get("campaign_id")
+                or ""
+            ).strip(),
+            source_uri=str(prepare_kwargs.get("source_uri") or "").strip(),
+            verified_revision_id=str(effect.get("source_revision_id") or "").strip(),
+            source_artifact_id=str(
+                effect.get("source_artifact_id")
+                or prepare_kwargs.get("source_artifact_id")
+                or ""
+            ).strip(),
+            source_artifact=source_artifact,
+            source_admission=source_admission,
+            source_body=source_body,
+            expected_head_revision_id=result.parent_revision_id,
+            candidate_digest=digest,
+        )
+        if admitted.source_locator and admitted.source_locator != str(
+            prepare_kwargs.get("source_uri") or ""
+        ).strip():
+            result = prepare_extract_promote(
+                candidate_graph=projected,
+                source_body=source_body,
+                authoritative_source_uri=admitted.source_locator,
+                **prepare_kwargs,
+            )
+            if not result.review_package.get("effect", {}).get("accepted_proposals"):
+                raise CandidateAdmissionNotConfirmableError(
+                    "Catalog-locator preparation lost accepted assertions"
+                )
+            effect = dict(result.review_package.get("effect") or {})
     binding = CandidateAdmissionBinding(
         candidate_digest=digest,
         candidate_locator=prepare_kwargs.get("candidate_graph_path"),
@@ -491,25 +547,7 @@ def prepare_candidate_graph_admission(
     package = bind_candidate_admission_to_proposal(
         result.review_package, binding.as_effect_payload()
     )
-    if confirmable:
-        admitted = _admit_confirmable_recap_source(
-            world_id=result.world_id,
-            campaign_id=str(
-                prepare_kwargs.get("campaign_scope")
-                or candidate_graph.get("campaign_id")
-                or ""
-            ).strip(),
-            source_uri=str(prepare_kwargs.get("source_uri") or "").strip(),
-            verified_revision_id=str(effect.get("source_revision_id") or "").strip(),
-            source_artifact_id=str(
-                effect.get("source_artifact_id")
-                or prepare_kwargs.get("source_artifact_id")
-                or ""
-            ).strip(),
-            source_artifact=source_artifact,
-            source_admission=source_admission,
-            candidate_digest=digest,
-        )
+    if admitted is not None:
         package = _seal_source_admission(package, admitted)
     return replace(
         result,
@@ -520,10 +558,10 @@ def prepare_candidate_graph_admission(
     )
 
 
-def verify_candidate_graph_admission_confirmation(
+def project_candidate_graph_for_confirmation(
     *, review_package: Mapping[str, Any], candidate_graph: Mapping[str, Any]
-) -> CandidateAdmissionBinding:
-    """Re-prove exact candidate binding before governed confirmation."""
+) -> dict[str, Any]:
+    """Re-prove the sealed raw candidate and return its same eligible projection."""
     effect = dict(review_package.get("effect") or {})
     raw_binding = effect.get("candidate_admission")
     if not isinstance(raw_binding, Mapping):
@@ -582,7 +620,30 @@ def verify_candidate_graph_admission_confirmation(
             [CandidateIntegrityDiagnostic(code="candidate_digest_mismatch", message="candidate changed after prepare")],
             candidate_digest=actual,
         )
-    return binding
+    projected, dispositions, projected_digest = project_candidate_graph_for_admission(
+        candidate_graph
+    )
+    counts = {
+        key: len(candidate_graph.get(key) or [])
+        for key in ("nodes", "edges", "beats", "proposed_writes")
+    }
+    if (
+        projected_digest != binding.candidate_digest
+        or counts != binding.exact_candidate_counts
+        or dispositions != binding.dispositions
+    ):
+        raise CandidateAdmissionIntegrityError(
+            [CandidateIntegrityDiagnostic(
+                code="candidate_eligibility_drift",
+                message="candidate eligibility no longer matches the sealed admission",
+            )],
+            candidate_digest=actual,
+        )
+    from graph_memory.extract_promote_proposal import verify_source_local_identity_basis
+    verify_source_local_identity_basis(
+        effect, candidate_sha256=actual, candidate_graph=projected, require=True,
+    )
+    return projected
 
 
 def _reprove_sealed_recap_source(
@@ -630,7 +691,13 @@ def _reprove_sealed_recap_source(
         )
         raise
     sealed_sha = str(sealed.get("content_sha256") or "").strip()
-    if sealed_sha and admitted.content_sha256 != sealed_sha:
+    sealed_locator = str(sealed.get("source_locator") or "").strip()
+    sealed_fingerprint = str(sealed.get("catalog_fingerprint_sha256") or "").strip()
+    if (
+        (sealed_sha and admitted.content_sha256 != sealed_sha)
+        or (sealed_locator and admitted.source_locator != sealed_locator)
+        or (sealed_fingerprint and admitted.catalog_fingerprint_sha256 != sealed_fingerprint)
+    ):
         _raise_source_admission(
             WorldGraphSourceAdmissionError(
                 "Sealed recap source fingerprint drifted from the admitted pair.",
@@ -648,7 +715,7 @@ def confirm_candidate_graph_admission(
     source_admission: Any | None = None,
 ) -> _T:
     """Verify admission, re-prove the sealed source pair, then write once."""
-    verify_candidate_graph_admission_confirmation(
+    project_candidate_graph_for_confirmation(
         review_package=review_package, candidate_graph=candidate_graph
     )
     _reprove_sealed_recap_source(

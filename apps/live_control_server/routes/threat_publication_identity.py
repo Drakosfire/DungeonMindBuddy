@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from apps.live_control_server.routes.statblock_storage import statblock_data_root
 from apps.live_control_server.config import repo_root, world_graph_root
 from apps.live_control_server.models.threat_draft import require_draft_id
 from apps.live_control_server.models.threat_publication import validate_publication_operation_id
@@ -117,7 +118,7 @@ def post_prepare_identity_candidates(
     safe_draft = _validated_draft_id(draft_id)
     safe_op = _validated_operation_id(operation_id)
     outcome = prepare_identity_candidates(
-        repo_root(), safe_draft, safe_op, body, world_root=world_graph_root()
+        statblock_data_root(repo_root()), safe_draft, safe_op, body, world_root=world_graph_root()
     )
     return _json(outcome)
 
@@ -131,7 +132,7 @@ def post_identity_resolution(
     safe_draft = _validated_draft_id(draft_id)
     safe_op = _validated_operation_id(operation_id)
     outcome = decide_identity_resolution(
-        repo_root(), safe_draft, safe_op, body, world_root=world_graph_root()
+        statblock_data_root(repo_root()), safe_draft, safe_op, body, world_root=world_graph_root()
     )
     return _json(outcome)
 
@@ -145,5 +146,5 @@ def get_identity_resolution(
     safe_draft = _validated_draft_id(draft_id)
     safe_op = _validated_operation_id(operation_id)
     safe_resolution = _validated_resolution_id(resolution_id)
-    outcome = read_identity_resolution(repo_root(), safe_draft, safe_op, safe_resolution)
+    outcome = read_identity_resolution(statblock_data_root(repo_root()), safe_draft, safe_op, safe_resolution)
     return _json(outcome)

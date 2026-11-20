@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.ingestion.frontmatter import (  # noqa: E402
+from ingestion.frontmatter import (  # noqa: E402
     DocumentMetadata,
     FrontmatterError,
     parse_document_frontmatter,

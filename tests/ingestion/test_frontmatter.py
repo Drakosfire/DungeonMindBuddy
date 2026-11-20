@@ -4,14 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from src.ingestion.frontmatter import (
+from ingestion.frontmatter import (
     FrontmatterParseError,
     FrontmatterValidationError,
     parse_document_frontmatter,
     render_frontmatter,
     write_document_with_frontmatter,
 )
-from src.ingestion.frontmatter_inference import infer_frontmatter_metadata_heuristic
+from ingestion.frontmatter_inference import infer_frontmatter_metadata_heuristic
 
 
 def test_parse_document_frontmatter_valid_block() -> None:

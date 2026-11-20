@@ -58,7 +58,7 @@ def minimal_category_pass_outputs(
 def canonical_candidate_graph_from_passes(
     spref: str = "session-24:recap:paragraph:001",
 ) -> dict[str, Any]:
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionOptions,
         FixtureCategoryGraphPassClient,
         run_category_pipeline,

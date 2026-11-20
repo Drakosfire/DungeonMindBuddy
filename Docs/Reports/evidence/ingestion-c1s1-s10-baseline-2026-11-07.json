@@ -1,0 +1,120 @@
+{
+  "schema": "dmb_deepseek_regression_evidence_index_v1",
+  "status": "TEN_RAW_GOLD_ASSESSMENTS_BOUND_NOT_TEN_QUALITY_PASSES",
+  "scope": "Original prompt/model configuration with one independently reviewed source-citation owner correction. No new model comparisons.",
+  "expected_cases": [
+    "C1S01",
+    "C1S02",
+    "C1S03",
+    "C1S04",
+    "C1S05",
+    "C1S06",
+    "C1S07",
+    "C1S08",
+    "C1S09",
+    "C1S10"
+  ],
+  "cases": [
+    {
+      "case": "C1S01",
+      "raw_gold_counts": {
+        "fail": 3,
+        "pass": 102
+      },
+      "candidate_sha256": "4f7545521f383bb81aa9eea689894632466960bf720cab57a14b2df67e9b4154"
+    },
+    {
+      "case": "C1S02",
+      "raw_gold_counts": {
+        "pass": 49
+      },
+      "candidate_sha256": "938b05059cbd6e4d2091e0c499c7c79ade0c69f325cbefc8a41a18bc3771289d"
+    },
+    {
+      "case": "C1S03",
+      "raw_gold_counts": {
+        "fail": 5,
+        "partial": 3,
+        "pass": 110
+      },
+      "candidate_sha256": "d5ab7540bbb39f51a8385883dc407bf7caf22c6f2950cc1a8700189317150803"
+    },
+    {
+      "case": "C1S04",
+      "raw_gold_counts": {
+        "fail": 4,
+        "partial": 1,
+        "pass": 98
+      },
+      "candidate_sha256": "7828c356f53b54d2d20f059a795ad0b2f9c7035b4f4e642f15c7713d095008d2"
+    },
+    {
+      "case": "C1S05",
+      "raw_gold_counts": {
+        "fail": 1,
+        "partial": 1,
+        "pass": 115
+      },
+      "candidate_sha256": "d91a88e24f07ea60719cfa0b02a8ef62d333644f3f4162d667577f271ec40dec"
+    },
+    {
+      "case": "C1S06",
+      "raw_gold_counts": {
+        "fail": 5,
+        "pass": 126,
+        "unknown": 9
+      },
+      "candidate_sha256": "ee9bd65f9bfd4c61c02b3291efe27e1c2da8902ad76eaa745cb1f48ee9374392"
+    },
+    {
+      "case": "C1S07",
+      "raw_gold_counts": {
+        "fail": 9,
+        "pass": 155
+      },
+      "candidate_sha256": "9ec2d63b352287b2c2b296db1dfcfeab7c8e806e831ed17ec077bffab12dcb79"
+    },
+    {
+      "case": "C1S08",
+      "raw_gold_counts": {
+        "partial": 1,
+        "pass": 164,
+        "unknown": 2
+      },
+      "candidate_sha256": "c5f7171208a37822e0ac97eb4650dd8a756ce694caf5bc7a38f5159a2e9bea60"
+    },
+    {
+      "case": "C1S09",
+      "raw_gold_counts": {
+        "fail": 4,
+        "pass": 134,
+        "unknown": 13
+      },
+      "candidate_sha256": "944a36090be8dfb8697fb1d2076a8b8c29f1bbe3103693f92fb54ff59ed92ef5"
+    },
+    {
+      "case": "C1S10",
+      "raw_gold_counts": {
+        "pass": 124,
+        "unknown": 4
+      },
+      "candidate_sha256": "cb822265736c7f770e6d37e92f4aad62a561f31d90285c99f1df86b704080a73"
+    }
+  ],
+  "limitations": [
+    "Raw Gold coverage is not whole-output precision or publication acceptance.",
+    "No aggregate pooled coverage score; compare dimensions/cases separately.",
+    "Five legacy review carryovers retain precision holds, but numeric whole-output precision under the current counting contract is unknown.",
+    "All reported severe/intervention values are lower bounds, including zero confirmed severe for S10.",
+    "Original/effective literal-name obligations remain explicit unknowns where not discharged by adopted authority.",
+    "Human review effort unknown; automated review walltime is not human effort.",
+    "Some original baseline measurements remain unknown; historical failures and unknown billing are not erased.",
+    "C1S11/12 were previously untuned at original selection, now exposed validation material; no new clean-holdout claim or corpus expansion.",
+    "These findings do not adopt a changed model/prompt default or authorize publication."
+  ],
+  "provenance": {
+    "original_index_sha256": "6190d5b3fd8fee0555e2a1576290f1349850b9d80726341fcaca08079c5c3aff",
+    "original_study_readout_sha256": "19e349d962bbb7ea0e1c29f2c8ebb279eb675a44969da2f003e35f821611f24b",
+    "notice": "Sanitized case counts and candidate hashes only; original private reviews, story content and local artifacts are not included. Hashes identify originals but do not reproduce or independently prove them."
+  }
+}

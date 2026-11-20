@@ -52,6 +52,9 @@ class RecapIngestStatus:
             if len(candidates) > 1 and not any(bool(row.get("recommended")) for row in candidates):
                 self.status = "needs_reconciliation"
                 return
+        if "derivative_reconciliation_required" in self.states:
+            self.status = "needs_reconciliation"
+            return
         if "breadcrumb_required" in self.states:
             self.status = "breadcrumb_required"
             return

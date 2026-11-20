@@ -14,7 +14,7 @@ from evals.graph_memory_layer.session_22_recap_ingest_fixture import (
     repo_root,
     resolve_source_span_seed_refs,
 )
-from src.graph_memory.candidate_graph_preview import (
+from graph_memory.candidate_graph_preview import (
     CANDIDATE_GRAPH_PREVIEW_SCHEMA,
     CANDIDATE_GRAPH_PREVIEW_VERSION,
     CandidateGraphPreview,
@@ -24,14 +24,15 @@ from src.graph_memory.candidate_graph_preview import (
     candidate_graph_preview_to_dict,
     validate_candidate_graph_preview,
 )
-from src.graph_memory.source_span import ResolvedEvidence, SourceSpanRef, resolve_many_source_span_refs
+from graph_memory.source_span import ResolvedEvidence, SourceSpanRef, resolve_many_source_span_refs
 
 GOLD_FIXTURE_ID = "graph-memory:session-22-candidate-graph-gold:v0"
 GOLD_MANIFEST_SCHEMA = "dmb_session_22_candidate_graph_gold_manifest_v0"
 GOLD_MANIFEST_VERSION = "0.1"
-GOLD_FIXTURE_REL = "evals/graph_memory_layer/examples/session_22_candidate_graph_gold"
-GOLD_GRAPH_PATH = "evals/graph_memory_layer/examples/session_22_candidate_graph_gold/candidate_graph_gold.json"
-GOLD_MANIFEST_PATH = "evals/graph_memory_layer/examples/session_22_candidate_graph_gold/session_22_candidate_graph_gold_manifest.json"
+GOLD_FIXTURE_REL = "evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-22"
+GOLD_GRAPH_PATH = "evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-22/candidate_graph_gold.json"
+LEGACY_GOLD_GRAPH_PATH = "evals/graph_memory_layer/examples/session_22_candidate_graph_gold/candidate_graph_gold.json"
+GOLD_MANIFEST_PATH = "evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-22/source_manifest.json"
 SOURCE_ARTIFACT_ID = "source-artifact:session-22-normalized-recap"
 SOURCE_REF_ID = "source-ref:session-22-normalized-recap"
 
@@ -84,7 +85,7 @@ def validate_gold_manifest(manifest: dict[str, Any]) -> None:
     expected = {
         "source_manifest_path": "evals/graph_memory_layer/examples/session_22_recap_ingest/session_22_recap_ingest_manifest.json",
         "source_span_seed_refs_path": "evals/graph_memory_layer/examples/session_22_recap_ingest/source_span_seed_refs.json",
-        "candidate_graph_gold_path": GOLD_GRAPH_PATH,
+        "candidate_graph_gold_path": LEGACY_GOLD_GRAPH_PATH,
     }
     for key, value in expected.items():
         if manifest.get(key) != value:
@@ -101,7 +102,7 @@ def validate_gold_manifest(manifest: dict[str, Any]) -> None:
 def gold_graph_path(manifest: dict[str, Any] | None = None) -> Path:
     manifest = manifest or load_gold_manifest()
     validate_gold_manifest(manifest)
-    return repo_root() / manifest["candidate_graph_gold_path"]
+    return repo_root() / GOLD_GRAPH_PATH
 
 
 def load_gold_candidate_graph_dict() -> dict[str, Any]:

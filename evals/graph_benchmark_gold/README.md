@@ -9,9 +9,7 @@ It separates two evaluation surfaces:
 
 ## Migration policy
 
-The pre-existing graph-gold fixtures under `evals/graph_memory_layer/examples/` remain in place for compatibility with current loaders and tests. The files under `candidate_graph/` are byte-identical snapshot copies of those gold graphs and source manifests at the migration revision recorded in `catalog.json`.
-
-New benchmark consumers should prefer this namespace. Legacy loaders may continue to use the old paths until they are deliberately migrated in a separate implementation slice.
+Loaders and local Graph Gold Review use the snapshots under `candidate_graph/`. The catalog records the original paths, migration revision, and blob identities for historical provenance. The source manifests retain the original paths as provenance, and the fixture loaders resolve the canonical files.
 
 Do not silently edit a migrated graph snapshot to make a model score better. A changed gold judgment requires an explicit version bump or a new benchmark fixture.
 

@@ -1,0 +1,42 @@
+"""Closed publishable World profile identities; registration is not publication authority."""
+from .worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
+from .worldbuilding_gazetteer_profile import (
+    GAZETTEER_CONSTRAINED_REVIEW_PROFILE, GAZETTEER_ADVISORY_REVIEW_PROFILE,
+    GAZETTEER_PROFILE, GAZETTEER_SOURCE_RETENTION_PROFILE,
+    GAZETTEER_SOURCE_FIDELITY_PROFILE, GAZETTEER_ROLE_SUPPORT_PROFILE,
+    GAZETTEER_LIVESTOCK_HYGIENE_PROFILE,
+)
+from .worldbuilding_gazetteer_role_citations import GAZETTEER_ROLE_CITATION_PROFILE
+from .worldbuilding_gazetteer_scenario_scope import GAZETTEER_PREPARED_SCENARIO_PROFILE
+from .worldbuilding_gazetteer_governance import GAZETTEER_GOVERNANCE_PROFILE
+from .worldbuilding_gazetteer_trade_context import GAZETTEER_TRADE_CONTEXT_PROFILE
+
+from .worldbuilding_definition_observations import GAZETTEER_DEFINITION_OBSERVATION_PROFILE
+
+from .worldbuilding_collective_source_fidelity import GAZETTEER_COLLECTIVE_SOURCE_FIDELITY_PROFILE
+
+from .worldbuilding_location_source_fidelity import GAZETTEER_LOCATION_SOURCE_FIDELITY_PROFILE
+
+PUBLISHABLE_WORLDBUILDING_PROFILES = {
+    f"{p.profile_id}@{p.profile_version}": p
+    for p in (
+        WORLDBUILDING_PROFILE, GAZETTEER_PROFILE, GAZETTEER_ADVISORY_REVIEW_PROFILE, GAZETTEER_CONSTRAINED_REVIEW_PROFILE,
+        GAZETTEER_SOURCE_RETENTION_PROFILE, GAZETTEER_SOURCE_FIDELITY_PROFILE,
+        GAZETTEER_ROLE_SUPPORT_PROFILE, GAZETTEER_LIVESTOCK_HYGIENE_PROFILE,
+        GAZETTEER_ROLE_CITATION_PROFILE,
+        GAZETTEER_PREPARED_SCENARIO_PROFILE,
+        GAZETTEER_GOVERNANCE_PROFILE,
+        GAZETTEER_TRADE_CONTEXT_PROFILE,
+        GAZETTEER_DEFINITION_OBSERVATION_PROFILE,
+        GAZETTEER_COLLECTIVE_SOURCE_FIDELITY_PROFILE,
+        GAZETTEER_LOCATION_SOURCE_FIDELITY_PROFILE,
+    )
+}
+
+# Candidate v0.2 requires explicitly admitted source-observation semantics at
+# every review/preview/plan boundary. Registration alone does not imply this.
+SOURCE_OBSERVATION_WORLDBUILDING_PROFILES = frozenset({
+    GAZETTEER_DEFINITION_OBSERVATION_PROFILE.qualified_id,
+    GAZETTEER_COLLECTIVE_SOURCE_FIDELITY_PROFILE.qualified_id,
+    GAZETTEER_LOCATION_SOURCE_FIDELITY_PROFILE.qualified_id,
+})

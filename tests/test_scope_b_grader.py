@@ -1088,7 +1088,7 @@ def _write_raw_notes(corpus_root: Path) -> None:
 
 def _make_mechanical_aligned_payload(corpus_root: Path) -> dict:
     """Build a ``recap_write`` whose mechanical fields match the helper's output."""
-    from src.agent.recap_ingest_helpers import assemble_recap
+    from live_play.recap_ingest_helpers import assemble_recap
     from src.agent.recap_write_mechanical_payload import (
         build_recap_write_payload_from_ingest,
     )

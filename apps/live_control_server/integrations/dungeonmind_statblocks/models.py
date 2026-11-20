@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
     GeneratedStatblockCandidateV1,
 )
-from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import (
+from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
     StatblockRevisionResourceV1 as GeneratedStatblockRevisionResourceV1,
 )
 

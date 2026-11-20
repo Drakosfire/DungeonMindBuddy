@@ -1,0 +1,971 @@
+"""Saved candidate review/confirmation via existing WK/Core; no source admission writes."""
+
+import hashlib
+import hmac
+import json
+import re
+from datetime import UTC, datetime
+from dataclasses import dataclass
+from uuid import uuid4
+
+import worldkeeper.application as wk
+from dungeonmind.application.vnext import open_admitted_native_text
+from fastapi.encoders import jsonable_encoder
+
+from application_state.source import service as sources
+from apps.live_control_server import config
+from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
+from apps.live_control_server.integrations.dungeonmind import native_world_source_admission as world_admission
+from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
+from apps.live_control_server.integrations.worldkeeper.graph_authoring_consumer import _predicate
+from apps.live_control_server.services import native_recap_source_admission as admission
+from apps.live_control_server.models.native_recap_preparation import (
+    NativeRecapReviewEnvelope, NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest,
+    SelectedDescriptionExtent,
+)
+from apps.live_control_server.services.graph_object_authoring_prepare import (
+    PREPARE_TTL, sign_publication_intent, decode_publication_intent,
+)
+from apps.live_control_server.services.agent_graph_auth import require_native_graph_gm
+from apps.live_control_server.services.extract_promote import project_candidate_record_evidence
+from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
+from graph_memory.anchor_quotes import find_anchor_quote_matches
+from graph_memory.candidate_document_integrity import classify_candidate_document_integrity
+from graph_memory.candidate_graph_preview import NODE_TYPES
+from graph_memory.vnext.domain_runtime import (
+    CAMPAIGN_SCOPE_AXIS, DUNGEONBUDDY_OBSERVATION_PREDICATE,
+    dungeonbuddy_publication_capabilities,
+    DungeonBuddyVNextProjectionInput, build_dungeonbuddy_read_context,
+)
+from graph_memory.predicate_catalog import SOURCE_PRECEDENCE_PREDICATE, source_precedence_endpoints_admitted
+
+# Product representation only. Classification does not establish role or source truth.
+_KINDS = {kind: f"dungeonbuddy:{kind}" for kind in NODE_TYPES}
+_KINDS["location"] = "dnd5e:location"
+PRODUCER = "dungeonbuddy:reviewed-recap"
+WORLD_CONTEXT = "dungeonbuddy.domain_metadata:world_context_v1"
+DESCRIPTION_SELECTION = "candidate_description_selection"
+
+
+class ReviewRefused(ValueError):
+    def __init__(self, code):
+        self.code = code
+        super().__init__(code)
+
+
+def is_explicit_prep_event(node) -> bool:
+    state = node.semantic_state
+    return state.authority_state == "gm_prep" or state.canon_state in {
+        "planning_scaffold", "worldbuilding_draft",
+    }
+
+
+def _require(condition, code):
+    if not condition:
+        raise ReviewRefused(code)
+
+
+OBSERVATION_PUBLICATION = "reviewed_observation_publication_id"
+
+
+def _metadata(review, campaign, evidence, *, description_selection=None, observation_publication=None):
+    owned_context = {}
+    if description_selection is not None:
+        owned_context[DESCRIPTION_SELECTION] = description_selection
+    if observation_publication is not None:
+        owned_context[OBSERVATION_PUBLICATION] = observation_publication
+    domain_metadata = []
+    context_found = False
+    for item in review.domain_metadata:
+        if item.schema_term == WORLD_CONTEXT:
+            _require(not isinstance(item.payload, dict) or not {DESCRIPTION_SELECTION, OBSERVATION_PUBLICATION}.intersection(item.payload),
+                     "candidate_description_provenance_reserved")
+            if owned_context:
+                _require(not context_found and isinstance(item.payload, dict),
+                         "candidate_description_context_invalid")
+                domain_metadata.append(wk.DomainMetadata.from_json(
+                    WORLD_CONTEXT, {**item.payload, **owned_context},
+                ))
+                context_found = True
+                continue
+        domain_metadata.append(item.native())
+    if owned_context and not context_found:
+        domain_metadata.append(wk.DomainMetadata.from_json(
+            WORLD_CONTEXT, owned_context,
+        ))
+    return wk.AssertionMetadata(
+        scope=(wk.ScopeBinding(CAMPAIGN_SCOPE_AXIS, campaign),) if campaign is not None else (),
+        visibility=review.visibility,
+        epistemic_basis=review.epistemic_basis,
+        claim_mode=review.claim_mode,
+        standing=review.standing,
+        evidence_ref_ids=tuple(evidence),
+        temporal_scope=review.temporal_scope.native(),
+        domain_metadata=tuple(domain_metadata),
+    )
+
+
+def _description_extent(value, extent):
+    raw = value.encode("utf-8")
+    start, end = extent.start_byte, extent.end_byte
+    _require(end <= len(raw), "candidate_description_extent_bounds")
+    _require(start != 0 or end != len(raw), "candidate_description_extent_must_be_partial")
+    selected = raw[start:end]
+    try:
+        text = selected.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ReviewRefused("candidate_description_extent_invalid_utf8") from exc
+    _require(bool(text.strip()), "candidate_description_extent_blank")
+    digest = hashlib.sha256(selected).hexdigest()
+    _require(digest == extent.expected_slice_sha256, "candidate_description_extent_digest_changed")
+    return text, digest, len(raw)
+
+
+def _support_refs(review, witnesses, access, admitted):
+    """Join explicit review choices to Core evidence, not a truth/entailment test."""
+    for identifier in review.evidence_ref_ids:
+        evidence = access.parsed.get_evidence(identifier)
+        _require(evidence is not None and evidence.evidence_role == "support",
+                 "candidate_support_required")
+        opened = open_admitted_native_text(access, identifier)
+        _require(opened.status == "available", "candidate_support_unavailable")
+        _require_source_match(opened, admitted)
+        # Core verified the bytes/visibility. Buddy only checks that this selected
+        # native passage belongs to the saved candidate's actual source witness.
+        lines = opened.body_text.splitlines(keepends=True)
+        offsets = [0]
+        for line in lines:
+            offsets.append(offsets[-1] + len(line.encode("utf-8")))
+        selected = opened.body_text.encode("utf-8")[opened.span_start_byte:opened.span_end_byte].decode("utf-8")
+        _require(any(
+            1 <= witness.start_line <= witness.end_line <= len(lines)
+            and offsets[witness.start_line - 1] <= opened.span_start_byte
+            < opened.span_end_byte <= offsets[witness.end_line]
+            and find_anchor_quote_matches(selected, witness.anchor_quotes)
+            for witness in witnesses
+        ), "candidate_support_outside_witness")
+    return tuple(review.evidence_ref_ids)
+
+
+def _fields(kind, record):
+    if kind == "node":
+        values = {"label": record.label, "node_type": record.node_type}
+        if record.description is not None:
+            values["description"] = record.description
+        values.update({f"session_actions:{i}": value for i, value in enumerate(record.session_actions)})
+        return values
+    return {"title": record.title, "node_type": "session_beat", "summary": record.summary}
+
+
+def _validate_selected_precedence(pairs, access, space, campaign):
+    """Qualify this selected direct set, not the parent graph's entire timeline."""
+    if not pairs:
+        return
+    graph, indegree = {}, {}
+    durable_ids = set()
+    for earlier, later in pairs:
+        _require(earlier != later, "precedence_canonical_self")
+        for endpoint in (earlier, later):
+            indegree.setdefault(endpoint, 0)
+            if isinstance(endpoint, wk.DurableObjectRef):
+                durable_ids.add(endpoint.durable_object_id)
+        graph.setdefault(earlier, []).append(later)
+        indegree[later] += 1
+    ready = [endpoint for endpoint, count in indegree.items() if count == 0]
+    visited = 0
+    while ready:
+        endpoint = ready.pop()
+        visited += 1
+        for later in graph.get(endpoint, ()):
+            indegree[later] -= 1
+            if indegree[later] == 0:
+                ready.append(later)
+    _require(visited == len(indegree), "precedence_selected_cycle")
+
+    _validate_occurrence_identities(durable_ids, access, space, campaign,
+                                    "precedence_incompatible_occurrence_identity")
+
+
+_INCOMPATIBLE_OCCURRENCE_KINDS = {
+    "character", "creature", "location", "item", "group", "organization", "faction",
+}
+_INCOMPATIBLE_OCCURRENCE_TERMS = {
+    _KINDS[kind] for kind in _INCOMPATIBLE_OCCURRENCE_KINDS
+} | {"dnd5e:npc", "dungeonbuddy:campaign"}
+
+
+def _validate_occurrence_identities(durable_ids, access, space, campaign, code):
+    if not durable_ids:
+        return
+    # Core's existing read admission owns standing/scope/evidence. Do not copy
+    # those policies into a second Buddy classifier or inspect excluded facts.
+    candidates = []
+    for identifier, parsed in access.parsed.assertions_by_id.items():
+        if parsed.subject_entity_id not in durable_ids or parsed.predicate != "dnd5e:classification":
+            continue
+        assertion = native.assertion_contract(parsed)
+        value = assertion.value.model_dump(mode="json")
+        if value.get("kind") == "term_ref" and value.get("term") in _INCOMPATIBLE_OCCURRENCE_TERMS:
+            candidates.append(identifier)
+    if candidates:
+        read = build_dungeonbuddy_read_context(
+            parsed_revision=access.parsed,
+            projection_input=DungeonBuddyVNextProjectionInput(
+                world_id=space, revision_id=access.parsed.revision_id,
+                scope_mode="campaign", campaign_id=campaign, role="gm",
+            ),
+            source_reader=access.source_view,
+        )
+        _require(not read.admit_candidates(candidates).admitted_assertion_ids,
+                 code)
+
+
+TIMELINE_PREDICATE = "dungeonbuddy.custom:on_timeline"
+FICTIONAL_ANCHOR = "dungeonbuddy.time:fictional_anchor_v1"
+
+
+def _campaign_timeline(access, space, campaign):
+    candidates = {}
+    for identifier, parsed in access.parsed.assertions_by_id.items():
+        if parsed.predicate != "dnd5e:classification":
+            continue
+        assertion = native.assertion_contract(parsed)
+        value = assertion.value
+        if (value.kind == "term_ref" and value.term == "dungeonbuddy:campaign"
+                and [(binding.axis, binding.value) for binding in assertion.metadata.scope]
+                == [(CAMPAIGN_SCOPE_AXIS, campaign)]):
+            candidates[identifier] = parsed.subject_entity_id
+    read = build_dungeonbuddy_read_context(
+        parsed_revision=access.parsed,
+        projection_input=DungeonBuddyVNextProjectionInput(
+            world_id=space, revision_id=access.parsed.revision_id,
+            scope_mode="campaign", campaign_id=campaign, role="gm",
+        ),
+        source_reader=access.source_view,
+    )
+    identities = {candidates[key] for key in read.admit_candidates(
+        list(candidates)).admitted_assertion_ids}
+    _require(len(identities) == 1, "campaign_timeline_requires_unique_identity")
+    return next(iter(identities))
+
+
+def _validate_unplaced_occurrence(access, space, campaign, event_id, timeline_id):
+    candidates = []
+    for identifier, parsed in access.parsed.assertions_by_id.items():
+        if parsed.subject_entity_id != event_id or parsed.predicate != TIMELINE_PREDICATE:
+            continue
+        value = native.assertion_contract(parsed).value
+        if value.kind == "entity_ref" and value.entity_id == timeline_id:
+            candidates.append(identifier)
+    if candidates:
+        read = build_dungeonbuddy_read_context(
+            parsed_revision=access.parsed,
+            projection_input=DungeonBuddyVNextProjectionInput(
+                world_id=space, revision_id=access.parsed.revision_id,
+                scope_mode="campaign", campaign_id=campaign, role="gm",
+            ),
+            source_reader=access.source_view,
+        )
+        _require(not read.admit_candidates(candidates).admitted_assertion_ids,
+                 "event_already_placed_on_timeline")
+
+
+def _validate_placement(review, session_id):
+    temporal = review.temporal_scope
+    match = re.fullmatch(r"session-0*([1-9][0-9]*)", session_id or "")
+    _require(match and temporal.kind == "domain_ref" and temporal.schema_term == FICTIONAL_ANCHOR
+             and temporal.valid_from is None and temporal.valid_until is None,
+             "event_placement_requires_source_session")
+    payload = temporal.payload
+    _require(isinstance(payload, dict) and set(payload) in ({"start"}, {"start", "stop"}),
+             "event_placement_invalid_bounds")
+    for position in payload.values():
+        _require(isinstance(position, dict) and set(position) == {"session"}
+                 and type(position["session"]) is int and position["session"] == int(match[1]),
+                 "event_placement_requires_source_session")
+
+
+def _intent(preview, selections, space, campaign, admitted, data, access, *,
+            candidate_sha256, operation_id, producer=PRODUCER):
+    capabilities = dungeonbuddy_publication_capabilities(
+        domain_ref=access.parsed.domain_contract_ref, profile_ref=access.parsed.semantic_profile_ref,
+    )
+    records = {
+        **{("node", row.node_id): row for row in preview.nodes},
+        **{("edge", row.edge_id): row for row in preview.edges},
+        **{("beat", row.beat_id): row for row in preview.beats},
+    }
+    placements = [s for s in selections if s.kind == "placement"]
+    by_key = {(s.kind, s.record_id): s for s in selections if s.kind != "placement"}
+    _require(not placements or (producer == PRODUCER and campaign), "placement_requires_recap")
+    observations = {row.observation_id: row for row in preview.source_observations}
+    _require(set(by_key) <= set(records) | {("source_observation", key) for key in observations},
+             "unknown_candidate_selection")
+    observation_facts = {}
+    for index, (identifier, observation) in enumerate(observations.items()):
+        selection = by_key.get(("source_observation", identifier))
+        if selection is None or selection.action != "create":
+            continue
+        _require(producer == "dungeonbuddy:reviewed-worldbuilding"
+                 and capabilities.reviewed_source_observation,
+                 "observation_profile_not_adopted")
+        subject = observation.subject_candidate_node_id
+        subject_selection = by_key.get(("node", subject))
+        _require(subject_selection is not None and subject_selection.action in {"create", "use_existing"},
+                 "selected_observation_subject_held")
+        _require(bool(observation.description.strip()), "blank_candidate_field")
+        witness = project_candidate_record_evidence(
+            assertion_id=identifier, kind="object", label=observation.title,
+            summary=observation.description, evidence_refs=observation.evidence_refs,
+            source_prose=data.source_bytes.decode("utf-8"),
+            source_artifact_id=data.source_artifact.source_artifact_id,
+            span_index=data.span_index,
+        )
+        fact = wk.CreateFact(
+            f"observation:{index}", DUNGEONBUDDY_OBSERVATION_PREDICATE,
+            wk.LiteralFactValue.from_json(observation.description),
+            _metadata(selection.metadata, campaign,
+                      _support_refs(selection.metadata, witness.evidence, access, admitted),
+                      observation_publication=operation_id),
+        )
+        observation_facts.setdefault(subject, []).append(fact)
+    operations, inventory, endpoints, edge_witnesses = [], [], {}, {}
+    node_witnesses = {}
+    for index, (key, record) in enumerate(records.items()):
+        kind, identifier = key
+        selection = by_key.get(key)
+        action = selection.action if selection else "held"
+        values = _fields(kind, record) if kind != "edge" else {}
+        selected = []
+        description_selection = None
+        held_description_extents = []
+        if selection and action in {"create", "use_existing"}:
+            # One shared projector verifies exact APP source/span/quote references.
+            witness = project_candidate_record_evidence(
+                assertion_id=identifier, kind="relationship" if kind == "edge" else "object",
+                label=getattr(record, "label", None) or getattr(record, "title", identifier),
+                summary="", evidence_refs=record.evidence_refs,
+                source_prose=data.source_bytes.decode("utf-8"),
+                source_artifact_id=data.source_artifact.source_artifact_id,
+                span_index=data.span_index,
+            )
+            if kind == "edge":
+                edge_witnesses[identifier] = witness.evidence
+            else:
+                facts = []
+                for field_index, fact in enumerate(selection.facts):
+                    field = fact.field if fact.index is None else f"{fact.field}:{fact.index}"
+                    _require(field in values, "unknown_candidate_field")
+                    value = values[field]
+                    _require(isinstance(value, str) and bool(value.strip()), "blank_candidate_field")
+                    provenance = None
+                    if isinstance(fact, SelectedDescriptionExtent):
+                        value, digest, full_length = _description_extent(value, fact.extent)
+                        provenance = {
+                            "schema_version": "dmb_candidate_description_extent_v1",
+                            "run_id": data.run.run_id, "run_revision": data.run.revision,
+                            "candidate_sha256": candidate_sha256,
+                            "record_id": identifier, "field": "description",
+                            "start_byte": fact.extent.start_byte, "end_byte": fact.extent.end_byte,
+                            "slice_sha256": digest, "whole_field_selected": False,
+                        }
+                        description_selection = provenance
+                        held_description_extents = [
+                            {"start_byte": start, "end_byte": end}
+                            for start, end in ((0, fact.extent.start_byte),
+                                               (fact.extent.end_byte, full_length)) if start < end
+                        ]
+                    if fact.field == "node_type":
+                        _require(value in _KINDS, "unsupported_candidate_kind")
+                        predicate, encoded = "dnd5e:classification", wk.TermRefFactValue(_KINDS[value])
+                    else:
+                        predicate = "dnd5e:name" if fact.field in {"label", "title"} else "dnd5e:summary"
+                        encoded = wk.LiteralFactValue.from_json(value)
+                    facts.append(wk.CreateFact(
+                        f"record:{index}.field:{field_index}", predicate, encoded,
+                        _metadata(fact.metadata, campaign,
+                                  _support_refs(fact.metadata, witness.evidence, access, admitted),
+                                  description_selection=provenance),
+                    ))
+                    if provenance is None:
+                        selected.append(field)
+                if kind == "node":
+                    facts.extend(observation_facts.get(identifier, ()))
+                if action == "create":
+                    operation = f"record:{index}"
+                    operations.append(wk.CreateObject(operation, tuple(facts)))
+                    endpoint = wk.ResultOf(operation)
+                else:
+                    operations.append(wk.UseExisting(selection.entity_id, tuple(facts)))
+                    endpoint = wk.DurableObjectRef(selection.entity_id)
+                if kind == "node":
+                    endpoints[identifier] = endpoint
+                    node_witnesses[identifier] = witness.evidence
+        inventory.append({
+            "kind": kind, "record_id": identifier, "disposition": action,
+            "selected_fields": selected, "unselected_fields": sorted(set(values) - set(selected)),
+            "held_aliases": list(getattr(record, "aliases", ())),
+            "non_executable_hints": [field for field in ("corpus_ref", "enriched_by", "order", "involved_node_ids", "unresolved_thread_node_ids", "source_beat_id") if getattr(record, field, None) is not None],
+        })
+        if description_selection is not None:
+            inventory[-1]["selected_description_extent"] = description_selection
+            inventory[-1]["held_description_extents"] = held_description_extents
+    precedences = []
+    for index, edge in enumerate(preview.edges):
+        selection = by_key.get(("edge", edge.edge_id))
+        if selection and selection.action == "create":
+            _require(edge.from_node_id in endpoints and edge.to_node_id in endpoints, "selected_edge_endpoint_held")
+            predicate = _predicate(edge.relationship_type)
+            _require(predicate != TIMELINE_PREDICATE, "timeline_edge_requires_reviewed_placement")
+            if predicate == _predicate(SOURCE_PRECEDENCE_PREDICATE):
+                _require(producer == PRODUCER, "precedence_requires_recap")
+                _require(capabilities.source_precedence,
+                         "precedence_profile_not_adopted")
+                _require(source_precedence_endpoints_admitted(
+                    records[("node", edge.from_node_id)].node_type,
+                    records[("node", edge.to_node_id)].node_type,
+                ), "precedence_requires_event_occurrence")
+                for node_id in (edge.from_node_id, edge.to_node_id):
+                    node_selection = by_key[("node", node_id)]
+                    _require(any(f.field == "description" for f in node_selection.facts),
+                             "precedence_requires_selected_description")
+                precedences.append((endpoints[edge.from_node_id], endpoints[edge.to_node_id]))
+            operations.append(wk.CreateRelationship(
+                f"edge:{index}", endpoints[edge.from_node_id], predicate,
+                endpoints[edge.to_node_id], _metadata(selection.metadata, campaign,
+                    _support_refs(selection.metadata, edge_witnesses[edge.edge_id], access, admitted)),
+            ))
+    timeline = None
+    placed_endpoints = set()
+    for index, selection in enumerate(placements):
+        identifier = selection.record_id
+        record = records.get(("node", identifier))
+        _require(record is not None and record.node_type == "event", "placement_requires_event")
+        inventory.append({"kind": "placement", "record_id": identifier,
+                          "disposition": selection.action})
+        if selection.action != "create":
+            continue
+        node_selection = by_key.get(("node", identifier))
+        _require(identifier in endpoints and node_selection is not None
+                 and {"label", "node_type"} <= {fact.field for fact in node_selection.facts},
+                 "placement_requires_reviewed_event_identity")
+        _require(not is_explicit_prep_event(record)
+                 and selection.metadata.claim_mode == "dungeonbuddy.claim:observed_event",
+                 "placement_requires_played_event")
+        _validate_placement(selection.metadata, preview.session_id)
+        if timeline is None:
+            timeline = _campaign_timeline(access, space, campaign)
+        endpoint = endpoints[identifier]
+        _require(endpoint != wk.DurableObjectRef(timeline), "placement_canonical_self")
+        _require(endpoint not in placed_endpoints, "duplicate_event_placement")
+        placed_endpoints.add(endpoint)
+        if isinstance(endpoint, wk.DurableObjectRef):
+            _require(not any(
+                records["node", other_id].node_type in _INCOMPATIBLE_OCCURRENCE_KINDS
+                and any(fact.field == "node_type" for fact in by_key["node", other_id].facts)
+                for other_id, other_endpoint in endpoints.items()
+                if other_endpoint == endpoint
+            ), "placement_incompatible_occurrence_identity")
+            _validate_occurrence_identities({endpoint.durable_object_id}, access, space, campaign,
+                                            "placement_incompatible_occurrence_identity")
+            _validate_unplaced_occurrence(access, space, campaign,
+                                          endpoint.durable_object_id, timeline)
+        operations.append(wk.CreateRelationship(
+            f"placement:{index}", endpoint, TIMELINE_PREDICATE, wk.DurableObjectRef(timeline),
+            _metadata(selection.metadata, campaign,
+                      _support_refs(selection.metadata, node_witnesses[identifier], access, admitted)),
+        ))
+    for kind, collection in (("ignored", preview.ignored_items), ("deferred", preview.deferred_items),
+                             ("proposed_write", preview.proposed_writes),
+                             ("source_observation", preview.source_observations)):
+        for row in collection:
+            identifier = getattr(row, "item_id", None) or getattr(row, "write_id", None) or row.observation_id
+            selection = by_key.get((kind, identifier))
+            inventory.append({
+                "kind": kind, "record_id": identifier,
+                "disposition": selection.action if selection else "held",
+                **({"reason": "not_selected"} if selection is None else {}),
+            })
+    _validate_selected_precedence(precedences, access, space, campaign)
+    return wk.WorldChangeIntent(space, producer, tuple(operations)), inventory
+
+
+@dataclass(frozen=True)
+class _CandidateSource:
+    """The existing source owner result needed by the shared evidence join."""
+    admission_id: str
+    source_artifact_id: str
+    source_revision_id: str
+    body_sha256: str
+
+
+def _require_source_match(opened, admitted):
+    _require(opened.source_artifact_id == admitted.source_artifact_id
+             and opened.source_revision_id == admitted.source_revision_id
+             and opened.body_sha256 == admitted.body_sha256,
+             "candidate_support_source_mismatch")
+
+
+def _world_source(request, root, bound):
+    # The committed-workspace owner verifies current document revision, bytes,
+    # World binding and Core receipt/opening. Never parse an ID/path or admit
+    # a second source. Reused at first confirmation, never at committed replay.
+    admitted = world_admission.get_native_world_source_status(
+        root, request.workspace_document_id, expected_revision=request.workspace_document_revision,
+    )
+    if admitted.state != "admitted" and admitted.code == "authority_unavailable":
+        raise world_admission.NativeWorldSourceAdmissionError(
+            admitted.code, admitted.message or "Source authority is unavailable", status_code=503,
+        )
+    _require(admitted.state == "admitted", "candidate_source_not_admitted")
+    _require(admitted.world_id == request.managed_world_id
+             and admitted.space_id == bound["native_world_id"]
+             and bool(admitted.evidence_ref_id), "candidate_admission_mismatch")
+    return _CandidateSource(admitted.admission_id, admitted.source_artifact_id,
+                            admitted.source_revision_id, admitted.body_sha256)
+
+
+def _resolve_source(request, root, bound, data):
+    run, artifact = data.run, data.source_artifact
+    domain = run.source_domain
+    _require(domain in {"recap", "worldbuilding"}, "candidate_scope_mismatch")
+    source = sources.get_source_markdown(
+        source_artifact_id=artifact.source_artifact_id, content_sha256=artifact.content_sha256,
+    )
+    _require(source is not None, "candidate_source_unavailable")
+    _require(
+        source.markdown.encode("utf-8") == data.source_bytes
+        and source.content_sha256 == artifact.content_sha256
+        and source.source_domain == artifact.source_domain == domain
+        and source.campaign_id == artifact.campaign_id == run.campaign_id
+        and source.session_id == artifact.session_id == run.session_id
+        and source.media_type == "text/markdown" and source.encoding == "utf-8",
+        "candidate_source_mismatch",
+    )
+    space = bound["native_world_id"]
+    if domain == "recap":
+        _require(isinstance(request, NativeRecapPrepareRequest)
+                 and run.campaign_id == request.campaign_id,
+                 "candidate_scope_mismatch")
+        _require(source.world_id == artifact.world_id == space, "candidate_source_mismatch")
+        session = run.session_id or ""
+        _require(session.startswith("session-") and session[8:].isdigit(), "candidate_session_invalid")
+        admitted = admission.inspect(root, request.source_admission_run_id, request.managed_world_id,
+                                     request.campaign_id, int(session[8:]))
+        _require(admitted.state == "admitted" and admitted.opening.state == "verified",
+                 "candidate_source_not_admitted")
+        _require(
+            admitted.app_source_artifact_id == source.source_artifact_id
+            and admitted.app_source_revision_id == source.source_revision_id
+            and admitted.app_body_sha256 == source.content_sha256
+            and admitted.native_world_id == space and admitted.binding_version == bound["binding_version"]
+            and bool(admitted.evidence_ref_id), "candidate_admission_mismatch",
+        )
+        return source, _CandidateSource(admitted.admission_id, admitted.source_artifact_id,
+                                        admitted.source_revision_id, admitted.app_body_sha256)
+    _require(isinstance(request, NativeWorldbuildingPrepareRequest), "candidate_scope_mismatch")
+    _require(source.world_id == artifact.world_id == request.managed_world_id
+             and run.session_id is None, "candidate_source_mismatch")
+    _require(bool(artifact.workspace_document_id) and artifact.workspace_document_revision is not None,
+             "candidate_workspace_source_required")
+    _require(request.workspace_document_id == artifact.workspace_document_id
+             and request.workspace_document_revision == artifact.workspace_document_revision,
+             "candidate_workspace_source_mismatch")
+    admitted = _world_source(request, root, bound)
+    _require(admitted.body_sha256 == source.content_sha256, "candidate_admission_mismatch")
+    return source, admitted
+
+
+def _reviewable_preview(data):
+    run, artifact = data.run, data.source_artifact
+    classification = classify_candidate_document_integrity(json.loads(data.candidate_bytes))
+    _require(not classification.is_document_integrity_failure, "candidate_document_invalid")
+    preview = classification.preview
+    _require(preview.campaign_id == run.campaign_id and preview.session_id == run.session_id
+             and tuple(preview.source_artifact_ids) == (artifact.source_artifact_id,), "candidate_document_scope_mismatch")
+    return preview
+
+
+def worldbuilding_review_context(request, principal):
+    """Resolve the current preparation coordinates for an exact saved source."""
+    require_native_graph_gm(principal)
+    root = config.artifact_data_root()
+    bound = native.binding(request.managed_world_id)
+    data = load_reviewable_extraction_data(root, request.run_id)
+    run, artifact = data.run, data.source_artifact
+    _require(run.source_domain == "worldbuilding", "candidate_scope_mismatch")
+    _require(
+        (artifact.source_artifact_id, artifact.content_sha256)
+        == (request.source_artifact_id, request.source_sha256),
+        "candidate_source_mismatch",
+    )
+    _require(bool(artifact.workspace_document_id) and artifact.workspace_document_revision is not None,
+             "candidate_workspace_source_required")
+    repo = native.repository()
+    context, access = native.access_context(repo, bound["native_world_id"])
+    capabilities = dungeonbuddy_publication_capabilities(
+        domain_ref=access.parsed.domain_contract_ref, profile_ref=access.parsed.semantic_profile_ref,
+    )
+    coordinates = NativeWorldbuildingPrepareRequest(
+        managed_world_id=request.managed_world_id,
+        run_id=request.run_id,
+        expected_run_revision=run.revision,
+        candidate_sha256=hashlib.sha256(data.candidate_bytes).hexdigest(),
+        expected_parent_revision_id=context["revision_id"],
+        expected_source_authority_epoch=context["source_epoch"],
+        workspace_document_id=artifact.workspace_document_id,
+        workspace_document_revision=artifact.workspace_document_revision,
+        selections=[],
+    )
+    _, admitted = _resolve_source(coordinates, root, bound, data)
+    evidence = []
+    for ref in access.parsed.evidence_by_id.values():
+        if (ref.evidence_role != "support" or ref.source_artifact_id != admitted.source_artifact_id
+                or ref.source_revision_id != admitted.source_revision_id):
+            continue
+        opened = open_admitted_native_text(access, ref.evidence_ref_id)
+        if opened.status == "available" and opened.span_start_byte is not None and opened.span_end_byte is not None:
+            _require_source_match(opened, admitted)
+            evidence.append({
+                "evidence_ref_id": ref.evidence_ref_id,
+                "start_byte": opened.span_start_byte,
+                "end_byte": opened.span_end_byte,
+                "text": opened.body_text.encode("utf-8")[
+                    opened.span_start_byte:opened.span_end_byte
+                ].decode("utf-8"),
+            })
+    preview = _reviewable_preview(data)
+    _require(native.binding(request.managed_world_id) == bound, "candidate_binding_changed")
+    return {
+        "schema": "dmb_native_worldbuilding_review_context_v1",
+        "binding": bound,
+        "source_artifact_id": artifact.source_artifact_id,
+        "source_sha256": artifact.content_sha256,
+        "source_support": sorted(evidence, key=lambda row: row["evidence_ref_id"]),
+        "records": [
+            {"kind": "node", "record_id": row.node_id, "label": row.label,
+             "fields": _fields("node", row)}
+            for row in preview.nodes
+        ] + [
+            {"kind": "edge", "record_id": row.edge_id, "fields": {},
+             "from_record_id": row.from_node_id, "to_record_id": row.to_node_id,
+             "relationship_type": row.relationship_type}
+            for row in preview.edges
+        ] + [
+            {"kind": "source_observation", "record_id": row.observation_id,
+             "label": row.title, "subject_record_id": row.subject_candidate_node_id,
+             "fields": {"description": row.description}}
+            for row in preview.source_observations
+            if capabilities.reviewed_source_observation
+        ],
+        "prepare_coordinates": coordinates.model_dump(exclude={"selections"}),
+    }
+
+
+def prepare(request, principal):
+    require_native_graph_gm(principal)
+    root = config.artifact_data_root()
+    bound = native.binding(request.managed_world_id)
+    space = bound["native_world_id"]
+    data = load_reviewable_extraction_data(root, request.run_id)
+    run = data.run
+    _require(run.revision == request.expected_run_revision, "candidate_run_changed")
+    candidate_sha256 = hashlib.sha256(data.candidate_bytes).hexdigest()
+    _require(candidate_sha256 == request.candidate_sha256, "candidate_bytes_changed")
+    source, admitted = _resolve_source(request, root, bound, data)
+    preview = _reviewable_preview(data)
+    repo = native.repository()
+    context, access = native.access_context(repo, space)
+    _require(context["revision_id"] == request.expected_parent_revision_id, "candidate_parent_stale")
+    _require(context["source_epoch"] == request.expected_source_authority_epoch,
+             "candidate_source_authority_stale")
+    if isinstance(request, NativeRecapPrepareRequest) and request.cohort_edge_review is not None:
+        from dataclasses import asdict
+        from graph_memory.ingestion.cohort_edge_review import validate_prepare
+
+        try:
+            validate_prepare(
+                {"nodes": [asdict(node) for node in preview.nodes],
+                 "edges": [asdict(edge) for edge in preview.edges]},
+                request.cohort_edge_review,
+                request.model_dump(mode="json"),
+            )
+            edges = {edge.edge_id: edge for edge in preview.edges}
+            for decision in request.cohort_edge_review["edge_decisions"]:
+                if decision["decision"] != "already_present":
+                    continue
+                parsed = access.parsed.get_assertion(decision["assertion_id"])
+                if parsed is None:
+                    raise ValueError("Reviewed assertion is absent from the pinned parent")
+                assertion = native.assertion_contract(parsed)
+                predicate = _predicate(edges[decision["edge_id"]].relationship_type)
+                if (
+                    assertion.subject_entity_id != decision["subject_entity_id"]
+                    or assertion.predicate != predicate
+                    or [(binding.axis, binding.value) for binding in assertion.metadata.scope]
+                    != [(CAMPAIGN_SCOPE_AXIS, request.campaign_id)]
+                    or assertion.value.kind != "entity_ref"
+                    or assertion.value.entity_id != decision["target_entity_id"]
+                ):
+                    raise ValueError("Reviewed assertion differs from the candidate relationship")
+                cited = set(decision["evidence_ref_ids"])
+                if not cited <= set(assertion.metadata.evidence_ref_ids):
+                    raise ValueError("Reviewed evidence is absent from the assertion")
+                edge = edges[decision["edge_id"]]
+                witness = project_candidate_record_evidence(
+                    assertion_id=edge.edge_id, kind="relationship", label=edge.label,
+                    summary="", evidence_refs=edge.evidence_refs,
+                    source_prose=data.source_bytes.decode("utf-8"),
+                    source_artifact_id=data.source_artifact.source_artifact_id,
+                    span_index=data.span_index,
+                )
+                _support_refs(
+                    assertion.metadata.model_copy(update={"evidence_ref_ids": tuple(sorted(cited))}),
+                    witness.evidence, access, admitted,
+                )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ReviewRefused("candidate_cohort_edge_review_invalid") from exc
+    domain_name = run.source_domain
+    campaign = request.campaign_id if isinstance(request, NativeRecapPrepareRequest) else None
+    producer = f"dungeonbuddy:reviewed-{domain_name}"
+    operation_id = f"{domain_name}-review:{uuid4()}"
+    intent, inventory = _intent(preview, request.selections, space, campaign,
+                                admitted, data, access, candidate_sha256=candidate_sha256,
+                                operation_id=operation_id, producer=producer)
+    prepared = None
+    cohort_review = getattr(request, "cohort_edge_review", None)
+    verified_endpoints = {
+        decision[field]
+        for decision in cohort_review["edge_decisions"]
+        if decision["decision"] == "already_present"
+        for field in ("subject_entity_id", "target_entity_id")
+    } if cohort_review is not None else set()
+    verified_replay = bool(verified_endpoints) and all(
+        isinstance(operation, wk.UseExisting)
+        and not operation.facts
+        and operation.durable_object_id in verified_endpoints
+        for operation in intent.operations
+    )
+    if intent.operations and not verified_replay:
+        domain, profile = native.descriptors(repo, space, context["revision_id"])
+        prepared = transport.runtime(repo, domain, profile, now=datetime.now(UTC),
+                                     operation_id=operation_id).prepare_change(intent)
+        transport.verify_prepared_parent(prepared, context)
+        _require(prepared.prepared_operations == intent.operations, "candidate_preparation_changed")
+    _require(native.binding(request.managed_world_id) == bound, "candidate_binding_changed")
+    head = repo.get_head(space)
+    _require(head is not None and head.head_revision_id == request.expected_parent_revision_id, "candidate_parent_stale")
+    _require(repo.open_native_source_view(space).epoch == context["source_epoch"],
+             "candidate_source_authority_changed")
+    packet = transport.encode_prepared(prepared) if prepared else None
+    envelope = NativeRecapReviewEnvelope(
+        purpose=f"dmb_native_{domain_name}_confirm_v1", producer=producer,
+        principal=principal.subject, binding=bound, parent_context=context,
+        review=request, prepared_change_id=prepared.prepared_change_id,
+        prepared_digest=transport.digest(packet), expires_at=prepared.prepared_at + PREPARE_TTL,
+    ).model_dump(mode="json") if prepared else None
+    return {
+        "status": "prepared" if prepared else "held", "publication": "not_performed",
+        "run_id": run.run_id, "run_revision": run.revision,
+        "candidate_sha256": request.candidate_sha256,
+        "source_revision_id": str(source.source_revision_id),
+        "native_source_admission_id": admitted.admission_id,
+        "expected_parent_revision_id": request.expected_parent_revision_id,
+        "expected_source_authority_epoch": request.expected_source_authority_epoch,
+        "prepared": packet, "envelope": envelope,
+        "token": sign_publication_intent(envelope) if envelope else None,
+        "records": inventory,
+    }
+
+
+def confirm(request, principal):
+    """Authenticate one review; WK/Core own commit, replay and exact-child proof."""
+    require_native_graph_gm(principal)
+    envelope = request.envelope
+    signed = decode_publication_intent(request.token, allow_expired_recovery=True)
+    _require(
+        hmac.compare_digest(transport.canonical(signed),
+                            transport.canonical(envelope.model_dump(mode="json")))
+        and envelope.principal == principal.subject
+        and envelope.prepared_digest == transport.digest(request.prepared),
+        "candidate_review_invalid",
+    )
+    bound = native.binding(envelope.review.managed_world_id)
+    _require(bound == envelope.binding, "candidate_binding_changed")
+    space = bound["native_world_id"]
+    prepared = transport.decode_prepared(request.prepared)
+    _require(
+        prepared.space_id == space and prepared.producer == envelope.producer
+        and prepared.prepared_change_id == prepared.dungeonmind_publication_id
+        == envelope.prepared_change_id
+        and prepared.expected_parent_revision_id == envelope.review.expected_parent_revision_id
+        and envelope.parent_context.get("source_epoch")
+        == envelope.review.expected_source_authority_epoch,
+        "candidate_review_invalid",
+    )
+    try:
+        transport.verify_prepared_parent(prepared, envelope.parent_context)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ReviewRefused("candidate_review_invalid") from exc
+    repo = native.repository()
+    # Presence only selects recovery; it never establishes success. WK verifies
+    # the original exact child even after expiry or a newer source/head exists.
+    recovering = repo.get_publication_receipt(space, prepared.dungeonmind_publication_id) is not None
+    if not recovering:
+        _require(envelope.expires_at >= datetime.now(UTC), "candidate_review_expired")
+        context, access = native.access_context(repo, space)
+        _require(context["revision_id"] == prepared.expected_parent_revision_id,
+                 "candidate_parent_stale")
+        _require(context["source_epoch"] == envelope.review.expected_source_authority_epoch,
+                 "candidate_source_authority_stale")
+        transport.verify_prepared_parent(prepared, context)
+        # World pages are mutable: first commit must still match the signed
+        # document revision. The existing workspace owner makes that decision;
+        # no candidate reload and no APP dependency on committed recovery.
+        admitted = (_world_source(envelope.review, config.artifact_data_root(), bound)
+                    if isinstance(envelope.review, NativeWorldbuildingPrepareRequest) else None)
+        for witness in prepared.evidence_witnesses:
+            opened = open_admitted_native_text(access, witness.evidence_ref_id)
+            _require(opened.status == "available", "candidate_support_unavailable")
+            if admitted is not None:
+                _require_source_match(opened, admitted)
+        _require(repo.open_native_source_view(space).epoch == context["source_epoch"],
+                 "candidate_source_authority_changed")
+    _require(native.binding(envelope.review.managed_world_id) == bound, "candidate_binding_changed")
+    domain, profile = native.descriptors(repo, space, prepared.expected_parent_revision_id)
+    runtime = transport.runtime(
+        repo, domain, profile, now=prepared.prepared_at,
+        operation_id=prepared.prepared_change_id,
+    )
+    from apps.live_control_server.services.hosted_native_graph_access import require_explorer_access
+
+    _require(native.binding(envelope.review.managed_world_id) == bound, "candidate_binding_changed")
+    require_explorer_access(principal, envelope.review.managed_world_id)
+    result = runtime.commit_prepared_change(prepared, confirmed_by=principal.subject)
+    return {"status": "committed", "recovered": recovering, "result": jsonable_encoder(result)}
+
+
+def _recap_context_source(request, bound, data):
+    """Validate the selected extraction snapshot before admission lookup."""
+    from apps.live_control_server.services.graph_run_registry import read_recap_source_scope
+
+    run, artifact = data.run, data.source_artifact
+    _require(run.run_id == request.run_id and run.revision == request.expected_run_revision,
+             "candidate_run_changed")
+    _require(hashlib.sha256(data.candidate_bytes).hexdigest() == request.candidate_sha256,
+             "candidate_bytes_changed")
+    _require(run.source_domain == artifact.source_domain == "recap"
+             and run.campaign_id == artifact.campaign_id == request.campaign_id
+             and run.session_id == artifact.session_id == request.session_id,
+             "candidate_scope_mismatch")
+    scope = read_recap_source_scope(run.lineage.get("world_campaign_ingest_context"), campaign_id=run.campaign_id)
+    _require((scope.managed_world_id, scope.native_world_id, scope.binding_version)
+             == (request.managed_world_id, bound["native_world_id"], bound["binding_version"]),
+             "candidate_binding_changed")
+    _require((artifact.source_artifact_id, artifact.content_sha256, artifact.world_id)
+             == (request.source_artifact_id, request.source_sha256, scope.native_world_id),
+             "candidate_source_mismatch")
+    source = sources.get_source_markdown(source_artifact_id=artifact.source_artifact_id,
+                                         content_sha256=artifact.content_sha256,
+                                         source_revision_id=request.source_revision_id)
+    _require(source is not None, "candidate_source_unavailable")
+    _require(source.markdown.encode("utf-8") == data.source_bytes
+             and hashlib.sha256(data.source_bytes).hexdigest() == request.source_sha256
+             and source.source_artifact_id == request.source_artifact_id
+             and source.source_revision_id == request.source_revision_id
+             and source.content_sha256 == request.source_sha256
+             and source.world_id == scope.native_world_id
+             and source.source_domain == "recap" and source.campaign_id == request.campaign_id
+             and source.session_id == request.session_id
+             and source.media_type == "text/markdown" and source.encoding == "utf-8",
+             "candidate_source_mismatch")
+    return source, {**scope.model_dump(), "session_id": request.session_id}
+
+
+def recap_review_context(request, principal):
+    """Read preparation coordinates only; neither admission nor preparation runs."""
+    require_native_graph_gm(principal)
+    root = config.artifact_data_root()
+    bound = native.binding(request.managed_world_id)
+    data = load_reviewable_extraction_data(root, request.run_id)
+    source, scope = _recap_context_source(request, bound, data)
+    # This owner looks up an existing APP operation and verifies its real receipt;
+    # the extraction UUID is never repurposed as an admission operation UUID.
+    saved = admission.inspect_saved_source(root, scope=scope, source=source)
+    _require(saved is not None and saved.state == "admitted" and saved.admission_committed
+             and saved.opening.state == "verified", "candidate_source_not_admitted")
+    repo = native.repository()
+    context, access = native.access_context(repo, bound["native_world_id"])
+    coordinates = NativeRecapPrepareRequest(
+        managed_world_id=request.managed_world_id, campaign_id=request.campaign_id,
+        run_id=request.run_id, expected_run_revision=request.expected_run_revision,
+        candidate_sha256=request.candidate_sha256, source_admission_run_id=str(saved.run_id),
+        expected_parent_revision_id=context["revision_id"],
+        expected_source_authority_epoch=context["source_epoch"], selections=[],
+    )
+    _, admitted = _resolve_source(coordinates, root, bound, data)
+    support = []
+    for ref in access.parsed.evidence_by_id.values():
+        if (ref.evidence_role != "support" or ref.source_artifact_id != admitted.source_artifact_id
+                or ref.source_revision_id != admitted.source_revision_id):
+            continue
+        opened = open_admitted_native_text(access, ref.evidence_ref_id)
+        if opened.status == "available" and opened.span_start_byte is not None and opened.span_end_byte is not None:
+            _require_source_match(opened, admitted)
+            support.append({"evidence_ref_id": ref.evidence_ref_id,
+                            "start_byte": opened.span_start_byte, "end_byte": opened.span_end_byte,
+                            "text": opened.body_text.encode("utf-8")[opened.span_start_byte:opened.span_end_byte].decode("utf-8")})
+    preview = _reviewable_preview(data)
+    records = []
+    for kind, rows in (("node", preview.nodes), ("beat", preview.beats)):
+        for row in rows:
+            fields = _fields(kind, row)
+            facts = [{"field": name, "value": value} for name, value in fields.items()
+                     if not name.startswith("session_actions:")]
+            if kind == "node":
+                facts += [{"field": "session_actions", "index": i, "value": value}
+                          for i, value in enumerate(row.session_actions)]
+            identifier = row.node_id if kind == "node" else row.beat_id
+            records.append({"kind": kind, "record_id": identifier, "fields": fields,
+                            "selectable_facts": facts, "candidate": jsonable_encoder(row)})
+            if kind == "node" and row.node_type == "event":
+                records.append({"kind": "placement", "record_id": identifier,
+                                "candidate": jsonable_encoder(row),
+                                "held_reason": "placement_requires_actual_occurrence" if is_explicit_prep_event(row) else None,
+                                "required_claim_mode": "dungeonbuddy.claim:observed_event"})
+    records += [{"kind": "edge", "record_id": row.edge_id, "fields": {},
+                 "from_record_id": row.from_node_id, "to_record_id": row.to_node_id,
+                 "relationship_type": row.relationship_type, "candidate": jsonable_encoder(row)}
+                for row in preview.edges]
+    held = [{"kind": kind, "candidate": jsonable_encoder(row)}
+            for kind, rows in (("ignored", preview.ignored_items), ("deferred", preview.deferred_items),
+                               ("proposed_write", preview.proposed_writes), ("source_observation", preview.source_observations))
+            for row in rows]
+    # These are observations, not a reservation or authority token. Re-read all
+    # mutable coordinates; prepare must still enforce its own current CAS.
+    current = load_reviewable_extraction_data(root, request.run_id)
+    current_source, current_scope = _recap_context_source(request, bound, current)
+    _require(current_scope == scope and current_source.source_revision_id == source.source_revision_id
+             and current.source_bytes == data.source_bytes and current.candidate_bytes == data.candidate_bytes,
+             "candidate_source_mismatch")
+    _, current_admitted = _resolve_source(coordinates, root, bound, current)
+    _require(current_admitted == admitted, "candidate_admission_mismatch")
+    _require(native.binding(request.managed_world_id) == bound, "candidate_binding_changed")
+    head = repo.get_head(bound["native_world_id"])
+    _require(head is not None and head.head_revision_id == context["revision_id"], "candidate_parent_stale")
+    _require(repo.open_native_source_view(bound["native_world_id"]).epoch == context["source_epoch"],
+             "candidate_source_authority_stale")
+    return {"schema": "dmb_native_recap_review_context_v1", "publication": "not_performed",
+            "binding": bound, "campaign_id": request.campaign_id, "session_id": request.session_id,
+            "source_artifact_id": request.source_artifact_id, "source_revision_id": str(source.source_revision_id),
+            "source_sha256": request.source_sha256,
+            "native_source": {"admission_id": admitted.admission_id,
+                              "source_artifact_id": admitted.source_artifact_id,
+                              "source_revision_id": admitted.source_revision_id,
+                              "body_sha256": admitted.body_sha256},
+            "source_support": sorted(support, key=lambda row: row["evidence_ref_id"]),
+            "records": records, "held_records": held,
+            "candidate_inventory": jsonable_encoder(preview),
+            "source_order": {"beat_order_is_narrative_only": True,
+                             "relationship_records_require_explicit_review": True},
+            "prepare_coordinates": coordinates.model_dump(exclude={"selections", "cohort_edge_review"})}

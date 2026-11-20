@@ -116,7 +116,7 @@ Per `.cursor/rules/gold-realignment-vs-deflation.mdc` and `engineering-principle
 | Create | `evals/sentence_routing_retrieval_falsification/c1s13_holdout_l3_deep_dive_canvas_emit.py` | New holdout deep-dive emitter (style-canon) |
 | Create | `tests/test_c1s13_holdout_l3_deep_dive_canvas_emit.py` | Unit test for the emitter |
 | Create | `tests/test_benchmark_review_canvas_template.py` | Unit test for the shared template module |
-| Create | `evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_scenario_report_c1s13_v1_baseline.json` | Sidecar scenario report consumed by the emitter for retrieved-context display |
+| Create | [cohort_l3_ab_scenario_report_c1s13_v1_baseline.json](https://github.com/Drakosfire/DungeonMindBuddy/blob/b4d157e0f02983e00968eebcb4f19e9146115906/evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_scenario_report_c1s13_v1_baseline.json) | Sidecar scenario report consumed by the emitter for retrieved-context display |
 | Create | `evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_scenario_report_c1s13_v1_equivalence.json` | Sidecar (equivalence mode) |
 | Modify (already on disk) | `~/.cursor/projects/<workspace-slug>/canvases/c1s13-holdout-l3-question-deep-dive.canvas.tsx` | Generated canvas asset (Cursor-managed path) |
 

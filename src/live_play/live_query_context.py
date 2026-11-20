@@ -12,11 +12,11 @@ from typing import Any
 
 from generationengine import FailureCode, GenerationClient, GenerationEngineError, TextRequest
 
-from src.agent.synthesis import _load_api_key
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
-from src.llm.generation_sync import run_awaitable_sync
-from src.live_play.classify_live_turn import TurnClassification
-from src.live_play.manifest_context_query import (
+from bootstrap_env import load_openai_api_key as _load_api_key
+from bootstrap_env import load_dungeonmindbuddy_dotenv
+from llm.generation_sync import run_awaitable_sync
+from live_play.classify_live_turn import TurnClassification
+from live_play.manifest_context_query import (
     QueryConfig,
     QueryRequest,
     build_context_packet,
@@ -66,7 +66,7 @@ def _utc_now_z() -> str:
 
 def _load_model_policy(root: Path) -> dict[str, Any]:
     del root  # Buddy-owned policy only; root kept for call-site compatibility.
-    from src.model_policy import load_buddy_model_policy
+    from model_policy import load_buddy_model_policy
 
     return load_buddy_model_policy()
 

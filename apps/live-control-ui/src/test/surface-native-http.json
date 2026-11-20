@@ -1,0 +1,217 @@
+{
+  "captured_head": "991b35c9911a82a15d05453013eb7e4ad9806cb2",
+  "context": {
+    "schema": "dmb_agent_surface_native_context_response_v1",
+    "receipt": {
+      "schema": "dmb_surface_native_context_receipt_v1",
+      "receipt_serializer_version": "canonical-json-utf8-v1",
+      "context_receipt_sha256": "da82aff60aff4e185b059b56584d6800c7a2b20b9d98686e93a6bf874cc2ba5e",
+      "provenance_sha256": "61c269dfd323d5b11257ade606a1487c5be268fcca8c7a11724dfdb38733136b",
+      "work_context": {
+        "surface_id": "plan",
+        "plan_basis": {
+          "world_id": "statement-fixture-22fd9bedb3794df7bd1b86a9389a38c4",
+          "document_id": "plan:one",
+          "object_revision": 7,
+          "work_revision_id": "698c15e1-6d09-4d45-af5d-2d3b39862bd7",
+          "revision_n": 4,
+          "content_sha256": "f72d708c735140faaf16490ea4061941859a87a473b1e48f9e388539b090048e"
+        },
+        "plan_context_policy": {
+          "schema": "dmb_plan_context_policy_v2",
+          "policy": "auto_plan_world",
+          "graph_source": "reviewed_native_graph"
+        },
+        "playable_target": null
+      },
+      "source_authority": {
+        "schema_version": "dmb_native_corpus_authority_v1",
+        "managed_world_id": "statement-fixture-22fd9bedb3794df7bd1b86a9389a38c4",
+        "native_world_id": "statement-fixture-22fd9bedb3794df7bd1b86a9389a38c4",
+        "binding_version": 1,
+        "provisioning_id": null,
+        "revision_id": "rev:7e271ed5aa2ae2c621e2e4e2449b3124",
+        "domain_ref": {
+          "authority_id": "dungeonbuddy.world",
+          "revision": "2",
+          "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+        },
+        "profile_ref": {
+          "authority_id": "dungeonbuddy.dnd5e",
+          "revision": "2",
+          "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+        },
+        "acquisition_epoch": 1,
+        "scope": "gm_world_cross_campaign_source_inspection",
+        "role": "gm"
+      },
+      "native_query": {
+        "schema": "dmb_native_plan_query_v2",
+        "authority": {
+          "schema": "dmb_native_plan_query_authority_v1",
+          "managed_world_id": "statement-fixture-22fd9bedb3794df7bd1b86a9389a38c4",
+          "native_world_id": "statement-fixture-22fd9bedb3794df7bd1b86a9389a38c4",
+          "binding_version": 1,
+          "revision_id": "rev:7e271ed5aa2ae2c621e2e4e2449b3124",
+          "domain_ref": {
+            "authority_id": "dungeonbuddy.world",
+            "revision": "2",
+            "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+          },
+          "profile_ref": {
+            "authority_id": "dungeonbuddy.dnd5e",
+            "revision": "2",
+            "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+          },
+          "acquisition_epoch": 1,
+          "role": "gm",
+          "scope_mode": "world",
+          "campaign_id": null,
+          "session_id": null
+        },
+        "question": "What did B do?",
+        "search_result_sha256": "67274a250814cc050f5552e15d1f15b14757349f2b2fef8f6004bb9d2de3953e",
+        "discovered_entity_ids": [
+          "ent:e443d3b67e06e88be40c1639f70def2c"
+        ],
+        "matches": [],
+        "status": "complete",
+        "gap_codes": [],
+        "universal_absence_claimed": false,
+        "assertion_matches": [
+          {
+            "assertion_id": "asrt:dd60f29c3520582949f7cf9f363cb955",
+            "subject_entity_id": "ent:e443d3b67e06e88be40c1639f70def2c",
+            "discovered_entity_ids": [
+              "ent:e443d3b67e06e88be40c1639f70def2c"
+            ],
+            "assertion_sha256": "c9f3251d48fe16c87758055a12741543832e65c56c12e11745bd483b954e4618",
+            "label": "B \u00b7 dnd5e:name"
+          },
+          {
+            "assertion_id": "asrt:efa606ba4f3db27cf9a8131b26656882",
+            "subject_entity_id": "ent:e443d3b67e06e88be40c1639f70def2c",
+            "discovered_entity_ids": [
+              "ent:e443d3b67e06e88be40c1639f70def2c"
+            ],
+            "assertion_sha256": "a25a04e3b9073230066d27bf6388d5b4ec15a945fdce5b0eacc84270a30e3f69",
+            "label": "B \u00b7 dnd5e:summary"
+          }
+        ]
+      },
+      "assembled_input": {
+        "assembler_version": "surface_native_initial_v1",
+        "provider_model_name": "jev-1.14.0",
+        "provider_model_version": "jev-1.14.0",
+        "tokenizer_name": "utf8_json_bytes_plus_64_per_node_v1",
+        "tokenizer_version": "v1",
+        "provider_envelope_input_tokens": 2860,
+        "output_token_reserve": 8192,
+        "context_window_limit": 1050000,
+        "included_history": [],
+        "assembled_input_sha256": "f4a0229486fee3a7a6e5ba0aff94f36989e8902374ed828a9a174217b5ff2a70"
+      }
+    },
+    "completion": {
+      "schema": "dmb_surface_native_completion_v1",
+      "surface_id": "plan",
+      "context_receipt_sha256": "da82aff60aff4e185b059b56584d6800c7a2b20b9d98686e93a6bf874cc2ba5e",
+      "producing_provider_attempt_id": "b6618e1b-8057-4999-9945-4ef21287d407",
+      "answer_basis": "mixed_evidence",
+      "answer_context_status": "graph_grounded",
+      "answer_segments": [
+        {
+          "kind": "native_assertion_claim",
+          "text": "Graph records (fact / asserted / established): A reports that B fled; uncertain.",
+          "assertion_ids": [
+            "asrt:efa606ba4f3db27cf9a8131b26656882"
+          ],
+          "qualifications": [
+            {
+              "scope": [
+                {
+                  "axis": "dungeonbuddy.scope:campaign",
+                  "value": "c1"
+                }
+              ],
+              "visibility": {
+                "kind": "labels_any",
+                "labels": [
+                  "dungeonbuddy.visibility:gm"
+                ]
+              },
+              "epistemic_basis": "asserted",
+              "claim_mode": "dungeonbuddy.claim:fact",
+              "standing": "established",
+              "evidence_ref_ids": [
+                "ev:c87fec818f41340bdd908e538713d86762d673e0a54e647f7450d7c04aebb791"
+              ],
+              "temporal_scope": {
+                "kind": "unknown"
+              },
+              "domain_metadata": []
+            }
+          ]
+        }
+      ],
+      "collaboration": null,
+      "saved_source_citations": [],
+      "native_body_citations": [],
+      "native_clause_citations": [],
+      "native_assertion_citations": [
+        {
+          "evidence_ref_id": "ev:c87fec818f41340bdd908e538713d86762d673e0a54e647f7450d7c04aebb791",
+          "source_artifact_id": "src:6df76c46d18505ee1414a52aa5ef8ddeac9a1d2bfddb61de515e7ae335e2b94d",
+          "source_revision_id": "srev:c350aa4ed386b5cbdc31cef32edeadaadf06720507c99671453d2dbed0939a76",
+          "body_sha256": "e6da3b35ee0c198a2d6f138095d312d300ae120773bf0aff0074237286197b63",
+          "start_byte": 0,
+          "end_byte": 34,
+          "span_sha256": "3ac9c1ce28ed0899dc663a9ab2ae2b56d3b77f010d5acfd0b113c6206d893ab7",
+          "segment_index": 0,
+          "assertion_id": "asrt:efa606ba4f3db27cf9a8131b26656882",
+          "read_event_id": "a717a105-9265-45d4-ab62-ae1ba4cbbcc2",
+          "provider_attempt_id": "b6618e1b-8057-4999-9945-4ef21287d407",
+          "envelope_sha256": "44cd38dd3eabe5c850e76b6d06a7ea35eea0fb5fda05456202aede78a9b6a935",
+          "context_receipt_sha256": "da82aff60aff4e185b059b56584d6800c7a2b20b9d98686e93a6bf874cc2ba5e",
+          "managed_world_id": "statement-fixture-22fd9bedb3794df7bd1b86a9389a38c4",
+          "native_world_id": "statement-fixture-22fd9bedb3794df7bd1b86a9389a38c4",
+          "read_revision_id": "rev:7e271ed5aa2ae2c621e2e4e2449b3124",
+          "assertion_sha256": "a25a04e3b9073230066d27bf6388d5b4ec15a945fdce5b0eacc84270a30e3f69"
+        }
+      ]
+    },
+    "execution": {
+      "schema": "dmb_agent_plan_world_graph_execution_projection_v1",
+      "claimability": "completed",
+      "authorization_state": "response_received",
+      "automatic_redispatch": false
+    },
+    "delivery_replay": false
+  },
+  "source": {
+    "schema": "dmb_native_assertion_source_read_v1",
+    "world_id": "statement-fixture-22fd9bedb3794df7bd1b86a9389a38c4",
+    "turn_id": "b20b806b-49a7-430e-b394-943252a914bd",
+    "citation_index": 0,
+    "citation": {
+      "evidence_ref_id": "ev:c87fec818f41340bdd908e538713d86762d673e0a54e647f7450d7c04aebb791",
+      "source_artifact_id": "src:6df76c46d18505ee1414a52aa5ef8ddeac9a1d2bfddb61de515e7ae335e2b94d",
+      "source_revision_id": "srev:c350aa4ed386b5cbdc31cef32edeadaadf06720507c99671453d2dbed0939a76",
+      "body_sha256": "e6da3b35ee0c198a2d6f138095d312d300ae120773bf0aff0074237286197b63",
+      "start_byte": 0,
+      "end_byte": 34,
+      "span_sha256": "3ac9c1ce28ed0899dc663a9ab2ae2b56d3b77f010d5acfd0b113c6206d893ab7",
+      "segment_index": 0,
+      "assertion_id": "asrt:efa606ba4f3db27cf9a8131b26656882",
+      "read_event_id": "a717a105-9265-45d4-ab62-ae1ba4cbbcc2",
+      "provider_attempt_id": "b6618e1b-8057-4999-9945-4ef21287d407",
+      "envelope_sha256": "44cd38dd3eabe5c850e76b6d06a7ea35eea0fb5fda05456202aede78a9b6a935",
+      "context_receipt_sha256": "da82aff60aff4e185b059b56584d6800c7a2b20b9d98686e93a6bf874cc2ba5e",
+      "managed_world_id": "statement-fixture-22fd9bedb3794df7bd1b86a9389a38c4",
+      "native_world_id": "statement-fixture-22fd9bedb3794df7bd1b86a9389a38c4",
+      "read_revision_id": "rev:7e271ed5aa2ae2c621e2e4e2449b3124",
+      "assertion_sha256": "a25a04e3b9073230066d27bf6388d5b4ec15a945fdce5b0eacc84270a30e3f69"
+    },
+    "content": "A reports that B fled; uncertain.\n"
+  }
+}

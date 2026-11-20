@@ -46,7 +46,7 @@ def test_adoption_reads_exact_file_once_and_preserves_digest(
     run = _run("repo://recap.md", digest)
     persisted: dict[str, object] = {}
 
-    monkeypatch.setattr(adoption, "get_extraction_run", lambda _root, _run_id: run)
+    monkeypatch.setattr(adoption, "get_extraction_run", lambda _run_id: run)
 
     def fake_persist(**kwargs):
         persisted.update(kwargs)
@@ -89,7 +89,7 @@ def test_adoption_fails_on_digest_drift(
     source_path = tmp_path / "recap.md"
     source_path.write_text("changed\n", encoding="utf-8")
     run = _run("repo://recap.md", "0" * 64)
-    monkeypatch.setattr(adoption, "get_extraction_run", lambda _root, _run_id: run)
+    monkeypatch.setattr(adoption, "get_extraction_run", lambda _run_id: run)
 
     with pytest.raises(adoption.GraphRunRegistryError, match="digest"):
         adoption.adopt_historical_recap_source(
@@ -111,7 +111,7 @@ def test_adoption_passes_exact_revision_and_check_only(
     requested = UUID("8ed1e034-23c6-4295-b2ff-05d5cdd643a9")
     persisted: dict[str, object] = {}
 
-    monkeypatch.setattr(adoption, "get_extraction_run", lambda _root, _run_id: run)
+    monkeypatch.setattr(adoption, "get_extraction_run", lambda _run_id: run)
 
     def fake_persist(**kwargs):
         persisted.update(kwargs)

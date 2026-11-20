@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from functools import cache
 from pathlib import Path
 
 from alembic import command
@@ -23,7 +24,13 @@ def alembic_config() -> Config:
     return cfg
 
 
+@cache
 def _alembic_head() -> str:
+    """Discover the immutable installed package head once per serving process.
+
+    Delivery stops the process before replacing package files. Database revision
+    reads and comparisons remain fresh; unsuccessful discovery is not cached.
+    """
     cfg = alembic_config()
     script = ScriptDirectory.from_config(cfg)
     heads = script.get_heads()
@@ -34,31 +41,27 @@ def _alembic_head() -> str:
     return heads[0]
 
 
-def _read_current_revision(dsn: str) -> str | None:
+def _revision_from_connection(conn) -> str | None:
+    rows = conn.execute(
+        "SELECT version_num FROM application_state.schema_migrations LIMIT 2"
+    ).fetchall()
+    if len(rows) > 1:
+        raise ApplicationStateMigrationError(
+            "application-state migration table contains multiple revisions"
+        )
+    return str(rows[0][0]) if rows else None
+
+
+def _read_current_revision(dsn: str, *, periodic: bool = False) -> str | None:
     """Read Alembic current revision without creating schema, tables, or rows."""
     import psycopg
 
+    limits = {"connect_timeout": 2, "options": "-c statement_timeout=1000"} if periodic else {}
     try:
-        with psycopg.connect(dsn, autocommit=True) as conn:
-            schema = conn.execute(
-                "SELECT 1 FROM information_schema.schemata "
-                "WHERE schema_name = 'application_state'"
-            ).fetchone()
-            if schema is None:
-                return None
-            table = conn.execute(
-                """
-                SELECT 1 FROM information_schema.tables
-                WHERE table_schema = 'application_state'
-                  AND table_name = 'schema_migrations'
-                """
-            ).fetchone()
-            if table is None:
-                return None
-            row = conn.execute(
-                "SELECT version_num FROM application_state.schema_migrations LIMIT 1"
-            ).fetchone()
-            return None if row is None else str(row[0])
+        with psycopg.connect(dsn, autocommit=True, **limits) as conn:
+            return _revision_from_connection(conn)
+    except psycopg.errors.UndefinedTable:
+        return None
     except psycopg.Error as exc:
         raise ApplicationStateUnavailableError(
             f"application-state PostgreSQL is unavailable: {exc}"
@@ -69,7 +72,7 @@ def _current_and_head(dsn: str) -> tuple[str | None, str]:
     return _read_current_revision(dsn), _alembic_head()
 
 
-def upgrade_to_head(*, dsn: str | None = None) -> None:
+def upgrade_to_head(*, dsn: str | None = None) -> tuple[str, str]:
     target = dsn or load_runtime_dsn()
     if dsn is not None:
         os.environ[APPLICATION_STATE_DSN_ENV] = dsn
@@ -80,11 +83,31 @@ def upgrade_to_head(*, dsn: str | None = None) -> None:
         raise ApplicationStateMigrationError(
             f"upgrade did not reach head: current={current!r} head={head!r}"
         )
+    return current, head
 
 
 def assert_at_head(*, dsn: str | None = None) -> None:
     target = dsn or load_runtime_dsn()
     current, head = _current_and_head(target)
+    _require_current_revision(current, head)
+
+
+def assert_connection_at_head(conn) -> None:
+    """Validate the live revision in the caller's transaction."""
+    import psycopg
+
+    try:
+        current = _revision_from_connection(conn)
+    except psycopg.errors.UndefinedTable:
+        current = None
+    except psycopg.Error as exc:
+        raise ApplicationStateUnavailableError(
+            f"application-state PostgreSQL is unavailable: {exc}"
+        ) from exc
+    _require_current_revision(current, _alembic_head())
+
+
+def _require_current_revision(current: str | None, head: str) -> None:
     if current != head:
         raise ApplicationStateMigrationError(
             "application-state schema is behind Alembic head; "

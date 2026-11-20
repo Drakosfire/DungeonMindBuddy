@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from src.token_resolution.contracts import HubAliasSpec
+from .contracts import HubAliasSpec
 
 _FM_BLOCK_RE = re.compile(r"^---\s*\n(.*?)\n---\s*$", re.DOTALL | re.MULTILINE)
 

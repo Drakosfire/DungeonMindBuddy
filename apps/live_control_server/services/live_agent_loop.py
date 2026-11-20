@@ -29,16 +29,12 @@ from apps.live_control_server.services.hermes_graph_query import (
 )
 from apps.live_control_server.session_store import (
     append_events_and_jobs,
-    load_session,
+    load_session_packet,
     refresh_current_state,
 )
-from src.live_play.classify_live_turn import classify_live_turn
-from src.live_play.live_query_context import run_context_lookup_turn
-from src.live_play.live_turn import LiveTurnResult, handle_live_turn
-from graph_memory.interaction.latest_recap import (
-    is_latest_recap_change_question,
-    resolve_latest_recap_change_context,
-)
+from live_play.classify_live_turn import classify_live_turn
+from live_play.live_query_context import run_context_lookup_turn
+from live_play.live_turn import LiveTurnResult, handle_live_turn
 
 LIVE_QUERY_BACKENDS = frozenset({"live", "hermes"})
 
@@ -209,7 +205,7 @@ def process_live_query(
         try:
             with builder.phase("session_load"):
                 if managed_world_packet is None:
-                    packet, _layout, _events, _jobs = load_session(session_base)
+                    packet = load_session_packet(session_base)
                 else:
                     # Route-validated transport identity only. Never import a C2
                     # live packet or fabricate session narrative for this World.
@@ -235,29 +231,6 @@ def process_live_query(
                     outer_campaign_id=campaign_id,
                     root=world_graph_root(),
                 )
-            if is_latest_recap_change_question(text):
-                with builder.phase("latest_recap_context"):
-                    world_id = str(graph_envelope.get("world_id") or "eldyrwild")
-                    if world_id.startswith("world:"):
-                        world_id = world_id.removeprefix("world:")
-                    graph_revision_id = (
-                        str(graph_envelope.get("revision_id"))
-                        if graph_envelope.get("revision_id")
-                        else None
-                    )
-                    latest_recap_context = resolve_latest_recap_change_context(
-                        root=repo,
-                        world_id=world_id,
-                        campaign_id=campaign_id,
-                        graph_revision_id=graph_revision_id,
-                    )
-                    graph_envelope = {
-                        **graph_envelope,
-                        "latest_recap_change": latest_recap_context.model_dump(
-                            mode="json",
-                            by_alias=True,
-                        ),
-                    }
             span = builder.start_phase("surface_context_resolution")
             try:
                 resolution = resolve_agent_surface_context(
@@ -280,7 +253,6 @@ def process_live_query(
                 agent_thread_id=resolved_agent_thread_id,
                 turn_id=resolved_turn_id,
                 root=world_graph_root(),
-                corpus_root=repo,
                 conversation_history=normalized_history,
                 session_base=session_base if managed_world_packet is None else None,
                 hermes_session_pointer=hermes_session_pointer,
@@ -293,7 +265,7 @@ def process_live_query(
                 builder.finalize_and_log(status="error")
             raise
 
-    packet, _layout, _events, _jobs = load_session(session_base)
+    packet = load_session_packet(session_base)
 
     if query_backend not in LIVE_QUERY_BACKENDS:
         raise ValueError(f"unsupported query backend: {query_backend}")

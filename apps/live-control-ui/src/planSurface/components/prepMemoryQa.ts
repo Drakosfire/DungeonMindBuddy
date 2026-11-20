@@ -169,18 +169,6 @@ export function isConversationContext(grounding: HermesGraphGrounding | null | u
   return grounding?.state === "conversation_context";
 }
 
-/** S1 named-gap / admitted-recap partials are valid with zero graph claims. */
-export function hasNamedEvidenceGap(grounding: HermesGraphGrounding): boolean {
-  if (grounding.state !== "partial") return false;
-  const reasons = grounding.reason_codes ?? [];
-  return (
-    reasons.includes("named_gap")
-    || reasons.includes("latest_recap_memory_lag_disclosed")
-    || reasons.includes("admitted_recap_source_read")
-    || reasons.includes("hermes_agent_answer")
-  );
-}
-
 function hasVisibleEvidenceSupport(
   grounding: HermesGraphGrounding,
   citations: WorldGraphAnchorCitation[],
@@ -267,7 +255,6 @@ export function validateHermesGraphCitations(
     || (parsedGrounding.graph_reference_count ?? 0) > 0
     || (parsedGrounding.source_anchor_count ?? 0) > 0
   );
-  const namedGapOk = hasNamedEvidenceGap(parsedGrounding);
 
   if (validated.length === 0) {
     return {
@@ -275,7 +262,7 @@ export function validateHermesGraphCitations(
       citations: [],
       contractWarning: droppedCount > 0
         ? "One or more graph citations were dropped due to scope or revision mismatch."
-        : hasClaimLedgerSupport || namedGapOk
+        : hasClaimLedgerSupport
           ? null
           : "Hermes grounding contract error",
     };
@@ -295,7 +282,6 @@ export function hasGrounding(answer: LiveQueryResponse): boolean {
     const { citations, grounding } = validateHermesGraphCitations(answer.citations, answer.grounding);
     if (!grounding) return false;
     if (grounding.state !== "grounded" && grounding.state !== "partial") return false;
-    if (hasNamedEvidenceGap(grounding)) return true;
     return hasVisibleEvidenceSupport(grounding, citations, answer);
   }
 
@@ -324,13 +310,6 @@ export function answerHeading(answer: LiveQueryResponse): string {
           ? "Graph-grounded answer"
           : "Hermes grounding contract error";
       case "partial":
-        if (hasNamedEvidenceGap(validated.grounding)) {
-          const reasons = validated.grounding.reason_codes ?? [];
-          if (reasons.includes("hermes_agent_answer")) {
-            return "Hermes answer";
-          }
-          return "No Hermes answer";
-        }
         return hasSupport
           ? "Qualified graph answer"
           : "Hermes grounding contract error";
