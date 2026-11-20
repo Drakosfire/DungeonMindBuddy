@@ -7016,6 +7016,17 @@ def execute_agent_turn(
         raise AgentTurnServiceError(
             'This Plan request uses a retired execution contract. Refresh the Plan before sending again; no request was dispatched.',
             code='plan_execution_contract_retired',status_code=409,provider_dispatched=False)
+    if (
+        durable_turn is None
+        and request.graph_request.mode != "none"
+        and not _governed_graph_turn(request)
+    ):
+        raise AgentTurnServiceError(
+            "Fresh classic Graph turns are retired.",
+            code="legacy_agent_graph_turn_retired",
+            status_code=410,
+            provider_dispatched=False,
+        )
     native_surface_sources = ((request.surface.surface_id == "plan" and request.plan_context_policy is not None
         or _governed_build_turn(request)
         or request.surface.surface_id=='play' and _governed_graph_turn(request))
