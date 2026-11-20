@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from datetime import datetime
+from hashlib import sha256
+import json
+from threading import Lock
 from typing import Any
 from uuid import UUID
 
@@ -10,6 +14,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import ValidationError
+from pydantic_core import to_json
 
 from application_state.agent_conversation.types import (
     CompletedPlanAskPair,
@@ -386,8 +391,6 @@ def _turn_from_row(
     shared_turn = None
     root_error = None
     if shared_base:
-        from pydantic_core import to_json
-
         try:
             shared_turn = Turn.model_validate_json(to_json(fields))
         except ValidationError as exc:
@@ -893,6 +896,17 @@ def list_turn_page(
     before_sequence: int | None,
     lookahead: bool,
 ) -> tuple[list[TurnReadModel], bool]:
+    rows, references, proposals, more = _turn_page_inputs(
+        conn, world_id, conversation_id, limit=limit,
+        before_sequence=before_sequence, lookahead=lookahead,
+    )
+    return [
+        _turn_from_row(conn, row, references=references[row["turn_id"]], proposal_payloads=proposals)
+        for row in rows
+    ], more
+
+
+def _turn_page_inputs(conn, world_id, conversation_id, *, limit, before_sequence, lookahead):
     clauses = ["world_id = %s", "conversation_id = %s"]
     params: list[Any] = [world_id, conversation_id]
     if before_sequence is not None:
@@ -929,14 +943,74 @@ def list_turn_page(
             "WHERE world_id=%s AND action_id=ANY(%s)",
             (world_id, list(action_ids)),
         ).fetchall())
-    turns = [
-        _turn_from_row(
-            conn, row, references=references[row["turn_id"]],
-            proposal_payloads=proposal_payloads,
-        )
-        for row in reversed(page)
-    ]
-    return turns, len(rows) > limit
+    return tuple(reversed(page)), references, proposal_payloads, len(rows) > limit
+
+
+_BUILD_DIALOGUE_CACHE_LIMIT = 128
+_BUILD_DIALOGUE_VALUE_BYTES = 65_536
+_build_dialogue_cache: OrderedDict[bytes, bytes] = OrderedDict()
+_build_dialogue_lock = Lock()
+
+
+def _build_dialogue_item(turn):
+    envelope = turn.envelope if isinstance(turn, MixedCompletedTurnV1) else turn
+    completion = getattr(envelope, "completion", None)
+    collaboration = getattr(completion, "collaboration", None)
+    object_only = getattr(completion, "schema_", None) in {
+        "dmb_build_intentional_response_completion_v1",
+        "dmb_build_intentional_response_completion_v2",
+        "dmb_build_intentional_response_completion_v3",
+        "dmb_surface_native_completion_v1",
+    } and collaboration is not None
+    if envelope.status != "completed" or (not turn.assistant_text and not object_only):
+        return None
+    result = {
+        "turn_id": str(envelope.turn_id), "user": envelope.user_text, "assistant": turn.assistant_text,
+        "user_sha256": sha256(envelope.user_text.encode()).hexdigest(),
+        "assistant_sha256": sha256(turn.assistant_text.encode()).hexdigest(),
+    }
+    if object_only:
+        from .native_statement_input import digest
+        payload = collaboration.model_dump(mode="json")
+        result.update(collaboration=payload, collaboration_sha256=digest(payload))
+    return result
+
+
+def _cached_build_dialogue_item(conn, row, references, proposals):
+    completion = row["completion"]
+    execution = row["graph_context_execution"]
+    cacheable = (row["answer_composition_kind"] == "base" and row["status"] == "completed"
+                 and isinstance(completion, dict) and completion.get("schema") == "dmb_surface_native_completion_v1"
+                 and isinstance(execution, dict) and execution.get("schema") == "dmb_surface_native_execution_v1")
+    if not cacheable:
+        return _build_dialogue_item(_turn_from_row(conn, row, references=references, proposal_payloads=proposals))
+    # The underlying codec is pure for this completion family. Include every
+    # input, including Rules summary and the fresh typed provenance witnesses.
+    key = sha256(to_json((row, references), inf_nan_mode="constants")).digest()
+    with _build_dialogue_lock:
+        cached = _build_dialogue_cache.get(key)
+        if cached is not None:
+            _build_dialogue_cache.move_to_end(key)
+    if cached is not None:
+        return json.loads(cached)
+    item = _build_dialogue_item(_turn_from_row(conn, row, references=references, proposal_payloads=proposals))
+    encoded = to_json(item)
+    if len(encoded) <= _BUILD_DIALOGUE_VALUE_BYTES:
+        with _build_dialogue_lock:
+            _build_dialogue_cache[key] = encoded
+            _build_dialogue_cache.move_to_end(key)
+            if len(_build_dialogue_cache) > _BUILD_DIALOGUE_CACHE_LIMIT:
+                _build_dialogue_cache.popitem(last=False)
+    return item
+
+
+def list_build_dialogue(conn, world_id: str, conversation_id: UUID) -> list[dict[str, Any]]:
+    rows, references, proposals, _ = _turn_page_inputs(
+        conn, world_id, conversation_id, limit=6, before_sequence=None, lookahead=False,
+    )
+    return [item for row in rows if (item := _cached_build_dialogue_item(
+        conn, row, references[row["turn_id"]], proposals,
+    )) is not None]
 
 
 def get_retry_history_anchor(

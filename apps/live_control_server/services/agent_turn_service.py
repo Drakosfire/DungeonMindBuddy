@@ -1520,6 +1520,8 @@ PlanGraphResolver = Callable[
 class AgentTurnExecutionPersistencePort(Protocol):
     """Narrow SERVER-facing APP-STATE seam for guarded Graph execution."""
 
+    def list_build_dialogue(self, world_id: str, conversation_id: UUID) -> list[dict[str, Any]]: ...
+
     def accept_turn(self, submission: TurnSubmission, *, build_retry_capability: BuildWriteCapability | None = None) -> Turn: ...
 
     def claim_turn(
