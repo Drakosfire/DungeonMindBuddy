@@ -19,6 +19,7 @@ from typing import Annotated, Any, Callable, Mapping, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from application_state.agent_conversation import AgentConversationService
+from application_state.agent_conversation.context_trace import TracePromptReference, TraceProviderCall, TurnContextTraceV1
 from application_state.build_proposal.types import BuildWriteCapability
 from application_state.agent_conversation.native_writer import json_container_count as _json_node_count
 from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
@@ -1587,6 +1588,13 @@ class AgentTurnExecutionPersistencePort(Protocol):
         prepared_decision_json: str | None = None,
     ) -> tuple[Turn, bool]: ...
 
+    def authorize_build_opening_with_prompt(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, provider_attempt_event: Any,
+        prepared_decision_json: str, trace_id: UUID, prompt: TracePromptReference,
+        authorized: TraceProviderCall,
+    ) -> tuple[Turn, bool, TurnContextTraceV1]: ...
+
     def complete_turn(self, result: TurnResult) -> Turn: ...
 
     def fail_turn(self, failure: TurnFailure, *, interrupted: bool = False) -> Turn: ...
@@ -1669,7 +1677,8 @@ class _ClaimFence:
     def turn(self) -> Turn:
         return self.renewer.current_turn()
 
-    def append(self, method_name: str, event_name: str, event: Any, **extras: Any) -> tuple[Turn, bool]:
+    def append(self, method_name: str, event_name: str, event: Any, **extras: Any
+               ) -> tuple[Turn, bool] | tuple[Turn, bool, TurnContextTraceV1]:
         phase_name = {
             "authorize_provider_attempt_v2": "first_jev_provider_authorization_append",
             "authorize_build_opening_with_prompt": "first_jev_provider_authorization_append",
@@ -1683,7 +1692,8 @@ class _ClaimFence:
             with self.trace.measure_host_work("execution_append") if self.trace is not None else nullcontext():
                 return self.commit(method_name, **{event_name: event}, **extras)
 
-    def commit(self, method_name: str, **fields: Any) -> tuple[Turn, bool]:
+    def commit(self, method_name: str, **fields: Any
+               ) -> tuple[Turn, bool] | tuple[Turn, bool, TurnContextTraceV1]:
         """One moving claim owner for controller and source-navigation writes."""
         with self.renewer._lock:
             if self.renewer._error is not None:
