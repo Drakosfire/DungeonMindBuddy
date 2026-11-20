@@ -1856,6 +1856,19 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
         assert isinstance(adapter.native_query, NativeBuildQueryPendingV1)
         assert not any(isinstance(event, NativeBuildQuerySettledV1)
                        for event in adapter.turn.graph_context_execution.events)
+        from application_state.agent_conversation.context_trace import TracePromptReference, TraceProviderCall
+        from apps.live_control_server.services.agent_prompt_evidence import read_prompt
+
+        turn = adapter.turn
+        (trace,) = adapter.service.list_context_trace_attempts(world_id=turn.world_id, turn_id=turn.turn_id)
+        (prompt,) = [item for item in trace.observations if isinstance(item, TracePromptReference)]
+        authorized = trace.observations[prompt.sequence + 1]
+        assert isinstance(authorized, TraceProviderCall)
+        assert authorized.outcome == "authorized"
+        assert authorized.provider_attempt_id == prompt.provider_attempt_id
+        actual = adapter._prepared_build_decision
+        assert read_prompt(prompt).encode("utf-8") == actual.body
+        assert prompt.payload_sha256 == actual.body_sha256
         first_wire.set()
 
     if mode == "by-name":
@@ -2604,6 +2617,33 @@ def test_deferred_build_recovers_same_id_after_accept_before_claim(lane, tmp_pat
     assert sum(isinstance(event, NativeBuildQuerySettledV1) for event in events) == 1
     assert sum(isinstance(event, t.ProviderAttemptAuthorizedEventV5)
                and event.context_phase == "select" for event in events) == 1
+
+
+def test_deferred_build_opening_prompt_failure_rolls_back_authorization(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation import context_trace_store
+    from application_state.agent_conversation.context_trace import TracePromptReference
+
+    save_trace = context_trace_store._save_trace
+    attempted = []
+
+    def fail_after_save(conn, trace):
+        save_trace(conn, trace)
+        if not attempted and any(isinstance(item, TracePromptReference) for item in trace.observations):
+            attempted.append(trace)
+            raise RuntimeError("interrupted after writing the opening prompt trace")
+
+    monkeypatch.setattr(context_trace_store, "_save_trace", fail_after_save)
+    _fresh_case(lane, tmp_path, monkeypatch, "initial_context",
+                False, False, False, saved_statblock="by-name")
+    (failed_trace,) = attempted
+    app = AgentConversationService()
+    turn = app.inspect_turn(world_id=failed_trace.world_id, turn_id=failed_trace.turn_id)
+    assert not any(isinstance(item, t.ProviderAttemptAuthorizedEventV5)
+                   for item in turn.graph_context_execution.events)
+    traces = app.list_context_trace_attempts(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert traces
+    assert not any(isinstance(item, TracePromptReference)
+                   for trace in traces for item in trace.observations)
 
 
 def test_deferred_build_provider_failure_does_not_wait_for_graph(lane, tmp_path, monkeypatch):

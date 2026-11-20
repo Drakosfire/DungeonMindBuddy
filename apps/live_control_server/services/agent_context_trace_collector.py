@@ -131,19 +131,8 @@ class ContextTraceCollector:
 
     def capture_prompt(self, view: Mapping[str, Any], authorization: Any, *, observe_authorization: bool = True) -> None:
         """Commit an exact request reference or refuse dispatch; never best effort."""
-        from .agent_prompt_evidence import store_prompt
         with self.fence.renewer._lock:
-            measure = getattr(getattr(self.fence, "trace", None), "phase_before_first_jev", nullcontext)
-            with measure("first_jev_prompt_evidence_store"):
-                evidence_id = store_prompt(view["payloadJson"], digest=view["payloadSha256"], size=view["payloadUtf8Bytes"])
-            observation = _OBSERVATION.validate_python({
-                "kind": "prompt_reference", "sequence": len(self.trace.observations),
-                "elapsed_ms": self.elapsed_ms, "evidence_id": evidence_id,
-                "provider_attempt_id": authorization.provider_attempt_id,
-                "provider": authorization.provider, "model": authorization.model,
-                "api_mode": authorization.api_mode, "serializer_version": authorization.serializer_version,
-                "payload_sha256": view["payloadSha256"], "payload_utf8_bytes": view["payloadUtf8Bytes"],
-            })
+            observation = self._prompt_reference(view, authorization)
             self.trace = self._append_observation_locked(observation)
             if observation not in self.trace.observations:
                 raise ApplicationStateValidationError("prompt reference was not durably captured")
@@ -155,6 +144,37 @@ class ContextTraceCollector:
             self.observe({"kind": "provider_call", "outcome": "authorized",
                 "provider_attempt_id": authorization.provider_attempt_id,
                 "provider": authorization.provider, "model": authorization.model})
+
+    def _prompt_reference(self, view, authorization):
+        from .agent_prompt_evidence import store_prompt
+        measure = getattr(getattr(self.fence, "trace", None), "phase_before_first_jev", nullcontext)
+        with measure("first_jev_prompt_evidence_store"):
+            evidence_id = store_prompt(view["payloadJson"], digest=view["payloadSha256"], size=view["payloadUtf8Bytes"])
+        return _OBSERVATION.validate_python({
+            "kind": "prompt_reference", "sequence": len(self.trace.observations),
+            "elapsed_ms": self.elapsed_ms, "evidence_id": evidence_id,
+            "provider_attempt_id": authorization.provider_attempt_id,
+            "provider": authorization.provider, "model": authorization.model,
+            "api_mode": authorization.api_mode, "serializer_version": authorization.serializer_version,
+            "payload_sha256": view["payloadSha256"], "payload_utf8_bytes": view["payloadUtf8Bytes"],
+        })
+
+    def authorize_build_opening(self, view, authorization):
+        with self.fence.renewer._lock:
+            prompt = self._prompt_reference(view, authorization)
+            authorized = _OBSERVATION.validate_python({
+                "kind": "provider_call", "sequence": prompt.sequence + 1,
+                "elapsed_ms": self.elapsed_ms, "outcome": "authorized",
+                "provider_attempt_id": authorization.provider_attempt_id,
+                "provider": authorization.provider, "model": authorization.model,
+            })
+            turn, fresh, trace = self.fence.append(
+                "authorize_build_opening_with_prompt", "provider_attempt_event", authorization,
+                prepared_decision_json=view["payloadJson"], trace_id=self.trace.trace_id,
+                prompt=prompt, authorized=authorized,
+            )
+            self.trace = trace
+            return turn, fresh
 
     def refresh_after_source_capture(self) -> None:
         """Atomic source receipt writes assign observation sequences in APP."""
