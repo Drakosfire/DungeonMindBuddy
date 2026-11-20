@@ -555,3 +555,28 @@ def test_corrupt_database_metadata_fails_before_native_validation_without_privat
     assert error.value.detail == "Stored World metadata is invalid."
     assert "subject:" not in error.value.detail
     assert "private-native" not in error.value.detail
+
+
+@pytest.mark.parametrize(("missing_head", "expected_status"), [(True, 404), (False, 502)])
+def test_missing_or_non_native_head_does_not_write_binding(
+    root: Path, missing_head: bool, expected_status: int
+) -> None:
+    managed = _existing_unbound_world(root, name="Invalid Native Head")
+    authority = _Authority()
+    if missing_head:
+        authority.head = None
+    else:
+        authority.revision.graph_schema = "dm_union_graph_v6"
+    before = world_snapshot()
+
+    with pytest.raises(WorldGraphBindingError) as exc:
+        bind_native_graph(
+            managed.world_id,
+            native_world_id=NATIVE_ID,
+            expected_binding_version=0,
+            authority_validator=lambda _world_id: authority,
+        )
+
+    assert exc.value.status_code == expected_status
+    assert world_snapshot() == before
+    assert authority.get_revision_calls == ([] if missing_head else [(NATIVE_ID, "rev:head-1")])
