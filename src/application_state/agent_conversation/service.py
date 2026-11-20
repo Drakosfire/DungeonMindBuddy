@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from contextlib import nullcontext
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 from typing import TYPE_CHECKING
@@ -20,6 +21,7 @@ from application_state.agent_conversation.context_trace import (
 from application_state.agent_conversation.context_trace_store import (
     TurnContextTraceStore,
     append_source_passages_locked,
+    begin_context_trace_locked,
     close_context_trace_locked,
 )
 from application_state.agent_conversation.types import (
@@ -1332,7 +1334,62 @@ class AgentConversationService:
             )
         return receipt.turn
 
-    def claim_turn(
+    def claim_build_with_draft(self, world_id, conversation_id, turn_id, *,
+                               expected_revision, lease_seconds, draft):
+        """Commit the claimed attempt, its trace origin and exact working draft together."""
+        from .build_draft_context import BuildDraftContextRecordV1, native_build_action
+        from .native_context import is_semantic_build_input
+        from .types import BuildDraftContextCapturedV1
+
+        capture = None
+
+        def start_capture(conn, claimed):
+            nonlocal capture
+            execution = claimed.graph_context_execution
+            if (execution is None or native_build_action(execution) is None
+                    or not is_semantic_build_input(claimed.graph_context_receipt)
+                    or execution.events):
+                raise ApplicationStateValidationError("Atomic draft capture requires fresh ordinary Build admission")
+            trace = begin_context_trace_locked(
+                conn, world_id=claimed.world_id, conversation_id=claimed.conversation_id,
+                turn_id=claimed.turn_id, expected_revision=claimed.revision, attempt=claimed.attempt,
+                trace_id=uuid4(), started_at=datetime.now(UTC),
+            )
+            record = BuildDraftContextRecordV1(
+                record_id=uuid4(), turn_id=claimed.turn_id, conversation_id=claimed.conversation_id,
+                attempt=claimed.attempt, submitted_intent_fingerprint=claimed.submitted_intent_fingerprint_v2,
+                expected_pointer_revision=draft.expected_pointer_revision, snapshot=draft.snapshot,
+            )
+            if draft.conversation_id != claimed.conversation_id:
+                raise ApplicationStateValidationError("Working draft belongs to a different conversation")
+            event = BuildDraftContextCapturedV1(
+                event_id=uuid4(), sequence=0, kind="build_draft_context_captured_v1", record=record,
+            )
+            updated, fresh = self._append_graph_execution_event(
+                claimed.world_id, claimed.conversation_id, claimed.turn_id,
+                expected_revision=claimed.revision, expected_attempt=claimed.attempt,
+                event=event, duplicate_key="event_id", _connection=conn,
+            )
+            if not fresh:
+                raise ApplicationStateConflictError("Working draft capture was already committed")
+            capture = trace, record
+            return updated
+
+        claim = self._claim_turn(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            lease_seconds=lease_seconds, after_claim=start_capture,
+        )
+        return claim, capture
+
+    def claim_turn(self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+                   expected_revision: int, lease_seconds: int = DEFAULT_TURN_CLAIM_LEASE_SECONDS
+                   ) -> TurnClaimReceipt:
+        return self._claim_turn(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            lease_seconds=lease_seconds,
+        )
+
+    def _claim_turn(
         self,
         world_id: str,
         conversation_id: UUID,
@@ -1340,6 +1397,7 @@ class AgentConversationService:
         *,
         expected_revision: int,
         lease_seconds: int = DEFAULT_TURN_CLAIM_LEASE_SECONDS,
+        after_claim=None,
     ) -> TurnClaimReceipt:
         world_id = _world_id(world_id)
         _validate_turn_claim_lease(lease_seconds)
@@ -1521,6 +1579,8 @@ class AgentConversationService:
                     raise ApplicationStateConflictError(
                         "turn claim expired or changed while it was being acquired"
                     )
+                if after_claim is not None:
+                    claimed = after_claim(conn, claimed)
                 return TurnClaimReceipt(disposition="claimed", turn=claimed)
         if interrupted_after_dispatch:
             raise ApplicationStateConflictError(
@@ -1599,11 +1659,12 @@ class AgentConversationService:
         prepared_decision_json=None,
         native_writer_proof=None,
         opening_authorization=None,
+        _connection=None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
-        dsn = _ready_dsn()
         from .plan_authoring import lock_authoring_writer,validate_authoring_writer
-        with unit_of_work(dsn) as conn:
+        transaction = unit_of_work(_ready_dsn()) if _connection is None else nullcontext(_connection)
+        with transaction as conn:
             action=(lock_authoring_writer(conn,plan_authoring_reservation,world_id=world_id,
                 conversation_id=conversation_id,turn_id=turn_id) if plan_authoring_reservation is not None else None)
             turn = self._lock_execution_append_turn(conn, world_id, turn_id)

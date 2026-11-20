@@ -2194,13 +2194,24 @@ class _PolicyExecutionAdapter:
             list(receipt.assembled_input.dispatched_evidence_ref_ids),
         ))
         assert self.turn is not None
-        if self.trace is None:
-            claim = self.service.claim_turn(
-                self.turn.world_id, self.turn.conversation_id, self.turn.turn_id,
-                expected_revision=self.turn.revision, lease_seconds=120,
-            )
-        else:
-            with self.trace.phase("durable_turn_claim"):
+        from contextlib import nullcontext
+        from application_state.agent_conversation.native_context import is_semantic_build_input
+
+        capture = None
+        draft = self.request.build_draft_context
+        capture_with_claim = (
+            self._is_build_turn() and draft is not None and reviewed_admission is None
+            and self.request.build_authored_references is None
+            and is_semantic_build_input(self.turn.graph_context_receipt)
+            and not self.turn.graph_context_execution.events
+        )
+        with self.trace.phase("durable_turn_claim") if self.trace is not None else nullcontext():
+            if capture_with_claim:
+                claim, capture = self.service.claim_build_with_draft(
+                    self.turn.world_id, self.turn.conversation_id, self.turn.turn_id,
+                    expected_revision=self.turn.revision, lease_seconds=120, draft=draft,
+                )
+            else:
                 claim = self.service.claim_turn(
                     self.turn.world_id, self.turn.conversation_id, self.turn.turn_id,
                     expected_revision=self.turn.revision, lease_seconds=120,
@@ -2218,7 +2229,11 @@ class _PolicyExecutionAdapter:
         # Build requires capture; existing Plan rollout remains explicitly opt-in.
         if (plan_request_dialogue is not None or plan_jev_request is not None or self._is_build_turn() or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1"
                 or os.environ.get("DMB_AGENT_PROMPT_CAPTURE") == "1"):
-            self.context_capture = ContextTraceCollector(self.fence)
+            if capture is None:
+                self.context_capture = ContextTraceCollector(self.fence)
+            else:
+                initial_trace, self.build_draft_record = capture
+                self.context_capture = ContextTraceCollector(self.fence, initial_trace=initial_trace)
             if self.context_compaction_report is not None:
                 self.context_capture.compaction(self.context_compaction_report,
                                                graph_world_id=self.bootstrap.world_scope.world_id)

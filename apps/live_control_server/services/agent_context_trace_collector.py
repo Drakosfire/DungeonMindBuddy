@@ -51,7 +51,7 @@ class ContextTraceCollector:
     A known observation validation failure records incomplete capture instead.
     """
 
-    def __init__(self, fence: Any) -> None:
+    def __init__(self, fence: Any, *, initial_trace=None) -> None:
         self.fence = fence
         self.current_provider_materials: list[dict[str, Any]] = []
         self.started = monotonic()
@@ -62,7 +62,7 @@ class ContextTraceCollector:
             turn = fence.renewer._turn
             self.bound_context_receipt_sha256 = getattr(getattr(turn, "graph_context_receipt", None),
                                                        "context_receipt_sha256", None)
-            self.trace = fence.service.start_context_trace(
+            self.trace = initial_trace or fence.service.start_context_trace(
                 world_id=turn.world_id, conversation_id=turn.conversation_id,
                 turn_id=turn.turn_id, expected_revision=turn.revision,
                 attempt=turn.attempt, trace_id=uuid4(),
