@@ -209,7 +209,7 @@ def test_native_writer_requires_selected_ack_and_exact_sdk_capture(lane,surface)
 
 
 @pytest.mark.parametrize('surface',['build','plan'])
-def test_retained_completion_reuses_exact_native_body_citation_owner(lane,surface):
+def test_retained_completion_reuses_exact_native_body_citation_owner(lane,surface,monkeypatch):
     context,record,_=body_case(surface,lane)
     handle=model_frame(context,record)['native_body_evidence']['excerpts'][0]['excerpt_handle']
     stored,auth,proof=producing_case(context,record,answer([dict(kind='native_body_claim',
@@ -218,7 +218,25 @@ def test_retained_completion_reuses_exact_native_body_citation_owner(lane,surfac
     binding=t.CompletionBindingEventV1(kind='completion_binding',event_id=uuid4(),sequence=len(stored.events),
         provider_attempt_id=auth.provider_attempt_id,completion_sha256=t.canonical_sha256(completion),claim_graph_event_ids={})
     stored=execution(context.context_receipt_sha256,stored.policy,[*stored.events,binding])
+    from application_state.agent_conversation import native_writer
+
+    expected_prefix = execution(context.context_receipt_sha256, stored.policy, stored.events[:auth.sequence])
+    expected_frame = model_frame(context, expected_prefix)
+    project = native_writer._model_frame_from_validated_prefix
+    projected = []
+
+    def verify_owned_prefix(receipt, prefix, **options):
+        assert receipt == context and receipt is not context
+        assert prefix == expected_prefix
+        assert prefix.events[0] is not stored.events[0]
+        frame = project(receipt, prefix, **options)
+        assert frame == expected_frame
+        projected.append(frame)
+        return frame
+
+    monkeypatch.setattr(native_writer, "_model_frame_from_validated_prefix", verify_owned_prefix)
     t.validate_execution_completion(completion,context,stored,auth.provider_attempt_id,{})
+    assert projected == [expected_frame]
     changed=completion.model_copy(deep=True)
     changed.native_body_citations[0]=changed.native_body_citations[0].model_copy(update={'native_source_revision_id':'foreign'})
     event=binding.model_copy(update={'completion_sha256':t.canonical_sha256(changed)})

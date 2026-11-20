@@ -494,16 +494,16 @@ def verify_completion(completion, receipt, execution, authorization, **producing
 
 def validate_retained_completion(completion, receipt, execution, producer, bindings):
     """Validate stored native citations/binding; producing admission owns acceptance."""
-    from .native_execution import validate_context_binding
+    from .native_execution import _revalidate_context_binding
 
-    validate_context_binding(receipt, execution)
+    receipt, execution = _revalidate_context_binding(receipt, execution)
     _join_retained_completion(completion, receipt, execution, producer, bindings)
 
 
 def _join_retained_completion(completion, receipt, execution, producer, bindings):
     """Check the completion against an already validated context and execution."""
-    from .native_execution import SurfaceNativeExecutionV1, NATIVE_WRITER_TYPES
-    from .native_writer import model_frame, read_evidence_records
+    from .native_execution import NATIVE_WRITER_TYPES, _validate_owned_context_binding
+    from .native_writer import _model_frame_from_validated_prefix, read_evidence_records
     from .surface_evidence_answer import validate_authored_owners
 
     if isinstance(completion,(t.BuildAuthoringCompletionV1,t.BuildImagePreparationCompletionV1)):
@@ -526,9 +526,9 @@ def _join_retained_completion(completion, receipt, execution, producer, bindings
         raise ValueError('Retained native completion lacks its final acknowledged output')
     if isinstance(completion,(t.BuildAuthoringCompletionV1,t.BuildImagePreparationCompletionV1)):
         return
-    prefix=SurfaceNativeExecutionV1.model_validate_json(execution.model_copy(
-        update={'events':execution.events[:auth.sequence]}).model_dump_json(by_alias=True))
-    frame=model_frame(receipt,prefix)
+    prefix = execution.model_copy(update={'events': execution.events[:auth.sequence]})
+    _validate_owned_context_binding(receipt, prefix)
+    frame = _model_frame_from_validated_prefix(receipt, prefix)
     from .build_primary_context import records
     evidence=SimpleNamespace(**read_evidence_records(prefix,frame),
         saved_sections=records(prefix,receipt.work_context.source_basis) if completion.surface_id=='build' else ())
