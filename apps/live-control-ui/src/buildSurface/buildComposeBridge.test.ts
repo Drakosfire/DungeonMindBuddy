@@ -536,8 +536,18 @@ it('applies canonical Read Aloud and GM Note blocks and reopens their saved Mark
 
     const reopened = markdownToTiptapDoc(saved);
     expect(reopened.diagnostics).toEqual([]);
-    expect(reopened.doc.content?.filter(node => node.type === 'callout').map(node => node.attrs))
-      .toEqual([{ kind: 'read-aloud', label: 'Crossing' }, { kind: 'gm-note', label: 'Pause' }]);
+    expect(reopened.doc.content?.filter(node => node.type === 'callout')).toEqual([
+      {
+        type: 'callout',
+        attrs: { kind: 'read-aloud', label: 'Crossing' },
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Three lanterns flicker above the boards.' }] }],
+      },
+      {
+        type: 'callout',
+        attrs: { kind: 'gm-note', label: 'Pause' },
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Wait for the players to choose.' }] }],
+      },
+    ]);
     expect(tiptapJsonToSemanticMarkdown(reopened.doc)).toBe(saved);
   } finally {
     editor.destroy();
