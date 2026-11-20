@@ -9,6 +9,7 @@ import { AppChromeWorldGraphStatus } from "./AppChromeWorldGraphStatus";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { WorldSelector } from "../selectedWorld/WorldSelector";
 import { worldScopedSurfaceHref } from "../selectedWorld/worldSelectionNavigation";
+import { AppearanceControl } from "../ui/AppearanceControl";
 import "./CompactAppNavigation.css";
 
 export function CompactAppNavigation({ activeRoute, localOnly = false, primaryActionsRef }: { activeRoute: AppRouteKey; localOnly?: boolean; primaryActionsRef?: (element: HTMLDivElement | null) => void }) {
@@ -66,6 +67,7 @@ export function CompactAppNavigation({ activeRoute, localOnly = false, primaryAc
     {primaryActionsRef && <div className="app-nav-primary-actions" ref={primaryActionsRef} />}
     {tour?<button className="app-nav-tour" type="button" onClick={()=>{setExpanded(false);if(tour.entryLabel==='Start tour'||tour.entryLabel==='Resume tour')tour.teach();else tour.open();}}>{tour.entryLabel}</button>:null}
     {!localOnly ? <div className="app-nav-world-context">{campaignTrash ? <WorkspaceTrashControl campaignId={campaignTrash} current={null} onTrashed={() => undefined} /> : world.kind === "managed" ? <WorkspaceTrashControl worldId={world.worldId} current={null} onTrashed={() => undefined} /> : null}<WorldSelector compact creationPath={activeRoute === "graph" ? "/graph" : activeRoute === "index" ? "/" : "/plan"} /><AppChromeWorldGraphStatus activeRoute={activeRoute} /></div> : null}
+    <AppearanceControl key={activeRoute} />
     {auth.status === "authenticated" && <details>
       <summary aria-label={`Account: ${auth.displayName ?? auth.subject}`}>
         {auth.displayName ?? auth.subject}
