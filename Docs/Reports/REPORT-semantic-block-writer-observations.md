@@ -45,3 +45,46 @@ returned HTTP 409 because reviewed Graph publication is pending.
 
 The [benchmark suite](../../evals/semantic-block-authoring-benchmark.md) defines
 the outstanding acceptance cases. See [writer PR #4277](https://github.com/Drakosfire/DungeonMindBuddy/pull/4277) for the shared contract and Build regression.
+
+## Hosted semantic block verification
+
+Observed November 20, 2026 on Buddy release `1c19c89e1403a2a584c7e60ad1959f7ffd7935e1`. The Build and Plan runs used synthetic Boardwalk pages in Buddy Cloud Pilot. The matched writer samples and their limits are recorded in [#4279](https://github.com/Drakosfire/DungeonMindBuddy/pull/4279).
+
+| Case | Hosted observation | Status |
+| --- | --- | --- |
+| B01 | Both canonical blocks appeared in the review and survived Save and reload. The original Arrival paragraph survived, and the private cue stayed separate. | One persistence pass. Full fixture, placement scoring, and repetitions pending. |
+| P01 | The original wording returned both markers in chat. A fresh conversation with an explicit saved-Plan edit request produced both blocks in an inline suggestion. Both survived Save and reopening via the World picker. Departure text remained intact. | One persistence pass, placement failure. Blocks landed after Departure instead of under Arrival. |
+| PL01 and PL02 | Plan-to-Play preparation reported that reviewed Graph publication is pending and disabled Start session from Plan. | No hosted Play run created. |
+| G01 | Pilot Graph unavailable. | Object selection and chat-only check pending. |
+| H01 | Hosted Home had no conversation composer. | No eligible writer in the observed state. |
+| I01 | Hosted Ingest offered Open Build as its authoring entry point. | No proposal composer in the observed Ingest state. Retained-source control pending. |
+| C01 | Combat Tracker reported pending Graph publication and had no open encounter. | Encounter destination and no-mutation checks pending. |
+
+Plan's direct reload returned `owned_world_access_required`. Navigating through the top-level Plan route and choosing Buddy Cloud Pilot reopened the saved document. The two Plan edit-history reads independently returned HTTP 403 with `hosted_world_route_policy_unverified`. That response does not establish why placement fell outside Arrival.
+
+The focused mounted Plan editor control passed. It staged, reviewed, saved,
+and reloaded a canned canonical Read Aloud edit. This control exercised the
+editor integration and did not test hosted model placement.
+
+### Plan placement reproduction
+
+On a fresh hosted conversation with the two-section fixture restored, the
+browser caret was at offset 38, the last character boundary of the Arrival
+paragraph. The retained proposal carried editor anchor and head 81, but its
+resolved insertion was position 119 at root boundary 5, after Departure.
+The preview showed both blocks at that boundary. Dismiss removed the
+suggestion and retained the saved Arrival and Departure paragraphs.
+
+The Plan decision packet already distinguishes the captured caret, named
+section boundaries, and page end. The stored coordinates rule out loss of
+the original selection and a later save-time relocation. A placement change
+needs to preserve the versioned decision packet used to verify older turns.
+
+### Build controls
+
+- **B03:** Hosted Build proposed exactly two prose paragraphs with no callout.
+  The preview appeared before Arrival where the intended location was after
+  the Arrival paragraph. Dismiss preserved the saved blocks and save status.
+- **X01:** Hosted Build responded to the brainstorming request in chat and
+  showed no page suggestion. The rendered saved blocks and save time matched
+  their initial state. Server write-reservation records were not checked.
