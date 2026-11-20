@@ -534,8 +534,8 @@ def _read_assertions(context, identities, *, matches=None):
     # Nothing survives this selected batch; unavailable reads/errors are not
     # cached. Every assertion still passes its own Core and closure checks.
     verified_spans = {}
-    for identity in identities:
-        result = EvidenceReadService().get_assertion_evidence(read_context, identity)
+    evidence_results = EvidenceReadService().get_assertions_evidence(read_context, identities)
+    for identity, result in zip(identities, evidence_results, strict=True):
         if (result.identity.space_id, result.identity.revision_id) != (authority.native_world_id, authority.revision_id):
             raise ValueError('Core assertion read changed pinned authority')
         if not result.available or result.completeness.status != 'complete' or result.assertion is None:

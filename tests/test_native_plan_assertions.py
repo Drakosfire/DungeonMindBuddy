@@ -280,7 +280,7 @@ def test_support_materialization_retries_unavailable_without_skipping_assertion_
     context, _ = query(lane)
     target = lane.meta.evidence_ref_ids[0]
     original = native.open_admitted_native_text
-    check = native.EvidenceReadService.get_assertion_evidence
+    check = native.EvidenceReadService.get_assertions_evidence
     opens = Counter()
     checked = []
     def unavailable_once(access, ref):
@@ -288,14 +288,14 @@ def test_support_materialization_retries_unavailable_without_skipping_assertion_
         if ref == target and opens[ref] == 1:
             return NativeTextSourceAccessV1(status='unavailable')
         return original(access, ref)
-    def checked_assertion(service, read_context, identity):
-        checked.append(identity)
-        return check(service, read_context, identity)
+    def checked_assertions(service, read_context, identities):
+        checked.append(tuple(identities))
+        return check(service, read_context, identities)
     monkeypatch.setattr(native, 'open_admitted_native_text', unavailable_once)
-    monkeypatch.setattr(native.EvidenceReadService, 'get_assertion_evidence', checked_assertion)
+    monkeypatch.setattr(native.EvidenceReadService, 'get_assertions_evidence', checked_assertions)
     authorization = grant(context)
     reads, missing = read_selected(context, authorization, GM)
-    assert checked == list(authorization.assertion_ids)
+    assert checked == [tuple(authorization.assertion_ids)]
     assert len(missing) == 1 and reads and opens[target] == 2
     assert tuple(row.assertion.assertion_id for row in reads) == tuple(
         identity for identity in authorization.assertion_ids if identity not in missing)
