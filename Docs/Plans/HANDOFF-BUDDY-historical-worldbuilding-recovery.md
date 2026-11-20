@@ -145,10 +145,13 @@ evidence review and expected-head authorized merge are required.
 ## Implementation checkpoint
 
 Pure original-plan authentication and typed effect/evidence reconstruction are
-implemented in the new helper. Working owning-file diagnostic:61pass,17retained
+implemented in the new helper. Working owning-file diagnostic:73pass,17retained
 warnings; changed helper/test Ruff and diff checks pass. This includes genuine
 create/bind/defer/reject/observation/governs recipes, independently signed
-inconsistent crosslinks and operation-wide evidence collisions. Full terminal
+inconsistent crosslinks, candidate-kind ownership and operation-wide evidence
+collisions. Complete typed-mapping output matches the original producer for
+create/bind/alias/defer/reject/observation/governs recipes; this is not yet complete
+terminal candidate/review equality. Full terminal
 candidate/review equality, bare SQL, mounted owner/binding integration and prepare
 retirement remain pending. Current routes have not changed in this checkpoint.
 This is draft groundwork, not final qualification, merge or deployment acceptance.

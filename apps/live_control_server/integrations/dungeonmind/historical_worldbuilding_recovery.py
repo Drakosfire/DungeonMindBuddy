@@ -118,6 +118,19 @@ def authenticate_original_plan(plan: WorldbuildingWritePlanResponse) -> dict[str
         partition = rejected if disposition == "reject" else accepted
         if (disposition == "defer" and ids) or any(item not in partition for item in ids):
             raise _invalid("decision/assertion partition")
+        kind = decision["candidate_kind"]
+        if kind == "edge" and disposition != "defer":
+            if (len(ids) != 1 or partition[ids[0]]["assertion_kind"] != "edge"
+                    or not isinstance(partition[ids[0]]["value"], dict)
+                    or partition[ids[0]]["value"].get("extract_edge_id") != identifier):
+                raise _invalid("edge decision/effect ownership")
+        if kind == "node" and disposition == "reject":
+            if (len(ids) != 1 or rejected[ids[0]]["assertion_kind"] != "node"
+                    or rejected[ids[0]]["subject_node_id"] != identifier):
+                raise _invalid("rejected node decision/effect ownership")
+        if kind == "source_observation" or disposition == "bind_existing":
+            if any(partition[item]["assertion_kind"] not in {"attribute", "alias", "evidence_ref"} for item in ids):
+                raise _invalid("support-only decision/effect ownership")
         if disposition == "create_new" and (len(ids) != 1 or accepted[ids[0]]["assertion_kind"] != "node"):
             raise _invalid("create-new node assertion coverage")
         if decision["candidate_kind"] == "node" and disposition in {"create_new", "bind_existing"}:
