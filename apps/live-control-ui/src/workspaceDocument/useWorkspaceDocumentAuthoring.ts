@@ -46,6 +46,8 @@ import {
 export type WorkspaceDocumentAuthoringStatus = WorkspaceDocumentAuthoringPhase;
 
 export interface UseWorkspaceDocumentAuthoringArgs {
+  /** Authorized editor snapshot for the first open of this document. */
+  initialSnapshot?: WorkspaceDocumentSnapshot;
   documentId: string;
   surface: WorkspaceDocumentLocalSurface;
   kind: WorkspaceDocumentLocalKind;
@@ -252,7 +254,8 @@ export function useWorkspaceDocumentAuthoring(
     void draftWriter.write(next,()=>localStateRef.current===next).catch(()=>{});
   },[draftWriter]);
 
-  const openFromSnapshot = useCallback(async (options?: { clearLocalFirst?: boolean }) => {
+  const initialSnapshot = useRef(args.initialSnapshot);
+  const openFromSnapshot = useCallback(async (options?: { clearLocalFirst?: boolean; useInitialSnapshot?: boolean }) => {
     dispatch({ type: options?.clearLocalFirst ? "DISCARD_STARTED" : "OPEN_STARTED" });
     saveGenerationRef.current += 1;
     verificationGenerationRef.current += 1;
@@ -264,7 +267,12 @@ export function useWorkspaceDocumentAuthoring(
         const generation=editorMutationGenerationRef.current;
         await draftWriter.clear(()=>openGeneration===openGenerationRef.current && generation===editorMutationGenerationRef.current && requestedDocument.current===args.documentId);
       }
-      const nextSnapshot = await getWorkspaceDocumentSnapshot(args.documentId);
+      if (openGeneration !== openGenerationRef.current || requestedDocument.current !== args.documentId || !recoveryMounted.current) return;
+      const provided = options?.useInitialSnapshot ? initialSnapshot.current : undefined;
+      initialSnapshot.current = undefined;
+      const nextSnapshot = provided?.record.document_id === args.documentId
+        ? provided
+        : await getWorkspaceDocumentSnapshot(args.documentId);
       if (openGeneration !== openGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
       const admittedRaw = storage.getItem(workspaceDocumentStorageKey(args.documentId));
       if(options?.clearLocalFirst && admittedRaw!==null)throw new Error("Another tab wrote a draft during discard. Its copy was kept; reopen the page.");
@@ -333,7 +341,7 @@ export function useWorkspaceDocumentAuthoring(
   }, [args.documentId, args.kind, args.surface, dispatch, emptyMarkdownFallback, storage,draftWriter]);
 
   useEffect(() => {
-    void openFromSnapshot();
+    void openFromSnapshot({ useInitialSnapshot: true });
   }, [openFromSnapshot]);
 
   const markDirty = useCallback(() => {

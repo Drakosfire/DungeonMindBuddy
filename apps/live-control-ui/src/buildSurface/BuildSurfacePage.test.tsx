@@ -495,6 +495,8 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expectBuildSaveState("saved");
     });
+    expect(liveApi.getWorkspaceDocumentSnapshot).toHaveBeenCalledTimes(1);
+    expect(liveApi.getCommittedPageSnapshot).not.toHaveBeenCalled();
   });
 
   it("follows browser back/forward documentId changes", async () => {
@@ -680,7 +682,7 @@ describe("BuildSurfacePage", () => {
       const { unmount } = renderBuildPage();
       expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
       await waitFor(() => expect(screen.getByTestId("build-graph-object-context")).toHaveTextContent("Caelynn"));
-      expect(liveApi.getCommittedPageSnapshot).toHaveBeenCalledWith(DOC_ID);
+      expect(liveApi.getWorkspaceDocumentSnapshot).toHaveBeenCalledWith(DOC_ID);
       expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
       const params = new URLSearchParams(window.location.search);
       expect(params.get("documentId")).toBe(DOC_ID);
