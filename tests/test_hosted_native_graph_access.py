@@ -3371,6 +3371,16 @@ def test_hosted_ingest_candidate_projection_is_owned_and_exact(hosted, monkeypat
     assert result.json() == {"runId": "recap-run", "managedWorldId": "managed"}
     assert calls == [("recap-run", "managed")]
 
+    def transfer_while_serializing(self, *, mode, by_alias):
+        world = hosted.records["managed"]
+        hosted.records["managed"] = world.model_copy(update={"owner_subject": OTHER_OWNER})
+        return {"sourceProse": "Synthetic text withheld after transfer."}
+
+    monkeypatch.setattr(SavedCandidate, "model_dump", transfer_while_serializing)
+    revoked = hosted.client.request("GET", path)
+    assert revoked.status_code == 403, revoked.text
+    assert "sourceProse" not in revoked.json()
+
 
 def test_hosted_combat_lists_and_reopens_only_owned_encounters(hosted, application_state_dsn, monkeypatch):
     from application_state.combat_encounters.service import create_encounter

@@ -74,10 +74,12 @@ def get_extraction_run_candidate_projection(
             status_code=exc.status_code,
             detail={"code": exc.code, "message": str(exc)},
         ) from exc
-    return JSONResponse(
+    response = JSONResponse(
         result.model_dump(mode="json", by_alias=True),
         headers={"Cache-Control": "no-store"},
     )
+    require_saved_recap_access(request, managed)
+    return response
 
 
 @router.get("/extraction-runs/{run_id}/build-context")
