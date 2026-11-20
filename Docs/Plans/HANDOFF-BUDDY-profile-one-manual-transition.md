@@ -1,6 +1,6 @@
 # Explicit profile1 to manual-profile4 compatibility
 
-ACTIVE under the operator's full-lane implementation/review/merge authority.
+COMPLETE under the operator's full-lane implementation/review/merge authority.
 Owner MIND, independent reviewer Hubble. Pinned base
 663718879553dc535df8b94a62c4a3b4ab0da5ec, branch
 codex/v10-profile-one-manual-transition, existing task Buddy checkout.
@@ -76,3 +76,35 @@ Working-source owning diagnostic54 passed/1 existing Pydantic schema warning in
 32903 disposable DBs. This is not yet independent review, CI or exact committed
 head acceptance. All evidence is retained under the named task scratch; no
 serving/live data/config/provider changes or frozen benchmark rerun occurred.
+
+
+## Accepted exact head and current continuation
+
+PR4171 merged5707aa2f0328718d736c92c028a90deed2da3dc7 from reviewed
+2a9c2c5f335d15427dab52689ed3b4d23e199409. Independent Hubble SOURCE PASS and
+bounded local qualification ACCEPTED, posted review5985357181. Exact committed
+head56 owning passed (52 transition,2 hosted,2 FirstWorld);315 auth-app and
+scoped Ruff/diff passed. Same-head/clean recorded after each step in
+scratch/v9-buddy/v10-profile-one-manual-transition/exact-qualification.json.
+Reviewer inspected raw results and source; no independent DB execution claimed.
+Exact-head CI44641798140 rules-only runtime and44641798126 classification both
+completed successfully. Current main re-fetched unchanged before merge.
+
+Post-merge settlement is a single-file documentation slice on
+codex/v10-profile-one-acceptance, based5707aa2f0328718d736c92c028a90deed2da3dc7.
+No runtime/test/dependency input differs from the accepted implementation.
+Independent delta review and diff/input-equivalence checks govern this settlement;
+no repeated runtime tests or new deployed claim is implied by prose changes.
+
+Manual authoring still waits for Core's separately pinned atomic source-authorized
+facts/aliases capability, then exact dependency adoption, full Buddy backend/UI
+and route retirement. Core design is pinned0c6198e581ab41b135a21915b6b5f0bcb4274dbd
+on codex/v10-governed-native-source-publication; implementation/acceptance remains
+separate. Original N3a gatebdab1ab12 remains retained, not silently bypassed.
+Explicit manual-profile enablement can now cover1/2/3; no World automatically
+upgraded. Elderwyld live remains2; serving primary/fallback compatibility, rollback
+and V11 acceptance remain outstanding. Full goal stays active.
+
+No new worktree/environment, data/config/serving/provider/baseline changes or
+filesystem deletion. MIND retains the named checkout/cache/evidence for this
+active goal; follow approved process/mount/dirty/unique-data cleanup checks later.
