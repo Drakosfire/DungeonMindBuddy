@@ -133,9 +133,17 @@ focused history/hosted41pass; an earlier two-file owning snapshot451pass with no
 failure/error/skip (predates the last four parent-decoder regressions). These are
 not final exact-source qualification. Changed runtime/commit-test Ruff passes;
 hosted test file retains11F811 failures reproduced on the exact base.
-Real Core PostgreSQL recovery/withdrawal/descendant proof, final frozen hosted/
-build/canonical verification, full preservation and independent acceptance remain
-pending. No baseline rerun or deployment; ACTIVE, draft, not merge-ready.
+Working SQL matrix now passes3cases: actual typed-V3 publication, later head,
+fixture-only consistent catalog withdrawal, original once-signed expired packet,
+then fresh bare recovery twice; absent receipt and corrupt child fail closed.
+All APP/Core rows are count-and-hash checked, and APP sources plus Core mutable
+artifact/head/writer access are tripwired. Three uniquely owned databases reached
+migration0023, each with zero clients before drop and verified absent afterward.
+This is a local historical publication witness with the inherited admitted-span
+presentation/context stubs; hosted managed authorization is proved separately.
+The separate parent-decoder failure matrix remains unit/composition coverage,
+not a claimed SQL-specific storage race. Final frozen hosted/build/canonical,
+owning/preservation contracts and independent acceptance remain pending. No baseline rerun or deployment; ACTIVE, draft, not merge-ready.
 
 ## Remaining work and resources
 
