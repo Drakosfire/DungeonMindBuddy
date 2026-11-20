@@ -122,18 +122,12 @@ describe("RecapGraphModule", () => {
     vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
       records: [artifactRecord(23), artifactRecord(24)],
     });
-    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({
-      ...session23WorldGraphRecapFixture,
-      sessionId: "session-24",
-    });
+    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection");
 
     render(<RecapGraphModule context={context} />);
 
-    await waitFor(() => {
-      expect(postRecap).toHaveBeenCalledWith(
-        expect.objectContaining({ focus: expect.objectContaining({ sessionId: "session-24" }) }),
-      );
-    });
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Focus session" })).toHaveValue("session-24"));
+    expect(postRecap).not.toHaveBeenCalled();
   });
 
   it("succeeds when recap memory exists but preview union is absent", async () => {
@@ -157,7 +151,7 @@ describe("RecapGraphModule", () => {
     );
   });
 
-  it("uses campaign-specific session selection without manifest fields in graph request", async () => {
+  it("uses campaign-specific session selection without a legacy graph request", async () => {
     window.history.replaceState({}, "", "/plan?tool=recap&session=session-1&campaign=longmont-c1");
     vi.spyOn(liveApi, "getRecapArtifacts").mockImplementation(async (campaignId) => {
       if (campaignId === "longmont-c1") {
@@ -165,21 +159,12 @@ describe("RecapGraphModule", () => {
       }
       return { records: [] };
     });
-    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({
-      ...session23WorldGraphRecapFixture,
-      campaignId: "longmont-c1",
-      sessionId: "session-1",
-    });
+    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection");
 
     render(<RecapGraphModule context={context} />);
 
-    await waitFor(() => {
-      expect(postRecap).toHaveBeenCalledWith(
-        expect.objectContaining({ campaignId: "longmont-c1", focus: expect.objectContaining({ sessionId: "session-1" }) }),
-      );
-    });
-    const body = postRecap.mock.calls[0]?.[0];
-    expect(body).not.toHaveProperty("revisionPin");
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Focus session" })).toHaveValue("session-1"));
+    expect(postRecap).not.toHaveBeenCalled();
   });
 
   it("keeps World lens URL state when recap selection is synchronized on Ingest", async () => {
@@ -310,21 +295,12 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
       records: [artifactRecord(26), artifactRecord(27)],
     });
-    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({
-      ...session23WorldGraphRecapFixture,
-      sessionId: "session-27",
-    });
+    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection");
 
     render(<RecapGraphModule context={context} />);
 
-    await waitFor(() => {
-      expect(postRecap).toHaveBeenCalledWith(
-        expect.objectContaining({
-          campaignId: "longmont-c2",
-          focus: expect.objectContaining({ sessionId: "session-27" }),
-        }),
-      );
-    });
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Focus session" })).toHaveValue("session-27"));
+    expect(postRecap).not.toHaveBeenCalled();
     expect(window.location.pathname).toBe("/ingest");
     expect(window.location.search).toContain("session=session-27");
     expect(window.location.search).not.toMatch(/longmont-c2:27/);
@@ -335,20 +311,12 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
       records: [artifactRecord(27)],
     });
-    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({
-      ...session23WorldGraphRecapFixture,
-      sessionId: "session-27",
-    });
+    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection");
 
     render(<RecapGraphModule context={context} />);
 
-    await waitFor(() => {
-      expect(postRecap).toHaveBeenCalledWith(
-        expect.objectContaining({
-          focus: expect.objectContaining({ sessionId: "session-27" }),
-        }),
-      );
-    });
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Focus session" })).toHaveValue("session-27"));
+    expect(postRecap).not.toHaveBeenCalled();
     expect(window.location.search).toContain("session=session-27");
     expect(window.location.search).not.toMatch(/longmont-c2:27/);
   });
