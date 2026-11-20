@@ -1,10 +1,10 @@
 .conversation-dock {
-  --conversation-dock-background: var(--ui-background-app, #12141a);
-  --conversation-dock-chat-background: var(--ui-background-chrome, #171d29);
-  --conversation-dock-foreground: var(--ui-text-primary, #e8eaef);
-  --conversation-dock-muted: var(--ui-text-secondary, #b8c0ce);
-  --conversation-dock-border: var(--ui-border-subtle, #343d4d);
-  --conversation-dock-color-scheme: var(--ui-color-scheme, dark);
+  --conversation-dock-background: var(--ui-background-app);
+  --conversation-dock-chat-background: var(--ui-background-chrome);
+  --conversation-dock-foreground: var(--ui-text-primary);
+  --conversation-dock-muted: var(--ui-text-secondary);
+  --conversation-dock-border: var(--ui-border-subtle);
+  --conversation-dock-color-scheme: var(--ui-color-scheme);
   --conversation-dock-resize-hit-size: max(24px, 1.5rem);
   --conversation-dock-control-hit-size: max(32px, 2rem);
   color-scheme: var(--conversation-dock-color-scheme);
@@ -90,7 +90,7 @@
 .conversation-dock__composer { flex: 0 0 auto; min-inline-size: 0; }
 .conversation-dock__preview { max-block-size: 3rem; overflow: auto; color: var(--conversation-dock-muted); }
 .conversation-dock [hidden] { display: none !important; }
-.conversation-dock button:focus-visible { outline: 2px solid var(--ui-accent-action, #d9a441); outline-offset: 2px; }
+.conversation-dock button:focus-visible { outline: 2px solid var(--ui-accent-action); outline-offset: 2px; }
 
 @media (pointer: coarse) {
   .conversation-dock { --conversation-dock-resize-hit-size: max(44px, 2.75rem); --conversation-dock-control-hit-size: max(44px, 2.75rem); }
@@ -107,7 +107,6 @@
 @media(max-width:36rem) { .conversation-dock__header { gap:.15rem; } .conversation-dock__header button { padding:.25rem; } }
 
 .conversation-dock__header .conversation-dock__icon-button { display: inline-flex; align-items: center; justify-content: center; min-inline-size: 32px; min-block-size: 32px; padding: 5px; }
-.conversation-dock__icon-button:focus-visible { outline: 2px solid #d9a840; outline-offset: 2px; }
 
 .conversation-dock__conversation:not(:has(> .conversation-dock__resize:not([hidden]))) { padding-block-start: .25rem; }
 
@@ -155,4 +154,4 @@
 .conversation-dock__menu:not([open]) > div { display: none; }
 
 .conversation-dock__placement { display: flex; gap: .25rem; }
-.conversation-dock__placement button[aria-pressed="true"] { border-color: var(--ui-accent-action, #d9a441); }
+.conversation-dock__placement button[aria-pressed="true"] { border-color: var(--ui-accent-action); }
