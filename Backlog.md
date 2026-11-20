@@ -53,7 +53,6 @@ One row per product idea. These rows are pointers, not separate status records. 
 | [Agent page-formatting benchmarks](#idea-agent-page-formatting-benchmarks) | Compare Buddy on repeatable Build formatting tasks; preserve content and prove the saved rendered result. |
 | [Report a bug from Buddy](#idea-report-a-bug-from-buddy) | One page and agent entry flow, with screenshot drop and a link to the filed issue. |
 | [Layered map editor](Docs/Backlog/IDEA-layered-map-editor.md) | One durable map with editable overlays. Share coordinates where justified, not a single UI with page layout. |
-| [App-wide theming](#idea-app-wide-theme-system) | One shared design system, selectable and customizable themes, with reviewed agent proposals. |
 | [Composable spatial workspace](#deferred-composable-spatial-workspace) | Saved canvas arrangements; not page composition or a separate theme system. |
 | [Standalone Elderwyld demo World and timeline](#idea-standalone-elderwyld-demo-world-and-timeline) | Author a populated, shareable setting history for signed-out Buddy without using collaborative campaign material. |
 | [Connected campaign arcs](Docs/Backlog/IDEA-connected-campaign-arcs.md) | Explore the source-backed Wandering Forest arc across sessions; use unrelated material as a negative control. |
@@ -228,14 +227,6 @@ One row per product idea. These rows are pointers, not separate status records. 
 
 ---
 
-
-## [IDEA] App-wide theme system
-
-**Owner:** Buddy shared presentation and surface owners
-**Captured:** 2026-09-26 (theme ambition; clarified in the 2026-11-14 product discussion)
-**Trigger:** Operator selects coherent, selectable styling as a product capability.
-
-Use one shared vocabulary of semantic color, typography, spacing, focus and interaction tokens and consistent components across surfaces. Ship a selectable default and alternate theme before expanding to customization. Users and the agent should target the same bounded, typed theme settings; agent changes are reviewable and reversible, not arbitrary CSS or an independent styling path. Keep the existing palette as the default until selected otherwise. Reuse the [presentation substrate](Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md). A single surface can prove the shared contract, but do not create a Graph-only theme fork.
 
 <a id="deferred-composable-spatial-workspace-and-selectable-themes"></a>
 
