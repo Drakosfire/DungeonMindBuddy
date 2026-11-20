@@ -1,6 +1,6 @@
 # Retained Plan native-body batch coverage
 
-Status: COMPLETE — accepted runtime prerequisite; merge pending. Owner MIND, operator-authorized full optimized vNext lane design,
+Status: COMPLETE — accepted and merged as PR #4237. Owner MIND, operator-authorized full optimized vNext lane design,
 implementation, review and merge. Serial prerequisite on accepted main
 052bea94cac45895184526e10dd6efcc4834624b. Queued draft #4236 remains preserved
 at40c176da0972ec7e46de644200ef3e5ce0b5d138 and is not dispatched concurrently.
@@ -92,8 +92,11 @@ must assess this explicit proof boundary; no full suite/release claim is made.
 
 Source6c4d77da4151206eeadb60092cc8efb68fcce3ac, base052bea94cac45895184526e10dd6efcc4834624b,
 PR #4237. Independent COMMENT [review5993948969](https://github.com/Drakosfire/DungeonMindBuddy/pull/4237#pullrequestreview-5993948969)
-accepts this bounded runtime prerequisite. Documentation seal still needs delta
-review and short checks before guarded merge; actual merged execution is not claimed.
+accepts this bounded runtime prerequisite. Documentation seal353a7fa581e088c481df399955b1a76388777bbe was accepted by
+review5993964656; all three short checks passed before guarded merge. Actual
+merge817354e15398239947cc86736e58d87a3e0f0b1c equals seal tree
+a922e61225b4695307dae0a07f41c56ba1e7bf11; no separate actual-merge execution
+or serving deployment is claimed.
 
 The owning file stays RED:21 passed/four unchanged HTTP verification_cache
 TypeErrors, zero errors/skips. All four failure IDs and messages match exact base
