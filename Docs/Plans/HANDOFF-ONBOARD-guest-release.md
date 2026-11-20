@@ -118,3 +118,62 @@ turning on hosted World creation without its release gates.
 Approved copied excerpts are part of the release; their inclusion requires the
 owner's explicit review of the final candidate. Guest sandbox reset is a
 successor capability, not a publication-state operation.
+
+## Cross-authority publication gap
+
+The current implementation must not enable preparation or promotion yet.
+Bugbot verified at Core `046791d` that native source withdrawal serializes on
+Core's private global source-authority epoch lock, while its public source view
+is a closed-transaction epoch snapshot. A fresh native check followed by an APP
+promotion can race a withdrawal committed between the two operations. APP's
+visibility and ownership generations do not observe direct Core withdrawal.
+This handoff requires withdrawal to invalidate a staged candidate, so an epoch
+check alone is insufficient. Do not use Core's private SQL lock as an implicit
+cross-database protocol. The cross-owner contract needs a durable publication
+fence, withdrawal interaction, crash recovery and a defined linearization point;
+its owner is the DungeonOverMind/Core boundary. A different independent-copy
+policy would be a design change and must be explicit, not silently substituted.
+
+### Candidate cross-owner protocol for critique
+
+Core owns a durable release authorization keyed by a unique intent, exact native
+space/revision, admitted source proofs and candidate digest. APP first records a
+private pending intent under an owner/pointer fence; it is not guest-readable.
+Core then atomically checks source eligibility and records the authorization under
+its own source-withdrawal serialization boundary. That Core commit is the
+publication linearization point: a prior withdrawal rejects authorization; a
+later source edit or withdrawal does not rewrite an already approved release.
+APP finalizes the pointer only for the still-current fenced intent, and guest
+reads require both APP's published pointer and the corresponding live Core
+authorization. Release revocation withdraws the Core authorization and clears the
+APP pointer through an idempotent, recoverable operation; intermediate states
+must fail closed. A crash between either store's commits may make the release
+temporarily unavailable, never anonymously expose an unapproved candidate.
+
+This is a proposed cross-owner contract, not an available Core API. Bugbot's
+critique found that this optimistic protocol does **not** meet the currently
+required withdrawal rule: Core authorization is only a source-validation
+cutoff, not public publication. A native withdrawal after that authorization but
+before APP finalization would still permit publication. The current contract
+therefore remains unsatisfied; do not implement the sketch as though it closes
+that interval. A stricter joint fence or a deliberate owner-adopted change to
+the withdrawal cutoff is needed.
+
+A synchronous Core-owned guard around APP finalization is also insufficient as
+currently specified. Bugbot identified a lock-loss race: the Core connection
+can terminate and release the epoch lock, a withdrawal can commit, and an
+already-dispatched APP commit can still complete. A later health check cannot
+undo the exposure. A strict design needs enforceable commit/fence coupling and
+recovery for uncertain APP commit outcomes; it must also audit APP-to-Core lock
+ordering and bound the global Core epoch contention. A prepared transaction or
+shared durable commit coordinator might supply this, but either introduces a
+cross-owner operational contract and cannot be inferred from existing APIs.
+
+The sketch also needs
+explicit rules for competing intents, ownership transfer during either commit,
+rollback without reviving revoked grants, current authorization checks on
+assets/citations, caching, operation recovery and orphan cleanup. In particular,
+the ordering above alone does not prove atomicity against APP ownership changes:
+the Core activation must be fenced by a durable APP authorization that cannot
+remain valid after a transfer, or a stronger joint protocol is required. Do not
+activate implementation from this sketch without the owning contract and tests.

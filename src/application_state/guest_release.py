@@ -1,0 +1,340 @@
+"""Transactional storage for prepared guest releases.
+
+This is not an HTTP authorization or content-sanitization boundary. Callers must
+authenticate the subject and prepare the complete, allowlisted release first.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+from uuid import UUID, uuid4
+
+from psycopg.types.json import Jsonb
+
+from application_state.cli import assert_at_head
+from application_state.config import load_runtime_dsn
+from application_state.errors import (
+    ApplicationStateConflictError,
+    ApplicationStateNotFoundError,
+    ApplicationStateValidationError,
+)
+from application_state.unit_of_work import unit_of_work
+
+
+def _dsn() -> str:
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    return dsn
+
+
+def _owner(conn, world_id: str, subject: str) -> int:
+    if not isinstance(subject, str) or not subject or subject != subject.strip():
+        raise ApplicationStateNotFoundError("World unavailable")
+    row = conn.execute(
+        "SELECT owner_subject FROM workspace.managed_world "
+        "WHERE world_id=%s FOR UPDATE", (world_id,)
+    ).fetchone()
+    if row is None or row[0] != subject:
+        raise ApplicationStateNotFoundError("World unavailable")
+    generation = conn.execute(
+        "SELECT generation FROM workspace.guest_world_owner_generation WHERE world_id=%s",
+        (world_id,),
+    ).fetchone()
+    return generation[0] if generation else 0
+
+
+def _canonical(manifest: dict) -> tuple[bytes, str]:
+    if not isinstance(manifest, dict):
+        raise ApplicationStateValidationError("Invalid release manifest")
+    try:
+        data = json.dumps(manifest, sort_keys=True, separators=(",", ":"),
+                          ensure_ascii=False, allow_nan=False).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ApplicationStateValidationError("Invalid release manifest") from exc
+    if len(data) > 10_000_000:
+        raise ApplicationStateValidationError("Release manifest too large")
+    return data, hashlib.sha256(data).hexdigest()
+
+
+def _check_sources(conn, world_id: str, bindings: list[tuple], sources: list[dict], *, require_current_origin: bool = False) -> None:
+    """Lock source eligibility until the caller's staging/promotion commits."""
+    if len(bindings) > 500 or len({item[0] for item in bindings}) != len(bindings):
+        raise ApplicationStateValidationError("Invalid release source bindings")
+    source_text = {item["id"]: item.get("text") for item in sources}
+    for excerpt_id, document_id, visibility_generation, status_generation, revision_n, digest, start, end, registry_revision in sorted(bindings, key=lambda v: str(v[1])):
+        row = conn.execute(
+            "SELECT w.world_id,w.status,m.visibility_state,m.guest_visibility_generation,w.object_revision,w.current_revision_id "
+            "FROM content.work_object w JOIN content.page_metadata m ON m.work_object_id=w.work_object_id "
+            "WHERE w.work_object_id=%s FOR UPDATE OF w,m", (document_id,),
+        ).fetchone()
+        status = conn.execute(
+            "SELECT generation FROM workspace.guest_source_status_generation WHERE work_object_id=%s",
+            (document_id,),
+        ).fetchone()
+        if (row is None or row[:4] != (world_id, "active", "player_safe", visibility_generation)
+            or (status[0] if status else 0) != status_generation):
+            raise ApplicationStateConflictError("Release source eligibility changed")
+        revision = conn.execute(
+            "SELECT markdown,content_sha256,world_id,work_revision_id FROM content.work_revision "
+            "WHERE work_object_id=%s AND revision_n=%s", (document_id, revision_n),
+        ).fetchone()
+        if (revision is None or revision[2] != world_id or revision[1] != digest
+            or hashlib.sha256(revision[0].encode("utf-8")).hexdigest() != digest
+            or type(start) is not int or type(end) is not int or start < 0 or end <= start
+            or end > len(revision[0]) or revision[0][start:end] != source_text.get(str(excerpt_id))):
+            raise ApplicationStateConflictError("Release source evidence differs")
+        if require_current_origin and (row[4] != registry_revision or row[5] != revision[3]):
+            raise ApplicationStateConflictError("Release source origin changed")
+
+
+def owner_generation(*, world_id: str, subject: str) -> int:
+    """Capture ownership before preparation; stage rechecks it afterwards."""
+    with unit_of_work(_dsn()) as conn:
+        return _owner(conn, world_id, subject)
+
+
+def _check_graph_binding(conn, world_id: str, native_world_id: str, binding_version: int) -> None:
+    row = conn.execute(
+        "SELECT native_world_id,binding_version,status FROM workspace.world_native_binding "
+        "WHERE world_id=%s FOR UPDATE", (world_id,),
+    ).fetchone()
+    if row != (native_world_id, binding_version, "active"):
+        raise ApplicationStateConflictError("Native Graph binding changed")
+
+
+def review(*, world_id: str, subject: str, release_id: UUID) -> tuple[dict, str]:
+    """Read the exact staged manifest only while its owner binding is valid."""
+    with unit_of_work(_dsn()) as conn:
+        generation = _owner(conn, world_id, subject)
+        row = conn.execute(
+            "SELECT manifest,manifest_sha256 FROM workspace.guest_release "
+            "WHERE release_id=%s AND world_id=%s AND owner_subject=%s "
+            "AND owner_generation=%s AND state='candidate'",
+            (release_id, world_id, subject, generation),
+        ).fetchone()
+        if row is None:
+            raise ApplicationStateNotFoundError("Release unavailable")
+        if _canonical(row[0])[1] != row[1]:
+            raise ApplicationStateConflictError("Release manifest integrity failed")
+        return row[0], row[1]
+
+
+def review_asset(*, world_id: str, subject: str, release_id: UUID,
+                 asset_id: UUID) -> tuple[str, bytes]:
+    """Show staged asset bytes to the candidate's currently authorized owner."""
+    with unit_of_work(_dsn()) as conn:
+        generation = _owner(conn, world_id, subject)
+        row = conn.execute(
+            "SELECT a.mime_type,a.content,a.content_sha256 "
+            "FROM workspace.guest_release r JOIN workspace.guest_release_asset a "
+            "ON a.release_id=r.release_id WHERE r.release_id=%s AND r.world_id=%s "
+            "AND r.owner_subject=%s AND r.owner_generation=%s AND r.state='candidate' AND a.asset_id=%s",
+            (release_id, world_id, subject, generation, asset_id),
+        ).fetchone()
+        if row is None:
+            raise ApplicationStateNotFoundError("Release asset unavailable")
+        content = bytes(row[1])
+        if hashlib.sha256(content).hexdigest() != row[2]:
+            raise ApplicationStateConflictError("Release asset integrity failed")
+        return row[0], content
+
+
+def pointer_status(*, world_id: str, subject: str) -> tuple[UUID | None, int]:
+    """Read the current CAS basis without allocating a public identifier."""
+    with unit_of_work(_dsn()) as conn:
+        _owner(conn, world_id, subject)
+        row = conn.execute(
+            "SELECT public_id,version FROM workspace.guest_release_pointer WHERE world_id=%s",
+            (world_id,),
+        ).fetchone()
+        return (None, 0) if row is None else (row[0], row[1])
+
+
+def stage(*, world_id: str, subject: str, expected_owner_generation: int,
+          native_world_id: str, native_binding_version: int, graph_revision: str, manifest: dict,
+          assets: list[tuple[UUID, str, bytes]], source_bindings: list[tuple] | None = None) -> tuple[UUID, str]:
+    """Store a fully prepared candidate; never pass unvalidated client content."""
+    _, digest = _canonical(manifest)
+    if len(assets) > 100:
+        raise ApplicationStateValidationError("Too many release assets")
+    if (not isinstance(native_world_id, str) or not native_world_id.strip()
+        or type(native_binding_version) is not int or native_binding_version < 1
+        or not isinstance(graph_revision, str) or not graph_revision.strip()):
+        raise ApplicationStateValidationError("Invalid native Graph binding")
+    checked = []
+    seen: set[UUID] = set()
+    for asset_id, mime_type, content in assets:
+        if (not isinstance(asset_id, UUID) or asset_id in seen
+            or mime_type not in {"image/png", "image/jpeg", "image/webp"}
+            or not isinstance(content, bytes) or not 0 < len(content) <= 10_000_000):
+            raise ApplicationStateValidationError("Invalid release asset")
+        seen.add(asset_id)
+        checked.append((asset_id, mime_type, content, hashlib.sha256(content).hexdigest()))
+    # Approval covers the exact copied bytes and media types, not merely the
+    # textual projection. The preparer assigns release-local asset IDs.
+    expected_assets = sorted(
+        ({"id": str(asset_id), "mime_type": mime_type, "sha256": content_digest}
+         for asset_id, mime_type, _, content_digest in checked),
+        key=lambda item: item["id"],
+    )
+    if manifest.get("assets") != expected_assets:
+        raise ApplicationStateValidationError("Manifest asset bindings do not match copied bytes")
+    bindings = source_bindings or []
+    sources = manifest.get("sources", [])
+    if (not isinstance(sources, list) or any(not isinstance(item, dict) or not isinstance(item.get("id"), str) for item in sources)
+        or {item.get("id") for item in sources} != {str(item[0]) for item in bindings}
+        or len(sources) != len(bindings)):
+        raise ApplicationStateValidationError("Manifest source bindings do not match excerpts")
+    graph = manifest.get("graph")
+    if graph is not None:
+        if not isinstance(graph, dict) or not isinstance(graph.get("edges"), list):
+            raise ApplicationStateValidationError("Invalid release Graph")
+        source_ids = {item["id"] for item in sources}
+        for edge in graph["edges"]:
+            if (not isinstance(edge, dict) or not isinstance(edge.get("citations"), list)
+                or not edge["citations"] or any(not isinstance(c, str) or c not in source_ids for c in edge["citations"])):
+                raise ApplicationStateValidationError("Release Graph citation is not closed")
+    release_id = uuid4()
+    with unit_of_work(_dsn()) as conn:
+        generation = _owner(conn, world_id, subject)
+        if type(expected_owner_generation) is not int or generation != expected_owner_generation:
+            raise ApplicationStateConflictError("World ownership changed during preparation")
+        _check_graph_binding(conn, world_id, native_world_id, native_binding_version)
+        _check_sources(conn, world_id, bindings, sources, require_current_origin=True)
+        conn.execute(
+            "INSERT INTO workspace.guest_release "
+            "(release_id,world_id,owner_subject,owner_generation,native_world_id,native_binding_version,graph_revision,manifest_sha256,manifest) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            (release_id, world_id, subject, generation, native_world_id, native_binding_version, graph_revision, digest, Jsonb(manifest)),
+        )
+        for asset_id, mime_type, content, content_digest in checked:
+            conn.execute(
+                "INSERT INTO workspace.guest_release_asset "
+                "(release_id,asset_id,mime_type,content_sha256,content) VALUES (%s,%s,%s,%s,%s)",
+                (release_id, asset_id, mime_type, content_digest, content),
+            )
+        for excerpt_id, document_id, visibility_generation, status_generation, revision_n, content_sha256, start, end, registry_revision in bindings:
+            conn.execute(
+                "INSERT INTO workspace.guest_release_source_binding "
+                "(release_id,excerpt_id,work_object_id,visibility_generation,status_generation,revision_n,content_sha256,span_start,span_end,registry_revision) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (release_id, excerpt_id, document_id, visibility_generation, status_generation, revision_n, content_sha256, start, end, registry_revision),
+            )
+    return release_id, digest
+
+
+def promote(*, world_id: str, subject: str, release_id: UUID,
+            digest: str, expected_version: int) -> tuple[UUID, int]:
+    """Approve the stored candidate and move its World's pointer atomically."""
+    if type(expected_version) is not int or expected_version < 0:
+        raise ApplicationStateValidationError("Invalid pointer version")
+    with unit_of_work(_dsn()) as conn:
+        generation = _owner(conn, world_id, subject)
+        row = conn.execute(
+            "SELECT owner_subject,owner_generation,manifest_sha256,state,native_world_id,native_binding_version,manifest "
+            "FROM workspace.guest_release WHERE release_id=%s AND world_id=%s FOR UPDATE",
+            (release_id, world_id),
+        ).fetchone()
+        if row is None:
+            raise ApplicationStateNotFoundError("Release unavailable")
+        if row[:4] != (subject, generation, digest, "candidate"):
+            raise ApplicationStateConflictError("Release candidate changed or is unavailable")
+        if _canonical(row[6])[1] != digest:
+            raise ApplicationStateConflictError("Release manifest integrity failed")
+        _check_graph_binding(conn, world_id, row[4], row[5])
+        bindings = conn.execute(
+            "SELECT excerpt_id,work_object_id,visibility_generation,status_generation,revision_n,content_sha256,span_start,span_end,registry_revision "
+            "FROM workspace.guest_release_source_binding WHERE release_id=%s", (release_id,),
+        ).fetchall()
+        _check_sources(conn, world_id, bindings, row[6].get("sources", []))
+        conn.execute(
+            "INSERT INTO workspace.guest_release_pointer (world_id,public_id) VALUES (%s,%s) "
+            "ON CONFLICT (world_id) DO NOTHING", (world_id, uuid4())
+        )
+        pointer = conn.execute(
+            "UPDATE workspace.guest_release_pointer SET release_id=%s,version=version+1 "
+            "WHERE world_id=%s AND version=%s RETURNING public_id,version",
+            (release_id, world_id, expected_version),
+        ).fetchone()
+        if pointer is None:
+            raise ApplicationStateConflictError("Release pointer changed")
+        conn.execute(
+            "UPDATE workspace.guest_release SET state='published',published_at=clock_timestamp() "
+            "WHERE release_id=%s", (release_id,)
+        )
+        return pointer[0], pointer[1]
+
+
+def revoke(*, world_id: str, subject: str, release_id: UUID) -> None:
+    """Permanently revoke a published release and unpublish its pointer if current."""
+    with unit_of_work(_dsn()) as conn:
+        _owner(conn, world_id, subject)
+        row = conn.execute(
+            "UPDATE workspace.guest_release SET state='revoked',revoked_at=clock_timestamp() "
+            "WHERE release_id=%s AND world_id=%s AND state='published' RETURNING release_id",
+            (release_id, world_id),
+        ).fetchone()
+        if row is None:
+            raise ApplicationStateNotFoundError("Release unavailable")
+        conn.execute(
+            "UPDATE workspace.guest_release_pointer SET release_id=NULL,version=version+1 "
+            "WHERE world_id=%s AND release_id=%s", (world_id, release_id)
+        )
+
+
+def restore(*, world_id: str, subject: str, release_id: UUID,
+            expected_version: int) -> tuple[UUID, int]:
+    """Point back to an unrevoked release approved under the current ownership."""
+    if type(expected_version) is not int or expected_version < 0:
+        raise ApplicationStateValidationError("Invalid pointer version")
+    with unit_of_work(_dsn()) as conn:
+        generation = _owner(conn, world_id, subject)
+        row = conn.execute(
+            "SELECT 1 FROM workspace.guest_release WHERE release_id=%s AND world_id=%s "
+            "AND owner_subject=%s AND owner_generation=%s AND state='published' FOR UPDATE",
+            (release_id, world_id, subject, generation),
+        ).fetchone()
+        if row is None:
+            raise ApplicationStateNotFoundError("Release unavailable")
+        pointer = conn.execute(
+            "UPDATE workspace.guest_release_pointer SET release_id=%s,version=version+1 "
+            "WHERE world_id=%s AND version=%s RETURNING public_id,version",
+            (release_id, world_id, expected_version),
+        ).fetchone()
+        if pointer is None:
+            raise ApplicationStateConflictError("Release pointer changed")
+        return pointer[0], pointer[1]
+
+
+def public_manifest(public_id: UUID) -> tuple[UUID, dict]:
+    """Read only a currently pointed-to, published release copy."""
+    with unit_of_work(_dsn()) as conn:
+        row = conn.execute(
+            "SELECT r.release_id,r.manifest,r.manifest_sha256 FROM workspace.guest_release_pointer p "
+            "JOIN workspace.guest_release r ON r.release_id=p.release_id AND r.world_id=p.world_id "
+            "WHERE p.public_id=%s AND r.state='published'", (public_id,)
+        ).fetchone()
+        if row is None:
+            raise ApplicationStateNotFoundError("Release unavailable")
+        if _canonical(row[1])[1] != row[2]:
+            raise ApplicationStateConflictError("Release manifest integrity failed")
+        return row[0], row[1]
+
+
+def public_asset(public_id: UUID, release_id: UUID, asset_id: UUID) -> tuple[str, bytes]:
+    """Read only an asset copied into the currently published release."""
+    with unit_of_work(_dsn()) as conn:
+        row = conn.execute(
+            "SELECT a.mime_type,a.content,a.content_sha256 "
+            "FROM workspace.guest_release_pointer p "
+            "JOIN workspace.guest_release r ON r.release_id=p.release_id AND r.world_id=p.world_id "
+            "JOIN workspace.guest_release_asset a ON a.release_id=r.release_id "
+            "WHERE p.public_id=%s AND r.release_id=%s AND r.state='published' AND a.asset_id=%s",
+            (public_id, release_id, asset_id),
+        ).fetchone()
+        if row is None:
+            raise ApplicationStateNotFoundError("Release asset unavailable")
+        content = bytes(row[1])
+        if hashlib.sha256(content).hexdigest() != row[2]:
+            raise ApplicationStateConflictError("Release asset integrity failed")
+        return row[0], content
