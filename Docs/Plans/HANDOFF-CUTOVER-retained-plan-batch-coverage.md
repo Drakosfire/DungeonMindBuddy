@@ -1,6 +1,6 @@
 # Retained Plan native-body batch coverage
 
-Status: ACTIVE. Owner MIND, operator-authorized full optimized vNext lane design,
+Status: COMPLETE — accepted runtime prerequisite; merge pending. Owner MIND, operator-authorized full optimized vNext lane design,
 implementation, review and merge. Serial prerequisite on accepted main
 052bea94cac45895184526e10dd6efcc4834624b. Queued draft #4236 remains preserved
 at40c176da0972ec7e46de644200ef3e5ce0b5d138 and is not dispatched concurrently.
@@ -87,3 +87,53 @@ is relaxed and no original HTTP assertion is deleted. Original working logs rema
 This split preserves the full goal and avoids folding an independently reviewable
 current-Plan fixture migration into a retained-policy guard. Independent review
 must assess this explicit proof boundary; no full suite/release claim is made.
+
+## Accepted exact source and evidence
+
+Source6c4d77da4151206eeadb60092cc8efb68fcce3ac, base052bea94cac45895184526e10dd6efcc4834624b,
+PR #4237. Independent COMMENT [review5993948969](https://github.com/Drakosfire/DungeonMindBuddy/pull/4237#pullrequestreview-5993948969)
+accepts this bounded runtime prerequisite. Documentation seal still needs delta
+review and short checks before guarded merge; actual merged execution is not claimed.
+
+The owning file stays RED:21 passed/four unchanged HTTP verification_cache
+TypeErrors, zero errors/skips. All four failure IDs and messages match exact base
+execution in the retained backend archive mirror. All42,236 original test-file
+bytes remain identical; only six new classification checks are appended. The21
+positives include actual legacy SDK/writer/citation behavior, not merely helper
+stubs. Classification cases use validated native policy families; the71-case
+strict-current cohort covers real source selection, decision and Plan prose SDK
+passage behavior, zero failures/errors/skips. No whole-file or full-suite green.
+
+Exact-source before/after installed audits are identical: Core180+DND39 at e56a3fa
+and WK14 at348c0dbf. Changed-path Ruff stays RED with seven exact-base diagnostics,
+zero new; no suppressions or unrelated formatting. Official hosted frontend1414
+selected passes/147 filtered, build/collection parity/validator0; clean isolated
+source, Node22.23.0/npm10.9.8/eight workers. Artifact hashes match, verifier
+cleanup complete and temporary root independently absent. All three short PR
+checks passed on source6c4d77da. These checks do not qualify the prior red full
+default-discovered frontend suite. Four recorded test/runner PIDs are absent;
+unrecorded fixture database names support successful teardown only.
+
+Evidence owner MIND retains task scratch/v10-retained-plan-batch-coverage under
+/home/drakosfire/Projects/.codex/v7-elderwyld-scope: backend-6c4d77da.json/XML/logs,
+base-http.xml, inherited-http-comparison.json, before/after installed audits,
+resource-audit.json, hosted-6c4d77da/evidence.json, frontend-6c4d77da.json and
+Ruff reports. Earlier working fake-writer trials are diagnostic logs, not accepted
+source. The accepted source discards those trial test changes.
+
+Scratch1,263,686 bytes and cache/v10-retained-plan-batch-coverage0 bytes at
+pre-seal inventory remain owned by MIND for the active full goal; reused Buddy
+checkout, qualified environment and previous exact-base archive mirror remain
+needed. No new manual worktree/mirror or dependency install. Backing filesystem
+UUID48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8. No manual filesystem deletion; zero
+manually reclaimed bytes. Official verifier removed its own temporary root; its
+reclaimed bytes were not instrumented. Retained path cleanup follow-up: inspect
+active processes/mounts, dirty worktrees and unique commits, protect needed
+commits, then perform only specifically authorized disposal after active use.
+
+Next: rebase queued4236 after this actual merge, record merge facts in its
+consuming handoff, and rebrief remaining fixture proof before source edits. HTTP
+fixture modernization, explicit readable span identity for origin verification and
+owned migration-roundtrip testing remain mandatory, not waived by inheritance.
+Saved-section/public legacy retirement, serving rollout, later-write-safe rollback
+and deployed V11 remain incomplete. Full optimized Elderwyld goal stays active.
