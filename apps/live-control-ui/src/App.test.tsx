@@ -308,7 +308,6 @@ describe("App inspector integration", () => {
     expect(screen.getByRole("button", { name: "Create World" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Edit World title" })).toBeInTheDocument();
     const navigation = screen.getByRole("navigation", { name: "Command board navigation" });
-    fireEvent.click(within(navigation).getByRole("button", { name: "Open navigation" }));
     expect(within(navigation).getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan");
     expect(within(navigation).getByRole("link", { name: "Build" })).toHaveAttribute("href", "/build");
     expect(screen.queryByRole("link", { name: /live control/i })).not.toBeInTheDocument();
@@ -332,7 +331,6 @@ describe("App inspector integration", () => {
     render(<App />);
 
     const nav = await screen.findByRole("navigation", { name: "Command board navigation" });
-    fireEvent.click(within(nav).getByRole("button", { name: "Open navigation" }));
     const links = within(nav).getAllByRole("link");
     expect(screen.getByRole("heading", { name: "Your world, ready for the table." })).toBeInTheDocument();
     expect(links.map((link) => link.getAttribute("href"))).toEqual([

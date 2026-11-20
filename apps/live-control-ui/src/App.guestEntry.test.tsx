@@ -533,7 +533,6 @@ describe("canonical local guest entry", () => {
       "/api/live/index-graph/graph",
     ]);
 
-    await user.click(screen.getByRole("button", { name: "Open navigation" }));
     await user.click(screen.getByRole("link", { name: "Plan" }));
     await waitFor(() => expect(window.location.pathname).toBe("/plan"));
     expect(screen.queryByRole("link", { name: "Sign in with DungeonMind" })).not.toBeInTheDocument();
