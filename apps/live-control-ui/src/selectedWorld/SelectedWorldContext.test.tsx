@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getExtractionRun, getPlayRun, getWorkspaceDocument, getWorkspaceDocumentAny, listWorldContainers } from "../api/liveApi";
+import { getExtractionRun, getHostedWorldContainer, getPlayRun, getWorkspaceDocument, getWorkspaceDocumentAny, listWorldContainers } from "../api/liveApi";
+import * as hostedAuth from "../auth/HostedAuthGate";
 import type { WorkspaceDocumentRecord, WorldContainerRecord, WorldOwnedPlanRecordV2 } from "../api/types";
 import { getWorldIdForCampaign } from "../worldGraph/worldGraphSurfaceContext";
 import {
@@ -15,6 +16,7 @@ import {
 
 vi.mock("../api/liveApi", () => ({
   getExtractionRun: vi.fn(),
+  getHostedWorldContainer: vi.fn(),
   getPlayRun: vi.fn(),
   getWorkspaceDocument: vi.fn(),
   getWorkspaceDocumentAny: vi.fn(),
@@ -358,4 +360,27 @@ it("cancels a pending catalog read when World selection changes", () => {
   view.rerender(<SelectedWorldProvider locationSnapshot="/plan?world=second"><AdmissionProbe /></SelectedWorldProvider>);
   expect(firstSignal?.aborted).toBe(true);
   expect(catalog.mock.lastCall?.[0]?.aborted).toBe(false);
+});
+
+it("starts the explicit hosted World read before the document resolves and waits for both", async () => {
+  const auth = vi.spyOn(hostedAuth, "useHostedAuthStatus").mockReturnValue({
+    status: "authenticated", subject: "test-subject", displayName: null, refreshWarning: false,
+  });
+  try {
+    const pendingDocument = deferred<WorkspaceDocumentRecord>();
+    const pendingWorld = deferred<WorldContainerRecord>();
+    vi.mocked(getWorkspaceDocumentAny).mockReturnValueOnce(pendingDocument.promise);
+    vi.mocked(getHostedWorldContainer).mockReturnValueOnce(pendingWorld.promise);
+    render(<SelectedWorldProvider locationSnapshot={`/build?world=${world.world_id}&documentId=${document.document_id}`}>
+      <AdmissionProbe />
+    </SelectedWorldProvider>);
+    expect(getWorkspaceDocumentAny).toHaveBeenCalledWith(document.document_id);
+    expect(getHostedWorldContainer).toHaveBeenCalledWith(world.world_id, expect.any(AbortSignal));
+    await act(async () => pendingWorld.resolve(world));
+    expect(screen.getByTestId("admission")).toHaveTextContent("loading");
+    await act(async () => pendingDocument.resolve(document));
+    expect(screen.getByTestId("admission")).toHaveTextContent("managed");
+  } finally {
+    auth.mockRestore();
+  }
 });

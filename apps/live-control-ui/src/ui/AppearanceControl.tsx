@@ -1,67 +1,70 @@
 import { useId, useLayoutEffect, useRef, useState } from "react";
+import {
+  DEFAULT_APPEARANCE, displayAppearance, readDisplayedAppearance, saveAppearance,
+  type AppearanceSettings,
+} from "./appearanceSettings";
 
 const PRESETS = [
   { id: "default", label: "Buddy" },
   { id: "deep-teal", label: "Deep Teal" },
 ] as const;
 
-type Preset = (typeof PRESETS)[number]["id"];
-const STORAGE_KEY = "buddy.appearance.preset";
-
-function displayPreset(preset: Preset) {
-  const root = document.documentElement;
-  if (preset === "default") delete root.dataset.buddyTheme;
-  else root.dataset.buddyTheme = preset;
-}
-
 export function AppearanceControl() {
   const titleId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
-  const saved = useRef<Preset>("default");
-  const [preview, setPreview] = useState<Preset>("default");
+  const saved = useRef<AppearanceSettings>(DEFAULT_APPEARANCE);
+  const [preview, setPreview] = useState<AppearanceSettings>(DEFAULT_APPEARANCE);
 
   useLayoutEffect(() => {
     const panel = dialog.current;
     return () => {
-      if (panel?.open) displayPreset(saved.current);
+      if (panel?.open) displayAppearance(saved.current);
     };
   }, []);
 
   function open() {
-    saved.current = document.documentElement.dataset.buddyTheme === "deep-teal" ? "deep-teal" : "default";
+    saved.current = readDisplayedAppearance();
     setPreview(saved.current);
     dialog.current?.showModal();
   }
 
-  function select(preset: Preset) {
-    setPreview(preset);
-    displayPreset(preset);
+  function select(settings: AppearanceSettings) {
+    setPreview(settings);
+    displayAppearance(settings);
   }
 
   function apply() {
     saved.current = preview;
-    try {
-      if (preview === "default") localStorage.removeItem(STORAGE_KEY);
-      else localStorage.setItem(STORAGE_KEY, preview);
-    } catch {
-      // The current tab can still use the chosen theme.
-    }
+    saveAppearance(preview);
     dialog.current?.close();
   }
 
   return <>
     <button className="app-nav-appearance" type="button" onClick={open}>Appearance</button>
-    <dialog className="app-appearance" ref={dialog} aria-labelledby={titleId} onClose={() => displayPreset(saved.current)}>
+    <dialog className="app-appearance" ref={dialog} aria-labelledby={titleId} onClose={() => displayAppearance(saved.current)}>
       <h2 id={titleId}>Appearance</h2>
       <fieldset>
         <legend>Theme</legend>
         {PRESETS.map(({ id, label }) => <label key={id}>
-          <input type="radio" name={titleId} checked={preview === id} onChange={() => select(id)} />
+          <input type="radio" name={titleId} checked={preview.preset === id} onChange={() => select({ ...preview, preset: id })} />
           {label}
         </label>)}
       </fieldset>
+      <fieldset>
+        <legend>Accent</legend>
+        <label>
+          <input type="radio" name={`${titleId}-accent`} checked={preview.accent === "preset"}
+            onChange={() => select({ ...preview, accent: "preset" })} />
+          Use theme accent
+        </label>
+        <label>
+          <input type="radio" name={`${titleId}-accent`} checked={preview.accent === "sky"}
+            onChange={() => select({ ...preview, accent: "sky" })} />
+          Sky blue
+        </label>
+      </fieldset>
       <div className="app-appearance__actions">
-        <button type="button" onClick={() => select("default")} disabled={preview === "default"}>Reset</button>
+        <button type="button" onClick={() => select(DEFAULT_APPEARANCE)} disabled={preview.preset === "default" && preview.accent === "preset"}>Reset</button>
         <button type="button" onClick={() => dialog.current?.close()}>Cancel</button>
         <button type="button" onClick={apply}>Apply</button>
       </div>
