@@ -97,6 +97,16 @@ def test_scope_echo_mismatch_never_grants_a_hit(client,monkeypatch,changes):
     assert result.status_code==500 and result.json()['diagnostics']==['projection_scope_mismatch']
 
 
+@pytest.mark.parametrize("native_id,version", [("old-native-world", 1), ("native-world", 2)])
+def test_local_request_rejects_binding_changed_before_dispatch(client, monkeypatch, native_id, version):
+    stub_managed_read(monkeypatch, lambda *_a: pytest.fail("Stale binding reached Core projection"))
+    result = client.post("/api/live/threats/query-hydration", json=request(
+        expectedNativeWorldId=native_id, expectedBindingVersion=version,
+    ))
+    assert result.status_code == 409, result.text
+    assert result.json()["diagnostics"] == ["native_graph_binding_changed"]
+
+
 def test_missing_revision_stays_not_found(client,monkeypatch):
     def read(*_a,**_kw):
         raise WorldGraphProjectionServiceError('Missing pinned revision',code='projection_revision_not_found',status_code=404)

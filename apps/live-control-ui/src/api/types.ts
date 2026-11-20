@@ -5265,6 +5265,8 @@ export interface ThreatQueryHydrationRequestV1 {
   campaignId: string | null;
   scopeMode: "campaign" | "world";
   revisionPin: string;
+  expectedNativeWorldId?: string;
+  expectedBindingVersion?: number;
   queryText: string;
   focusNodeIds?: string[];
   relationshipPredicates?: string[];

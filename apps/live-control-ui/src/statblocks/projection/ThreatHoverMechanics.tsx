@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
+import { useOptionalWorldGraphLensProjection, type ManagedGraphBinding } from "../../graphLens/useWorldGraphLensProjection";
 import { postThreatQueryHydration } from "../../api/liveApi";
 import type { ExactGraphReferenceScope } from "../../graphReference/types";
 import {
@@ -43,6 +43,7 @@ function loadThreatHoverHydration(
   scope: ExactGraphReferenceScope,
   threatNodeId: string,
   cacheKey: string,
+  binding: ManagedGraphBinding,
 ): Promise<CachedThreatHoverHydration> {
   const cached = threatHoverHydrationCache.get(cacheKey);
   if (cached) {
@@ -55,7 +56,11 @@ function loadThreatHoverHydration(
   }
 
   const request = buildThreatQueryHydrationRequest(scope, threatNodeId);
-  const pending = postThreatQueryHydration(request)
+  const pending = postThreatQueryHydration({
+    ...request,
+    expectedNativeWorldId: binding.nativeWorldId,
+    expectedBindingVersion: binding.bindingVersion,
+  })
     .then((response): CachedThreatHoverHydration => {
       const selection = selectExactThreatHit(
         response,
@@ -126,7 +131,7 @@ export function useThreatHoverMechanics(
 
   useEffect(() => {
     setLoadedKey(cacheKey);
-    if (!enabled || !managedScope || !cacheKey) {
+    if (!enabled || !managedScope || !cacheKey || !binding) {
       setLoadStatus("idle");
       setBindings([]);
       return;
@@ -143,7 +148,7 @@ export function useThreatHoverMechanics(
     setLoadStatus("loading");
     setBindings([]);
 
-    void loadThreatHoverHydration(managedScope, threatNodeId, cacheKey).then((result) => {
+    void loadThreatHoverHydration(managedScope, threatNodeId, cacheKey, binding).then((result) => {
       if (cancelled) return;
       setLoadStatus(result.loadStatus);
       setBindings(result.bindings);
@@ -153,7 +158,7 @@ export function useThreatHoverMechanics(
       // Ignore outstanding UI updates only — do not abort the shared inflight POST.
       cancelled = true;
     };
-  }, [enabled, managedScope, cacheKey, threatNodeId]);
+  }, [enabled, managedScope, cacheKey, threatNodeId, binding]);
 
   return useMemo(() => {
     if (!enabled || !cacheKey || loadedKey !== cacheKey) {

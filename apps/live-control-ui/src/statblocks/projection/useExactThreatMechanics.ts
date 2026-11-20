@@ -58,7 +58,7 @@ export function useExactThreatMechanics(
       return;
     }
 
-    if (!selectionTuple || !selectionKey) {
+    if (!selectionTuple || !selectionKey || !binding) {
       setLoadStatus("integrity_failure");
       setMessage("A verified managed World binding is required for Threat mechanics.");
       setHit(null);
@@ -80,7 +80,11 @@ export function useExactThreatMechanics(
       selectionTuple.threatNodeId,
     );
 
-    void postThreatQueryHydration(request)
+    void postThreatQueryHydration({
+      ...request,
+      expectedNativeWorldId: binding.nativeWorldId,
+      expectedBindingVersion: binding.bindingVersion,
+    })
       .then((response: ThreatQueryHydrationResponseV1) => {
         if (cancelled) return;
         const selection = selectExactThreatHit(
@@ -128,7 +132,7 @@ export function useExactThreatMechanics(
     return () => {
       cancelled = true;
     };
-  }, [enabled, selectionKey, selectionTuple]);
+  }, [enabled, selectionKey, selectionTuple, binding]);
 
   return {
     selectionTuple,
