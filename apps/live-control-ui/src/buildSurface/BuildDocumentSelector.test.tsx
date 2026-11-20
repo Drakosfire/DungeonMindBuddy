@@ -1,5 +1,5 @@
 import { setNativeGraphAccessToken } from "../api/liveApi";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -68,17 +68,24 @@ describe("BuildDocumentSelector", () => {
         documents={[record(DOC_A, "Alpha", "longmont-c1")]} listStatus="ready"
         activeDocumentId={null} activeRecord={null} preferredCampaignId={null}
         switching={false} onSelect={vi.fn()} />);
-      openCategory("All documents");
+      expect(request).not.toHaveBeenCalled();
+      const dialog = openCategory("All documents");
       expect(await screen.findByRole("button", { name: "PDF · 2026-11-11 · abcde123" }))
         .toHaveAttribute("data-document-id", "/build?world=elderwyld&pdf=remote");
       expect(screen.queryByRole("button", { name: "Sewer Meat Extraction" })).not.toBeInTheDocument();
       const statblock = await screen.findByRole("button", { name: "Sewer Meat Creature" });
       expect(screen.queryByRole("button", { name: "Already saved extraction" })).not.toBeInTheDocument();
       expect(statblock).toHaveAttribute("data-document-id", "/build?world=elderwyld&draft=creature&revision=saved-revision");
+      const catalogCalls = () => request.mock.calls.filter(([url]) =>
+        String(url).includes("/native-source-inspection/catalog"));
+      expect(catalogCalls()).toHaveLength(1);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close document picker" }));
+      openCategory("All documents");
+      expect(catalogCalls()).toHaveLength(1);
       expect(screen.queryByRole("button", { name: "Sewer Giant" })).not.toBeInTheDocument();
       await userEvent.type(screen.getByRole("searchbox"), "sewer");
       expect(screen.queryByRole("button", { name: "Alpha" })).not.toBeInTheDocument();
-      expect(statblock).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Sewer Meat Creature" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Sewer Meat Extraction" })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Statblock drafts", exact: true }));
       expect(await screen.findByRole("button", { name: "Sewer Meat Extraction" }))
@@ -87,6 +94,37 @@ describe("BuildDocumentSelector", () => {
       expect(window.location.search).toBe("?world=elderwyld&pdfReview=sewer-review");
     } finally {
       window.history.replaceState({}, "", previousUrl);
+      request.mockRestore();
+      setNativeGraphAccessToken(null);
+    }
+  });
+
+  it("loads the current World’s catalogs while the picker is open", async () => {
+    setNativeGraphAccessToken("fixture");
+    const request = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      new Response("{}", { status: 503 }));
+    const props = {
+      documents: [], listStatus: "ready" as const, activeDocumentId: null, activeRecord: null,
+      preferredCampaignId: null, switching: false, onSelect: vi.fn(),
+    };
+    const catalogCalls = () => request.mock.calls.filter(([url]) =>
+      String(url).includes("/native-source-inspection/catalog"));
+    try {
+      const view = render(<BuildDocumentSelector {...props} worldId="elderwyld" />);
+      const dialog = openCategory("All documents");
+      await within(dialog).findByText("Ingested text documents unavailable");
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close document picker" }));
+      view.rerender(<BuildDocumentSelector {...props} worldId="pilot" />);
+      expect(catalogCalls()).toHaveLength(1);
+      openCategory("All documents");
+      await waitFor(() => expect(catalogCalls()).toHaveLength(2));
+      expect(JSON.parse(String(catalogCalls()[1][1]?.body))).toMatchObject({ managed_world_id: "pilot" });
+      await screen.findByText("Ingested text documents unavailable");
+      view.rerender(<BuildDocumentSelector {...props} worldId="elderwyld" />);
+      await waitFor(() => expect(catalogCalls()).toHaveLength(3));
+      expect(JSON.parse(String(catalogCalls()[2][1]?.body))).toMatchObject({ managed_world_id: "elderwyld" });
+      await screen.findByText("Ingested text documents unavailable");
+    } finally {
       request.mockRestore();
       setNativeGraphAccessToken(null);
     }
