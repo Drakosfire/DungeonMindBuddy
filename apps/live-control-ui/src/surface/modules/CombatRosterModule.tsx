@@ -29,6 +29,8 @@ import "../../combat/combatRoster.css";
 import {CombatRecoverySession, combatDraftEqual, combatSelectionKey, type CombatRecovery} from "../../combat/combatRecovery";
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
 
+const DND5E_RULESET_ID = "dnd5e.manual-tracking";
+
 function asInput(value: unknown): string {
   if (value === null || value === undefined) return "";
   return String(value);
@@ -452,7 +454,10 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
     setError(null);
     try {
       const retainedTarget = sample ? sampleTarget.current : null;
-      const created = retainedTarget ?? await createWorldCombatEncounter(requestedWorldId, { title: sample?.title ?? (newTitle.trim() || "New encounter") });
+      const created = retainedTarget ?? await createWorldCombatEncounter(requestedWorldId, {
+        title: sample?.title ?? (newTitle.trim() || "New encounter"),
+        ruleset_id: DND5E_RULESET_ID,
+      });
       if (generation !== worldRequestGeneration.current) return;
       if (sample) sampleTarget.current = created;
       setEncounters((current) => [created, ...current.filter((item) => item.encounter_id !== created.encounter_id)]);
@@ -751,7 +756,11 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
                   <span className="eyebrow">Encounter title</span>
                   <input aria-label="Encounter title" value={visibleDraft.title} disabled={replacingDraft} onChange={(event) => updateDraft((current) => ({ ...current, title: event.target.value }))} />
                 </label>
-                <span className="module-muted">{visibleRecord.ruleset.system_id} · {visibleRecord.ruleset.edition_id} · config rev {visibleRecord.ruleset.revision} · pinned {visibleRecord.ruleset_digest.slice(0, 12)}</span>
+                <span className="module-muted">
+                  {visibleRecord.ruleset.config_id === DND5E_RULESET_ID
+                    ? "D&D 5e" : `${visibleRecord.ruleset.system_id} · ${visibleRecord.ruleset.edition_id}`}
+                  {" · config rev "}{visibleRecord.ruleset.revision}{" · pinned "}{visibleRecord.ruleset_digest.slice(0, 12)}
+                </span>
               </header>
               <details className="combat-roster-setup" open={adoptionBlocked ? true : undefined}><summary>Encounter setup · saved mechanics</summary>
               <CombatMechanicsAdoption key={`adoption:${worldId}:${visibleRecord.encounter_id}`}
