@@ -80,6 +80,27 @@ That is a diagnostic checkpoint, with no automatic cancellation or retry. A
 run that never dispatched a question is a setup failure and contributes no
 retrieval latency sample.
 
+### Latency waterfall
+
+Retain individual intervals with the opt-in `capture-context --detailed-trace`
+switch. Render an existing capture without an evaluator or provider call.
+
+```bash
+python -m evals.buddy_benchmark.workflow trace-report \
+  --manifest MANIFEST.json --trace-input CAPTURE_DIRECTORY \
+  --case Q01 --output REPORT_DIRECTORY
+```
+
+The command validates the retained writer packet and case identity, then emits
+`trace-report.json` and `trace-report.html`. Use the run root for a browser
+capture that stores transport clocks next to its capture directory. Browser
+timing is attributed only when the retained browser request and clock bounds
+match the captured case. Host-only captures use request start. The report
+labels writer-ready and writer transport sink separately. Outer wrapper spans
+are excluded from attributed wall time, and simultaneous independent spans
+share one interval. Packet content, Gold and citations are kept in the
+original evidence artifacts.
+
 ### Graph completeness and missing-evidence attribution
 
 For each Gold witness expected to have a Graph path, record the first proven

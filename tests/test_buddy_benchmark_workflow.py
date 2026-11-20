@@ -1221,3 +1221,38 @@ def test_context_tasting_checks_actual_wire_before_http(tmp_path, monkeypatch, l
         assert seen[0]['messages'] == [{'role': 'system', 'content': 'Frozen voice'},
             {'role': 'user', 'content': 'Frozen evidence'}]
         assert (target/'A/result.json').exists()
+
+
+def test_trace_report_counts_overlapping_spans_once(tmp_path, monkeypatch):
+    from evals.buddy_benchmark import trace_report
+
+    case = tmp_path / "example"
+    case.mkdir()
+    for name in ("context-ready", "context-request", "context-stop"):
+        immutable_save(case, name, {})
+    immutable_save(case, "detailed-host-trace", {
+        "trace_id": "trace", "start_monotonic_ns": 1_000_000, "end_monotonic_ns": 31_000_000,
+        "truncated": False, "intervals": [
+            {"name": name, "start_monotonic_ns": start * 1_000_000,
+             "end_monotonic_ns": end * 1_000_000}
+            for name, start, end in (("runtime_dispatch", 1, 31),
+                                     ("read", 1, 11), ("bind <evidence>", 6, 21))
+        ],
+    })
+    monkeypatch.setattr(trace_report, "validate_context_packet", lambda *args: {
+        "turn": SimpleNamespace(world_id="world", user_text="Question"),
+        "request_to_ready_ms": 30,
+    })
+    monkeypatch.setattr(trace_report, "summarize_host_trace", lambda *args: None)
+    report = trace_report.build(tmp_path, "example", world="world", question="Question")
+    assert report["allocated_ms"] == {
+        "read": 5, "bind <evidence> / read": 5, "bind <evidence>": 10, "Unattributed": 10,
+    }
+    assert report["observed_duration_percent"] == pytest.approx(200 / 3)
+    assert report["start_boundary"] == "request_start"
+    assert report["end_boundary"] == "writer_ready"
+    rendered = trace_report.render(report)
+    assert "&lt;evidence&gt;" in rendered
+    assert "Question" not in rendered
+    with pytest.raises(ValueError, match="differs from the manifest case"):
+        trace_report.build(tmp_path, "example", world="elsewhere", question="Question")
