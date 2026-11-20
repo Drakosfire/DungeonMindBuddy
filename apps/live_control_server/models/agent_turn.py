@@ -247,7 +247,7 @@ class AgentTurnGraphSelection(BaseModel):
 
 from application_state.agent_conversation.authored_graph_references import AuthoredReferenceInput, AuthoredReferencesV2
 
-from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV1
+from application_state.agent_conversation.plan_placement import PlanPlacementCatalog
 
 class AgentTurnRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -274,7 +274,7 @@ class AgentTurnRequest(BaseModel):
     reviewed_step: ReviewedStepReference | None = None
     plan_context_policy: PlanContextPolicyV2 | PlanContextPolicyV1 | None = None
     plan_authoring_capture: PlanAuthoringCaptureV1 | None = None
-    plan_placement_catalog: PlanPlacementCatalogV1 | None = None
+    plan_placement_catalog: PlanPlacementCatalog | None = None
     message: str = Field(min_length=1)
 
     @field_validator("client_thread_id", "turn_id", mode="before")

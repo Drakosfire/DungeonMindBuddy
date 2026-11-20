@@ -22,7 +22,7 @@ from .native_context import (
 )
 from .native_statement_input import Strict
 from .plan_authoring import PlanAuthoringCaptureV1
-from .plan_placement import PlanPlacementCatalogV1
+from .plan_placement import PlanPlacementCatalog
 
 from .native_retrieval import NativeRetrievalAuthorizedV1, NativePlanOpeningAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2, NativeReadBatchConcludedV1
 from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2, BuildAuthoredReferenceReadV3
@@ -87,7 +87,7 @@ class NativePlanActionV1(Strict):
     surface_id: Literal["plan"] = "plan"
     intent: Annotated[t.SubmittedTurnIntentV4 | t.SubmittedTurnIntentV3 | t.SubmittedTurnIntentV2, Field(discriminator="schema_")]
     authoring_capture: PlanAuthoringCaptureV1 | None
-    placement_catalog: PlanPlacementCatalogV1 | None
+    placement_catalog: PlanPlacementCatalog | None
 
     @model_validator(mode="after")
     def captured_work(self):

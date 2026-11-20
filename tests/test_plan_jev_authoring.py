@@ -1140,7 +1140,8 @@ def test_current_authorization_rejects_parent_contract_substitution(plan_adapter
 
 
 def _shared_plan_authoring_case(
-    plan_adapter, tmp_path, monkeypatch, placement, mode, failure=None, *, routing=None, dsn=None
+    plan_adapter, tmp_path, monkeypatch, placement, mode, failure=None, *, routing=None, dsn=None,
+    placement_factory=None,
 ):
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_plan_statements import (
@@ -1158,6 +1159,10 @@ def _shared_plan_authoring_case(
             update={"message": args().question}
         )
     capture, _ = admitted_authoring(plan_adapter, admit=False)
+    if placement_factory is not None:
+        capture, catalog = placement_factory(capture)
+        plan_adapter.request = plan_adapter.request.model_copy(update={
+            "plan_authoring_capture": capture, "plan_placement_catalog": catalog})
     plan_adapter.request = plan_adapter.request.model_copy(
         update={
             "plan_context_policy": t.PlanContextPolicyV2(
@@ -1283,7 +1288,7 @@ def _shared_plan_authoring_case(
                 assert capture.draft_markdown in prose
                 assert "## Current page draft" in prose
                 assert "## Focused edit target" in prose
-                expected_placement = "insert_at_caret" if placement == "captured" else "insert_at_boundary"
+                expected_placement = capture.target_kind
                 assert expected_placement in prose
                 assert "run_id" not in prose
             else:
@@ -1304,6 +1309,11 @@ def _shared_plan_authoring_case(
                     "insert_at_caret" if placement == "captured" else "insert_at_boundary"
                 )
             self.adapter = wire.adapter
+            if placement_factory is not None:
+                serialized = json.dumps(rows)
+                for host_field in ("source_root_index", "root_boundary", "editor_sha256", "target_capture_sha256"):
+                    assert host_field not in serialized
+                assert capture.document_id not in serialized and capture.world_id not in serialized
             if failure == "writer_timeout":
                 import httpx
 
@@ -1542,6 +1552,7 @@ def _shared_plan_authoring_case(
         and len(writer.calls) == 1
         and len(decisions.calls) == (2 if mode == "base" else 3)
     )
+    return response
 
 
 @pytest.mark.parametrize("mode", ["base", "mixed", "rules_only"])

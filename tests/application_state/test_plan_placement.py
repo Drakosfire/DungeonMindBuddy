@@ -11,7 +11,10 @@ from application_state.agent_conversation.plan_authoring import (
 from application_state.agent_conversation.plan_placement import (
     PlanPlacementCatalogV1, PlanPlacementOptionV1,
     PlanPlacementCatalogV2, PlanPlacementOptionV2, paragraph_placement_label,
+    decode_plan_placement_catalog,
 )
+from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
+from tests.test_plan_jev_harness import unavailable_native_sources  # noqa: F401
 
 
 def original_capture():
@@ -48,6 +51,185 @@ def paragraph_catalog_for(original, kind="after_paragraph", index=1):
     option = option.model_copy(update={"target_capture_sha256": option.derived_target(original).sha256})
     return PlanPlacementCatalogV2(original_capture_sha256=original.sha256,
         editor_sha256=original.editor_sha256, entries=(captured, option))
+
+
+def test_explicit_catalog_decoder_retains_v1_hash_and_rejects_unknown_versions():
+    from pydantic import TypeAdapter
+    from application_state.agent_conversation.plan_placement import PlanPlacementCatalog
+    adapter = TypeAdapter(PlanPlacementCatalog)
+    original = original_capture()
+    for catalog in (catalog_for(original), paragraph_catalog_for(original)):
+        wire = catalog.model_dump(mode="json", by_alias=True)
+        decoded = decode_plan_placement_catalog(wire)
+        assert type(decoded) is type(catalog)
+        assert decoded.sha256 == catalog.sha256
+        assert adapter.validate_python(wire).sha256 == decoded.sha256
+    legacy = catalog_for(original).model_dump(mode="json", by_alias=True)
+    legacy.pop("schema")
+    assert decode_plan_placement_catalog(legacy).sha256 == catalog_for(original).sha256
+    assert type(adapter.validate_python(legacy)) is PlanPlacementCatalogV1
+    untagged_v2 = paragraph_catalog_for(original).model_dump(mode="json", by_alias=True)
+    untagged_v2.pop("schema")
+    with pytest.raises(ValidationError):
+        adapter.validate_python(untagged_v2)
+    with pytest.raises(ValidationError):
+        decode_plan_placement_catalog(legacy | {"schema": "dmb_plan_placement_catalog_v99"})
+
+
+@pytest.mark.parametrize("decision", ["write:place1", "clarify", "discuss"])
+def test_v2_catalog_survives_dispatch_decision_sql_and_cold_read_without_implicit_reservation(
+    plan_adapter, application_state_dsn, decision,
+):
+    import asyncio
+    import psycopg
+    from application_state.agent_conversation import AgentConversationService
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+    from apps.live_control_server.services.agent_turn_service import _submitted_turn_intent
+    from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
+    from tests.test_plan_jev_authoring import admitted_authoring, SemanticWire
+
+    original, _ = admitted_authoring(plan_adapter, admit=False)
+    captured = PlanPlacementOptionV2(selector="captured", kind="captured_target",
+        label="At the captured text caret", source_root_index=None, root_boundary=None,
+        position=None, target_capture_sha256=original.sha256)
+    content = json.loads(original.editor_json)["content"]
+    option = PlanPlacementOptionV2(selector="place1", kind="after_paragraph",
+        label=paragraph_placement_label(content, 0, "after_paragraph"), source_root_index=0,
+        root_boundary=1, position=15, target_capture_sha256="0" * 64)
+    option = option.model_copy(update={"target_capture_sha256": option.derived_target(original).sha256})
+    catalog = PlanPlacementCatalogV2(original_capture_sha256=original.sha256,
+        editor_sha256=original.editor_sha256, entries=(captured, option))
+    wire = plan_adapter.request.model_dump(mode="json", by_alias=True)
+    wire["plan_placement_catalog"] = catalog.model_dump(mode="json", by_alias=True)
+    plan_adapter.request = AgentTurnRequest.model_validate(wire)
+    untagged = json.loads(json.dumps(wire))
+    untagged["plan_placement_catalog"].pop("schema")
+    with pytest.raises(ValidationError):
+        AgentTurnRequest.model_validate(untagged)
+    plan_adapter.submitted_intent = _submitted_turn_intent(plan_adapter.request, world_id="world:one")
+    selected, _ = asyncio.run(PlanJevDispatch.requested_work(plan_adapter, page_title="Preparation").run(
+        transport=SemanticWire(plan_adapter, decision), api_key="synthetic-not-secret"))
+    service = AgentConversationService()
+    cold = service.list_turns("world:one", plan_adapter.turn.conversation_id)[0]
+    choices = [event for event in cold.graph_context_execution.events
+               if event.kind == "plan_requested_work_selected_v2"]
+    assert len(choices) == 1
+    retained = decode_plan_placement_catalog(choices[0].placement_catalog)
+    assert type(retained) is PlanPlacementCatalogV2
+    assert retained.sha256 == catalog.sha256
+    assert retained.model_dump(mode="json", by_alias=True) == wire["plan_placement_catalog"]
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT count(*) FROM plan_action.action").fetchone()[0] == 0
+    if decision == "write:place1":
+        assert selected == "write_current_page"
+        target = retained.resolve(original, "place1")
+        assert target.selection_json == original.selection_json
+        action, fresh = service.reserve_plan_authoring_action(capture=target,
+            turn_id=cold.turn_id, expected_revision=cold.revision)
+        assert fresh and action.authoring_origin.capture_sha256 == target.sha256
+    else:
+        assert selected == decision
+
+
+def native_paragraph_placement_fixture(original):
+    pieces = ["Unrelated opening.", "## Preparation", "The gate is locked.",
+              "Check supplies.", "## Rumours", "The gate is locked."]
+    content = [dict(type="heading", attrs={"level": 2}, content=[dict(type="text", text=text[3:])])
+               if text.startswith("## ") else dict(type="paragraph", content=[dict(type="text", text=text)])
+               for text in pieces]
+    editor = json.dumps(dict(type="doc", content=content), separators=(",", ":"))
+    selection = '{"type":"text","anchor":1,"head":1}'
+    draft = "\n\n".join(pieces)
+    payload = original.model_dump(mode="json", by_alias=True)
+    payload.update(editor_json=editor, editor_sha256=text_digest(editor), draft_markdown=draft,
+        draft_sha256=text_digest(draft), selection_json=selection, selection_sha256=text_digest(selection),
+        **{"from": 1, "to": 1})
+    capture = PlanAuthoringCaptureV1.model_validate(payload)
+    captured = PlanPlacementOptionV2(selector="captured", kind="captured_target", label="At the captured text caret",
+        source_root_index=None, root_boundary=None, position=None, target_capture_sha256=capture.sha256)
+    # Fixture-only PM sizes for these simple heading/text nodes. The real
+    # compiler/position owner is exercised separately with a mounted editor.
+    position = sum(len("".join(child["text"] for child in node["content"]).encode("utf-16-le")) // 2 + 2
+                   for node in content[:3])
+    boundary = PlanPlacementOptionV2(selector="place1", kind="after_paragraph",
+        label=paragraph_placement_label(content, 2, "after_paragraph"), source_root_index=2,
+        root_boundary=3, position=position, target_capture_sha256="0" * 64)
+    boundary = boundary.model_copy(update={"target_capture_sha256": boundary.derived_target(capture).sha256})
+    catalog = PlanPlacementCatalogV2(original_capture_sha256=capture.sha256,
+        editor_sha256=capture.editor_sha256, entries=(captured, boundary))
+    return capture, catalog
+
+
+@pytest.mark.parametrize("failure", ["changed_capture", "changed_page", "changed_conversation"])
+def test_current_native_v2_paragraph_target_refuses_changed_authority(
+    plan_adapter, tmp_path, monkeypatch, failure,
+):
+    from tests.test_plan_jev_authoring import _shared_plan_authoring_case
+    plan_adapter.request = plan_adapter.request.model_copy(update={
+        "message": "Add a warning after the Preparation paragraph about the locked gate."})
+    _shared_plan_authoring_case(plan_adapter, tmp_path, monkeypatch, "place1", "base",
+        failure=failure, placement_factory=native_paragraph_placement_fixture)
+
+
+@pytest.mark.parametrize("routing", [None, "clarify", "discuss"])
+def test_current_native_caller_v2_paragraph_proposal_and_explicit_save_or_no_reservation(
+    plan_adapter, tmp_path, monkeypatch, application_state_dsn, routing,
+):
+    import psycopg
+    from uuid import uuid4
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.content.service import current_committed_revision
+    from application_state.plan_action_dialogue import authoring_review as reviews
+    from tests.test_plan_jev_authoring import _shared_plan_authoring_case
+
+    plan_adapter.request = plan_adapter.request.model_copy(update={
+        "message": "Add a warning after the Preparation paragraph about the locked gate."})
+    response = _shared_plan_authoring_case(plan_adapter, tmp_path, monkeypatch, "place1", "base",
+        routing=routing, dsn=application_state_dsn, placement_factory=native_paragraph_placement_fixture)
+    service = AgentConversationService()
+    pointer = service.get_world_pointer("world:one")
+    cold = service.list_turns("world:one", pointer.active_conversation_id)[0]
+    assert type(cold.graph_context_execution.policy.action.placement_catalog) is PlanPlacementCatalogV2
+    action_type = type(cold.graph_context_execution.policy.action)
+    action_wire = cold.graph_context_execution.policy.action.model_dump(mode="json", by_alias=True)
+    assert action_type.model_validate(action_wire).placement_catalog.schema_ == "dmb_plan_placement_catalog_v2"
+    action_wire["placement_catalog"].pop("schema")
+    with pytest.raises(ValidationError):
+        action_type.model_validate(action_wire)
+    if routing is not None:
+        with psycopg.connect(application_state_dsn) as conn:
+            assert conn.execute("SELECT count(*) FROM plan_action.action").fetchone()[0] == 0
+        return
+    proposal = response.plan_proposal
+    capture = proposal.capture
+    assert capture.root_boundary == 3 and capture.from_ != 1
+    assert json.loads(capture.selection_json) == {"type": "text", "anchor": 1, "head": 1}
+    action_id = proposal.origin.action_id
+
+    def command(review, operation, **values):
+        return reviews.execute_review_command(capture.world_id, action_id,
+            dict(operation=operation, command_id=uuid4(), origin_sha256=proposal.origin.sha256,
+                 expected_revision=review.revision if review else 0, **values))
+
+    opened = command(None, "open")
+    before = json.loads(capture.editor_json)["content"]
+    inserted = dict(type="paragraph", content=[dict(type="text", text=opened.markdown)])
+    after_nodes = before[:3] + [inserted] + before[3:]
+    after_editor = json.dumps(dict(type="doc", content=after_nodes), separators=(",", ":"))
+    after_markdown = "\n\n".join(("## " if node["type"] == "heading" else "")
+        + "".join(child["text"] for child in node["content"]) for node in after_nodes)
+    application_id = uuid4()
+    prepared = command(opened, "prepare", application_id=application_id,
+        after_editor_json=after_editor, after_editor_sha256=text_digest(after_editor),
+        after_markdown=after_markdown, after_draft_sha256=text_digest(after_markdown), after_title="Preparation")
+    confirm = dict(operation="confirm", command_id=uuid4(), origin_sha256=proposal.origin.sha256,
+        expected_revision=prepared.revision, application_id=application_id)
+    saved = reviews.execute_review_command(capture.world_id, action_id, confirm)
+    assert reviews.execute_review_command(capture.world_id, action_id, confirm) == saved
+    committed = current_committed_revision(capture.document_id, kind="plan")
+    assert committed.work_revision.markdown == after_markdown
+    assert saved.applications[-1].outcome == "saved"
+    assert json.loads(saved.applications[-1].after_editor_json)["content"] == after_nodes
 
 
 @pytest.mark.parametrize("kind,boundary", [("before_paragraph", 1), ("after_paragraph", 2)])
@@ -393,10 +575,44 @@ def test_under_heading_decision_exposes_exact_location_without_offsets_or_new_sa
     decision = prepare_requested_work_decision(request)
     assert "write:under:0" in decision.questions[0].options
     assert "inside that section before its existing body" in decision.state["placement_policy"]
+    assert "Use the offered under:<selector> location for writing under a named heading." in decision.state["placement_policy"]
     assert all(set(row) == {"selector", "label"} for row in decision.state["offered_page_locations"])
     choice = work_choice(request, "write:under:0")
     assert choice["placement_selector"] == "under:0"
     assert choice["target_capture_sha256"] == catalog.resolve(original, "under:0").sha256
+
+
+def test_v2_heading_guidance_uses_actual_opaque_choice_in_prepared_wire():
+    from pathlib import Path
+    from application_state.agent_conversation.plan_authoring import prepare_requested_work_decision
+    from application_state.agent_conversation.plan_placement import PlanRequestedWorkInputV3
+    original = original_capture()
+    legacy = under_heading_catalog(original)
+    entries = []
+    for index, option in enumerate(legacy.entries):
+        fields = option.model_dump(mode="json")
+        fields.update(selector="captured" if index == 0 else "place1",
+                      source_root_index=None if index == 0 else 0)
+        if index == 0:
+            fields["label"] = "At the captured text caret"
+        entries.append(PlanPlacementOptionV2.model_validate(fields))
+    catalog = PlanPlacementCatalogV2(original_capture_sha256=original.sha256,
+        editor_sha256=original.editor_sha256, entries=tuple(entries))
+    frozen = json.loads((Path(__file__).parents[1] / "fixtures/plan_requested_work_v2_wire.json").read_text())
+    parent = frozen["parent"] | {"schema": "dmb_plan_requested_work_input_v3",
+        "original_capture": original.model_dump(mode="json", by_alias=True),
+        "target_capture_sha256": original.sha256,
+        "placement_catalog": catalog.model_dump(mode="json", by_alias=True)}
+    decision = prepare_requested_work_decision(PlanRequestedWorkInputV3.model_validate(parent))
+    untagged = json.loads(json.dumps(parent))
+    untagged["placement_catalog"].pop("schema")
+    with pytest.raises(ValidationError):
+        PlanRequestedWorkInputV3.model_validate(untagged)
+    serialized = json.dumps({"state": decision.state, "options": decision.questions[0].options})
+    assert "write:place1" in serialized
+    assert "under:" not in serialized
+    assert "Use the opaque selector offered with the matching" in serialized
+    assert "source_root_index" not in serialized
 
 
 @pytest.mark.parametrize('operation',['discuss','write_current_page'])

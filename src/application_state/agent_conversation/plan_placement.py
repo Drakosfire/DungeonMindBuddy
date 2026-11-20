@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import re
-from typing import Literal
-from pydantic import Field, model_validator
+from typing import Annotated, Literal
+from pydantic import BeforeValidator, Field, model_validator
 from .authored_graph_references import AuthoredReferencesV2
 
 from .plan_authoring import (
@@ -253,10 +253,29 @@ class PlanPlacementCatalogV2(PlanPlacementCatalogV1):
         return self
 
 
+def decode_plan_placement_catalog(value) -> PlanPlacementCatalogV2 | PlanPlacementCatalogV1:
+    """Decode retained catalog versions explicitly; preserve legacy defaults."""
+    if isinstance(value, PlanPlacementCatalogV1):
+        value = value.model_dump(mode="json", by_alias=True)
+    if not isinstance(value, dict):
+        raise ValueError("Plan placement catalog must be a versioned object")
+    if value.get("schema") == "dmb_plan_placement_catalog_v2":
+        return PlanPlacementCatalogV2.model_validate(value)
+    # V1 historically allowed its default schema to be omitted. Unknown explicit
+    # schemas still fail V1's Literal check; they never fall back to a V2 guess.
+    return PlanPlacementCatalogV1.model_validate(value)
+
+
+PlanPlacementCatalog = Annotated[
+    PlanPlacementCatalogV2 | PlanPlacementCatalogV1,
+    BeforeValidator(decode_plan_placement_catalog),
+]
+
+
 class PlanRequestedWorkInputV2(PlanRequestedWorkInputV1):
     schema_: Literal["dmb_plan_requested_work_input_v2"] = Field(
         default="dmb_plan_requested_work_input_v2", alias="schema")
-    placement_catalog: PlanPlacementCatalogV1 | None
+    placement_catalog: PlanPlacementCatalog | None
     original_capture: PlanAuthoringCaptureV1 | None
 
     @model_validator(mode="after")

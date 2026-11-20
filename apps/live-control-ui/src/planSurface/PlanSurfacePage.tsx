@@ -619,7 +619,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       worldEditStateGetterRef.current(applicationId), () => worldEditStateGetterRef.current(applicationId), identity,
     ),
     sealAuthoring:sealWorldPlanAuthoringTarget,
-    capturePlacementCatalog:(target,capture)=>capturePlanPlacementCatalog(target.editor,capture),
+    capturePlacementCatalog:(target,capture)=>capturePlanPlacementCatalog(target.editor,capture,true),
     captureAuthoringAt:(...args)=>authoringMoveCaptureRef.current(...args),
     restoreAuthoring:(capture,identity)=>restorePlanAuthoringTarget(capture,
       worldEditStateGetterRef.current(),()=>worldEditStateGetterRef.current(),identity),

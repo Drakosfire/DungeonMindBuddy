@@ -193,9 +193,9 @@ def project(turn, proof, trace):
         expected_capture_sha=execution.policy.plan_authoring_capture_sha256
         placement_label=None
         if isinstance(execution.policy,t.PlanPlacementAuthoringPolicyV1):
-            from .plan_placement import PlanPlacementCatalogV1
+            from .plan_placement import decode_plan_placement_catalog
             original=PlanAuthoringCaptureV1.model_validate(proof["original_authoring_capture"]) if proof["original_authoring_capture"] is not None else None
-            catalog=PlanPlacementCatalogV1.model_validate(proof["placement_catalog"]) if proof["placement_catalog"] is not None else None
+            catalog=decode_plan_placement_catalog(proof["placement_catalog"]) if proof["placement_catalog"] is not None else None
             if ((original.sha256 if original is not None else None)!=expected_capture_sha
                     or (catalog.sha256 if catalog is not None else None)!=execution.policy.placement_catalog_sha256):
                 raise ValueError("Plan writer original page/catalog differs from its frozen intent")

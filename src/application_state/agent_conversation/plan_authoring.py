@@ -423,7 +423,7 @@ def _prepare_requested_work_only(request: PlanRequestedWorkInputV1):
     from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
     from .jev_retrieval_contract import MODEL, PROVIDER
 
-    from .plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV3, PlanRequestedWorkInputV6, PlanRequestedWorkInputV7, PlanRequestedWorkInputV8
+    from .plan_placement import PlanPlacementCatalogV2, PlanRequestedWorkInputV2, PlanRequestedWorkInputV3, PlanRequestedWorkInputV6, PlanRequestedWorkInputV7, PlanRequestedWorkInputV8
     placement = isinstance(request, PlanRequestedWorkInputV2)
     choices = ("discuss", "clarify", "different_destination") + (
         tuple("write:" + entry.selector for entry in request.placement_catalog.entries)
@@ -449,8 +449,13 @@ def _prepare_requested_work_only(request: PlanRequestedWorkInputV1):
         if isinstance(request, PlanRequestedWorkInputV7) else
         "When no page location is available, requested writing is write_unavailable, never ordinary discussion. ") +
         "This selection does not Save or execute deferred work." + (
+            (" Directly below a heading means inside that section before its existing body, not before the heading "
+            "or after its entire section. Use the opaque selector offered with the matching "
+            "Directly below the heading label for writing under a named heading."
+            if isinstance(request.placement_catalog, PlanPlacementCatalogV2) else
             " Directly below a heading means inside that section before its existing body, not before the heading "
             "or after its entire section. Use the offered under:<selector> location for writing under a named heading."
+            )
             if request.placement_catalog is not None
             and any(entry.kind == "after_heading" for entry in request.placement_catalog.entries) else "")} if placement else {}
     references = getattr(request, "authored_references", None)

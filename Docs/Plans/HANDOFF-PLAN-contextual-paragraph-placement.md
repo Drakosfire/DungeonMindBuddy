@@ -6,7 +6,9 @@ containing its actual 0170 migration. Alan explicitly chose #4240 first, then
 0171 after0170. The authorized fence is now allocated as
 `20261120_0171_plan_paragraph_placement_reader_fence.py`, down_revision0170.
 No production migration execution or deployment. V2 public admission/producer
-activation remains unfinished until its whole owner chain and evidence are ready.
+wiring is in progress in draft #4264; ordinary-model acceptance and exact-source
+qualification remain unfinished. Historical inert checkpoints below describe
+their recorded heads, not the current working-tree wiring.
 
 ## Outcome and delivery
 
@@ -44,6 +46,33 @@ The lease includes truthful merged-predecessor settlement in
 The lease now includes the single authorized fence migration above, after a
 fresh 60-open-PR reservation audit found no0171+ migration collision.
 Expand this lease with exact paths and a fresh audit before wiring consumers.
+Consumer wiring amendment: a fresh61-open-PR audit found only the already
+authorized overlaps with #3307/#2462/#2225. Expected additional writes are
+`apps/live-control-ui/src/planSurface/agentEdit/planPlacementCatalog.ts` and its
+owning test; `apps/live-control-ui/src/api/planAuthoringReviewApi.ts` and test;
+`apps/live_control_server/models/agent_turn.py`;
+`src/application_state/agent_conversation/native_execution.py`, `types.py` and
+`plan_jev_graph_packet.py`; and `apps/live_control_server/services/plan_jev_driver.py`.
+Limit the shared native/driver edits to the authorized catalog union/decoding.
+No dispatcher, retrieval ordering or writer-instruction change is included.
+Independent review exposed a coupled V2 decision-guidance correction in
+`src/application_state/agent_conversation/plan_authoring.py` (fresh open-PR file
+audit: no overlap): retain exact historical V1 wording while referring to the
+actual opaque V2 alias for after-heading choices. This remains the same paragraph
+placement capability; it changes no retrieval or writer contract. Eight dev cases
+were frozen before this adjustment in external `plan-ordinary-dev`, alongside
+the independently authored, unread 22-case held-out oracle.
+The normal-Send activation uses the explicitly authorized targeting-only split
+in `apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx`: request V2 for
+plain pages while retaining V1 for composed pages. A refreshed open-PR audit
+confirmed its only overlapping lanes are #3824/#1014/#1188, covered by that split.
+The existing mounted `PlanSurfacePage.test.tsx` ordinary-first-Send cases now
+assert that transport includes V2 paragraph choices; its overlaps with
+#1014/#1188 fall within the authorized contextual-targeting/test split.
+The consumer test lease also includes the existing native caller helper in
+`tests/test_plan_jev_authoring.py`: a fresh61-open-PR audit found no overlap.
+Limit the helper extension to an optional versioned placement fixture and its
+serialized-request checks; preserve existing default test behavior.
 The remaining planned owner chain is the frontend catalog/compiler and API
 catalog union, backend turn input, retained native action/selection decoders,
 actual decision proof and the existing proposal/apply/Save chain. No schema or
@@ -141,3 +170,40 @@ the corrected test uses `application_state.schema_migrations`. Both attempts
 are retained separately as `plan-fence-working.log` and
 `plan-fence-corrected.log`. Backend module and new fence pass Ruff. These are
 working-tree diagnostics and do not qualify the unfinished ordinary path.
+
+## Consumer and ordinary-producer checkpoint
+
+V2 now passes through public turn input, requested-work preparation, retained
+native actions and selection/proof decoders. Shared explicit version dispatch
+preserves omitted-schema V1 compatibility and requires an explicit V2 tag.
+Plain Plan ordinary Send captures real root-paragraph aliases; composed pages
+retain V1. V2 after-heading decision guidance uses the actual opaque alias;
+historical V1 guidance is unchanged. No retrieval ordering/writer change.
+
+Working-tree diagnostics under `/home/drakosfire/Projects/.codex/buddy-check.A0jV7T`:
+
+- `plan-producer-composed-control.json`: 14 compiler tests pass, including actual
+  editor offsets, Undo/Redo, async stale capture and composed V1 fallback.
+- `plan-mounted-producer-activation.json`: nine mounted ordinary-first-Send cases
+  pass with V2 choices; 131 unrelated cases skipped by this focused command.
+- `plan-producer-typecheck.log`: TypeScript check passes under the global lock.
+- `plan-cross-language-witness.json`: actual TS producer catalog validates in
+  Python and prepares model state without the inspected host metadata. Synthetic.
+- `plan-decoder-owner-parity-corrected.log`: 67 placement/fence/consumer tests pass,
+  including public/requested-work/current retained-action raw version controls,
+  scripted native proposal plus actual explicit Save/cold read, and no-reservation
+  clarify/discuss. Its preceding failed attempt used an older action class in the
+  test; preserved separately. This is not real-model targeting evidence.
+- `plan-v2-authority-controls.log`: all70 tests pass after adding actual native
+  reservation/proof controls for changed capture, page and conversation.
+- `plan-owner-consumer-regression.log`: 132 pass, two mixed Rules replay failures.
+  Exact base6f8af81e reproduces both same test IDs and owning pinned-evidence error
+  in `plan-owner-base-mixed.log` (four other parameter cases pass).
+- `plan-consumer-lint-comparison.json`: current/base both42 diagnostics with equal
+  path/code/message multiset; full JSON retained. Lint remains red.
+
+Disposable task PostgreSQL is currently loopback33133; fixtures own their session
+template/per-test clones. No operator data or providers used by these diagnostics.
+Exact-SHA verifier/review, broader discovery comparison and a joined ordinary
+real-model/browser/Save/reopen witness remain required before merge. The fresh
+held-out oracle is unread. No release, cross-surface or full-goal completion claim.
