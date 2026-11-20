@@ -3177,9 +3177,14 @@ class _PolicyExecutionAdapter:
                 request_id=lifecycle.get("runtimeApiRequestId"),
                 response_sha256=lifecycle.get("responseSha256"),
             )
+            record_options = {}
+            if opening_authorization is not None:
+                record_options["opening_authorization"] = opening_authorization
+            if (transition == "sdk_entered" and self._is_build_turn() and self.trace is not None
+                    and type(self.fence.service) is AgentConversationService):
+                record_options["measure"] = self.trace.phase_before_first_jev
             updated = _require_fresh_execution_append(
-                self.fence.append("record_provider_outcome", "outcome", event,
-                    **({'opening_authorization': opening_authorization} if opening_authorization is not None else {}))
+                self.fence.append("record_provider_outcome", "outcome", event, **record_options)
             )
             self.turn = updated
             if self.rules_runtime is not None:
