@@ -1,4 +1,4 @@
-"""Tests for Graph Review confirmation through DungeonMind authority."""
+"""Historical proposal/signature unit composition with synthetic source/authority seams."""
 
 from __future__ import annotations
 
@@ -43,6 +43,13 @@ def graph_review_unit_seams(monkeypatch: pytest.MonkeyPatch) -> FakeSourceAdmiss
     monkeypatch.setattr(
         "apps.live_control_server.services.graph_object_authoring_binding.resolve_publication_context",
         lambda request, resolved, **_: GraphReviewPublicationContext(request.world_id or request.campaign_id, request.campaign_id),
+    )
+    # Match the existing prepare-unit seam: these fixtures carry an object://
+    # source, synthetic verified spans and fake admission, not a real APP body.
+    # Mounted receipt recovery and real native APP admission have separate owners.
+    monkeypatch.setattr(
+        "apps.live_control_server.services.source_artifact_registry.load_source_input_bytes",
+        lambda _artifact: b"Synthetic proposal unit-test body",
     )
     fake = FakeSourceAdmission()
     monkeypatch.setattr(

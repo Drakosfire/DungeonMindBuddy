@@ -33,7 +33,6 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphObjectAuthoringError,
     GraphObjectAuthoringPrepareRequest,
     GraphObjectAuthoringPrepareResponse,
-    prepare_graph_object_authoring_write,
     graph_review_supported_object_kinds,
 )
 
@@ -43,6 +42,11 @@ from apps.live_control_server.models.native_manual_knowledge import (
 )
 
 router = APIRouter(prefix="/api/live/graph-authoring", tags=["graph-authoring"])
+
+_CLASSIC_MANUAL_PREPARE_RETIRED = {
+    "code": "classic_manual_prepare_retired",
+    "message": "Fresh classic publication is retired. Use current native authoring.",
+}
 
 _STORE_RETIRED = {
     "code": "graph_authoring_store_retired",
@@ -144,7 +148,7 @@ def post_native_relationship_confirm(
         ) from exc
 
 
-@router.post("/prepare", response_model=GraphObjectAuthoringPrepareResponse)
+@router.post("/prepare", response_model=GraphObjectAuthoringPrepareResponse, deprecated=True)
 def post_graph_object_authoring_prepare(
     request: GraphObjectAuthoringPrepareRequest, request_context: Request,
 ) -> dict[str, Any]:
@@ -153,19 +157,11 @@ def post_graph_object_authoring_prepare(
     authorize_world = partial(
         manual_knowledge_actor, request_context, world_id=request.world_id, run_id=request.source_run_id,
     )
-    actor = authorize_world()
-    try:
-        response = prepare_graph_object_authoring_write(request, authenticated_actor=actor) if actor else prepare_graph_object_authoring_write(request)
-    except GraphObjectAuthoringError as exc:
-        raise HTTPException(
-            status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}
-        ) from exc
-    if actor:
-        authorize_world()
-    return response.model_dump(mode="json", by_alias=False)
+    authorize_world()
+    raise HTTPException(status_code=410, detail=_CLASSIC_MANUAL_PREPARE_RETIRED)
 
 
-@router.post("/commit", response_model=GraphObjectAuthoringCommitResponse)
+@router.post("/commit", response_model=GraphObjectAuthoringCommitResponse, deprecated=True)
 def post_graph_object_authoring_commit(
     request: GraphObjectAuthoringCommitRequest, request_context: Request,
 ) -> dict[str, Any]:
@@ -178,10 +174,10 @@ def post_graph_object_authoring_commit(
     try:
         if actor:
             response = commit_graph_object_authoring_write(
-                request, authenticated_actor=actor, authorize_world=authorize_world,
+                request, authenticated_actor=actor, authorize_world=authorize_world, recovery_only=True,
             )
         else:
-            response = commit_graph_object_authoring_write(request)
+            response = commit_graph_object_authoring_write(request, recovery_only=True)
     except GraphObjectAuthoringError as exc:
         raise HTTPException(
             status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}

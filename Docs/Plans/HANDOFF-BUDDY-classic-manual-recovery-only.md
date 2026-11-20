@@ -1,6 +1,6 @@
 # Classic manual publication: original recovery only
 
-Status: ACTIVE implementation. Owner: MIND under the operator's explicit full-lane implementation, review and merge authority. No ARCHITECTURE/PRIME coordination gate. This eleven-path assignment is committed before runtime edits.
+Status: ACTIVE — implemented; exact-head qualification and independent review pending. Owner: MIND under the operator's explicit full-lane implementation, review and merge authority. No ARCHITECTURE/PRIME coordination gate. This eleven-path assignment is committed before runtime edits.
 Serial predecessors accepted: Buddy4207 merge
 `e3e9304e7e7397a0e6950c285e56d399cc4e6cd3`, reviewed45b, review5987678478;
 Core244 checkpoint merge `e83ab2664f6c953f4a8726ff053b24703440452a`, reviewed
@@ -107,3 +107,30 @@ PublishedRecapLocalAuthoring.test.tsx. This is inseparable from truthful retirem
 UX, not an additional capability. Public props, active publisher behavior, controls
 and all unrelated wizard work stay unchanged. Commit this rebrief before editing
 that eleventh path; prior runtime work remains within the original ten paths.
+
+## Current implementation checkpoint
+
+Owning working-tree diagnostics:31 backend PASS,1 optional historical PostgreSQL
+witness skipped because its separate DMB_CUTOVER_TEST_DATABASE_URL was not supplied;
+91 UI PASS across actual local Recap/remount, generic authoring surface, managed
+native Recap and unchanged manual recovery dispatcher. Application/verification
+TypeScript checks passed. Buddy-pinned Ruff0.15.7: four changed Python paths clean,
+11 pre-existing F811 diagnostics in the hosted auth test file unchanged, no new
+lint diagnostics. These are diagnostics, not final frozen-head qualification.
+
+Mounted routes call the unchanged real confirmation service with fixture source/
+authority ports, not a mocked recovery_only result. Valid and expired original
+receipts replay after a descendant; absent receipt and tampered token preserve the
+entire fixture head/revision/receipt state. Hosted owned prepare returns410 while
+foreign/malformed scopes retain prior403 and local malformed input retains422;
+owner transfer before receipt return denies disclosure. The direct historical
+service unit fixture now matches its existing prepare-unit synthetic-body seam;
+its missing APP-body dependency caused the first diagnostic failures. No real APP
+admission is inferred from those synthetic unit seams. The original red diagnostics
+are retained, as are the two intentionally replaced stale publisher assertions.
+
+Runtime diff is limited to the two classic route handlers/deprecation marker and
+the local Recap publisher removal/copy. Service/Kernel/WK/locks/schema unchanged.
+Before merge: exact frozen owning/auth/native preservation, full discovered
+attribution, hosted/build/canonical evidence and independent cumulative review.
+The overall vNext goal remains active after this slice.

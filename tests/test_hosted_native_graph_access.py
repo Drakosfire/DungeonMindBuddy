@@ -4737,14 +4737,16 @@ def test_hosted_relationship_request_uses_owned_world(hosted, monkeypatch):
 
 def test_hosted_manual_knowledge_checks_build_source_and_actor(hosted, monkeypatch):
     from apps.live_control_server.routes import graph_authoring
-    from apps.live_control_server.services import graph_run_registry, source_artifact_registry
+    from apps.live_control_server.services import graph_run_registry, source_artifact_registry, graph_object_authoring_prepare
     from tests.test_graph_object_authoring_prepare import object_proposal
 
     async def owned_page(subject, document_id):
         assert (subject, document_id) == (OWNER, "build-doc")
         return "managed"
 
-    def dispatch(body, *, authenticated_actor, authorize_world=None):
+    def dispatch(body, *, authenticated_actor, authorize_world=None, recovery_only):
+        assert recovery_only is True
+        assert callable(authorize_world)
         calls.append((body.source_run_id, authenticated_actor))
         raise graph_authoring.GraphObjectAuthoringError("Reached authoring.", code="probe", status_code=409)
 
@@ -4757,7 +4759,8 @@ def test_hosted_manual_knowledge_checks_build_source_and_actor(hosted, monkeypat
         source_domain="worldbuilding", workspace_document_id="build-doc",
         world_id="managed" if artifact == "owned" else "foreign",
     ))
-    monkeypatch.setattr(graph_authoring, "prepare_graph_object_authoring_write", dispatch)
+    monkeypatch.setattr(graph_object_authoring_prepare, "prepare_graph_object_authoring_write",
+                        lambda *_a, **_k: pytest.fail("Retired prepare dispatched"))
     monkeypatch.setattr(graph_authoring, "commit_graph_object_authoring_write", dispatch)
     payload = {"worldId": "managed", "campaignId": "managed", "sourceRunId": "owned", "proposals": [object_proposal()]}
     for phase in ("prepare", "commit"):
@@ -4766,8 +4769,25 @@ def test_hosted_manual_knowledge_checks_build_source_and_actor(hosted, monkeypat
         assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
         assert hosted.client.request("POST", path, json={**body, "sourceRunId": "foreign"}).status_code == 403
         response = hosted.client.request("POST", path, json=body)
-        assert response.status_code == 409, response.text
-    assert calls == [("owned", f"hosted_dms:{OWNER}")] * 2
+        assert response.status_code == (410 if phase == "prepare" else 409), response.text
+        if phase == "prepare":
+            assert response.json()["detail"]["code"] == "classic_manual_prepare_retired"
+    assert calls == [("owned", f"hosted_dms:{OWNER}")]
+
+    malformed = {**payload, "proposals": "invalid"}
+    # The existing hosted resolver validates the packet before route dispatch
+    # and maps malformed authority scope to denial, not local FastAPI422.
+    assert hosted.client.request("POST", "/api/live/graph-authoring/prepare", json=malformed).status_code == 403
+    assert hosted.client.request("POST", "/api/live/graph-authoring/prepare", json=malformed, session="other-session").status_code == 403
+
+    def transfer_before_receipt(_body, *, authenticated_actor, authorize_world, recovery_only):
+        assert authenticated_actor == f"hosted_dms:{OWNER}" and recovery_only is True
+        hosted.records["managed"] = hosted.records["managed"].model_copy(update={"owner_subject": OTHER_OWNER})
+        return graph_authoring.GraphObjectAuthoringCommitResponse(committed=True, campaign_id="managed", published_revision_id="private-receipt")
+    monkeypatch.setattr(graph_authoring, "commit_graph_object_authoring_write", transfer_before_receipt)
+    response = hosted.client.request("POST", "/api/live/graph-authoring/commit", json={**payload, "confirmToken": "token", "currentOverlayToken": "overlay"})
+    assert response.status_code == 403
+    assert "private-receipt" not in response.text
 
 
 def test_hosted_build_review_binds_world_and_action(hosted, monkeypatch):

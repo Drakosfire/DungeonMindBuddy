@@ -1,4 +1,4 @@
-"""Disposable recap → governed World publication acceptance witnesses."""
+"""Historical direct-service composition and current mounted recovery-only proofs."""
 
 from __future__ import annotations
 
@@ -434,3 +434,73 @@ def test_published_recap_write_uses_setting_world_for_campaign_scope(
     assert read.content_sha256 == digest
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
+
+@pytest.mark.parametrize("applied", [False, True], ids=["no-receipt", "original-receipt"])
+@pytest.mark.parametrize("expired", [False, True], ids=["valid-token", "expired-token"])
+def test_mounted_classic_confirmation_only_recovers_original_receipt(recap_root, monkeypatch, applied, expired):
+    from copy import deepcopy
+    from functools import partial
+    from datetime import UTC, datetime, timedelta
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.routes import graph_authoring
+    from apps.live_control_server.services.graph_object_authoring_prepare import decode_publication_intent, sign_publication_intent
+
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setenv(GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, "published-recap-test-key")
+    authority = DurableTestAuthority()
+    request = _recap_request(local_id="original-operation", label="Original object")
+    # Historical fixture setup, never the retired mounted prepare endpoint.
+    prepared = prepare_graph_object_authoring_write(request, corpus_root=recap_root, authority=authority, source_admission=RecapSourceAdmission())
+    packet = _commit_request(prepared, request)
+    original = None
+    if applied:
+        original = commit_graph_object_authoring_write(packet, corpus_root=recap_root, authority=authority, source_admission=RecapSourceAdmission())
+        _prepare_and_commit(root=recap_root, authority=authority, local_id="descendant", label="Later object")
+    if expired:
+        intent = decode_publication_intent(packet.confirm_token)
+        intent["expires_at"] = (datetime.now(UTC) - timedelta(seconds=1)).isoformat()
+        packet = packet.model_copy(update={"confirm_token": sign_publication_intent(intent)})
+    before = deepcopy((authority.revision_id, authority.revisions, authority.receipts, authority.publish_calls))
+    monkeypatch.setattr(graph_authoring, "commit_graph_object_authoring_write", partial(commit_graph_object_authoring_write, corpus_root=recap_root, authority=authority, source_admission=RecapSourceAdmission()))
+    app = FastAPI()
+    app.include_router(graph_authoring.router)
+    with TestClient(app, base_url="http://127.0.0.1") as client:
+        response = client.post("/api/live/graph-authoring/commit", json=packet.model_dump(mode="json", by_alias=True))
+    if applied:
+        assert response.status_code == 200, response.text
+        assert response.json()["committed"] is True
+        assert response.json()["published_revision_id"] == original.published_revision_id
+        assert authority.revision_id != original.published_revision_id
+    else:
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"]["code"] == "publication_receipt_unavailable"
+    assert (authority.revision_id, authority.revisions, authority.receipts, authority.publish_calls) == before
+
+
+def test_mounted_classic_confirmation_refuses_tampered_original_without_writes(recap_root, monkeypatch):
+    from functools import partial
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.routes import graph_authoring
+
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setenv(GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, "published-recap-test-key")
+    authority = DurableTestAuthority()
+    request = _recap_request(local_id="original-operation", label="Original object")
+    prepared = prepare_graph_object_authoring_write(request, corpus_root=recap_root, authority=authority, source_admission=RecapSourceAdmission())
+    packet = _commit_request(prepared, request).model_dump(mode="json", by_alias=True)
+    packet["confirmToken"] += "-tampered"
+    monkeypatch.setattr(graph_authoring, "commit_graph_object_authoring_write", partial(commit_graph_object_authoring_write, corpus_root=recap_root, authority=authority, source_admission=RecapSourceAdmission()))
+    app = FastAPI()
+    app.include_router(graph_authoring.router)
+    with TestClient(app, base_url="http://127.0.0.1") as client:
+        response = client.post("/api/live/graph-authoring/commit", json=packet)
+    assert response.status_code == 409
+    assert authority.publish_calls == 0
+    assert authority.revision_id == "rev:root"
+    assert authority.receipts == {}
+    assert set(authority.revisions) == {"rev:root"}
