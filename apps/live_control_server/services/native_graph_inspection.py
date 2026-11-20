@@ -598,7 +598,28 @@ class _SourceVerificationProofPool:
             return sum(cache.retained_bytes for cache in self._entries.values())
 
 
-_shared_parsed_cache = NativeParsedRevisionCache()
+class _ParsedRevisionPool(NativeParsedRevisionCache):
+    """Keep two parsed revisions, with Core's full-content check per slot."""
+
+    def __init__(self) -> None:
+        self._lock = Lock()
+        self._entries = OrderedDict()
+
+    def _parse_using(self, stored, load):
+        revision = stored.revision
+        key = (revision.space_id, revision.revision_id)
+        with self._lock:
+            cache = self._entries.get(key)
+            if cache is None:
+                cache = NativeParsedRevisionCache()
+                self._entries[key] = cache
+                if len(self._entries) > 2:
+                    self._entries.popitem(last=False)
+            self._entries.move_to_end(key)
+        return cache._parse_using(stored, load)
+
+
+_shared_parsed_cache = _ParsedRevisionPool()
 _shared_verification_caches = _SourceVerificationProofPool()
 
 
