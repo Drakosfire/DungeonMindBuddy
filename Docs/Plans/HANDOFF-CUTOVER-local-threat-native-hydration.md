@@ -38,3 +38,11 @@ MIND owns the two Threat mechanics hooks, threatSheetViewModel.ts and
 their existing tests for this adaptation. Inspect alternate scope
 producers before editing them. The change ships with the route switch
 because the old UI request cannot reliably address a managed World.
+
+Review found that a rebind before dispatch could succeed under the new
+binding while the UI cached under the old binding. MIND also owns the
+Threat request model and matching TypeScript API type. Add a paired
+expected native World and binding version as correspondence conditions.
+Existing callers without captured binding can omit both. The UI sends both.
+The server derives authority from its registry and checks the expected
+binding before reading Core, then preserves the existing final recheck.
