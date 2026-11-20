@@ -764,7 +764,6 @@ describe("GraphReviewWorkbenchModule", () => {
   });
 
   it("W10: catalog recap reads published World Graph without extract-promote", async () => {
-    const ingestRunsSpy = vi.spyOn(liveApi, "getGraphIngestRuns");
     const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockRejectedValue(
       new ExtractPromoteApiError("Exact-run review package unavailable", 404, "run_not_promotable"),
     );
@@ -775,7 +774,9 @@ describe("GraphReviewWorkbenchModule", () => {
       expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
     );
     expect(reviewPackageSpy).not.toHaveBeenCalled();
-    expect(ingestRunsSpy).not.toHaveBeenCalled();
+    expect(vi.mocked(globalThis.fetch).mock.calls.some(([url]) =>
+      String(url).split("?")[0].endsWith("/graph-preview/graph-ingest/runs"),
+    )).toBe(false);
     expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
   });
