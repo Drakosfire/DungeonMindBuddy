@@ -66,6 +66,7 @@ def _pinned(scope, principal, *, parsed_cache=None, verification_cache=None):
         principal.role,
         scope_mode=scope.scope_mode,
         parsed_cache=parsed_cache,
+        prefer_verified_source_rows=verification_cache is not None,
     )
     pin = InspectionPin(
         managed_world_id=scope.managed_world_id,
