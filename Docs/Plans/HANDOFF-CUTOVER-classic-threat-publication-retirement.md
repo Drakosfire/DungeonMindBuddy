@@ -39,7 +39,7 @@ then owning mounted/backend/UI proofs. Preserve useful library/codec tests; repl
 obsolete fresh-publication UI/route expectations only for this explicit retirement,
 not to obtain a faster green suite. No test selector or exclusion changes.
 
-## Exclusive thirteen-path lease
+## Exclusive fourteen-path lease
 
 1. This handoff and exact evidence/disposition.
 2. Docs/Plans/HANDOFF-CUTOVER-native-threat-draft-admission.md: backward PR4233 merge settlement.
@@ -54,6 +54,7 @@ not to obtain a faster green suite. No test selector or exclusion changes.
 11. apps/live-control-ui/src/surface/modules/StatblockWorkbenchModule.test.tsx: affected classic controls/history only.
 12. NEW tests/test_classic_threat_retirement.py: complete mounted POST/GET authority proof.
 13. tests/test_threat_publication_identity_routes.py: retired POST and retained GET contract alignment.
+14. ci/test-classification.json: inventory entry for the new backend test only; no selection/exclusion change.
 
 MIND owns backend and docs; Hubble may own the four UI paths exclusively after
 explicit dispatch. Aristotle reviews independently without edits. No shared
@@ -66,7 +67,7 @@ registry, migration, deployment, provider, ingestion or retrieval benchmark chan
 
 Fetched main43c39419; clean existing checkout. Inspected58 open PRs, including
 3824 hosted,3808 portraits,3716 historical mechanics and3729 preview guidance;
-actual patches do not own these thirteen paths. Existing auth wrappers, API client,
+actual patches do not own these fourteen paths. Existing auth wrappers, API client,
 Build/Plan shells, native routes, mechanics persistence and hosted test owners stay
 outside this lease. No adoption or merge of those unrelated PRs.
 Projects parent UUID `48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8` and executor write
@@ -96,3 +97,15 @@ Keep the full goal active. After this slice: callable classic writer/public API
 retirement, remaining historical/current boundary and import isolation, compatible
 serving rollout, later-write-safe rollback, and V11 deployed acceptance. Do not
 rerun the frozen retrieval baseline or launch provider/ingestion experiments.
+
+## Preflight rebrief before classification write
+
+MIND adopts Aristotle's preflight correction: add the new test's inventory entry
+as path14 before editing that owner. This is required additive inventory, not a
+selector or gate change. All13 original lease paths remain unchanged. Existing
+identity test cases are retained, with their historical setup moved to library
+producers and their useful mounted GET assertions preserved. The browser codec
+stores identifiers only, not the full original confirmation body. Historical
+inspection must remain mounted when a retained V1 draft is edited out of the
+mechanics-saved state. Missing/unloadable drafts remain a limitation unless an
+existing entry already supplies that ID; no arbitrary orphan recovery is claimed.
