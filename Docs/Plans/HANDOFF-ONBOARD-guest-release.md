@@ -102,11 +102,14 @@ fresh owner view. Unknown and timeless scope are retained separately in the
 candidate. Other temporal scopes and non-established or non-factual claims are
 currently rejected, not converted into facts. This is not yet a usable owner
 selection or review interface, and preparation remains disabled. A real Core
-fixture confirms unknown scope is common and separately checks selected name
-and classification citations against a private native source, including
-withdrawal. It does not exercise APP storage or the mounted route. A complete
-real first-World preparation, review, publication and withdrawal test remains
-required before activation.
+fixture confirms unknown scope is common. A synthetic integration fixture now
+joins a committed APP page to a private Core source, stages and reviews two
+nodes and a relationship, publishes the copy, verifies a later private edit
+does not alter it, rejects another publication after Core withdrawal, and
+revokes the published copy. It uses a private service entry point, substitutes
+the Core repository/binding, and is not an ordinary first-World or mounted
+route witness. A complete real first-World preparation, owner review,
+publication and withdrawal test remains required before activation.
 
 At the pinned base the application-state migration head is `20261120_0170`.
 `media.read_staged_bytes` checks an owner ID, length and SHA-256, while the
