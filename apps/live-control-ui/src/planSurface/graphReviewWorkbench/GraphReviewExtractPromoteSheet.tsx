@@ -110,7 +110,7 @@ export function GraphReviewExtractPromoteSheet({
   onSelectionChange,
   onConfirmRejected,
 }: GraphReviewExtractPromoteSheetProps) {
-  const { adoptCommittedReceipt, reloadCommittedAuthority, committedBinding } =
+  const { adoptCommittedReceipt, committedBinding } =
     useGraphReviewLiveState();
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() =>
@@ -121,7 +121,6 @@ export function GraphReviewExtractPromoteSheet({
   const [receipt, setReceipt] = useState<ExtractPromoteConfirmReceipt | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [reloadError, setReloadError] = useState<string | null>(null);
-  const [reloadingRevision, setReloadingRevision] = useState(false);
 
   const confirming = confirmPhase === "confirming";
   const selectionLocked = confirmPhase !== "idle";
@@ -247,24 +246,6 @@ export function GraphReviewExtractPromoteSheet({
     if (!ids.length) return;
     setFrozenIds(ids);
     void runConfirm(ids);
-  };
-
-  const onReloadCommittedRevision = async () => {
-    if (!receipt) return;
-    setReloadingRevision(true);
-    setReloadError(null);
-    try {
-      // Retry loads committed authority only — never re-confirm.
-      await reloadCommittedAuthority();
-    } catch (error) {
-      setReloadError(
-        error instanceof Error
-          ? error.message
-          : "Failed to reload committed World Graph revision.",
-      );
-    } finally {
-      setReloadingRevision(false);
-    }
   };
 
   const showMergeCta =
@@ -443,17 +424,7 @@ export function GraphReviewExtractPromoteSheet({
           </button>
         ) : null}
 
-        {receipt ? (
-          <button
-            type="button"
-            className="secondary"
-            data-testid="graph-review-extract-promote-reload-revision"
-            disabled={reloadingRevision}
-            onClick={() => void onReloadCommittedRevision()}
-          >
-            {reloadingRevision ? "Reloading…" : "Reload committed revision"}
-          </button>
-        ) : null}
+
       </footer>
     </section>
   );

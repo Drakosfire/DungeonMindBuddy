@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getGoldGraphProjection,
   getGoldReviewEvidence,
-  postWorldGraphProjection,
   LiveApiError,
 } from "../../api/liveApi";
 import type {
@@ -25,8 +24,6 @@ import {
   committedBindingsEqual,
   isTerminalConfirmOutcome,
   normalizeAffectedObjectIds,
-  selectFirstPresentCommittedObjectId,
-  validateCommittedProjectionResponse,
   validateCommittedReceiptAdoption,
   type GraphReviewCommittedBinding,
   type GraphReviewCommittedPhase,
@@ -168,7 +165,6 @@ export function useGraphReviewLiveReviewState({
     useState<GraphReviewCommittedBinding | null>(null);
   const [committedRequest, setCommittedRequest] =
     useState<WorldGraphProjectionRequest | null>(null);
-  const committedGenerationRef = useRef(0);
   const committedBindingRef = useRef<GraphReviewCommittedBinding | null>(
     committedBinding,
   );
@@ -184,7 +180,6 @@ export function useGraphReviewLiveReviewState({
     : "";
 
   const clearCommittedAuthority = useCallback(() => {
-    committedGenerationRef.current += 1;
     setCommittedPhase("candidate");
     setCommittedReceipt(null);
     setCommittedProjection(null);
@@ -349,62 +344,14 @@ export function useGraphReviewLiveReviewState({
         );
       }
 
-      const generation = ++committedGenerationRef.current;
       setCommittedReceipt(adoption.receipt);
       setCommittedAffectedObjectIds(adoption.affectedObjectIds);
       setCommittedBindingState(adoptBinding);
       setCommittedRequest(request);
-      setCommittedPhase("loading");
-      setCommittedError(null);
-
-      try {
-        const response = await postWorldGraphProjection(request);
-        if (generation !== committedGenerationRef.current) return;
-        if (!committedBindingsEqual(adoptBinding, committedBindingRef.current)) {
-          return;
-        }
-
-        const validated = validateCommittedProjectionResponse({
-          projection: response,
-          receipt: adoption.receipt,
-          request,
-        });
-        if (!validated.ok) {
-          // Preserve receipt + frozen request for retry; clear projection only.
-          setCommittedProjection(null);
-          setCommittedSelectedObjectId(null);
-          setCommittedPhase("error");
-          setCommittedError(validated.reason);
-          throw new Error(validated.reason);
-        }
-
-        const selectedId = selectFirstPresentCommittedObjectId({
-          affectedObjectIds: adoption.affectedObjectIds,
-          projection: response,
-        });
-        setCommittedProjection(response);
-        setCommittedSelectedObjectId(selectedId);
-        setCommittedPhase("ready");
-        setCommittedError(
-          selectedId
-            ? null
-            : adoption.affectedObjectIds.length
-              ? "Committed revision loaded, but none of the affected object ids are present in the pinned projection."
-              : null,
-        );
-      } catch (error) {
-        if (generation !== committedGenerationRef.current) return;
-        if (!committedBindingsEqual(adoptBinding, committedBindingRef.current)) {
-          return;
-        }
-        const message = friendlyProjectionError(error);
-        // Preserve receipt + frozen request on request/integrity failures for retry.
-        setCommittedProjection(null);
-        setCommittedSelectedObjectId(null);
-        setCommittedPhase("error");
-        setCommittedError(message);
-        throw error instanceof Error ? error : new Error(message);
-      }
+      setCommittedProjection(null);
+      setCommittedSelectedObjectId(null);
+      setCommittedPhase("error");
+      setCommittedError("Graph visualization for this saved revision is unavailable.");
     },
     [campaignId, sessionId, committedWorldId],
   );

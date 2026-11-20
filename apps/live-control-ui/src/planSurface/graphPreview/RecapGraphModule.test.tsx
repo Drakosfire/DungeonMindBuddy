@@ -107,25 +107,14 @@ describe("RecapGraphModule", () => {
     mockAuthoringWrites();
   });
 
-  it("requests World Graph recap projection for the URL session", async () => {
-    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({
-      ...session23WorldGraphRecapFixture,
-      sessionId: "session-24",
-    });
+  it("keeps the session picker available without fetching a legacy graph", async () => {
+    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection");
 
     render(<RecapGraphModule context={context} />);
 
-    await waitFor(() => {
-      expect(postRecap).toHaveBeenCalledWith({
-        schema: "dmb_world_graph_projection_request_v1",
-        worldId: "eldyrwild",
-        campaignId: "longmont-c2",
-        scopeMode: "campaign",
-        focus: { kind: "session", sessionId: "session-24", campaignId: "longmont-c2" },
-        admissibility: "gm",
-      });
-    });
-    expect(await screen.findByRole("combobox", { name: "Focus session" })).toBeInTheDocument();
+    expect(await screen.findByText("Recap graph visualization requires a managed World.")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Focus session" })).toBeInTheDocument();
+    expect(postRecap).not.toHaveBeenCalled();
   });
 
   it("defaults to the latest ingested recap artifact when no URL session is provided", async () => {
