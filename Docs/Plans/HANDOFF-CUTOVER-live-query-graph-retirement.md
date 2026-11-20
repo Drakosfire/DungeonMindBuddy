@@ -18,3 +18,11 @@ graph requests, and zero downstream calls. Run the adjacent graphless
 manifest and trace cases and exact-head hosted verification. Obtain
 independent review before merging. Fresh generic /agent/turn graph
 admission and retained Plan receipt recovery belong to a separate slice.
+
+The owning verification scope includes the mounted callers' tests in
+test_live_control_server.py and test_world_play_runs_v2.py, and the graphless
+fixtures in test_live_query_manifest_context.py. Move retained semantic
+proof to the existing internal entry points and keep mounted validation,
+authorization, retirement and graphless assertions. The World Play witness
+keeps the real APP database pin, owner and corruption checks. This rebrief
+expands test paths only.
