@@ -134,6 +134,45 @@ it retains origin protection and exposes only the existing public projection
 with `Cache-Control: no-store`. The decision, quota, revocation and rollout
 contracts must be explicitly settled before this design grants a write lease.
 
+## Proposed decisions for review
+
+These choices are a concrete candidate, not a claim that the feature is
+implemented or enabled:
+
+- **Deployment enablement:** self-service creation is disabled by default. A
+  shared durable policy record controls enablement, per-owner allocation cap,
+  and request-rate parameters. Enabling requires explicit finite positive
+  limits and a healthy policy store. Retain the valid nonempty static-map
+  startup requirement; this slice does not bootstrap an empty installation.
+- **Creation and retry:** accept a bounded World name and client-generated
+  idempotency key under the authenticated subject. Persist a normalized request
+  fingerprint and outcome, and create World metadata, native reservation,
+  creator-bound admission, idempotency receipt, and quota charge in one database
+  transaction. Same subject/key/fingerprint recovers the same active outcome;
+  reuse with different input conflicts. A historical or revoked same-name
+  record conflicts instead of being implicitly adopted or reactivated. A
+  failed transaction leaves no World or quota charge.
+- **Access and revocation:** ownership remains mandatory. Admission requires an
+  existing static grant or an enabled, active dynamic admission bound to the
+  exact creator and World. Ownership transfer never transfers that admission;
+  revocation retains a tombstone. Revocation and disabling govern subsequent
+  authoritative checks; an already-authorized operation may finish, so do not
+  promise in-flight cancellation. Every worker reads current policy at relevant
+  checks; policy lookup failure denies. Preserve owning-boundary rechecks.
+- **Abuse limits:** require finite operator-supplied creation and rate limits
+  before enabling. Reject malformed/oversize input and enforce shared durable
+  per-subject throttling before the catalog-wide lock. Check and consume the
+  per-subject allocation quota in the creation transaction. Rate and allocation
+  records are not client authority; test accounting for retries and failures.
+- **Failure and usability:** return only the existing public World projection,
+  with no-store caching and no native IDs, subjects, or receipts. The committed
+  World appears in its owner's list immediately; source admission and a
+  reviewed first Graph remain separate states. Failure must not claim success.
+
+Review must settle rejected-attempt accounting, rate-window clock and cleanup,
+and whether any access path bypasses the shared decision. Implementation stays
+blocked until critique and the exact write-set/migration collision audit finish.
+
 ## Serial successors
 
 1. Real private Apprentice import and source/Graph review, including faithful
