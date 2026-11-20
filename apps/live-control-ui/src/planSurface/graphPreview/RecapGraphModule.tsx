@@ -411,9 +411,6 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
         <p className="graph-preview-error" role="alert">
           {error ?? `Published World Graph recap is unavailable for ${selectedSessionId}.`}
         </p>
-        <button type="button" onClick={handleLoad}>
-          Load
-        </button>
       </div>
     );
   }
