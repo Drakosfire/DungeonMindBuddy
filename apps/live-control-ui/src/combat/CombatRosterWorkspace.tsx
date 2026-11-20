@@ -25,13 +25,14 @@ export function CombatRosterWorkspace({draft, disabled, onToggleGroup, renderRow
   // Resolve live draft ownership; never retain a second copy of source mechanics.
   const selected = draft.entities.find(entity => entity.id === selection?.id);
   const snapshot = selected?.mechanics_snapshot;
+  const hasSource = Boolean(snapshot);
   useLayoutEffect(() => {
-    if (snapshot && modal && dialog.current && !dialog.current.open) dialog.current.showModal();
-    if (snapshot && !modal && panel.current) {
+    if (hasSource && modal && dialog.current && !dialog.current.open) dialog.current.showModal();
+    if (hasSource && !modal && panel.current) {
       panel.current.focus({preventScroll: true});
       panel.current.scrollIntoView?.({block: 'nearest'});
     }
-  }, [selection?.id, modal, snapshot]);
+  }, [selection, modal, hasSource]);
   useEffect(() => {
     if (selection && !snapshot) {
       setSelection(null);

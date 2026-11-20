@@ -295,6 +295,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
   const [manualBlocked,setManualBlocked]=useState(false);
   const [draft, setDraft] = useState<CombatEncounterDraft | null>(null);
   const [sampleWorld, setSampleWorld] = useState<string | null>(null);
+  const sampleTarget = useRef<CombatEncounterRecord | null>(null);
   const [setupSystem, setSetupSystem] = useState<"dnd5e" | "custom">("dnd5e");
   const [newTitle, setNewTitle] = useState("New encounter");
   const [loading, setLoading] = useState(false);
@@ -316,6 +317,8 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
     let alive = true;
     const generation = worldRequestGeneration.current;
     setManualRecord(null);setManualBlocked(false);
+    setSampleWorld(null);
+    sampleTarget.current = null;
     setRecord(null); recordRef.current = null;
     setDraft(null); draftRef.current = null; pendingSave.current = null;
     setAvailableRecovery(null); setRecoveryMessage(null);
@@ -447,20 +450,28 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
     setBusy("create");
     setError(null);
     try {
-      const created = await createWorldCombatEncounter(requestedWorldId, { title: sample?.title ?? (newTitle.trim() || "New encounter") });
+      const retainedTarget = sample ? sampleTarget.current : null;
+      const created = retainedTarget ?? await createWorldCombatEncounter(requestedWorldId, { title: sample?.title ?? (newTitle.trim() || "New encounter") });
       if (generation !== worldRequestGeneration.current) return;
+      if (sample) sampleTarget.current = created;
       setEncounters((current) => [created, ...current.filter((item) => item.encounter_id !== created.encounter_id)]);
       setSelectedEncounterId(created.encounter_id);
-      await adoptRecord(created, requestedWorldId, null, generation);
+      if (!retainedTarget || recordRef.current?.encounter_id !== created.encounter_id) {
+        await adoptRecord(created, requestedWorldId, null, generation);
+      }
       if (sample && generation === worldRequestGeneration.current && recordRef.current?.encounter_id === created.encounter_id) {
-        updateDraft(() => sample);
-        setSampleWorld(null);
+        if (updateDraft(() => sample)) closeSample();
       }
     } catch (caught) {
       if (generation === worldRequestGeneration.current) setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
       if (generation === worldRequestGeneration.current) setBusy(null);
     }
+  }
+
+  function closeSample() {
+    sampleTarget.current = null;
+    setSampleWorld(null);
   }
 
   async function openEncounter() {
@@ -614,7 +625,8 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
         ? "Choose a verified World before creating or opening a Combat encounter."
         : null;
 
-  const showSetup = !scope && !worldListLoading && !visibleRecord && !manualRecord && !error;
+  const showSample = Boolean(worldId && sampleWorld === worldId);
+  const showSetup = !scope && !worldListLoading && (showSample || (!visibleRecord && !manualRecord && !error));
   const dndSetup = <>
     <label>
       <span className="eyebrow">New encounter</span>
@@ -652,7 +664,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
                 aria-label="Encounter"
                 value={selectedEncounterId}
                 onChange={(event) => setSelectedEncounterId(event.target.value)}
-                disabled={operationsBlocked || availableRecovery !== null}
+                disabled={showSample || operationsBlocked || availableRecovery !== null}
               >
                 <option value="">Choose an encounter…</option>
                 {visibleEncounters.map((item) => (
@@ -662,7 +674,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
                 ))}
               </select>
             </label>
-            <button type="button" disabled={operationsBlocked || manualRecord?.encounter_id===selectedEncounterId || !visibleEncounters.some((item) => item.encounter_id === selectedEncounterId) || dirty} onClick={() => void openEncounter()}>
+            <button type="button" disabled={showSample || operationsBlocked || manualRecord?.encounter_id===selectedEncounterId || !visibleEncounters.some((item) => item.encounter_id === selectedEncounterId) || dirty} onClick={() => void openEncounter()}>
               Open
             </button>
             {!showSetup && dndSetup}
@@ -675,7 +687,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
             </button>
             {pendingSave.current ? <span className="module-muted">{busy === 'save' ? 'Saving exact request…' : 'Save outcome unconfirmed · exact request retained'}</span> : dirty ? <span className="module-muted">Unsaved changes</span> : visibleRecord ? <span className="module-muted">Saved · rev {visibleRecord.revision}</span> : null}
             </>}
-            {visibleRecord && visibleDraft && (
+            {!showSample && visibleRecord && visibleDraft && (
               <div className="combat-roster-turn-rail" role="group" aria-label="Combat turn controls">
                 <div><span className="eyebrow">Round</span><strong>{visibleDraft.round}</strong></div>
                 <div><span className="eyebrow">Active</span><strong>{active?.name ?? "No active actor"}</strong></div>
@@ -688,9 +700,9 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
           </section>
           {!scope && (showSetup ? (
             <section className="combat-start-workspace" aria-label="Empty Combat workspace">
-              {sampleWorld === worldId ? <CombatSamplePreview
+              {showSample ? <CombatSamplePreview
                 disabled={operationsBlocked}
-                onClose={() => setSampleWorld(null)}
+                onClose={closeSample}
                 onKeep={createEncounter}
               /> : <div className="combat-start-roster">
                 <div className="combat-start-columns" aria-hidden="true">
@@ -728,7 +740,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
           {!showSetup && !worldListLoading && !visibleRecord && !manualRecord && !error ? (
             <p className="module-muted">Choose an encounter and open it, or create a new one.</p>
           ) : null}
-          {visibleRecord && visibleDraft ? (
+          {!showSample && visibleRecord && visibleDraft ? (
             <>
               <header className="combat-encounter-heading">
                 <label>

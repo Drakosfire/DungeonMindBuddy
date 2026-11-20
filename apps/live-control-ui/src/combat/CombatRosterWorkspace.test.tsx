@@ -52,6 +52,17 @@ it('resolves explicit source replacement from the selected actor rather than a s
   expect(screen.queryByRole('heading',{name:'Ironhide Brute'})).toBeNull();
 });
 
+it('keeps roster focus when Save returns an equivalent statblock snapshot', async () => {
+  const initial = draft();
+  const view = render(board(initial));
+  await userEvent.click(screen.getByRole('button', {name: 'Project Bridge brute'}));
+  const input = screen.getByRole('textbox', {name: 'Staged damage'});
+  await userEvent.click(input);
+  view.rerender(board(structuredClone(initial)));
+  expect(input).toHaveFocus();
+  expect(screen.getByRole('complementary')).toBeVisible();
+});
+
 it('retires a removed or sourceless selection and does not revive it when an ID returns',async()=>{
   const initial=draft();const view=render(board(initial));
   await userEvent.click(screen.getByRole('button',{name:'Project Bridge brute'}));

@@ -40,8 +40,8 @@ export function CombatSamplePreview({disabled, onClose, onKeep}: {
       <button type="button" disabled={disabled} onClick={onClose}>Close sample</button>
       <button type="button" disabled={disabled} onClick={() => void onKeep(draft)}>Create encounter from sample</button>
       <p>Round {draft.round} · {draft.entities.find(entity => entity.id === draft.active_turn_entity_id)?.name}</p>
-      <button type="button" onClick={() => setDraft(current => stepCombatTurn(current, 'previous'))}>Back</button>
-      <button type="button" onClick={() => setDraft(current => stepCombatTurn(current, 'next'))}>Next turn</button>
+      <button type="button" disabled={disabled} onClick={() => setDraft(current => stepCombatTurn(current, 'previous'))}>Back</button>
+      <button type="button" disabled={disabled} onClick={() => setDraft(current => stepCombatTurn(current, 'next'))}>Next turn</button>
     </div>
     <CombatRosterTable draft={draft} disabled onToggleGroup={() => undefined} renderRow={(entity, hidden) =>
       <tr key={entity.id} hidden={hidden}>
