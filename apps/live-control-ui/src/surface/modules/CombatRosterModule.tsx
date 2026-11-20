@@ -625,6 +625,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
     </button>
   </>;
   const customSetup = <ManualCombatProfileForm inline={showSetup} disabled={operationsBlocked||dirty||availableRecovery!==null} onCreate={async(title,profile)=>{
+    if (!worldId) return;
     const generation=worldRequestGeneration.current;
     setBusy('create');
     try {
