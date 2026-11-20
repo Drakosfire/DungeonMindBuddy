@@ -8,6 +8,7 @@ import {
   commitTiptapMarkdownWrite,
   createWorldContainer,
   getCommittedPageSnapshot,
+  getWorkspaceDocumentSnapshot,
   listWorkspacePageInventory,
   listWorldContainers,
   prepareTiptapMarkdownWrite,
@@ -267,6 +268,7 @@ async function applyImportTitleIfNeeded(
 export interface BuildWorkspaceDocumentController {
   activeRecord: WorkspaceDocumentRecord | null;
   activeDocumentId: string | null;
+  initialEditorSnapshot: WorkspaceDocumentSnapshot | null;
   documents: WorkspaceDocumentRecord[] | null;
   listStatus: BuildDocumentListStatus;
   loadStatus: BuildDocumentLoadStatus;
@@ -308,6 +310,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     () => (typeof window !== "undefined" ? window.location.search : ""),
   );
   const [activeRecord, setActiveRecord] = useState<WorkspaceDocumentRecord | null>(null);
+  const [initialEditorSnapshot, setInitialEditorSnapshot] = useState<WorkspaceDocumentSnapshot | null>(null);
   const [loadStatus, setLoadStatus] = useState<BuildDocumentLoadStatus>(() =>
     readDocumentIdFromSearch(
       typeof window !== "undefined" ? window.location.search : "",
@@ -382,14 +385,6 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     }
   }, [selectedWorldId]);
 
-  useEffect(() => {
-    setDocuments(null);
-    setCampaignTags([]);
-    setDocumentCursor(null);
-    void refreshDocuments();
-    void refreshManagedWorlds();
-  }, [refreshDocuments, refreshManagedWorlds]);
-
   const loadBuildDocument = useCallback(
     async (
       search: string,
@@ -415,6 +410,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       if (!requestedId) {
         if (generation !== documentLoadGenerationRef.current) return false;
         setActiveRecord(null);
+        setInitialEditorSnapshot(null);
         setLoadStatus("empty");
         setSwitching(false);
         setSwitchError(null);
@@ -429,7 +425,10 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       }
 
       try {
-        const snapshot = await getCommittedPageSnapshot(requestedId);
+        const useEditorSnapshot = !expected && purpose === "default";
+        const snapshot = await (useEditorSnapshot
+          ? getWorkspaceDocumentSnapshot(requestedId)
+          : getCommittedPageSnapshot(requestedId));
         const record = validateBuildSourceRecord(snapshot.record, requestedId, selectedWorldId);
         if (generation !== documentLoadGenerationRef.current) return false;
 
@@ -441,6 +440,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         if(expected&&(record.world_id!==expected.worldId||snapshot.loaded_revision!==expected.revision||record.revision!==expected.revision||snapshot.content_sha256!==expected.digest))throw new Error('The bound saved source version is unavailable. The current page and draft were retained.');
         destination?.complete();
         setActiveRecord(record);
+        setInitialEditorSnapshot(useEditorSnapshot ? snapshot : null);
         setLoadStatus("ready");
         setSwitching(false);
         setSwitchError(null);
@@ -507,6 +507,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
           }
         } else {
           setActiveRecord(null);
+          setInitialEditorSnapshot(null);
           setLoadStatus("error");
         }
         return false;
@@ -517,18 +518,38 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    let historyOpen = 0;
+    let listsStarted = false;
+    setDocuments(null);
+    setCampaignTags([]);
+    setDocumentCursor(null);
+    setListStatus("loading");
+
     const sync = () => {
+      const sequence = ++historyOpen;
+      const search = window.location.search;
       createControllerRef.current.supersedePendingCreateIntent();
-      void loadBuildDocument(window.location.search, { mode: "history" });
+      const open = loadBuildDocument(search, { mode: "history" });
+      if (listsStarted) return;
+
+      const refreshLists = () => {
+        if (sequence !== historyOpen || listsStarted) return;
+        listsStarted = true;
+        void refreshDocuments();
+        void refreshManagedWorlds();
+      };
+      if (readDocumentIdFromSearch(search)) void open.then(refreshLists);
+      else refreshLists();
     };
     sync();
     window.addEventListener("popstate", sync);
     return () => {
+      historyOpen += 1;
       window.removeEventListener("popstate", sync);
       documentLoadGenerationRef.current += 1;
       selectorListGenerationRef.current += 1;
     };
-  }, [loadBuildDocument]);
+  }, [loadBuildDocument, refreshDocuments, refreshManagedWorlds]);
 
   const selectDocument = useCallback(
     async (documentId: string, isCurrent:()=>boolean = ()=>true, expected?:{worldId:string;revision:number;digest:string}) => {
@@ -1102,6 +1123,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   return {
     activeRecord,
     activeDocumentId,
+    initialEditorSnapshot,
     documents,
     listStatus,
     loadStatus,

@@ -164,6 +164,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
 
   const authoring = useWorkspaceDocumentAuthoring({
     documentId,
+    initialSnapshot: props.initialSnapshot,
     surface,
     kind,
     storage,
