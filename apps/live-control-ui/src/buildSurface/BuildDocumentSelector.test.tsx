@@ -99,7 +99,7 @@ describe("BuildDocumentSelector", () => {
     }
   });
 
-  it("loads another World's picker catalogs only when opened there", async () => {
+  it("loads the current World’s catalogs while the picker is open", async () => {
     setNativeGraphAccessToken("fixture");
     const request = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
       new Response("{}", { status: 503 }));
@@ -119,6 +119,10 @@ describe("BuildDocumentSelector", () => {
       openCategory("All documents");
       await waitFor(() => expect(catalogCalls()).toHaveLength(2));
       expect(JSON.parse(String(catalogCalls()[1][1]?.body))).toMatchObject({ managed_world_id: "pilot" });
+      await screen.findByText("Ingested text documents unavailable");
+      view.rerender(<BuildDocumentSelector {...props} worldId="elderwyld" />);
+      await waitFor(() => expect(catalogCalls()).toHaveLength(3));
+      expect(JSON.parse(String(catalogCalls()[2][1]?.body))).toMatchObject({ managed_world_id: "elderwyld" });
       await screen.findByText("Ingested text documents unavailable");
     } finally {
       request.mockRestore();

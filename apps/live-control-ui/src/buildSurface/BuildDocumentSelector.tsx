@@ -99,6 +99,9 @@ export function BuildDocumentSelector({
   const [category, setCategory] = useState<PickerCategory>("Recent");
   const rowPrefix = useId();
   const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    setCatalogRequestedFor(dialog.current?.open ? worldId ?? null : null);
+  }, [worldId]);
   const search = useRef<HTMLInputElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const recentKey = `buddy:build:recent:${worldId ?? preferredCampaignId ?? ""}`;
