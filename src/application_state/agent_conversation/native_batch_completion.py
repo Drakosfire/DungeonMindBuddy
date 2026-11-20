@@ -38,7 +38,8 @@ def selected_read_closure(receipt, execution, selection_event_id, *, before_sequ
     reads = set()
     object_handles = tuple(h for h in handles if h.startswith('native-object:'))
     if object_handles:
-        query = receipt.native_query
+        from .native_execution import effective_native_query
+        query = effective_native_query(receipt, execution.model_copy(update={"events": events}))
         if not isinstance(query, NativeGraphQueryV4):
             return None
         catalog = object_record_catalog(query)

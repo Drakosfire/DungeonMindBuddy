@@ -228,6 +228,33 @@ def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campa
         tuple(sorted(set(gaps))), entities)
 
 
+def pending_build_query(managed_world_id, question, source_context):
+    """Pin the current active Graph identity without materializing query matches."""
+    from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
+
+    try:
+        binding = resolve_managed_world_binding(managed_world_id)
+    except WorldGraphProjectionServiceError as exc:
+        if exc.code in {"native_graph_binding_missing", "native_graph_binding_inactive",
+                        "native_graph_provisioning_pending"}:
+            return None
+        raise
+    source = source_context.authority
+    if (binding.managed_world_id, binding.native_world_id, binding.binding_version) != (
+        source.managed_world_id, source.native_world_id, source.binding_version,
+    ):
+        raise ValueError("Active Graph and exact source authority differ")
+    return NativeBuildQueryPendingV1(
+        authority=NativePlanQueryAuthorityV1(
+            managed_world_id=managed_world_id, native_world_id=source.native_world_id,
+            binding_version=source.binding_version, revision_id=source.revision_id,
+            domain_ref=source.domain_ref, profile_ref=source.profile_ref,
+            acquisition_epoch=source.acquisition_epoch, scope_mode="world", campaign_id=None,
+        ),
+        question=question,
+    )
+
+
 def prepare_query(managed_world_id, question, principal, *, source_context=None,
                   revision_id=None, repository=None, resolve_binding=None,
                   scope_mode='world', campaign_id=None, authored_references=None,

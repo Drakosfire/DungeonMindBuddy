@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import json
 import logging
 import time
@@ -48,6 +49,12 @@ class ProposalWriterProjection:
 
     def kwargs(self):
         return json.loads(self.expected_json)
+
+
+# Keep this pool separate from the per-turn event loop, whose shutdown joins
+# its default executor. A cancelled turn can discard an in-flight read.
+_BUILD_GRAPH_PREPARATION = ThreadPoolExecutor(max_workers=4, thread_name_prefix="build-graph")
+
 
 
 class BuildJevHarness:
@@ -550,10 +557,22 @@ class BuildJevHarness:
             body = json.loads(prepared.body)
             return DecisionContextMode(accounting.context_mode(body, host_phase=getattr(plan,"host_phase",None)))
 
+        prepare_deferred_query = getattr(adapter, "prepare_deferred_build_query", None)
+        pending_query = None
+
+        def dispatch_started():
+            nonlocal pending_query
+            if trace is not None:
+                trace.mark_first_jev_dispatch()
+            if prepare_deferred_query is not None and pending_query is None:
+                pending_query = asyncio.get_running_loop().run_in_executor(
+                    _BUILD_GRAPH_PREPARATION, prepare_deferred_query,
+                )
+
         client = decision_client(
             authorize=authorize, record=record, select_context=select_context,
             transport=self.decision_transport,
-            on_dispatch=getattr(trace, "mark_first_jev_dispatch", None),
+            on_dispatch=dispatch_started,
         )
         started = time.perf_counter()
         try:
@@ -582,6 +601,11 @@ class BuildJevHarness:
                     canonical(result.model_dump(mode="json")),
                     producing_provider_attempt_id=adapter.last_provider_attempt_id,
                 )
+            if prepare_deferred_query is not None:
+                if pending_query is None:
+                    raise ValueError("Deferred Build query requires witnessed opening transport")
+                with measure("build_deferred_graph_settlement"):
+                    adapter.settle_deferred_build_query(*await pending_query)
             from .build_jev_writer_selection import WriterSelectionDriver
             self.failure_stage = "controller_validation"
             try:
@@ -609,6 +633,11 @@ class BuildJevHarness:
                     status_code=413, provider_dispatched=bool(self.calls)) from exc
             raise
         finally:
+            if pending_query is not None:
+                if pending_query.done() and not pending_query.cancelled():
+                    pending_query.exception()
+                else:
+                    pending_query.cancel()
             await client.aclose()
 
     @staticmethod

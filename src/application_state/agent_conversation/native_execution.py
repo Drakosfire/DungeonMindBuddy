@@ -17,7 +17,7 @@ from .build_intentional_response import Capabilities, known_semantics
 from .build_related_pages import PagePointer
 from .build_saved_statblock import BuildSavedStatblockReadV1, validate_read as validate_saved_statblock_read
 from .native_context import (
-    SurfaceNativeContextReceiptV1, BuildWorkContextV1, PlanWorkContextV1,
+    SurfaceNativeContextReceiptV1, NativeBuildQueryPendingV1, BuildWorkContextV1, PlanWorkContextV1,
     PlayWorkContextV1, NativeProviderInputV1, NativeReviewedActionInputV1, NativePlanRequestAdmissionV1, work_world_id,
 )
 from .native_statement_input import Strict
@@ -26,7 +26,7 @@ from .plan_placement import PlanPlacementCatalogV1
 
 from .native_retrieval import NativeRetrievalAuthorizedV1, NativePlanOpeningAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2, NativeReadBatchConcludedV1
 from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2, BuildAuthoredReferenceReadV3
-from .native_plan_assertions import NativePlanAssertionReadObservedV2
+from .native_plan_assertions import NativeGraphQueryV4, NativePlanAssertionReadObservedV2
 
 Digest = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$", strict=True)]
 
@@ -272,6 +272,59 @@ def native_read_event_ids(events):
         t.NativeBodyReadObservedV1, t.NativeAuthoredSourceReadV1, BuildAuthoredReferenceReadV2))), key=str))
 
 
+class NativeBuildQuerySettledV1(Strict):
+    kind: Literal["native_build_query_settled_v1"] = "native_build_query_settled_v1"
+    event_id: UUID
+    sequence: int = Field(ge=0, strict=True)
+    controller_attempt_id: UUID
+    query: NativeGraphQueryV4
+
+
+def effective_native_query(context, execution):
+    """Return the query admitted by this prefix, or the typed pending commitment."""
+    query = context.native_query
+    settlements = [e for e in execution.events if type(e) is NativeBuildQuerySettledV1]
+    if type(query) is not NativeBuildQueryPendingV1:
+        if settlements:
+            raise ValueError("A settled-on-admission query cannot acquire a second catalog")
+        return query
+
+    action = execution.policy.action
+    if (type(action) is not NativeBuildActionV1 or action.intent.reviewed_step is not None
+            or getattr(action.intent, "authored_references", None) is not None
+            or query.question != action.intent.message
+            or action.intent.graph_request.revision_pin not in (None, query.authority.revision_id)):
+        raise ValueError("Pending Graph query differs from the admitted Build request")
+    if len(settlements) > 1:
+        raise ValueError("Build can settle its pending Graph query only once")
+    settlement = settlements[0] if settlements else None
+    events = execution.events if settlement is None else execution.events[:settlement.sequence]
+    authorization = None
+    responded = False
+    for event in events:
+        if type(event) is t.BuildDraftContextCapturedV1 and authorization is None:
+            continue
+        if (type(event) is t.ProviderAttemptAuthorizedEventV5 and authorization is None
+                and event.context_phase == "select"
+                and (event.provider, event.model, event.api_mode) == execution.policy.provider_roles.controller.identity()):
+            authorization = event
+            continue
+        if (type(event) is t.ProviderOutcomeEventV1 and authorization is not None
+                and event.provider_attempt_id == authorization.provider_attempt_id):
+            responded = event.outcome == "response_received"
+            continue
+        raise ValueError("Graph-dependent Build work requires its settled query")
+    if settlement is None:
+        return query
+    if (authorization is None or not responded
+            or settlement.controller_attempt_id != authorization.provider_attempt_id
+            or settlement.query.authority != query.authority
+            or settlement.query.question != query.question
+            or settlement.query.authored_targets):
+        raise ValueError("Settled Graph query differs from its opening Build authorization")
+    return settlement.query
+
+
 # Current owner event codecs are reused. Classic Graph operations/scopes and
 # source-anchor receipts deliberately have no branch in this native event union.
 SurfaceNativeEvent = Annotated[
@@ -284,7 +337,7 @@ SurfaceNativeEvent = Annotated[
     | t.NativeDirectSourceAuthorizedV1 | t.NativeDirectSourceObservedV1
     | t.NativePlanStatementReadAuthorizedV1 | t.NativePlanStatementReadObservedV1
     | t.NativePlanAssertionReadAuthorizedV1 | t.NativePlanAssertionReadObservedV1
-    | t.BuildDraftContextCapturedV1
+    | t.BuildDraftContextCapturedV1 | NativeBuildQuerySettledV1
     | t.BuildSectionReadAuthorizationV1 | t.ValidatedBuildSectionReadV1
     | t.BuildRequestedWorkResolutionV1 | t.BuildReviewedActionSelectionV2 | t.BuildReviewedActionSelectionV1
     | t.BuildWriterEvidenceSelectionV1 | t.BuildWriterEvidenceSelectionV2 | t.BuildPlanOutputContractV2
@@ -296,7 +349,7 @@ SurfaceNativeEvent = Annotated[
 
 
 _BUILD_WORK_EVENTS = (
-    t.BuildDraftContextCapturedV1,
+    t.BuildDraftContextCapturedV1, NativeBuildQuerySettledV1,
     t.BuildSectionReadAuthorizationV1, t.ValidatedBuildSectionReadV1,
     t.BuildRequestedWorkResolutionV1, t.BuildReviewedActionSelectionV1,
     t.BuildWriterEvidenceSelectionV1, t.BuildPlanOutputContractV2,
@@ -501,7 +554,7 @@ def _join_context_binding(context, execution):
             if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
                 t.validate_provider_envelope_accounting(assembled,
                     execution.model_copy(update={"events": execution.events[:index]}), event)
-    query = context.native_query
+    query = effective_native_query(context, execution)
     if isinstance(query, t.NativePlanQueryV2):
         request = action.intent.graph_request
         if query.question != action.intent.message or query.authority.scope_mode != "world":

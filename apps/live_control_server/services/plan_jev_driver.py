@@ -666,7 +666,8 @@ class PlanJevDriver:
             return ()
         receipt, execution = a.fence.turn.graph_context_receipt, a._broker_execution()
         validate_execution_binding(receipt, execution)
-        if receipt.native_query.sha256 != a.native_query.sha256:
+        from application_state.agent_conversation.native_execution import effective_native_query
+        if effective_native_query(receipt, execution).sha256 != a.native_query.sha256:
             raise ValueError('Native controller query differs from its frozen receipt')
         opened = set()
         for grant_type, observed_type, field, attempts in (
@@ -690,12 +691,15 @@ class PlanJevDriver:
         from application_state.agent_conversation.native_plan_assertions import (
             NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1, selection_handle)
         a = self.adapter
-        if a.fence is None or not isinstance(getattr(a.fence.turn.graph_context_receipt, 'native_query', None), NativePlanQueryV2):
+        if a.fence is None or not hasattr(a.fence.turn.graph_context_receipt, "native_query"):
             return ()
+        from application_state.agent_conversation.native_execution import effective_native_query
         from application_state.agent_conversation.native_reads import validate_execution_binding
-        execution = a._broker_execution()
-        validate_execution_binding(a.fence.turn.graph_context_receipt, execution)
-        query = a.fence.turn.graph_context_receipt.native_query
+        receipt, execution = a.fence.turn.graph_context_receipt, a._broker_execution()
+        validate_execution_binding(receipt, execution)
+        query = effective_native_query(receipt, execution)
+        if not isinstance(query, NativePlanQueryV2):
+            return ()
         if a.native_query.sha256 != query.sha256:
             raise ValueError('Native assertion query differs from its frozen receipt')
         grants = {e.event_id: e for e in execution.events if isinstance(e, NativePlanAssertionReadAuthorizedV1)}
@@ -723,7 +727,8 @@ class PlanJevDriver:
         from application_state.agent_conversation.native_reads import validate_execution_binding
         execution = a._broker_execution()
         validate_execution_binding(receipt, execution)
-        query = receipt.native_query
+        from application_state.agent_conversation.native_execution import effective_native_query
+        query = effective_native_query(receipt, execution)
         if not isinstance(query, NativePlanQueryV1):
             return ()
         if not isinstance(a.native_query, NativePlanQueryV1) or a.native_query.sha256 != query.sha256:

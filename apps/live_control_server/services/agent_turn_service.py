@@ -1531,6 +1531,11 @@ class AgentTurnExecutionPersistencePort(Protocol):
         expected_revision: int, lease_seconds: int, draft: Any,
     ) -> tuple[Any, tuple[Any, Any] | None]: ...
 
+    def settle_build_native_query(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, settlement: Any,
+    ) -> tuple[Turn, bool]: ...
+
     def authorize_provider_attempt(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, provider_attempt_event: Any,
@@ -3150,6 +3155,26 @@ class _PolicyExecutionAdapter:
             self._prepared_build_decision = prepared
             self._build_controller_exposure = None
         return accepted
+
+    def settle_deferred_build_query(self, query_context, query):
+        from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+
+        if query_context is None or query_context.query != query:
+            raise ValueError("Build Graph settlement requires its actual prepared query")
+        from ..integrations.dungeonmind.native_corpus_source import _refresh_native_context
+        fresh = _refresh_native_context(self.native_corpus_context,
+            authority=self.native_source_authority, principal=self.native_principal)
+        if (fresh.authority != self.native_source_authority
+                or query_context.resolve_binding(self.world_id) != query_context.binding):
+            raise ValueError("Build Graph or source authority changed before settlement")
+        event = NativeBuildQuerySettledV1(
+            event_id=uuid4(), sequence=len(self._broker_execution().events),
+            controller_attempt_id=self.last_provider_attempt_id, query=query,
+        )
+        self.turn = _require_fresh_execution_append(self.fence.append(
+            "settle_build_native_query", "settlement", event))
+        self.native_query_context, self.native_query = query_context, query
+        self.prepare_deferred_build_query = None
 
     def record_prepared_build_decision(self, event: Any) -> bool:
         prepared = getattr(self, "_prepared_build_decision", None)
@@ -5678,10 +5703,10 @@ def _completed_turn_replay(
     shared_native = type(stored_receipt) is _app_state_graph_execution_types().SurfaceNativeContextReceiptV1
     native_authority = None
     if shared_native:
-        from application_state.agent_conversation.native_execution import validate_request_identity
+        from application_state.agent_conversation.native_execution import effective_native_query, validate_request_identity
         from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1
         validate_request_identity(stored_receipt,stored_context.graph_context_execution,turn_meta)
-        query = stored_receipt.native_query
+        query = effective_native_query(stored_receipt, stored_context.graph_context_execution)
         native_authority = query.authority if isinstance(query,NativePlanQueryV1) else None
     from application_state.agent_conversation.types import LoreSaveReviewReference
 
@@ -6940,7 +6965,10 @@ def execute_agent_turn(
         and (durable_turn is None or isinstance(durable_turn.graph_context_receipt,
             (graph_types.PlanSourceContextReceiptV1, graph_types.SurfaceNativeContextReceiptV1))))
     native_corpus_context = native_source_authority = None
-    native_query_context = native_query = None
+    native_query_context = native_query = prepare_deferred_build_query = None
+    from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
+    retained_pending = getattr(getattr(durable_turn, "graph_context_receipt", None), "native_query", None)
+    resumes_deferred = isinstance(retained_pending, NativeBuildQueryPendingV1)
     selected_knowledge_context = None
     if request.selected_knowledge is not None:
         if conversation_service is None or not operator_subject:
@@ -7068,12 +7096,13 @@ def execute_agent_turn(
             request, durable_turn.provenance
         )
         _require_play_run_receipt_matches_request(request, durable_turn.provenance, durable_turn.play_context_receipt)
-        stored_play_graph_binding = _stored_play_graph_binding(
-            request, durable_turn.provenance,
-        )
+        if not resumes_deferred:
+            stored_play_graph_binding = _stored_play_graph_binding(
+                request, durable_turn.provenance,
+            )
 
     graph_reference = None
-    if durable_turn is not None:
+    if durable_turn is not None and not resumes_deferred:
         graph_reference = _stored_graph_reference(durable_turn.provenance)
         if (request.graph_request.mode == "none") != (graph_reference is None):
             raise AgentTurnServiceError(
@@ -7364,9 +7393,31 @@ def execute_agent_turn(
         if (native_graph_query_resolver is not None and (
                 isinstance(frozen, (graph_types.PlanNativeContextReceiptV1,graph_types.SurfaceNativeContextReceiptV1))
                 or frozen is None and (_governed_build_turn(request) or request.surface.surface_id=='play' or isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2)))):
-            with trace.phase('plan_native_statement_query'):
-                native_query_context, native_query = native_graph_query_resolver(
-                    request, owner, work, frozen, native_corpus_context)
+            can_defer = (_governed_build_turn(request) and request.retry_of is None
+                and isinstance(submitted_intent, BuildGraphIntentV1) and submitted_intent.reviewed_step is None
+                and request.build_authored_references is None and native_corpus_context is not None)
+            if resumes_deferred and not can_defer:
+                raise AgentTurnServiceError("The retained opening Graph authority is no longer available.",
+                    code="turn_receipt_unverifiable", status_code=409, provider_dispatched=False)
+            if can_defer and (durable_turn is None or resumes_deferred):
+                from .native_graph_reads import pending_build_query
+                with trace.phase("build_graph_query_pin"):
+                    native_query = pending_build_query(canonical_world_id, request.message, native_corpus_context)
+                if resumes_deferred and native_query != retained_pending:
+                    raise AgentTurnServiceError("The retained opening Graph authority changed.",
+                        code="turn_receipt_unverifiable", status_code=409, provider_dispatched=False)
+                if native_query is not None:
+                    def prepare_deferred_build_query():
+                        from ..integrations.dungeonmind.native_corpus_source import _refresh_native_context
+                        fresh = _refresh_native_context(native_corpus_context,
+                            authority=native_source_authority, principal=native_principal)
+                        if fresh.authority != native_source_authority:
+                            raise ValueError("Build source authority changed before Graph settlement")
+                        return native_graph_query_resolver(request, owner, work, frozen, fresh)
+            if prepare_deferred_build_query is None:
+                with trace.phase('plan_native_statement_query'):
+                    native_query_context, native_query = native_graph_query_resolver(
+                        request, owner, work, frozen, native_corpus_context)
         elif plan_graph_resolver is not None and frozen_graph is not None:
             try:
                 with trace.phase("plan_optional_graph_context") as parent_span_id:
@@ -7836,6 +7887,7 @@ def execute_agent_turn(
             native_query_context=native_query_context, native_query=native_query,
         )
         if isinstance(selected_runtime, BuildJevHarness):
+            adapter.prepare_deferred_build_query = prepare_deferred_build_query
             adapter.build_image_owner = operator_subject
             return selected_runtime.execute_response(adapter, owner=owner or {}, trace=trace)
         if isinstance(selected_runtime, PlanJevHarness):
