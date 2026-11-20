@@ -50,11 +50,24 @@ export function AppearanceControl({ proposedAccent, onApplied }: {
       <h2 id={titleId}>Appearance</h2>
       {proposedAccent === undefined ? <>
       <fieldset>
-        <legend>Theme</legend>
+        <legend>Interface</legend>
         {PRESETS.map(({ id, label }) => <label key={id}>
           <input type="radio" name={titleId} checked={preview.preset === id} onChange={() => select({ ...preview, preset: id })} />
           {label}
         </label>)}
+      </fieldset>
+      <fieldset>
+        <legend>Page style</legend>
+        <label>
+          <input type="radio" name={`${titleId}-page`} checked={preview.pageStyle === "original"}
+            onChange={() => select({ ...preview, pageStyle: "original" })} />
+          Original page styles
+        </label>
+        <label>
+          <input type="radio" name={`${titleId}-page`} checked={preview.pageStyle === "dossier"}
+            onChange={() => select({ ...preview, pageStyle: "dossier" })} />
+          Dossier
+        </label>
       </fieldset>
       <fieldset>
         <legend>Accent</legend>
@@ -71,7 +84,7 @@ export function AppearanceControl({ proposedAccent, onApplied }: {
       </fieldset>
       </> : <p>Accent · {proposedAccent === "sky" ? "Sky blue" : "Theme default"}</p>}
       <div className="app-appearance__actions">
-        {proposedAccent === undefined && <button type="button" onClick={() => select(DEFAULT_APPEARANCE)} disabled={preview.preset === "default" && preview.accent === "preset"}>Reset</button>}
+        {proposedAccent === undefined && <button type="button" onClick={() => select(DEFAULT_APPEARANCE)} disabled={preview.preset === "default" && preview.accent === "preset" && preview.pageStyle === "original"}>Reset</button>}
         <button type="button" onClick={() => dialog.current?.close()}>Cancel</button>
         <button type="button" onClick={apply}>Apply</button>
       </div>

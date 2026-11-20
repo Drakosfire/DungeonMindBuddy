@@ -13,6 +13,7 @@
         if (settings?.preset === "deep-teal" || settings?.preset === "wayfinder") {
           root.dataset.buddyTheme = settings.preset;
         }
+        if (settings?.pageStyle === "dossier") root.dataset.buddyPageStyle = "dossier";
         if (settings?.accent === "sky") root.dataset.buddyAccent = "sky";
       } catch {
         // Storage is optional. The default palette is defined in CSS.
