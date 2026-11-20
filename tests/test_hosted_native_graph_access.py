@@ -557,6 +557,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/agent/worlds/{world_id}/conversation/new"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations"): access.resolve_hosted_conversation_world,
+            ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/resume"): HOSTED_WORLD_SCOPE_RESOLVERS[("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/resume")],
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id:uuid}/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns"): access.resolve_hosted_conversation_world,
@@ -3542,6 +3543,41 @@ def test_hosted_conversation_starts_and_reopens_in_exact_world(hosted, applicati
         assert response.status_code == 200, response.text
         assert response.headers["cache-control"] == "no-store"
         assert hosted.client.request("GET", path, session="other-session").status_code == 403
+
+
+def test_hosted_resume_switches_to_archived_conversation(hosted, application_state_dsn, monkeypatch):
+    from apps.live_control_server.routes import agent, conversation_library
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(conversation_library, "_verified_world_id", lambda world: world)
+    base = "/api/live/agent/worlds/managed/conversation"
+
+    def start(pointer, active):
+        response = hosted.client.request("POST", f"{base}/new", json={
+            "command_id": str(uuid4()), "expected_pointer_revision": pointer,
+            "expected_active_conversation_id": active,
+        })
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    original = start(0, None)
+    current = start(original["pointer_revision"], original["conversation_id"])
+    path = f"{base}s/{original['conversation_id']}/resume"
+    command = {
+        "world_id": "managed", "conversation_id": original["conversation_id"],
+        "command_id": str(uuid4()), "expected_pointer_revision": current["pointer_revision"],
+        "expected_active_conversation_id": current["conversation_id"],
+    }
+    assert hosted.client.request("POST", path, json=command, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=command, origin=None).status_code == 403
+    assert hosted.client.request("POST", path + "?extra=1", json=command).status_code == 403
+    mismatch = command | {"conversation_id": current["conversation_id"]}
+    assert hosted.client.request("POST", path, json=mismatch).status_code == 422
+    resumed = hosted.client.request("POST", path, json=command)
+    assert resumed.status_code == 200, resumed.text
+    assert resumed.json()["active_conversation_id"] == original["conversation_id"]
+    assert hosted.client.request("POST", path, json=command).json() == resumed.json()
+    assert hosted.client.request("GET", base).json()["conversation_id"] == original["conversation_id"]
 
 
 def test_hosted_citation_read_binds_world_and_saved_turn(hosted, monkeypatch):
