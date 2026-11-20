@@ -1,6 +1,6 @@
 # Retire mounted classic Threat publication
 
-Status: ACTIVE. Owner MIND; explicit operator authorization covers the full vNext
+Status: COMPLETE — accepted implementation; merge pending. Owner MIND; explicit operator authorization covers the full vNext
 lane's design, implementation, review and merge. Serial successor to accepted
 PR #4233 at `43c39419cb9024054d6ef78db99746111f04178b`. Branch
 `codex/v10-retire-classic-threat-publication`; reuse existing task Buddy checkout
@@ -109,3 +109,92 @@ stores identifiers only, not the full original confirmation body. Historical
 inspection must remain mounted when a retained V1 draft is edited out of the
 mechanics-saved state. Missing/unloadable drafts remain a limitation unless an
 existing entry already supplies that ID; no arbitrary orphan recovery is claimed.
+
+## Accepted checkpoint and exact evidence
+
+PR #4234. Accepted source `af3bb062ca03238cf857d7cc5f3081a24ec21c54` against
+base `43c39419cb9024054d6ef78db99746111f04178b`. Independent Aristotle final
+bounded ACCEPT is review `5992289571`; Hubble independently audited the evidence
+and exact-base comparison, without claiming independent source review of his UI.
+The current lane is V9/V10 preparation, not a serving cutover or V11 acceptance.
+
+The eight classic HTTP actions are retired. Recorded history is inspection-only;
+no absence, unknown outcome or newer draft version clears the browser pointer or
+authorizes publication. Missing/unloadable draft entry is still a limitation:
+this is not arbitrary orphan recovery. History may create lockfiles/directories;
+recorded ledger bytes remain unchanged. V1 mechanics and native V2 creation remain.
+
+Backend execution at `d036560813054b0aab12672f71f0e3c5f6a0c3ac`:
+139 owning + 96 native + 376 preservation + 316 authorization = **927 passed**,
+zero failures/errors/skips. Source was frozen and clean. Backend source, tests and
+configuration are byte-identical at accepted af3; do not claim backend execution
+at af3. Installed files match before/after: Core179 + DND39 at
+`d206e56a9aa34ae6eb6cc7ac61980a7ac8919c4d`; WK14 at
+`348c0dbf5156e7e7d5d951de90b9086501fc834f`. No dependency sync occurred.
+
+At exact af3, focused UI **194 passed**, with existing dependencies, Node22 and
+the shared resource lock. Official fresh-locked hosted verifier: **1,414 selected
+passed / 147 filtered**, build, parity and canonical validation exit0. Node22.23.0,
+npm10.9.8, eight workers. Official full-discovered proof remains **RED**:
+
+| Exact source | Passed | Failed | Report-only skipped | Build | Validator |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Candidate af3 | 8,335 | 103 | 2 | 0 | 1 |
+| Base43c | 8,339 | 103 | 2 | 0 | 1 |
+
+Every failed ID and first diagnostic line matches the exact base; zero new,
+resolved or changed failures. The App E7 remount failure is reproduced at base,
+not inferred from the older 102-failure reference. The same two report-only
+skips (BuildSurfaceShell narrow-sheet and vendored statblock-client contract)
+explain collection-parity red; no inventory omissions. Builds passed on both.
+Only the two leased UI test files changed case inventories: 53 obsolete publishing
+cases replaced by49 history/refusal cases, net minus4. No case changes elsewhere,
+selector/exclusion changes or backend identity case deletion. All six existing
+backend identity cases retain useful read/admission/privacy proofs with historical
+fixture setup through library producers.
+
+Original candidate defects are retained in evidence: the first backend smoke had
+two fixture errors (proposal digest and restart principal), corrected before its
+expanded45-pass proof; d036 focused UI had192 passes/two owned failures. Af3 fixes
+history-dock replacement of disabled mechanics controls and exact B candidate
+membership; assertions were strengthened. Those two UI failures are repaired
+candidate defects, not inheritance. A proposed broad test-file rewrite was rejected
+by automatic review and never executed; the safe targeted adaptation retained all
+six original backend cases.
+
+## Evidence, resources and continuation
+
+MIND retains evidence under
+`/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v10-classic-threat-retirement/`:
+`qualification-af3bb062.json`, backend JSON/XML/logs and installed audits,
+`focused-af3bb062-results.json`, official hosted/discovered receipts,
+`base-discovered-43c39419/`, `exact-base-comparison-af3bb062.json` and
+`continuation.json`. Both base/candidate receipts have clean source, matching
+artifact hashes, completed cleanup and independently absent temporary roots.
+Backend95261, focused96586, frontend34022 and base51669 are terminal. Eight
+attributable native databases and clients were independently absent, with zero-
+client lifecycle records before drop. Other owning fixtures did not retain exact
+names: successful teardown only, no independent absence/pre-drop-zero claim.
+
+No new manual worktree, verification mirror or environment. Reuse the existing
+task Buddy checkout and accepted historical-manual runtime cache. MIND retains
+this scratch (15,543,130 bytes at pre-seal inventory) and new task cache
+`/home/drakosfire/Projects/.codex/v7-elderwyld-scope/cache/v10-classic-threat-retirement/`
+(2,164,834 bytes), for active full-goal evidence and continuation. The verified
+backing filesystem UUID is `48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8`. Only owning
+verifier/fixture temporary outputs were removed; no manual artifacts were deleted,
+and reclaimed bytes were not measured. No serving process, mount or global
+configuration was changed. After active use ends, inspect processes/mounts,
+dirty worktrees and unique commits before any specifically authorized cleanup.
+This follow-up applies to each retained scratch/cache and the reused checkout;
+never blanket-clean shared caches or another lane's artifacts.
+
+The next consuming slice must settle the actual merge anchor and this merge-
+pending field. What remains false: callable classic library writers are not
+excised; Kernel current/public WorldGraph APIs are not yet quarantined; deployed
+current authority, later-write-safe rollback and V11 are not accepted. Core main
+was re-fetched at d206 and matches Buddy's accepted pin. Next primary question:
+which remaining current/public APIs and imports require an explicit historical
+compatibility boundary before serving rollout? Audit real consumers; do not add
+new reconstruction features for unused helpers by default. No serving change,
+provider/ingestion experiment or frozen retrieval baseline rerun occurred here.
