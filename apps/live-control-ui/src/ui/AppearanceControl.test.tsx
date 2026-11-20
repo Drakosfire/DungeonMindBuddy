@@ -17,7 +17,7 @@ it("recognizes direct accent requests and leaves creative writing in conversatio
 });
 
 it("previews an offered accent and writes settings only on Apply", () => {
-  displayAppearance({ preset: "deep-teal", accent: "preset" });
+  displayAppearance({ preset: "deep-teal", accent: "preset", pageStyle: "original" });
   render(<AppearanceControl proposedAccent="sky" />);
   const dialog = document.querySelector("dialog")!;
   dialog.showModal = () => { dialog.open = true; };
@@ -34,12 +34,12 @@ it("previews an offered accent and writes settings only on Apply", () => {
   fireEvent.click(preview);
   fireEvent.click(screen.getByRole("button", { name: "Apply" }));
   expect(JSON.parse(localStorage.getItem("buddy.appearance.settings")!)).toEqual({
-    preset: "deep-teal", accent: "sky",
+    preset: "deep-teal", accent: "sky", pageStyle: "original",
   });
 });
 
 it("previews, keeps and resets the Wayfinder interface through the shared settings", () => {
-  displayAppearance({ preset: "deep-teal", accent: "sky" });
+  displayAppearance({ preset: "deep-teal", accent: "sky", pageStyle: "original" });
   render(<AppearanceControl />);
   const dialog = document.querySelector("dialog")!;
   dialog.showModal = () => { dialog.open = true; };
@@ -59,7 +59,7 @@ it("previews, keeps and resets the Wayfinder interface through the shared settin
   fireEvent.click(screen.getByRole("radio", { name: "Wayfinder" }));
   fireEvent.click(screen.getByRole("button", { name: "Apply" }));
   expect(JSON.parse(localStorage.getItem("buddy.appearance.settings")!)).toEqual({
-    preset: "wayfinder", accent: "sky",
+    preset: "wayfinder", accent: "sky", pageStyle: "original",
   });
 
   fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
@@ -68,4 +68,34 @@ it("previews, keeps and resets the Wayfinder interface through the shared settin
   expect(document.documentElement.dataset.buddyTheme).toBeUndefined();
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(document.documentElement.dataset.buddyTheme).toBe("wayfinder");
+});
+
+it("applies Dossier independently and preserves it through a chat accent proposal", () => {
+  render(<><AppearanceControl /><AppearanceControl proposedAccent="sky" /></>);
+  for (const dialog of document.querySelectorAll("dialog")) {
+    dialog.showModal = () => { dialog.open = true; };
+    dialog.close = () => {
+      dialog.open = false;
+      fireEvent(dialog, new Event("close"));
+    };
+  }
+
+  fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
+  fireEvent.click(screen.getByRole("radio", { name: "Dossier" }));
+  expect(document.documentElement.dataset.buddyPageStyle).toBe("dossier");
+  expect(document.documentElement.dataset.buddyTheme).toBeUndefined();
+  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+  fireEvent.click(screen.getByRole("button", { name: "Preview accent" }));
+  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+  expect(JSON.parse(localStorage.getItem("buddy.appearance.settings")!)).toEqual({
+    preset: "default", accent: "sky", pageStyle: "dossier",
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
+  fireEvent.click(screen.getByRole("radio", { name: "Wayfinder" }));
+  expect(document.documentElement.dataset.buddyTheme).toBe("wayfinder");
+  expect(document.documentElement.dataset.buddyPageStyle).toBe("dossier");
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(document.documentElement.dataset.buddyTheme).toBeUndefined();
+  expect(document.documentElement.dataset.buddyPageStyle).toBe("dossier");
 });
