@@ -116,8 +116,16 @@ def report_case(case, base):
     if boundary not in {"response", "context_ready", "writer_transport"}:
         raise ValueError("Unknown capture boundary")
     context_only = boundary != "response"
+    detailed_trace = case.get("detailed_trace", False)
+    if type(detailed_trace) is not bool or (detailed_trace and not context_only):
+        raise ValueError("Invalid detailed trace mode")
     names = ("request", "history-after", "context-trace") + (
         ("context-ready", "context-request", "context-stop") if context_only else ("answer-http",))
+    detail_path = directory / "detailed-host-trace.json"
+    if not detailed_trace and detail_path.exists():
+        raise ValueError("Detailed host trace differs from the requested mode")
+    if detailed_trace:
+        names += ("detailed-host-trace",)
     paths = {name: directory / (name + ".json") for name in names}
     if context_only and (directory / "answer-http.json").exists():
         paths["answer-http"] = directory / "answer-http.json"
@@ -197,10 +205,12 @@ def report_case(case, base):
                 prompt_witnesses.append(event)
     context_packet = None
     if context_only:
-        from .context_capture import validate_context_packet
+        from .context_capture import summarize_host_trace, validate_context_packet
         context_packet = validate_context_packet(
             documents["context-ready"], documents["context-request"], documents["context-stop"],
             writer_transport=boundary == "writer_transport")
+        detail = (summarize_host_trace(documents["detailed-host-trace"],
+                   documents["context-ready"], documents["context-stop"]) if detailed_trace else None)
         captured = context_packet["turn"]
         authorization = context_packet["authorization"]
         if ((str(captured.turn_id), str(captured.conversation_id), captured.world_id, captured.user_text)
@@ -259,6 +269,7 @@ def report_case(case, base):
             "context": {"status": "captured", "accepted_to_ready_ms": context_packet["elapsed_ms"],
                 "request_to_ready_ms": context_packet["request_to_ready_ms"],
                 "request_to_transport_ms": context_packet["request_to_transport_ms"],
+                "detailed_host_trace": detail,
                 "request_timing_basis": ("Same-process monotonic clock from ordinary request dispatch to post-authorization context-ready; includes bootstrap, excludes capture installation, artifact IO and cleanup"
                     if context_packet["request_to_ready_ms"] is not None else "Unknown: historical request-start tick was not retained"),
                 "prepared_request_bytes": context_packet["prepared_bytes"],
@@ -524,9 +535,10 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
     retained["cases"] = []
     for case in manifest["cases"]:
         # A new capture never inherits an old semantic assessment.
-        current = {key: value for key, value in case.items() if key not in {"assessment", "assessments"}}
+        current = {key: value for key, value in case.items() if key not in {"assessment", "assessments", "detailed_trace"}}
         if context_only:
             current["capture_boundary"] = "writer_transport" if writer_transport else "context_ready"
+            current["detailed_trace"] = detailed_trace
         elif current.get("capture_boundary", "response") != "response":
             raise ValueError("Context capture requires the explicit capture-context mode")
         retained["cases"].append(dict(current, capture_dir=str((output / case["id"]).resolve()),

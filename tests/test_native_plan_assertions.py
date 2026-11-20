@@ -1377,9 +1377,14 @@ def test_benchmark_context_boundary_uses_actual_sdk_admission_without_writer_io(
     transport_request = json.loads((second / 'context-request.json').read_text())
     transport_stop = json.loads((second / 'context-stop.json').read_text())
     transport_case = dict(case, question='Which details are established about B?',
-        capture_dir=str(second), capture_boundary='writer_transport')
+        capture_dir=str(second), capture_boundary='writer_transport', detailed_trace=True)
     transport_report = workflow.report_case(transport_case, Path('.'))
     assert transport_report['capture_boundary'] == 'writer_transport'
+    assert transport_report['context']['detailed_host_trace']['interval_count'] > 0
+    missing_detail = workflow.report_case(dict(case, detailed_trace=True), Path('.'))
+    assert 'detailed-host-trace' in missing_detail['missing_artifacts']
+    with pytest.raises(ValueError, match='requested mode'):
+        workflow.report_case(dict(transport_case, detailed_trace=False), Path('.'))
     with pytest.raises(ValueError, match='requested boundary'):
         workflow.report_case(dict(case, capture_boundary='writer_transport'), Path('.'))
     with pytest.raises(ValueError, match='requested boundary'):

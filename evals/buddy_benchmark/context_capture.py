@@ -103,6 +103,32 @@ def validate_context_packet(ready, request, terminal, *, writer_transport=None):
             "request_to_transport_ms": request_to_transport_ms, "prepared_bytes": len(body)}
 
 
+def summarize_host_trace(detail, ready, terminal):
+    start = ready["request_started_monotonic_ns"]
+    end = terminal.get("transport_sink", {}).get("monotonic_ns", ready["ready_monotonic_ns"])
+    if not isinstance(detail, dict):
+        raise ValueError("Invalid detailed host trace")
+    trace_id = ready.get("host_trace_id")
+    intervals = detail.get("intervals")
+    if (detail.get("schema") != "dmb_benchmark_host_intervals_v1"
+            or type(start) is not int or type(end) is not int
+            or (detail.get("start_monotonic_ns"), detail.get("end_monotonic_ns")) != (start, end)
+            or type(detail.get("truncated")) is not bool
+            or not isinstance(trace_id, str) or detail.get("trace_id") != trace_id
+            or not isinstance(intervals, list) or len(intervals) > 4096
+            or any(not isinstance(span, dict)
+                   or type(span.get("start_monotonic_ns")) is not int
+                   or type(span.get("end_monotonic_ns")) is not int
+                   or not start <= span["start_monotonic_ns"] <= span["end_monotonic_ns"] <= end
+                   or type(span.get("partial")) is not bool
+                   or span.get("trace_id") != trace_id
+                   or type(span.get("failed")) is not bool
+                   or not isinstance(span.get("name"), str) for span in intervals)):
+        raise ValueError("Invalid detailed host trace")
+    return {"interval_count": len(intervals), "truncated": detail["truncated"],
+            "partial_intervals": sum(span["partial"] for span in intervals)}
+
+
 class ContextCapture:
     def __init__(self, directory, *, writer_transport=False, detailed_trace=False):
         self.directory = Path(directory)
@@ -175,6 +201,7 @@ class ContextCapture:
                 "ready_at": now.isoformat(), "ready_monotonic_ns": tick,
                 "request_started_monotonic_ns": owner.request_started_monotonic_ns,
                 "host_spans": deepcopy(trace.spans) if trace is not None else None,
+                "host_trace_id": trace.trace_id if trace is not None else None,
             }
             owner.request = {
                 "provider": prepared.provider, "model": prepared.model, "api_mode": prepared.api_mode,
@@ -221,13 +248,20 @@ class ContextCapture:
         if self.detailed_trace:
             end = (self.transport_sink["monotonic_ns"] if self.transport_sink is not None
                    else ready["ready_monotonic_ns"])
-            immutable_save(self.directory, "detailed-host-trace", {
-                "schema": "dmb_benchmark_host_intervals_v1",
-                "start_monotonic_ns": ready["request_started_monotonic_ns"],
-                "end_monotonic_ns": end,
-                "truncated": self.trace_truncated,
-                "intervals": [span for span in self.host_intervals
-                              if span["end_monotonic_ns"] <= end],
-            })
+            start = ready["request_started_monotonic_ns"]
+            with self.host_intervals_lock:
+                intervals = [dict(span, start_monotonic_ns=max(start, span["start_monotonic_ns"]),
+                                  end_monotonic_ns=min(end, span["end_monotonic_ns"]),
+                                  partial=span["start_monotonic_ns"] < start or span["end_monotonic_ns"] > end)
+                             for span in self.host_intervals
+                             if span["start_monotonic_ns"] < end and span["end_monotonic_ns"] > start]
+                detail = {
+                    "schema": "dmb_benchmark_host_intervals_v1",
+                    "start_monotonic_ns": start, "end_monotonic_ns": end,
+                    "truncated": self.trace_truncated, "intervals": intervals,
+                    "trace_id": ready["host_trace_id"],
+                }
+            summarize_host_trace(detail, ready, terminal)
+            immutable_save(self.directory, "detailed-host-trace", detail)
         immutable_save(self.directory, "context-stop", terminal)
 
