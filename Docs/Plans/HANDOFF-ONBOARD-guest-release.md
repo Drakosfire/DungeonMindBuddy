@@ -138,6 +138,14 @@ Core repository and binding; it is not an ordinary first-World or real sign-in
 witness. A complete real first-World preparation, owner review,
 publication and withdrawal test remains required before activation.
 
+Projection version `explicit_native_assertions_v3` displays known `dnd5e`,
+`dungeonbuddy`, and `dungeonbuddy.custom` terms with an explicit namespace
+distinction for every supported namespace. Unknown namespaces or unsafe term
+syntax remain ineligible. Synthetic first-World compiler tests cover Buddy
+item classification and a custom relationship as well as ordinary terms;
+the custom test includes the compiler-admitted hyphenated predicate
+`works-for`. They do not establish complete vocabulary coverage.
+
 An experimental signed-out API now exposes only the current release manifest
 and assets pinned to that release, behind both `DMB_GUEST_RELEASE_ENABLED=1`
 and `DMB_GUEST_RELEASE_PUBLIC_ENABLED=1`. The hosted exception is restricted to

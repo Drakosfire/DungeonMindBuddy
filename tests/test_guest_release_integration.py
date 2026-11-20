@@ -28,9 +28,13 @@ from apps.live_control_server.services.dms_principal import DmsPrincipal
 from tests import test_governed_native_source_publication_adoption as native_fixture
 
 
-@pytest.mark.parametrize("role", ["support", "context"])
-def test_first_world_compiler_release_selection_preserves_inference(application_state_dsn, monkeypatch, role):
+@pytest.mark.parametrize("role,custom,node_type", [
+    ("support", False, "character"), ("context", False, "character"),
+    ("support", False, "item"), ("support", True, "character"),
+])
+def test_first_world_compiler_release_selection_preserves_inference(application_state_dsn, monkeypatch, role, custom, node_type):
     import dungeonmind.application.vnext as native_api
+    from tests import test_first_world_typed_evidence as first_world_fixture
     from tests.test_first_world_typed_evidence import _native_compilation_case, _compile_and_bind, _publish_compilation
 
     world = create_world(name="First World selection fixture", owner_subject="owner").record.world_id
@@ -46,7 +50,13 @@ def test_first_world_compiler_release_selection_preserves_inference(application_
             "object_id": str(page.page.work_object_id), "revision_id": f"registry-revision:{saved.page.object_revision}"}
         return publish_source(request=type(request).model_validate(data), **kwargs)
     monkeypatch.setattr(native_api, "publish_native_text_source_evidence", source_with_page_origin)
-    case = _native_compilation_case(source_text=revision.markdown, native_role=role)
+    if custom:
+        build_effect = first_world_fixture._first_world_effect
+        def effect_with_hyphen(**kwargs):
+            kwargs["predicate"] = "works-for"
+            return build_effect(**kwargs)
+        monkeypatch.setattr(first_world_fixture, "_first_world_effect", effect_with_hyphen)
+    case = _native_compilation_case(source_text=revision.markdown, native_role=role, custom=custom, node_type=node_type)
     _, bound = _compile_and_bind(case)
     result = _publish_compilation(case, bound)
     graph_revision = result.publication_receipt.published_revision_id
@@ -78,6 +88,12 @@ def test_first_world_compiler_release_selection_preserves_inference(application_
     manifest, _ = guest_release.review(world_id=world, subject="owner", release_id=release_id)
     assert all(node["name_basis"] == "inferred" and node["kind_basis"] == "inferred" for node in manifest["graph"]["nodes"])
     assert manifest["graph"]["edges"][0]["basis"] == "inferred"
+    if node_type == "item":
+        assert any(node["kind"] == "buddy · item" for node in manifest["graph"]["nodes"])
+    if custom:
+        assert manifest["graph"]["edges"][0]["label"] == "custom · works-for"
+    else:
+        assert manifest["graph"]["edges"][0]["label"] == "dnd5e · located in"
     assert manifest["sources"][0]["evidence_role"] == role
     assert "Reviewed description" not in str(manifest) and "Unrelated paragraph" not in str(manifest)
     assert "GM secret" not in str(manifest) and "private heading" not in str(manifest)
@@ -190,7 +206,7 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
     pending_id, pending_digest = preparation._prepare_candidate(world_id=world, subject="owner", selection=selection)
     manifest, reviewed_digest = guest_release.review(world_id=world, subject="owner", release_id=release_id)
     assert reviewed_digest == digest and len(manifest["graph"]["nodes"]) == 2
-    assert manifest["projection_version"] == "explicit_native_assertions_v2"
+    assert manifest["projection_version"] == "explicit_native_assertions_v3"
     assert manifest["image_sanitizer_version"] == "bounded_png_v1"
     assert len(manifest["graph"]["edges"]) == 1
     assert len(manifest["assets"]) == 1

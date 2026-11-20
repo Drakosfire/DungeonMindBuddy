@@ -45,3 +45,26 @@ def test_explicit_fields_require_admitted_assertions_and_their_own_evidence(monk
     with pytest.raises(selections.GuestReleaseAssertionError, match="semantics"):
         selections.select_node(**common, entity_id="entity", name_assertion_id="name",
             kind_assertion_id="kind", name_evidence=citation, kind_evidence=citation)
+
+
+@pytest.mark.parametrize("term,expected", [
+    ("dnd5e:located_in", "dnd5e · located in"), ("dungeonbuddy:item", "buddy · item"),
+    ("dungeonbuddy.custom:knows", "custom · knows"),
+    ("dungeonbuddy.custom:works-for", "custom · works-for"),
+    ("dungeonbuddy.custom:2.part_name", "custom · 2 · part name"),
+])
+def test_display_terms_preserve_known_namespace(term, expected):
+    assert selections._term_label(term) == expected
+
+
+@pytest.mark.parametrize("term", ["https://private.example", "other:knows", "dnd5e:../secret", "dnd5e:"])
+def test_display_terms_reject_unknown_or_destination_syntax(term):
+    with pytest.raises(selections.GuestReleaseAssertionError):
+        selections._term_label(term)
+
+
+def test_display_terms_do_not_collapse_namespace_or_local_separators():
+    terms = ["dnd5e:bond", "dungeonbuddy:bond", "dungeonbuddy.custom:bond",
+             "dungeonbuddy.custom:a_b", "dungeonbuddy.custom:a.b", "dungeonbuddy.custom:a-b",
+             "dnd5e:custom.knows", "dungeonbuddy.custom:knows", "dnd5e:buddy.item", "dungeonbuddy:item"]
+    assert len({selections._term_label(term) for term in terms}) == len(terms)

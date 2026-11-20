@@ -16,7 +16,7 @@ from dungeonmind.application.vnext import (
 from application_state.content.pages import committed_page
 from application_state.errors import ApplicationStateError
 from apps.live_control_server.integrations.dungeonmind import native_registry_source
-from apps.live_control_server.services.guest_release_assertions import GuestReleaseAssertionError, _assertion, _text
+from apps.live_control_server.services.guest_release_assertions import GuestReleaseAssertionError, _assertion, _term_label, _text
 from apps.live_control_server.services.guest_release_evidence import GuestReleaseEvidenceError, verify_source_citation
 from apps.live_control_server.services.guest_release_native_graph import GuestNativeGraphError, read_owner_graph
 from apps.live_control_server.services.guest_release_sources import GuestReleaseSourceError, selected_page_excerpt
@@ -59,10 +59,10 @@ def selection_options(*, world_id: str) -> dict:
                 value = _text(assertion.value.value)
                 kind = "name"
             elif assertion.predicate == "dnd5e:classification" and isinstance(assertion.value, ParsedTermRefValue):
-                value = _text(assertion.value.term.removeprefix("dnd5e:"))
+                value = _term_label(assertion.value.term)
                 kind = "classification"
             elif isinstance(assertion.value, ParsedEntityRefValue):
-                value = _text(assertion.predicate.removeprefix("dnd5e:").replace("_", " "))
+                value = _term_label(assertion.predicate)
                 kind = "relationship"
             else:
                 continue

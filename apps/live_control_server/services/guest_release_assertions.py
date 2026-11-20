@@ -5,6 +5,7 @@ does not authorize a request or publish its result.
 """
 from __future__ import annotations
 
+import re
 from uuid import UUID, uuid4
 
 from dungeonmind.application.vnext import ParsedEntityRefValue, ParsedLiteralValue, ParsedTermRefValue
@@ -38,6 +39,16 @@ def _text(value: str) -> str:
     return value
 
 
+def _term_label(term: str) -> str:
+    """Display only known vocabulary namespaces without ambiguous raw URLs."""
+    match = re.fullmatch(r"(dnd5e|dungeonbuddy|dungeonbuddy\.custom):([a-z0-9]+(?:[._-][a-z0-9]+)*)", term)
+    if match is None:
+        raise GuestReleaseAssertionError("Selected vocabulary term is unsupported")
+    namespace, local = match.groups()
+    prefix = {"dnd5e": "dnd5e · ", "dungeonbuddy": "buddy · ", "dungeonbuddy.custom": "custom · "}[namespace]
+    return _text(prefix + local.replace("_", " ").replace(".", " · "))
+
+
 def _citation(assertion, selection: tuple, *, access, native_world_id: str, revision_id: str) -> str:
     evidence_id, excerpt, source_binding = selection
     if evidence_id not in assertion.metadata.evidence_ref_ids:
@@ -56,7 +67,7 @@ def select_node(*, context, admitted_ids: set[str], entity_id: str, name_asserti
     if not isinstance(name.value, ParsedLiteralValue) or not isinstance(kind.value, ParsedTermRefValue):
         raise GuestReleaseAssertionError("Selected node assertions have unsupported values")
     label = _text(name.value.value)
-    category = _text(kind.value.term.removeprefix("dnd5e:"))
+    category = _term_label(kind.value.term)
     name_citation = _citation(name, name_evidence, access=access, native_world_id=native_world_id, revision_id=revision_id)
     kind_citation = _citation(kind, kind_evidence, access=access, native_world_id=native_world_id, revision_id=revision_id)
     node_id = local_id or uuid4()
@@ -80,9 +91,9 @@ def select_relationship(*, context, admitted_ids: set[str], assertion_id: str,
     target = assertion.value.entity_id
     if subject_id not in node_ids or target not in node_ids:
         raise GuestReleaseAssertionError("Relationship endpoints are not selected")
-    # Preserve the actual qualified predicate rather than flattening it into an
-    # inferred natural-language claim. The UI can render this as plain text.
-    label = _text(predicate.removeprefix("dnd5e:").replace("_", " "))
+    # The reviewed display keeps custom vocabulary visibly distinct; the host
+    # retains the exact qualified predicate in the private assertion binding.
+    label = _term_label(predicate)
     citation = _citation(assertion, evidence, access=access, native_world_id=native_world_id, revision_id=revision_id)
     edge_id = local_id or uuid4()
     public = {"id": str(edge_id), "source": node_ids[subject_id], "target": node_ids[target],

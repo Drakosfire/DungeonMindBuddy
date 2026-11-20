@@ -131,7 +131,7 @@ def _prepare_candidate(*, world_id: str, subject: str, selection: ReleaseSelecti
         assets.append((release_asset_id, mime, content))
         manifest_assets.append({"id": str(release_asset_id), "mime_type": mime,
                                 "sha256": hashlib.sha256(content).hexdigest()})
-    manifest = {"schema": "buddy_guest_release_v1", "projection_version": "explicit_native_assertions_v2",
+    manifest = {"schema": "buddy_guest_release_v1", "projection_version": "explicit_native_assertions_v3",
                 "image_sanitizer_version": "bounded_png_v1", "graph": graph, "sources": sources,
                 "assets": sorted(manifest_assets, key=lambda item: item["id"])}
     return guest_release.stage(world_id=world_id, subject=subject, expected_owner_generation=generation,
