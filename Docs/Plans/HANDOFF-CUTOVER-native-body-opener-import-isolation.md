@@ -1,6 +1,6 @@
 # Native body opener import isolation
 
-Status: COMPLETE — bounded implementation accepted; documentation seal/merge pending. Owner: MIND. Operator authorizes design, implementation, review,
+Status: COMPLETE — merged as PR4238. Owner: MIND. Operator authorizes design, implementation, review,
 merge and continuation of the full optimized Elderwyld vNext cutover goal.
 
 ## Anchor and delivery
@@ -110,7 +110,9 @@ on the verified Projects filesystem. Before later specifically authorized cleanu
 check active tasks/processes/mounts and dirty or unique data; retain unique evidence.
 Cleanup followup for scratch/cache/mirror: MIND after acceptance and active-goal use.
 
-Remaining delivery gate: docs-only seal review, short checks and guarded merge.
+Seal49b378751e18d30cde6977e65325ffd8aaf75209 accepted by review5994854040;
+all3short checks passed. Actual merge4715f169d28f2fc6cade2f883fba4730b67445e8
+has identical seal tree450ed39a10e61c06def8efa3ad275752544db29b.
 No separate actual merged execution is claimed. Next consuming slice settles the
 actual merge anchor. Next primary question: retire the two public legacy recap-context
 POSTs while routing local and hosted saved-claim opening through the existing
