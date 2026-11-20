@@ -36,7 +36,6 @@ export interface GraphReviewCommittedProjectionPanelProps {
   selectedObjectId?: string | null;
   affectedObjectIds?: string[];
   error?: string | null;
-  onRetry?: () => void | Promise<void>;
   onSelectObjectId?: (objectId: string) => void;
 }
 

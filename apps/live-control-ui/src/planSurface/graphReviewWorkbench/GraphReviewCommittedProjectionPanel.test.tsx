@@ -100,7 +100,6 @@ describe("GraphReviewCommittedProjectionPanel", () => {
           selectedObjectId="object-1"
           affectedObjectIds={["object-1"]}
           error={null}
-          onRetry={async () => undefined}
           onSelectObjectId={() => undefined}
         />
       ),
@@ -152,7 +151,6 @@ describe("GraphReviewCommittedProjectionPanel", () => {
           selectedObjectId="object-1"
           affectedObjectIds={["object-1"]}
           error={null}
-          onRetry={async () => undefined}
           onSelectObjectId={() => undefined}
         />
       ),
@@ -194,7 +192,6 @@ describe("GraphReviewCommittedProjectionPanel", () => {
           selectedObjectId="object-1"
           affectedObjectIds={["object-1"]}
           error={null}
-          onRetry={async () => undefined}
           onSelectObjectId={onSelectObjectId}
         />
       ),
