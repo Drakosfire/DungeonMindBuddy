@@ -57,6 +57,12 @@ Do not mark answered dimensions as missing or fill gaps with unrelated excerpts.
 
 
 TASKS = {
+    'plan_contextual_discussion': ResponsePromptComponent('plan_contextual_discussion_task', '1',
+        'Answer the requested discussion directly. If the user asks for hypothetical critique, '
+        'pacing advice, or creative options, provide that reasoning as invented possibilities '
+        'rather than treating the absence of played evidence as a reason to withhold it. '
+        'Keep actual factual claims supported. A requested hypothetical is not a missing fact, '
+        'and a discussion answer does not claim or propose a page edit.'),
     'contextual_target_question': ResponsePromptComponent('contextual_target_question_task', '1',
         'Return only the location question required by the supplied question schema. The host '
         'derived its alternatives from the complete location judgment. Do not choose an alternative, '

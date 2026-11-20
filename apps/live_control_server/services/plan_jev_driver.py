@@ -790,7 +790,8 @@ class PlanJevDriver:
 
     async def run(self, *, transport=None, api_key=None):
         from application_state.agent_conversation.plan_contextual_targets import is_question
-        if is_question(self.adapter._broker_execution()):
+        fence = getattr(self.adapter, 'fence', None)
+        if fence is not None and is_question(fence.turn.graph_context_execution):
             if self.current is not None:
                 raise ValueError('Question-only work cannot carry an active retrieval dispatch')
             self.finished = True

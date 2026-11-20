@@ -1305,7 +1305,10 @@ def _shared_plan_authoring_case(
                         if payload["text"]["format"]["name"] == "plan_contextual_question_v1"
                         else "plan_placement_clarify" if routing == "clarify"
                         and type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2
-                        else "clarify" if routing == "clarify" else "answer")
+                        else "clarify" if routing == "clarify"
+                        else "plan_contextual_discussion" if routing == "discuss"
+                        and type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2
+                        else "answer")
                 assert payload["instructions"] == compose_response_prompt(task=task).instructions
                 schema = payload["text"]["format"]["schema"]
                 base = schema.get("$defs", {}).get("Base", schema)

@@ -263,6 +263,8 @@ def _conversation_response_task(execution):
         accepted = NATIVE_PLAN_WORK_SELECTION_TYPES if type(action) in (NativePlanActionV2, NativePlanActionV3) else (t.PlanRequestedWorkSelectedV2,)
         if len(choices) != 1 or type(choices[0]) not in accepted:
             return None
+        if type(action) is NativePlanActionV3 and choices[0].requested_work == 'discuss':
+            return 'plan_contextual_discussion'
         if choices[0].requested_work == 'clarify':
             from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
             if type(action.placement_catalog) is PlanPlacementCatalogV2:

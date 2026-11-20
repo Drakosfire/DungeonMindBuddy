@@ -82,6 +82,18 @@ and captured selection before paid dev evaluation. Freeze the completed contract
 before another independent writer qualification. Earlier passing SHA evidence
 is not final qualification of this in-progress revision.
 
+The first DEV20 execution at cd23e4bd5 is retained RED:16/20 work/target
+decisions,6/10 requested writes delivered, all6 delivered fragments core/clean,
+7/8 required clarification questions and1/2 useful discussion answers. All12
+clarification outputs had the actual question-only shape; zero negative
+authoring or source changes. Four unnecessary clarifications exposed overbroad
+or missing semantic nominations. The next dev amendment clarifies immediate
+anchor adjacency, content-independent placement votes and the selected-target
+authority question, and distinguishes hypothetical discussion from missing facts.
+The initial backend diagnostic had13 regressions from an unconditional broker
+lookup on legacy paths; the guard is restricted to an actual native fence.
+These failures remain retained, and all source/evidence requires renewed checks.
+
 Alan's latest instruction grants full authority over this lane and directs no
 further routine approval requests. This supersedes the pending bounded #3307
 admission split and synthetic OpenAI/browser payload questions below. It covers

@@ -179,7 +179,9 @@ def project_native_plan_work(receipt, execution, provenance, submission_idempote
                 "asks to keep them. Do not repeat unselected surrounding context."
                 if replace else "Only the new fragment is inserted. The named anchor paragraph "
                 "remains in the page. Do not copy it as context or repeat it unless the user "
-                "explicitly requests restatement. Return only the requested new content."))
+                "explicitly requests restatement. Return only the requested new content.") +
+                " Requested fictional additions are authored possibilities, not unsupported factual "
+                "details. Mark gaps only for requested existing facts that lack support.")
     return frame
 
 
