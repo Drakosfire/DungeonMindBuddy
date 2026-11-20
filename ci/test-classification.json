@@ -1570,6 +1570,7 @@
       "tests/test_worldbuilding_gazetteer_scenario_scope.py",
       "tests/test_worldbuilding_gazetteer_trade_context.py",
       "tests/test_worldbuilding_ge_execution.py",
+      "tests/test_worldbuilding_prompt_aliases.py",
       "tests/test_worldbuilding_ge_route.py",
       "tests/test_worldbuilding_historical_passage.py",
       "tests/test_worldbuilding_location_source_fidelity.py",

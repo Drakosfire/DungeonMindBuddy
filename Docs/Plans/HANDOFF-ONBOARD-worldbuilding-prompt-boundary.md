@@ -2,7 +2,7 @@
 
 Status: ACTIVE. On 2026-11-20 the user explicitly directed this lane to split
 the lease with #2087 and fix the prompt leak. Serial implementation from
-`origin/main` `b130c2228118347e8cef3fcd7c7b7870076135dc`; branch
+`origin/main` `f126b6a5a9f76b6b224cabcabbedcb71b2f2592a`; branch
 `codex/worldbuilding-prompt-alias`, checkout `Projects/.codex/7550/DungeonMindBuddy`.
 No serving ports, operator databases, retained Worlds, paid providers, or
 deployment are leased. The predecessor World-creation PR #4240 merged at
@@ -35,7 +35,9 @@ The user explicitly split ownership with #2087 at head
 Worldbuilding prompt-alias construction and response resolution regions of
 `src/graph_memory/extraction/category_candidate_graph_extractor.py`, plus
 `src/graph_memory/extraction/worldbuilding_edge_review.py`, a new host-only
-alias helper if needed, focused owning tests, this handoff, and the truthful
+alias helper if needed, focused owning tests (including existing Worldbuilding
+profile and edge-review fixtures where their model outputs must use aliases),
+this handoff, and the truthful
 predecessor status sync. #2087 retains known-character context and its
 actor-pass injection; do not edit its feature regions or tests. Open extractor
 PRs #2149, #2124, #2118, #1149, and #1148 are independent historical recap
@@ -52,6 +54,8 @@ constrained review IDs and returned choices must use local handles and resolve
 to the exact original edges before the existing subset check. Do not weaken
 auth, origin, CAS, quote verification, selection or publication boundaries.
 Preserve meaningful semantic context and all profile-specific behavior.
+Optional vocabulary cautions with an unresolved internal identity must fail
+before provider dispatch instead of rendering that identity as a label.
 
 Use synthetic nonempty candidates to capture final serialized provider calls
 for every Worldbuilding pass and advisory schema. Prove host identifiers do
