@@ -539,6 +539,7 @@
       "apps/live-control-ui/src/tiptap/pageComposer/presentation.test.ts",
       "apps/live-control-ui/src/tiptap/state/tiptapLocalState.frontmatter.test.ts",
       "apps/live-control-ui/src/tiptap/state/tiptapLocalState.test.ts",
+      "apps/live-control-ui/src/ui/AppearanceControl.test.tsx",
       "apps/live-control-ui/src/ui/ConversationDock.test.tsx",
       "apps/live-control-ui/src/ui/ObjectSheet.test.tsx",
       "apps/live-control-ui/src/ui/SceneLensReader.test.tsx",

@@ -1,3 +1,5 @@
+import { AppearanceControl } from "../../ui/AppearanceControl";
+import { appearanceAccentRequest, type AppearanceAccent } from "../../ui/appearanceSettings";
 import { dungeonMindLoginHref, useHostedAuthStatus } from "../../auth/HostedAuthGate";
 import { ConversationDraftEditor, ConversationVariantApproval } from "../../agentInteraction/ConversationDraftEditor";
 import { downloadBlob } from "../../shared/downloadBlob";
@@ -2812,6 +2814,7 @@ export function WorldPlanAgentConversation({
   const setComposerDrafts = sharedConversation?.worldId === worldId ? sharedConversation.setComposerDrafts : setLocalComposerDrafts;
   const composerDraftKey = isBuild ? `build:${buildMode?.savedSource?.documentId ?? "unavailable"}` : isReadOnly ? `play:${playMode?.admittedRun?.runId ?? "unadmitted"}` : `plan:${documentId ?? "unsaved"}`;
   const composerMessage = composerDrafts[composerDraftKey] ?? "";
+  const [appearanceProposal, setAppearanceProposal] = useState<AppearanceAccent | null>(null);
   const setComposerMessage = (action: string | ((current: string) => string)) => {
     setComposerDrafts((drafts) => {
       const current = drafts[composerDraftKey] ?? "";
@@ -4851,6 +4854,20 @@ export function WorldPlanAgentConversation({
       setComposerMessage((current) => current.trim() === message ? "" : current);
     }
     await dispatchSavedPlayTurn(stored,false,tourDispatch);
+  }
+
+  function submitReadOnlyComposer(event: FormEvent<HTMLFormElement>) {
+    const accent = isBuild && composerReferencesReady && composerReferences.length === 0
+      ? appearanceAccentRequest(composerMessage)
+      : null;
+    if (accent === null) {
+      void submitPlay(event);
+      return;
+    }
+    event.preventDefault();
+    if (!visible || composerBusy) return;
+    setAppearanceProposal(accent);
+    setComposerMessage("");
   }
 
   function submitComposer(event: FormEvent<HTMLFormElement>) {
@@ -7424,7 +7441,12 @@ export function WorldPlanAgentConversation({
             || (!isBuild&&composerReferences.length>0&&!useWorldGraphForAsk)}
           onClick={() => { void submitPlay(undefined, true); }}>Send as discussion</button>
       </section> : null}
-      <form onSubmit={isReadOnly ? (event) => { void submitPlay(event); } : submitComposer}>
+      {isBuild && appearanceProposal !== null && <section aria-label="Appearance proposal">
+        <p>Buddy proposes changing the app accent to {appearanceProposal === "sky" ? "Sky blue" : "the theme default"}.</p>
+        <AppearanceControl proposedAccent={appearanceProposal} onApplied={() => setAppearanceProposal(null)} />
+        <button type="button" onClick={() => setAppearanceProposal(null)}>Dismiss</button>
+      </section>}
+      <form onSubmit={isReadOnly ? submitReadOnlyComposer : submitComposer}>
 
 
         {!isReadOnly ? <p className="world-plan-agent-conversation__context" aria-label="Actual Plan change target">{displayedEditScope}</p> : null}
