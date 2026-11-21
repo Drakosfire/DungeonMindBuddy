@@ -160,6 +160,7 @@ def test_lore_save_body_excludes_conversation_limitations():
     from application_state.agent_conversation.lore_page_confirmation import _body
 
     completion = SimpleNamespace(
+        collaboration=SimpleNamespace(open_questions=()),
         native_body_citations=[SimpleNamespace(segment_index=1)],
         answer_segments=[
             SimpleNamespace(kind="limitation", text="Some details were unavailable."),
@@ -231,3 +232,13 @@ def test_save_followup_resolves_only_a_current_same_work_review(monkeypatch, sce
         assert reference.title == "Rowan"
     else:
         assert reference is None
+
+
+def test_explicit_create_after_research_binds_only_the_named_page_clause():
+    author = 'Consult the travel journal, then create a page titled "The West Road".'
+    witness = explicit_lore_page_witness(author)
+    assert witness.instruction == 'create a page titled "The West Road"'
+    assert witness.bind(author) == "The West Road"
+
+    with pytest.raises(ValueError, match="one explicit page request"):
+        explicit_lore_page_witness('Consult the journal, then do not create a page titled "The West Road".')
