@@ -98,9 +98,11 @@ class SemanticWire(httpx2.AsyncBaseTransport):
         }
         if opening:
             expected_state |= {"candidates", "examined_subjects", "relevance_guidance", "conditional_read_plan_policy"}
-        contextual = any(name.startswith("target_") for name in body["questions"])
+        contextual = 'placement_relation' in body['questions']
         if contextual:
-            expected_state.update({"focused_edit_target", "location_membership_policy"})
+            expected_state.remove('offered_page_locations')
+            expected_state.update({'focused_edit_target', 'anchor_membership_policy',
+                'offered_page_anchors', 'placement_relations'})
         assert set(body["state"]) == expected_state
         assert body["state"]["user_request"] == self.adapter.request.message
         assert body["state"]["edit_target_available"] == (
@@ -117,7 +119,8 @@ class SemanticWire(httpx2.AsyncBaseTransport):
         if opening:
             expected_questions |= {"operation", "post_read_plan", *(f"candidate_{i}" for i in range(len(body["state"]["candidates"])))}
         if contextual:
-            expected_questions |= {f"target_{i}" for i in range(len(body["state"]["offered_page_locations"]))}
+            expected_questions |= {'placement_relation', *(f'anchor_{i}'
+                for i in range(len(body['state']['offered_page_anchors'])))}
         assert set(body["questions"]) == expected_questions
         assert current.graph_context_execution.events[-1].outcome == "sdk_entered"
         choice = self.choice
@@ -126,12 +129,23 @@ class SemanticWire(httpx2.AsyncBaseTransport):
         target = choice.removeprefix("write:") if choice.startswith("write:") else None
         if contextual and choice.startswith("write:"):
             choice = "write_current_page"
+        groups, relation = [], 'unresolved'
+        nominated = self.compatible_selectors if self.compatible_selectors is not None else (target,)
+        if contextual:
+            from application_state.agent_conversation.plan_contextual_targets import anchor_groups
+            groups = anchor_groups(self.adapter.request.plan_authoring_capture,
+                self.adapter.request.plan_placement_catalog)
+            selected_entries = [entry for _, entries in groups for entry in entries if entry.selector in nominated]
+            if selected_entries:
+                kinds = {'captured' if entry.kind == 'captured_target' else entry.kind for entry in selected_entries}
+                assert len(kinds) == 1
+                relation = kinds.pop()
         answers = {}
         for name, question in body["questions"].items():
-            selected = ("include" if contextual and name.startswith("target_")
-                and body["state"]["offered_page_locations"][int(name.removeprefix("target_"))]["selector"]
-                    in (self.compatible_selectors if self.compatible_selectors is not None else (target,))
-                else "exclude" if name.startswith("target_") else choice if name == "requested_work" else
+            selected = ('include' if contextual and name.startswith('anchor_')
+                and any(entry.selector in nominated for entry in groups[int(name.removeprefix('anchor_'))][1])
+                else 'exclude' if name.startswith('anchor_') else relation if name == 'placement_relation'
+                else choice if name == "requested_work" else
                 "finish_retrieval" if name == "operation" else
                 "review_after_reads" if name == "post_read_plan" else "exclude")
             assert selected in question["criteria"]

@@ -3,6 +3,16 @@ import json
 
 
 INTENTS = ("discuss", "clarify", "write_current_page", "different_destination", "review_connected_page")
+RELATIONS = {
+    'captured': 'Use the explicitly captured selection or explicitly requested caret.',
+    'before_paragraph': 'Immediately before the named existing paragraph.',
+    'after_paragraph': 'Immediately after the named existing paragraph.',
+    'before_heading': 'Before the named heading, outside its section.',
+    'after_heading': 'Directly below the named heading, before its existing body.',
+    'after_section': 'After the entire named section and its body.',
+    'end_page': 'At the end of the current page.',
+    'unresolved': 'No single page-placement relation is identified, or multiple relations are required.',
+}
 
 
 def current_resolution(execution):
@@ -34,11 +44,13 @@ def prepare_contextual_work(request):
         ("discuss", "clarify") if operation == "discuss"
         else ("clarify", "write_current_page", "different_destination"))
     state = dict(base.state)
-    state.update(offered_page_locations=contextual_locations(request),
+    state.pop('offered_page_locations', None)
+    state.update(offered_page_anchors=contextual_anchors(request),
+        placement_relations={key: RELATIONS[key] for key in offered_relations(request)},
         focused_edit_target=focused_target(request),
         placement_policy=("Judge intent and location independently. Current-page writing stays "
             "write_current_page even if its destination is missing or has several compatible "
-            "matches. Mark every compatible location include; do not choose a winner or rank "
+            "matches. Mark every compatible existing anchor include; do not choose a winner or rank "
             "equally valid matches. The host permits writing only for one distinct captured "
             "destination and otherwise asks about location. Equivalent aliases may identify "
             "one boundary. Before/after an anchor means its immediately adjacent boundary, "
@@ -55,37 +67,70 @@ def prepare_contextual_work(request):
             "requested content, not merely missing/ambiguous placement. For a clear edit request "
             "select write_current_page and let the independent location votes expose ambiguity. "
             "The current request and explicit captured selection take precedence over older dialogue.",
-        location_membership_policy=(
-            "Judge each location independently. Include every equally valid match; do not rank "
-            "matches or choose a winner. A paragraph destination must match its side, anchor "
-            "passage and any named section. A heading destination must name a heading. "
+        anchor_membership_policy=(
+            "Identify the EXISTING page anchor named by the request, separately from the relation "
+            "and the content to create. Include every equally valid matching anchor; never rank "
+            "duplicates or choose a winner. Match the existing passage and any named section. "
+            "Match the anchor kind to the requested relation: a section named only to qualify "
+            "a paragraph is context, not a second heading anchor. "
+            "Content to repeat or invent is not another existing insertion anchor. "
             "A captured replacement is the one explicitly selected span; duplicate words elsewhere "
             "do not compete when the request refers to that selection. An incidental caret is "
-            "not a substitute for a named location. All placement constraints must hold at the "
-            "same starting position. Ignore ordering/content inside the fragment and unresolved "
-            "wording or audience. Discussion without a requested edit excludes every location."))
+            "not a substitute for a named anchor. Judge compatibility with the entire request. "
+            "One fragment supports ONE page-placement relation. If the request imposes multiple "
+            "relations, choose unresolved, even if their boundaries might coincide; do not drop "
+            "a constraint. Ordering inside the new fragment is content, not another page relation. "
+            "Discussion without a requested edit excludes every anchor."))
     return base.model_copy(update={"state": state, "questions": (
         ChoiceDecisionQuestion(name="requested_work", options=choices,
             question="What work is the author requesting, independently of whether its location is unique?"),
         *target_questions(request))})
 
 
-def contextual_locations(request):
-    """Only source content and local aliases enter the decision context."""
-    catalog, capture = request.placement_catalog, request.original_capture
+def anchor_groups(capture, catalog):
+    """Distinct frozen occurrences, never equal-text deduplication."""
     if catalog is None or capture is None:
         return []
+    from .plan_placement import PlanPlacementCatalogV2
+    if type(catalog) is not PlanPlacementCatalogV2:
+        raise ValueError('Contextual anchors require the paragraph catalog')
     catalog.require_original(capture)
+    from .plan_placement import _placement_headings
     nodes = json.loads(capture.editor_json)["content"]
-    locations = []
+    headings = _placement_headings(nodes)
+    groups = {}
     for entry in catalog.entries:
-        row = dict(selector=entry.selector, label=entry.label, kind=entry.kind)
-        if entry.kind in {"before_paragraph", "after_paragraph"}:
-            row["passage"] = "".join(
-                "\n" if part.get("type") == "hardBreak" else part.get("text", "")
-                for part in nodes[entry.source_root_index].get("content", []))
-        locations.append(row)
-    return locations
+        kind = ('paragraph' if entry.kind.endswith('_paragraph') else
+            'heading' if entry.source_root_index is not None else
+            'captured' if entry.kind == 'captured_target' else 'page_end')
+        key = (kind, entry.source_root_index)
+        if key not in groups:
+            row = dict(selector=f'anchor{len(groups)}', kind=kind)
+            if kind == 'paragraph':
+                row['text'] = ''.join('\n' if part.get('type') == 'hardBreak' else part.get('text', '')
+                    for part in nodes[entry.source_root_index].get('content', []))
+                row['section'] = next((heading['label'] for heading in reversed(headings)
+                    if heading['index'] < entry.source_root_index), 'this page')
+            elif kind == 'heading':
+                row['heading_path'] = next(heading['label'] for heading in headings
+                    if heading['index'] == entry.source_root_index)
+            elif kind == 'captured':
+                row['selection_kind'] = capture.target_kind
+                if capture.target_kind == 'replace_selection':
+                    row['selected_text'] = capture.selected_text
+            groups[key] = (row, [])
+        groups[key][1].append(entry)
+    return list(groups.values())
+
+
+def contextual_anchors(request):
+    return [row for row, _ in anchor_groups(request.original_capture, request.placement_catalog)]
+
+
+def offered_relations(request):
+    offered = {('captured' if entry.kind == 'captured_target' else entry.kind)
+        for entry in request.placement_catalog.entries} if request.placement_catalog else set()
+    return tuple(key for key in RELATIONS if key in offered or key == 'unresolved')
 
 
 def focused_target(request):
@@ -104,27 +149,73 @@ def focused_target(request):
 
 def target_questions(request):
     from generationengine.types import ChoiceDecisionQuestion
-    return tuple(ChoiceDecisionQuestion(name=f"target_{i}", options=("include", "exclude"),
-        question=("Should the requested edit start at this location? Reference data: "
-            + json.dumps({key: location[key] for key in ('selector', 'kind', 'label')}, ensure_ascii=False)
-            + " Judge only placement, independently of what the fragment contains. "
-            "Include this match even when another location is equally valid."))
-        for i, location in enumerate(contextual_locations(request)))
+    questions = {
+        'paragraph': 'Is this the EXISTING PARAGRAPH identified as the placement anchor?',
+        'heading': 'Is this HEADING or ENTIRE SECTION itself the placement anchor, rather than context for a paragraph?',
+        'captured': 'Does the request use this captured selection or caret, rather than another named anchor?',
+        'page_end': 'Does the request choose the current page end as its destination?',
+    }
+    return (ChoiceDecisionQuestion(name='placement_relation', options=offered_relations(request),
+        question='What single relation to an existing page anchor does the requested fragment use? '
+            'Ignore ordering inside the new fragment. Multiple page relations must be unresolved.'),
+        *(ChoiceDecisionQuestion(name=f'anchor_{i}', options=('include', 'exclude'),
+            question=questions[anchor['kind']] + ' Reference data: '
+                + json.dumps(anchor, ensure_ascii=False)
+                + ' Judge the anchor, not what the new fragment will contain. Include every equally valid match.')
+            for i, anchor in enumerate(contextual_anchors(request))))
+
+
+def target_answer_keys(request):
+    return {'placement_relation', *(f'anchor_{i}' for i in range(len(contextual_anchors(request))))}
 
 
 def compatible_selectors(request, answers):
-    """The caller first validates the entire exact SDK answer-key set."""
-    count = len(request.placement_catalog.entries) if request.placement_catalog else 0
-    if {key for key in answers if key.startswith('target_')} != {f'target_{i}' for i in range(count)}:
-        raise ValueError("Incomplete or foreign contextual-location judgments")
-    result = []
-    for i, entry in enumerate(request.placement_catalog.entries if request.placement_catalog else ()):
-        choice = answers[f"target_{i}"]
+    return contextual_work_choice(request, 'write_current_page', answers)['compatible_placement_selectors']
+
+
+def contextual_work_choice(request, intent, answers):
+    keys = {key for key in answers if key.startswith(('anchor_', 'target_')) or key == 'placement_relation'}
+    if keys != target_answer_keys(request):
+        raise ValueError('Incomplete or foreign contextual-anchor judgments')
+    relation = answers['placement_relation']
+    if relation not in offered_relations(request):
+        raise ValueError('Placement relation was not offered')
+    anchors = []
+    for i, anchor in enumerate(contextual_anchors(request)):
+        choice = answers[f'anchor_{i}']
         if choice not in {"include", "exclude"}:
-            raise ValueError("Unknown contextual-location judgment")
-        if choice == "include":
-            result.append(entry.selector)
-    return tuple(result)
+            raise ValueError('Unknown contextual-anchor judgment')
+        if choice == 'include':
+            anchors.append(anchor['selector'])
+    return resolve_anchor_targets(request.original_capture, request.placement_catalog, intent, relation, anchors)
+
+
+def resolve_anchor_targets(capture, catalog, intent, relation, anchors):
+    from .plan_placement import PlanPlacementCatalogV2
+    if capture is None or type(catalog) is not PlanPlacementCatalogV2:
+        raise ValueError('Contextual resolution requires its frozen paragraph capture and catalog')
+    offered = {('captured' if entry.kind == 'captured_target' else entry.kind)
+        for entry in catalog.entries} | {'unresolved'}
+    if relation not in RELATIONS or relation not in offered:
+        raise ValueError('Unknown contextual placement relation')
+    anchors = tuple(anchors)
+    if len(set(anchors)) != len(anchors):
+        raise ValueError('Duplicate compatible anchor')
+    groups = anchor_groups(capture, catalog)
+    if set(anchors) - {row['selector'] for row, _ in groups}:
+        raise ValueError('Compatible anchor was not offered')
+    ordered, places = [], []
+    for row, entries in groups:
+        if row['selector'] not in anchors:
+            continue
+        ordered.append(row['selector'])
+        matching = [entry.selector for entry in entries
+            if ('captured' if entry.kind == 'captured_target' else entry.kind) == relation]
+        if relation != 'unresolved' and not matching:
+            raise ValueError('Anchor cannot acquire another placement relation')
+        places.extend(matching)
+    return dict(requested_placement_relation=relation, compatible_anchor_selectors=tuple(ordered),
+        **resolve_targets(capture, catalog, intent, places))
 
 
 def resolve_targets(capture, catalog, intent, selectors):
@@ -157,6 +248,23 @@ def clarification_question(selection):
     """A fixed target question follows the retained set, never a source-text guess."""
     if selection.requested_work != "clarify":
         raise ValueError("Question requested for non-clarification work")
+    if (getattr(selection, 'requested_placement_relation', None) == 'unresolved'
+            and selection.compatible_anchor_selectors):
+        original = getattr(selection, 'original_capture', None) or {}
+        if original.get('target_kind') == 'replace_selection':
+            return 'Would you like to replace the current selection, or select the text at the intended location?'
+        if original and getattr(selection, 'placement_catalog', None):
+            from .plan_authoring import PlanAuthoringCaptureV1
+            from .plan_placement import decode_plan_placement_catalog
+            kinds = {row['kind'] for row, _ in anchor_groups(
+                PlanAuthoringCaptureV1.model_validate(original),
+                decode_plan_placement_catalog(selection.placement_catalog))
+                if row['selector'] in selection.compatible_anchor_selectors}
+            if kinds == {'captured'}:
+                return 'Should I use the current caret, or would you like to choose the intended insertion point?'
+            if kinds == {'page_end'}:
+                return 'Should I place the fragment at the page end, or would you like to identify another location?'
+        return 'Should I place the fragment before or after the identified text, or use another location?'
     if selection.target_resolution == "ambiguous":
         from .plan_authoring import PlanAuthoringCaptureV1
         from .plan_placement import decode_plan_placement_catalog

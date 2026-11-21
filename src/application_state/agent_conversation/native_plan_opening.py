@@ -79,12 +79,12 @@ def decode_opening_decision(request, result):
     expected = {'requested_work', 'operation', 'post_read_plan',
         *(f'candidate_{i}' for i in range(len(request.candidates)))}
     if type(request) is NativePlanOpeningInputV2:
-        expected.update(f'target_{i}' for i in range(len(request.placement_catalog.entries)))
+        from .plan_contextual_targets import target_answer_keys
+        expected.update(target_answer_keys(request))
     answers = validated_choice_answers(result, expected)
     selected_work = requested_work_choice(request, answers['requested_work'])
-    from .plan_contextual_targets import compatible_selectors
     actual_work = work_choice(request, selected_work, **(
-        {'compatible_selectors': compatible_selectors(request, answers)}
+        {'contextual_answers': answers}
         if type(request) is NativePlanOpeningInputV2 else {}))['requested_work']
     if type(request) is NativePlanOpeningInputV2 and actual_work != 'discuss':
         _validate_selection_choices(request, answers)

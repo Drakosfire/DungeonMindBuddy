@@ -6,7 +6,7 @@ import pytest
 
 from application_state.agent_conversation.plan_authoring import PlanAuthoringCaptureV1, text_digest
 from application_state.agent_conversation.plan_contextual_targets import (
-    resolve_targets, contextual_locations, focused_target, compatible_selectors,
+    resolve_targets, contextual_anchors, focused_target, compatible_selectors, resolve_anchor_targets,
 )
 from application_state.agent_conversation.plan_placement import (
     PlanPlacementCatalogV2, PlanPlacementOptionV2, PlanRequestedWorkInputV9,
@@ -94,16 +94,59 @@ def test_deliberate_selection_remains_exclusive_despite_duplicate_source_text():
 def test_location_votes_are_complete_and_model_view_contains_no_host_bindings():
     capture, catalog = captured_catalog()
     request = request_for(capture, catalog)
-    answers = {f"target_{i}": "exclude" for i in range(len(catalog.entries))}
+    answers = {'placement_relation': 'after_paragraph', **{f'anchor_{i}': 'exclude'
+        for i in range(len(contextual_anchors(request)))}}
     assert compatible_selectors(request, answers) == ()
     with pytest.raises(ValueError):
-        compatible_selectors(request, answers | {"target_99": "include"})
-    answers.pop("target_0")
+        compatible_selectors(request, answers | {'anchor_99': 'include'})
+    answers.pop('anchor_0')
     with pytest.raises(ValueError):
         compatible_selectors(request, answers)
-    encoded = json.dumps(contextual_locations(request))
+    from application_state.agent_conversation.plan_contextual_targets import prepare_contextual_work
+    prepared = prepare_contextual_work(request)
+    encoded = json.dumps({'state': prepared.state,
+        'questions': [question.model_dump() for question in prepared.questions]})
     for forbidden in (capture.world_id, capture.document_id, capture.sha256, "source_root_index", "root_boundary"):
         assert forbidden not in encoded
+
+
+def test_anchor_relation_maps_only_its_frozen_kind_and_keeps_duplicate_occurrences():
+    capture, catalog = captured_catalog(duplicate=True)
+    anchors = contextual_anchors(request_for(capture, catalog))
+    assert [anchor['text'] for anchor in anchors if anchor['kind'] == 'paragraph'] == ['Alpha.', 'Alpha.']
+    result = resolve_anchor_targets(capture, catalog, 'write_current_page', 'after_paragraph', ('anchor1',))
+    assert result['compatible_placement_selectors'] == ('place1',)
+    assert result['target_resolution'] == 'unique'
+    ambiguous = resolve_anchor_targets(capture, catalog, 'write_current_page', 'after_paragraph', ('anchor1', 'anchor2'))
+    assert ambiguous['target_resolution'] == 'ambiguous' and ambiguous['requested_work'] == 'clarify'
+    for relation, nominated in [('after_paragraph', ('anchor0',)), ('after_heading', ('anchor1',)),
+                               ('after_paragraph', ('foreign',)), ('after_paragraph', ('anchor1', 'anchor1'))]:
+        with pytest.raises(ValueError):
+            resolve_anchor_targets(capture, catalog, 'write_current_page', relation, nominated)
+
+
+def test_unresolved_relation_retains_anchor_but_cannot_authorize_partial_placement():
+    from types import SimpleNamespace
+    from application_state.agent_conversation.plan_contextual_targets import clarification_question
+    capture, catalog = captured_catalog()
+    fields = resolve_anchor_targets(capture, catalog, 'write_current_page', 'unresolved', ('anchor1',))
+    assert fields['requested_work'] == 'clarify' and fields['compatible_placement_selectors'] == ()
+    assert fields['target_capture_sha256'] is None
+    assert clarification_question(SimpleNamespace(**fields)) == (
+        'Should I place the fragment before or after the identified text, or use another location?')
+
+
+@pytest.mark.parametrize('selected', [False, True])
+def test_unresolved_captured_relation_never_offers_unavailable_before_after_operations(selected):
+    from types import SimpleNamespace
+    from application_state.agent_conversation.plan_contextual_targets import clarification_question
+    capture, catalog = captured_catalog(selected=selected)
+    fields = resolve_anchor_targets(capture, catalog, 'write_current_page', 'unresolved', ('anchor0',))
+    question = clarification_question(SimpleNamespace(**fields,
+        original_capture=capture.model_dump(mode='json', by_alias=True),
+        placement_catalog=catalog.model_dump(mode='json', by_alias=True)))
+    assert 'before or after' not in question
+    assert ('replace the current selection' if selected else 'current caret') in question
 
 
 def test_indistinguishable_target_labels_ask_for_selection_instead_of_identical_alternatives():
@@ -187,7 +230,9 @@ def test_actual_model_multiple_nominations_clarify_without_reservation_or_factua
     assert selection.placement_selector is None and selection.target_capture_sha256 is None
     for fields in ({'target_resolution': 'unique'}, {'requested_work': 'write_current_page'},
                    {'compatible_placement_selectors': ('place1',)},
-                   {'compatible_placement_selectors': ('foreign',)}):
+                   {'compatible_placement_selectors': ('foreign',)},
+                   {'requested_placement_relation': 'before_paragraph'},
+                   {'compatible_anchor_selectors': ('anchor0',)}):
         with pytest.raises(ValueError):
             NativePlanOpeningSelectedV2.model_validate(selection.model_dump() | fields)
     expected = output_format(turn.graph_context_execution)['schema']['properties']['question']['enum'][0]

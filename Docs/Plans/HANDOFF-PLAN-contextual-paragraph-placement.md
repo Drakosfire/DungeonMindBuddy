@@ -125,6 +125,54 @@ membership guidance into one state policy and puts each location's semantic
 label/kind/local alias directly in its short independent question. No confidence
 threshold, lexical rule, winner selection or host target-resolution change is made.
 
+Contract checkpoint after DEVceb9:17/20 work/target, two unnecessary
+clarifications and one hard wrong-boundary restatement proposal;8/8 required
+questions and2/2 discussions were useful. No source mutation. Per-location
+classification remains unsafe, so this same plain-Plan PR now separates complete
+existing-anchor membership from one typed placement relation within the same
+actual combined opening SDK batch. Paragraph anchors retain distinct source
+occurrences plus semantic heading context; heading, captured and page-end
+anchors are separate. Equal text is never merged into one anchor.
+
+The host maps the selected relation and every included anchor only through the
+frozen catalog, then deduplicates exact derived captures and permits one target.
+Raw relation and complete anchor nominations are retained and reconstructed from
+actual SDK answers during admission/replay. This is another unreleased V3 proof
+revision; earlier V3 draft proofs remain source-pinned and are not newly claimed
+compatible. V1/V2 historical action/input/event codecs stay unchanged. The same
+0171 fence remains unreleased; no new migration or deployment is included.
+
+One fragment supports one placement relation. Multiple relational constraints,
+including an apparently coincident after-A/before-B pair, must clarify rather
+than silently discard a constraint or authorize a partial match. Unresolved
+relation with identified anchors asks about placement, not missing paragraph
+identity. This is an explicit bounded limitation, not proof of multi-constraint
+placement. Keep the existing20 DEV cases unchanged; add separate controls for
+this limit before model evaluation. Validate relation/kind mapping, complete
+distinct anchors, negative effects and exact native replay before new paid dev.
+All revised paths remain inside the existing contextual write lease; delivery
+remains serial in PR4264, with no successor dispatched.
+
+Factored-contract working-tree controls passed145 placement/native/schema/opening/
+prompt tests, then16 recovery/raw-field tamper controls and the full prepared
+state+question metadata-boundary check. These are diagnostics before source
+freeze, not exact-SHA qualification. Combined DEV22 export/parity passed22
+captures/297 entries with3 actual selections; the original20 objects are unchanged.
+No model has consumed the factored contract yet.
+
+Exact predecessor7227 backend query-and-answer passed1330/159 warnings in an
+isolated checkout with locked Core1c8f9d7. Its hosted frontend/build/retained
+validator passed. Integrated broad checkpointceb9 versus exactfa153 was
+8391pass/102fail/2pending versus8386pass/102fail/2pending: identical102 failure
+IDs and primary messages, no missing cases and five added passes. Both builds
+passed; source/artifact integrity was verified in external
+`plan-ceb-fa153-discovered-comparison.json` (SHA256
+`1a6a417252c400f4cd866021812b532c7aac499448c6887a0f6b2b90fb49d753`).
+Both broad diagnostics stay RED, including the same two extra reported pending
+cases/false collection-parity flag. They establish no release qualification.
+The frontend tree is unchanged by the backend-only factored amendment; final
+exact-head hosted/backend verification and independent review remain required.
+
 Alan's latest instruction grants full authority over this lane and directs no
 further routine approval requests. This supersedes the pending bounded #3307
 admission split and synthetic OpenAI/browser payload questions below. It covers

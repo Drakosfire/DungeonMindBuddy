@@ -271,9 +271,8 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
             from .plan_placement import PlanRequestedWorkInputV8
             if isinstance(request, PlanRequestedWorkInputV8) != (type(event) in NATIVE_PLAN_WORK_SELECTION_TYPES):
                 raise ValueError('Plan selected work differs from its exact decision codec')
-            from .plan_contextual_targets import compatible_selectors
-            fields = work_choice(request, selected, **({'compatible_selectors': compatible_selectors(
-                request, {k: v.selected for k, v in result.answers.items()})}
+            fields = work_choice(request, selected, **({'contextual_answers':
+                {k: v.selected for k, v in result.answers.items()}}
                 if type(request) is NativePlanOpeningInputV2 else {}))
             if (any(getattr(event, key) != value for key, value in fields.items())
                     or event.original_capture != (request.original_capture.model_dump(mode='json',by_alias=True) if request.original_capture is not None else None)

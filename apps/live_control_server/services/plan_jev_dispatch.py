@@ -310,9 +310,8 @@ class PlanJevDispatch:
             turn = a.fence.turn
             execution = turn.graph_context_execution
             placement = isinstance(self.parent, PlanRequestedWorkInputV2)
-            from application_state.agent_conversation.plan_contextual_targets import compatible_selectors
-            resolved = (work_choice(self.parent, selected, **({'compatible_selectors': compatible_selectors(
-                self.parent, {k: v.selected for k, v in result.answers.items()})} if contextual else {}))
+            resolved = (work_choice(self.parent, selected, **({'contextual_answers':
+                {k: v.selected for k, v in result.answers.items()}} if contextual else {}))
                 if placement else {})
             selected_fields = (resolved | {
                 'original_capture_sha256': self.parent.target_capture_sha256,
