@@ -272,6 +272,9 @@ def target_questions(request):
         *(ChoiceDecisionQuestion(name=f'passage_{i}', options=('include', 'exclude'),
             question='Does the author locate the edit before or after a paragraph described by this text? '
                 'Match the existing paragraph by meaning, ignoring its section and insertion side. '
+                'Compare the part of the request that identifies the existing passage with this passage. '
+                'A prose block can be called an instruction, step or note. A short statement of the '
+                'same existing event or condition can be an exact semantic match. '
                 'The new fragment may discuss the same topic; that does not disqualify the existing anchor. '
                 'Shared vocabulary or general relevance alone is not a match. '
                 'Judge paragraph_passages ' + entry['view']['selector'] + '.',
