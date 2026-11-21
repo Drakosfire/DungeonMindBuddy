@@ -32,7 +32,8 @@ def selected_read_closure(receipt, execution, selection_event_id, *, before_sequ
     if any(isinstance(e, (t.ProviderAttemptAuthorizedEventV1, NativeReadBatchConcludedV1)) for e in after):
         return None
     handles = tuple(selection.selected_handles)
-    supported = ('native-object:', 'native-direct-source:', 'native-body:', 'native-full-document:')
+    supported = ('native-object:', 'native-direct-source:', 'native-body:',
+                 'native-full-document:', 'saved-authored-page:')
     if not handles or any(not h.startswith(supported) for h in handles):
         return None  # Metadata/discovery/Rules/unknown choices still require review.
     reads = set()
@@ -71,9 +72,30 @@ def selected_read_closure(receipt, execution, selection_event_id, *, before_sequ
             if not any(catalog.record_ids((handle,), assertion=assertion, attempted=attempted)
                     for assertion, attempted in expected_by_family):
                 return None  # An empty or already attempted target is not a new successful read.
+    saved_handles = {h for h in handles if h.startswith('saved-authored-page:')}
+    if saved_handles:
+        from .build_related_pages import RelatedPageRead, catalog as page_catalog, plan_handle, plan_read_enabled
+
+        if not plan_read_enabled(execution):
+            return None
+        offered = {plan_handle(page): page for page in page_catalog(execution.policy)}
+        fulfilled = set()
+        for read in after:
+            if not isinstance(read, RelatedPageRead):
+                continue
+            handle = plan_handle(read.page)
+            pointer = offered.get(handle)
+            if (handle not in saved_handles or handle in fulfilled or pointer is None
+                    or read.selection_event_id != selection.event_id
+                    or read.page.model_dump(exclude={'content_sha256'}) != pointer.model_dump()):
+                return None
+            fulfilled.add(handle)
+            reads.add(read.event_id)
+        if fulfilled != saved_handles:
+            return None
     grants = [e for e in after if isinstance(e, (NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1))]
     for handle in handles:
-        if handle.startswith('native-object:'):
+        if handle.startswith(('native-object:', 'saved-authored-page:')):
             continue
         matched = []
         for grant in grants:
