@@ -20,6 +20,7 @@ def test_workflow_retains_every_original_selector_once_except_partitioned_module
     expected["tests/test_ownership_ci_partition.py"] = 1
     expected.update([
         "tests/test_aw_action_assessment.py",
+        "tests/test_build_prose_catalog.py",
         "tests/integration/test_recap_evidence_append.py",
         "tests/test_category_candidate_graph_extractor.py",
         "tests/test_recap_object_dispositions.py",
