@@ -401,7 +401,7 @@ def expected_semantic_frame(host, actual):
 PLAN_EVIDENCE_HEADING = "# Plan evidence\n\n"
 
 
-def render_plan_evidence(frame, work):
+def render_plan_evidence(frame, work, *, compact_graph_qualifications=False):
     """Render the admitted evidence with the same aliases as the output schema."""
     def words(value):
         if isinstance(value, dict):
@@ -447,7 +447,15 @@ def render_plan_evidence(frame, work):
             claim = row["assertion"]
             groups.setdefault(claim["qualification"], []).append(row)
         for qualification, rows in groups.items():
-            parts.append(words(graph["qualifications"][qualification]))
+            rendered = graph["qualifications"][qualification]
+            if compact_graph_qualifications:
+                rendered = rendered.copy()
+                if rendered.get("domain_metadata") == []:
+                    del rendered["domain_metadata"]
+                mode = rendered.get("claim_mode")
+                if isinstance(mode, str):
+                    rendered["claim_mode"] = mode.removeprefix("dungeonbuddy.claim:")
+            parts.append(words(rendered))
             for row in rows:
                 claim = row["assertion"]
                 predicate = claim["predicate"].split(":")[-1].replace("_", " ")

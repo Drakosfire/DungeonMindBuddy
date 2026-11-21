@@ -677,7 +677,7 @@ def _ordinary_native_case(
                 else:
                     assert summary is not None
                     mode = 'belief' if qualified else 'fact'
-                    assert f'claim mode: dungeonbuddy.claim:{mode}' in prose
+                    assert f'claim mode: {mode};' in prose
                     segments.append(dict(kind='native_assertion_claim', text='A reports that B fled; uncertain.',
                         assertion_handles=[summary[1]]))
                 if authored:

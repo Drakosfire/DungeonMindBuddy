@@ -368,11 +368,17 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
                 if compact is prose_work:
                     raise ValueError('Plan compact editor prose requires a redundant editor view')
                 prose_work = compact
-            expected_message = {'role': 'user', 'content': render_plan_evidence(prose_frame, prose_work)}
+            if authorization.compact_plan_graph_qualifications and not (
+                    prose_frame.get("native_assertions") or {}).get("assertions"):
+                raise ValueError("Compact Graph qualifications require admitted assertions")
+            expected_message = {'role': 'user', 'content': render_plan_evidence(
+                prose_frame, prose_work,
+                compact_graph_qualifications=authorization.compact_plan_graph_qualifications,
+            )}
             if len(prose) != 1 or messages[-1] != expected_message:
                 raise ValueError('Plan writer prose differs from its exact admitted evidence')
-    if authorization.compact_plan_editor_prose and prose_work is None:
-        raise ValueError('Plan compact editor marker requires native Plan prose')
+    if (authorization.compact_plan_editor_prose or authorization.compact_plan_graph_qualifications) and prose_work is None:
+        raise ValueError('Plan compact prose markers require native Plan prose')
     frame,work_frame = _input_frames(raw,prefix,expected_work['schema'],prose_frame=prose_frame, prose_work=prose_work)
     has_image = isinstance(body.get("input"), list) and proposal_packet_text(body) is not None
     from .native_execution import NativeBuildActionV1

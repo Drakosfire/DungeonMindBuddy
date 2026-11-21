@@ -143,7 +143,8 @@ class _ReplyRejected(ValueError):
         self.code = code
 
 
-def authorize_native_writer(adapter, rules, proof, prepared, expected, frame, *, compact_plan_editor_prose=None):
+def authorize_native_writer(adapter, rules, proof, prepared, expected, frame, *,
+                            compact_plan_editor_prose=None, compact_plan_graph_qualifications=None):
     """One native admission for the exact SDK input; output schemas stay owned."""
     from generationengine.text_dispatch import PreparedTextDispatch
     from .agent_turn_service import _json_node_count, _require_fresh_execution_append
@@ -209,7 +210,8 @@ def authorize_native_writer(adapter, rules, proof, prepared, expected, frame, *,
         frame_sha256=canonical_sha256(frame),included_graph_event_ids=[],included_source_read_event_ids=[],
         included_assertion_ids=[],included_relationship_ids=[],included_evidence_ref_ids=[],
         native_read_event_ids=native_read_event_ids(adapter._broker_execution().events),
-        compact_plan_editor_prose=compact_plan_editor_prose,**work_commitment)
+        compact_plan_editor_prose=compact_plan_editor_prose,
+        compact_plan_graph_qualifications=compact_plan_graph_qualifications, **work_commitment)
     adapter.turn=_require_fresh_execution_append(adapter.fence.append('authorize_native_writer','authorization',event,
         expected_rules_revision=rules.native.record.revision,prepared_request_json=prepared.body.decode(),work_proof=proof,
         **({'authoring_reservation':{'action_id':rules.authoring[0].action_id,'capture':rules.authoring[1]}}
@@ -375,6 +377,7 @@ class PlanJevWriter:
             self.output_format=output_format(self.frame,rule_frame)
             frames=(self.frame,rule_frame)
         self.compact_plan_editor_prose = None
+        self.compact_plan_graph_qualifications = None
         self.messages=[{'role':'user','content':canonical_bytes(frame).decode()} for frame in frames]
         if self.shared and getattr(rules, 'authoring', None) is None:
             from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
@@ -384,9 +387,14 @@ class PlanJevWriter:
                 from application_state.agent_conversation.native_plan_work_view import compact_editor_prose
                 prose_work = compact_editor_prose(self.provider_work)
                 self.compact_plan_editor_prose = True if prose_work is not self.provider_work else None
+                assertions = self.provider_frame.get("native_assertions") or {}
+                self.compact_plan_graph_qualifications = True if assertions.get("assertions") else None
                 self.messages = (
                     [{'role': 'user', 'content': render_plan_rules(rule_frame)}] if rule_frame.lookups else []
-                ) + [{'role': 'user', 'content': render_plan_evidence(self.provider_frame, prose_work)}]
+                ) + [{'role': 'user', 'content': render_plan_evidence(
+                    self.provider_frame, prose_work,
+                    compact_graph_qualifications=self.compact_plan_graph_qualifications,
+                )}]
         if not self.shared:
             self.messages.append({'role':'user','content':'Return JSON.'})
         self.messages = [
@@ -522,7 +530,8 @@ class PlanJevWriter:
             from application_state.errors import ApplicationStateConflictError
             try:
                 event=authorize_native_writer(a,self.rules,self.proof,prepared,expected,self.provider_frame,
-                    compact_plan_editor_prose=self.compact_plan_editor_prose)
+                    compact_plan_editor_prose=self.compact_plan_editor_prose,
+                    compact_plan_graph_qualifications=self.compact_plan_graph_qualifications)
             except ApplicationStateConflictError:
                 self.target_changed=self.rules.authoring is not None
                 raise
