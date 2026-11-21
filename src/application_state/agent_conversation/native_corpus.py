@@ -692,6 +692,37 @@ def resolve_retained_body_citation(execution, citation):
     return catalog, section, text
 
 
+class PriorBodyCitationReferenceV1(Strict):
+    turn_id: UUID
+    completion_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    citation_index: int = Field(ge=0, le=16383, strict=True)
+
+
+def resolve_prior_body_citation(current, prior, reference, *, history_turn_ids):
+    """Only the frozen dialogue window can lend exact support to the current turn."""
+    from . import types as t
+    from .rules_authority_reads import MixedCompletedTurnV1
+
+    if isinstance(prior, MixedCompletedTurnV1):
+        if prior.base_projection.kind != "approved":
+            raise ValueError("Prior citation requires an approved completion")
+        prior = prior.base_projection.turn
+    if (prior.turn_id != reference.turn_id or prior.turn_id not in history_turn_ids
+            or prior.world_id != current.world_id or prior.conversation_id != current.conversation_id
+            or prior.sequence >= current.sequence or prior.status != "completed"):
+        raise ValueError("Prior citation is outside the completed conversation history")
+    completion = prior.completion
+    if (completion is None or prior.graph_context_execution is None
+            or t.canonical_sha256(completion) != reference.completion_sha256):
+        raise ValueError("Prior citation differs from its retained completion")
+    citations = getattr(completion, "native_body_citations", ())
+    if reference.citation_index >= len(citations):
+        raise ValueError("Prior citation ordinal is unavailable")
+    citation = citations[reference.citation_index]
+    _, _, passage = resolve_retained_body_citation(prior.graph_context_execution, citation)
+    return completion.answer_segments[citation.segment_index].text, passage
+
+
 def selected_batch_covering_reads(execution, selection, handle, *, before_sequence=None, require_passage=False):
     """Exact source extent already obtained by this acknowledged read batch."""
     if (not handle.startswith('native-body:') or selection.operation != 'select_candidates'
