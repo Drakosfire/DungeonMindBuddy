@@ -204,8 +204,8 @@ def model_frame_records(query, execution):
     partial = input_partial_records(query, execution)
     return {'schema': 'dmb_plan_native_statement_frame_v1',
         'authority': query.authority.model_dump(mode='json', by_alias=True) if isinstance(query, NativePlanQueryV1) else None,
-        'status': 'unavailable' if not isinstance(query, NativePlanQueryV1) else 'partial' if partial else 'complete',
-        'gap_codes': list(query.gap_codes) if isinstance(query, NativePlanQueryV1) else [query.reason],
+        'status': 'unavailable' if query is not None and not isinstance(query, NativePlanQueryV1) else 'partial' if partial else 'complete',
+        'gap_codes': list(query.gap_codes) if isinstance(query, NativePlanQueryV1) else [] if query is None else [query.reason],
         'universal_absence_claimed': False,
         'statements': [{'statement_handle': 'statement:' + digest({'query': query.sha256, 'read': str(event.event_id), 'statement': read.support.statement_id}),
             'payload': read.support.payload,

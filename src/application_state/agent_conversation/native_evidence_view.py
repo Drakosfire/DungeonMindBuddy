@@ -251,6 +251,8 @@ def semantic_frame(host):
                 },
             )
         )
+        if "prior_claim" in row:
+            bodies[-1]["prior_claim"] = row["prior_claim"]
         if "planning_line_ranges" in row:
             bodies[-1]["planning_line_ranges"] = deepcopy(row["planning_line_ranges"])
     body_evidence = dict(
@@ -430,7 +432,8 @@ def render_plan_evidence(frame, work):
             if planning:
                 ranges = ", ".join(f"{start}–{stop}" for start, stop in planning)
                 label += f" (planning on source lines {ranges}; excerpt starts at line {row['line_start']})"
-            parts.append(f"{label}\n{row['text']}")
+            prior = f"Earlier cited claim: {row['prior_claim']}\n" if "prior_claim" in row else ""
+            parts.append(f"{label}\n{prior}{row['text']}")
     statements = frame["native_statements"]["statements"]
     if statements:
         parts.append("## Recorded statements")

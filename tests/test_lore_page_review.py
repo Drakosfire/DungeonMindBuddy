@@ -160,6 +160,7 @@ def test_lore_save_body_excludes_conversation_limitations():
     from application_state.agent_conversation.lore_page_confirmation import _body
 
     completion = SimpleNamespace(
+        collaboration=SimpleNamespace(open_questions=()),
         native_body_citations=[SimpleNamespace(segment_index=1)],
         answer_segments=[
             SimpleNamespace(kind="limitation", text="Some details were unavailable."),
@@ -231,3 +232,40 @@ def test_save_followup_resolves_only_a_current_same_work_review(monkeypatch, sce
         assert reference.title == "Rowan"
     else:
         assert reference is None
+
+
+def test_explicit_create_after_research_binds_only_the_named_page_clause():
+    author = 'Consult the travel journal, then create a page titled "The West Road".'
+    witness = explicit_lore_page_witness(author)
+    assert witness.instruction == 'create a page titled "The West Road"'
+    assert witness.bind(author) == "The West Road"
+
+    with pytest.raises(ValueError, match="one explicit page request"):
+        explicit_lore_page_witness('Consult the journal, then do not create a page titled "The West Road".')
+
+
+def test_open_questions_stay_literal_in_saved_markdown():
+    from types import SimpleNamespace
+    from application_state.agent_conversation.lore_page_confirmation import _body
+    from application_state.agent_conversation.lore_page_review import ProposedLorePage
+
+    destination = {"instruction": "Create a page for Rowan", "title": "Rowan"}
+    question = "## Is [the report](https://example.test) *certain*?"
+    draft = ProposedLorePage(kind="lore_page", destination=destination, open_questions=(question,))
+    completion = SimpleNamespace(native_body_citations=[], answer_segments=[], collaboration=draft)
+    body = _body(SimpleNamespace(world_id="test", turn_id="turn", completion=completion))
+    assert body == r"## Open questions" + "\n\n" + r"- \#\# Is \[the report\]\(https://example\.test\) \*certain\*?"
+    with pytest.raises(ValueError, match="Open questions"):
+        ProposedLorePage(kind="lore_page", destination=destination,
+                         open_questions=("Did Rowan leave?\n# Established fact",))
+
+
+def test_page_timing_modifier_is_separate_from_the_name():
+    assert explicit_lore_page_witness("Create a page for the Blue Lantern now.", conversational=True).title == "Blue Lantern"
+    assert explicit_lore_page_witness('Create a page titled "Blue Lantern Now".', conversational=True).title == "Blue Lantern Now"
+
+
+@pytest.mark.parametrize("preposition", ["called", "named", "titled"])
+def test_explicit_name_can_end_in_now(preposition):
+    author = f"Create a page {preposition} Blue Lantern Now."
+    assert explicit_lore_page_witness(author, conversational=True).title == "Blue Lantern Now"

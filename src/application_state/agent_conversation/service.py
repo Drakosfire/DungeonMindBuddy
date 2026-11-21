@@ -1844,7 +1844,8 @@ class AgentConversationService:
             if native_source_materializer is None and isinstance(event, (BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2)):
                 raise ApplicationStateValidationError('Native authored event requires its immutable read transaction owner')
             from .native_corpus import NATIVE_BODY_EVENTS
-            if native_source_materializer is None and isinstance(event, NATIVE_BODY_EVENTS):
+            from .types import BuildPriorBodyEvidenceAdmittedV1
+            if native_source_materializer is None and isinstance(event, (*NATIVE_BODY_EVENTS, BuildPriorBodyEvidenceAdmittedV1)):
                 raise ApplicationStateValidationError("Native body event requires its immutable source transaction owner")
             from .types import NativeSourceCatalogObservedV1, NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1, CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1
             if native_source_materializer is None and isinstance(event, (CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1, NativeSourceCatalogObservedV1,
@@ -2433,6 +2434,96 @@ class AgentConversationService:
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             producer=observe_read, event_id=event_id, authorization_event_id=authorization_event_id,
             reads=reads, unavailable_ids=unavailable_ids)
+
+    def admit_build_prior_body_evidence(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id):
+        from collections import Counter
+        from hashlib import sha256
+        from .native_corpus import (
+            PriorBodyCitationReferenceV1, conversation_route_can_admit, prior_body_writer_supports,
+            prior_conversation_work, resolve_prior_body_citation,
+        )
+        from .native_reads import _owner
+        from .types import BuildPriorBodyEvidenceAdmittedV1, PriorBodyCitationSupportV1
+        from .rules_authority_types import canonical_sha256
+
+        def produce(conn, current):
+            receipt, execution = _owner(current)
+            history = getattr(receipt.assembled_input, "included_history", ())
+            history_turn_ids = {pin.turn_id for pin in history}
+            work = prior_conversation_work(execution.events)
+            pointer = repo.get_world_state(conn, current.world_id)
+            if (work is None or not conversation_route_can_admit(receipt, execution)
+                    or pointer is None or pointer.active_conversation_id != current.conversation_id
+                    or len(history) > 6 or len(history_turn_ids) != len(history)):
+                raise ValueError("Prior body evidence requires the current Build conversation")
+            supports = {}
+            for pin in history:
+                prior_id = pin.turn_id
+                prior = repo.get_turn(conn, current.world_id, prior_id)
+                if (prior is None or prior.assistant_text is None
+                        or sha256(prior.assistant_text.encode()).hexdigest() != pin.answer_sha256):
+                    raise ValueError("Frozen Build history turn is unavailable or changed")
+                if isinstance(prior, MixedCompletedTurnV1):
+                    if prior.base_projection.kind != "approved":
+                        continue
+                    prior = prior.base_projection.turn
+                completion = getattr(prior, "completion", None)
+                citations = getattr(completion, "native_body_citations", ())
+                if not citations:
+                    continue
+                completion_digest = canonical_sha256(completion)
+                citation_counts = Counter(citation.segment_index for citation in citations)
+                for ordinal, citation in enumerate(citations):
+                    reference = citation.prior_reference
+                    if reference is None:
+                        reference = PriorBodyCitationReferenceV1(turn_id=prior_id,
+                            completion_sha256=completion_digest, citation_index=ordinal)
+                        claim, passage = resolve_prior_body_citation(current, prior, reference,
+                            history_turn_ids=history_turn_ids)
+                        support = PriorBodyCitationSupportV1(reference=reference,
+                            original_citation=citation, claim_text=claim, passage=passage)
+                    else:
+                        support = next((item.support for item in prior_body_writer_supports(
+                            prior.graph_context_execution) if item.support.reference == reference), None)
+                        if support is None:
+                            raise ValueError("Carried citation lacks its producing admission")
+                        origin = repo.get_turn(conn, current.world_id, reference.turn_id)
+                        if origin is None:
+                            raise ValueError("Carried citation origin is unavailable")
+                        claim, passage = resolve_prior_body_citation(prior, origin, reference,
+                            history_turn_ids={reference.turn_id})
+                        if (claim, passage) != (support.claim_text, support.passage):
+                            raise ValueError("Carried citation changed its exact original support")
+                    extent = (citation.source_artifact_id, citation.native_source_revision_id,
+                        citation.content_sha256, citation.section_id, citation.excerpt_sha256)
+                    # Prefer a claim with one cited passage over broader
+                    # compound claims that selected the same extent.
+                    rank = (citation_counts[citation.segment_index], -prior.sequence, ordinal)
+                    if extent not in supports or rank < supports[extent][0]:
+                        supports[extent] = (rank, support)
+            def redundant(rank, support):
+                citation = support.original_citation
+                for other_rank, other in supports.values():
+                    alternative = other.original_citation
+                    if (other_rank[0] < rank[0]
+                            and (alternative.source_artifact_id, alternative.native_source_revision_id,
+                                 alternative.content_sha256) == (
+                                 citation.source_artifact_id, citation.native_source_revision_id,
+                                 citation.content_sha256)
+                            and alternative.line_start <= citation.line_start
+                            and alternative.line_end >= citation.line_end
+                            and support.passage in other.passage):
+                        return True
+                return False
+
+            return BuildPriorBodyEvidenceAdmittedV1(event_id=event_id,
+                sequence=len(execution.events), work_event_id=work.event_id,
+                supports=tuple(support for rank, support in supports.values() if not redundant(rank, support)))
+
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=None, duplicate_key="event_id", native_source_materializer=produce)
 
     def capture_native_authored_references(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):
