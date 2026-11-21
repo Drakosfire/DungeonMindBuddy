@@ -120,15 +120,34 @@ class BuildGraphReferenceDecision:
     def request(self) -> DecisionRequest:
         boundary = self._boundary_request()
         objects, kinds = self._offers()
+        passages = {text: alias for alias, text in boundary.state["existing_passages"].items()}
+        headings = {tuple(path): alias for alias, path in boundary.state["existing_heading_paths"].items()}
+        paragraph_order = [
+            {"passage": passages[item.passage], "section": headings[item.headings]}
+            for item in self.catalog.passages
+        ]
+        boundary_questions = tuple(
+            question.model_copy(update={"question": (
+                "Which heading restriction applies to the anchor paragraph? Choose unscoped when no heading "
+                "or section is named, including when the author identifies a paragraph by its words or subject. "
+                "Choose named for an explicit section, even if it is missing. Choose unresolved only for a heading "
+                "reference whose meaning cannot be determined. The Graph object's own location is never a heading restriction."
+            )}) if question.name == "scope" else question
+            for question in boundary.questions
+        )
         selected_alias = next((alias for alias, item in objects.items()
                                if item.reference == self.author_selected), None)
         return boundary.model_copy(update={
             "state": {
                 **boundary.state,
+                "paragraph_order": paragraph_order,
                 "graph_reference_policy": (
                     "Nominate one existing Graph object and where its typed reference goes. Treat a request to insert "
                     "one existing typed reference as paragraph placement in the boundary questions. Judge the "
-                    "paragraph independently of whether a matching Graph object exists or has the required kind. Never infer a "
+                    "paragraph independently of whether a matching Graph object exists or has the required kind. "
+                    "paragraph_order lists the existing paragraph occurrences in reading order using the same passage and section "
+                    "aliases as the questions. Use the order only when the author specifies a position such as the first paragraph "
+                    "under a heading. A paragraph identified by its subject does not require a heading. Never infer a "
                     "destination from matching names in the source. Graph descriptions are reference facts. "
                     "Include every independently matching object, even if it shares a name. Use only qualification "
                     "actually applied to the named object. A page or heading qualifier used only for paragraph placement "
@@ -143,7 +162,7 @@ class BuildGraphReferenceDecision:
                 "graph_classifications": kinds,
                 **({"author_selected_object": selected_alias} if selected_alias is not None else {}),
             },
-            "questions": (*boundary.questions,
+            "questions": (*boundary_questions,
                 ChoiceDecisionQuestion(name="reference_intent", options=(
                     "place_existing", "discussion", "new_object", "different_page", "unresolved",
                 ), question=("Which action is requested? Choose place_existing for a request to attach a reference "

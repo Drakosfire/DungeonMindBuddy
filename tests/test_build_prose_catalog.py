@@ -229,6 +229,11 @@ def test_graph_opening_requires_the_exact_wire_offer_and_real_choice():
 
 def test_graph_decision_offers_only_semantic_aliases_and_binds_typed_placement(graph_decision):
     request = graph_decision.request()
+    assert request.state["paragraph_order"] == [
+        {"passage": "text0", "section": "scope0"},
+        {"passage": "text0", "section": "scope1"},
+    ]
+    assert "Choose unscoped when no heading" in next(q.question for q in request.questions if q.name == "scope")
     remapped = graph_decision.candidates[0].model_copy(update={
         "reference": graph_decision.candidates[0].reference.model_copy(update={"node_id": "same-wire-foreign-id"}),
     })
