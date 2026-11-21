@@ -99,13 +99,12 @@ def map_relationships(context, result: NeighborhoodResult, bounded: BoundedNeigh
 def map_nodes(context, bounded: BoundedNeighborhood, *, attributes=None, allow_multiple=False):
     """Resolve display claims only for entities retained in the response."""
     from dungeonmind.application.vnext import EntityReadService
-    reader = EntityReadService()
+    results = EntityReadService().get_entities(context, bounded.node_ids)
     return [
         map_entity_result(
-            reader.get_entity(context, entity_id), entity_id, attributes=attributes,
-            allow_multiple=allow_multiple,
+            result, entity_id, attributes=attributes, allow_multiple=allow_multiple,
         )
-        for entity_id in bounded.node_ids
+        for entity_id, result in zip(bounded.node_ids, results, strict=True)
     ]
 
 
