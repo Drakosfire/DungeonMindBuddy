@@ -113,6 +113,29 @@ def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, se
     if citation_index >= len(turn.completion.native_body_citations):
         raise SourcePassageOpenError('native_body_not_found', 404)
     citation = turn.completion.native_body_citations[citation_index]
+    if citation.prior_reference is not None:
+        from application_state.agent_conversation.native_corpus import prior_body_writer_supports, resolve_prior_body_citation
+        reference = citation.prior_reference
+        support = next((item for item in prior_body_writer_supports(turn.graph_context_execution)
+            if item.support.reference == reference), None)
+        app = service or AgentConversationService()
+        try:
+            if support is None:
+                raise ValueError("Carried citation lacks its retained admission")
+            original = app.inspect_turn(world_id=world_id, turn_id=reference.turn_id)
+            claim, passage = resolve_prior_body_citation(turn, original, reference,
+                history_turn_ids={reference.turn_id})
+            if (claim, passage) != (support.support.claim_text, support.support.passage):
+                raise ValueError("Carried citation differs from the original completion")
+            opened = open_native_body_excerpt(world_id=world_id, turn_id=reference.turn_id,
+                citation_index=reference.citation_index, principal=principal, service=app,
+                repository=repository, resolve_identity=resolve_identity)
+            if opened.citation != support.support.original_citation or opened.content != passage:
+                raise ValueError("Carried citation differs from the reopened original extent")
+        except Exception as exc:
+            raise SourcePassageOpenError('native_body_access_unavailable', 409) from exc
+        return opened.model_copy(update=dict(turn_id=turn_id, citation_index=citation_index, citation=citation))
+
     from application_state.agent_conversation.native_corpus import resolve_retained_body_citation
     from ..integrations.dungeonmind.native_corpus_source import (
         prepare_native_source_context, read_native_corpus_member,

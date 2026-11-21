@@ -139,6 +139,12 @@ def project(execution):
         return None
     from .build_intentional_response import is_variant_approval
 
+    from .native_corpus import prior_conversation_work
+
+    if prior_conversation_work(execution.events) is not None:
+        if choices or records(execution):
+            raise ValueError("Conversation-only drafting cannot acquire related pages")
+        return None
     if not choices and any(
         is_variant_approval(event) or is_anchored_conversation_draft(execution, event)
         for event in execution.events

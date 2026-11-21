@@ -110,9 +110,12 @@ def _model_frame_from_validated_prefix(receipt, execution, *, schema=SCHEMA, pas
         or bodies.body_input_partial(execution)
         or statements.input_partial_records(query, execution)
         or assertions.input_partial_records(query, execution))
+    body_frame = bodies.model_body_frame_records(receipt.source_authority, execution, body_handle,
+        passages_only=passages_only)
+    body_frame["excerpts"].extend(support.frame() for support in bodies.prior_body_writer_supports(execution))
     return dict(schema=schema, answer_policy=assertions.POLICY, input_status='partial' if partial else 'complete',
         user_question=execution.policy.action.intent.message,
-        native_body_evidence=bodies.model_body_frame_records(receipt.source_authority, execution, body_handle, passages_only=passages_only),
+        native_body_evidence=body_frame,
         native_statements=statements.model_frame_records(query, execution),
         native_assertions=assertions.model_frame_records(query, execution,
             schema='dmb_plan_native_assertion_frame_v1' if schema == LEGACY_SCHEMA else 'dmb_native_assertion_frame_v2',
@@ -432,6 +435,7 @@ def read_evidence_records(prefix, frame, *, passages_only=False):
     supports = (bodies.writer_passage_supports(prefix, body_handle) if passages_only else tuple(
         bodies.NativeBodySupport(body_handle(read), read, catalogs[read.excerpt.catalog_sha256])
         for read in bodies.selected_body_reads(prefix)))
+    supports += bodies.prior_body_writer_supports(prefix)
     statement_reads = statements.selected_read_records(prefix)
     assertion_reads = _writer_assertion_reads(prefix, passages_only=passages_only)
     return dict(body_excerpts=tuple(replace(support, handle=row['excerpt_handle']) for row, support in

@@ -10,7 +10,7 @@ import sys
 import time
 from contextlib import ExitStack, nullcontext
 from dataclasses import dataclass
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from generationengine import GenerationClient, GenerationEngineError, TextCompleted, TextDelta, TextFailed
 from generationengine.types import TextResult
@@ -252,6 +252,14 @@ class BuildJevHarness:
                 driver.operation != "propose_build_insertion" or adapter.native_source_authority is None
             ):
                 raise ValueError("The image reference requires an edit to the selected passage.")
+            from application_state.agent_conversation.native_corpus import prior_conversation_work
+            if (adapter.native_source_authority is not None
+                    and prior_conversation_work(adapter._broker_execution().events) is not None):
+                adapter.turn, _ = adapter.fence.append(
+                    "admit_build_prior_body_evidence", "event_id", uuid4(),
+                    history_turn_ids=tuple(UUID(item["turn_id"]) for item in history),
+                )
+                return self._native_completion(adapter, driver)
             self.failure_stage="context_acquisition"
             if type(adapter.fence.turn.graph_context_receipt) is ledger.SurfaceNativeContextReceiptV1:
                 from .native_authored_references import acquire as acquire_authored_references
@@ -483,9 +491,9 @@ class BuildJevHarness:
         # dialogue resolves follow-up references; it is never source evidence.
         dialogue = tuple({'role': role, 'content': pair[role]}
             for pair in adapter.build_frozen_history for role in ('user', 'assistant'))
-        from application_state.agent_conversation.writer_evidence_selection import native_approval_terminal
+        from application_state.agent_conversation.writer_evidence_selection import native_approval_terminal, native_conversation_terminal
 
-        terminal = native_approval_terminal(adapter.turn)
+        terminal = native_approval_terminal(adapter.turn) or native_conversation_terminal(adapter.turn)
         retrieval = None
         writer = None
         try:

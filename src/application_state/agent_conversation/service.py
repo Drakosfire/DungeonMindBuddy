@@ -1843,7 +1843,8 @@ class AgentConversationService:
             from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2
             if native_source_materializer is None and isinstance(event, (BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2)):
                 raise ApplicationStateValidationError('Native authored event requires its immutable read transaction owner')
-            from .native_corpus import BuildPriorBodyEvidenceAdmittedV1, NATIVE_BODY_EVENTS
+            from .native_corpus import NATIVE_BODY_EVENTS
+            from .types import BuildPriorBodyEvidenceAdmittedV1
             if native_source_materializer is None and isinstance(event, (*NATIVE_BODY_EVENTS, BuildPriorBodyEvidenceAdmittedV1)):
                 raise ApplicationStateValidationError("Native body event requires its immutable source transaction owner")
             from .types import NativeSourceCatalogObservedV1, NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1, CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1
@@ -2437,10 +2438,10 @@ class AgentConversationService:
     def admit_build_prior_body_evidence(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, history_turn_ids):
         from .native_corpus import (
-            BuildPriorBodyEvidenceAdmittedV1, PriorBodyCitationReferenceV1,
-            PriorBodyCitationSupportV1, prior_conversation_work, resolve_prior_body_citation,
+            PriorBodyCitationReferenceV1, prior_conversation_work, resolve_prior_body_citation,
         )
         from .native_reads import _owner
+        from .types import BuildPriorBodyEvidenceAdmittedV1, PriorBodyCitationSupportV1
         from .rules_authority_types import canonical_sha256
 
         def produce(conn, current):
@@ -2464,12 +2465,15 @@ class AgentConversationService:
                 if not citations:
                     continue
                 completion_digest = canonical_sha256(completion)
-                for ordinal in range(len(citations)):
+                for ordinal, citation in enumerate(citations):
+                    if citation.prior_reference is not None:
+                        continue
                     reference = PriorBodyCitationReferenceV1(turn_id=prior_id,
                         completion_sha256=completion_digest, citation_index=ordinal)
                     claim, passage = resolve_prior_body_citation(current, prior, reference,
                         history_turn_ids=history_turn_ids)
-                    supports.append(PriorBodyCitationSupportV1(reference=reference, claim_text=claim, passage=passage))
+                    supports.append(PriorBodyCitationSupportV1(reference=reference, original_citation=citation,
+                        claim_text=claim, passage=passage))
             return BuildPriorBodyEvidenceAdmittedV1(event_id=event_id,
                 sequence=len(execution.events), work_event_id=work.event_id, supports=tuple(supports))
 

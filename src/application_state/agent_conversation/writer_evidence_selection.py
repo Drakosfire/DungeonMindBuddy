@@ -341,6 +341,20 @@ def native_approval_terminal(turn):
     return {"status": "ready", "reason": "native_variant_approval_requires_no_retrieval"}
 
 
+def native_conversation_terminal(turn):
+    from .types import BuildPriorBodyEvidenceAdmittedV1
+    from .native_corpus import prior_conversation_work
+
+    if not native_build(turn):
+        return None
+    events = turn.graph_context_execution.events
+    work = prior_conversation_work(events)
+    admissions = [event for event in events if isinstance(event, BuildPriorBodyEvidenceAdmittedV1)]
+    if work is None or len(admissions) != 1 or admissions[0].work_event_id != work.event_id:
+        return None
+    return {"status": "ready", "reason": "native_lore_page_from_conversation"}
+
+
 def native_terminal(turn, *, before_sequence=None):
     from .native_retrieval import current_selection
     if not native_build(turn):
@@ -348,7 +362,7 @@ def native_terminal(turn, *, before_sequence=None):
     if before_sequence is not None:
         turn = turn.model_copy(update={'graph_context_execution': turn.graph_context_execution.model_copy(
             update={'events':turn.graph_context_execution.events[:before_sequence]})})
-    approval_terminal = native_approval_terminal(turn)
+    approval_terminal = native_approval_terminal(turn) or native_conversation_terminal(turn)
     if approval_terminal is not None:
         return approval_terminal
     if current_selection(turn).operation != 'finish_retrieval':
@@ -419,11 +433,12 @@ def validate_selection_proof(turn, selection, trace, proof):
     if selection.mode == "empty_catalog":
         if catalog or proof:
             raise ValueError("Empty catalog settlement cannot manufacture a provider response")
-        if native_build(turn) and (
-            selection.terminal_disposition.get("reason") == "native_variant_approval_requires_no_retrieval"
-            or native_approval_terminal(turn) is not None
-        ) and selection.terminal_disposition != native_approval_terminal(turn):
-            raise ValueError("Empty approval catalog must bind to the acknowledged work decision")
+        scoped_terminal = native_approval_terminal(turn) or native_conversation_terminal(turn)
+        if native_build(turn) and (scoped_terminal is not None
+                or selection.terminal_disposition.get("reason") in {
+                    "native_variant_approval_requires_no_retrieval", "native_lore_page_from_conversation",
+                }) and selection.terminal_disposition != scoped_terminal:
+            raise ValueError("Empty scoped catalog must bind to the acknowledged work decision")
         judgments, historical, semantic = {}, {}, False
     else:
         if not catalog or not isinstance(proof, dict) or set(proof) != {"request_json", "response_json"}:

@@ -698,20 +698,6 @@ class PriorBodyCitationReferenceV1(Strict):
     citation_index: int = Field(ge=0, le=16383, strict=True)
 
 
-class PriorBodyCitationSupportV1(Strict):
-    reference: PriorBodyCitationReferenceV1
-    claim_text: str = Field(min_length=1)
-    passage: str = Field(min_length=1)
-
-
-class BuildPriorBodyEvidenceAdmittedV1(Strict):
-    kind: Literal["build_prior_body_evidence_admitted_v1"] = "build_prior_body_evidence_admitted_v1"
-    event_id: UUID
-    sequence: int = Field(ge=0, strict=True)
-    work_event_id: UUID
-    supports: tuple[PriorBodyCitationSupportV1, ...] = Field(max_length=256)
-
-
 def prior_conversation_work(events):
     from .types import BuildRequestedWorkResolutionV1
 
@@ -1043,8 +1029,37 @@ def producing_bodies(turn, authorization, raw):
         catalogs[reads[identity].excerpt.catalog_sha256]) for identity in stored.read_event_ids)
 
 
+@dataclass(frozen=True)
+class PriorBodyWriterSupport:
+    handle: str
+    admission: object
+    support: object
+
+    def frame(self):
+        citation = self.support.original_citation
+        return dict(excerpt_handle=self.handle, source_name=citation.source_name,
+            section_title=citation.section_title, extent_kind="section",
+            line_start=citation.line_start, line_end=citation.line_end,
+            campaign_scope="unestablished", session_scope="unestablished",
+            text=self.support.passage)
+
+
+def prior_body_writer_supports(execution):
+    from .types import BuildPriorBodyEvidenceAdmittedV1
+
+    return tuple(PriorBodyWriterSupport(f"prior{i}", event, support)
+        for event in execution.events if isinstance(event, BuildPriorBodyEvidenceAdmittedV1)
+        for i, support in enumerate(event.supports))
+
+
 def body_citation(support, *, index, text, producer, envelope_sha256):
     from . import types as t
+    if isinstance(support, PriorBodyWriterSupport):
+        return support.support.original_citation.model_copy(update={
+            "segment_index": index, "text_sha256": sha256(text.encode()).hexdigest(),
+            "provider_attempt_id": producer, "envelope_sha256": envelope_sha256,
+            "prior_reference": support.support.reference,
+        })
     read, catalog = support.read, support.catalog
     excerpt = read.excerpt
     section, passage = support.passage()
@@ -1092,11 +1107,17 @@ def validate_body_support_citations(completion, supports, *, producer, envelope_
     """Use only exact supports verified by the actual producing-input owner."""
     reads = {
         (support.read.event_id, support.passage()[0].section_id): support
-        for support in supports
+        for support in supports if not isinstance(support, PriorBodyWriterSupport)
     }
+    prior = {support.support.reference: support for support in supports
+             if isinstance(support, PriorBodyWriterSupport)}
     for citation in completion.native_body_citations:
-        support = reads.get((citation.read_event_id, citation.section_id))
-        read = support.read if support is not None else None
+        if citation.prior_reference is None:
+            support = reads.get((citation.read_event_id, citation.section_id))
+            read = support.read if support is not None else None
+        else:
+            support = prior.get(citation.prior_reference)
+            read = support.admission if support is not None else None
         if read is None or read.sequence >= before_sequence:
             raise ValueError('Native body citation was not included in its producing writer')
         expected = body_citation(support, index=citation.segment_index,
