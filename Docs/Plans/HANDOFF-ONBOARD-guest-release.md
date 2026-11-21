@@ -143,7 +143,11 @@ inventory and image reads. These routes capture the durable owner generation
 before the private read and recheck ownership and generation before returning;
 mounted tests cover transfer and transfer-away-and-back for all three routes.
 The final check is the authorization cutoff, not a promise to cancel a response
-after that check. Full production composition and real sign-in remain unproven.
+after that check. A production `create_app()` test now exercises two anonymous
+clients and an unrelated authenticated identity against real APP storage, and
+checks release revocation. It uses synthetic identities and directly stages and
+promotes a synthetic copy without Core validation; real sign-in, real source
+publication and hosted browser qualification remain unproven.
 
 Projection version `explicit_native_assertions_v3` displays known `dnd5e`,
 `dungeonbuddy`, and `dungeonbuddy.custom` terms with an explicit namespace

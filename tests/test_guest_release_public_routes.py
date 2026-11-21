@@ -1,5 +1,7 @@
 """Signed-out delivery is limited to exact release-owned read routes."""
 import asyncio
+import hashlib
+import json
 from uuid import uuid4
 
 import httpx
@@ -8,6 +10,7 @@ from fastapi import FastAPI
 from application_state.errors import ApplicationStateNotFoundError
 from apps.live_control_server.routes import guest_release_public
 from apps.live_control_server.services import hosted_auth
+from apps.live_control_server.services.dms_principal import DmsPrincipal
 
 
 def test_hosted_guest_read_boundary_and_pointer_pinning(monkeypatch):
@@ -74,3 +77,54 @@ def test_guest_exception_does_not_bypass_local_loopback(monkeypatch):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=("203.0.113.9", 1234)), base_url="http://test") as client:
             return await client.get(f"/api/live/guest-releases/{uuid4()}")
     assert asyncio.run(run()).status_code == 403
+
+
+def test_production_app_release_isolation_and_revocation(application_state_dsn, monkeypatch):
+    """Exercise the actual app composition and APP store with synthetic identities."""
+    from application_state import guest_release
+    from application_state.world_catalog.service import create_world
+    from apps.live_control_server.main import create_app
+    from tests.test_guest_release_storage import _bind
+
+    world = create_world(name="Guest boundary fixture", owner_subject="owner").record.world_id
+    graph = _bind(application_state_dsn, world)
+    asset_id = uuid4()
+    content = b"synthetic image"
+    release_id, digest = guest_release.stage(
+        world_id=world, subject="owner", expected_owner_generation=guest_release.owner_generation(world_id=world, subject="owner"),
+        manifest={"title": "synthetic public copy", "assets": [{"id": str(asset_id), "mime_type": "image/png",
+                  "sha256": hashlib.sha256(content).hexdigest()}]},
+        assets=[(asset_id, "image/png", content)], **graph)
+    public_id, _ = guest_release.commit_validated_promotion(world_id=world, subject="owner", release_id=release_id,
+        digest=digest, expected_version=0, operation_id=uuid4(), source_epoch=1)
+    monkeypatch.setenv(hosted_auth.DEPLOYMENT_ENVIRONMENT_ENV, "production")
+    monkeypatch.setenv(hosted_auth.AUTH_MODE_ENV, "hosted_dms")
+    monkeypatch.setenv(hosted_auth.TRUSTED_FRONTEND_ORIGINS_ENV, "https://buddy.example")
+    monkeypatch.setenv(hosted_auth.HOSTED_WORLD_ACCESS_ENV, json.dumps({world: ["owner", "other"]}))
+    monkeypatch.setenv("DMB_GUEST_RELEASE_ENABLED", "1")
+    monkeypatch.setenv("DMB_GUEST_RELEASE_PUBLIC_ENABLED", "1")
+    app = create_app()
+    async def principal(request):
+        subject = request.headers.get("x-synthetic-subject")
+        return DmsPrincipal(subject) if subject else None
+    app.state.dms_principal_resolver = principal
+
+    async def run():
+        path = f"/api/live/guest-releases/{public_id}"
+        asset = f"{path}/releases/{release_id}/assets/{asset_id}"
+        private = f"/api/live/worlds/{world}/guest-releases/candidates/{release_id}"
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as first, \
+                   httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as second:
+            for client in (first, second):
+                result = await client.get(path)
+                assert result.status_code == 200 and result.json()["manifest"]["title"] == "synthetic public copy"
+                assert result.headers["cache-control"] == "no-store"
+                assert (await client.get(asset)).content == content
+                assert (await client.get(private)).status_code == 401
+            assert (await first.get(private, headers={"x-synthetic-subject": "other"})).status_code == 403
+            assert (await first.get(private, headers={"x-synthetic-subject": "owner"})).status_code == 200
+            guest_release.revoke(world_id=world, subject="owner", release_id=release_id)
+            for client in (first, second):
+                assert (await client.get(path)).status_code == 404
+                assert (await client.get(asset)).status_code == 404
+    asyncio.run(run())
