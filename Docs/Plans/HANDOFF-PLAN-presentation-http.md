@@ -4,7 +4,7 @@ Status: ACTIVE for implementation and disposable verification on
 `codex/plan-presentation-http` in the existing isolated Plan lane. Serial base:
 `c68d9a2417b7cae8798f80da17c747c6dfe3e6c7` (#4344).
 
-The current prepare/commit endpoint accepts presentation for authored Pages
+The predecessor prepare/commit endpoint accepts presentation for authored Pages
 and refuses it for Plans. The Content prerequisite owns atomic revision
 storage and old-writer refusal. This slice carries that same checked
 `PagePresentationV1` through existing authorized World Plan prepare, commit
@@ -23,12 +23,12 @@ The held #2104 route proposal remains separate. This slice owns only the
 presentation commit callback at the existing Markdown route, so that a
 hosted Plan without artwork still verifies the principal at the Content lock.
 
-#4343 reserves application reader-fence predecessor 0173. Implementation and
-disposable testing can proceed now. Allocate this slice's single forward-only
-reader fence only after #4343 lands, against the actual then-current migration
-head. A final fenced exact-head verification and independent review precede
-merge. Production migrations, runtime deployment and serving selection are
-separately governed.
+#4343 merged as `ce85237d83500b6dd0735b3404c08618a0cd7b1c` with application
+revision 0173 and is integrated into this branch. After rechecking that
+0174 was unreserved, this slice adds one forward-only reader fence after 0173.
+Final fenced exact-head verification and independent review precede merge.
+Production migrations, runtime deployment and serving selection are separately
+governed.
 
 Expected write set:
 
@@ -38,7 +38,7 @@ Expected write set:
 - `apps/live_control_server/services/workspace_document_registry.py`
 - `tests/application_state/test_authored_pages_postgres.py` for the existing
   shared Content contract and actual HTTP lifecycle checks
-- The single successor migration after its predecessor gate
+- `src/application_state/migrations/versions/20261121_0174_world_plan_presentation_reader_fence.py`
 - This handoff and the merged Content predecessor handoff
 
 ## Invariant and verification
