@@ -26,7 +26,8 @@ The current write set is this handoff,
 `src/application_state/build_proposal/graph_reference_review.py`,
 `apps/live_control_server/services/build_graph_reference.py`,
 `apps/live_control_server/routes/build_proposal_reviews.py`, and
-`tests/test_build_graph_reference.py`. The route write split admits only an
+`tests/application_state/test_build_proposal_postgres.py`. The typed
+regressions belong in the existing Build APP inventory. The route write split admits only an
 explicit typed command variant and typed read fallback under the existing
 World authorization. The APP owner uses the additive
 `agent.build_graph_reference_review` table and a forward reader fence at
