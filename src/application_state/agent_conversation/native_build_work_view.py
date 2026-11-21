@@ -113,7 +113,7 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
              'barrier_detail', 'capabilities')}
         work['requested_work']['available_followups'] = [row['description']
             for row in contract['available_followups']]
-        if bind_lore_page and contract['requested_work'] == 'review_lore_page' and not contract['barrier']:
+        if bind_lore_page and contract['requested_work'] in ('review_lore_page', 'review_lore_page_from_conversation') and not contract['barrier']:
             from .lore_page_review import explicit_lore_page_witness
 
             try:

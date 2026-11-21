@@ -153,7 +153,7 @@ def _validate_citations(completion, receipt, execution, auth, evidence):
             reviews = [
                 event for event in execution.events
                 if isinstance(event, t.BuildRequestedWorkResolutionV1)
-                and event.requested_work == "review_lore_page"
+                and event.requested_work in ("review_lore_page", "review_lore_page_from_conversation")
                 and event.resolution["barrier"] is None
             ]
             if len(reviews) != 1:

@@ -341,6 +341,7 @@ def resolve(label, capabilities, *, work_options=None):
         "prepare_image": {"discuss_request", "prepare_image_prompt"},
         "review_connected_page": {"discuss_request", "review_connected_page"},
         "review_lore_page": {"discuss_request", "review_lore_page"},
+        "review_lore_page_from_conversation": {"discuss_request", "review_lore_page"},
         "review_relationship": {"discuss_request", "review_relationship"},
         "publish_relationships": {"discuss_request", "review_relationship"},
         "save_page": {"discuss_request", "author_save_current_page"},
@@ -493,6 +494,23 @@ a new place with a connection to a source page, location, or person.
 """
 
 
+_PRE_CONVERSATION_LORE_WORK = WORK
+_PRE_CONVERSATION_LORE_GUIDANCE = GUIDANCE
+WORK = MappingProxyType({
+    **_PRE_CONVERSATION_LORE_WORK,
+    "review_lore_page_from_conversation": Work(
+        "create",
+        "Review a new standalone page using the preceding discussion.",
+        review="lore_page",
+    ),
+})
+GUIDANCE = _PRE_CONVERSATION_LORE_GUIDANCE + """
+Choose review_lore_page_from_conversation when an explicit standalone page
+request uses the preceding discussion as its material. Carry forward open
+questions. Use review_lore_page for new research or a blank page.
+"""
+
+
 def _resolver_digest(work_options):
     return digest({
         "policy": POLICY,
@@ -506,6 +524,8 @@ MENU_DIGEST = digest(question(guidance=GUIDANCE))
 RESOLVER_DIGEST = _resolver_digest(WORK)
 _MENU_CONTRACTS = MappingProxyType({
     MENU_DIGEST: (GUIDANCE, WORK, RESOLVER_DIGEST),
+    digest(question(guidance=_PRE_CONVERSATION_LORE_GUIDANCE, work_options=_PRE_CONVERSATION_LORE_WORK)):
+        (_PRE_CONVERSATION_LORE_GUIDANCE, _PRE_CONVERSATION_LORE_WORK, _resolver_digest(_PRE_CONVERSATION_LORE_WORK)),
     digest(question(guidance=_PRE_LORE_PAGE_GUIDANCE, work_options=_PRE_LORE_PAGE_WORK)):
         (_PRE_LORE_PAGE_GUIDANCE, _PRE_LORE_PAGE_WORK, _resolver_digest(_PRE_LORE_PAGE_WORK)),
     digest(question(guidance=_PRE_APPROVAL_GUIDANCE, work_options=_PRE_APPROVAL_WORK)):
