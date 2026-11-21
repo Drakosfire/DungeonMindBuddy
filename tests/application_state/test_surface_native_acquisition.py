@@ -83,6 +83,45 @@ def test_prospective_codec_refuses_noncurrent_work_before_retrieval_transport(ap
     assert len(sent) == 1  # Requested-work response only; no retrieval SDK IO.
 
 
+def test_selected_saved_page_closure_requires_its_exact_catalog_read():
+    from hashlib import sha256
+
+    from application_state.agent_conversation.build_related_pages import (
+        PagePointer, PageReference, RelatedPageRead, plan_handle,
+    )
+    from application_state.agent_conversation.native_batch_completion import selected_read_closure
+    from application_state.agent_conversation.native_execution import (
+        NativePlanActionV2, NativePlanOpeningSelectedV2,
+        SurfaceNativeExecutionPolicyV1, SurfaceNativeExecutionV1,
+    )
+
+    page = PagePointer(world_id="world:one", document_id=uuid4(), registry_revision=2,
+                       title="Saved evidence", visibility="internal")
+    selection = NativePlanOpeningSelectedV2.model_construct(
+        event_id=uuid4(), sequence=0, requested_work="discuss", operation="select_candidates",
+        post_read_plan="finish_if_selected_reads_succeed", selected_handles=(plan_handle(page),),
+    )
+    markdown = "A saved source."
+    read = RelatedPageRead(event_id=uuid4(), sequence=1, read_id=uuid4(),
+                           selection_event_id=selection.event_id, markdown=markdown,
+                           page=PageReference(**page.model_dump(),
+                                              content_sha256=sha256(markdown.encode()).hexdigest()))
+    action = NativePlanActionV2.model_construct(related_page_catalog=(page,))
+    policy = SurfaceNativeExecutionPolicyV1.model_construct(action=action)
+
+    def close(*reads):
+        execution = SurfaceNativeExecutionV1.model_construct(policy=policy, events=[selection, *reads])
+        return selected_read_closure(None, execution, selection.event_id)
+
+    assert close(read) == (read.event_id,)
+    assert close() is None
+    assert close(read, read.model_copy(update={"event_id": uuid4()})) is None
+    assert close(read.model_copy(update={"selection_event_id": uuid4()})) is None
+    for mutation in ({"registry_revision": 3}, {"world_id": "world:other"}, {"document_id": uuid4()}):
+        changed = read.page.model_copy(update=mutation)
+        assert close(read.model_copy(update={"page": changed})) is None
+
+
 @pytest.mark.parametrize('plan', ['finish_if_selected_reads_succeed', 'review_after_reads'])
 @pytest.mark.parametrize('full', [False, True])
 @pytest.mark.parametrize('interrupted', [False, True])
