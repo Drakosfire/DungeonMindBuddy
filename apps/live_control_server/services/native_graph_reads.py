@@ -17,6 +17,7 @@ from apps.live_control_server.integrations.dungeonmind.native_registry_source im
 from dungeonmind.application.vnext.errors import NativeTextSourceAccessIntegrityError
 from dungeonmind.contracts.vnext.source import EvidenceRefV3
 from dungeonmind.domain.errors import PersistenceUnavailableError
+from dungeonmind.infrastructure.postgres.selective_query import RetainedSelectiveQuery
 from application_state.agent_conversation.native_statement_input import digest
 from application_state.agent_conversation.native_plan_assertions import (
     NativePlanAssertionMatchV1, NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1,
@@ -291,6 +292,7 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
     else:
         repo = repository if repository is not None else statements.native.repository()
     space = bound.native_world_id
+    selective = getattr(source_context, "selective_query", None)
     if source_context is not None:
         source = source_context.authority
         if ((source.managed_world_id, source.native_world_id, source.binding_version)
@@ -303,19 +305,30 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
         parsed = access.parsed
         h = dict(domain_ref=descriptor_reference(parsed.domain_contract_ref, 'domain'),
             profile_ref=descriptor_reference(parsed.semantic_profile_ref, 'profile'))
-        if ((access.space_id, access.revision_id, parsed.space_id, parsed.revision_id)
+        if ((access.space_id, access.revision_id, parsed.identity.space_id, parsed.identity.revision_id)
                 != (space, revision_id, space, revision_id)
                 or source.domain_ref.model_dump(mode='json') != h['domain_ref']
                 or source.profile_ref.model_dump(mode='json') != h['profile_ref']
                 or source.acquisition_epoch != access.source_view.epoch):
             raise ValueError('Prepared native query differs from its source authority')
-        from graph_memory.vnext.domain_runtime import DungeonBuddyVNextProjectionInput, build_dungeonbuddy_read_context
+        from graph_memory.vnext.domain_runtime import (
+            DungeonBuddyVNextProjectionInput, build_dungeonbuddy_read_context,
+            resolve_dungeonbuddy_descriptors,
+        )
         with measure("native_turn_graph_projection"):
-            read = build_dungeonbuddy_read_context(parsed_revision=access.parsed,
-                projection_input=DungeonBuddyVNextProjectionInput(world_id=space,
-                    revision_id=revision_id, role='gm', scope_mode=scope_mode, campaign_id=campaign_id),
-                source_reader=access.source_view)
-        domain, profile = read.domain_contract, read.semantic_profile
+            if selective is None:
+                read = build_dungeonbuddy_read_context(parsed_revision=access.parsed,
+                    projection_input=DungeonBuddyVNextProjectionInput(world_id=space,
+                        revision_id=revision_id, role='gm', scope_mode=scope_mode, campaign_id=campaign_id),
+                    source_reader=access.source_view)
+                domain, profile = read.domain_contract, read.semantic_profile
+            else:
+                if authored_references is not None or scope_mode != 'world' or campaign_id is not None:
+                    raise ValueError('Selective Plan query scope differs from its prepared input')
+                read = selective
+                domain, profile = resolve_dungeonbuddy_descriptors(
+                    domain_ref=parsed.domain_contract_ref, profile_ref=parsed.semantic_profile_ref,
+                )
         pinned = read, access, domain, profile
     else:
         if revision_id is None:
@@ -340,7 +353,9 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
             return
         reader = EntityReadService()
         with measure("native_turn_graph_complete_entity_read"):
-            if len(pending) == 1:
+            if selective is not None:
+                results = selective.get_complete_entities(tuple(node for _, node in pending))
+            elif len(pending) == 1:
                 results = (reader.get_complete_entity(context[0], pending[0][1]),)
             else:
                 results = reader.get_complete_entities(context[0], tuple(node for _, node in pending))
@@ -363,7 +378,8 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
             if not selected.found or selected.completeness.status != 'complete':
                 raise ValueError('Authored entity is unavailable in its selection snapshot')
     with measure("native_turn_graph_entity_search"):
-        result = SearchReadService().search_entities(pinned[0], question)
+        result = (SearchReadService().search_entities(pinned[0], question) if selective is None
+                  else selective.search_entities(question))
     if (result.identity.space_id, result.identity.revision_id) != (space, revision_id):
         raise ValueError('Core search changed query authority')
     gaps = [] if result.completeness.status == 'complete' else ['native_search_partial']
@@ -431,6 +447,8 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
         authored_targets=tuple(targets), object_matches=tuple(objects), discovery_hops=tuple(discovery_hops))
     if resolve(managed_world_id) != bound:
         raise ValueError('Active Graph binding changed during native query')
+    if selective is not None:
+        pinned = selective.retain_complete_facts(), access, domain, profile
     return QueryContext(query, bound, pinned, repo, principal, resolve), query
 
 
@@ -537,7 +555,10 @@ def _read_assertions(context, identities, *, matches=None):
     # Nothing survives this selected batch; unavailable reads/errors are not
     # cached. Every assertion still passes its own Core and closure checks.
     verified_spans = {}
-    evidence_results = EvidenceReadService().get_assertions_evidence(read_context, identities)
+    if isinstance(read_context, RetainedSelectiveQuery):
+        evidence_results = read_context.get_assertions_evidence(identities)
+    else:
+        evidence_results = EvidenceReadService().get_assertions_evidence(read_context, identities)
     def admitted_supports():
         for identity, result in zip(identities, evidence_results, strict=True):
             if (result.identity.space_id, result.identity.revision_id) != (authority.native_world_id, authority.revision_id):

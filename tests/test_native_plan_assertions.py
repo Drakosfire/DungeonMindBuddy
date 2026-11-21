@@ -1556,6 +1556,58 @@ def _prepared_query_source(lane):
     return context, binding
 
 
+def test_selective_plan_fallback_keeps_the_already_resolved_head(lane, monkeypatch):
+    from contextlib import contextmanager, nullcontext
+
+    from apps.live_control_server.services.plan_source_turn import prepare_selective_query
+    from dungeonmind.application import vnext
+    from dungeonmind.infrastructure.postgres import selective_query
+
+    publish(lane, qualified=True)
+    existing, binding = _prepared_query_source(lane)
+    repo = lane.repo
+    head = repo.get_head(binding.native_world_id)
+    assert head.head_revision_id == existing.authority.revision_id
+    observed = []
+    probe_exited = False
+    ordinary_opener = vnext.open_native_text_source_access_context
+
+    def moving_head(space_id):
+        assert space_id == binding.native_world_id
+        if observed:
+            return SimpleNamespace(head_revision_id="rev:published-after-the-probe")
+        return head
+
+    @contextmanager
+    def inactive(repository, *, request, **fields):
+        assert repository is repo
+        nonlocal probe_exited
+        observed.append(request.revision_id)
+        yield None
+        probe_exited = True
+
+    def open_ordinary(**options):
+        assert probe_exited, "fallback retained a transaction for an inactive projection"
+        return ordinary_opener(**options)
+
+    def compose(source):
+        assert source.selective_query is None
+        return prepare_query(lane.world.world_id, "What did B do?", GM, source_context=source,
+                             resolve_binding=lambda _: binding)
+
+    monkeypatch.setattr(repo, "get_head", moving_head)
+    monkeypatch.setattr(selective_query, "open_selective_source_query", inactive)
+    monkeypatch.setattr(vnext, "open_native_text_source_access_context", open_ordinary)
+    prepared, authority, context, query_result = prepare_selective_query(
+        lane.world.world_id, GM, compose, phase=lambda _: nullcontext(), repository=repo,
+        resolve_identity=lambda _: binding,
+    )
+    assert observed == [head.head_revision_id]
+    assert prepared.authority == authority
+    assert authority.revision_id == query_result.authority.revision_id == head.head_revision_id
+    assert context.repository is repo
+
+
 def test_prepared_native_query_reuses_core_revision_and_preserves_exact_catalog(lane, monkeypatch):
     from apps.live_control_server.services import native_graph_reads as native
     from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
