@@ -150,7 +150,8 @@ promotes a synthetic copy without Core validation; real sign-in, real source
 publication and hosted browser qualification remain unproven.
 
 Disposable PostgreSQL concurrency tests force both orders of promotion versus
-revocation of the previous copy. Revocation first invalidates the stale pointer
+revocation of the previous copy and observe the second session waiting on a
+database lock. Revocation first invalidates the stale pointer
 basis; promotion first leaves the new pointer intact when the prior copy is
 revoked. Neither order permits restoration of the revoked copy. This tests the
 APP transaction boundary, not live Core source-withdrawal concurrency.

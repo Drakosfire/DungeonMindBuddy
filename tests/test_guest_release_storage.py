@@ -2,6 +2,7 @@
 import hashlib
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from threading import Event, current_thread
+from time import monotonic
 from uuid import uuid4
 
 import psycopg
@@ -175,8 +176,12 @@ def test_promotion_and_revocation_serialize_without_reviving_release(application
                                   digest=old_digest, expected_version=0)
     new, new_digest = stage("new")
     owner = guest_release._owner
-    locked, release = Event(), Event()
+    locked, release, second_entered = Event(), Event(), Event()
+    second_pid = []
     def pause_first_owner_check(conn, world_id, subject):
+        if current_thread().name.startswith("guest-race") and locked.is_set():
+            second_pid.append(conn.info.backend_pid)
+            second_entered.set()
         result = owner(conn, world_id, subject)
         if current_thread().name.startswith("guest-race") and not locked.is_set():
             locked.set()
@@ -195,6 +200,17 @@ def test_promotion_and_revocation_serialize_without_reviving_release(application
         assert locked.wait(5)
         second_future = pool.submit(second)
         try:
+            assert second_entered.wait(5)
+            deadline = monotonic() + 5
+            with psycopg.connect(application_state_dsn, autocommit=True) as observer:
+                while True:
+                    row = observer.execute("SELECT wait_event_type FROM pg_stat_activity WHERE pid=%s",
+                                           (second_pid[0],)).fetchone()
+                    if row == ("Lock",):
+                        break
+                    if monotonic() >= deadline:
+                        pytest.fail("second transaction did not wait for a PostgreSQL lock")
+                    Event().wait(0.02)
             with pytest.raises(TimeoutError):
                 second_future.result(timeout=0.3)
         finally:
