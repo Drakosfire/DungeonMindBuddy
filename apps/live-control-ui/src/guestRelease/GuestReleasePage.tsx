@@ -122,7 +122,7 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
     setSelectedNode(null); setSelectedSource(null);
     if (snapshot) window.history.replaceState(null, "", fragment(snapshot.release_id));
   };
-  const citationButton = (id: string, index: number) => <button type="button" key={`${id}-${index}`} onClick={() => { navigate(selectedNode, id); detailRef.current?.focus({ preventScroll: true }); detailRef.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" }); }}>Read {sources.find(item => item.id === id)?.evidence_role === "context" ? "context" : "source"} {sources.findIndex(item => item.id === id) + 1}</button>;
+  const citationButton = (id: string, index: number) => <button type="button" key={`${id}-${index}`} onClick={() => { navigate(selectedNode, id); detailRef.current?.focus({ preventScroll: true }); detailRef.current?.scrollIntoView?.({ behavior: "auto", block: "nearest" }); }}>Read {sources.find(item => item.id === id)?.evidence_role === "context" ? "context" : "source"} {sources.findIndex(item => item.id === id) + 1}</button>;
   return <main className="guest-world">
     <header className="guest-world__header"><a href="/">DungeonMind · Buddy</a><nav aria-label="Guest navigation"><a href="https://www.dungeonmind.net/">DungeonMind.net ↗</a><a href={dungeonMindLoginHref("/")}>Sign in to create your World →</a></nav></header>
     {unavailable ? <section role="alert"><h1>This guest World is unavailable</h1><p>The owner may have withdrawn it, or the link may have changed.</p><a href={home ? dungeonMindLoginHref("/") : "/"}>{home ? "Sign in to Buddy" : "Return to Buddy"}</a></section>
