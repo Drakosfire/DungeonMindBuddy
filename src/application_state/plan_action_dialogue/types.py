@@ -10,7 +10,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator, TypeAdapter
 
-from application_state.agent_conversation.plan_authoring import PlanActionAuthoringResultV1, PlanJevAuthoringReservationV1
+from application_state.agent_conversation.plan_authoring import (
+    PlanActionAuthoringResultV1,
+    PlanAuthoringSlotBoundaryCaptureV1,
+    PlanJevAuthoringReservationV1,
+)
 from .authoring_review import PlanAuthoringReviewV1
 
 from application_state.agent_conversation.types import (
@@ -28,7 +32,10 @@ from application_state.agent_conversation.types import (
 
 ActionStatus = Literal["pending", "completed", "failed", "indeterminate"]
 ActionType = Literal["compose", "revise"]
-TargetKind = Literal["replace_selection", "insert_at_caret", "replace_playable_body", "insert_at_boundary"]
+TargetKind = Literal[
+    "replace_selection", "insert_at_caret", "replace_playable_body",
+    "insert_at_boundary", "insert_at_slot_boundary",
+]
 
 
 class StrictModel(BaseModel):
@@ -424,9 +431,9 @@ class PlanActionReservation(StrictModel):
             raise ValueError("Only Playable body actions may carry a typed target receipt")
         elif self.target_kind == "replace_selection" and self.selected_text_sha256 is None:
             raise ValueError("replace_selection requires a selected-text digest")
-        elif self.target_kind in {"insert_at_caret", "insert_at_boundary"} and self.selected_text_sha256 is not None:
-            raise ValueError("insert_at_caret cannot carry a selected-text digest")
-        if self.target_kind == "insert_at_boundary" and self.action_type != "compose":
+        elif self.target_kind in {"insert_at_caret", "insert_at_boundary", "insert_at_slot_boundary"} and self.selected_text_sha256 is not None:
+            raise ValueError("Plan insertion cannot carry a selected-text digest")
+        if self.target_kind in {"insert_at_boundary", "insert_at_slot_boundary"} and self.action_type != "compose":
             raise ValueError("Structural insertion requires compose authority")
         return self
 
@@ -474,6 +481,11 @@ class PlanActionRecord(ConsultationOptionalModel):
                     or origin.action_fence > self.fence
                     or (self.status == "completed" and origin.action_fence != self.fence)):
                 raise ValueError("Plan authoring action differs from its immutable origin")
+            if isinstance(origin, PlanActionAuthoringResultV1) and (
+                isinstance(origin.capture, PlanAuthoringSlotBoundaryCaptureV1)
+                != (self.target_kind == "insert_at_slot_boundary")
+            ):
+                raise ValueError("Plan action and proposal differ in their slot placement authority")
         if self.authoring_review is not None:
             review = self.authoring_review
             if (not isinstance(origin, PlanActionAuthoringResultV1) or self.status != 'completed'

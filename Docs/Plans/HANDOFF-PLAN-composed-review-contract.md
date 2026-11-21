@@ -17,6 +17,12 @@ revision and conversation binding must agree. Stable row, slot and block IDs
 and their indices are host data. Model input in the successor may provide
 prose, meaningful headings and row/slot descriptions, permitted relations and
 local aliases.
+The slot address is the sole insertion locator. The existing range fields
+retain the captured selection witness, and the successor will resolve the
+slot address against its actual editor instead of storing a second target
+position. The first receiver admits only page content whose editor and source
+can be compared exactly: paragraphs, headings and horizontal rules. Other
+block formats require a separately proven projection before agent insertion.
 
 Native Review Prepare accepts one checked resulting sidecar when the captured
 target is slot-local. The sealed application and committed revision retain it.
@@ -36,11 +42,16 @@ deployment or serving-pin changes.
 
 ## Ownership and proof
 
-Write set is the host-native Plan authoring capture, a narrow composed layout
+Write set is the host-native Plan authoring capture, the Plan action target
+kind and its existing selection constraints, a narrow composed layout
 validation module if needed, the existing application-state Plan Review
 contract and its tests, a versioned slot catalog validator where needed to
 verify the host geometry, at most one application-schema reader fence and
 its compatibility checks, this handoff and the merged manual predecessor.
+Content's `commit_plan_in_connection` also needs the existing presentation
+argument threaded through to its shared Content CAS. This changes only that
+adapter in `src/application_state/content/service.py`; its default retains
+the existing old-writer refusal.
 Read current contracts and exact related open diffs. #3307
 (`8cb62d310bba188ed328459def044dca7792b520`) and #2225
 (`f720e5f55f5b357dba09977663306482d5188a65`) touch native execution/

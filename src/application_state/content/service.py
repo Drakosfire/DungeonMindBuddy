@@ -712,6 +712,7 @@ def commit_plan_in_connection(
     expected_revision: int,
     expected_world_id: str,
     title: str | None = None,
+    page_presentation=presentation.UNSET,
 ) -> tuple[WorkObject, WorkRevision]:
     """Commit Plan content atomically with an owning command's durable receipt.
 
@@ -723,6 +724,7 @@ def commit_plan_in_connection(
         conn, document_id, markdown, kind="plan",
         expected_revision=expected_revision,
         expected_world_id=expected_world_id, title=title,
+        plan_presentation=page_presentation,
     )
 
 

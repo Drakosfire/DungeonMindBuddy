@@ -14,13 +14,19 @@ from pydantic import Field, TypeAdapter, model_validator
 
 from application_state.agent_conversation.plan_authoring import (
     Frozen,
+    PlanAuthoringBoundaryCaptureV1,
     PlanAuthoringCapture,
+    PlanAuthoringCaptureV1,
+    PlanAuthoringSlotBoundaryCaptureV1,
     PlanActionAuthoringResultV1,
     digest,
     text_digest,
     strict_json,
     validate_stored_authoring_result,
 )
+from application_state.agent_conversation.plan_slot_layout import require_exact_slot_insertion
+from application_state.content import page_presentation
+from application_state.content.page_presentation import PagePresentation
 from application_state.errors import (
     ApplicationStateConflictError,
     ApplicationStateIntegrityError,
@@ -33,7 +39,7 @@ Digest = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 
 class PlanReviewApplicationV1(Frozen):
     application_id: UUID
-    capture: PlanAuthoringCapture
+    capture: PlanAuthoringBoundaryCaptureV1 | PlanAuthoringCaptureV1
     markdown: str = Field(min_length=1)
     markdown_sha256: Digest
     after_editor_json: str
@@ -74,6 +80,35 @@ class PlanReviewApplicationV1(Frozen):
         return self
 
 
+class PlanSlotReviewApplicationV1(PlanReviewApplicationV1):
+    schema_: Literal["dmb_plan_slot_review_application_v1"] = Field(
+        default="dmb_plan_slot_review_application_v1", alias="schema"
+    )
+    capture: PlanAuthoringSlotBoundaryCaptureV1
+    after_page_presentation: PagePresentation
+    after_page_presentation_sha256: Digest
+
+    @model_validator(mode="after")
+    def exact_insertion(self):
+        if self.after_page_presentation.fingerprint() != self.after_page_presentation_sha256:
+            raise ValueError("Plan application layout fingerprint differs from its payload")
+        capture = self.capture
+        try:
+            require_exact_slot_insertion(
+                address=capture.slot_address,
+                before_editor=strict_json(capture.editor_json),
+                before_markdown=capture.draft_markdown,
+                before_layout=capture.draft_page_presentation,
+                after_editor=strict_json(self.after_editor_json),
+                after_markdown=self.after_markdown,
+                after_layout=self.after_page_presentation,
+                reviewed_markdown=self.markdown,
+            )
+        except ApplicationStateValidationError as exc:
+            raise ValueError(str(exc)) from exc
+        return self
+
+
 class PlanAuthoringReviewV1(Frozen):
     schema_: Literal["dmb_plan_authoring_review_v1"] = Field(
         default="dmb_plan_authoring_review_v1", alias="schema"
@@ -86,7 +121,7 @@ class PlanAuthoringReviewV1(Frozen):
     markdown: str
     markdown_sha256: Digest
     capture: PlanAuthoringCapture
-    applications: tuple[PlanReviewApplicationV1, ...] = ()
+    applications: tuple[PlanSlotReviewApplicationV1 | PlanReviewApplicationV1, ...] = ()
     last_command_id: UUID
     last_command_sha256: Digest
     updated_at: datetime
@@ -174,6 +209,12 @@ class PrepareReview(ReviewCommand):
     after_draft_sha256: Digest
 
 
+class PrepareSlotReview(PrepareReview):
+    operation: Literal["prepare_slot"]
+    after_page_presentation: PagePresentation
+    after_page_presentation_sha256: Digest
+
+
 class ConfirmReview(ReviewCommand):
     operation: Literal["confirm"]
     application_id: UUID
@@ -200,6 +241,7 @@ PlanReviewCommand = Annotated[
     | SaveReview
     | MoveReview
     | PrepareReview
+    | PrepareSlotReview
     | ConfirmReview
     | ResolveBeforeReview
     | RecoverPlacementReview
@@ -247,6 +289,10 @@ def _locked_capture(conn, capture):
         raise ApplicationStateConflictError(
             "The saved Plan changed; retain the suggestion and choose its current placement"
         )
+    if isinstance(capture, PlanAuthoringSlotBoundaryCaptureV1):
+        saved_layout = page_presentation.read(conn, revision)
+        if saved_layout is None or saved_layout.fingerprint() != capture.base_page_presentation_sha256:
+            raise ApplicationStateConflictError("The saved Plan layout changed; choose its current placement")
     return revision
 
 
@@ -355,13 +401,21 @@ def execute_review_command(world_id, action_id, command, *, authorize_world=None
                     raise ApplicationStateConflictError("The Plan application base changed")
                 if authorize_world is not None:
                     authorize_world()
+                layout = (
+                    application.after_page_presentation
+                    if isinstance(application, PlanSlotReviewApplicationV1)
+                    else page_presentation.UNSET
+                )
                 saved, saved_revision = commit_plan_in_connection(
                     conn, application.capture.document_id, application.after_markdown,
                     expected_revision=application.capture.base_revision,
                     expected_world_id=world_id, title=application.after_title,
+                    page_presentation=layout,
                 )
                 if (saved_revision.content_sha256 != application.after_draft_sha256
-                    or saved.title != application.after_title):
+                    or saved.title != application.after_title
+                    or (isinstance(application, PlanSlotReviewApplicationV1)
+                        and page_presentation.read(conn, saved_revision) != layout)):
                     raise ApplicationStateIntegrityError("Content Save differs from the sealed Plan copy")
                 completed = application.model_copy(update={
                     "outcome": "saved",
@@ -378,9 +432,16 @@ def execute_review_command(world_id, action_id, command, *, authorize_world=None
                 if (capture.world_id != world_id
                     or capture.document_id != proposal.capture.document_id):
                     raise ApplicationStateConflictError("Plan recovery belongs to another page")
+                if isinstance(capture, PlanAuthoringSlotBoundaryCaptureV1) != isinstance(
+                    application, PlanSlotReviewApplicationV1
+                ):
+                    raise ApplicationStateConflictError("Plan recovery changed the application layout type")
                 if isinstance(command, ResolveBeforeReview) and (
                     capture.draft_sha256 != application.capture.draft_sha256
-                    or capture.editor_sha256 != application.capture.editor_sha256):
+                    or capture.editor_sha256 != application.capture.editor_sha256
+                    or (isinstance(capture, PlanAuthoringSlotBoundaryCaptureV1)
+                        and capture.draft_page_presentation_sha256
+                        != application.capture.draft_page_presentation_sha256)):
                     raise ApplicationStateConflictError(
                         "The editor does not prove the unchanged before-copy; retain the application"
                     )
@@ -417,15 +478,23 @@ def execute_review_command(world_id, action_id, command, *, authorize_world=None
                         if (capture.world_id != world_id
                             or capture.document_id != proposal.capture.document_id):
                             raise ApplicationStateConflictError("Plan placement belongs to another page")
+                        if isinstance(capture, PlanAuthoringSlotBoundaryCaptureV1) != isinstance(
+                            review.capture, PlanAuthoringSlotBoundaryCaptureV1
+                        ):
+                            raise ApplicationStateConflictError("Plan placement changed the review layout type")
                         _locked_capture(conn, capture)
                         updates.update(capture=capture)
                     elif isinstance(command, PrepareReview):
                         if any(a.application_id == command.application_id for a in review.applications):
                             raise ApplicationStateConflictError("Plan application identity was already used")
+                        if isinstance(command, PrepareSlotReview) != isinstance(
+                            review.capture, PlanAuthoringSlotBoundaryCaptureV1
+                        ):
+                            raise ApplicationStateValidationError("Plan review Prepare differs from its captured layout type")
                         current = _locked_capture(conn, review.capture)
                         if normalize_markdown(command.after_markdown) != command.after_markdown:
                             raise ApplicationStateValidationError("Plan application requires canonical newlines")
-                        application = PlanReviewApplicationV1(
+                        application_data = dict(
                             application_id=command.application_id,
                             capture=review.capture, markdown=review.markdown,
                             markdown_sha256=review.markdown_sha256,
@@ -437,6 +506,14 @@ def execute_review_command(world_id, action_id, command, *, authorize_world=None
                             base_work_revision_id=current.work_revision_id,
                             base_revision_n=current.revision_n,
                         )
+                        if isinstance(command, PrepareSlotReview):
+                            application = PlanSlotReviewApplicationV1(
+                                **application_data,
+                                after_page_presentation=command.after_page_presentation,
+                                after_page_presentation_sha256=command.after_page_presentation_sha256,
+                            )
+                        else:
+                            application = PlanReviewApplicationV1(**application_data)
                         updates.update(state="applying", applications=review.applications + (application,))
             candidate = PlanAuthoringReviewV1.model_validate(
                 review.model_dump(mode="python", by_alias=True) | updates
