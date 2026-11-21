@@ -9,6 +9,7 @@
       "apps/live-control-ui/src/ingestion/RecapNameReview.test.tsx",
       "apps/live-control-ui/src/planSurface/components/BuddyRetrievalReplay.test.tsx",
       "apps/live-control-ui/src/App.commandAccepted.test.tsx",
+      "apps/live-control-ui/src/App.guestHome.test.tsx",
       "apps/live-control-ui/src/App.guestRelease.test.tsx",
       "apps/live-control-ui/src/App.guestEntry.test.tsx",
       "apps/live-control-ui/src/App.surfaceInteraction.test.tsx",

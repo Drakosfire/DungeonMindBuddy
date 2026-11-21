@@ -28,7 +28,7 @@ def test_guest_release_contract_covers_release_tests_and_hosted_entry():
     assert expected_backend and expected_backend <= backend
     hosted = catalog["hosted-frontend"]["steps"]
     selectors = {argument for step in hosted for argument in step["argv"]}
-    assert {"src/App.guestRelease.test.tsx", "src/guestRelease"} <= selectors
+    assert {"src/App.guestHome.test.tsx", "src/App.guestRelease.test.tsx", "src/guestRelease"} <= selectors
 
 
 def assert_live_contracts(catalog, root):

@@ -2,7 +2,10 @@ import { act, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { App } from "./App";
 
-vi.mock("./auth/HostedAuthGate", () => ({ HostedAuthGate: () => { throw new Error("Guest route mounted auth gate"); } }));
+vi.mock("./auth/HostedAuthGate", () => ({
+  HostedAuthGate: () => { throw new Error("Guest route mounted auth gate"); },
+  dungeonMindLoginHref: () => "/api/auth/login?return_to=%2F",
+}));
 vi.mock("./selectedWorld/SelectedWorldContext", () => ({
   SELECTED_WORLD_LOCATION_CHANGED_EVENT: "world-location-changed",
   SelectedWorldProvider: () => { throw new Error("Guest route mounted private World provider"); },

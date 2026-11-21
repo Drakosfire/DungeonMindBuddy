@@ -1,6 +1,8 @@
 # ONBOARD — owner-published guest release
 
-Status: ACTIVE. The onboarding goal authorizes this
+Status: MERGED in PR #4281 at `74bc45dd0b1616be2a03d5fe84c1b5730b5cf3a8`.
+The capability remains disabled; real owner publication and deployment gates
+remain outstanding. The onboarding goal authorizes this
 capability, including independent Bugbot review, merge and deployment after the
 applicable evidence and release gates pass. Base: `f3da3caedea4515eef9645cf3834abd44c422665`;
 candidate branch: `codex/onboard-guest-release`. The predecessor prompt-boundary
