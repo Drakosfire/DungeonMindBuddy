@@ -12,8 +12,9 @@ changed page. Existing local history, plain and identity-only sidecar behavior
 remain under their respective owners.
 
 The allowlist comprises this handoff, `apps/live-control-ui/src/api/buildGraphReferenceReviewApi.ts`,
-`apps/live-control-ui/src/buildSurface/BuildGraphReferenceReview.tsx` and its
-test, and the typed atom branch and its coverage in `buildComposeBridge.ts`
+`apps/live-control-ui/src/buildSurface/BuildGraphReferenceReview.tsx`, the new
+typed Review cases in the existing `BuildPageProposal.test.tsx` inventory,
+and the typed atom branch and its coverage in `buildComposeBridge.ts`
 and `buildComposeBridge.test.ts`. #3867 at
 `a2c5d9115bf1347f2cd84a2808d3dec29ddc3242` retains its distinct prose concerns.
 Reuse existing Save forwarding and page ownership. Ordinary Build Send is a
