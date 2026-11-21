@@ -81,6 +81,20 @@ _TURN_COLS = (
     + ", answer_composition_kind, "
     + _rules_summary_select("agent.turn")
 )
+# The root and suffix use one statement snapshot during unlocked reads.
+_TURN_READ_COLS = _TURN_COLS + """,
+    CASE WHEN agent.turn.status='running' THEN (
+        SELECT jsonb_build_array(
+            jsonb_build_array(head.turn_id, head.attempt, head.base_revision, head.revision,
+                              head.first_sequence, head.next_sequence, head.prefix_sha256),
+            COALESCE((SELECT jsonb_agg(jsonb_build_array(
+                grouped.append_revision, grouped.first_sequence, grouped.after_sequence,
+                grouped.events, grouped.events_sha256) ORDER BY grouped.first_sequence)
+              FROM agent.plan_execution_checkpoint_group AS grouped
+              WHERE grouped.turn_id=head.turn_id AND grouped.attempt=head.attempt), '[]'::jsonb))
+        FROM agent.plan_execution_checkpoint AS head WHERE head.turn_id=agent.turn.turn_id
+    ) END AS plan_checkpoint
+"""
 _TURN_COLS_T = (
     ", ".join(f"t.{column.strip()}" for column in _TURN_BASE_COLS.split(","))
     + ", t.answer_composition_kind, "
@@ -347,6 +361,19 @@ def turn_provenance(row, references):
     )
 
 
+def _recover_plan_checkpoint_row(row, checkpoint, groups):
+    from .native_execution import SurfaceNativeExecutionV1
+    from .plan_execution_checkpoints import recover_execution
+
+    try:
+        prefix = SurfaceNativeExecutionV1.model_validate_json(to_json(row["graph_context_execution"]))
+    except ValidationError as exc:
+        raise ApplicationStateIntegrityError("Plan checkpoint opening execution is invalid") from exc
+    recovered = recover_execution(turn_id=row["turn_id"], attempt=row["attempt"],
+        revision=row["revision"], prefix=prefix, checkpoint=checkpoint, groups=groups)
+    row["graph_context_execution"] = recovered.model_dump(mode="json", by_alias=True)
+
+
 def _turn_from_row(
     conn: psycopg.Connection, row: dict[str, Any], *, references=None, proposal_payloads=None
 ) -> TurnReadModel:
@@ -354,6 +381,13 @@ def _turn_from_row(
         CompletedTurnEnvelopeV1,
         MixedCompletedTurnV1,
     )
+    stored = row.pop("plan_checkpoint", None)
+    if stored is not None:
+        from .plan_execution_checkpoints import EventCheckpoint, EventCheckpointGroup
+
+        head, groups = stored
+        checkpoint = EventCheckpoint(UUID(head[0]), *head[1:])
+        _recover_plan_checkpoint_row(row, checkpoint, [EventCheckpointGroup(*group) for group in groups])
     provenance = turn_provenance(
         row,
         references
@@ -887,7 +921,7 @@ def get_turn_by_world_key(
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
-            SELECT {_TURN_COLS}, request_fingerprint, idempotency_fingerprint
+            SELECT {_TURN_READ_COLS}, request_fingerprint, idempotency_fingerprint
             FROM agent.turn WHERE world_id = %s AND idempotency_key = %s
             """,
             (world_id, idempotency_key),
@@ -909,7 +943,7 @@ def get_turn_by_world_key(
 def get_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> TurnReadModel | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            f"SELECT {_TURN_COLS} FROM agent.turn WHERE world_id = %s AND turn_id = %s",
+            f"SELECT {_TURN_READ_COLS} FROM agent.turn WHERE world_id = %s AND turn_id = %s",
             (world_id, turn_id),
         )
         row = cur.fetchone()
@@ -926,19 +960,11 @@ def lock_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> TurnRea
     if row is None:
         return None
     if row["status"] == "running":
-        from .plan_execution_checkpoints import load_checkpoint, recover_execution
-        from .native_execution import SurfaceNativeExecutionV1
+        from .plan_execution_checkpoints import load_checkpoint
 
         stored = load_checkpoint(conn, turn_id)
         if stored is not None:
-            checkpoint, groups = stored
-            try:
-                prefix = SurfaceNativeExecutionV1.model_validate_json(to_json(row["graph_context_execution"]))
-            except ValidationError as exc:
-                raise ApplicationStateIntegrityError("Plan checkpoint opening execution is invalid") from exc
-            recovered = recover_execution(turn_id=turn_id, attempt=row["attempt"],
-                revision=row["revision"], prefix=prefix, checkpoint=checkpoint, groups=groups)
-            row["graph_context_execution"] = recovered.model_dump(mode="json", by_alias=True)
+            _recover_plan_checkpoint_row(row, *stored)
     return _turn_from_row(conn, row)
 
 
@@ -971,7 +997,7 @@ def _turn_page_inputs(conn, world_id, conversation_id, *, limit, before_sequence
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
-            SELECT {_TURN_COLS} FROM agent.turn
+            SELECT {_TURN_READ_COLS} FROM agent.turn
             WHERE {" AND ".join(clauses)} ORDER BY sequence DESC LIMIT %s
             """,
             params,

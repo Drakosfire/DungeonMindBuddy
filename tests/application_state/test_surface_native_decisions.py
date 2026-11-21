@@ -171,7 +171,9 @@ def test_plan_checkpoint_append_fences_root_and_rolls_back(application_state_dsn
         assert append_group(writer, world_id=turn.world_id, root_revision=revision,
             checkpoint=checkpoint, events=full.events[-1:]) == revision+1
     with psycopg.connect(application_state_dsn) as reader:
+        visible = repo.get_turn(reader, turn.world_id, turn.turn_id)
         persisted = repo.lock_turn(reader, turn.world_id, turn.turn_id)
+        assert visible == persisted
         assert persisted.revision == revision+1
         assert persisted.graph_context_execution == full
         image = repo._lock_plan_session_image(reader, turn.world_id, turn.turn_id)
