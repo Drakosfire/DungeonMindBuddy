@@ -1,10 +1,11 @@
 # RETRIEVAL: compress new execution records with LZ4
 
 ACTIVE under the Buddy Send-to-writer latency goal. Root owns this serial
-slice from `774aa06344eb0a9411855eccdc7e33e7fead89c4`, branch
+slice from `c68d9a2417b7cae8798f80da17c747c6dfe3e6c7`, branch
 `codex/plan-execution-lz4`, isolated Projects checkout
 `buddy-binary-plan-ack`. No unmerged behavioral dependency. Expected writes
-are this handoff and the new application-state compression migration.
+are this handoff, the new application-state compression migration, and
+the existing Plan reader-fence test whose fixture follows the current head.
 
 PostgreSQL already compresses wide execution JSONB. Select LZ4 for this
 column only. Existing tuples keep their stored compression. Upgrade and

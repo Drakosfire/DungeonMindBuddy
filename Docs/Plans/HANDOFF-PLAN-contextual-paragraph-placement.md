@@ -1,8 +1,9 @@
 # Ordinary Plan contextual paragraph placement
 
-Status: ACTIVE implementation in draft PR #4264; acceptance remains RED. This is
-one serial plain-Plan capability. No successor is dispatched and no deployment,
-production migration execution or serving-pin change is included.
+Status: MERGED in PR #4264 at `774aa06344eb0a9411855eccdc7e33e7fead89c4`.
+The independently approved head was `b13f2b0655a9e28bc7e8b822dc0b4255036be24d`.
+This completes the plain-Plan slice. The serial successor is
+[Plan presentation persistence](HANDOFF-PLAN-presentation-content.md).
 
 Retained development checkpoint: clean7cc75188, actual Jev with scripted writer,
 32 frozen cases:27/32 nomination/protocol dispositions correct. Two unnecessary
@@ -394,11 +395,15 @@ Prepared static bundle: `plan-browser/dist-integrated-7227`, frontend tree
 `2312fa0faa18f560a60f9cae7c6cb574fb0f655633039a53a7285a9ff7f198c3`.
 Build is exact7227 and matches unchanged frontend blobs, not new backend proof.
 
-Remaining acceptance: actual Jev scope-factor development, full actual-writer DEV,
-a newly independently authored/frozen heldout pass, actual normal-Send browser
-witness including selected recovery, final exact-head local checks and independent
-review. Preserve all failures and denominators. No full-goal, cross-surface,
-human/release acceptance or serving availability claim follows from a partial slice.
+Final evidence at the approved head includes 55/56 ordinary development effects,
+30/32 in the sixth independent holdout, all 16 holdout controls, and zero unsafe
+proposals or source mutations. Two feasible before-paragraph requests clarified
+and remain recorded misses. The blind audit found all 14 delivered editable
+fragments satisfactory. Actual named and quoted Send, explicit Save, Undo/Redo,
+selection recovery, cold reopen and stale review passed, with separate pre-model
+stale and foreign owner refusal. Exact local frontend verification passed.
+The backend contract reported 1467 passes and six Build failures matching the
+then-current base. Release or cross-surface qualification requires its own evidence.
 
 Superseded preparation/approval checkpoints are retained in Git history and their
 external immutable evidence, rather than as contradictory active instructions.
