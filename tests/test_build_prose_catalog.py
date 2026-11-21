@@ -101,10 +101,11 @@ def test_nonplacement_judgment_has_no_target(captured_page, work, relation, scop
     assert resolution.target is None
 
 
-def test_opening_must_match_retained_catalog_and_requested_work(captured_page):
+@pytest.mark.parametrize("version", [1, 2])
+def test_opening_must_match_retained_catalog_and_requested_work(captured_page, version):
     catalog = freeze_build_prose_catalog(*captured_page)
     question, title = "Insert a line after the moon in East", "Gate"
-    state, choices = build_boundary_opening(question, title, catalog)
+    state, choices = build_boundary_opening(question, title, catalog, version=version)
     request = {
         "state": {"interaction": {"paragraph_placement": state}},
         "questions": {
@@ -117,6 +118,8 @@ def test_opening_must_match_retained_catalog_and_requested_work(captured_page):
     labels = dict(paragraph_work="place_paragraph", paragraph_scope="named", paragraph_relation="after",
                   paragraph_text0="include", paragraph_scope0="exclude", paragraph_scope1="include",
                   requested_work="write_current_page")
+    if version == 2:
+        labels["paragraph_destination"] = "current_page"
     response = DecisionResult(
         answers={name: ChoiceDecisionAnswer(selected=label) for name, label in labels.items()},
         observation=InferenceObservation(
@@ -132,6 +135,21 @@ def test_opening_must_match_retained_catalog_and_requested_work(captured_page):
         catalog, request, response, question=question, title=title, requested_work="discuss",
     )
     assert outcome.target is None
+    if version == 2:
+        response.answers["paragraph_destination"] = ChoiceDecisionAnswer(selected="different_page")
+        outcome = resolve_build_boundary_opening(
+            catalog, request, response, question=question, title=title, requested_work="write_current_page",
+        )
+        assert outcome.disposition == "different_destination"
+        assert outcome.target is None
+        truncated = {**request, "questions": {
+            name: choice for name, choice in request["questions"].items()
+            if name != "paragraph_destination"
+        }}
+        with pytest.raises(ValueError, match="exact opening offer"):
+            resolve_build_boundary_opening(
+                catalog, truncated, response, question=question, title=title, requested_work="write_current_page",
+            )
     request["questions"]["paragraph_scope1"]["criteria"]["maybe"] = None
     with pytest.raises(ValueError, match="exact opening offer"):
         resolve_build_boundary_opening(

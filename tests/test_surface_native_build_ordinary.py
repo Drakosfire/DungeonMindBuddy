@@ -50,12 +50,13 @@ def test_build_proposal_without_a_target_returns_selection_guidance(lane, tmp_pa
     _fresh_case(lane, tmp_path, monkeypatch, "target_unavailable", True, False, True)
 
 
-@pytest.mark.parametrize("boundary_scope", ["unique", "ambiguous", "missing", "stale", "foreign", "page_end", "page_body"])
+@pytest.mark.parametrize("boundary_scope", ["unique", "ambiguous", "missing", "different", "stale", "foreign", "page_end", "page_body"])
 def test_build_native_paragraph_proposal_replays_exact_boundary(lane, tmp_path, monkeypatch, boundary_scope):
     location = {"ambiguous": "", "missing": " in North"}.get(boundary_scope, " in East")
     message = {
         "page_end": "Append a line about a copper lamp at the end of this page.",
         "page_body": "Replace the whole page with a paragraph about a copper lamp.",
+        "different": "On the separate Lanterns page, add a line after the orchid paragraph in East.",
     }.get(boundary_scope, f"After the orchid paragraph{location}, add a line about a copper lamp.")
     _fresh_case(
         lane, tmp_path, monkeypatch, None, True, False, True, contextual=boundary_scope,
@@ -325,10 +326,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     else ('include' if int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
                     else "read" if read_optional_page and name.startswith("related_page_")
                     else {"paragraph_work": f"explicit_{contextual}" if contextual in {"page_end", "page_body"} else "place_paragraph",
+                          "paragraph_destination": "different_page" if contextual == "different" else "current_page",
                           "paragraph_relation": "after",
                           "paragraph_scope": "unscoped" if contextual == "ambiguous" else "named",
                           "paragraph_text0": "include", "paragraph_scope0": "exclude",
-                          "paragraph_scope1": "include" if contextual == "unique" else "exclude"}[name]
+                          "paragraph_scope1": "include" if contextual in {"unique", "different"} else "exclude"}[name]
                     if name.startswith("paragraph_")
                     else (native_body if native_body and body['state']['sources'][list(body['state']['sources'])[int(name[1:])]]['kind']=='native_body' else 'direct_support') if name.startswith('s') and name[1:].isdigit() else 'skip')
                 assert chosen in choices, (name, choices)
@@ -1144,11 +1146,17 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert not writer.calls
         assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
         return
-    if contextual in {"ambiguous", "missing"}:
+    if contextual in {"ambiguous", "missing", "different"}:
         from application_state.build_proposal.service import BuildProposalService
 
         assert response.status_code == 409, response.text
-        assert response.json()["detail"]["code"] == "build_contextual_placement_unresolved"
+        detail = response.json()["detail"]
+        assert detail["code"] == "build_contextual_placement_unresolved"
+        assert {
+            "ambiguous": "appears more than once",
+            "missing": "in the requested section",
+            "different": "names a different page",
+        }[contextual] in detail["message"]
         assert len(decisions.calls) == 1 and not writer.calls
         assert BuildProposalService().list(world, cap.conversation_id) == []
         assert get_workspace_document_snapshot(tmp_path, page.document_id) == source

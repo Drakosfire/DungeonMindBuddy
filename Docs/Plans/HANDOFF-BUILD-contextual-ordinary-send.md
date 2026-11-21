@@ -1,8 +1,10 @@
 # Ordinary Build Send with contextual paragraph placement
 
-Status: ACTIVE under the user's full contextual-layout lane authority.
-Serial successor to #4352 at `144c9c00912e7bc1359d0ed039c3cb9b9b87ba12`,
-in the same isolated checkout on `codex/build-contextual-ordinary-send`.
+Status: MERGED as #4355 at `ba22ffac5a7fe4e07d1192569e9fde658929ed9d`.
+Independent review approved exact head
+`73926c09540f15d263addd3b7fe3c8c075461ec3` for the mounted transport and
+identity repair. Full Build targeting qualification remains open in
+`HANDOFF-BUILD-contextual-clarification.md`.
 
 ## Outcome
 
@@ -51,3 +53,19 @@ browser runtime. Keep the eight prior synthetic development cases separate from
 the sealed independent 32-case pack. Freeze the producer before the single
 held-out run. Record exact physical placement, lifecycle and provider outcomes.
 Run exact frontend and affected backend verification before independent review.
+
+## Settled evidence
+
+The mounted positive used live Jev and scripted prose. Explicit Save preserved
+the exact target and unrelated blocks, with Undo/Redo and a cold 390px reopen.
+Separate browser controls proved ambiguity, missing scope and deliberate
+selection recovery. The exact discovered comparison added three passes with
+102 inherited failures and two skips unchanged.
+
+The frozen independent score was 22/32 strict. Fourteen of 16 feasible
+placements were exact, six of 14 semantic controls met their expected outcome,
+and both premodel controls refused safely. No proposal selected a wrong
+physical boundary, and no case edited or saved the page. Three missing-scope
+cases received misleading different-page instructions. Five generic terminal
+failures remain in the denominator. The scorer freeze SHA-256 is
+`767efcc131dc66eac50004087b0570857dece3d7d49b2fe792aa26bf57d03997`.

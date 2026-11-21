@@ -28,6 +28,7 @@ class BuildBoundaryJudgment(StrictModel):
     work: BuildBoundaryWork
     relation: Literal["before", "after", "unresolved"]
     scope: Literal["named", "unscoped", "unresolved"]
+    destination: Literal["current_page", "different_page", "unclear"] | None = None
     passage_aliases: tuple[str, ...] = ()
     scope_aliases: tuple[str, ...] = ()
 
@@ -45,9 +46,37 @@ def _groups(catalog: BuildProseBoundaryCatalog):
 
 def prepare_build_boundary_decision(
     question: str, title: str, dialogue: tuple[RetrievalDialogue, ...],
-    catalog: BuildProseBoundaryCatalog,
+    catalog: BuildProseBoundaryCatalog, *, version: Literal[1, 2] = 2,
 ) -> DecisionRequest:
     texts, scopes = _groups(catalog)
+    work_options = get_args(BuildBoundaryWork)
+    work_question = (
+        "Does the author request actual new prose directly before/after a paragraph on this "
+        "open page, ask for discussion, name a different destination, explicitly request "
+        "append at page end or whole-page revision, or request an unsupported or unclear action?"
+    )
+    scope_question = "Did the author qualify the anchor by an existing heading or section?"
+    destination_questions = ()
+    if version == 2:
+        work_options = tuple(option for option in work_options if option != "different_destination")
+        work_question = (
+            "What action does the author request, independently of where it should happen? "
+            "Distinguish actual paragraph placement, discussion, explicit page-end append, "
+            "explicit whole-page revision, and unsupported or unclear actions."
+        )
+        scope_question = (
+            "Did the author name a heading, section or heading path for the anchor? "
+            "Choose named even when that heading is absent from the offered paths."
+        )
+        destination_questions = (ChoiceDecisionQuestion(
+            name="destination", options=("current_page", "different_page", "unclear"),
+            question=(
+                "Which page does the author intend to act on? Choose different_page only when the "
+                "author explicitly identifies another page or document as the destination. A location "
+                "within this page is current_page even when its named heading is missing. Mentions "
+                "of sources or comparisons do not identify the destination."
+            ),
+        ),)
     return DecisionRequest(
         provider=PROVIDER, model=MODEL, max_transport_retries=0,
         state={
@@ -67,17 +96,13 @@ def prepare_build_boundary_decision(
         },
         questions=(
             ChoiceDecisionQuestion(
-                name="work", options=get_args(BuildBoundaryWork),
-                question=(
-                    "Does the author request actual new prose directly before/after a paragraph on this "
-                    "open page, ask for discussion, name a different destination, explicitly request "
-                    "append at page end or whole-page revision, or request an unsupported or unclear action?"
-                ),
+                name="work", options=work_options, question=work_question,
             ),
+            *destination_questions,
             ChoiceDecisionQuestion(name="relation", options=("before", "after", "unresolved"),
                                    question="Which side of the existing paragraph did the author explicitly indicate?"),
             ChoiceDecisionQuestion(name="scope", options=("named", "unscoped", "unresolved"),
-                                   question="Did the author qualify the anchor by an existing heading or section?"),
+                                   question=scope_question),
             *(ChoiceDecisionQuestion(name=alias, options=("include", "exclude"),
                                      question=f"Does existing_passages {alias} match the requested existing anchor independently of its heading?")
               for alias in texts),
@@ -95,15 +120,18 @@ def decode_build_boundary_decision(request: DecisionRequest, result) -> BuildBou
         raise ValueError("Build boundary decision contains an unoffered answer")
     return BuildBoundaryJudgment(
         work=answers["work"], relation=answers["relation"], scope=answers["scope"],
+        destination=answers.get("destination"),
         passage_aliases=tuple(name for name in offered if name.startswith("text") and answers[name] == "include"),
         scope_aliases=tuple(name for name in offered
                             if name != "scope" and name.startswith("scope") and answers[name] == "include"),
     )
 
 
-def build_boundary_opening(question: str, title: str, catalog: BuildProseBoundaryCatalog):
+def build_boundary_opening(
+    question: str, title: str, catalog: BuildProseBoundaryCatalog, *, version: Literal[1, 2] = 2,
+):
     """Project the catalog into the ordinary Build opening decision."""
-    request = prepare_build_boundary_decision(question, title, (), catalog)
+    request = prepare_build_boundary_decision(question, title, (), catalog, version=version)
     placement_state = {
         key: request.state[key]
         for key in ("existing_passages", "existing_heading_paths", "placement_policy")
@@ -116,7 +144,8 @@ def build_boundary_opening(question: str, title: str, catalog: BuildProseBoundar
 
 def resolve_build_boundary_opening(catalog, request, response, *, question, title, requested_work):
     """Validate exact semantic offers and the real combined opening response."""
-    state, questions = build_boundary_opening(question, title, catalog)
+    version = 2 if OPENING_QUESTION_PREFIX + "destination" in request["questions"] else 1
+    state, questions = build_boundary_opening(question, title, catalog, version=version)
     offered = {
         choice.name: {
             "type": "choice", "instructions": choice.question, "criteria": dict.fromkeys(choice.options),
@@ -135,14 +164,21 @@ def resolve_build_boundary_opening(catalog, request, response, *, question, titl
             name.removeprefix(OPENING_QUESTION_PREFIX): response.answers[name] for name in offered
         }
     })
-    boundary_request = prepare_build_boundary_decision(question, title, (), catalog)
+    boundary_request = prepare_build_boundary_decision(question, title, (), catalog, version=version)
     resolution = resolve_build_boundary(catalog, decode_build_boundary_decision(boundary_request, boundary_response))
-    if resolution.disposition == "unique" and requested_work != "write_current_page":
+    write_dispositions = {"unique", "explicit_page_end", "explicit_page_body"} if version == 2 else {"unique"}
+    if resolution.disposition in write_dispositions and requested_work != "write_current_page":
         return BuildBoundaryResolution(disposition="unresolved")
     return resolution
 
 
 def resolve_build_boundary(catalog: BuildProseBoundaryCatalog, judgment: BuildBoundaryJudgment) -> BuildBoundaryResolution:
+    if judgment.work == "discuss":
+        return BuildBoundaryResolution(disposition="discuss")
+    if judgment.destination == "different_page":
+        return BuildBoundaryResolution(disposition="different_destination")
+    if judgment.destination == "unclear":
+        return BuildBoundaryResolution(disposition="unresolved")
     if judgment.work == "unsupported_or_unclear":
         return BuildBoundaryResolution(disposition="unresolved")
     if judgment.work != "place_paragraph":
