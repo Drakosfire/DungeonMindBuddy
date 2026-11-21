@@ -21,7 +21,6 @@ import {ManualCombatEditor} from "../../combat/ManualCombatEditor";
 import {ManualCombatProfileForm} from "../../combat/ManualCombatProfileForm";
 import {isManualCombatRecord,type AnyCombatRecord,type ManualCombatRecord} from "../../combat/ManualCombatTypes";
 import type { CombatEncounterDraft, CombatEncounterRecord, CombatEntity } from "../../combat/combatTypes";
-import { CombatMechanicsInspection } from "../../combat/CombatMechanicsInspection";
 import { CombatMechanicsAdoption } from '../../combat/CombatMechanicsAdoption';
 import { CombatEncounterAssembly } from "../../combat/CombatEncounterAssembly";
 import {CombatRosterWorkspace, type CombatProjectionControl} from '../../combat/CombatRosterWorkspace';
@@ -67,6 +66,7 @@ function nextActor(draft: CombatEncounterDraft | null): CombatEntity | null {
 function RosterRow({
   entity,
   active,
+  next,
   hidden,
   disabled,
   onChange,
@@ -79,6 +79,7 @@ function RosterRow({
 }: {
   entity: CombatEntity;
   active: boolean;
+  next: boolean;
   hidden: boolean;
   disabled: boolean;
   onChange: (entity: CombatEntity) => void;
@@ -92,6 +93,9 @@ function RosterRow({
   const [damage, setDamage] = useState("1");
   const [heal, setHeal] = useState("1");
   const [error, setError] = useState<string | null>(null);
+  const [conditionsInput, setConditionsInput] = useState<string | null>(null);
+  const editor = useRef<HTMLDialogElement>(null);
+  const editTrigger = useRef<HTMLButtonElement>(null);
 
   function numberOrNull(value: string): number | null {
     if (value.trim() === "") return null;
@@ -124,146 +128,112 @@ function RosterRow({
   const damageAmount = Number.parseInt(damage, 10);
   const healAmount = Number.parseInt(heal, 10);
 
+  const hp = numericValue(entity.hp);
+  const maximum = numericValue(entity.max_hp);
+  const meterValue = hp !== null && maximum !== null && Number.isSafeInteger(maximum) && maximum > 0 && hp >= 0
+    ? Math.min(hp, maximum) : null;
+  const notePreview = entity.notes.length > 180
+    ? entity.notes.trimStart().slice(0, 145).replace(/\s+\S*$/, "").trimEnd() : null;
+  const healthLabel = entity.hp === null ? "Unrecorded"
+    : entity.max_hp === null ? String(entity.hp) : `${entity.hp} / ${entity.max_hp}`;
+
   return (
-    <tr hidden={hidden} className={active ? "combat-roster-active-row" : entity.defeated ? "combat-roster-defeated-row" : undefined}>
-      <td>
-        <button type="button" aria-label={`Set ${entity.name} as current actor`} onClick={onSetActive} disabled={disabled || entity.defeated}>
-          {active ? "▶" : "Set"}
-        </button>
-        <div className="combat-roster-order-controls">
-          <button type="button" aria-label={`Move ${entity.name} earlier`} disabled={disabled || !canMoveEarlier}
-            onClick={() => onMove('earlier')}>↑</button>
-          <button type="button" aria-label={`Move ${entity.name} later`} disabled={disabled || !canMoveLater}
-            onClick={() => onMove('later')}>↓</button>
-        </div>
-      </td>
-      <td className="combat-roster-participant">
+    <tr role="row" hidden={hidden} className={active ? "combat-roster-active-row" : entity.defeated ? "combat-roster-defeated-row" : undefined}>
+      <td role="cell" className="combat-roster-init" data-column="Initiative">{entity.init ?? "—"}</td>
+      <th role="rowheader" scope="row" className="combat-roster-participant">
         <strong>{entity.name}</strong>
-        <div className="module-muted">
-          {entity.world_identity ? `World: ${entity.world_identity.label} · Manual stats` : entity.statblock_title ?? entity.statblock_artifact_id ?? entity.source}
+        <span className="combat-roster-team-label">{entity.team === "pc" ? "PC" : entity.team}</span>
+        {active ? <span className="combat-roster-now">Now</span> : next && <span className="combat-roster-next">Next</span>}
+        {entity.defeated && <span className="combat-roster-out">Defeated</span>}
+      </th>
+      <td role="cell" className="combat-roster-defense" data-column="AC">{entity.ac ?? "—"}</td>
+      <td role="cell" className="combat-roster-health" data-column="HP">
+        <div className="combat-roster-health-label">
+          <span>{healthLabel}</span>
+          {entity.temp_hp > 0 && <span className="combat-roster-temp-label">+{entity.temp_hp} temp</span>}
         </div>
-        {entity.mechanics_snapshot && <CombatMechanicsInspection snapshot={entity.mechanics_snapshot} presentation="dialog" />}
+        {meterValue !== null && maximum !== null && <meter className="combat-roster-hp-meter" min={0} max={maximum} value={meterValue} aria-label={`Recorded HP for ${entity.name}`}/>}
+      </td>
+      <td role="cell" className="combat-roster-quick-adjust" data-column="Adjust HP">
+        <button type="button" aria-label={`Deal 1 damage to ${entity.name}`} disabled={disabled || hp === null} onClick={() => applyDelta("damage", 1)}>−</button>
+        <button type="button" aria-label={`Heal ${entity.name} by 1`} disabled={disabled || hp === null} onClick={() => applyDelta("heal", 1)}>+</button>
+      </td>
+      <td role="cell" className="combat-roster-condition-list" data-empty={entity.conditions.length === 0 || undefined} data-column="Conditions">
+        {entity.conditions.length === 0 ? "—" : entity.conditions.map((condition, index) =>
+          <span key={`${index}:${condition}`} className="combat-roster-condition">{condition}</span>)}
+      </td>
+      <td role="cell" className="combat-roster-note-preview" data-empty={!entity.notes || undefined} data-column="Notes">
+        {notePreview ? <details className="combat-roster-long-note">
+          <summary aria-label={`Full note for ${entity.name}`}><span>{notePreview}…</span></summary>
+          <p>{entity.notes}</p>
+        </details> : entity.notes || "—"}
+      </td>
+      <td role="cell" className="combat-roster-row-actions">
         {projection.available && <button type="button" aria-label={entity.mechanics_snapshot ? `Keep statblock open for ${entity.name}` : `Open corpus sheet for ${entity.name}`}
           aria-pressed={projection.selected} aria-controls={projection.selected ? projection.regionId : undefined}
-          onClick={event => projection.open(event.currentTarget)}>{entity.mechanics_snapshot ? 'Keep statblock open' : 'Open corpus sheet'}</button>}
-        <div className="combat-roster-team">
-        <select
-          aria-label={`Team for ${entity.name}`}
-          value={entity.team}
-          disabled={disabled}
-          onChange={(event) => update({ team: event.target.value as CombatEntity["team"] })}
-        >
-          <option value="pc">PC</option>
-          <option value="ally">Ally</option>
-          <option value="enemy">Enemy</option>
-          <option value="neutral">Neutral</option>
-        </select>
-        </div>
-      </td>
-      <td>
-        <input
-          aria-label={`Initiative for ${entity.name}`}
-          className="combat-roster-short-input"
-          value={asInput(entity.init)}
-          disabled={disabled}
-          onChange={(event) => update({ init: numberOrNull(event.target.value) })}
-        />
-      </td>
-      <td>
-        <input aria-label={`AC for ${entity.name}`} className="combat-roster-short-input"
-          value={asInput(entity.ac)} maxLength={64} disabled={disabled}
-          onChange={event => update({ac: manualStatValue(event.target.value)})}/>
-      </td>
-      <td className="combat-roster-health">
-        <input
-          aria-label={`HP for ${entity.name}`}
-          className="combat-roster-short-input"
-          value={asInput(entity.hp)}
-          disabled={disabled}
-          onChange={(event) => {
-            const parsed = numberOrNull(event.target.value);
-            update({ hp: parsed === null && event.target.value.trim() !== "" ? event.target.value : parsed });
+          onClick={event => projection.open(event.currentTarget)}>Sheet</button>}
+        <button ref={editTrigger} type="button" aria-label={`Edit ${entity.name}`} aria-haspopup="dialog" disabled={disabled} onClick={() => editor.current?.showModal()}>Edit</button>
+        <dialog ref={editor} className="combat-mechanics-dialog combat-roster-actor-editor" aria-label={`Edit ${entity.name}`}
+          onClose={() => {
+            setConditionsInput(null);
+            requestAnimationFrame(() => editTrigger.current?.focus({preventScroll: true}));
           }}
-        />{" "}/ <input aria-label={`Maximum HP for ${entity.name}`} className="combat-roster-short-input"
-          title="Whole numbers cap healing. Text values are tracked manually."
-          value={asInput(entity.max_hp)} maxLength={64} disabled={disabled}
-          onChange={event => update({max_hp: manualStatValue(event.target.value)})}/>
-        <label className="combat-roster-temp"><span>Temp</span>
-        <input
-          aria-label={`Temp HP for ${entity.name}`}
-          className="combat-roster-short-input"
-          value={asInput(entity.temp_hp)}
-          disabled={disabled}
-          onChange={(event) => update({ temp_hp: Math.max(0, numberOrNull(event.target.value) ?? 0) })}
-        />
-        </label>
-      </td>
-      <td>
-        <div className="combat-roster-delta-controls">
-          <input
-            aria-label={`Damage for ${entity.name}`}
-            type="number"
-            min="0"
-            value={damage}
-            disabled={disabled}
-            onChange={(event) => setDamage(event.target.value)}
-          />
-          <button
-            type="button"
-            disabled={disabled || !Number.isFinite(damageAmount) || damageAmount <= 0}
-            onClick={() => applyDelta("damage", damageAmount)}
-          >
-            Damage
-          </button>
-          <input
-            aria-label={`Healing for ${entity.name}`}
-            type="number"
-            min="0"
-            value={heal}
-            disabled={disabled}
-            onChange={(event) => setHeal(event.target.value)}
-          />
-          <button
-            type="button"
-            disabled={disabled || !Number.isFinite(healAmount) || healAmount <= 0}
-            onClick={() => applyDelta("heal", healAmount)}
-          >
-            Heal
-          </button>
-        </div>
-      </td>
-      <td className="combat-roster-notes">
-        <span className="eyebrow">Conditions</span>
-        <textarea rows={1}
-          aria-label={`Conditions for ${entity.name}`}
-          value={entity.conditions.join(", ")}
-          disabled={disabled}
-          onChange={(event) => update({
-            conditions: event.target.value.split(",").map((item) => item.trim()).filter(Boolean),
-          })}
-        />
-        <span className="eyebrow">Notes</span>
-        <textarea
-          aria-label={`Notes for ${entity.name}`}
-          value={entity.notes}
-          disabled={disabled}
-          onChange={(event) => update({ notes: event.target.value })}
-        />
-      </td>
-      <td>
-        <label>
-          <input
-            type="checkbox"
-            checked={entity.defeated}
-            disabled={disabled}
-            onChange={(event) => update({ defeated: event.target.checked })}
-          />{" "}
-          Defeated
-        </label>
-        <button type="button" aria-label={`Remove ${entity.name} from encounter draft`}
-          title="Remove from the draft. Revert restores the saved roster before Save."
-          disabled={disabled} onClick={onRemove}>Remove</button>
-        {error ? <div className="module-error">{error}</div> : null}
+          onKeyDown={event => { if (event.key === "Escape") event.stopPropagation(); }}>
+          <header>
+            <strong>{entity.name}</strong>
+            <button type="button" onClick={() => editor.current?.close()}>Done</button>
+          </header>
+          {(entity.world_identity || entity.statblock_title || entity.statblock_artifact_id) &&
+            <p className="module-muted">{entity.world_identity ? `World: ${entity.world_identity.label} · Manual stats` : entity.statblock_title ?? entity.statblock_artifact_id}</p>}
+          <fieldset disabled={disabled} className="combat-roster-edit-fields">
+            <legend>Tracked values</legend>
+            <label>Initiative<input aria-label={`Initiative for ${entity.name}`} value={asInput(entity.init)}
+              onChange={event => update({init: numberOrNull(event.target.value)})}/></label>
+            <label>AC<input aria-label={`AC for ${entity.name}`} value={asInput(entity.ac)} maxLength={64}
+              onChange={event => update({ac: manualStatValue(event.target.value)})}/></label>
+            <label>HP<input aria-label={`HP for ${entity.name}`} value={asInput(entity.hp)}
+              onChange={event => {
+                const value = event.target.value;
+                update({hp: numberOrNull(value) ?? (value.trim() ? value : null)});
+              }}/></label>
+            <label>Max HP<input aria-label={`Maximum HP for ${entity.name}`} value={asInput(entity.max_hp)} maxLength={64}
+              title="Whole numbers cap healing. Text values are tracked manually."
+              onChange={event => update({max_hp: manualStatValue(event.target.value)})}/></label>
+            <label>Temp HP<input aria-label={`Temp HP for ${entity.name}`} value={asInput(entity.temp_hp)}
+              onChange={event => update({temp_hp: Math.max(0, numberOrNull(event.target.value) ?? 0)})}/></label>
+            <label>Team<select aria-label={`Team for ${entity.name}`} value={entity.team}
+              onChange={event => update({team: event.target.value as CombatEntity["team"]})}>
+              <option value="pc">PC</option><option value="ally">Ally</option>
+              <option value="enemy">Enemy</option><option value="neutral">Neutral</option>
+            </select></label>
+            <div className="combat-roster-edit-deltas">
+              <input aria-label={`Damage for ${entity.name}`} type="number" min="0" value={damage} onChange={event => setDamage(event.target.value)}/>
+              <button type="button" disabled={!Number.isFinite(damageAmount) || damageAmount <= 0} onClick={() => applyDelta("damage", damageAmount)}>Damage</button>
+              <input aria-label={`Healing for ${entity.name}`} type="number" min="0" value={heal} onChange={event => setHeal(event.target.value)}/>
+              <button type="button" disabled={!Number.isFinite(healAmount) || healAmount <= 0} onClick={() => applyDelta("heal", healAmount)}>Heal</button>
+            </div>
+            <label className="combat-roster-edit-text">Conditions<textarea rows={2} aria-label={`Conditions for ${entity.name}`}
+              value={conditionsInput ?? entity.conditions.join(", ")}
+              onBlur={() => setConditionsInput(null)}
+              onChange={event => {
+                const value = event.target.value;
+                setConditionsInput(value);
+                update({conditions: value.split(",").map(item => item.trim()).filter(Boolean)});
+              }}/></label>
+            <label className="combat-roster-edit-text">Notes<textarea rows={3}
+              aria-label={`Notes for ${entity.name}`} value={entity.notes} onChange={event => update({notes: event.target.value})}/></label>
+            <div className="combat-roster-edit-options">
+              <button type="button" aria-label={`Set ${entity.name} as current actor`} onClick={onSetActive} disabled={entity.defeated}>Set current</button>
+              <button type="button" aria-label={`Move ${entity.name} earlier`} disabled={!canMoveEarlier} onClick={() => {editor.current?.close(); onMove("earlier");}}>↑</button>
+              <button type="button" aria-label={`Move ${entity.name} later`} disabled={!canMoveLater} onClick={() => {editor.current?.close(); onMove("later");}}>↓</button>
+              <label><input type="checkbox" checked={entity.defeated} onChange={event => {editor.current?.close(); update({defeated: event.target.checked});}}/> Defeated</label>
+              <button type="button" aria-label={`Remove ${entity.name} from encounter draft`}
+                title="Remove from the draft. Revert restores the saved roster before Save."
+                onClick={() => {editor.current?.close(); onRemove();}}>Remove</button>
+            </div>
+          </fieldset>
+          {error && <p className="module-error" role="alert">{error}</p>}
+        </dialog>
       </td>
     </tr>
   );
@@ -829,6 +799,7 @@ export function CombatRosterModule({scope,variant,encounterListHref}:{scope?:Com
                           key={entity.id}
                           entity={entity}
                           active={entity.id === visibleDraft.active_turn_entity_id}
+                          next={entity.id === next?.id}
                           hidden={hidden}
                           projection={projection}
                           onMove={direction => moveEntity(entity.id, direction)}
