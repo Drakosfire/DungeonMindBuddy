@@ -36,6 +36,9 @@ The bounded UI split preserves #3824's hosted auth at
 changes at `a4bd3a75f64a1202fa50f19a96a3bbb84ca7ff27`. The relevant #3812
 changes are already in main. #3867 at
 `a2c5d9115bf1347f2cd84a2808d3dec29ddc3242` remains reference-only.
+In the shared `agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx`,
+this slice owns only the existing Build placement-recovery case. Its fixture
+now supplies deliberately selected text and asserts the exact selection sent.
 This assignment does not allocate a migration, hosted rollout or serving pin.
 
 ## Verification
