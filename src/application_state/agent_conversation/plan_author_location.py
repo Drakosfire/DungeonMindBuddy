@@ -284,7 +284,7 @@ _EXCLUSION_BEFORE = re.compile(r'\b(?:rather than|except)(?:\s+the one inside)?$
 _EXCLUSION_AFTER = re.compile(r'^,?\s*(?:rather than|except)\b', re.IGNORECASE)
 _EXCLUSION_SEPARATOR = re.compile(r'\b(?:rather than|except)\b', re.IGNORECASE)
 _SCOPE_DIRECTIVE_CONTRAST = re.compile(
-    r'\buse\b(?P<positive>[^,.!?;:\n]+?)(?:\s+for this (?:change|edit))?,\s*not\b'
+    r'\buse\b(?P<positive>[^,.!?;:\n]+?)(?:\bfor this (?:change|edit))?,\s*not\b'
     r'(?P<excluded>[^,.!?;:\n]+)(?=[,:.!?;\n]|$)', re.IGNORECASE)
 _INCLUDE_DESCENDANTS = re.compile(
     r',\s*including\s+(?:all\s+)?(?:its\s+)?(?:subsections|descendant sections)\b', re.IGNORECASE)
