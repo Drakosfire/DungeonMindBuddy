@@ -532,15 +532,16 @@ def test_v2_reader_fence_refuses_older_application_and_downgrade_without_schema_
         with psycopg.connect(application_state_dsn) as conn:
             return conn.execute("SELECT version_num FROM application_state.schema_migrations").fetchone()[0]
 
-    assert version() == "20261120_0172"
+    current_head = cli._alembic_head()
+    assert version() == current_head
     with monkeypatch.context() as patch:
         patch.setattr(cli, "_alembic_head", lambda: older_head)
         with pytest.raises(ApplicationStateMigrationError):
             cli.assert_at_head(dsn=application_state_dsn)
-    assert version() == "20261120_0172"
+    assert version() == current_head
     with pytest.raises(RuntimeError, match="forward recovery"):
         command.downgrade(cli.alembic_config(), "20261120_0171")
-    assert version() == "20261120_0172"
+    assert version() == current_head
     cli.assert_at_head(dsn=application_state_dsn)
 
 
