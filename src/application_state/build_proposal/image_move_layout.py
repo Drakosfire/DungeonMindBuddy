@@ -27,6 +27,8 @@ def _attrs(node, expected, *, allow_null_extra=False):
 
 
 def _block(node, binding, source):
+    if set(node) - {"type", "attrs", "content"}:
+        raise ValueError("Editor block carries unsupported data")
     if isinstance(binding, ImageText):
         if node.get("type") != "pageImageText":
             raise ValueError("Editor image stack differs from the saved Page")
@@ -37,8 +39,6 @@ def _block(node, binding, source):
         return
     if not isinstance(binding, BlockBinding):
         raise ValueError("Unsupported saved block")
-    if set(node) - {"type", "attrs", "content"}:
-        raise ValueError("Editor block carries unsupported data")
     text = source[binding.byte_start:binding.byte_end].decode("utf-8")
     tokens = MarkdownIt("commonmark", {"html": True}).parse(text)
     node_attrs = {"pageBlockId":binding.id}

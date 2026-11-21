@@ -597,6 +597,33 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
             forged_placement.project_editor_move(raw_editor, before, markdown, asset_id)
 
 
+def test_image_move_layout_rejects_extra_image_stack_fields():
+    from application_state.build_proposal.image_move_layout import require_build_image_layout
+    from application_state.content.page_presentation import ImageText
+
+    asset = "11111111-1111-4111-8111-111111111111"
+    markdown = f"![Map](dmb-media:{asset})\n\nSurvey caption.\n"
+    raw = markdown.encode()
+    image, caption = [
+        BlockBinding(id=id_, byte_start=start, byte_end=end, sha256=sha256(raw[start:end]).hexdigest())
+        for id_, (start, end) in zip(("map", "caption"), source_block_spans(markdown), strict=True)
+    ]
+    stack = ImageText(id="stack", image=image, text=caption)
+    layout = PagePresentation(markdown_sha256=sha256(raw).hexdigest(), items=[stack]).checked(markdown)
+    node = {"type":"pageImageText","attrs":{"id":"stack","anchor":stack.anchor,"inset":stack.inset,"backing":stack.backing},
+        "content":[
+            {"type":"paragraph","attrs":{"pageBlockId":"map"},"content":[
+                {"type":"mediaImage","attrs":{"assetId":asset,"alt":"Map"}},
+            ]},
+            {"type":"paragraph","attrs":{"pageBlockId":"caption"},"content":[{"type":"text","text":"Survey caption."}]},
+        ]}
+    editor = {"type":"doc","content":[node]}
+    require_build_image_layout(editor, markdown, layout)
+    node["marks"] = [{"type":"bold"}]
+    with pytest.raises(ValueError, match="unsupported data"):
+        require_build_image_layout(editor, markdown, layout)
+
+
 def test_image_move_review_consumes_once_and_confirms_only_exact_protected_save(application_state_dsn):
     from io import BytesIO
     from PIL import Image
