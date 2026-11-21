@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from apps.live_control_server.routes import graph_preview
+from apps.live_control_server.routes import build_extraction
 
 
 SOURCE = "The Azure Reach is a continent. Asterport is a city.\n"
@@ -35,7 +35,7 @@ def test_gazetteer_launch_binds_generation_to_committed_build_source(
     source_path.write_text(SOURCE, encoding="utf-8")
     committed = get_workspace_document(tmp_path, record.document_id)
     digest = hashlib.sha256(SOURCE.encode("utf-8")).hexdigest()
-    monkeypatch.setattr(graph_preview, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(build_extraction, "repo_root", lambda: tmp_path)
 
     captured: list[dict[str, Any]] = []
 
@@ -63,7 +63,7 @@ def test_gazetteer_launch_binds_generation_to_committed_build_source(
         "run_gazetteer_with_generation_engine",
         _execute,
     )
-    payload = graph_preview.post_extraction_run(
+    payload = build_extraction.post_extraction_run(
         {
             "document_id": committed.document_id,
             "expected_revision": committed.revision,
