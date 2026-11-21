@@ -176,6 +176,7 @@
         "tests/test_surface_native_execution.py",
         "tests/test_native_object_retrieval.py",
         "tests/test_jev_retrieval_contract.py",
+        "tests/test_build_prose_catalog.py",
         "tests/test_build_decision_context.py",
         "tests/test_surface_native_build_decision.py",
         "tests/test_native_writer_projection.py",
