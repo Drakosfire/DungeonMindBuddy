@@ -473,6 +473,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 rule_fields = fields["add_rules"]["items"]["properties"]
                 if "authored_quotes" in rule_fields:
                     new_rule = {"rule": new_rule, "authored_quotes": []}
+                if "authored_passages" in rule_fields:
+                    new_rule = {"rule": new_rule, "authored_passages": []}
                 if "carried_condition" in rule_fields:
                     new_rule["carried_condition"] = None
                 candidate["statblock_variant"] = {
@@ -486,6 +488,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert list(passages) == list(review["properties"]) == review["required"]
                     assert "markdown" not in work["current_draft"]
                     candidate["statblock_variant"]["passage_review"] = dict.fromkeys(passages, "omit")
+                    if "authored_passages" in rule_fields:
+                        offered = rule_fields["authored_passages"]["items"]["enum"]
+                        assert offered == list(passages)
+                        handle = offered[0]
+                        candidate["statblock_variant"]["passage_review"][handle] = "retain"
+                        new_rule["authored_passages"] = [handle]
             if native_body or authored_source:
                 from application_state.agent_conversation import native_corpus as corpus
                 acquired = corpus.acquired_body_reads(self.adapter._broker_execution())

@@ -215,7 +215,7 @@ def normalize_output(receipt, execution, authorization, *, prepared_request_json
 
 def normalize_statblock_variant(candidate, work_frame, *, variant_edits=False, variant_witnesses=False,
                                 variant_carried_condition=False, variant_passage_review=False,
-                                variant_trigger_retention=False):
+                                variant_trigger_retention=False, variant_passage_witnesses=False):
     from .native_build_work_view import variant_draft_passages, variant_sources
 
     proposal = candidate.get("statblock_variant")
@@ -246,8 +246,17 @@ def normalize_statblock_variant(candidate, work_frame, *, variant_edits=False, v
     base = sources[source]
     if variant_witnesses:
         markdown = work_frame.get("working_draft_context", {}).get("draft_markdown", "")
+        witnessed_passages = None
+        if variant_passage_witnesses:
+            witnessed_passages = {
+                handle for handle in variant_draft_passages(work_frame)
+                if proposal["passage_review"][handle] != "omit"
+            }
         proposal = {
-            field: _unwrap_witnessed_edits(proposal[field], markdown, carried_condition=variant_carried_condition)
+            field: _unwrap_witnessed_edits(
+                proposal[field], markdown, carried_condition=variant_carried_condition,
+                witnessed_passages=witnessed_passages,
+            )
             for field in ("add_rules", "replace_rules")
         }
     definition = (
@@ -293,23 +302,29 @@ def _unique_authored_quote(markdown, quote):
     return start >= 0 and markdown.find(quote, start + 1) < 0
 
 
-def _unwrap_witnessed_edits(edits, markdown, *, carried_condition=False):
+def _unwrap_witnessed_edits(edits, markdown, *, carried_condition=False, witnessed_passages=None):
     from copy import deepcopy
     if not isinstance(edits, list):
         raise ValueError("Witnessed statblock rule edits must be arrays")
     rules = []
-    fields = {"authored_quotes", "rule"}
+    witness_field = "authored_quotes" if witnessed_passages is None else "authored_passages"
+    fields = {witness_field, "rule"}
     if carried_condition:
         fields.add("carried_condition")
     for edit in edits:
         if not isinstance(edit, dict) or set(edit) != fields:
             raise ValueError("Each witnessed edit must contain its quotes and rule")
-        quotes = edit["authored_quotes"]
-        if not isinstance(quotes, list):
-            raise ValueError("Authored rule quotes must be an array")
-        for quote in quotes:
-            if not _unique_authored_quote(markdown, quote):
-                raise ValueError("Statblock rule witness must identify exact authored text")
+        witnesses = edit[witness_field]
+        if not isinstance(witnesses, list):
+            raise ValueError("Authored rule witnesses must be an array")
+        if witnessed_passages is None:
+            for quote in witnesses:
+                if not _unique_authored_quote(markdown, quote):
+                    raise ValueError("Statblock rule witness must identify exact authored text")
+        else:
+            for handle in witnesses:
+                if not isinstance(handle, str) or handle not in witnessed_passages:
+                    raise ValueError("Statblock rule witness must select an offered, non-omitted passage")
         rule = edit["rule"]
         condition = edit.get("carried_condition")
         if condition is not None:
@@ -387,7 +402,8 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
             variant_witnesses=evidence.variant_witnesses,
             variant_carried_condition=evidence.variant_carried_condition,
             variant_passage_review=evidence.variant_passage_review,
-            variant_trigger_retention=evidence.variant_trigger_retention)
+            variant_trigger_retention=evidence.variant_trigger_retention,
+            variant_passage_witnesses=evidence.variant_passage_witnesses)
     segments, body_cites, statement_cites, assertion_cites,saved_cites = [], [], [], [],[]
     blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key),local=evidence.authored_local)
     selected_blocks=set()

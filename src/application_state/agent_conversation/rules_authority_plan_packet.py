@@ -341,7 +341,7 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
         # Historical grammar is read-only: fresh admission never opts into it.
         retained = (allow_retained_format and body.get('text', {}).get('format', {}).get('name')
             == 'surface_native_evidence_selectors_v1')
-        from .native_build_work_view import VARIANT_CARRIED_CONDITION_FORMAT, VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_WRITER_FORMAT, VARIANT_PASSAGE_REVIEW_FORMAT, VARIANT_TRIGGER_RETENTION_FORMAT, variant_output_version, variant_sources
+        from .native_build_work_view import VARIANT_CARRIED_CONDITION_FORMAT, VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_WRITER_FORMAT, VARIANT_PASSAGE_REVIEW_FORMAT, VARIANT_TRIGGER_RETENTION_FORMAT, VARIANT_PASSAGE_WITNESS_FORMAT, variant_output_version, variant_sources
 
         actual_format = body.get("text", {}).get("format", {}).get("name")
         needs_variant_format = evidence.build_local and not frame.lookups and variant_sources(evidence.work_frame)
@@ -349,6 +349,8 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
         if needs_variant_format:
             if not allow_retained_format:
                 version = variant_output_version(evidence.work_frame)
+            elif actual_format == VARIANT_PASSAGE_WITNESS_FORMAT:
+                version = 11
             elif actual_format == VARIANT_TRIGGER_RETENTION_FORMAT:
                 version = 10
             elif actual_format == VARIANT_PASSAGE_REVIEW_FORMAT:

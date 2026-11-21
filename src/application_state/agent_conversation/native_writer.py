@@ -148,6 +148,7 @@ class NativeWriterEvidence:
     variant_carried_condition: bool = False
     variant_passage_review: bool = False
     variant_trigger_retention: bool = False
+    variant_passage_witnesses: bool = False
 
 
 def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_proof,
@@ -356,7 +357,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     play_local = semantic_play(work_frame)
     authored_local = semantic_work(work_frame) or play_local
     from .native_build_work_view import is_semantic_frame as semantic_build, semantic_frame as build_work_view
-    from .native_build_work_view import VARIANT_CARRIED_CONDITION_FORMAT, VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_WRITER_FORMAT, VARIANT_PASSAGE_FORMATS, VARIANT_TRIGGER_RETENTION_FORMAT
+    from .native_build_work_view import VARIANT_CARRIED_CONDITION_FORMAT, VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_WRITER_FORMAT, VARIANT_PASSAGE_FORMATS, VARIANT_TRIGGER_RETENTION_FORMAT, VARIANT_PASSAGE_WITNESS_FORMAT
     build_local = semantic_build(work_frame)
     format_name = body.get("text", {}).get("format", {}).get("name")
     variant_passage_review = format_name in VARIANT_PASSAGE_FORMATS
@@ -414,7 +415,8 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         variant_witnesses=format_name in {VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS},
         variant_carried_condition=format_name in {VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS},
         variant_passage_review=variant_passage_review,
-        variant_trigger_retention=format_name == VARIANT_TRIGGER_RETENTION_FORMAT,
+        variant_trigger_retention=format_name in {VARIANT_TRIGGER_RETENTION_FORMAT, VARIANT_PASSAGE_WITNESS_FORMAT},
+        variant_passage_witnesses=format_name == VARIANT_PASSAGE_WITNESS_FORMAT,
         saved_sections=saved_sections,related_pages=related_pages,draft_record=draft_record,
         **read_evidence_records(prefix,expected,passages_only=prose_frame is not None))
 
