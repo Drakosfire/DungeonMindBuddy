@@ -134,7 +134,7 @@ def test_plan_checkpoint_append_fences_root_and_rolls_back(application_state_dsn
     import psycopg
     from application_state.agent_conversation import repository as repo
     from application_state.agent_conversation.plan_execution_checkpoints import (
-        append_group, load_checkpoint, recover_execution, start_checkpoint,
+        append_group, start_checkpoint,
     )
 
     turn = sdk_case(application_state_dsn, native="current").turn
@@ -172,10 +172,14 @@ def test_plan_checkpoint_append_fences_root_and_rolls_back(application_state_dsn
             checkpoint=checkpoint, events=full.events[-1:]) == revision+1
     with psycopg.connect(application_state_dsn) as reader:
         persisted = repo.lock_turn(reader, turn.world_id, turn.turn_id)
-        checkpoint, groups = load_checkpoint(reader, turn.turn_id)
-        assert recover_execution(turn_id=persisted.turn_id, attempt=persisted.attempt,
-            revision=persisted.revision, prefix=persisted.graph_context_execution,
-            checkpoint=checkpoint, groups=groups) == full
+        assert persisted.revision == revision+1
+        assert persisted.graph_context_execution == full
+        image = repo._lock_plan_session_image(reader, turn.world_id, turn.turn_id)
+        assert repo.materialize_plan_checkpoint(reader, before=image) == persisted
+    with psycopg.connect(application_state_dsn) as reopened:
+        assert repo.lock_turn(reopened, turn.world_id, turn.turn_id).graph_context_execution == full
+        assert reopened.execute("SELECT count(*) FROM agent.plan_execution_checkpoint_group "
+            "WHERE turn_id=%s", (turn.turn_id,)).fetchone() == (0,)
 
 
 def test_readonly_session_commits_detached_views_and_finishes_through_real_codec(application_state_dsn):

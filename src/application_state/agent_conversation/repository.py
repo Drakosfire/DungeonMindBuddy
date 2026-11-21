@@ -244,6 +244,45 @@ def _update_plan_session_execution(conn, *, world_id, turn_id, before, execution
     return after
 
 
+def materialize_plan_checkpoint(conn, *, before):
+    """Replace a locked checkpoint with the exact ordinary execution before handoff."""
+    from .plan_execution_checkpoints import load_checkpoint
+
+    prior = dict(before[0])
+    stored = load_checkpoint(conn, prior["turn_id"])
+    if stored is None:
+        return None
+    checkpoint, _ = stored
+    turn = lock_turn(conn, prior["world_id"], prior["turn_id"])
+    if (turn is None or turn.revision != prior["revision"]
+            or turn.attempt != checkpoint.attempt):
+        raise ApplicationStateIntegrityError("Plan checkpoint closure crossed its locked Turn")
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("""
+            WITH expected AS (SELECT %s::jsonb AS execution)
+            UPDATE agent.turn AS turn SET graph_context_execution=expected.execution
+            FROM expected
+            WHERE turn.world_id=%s AND turn.turn_id=%s AND turn.attempt=%s AND turn.revision=%s
+              AND turn.status='running' AND turn.claim_expires_at>clock_timestamp()
+            RETURNING pg_catalog.jsonb_send(expected.execution) AS expected
+            """, (Jsonb(turn.graph_context_execution.model_dump(mode="json", by_alias=True)),
+                  turn.world_id, turn.turn_id, turn.attempt, turn.revision))
+        acknowledgement = cur.fetchone()
+    if acknowledgement is None:
+        raise ApplicationStateIntegrityError("Plan checkpoint closure lost its live claim")
+    deleted = conn.execute("""
+        DELETE FROM agent.plan_execution_checkpoint
+        WHERE turn_id=%s AND attempt=%s AND revision=%s AND next_sequence=%s
+        """, (turn.turn_id, turn.attempt, checkpoint.revision, checkpoint.next_sequence))
+    if deleted.rowcount != 1:
+        raise ApplicationStateIntegrityError("Plan checkpoint closure lost its committed suffix")
+    after = _lock_plan_session_image(conn, turn.world_id, turn.turn_id)
+    expected = prior | {"graph_context_execution": bytes(acknowledgement["expected"])}
+    if after is None or dict(after[0]) != expected or after[1:] != before[1:]:
+        raise ApplicationStateIntegrityError("Plan checkpoint closure changed its locked storage image")
+    return turn
+
+
 def _references_from_rows(rows):
     # One primary + up to32 supporting + one selected. The SQL sentinel row
     # detects excess rather than silently truncating a corrupt provenance set.
@@ -884,7 +923,23 @@ def lock_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> TurnRea
             (world_id, turn_id),
         )
         row = cur.fetchone()
-    return None if row is None else _turn_from_row(conn, row)
+    if row is None:
+        return None
+    if row["status"] == "running":
+        from .plan_execution_checkpoints import load_checkpoint, recover_execution
+        from .native_execution import SurfaceNativeExecutionV1
+
+        stored = load_checkpoint(conn, turn_id)
+        if stored is not None:
+            checkpoint, groups = stored
+            try:
+                prefix = SurfaceNativeExecutionV1.model_validate_json(to_json(row["graph_context_execution"]))
+            except ValidationError as exc:
+                raise ApplicationStateIntegrityError("Plan checkpoint opening execution is invalid") from exc
+            recovered = recover_execution(turn_id=turn_id, attempt=row["attempt"],
+                revision=row["revision"], prefix=prefix, checkpoint=checkpoint, groups=groups)
+            row["graph_context_execution"] = recovered.model_dump(mode="json", by_alias=True)
+    return _turn_from_row(conn, row)
 
 
 def list_turn_page(
