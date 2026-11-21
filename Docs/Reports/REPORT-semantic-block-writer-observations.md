@@ -132,3 +132,25 @@ the exact two requested sentences. The earlier capture mismatch remains open.
   Graph changes. No authoring composer or delegation was offered in the review,
   so the request was ineligible for submission. The UI comparison confirms
   visible text and source identity. A byte-level comparison remains pending.
+
+### Hosted Plan selected-callout rewrite
+
+On release `f84b93e7`, the P02 fixture in Buddy Cloud Pilot had a marked
+Arrival scene, the titled **First sight** Read Aloud, a private GM Note,
+the red-gate choice, and the sibling Departure scene. The editor selection
+was confirmed by copying the exact First sight body before opening the
+composer. The ordinary Send request was “Rewrite this to emphasize the
+three lanterns.”
+
+The proposal retained Read Aloud and the First sight title. It appeared as
+an insertion above the original block, which was still present, and included
+the host's partial-retrieval disclosure as editable text. This fails
+replacement placement and document-content isolation. The pre-send copy
+does not prove what selection the Plan writer captured at Send. The proposal
+was dismissed, and the saved timestamp, original passage, private note, and
+Departure sentinel remained visible.
+
+[Plan placement PR #4264](https://github.com/Drakosfire/DungeonMindBuddy/pull/4264)
+covers selection binding and keeping retrieval disclosure in conversation.
+A hosted P02 rerun still needs to prove exact replacement, save and reopen
+on the same fixture.
