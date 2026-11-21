@@ -101,6 +101,65 @@ def test_plan_session_storage_image_covers_root_and_locked_provenance(applicatio
         conn.rollback()
 
 
+def test_plan_checkpoint_recovery_preserves_exact_typed_execution(application_state_dsn):
+    from dataclasses import replace
+    from application_state.agent_conversation.plan_execution_checkpoints import (
+        EventCheckpoint, EventCheckpointGroup, recover_execution,
+    )
+    from application_state.errors import ApplicationStateIntegrityError
+
+    turn = sdk_case(application_state_dsn, native="current").turn
+    full = turn.graph_context_execution
+    event_count = len(full.events)
+    assert event_count > 1
+    prefix = full.model_copy(update={"events": full.events[:-1]})
+    events = full.model_dump(mode="json", by_alias=True)["events"][-1:]
+    checkpoint = EventCheckpoint(turn.turn_id, turn.attempt, turn.revision-1,
+        turn.revision, event_count-1, event_count,
+        t.canonical_sha256(prefix.model_dump(mode="json", by_alias=True)))
+    group = EventCheckpointGroup(turn.revision, event_count-1, event_count,
+        events, t.canonical_sha256(events))
+    request = dict(turn_id=turn.turn_id, attempt=turn.attempt, revision=turn.revision,
+        prefix=prefix, checkpoint=checkpoint)
+    assert recover_execution(**request, groups=[group]) == full
+    with pytest.raises(ApplicationStateIntegrityError, match="suffix is incomplete"):
+        recover_execution(**request, groups=[])
+    with pytest.raises(ApplicationStateIntegrityError, match="changed or is out of order"):
+        recover_execution(**request, groups=[replace(group, events_sha256="f"*64)])
+    with pytest.raises(ApplicationStateIntegrityError, match="locked Turn"):
+        recover_execution(**(request | {"attempt": turn.attempt+1}), groups=[group])
+
+
+def test_plan_checkpoint_append_fences_root_and_rolls_back(application_state_dsn):
+    import psycopg
+    from application_state.agent_conversation import repository as repo
+    from application_state.agent_conversation.plan_execution_checkpoints import append_group, start_checkpoint
+
+    turn = sdk_case(application_state_dsn, native="current").turn
+    full = turn.graph_context_execution
+    prefix = full.model_copy(update={"events": full.events[:-1]})
+    with psycopg.connect(application_state_dsn) as conn:
+        with conn.transaction(force_rollback=True):
+            before = repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id)
+            image = repo._update_plan_session_execution(conn, world_id=turn.world_id,
+                turn_id=turn.turn_id, before=before, execution=prefix)
+            revision = dict(image[0])["revision"]
+            checkpoint = start_checkpoint(conn, world_id=turn.world_id, turn_id=turn.turn_id,
+                attempt=turn.attempt, revision=revision, prefix=prefix)
+            request = dict(world_id=turn.world_id, checkpoint=checkpoint, events=full.events[-1:])
+            assert append_group(conn, **request, root_revision=revision-1) is None
+            assert append_group(conn, **request, root_revision=revision) == revision+1
+            assert append_group(conn, **request, root_revision=revision+1) is None
+            current = repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id)
+            assert dict(current[0])["revision"] == revision+1
+            assert dict(current[0])["graph_context_execution"] == dict(image[0])["graph_context_execution"]
+            assert conn.execute("SELECT count(*) FROM agent.plan_execution_checkpoint_group "
+                "WHERE turn_id=%s", (turn.turn_id,)).fetchone() == (1,)
+        assert repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id) == before
+        assert conn.execute("SELECT count(*) FROM agent.plan_execution_checkpoint_group "
+            "WHERE turn_id=%s", (turn.turn_id,)).fetchone() == (0,)
+
+
 def test_readonly_session_commits_detached_views_and_finishes_through_real_codec(application_state_dsn):
     from application_state.agent_conversation.native_plan_session import NativePlanSession, PlanSessionCommand, eligible
 
