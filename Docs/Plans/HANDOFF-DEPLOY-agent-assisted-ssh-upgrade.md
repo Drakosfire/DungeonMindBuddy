@@ -48,13 +48,22 @@ a production deployment, migration, backup, restore, or permission grant.
   backup` example cannot be run as `alan` on this host as-is. Do not replace it
   with an unverified bare dump or claim a backup rehearsal from a checksum
   alone.
-- The intended follow-up is a separately reviewed, disposable recovery image
-  built from an exact Buddy source SHA. It must package the APP authority CLI
-  and PostgreSQL 16 `pg_dump`/`pg_restore`, run without the Docker socket, and
-  reach only the APP database and its protected backup workspace. Validate the
-  snapshot-consistent dump, checksum/fingerprint sidecars, clean-target restore,
-  and fingerprint parity against an isolated PostgreSQL fixture before using
-  it for the 0172 rehearsal. This image is not implemented or approved yet.
+- The recovery tool is now implemented in PR
+  [#4364](https://github.com/Drakosfire/DungeonMindBuddy/pull/4364), parallel-
+  independent of this documentation PR. At head
+  `20e7b404f0c101fcf373283eae83e615bbb074a0`, five focused builder tests and
+  the isolated synthetic APP backup/clean-target restore proof passed with
+  checksum and fingerprint parity; corrupt dumps and nonempty restore targets
+  were refused. The resulting non-root image was built locally against a
+  synthetic runtime image. This proves the CLI’s fixture contract, not the
+  provenance of a production release image or its use with a production backup.
+- PR #4364 remains draft. Its exact-head hosted frontend verifier is still
+  pending because the shared verification lock is occupied; full discovered
+  diagnostics are historically red. It has not been tested with the serving
+  image, an operator-provided production backup, paired WorldGraph recovery,
+  or a real restore. Do not use it for the 0172 rehearsal until its remaining
+  review and verification gates pass. No production backup, restore, migration,
+  or deployment has occurred.
 - Before any production migration, rehearse restore of the current APP
   authority into a separate empty target, verify fingerprint parity, apply the
   candidate migrations only to that target, and record the resulting schema
