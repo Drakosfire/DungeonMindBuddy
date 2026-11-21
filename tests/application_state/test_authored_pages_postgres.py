@@ -10,8 +10,9 @@ import pytest
 from pydantic import ValidationError
 
 from application_state import cli
-from application_state.content import pages, repository, service
-from application_state.content.types import WorkObject
+from application_state.content import page_presentation, pages, repository, service
+from application_state.content.markdown_source_blocks import source_block_spans
+from application_state.content.types import WorkObject, sha256_utf8
 from application_state.errors import (
     ApplicationStateConflictError,
     ApplicationStateIntegrityError,
@@ -607,3 +608,153 @@ def test_committed_lore_page_joins_the_owner_transaction(world, application_stat
     assert reopened.metadata.authority_state == "reviewed"
     assert reopened.revision == revision
     assert reopened.revision.markdown == "Approved body"
+
+
+PLAN_PRESENTATION_WORLD = "world:plan-presentation"
+PLAN_PRESENTATION_MARKDOWN = "A lantern marks the entrance.\n\nLeave the stair clear."
+
+
+def _presentation(markdown, *, first_width=6, identity_only=False):
+    bindings = []
+    for key, (start, end) in zip(
+        ("entrance", "stair"), source_block_spans(markdown), strict=True
+    ):
+        text = markdown.encode("utf-8")[start:end].decode("utf-8")
+        bindings.append(page_presentation.BlockBinding(
+            id=key, byte_start=start, byte_end=end, sha256=sha256_utf8(text)
+        ))
+    items = bindings if identity_only else [page_presentation.Row(
+        id="arrival-row",
+        slots=[
+            page_presentation.Slot(id="entrance-slot", width=first_width, blocks=bindings[:1]),
+            page_presentation.Slot(id="exit-slot", width=12 - first_width, blocks=bindings[1:]),
+        ],
+    )]
+    return page_presentation.PagePresentation(
+        markdown_sha256=sha256_utf8(markdown), items=items
+    )
+
+
+@pytest.fixture
+def plain_plan(application_state_dsn):
+    plan = service.create_world_plan(title="Arrival", world_id=PLAN_PRESENTATION_WORLD)
+    return service.commit_plan(
+        str(plan.work_object_id), PLAN_PRESENTATION_MARKDOWN,
+        expected_revision=plan.object_revision, expected_world_id=PLAN_PRESENTATION_WORLD,
+    )
+
+
+def _commit_layout(plan, markdown, layout, *, world_id=PLAN_PRESENTATION_WORLD, title=None):
+    return service.commit_plan(
+        str(plan.work_object_id), markdown, expected_revision=plan.object_revision,
+        expected_world_id=world_id, title=title, page_presentation=layout,
+    )
+
+
+def test_plan_presentation_layout_only_save_and_lost_ack_replay_preserve_exact_revision(plain_plan):
+    plain, plain_revision = plain_plan
+    document = str(plain.work_object_id)
+    assert "page_presentation" not in service.snapshot_plan(document).model_dump()
+
+    layout = _presentation(PLAN_PRESENTATION_MARKDOWN)
+    composed, revision = _commit_layout(plain, PLAN_PRESENTATION_MARKDOWN, layout, title="Composed arrival")
+    assert composed.object_revision == plain.object_revision + 1
+    assert revision.revision_n == plain_revision.revision_n + 1
+    assert revision.content_sha256 == plain_revision.content_sha256
+
+    assert _commit_layout(plain, PLAN_PRESENTATION_MARKDOWN, layout, title="Composed arrival") == (composed, revision)
+    with pytest.raises(ApplicationStateConflictError, match="revision mismatch"):
+        _commit_layout(plain, PLAN_PRESENTATION_MARKDOWN, _presentation(PLAN_PRESENTATION_MARKDOWN, first_width=8),
+                       title="Composed arrival")
+    with pytest.raises(ApplicationStateConflictError, match="revision mismatch"):
+        _commit_layout(plain, PLAN_PRESENTATION_MARKDOWN, layout, title="Different title")
+
+    snapshot = service.snapshot_plan(document)
+    assert (snapshot.markdown, snapshot.page_presentation) == (PLAN_PRESENTATION_MARKDOWN, layout)
+    assert snapshot.loaded_revision == composed.object_revision
+    assert not snapshot.from_working_copy
+
+
+def test_plan_presentation_explicit_prose_edit_and_unwrap_keep_block_identities(plain_plan):
+    plain, _ = plain_plan
+    composed, _ = _commit_layout(plain, PLAN_PRESENTATION_MARKDOWN, _presentation(PLAN_PRESENTATION_MARKDOWN))
+    updated_markdown = PLAN_PRESENTATION_MARKDOWN.replace("A lantern", "A blue lantern")
+    updated_layout = _presentation(updated_markdown)
+    edited, edited_revision = _commit_layout(composed, updated_markdown, updated_layout)
+    document = str(edited.work_object_id)
+    saved = service.snapshot_plan(document)
+    assert (saved.markdown, saved.page_presentation) == (updated_markdown, updated_layout)
+    assert [slot.id for slot in saved.page_presentation.items[0].slots] == [
+        "entrance-slot", "exit-slot"
+    ]
+    assert saved.page_presentation.items[0].id == "arrival-row"
+
+    identities = _presentation(updated_markdown, identity_only=True)
+    unwrapped, revision = _commit_layout(edited, updated_markdown, identities)
+    assert unwrapped.object_revision == edited.object_revision + 1
+    assert revision.content_sha256 == edited_revision.content_sha256
+    assert [item.id for item in service.snapshot_plan(document).page_presentation.items] == [
+        "entrance", "stair"
+    ]
+    with pytest.raises(ApplicationStateValidationError, match="explicit retained presentation"):
+        _commit_layout(unwrapped, updated_markdown, None)
+    assert service.snapshot_plan(document).page_presentation == identities
+
+
+def test_plan_presentation_enrolled_plan_refuses_older_writers_and_foreign_scope(plain_plan, application_state_dsn):
+    plain, _ = plain_plan
+    layout = _presentation(PLAN_PRESENTATION_MARKDOWN)
+    with pytest.raises(ApplicationStateValidationError, match="exact World and revision"):
+        service.commit_plan(str(plain.work_object_id), PLAN_PRESENTATION_MARKDOWN, page_presentation=layout)
+    composed, _ = _commit_layout(plain, PLAN_PRESENTATION_MARKDOWN, layout)
+    document = str(composed.work_object_id)
+    basis = {"expected_revision": composed.object_revision, "expected_world_id": PLAN_PRESENTATION_WORLD}
+    edited_markdown = PLAN_PRESENTATION_MARKDOWN.replace("lantern", "candle")
+    original = service.snapshot_plan(document)
+
+    with pytest.raises(ApplicationStateValidationError, match="explicit retained presentation"):
+        service.commit_plan(document, edited_markdown, **basis)
+    with pytest.raises(ApplicationStateValidationError, match="explicit retained presentation"):
+        service.commit_plan(document, edited_markdown, page_presentation=None, **basis)
+    with pytest.raises(ApplicationStateValidationError, match="Markdown-only working copy"):
+        service.autosave_plan(document, edited_markdown, **basis)
+    with pytest.raises(ApplicationStateValidationError, match="explicit retained presentation"):
+        with psycopg.connect(application_state_dsn) as conn:
+            service.commit_plan_in_connection(conn, document, edited_markdown, **basis)
+    with pytest.raises(ApplicationStateConflictError, match="not owned by selected World"):
+        _commit_layout(composed, PLAN_PRESENTATION_MARKDOWN, layout, world_id="world:foreign")
+    assert service.snapshot_plan(document) == original
+
+
+def test_plan_presentation_failed_revision_cas_rolls_back_layout_and_markdown(plain_plan, application_state_dsn, monkeypatch):
+    plan, revision = plain_plan
+    document = str(plan.work_object_id)
+    original = service.snapshot_plan(document)
+    with monkeypatch.context() as scoped_patch:
+        scoped_patch.setattr(repository, "update_work_object", lambda *args, **kwargs: None)
+        with pytest.raises(ApplicationStateConflictError, match="concurrent plan commit"):
+            _commit_layout(plan, PLAN_PRESENTATION_MARKDOWN, _presentation(PLAN_PRESENTATION_MARKDOWN))
+
+    assert service.snapshot_plan(document) == original
+    with psycopg.connect(application_state_dsn) as conn:
+        rows = conn.execute(
+            "SELECT r.work_revision_id, p.work_revision_id FROM content.work_revision r "
+            "LEFT JOIN content.page_presentation p USING (work_revision_id) "
+            "WHERE r.work_object_id = %s",
+            (plan.work_object_id,),
+        ).fetchall()
+    assert rows == [(revision.work_revision_id, None)]
+
+
+def test_plan_presentation_cold_read_refuses_divergent_markdown_only_draft(plain_plan, application_state_dsn):
+    plain, _ = plain_plan
+    composed, _ = _commit_layout(plain, PLAN_PRESENTATION_MARKDOWN, _presentation(PLAN_PRESENTATION_MARKDOWN))
+    divergent = "A legacy draft with no matching presentation."
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "UPDATE content.working_copy SET markdown = %s, content_sha256 = %s "
+            "WHERE work_object_id = %s",
+            (divergent, sha256_utf8(divergent), composed.work_object_id),
+        )
+    with pytest.raises(ApplicationStateConflictError, match="divergent Markdown-only working copy"):
+        service.snapshot_plan(str(composed.work_object_id))

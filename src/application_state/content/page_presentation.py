@@ -1,4 +1,4 @@
-"""Page-only layout metadata. Markdown remains the sole content authority."""
+"""Revision-bound layout metadata. Markdown remains the sole content authority."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 from uuid import UUID
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from markdown_it import MarkdownIt
 from pydantic import BaseModel, ConfigDict, Field
@@ -14,11 +14,13 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from application_state.content.markdown_source_blocks import source_block_spans
-from application_state.content.types import WorkRevision, sha256_utf8
 from application_state.errors import (
     ApplicationStateValidationError,
     ApplicationStateIntegrityError,
 )
+
+if TYPE_CHECKING:
+    from application_state.content.types import WorkRevision
 
 # Same preserved-envelope recognition as Build's splitLeadingYamlFrontmatter.
 _ENVELOPE = re.compile(
@@ -95,6 +97,8 @@ class PagePresentation(_Closed):
     ] = Field(max_length=2048)
 
     def checked(self, markdown: str) -> "PagePresentation":
+        from application_state.content.types import sha256_utf8
+
         if self.markdown_sha256 != sha256_utf8(markdown):
             raise ApplicationStateValidationError(
                 "presentation does not bind exact Markdown"
