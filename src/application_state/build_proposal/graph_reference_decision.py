@@ -343,6 +343,13 @@ class BuildGraphReferenceDecision:
                               "construct', a classification directly attached to the object's name, and 'do not use a threat' "
                               "all impose a type constraint. A location mentioned only "
                               "as the destination or heading is not a type constraint on the object.")),
+                ChoiceDecisionQuestion(name="reference_nomination", options=("unresolved", *objects),
+                    question=(
+                        "Which one existing object is identified by the author's own object expression? "
+                        "Resolve only evidence that applies to the object itself, such as an exact alternate name "
+                        "or a classification when required. Choose unresolved when more than one identity fits. "
+                        "The anchor paragraph cannot identify the object."
+                    )),
                 *(ChoiceDecisionQuestion(name=alias, options=("include", "exclude"),
                     question=(
                         f"Does graph_objects {alias} match the requested name and all object qualifiers, "
@@ -413,14 +420,15 @@ class BuildGraphReferenceDecision:
         matches = included if requested_kind == "unspecified" else [candidate for candidate in included if candidate.entity_kind == kind]
         if not matches:
             return BuildGraphReferenceNomination(disposition="wrong_kind")
-        if len(matches) != 1:
+        chosen = matches[0] if len(matches) == 1 else objects.get(answers["reference_nomination"])
+        if chosen is None or chosen not in matches:
             return BuildGraphReferenceNomination(disposition="ambiguous_identity")
-        chosen = matches[0]
         chosen_names = _names(chosen)
-        if self.author_selected is None and any(
+        has_namesake = self.author_selected is None and any(
             candidate.reference != chosen.reference and _names(candidate) & chosen_names
             for candidate in self.candidates
-        ) and not _has_distinguishing_expression(
+        )
+        if (len(matches) > 1 or has_namesake) and not _has_distinguishing_expression(
             self.question, chosen, self.candidates, kind,
         ):
             return BuildGraphReferenceNomination(disposition="ambiguous_identity")

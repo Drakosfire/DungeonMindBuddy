@@ -197,7 +197,7 @@ def graph_decision(captured_page):
 
 def graph_response(**changes):
     labels = dict(work="place_paragraph", destination="current_page", relation="after", scope="named",
-                  anchor_occurrence="passage2",
+                  anchor_occurrence="passage2", reference_nomination="object2",
                   text0="include", scope0="exclude", scope1="include", reference_intent="place_existing",
                   reference_kind="class1", reference_kind_constraint="requires_or_excludes_type", object1="exclude",
                   object2="include", object3="exclude")
@@ -339,6 +339,27 @@ def test_graph_identity_expression_must_uniquely_match_the_authorized_inventory(
         assert result.disposition == "ambiguous_identity" and result.placement is None
     else:
         assert result.placement.reference.node_id == expected
+
+
+@pytest.mark.parametrize("question,nomination,expected", [
+    ("Link Blue Watch after the moon in East.", "object2", "ready"),
+    ("Link Blue Watch after the moon in East.", "object1", "ambiguous_identity"),
+    ("Link Blue Watch after the moon in East.", "unresolved", "ambiguous_identity"),
+    ("Link Ivory Sentry after the paragraph mentioning Blue Watch.", "object2", "ambiguous_identity"),
+])
+def test_multiple_graph_matches_require_model_nomination_and_unique_author_evidence(
+    graph_decision, question, nomination, expected,
+):
+    first, second, third = graph_decision.candidates
+    decision = replace(graph_decision, question=question, author_selected=None, candidates=(
+        first, second.model_copy(update={"aliases": ("Blue Watch",)}), third,
+    ))
+    result = decision.resolve(graph_response(object1="include", reference_nomination=nomination))
+    assert result.disposition == expected
+    if expected == "ready":
+        assert result.placement.reference == second.reference
+    else:
+        assert result.placement is None
 
 
 @pytest.mark.parametrize("question", [
