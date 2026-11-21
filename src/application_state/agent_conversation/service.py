@@ -2437,6 +2437,7 @@ class AgentConversationService:
 
     def admit_build_prior_body_evidence(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, history_turn_ids):
+        from collections import Counter
         from .native_corpus import (
             PriorBodyCitationReferenceV1, prior_conversation_work, resolve_prior_body_citation,
         )
@@ -2451,7 +2452,7 @@ class AgentConversationService:
             if (work is None or pointer is None or pointer.active_conversation_id != current.conversation_id
                     or len(history_turn_ids) > 6 or len(set(history_turn_ids)) != len(history_turn_ids)):
                 raise ValueError("Prior body evidence requires the current Build conversation")
-            supports = []
+            supports = {}
             for prior_id in history_turn_ids:
                 prior = repo.get_turn(conn, current.world_id, prior_id)
                 if prior is None:
@@ -2465,6 +2466,7 @@ class AgentConversationService:
                 if not citations:
                     continue
                 completion_digest = canonical_sha256(completion)
+                citation_counts = Counter(citation.segment_index for citation in citations)
                 for ordinal, citation in enumerate(citations):
                     if citation.prior_reference is not None:
                         continue
@@ -2472,10 +2474,17 @@ class AgentConversationService:
                         completion_sha256=completion_digest, citation_index=ordinal)
                     claim, passage = resolve_prior_body_citation(current, prior, reference,
                         history_turn_ids=history_turn_ids)
-                    supports.append(PriorBodyCitationSupportV1(reference=reference, original_citation=citation,
-                        claim_text=claim, passage=passage))
+                    extent = (citation.source_artifact_id, citation.native_source_revision_id,
+                        citation.content_sha256, citation.section_id, citation.excerpt_sha256)
+                    # Prefer a claim with one cited passage over broader
+                    # compound claims that selected the same extent.
+                    rank = (citation_counts[citation.segment_index], -prior.sequence, ordinal)
+                    if extent not in supports or rank < supports[extent][0]:
+                        supports[extent] = (rank, PriorBodyCitationSupportV1(
+                            reference=reference, original_citation=citation, claim_text=claim, passage=passage))
             return BuildPriorBodyEvidenceAdmittedV1(event_id=event_id,
-                sequence=len(execution.events), work_event_id=work.event_id, supports=tuple(supports))
+                sequence=len(execution.events), work_event_id=work.event_id,
+                supports=tuple(support for _, support in supports.values()))
 
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
