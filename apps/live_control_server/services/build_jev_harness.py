@@ -257,7 +257,6 @@ class BuildJevHarness:
                     and prior_conversation_work(adapter._broker_execution().events) is not None):
                 adapter.turn, _ = adapter.fence.append(
                     "admit_build_prior_body_evidence", "event_id", uuid4(),
-                    history_turn_ids=tuple(UUID(item["turn_id"]) for item in history),
                 )
                 return self._native_completion(adapter, driver)
             self.failure_stage="context_acquisition"

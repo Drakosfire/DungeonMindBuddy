@@ -2436,8 +2436,9 @@ class AgentConversationService:
             reads=reads, unavailable_ids=unavailable_ids)
 
     def admit_build_prior_body_evidence(self, world_id, conversation_id, turn_id, *,
-            expected_revision, expected_attempt, event_id, history_turn_ids):
+            expected_revision, expected_attempt, event_id):
         from collections import Counter
+        from hashlib import sha256
         from .native_corpus import (
             PriorBodyCitationReferenceV1, prior_conversation_work, resolve_prior_body_citation,
         )
@@ -2446,17 +2447,21 @@ class AgentConversationService:
         from .rules_authority_types import canonical_sha256
 
         def produce(conn, current):
-            _, execution = _owner(current)
+            receipt, execution = _owner(current)
+            history = getattr(receipt.assembled_input, "included_history", ())
+            history_turn_ids = {pin.turn_id for pin in history}
             work = prior_conversation_work(execution.events)
             pointer = repo.get_world_state(conn, current.world_id)
             if (work is None or pointer is None or pointer.active_conversation_id != current.conversation_id
-                    or len(history_turn_ids) > 6 or len(set(history_turn_ids)) != len(history_turn_ids)):
+                    or len(history) > 6 or len(history_turn_ids) != len(history)):
                 raise ValueError("Prior body evidence requires the current Build conversation")
             supports = {}
-            for prior_id in history_turn_ids:
+            for pin in history:
+                prior_id = pin.turn_id
                 prior = repo.get_turn(conn, current.world_id, prior_id)
-                if prior is None:
-                    raise ValueError("Frozen Build history turn is unavailable")
+                if (prior is None or prior.assistant_text is None
+                        or sha256(prior.assistant_text.encode()).hexdigest() != pin.answer_sha256):
+                    raise ValueError("Frozen Build history turn is unavailable or changed")
                 if isinstance(prior, MixedCompletedTurnV1):
                     if prior.base_projection.kind != "approved":
                         continue
