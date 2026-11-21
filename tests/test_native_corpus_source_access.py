@@ -357,6 +357,8 @@ def test_selected_native_read_refuses_changed_world_binding_and_player_before_bo
 
 
 def test_selected_read_batch_reuses_prepared_graph_and_refreshes_each_source_view(lane, monkeypatch):
+    from contextlib import contextmanager
+
     from apps.live_control_server.integrations.dungeonmind import native_corpus_source as owner
     admit(lane)
     prepared = prepare_native_source_context(managed_world_id="managed", principal=GM,
@@ -364,6 +366,14 @@ def test_selected_read_batch_reuses_prepared_graph_and_refreshes_each_source_vie
     original = capture(lane, prepared=prepared)
     open_view = lane.repo.open_native_source_view
     epochs = []
+    closed = []
+    source_scope = owner.refresh_native_text_source_access_scope
+
+    @contextmanager
+    def tracked_scope(**kwargs):
+        with source_scope(**kwargs) as fresh:
+            yield fresh
+        closed.append(fresh.source_view.epoch)
 
     def fresh_view(space):
         view = open_view(space)
@@ -376,10 +386,11 @@ def test_selected_read_batch_reuses_prepared_graph_and_refreshes_each_source_vie
     monkeypatch.setattr(lane.repo, "get_revision", forbidden)
     monkeypatch.setattr(owner.native, "descriptors", forbidden)
     monkeypatch.setattr(lane.repo, "open_native_source_view", fresh_view)
+    monkeypatch.setattr(owner, "refresh_native_text_source_access_scope", tracked_scope)
     for _ in range(18):
         assert owner.read_native_corpus_member(authority=original.authority,
             member=original.members[0], principal=GM, prepared=prepared) == BODY
-    assert len(epochs) == 18
+    assert len(epochs) == 18 and closed == epochs
 
 
 def test_selected_read_keeps_unavailable_and_corrupt_source_failures(lane, monkeypatch):
