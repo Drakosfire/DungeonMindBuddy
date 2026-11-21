@@ -2,9 +2,12 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { EditorContent } from '@tiptap/react';
 import { wrapPageImageText, unwrapPageImageText, updatePageImageText } from './PageImageText';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { NodeSelection } from "@tiptap/pm/state";
 import { Editor, type JSONContent } from '@tiptap/core';
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../MarkdownEditorCore';
-import { PAGE_COMPOSER_EXTENSIONS, PageComposerTools, movePageBlock, resizePageRow, unwrapPageRow, wrapPageRow, updatePageRowPresentation } from './PageRow';
+import { PAGE_COMPOSER_EXTENSIONS, PageComposerTools, applyAgentImageMove, captureAgentImageMoves, movePageBlock, resizePageRow, unwrapPageRow, wrapPageRow, updatePageRowPresentation } from './PageRow';
+import { flattenPresentation } from './presentation';
+import { requiresManualSave } from '../../workspaceDocument/draftSavePolicy';
 
 const paragraph = (text: string, id = text): JSONContent => ({ type: 'paragraph', attrs: { pageBlockId: id }, content: [{ type: 'text', text }] });
 let editor: Editor;
@@ -393,5 +396,80 @@ describe('Silent composer editability lifecycle', () => {
     pointer('pointermove', 90); pointer('pointerup', 90);
     expect(divider.hidden).toBe(false); expect(divider.getAttribute('aria-valuenow')).toBe('6');
     expect(transaction).not.toHaveBeenCalled(); expect(editor.getJSON()).toEqual(before);
+  });
+});
+
+
+describe('Build exact image occurrence moves', () => {
+  const assetId = '11111111-1111-4111-8111-111111111111';
+  function art(id: string, alt: string): JSONContent {
+    return {type:'paragraph',attrs:{pageBlockId:id},content:[{type:'mediaImage',attrs:{assetId,alt,width:80,collapsed:false}}]};
+  }
+  function row(id: string, left: JSONContent[], right: JSONContent[] = []): JSONContent {
+    return {type:'pageRow',attrs:{id,min_height:16,line_mode:'border'},content:[
+      {type:'pageSlot',attrs:{id:`${id}-left`,width:7},content:left},
+      {type:'pageSlot',attrs:{id:`${id}-right`,width:5},content:right},
+    ]};
+  }
+  const scope = () => ({editor,worldId:'world',documentId:'page',revision:1,draftGeneration:0,canEdit:true});
+
+  it('moves one of two occurrences of the same asset, preserving reading order and one Undo unit', () => {
+    create([
+      row('entrance',[paragraph('At the entrance'),art('entrance-map','Marsh map beside the entrance')]),
+      row('notes',[paragraph('Measurements'),art('notes-map','Marsh map beside the measurements')]),
+    ]);
+    const before=editor.getJSON();
+    const capture=captureAgentImageMoves(scope());
+    expect(capture.selected).toBeNull();
+    expect(capture.offers.map(offer=>[offer.alias,offer.rowContext,offer.destination])).toEqual([
+      ['image1','At the entrance','empty_right'],['image2','Measurements','empty_right'],
+    ]);
+    expect(JSON.stringify(capture)).not.toContain(assetId);
+    const holdObserved=vi.fn();
+    editor.on('update',()=>holdObserved(requiresManualSave(editor)));
+    applyAgentImageMove(scope(),capture,'image2');
+    const after=editor.getJSON();
+    expect(holdObserved).toHaveBeenCalledExactlyOnceWith(true);
+    expect(after.content?.[0]).toEqual(before.content?.[0]);
+    expect(after.content?.[1].content?.[1].content?.[0]).toEqual(before.content?.[1].content?.[0].content?.[1]);
+    expect(flattenPresentation(after)).toEqual(flattenPresentation(before));
+    expect(editor.commands.undo()).toBe(true);
+    expect(editor.getJSON()).toEqual(before);
+    expect(()=>applyAgentImageMove(scope(),capture,'image2')).toThrow('not offered');
+    expect(editor.commands.redo()).toBe(true);
+    expect(editor.getJSON()).toEqual(after);
+  });
+
+  it('keeps a deliberately selected image distinct after selection changes', () => {
+    create([row('first',[art('a','Same asset')]),row('second',[art('b','Same asset')])]);
+    editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc,3)));
+    const capture=captureAgentImageMoves(scope());
+    expect(capture.selected).toBe('image1');
+    const secondPosition=editor.state.doc.child(0).nodeSize+3;
+    editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc,secondPosition)));
+    applyAgentImageMove(scope(),capture,capture.selected!);
+    expect(editor.state.doc.child(0).child(1).child(0).attrs.pageBlockId).toBe('a');
+    expect(editor.state.doc.child(1).child(0).child(0).attrs.pageBlockId).toBe('b');
+  });
+
+  it('refuses occupied, order-changing, foreign and stale moves without beginning the hold', () => {
+    create([
+      row('occupied',[art('a','A')],[paragraph('Occupied')]),
+      row('reorder',[art('b','B'),paragraph('Follows B')]),
+      row('legal',[art('c','C')]),
+    ]);
+    const capture=captureAgentImageMoves(scope());
+    const before=editor.getJSON();
+    expect(capture.offers.map(offer=>offer.destination)).toEqual(['occupied','changes_reading_order','empty_right']);
+    for(const alias of ['image1','image2','image99']) expect(()=>applyAgentImageMove(scope(),capture,alias)).toThrow();
+    expect(()=>applyAgentImageMove({...scope(),worldId:'foreign'},capture,'image3')).toThrow();
+    expect(()=>applyAgentImageMove({...scope(),canEdit:false},capture,'image3')).toThrow();
+    expect(editor.getJSON()).toEqual(before);
+    expect(requiresManualSave(editor)).toBe(false);
+    editor.commands.insertContent('edit');
+    const edited=editor.getJSON();
+    expect(()=>applyAgentImageMove(scope(),capture,'image3')).toThrow('captured Page changed');
+    expect(editor.getJSON()).toEqual(edited);
+    expect(requiresManualSave(editor)).toBe(false);
   });
 });
