@@ -59,10 +59,17 @@ The current Buddy production host is `srv586875` and the SSH target is
    environment file. On the current server that file is
    `/srv/dungeonmindbuddy/secrets/buddy.env`. The operator runs the privileged
    Compose command with those inputs and the new image override last.
-   Confirm `config --images buddy` resolves the exact staged tag before
-   running `up -d --no-deps --pull never --wait --wait-timeout 180 buddy`.
-   Keep the root-owned environment file in place and avoid printing rendered
-   Compose config, which can contain secrets. Use narrowly formatted
+   Immediately before cutover, require the mutable tag still resolves to the
+   immutable image ID recorded by `prepare_buddy_release`; stop if it differs:
+   `test "$(docker image inspect --format '{{.Id}}' "$buddy_tag")" = "$buddy_image_id"`.
+   Confirm `config --images buddy` resolves the exact staged tag, then run
+   `up -d --no-deps --pull never --wait --wait-timeout 180 buddy`. Afterward,
+   identify the Buddy service container with
+   `"${buddy_compose[@]}" ps -q buddy` and require its `.Image` to equal
+   `$buddy_image_id`; also verify its OCI revision label equals
+   `$buddy_release`. If either identity differs, stop and follow the rollback
+   procedure. Keep the root-owned environment file in place and avoid printing
+   rendered Compose config, which can contain secrets. Use narrowly formatted
    `docker inspect --format` queries; never print the container's full
    inspection document or environment.
 5. **Verify and settle.** Inspect the running revision and health again
