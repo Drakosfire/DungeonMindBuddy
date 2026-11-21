@@ -13,6 +13,9 @@ from application_state.build_proposal.graph_reference_review import (
 )
 from application_state.build_proposal.prose_catalog import freeze_build_prose_catalog
 from application_state.build_proposal.types import BuildProposalBasis
+from application_state.content import pages
+from application_state.content.markdown_source_blocks import source_block_spans
+from application_state.content.page_presentation import BlockBinding, PagePresentation
 from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError
 from apps.live_control_server.services import build_graph_reference
 from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
@@ -167,8 +170,9 @@ def test_graph_reference_review_replays_exact_postimage_and_records_only_observe
     assert store.confirm(world, action_id, apply.apply_id, observe_save=changed) == confirmed
 
 
+@pytest.mark.parametrize("identity_only", [False, True])
 def test_graph_reference_review_route_joins_current_graph_and_independent_content_save(
-    placement_capture, application_state_dsn, monkeypatch, tmp_path,
+    placement_capture, application_state_dsn, monkeypatch, tmp_path, identity_only,
 ):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -181,8 +185,30 @@ def test_graph_reference_review_route_joins_current_graph_and_independent_conten
         source_domain="worldbuilding", document_class="lore", authority_state="draft", visibility_state="internal",
     )
     page = save_page(tmp_path, page.document_id, draft)
+    original = json.loads(editor)
+
+    def presentation(markdown, ids):
+        encoded = markdown.encode()
+        return PagePresentation(markdown_sha256=sha256(encoded).hexdigest(), items=[BlockBinding(
+            id=identity, byte_start=start, byte_end=end, sha256=sha256(encoded[start:end]).hexdigest(),
+        ) for identity, (start, end) in zip(ids, source_block_spans(markdown), strict=True)])
+
+    def save_identities(source, layout):
+        current = pages.snapshot_page(page.document_id, world_id=world)
+        return pages.commit_page(
+            page.document_id, source, world_id=world, expected_revision=current.page.object_revision,
+            expected_working_copy_revision=current.working_copy_revision, page_presentation=layout,
+        )
+
+    registry_revision = page.revision
+    if identity_only:
+        original["content"][0]["attrs"] = {"pageBlockId": "original-paragraph"}
+        editor = json.dumps(original)
+        save_identities(draft, presentation(draft, ["original-paragraph"]))
+        registry_revision = pages.snapshot_page(page.document_id, world_id=world).page.object_revision
     placement = placement.model_copy(update={"basis": placement.basis.model_copy(update={
-        "document_id": page.document_id, "registry_revision": page.revision,
+        "document_id": page.document_id, "registry_revision": registry_revision,
+        "editor_sha256": sha256(editor.encode()).hexdigest(),
     })})
     conversation = _new(AgentConversationService(), world)
     action_id = uuid4()
@@ -210,15 +236,21 @@ def test_graph_reference_review_route_joins_current_graph_and_independent_conten
     after["content"].append({"type": "paragraph", "content": [{"type": "runbookReference", "attrs": {
         "kind": "ref", "refType": "graph-node", "refId": "threat:lurker", "label": "Lurker",
     }}]})
-    after_editor = json.dumps(after)
     after_draft = "The moon shines.\n\n[Lurker](dmb-node:threat:lurker)\n"
+    layout = None
+    if identity_only:
+        block_id = f"page-graph-ref-{placement.boundary.catalog_sha256[:32]}-{placement.boundary.from_}"
+        after["content"][1]["attrs"] = {"pageBlockId": block_id}
+        layout = presentation(after_draft, ["original-paragraph", block_id])
+    after_editor = json.dumps(after)
     draft_digest = sha256(after_draft.encode()).hexdigest()
     apply_id = str(uuid4())
     command = {"schema": "dmb_build_graph_reference_command_v1", "operation": "prepare", "expected_revision": 1,
                "editor_json": editor, "draft_markdown": draft,
                "after_editor_json": after_editor, "after_draft_markdown": after_draft,
                "apply": {"apply_id": apply_id, "editor_sha256": sha256(after_editor.encode()).hexdigest(),
-                         "draft_sha256": draft_digest, "content_sha256": draft_digest, "presentation_sha256": None}}
+                         "draft_sha256": draft_digest, "content_sha256": draft_digest,
+                         "presentation_sha256": layout.fingerprint() if layout else None}}
     confirm = {"schema": command["schema"], "operation": "confirm", "apply_id": apply_id}
     with TestClient(app) as client:
         assert client.get(path).status_code == 403
@@ -234,8 +266,17 @@ def test_graph_reference_review_route_joins_current_graph_and_independent_conten
         assert prepared.json()["state"] == "applying"
         assert client.post(path, json=confirm).status_code == 409
         assert page_text(tmp_path, page.document_id) == draft
-        saved = save_page(tmp_path, page.document_id, after_draft)
+        authorize = {**confirm, "operation": "authorize_save"}
+        graph_scope["revision_id"] = "rev:next"
+        assert client.post(path, json=authorize).status_code == 409
+        graph_scope["revision_id"] = "rev:one"
+        assert client.post(path, json=authorize).status_code == 200
+        if layout:
+            save_identities(after_draft, layout)
+        else:
+            save_page(tmp_path, page.document_id, after_draft)
+        saved_revision = pages.snapshot_page(page.document_id, world_id=world).page.object_revision
         observed = client.post(path, json=confirm)
         assert observed.status_code == 200, observed.text
-        assert observed.json()["state"] == "applied" and observed.json()["saved_revision"] == saved.revision
+        assert observed.json()["state"] == "applied" and observed.json()["saved_revision"] == saved_revision
         assert client.post(path, json=confirm).json() == observed.json()
