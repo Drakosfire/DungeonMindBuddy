@@ -158,12 +158,14 @@ def test_describing_is_an_explicit_paragraph_locator():
 
 
 def test_nominal_label_prefix_is_only_an_alternative_when_both_titles_exist():
-    from application_state.agent_conversation.plan_author_location import paragraph_label_conflict
+    from application_state.agent_conversation.plan_author_location import nominal_scope_needs_review, paragraph_label_conflict
 
     request = 'After the Approach rope paragraph, add a caution about the hook.'
     offers = author_scope_hypotheses(request, (), max_span_attempts=100)
     assert {'Approach', 'Approach rope'} <= {row.evidence.text for row in offers.values()}
     scope = literal_reference('Approach', path=False)
+    assert nominal_scope_needs_review(request, literal_reference('Approach rope', path=False))
+    assert not nominal_scope_needs_review(request, scope)
     one, one_catalog = family_catalog([heading('Approach'), prose('Check the rope.')])
     assert not paragraph_label_conflict(request, scope, one, one_catalog)
     both, both_catalog = family_catalog([heading('Approach'), prose('Check the rope.'),
@@ -186,6 +188,9 @@ def test_explicit_current_scope_and_durable_antecedent_have_distinct_authority()
     candidates = author_scope_hypotheses(reference, dialogue, max_span_attempts=300)
     assert any(item.evidence.text == 'Equipment' and item.evidence.utterance_index == 0 for item in candidates.values())
     assert not any(item.evidence.text in {'that', 'that section', 'Stores'} for item in candidates.values())
+    for mention in ('Do not use Stores for this edit: add a note after the first paragraph.',
+                    'The earlier note says to use Stores for this edit, not Approach.'):
+        assert not explicit_scope_conflict(mention, UnscopedLocation())
 
 
 def test_unquoted_locator_label_cannot_be_dropped_or_pick_between_article_titles():
@@ -298,6 +303,8 @@ def test_unresolved_scope_adjudication_offers_whole_author_clauses_without_unsco
     assert all('components' not in scope for scope in compound)
     unmarked_contrast = scopes('Put a warning after the token paragraph in Records, not Dispatch.')
     assert all('components' not in scope for scope in unmarked_contrast)
+    continuation = scopes('Put a warning after the token paragraph in North, inside Equipment.')
+    assert all(len(scope.get('components', ())) != 1 for scope in continuation)
 
 
 def test_scope_offer_view_has_local_aliases_and_author_text_without_host_offsets():

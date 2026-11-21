@@ -324,10 +324,18 @@ def _scope_syntax(text: str) -> str:
 
 
 def _scope_directives(text: str):
-    for match in _SCOPE_DIRECTIVE_CONTRAST.finditer(_scope_syntax(text)):
+    syntax = _scope_syntax(text)
+    for match in _SCOPE_DIRECTIVE_CONTRAST.finditer(syntax):
         operands = (text[match.start(name):match.end(name)].strip() for name in ('positive', 'excluded'))
-        if all(value and (value[0].isupper() or value[0] in _QUOTES) for value in operands):
+        if (_active_declaration(syntax, match.start())
+                and all(value and (value[0].isupper() or value[0] in _QUOTES) for value in operands)):
             yield match
+
+
+def _active_declaration(syntax: str, start: int) -> bool:
+    prefix = re.split(r'[.!?;:\n]', syntax[:start])[-1].strip().casefold()
+    return (prefix in {'', 'please', 'instead', 'please instead'}
+        or re.fullmatch(r'for (?:this|the next) (?:edit|change),?\s*(?:please)?', prefix) is not None)
 
 
 def _declared_scope_spans(text: str):
@@ -336,7 +344,8 @@ def _declared_scope_spans(text: str):
         for match in pattern.finditer(syntax):
             start, end = _trimmed_span(text, match.span('label'))
             label = text[start:end]
-            if label and (label[0].isupper() or label[0] in _QUOTES):
+            if (_active_declaration(syntax, match.start() if pattern is _NAMED_SCOPE_DECLARATIONS[0] else start)
+                    and label and (label[0].isupper() or label[0] in _QUOTES)):
                 yield start, end
 
 
@@ -525,6 +534,19 @@ def _nominal_scope_prefixes(text: str) -> tuple[str, tuple[tuple[int, int], ...]
     return label, prefixes
 
 
+def nominal_scope_needs_review(question: str, scope: ScopeExpression) -> bool:
+    label, prefixes = _nominal_scope_prefixes(question)
+    return (bool(prefixes) and isinstance(scope, NamedScopePath) and len(scope.names) == 1
+        and isinstance(scope.names[0], LiteralScopeName) and name_key(scope.names[0].text) == name_key(label))
+
+
+def is_nominal_scope_alternative(hypothesis: AuthorScopeHypothesis, question: str,
+                                 dialogue: tuple[RetrievalDialogue, ...]) -> bool:
+    evidence = hypothesis.evidence
+    return (evidence.utterance_index == len(dialogue)
+        and (evidence.start, evidence.end) in _nominal_scope_prefixes(question)[1])
+
+
 def paragraph_label_conflict(question, scope, capture, catalog) -> bool:
     """Preserve an explicit label and refuse an ambiguous unquoted article."""
     match = _paragraph_label_match(question)
@@ -694,16 +716,19 @@ def is_complete_scope_recovery(hypothesis: AuthorScopeHypothesis, request: str,
     if (evidence.start, evidence.end) in _declared_scope_spans(text):
         return True
     utterance = _scope_syntax(text)
-    prefix = re.split(r'[.!?;,:]', utterance[:evidence.start])[-1]
+    clause_prefix = re.split(r'[.!?;:\n]', utterance[:evidence.start])[-1]
+    prefix = clause_prefix.rsplit(',', 1)[-1]
     suffix = utterance[evidence.end:]
     introducer = re.search(r'\b(?:in|within|inside|under)\s+(the\s+)?$', prefix, re.IGNORECASE)
     label = evidence.text.strip()
     return (introducer is not None
         and (introducer[1] is None or label[0] in _QUOTES)
         and not label.startswith('the ')
+        and _SCOPE_START.search(clause_prefix[:-len(prefix)]) is None
         and _COMPOUND_REFERENCE.search(prefix) is None
         and re.search(r'\bnot\b', prefix + _scope_syntax(label), re.IGNORECASE) is None
-        and not re.match(r'\s*[,;:]?\s*(?:not|either|and not)\b', suffix, re.IGNORECASE)
+        and not re.match(r'\s*[,;:]?\s*(?:not|either|and not|in|inside|within|under|directly under|'
+            r'whose parent is|except|rather than)\b', suffix, re.IGNORECASE)
         and re.match(r'\s*(?:(?:section|heading)\b\s*)?(?:[.!?;,:]|$)', suffix, re.IGNORECASE) is not None)
 
 

@@ -138,7 +138,10 @@ def _prepare_author_scope_review(request):
     from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
     from .jev_retrieval_contract import MODEL, PROVIDER
     from .plan_contextual_targets import AUTHOR_RELATIONS
-    from .plan_author_location import explicit_direction_options, explicit_scope_conflict, is_complete_scope_recovery
+    from .plan_author_location import (
+        explicit_direction_options, explicit_scope_conflict, is_complete_scope_recovery,
+        is_nominal_scope_alternative, nominal_scope_needs_review,
+    )
 
     first, second = (row.observation for row in request.scope_review)
     hypotheses = _author_scope_offers(request)
@@ -147,6 +150,8 @@ def _prepare_author_scope_review(request):
     options = view.pop('scope_hypotheses')
     pairs = {}
     relations = {first.relation, second.relation}
+    explicit_conflict = any(explicit_scope_conflict(request.question, prior.scope) for prior in (first, second))
+    nominal_review = any(nominal_scope_needs_review(request.question, prior.scope) for prior in (first, second))
     if 'unresolved' in relations:
         relations.update(explicit_direction_options(request.question))
     for relation in sorted(relations):
@@ -155,15 +160,21 @@ def _prepare_author_scope_review(request):
                 'scope': options.get(prior.selected_alias, {'kind': prior.scope.kind})}
             key = json.dumps(interpretation, sort_keys=True, ensure_ascii=False)
             pairs.setdefault(key, (relation, prior.scope))
-    if _unresolved_author_scope(first, second) or explicit_scope_conflict(request.question, first.scope):
-        complete = ((alias, hypothesis) for alias, hypothesis in hypotheses.items()
-            if is_complete_scope_recovery(hypothesis, request.question, request.dialogue))
-        for alias, hypothesis in complete:
+    if _unresolved_author_scope(first, second) or explicit_conflict or nominal_review:
+        for alias, hypothesis in hypotheses.items():
+            if (not is_complete_scope_recovery(hypothesis, request.question, request.dialogue)
+                    and not (nominal_review and is_nominal_scope_alternative(
+                        hypothesis, request.question, request.dialogue))):
+                continue
             scope = hypothesis.compile(request.question, request.dialogue)
             for relation in sorted(relations - {'unresolved'}):
                 key = json.dumps({'relation': AUTHOR_RELATIONS[relation], 'scope': options[alias]},
                     sort_keys=True, ensure_ascii=False)
                 pairs.setdefault(key, (relation, scope))
+    if explicit_conflict:
+        eligible = {description: pair for description, pair in pairs.items()
+                    if not explicit_scope_conflict(request.question, pair[1])}
+        pairs = eligible or pairs
     explicit_rewrite = _CAPTURE_REWRITE.match(request.question) is not None
     if explicit_rewrite:
         # An explicit author-requested rewrite supplies a possible analysis for
@@ -185,7 +196,11 @@ def _prepare_author_scope_review(request):
         question='Choose the complete interpretation of the author’s existing location. '
             'The author can identify an existing prose block by what it says without using the word paragraph. '
             'An explicit selected-text rewrite uses its capture by itself. Do not treat its words as a heading. '
-            'Preserve every author-established name, path and exclusion. Ignore new-fragment content as location evidence.')
+            'Preserve every author-established name, path and exclusion. Ignore new-fragment content as location evidence.'
+            + (' A scope stated in the current request supersedes earlier dialogue.' if explicit_conflict else '')
+            + (' In an unquoted phrase that names both a section and the subject of its paragraph, preserve '
+                'the section label by itself. Consider the full phrase as a title when the author names it as such.'
+                if nominal_review else ''))
     return DecisionRequest(provider=PROVIDER, model=MODEL, state=view,
         questions=(question,), max_transport_retries=0), bindings
 
@@ -272,11 +287,12 @@ def require_retained_author_scope(execution, observation_event_id: UUID,
 
 
 def author_scope_review_required(question, first, second):
-    from .plan_author_location import explicit_direction_options, explicit_scope_conflict
+    from .plan_author_location import explicit_direction_options, explicit_scope_conflict, nominal_scope_needs_review
 
     return (first.relation != second.relation or first.scope != second.scope
         or _unresolved_author_scope(first, second)
         or explicit_scope_conflict(question, first.scope)
+        or nominal_scope_needs_review(question, first.scope)
         or (first.relation == 'unresolved' and bool(explicit_direction_options(question)))
         or (first.relation != 'replace_explicit_selection' and _CAPTURE_REWRITE.match(question) is not None))
 
