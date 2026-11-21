@@ -78,5 +78,6 @@ it("shows an unchanged saved example with release-only references and inline ima
   expect(screen.getByRole("heading", { name: "A saved scene" })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Read context 2" }));
   expect(screen.getByText("Second clue")).toBeInTheDocument();
+  expect(screen.getByText("Second clue").closest("aside")).toHaveFocus();
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });

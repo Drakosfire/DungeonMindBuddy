@@ -63,6 +63,7 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
   const [formError, setFormError] = useState("");
   const sequence = useRef(0);
   const additionCount = useRef(0);
+  const detailRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!snapshot) return;
     const sync = () => {
@@ -121,7 +122,7 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
     setSelectedNode(null); setSelectedSource(null);
     if (snapshot) window.history.replaceState(null, "", fragment(snapshot.release_id));
   };
-  const citationButton = (id: string, index: number) => <button type="button" key={`${id}-${index}`} onClick={() => navigate(selectedNode, id)}>Read {sources.find(item => item.id === id)?.evidence_role === "context" ? "context" : "source"} {sources.findIndex(item => item.id === id) + 1}</button>;
+  const citationButton = (id: string, index: number) => <button type="button" key={`${id}-${index}`} onClick={() => { navigate(selectedNode, id); detailRef.current?.focus({ preventScroll: true }); detailRef.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" }); }}>Read {sources.find(item => item.id === id)?.evidence_role === "context" ? "context" : "source"} {sources.findIndex(item => item.id === id) + 1}</button>;
   return <main className="guest-world">
     <header className="guest-world__header"><a href="/">DungeonMind · Buddy</a><nav aria-label="Guest navigation"><a href="https://www.dungeonmind.net/">DungeonMind.net ↗</a><a href={dungeonMindLoginHref("/")}>Sign in to create your World →</a></nav></header>
     {unavailable ? <section role="alert"><h1>This guest World is unavailable</h1><p>The owner may have withdrawn it, or the link may have changed.</p><a href={home ? dungeonMindLoginHref("/") : "/"}>{home ? "Sign in to Buddy" : "Return to Buddy"}</a></section>
@@ -145,7 +146,7 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
             </form> : <p>This copy has no shared points to connect to yet.</p>}
             <button type="button" onClick={reset}>Reset my additions</button>
           </section>
-        </section><aside className="guest-world__detail" aria-live="polite"><p className="guest-world__eyebrow">{source ? "SOURCE EXCERPT" : "FOLLOW A THREAD"}</p>
+        </section><aside ref={detailRef} tabIndex={-1} className="guest-world__detail" aria-live="polite"><p className="guest-world__eyebrow">{source ? "SOURCE EXCERPT" : "FOLLOW A THREAD"}</p>
           {source ? <><h2>From the owner’s notes</h2><p>{source.evidence_role === "context" ? "Evidence role: context, not direct support." : source.evidence_role === "support" ? "Evidence role: support." : "Evidence role unavailable."}</p><p className="guest-world__excerpt">{source.text}</p><p><a href={fragment(snapshot.release_id, sharedNodes.some(node => node.id === selectedNode) ? selectedNode : null, source.id)}>Link to this excerpt</a></p><button type="button" onClick={() => navigate(selectedNode, null)}>← Back to connections</button></>
             : active ? <><h2>{active.label}</h2><p>{active.kind}</p>{active.temporary ? <p>This point is your temporary addition, not part of the shared World.</p> : <><small>Name: {active.name_basis} · Classification: {active.kind_basis}</small><p><a href={fragment(snapshot.release_id, active.id)}>Link to this point</a></p><div className="guest-world__citations">{[...new Set([...active.name_citations, ...active.kind_citations])].map(citationButton)}</div></>}<h3>Connections</h3>{connected.length ? <ul>{connected.map(edge => { const other = edge.source === active.id ? edge.target : edge.source; return <li key={edge.id}><p>{labels.get(edge.source)} <em>{edge.label}</em> {labels.get(edge.target)}</p><small>{edge.temporary ? "Your temporary connection · not sourced from the shared World" : <>{edge.basis} · {edge.temporal === "unknown" ? "When this happened is not specified" : edge.temporal === "timeless" ? "Timeless" : edge.temporal}</>}</small><div className="guest-world__citations"><button type="button" onClick={() => navigate(other, null)}>Explore {labels.get(other)}</button>{edge.citations.map(citationButton)}</div></li>; })}</ul> : <p>No connections were included for this point.</p>}</>
               : <><h2>Every story has a trail.</h2><p>Select a point to follow it through the owner’s shared notes.</p></>}
