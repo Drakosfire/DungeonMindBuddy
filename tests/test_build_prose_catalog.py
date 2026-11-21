@@ -258,6 +258,7 @@ def test_graph_decision_offers_only_semantic_aliases_and_binds_typed_placement(g
     ({"reference_kind": "class2"}, "wrong_kind"),
     ({"reference_kind": "class2", "text0": "exclude"}, "wrong_kind"),
     ({"reference_kind": "other_kind"}, "wrong_kind"),
+    ({"reference_kind": "other_kind", "object2": "exclude"}, "wrong_kind"),
     ({"object2": "exclude"}, "missing_identity"),
     ({"scope": "unscoped"}, "ambiguous_boundary"),
     ({"scope1": "exclude"}, "missing_boundary"),

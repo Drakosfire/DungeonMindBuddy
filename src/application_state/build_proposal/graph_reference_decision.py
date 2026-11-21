@@ -19,7 +19,7 @@ from application_state.build_proposal.prose_decision import (
 from application_state.build_proposal.types import BuildProposalBasis, StrictModel
 
 
-GRAPH_REFERENCE_OPENING = ChoiceDecisionQuestion(
+_RETAINED_GRAPH_REFERENCE_OPENING = ChoiceDecisionQuestion(
     name="typed_graph_reference",
     options=("place_existing_reference", "other_work"),
     question=(
@@ -28,6 +28,12 @@ GRAPH_REFERENCE_OPENING = ChoiceDecisionQuestion(
         "ordinary prose, requests about an object, creation of a new object, and discussion without insertion."
     ),
 )
+GRAPH_REFERENCE_OPENING = _RETAINED_GRAPH_REFERENCE_OPENING.model_copy(update={"question": (
+    "Does the author ask to insert a typed reference to one existing World Graph object? Choose "
+    "place_existing_reference even if the object, paragraph, or destination page is unclear, or if the author "
+    "explicitly names a different page. The placement decision handles those destinations. Choose other_work for "
+    "ordinary prose, questions about a reference without insertion, and creation of a new Graph object."
+)})
 
 
 def resolve_graph_reference_opening(request, result) -> Literal["place_existing_reference", "other_work"] | None:
@@ -36,8 +42,9 @@ def resolve_graph_reference_opening(request, result) -> Literal["place_existing_
     offered = request["questions"].get(question.name)
     if offered is None and question.name not in result.answers:
         return None
-    expected = {"type": "choice", "instructions": question.question, "criteria": dict.fromkeys(question.options)}
-    if offered != expected or set(result.answers) != set(request["questions"]):
+    expected = tuple({"type": "choice", "instructions": variant.question, "criteria": dict.fromkeys(variant.options)}
+                     for variant in (question, _RETAINED_GRAPH_REFERENCE_OPENING))
+    if offered not in expected or set(result.answers) != set(request["questions"]):
         raise ValueError("Graph reference opening differs from the exact admitted offer")
     projected = result.model_copy(update={"answers": {question.name: result.answers[question.name]}})
     selected = validated_choice_answers(projected, {question.name})[question.name]
@@ -226,13 +233,16 @@ class BuildGraphReferenceDecision:
             ))
 
         objects, kinds = self._offers()
+        requested_kind = answers["reference_kind"]
+        kind_constrained = answers["reference_kind_constraint"] == "requires_or_excludes_type"
+        if self.author_selected is not None and kind_constrained and requested_kind == "other_kind":
+            return BuildGraphReferenceNomination(disposition="wrong_kind")
         included = [candidate for alias, candidate in objects.items() if answers[alias] == "include"]
         if self.author_selected is not None:
             included = [candidate for candidate in included if candidate.reference == self.author_selected]
         if not included:
             return BuildGraphReferenceNomination(disposition="missing_identity")
-        requested_kind = answers["reference_kind"]
-        if requested_kind == "unspecified" and answers["reference_kind_constraint"] == "requires_or_excludes_type":
+        if requested_kind == "unspecified" and kind_constrained:
             return BuildGraphReferenceNomination(disposition="wrong_kind")
         kind = kinds.get(requested_kind)
         matches = included if requested_kind == "unspecified" else [candidate for candidate in included if candidate.entity_kind == kind]

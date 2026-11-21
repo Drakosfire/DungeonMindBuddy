@@ -64,10 +64,13 @@ def test_build_native_paragraph_proposal_replays_exact_boundary(lane, tmp_path, 
     )
 
 
-@pytest.mark.parametrize("disposition", ["ready", "wrong_kind", "remapped_inventory"])
+@pytest.mark.parametrize("disposition", ["ready", "wrong_kind", "different_page", "remapped_inventory"])
 def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, monkeypatch, disposition):
+    request = ("Insert a reference to the selected object on the separate Lanterns page."
+               if disposition == "different_page"
+               else "Insert a reference to the selected object after the orchid paragraph in East.")
     _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True, contextual="unique",
-                message="Insert a reference to the selected object after the orchid paragraph in East.",
+                message=request,
                 graph_reference=disposition)
 
 
@@ -407,7 +410,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if "reference_intent" in body["questions"]:
                     chosen = {"work": "place_paragraph", "destination": "current_page", "relation": "after",
                               "scope": "named", "text0": "include", "scope0": "exclude", "scope1": "include",
-                              "reference_intent": "place_existing", "object1": "include", "object2": "exclude",
+                              "reference_intent": "different_page" if graph_reference == "different_page" else "place_existing",
+                              "object1": "include", "object2": "exclude",
                               "reference_kind_constraint": "requires_or_excludes_type",
                               "reference_kind": "other_kind" if graph_reference == "wrong_kind" else "class1"}[name]
                     answers[name] = dict(type="choice", choice=chosen, confidence=1,
