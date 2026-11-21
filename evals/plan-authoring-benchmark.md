@@ -114,7 +114,12 @@ Freeze the preceding conversation and the exact supports already admitted in
 its completed turns. Before execution, verify that the required prior claims
 and exact citations are present in that prefix. A fixture missing either
 support is unqualified for the grounded zero-retrieval case. Do not backfill
-its prior turns with facts recovered by the failing creation turn.
+its prior turns with facts recovered by the failing creation turn. A read-only
+check of the hosted prefix found that completed turns 7, 8 and 12 mention
+Maelthor, Ethel and the password and each retain two native body citations.
+Turn 8 contains two distinct passage-claim segments. Use the retained
+citation records to verify precisely which claims each span supports before
+scoring.
 
 | Boundary | Acceptance |
 | --- | --- |
