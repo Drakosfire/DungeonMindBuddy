@@ -271,8 +271,17 @@ def preview_encounter(*, world_id, run_id, scene_id):
     run_id = UUID(str(run_id)); dsn = load_runtime_dsn(); assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
         locked = lock_session(conn, world_id=world_id, run_id=run_id)
-        _, preview = _captured_template(conn, world_id=world_id, run_id=run_id, scene_id=scene_id, receipt=locked.preparation)
-        return {**preview, 'preview_digest': digest(preview)}
+        record, preview = _captured_template(
+            conn, world_id=world_id, run_id=run_id, scene_id=scene_id, receipt=locked.preparation,
+        )
+        snapshots = {
+            actor.mechanics_snapshot.snapshot_digest: actor.mechanics_snapshot.model_dump(mode='json')
+            for actor in record.draft.entities if actor.mechanics_snapshot is not None
+        }
+        # The template pin covers these read-only details. Keep the Start
+        # digest compatible with intents retained before inspection existed.
+        return {**preview, 'preview_digest': digest(preview),
+                'saved_mechanics': list(snapshots.values())}
 
 
 def _materialization_intent(world_id, run_id, scene_id, request):
