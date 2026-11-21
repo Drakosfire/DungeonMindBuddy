@@ -213,6 +213,14 @@ class BuildGraphReferenceDecision:
     def request(self) -> DecisionRequest:
         boundary = self._boundary_request()
         objects, kinds = self._offers()
+        clause = _placement_clause(self.question)
+        placement_words = (
+            {
+                "object_expression": clause["object"],
+                "anchor_expression": clause["anchor"],
+            }
+            if clause is not None and clause.string == self.question else None
+        )
         passages = {text: alias for alias, text in boundary.state["existing_passages"].items()}
         headings = {tuple(path): alias for alias, path in boundary.state["existing_heading_paths"].items()}
         paragraph_order = [
@@ -240,10 +248,14 @@ class BuildGraphReferenceDecision:
             "state": {
                 **boundary.state,
                 "paragraph_order": paragraph_order,
+                **({"author_placement_words": placement_words} if placement_words is not None else {}),
                 "graph_reference_policy": (
                     "Nominate one existing Graph object and where its typed reference goes. Treat a request to insert "
                     "one existing typed reference as paragraph placement in the boundary questions. Judge the "
                     "paragraph independently of whether a matching Graph object exists or has the required kind. "
+                    "When author_placement_words is present, it quotes two separate parts of the current request. "
+                    "Use anchor_expression for paragraph matching and object_expression for identity matching. "
+                    "Use the whole request to judge the requested action. "
                     "paragraph_order lists the existing paragraph occurrences in reading order using the same passage and section "
                     "aliases as the questions. Use the order only when the author specifies a position such as the first paragraph "
                     "under a heading. A paragraph identified by its subject does not require a heading. Never infer a "
@@ -288,7 +300,11 @@ class BuildGraphReferenceDecision:
                               "all impose a type constraint. A location mentioned only "
                               "as the destination or heading is not a type constraint on the object.")),
                 *(ChoiceDecisionQuestion(name=alias, options=("include", "exclude"),
-                    question=f"Does graph_objects {alias} match the requested name and all object qualifiers, independently of classification?")
+                    question=(
+                        f"Does graph_objects {alias} match the requested name and all object qualifiers, "
+                        "independently of classification? Check its own name and alternate names. Another object's "
+                        "alternate name does not transfer to this object just because the two share a primary name."
+                    ))
                   for alias in objects),
             ),
         })

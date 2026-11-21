@@ -230,6 +230,12 @@ def test_graph_opening_requires_the_exact_wire_offer_and_real_choice():
 
 def test_graph_decision_offers_only_semantic_aliases_and_binds_typed_placement(graph_decision):
     request = graph_decision.request()
+    assert request.state["author_placement_words"] == {
+        "object_expression": "a reference to the retuned Ivory Sentry construct",
+        "anchor_expression": "the moon in East",
+    }
+    quoted = replace(graph_decision, question='Link Ivory Sentry after the paragraph “The moon is out”.')
+    assert "author_placement_words" not in quoted.request().state
     assert request.state["paragraph_order"] == [
         {"occurrence": "passage1", "passage": "text0", "section": "scope0"},
         {"occurrence": "passage2", "passage": "text0", "section": "scope1"},
