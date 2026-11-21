@@ -341,9 +341,10 @@ describe("CombatRosterModule", () => {
     await userEvent.type(screen.getByRole("textbox", { name: "New encounter title" }), "Night ambush");
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
 
-    await screen.findByText("Setup", {selector: "summary"});
-    expect(screen.queryByRole("textbox", {name: "Encounter title"})).not.toBeInTheDocument();
-    await userEvent.click(screen.getByText("Setup", {selector: "summary"}));
+    const setup = await screen.findByText("Setup", {selector: "summary"});
+    expect(setup.closest("details")).not.toHaveAttribute("open");
+    await userEvent.click(setup);
+    expect(setup.closest("details")).toHaveAttribute("open");
     expect(screen.getByRole("textbox", {name: "Encounter title"})).toHaveValue("New encounter");
     expect(createSpy).toHaveBeenCalledWith("elderwyld", { title: "Night ambush", ruleset_id: "dnd5e.manual-tracking" });
 
@@ -621,7 +622,8 @@ describe("CombatRosterModule", () => {
     fireEvent.click(screen.getByText("Add combatants"));
     fireEvent.change(screen.getByLabelText("Combatant name"),{target:{value:"Overflow actor"}});
     expect(screen.getByRole("button",{name:"Add to encounter draft"})).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent("encounter is full");
+    const assembly = screen.getByText("Add combatants", {selector: "summary"}).closest("details")!;
+    expect(within(assembly).getByRole("status")).toHaveTextContent("encounter is full");
     await userEvent.click(screen.getByRole("button",{name:"Save"}));
     expect(save).toHaveBeenCalledOnce();expect(save.mock.calls[0][3].entities).toHaveLength(100);
     expect(save.mock.calls[0][3].title).toBe("Keep this edit");
