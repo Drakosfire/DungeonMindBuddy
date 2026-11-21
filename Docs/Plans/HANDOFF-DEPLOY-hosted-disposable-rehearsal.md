@@ -7,7 +7,8 @@ target, credentials, publishing, or permission change is authorized here.
   `ba22ffac5a7fe4e07d1192569e9fde658929ed9d`; branch
   `codex/buddy-hosted-disposable-rehearsal`; one draft PR.
 - Expected write set: this handoff, `.github/workflows/buddy-disposable-rehearsal.yml`,
-  `scripts/rehearse_buddy_disposable_release.sh`. #4356 and #4195 paths
+  `scripts/rehearse_buddy_disposable_release.sh`,
+  `tests/test_rehearse_buddy_disposable_release.py` (builder fence regression). #4356 and #4195 paths
   remain untouched. The local #4356 failure/recovery witness informs this
   harness but is not an unmerged code dependency.
 - Manual fixed default ref only; accept two immutable Buddy commits already in

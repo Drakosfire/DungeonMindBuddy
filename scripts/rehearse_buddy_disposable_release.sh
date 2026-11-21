@@ -30,9 +30,12 @@ fi
 
 # The only Docker daemon allowed is this fresh hosted runner (or the designated
 # local rehearsal daemon). Never inherit a remote daemon address or context.
-unset DOCKER_HOST DOCKER_CONTEXT
+unset DOCKER_HOST DOCKER_CONTEXT DOCKER_TLS_VERIFY DOCKER_CERT_PATH \
+  DOCKER_BUILDKIT BUILDX_BUILDER BUILDX_CONFIG BUILDKIT_HOST
 docker_cmd=(docker --context default)
-[[ "$("${docker_cmd[@]}" context inspect default -f '{{.Endpoints.docker.Host}}')" == unix:///var/run/docker.sock ]]
+builder=default
+local_endpoint=unix:///var/run/docker.sock
+[[ "$("${docker_cmd[@]}" context inspect default -f '{{.Endpoints.docker.Host}}')" == "$local_endpoint" ]]
 workspace=$(mktemp -d "${BUDDY_REHEARSAL_ROOT:?Set a task-owned rehearsal root}/buddy-disposable.XXXXXXXX")
 slug="buddy-disposable-${workspace##*.}"
 slug=${slug,,}
@@ -71,11 +74,24 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+
+# Isolate builder metadata from any persistent selected or named builder.
+export BUILDX_CONFIG="$workspace/buildx"
+mkdir "$BUILDX_CONFIG"
+if ! "${docker_cmd[@]}" buildx ls --format '{{json .}}' | jq -e -s \
+  --arg name "$builder" --arg endpoint "$local_endpoint" \
+  '[.[] | select(.Name == $name)] | length == 1
+    and (.[0] | .Driver == "docker" and (.Nodes | length == 1
+      and (.[0].Endpoint == $name or .[0].Endpoint == $endpoint)))' >/dev/null; then
+  echo 'Refusing to build without one verified local Docker builder.' >&2
+  exit 2
+fi
+
 build() {
   local sha=$1 role=$2 tree="$workspace/$2"
   mkdir "$tree"
   git archive "$sha" | tar -x -C "$tree"
-  "${docker_cmd[@]}" buildx build --target api -f "$tree/Dockerfile.production" \
+  "${docker_cmd[@]}" buildx build --builder "$builder" --target api -f "$tree/Dockerfile.production" \
     --label "org.opencontainers.image.revision=$sha" -t "$slug:$role" --load "$tree" >&2
 }
 image() {
