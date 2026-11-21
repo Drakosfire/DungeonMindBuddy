@@ -449,11 +449,13 @@ class PlanJevWriter:
                 work = self.provider_work["build_work"]["requested_work"]
                 if work["requested_work"] == "review_lore_page_from_conversation":
                     instructions += (
-                        "\nUse open_questions for relevant unresolved questions or disagreements from "
-                        "the discussion. Keep these separate from cited claims and proposed ideas. "
-                        "When restating an earlier cited claim, keep the handle attached to that prior claim. "
-                        "Prefer the handle paired with the specific claim over one paired with a broader claim "
-                        "that combines it with other facts. Verify the paired passage supports your wording."
+                        "\nBuild the review from the preceding discussion in three parts. "
+                        "For cited facts, retain the handle paired with the specific prior claim and verify "
+                        "the exact passage supports your wording. For relevant creative directions already "
+                        "discussed by the author or described as existing draft material, use separate "
+                        "invented_idea proposals. Preserve their tentative status and introduce no new ideas. "
+                        "In open_questions, retain material unresolved identities, motives, and relationships, "
+                        "including open relationships named in a proposal."
                     )
             self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
                 RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if self.shared or getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
