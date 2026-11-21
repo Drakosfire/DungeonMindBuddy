@@ -542,6 +542,17 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "POST" && isRecord(review) && typeof review.managed_world_id === "string"
       && Boolean(review.managed_world_id) && typeof review.run_id === "string" && Boolean(review.run_id);
   }
+  if (path === "/api/live/extract-promote/worldbuilding/first-world/prepare") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && body?.schema === "dmb_first_world_graph_prepare_request_v1"
+      && typeof body.runId === "string" && Boolean(body.runId.trim())
+      && Array.isArray(body.decisions) && body.decisions.length > 0;
+  }
+  if (path === "/api/live/extract-promote/worldbuilding/first-world/confirm") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && body?.schema === "dmb_first_world_graph_confirm_request_v1"
+      && isRecord(body.plan) && typeof body.plan.runId === "string" && Boolean(body.plan.runId.trim());
+  }
   if (path === "/api/live/extract-promote/worldbuilding/prepare"
     || path === "/api/live/extract-promote/worldbuilding/confirm") {
     const body = requestBodyRecord(init?.body);

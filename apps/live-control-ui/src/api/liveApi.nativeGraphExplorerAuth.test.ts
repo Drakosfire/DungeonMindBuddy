@@ -116,6 +116,10 @@ const entityInspectionBody = {
   selection: { kind: "entity", entity_id: "entity-a" },
 };
 const hostedRoutes = [
+  ["first-Graph preparation", "/api/live/extract-promote/worldbuilding/first-world/prepare",
+    { schema: "dmb_first_world_graph_prepare_request_v1", runId: "reviewed-run", decisions: [{ action: "keep" }] }],
+  ["first-Graph confirmation", "/api/live/extract-promote/worldbuilding/first-world/confirm",
+    { schema: "dmb_first_world_graph_confirm_request_v1", plan: { runId: "reviewed-run" } }],
   ["published Plan recap", "/api/live/native-source-inspection/published-recap", { managed_world_id: "managed-a", campaign_id: "campaign-a", session_id: "session-a" }],
   ["connected-page prepare", "/api/live/connected-pages/prepare", { world_id: "managed-a", operation_id: "11111111-1111-4111-8111-111111111111" }],
   ["connected-page confirm", "/api/live/connected-pages/confirm", { world_id: "managed-a", operation_id: "11111111-1111-4111-8111-111111111111", confirm_token: "fixture" }],
@@ -159,6 +163,19 @@ it.each(hostedRoutes)("uses only secure same-origin cookies for hosted %s, never
   expect(init).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store", mode: "same-origin" });
   expect(Object.fromEntries(new Headers(init?.headers))).toEqual({ accept: "application/json", "content-type": "application/json" });
   expect(JSON.parse(String(init?.body))).toEqual(body);
+});
+
+it("rejects first-Graph requests with the wrong method, scope, or envelope", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch");
+  const path = "/api/live/extract-promote/worldbuilding/first-world/prepare";
+  const body = { schema: "dmb_first_world_graph_prepare_request_v1", runId: "reviewed-run", decisions: [{ action: "keep" }] };
+  const post = { method: "POST", body: JSON.stringify(body) };
+  await expect(api.authenticatedApiFetch(path)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(path + "?world_id=foreign", post)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(path, { ...post, body: JSON.stringify({ ...body, runId: "" }) })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).not.toHaveBeenCalled();
 });
 
 it("uses only cookies for the exact hosted World list and blocks creation", async () => {
