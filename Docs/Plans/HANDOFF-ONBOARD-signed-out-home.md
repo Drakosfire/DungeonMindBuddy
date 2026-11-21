@@ -1,6 +1,8 @@
 # ONBOARD: signed-out demo at Buddy Home
 
-Status: ACTIVE, serial, explicitly authorized by the owner's onboarding goal
+Status: MERGED in PR #4297 at `b9030763c9f71d59268a0b4f5df4dd4143e01c2c`;
+the root demo remains disabled and unconfigured pending release qualification.
+The slice was serial, explicitly authorized by the owner's onboarding goal
 and clarification. Bugbot critiqued the proposed design before activation;
 the decisions below adopt its findings. The owner explicitly clarified
 that `buddy.dungeonmind.net` itself must make the Sizzek demo available while

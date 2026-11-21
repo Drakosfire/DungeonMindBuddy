@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { useEffect, type ReactNode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -41,6 +42,23 @@ it("opens the configured demo at signed-out Home without a private World provide
   expect(fetchMock.mock.calls.map(call => String(call[0])).sort()).toEqual(["/api/auth/session", `/api/live/guest-releases/${publicId}`].sort());
   act(() => { window.history.pushState({}, "", "#copy/old/point/a/source/s"); window.dispatchEvent(new PopStateEvent("popstate")); });
   expect(screen.getByText("Every story has a trail.")).toBeInTheDocument();
+});
+
+it("adds and resets a temporary graph point at signed-out Home without private requests", async () => {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => String(input) === "/api/auth/session" ? reply(401) : reply(200, manifest));
+  vi.stubGlobal("fetch", fetchMock);
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByRole("button", { name: /Demo point/ });
+  await user.type(screen.getByLabelText("Point name"), "Visitor clue");
+  await user.selectOptions(screen.getByLabelText("Connect to a shared point"), "a");
+  await user.click(screen.getByRole("button", { name: "Add temporary point" }));
+  expect(screen.getByRole("heading", { name: "Visitor clue" })).toBeInTheDocument();
+  expect(screen.queryByTestId("private-world-provider")).not.toBeInTheDocument();
+  expect(window.location.href).not.toContain("Visitor");
+  await user.click(screen.getByRole("button", { name: "Reset my additions" }));
+  expect(screen.queryByText("Visitor clue")).not.toBeInTheDocument();
+  expect(fetchMock.mock.calls.map(call => String(call[0])).sort()).toEqual(["/api/auth/session", `/api/live/guest-releases/${publicId}`].sort());
 });
 
 it("unmounts a pending guest fetch on sign-in and returns on sign-out", async () => {
