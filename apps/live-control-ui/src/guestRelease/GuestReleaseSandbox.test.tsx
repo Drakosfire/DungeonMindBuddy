@@ -75,7 +75,7 @@ it("keeps additions while shared history changes but loses them on remount", asy
   await user.type(screen.getByLabelText("Point name"), "My clue");
   await user.selectOptions(screen.getByLabelText("Connect to a shared point"), "a");
   await user.click(screen.getByRole("button", { name: "Add temporary point" }));
-  await user.click(screen.getByRole("button", { name: /Shared point/ }));
+  await user.click(screen.getByRole("button", { name: "Shared point character" }));
   act(() => { window.history.pushState({}, "", "#copy/copy"); window.dispatchEvent(new PopStateEvent("popstate")); });
   expect(screen.getByRole("button", { name: /My clue/ })).toBeInTheDocument();
   expect(window.location.href).not.toContain("guest-local");
