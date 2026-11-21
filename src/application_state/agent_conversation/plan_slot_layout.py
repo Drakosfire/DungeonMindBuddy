@@ -52,6 +52,13 @@ def _require_block(node: dict, binding, source: bytes) -> BlockBinding:
     attrs = node.get("attrs")
     if not isinstance(attrs, dict) or attrs.get("pageBlockId") != binding.id:
         raise ValueError("Plan editor block differs from its layout identity")
+    allowed = (
+        {"pageBlockId", "level"} if node.get("type") == "heading" else {"pageBlockId"}
+    )
+    if any(value is not None for key, value in attrs.items() if key not in allowed):
+        raise ValueError(
+            "Plan editor block has metadata absent from its exact Markdown"
+        )
     text = source[binding.byte_start : binding.byte_end].decode("utf-8")
     _require_matching_block(node, text)
     return binding
@@ -213,7 +220,8 @@ def _require_matching_block(node: dict, markdown: str) -> None:
         _children(node, 0)
         return
     if kind == "heading" and kinds == ["heading_open", "inline", "heading_close"]:
-        if tokens[0].tag != f"h{node['attrs'].get('level')}":
+        level = node["attrs"].get("level")
+        if type(level) is not int or tokens[0].tag != f"h{level}":
             raise ValueError(
                 "Plan editor heading level differs from its exact Markdown"
             )

@@ -643,6 +643,13 @@ def test_composed_slot_rejects_other_slot_source_and_unbound_layout(composed_pro
         })
     with pytest.raises(ValueError, match="selection witness"):
         PlanAuthoringSlotBoundaryCaptureV1.model_validate(original | {"from": 99, "to": 99})
+    metadata = json.loads(original["editor_json"])
+    metadata["content"][-1]["attrs"]["playableElementId"] = "scene:forged"
+    metadata_source = json.dumps(metadata)
+    with pytest.raises(ValueError, match="metadata absent"):
+        PlanAuthoringSlotBoundaryCaptureV1.model_validate(original | {
+            "editor_json": metadata_source, "editor_sha256": text_digest(metadata_source),
+        })
     invalid = [
         slot_prepare_command(proposal, review, left=[LEFT, INSERTION], right=[RIGHT]),
         slot_prepare_command(proposal, review, ending=(ENDING[0], "Changed unrelated source.")),
