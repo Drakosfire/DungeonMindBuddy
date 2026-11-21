@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from application_state.agent_conversation.reviewed_action import ReviewedStepReference
-from application_state.agent_conversation.plan_authoring import PlanAuthoringCaptureV1, PlanAuthoredProposalV1
+from application_state.agent_conversation.plan_authoring import PlanAuthoredProposalV1
 
 from application_state.agent_conversation.identifier_limits import (
     GRAPH_EVIDENCE_REF_ID_MAX_CHARS,
@@ -248,6 +248,8 @@ class AgentTurnGraphSelection(BaseModel):
 from application_state.agent_conversation.authored_graph_references import AuthoredReferenceInput, AuthoredReferencesV2
 
 from application_state.agent_conversation.plan_placement import PlanPlacementCatalog, PlanPlacementCatalogV2
+from application_state.agent_conversation.plan_authoring import PlanAuthoringComposedSnapshotV1, PlanAuthoringOpeningCapture
+from application_state.agent_conversation.plan_composed_targeting import ComposedPlanPlacementCatalogV1
 
 class AgentTurnRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -273,7 +275,7 @@ class AgentTurnRequest(BaseModel):
     retry_of: RetryTurnReference | None = None
     reviewed_step: ReviewedStepReference | None = None
     plan_context_policy: PlanContextPolicyV2 | PlanContextPolicyV1 | None = None
-    plan_authoring_capture: PlanAuthoringCaptureV1 | None = None
+    plan_authoring_capture: PlanAuthoringOpeningCapture | None = None
     plan_placement_catalog: PlanPlacementCatalog | None = None
     message: str = Field(min_length=1)
 
@@ -337,6 +339,11 @@ class AgentTurnRequest(BaseModel):
                 or self.owner_scope.kind != 'world' or self.graph_request.mode != 'world'):
                 raise ValueError('Authored references require the current Build page and World context')
             self.build_authored_references.require_world(self.owner_scope.world_id)
+        if type(self.plan_authoring_capture) is PlanAuthoringComposedSnapshotV1:
+            expected_catalog = ComposedPlanPlacementCatalogV1.freeze(self.plan_authoring_capture)
+            if self.plan_placement_catalog is not None and self.plan_placement_catalog != expected_catalog:
+                raise ValueError("Composed Plan catalog differs from its complete captured page")
+            self.plan_placement_catalog = expected_catalog
         if self.plan_placement_catalog is not None:
             if self.plan_authoring_capture is None:
                 raise ValueError("Plan placement catalog requires its original capture")

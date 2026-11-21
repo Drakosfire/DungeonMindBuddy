@@ -129,11 +129,46 @@ class ComposedPlanPlacementCatalogV1(Frozen):
     def sha256(self) -> str:
         return digest(self.model_dump(mode="json", by_alias=True))
 
+    @property
+    def original_capture_sha256(self) -> str:
+        return self.snapshot_sha256
+
     def require_snapshot(self, snapshot: PlanAuthoringComposedSnapshotV1) -> None:
         if self != self.freeze(snapshot):
             raise ValueError(
                 "Composed Plan catalog differs from the complete frozen editor"
             )
+
+    def require_original(self, original) -> None:
+        if type(original) is not PlanAuthoringComposedSnapshotV1:
+            raise ValueError("Composed Plan catalog requires its original composed snapshot")
+        self.require_snapshot(original)
+
+    def selector_for(self, address: PlanSlotAddressV1) -> str:
+        paragraph = PlanSlotParagraphV1.model_validate(address.model_dump(exclude={"relation"}))
+        for index, row in enumerate(self.paragraphs):
+            if row.address == paragraph:
+                return f"{address.relation}:slot{index}"
+        raise ValueError("Composed Plan placement was not offered")
+
+    def paragraph_for(self, address: PlanSlotAddressV1) -> ComposedParagraphV1:
+        paragraph = PlanSlotParagraphV1.model_validate(address.model_dump(exclude={"relation"}))
+        for row in self.paragraphs:
+            if row.address == paragraph:
+                return row
+        raise ValueError("Composed Plan paragraph was not offered")
+
+    def resolve(self, original, selector: str) -> PlanAuthoringSlotBoundaryCaptureV1:
+        self.require_original(original)
+        relation, _, alias = selector.partition(":slot")
+        suffix = alias if alias.isascii() and alias.isdecimal() else ""
+        if relation not in {"before", "after"} or not suffix or len(suffix) > len(str(len(self.paragraphs))):
+            raise ValueError("Composed Plan placement was not offered")
+        index = int(suffix)
+        if str(index) != suffix or index >= len(self.paragraphs):
+            raise ValueError("Composed Plan placement was not offered")
+        address = PlanSlotAddressV1(**self.paragraphs[index].address.model_dump(), relation=relation)
+        return _derived_slot_capture(original, address)
 
 
 class ComposedPlanNominationV1(Frozen):
@@ -310,6 +345,13 @@ def decode_composed_plan_nomination(request, result) -> ComposedPlanNominationV1
 
     questions = {question.name: question.options for question in request.questions}
     answers = validated_choice_answers(result, set(questions))
+    return composed_nomination_from_answers(request, answers)
+
+
+def composed_nomination_from_answers(request, answers) -> ComposedPlanNominationV1:
+    questions = {question.name: question.options for question in request.questions}
+    if set(answers) != set(questions):
+        raise ValueError("Composed Plan nomination differs from its complete offered questions")
     if any(value not in questions[key] for key, value in answers.items()):
         raise ValueError("Composed Plan nomination contains an unoffered answer")
     return ComposedPlanNominationV1(
@@ -347,6 +389,14 @@ class ComposedPlanPlacementResolutionV1(Frozen):
                 "Only a unique composed Plan write carries insertion authority"
             )
         return self
+
+
+def _derived_slot_capture(snapshot, address):
+    return PlanAuthoringSlotBoundaryCaptureV1.model_validate(
+        snapshot.model_dump(mode="python", by_alias=True, exclude={"selected_paragraph"})
+        | {"schema": "dmb_plan_authoring_slot_boundary_capture_v1",
+           "target_kind": "insert_at_slot_boundary", "slot_address": address}
+    )
 
 
 def resolve_composed_plan_nomination(
@@ -413,16 +463,7 @@ def resolve_composed_plan_nomination(
         **next(iter(candidates)).model_dump(),
         relation=nomination.relation,
     )
-    capture = PlanAuthoringSlotBoundaryCaptureV1.model_validate(
-        snapshot.model_dump(
-            mode="python", by_alias=True, exclude={"selected_paragraph"}
-        )
-        | {
-            "schema": "dmb_plan_authoring_slot_boundary_capture_v1",
-            "target_kind": "insert_at_slot_boundary",
-            "slot_address": address,
-        }
-    )
+    capture = _derived_slot_capture(snapshot, address)
     return ComposedPlanPlacementResolutionV1(
         work="write_current_page", resolution="unique", capture=capture
     )

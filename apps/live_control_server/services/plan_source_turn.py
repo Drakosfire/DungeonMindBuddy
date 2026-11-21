@@ -45,11 +45,22 @@ def _plan_basis(work):
         revision_n=basis.revision_n, content_sha256=basis.content_sha256)
 
 
-def _contextual_document_title(basis):
+def _contextual_document_title(basis, composed_capture=None):
     """Read metadata only when it still belongs to this exact captured basis."""
-    from application_state.content.service import get_plan
+    from application_state.content.service import get_plan, snapshot_plan
     from application_state.errors import ApplicationStateConflictError
-    obj = get_plan(str(basis.document_id))
+    if composed_capture is not None:
+        snapshot = snapshot_plan(str(basis.document_id))
+        obj = snapshot.work_object
+        if (
+            snapshot.page_presentation is None
+            or snapshot.page_presentation.fingerprint() != composed_capture.base_page_presentation_sha256
+            or snapshot.content_sha256 != basis.content_sha256
+            or snapshot.from_working_copy
+        ):
+            raise ApplicationStateConflictError('Plan layout changed before composed request admission')
+    else:
+        obj = get_plan(str(basis.document_id))
     if (str(obj.work_object_id) != str(basis.document_id)
             or obj.world_id != basis.world_id or obj.status != 'active'
             or obj.object_revision != basis.object_revision
@@ -62,11 +73,19 @@ def _native_plan_parts(request, basis, playable_target, submitted_intent):
     from application_state.agent_conversation.native_context import PlanWorkContextV1
     from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
     from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
+    from application_state.agent_conversation.plan_composed_targeting import ComposedPlanPlacementCatalogV1
     from .build_related_pages import discover
-    action_type = (NativePlanActionV3 if type(request.plan_placement_catalog) is PlanPlacementCatalogV2
-        and request.plan_authoring_capture.target_kind in {'insert_at_caret', 'replace_selection'} else NativePlanActionV2)
-    contextual = ({'document_title': _contextual_document_title(basis)}
-        if action_type is NativePlanActionV3 else {})
+    composed = type(request.plan_placement_catalog) is ComposedPlanPlacementCatalogV1
+    contextual_capture = composed or (type(request.plan_placement_catalog) is PlanPlacementCatalogV2
+        and request.plan_authoring_capture.target_kind in {'insert_at_caret', 'replace_selection'})
+    action_type = NativePlanActionV3 if contextual_capture else NativePlanActionV2
+    contextual = {}
+    if composed:
+        contextual["document_title"] = _contextual_document_title(
+            basis, request.plan_authoring_capture,
+        )
+    elif contextual_capture:
+        contextual["document_title"] = _contextual_document_title(basis)
     return (PlanWorkContextV1(plan_basis=basis, plan_context_policy=request.plan_context_policy,
             playable_target=playable_target),
         action_type(intent=submitted_intent, authoring_capture=request.plan_authoring_capture,
