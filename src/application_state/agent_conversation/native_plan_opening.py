@@ -140,7 +140,7 @@ def _prepare_author_scope_review(request):
     from .jev_retrieval_contract import MODEL, PROVIDER
     from .plan_contextual_targets import AUTHOR_RELATIONS
     from .plan_author_location import (
-        explicit_direction_options, explicit_scope_conflict, is_complete_scope_recovery,
+        LiteralScopeName, NamedScopePath, explicit_direction_options, explicit_scope_conflict, is_complete_scope_recovery,
         nominal_scope_needs_review, nominal_scope_subject,
     )
 
@@ -167,6 +167,9 @@ def _prepare_author_scope_review(request):
             if subject is None and not is_complete_scope_recovery(hypothesis, request.question, request.dialogue):
                 continue
             scope = hypothesis.compile(request.question, request.dialogue)
+            if subject is not None and (not isinstance(scope, NamedScopePath) or len(scope.names) != 1
+                    or not isinstance(scope.names[0], LiteralScopeName)):
+                continue
             for relation in sorted(relations - {'unresolved'}):
                 if subject is not None and relation not in {'before_paragraph', 'after_paragraph'}:
                     continue
@@ -195,6 +198,14 @@ def _prepare_author_scope_review(request):
             view['dialogue'] = []
     bindings = {f'option{i}': pair for i, (_, pair) in enumerate(sorted(pairs.items()))}
     criteria = {f'option{i}': key for i, key in enumerate(sorted(pairs))}
+    if nominal_review:
+        for alias, (relation, scope, subject) in bindings.items():
+            if subject is not None:
+                criteria[alias] = (f'{AUTHOR_RELATIONS[relation]} The author names “{scope.names[0].text}” as the '
+                    f'section and describes the existing paragraph in that section by its subject “{subject}”.')
+            elif nominal_scope_needs_review(request.question, scope):
+                criteria[alias] = (f'{AUTHOR_RELATIONS[relation]} The author uses the entire phrase '
+                    f'“{scope.names[0].text}” as the exact section title, with no separate paragraph description.')
     criteria['unresolved'] = 'None of the complete offered interpretations matches the author location.'
     question = ChoiceDecisionQuestion(name='adjudicated_scope', options=tuple(criteria), option_descriptions=criteria,
         question='Choose the complete interpretation of the author’s existing location. '
