@@ -184,3 +184,26 @@ Hosted Home showed no conversation composer in Buddy Cloud Pilot, so H01 had
 no eligible writer. Hosted Graph still reported unavailable native readback
 and disabled object selection in the pilot. G01 requires a disposable native
 Graph where the fixture object can be selected.
+
+### Hosted Plan-to-Play adoption diagnostic
+
+An explicit request to edit the synthetic Plan in Arrival produced two
+canonical callouts, Read Aloud **Boardwalk** and GM Note **Tower**. The draft
+also contained the host retrieval disclosure, which was removed manually
+before Save. The blocks were saved before the opening paragraph, one
+paragraph earlier than requested. This diagnostic leaves ordinary P01
+routing, placement, and clean proposal generation open.
+
+The document-specific Plan reload returned `owned_world_access_required`.
+Reopening through the World-scoped Plan entry recovered the saved blocks.
+Starting Play from that saved Plan carried both authored callouts, the
+previous callouts, the red-gate choice, and the Departure sentinel into
+a fresh session. The exact PL02 chat request quoted **Boardwalk**, omitted
+both private notes, and staged no scene edit. This checks adoption and the
+chat-only boundary after the manually reviewed save.
+
+The separate deterministic Play control in
+[#4309](https://github.com/Drakosfire/DungeonMindBuddy/pull/4309) verifies that
+both titled additions, a sibling table and image reference, and the exact
+parent Plan record survive session-copy Save and readback. Hosted image
+rendering remains unverified.
