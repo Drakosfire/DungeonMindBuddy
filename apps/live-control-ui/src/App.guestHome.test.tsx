@@ -1,12 +1,16 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { App } from "./App";
 
+const lifecycle = vi.hoisted(() => ({ mounted: 0, unmounted: 0 }));
 vi.mock("./api/liveApi", () => ({ invalidateHostedGraphAccess: vi.fn() }));
 vi.mock("./selectedWorld/SelectedWorldContext", () => ({
   SELECTED_WORLD_LOCATION_CHANGED_EVENT: "world-location-changed",
-  SelectedWorldProvider: ({ children }: { children: ReactNode }) => <div data-testid="private-world-provider">{children}</div>,
+  SelectedWorldProvider: ({ children }: { children: ReactNode }) => {
+    useEffect(() => { lifecycle.mounted++; return () => { lifecycle.unmounted++; }; }, []);
+    return <div data-testid="private-world-provider">{children}</div>;
+  },
 }));
 vi.mock("./BuddyApp", () => ({ BuddyApp: () => <div>Personal welcome</div> }));
 
@@ -17,6 +21,7 @@ const manifest = { release_id: "copy", manifest: {
 } };
 const reply = (status: number, body?: unknown) => new Response(body === undefined ? null : JSON.stringify(body), { status });
 beforeEach(() => {
+  lifecycle.mounted = 0; lifecycle.unmounted = 0;
   vi.stubEnv("PROD", true);
   vi.stubEnv("VITE_GUEST_RELEASE_PAGE", "1");
   vi.stubEnv("VITE_GUEST_HOME_PUBLIC_ID", publicId);
@@ -40,11 +45,12 @@ it("opens the configured demo at signed-out Home without a private World provide
 
 it("unmounts a pending guest fetch on sign-in and returns on sign-out", async () => {
   let session = "signed_out";
+  let releaseRequests = 0;
   let finishRelease!: (value: Response) => void;
   const pending = new Promise<Response>(resolve => { finishRelease = resolve; });
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => String(input) === "/api/auth/session"
     ? session === "signed_out" ? reply(401) : reply(200, { status: "authenticated", subject: session })
-    : pending));
+    : releaseRequests++ === 0 ? pending : reply(200, manifest)));
   render(<App />);
   expect(await screen.findByText("Opening this guest World…")).toBeInTheDocument();
   expect(screen.queryByTestId("private-world-provider")).not.toBeInTheDocument();
@@ -110,4 +116,36 @@ it("keeps local-operator Home on its existing path", async () => {
   expect(await screen.findByText("Personal welcome")).toBeInTheDocument();
   expect(screen.getByTestId("private-world-provider")).toBeInTheDocument();
   expect(fetchMock).not.toHaveBeenCalled();
+});
+
+it("keeps legacy Home anchors on the ordinary welcome", async () => {
+  window.history.replaceState({}, "", "/#buddy-about");
+  const fetchMock = vi.fn(async () => reply(401));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<App />);
+  expect(await screen.findByText("Personal welcome")).toBeInTheDocument();
+  expect(fetchMock.mock.calls.map(call => String(call[0]))).toEqual(["/api/auth/session"]);
+});
+
+it("keeps malformed release fragments inside the configured demo without private reads", async () => {
+  window.history.replaceState({}, "", "/#copy/copy/point/%E0%A4%A");
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => String(input) === "/api/auth/session" ? reply(401) : reply(200, manifest));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<App />);
+  expect(await screen.findByText("Every story has a trail.")).toBeInTheDocument();
+  expect(screen.queryByTestId("private-world-provider")).not.toBeInTheDocument();
+  expect(fetchMock.mock.calls.map(call => String(call[0])).sort()).toEqual(["/api/auth/session", `/api/live/guest-releases/${publicId}`].sort());
+});
+
+it("remounts personal Home when the authenticated account changes", async () => {
+  let subject = "owner-a";
+  vi.stubGlobal("fetch", vi.fn(async () => reply(200, { status: "authenticated", subject })));
+  render(<App />);
+  expect(await screen.findByText("Personal welcome")).toBeInTheDocument();
+  expect(lifecycle.mounted).toBe(1);
+  subject = "owner-b";
+  fireEvent.focus(window);
+  await waitFor(() => expect(lifecycle.mounted).toBe(2));
+  expect(lifecycle.unmounted).toBe(1);
+  expect(screen.queryByText("Follow the threads.")).not.toBeInTheDocument();
 });
