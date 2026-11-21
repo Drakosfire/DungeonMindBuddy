@@ -9,7 +9,8 @@ import {markdownToTiptapDoc} from '../tiptap/markdown/markdownToTiptap';
 import {createBuildComposeBridge,type BuildComposeEditorState} from './buildComposeBridge';
 import {BuildPageProposal} from './BuildPageProposal';
 import {proposalReview,type BuildProposalReview} from '../api/buildProposalReviewApi';
-import type {BuildProposalRecord} from '../api/buildDocumentProposalApi';
+import type {BuildProposalRecord,BuildProseBoundaryTarget} from '../api/buildDocumentProposalApi';
+import {captureProseTargetCatalog,resolveProseTarget} from '../documentEditing/proseTargetCatalog';
 vi.mock('../api/buildProposalReviewApi',()=>({proposalReview:vi.fn()}));
 let editor:Editor;let state:BuildComposeEditorState;let bridge:ReturnType<typeof createBuildComposeBridge>;
 let record:BuildProposalRecord;let saved:BuildProposalReview;let lostAck=false;let lostPrepare=false;
@@ -44,7 +45,7 @@ beforeEach(async()=>{
     retired_placements:[...(saved.retired_placements??[]),{basis:{...(saved.placement?.basis??record.reservation.basis),caret:saved.placement_caret},markdown:saved.markdown,
       markdown_sha256:saved.markdown_sha256,apply:saved.apply,command_id:saved.placement?.command_id??null,
       disposition:saved.apply?'superseded_unresolved':'superseded_unapplied'}]};
-  if(command.operation==='prepare')saved={...saved,revision:saved.revision+1,state:'applying',apply:{...(saved.page_body_target?{page_body_target:saved.page_body_target}:{}),...(saved.page_end_target?{page_end_target:saved.page_end_target}:{}),placement_caret:saved.placement_caret,apply_id:command.apply_id!,before_editor_sha256:(saved.placement?.basis??record.reservation.basis).editor_sha256!,before_draft_sha256:(saved.placement?.basis??record.reservation.basis).draft_sha256,
+  if(command.operation==='prepare')saved={...saved,revision:saved.revision+1,state:'applying',apply:{...(saved.page_body_target?{page_body_target:saved.page_body_target}:{}),...(saved.page_end_target?{page_end_target:saved.page_end_target}:{}),...(saved.prose_target?{prose_target:saved.prose_target}:{}),placement_caret:saved.placement_caret,apply_id:command.apply_id!,before_editor_sha256:(saved.placement?.basis??record.reservation.basis).editor_sha256!,before_draft_sha256:(saved.placement?.basis??record.reservation.basis).draft_sha256,
    after_editor_sha256:command.after_editor_sha256!,after_draft_sha256:command.after_draft_sha256!,reviewed_sha256:saved.markdown_sha256}};
   if(command.operation==='prepare'&&lostPrepare)throw new Error('Prepared outcome unavailable');
   if(command.operation==='confirm'){if(lostAck)throw new Error('Acknowledgment unavailable');saved={...saved,revision:saved.revision+1,state:'applied'};}
@@ -54,6 +55,35 @@ beforeEach(async()=>{
 afterEach(()=>{cleanup();editor.destroy();editor.view.dom.remove();Reflect.deleteProperty(Range.prototype,'getClientRects');Reflect.deleteProperty(Range.prototype,'getBoundingClientRect');Reflect.deleteProperty(document,'elementFromPoint');});
 async function writeSuggestion(value:string){const box=await screen.findByRole('textbox',{name:'Suggestion text'});await userEvent.clear(box);await userEvent.type(box,value);}
 function Review({source='doc:1',request=0}:{source?:string;request?:number}){return <BuildPageProposal record={record} bridge={bridge} sourceKey={source} requestKey={request} onStatus={status} onComplete={complete} inspector={<p>Exact captured prompt</p>}/>;}
+it('sends the offered Build boundary to Prepare and saves only after author review',async()=>{
+ editor.commands.setTextSelection(1);
+ const original=await bridge.capture();
+ const context=()=>({editor,scopeKey:'test',draftGeneration:0,canEdit:true});
+ const catalog=captureProseTargetCatalog(context);
+ const offered=catalog.choices.find(choice=>choice.passage==='After'&&choice.operation==='insert_after')!;
+ const found=resolveProseTarget(catalog,offered.selector,context);
+ const proof:BuildProseBoundaryTarget={schema:'dmb_build_prose_boundary_target_v1',
+  alias:offered.selector,operation:offered.operation,from:found.from,to:found.to,
+  catalog_sha256:await digest(JSON.stringify(catalog.choices)),before_text_sha256:await digest(offered.passage)};
+ const markdown='A lantern guard waits.\n';
+ record={...record,schema_version:'dmb_build_document_proposal_v3',
+  reservation:{...record.reservation,basis:original.basis,prose_target:proof},
+  proposal:{target:'prose_target',replacement_markdown:markdown,summary:'A proposed lookout.',assumptions:[]}};
+ saved={...saved,schema:'dmb_build_proposal_review_v5',placement_caret:1,prose_target:proof,markdown,markdown_sha256:await digest(markdown)};
+ const persist=vi.spyOn(bridge,'saveProposal'),before=editor.getJSON();
+ render(<Review/>);
+ const button=await screen.findByRole('button',{name:'Save',exact:true});
+ expect(screen.queryByRole('button',{name:'Move',exact:true})).not.toBeInTheDocument();
+ expect(editor.getJSON()).toEqual(before);
+ expect(persist).not.toHaveBeenCalled();
+ fireEvent.click(button);
+ await waitFor(()=>expect(saved.state).toBe('applied'));
+ expect(vi.mocked(proposalReview).mock.calls.find(([, ,cmd])=>cmd?.operation==='prepare')?.[2]).toMatchObject({prose_target:proof});
+ expect(persist).toHaveBeenCalledExactlyOnceWith(original.basis,saved.apply!.after_editor_sha256,saved.apply!.after_draft_sha256,undefined,proof);
+ expect(saved.apply?.placement_caret).toBe(1);
+ expect(editor.getJSON().content?.slice(0,-1)).toEqual(before.content);
+ expect(editor.getText()).toBe('Before\n\nAfter\n\nA lantern guard waits.');
+});
 it('stages outside editor JSON, edits and keeps once at its original position with one Undo',async()=>{
  const before=editor.getJSON();render(<Review/>);
  await screen.findByRole('region',{name:'Proposed page change'});

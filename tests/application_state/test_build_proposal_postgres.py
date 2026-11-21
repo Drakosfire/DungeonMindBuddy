@@ -10,6 +10,7 @@ from application_state.agent_conversation import AgentConversationService
 from application_state.build_proposal.service import BuildProposalService
 from application_state.build_proposal.types import (
     BuildGeneratedProposal, BuildProposalBasis, BuildProposalReservation, BuildProviderAuthorization,
+    BuildProseBoundaryProposalRecord, BuildProseBoundaryReservation, BuildProseBoundaryTarget,
 )
 from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError
 from tests.application_state.test_agent_conversation_postgres import _new
@@ -133,3 +134,66 @@ def test_proposal_owner_rejects_results_unrelated_to_captured_final(reservation,
     assert record.state=='response_received' and record.proposal is None and record.raw_response==raw
     # The original final remains usable after the rejected transaction.
     assert advance('proposed').proposal==result
+
+
+def test_prose_boundary_review_keeps_original_caret_and_requires_exact_offered_target(reservation):
+    from application_state.build_proposal.review import BuildProposalReviewService, BuildReviewCommand
+
+    basis = reservation.basis.model_copy(update={"editor_sha256": "e" * 64})
+    target = BuildProseBoundaryTarget(
+        catalog_sha256="a" * 64, alias="passage2:insert_after",
+        operation="insert_after", **{"from": 43, "to": 43},
+        before_text_sha256="b" * 64,
+    )
+    request = BuildProseBoundaryReservation.model_validate(
+        reservation.model_dump() | {"basis": basis, "prose_target": target},
+    )
+    with pytest.raises(ApplicationStateConflictError, match="catalog owner"):
+        BuildProposalService().reserve(request)
+    admitted = []
+    service = BuildProposalService(admit_prose_boundary=lambda conn, value: admitted.append(value))
+    record, created = service.reserve(request)
+    assert created and admitted == [request]
+    assert service.reserve(request) == (record, False)
+    world, action = basis.world_id, record.action_id
+
+    def advance(state, **fields):
+        nonlocal record
+        record = service.advance(world, action, expected_revision=record.revision, state=state, **fields)
+
+    advance("authorized", authorization=BuildProviderAuthorization(
+        provider_attempt_id=uuid4(), model="synthetic", payload_sha256="c" * 64, payload_utf8_bytes=123,
+    ))
+    advance("sdk_entered")
+    advance("response_received", raw_response=json.dumps({
+        "destination": "current_page", "target": "prose_target",
+        "replacement_markdown": "Bring a second lantern.", "summary": "A proposed precaution.",
+        "assumptions": [],
+    }))
+    advance("proposed")
+    assert type(BuildProposalService().get(world, action)) is BuildProseBoundaryProposalRecord
+    assert record.reservation.basis.caret == 1 and record.reservation.prose_target == target
+    with pytest.raises(ApplicationStateConflictError, match="exact Review receipt"):
+        service.report_inserted(world, action, expected_revision=record.revision)
+
+    review = BuildProposalReviewService()
+    opened = review.execute(world, action, BuildReviewCommand(operation="open", expected_revision=0))
+    assert opened.schema_version == "dmb_build_proposal_review_v5"
+    assert opened.placement_caret == 1 and opened.prose_target == target
+    with pytest.raises(ApplicationStateConflictError, match="offered paragraph boundary"):
+        review.execute(world, action, BuildReviewCommand(
+            operation="move", expected_revision=opened.revision, placement_caret=2,
+        ))
+    values = dict(operation="prepare", expected_revision=opened.revision, apply_id=uuid4(),
+                  after_editor_sha256="f" * 64, after_draft_sha256="d" * 64)
+    with pytest.raises(ApplicationStateConflictError, match="acknowledge the exact prose boundary"):
+        review.execute(world, action, BuildReviewCommand(**values))
+    prepare = BuildReviewCommand(**values, prose_target=target)
+    prepared = review.execute(world, action, prepare)
+    assert prepared.apply.prose_target == target
+    assert review.execute(world, action, prepare) == prepared
+    confirm = BuildReviewCommand(operation="confirm", expected_revision=prepared.revision, apply_id=prepare.apply_id)
+    assert review.execute(world, action, confirm).state == "applied"
+    assert BuildProposalService().get(world, action).inserted_in_draft
+    with pytest.raises(ApplicationStateNotFoundError):
+        review.get("foreign-world", action)

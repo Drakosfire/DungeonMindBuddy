@@ -1,6 +1,19 @@
 # Ordinary composed Plan editor workflow
 
-Status: ACTIVE under the contextual-layout lane authority. Serial successor
+Status: COMPLETE. #4350 merged at
+`dda2598c95b6ed3c3c9f4b883a4d83d520dea169` after exact-head independent review
+of `dbd44447894b051024c13135dfea167378156bdb`. Chromium and disposable
+PostgreSQL verified normal Send with real Jev, exact layout and source, explicit
+Save, stale refusal, Undo/Redo, lost-response recovery, and 390px cold reopen.
+The independent held-out run scored 28/32 strict effects, with 14/16 feasible
+placements, 16/16 controls free of authoring effects, and zero unsafe proposals.
+Two feasible misses and two nonwriting HTTP 409 terminal limits remain.
+Prose was scripted. Full discovered verification reproduced the exact base's
+102 failures and two skips, with two additional passing Plan cases. The
+[Build receiver assignment](HANDOFF-BUILD-contextual-boundary-receiver.md)
+continues the cross-surface sequence.
+
+Original assignment: serial successor
 to #4349 at `20cecb525fb388f545f8dfb956964d91deb59ecb`, in the isolated
 checkout on `codex/plan-composed-ordinary-editor`.
 
