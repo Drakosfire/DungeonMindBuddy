@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import {afterEach,beforeEach,describe,it,expect,vi} from 'vitest';
 import {webcrypto} from 'node:crypto';
 import * as api from './sceneTemplatesApi';
+import * as combatApi from './combatApi';
 import * as liveApi from '../api/liveApi';
 import {PlanSceneEncounter} from './PlanSceneEncounter';
 import manualCreate from '../../../../tests/fixtures/combat/manual-scene-create-v2.json';
@@ -20,6 +21,39 @@ function deferred<T>(){let resolve!:(value:T)=>void;const promise=new Promise<T>
 beforeEach(()=>{tourReadings.clear();sessionStorage.clear();Object.defineProperty(globalThis,'crypto',{configurable:true,value:webcrypto});vi.spyOn(api,'getSceneTemplate').mockResolvedValue(null);vi.spyOn(liveApi,'getWorldOwnedPlanCommittedRevision').mockResolvedValue(committed as any);});
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 describe('Plan scene encounter preparation',()=>{
+ it('previews an exact saved source and retries the same confirmed intent after reopening', async()=>{
+  const source=manualCombatRecord();
+  const list=vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([
+   {...source,world_id:context.worldId,revision:7},
+   {...source,world_id:'other-world',encounter_id:'44444444-4444-4444-8444-444444444444'},
+  ]);
+  const write=vi.spyOn(api,'createSceneTemplate')
+   .mockRejectedValueOnce(new Error('Connection lost'))
+   .mockImplementation((_world,intent)=>result(intent));
+  const first=render(<PlanSceneEncounter context={context}/>);
+  await userEvent.click(await screen.findByRole('button',{name:'Choose a saved encounter'}));
+  const picker=await screen.findByRole('combobox',{name:'Saved encounter'});
+  expect(list).toHaveBeenCalledWith(context.worldId);
+  expect(screen.queryByRole('option',{name:/revision 1$/})).not.toBeInTheDocument();
+  await userEvent.selectOptions(picker,source.encounter_id);
+  expect(screen.getByRole('region',{name:'Saved encounter preview'})).toHaveTextContent('Copy to Gate');
+  expect(write).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole('button',{name:'Confirm encounter copy'}));
+  await screen.findByRole('alert');
+  const intent=write.mock.calls[0][1];
+  expect(intent).toMatchObject({pin,encounter:{
+   schema_version:'dmb_scene_template_copy_saved_v1',
+   source_encounter_id:source.encounter_id,expected_revision:7,
+  }});
+  first.unmount();
+
+  render(<PlanSceneEncounter context={context}/>);
+  await userEvent.click(await screen.findByRole('button',{name:'Retry same creation'}));
+  expect(await screen.findByTestId('scoped-combat')).toBeInTheDocument();
+  expect(write.mock.calls[1]).toEqual([context.worldId,intent]);
+  expect(sessionStorage.length).toBe(0);
+ });
+
  it('matches the owning Python manual scene creation digest rather than hashing transport aliases',async()=>{
   expect(await api.sceneCreationDigest(manualCreate.world_id,manualCreate.intent as api.SceneTemplateIntent)).toBe(manualCreate.digest);
  });

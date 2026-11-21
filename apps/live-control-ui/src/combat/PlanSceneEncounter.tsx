@@ -6,15 +6,27 @@ import {CombatMechanicsInspection} from './CombatMechanicsInspection';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {getWorldOwnedPlanCommittedRevision} from '../api/liveApi';
 import {combatDraftEqual} from './combatRecovery';
+import {listAnyWorldCombatEncounters} from './combatApi';
 import {sameEncounterScope} from '../guidedTour/EncounterScope';
 import {CombatRosterModule,type PreparedCombatOwnerReading} from '../surface/modules/CombatRosterModule';
-import {assertSceneCreation,assertSceneTemplate,cancelSceneTemplateCreation,sceneCreationDigest,createSceneTemplate,getSceneTemplate,getSceneTemplateVersion,inspectSceneTemplateCreation,type PlanEncounterContext,type SceneTemplateIntent,type SceneTemplateView} from './sceneTemplatesApi';
+import {assertSceneCreation,assertSceneTemplate,cancelSceneTemplateCreation,sceneCreationDigest,createSceneTemplate,getSceneTemplate,getSceneTemplateVersion,inspectSceneTemplateCreation,type PlanEncounterContext,type SavedEncounterCopy,type SceneTemplateIntent,type SceneTemplateView} from './sceneTemplatesApi';
 import type {AnyCombatRecord,ManualCombatProfile} from './ManualCombatTypes';
 import {isManualCombatRecord} from './ManualCombatTypes';
 import {ManualCombatProfileForm} from './ManualCombatProfileForm';
 
 function recoveryKey(context:PlanEncounterContext){return `dmb-scene-template-create-v1:${context.worldId}:${context.documentId}:${context.sceneId}`;}
 function defaultTitle(sceneTitle:string){return Array.from(`${sceneTitle} encounter`.trim()).slice(0,160).join('');}
+function hasValidEncounterIntent(intent: SceneTemplateIntent): boolean {
+ const encounter = intent.encounter;
+ if (!encounter) return false;
+ if ('source_encounter_id' in encounter) {
+  return encounter.schema_version === 'dmb_scene_template_copy_saved_v1'
+   && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(encounter.source_encounter_id)
+   && Number.isSafeInteger(encounter.expected_revision) && encounter.expected_revision > 0;
+ }
+ return typeof encounter.title === 'string';
+}
+
 export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
  const guidance=useGuidedTour();
  const [tourDispatchScope,setTourDispatchScope]=useState<TourDispatchScope|null>(null);
@@ -28,6 +40,9 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
  const [loaded,setLoaded]=useState(false);
  const [error,setError]=useState<string|null>(null);
  const [historical,setHistorical]=useState<AnyCombatRecord|null>(null);
+ const [copySources,setCopySources]=useState<AnyCombatRecord[]|null>(null);
+ const [copySourceId,setCopySourceId]=useState('');
+ const copySource=copySources?.find(source=>source.encounter_id===copySourceId);
  const [title,setTitle]=useState(defaultTitle(context.sceneTitle));
  const identity=JSON.stringify([context.worldId,context.documentId,context.sceneId,context.objectRevision,context.contentSha256,context.verifiedPlan??null]);
  const [admittedIdentity,setAdmittedIdentity]=useState<string|null>(null);
@@ -35,14 +50,14 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
  const receiveRoster=useCallback((reading:PreparedCombatOwnerReading|null)=>setRoster(reading),[]);
  function accept(result:SceneTemplateView){assertSceneTemplate(result,context);setView(result);setAdmittedIdentity(identity);}
  useEffect(()=>{
-  const current=++epoch.current;setView(null);setAdmittedIdentity(null);setRoster(null);setAcknowledgedOperation(null);setPending(null);setRecoveryInvalid(false);setLoaded(false);setHistorical(null);setError(null);setBusy(false);setTitle(defaultTitle(context.sceneTitle));
+  const current=++epoch.current;setView(null);setAdmittedIdentity(null);setRoster(null);setAcknowledgedOperation(null);setPending(null);setRecoveryInvalid(false);setLoaded(false);setHistorical(null);setError(null);setBusy(false);setCopySources(null);setCopySourceId('');setTitle(defaultTitle(context.sceneTitle));
   void (async()=>{
    try{
     const retained=sessionStorage.getItem(recoveryKey(context));
     if(retained){
      let intent:SceneTemplateIntent;
      try {intent=JSON.parse(retained) as SceneTemplateIntent;
-     if(intent.schema_version!=='dmb_scene_template_create_v1'||intent.pin.document_id!==context.documentId||intent.pin.scene_id!==context.sceneId||!intent.operation_id||typeof intent.encounter?.title!=='string'||!intent.pin.work_revision_id||!intent.pin.content_sha256||!Number.isInteger(intent.pin.revision_n))throw new Error('Retained encounter intent is invalid; it has been preserved.');
+     if(intent.schema_version!=='dmb_scene_template_create_v1'||intent.pin.document_id!==context.documentId||intent.pin.scene_id!==context.sceneId||!intent.operation_id||!hasValidEncounterIntent(intent)||!intent.pin.work_revision_id||!intent.pin.content_sha256||!Number.isInteger(intent.pin.revision_n))throw new Error('Retained encounter intent is invalid; it has been preserved.');
      }catch(caught){if(current===epoch.current)setRecoveryInvalid(true);throw caught;}
      if(current===epoch.current)setPending(intent);
     }
@@ -54,7 +69,17 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
   })();
   return()=>{epoch.current++;};
  },[identity]);
- async function create(retry=false,manual?:{title:string;profile:ManualCombatProfile}){
+ async function loadCopySources(){
+  if(busy||!latest.current.canCreate)return;
+  const current=epoch.current;setBusy(true);setError(null);setCopySourceId('');
+  try{
+   const sources=await listAnyWorldCombatEncounters(context.worldId);
+   if(current===epoch.current)setCopySources(sources.filter(source=>source.world_id===context.worldId));
+  }catch(caught){if(current===epoch.current)setError(String(caught));}
+  finally{if(current===epoch.current)setBusy(false);}
+ }
+
+ async function create(retry=false,manual?:{title:string;profile:ManualCombatProfile},copy?:SavedEncounterCopy){
   const tourDispatch=guidance?.captureScope()??null;
   if(busy||(!retry&&!latest.current.canCreate))return;
   const current=epoch.current;setBusy(true);setError(null);
@@ -62,12 +87,12 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
    let intent=pending;
    if(!intent){
     const encounterTitle=(manual?.title??title).trim();
-    if(!encounterTitle||Array.from(encounterTitle).length>160)throw new Error('Enter an encounter name of 1–160 characters before preparing it.');
+    if(!copy&&(!encounterTitle||Array.from(encounterTitle).length>160))throw new Error('Enter an encounter name of 1–160 characters before preparing it.');
     const committed=await getWorldOwnedPlanCommittedRevision(context.documentId);
     const now=latest.current;
     if(current!==epoch.current)return;
     if(!now.canCreate||committed.schema_version!=='dmb_workspace_committed_revision_v2'||committed.scope_mode!=='world'||committed.world_id!==context.worldId||committed.document_id!==context.documentId||committed.kind!=='plan'||committed.status!=='active'||committed.has_divergent_working_copy||committed.object_revision!==now.objectRevision||committed.content_sha256!==now.contentSha256)throw new Error('Save and reopen this Plan before preparing its encounter.');
-    intent={schema_version:'dmb_scene_template_create_v1',operation_id:crypto.randomUUID(),pin:{document_id:context.documentId,scene_id:context.sceneId,revision_n:committed.revision_n,work_revision_id:committed.work_revision_id,content_sha256:committed.content_sha256},encounter:manual?{schema_version:'dmb_manual_combat_create_v2',title:encounterTitle,profile:manual.profile}:{title:encounterTitle}};
+    intent={schema_version:'dmb_scene_template_create_v1',operation_id:crypto.randomUUID(),pin:{document_id:context.documentId,scene_id:context.sceneId,revision_n:committed.revision_n,work_revision_id:committed.work_revision_id,content_sha256:committed.content_sha256},encounter:copy??(manual?{schema_version:'dmb_manual_combat_create_v2',title:encounterTitle,profile:manual.profile}:{title:encounterTitle})};
     sessionStorage.setItem(recoveryKey(context),JSON.stringify(intent));setPending(intent);
    }
    const result=await createSceneTemplate(context.worldId,intent);
@@ -142,6 +167,26 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
   {!loaded&&!error&&<p>Opening scene encounter…</p>}
   {loaded&&!view&&!pending&&!recoveryInvalid&&<><label>Encounter name<input aria-label="Prepared encounter name" maxLength={160} value={title} onChange={event=>setTitle(event.target.value)}/></label><button disabled={busy||!context.canCreate||!title.trim()} onClick={()=>void create()}>Prepare encounter</button>{!context.canCreate&&<p>Save the Plan before creating its encounter. Your Plan draft is retained.</p>}</>}
   {loaded&&!view&&!pending&&!recoveryInvalid&&<ManualCombatProfileForm disabled={busy||!context.canCreate} onCreate={(title,profile)=>create(false,{title,profile})}/>}
+  {loaded&&!view&&!pending&&!recoveryInvalid&&<section aria-label="Prepare from saved Combat">
+   <button type="button" disabled={busy||!context.canCreate} onClick={()=>void loadCopySources()}>
+    {copySources?'Refresh saved encounters':'Choose a saved encounter'}
+   </button>
+   {copySources?.length===0&&<p>No saved standalone encounters in this World.</p>}
+   {!!copySources?.length&&<label>Saved encounter
+    <select value={copySourceId} disabled={busy||!context.canCreate} onChange={event=>setCopySourceId(event.target.value)}>
+     <option value="">Select an encounter</option>
+     {copySources.map(source=><option key={source.encounter_id} value={source.encounter_id}>{source.draft.title} · revision {source.revision}</option>)}
+    </select>
+   </label>}
+   {copySource&&<section aria-label="Saved encounter preview">
+    <h3>{copySource.draft.title} · revision {copySource.revision}</h3>
+    <p>Copy to {context.sceneTitle} with {copySource.draft.entities.length} combatants and {copySource.draft.groups.length} groups.</p>
+    <ul>{copySource.draft.entities.map(actor=><li key={actor.id}>{actor.name}</li>)}</ul>
+    <button type="button" disabled={busy||!context.canCreate} onClick={()=>void create(false,undefined,{
+     schema_version:'dmb_scene_template_copy_saved_v1',source_encounter_id:copySource.encounter_id,expected_revision:copySource.revision,
+    })}>Confirm encounter copy</button>
+   </section>}
+  </section>}
   {view&&!pending&&<>
    {!view.scene_present&&<p role="status">This scene is absent from the saved Plan. Encounter work is retained.</p>}
    <details><summary>Prepared versions</summary><button disabled={busy} onClick={()=>void refresh()}>Refresh prepared versions</button>{view.versions.map(version=><button key={version.revision} disabled={busy} onClick={()=>void history(version.revision)}>Inspect version {version.revision}</button>)}{historical&&<section aria-label="Saved prepared version"><h3>{historical.draft.title} · version {historical.revision}</h3><ul>{historical.draft.entities.map(actor=><li key={actor.id}>{actor.name}{'values' in actor?<> · {actor.participation==='in_action'?'In action':'Out of action'} · {Object.values(actor.values.stats).map(value=>value??'—').join(' · ')}</>:<> · AC {actor.ac??'—'} · HP {actor.hp??'—'}/{actor.max_hp??'—'}</>}{actor.mechanics_snapshot&&<CombatMechanicsInspection snapshot={actor.mechanics_snapshot}/>}</li>)}</ul><p>Saved version · read only</p></section>}</details>
