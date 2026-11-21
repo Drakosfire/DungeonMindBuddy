@@ -601,7 +601,7 @@ class BuildJevHarness:
             body = json.loads(prepared.body)
             return DecisionContextMode(accounting.context_mode(body, host_phase=getattr(plan,"host_phase",None)))
 
-        prepare_deferred_query = (None if plan.host_phase == "graph_reference"
+        prepare_deferred_query = (None if getattr(plan, "host_phase", None) == "graph_reference"
                                   else getattr(adapter, "prepare_deferred_build_query", None))
         pending_query = None
         opening_dispatched = False

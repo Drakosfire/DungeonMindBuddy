@@ -18,6 +18,10 @@ def upgrade():
     definition = conn.exec_driver_sql(
         f"SELECT pg_get_functiondef('{owner._SIGNATURE}'::regprocedure)"
     ).scalar_one()
+    conn.exec_driver_sql(extend_native_storage_shape(definition))
+
+
+def extend_native_storage_shape(definition: str) -> str:
     anchor = "ELSE CASE WHEN completion->>'schema'='dmb_build_authoring_completion_v1' THEN"
     lifecycle_anchor = "AND CASE WHEN status='completed' THEN"
     if definition.count(anchor) != 1 or definition.count(lifecycle_anchor) != 1:
@@ -26,7 +30,7 @@ def upgrade():
     definition = definition.replace(lifecycle_anchor, f"""
 AND ({binding} = COALESCE(completion->>'schema'='dmb_build_graph_reference_completion_v1', FALSE))
 {lifecycle_anchor}""", 1)
-    definition = definition.replace(anchor, f"""ELSE CASE WHEN completion->>'schema'='dmb_build_graph_reference_completion_v1' THEN
+    return definition.replace(anchor, f"""ELSE CASE WHEN completion->>'schema'='dmb_build_graph_reference_completion_v1' THEN
    surface_id='build' AND answer_composition_kind='base' AND btrim(assistant_text)<>''
    AND jsonb_typeof(completion)='object'
    AND completion ?& ARRAY['schema','context_receipt_sha256','disposition','action_id','placement_sha256']
@@ -40,7 +44,6 @@ AND ({binding} = COALESCE(completion->>'schema'='dmb_build_graph_reference_compl
    AND graph_context_execution->'events'->-1->>'kind'='build_graph_reference_completion_binding_v1'
    AND NOT jsonb_path_exists(graph_context_execution,'$.events[*] ? (@.kind == "completion_binding")')
  WHEN completion->>'schema'='dmb_build_authoring_completion_v1' THEN""", 1)
-    conn.exec_driver_sql(definition)
 
 
 def downgrade():
