@@ -263,3 +263,9 @@ def test_open_questions_stay_literal_in_saved_markdown():
 def test_page_timing_modifier_is_separate_from_the_name():
     assert explicit_lore_page_witness("Create a page for the Blue Lantern now.", conversational=True).title == "Blue Lantern"
     assert explicit_lore_page_witness('Create a page titled "Blue Lantern Now".', conversational=True).title == "Blue Lantern Now"
+
+
+@pytest.mark.parametrize("preposition", ["called", "named", "titled"])
+def test_explicit_name_can_end_in_now(preposition):
+    author = f"Create a page {preposition} Blue Lantern Now."
+    assert explicit_lore_page_witness(author, conversational=True).title == "Blue Lantern Now"

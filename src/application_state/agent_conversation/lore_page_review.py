@@ -11,7 +11,7 @@ from .collaboration import Closed
 _PAGE_REQUEST = re.compile(
     r'(?:^|(?<=[.!?])\s+|(?<=[,;])\s+then\s+)(?P<request>(?:please\s+)?(?:create|open|make)\s+'
     r'(?:a\s+)?(?P<modifiers>(?:(?:new|blank|standalone|lore)\s+)*)page\s+'
-    r'(?:for|about|called|named|titled)\s+'
+    r'(?P<relation>for|about|called|named|titled)\s+'
     r"""(?P<subject>"[^"\r\n]+"|“[^”\r\n]+”|'[^'\r\n]+'|[^,.!?;\r\n]+))""",
     re.IGNORECASE,
 )
@@ -74,7 +74,8 @@ def _explicit_request(author_text: str, *, conversational: bool = False) -> tupl
             r"\s+and\s+(?:populate|fill|leave|keep)\b", subject,
             maxsplit=1, flags=re.IGNORECASE,
         )[0]
-    return request, _requested_title(subject, conversational=conversational)
+    has_timing = conversational and request["relation"].lower() in {"for", "about"}
+    return request, _requested_title(subject, conversational=has_timing)
 
 
 def _requests_blank_page(request: re.Match[str]) -> bool:
