@@ -1041,7 +1041,7 @@ class PriorBodyWriterSupport:
             section_title=citation.section_title, extent_kind="section",
             line_start=citation.line_start, line_end=citation.line_end,
             campaign_scope="unestablished", session_scope="unestablished",
-            text=self.support.passage)
+            text=self.support.passage, prior_claim=self.support.claim_text)
 
 
 def prior_body_writer_supports(execution):

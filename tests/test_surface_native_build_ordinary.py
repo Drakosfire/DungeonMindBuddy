@@ -503,7 +503,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert all(r.excerpt.text not in json.dumps(frame) for r in acquired)
             if current_work == "review_lore_page_from_conversation":
                 exposed = frame["native_body_evidence"]["excerpts"]
-                assert exposed
+                assert exposed and all(row["prior_claim"] == "The source describes a source-local episode."
+                    for row in exposed)
                 candidate["answer_segments"] = [dict(kind="native_body_claim",
                     text="The source describes a source-local episode.",
                     excerpt_handles=[row["excerpt_handle"] for row in exposed])]
