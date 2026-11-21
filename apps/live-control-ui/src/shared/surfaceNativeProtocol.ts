@@ -193,6 +193,33 @@ export function isBuildImageCompletion(value: unknown, receiptHash: string): val
 }
 
 
+type GraphReferenceCompletion = import('../api/types').WorldBuildGraphReferenceCompletionV1;
+
+const graphReferenceReplies: Record<GraphReferenceCompletion['disposition'], string> = {
+  ready: "The Graph reference is ready to review. The page is unchanged.",
+  discussion: "If you want to add a reference, tell me which existing Graph object and where it should go.",
+  new_object: "Choose an existing Graph object to reference on this page.",
+  different_page: "Open the intended page and send the request there.",
+  ambiguous_identity: "Select the exact Graph object you want to reference.",
+  wrong_kind: "The matching Graph object has a different classification. Select the intended object.",
+  missing_identity: "I couldn't find that Graph object. Select the existing object you want to reference.",
+  ambiguous_boundary: "Which paragraph should the reference go next to? Include its heading or select the paragraph.",
+  missing_boundary: "I couldn't find that paragraph on this page. Give its heading or exact text.",
+  unresolved: "Tell me which existing Graph object to reference and where it should go on this page.",
+};
+
+export function graphReferenceReply(completion: GraphReferenceCompletion): string {
+  return graphReferenceReplies[completion.disposition];
+}
+
+export function isBuildGraphReferenceCompletion(value: unknown, receiptHash: string): value is GraphReferenceCompletion {
+  return exact(value, ['schema', 'context_receipt_sha256', 'disposition', 'action_id', 'placement_sha256'])
+    && value.schema === 'dmb_build_graph_reference_completion_v1' && value.context_receipt_sha256 === receiptHash
+    && typeof value.disposition === 'string' && Object.prototype.hasOwnProperty.call(graphReferenceReplies, value.disposition)
+    && (value.disposition === 'ready' ? uuid(value.action_id) && hash(value.placement_sha256)
+      : value.action_id === null && value.placement_sha256 === null);
+}
+
 /** The shared response envelope is independent of the surface-owned work shape. */
 export function isSurfaceNativeContext(
   v:unknown, validateWork:(work:unknown)=>work is SurfaceNativeWorkContextV1,
@@ -204,7 +231,8 @@ export function isSurfaceNativeContext(
     ||!isSurfaceNativeReceipt(v.receipt,validateWork)
     ||v.execution!==null&&!validateExecution(v.execution)||typeof v.delivery_replay!=='boolean'
     ||(v.completion===null?membership:!(isSurfaceNativeCompletion(v.completion,v.receipt,v.deferred_build_citations)
-      ||!membership&&v.receipt.work_context.surface_id==='build'&&(isBuildAuthoringCompletion(v.completion,v.receipt.context_receipt_sha256)||isBuildImageCompletion(v.completion,v.receipt.context_receipt_sha256)))))return false;
+      ||!membership&&v.receipt.work_context.surface_id==='build'&&(isBuildAuthoringCompletion(v.completion,v.receipt.context_receipt_sha256)||isBuildImageCompletion(v.completion,v.receipt.context_receipt_sha256)
+        ||isBuildGraphReferenceCompletion(v.completion,v.receipt.context_receipt_sha256)))))return false;
   const execution=v.execution as import('../api/types').WorldPlanGraphExecutionProjectionV1|null;
   return v.completion===null?history&&(execution===null||execution.claimability!=='completed')
     :execution!==null&&execution.claimability==='completed'&&execution.authorization_state==='response_received';

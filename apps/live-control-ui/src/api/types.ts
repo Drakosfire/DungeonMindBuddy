@@ -1262,7 +1262,7 @@ export interface SurfaceNativeCompletionV1 {
 }
 export interface AgentSurfaceNativeContextResponseV1 {
   schema:'dmb_agent_surface_native_context_response_v1';receipt:SurfaceNativeContextReceiptV1;
-  completion:SurfaceNativeCompletionV1|WorldBuildAuthoringCompletionV1|WorldBuildImagePreparationCompletionV1|null;execution:WorldPlanGraphExecutionProjectionV1|null;delivery_replay:boolean;
+  completion:SurfaceNativeCompletionV1|WorldBuildAuthoringCompletionV1|WorldBuildImagePreparationCompletionV1|WorldBuildGraphReferenceCompletionV1|null;execution:WorldPlanGraphExecutionProjectionV1|null;delivery_replay:boolean;
   deferred_build_citations?:DeferredBuildCitationMembership;
 }
 export type PlanSurfaceNativeContextResponseV1 = AgentSurfaceNativeContextResponseV1 & {
@@ -1469,6 +1469,17 @@ export interface AgentSourcePassageReadResponseV1 {
     world_id: string; turn_id: string; citation_index: number};
   citation: WorldBuildSourcePassageCitationV1 | (WorldBuildSourcePassageCitationV1 & {source_name:string});
   content: string;
+}
+
+export interface WorldBuildGraphReferenceCompletionV1 {
+  schema: "dmb_build_graph_reference_completion_v1";
+  context_receipt_sha256: string;
+  disposition: "ready" | "discussion" | "new_object" | "different_page" | "ambiguous_identity" | "wrong_kind"
+    | "missing_identity" | "ambiguous_boundary" | "missing_boundary" | "unresolved";
+  action_id: string | null;
+  placement_sha256: string | null;
+  answer_segments?: never;
+  answer_context_status?: never;
 }
 
 export interface WorldBuildAuthoringCompletionV1 {

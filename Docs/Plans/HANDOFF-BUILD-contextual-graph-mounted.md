@@ -1,0 +1,9 @@
+# BUILD mount contextual Graph reference Review
+
+ACTIVE on `codex/build-contextual-graph-mounted`, based on `273d76b7a82ca60953075ee410ed5be6eb9c1157`. This serial successor consumes merged #4368 and the existing typed Review editor and Save path from #4363. The lane owner authorized implementation, independent review, benchmarking, and merge.
+
+Decode the typed native Graph completion in ordinary Build Send and conversation replay. Mount the existing Review only for the matching editable World, conversation and saved document. Leave the stored reply readable on other pages and in read-only history. Typed clarifications must render without an action. The existing Review, editor bridge and explicit Save continue to own mutation.
+
+The lease covers the frontend native response types, Build-specific validation and review mounting in `WorldPlanAgentConversation.tsx`, the existing Build Review/context files where required, their focused tests, and this handoff. Shared splits with #3824, #1014, and #4206 cover only the typed Build completion, presentation, and focused tests. Preserve hosted authorization, Plan behavior, and composer error recovery. `BuildSurfaceShell.tsx` is outside this slice unless the existing bridge proves insufficient and the bounded scope is documented before editing.
+
+Verify real ordinary Send and replay in Chromium with actual Jev, Core identities, and disposable application state. Run the sealed independent 16-case pack once after freezing producer and scorer inputs. Record inert Review, explicit Save, Undo/Redo, cold reopen, stale/foreign and wrong-kind effects independently. Run local exact-head frontend hosted and integrated discovered verification, with exact parent comparisons for failures, and independent source and evidence review before merge. Release and production state are outside this slice.

@@ -101,7 +101,7 @@ export function isRulesAnswerContext(value: unknown, text: unknown, worldId: str
 
 export async function rulesAnswerDigestsBound(context: RulesAnswerContext, text: string): Promise<boolean> {
   const b = context.accepted_binding;
-  const base = context.base_context?.completion?.answer_segments.map(s => s.text).join('\n') ?? null;
+  const base = context.base_context?.completion?.answer_segments?.map(s => s.text).join('\n') ?? null;
   try {
     const [seal, body, baseHash] = await Promise.all([rulesDigest(rulesCanonical(b)), rulesDigest(text), base === null ? null : rulesDigest(base)]);
     return seal === context.accepted_binding_sha256 && body === b.assistant_text_sha256 && baseHash === b.base_text_sha256;

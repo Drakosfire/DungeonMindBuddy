@@ -6,11 +6,14 @@ import {
 import { canonical } from '../shared/sourcePassageProtocol';
 import type { BuildComposeBridge, PreparedBuildGraphReference } from './buildComposeBridge';
 
-export function BuildGraphReferenceReview({world,action,bridge,onComplete}: {
+export function BuildGraphReferenceReview({world,action,bridge,onComplete,conversationId,documentId,placementSha256}: {
   world: string;
   action: string;
   bridge: BuildComposeBridge;
   onComplete?: (state: 'applied' | 'discarded') => void;
+  conversationId?: string;
+  documentId?: string;
+  placementSha256?: string;
 }) {
   const [review,setReview] = useState<BuildGraphReferenceReviewRecord | null>(null);
   const [busy,setBusy] = useState(false);
@@ -25,13 +28,22 @@ export function BuildGraphReferenceReview({world,action,bridge,onComplete}: {
     setReview(null);
     setBusy(false);
     setError(null);
-    void graphReferenceReview(world,action,undefined,owner.signal).then(result => {
+    void graphReferenceReview(world,action,undefined,owner.signal).then(async result => {
+      if (placementSha256) {
+        const bytes = new TextEncoder().encode(canonical(result.placement));
+        const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),
+          byte => byte.toString(16).padStart(2,'0')).join('');
+        if (digest !== placementSha256 || result.conversation_id !== conversationId
+          || result.placement.basis.document_id !== documentId) {
+          throw new Error('The saved review does not match this conversation and page.');
+        }
+      }
       if (!owner.signal.aborted) setReview(result);
-    }, failure => {
+    }).catch(failure => {
       if (!owner.signal.aborted) setError(String(failure.message ?? failure));
     });
     return () => owner.abort();
-  }, [world,action,bridge]);
+  }, [world,action,bridge,conversationId,documentId,placementSha256]);
 
   async function submit(intent: 'apply' | 'discard') {
     const owner = scope.current;

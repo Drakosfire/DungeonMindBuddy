@@ -13,6 +13,7 @@ import {BuildGraphReferenceReviewError,graphReferenceReview,type BuildGraphRefer
 import {proposalReview,type BuildProposalReview} from '../api/buildProposalReviewApi';
 import type {BuildProposalRecord,BuildProseBoundaryTarget} from '../api/buildDocumentProposalApi';
 import {captureProseTargetCatalog,resolveProseTarget} from '../documentEditing/proseTargetCatalog';
+import {canonical} from '../shared/sourcePassageProtocol';
 vi.mock('../api/buildProposalReviewApi',()=>({proposalReview:vi.fn()}));
 vi.mock('../api/buildGraphReferenceReviewApi',async importOriginal=>({
   ...await importOriginal<typeof import('../api/buildGraphReferenceReviewApi')>(),
@@ -563,6 +564,20 @@ describe('typed Graph reference Review', () => {
   }
 
   beforeEach(() => vi.mocked(graphReferenceReview).mockReset());
+
+  it.each(['conversation','document','placement'])('refuses Review from a mismatched %s before exposing Save', async mismatch=>{
+    const bridge=bridgeFixture();
+    const bytes=new TextEncoder().encode(canonical(editing.placement));
+    const expectedHash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),
+      byte=>byte.toString(16).padStart(2,'0')).join('');
+    vi.mocked(graphReferenceReview).mockResolvedValue({...editing,conversation_id:'conversation-one'});
+    render(<BuildGraphReferenceReview world={world} action={action} bridge={bridge as unknown as BuildComposeBridge}
+      conversationId={mismatch==='conversation'?'foreign':'conversation-one'}
+      documentId={mismatch==='document'?'different-page':'moon-gallery'} placementSha256={mismatch==='placement'?digest:expectedHash}/>);
+    expect(await screen.findByRole('alert')).toHaveTextContent('does not match this conversation and page');
+    expect(screen.queryByRole('button',{name:'Insert and save reference'})).not.toBeInTheDocument();
+    expect(bridge.prepareGraphReference).not.toHaveBeenCalled();
+  });
 
   it('opens an inert review and refuses a changed Graph before applying or saving', async () => {
     const bridge = bridgeFixture();
