@@ -95,18 +95,19 @@ class BuildGraphReferenceDecision:
         )
 
     def _boundary_request(self):
-        request = prepare_build_boundary_decision(self.question, self.title, self.dialogue, self.catalog)
-        return request.model_copy(update={"questions": tuple(
-            question.model_copy(update={"question": (
-                "Should the typed reference go immediately before or after its existing anchor paragraph? "
-                "A named line can be that anchor. Choose unresolved only when the author did not specify either side."
-            )}) if question.name == "relation" else question
-            for question in request.questions
-        )})
+        return prepare_build_boundary_decision(self.question, self.title, self.dialogue, self.catalog)
 
     def request(self) -> DecisionRequest:
         boundary = self._boundary_request()
         objects, kinds = self._offers()
+        paragraph_questions = tuple(
+            question.model_copy(update={"name": "insertion_side", "question": (
+                "Choose before or after for the physical placement of the typed reference beside its existing "
+                "anchor. The author's named line can be a paragraph anchor. Choose unresolved only if the "
+                "author did not say which side of that anchor to use."
+            )}) if question.name == "relation" else question
+            for question in boundary.questions
+        )
         return boundary.model_copy(update={
             "state": {
                 **boundary.state,
@@ -125,7 +126,7 @@ class BuildGraphReferenceDecision:
                 } for alias, candidate in objects.items()},
                 "graph_classifications": kinds,
             },
-            "questions": (*boundary.questions,
+            "questions": (*paragraph_questions,
                 ChoiceDecisionQuestion(name="reference_intent", options=(
                     "place_existing", "discussion", "new_object", "different_page", "unresolved",
                 ), question=("Which action is requested? Choose place_existing for a request to attach a reference "
@@ -156,7 +157,8 @@ class BuildGraphReferenceDecision:
 
         boundary_request = self._boundary_request()
         boundary_response = result.model_copy(update={"answers": {
-            question.name: result.answers[question.name] for question in boundary_request.questions
+            question.name: result.answers["insertion_side" if question.name == "relation" else question.name]
+            for question in boundary_request.questions
         }})
         placement = resolve_build_boundary(self.catalog, decode_build_boundary_decision(boundary_request, boundary_response))
         if placement.disposition in {"different_destination", "discuss"}:
