@@ -737,6 +737,10 @@ class NativeBodyNavigation:
                             return _materialize(*args, **kwargs)
                     fields[name] = measured
         with trace.measure_host_work("native_source_append") if trace is not None else nullcontext():
+            if method == 'authorize_native_body_reads':
+                grants = a.fence.authorize_session_body_grants(fields['grants'])
+                if grants is not None:
+                    return grants
             result = a.fence.commit(method, **fields)
         a.turn = result[0]
         if method in {'authorize_native_direct_sources', 'authorize_native_body_reads', 'observe_native_body_reads'}:
