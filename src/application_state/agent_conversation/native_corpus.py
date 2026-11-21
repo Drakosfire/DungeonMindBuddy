@@ -698,6 +698,30 @@ class PriorBodyCitationReferenceV1(Strict):
     citation_index: int = Field(ge=0, le=16383, strict=True)
 
 
+class PriorBodyCitationSupportV1(Strict):
+    reference: PriorBodyCitationReferenceV1
+    claim_text: str = Field(min_length=1)
+    passage: str = Field(min_length=1)
+
+
+class BuildPriorBodyEvidenceAdmittedV1(Strict):
+    kind: Literal["build_prior_body_evidence_admitted_v1"] = "build_prior_body_evidence_admitted_v1"
+    event_id: UUID
+    sequence: int = Field(ge=0, strict=True)
+    work_event_id: UUID
+    supports: tuple[PriorBodyCitationSupportV1, ...] = Field(max_length=256)
+
+
+def prior_conversation_work(events):
+    from .types import BuildRequestedWorkResolutionV1
+
+    work = [event for event in events if isinstance(event, BuildRequestedWorkResolutionV1)]
+    if (len(work) == 1 and work[0].requested_work == "review_lore_page_from_conversation"
+            and work[0].resolution.get("barrier") is None):
+        return work[0]
+    return None
+
+
 def resolve_prior_body_citation(current, prior, reference, *, history_turn_ids):
     """Only the frozen dialogue window can lend exact support to the current turn."""
     from . import types as t

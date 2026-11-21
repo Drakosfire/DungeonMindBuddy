@@ -1843,8 +1843,8 @@ class AgentConversationService:
             from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2
             if native_source_materializer is None and isinstance(event, (BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2)):
                 raise ApplicationStateValidationError('Native authored event requires its immutable read transaction owner')
-            from .native_corpus import NATIVE_BODY_EVENTS
-            if native_source_materializer is None and isinstance(event, NATIVE_BODY_EVENTS):
+            from .native_corpus import BuildPriorBodyEvidenceAdmittedV1, NATIVE_BODY_EVENTS
+            if native_source_materializer is None and isinstance(event, (*NATIVE_BODY_EVENTS, BuildPriorBodyEvidenceAdmittedV1)):
                 raise ApplicationStateValidationError("Native body event requires its immutable source transaction owner")
             from .types import NativeSourceCatalogObservedV1, NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1, CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1
             if native_source_materializer is None and isinstance(event, (CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1, NativeSourceCatalogObservedV1,
@@ -2433,6 +2433,49 @@ class AgentConversationService:
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             producer=observe_read, event_id=event_id, authorization_event_id=authorization_event_id,
             reads=reads, unavailable_ids=unavailable_ids)
+
+    def admit_build_prior_body_evidence(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, history_turn_ids):
+        from .native_corpus import (
+            BuildPriorBodyEvidenceAdmittedV1, PriorBodyCitationReferenceV1,
+            PriorBodyCitationSupportV1, prior_conversation_work, resolve_prior_body_citation,
+        )
+        from .native_reads import _owner
+        from .rules_authority_types import canonical_sha256
+
+        def produce(conn, current):
+            _, execution = _owner(current)
+            work = prior_conversation_work(execution.events)
+            pointer = repo.get_world_state(conn, current.world_id)
+            if (work is None or pointer is None or pointer.active_conversation_id != current.conversation_id
+                    or len(history_turn_ids) > 6 or len(set(history_turn_ids)) != len(history_turn_ids)):
+                raise ValueError("Prior body evidence requires the current Build conversation")
+            supports = []
+            for prior_id in history_turn_ids:
+                prior = repo.get_turn(conn, current.world_id, prior_id)
+                if prior is None:
+                    raise ValueError("Frozen Build history turn is unavailable")
+                if isinstance(prior, MixedCompletedTurnV1):
+                    if prior.base_projection.kind != "approved":
+                        continue
+                    prior = prior.base_projection.turn
+                completion = getattr(prior, "completion", None)
+                citations = getattr(completion, "native_body_citations", ())
+                if not citations:
+                    continue
+                completion_digest = canonical_sha256(completion)
+                for ordinal in range(len(citations)):
+                    reference = PriorBodyCitationReferenceV1(turn_id=prior_id,
+                        completion_sha256=completion_digest, citation_index=ordinal)
+                    claim, passage = resolve_prior_body_citation(current, prior, reference,
+                        history_turn_ids=history_turn_ids)
+                    supports.append(PriorBodyCitationSupportV1(reference=reference, claim_text=claim, passage=passage))
+            return BuildPriorBodyEvidenceAdmittedV1(event_id=event_id,
+                sequence=len(execution.events), work_event_id=work.event_id, supports=tuple(supports))
+
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=None, duplicate_key="event_id", native_source_materializer=produce)
 
     def capture_native_authored_references(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):
