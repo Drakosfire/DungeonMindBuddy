@@ -282,3 +282,20 @@
   .combat-roster-active-toolbar > .combat-roster-turn-rail { flex:1 1 100%; }
   .combat-roster-active-toolbar > details > summary { padding-inline:.35rem; }
 }
+
+/* The projection body scrolls independently. Expanded panels must contribute
+   to that scroll area instead of extending below its sticky toolbar. */
+.surface-projection-body .combat-roster-active-toolbar:has(> details[open]) {
+  position:relative;
+  top:auto;
+}
+.surface-projection-body .combat-roster-active-toolbar > details[open] {
+  flex:1 1 100%;
+}
+.surface-projection-body .combat-roster-active-toolbar > details[open] > summary {
+  width:fit-content;
+}
+.surface-projection-body .combat-roster-active-toolbar > details > :is(.combat-toolbar-panel, .combat-assembly-content) {
+  position:static;
+  margin-block-start:.25rem;
+}
