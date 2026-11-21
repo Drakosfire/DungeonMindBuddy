@@ -1,6 +1,18 @@
 # Native review and Save for an insertion inside a Plan slot
 
-Status: ACTIVE under the user's contextual-layout lane authority.
+Status: MERGED in PR #4347 at `a459c18238c76e55f21b77e6708828401353e66e`.
+Independently reviewed head `9a836c81c95922340ae2e14610745a723f117c13`
+passed 62 focused owner tests and the local hosted-contract frontend build
+and suite. The named local backend suites retained seven Build failures
+matching the exact base's test IDs and error messages. The independent
+disposable 0175 witness passed 18 checks, including real older-reader
+refusal, preservation of an existing sidecar and a typed pending review
+through a refused downgrade, and cleanup. Witness SHA256
+`0271b8769cddd0708532442a3fe3d98b07743da9a956f0a5498cc841ed18b42a`.
+The next serial slice is the
+[composed Plan location decision](HANDOFF-PLAN-composed-native-targeting.md).
+
+Completed assignment:
 Serial branch `codex/plan-composed-review-contract` at exact base
 `a210cdf11442464ca37984375978add72f27681f`, the manual Plan composition merge
 #4346. Use the existing isolated contextual verification checkout and uniquely

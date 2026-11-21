@@ -55,6 +55,175 @@ def request_for(capture, catalog):
         plan_requested_operation=None)
 
 
+def composed_snapshot(*, selected=False, wrong_slot=False, source=None):
+    from application_state.agent_conversation.plan_authoring import PlanAuthoringComposedSnapshotV1
+    from tests.application_state.test_plan_authoring_review import ENDING, LEFT, RIGHT, composed_plan
+
+    markdown, layout, editor = source or composed_plan([LEFT], [RIGHT], ENDING)
+    start = len(LEFT[1]) + 7 if selected else 1
+    end = start + len(RIGHT[1]) if selected else start
+    selection = json.dumps({"type": "text", "anchor": start, "head": end})
+    slot = None if not selected else {
+        "row_index": 0, "row_id": "row", "slot_index": 0 if wrong_slot else 1,
+        "slot_id": "left" if wrong_slot else "right", "child_index": 0,
+        "block_id": "left-block" if wrong_slot else "right-block",
+    }
+    return PlanAuthoringComposedSnapshotV1.model_validate(capture_payload() | {
+        "schema": "dmb_plan_authoring_composed_snapshot_v1",
+        "target_kind": "offer_slot_placement", "editor_json": editor, "editor_sha256": text_digest(editor),
+        "draft_markdown": markdown, "draft_sha256": text_digest(markdown),
+        "base_page_presentation_sha256": layout.fingerprint(),
+        "draft_page_presentation": layout, "draft_page_presentation_sha256": layout.fingerprint(),
+        "selection_json": selection, "selection_sha256": text_digest(selection),
+        "from": start, "to": end, "selection_witness_text": RIGHT[1] if selected else "",
+        "selected_paragraph": slot,
+    })
+
+
+def test_composed_catalog_keeps_identical_paragraph_occurrences_separate():
+    from application_state.agent_conversation.plan_composed_targeting import (
+        ComposedPlanNominationV1, ComposedPlanPlacementCatalogV1, resolve_composed_plan_nomination,
+    )
+
+    snapshot = composed_snapshot()
+    catalog = ComposedPlanPlacementCatalogV1.freeze(snapshot)
+    assert len(catalog.paragraphs) == 2
+    assert catalog.paragraphs[0].text == catalog.paragraphs[1].text
+    assert [row.column for row in catalog.paragraphs] == ["left column", "right column"]
+    unscoped = ComposedPlanNominationV1(confirmed_work="write_current_page", relation="after",
+        scope="unscoped", passages=("passage0",), scopes=("location1",))
+    baseline = resolve_composed_plan_nomination(snapshot, catalog, "write_current_page", unscoped)
+    assert (baseline.work, baseline.resolution, baseline.capture) == ("clarify", "ambiguous", None)
+    qualified = ComposedPlanNominationV1(confirmed_work="write_current_page", relation="before", scope="qualified",
+        passages=("passage0",), scopes=("location1",))
+    outcome = resolve_composed_plan_nomination(snapshot, catalog, "write_current_page", qualified)
+    assert outcome.capture.slot_address.model_dump() == {
+        "row_index": 0, "row_id": "row", "slot_index": 1, "slot_id": "right",
+        "child_index": 0, "block_id": "right-block", "relation": "before",
+    }
+    assert outcome.capture.draft_page_presentation == snapshot.draft_page_presentation
+    assert outcome.capture.selection_json == snapshot.selection_json
+    for author_intent in ("discuss", "clarify", "different_destination"):
+        safe = resolve_composed_plan_nomination(snapshot, catalog, author_intent, qualified)
+        assert (safe.work, safe.capture) == (author_intent, None)
+    conflicting = qualified.model_copy(update={"confirmed_work": "discuss"})
+    declined = resolve_composed_plan_nomination(snapshot, catalog, "write_current_page", conflicting)
+    assert (declined.work, declined.resolution, declined.capture) == ("clarify", "unresolved", None)
+    with pytest.raises(ValueError, match="complete frozen editor"):
+        resolve_composed_plan_nomination(snapshot, catalog.model_copy(update={"paragraphs": catalog.paragraphs[1:]}),
+            "write_current_page", qualified)
+
+
+def test_composed_explicit_selection_requires_exact_text_in_the_addressed_slot():
+    from application_state.agent_conversation.plan_composed_targeting import (
+        ComposedPlanNominationV1, ComposedPlanPlacementCatalogV1, resolve_composed_plan_nomination,
+    )
+
+    nomination = ComposedPlanNominationV1(confirmed_work="write_current_page", relation="after", scope="selected_paragraph")
+    plain = composed_snapshot()
+    missing = resolve_composed_plan_nomination(plain, ComposedPlanPlacementCatalogV1.freeze(plain),
+        "write_current_page", nomination)
+    assert (missing.work, missing.resolution, missing.capture) == ("clarify", "missing", None)
+    snapshot = composed_snapshot(selected=True)
+    selected = resolve_composed_plan_nomination(snapshot, ComposedPlanPlacementCatalogV1.freeze(snapshot),
+        "write_current_page", nomination)
+    assert selected.capture.slot_address.slot_id == "right"
+    assert selected.capture.slot_address.relation == "after"
+    assert selected.capture.from_ == snapshot.from_
+    with pytest.raises(ValueError, match="selected text does not match"):
+        composed_snapshot(selected=True, wrong_slot=True)
+
+
+def test_composed_nomination_offers_semantics_and_never_host_metadata():
+    from application_state.agent_conversation.plan_authoring import PlanRequestedWorkInputV1
+    from application_state.agent_conversation.plan_composed_targeting import (
+        ComposedPlanPlacementCatalogV1, prepare_composed_plan_nomination,
+    )
+
+    snapshot = composed_snapshot(selected=True)
+    catalog = ComposedPlanPlacementCatalogV1.freeze(snapshot)
+    author = PlanRequestedWorkInputV1(
+        request_id=uuid4(), parent_attempt_id=uuid4(), scope_sha256="f" * 64,
+        question="Add a short warning after the gate in the right column.",
+        page_title="Preparation notes", target_available=False,
+    )
+    prepared = prepare_composed_plan_nomination(author, snapshot, catalog)
+    assert [location["description"] for location in prepared.state["locations"]] == [
+        "left column of the first row on the page",
+        "right column of the first row on the page",
+    ]
+    assert all(location["row_under_page_heading"] == "first row" for location in prepared.state["locations"])
+    assert prepared.state["explicitly_selected_text"] == "The gate is locked."
+    rendered = json.dumps(prepared.state) + "\n" + "\n".join(q.question for q in prepared.questions)
+    for protected in (
+        snapshot.world_id, snapshot.document_id, str(snapshot.conversation_id), str(snapshot.idempotency_key),
+        snapshot.sha256, snapshot.editor_sha256, snapshot.draft_page_presentation_sha256, "left-block",
+        "right-block", "row_index", "slot_index", "child_index", "selection_json", "byte_start",
+    ):
+        assert protected not in rendered
+
+
+def test_composed_later_row_keeps_page_and_slot_headings_distinct():
+    from application_state.agent_conversation.plan_authoring import PlanRequestedWorkInputV1
+    from application_state.agent_conversation.plan_composed_targeting import (
+        ComposedPlanNominationV1, ComposedPlanPlacementCatalogV1,
+        prepare_composed_plan_nomination, resolve_composed_plan_nomination,
+    )
+    from application_state.content.markdown_source_blocks import source_block_spans
+    from application_state.content.page_presentation import PagePresentation
+    from tests.application_state.test_plan_authoring_review import LEFT, RIGHT, composed_plan
+
+    heading = ("page-heading", "## Arrival")
+    slot_heading = ("slot-heading", "## Local desk")
+    passage = ("later-note", LEFT[1])
+    other = ("later-right-note", "Keep one lantern ready.")
+    ending = ("later-ending", "Unrelated ending.")
+    _, first, first_editor = composed_plan([LEFT], [RIGHT], heading)
+    _, second, second_editor = composed_plan([slot_heading, passage], [other], ending)
+    blocks = [heading, LEFT, RIGHT, slot_heading, passage, other, ending]
+    markdown = "\n\n".join(text for _, text in blocks) + "\n"
+    raw = markdown.encode("utf-8")
+    bindings = {
+        identity: dict(kind="block", id=identity, byte_start=start, byte_end=end,
+            sha256=text_digest(raw[start:end].decode("utf-8")))
+        for (identity, _), (start, end) in zip(blocks, source_block_spans(markdown), strict=True)
+    }
+    rows = []
+    editor_rows = []
+    for index, (layout, raw_editor) in enumerate(((first, first_editor), (second, second_editor))):
+        row = layout.items[0].model_dump(mode="python")
+        node = json.loads(raw_editor)["content"][0]
+        row["id"] = node["attrs"]["id"] = f"host-row-{index}"
+        for slot, slot_node in zip(row["slots"], node["content"], strict=True):
+            slot["id"] = slot_node["attrs"]["id"] = f"{slot['id']}-{index}"
+            slot["blocks"] = [bindings[block["id"]] for block in slot["blocks"]]
+        rows.append(row)
+        editor_rows.append(node)
+    layout = PagePresentation.model_validate({
+        "markdown_sha256": text_digest(markdown), "items": [bindings[heading[0]], *rows, bindings[ending[0]]],
+    })
+    editor_json = json.dumps({"type": "doc", "content": [
+        json.loads(first_editor)["content"][-1], *editor_rows, json.loads(second_editor)["content"][-1],
+    ]})
+    snapshot = composed_snapshot(source=(markdown, layout, editor_json))
+    catalog = ComposedPlanPlacementCatalogV1.freeze(snapshot)
+    author = PlanRequestedWorkInputV1(request_id=uuid4(), parent_attempt_id=uuid4(), scope_sha256="0" * 64,
+        question="Add a warning next to the Local desk note.", page_title="Preparation", target_available=False)
+    locations = prepare_composed_plan_nomination(author, snapshot, catalog).state["locations"]
+    desk = next(row for row in locations if row["containing_headings"] == ["Arrival", "Local desk"])
+    assert desk["page_headings"] == ["Arrival"]
+    assert desk["description"] == "left column of the second row on the page"
+    assert desk["row_under_page_heading"] == "second row"
+    nomination = ComposedPlanNominationV1(confirmed_work="write_current_page", relation="before",
+        scope="unscoped", row_choice="page_row1", passages=("passage0",))
+    chosen = resolve_composed_plan_nomination(snapshot, catalog, "write_current_page", nomination)
+    assert chosen.capture.slot_address.block_id == "later-note"
+    relative_without_heading = nomination.model_copy(update={"row_choice": "section_row1"})
+    assert resolve_composed_plan_nomination(
+        snapshot, catalog, "write_current_page", relative_without_heading,
+    ).capture is None
+
+
 @pytest.mark.parametrize("selected", [False, True])
 def test_bound_selected_rewrite_requires_an_actual_selection(selected):
     from types import SimpleNamespace
