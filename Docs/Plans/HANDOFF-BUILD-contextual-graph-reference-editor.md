@@ -22,10 +22,14 @@ off until then. No profile, migration, provider or deployment change belongs
 to this editor slice.
 
 The mounted editor emits `#dmb-ref:graph-node:` for a typed reference. The
-receiver snapshot test originally exercised the legacy `dmb-node:` importer
-form. The integration also owns the exact canonical href check and associated
-fixture updates in `src/application_state/build_proposal/graph_reference.py`
-and `tests/application_state/test_build_proposal_postgres.py`.
+integration admits that canonical href in
+`src/application_state/build_proposal/graph_reference.py` and its tests in
+`tests/application_state/test_build_proposal_postgres.py`. The original HTTP
+receiver can still replay and confirm the exact legacy `dmb-node:` postimage
+through its existing API. A receipt may never change href, digests or Apply
+ID within that replay. The mounted card can confirm already saved legacy
+receipts. The earlier slice had no mounted authoring client for uncommitted
+legacy preparations.
 
 Verify real mounted editor geometry, typed atom round trip, inert Review,
 stale and foreign refusal, explicit Save, lost acknowledgement, Undo/Redo,

@@ -94,3 +94,21 @@ it('recovers a dropped prepare reply using its same apply ID and saves once', as
   expect(bridge.saveProposal).toHaveBeenCalledTimes(1);
   expect(onComplete).toHaveBeenCalledExactlyOnceWith('applied');
 });
+
+it('confirms an already committed legacy postimage without writing a new editor serialization', async () => {
+  const bridge = bridgeFixture();
+  const applying: BuildGraphReferenceReviewRecord = {...editing,state:'applying',revision:2,apply:{
+    apply_id:'legacy-apply',editor_sha256:digest,draft_sha256:'b'.repeat(64),
+    content_sha256:'b'.repeat(64),presentation_sha256:null,
+  }};
+  vi.mocked(graphReferenceReview).mockImplementation(async (_world,_action,command) => {
+    if (!command) return applying;
+    expect(command).toEqual({operation:'confirm',apply_id:'legacy-apply'});
+    return {...applying,state:'applied',revision:3,saved_revision:2};
+  });
+  render(<BuildGraphReferenceReview world={world} action={action} bridge={bridge as unknown as BuildComposeBridge} />);
+  fireEvent.click(await screen.findByRole('button',{name:'Finish saving reference'}));
+  expect(await screen.findByRole('status')).toHaveTextContent('Graph reference saved.');
+  expect(bridge.prepareGraphReference).not.toHaveBeenCalled();
+  expect(bridge.saveProposal).not.toHaveBeenCalled();
+});
