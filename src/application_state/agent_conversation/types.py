@@ -4628,7 +4628,7 @@ class PlanRequestedWorkSelectedV2(PlanRequestedWorkSelectedV1):
     @model_validator(mode="after")
     def retained_placement_proof(self):
         from .plan_authoring import PlanAuthoringCaptureV1
-        from .plan_placement import PlanPlacementCatalogV1
+        from .plan_placement import decode_plan_placement_catalog
         if (self.original_capture is None) != (self.original_capture_sha256 is None):
             raise ValueError('Plan placement requires its retained original capture')
         if (self.placement_catalog is None) != (self.placement_catalog_sha256 is None):
@@ -4637,7 +4637,7 @@ class PlanRequestedWorkSelectedV2(PlanRequestedWorkSelectedV1):
             original=PlanAuthoringCaptureV1.model_validate(self.original_capture)
             if original.sha256!=self.original_capture_sha256 or self.placement_catalog is None:
                 raise ValueError('Plan placement original differs from its retained proof')
-            catalog=PlanPlacementCatalogV1.model_validate(self.placement_catalog)
+            catalog=decode_plan_placement_catalog(self.placement_catalog)
             catalog.require_original(original)
             if catalog.sha256!=self.placement_catalog_sha256:
                 raise ValueError('Plan placement catalog differs from its retained proof')
@@ -5501,8 +5501,8 @@ def validate_provider_envelope_accounting(assembled, execution, event) -> None:
     if not previous_attempts:
         from .native_context import NativePlanRequestAdmissionV1
         if type(assembled) is NativePlanRequestAdmissionV1:
-            from .native_retrieval import NativePlanOpeningAuthorizedV1
-            if (type(event) is not NativePlanOpeningAuthorizedV1
+            from .native_retrieval import NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1
+            if (type(event) not in (NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeAuthorizedV1)
                     or (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.controller.identity()
                     or event.input_accounting_kind != execution.policy.provider_input_accounting.kind
                     or event.input_estimator != assembled.tokenizer_name

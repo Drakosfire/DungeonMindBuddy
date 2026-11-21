@@ -2012,7 +2012,9 @@ class AgentConversationService:
                         "Plan packet final writer forbids later Graph reads or providers"
                     )
             from .types import PlanJevRetrievalSelectionV1, PlanRequestedWorkSelectedV1
-            if isinstance(event, (PlanJevRetrievalSelectionV1, PlanRequestedWorkSelectedV1)):
+            from .native_plan_opening import NativePlanAuthorScopeObservedV1
+            if isinstance(event, (PlanJevRetrievalSelectionV1, PlanRequestedWorkSelectedV1,
+                    NativePlanAuthorScopeObservedV1)):
                 from .plan_jev_decision import verify_selection
                 try:
                     captured = conn.execute(
@@ -2336,6 +2338,15 @@ class AgentConversationService:
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=selection, duplicate_key='event_id', plan_jev_selection_proof=producer_proof)
+
+    def record_plan_author_scope_observation(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, observation, producer_proof):
+        from .native_plan_opening import NativePlanAuthorScopeObservedV1
+        if type(observation) is not NativePlanAuthorScopeObservedV1:
+            raise ApplicationStateValidationError('Typed Plan author-scope observation required')
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=observation, duplicate_key='event_id', plan_jev_selection_proof=producer_proof)
 
     def record_build_jev_action_selection(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, selection):

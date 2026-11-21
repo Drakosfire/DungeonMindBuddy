@@ -1,7 +1,7 @@
 # RETRIEVAL: compress new execution records with LZ4
 
 ACTIVE under the Buddy Send-to-writer latency goal. Root owns this serial
-slice from `e174f28dd8fb3dccfa556b11d3ed63b22e1e705c`, branch
+slice from `774aa06344eb0a9411855eccdc7e33e7fead89c4`, branch
 `codex/plan-execution-lz4`, isolated Projects checkout
 `buddy-binary-plan-ack`. No unmerged behavioral dependency. Expected writes
 are this handoff and the new application-state compression migration.
@@ -22,3 +22,7 @@ tests, and run the frozen 31-case cohort with exact writer/citation parity.
 Use the existing Projects evidence in `core-scope-pilot.Ikt8NV`.
 Independent exact-head review and local verification precede merge.
 No primary migration or deployment is authorized by this handoff.
+
+PR #4264 moved main and landed the preceding migration. This slice is
+now revision `20261121_0173`. Requalify the integrated migration and
+check retained Jev wire pins before reusing route timing or parity.

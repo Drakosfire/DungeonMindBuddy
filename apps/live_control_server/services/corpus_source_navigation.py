@@ -567,12 +567,12 @@ class NativeBodyNavigation:
                 rows.append(RetrievalCandidate(handle=handle,
                     label='Read full document: ' + source_display_name(display, 'Admitted source'),
                     kind='Explicit admitted full-source read; metadata choice, not evidence'))
-        from application_state.agent_conversation.native_execution import NativePlanActionV2
+        from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
         from application_state.agent_conversation.native_retrieval import native_selection_types
         execution = turn.graph_context_execution
         reviewed = {handle for selection in execution.events if isinstance(selection, native_selection_types())
                     for handle in selection.selected_handles}
-        if type(getattr(getattr(execution, "policy", None), "action", None)) is NativePlanActionV2:
+        if type(getattr(getattr(execution, "policy", None), "action", None)) in (NativePlanActionV2, NativePlanActionV3):
             for read, catalog in acquired:
                 if read.excerpt.selector_policy != "native_full_document_v1":
                     continue
@@ -758,11 +758,11 @@ class NativeBodyNavigation:
         from application_state.agent_conversation.plan_jev_decision import current_selection
         from application_state.agent_conversation.native_corpus import selected_batch_covering_reads
         turn = self.adapter.fence.turn
-        from application_state.agent_conversation.native_execution import NativePlanActionV2
+        from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
         execution = turn.graph_context_execution
         return bool(selected_batch_covering_reads(
             execution, current_selection(turn), handle,
-            require_passage=type(getattr(execution.policy, "action", None)) is NativePlanActionV2,
+            require_passage=type(getattr(execution.policy, "action", None)) in (NativePlanActionV2, NativePlanActionV3),
         ))
 
     def select(self, handles):

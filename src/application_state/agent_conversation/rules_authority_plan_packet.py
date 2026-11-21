@@ -373,7 +373,7 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
             ):
                 version = 7
         output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame,
-            build_local=evidence.build_local,format_version=version)
+            build_local=evidence.build_local,format_version=version,execution=graph_execution)
     if (auth.request_envelope_sha256 != expected_envelope_sha256
             or included.request_envelope_sha256 != expected_envelope_sha256
             or auth.matched_outputs != outputs or included.matched_outputs != outputs

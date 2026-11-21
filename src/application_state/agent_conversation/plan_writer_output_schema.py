@@ -254,13 +254,21 @@ def _answer_schema(variants, policy, rules, prose, *, proposal_labels=("invented
     return mixed
 
 
-def native_output_format(frame, rules, work_frame, *, build_local=False, format_version=2):
+def native_output_format(frame, rules, work_frame, *, build_local=False, format_version=2, execution=None):
     from .native_writer import SCHEMA, LEGACY_SCHEMA
     if type(format_version) is not int or format_version not in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}:
         raise ValueError('Unknown native writer output format version')
     if (frame.get('schema') not in {SCHEMA, LEGACY_SCHEMA} or frame.get('answer_policy') != ASSERTION_POLICY
             or not isinstance(rules, (PlanRulesEvidenceFrameV1, ModelRulesFrame))):
         raise ValueError('Shared native output requires its actual evidence and Rules frames')
+    if execution is not None:
+        from .plan_contextual_questions import output_format as question_format
+        question = question_format(execution)
+        if question is not None:
+            from .plan_jev_graph_packet import NATIVE_WORK_SCHEMA
+            if rules.lookups or work_frame.get('schema') != NATIVE_WORK_SCHEMA or work_frame.get('requested_work') != 'clarify':
+                raise ValueError('Question-only Plan work cannot carry a factual Rules answer')
+            return question
     prose = {'type': 'string', 'minLength': 1}
     variants = _native_variants(ASSERTION_POLICY, prose,
         statement_rows=frame['native_statements']['statements'],
@@ -436,6 +444,16 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
         base=schema['$defs']['Base'] if rules.lookups else schema
         base['properties']['collaboration']=review
         base['required'].append('collaboration')
+    if execution is not None:
+        from .native_execution import NATIVE_PLAN_ACTION_TYPES
+        from .plan_placement import PlanPlacementCatalogV2
+        action = execution.policy.action
+        if (isinstance(action, NATIVE_PLAN_ACTION_TYPES)
+                and type(action.placement_catalog) is PlanPlacementCatalogV2
+                and work_frame.get('schema') == PLAN_WORK_SCHEMA
+                and work_frame.get('requested_work') == 'clarify'):
+            base = schema['$defs']['Base'] if rules.lookups else schema
+            base['properties']['answer_segments']['minItems'] = 1
     from generationengine.utils.schema_utils import make_schema_strict
     return {'type': 'json_schema', 'name': f'surface_native_evidence_selectors_v{format_version}', 'strict': True,
         'schema':make_schema_strict(schema)}

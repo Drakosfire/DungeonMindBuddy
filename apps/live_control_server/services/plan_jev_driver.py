@@ -224,11 +224,11 @@ class PlanJevDriver:
         return self._apply_admitted(dispatch, dispatch.selection)
 
     def apply_opening(self, dispatch):
-        from application_state.agent_conversation.native_plan_opening import NativePlanOpeningInputV1
-        from application_state.agent_conversation.native_execution import NativePlanOpeningSelectedV1
+        from application_state.agent_conversation.native_plan_opening import NATIVE_PLAN_OPENING_INPUT_TYPES
+        from application_state.agent_conversation.native_execution import NATIVE_PLAN_OPENING_SELECTION_TYPES
         event = dispatch.selection_event
-        if (self.finished or self.current is not None or type(dispatch.parent) is not NativePlanOpeningInputV1
-                or type(event) is not NativePlanOpeningSelectedV1 or event.operation is None
+        if (self.finished or self.current is not None or type(dispatch.parent) not in NATIVE_PLAN_OPENING_INPUT_TYPES
+                or type(event) not in NATIVE_PLAN_OPENING_SELECTION_TYPES or event.operation is None
                 or current_selection(self.adapter.fence.turn).event_id != event.event_id):
             raise ValueError('Opening acquisition requires its actual active atomic selection')
         self._refresh_related_catalog()  # Actual work now narrows conditional metadata.
@@ -789,6 +789,13 @@ class PlanJevDriver:
             examined_candidates=examined, allowed_operations=operations)
 
     async def run(self, *, transport=None, api_key=None):
+        from application_state.agent_conversation.plan_contextual_targets import is_question
+        fence = getattr(self.adapter, 'fence', None)
+        if fence is not None and is_question(fence.turn.graph_context_execution):
+            if self.current is not None:
+                raise ValueError('Question-only work cannot carry an active retrieval dispatch')
+            self.finished = True
+            return self.proof()
         if self.finished:
             return self.proof()
         trace = getattr(self.adapter, "trace", None)
@@ -857,7 +864,7 @@ class PlanJevDriver:
             capture = a.request.plan_authoring_capture
             if isinstance(a.fence.turn.graph_context_execution.policy,t.PlanPlacementAuthoringPolicyV1):
                 from application_state.agent_conversation.plan_authoring import PlanAuthoringCaptureV1
-                from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV1
+                from application_state.agent_conversation.plan_placement import decode_plan_placement_catalog
                 choices=[event for event in a.fence.turn.graph_context_execution.events
                     if isinstance(event,t.PlanRequestedWorkSelectedV2)]
                 if len(choices)!=1:
@@ -869,6 +876,6 @@ class PlanJevDriver:
                 if choice.requested_work=='write_current_page':
                     if capture is None or choice.placement_catalog is None or choice.placement_selector is None:
                         raise ValueError('Plan writing has no resolved offered target')
-                    capture=PlanPlacementCatalogV1.model_validate(choice.placement_catalog).resolve(capture,choice.placement_selector)
+                    capture=decode_plan_placement_catalog(choice.placement_catalog).resolve(capture,choice.placement_selector)
             proof['authoring_capture']=(capture.model_dump(mode='json',by_alias=True) if capture is not None else None)
         return proof

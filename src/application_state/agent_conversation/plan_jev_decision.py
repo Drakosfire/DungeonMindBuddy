@@ -114,8 +114,20 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
     parent, raw = proof["parent_request_json"], proof["request_json"]
     if not isinstance(parent, str) or not isinstance(raw, str):
         raise ValueError("Plan decision request proof must carry exact serialized bytes")
+    from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
+    author_scope = type(auth) is NativePlanAuthorScopeAuthorizedV1
     semantic = isinstance(auth, t.PlanRequestedWorkAuthorizedV1)
-    if semantic:
+    if author_scope:
+        from .native_plan_opening import NativePlanAuthorScopeParentV1, validate_author_scope_parent
+        from .native_writer import json_container_count
+
+        request = NativePlanAuthorScopeParentV1.model_validate(strict_json(parent))
+        validate_author_scope_parent(receipt, execution, request, auth)
+        if (auth.input_accounting_kind != 'conservative_upper_bound'
+                or auth.input_estimator != receipt.assembled_input.tokenizer_name
+                or auth.input_tokens != len(raw.encode()) + 64 * (1 + json_container_count(strict_json(raw)))):
+            raise ValueError('Author scope SDK accounting differs from its exact protected request bytes')
+    elif semantic:
         from .plan_authoring import PlanRequestedWorkInputV1, validate_requested_work_wire
         if native_action is None and not isinstance(execution.policy, t.PlanAuthoringPolicyV1):
             raise ValueError('Plan destination decision requires its frozen authoring policy')
@@ -125,7 +137,7 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
             raise ValueError('Plan placement authorization differs from its current policy')
         parent_value = strict_json(parent)
         schema = parent_value.get("schema") if isinstance(parent_value, dict) else None
-        from .native_plan_opening import NativePlanOpeningInputV1, validate_opening_parent
+        from .native_plan_opening import NativePlanOpeningInputV1, NativePlanOpeningInputV2, NATIVE_PLAN_OPENING_INPUT_TYPES, validate_opening_parent
         from .native_retrieval import NativePlanOpeningAuthorizedV1
         if placement:
             parent_type = {
@@ -137,15 +149,19 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
                 "dmb_plan_requested_work_input_v7": PlanRequestedWorkInputV7,
                 "dmb_plan_requested_work_input_v8": PlanRequestedWorkInputV8,
                 'dmb_native_plan_opening_input_v1': NativePlanOpeningInputV1,
+                'dmb_native_plan_opening_input_v2': NativePlanOpeningInputV2,
             }.get(schema)
         else:
             parent_type = PlanRequestedWorkInputV1 if schema == "dmb_plan_requested_work_input_v1" else None
         if parent_type is None:
             raise ValueError("Unknown Plan requested-work parent contract")
         request = parent_type.model_validate(parent_value)
-        if (type(request) is NativePlanOpeningInputV1) != (type(auth) is NativePlanOpeningAuthorizedV1):
+        if (type(request) in NATIVE_PLAN_OPENING_INPUT_TYPES) != (type(auth) is NativePlanOpeningAuthorizedV1):
             raise ValueError('Opening work requires its exact combined SDK producer')
-        if type(request) is NativePlanOpeningInputV1:
+        from .native_execution import NativePlanActionV3
+        if (type(native_action) is NativePlanActionV3) != (type(request) is NativePlanOpeningInputV2):
+            raise ValueError('Contextual target-set producer differs from its actual action version')
+        if type(request) in NATIVE_PLAN_OPENING_INPUT_TYPES:
             validate_opening_parent(receipt, execution, request, auth)
             from .native_writer import json_container_count
             if (auth.input_accounting_kind != 'conservative_upper_bound'
@@ -184,7 +200,10 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
             or auth.included_evidence_ref_ids or auth.included_graph_event_ids
             or auth.included_source_read_event_ids):
         raise ValueError("Plan Jev prepared request differs from its actual owner/authorization")
-    if semantic:
+    if author_scope:
+        from .native_plan_opening import validate_author_scope_wire
+        validate_author_scope_wire(request, raw.encode())
+    elif semantic:
         validate_requested_work_wire(request, raw.encode())
     else:
         validate_wire_body(request, raw.encode())
@@ -239,16 +258,24 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
     if len(captures) != 1 or captures[0].get("text") != raw:
         raise ValueError("Plan decision result differs from exact protected SDK capture")
     result = DecisionResult.model_validate(strict_json(raw))
+    from .native_plan_opening import NativePlanAuthorScopeObservedV1, decode_author_scope_decision
+    from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
+    author_scope = type(event) is NativePlanAuthorScopeObservedV1
     semantic = isinstance(event, t.PlanRequestedWorkSelectedV1)
-    if semantic != isinstance(auth, t.PlanRequestedWorkAuthorizedV1):
+    if (author_scope != (type(auth) is NativePlanAuthorScopeAuthorizedV1)
+            or (not author_scope and semantic != isinstance(auth, t.PlanRequestedWorkAuthorizedV1))):
         raise ValueError('Plan decision kind differs from its actual producer')
-    if semantic:
+    if author_scope:
+        if event.scope_observation != decode_author_scope_decision(request, result):
+            raise ValueError('Author scope observation differs from its exact SDK result')
+    elif semantic:
         from .plan_authoring import decode_requested_work_decision
-        from .native_plan_opening import NativePlanOpeningInputV1, decode_opening_decision
-        from .native_execution import NativePlanOpeningSelectedV1, NATIVE_PLAN_WORK_SELECTION_TYPES
+        from .native_plan_opening import NativePlanOpeningInputV1, NativePlanOpeningInputV2, NATIVE_PLAN_OPENING_INPUT_TYPES, decode_opening_decision
+        from .native_execution import NativePlanOpeningSelectedV1, NativePlanOpeningSelectedV2, NATIVE_PLAN_OPENING_SELECTION_TYPES, NATIVE_PLAN_WORK_SELECTION_TYPES
         from .plan_placement import PlanRequestedWorkInputV2
-        if type(request) is NativePlanOpeningInputV1:
-            if type(event) is not NativePlanOpeningSelectedV1:
+        if type(request) in NATIVE_PLAN_OPENING_INPUT_TYPES:
+            expected_type = NativePlanOpeningSelectedV2 if type(request) is NativePlanOpeningInputV2 else NativePlanOpeningSelectedV1
+            if type(event) is not expected_type:
                 raise ValueError('Combined opening result requires its exact atomic selection')
             selected, batch = decode_opening_decision(request, result)
             if (event.operation != (batch.operation if batch is not None else None)
@@ -256,7 +283,7 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
                     or event.post_read_plan != (batch.post_read_plan if batch is not None else None)):
                 raise ValueError('Opening read plan differs from its exact conditional SDK votes')
         else:
-            if type(event) is NativePlanOpeningSelectedV1:
+            if type(event) in NATIVE_PLAN_OPENING_SELECTION_TYPES:
                 raise ValueError('Historical work-only SDK cannot produce an opening batch')
             selected = decode_requested_work_decision(request, result)
         if isinstance(event, t.PlanRequestedWorkSelectedV2):
@@ -266,7 +293,9 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
             from .plan_placement import PlanRequestedWorkInputV8
             if isinstance(request, PlanRequestedWorkInputV8) != (type(event) in NATIVE_PLAN_WORK_SELECTION_TYPES):
                 raise ValueError('Plan selected work differs from its exact decision codec')
-            fields = work_choice(request, selected)
+            fields = work_choice(request, selected, **({'contextual_answers':
+                {k: v.selected for k, v in result.answers.items()}}
+                if type(request) is NativePlanOpeningInputV2 else {}))
             if (any(getattr(event, key) != value for key, value in fields.items())
                     or event.original_capture != (request.original_capture.model_dump(mode='json',by_alias=True) if request.original_capture is not None else None)
                     or event.placement_catalog != (request.placement_catalog.model_dump(mode='json',by_alias=True) if request.placement_catalog is not None else None)
@@ -300,7 +329,8 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
             or event.decision_request_id != request.request_id
             or event.controller_envelope_sha256 != auth.envelope_sha256
             or event.parent_request_sha256 != request.digest
-            or (not semantic and (event.operation != selected.operation or tuple(event.selected_handles) != selected.selected_handles))
+            or (not semantic and not author_scope
+                and (event.operation != selected.operation or tuple(event.selected_handles) != selected.selected_handles))
             or event.actual_input_tokens != observation.input_tokens
             or event.actual_output_tokens != observation.output_tokens):
         raise ValueError("Plan selection/usage differs from its exact typed producer result")
@@ -332,8 +362,8 @@ def current_selection(turn):
 def connected_page_review_enabled(execution):
     """One actual requested-work owner; a frame string never grants a review."""
     from . import types as t
-    from .native_execution import NativePlanActionV2, NATIVE_PLAN_WORK_SELECTION_TYPES
-    if type(getattr(execution.policy, 'action', None)) is not NativePlanActionV2:
+    from .native_execution import NativePlanActionV2, NativePlanActionV3, NATIVE_PLAN_WORK_SELECTION_TYPES
+    if type(getattr(execution.policy, 'action', None)) not in (NativePlanActionV2, NativePlanActionV3):
         return False
     choices=[e for e in execution.events if isinstance(e,t.PlanRequestedWorkSelectedV2)]
     return (len(choices)==1 and type(choices[0]) in NATIVE_PLAN_WORK_SELECTION_TYPES

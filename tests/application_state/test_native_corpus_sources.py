@@ -1068,7 +1068,7 @@ def test_native_navigator_uses_ordinary_app_controls_without_classic_registry(ap
     from types import SimpleNamespace
     from application_state.agent_conversation.native_corpus import NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1
     from apps.live_control_server.integrations.dungeonmind import native_corpus_source as owner
-    from apps.live_control_server.services import corpus_source_navigation as old_navigation
+    from apps.live_control_server.integrations.dungeonmind import corpus_source_inventory, world_graph_reads
     from apps.live_control_server.services.native_source_navigation import navigator
     body = "# Source\n\nThe party learned source context in the guarded room.\n" if whole_document else None
     if body is not None:
@@ -1092,8 +1092,8 @@ def test_native_navigator_uses_ordinary_app_controls_without_classic_registry(ap
         native_corpus_context=context, context_capture=None)
     def obsolete(*args, **kwargs):
         raise AssertionError("Native source navigation dispatched the obsolete classic registry")
-    monkeypatch.setattr(old_navigation, "collect_source_view", obsolete)
-    monkeypatch.setattr(old_navigation, "direct_services_from_config", obsolete)
+    monkeypatch.setattr(corpus_source_inventory, "collect_source_view", obsolete)
+    monkeypatch.setattr(world_graph_reads, "direct_services_from_config", obsolete)
     opened = []
     original_open = owner.open_admitted_native_text
     def tracked_open(*args, **kwargs):

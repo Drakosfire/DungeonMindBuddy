@@ -55,7 +55,7 @@ def semantic_frame(host, execution):
             view['current_page_draft']['uses_committed_plan'] = True
     if 'focused_edit_target' in host:
         target = host['focused_edit_target']
-        if set(target) - {'kind', 'location', 'selected_text', 'playable_body'}:
+        if set(target) - {'kind', 'location', 'selected_text', 'playable_body', 'fragment_scope'}:
             raise ValueError('Unclassified Plan edit target fields')
         view['focused_edit_target'] = deepcopy(target)
     from .authored_graph_references import model_reference_choices

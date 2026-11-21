@@ -413,17 +413,21 @@ CONNECTED_PAGE_INTENT_POLICY = (
 
 
 def prepare_requested_work_decision(request: PlanRequestedWorkInputV1):
-    from .native_plan_opening import NativePlanOpeningInputV1, prepare_opening_decision
-    if type(request) is NativePlanOpeningInputV1:
+    from .native_plan_opening import NATIVE_PLAN_OPENING_INPUT_TYPES, prepare_opening_decision
+    if type(request) in NATIVE_PLAN_OPENING_INPUT_TYPES:
         return prepare_opening_decision(request)
     return _prepare_requested_work_only(request)
 
 
 def _prepare_requested_work_only(request: PlanRequestedWorkInputV1):
+    from .plan_placement import PlanRequestedWorkInputV9
+    if isinstance(request, PlanRequestedWorkInputV9):
+        from .plan_contextual_targets import prepare_contextual_work
+        return prepare_contextual_work(request)
     from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
     from .jev_retrieval_contract import MODEL, PROVIDER
 
-    from .plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV3, PlanRequestedWorkInputV6, PlanRequestedWorkInputV7, PlanRequestedWorkInputV8
+    from .plan_placement import PlanPlacementCatalogV2, PlanRequestedWorkInputV2, PlanRequestedWorkInputV3, PlanRequestedWorkInputV6, PlanRequestedWorkInputV7, PlanRequestedWorkInputV8
     placement = isinstance(request, PlanRequestedWorkInputV2)
     choices = ("discuss", "clarify", "different_destination") + (
         tuple("write:" + entry.selector for entry in request.placement_catalog.entries)
@@ -448,9 +452,20 @@ def _prepare_requested_work_only(request: PlanRequestedWorkInputV1):
         "available location choose write_unavailable, never discuss. "
         if isinstance(request, PlanRequestedWorkInputV7) else
         "When no page location is available, requested writing is write_unavailable, never ordinary discussion. ") +
+        ("For a request before or after a paragraph, match the requested side, paragraph passage, and any named section "
+        "to an offered paragraph location. A paragraph in a section is not its heading or the entire section. "
+        "Use a heading location only when the request names the heading as the destination. "
+        "If a passage matches paragraphs in multiple sections and the request or dialogue does not distinguish them, "
+        "choose clarify. Do not break that tie using document order, the first match, or the incidental caret. "
+        if isinstance(request.placement_catalog, PlanPlacementCatalogV2) else "") +
         "This selection does not Save or execute deferred work." + (
+            (" Directly below a heading means inside that section before its existing body, not before the heading "
+            "or after its entire section. Use the opaque selector offered with the matching "
+            "Directly below the heading label for writing under a named heading."
+            if isinstance(request.placement_catalog, PlanPlacementCatalogV2) else
             " Directly below a heading means inside that section before its existing body, not before the heading "
             "or after its entire section. Use the offered under:<selector> location for writing under a named heading."
+            )
             if request.placement_catalog is not None
             and any(entry.kind == "after_heading" for entry in request.placement_catalog.entries) else "")} if placement else {}
     references = getattr(request, "authored_references", None)
@@ -506,8 +521,8 @@ def _prepare_requested_work_only(request: PlanRequestedWorkInputV1):
 
 
 def decode_requested_work_decision(request: PlanRequestedWorkInputV1, result):
-    from .native_plan_opening import NativePlanOpeningInputV1, decode_opening_decision
-    if type(request) is NativePlanOpeningInputV1:
+    from .native_plan_opening import NATIVE_PLAN_OPENING_INPUT_TYPES, decode_opening_decision
+    if type(request) in NATIVE_PLAN_OPENING_INPUT_TYPES:
         return decode_opening_decision(request, result)[0]
     from .jev_retrieval_contract import validated_choice_answers
     try:
@@ -534,7 +549,7 @@ def validate_requested_work_wire(request: PlanRequestedWorkInputV1, raw: bytes) 
         q.name: {
             "type": "choice",
             "instructions": q.question,
-            "criteria": {option: None for option in q.options},
+            "criteria": {option: (q.option_descriptions or {}).get(option) for option in q.options},
         }
         for q in expected.questions
     }
@@ -549,9 +564,11 @@ def validate_prepared_requested_work(
 ) -> None:
     from generationengine.decision_dispatch import PreparedDecisionDispatch
     from .jev_retrieval_contract import MODEL, PROVIDER
+    from .native_plan_opening import NativePlanAuthorScopeParentV1, validate_author_scope_wire
 
     from .plan_placement import PlanRequestedWorkInputV3
-    if not isinstance(request, PlanRequestedWorkInputV3):
+    author_scope = type(request) is NativePlanAuthorScopeParentV1
+    if not author_scope and not isinstance(request, PlanRequestedWorkInputV3):
         raise ValueError("Current Plan dispatch requires the V3 current-request contract")
 
     if (
@@ -567,7 +584,10 @@ def validate_prepared_requested_work(
     ):
         raise ValueError("Plan requested-work prepared wire identity differs")
     UUID(prepared.attempt_id)
-    validate_requested_work_wire(request, prepared.body)
+    if author_scope:
+        validate_author_scope_wire(request, prepared.body)
+    else:
+        validate_requested_work_wire(request, prepared.body)
 
 
 def lock_plan_basis(conn, basis: PlanAuthoringBasisV1) -> None:
@@ -847,14 +867,26 @@ def completed_result_digest(turn) -> str:
     return digest(turn.model_dump(mode="json", by_alias=True))
 
 
-def authored_markdown(result) -> str:
+def authored_markdown(result, *, execution=None) -> str:
     """Admitted blocks plus host references; retained older fragments stay unchanged."""
     from .rules_authority_completion import NativeRulesMixedTurnResultV1
     from .rules_authority_reads import MixedCompletedTurnV1
 
     from .native_plan_assertions import NativeAssertionPdfCitationV1
+    from .native_execution import NATIVE_PLAN_ACTION_TYPES
+    from .plan_placement import PlanPlacementCatalogV2
+    from .types import SurfaceLimitationV1
     from .session_summary_projection import summary_markdown
     envelope, evidence = turn_parts(result)
+    action = getattr(getattr(execution, "policy", None), "action", None)
+    paragraph_placement = (isinstance(action, NATIVE_PLAN_ACTION_TYPES)
+        and type(action.placement_catalog) is PlanPlacementCatalogV2)
+    def keep(completion, index):
+        # Disclosure stays in the admitted conversation. Only this unreleased
+        # catalog's authored projection excludes typed host status; older
+        # literal fragments and their retained validation keep their bytes.
+        return not (paragraph_placement
+            and isinstance(completion.answer_segments[index], SurfaceLimitationV1))
     world_id = result.scope.world_id if isinstance(result, NativeRulesMixedTurnResultV1) else envelope.world_id
     next_number = 1
     def project(completion, index):
@@ -874,6 +906,8 @@ def authored_markdown(result) -> str:
             if item.domain == "base" and evidence is not None and evidence.completion is not None
             else result.assistant_text[item.text_start : item.text_end]
             for item in result.accepted_binding.segment_map
+            if (item.domain != "base" or evidence is None or evidence.completion is None
+                or keep(evidence.completion, item.base_segment_index))
         ]
     elif isinstance(result, NativeRulesMixedTurnResultV1):
         texts = [
@@ -881,11 +915,13 @@ def authored_markdown(result) -> str:
             if item.domain == "base"
             else result.composition.rules_segments[item.segment_index].text
             for item in result.composition.ordered_refs
+            if item.domain != "base" or keep(result.base_result.completion, item.segment_index)
         ]
     else:
         if result.completion is None:
             raise ValueError("Plan writing requires admitted literal content")
-        texts = [project(result.completion, index) for index in range(len(result.completion.answer_segments))]
+        texts = [project(result.completion, index) for index in range(len(result.completion.answer_segments))
+            if keep(result.completion, index)]
     if not texts or any(not text.strip() for text in texts):
         raise ValueError("Plan writing has no nonempty admitted content blocks")
     return "\n\n".join(texts)
@@ -1027,7 +1063,7 @@ def validate_proposal_producer(proposal, turn, result, proof):
         or text_digest(proof.prepared_request_json) != proof.request_envelope_sha256
         or proof.producing_provider_attempt_id != origin.writer_attempt_id
         or writer_evidence_event_ids(execution, writers[0]) != origin.evidence_event_ids
-        or authored_markdown(result) != proposal.replacement_markdown
+        or authored_markdown(result, execution=execution) != proposal.replacement_markdown
     ):
         raise ApplicationStateValidationError(
             "Plan proposal differs from its actual admitted writer, evidence or literal output"
@@ -1068,7 +1104,7 @@ def validate_stored_authoring_result(action, turn):
         or execution.context_receipt_sha256 != stored.context_receipt_sha256
         or execution.execution_policy_sha256 != stored.execution_policy_sha256
         or completed_result_digest(turn) != stored.agent_result_sha256
-        or authored_markdown(turn) != stored.replacement_markdown
+        or authored_markdown(turn, execution=execution) != stored.replacement_markdown
     ):
         raise ApplicationStateIntegrityError(
             "Plan proposal and completed Agent result do not match"
@@ -1124,7 +1160,7 @@ def prepare_authoring_proposal(action, capture, turn, result, proof):
     if len(writers) != 1:
         raise ValueError("Plan writing has no unique actual writer")
     writer = writers[0]
-    fragment = authored_markdown(result)
+    fragment = authored_markdown(result, execution=turn.graph_context_execution)
     origin = action.authoring_origin.model_dump(mode="json", by_alias=True) | {
         "schema": "dmb_plan_jev_proposal_origin_v1",
         "expected_turn_revision": result.expected_turn_revision

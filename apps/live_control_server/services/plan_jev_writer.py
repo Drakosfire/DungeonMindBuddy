@@ -247,18 +247,28 @@ def capture_native_reply(adapter,rules,prepared,received,raw):
 def _conversation_response_task(execution):
     """An actual work decision selects response guidance; prompt text never does."""
     from application_state.agent_conversation.native_execution import (
-        SurfaceNativeExecutionV1, NativePlanActionV1, NativePlanActionV2,
+        SurfaceNativeExecutionV1, NativePlanActionV1, NativePlanActionV2, NativePlanActionV3,
         NativePlayActionV1, NativeBuildActionV1, NATIVE_PLAN_WORK_SELECTION_TYPES)
     if type(execution) is not SurfaceNativeExecutionV1:
         return None
+    from application_state.agent_conversation.plan_contextual_questions import response_task
+    question_task = response_task(execution)
+    if question_task is not None:
+        return question_task
     action = execution.policy.action
     if type(action) is NativePlayActionV1:
         return 'answer'  # This action owns only a read-only Run question.
-    if type(action) in (NativePlanActionV1, NativePlanActionV2):
+    if type(action) in (NativePlanActionV1, NativePlanActionV2, NativePlanActionV3):
         choices = [e for e in execution.events if isinstance(e, t.PlanRequestedWorkSelectedV2)]
-        accepted = NATIVE_PLAN_WORK_SELECTION_TYPES if type(action) is NativePlanActionV2 else (t.PlanRequestedWorkSelectedV2,)
+        accepted = NATIVE_PLAN_WORK_SELECTION_TYPES if type(action) in (NativePlanActionV2, NativePlanActionV3) else (t.PlanRequestedWorkSelectedV2,)
         if len(choices) != 1 or type(choices[0]) not in accepted:
             return None
+        if type(action) is NativePlanActionV3 and choices[0].requested_work == 'discuss':
+            return 'plan_contextual_discussion'
+        if choices[0].requested_work == 'clarify':
+            from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
+            if type(action.placement_catalog) is PlanPlacementCatalogV2:
+                return 'plan_placement_clarify'
         return {'discuss': 'answer', 'clarify': 'clarify',
                 'different_destination': 'different_destination'}.get(choices[0].requested_work)
     if type(action) is NativeBuildActionV1:
@@ -310,8 +320,8 @@ class PlanJevWriter:
             from application_state.agent_conversation.native_evidence_view import semantic_frame,output_frame
             from application_state.agent_conversation.plan_writer_output_schema import native_output_format
             turn=adapter.fence.turn
-            from application_state.agent_conversation.native_execution import NativePlanActionV2
-            plan_prose = (type(turn.graph_context_execution.policy.action) is NativePlanActionV2
+            from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
+            plan_prose = (type(turn.graph_context_execution.policy.action) in (NativePlanActionV2, NativePlanActionV3)
                           and getattr(rules, 'authoring', None) is None)
             self.frame=model_frame(turn.graph_context_receipt,turn.graph_context_execution,
                                    passages_only=plan_prose)
@@ -351,7 +361,7 @@ class PlanJevWriter:
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work,
                 build_local=self.work_frame.get('schema') not in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA},
-                format_version=format_version)
+                format_version=format_version, execution=turn.graph_context_execution)
             # Discussion ends with current evidence rather than prior assistant
             # prose. Keep the exact frames; authoring keeps its current draft last.
             frames=((self.provider_work,rule_frame,self.provider_frame)
@@ -365,8 +375,8 @@ class PlanJevWriter:
             frames=(self.frame,rule_frame)
         self.messages=[{'role':'user','content':canonical_bytes(frame).decode()} for frame in frames]
         if self.shared and getattr(rules, 'authoring', None) is None:
-            from application_state.agent_conversation.native_execution import NativePlanActionV2
-            if type(turn.graph_context_execution.policy.action) is NativePlanActionV2:
+            from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
+            if type(turn.graph_context_execution.policy.action) in (NativePlanActionV2, NativePlanActionV3):
                 from application_state.agent_conversation.native_evidence_view import render_plan_evidence
                 from application_state.agent_conversation.rules_authority_plan_packet import render_plan_rules
                 self.messages = (
@@ -462,6 +472,10 @@ class PlanJevWriter:
                         "If there is too little material to draft accurately, leave the proposal empty and "
                         "surface the specific gap for the author."
                     )
+            if self.shared:
+                fragment_scope = self.work_frame.get('focused_edit_target', {}).get('fragment_scope')
+                if fragment_scope is not None:
+                    instructions += '\n' + fragment_scope['instruction']
             self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
                 RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if self.shared or getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
             if single_variant_base:
@@ -598,9 +612,9 @@ class PlanJevWriter:
                 'Plan writer reply capture was not acknowledged')
         return reply
 
-    def capture_draft(self, response):
-        """Debug only: retain actual unvalidated text before receipt/answer checks."""
-        text = getattr(response, "output_text", None)
+    def capture_draft(self, response, *, selected_text=None):
+        """Retain actual output; contextual proof uses the SDK-selected final."""
+        text = selected_text if selected_text is not None else getattr(response, "output_text", None)
         if (not self._draft_capture_attempted and self.authorization is not None
                 and isinstance(text, str) and text):
             self._draft_capture_attempted = True
@@ -663,7 +677,9 @@ class PlanJevWriter:
             stage = self.failure_stage = 'capture'
             reply = self.capture(result,provider.actual_response,provider)
             if self.shared:
-                self.capture_draft(provider.actual_response)
+                from application_state.agent_conversation.native_execution import NativePlanActionV3
+                self.capture_draft(provider.actual_response, selected_text=(reply.text
+                    if type(self.adapter._broker_execution().policy.action) is NativePlanActionV3 else None))
             if self.call is not None:
                 self.call['duration_ms']=(perf_counter()-started)*1000
                 self.adapter.context_capture.provider_usage([self.call])
