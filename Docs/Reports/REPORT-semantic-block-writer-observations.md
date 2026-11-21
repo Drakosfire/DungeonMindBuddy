@@ -198,8 +198,12 @@ existing Arrival paragraphs matched exactly and in order, the original callout
 titles and red-gate choice remained present, and the Departure card retained
 its sentinel sentence. The two fresh sessions used Play's scene edit mode.
 They confirm session-copy persistence with manually seeded Plan callouts.
-Adopting agent-authored P01 blocks, comparing the full parent Plan revision,
-and testing preservation of table and image fixtures remain pending.
+A read-only comparison of all three stored run editions verified that each
+pinned immutable parent Plan revision 5 with its matching content digest and
+saved the edit as session-copy revision 1. The new Pause for response note
+appeared only in the edited copies, and no parent Plan revision matched any
+edited session digest. Hosted table and image preservation remain pending.
+The separate adoption diagnostic below covers reviewed agent-authored blocks.
 
 Hosted Home showed no conversation composer in Buddy Cloud Pilot, so H01 had
 no eligible writer. Hosted Graph still reported unavailable native readback
