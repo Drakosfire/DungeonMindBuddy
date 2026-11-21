@@ -2423,6 +2423,38 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
     assert snapshot["record"]["target_relpath"] is None
     assert hosted.client.request("POST", launch, json=extraction, session="other-session").status_code == 403
     assert not runs
+
+    from apps.live_control_server.services import source_artifact_registry
+
+    original_world = hosted.records["managed"]
+    committed_page_input = source_artifact_registry._committed_page_input
+
+    def transfer_after_snapshot(*args, **kwargs):
+        saved = committed_page_input(*args, **kwargs)
+        hosted.records["managed"] = original_world.model_copy(update={"owner_subject": OTHER_OWNER})
+        return saved
+
+    def transfer_after_registration(_root, candidate, _content, *, authorize):
+        authorize()
+        hosted.records["managed"] = original_world.model_copy(update={"owner_subject": OTHER_OWNER})
+        return candidate
+
+    with monkeypatch.context() as transfer:
+        transfer.setattr(source_artifact_registry, "_committed_page_input", transfer_after_snapshot)
+        transfer.setattr(source_artifact_registry, "_register_source_input",
+                         lambda **_: pytest.fail("Source registered after ownership changed"))
+        blocked = hosted.client.request("POST", launch, json=extraction)
+        assert blocked.status_code == 403, blocked.text
+        assert not runs
+    hosted.records["managed"] = original_world
+
+    with monkeypatch.context() as transfer:
+        transfer.setattr(source_artifact_registry, "_register_page_source", transfer_after_registration)
+        blocked = hosted.client.request("POST", launch, json=extraction)
+        assert blocked.status_code == 403, blocked.text
+        assert not runs
+    hosted.records["managed"] = original_world
+
     started = hosted.client.request("POST", launch, json=extraction)
     assert started.status_code == 200, started.text
     exact_run = f"{launch}/{started.json()['run']['run_id']}"
@@ -3333,6 +3365,16 @@ def test_hosted_ingest_candidate_projection_is_owned_and_exact(hosted, monkeypat
     assert result.headers["cache-control"] == "no-store"
     assert result.json() == {"runId": "recap-run", "managedWorldId": "managed"}
     assert calls == [("recap-run", "managed")]
+
+    def transfer_while_serializing(self, *, mode, by_alias):
+        world = hosted.records["managed"]
+        hosted.records["managed"] = world.model_copy(update={"owner_subject": OTHER_OWNER})
+        return {"sourceProse": "Synthetic text withheld after transfer."}
+
+    monkeypatch.setattr(SavedCandidate, "model_dump", transfer_while_serializing)
+    revoked = hosted.client.request("GET", path)
+    assert revoked.status_code == 403, revoked.text
+    assert "sourceProse" not in revoked.json()
 
 
 def test_hosted_combat_lists_and_reopens_only_owned_encounters(hosted, application_state_dsn, monkeypatch):
@@ -6641,3 +6683,23 @@ def test_hosted_catalog_authorizers_run_blocking_reads_off_event_loop(monkeypatc
         assert all(thread != event_loop_thread for thread in catalog_threads)
 
     asyncio.run(run())
+
+
+def test_production_app_mounts_build_extraction_without_developer_routes(monkeypatch):
+    from apps.live_control_server.main import create_app
+
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "production")
+    monkeypatch.setenv("DMB_AUTH_MODE", "hosted_dms")
+    methods_by_path = {
+        (method, route.path)
+        for route in create_app().routes
+        for method in getattr(route, "methods", ())
+    }
+
+    prefix = "/api/live/graph-preview"
+    assert ("POST", prefix + "/extraction-runs") in methods_by_path
+    assert ("GET", prefix + "/extraction-runs/{run_id}") in methods_by_path
+    assert ("GET", prefix + "/extraction-runs/{run_id}/build-context") in methods_by_path
+    assert ("GET", prefix + "/extraction-runs/{run_id}/candidate-projection") in methods_by_path
+    assert ("GET", prefix + "/gold-review/sessions") not in methods_by_path
+    assert ("GET", prefix + "/manual-review/beds") not in methods_by_path

@@ -191,6 +191,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_play_table_receipts,
     resolve_hosted_world_lookup,
 )
+from apps.live_control_server.routes.build_extraction import router as build_extraction_router
 from bootstrap_env import load_dungeonmindbuddy_dotenv
 
 load_dungeonmindbuddy_dotenv()
@@ -553,6 +554,8 @@ def create_app() -> FastAPI:
     application.include_router(agent_graph_local_session_router)
     if graph_preview_router is not None:
         application.include_router(graph_preview_router)
+    else:
+        application.include_router(build_extraction_router, prefix="/api/live/graph-preview")
     application.include_router(graph_authoring_router)
     application.include_router(recap_ingest_router)
     application.include_router(party_registry_router)

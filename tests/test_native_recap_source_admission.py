@@ -578,12 +578,12 @@ def test_public_run_routes_and_catalog_omit_only_private_lineage(lane, monkeypat
     )
     assert "private-SENTINEL" not in json.dumps(service.public_run(poisoned))
     assert poisoned.lineage[KEY] == {"secret": "private-SENTINEL"}
-    from apps.live_control_server.routes import graph_preview
+    from apps.live_control_server.routes import build_extraction
     from apps.live_control_server.services import graph_run_registry
 
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda *_: poisoned)
     assert "private-SENTINEL" not in json.dumps(
-        graph_preview.get_extraction_run_by_id(run.run_id)
+        build_extraction.get_extraction_run_by_id(run.run_id)
     )
     assert KEY in ingest.get_extraction_run(run.run_id).lineage
 
