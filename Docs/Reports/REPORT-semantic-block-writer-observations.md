@@ -239,3 +239,26 @@ The Rules suggestion was dismissed before Save. The saved Plan still
 showed its original callouts, red-gate choice, and Departure scene. This
 confirms block choice for the Rules proposal. Clean save and reopening,
 and routing the Warning request to the page, remain to be verified.
+
+### Hosted Plan card-body save and native Graph fixture checks
+
+The exact P03 prompt on the focused Arrival card produced **GM Note ·
+Gate**. The retained application identified a playable-body replacement.
+After Save and reopening, the note, existing First sight block, scene and
+choice markers, and Departure text were present. The proposal included the
+retrieval disclosure. An attempted deletion in the suggestion editor did
+not reach the saved application. A read-only inspection confirmed the
+footer was absent from the original capture and present in the review
+Markdown and applied revision. The footer was subsequently removed through
+the synthetic Plan Markdown editor and verified absent on reopen.
+
+[#4320](https://github.com/Drakosfire/DungeonMindBuddy/pull/4320) verifies that
+a direct editor transaction followed immediately by Save passes the edited
+Markdown into the review command. It uses mocked persistence. The hosted
+keyboard-path discrepancy remains open, as does a clean, unassisted P03 run.
+
+The mounted native first-World HTTP publication test passed locally with
+Buddy's pinned DungeonMind Core source and an isolated pgvector database.
+It exercises hosted ownership, publication, and signed recovery. The cloud
+release still uses classic first-World publication. The local test does not
+supply the disposable native Graph or exercise the hosted G01 chat case.
