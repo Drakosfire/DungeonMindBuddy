@@ -544,6 +544,34 @@ def _require_requested_world_scope(obj, world_id: str | None) -> None:
         )
 
 
+def _plan_write_presentation(request, obj, content: str) -> presentation.PagePresentation | None:
+    if "page_presentation" not in request.model_fields_set:
+        return None
+    if obj.kind != "plan" or request.world_id is None or request.expected_revision is None:
+        raise TiptapMarkdownWriteError("Plan presentation requires an exact World and revision")
+    if request.page_presentation is None:
+        raise TiptapMarkdownWriteError("Plan Save requires an explicit retained presentation")
+    from application_state.content.types import normalize_markdown
+    from application_state.errors import ApplicationStateError
+
+    try:
+        return request.page_presentation.checked(normalize_markdown(content))
+    except ApplicationStateError as exc:
+        raise _map_registry_error(
+            WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
+        ) from exc
+
+
+def _plan_write_token(request, document_id, revision, relpath, content, write_mode, layout_fingerprint):
+    file_state = "postgres"
+    if layout_fingerprint is not None:
+        file_state += f":plan-presentation:{layout_fingerprint}"
+    return _confirm_token(
+        document_id, revision, relpath, content, file_state, write_mode,
+        world_id=request.world_id, title=request.title,
+    )
+
+
 def _prepare_plan_postgres(
     *,
     root: Path,
@@ -600,16 +628,19 @@ def _prepare_plan_postgres(
 
         authorize_target_for_record(_record_from_work_object(obj))
     lossy = markdown_lossy_diagnostics(request.markdown)
-    autosave = autosave_plan if obj.kind == "plan" else autosave_runbook
-    try:
-        autosave_kwargs = {"expected_revision": request.expected_revision}
-        if obj.kind == "plan":
-            autosave_kwargs["expected_world_id"] = request.world_id
-        obj = autosave(request.document_id, content, **autosave_kwargs)
-    except ApplicationStateError as exc:
-        raise _map_registry_error(
-            WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
-        ) from exc
+    layout = _plan_write_presentation(request, obj, content)
+    layout_fingerprint = layout.fingerprint() if layout is not None else None
+    if layout is None:
+        autosave = autosave_plan if obj.kind == "plan" else autosave_runbook
+        try:
+            autosave_kwargs = {"expected_revision": request.expected_revision}
+            if obj.kind == "plan":
+                autosave_kwargs["expected_world_id"] = request.world_id
+            obj = autosave(request.document_id, content, **autosave_kwargs)
+        except ApplicationStateError as exc:
+            raise _map_registry_error(
+                WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
+            ) from exc
     relpath = _content_receipt_locator(obj)
     return TiptapMarkdownWritePrepareResponse(
         document_id=str(obj.work_object_id),
@@ -620,16 +651,11 @@ def _prepare_plan_postgres(
         file_exists=False,
         writer_ok=True,
         writer_phase="prepare",
-        writer_confirm_token=_confirm_token(
-            str(obj.work_object_id),
-            obj.object_revision,
-            relpath,
-            content,
-            "postgres",
-            write_mode,
-            world_id=request.world_id,
-            title=request.title,
+        writer_confirm_token=_plan_write_token(
+            request, str(obj.work_object_id), obj.object_revision, relpath, content,
+            write_mode, layout_fingerprint,
         ),
+        page_presentation_sha256=layout_fingerprint,
         writer_diff="",
         existing_size_bytes=None,
         new_size_bytes=len(content.encode()),
@@ -641,7 +667,8 @@ def _prepare_plan_postgres(
             write_mode=write_mode,
         ),
         diagnostics=[
-            "working copy persisted; Markdown file is not authority",
+            ("Plan presentation prepare is read-only" if layout is not None
+             else "working copy persisted; Markdown file is not authority"),
             "review before commit",
             *lossy,
         ],
@@ -704,18 +731,14 @@ def _commit_plan_postgres(
 
         authorize_target_for_record(_record_from_work_object(obj))
     content = _content_for_write_mode(request.markdown, write_mode)
+    layout = _plan_write_presentation(request, obj, content)
+    layout_fingerprint = layout.fingerprint() if layout is not None else None
     relpath = _content_receipt_locator(obj)
 
     def _token_for(revision: int) -> str:
-        return _confirm_token(
-            str(obj.work_object_id),
-            revision,
-            relpath,
-            content,
-            "postgres",
-            write_mode,
-            world_id=request.world_id,
-            title=request.title,
+        return _plan_write_token(
+            request, str(obj.work_object_id), revision, relpath, content,
+            write_mode, layout_fingerprint,
         )
 
     expected_revision = obj.object_revision
@@ -728,6 +751,10 @@ def _commit_plan_postgres(
                 "stale writer confirm token; prepare file write again"
             )
         expected_revision = prior_revision
+    if layout is not None and request.expected_revision != expected_revision:
+        raise TiptapMarkdownWriteConflictError(
+            "Plan presentation writer token differs from the submitted revision"
+        )
     commit = commit_plan if obj.kind == "plan" else commit_runbook
     try:
         commit_kwargs = {"expected_revision": expected_revision}
@@ -736,6 +763,8 @@ def _commit_plan_postgres(
             commit_kwargs["title"] = request.title
             if authorize_plan_world is not None:
                 commit_kwargs["authorize_world"] = authorize_plan_world
+            if layout is not None:
+                commit_kwargs["page_presentation"] = layout
         elif authorize_runbook_world is not None:
             commit_kwargs["authorize_world"] = authorize_runbook_world
         committed, revision = commit(request.document_id, content, **commit_kwargs)
@@ -758,6 +787,7 @@ def _commit_plan_postgres(
         committed_revision=record.revision,
         committed_record=record,
         normalized_content_sha256=revision.content_sha256,
+        page_presentation_sha256=layout_fingerprint,
         writer_ok=True,
         writer_phase="commit",
         bytes_written=len(content.encode()),
@@ -792,10 +822,6 @@ def prepare_tiptap_markdown_write(
         raise _map_registry_error(
             WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
         ) from exc
-    if "page_presentation" in request.model_fields_set:
-        raise TiptapMarkdownWriteError(
-            "presentation is only supported for authored Pages"
-        )
     result = _prepare_plan_postgres(root=root, request=request, write_mode=write_mode)
     if result is None:
         error = TiptapMarkdownWriteError("workspace document not found")
@@ -827,10 +853,6 @@ def commit_tiptap_markdown_write(
         ) from exc
     if authorize_world is not None and request.world_id is None:
         raise TiptapMarkdownWriteConflictError("The authorized Page is no longer available")
-    if "page_presentation" in request.model_fields_set:
-        raise TiptapMarkdownWriteError(
-            "presentation is only supported for authored Pages"
-        )
     result = _commit_plan_postgres(
         request=request, write_mode=write_mode, authorize_runbook_world=authorize_runbook_world,
         authorize_plan_world=authorize_world,

@@ -272,6 +272,12 @@ class WorldOwnedPlanSnapshotV2(BaseModel):
         "dmb_workspace_document_snapshot_v2"
     )
     record: WorldOwnedPlanRecordV2
+    page_presentation: PagePresentation | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    page_presentation_sha256: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     markdown: str
     content_sha256: str
     file_fingerprint: str
@@ -926,6 +932,12 @@ def _postgres_plan_snapshot(document_id: str) -> WorkspaceDocumentSnapshotAny:
             else WorkspaceDocumentSnapshot
         )
     )
+    layout = snap.page_presentation
+    presentation_fields = (
+        {"page_presentation": layout, "page_presentation_sha256": layout.fingerprint()}
+        if layout is not None and isinstance(record, WorldOwnedPlanRecordV2)
+        else {}
+    )
     return snapshot_model(
         record=record,
         markdown=snap.markdown,
@@ -933,6 +945,7 @@ def _postgres_plan_snapshot(document_id: str) -> WorkspaceDocumentSnapshotAny:
         file_fingerprint="postgres",
         file_exists=False,
         loaded_revision=snap.loaded_revision,
+        **presentation_fields,
     )
 
 

@@ -19,6 +19,9 @@ user's lane authority. Open integration draft #3824 at
 Its active fixture lease is separate. Preserve every actual World authorization
 and principal check when reconciling the two source diffs. The editor and its
 welcome/rollout overlaps remain outside this slice.
+The held #2104 route proposal remains separate. This slice owns only the
+presentation commit callback at the existing Markdown route, so that a
+hosted Plan without artwork still verifies the principal at the Content lock.
 
 #4343 reserves application reader-fence predecessor 0173. Implementation and
 disposable testing can proceed now. Allocate this slice's single forward-only
@@ -30,6 +33,8 @@ separately governed.
 Expected write set:
 
 - `apps/live_control_server/services/tiptap_markdown_write.py`
+- `apps/live_control_server/routes/live.py` for the locked presentation commit
+  World callback only
 - `apps/live_control_server/services/workspace_document_registry.py`
 - `tests/application_state/test_authored_pages_postgres.py` for the existing
   shared Content contract and actual HTTP lifecycle checks
