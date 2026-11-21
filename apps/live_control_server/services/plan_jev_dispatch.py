@@ -89,7 +89,8 @@ class PlanJevDispatch:
     No retries or fallback. The parent creates the candidate catalog; neither
     returned labels nor model choices create evidence or authorize a source read.
     """
-    def __init__(self, adapter, candidates, *, dialogue=(), examined_candidates=(), allowed_operations=("select_candidates", "discover_more", "finish_retrieval")):
+    def __init__(self, adapter, candidates, *, dialogue=(), examined_candidates=(), allowed_operations=("select_candidates", "discover_more", "finish_retrieval"),
+                 bounded_continuation=None):
         self.adapter = adapter
         fields = dict(request_id=uuid4(), parent_attempt_id=uuid4(), scope_sha256="0" * 64,
             question=adapter.request.message, dialogue=tuple(dialogue), candidates=tuple(candidates),
@@ -127,6 +128,8 @@ class PlanJevDispatch:
             if initial_source_discovery_enabled(adapter.fence.turn.graph_context_execution):
                 from application_state.agent_conversation.jev_retrieval_contract import NativePlanBatchDecisionInputV3
                 codec = NativePlanBatchDecisionInputV3
+                if bounded_continuation:
+                    fields["bounded_continuation"] = bounded_continuation
                 if source_expansion_selected(adapter.fence.turn):
                     fields['expanded_relevance_version'] = 'v1'
             self.parent = codec(**fields,**source_pins(receipt))
@@ -406,7 +409,10 @@ class PlanJevDispatch:
             from application_state.agent_conversation.jev_retrieval_contract import NativePlanBatchDecisionInputV3
             planned = type(self.parent) is NativePlanBatchDecisionInputV3
             if planned:
+                from application_state.agent_conversation.native_retrieval import exhausts_continuation_offer
                 selected_fields['post_read_plan'] = selected.post_read_plan
+                selected_fields['exhausted_continuation_offer'] = exhausts_continuation_offer(
+                    self.parent, selected)
             if opening:
                 selected_fields.update(operation=first_batch.operation if first_batch is not None else None,
                     selected_handles=list(first_batch.selected_handles) if first_batch is not None else [],
