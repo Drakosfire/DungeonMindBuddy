@@ -507,19 +507,37 @@ def test_readiness_stays_nonsensitive_and_not_ready_without_route_policies() -> 
     assert "synthetic-managed-user" not in response.text
 
 
-def test_production_app_excludes_fixture_backed_graph_gold_review_routes(
+def test_production_graph_preview_prefix_mounts_only_scoped_build_extraction(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from apps.live_control_server.main import create_app
+    from apps.live_control_server.main import (
+        HOSTED_WORLD_SCOPE_RESOLVERS,
+        create_app,
+        resolve_hosted_build_extraction,
+        resolve_hosted_exact_extraction_read,
+        resolve_hosted_saved_recap,
+    )
 
     monkeypatch.setenv(DEPLOYMENT_ENVIRONMENT_ENV, "production")
+    monkeypatch.setenv("DMB_AUTH_MODE", "hosted_dms")
 
-    application = create_app()
+    prefix = "/api/live/graph-preview"
+    expected = {
+        ("POST", f"{prefix}/extraction-runs"): resolve_hosted_build_extraction,
+        ("GET", f"{prefix}/extraction-runs/{{run_id}}"): resolve_hosted_exact_extraction_read,
+        ("GET", f"{prefix}/extraction-runs/{{run_id}}/build-context"): resolve_hosted_exact_extraction_read,
+        ("GET", f"{prefix}/extraction-runs/{{run_id}}/candidate-projection"): resolve_hosted_saved_recap,
+    }
+    mounted = [
+        (method, route.path)
+        for route in create_app().routes
+        if route.path.startswith(prefix)
+        for method in getattr(route, "methods", ())
+    ]
 
-    assert not any(
-        getattr(route, "path", "").startswith("/api/live/graph-preview")
-        for route in application.routes
-    )
+    # Exact inventory excludes every fixture-backed and unreviewed route.
+    assert sorted(mounted) == sorted(expected)
+    assert {key: HOSTED_WORLD_SCOPE_RESOLVERS.get(key) for key in mounted} == expected
 
 
 def test_write_requires_one_exact_trusted_origin() -> None:
