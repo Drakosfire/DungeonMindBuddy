@@ -27,7 +27,8 @@ changes are part of this assignment.
 
 This slice owns the Build source-bound catalog and request admission, narrow
 Build native Jev selection/protected replay/proposal joins, and their direct
-tests. The mounted Build Send bridge and frozen held-out acceptance follow
+tests. It reuses the exact editor/Markdown prose validator from Plan without
+changing Plan behavior. The mounted Build Send bridge and frozen held-out acceptance follow
 in the next serial slice. Preserve #3824 hosted authorization
 (`76c31187f3e9badecbc403f2d9c943994c5f5f9c`) and #2225 source handling
 (`f720e5f55f5b357dba09977663306482d5188a65`), including retrieval order,
@@ -43,3 +44,28 @@ separately from scripted persistence and writer quality. The new independent
 32-case Build pack remains sealed until mounted acceptance. Required checks
 include exact repo verification, owning APP/Content contracts, native
 compatibility evidence and independent exact-head review.
+
+## Verification checkpoint
+
+The ordinary Build HTTP regression reaches an inert V3 proposal through the
+real native opening, protected result validation, exact writer and APP
+completion. Scripted transport covers one qualified duplicate, an unqualified
+duplicate, a missing section, stale and foreign inputs, and exact page-body
+and page-end offers. Accepted proposals survive conversation reload and
+replay without another provider call. The four controls leave committed
+source intact and create no proposal. Legacy table drafting, selection
+guidance and bound-image revision passed focused regression checks.
+
+Eight frozen synthetic opening cases used real `jev-1.14.0`, one completed
+decision each with zero retries and no writer. All four paragraph placements
+and all four nonparagraph outcomes matched, with zero unexpected targets.
+The freeze SHA-256 is
+`dfbfc72cb45f4eb8fbcfa4afbe28d95b03fe6c33599c43c67668e87fbd722672`.
+This is development evidence. The independently authored held-out scenarios
+remain sealed for mounted Build Send.
+
+The capture currently admits root prose geometry. The exact-base native
+execution diagnostic reproduced six inherited exception-message mismatches
+in `test_build_query_settlement_requires_exact_opening_response`.
+The exact-head comparison, disposable old-reader witness and independent
+review remain open.

@@ -24,9 +24,9 @@ from generationengine.text_dispatch import TextDispatchGate
 from application_state.agent_conversation import types as ledger
 from application_state.agent_conversation.native_execution import SurfaceNativeExecutionPolicyV1
 from application_state.agent_conversation.build_authoring import completion_for_proposal
-from application_state.build_proposal.types import BuildProposalOrigin
+from application_state.build_proposal.types import BuildProposalOrigin, explicit_build_page_target
 from apps.live_control_server.models.build_document_proposal import (
-    BuildDocumentProposalRequest,
+    BuildContextualProposalRequest, BuildDocumentProposalRequest,
 )
 from .agent_runtime import AgentRuntimeDescriptor
 from .plan_jev_dispatch import decision_client
@@ -482,6 +482,21 @@ class BuildJevHarness:
 
     def _native_completion(self, adapter, work_driver):
         """Continue real Build work through the shared native read and writer owners."""
+        placement = getattr(work_driver.selection, "paragraph_placement", None)
+        if (work_driver.operation == "propose_build_insertion" and placement is not None
+                and placement.target is None
+                and explicit_build_page_target(adapter.request.build_write_capability, work_driver.selection) is None):
+            from .agent_turn_service import AgentTurnServiceError
+
+            guidance = {
+                "ambiguous": "That passage appears more than once. Which section should I use?",
+                "missing": "I couldn't find that passage in the requested section. Which existing passage should I use?",
+                "different_destination": "This request names a different page. Open that page before asking for an edit.",
+            }
+            raise AgentTurnServiceError(
+                guidance.get(placement.disposition, "Which existing paragraph should I use, and should I insert before or after it?"),
+                code="build_contextual_placement_unresolved", status_code=409,
+            )
         from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
         from .plan_jev_rules_runtime import PlanRulesRuntime
         from .plan_jev_driver import PlanJevDriver
@@ -896,8 +911,21 @@ class BuildJevHarness:
             broker_operation_id=selection.broker_operation_id,
             arguments_sha256=selection.arguments_sha256,
         )
-        request = BuildDocumentProposalRequest(
-            **capability.model_dump(exclude={"instruction", "origin"}),
+        values = capability.model_dump(exclude={"instruction", "origin", "boundary_editor_json"})
+        request_type = BuildDocumentProposalRequest
+        if capability.boundary_editor_json is not None:
+            placement = getattr(selection, "paragraph_placement", None)
+            if placement is None or native_rules is None:
+                raise ValueError("Contextual Build placement requires an admitted boundary decision")
+            if placement.target is not None:
+                values.pop("page_body_offer", None)
+                values.pop("page_end_offer", None)
+                values["prose_target"] = placement.target
+                request_type = BuildContextualProposalRequest
+            elif explicit_build_page_target(capability, selection) is None:
+                raise ValueError("Contextual Build placement requires an admitted boundary decision")
+        request = request_type(
+            **values,
             instruction=adapter.request.message,
             origin=origin,
         )

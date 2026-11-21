@@ -50,6 +50,19 @@ def test_build_proposal_without_a_target_returns_selection_guidance(lane, tmp_pa
     _fresh_case(lane, tmp_path, monkeypatch, "target_unavailable", True, False, True)
 
 
+@pytest.mark.parametrize("boundary_scope", ["unique", "ambiguous", "missing", "stale", "foreign", "page_end", "page_body"])
+def test_build_native_paragraph_proposal_replays_exact_boundary(lane, tmp_path, monkeypatch, boundary_scope):
+    location = {"ambiguous": "", "missing": " in North"}.get(boundary_scope, " in East")
+    message = {
+        "page_end": "Append a line about a copper lamp at the end of this page.",
+        "page_body": "Replace the whole page with a paragraph about a copper lamp.",
+    }.get(boundary_scope, f"After the orchid paragraph{location}, add a line about a copper lamp.")
+    _fresh_case(
+        lane, tmp_path, monkeypatch, None, True, False, True, contextual=boundary_scope,
+        message=message,
+    )
+
+
 @pytest.mark.parametrize("reference_image", ["saved", "unbound", "wrong_same_page", "saved_large"])
 def test_build_selected_revision_uses_only_the_bound_saved_image(lane, tmp_path, monkeypatch, reference_image):
     _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True, reference_image=reference_image)
@@ -60,7 +73,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -140,6 +153,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         + (image_markdown if reference_image in {"saved", "wrong_same_page", "saved_large"} else '') + 'A proposed conversation.\n')
     source = get_workspace_document_snapshot(tmp_path, page.document_id)
     draft = None
+    editor_json = None
     if with_draft:
         from application_state.agent_conversation.build_draft_context import BuildDraftSnapshotV1, BuildDraftContextRequestV1
         from tests.application_state.test_agent_conversation_postgres import _new
@@ -147,9 +161,20 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         conversation = _new(service,world)
         pointer = service.get_world_pointer(world)
         text = image_markdown + 'An unsaved orchid possibility. Never a played fact. 🌸'
+        if contextual:
+            def block(kind, content, **attrs):
+                node = {"type": kind, "content": [{"type": "text", "text": content}]}
+                return node | ({"attrs": attrs} if attrs else {})
+
+            editor_json = json.dumps({"type": "doc", "content": [
+                block("heading", "West", level=2), block("paragraph", text),
+                block("heading", "East", level=2), block("paragraph", text),
+            ]}, ensure_ascii=False)
+            text = f"## West\n\n{text}\n\n## East\n\n{text}\n"
         snapshot = BuildDraftSnapshotV1(world_id=world,document_id=page.document_id,
             registry_revision=source.loaded_revision,content_sha256=source.content_sha256,visibility='internal',
-            draft_markdown=text,draft_sha256=sha256(text.encode()).hexdigest(),editor_sha256='c'*64,draft_generation=3)
+            draft_markdown=text,draft_sha256=sha256(text.encode()).hexdigest(),
+            editor_sha256=sha256(editor_json.encode()).hexdigest() if editor_json else 'c'*64,draft_generation=3)
         draft = BuildDraftContextRequestV1(snapshot=snapshot,conversation_id=conversation.conversation_id,
             expected_pointer_revision=pointer.revision)
     selected = AuthoredGraphReferencesV1(references=(AuthoredGraphReferenceV1(managed_world_id=world,
@@ -299,6 +324,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
                     else ('include' if int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
                     else "read" if read_optional_page and name.startswith("related_page_")
+                    else {"paragraph_work": f"explicit_{contextual}" if contextual in {"page_end", "page_body"} else "place_paragraph",
+                          "paragraph_relation": "after",
+                          "paragraph_scope": "unscoped" if contextual == "ambiguous" else "named",
+                          "paragraph_text0": "include", "paragraph_scope0": "exclude",
+                          "paragraph_scope1": "include" if contextual == "unique" else "exclude"}[name]
+                    if name.startswith("paragraph_")
                     else (native_body if native_body and body['state']['sources'][list(body['state']['sources'])[int(name[1:])]]['kind']=='native_body' else 'direct_support') if name.startswith('s') and name[1:].isdigit() else 'skip')
                 assert chosen in choices, (name, choices)
                 answers[name] = dict(type='choice', choice=chosen, confidence=1,
@@ -449,7 +480,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             if saved:
                 assert read_ids and 'A proposed conversation.' in str(work)
             if mode:
-                candidate=dict(destination='current_page',target='captured',replacement_markdown=proposal_markdown or 'A proposed copper lamp.',
+                target = contextual if contextual in {"page_end", "page_body"} else "prose_target" if contextual else "captured"
+                candidate=dict(destination='current_page',target=target,replacement_markdown=proposal_markdown or 'A proposed copper lamp.',
                     summary='Proposed detail.',assumptions=['The lamp is invented.'])
                 if failure == 'target_unavailable' and len(self.calls) == 1:
                     candidate.update(target='unavailable', replacement_markdown='', summary='Untrusted provider summary.')
@@ -661,11 +693,18 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         body['client_work_state']='saved_dirty'
     if proposal or capture_write:
         from application_state.build_proposal.types import BuildWriteCapability
+        offers = {}
+        if contextual in {"page_body", "page_end"}:
+            from application_state.agent_conversation.plan_slot_layout import prose_editor_node_size
+
+            end = sum(prose_editor_node_size(node) for node in json.loads(editor_json)["content"])
+            offers = {"page_end_offer": {"end": end}, "page_body_offer": {"end": end}}
         cap=BuildWriteCapability(idempotency_key=uuid4(),conversation_id=draft.conversation_id,
             expected_pointer_revision=draft.expected_pointer_revision,draft_markdown=draft.snapshot.draft_markdown,
+            boundary_editor_json=editor_json,
             basis=dict(**{k:getattr(draft.snapshot,k) for k in ('world_id','document_id','registry_revision',
                 'content_sha256','visibility','draft_sha256','editor_sha256','draft_generation')},
-                caret=1,selection_generation=0))
+                caret=1,selection_generation=0), **offers)
         body['build_write_capability']=cap.model_dump(mode='json')
         if reference_image:
             body['build_write_capability']['reference_image_id'] = str((wrong if reference_image == 'wrong_same_page' else asset)['asset_id'])
@@ -892,7 +931,21 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert original==failed
         assert lane.repo.get_head(world).head_revision_id==current_revision
         return
+    if contextual == "stale":
+        save_page(tmp_path, page.document_id, source.markdown + "\nA newer saved paragraph.\n")
+    elif contextual == "foreign":
+        body["build_write_capability"]["basis"]["world_id"] = "foreign-world"
     response = (dispatch(client, world, body) if dispatch else client.post('/api/live/agent/turn', json=body))
+    if contextual in {"stale", "foreign"}:
+        from application_state.build_proposal.service import BuildProposalService
+
+        assert response.status_code == (409 if contextual == "stale" else 422), response.text
+        assert not decisions.calls and not writer.calls
+        assert BuildProposalService().list(world, cap.conversation_id) == []
+        committed = get_workspace_document_snapshot(tmp_path, page.document_id)
+        assert committed.markdown == (source.markdown + "\nA newer saved paragraph.\n"
+                                      if contextual == "stale" else source.markdown)
+        return
     if failure in {"deferred_settlement_drift", "deferred_provider_failure"}:
         from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
         assert response.status_code == 503, response.text
@@ -1091,6 +1144,15 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert not writer.calls
         assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
         return
+    if contextual in {"ambiguous", "missing"}:
+        from application_state.build_proposal.service import BuildProposalService
+
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"]["code"] == "build_contextual_placement_unresolved"
+        assert len(decisions.calls) == 1 and not writer.calls
+        assert BuildProposalService().list(world, cap.conversation_id) == []
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        return
     assert response.status_code == 200, response.text + str(classic_calls)
     assert not classic_calls and len(writer.calls) == 1
     payload = response.json()
@@ -1145,7 +1207,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         captured = next(e for e in turn.graph_context_execution.events if isinstance(e,t.BuildDraftContextCapturedV1))
         assert captured.record.snapshot==draft.snapshot
         assert captured.sequence < next(e.sequence for e in turn.graph_context_execution.events if isinstance(e,t.ProviderAttemptAuthorizedEventV1))
-        assert all('unsaved orchid' not in req.content.decode() for req in decisions.calls)
+        if contextual:
+            assert "unsaved orchid" in decisions.calls[0].content.decode()
+            assert all("unsaved orchid" not in req.content.decode() for req in decisions.calls[1:])
+            assert all("boundary_editor_json" not in req.content.decode() for req in decisions.calls)
+        else:
+            assert all('unsaved orchid' not in req.content.decode() for req in decisions.calls)
     assert not any(isinstance(e,(t.BuildDraftProviderInclusionV1,t.BuildSectionProviderInclusionV1))
         for e in turn.graph_context_execution.events)
     captures = [event for event in turn.graph_context_execution.events if isinstance(event, t.BuildAuthoredReferencesCapturedV1)]
@@ -1169,6 +1236,17 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         else:
             record=BuildProposalService().get(world,cap.idempotency_key)
             assert record.state=='proposed' and record.proposal.replacement_markdown==(proposal_markdown or 'A proposed copper lamp.')
+            if contextual == "unique":
+                assert record.reservation.prose_target.alias == "passage2:insert_after"
+                assert record.reservation.basis.caret == 1
+                assert record.reservation.prose_target.operation == "insert_after"
+                packet = json.loads(json.loads(writer.calls[-1].content)["input"])
+                assert packet["paragraph_placement"]["section"] == ["East"]
+            if contextual in {"page_end", "page_body"}:
+                assert record.proposal.target == contextual
+                assert record.reservation.basis.caret == 1
+                packet = json.loads(json.loads(writer.calls[-1].content)["input"])
+                assert not {"page_body_offer", "page_end_offer"} & packet.keys()
             authorization=record.authorization
             assert context['completion']['schema']=='dmb_build_authoring_completion_v1'
         assert context['completion']['action_id']==str(record.action_id)

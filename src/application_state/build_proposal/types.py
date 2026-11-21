@@ -146,6 +146,20 @@ class BuildProposalReservation(StrictModel):
         ).hexdigest()
 
 
+class BuildBoundaryResolution(StrictModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    disposition: Literal["unique", "ambiguous", "missing", "unresolved", "discuss",
+                         "different_destination", "explicit_page_end", "explicit_page_body"]
+    target: BuildProseBoundaryTarget | None = None
+
+    @model_validator(mode="after")
+    def exact_target(self):
+        if (self.disposition == "unique") != (self.target is not None):
+            raise ValueError("Only one resolved Build boundary carries placement authority")
+        return self
+
+
 class BuildProseBoundaryReservation(BuildProposalReservation):
     prose_target: BuildProseBoundaryTarget
 
@@ -162,6 +176,7 @@ class BuildWriteCapability(BuildProposalReservation):
     """Browser-captured target; no model chooses insertion authority."""
     instruction: str = ""
     draft_markdown: str
+    boundary_editor_json: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def validate_capability(self):
@@ -170,6 +185,15 @@ class BuildWriteCapability(BuildProposalReservation):
             raise ValueError("The model instruction and tool origin are parent-owned")
         if sha256(encoded).hexdigest() != self.basis.draft_sha256:
             raise ValueError("Captured draft differs from its digest")
+        if self.boundary_editor_json is not None:
+            if self.reference_image_id is not None or self.basis.selection is not None:
+                raise ValueError("A Build prose offer cannot replace an authored selection or image target")
+            from .prose_catalog import freeze_build_prose_catalog
+
+            catalog = freeze_build_prose_catalog(self.basis, self.boundary_editor_json, self.draft_markdown)
+            if any(offer is not None and offer.end != catalog.editor_size
+                   for offer in (self.page_body_offer, self.page_end_offer)):
+                raise ValueError("Build page-wide offer differs from the exact editor extent")
         return self
 
 
@@ -203,7 +227,18 @@ class BuildComposeOutput(BuildGeneratedProposal):
     target: Literal["captured", "page_body", "page_end", "unavailable"]
 
 
-def normalize_proposal_output(text, page_body_offer=None, page_end_offer=None):
+def explicit_build_page_target(capability, selection) -> Literal["page_end", "page_body"] | None:
+    placement = getattr(selection, "paragraph_placement", None)
+    if capability is None or placement is None or selection.operation != "propose_build_insertion":
+        return None
+    if placement.disposition == "explicit_page_end" and capability.page_end_offer is not None:
+        return "page_end"
+    if placement.disposition == "explicit_page_body" and capability.page_body_offer is not None:
+        return "page_body"
+    return None
+
+
+def normalize_proposal_output(text, page_body_offer=None, page_end_offer=None, *, required_target=None):
     def unique(pairs):
         value = {}
         for key, item in pairs:
@@ -222,6 +257,8 @@ def normalize_proposal_output(text, page_body_offer=None, page_end_offer=None):
         raise BuildComposeTargetMismatch("build_compose_target_not_offered")
     if wire.target == "page_end" and page_end_offer is None:
         raise BuildComposeTargetMismatch("build_compose_target_not_offered")
+    if required_target is not None and wire.target != required_target:
+        raise BuildComposeTargetMismatch("build_compose_target_mismatch")
     output = BuildGeneratedProposal.model_validate(wire.model_dump(exclude={"destination"}))
     _require_inert_markdown(output.replacement_markdown)
     return output
@@ -344,6 +381,19 @@ class BuildProseBoundaryProposalRecord(BuildProposalRecord):
     schema_version: Literal["dmb_build_document_proposal_v3"] = "dmb_build_document_proposal_v3"
     reservation: BuildProseBoundaryReservation
     proposal: BuildProseBoundaryProposal | None = None
+
+
+BUILD_MARKDOWN_PROPOSAL_CODECS = {
+    "dmb_build_document_proposal_v1": BuildProposalRecord,
+    "dmb_build_document_proposal_v3": BuildProseBoundaryProposalRecord,
+}
+
+
+def decode_build_markdown_proposal(payload) -> BuildProposalRecord:
+    codec = BUILD_MARKDOWN_PROPOSAL_CODECS.get(payload.get("schema_version")) if isinstance(payload, dict) else None
+    if codec is None:
+        raise ValueError("Unknown Build Markdown proposal")
+    return codec.model_validate(payload)
 
 
 class BuildImageWriterProof(StrictModel):

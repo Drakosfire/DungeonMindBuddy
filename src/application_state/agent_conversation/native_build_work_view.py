@@ -130,16 +130,20 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
     if 'captured_editor' in host:
         editor = host['captured_editor']
         if set(editor)-{'idempotency_key','conversation_id','expected_pointer_revision','basis',
-                'instruction','origin','page_body_offer','page_end_offer','draft_markdown','reference_image_id'}:
+                'instruction','origin','page_body_offer','page_end_offer','draft_markdown','reference_image_id',
+                'boundary_editor_json'}:
             raise ValueError('Unclassified Build editor fields')
         basis = editor['basis']
         if set(basis)-{'world_id','document_id','registry_revision','content_sha256','visibility',
                 'draft_sha256','editor_sha256','caret','draft_generation','selection_generation','selection'}:
             raise ValueError('Unclassified Build editor basis')
-        work['edit_target'] = {key: deepcopy(basis[key]) for key in ('caret', 'selection') if key in basis}
-        for key in ('page_body_offer', 'page_end_offer'):
-            if key in editor:
-                work['edit_target'][key] = deepcopy(editor[key])
+        if 'boundary_editor_json' in editor:
+            work['edit_target'] = {"kind": "contextual_paragraph"}
+        else:
+            work['edit_target'] = {key: deepcopy(basis[key]) for key in ('caret', 'selection') if key in basis}
+            for key in ('page_body_offer', 'page_end_offer'):
+                if key in editor:
+                    work['edit_target'][key] = deepcopy(editor[key])
         if 'draft_markdown' in editor:
             work['editor_markdown'] = editor['draft_markdown']
     if 'reviewed_discussion_scope' in host:

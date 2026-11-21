@@ -4,7 +4,7 @@ from hashlib import sha256
 from pydantic import model_validator
 
 from application_state.build_proposal.types import (
-    BuildProposalReservation, BuildWriteCapability as BuildWriteCapability,
+    BuildProposalReservation, BuildProseBoundaryReservation, BuildWriteCapability as BuildWriteCapability,
 )
 
 
@@ -20,3 +20,10 @@ class BuildDocumentProposalRequest(BuildProposalReservation):
 
     def reservation_only(self) -> BuildProposalReservation:
         return BuildProposalReservation.model_validate(self.model_dump(exclude={"draft_markdown"}))
+
+
+class BuildContextualProposalRequest(BuildDocumentProposalRequest, BuildProseBoundaryReservation):
+    """Internal producer input for an already-admitted paragraph boundary."""
+
+    def reservation_only(self) -> BuildProseBoundaryReservation:
+        return BuildProseBoundaryReservation.model_validate(self.model_dump(exclude={"draft_markdown"}))

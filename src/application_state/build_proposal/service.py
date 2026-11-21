@@ -8,25 +8,19 @@ from psycopg.types.json import Jsonb
 
 from application_state.agent_conversation.service import _lock_pointer, _ready_dsn
 from application_state.build_proposal.types import (
-    BuildProposalRecord, BuildProposalReservation, BuildProseBoundaryProposalRecord,
-    BuildProseBoundaryReservation, normalize_boundary_proposal_output,
+    BUILD_MARKDOWN_PROPOSAL_CODECS, BuildProposalRecord, BuildProposalReservation, BuildProseBoundaryProposalRecord,
+    BuildProseBoundaryReservation, decode_build_markdown_proposal, explicit_build_page_target, normalize_boundary_proposal_output,
     normalize_proposal_output,
 )
 from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError
 from application_state.unit_of_work import unit_of_work
 
 
-_MARKDOWN_CODECS = {
-    'dmb_build_document_proposal_v1': BuildProposalRecord,
-    'dmb_build_document_proposal_v3': BuildProseBoundaryProposalRecord,
-}
-
-
 def _load(row) -> BuildProposalRecord:
-    codec = _MARKDOWN_CODECS.get(row[0].get('schema_version'))
-    if codec is None:
+    payload = row[0]
+    if payload.get("schema_version") not in BUILD_MARKDOWN_PROPOSAL_CODECS:
         raise ApplicationStateNotFoundError('Markdown proposal unavailable')
-    return codec.model_validate(row[0])
+    return decode_build_markdown_proposal(payload)
 
 
 def _save(conn, previous, updated):
@@ -55,11 +49,41 @@ def _require_origin_claim(conn, reservation):
             or turn.provenance.primary_work.revision != str(reservation.basis.registry_revision)
             or turn.provenance.primary_work.content_sha256 != reservation.basis.content_sha256):
         raise ApplicationStateConflictError("Build proposal origin is fenced by the current Agent turn claim")
+    return turn
+
+
+def admit_native_prose_boundary(conn, reservation):
+    """Join a reservation to the protected opening action under the turn lock."""
+    from application_state.agent_conversation.native_execution import NativeBuildActionV1
+    from application_state.agent_conversation.types import BuildRequestedWorkResolutionV1
+
+    turn = _require_origin_claim(conn, reservation)
+    execution = turn.graph_context_execution if turn is not None else None
+    action = getattr(getattr(execution, "policy", None), "action", None)
+    if type(action) is not NativeBuildActionV1 or action.write_capability is None:
+        raise ApplicationStateConflictError("Build paragraph reservation requires its native captured capability")
+    cap = action.write_capability
+    selection = next((event for event in execution.events
+                      if isinstance(event, BuildRequestedWorkResolutionV1)
+                      and event.broker_operation_id == reservation.origin.broker_operation_id), None)
+    if (
+        selection is None or selection.operation != "propose_build_insertion"
+        or selection.paragraph_placement is None
+        or selection.paragraph_placement.target != reservation.prose_target
+        or selection.arguments_sha256 != reservation.origin.arguments_sha256
+        or selection.capability_sha256 != action.intent.build_write_capability_sha256
+        or cap.basis != reservation.basis or cap.idempotency_key != reservation.idempotency_key
+        or cap.conversation_id != reservation.conversation_id
+        or cap.expected_pointer_revision != reservation.expected_pointer_revision
+        or turn.user_text != reservation.instruction
+    ):
+        raise ApplicationStateConflictError("Build paragraph reservation differs from the admitted opening action")
 
 
 class BuildProposalService:
-    def __init__(self, *, admit_prose_boundary=None):
+    def __init__(self, *, admit_prose_boundary=None, require_native_page_target=False):
         self.admit_prose_boundary = admit_prose_boundary
+        self.require_native_page_target = require_native_page_target
 
     def reserve(self, reservation: BuildProposalReservation) -> tuple[BuildProposalRecord, bool]:
         boundary = type(reservation) is BuildProseBoundaryReservation
@@ -109,7 +133,7 @@ class BuildProposalService:
                 raise ApplicationStateNotFoundError("World conversation unavailable")
             rows = conn.execute("SELECT payload FROM agent.build_proposal WHERE world_id=%s AND conversation_id=%s ORDER BY payload->>'created_at', action_id",
                 (world_id, conversation_id)).fetchall()
-        return [_load(row) for row in rows if row[0].get("schema_version") in _MARKDOWN_CODECS]
+        return [_load(row) for row in rows if row[0].get("schema_version") in BUILD_MARKDOWN_PROPOSAL_CODECS]
 
     def advance(self, world_id: str, action_id: UUID, *, expected_revision: int, state: str, **fields) -> BuildProposalRecord:
         allowed = {"reserved": {"authorized", "failed"}, "authorized": {"sdk_entered", "failed"},
@@ -138,8 +162,23 @@ class BuildProposalService:
                 if type(previous) is BuildProseBoundaryProposalRecord:
                     proposal = normalize_boundary_proposal_output(previous.raw_response)
                 else:
+                    required_target = None
+                    if self.require_native_page_target:
+                        from application_state.agent_conversation.build_intentional_response import selected_action
+                        from application_state.agent_conversation.native_execution import NativeBuildActionV1
+
+                        turn = _require_origin_claim(conn, previous.reservation)
+                        execution = turn.graph_context_execution if turn is not None else None
+                        action = getattr(getattr(execution, "policy", None), "action", None)
+                        if type(action) is not NativeBuildActionV1:
+                            raise ApplicationStateConflictError("Explicit Build target requires its native opening")
+                        selected = selected_action(execution)
+                        required_target = explicit_build_page_target(action.write_capability, selected)
+                        if required_target is None or selected.broker_operation_id != previous.reservation.origin.broker_operation_id:
+                            raise ApplicationStateConflictError("Explicit Build target differs from its native opening")
                     proposal = normalize_proposal_output(previous.raw_response,
-                        previous.reservation.page_body_offer, previous.reservation.page_end_offer)
+                        previous.reservation.page_body_offer, previous.reservation.page_end_offer,
+                        required_target=required_target)
                 if "raw_response" in fields or "proposal" in fields and fields["proposal"] != proposal:
                     raise ApplicationStateConflictError("Build proposal differs from its captured writer result")
                 fields["proposal"] = proposal

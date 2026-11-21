@@ -490,15 +490,28 @@ class BuildJevDriver:
         state = dict(user_question=a.request.message, interaction=self._interaction,
             rules=decision_instructions(), requested_work_policy=POLICY)
         fresh = a.submitted_intent.reviewed_step is None
+        from application_state.build_proposal.prose_catalog import catalog_for_build_capability
+        from application_state.build_proposal.prose_decision import build_boundary_opening
+
+        self._boundary_catalog = catalog_for_build_capability(a.request.build_write_capability)
+        if self._boundary_catalog is not None and not fresh:
+            raise ValueError("A reviewed Build action cannot acquire a contextual paragraph offer")
         if fresh:
             from application_state.agent_conversation.build_intentional_response import semantic_routing_state
-            state = semantic_routing_state(a.request.message, self._interaction, a.request.build_authored_references)
+            state = semantic_routing_state(a.request.message, self._interaction, a.request.build_authored_references,
+                write_capability=a.request.build_write_capability)
         questions = (DecisionQuestion(name='requested_work',kind='choice',question=decision_instructions(),options=tuple(WORK)),)
         if fresh:
             from application_state.agent_conversation.build_intentional_response import SOURCE_NEED_GUIDANCE, SOURCE_NEED_OPTIONS
 
             questions += (DecisionQuestion(name="source_need", kind="choice",
                                            question=SOURCE_NEED_GUIDANCE, options=SOURCE_NEED_OPTIONS),)
+        if self._boundary_catalog is not None:
+            _, placement_questions = build_boundary_opening(
+                a.request.message, self._interaction["current_page"]["title"], self._boundary_catalog,
+            )
+            questions += tuple(DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options)
+                               for q in placement_questions)
         if 'related_page_catalog' in self._interaction:
             from application_state.agent_conversation.build_related_pages import PagePointer, question_name, question_text
             questions += tuple(DecisionQuestion(name=question_name(i),kind='choice',
@@ -1066,7 +1079,8 @@ class BuildJevDriver:
             if self.reviewed_binding is None:
                 from application_state.agent_conversation.build_intentional_response import semantic_routing_state,semantic_request_id
                 from .agent_turn_service import _turn_idempotency_key
-                expected = semantic_routing_state(a.request.message,self._interaction,a.request.build_authored_references)
+                expected = semantic_routing_state(a.request.message,self._interaction,a.request.build_authored_references,
+                    write_capability=a.request.build_write_capability)
                 if (plan.host_phase!='select' or plan.state()!=expected
                     or plan.host_interaction_json!=canonical(self._interaction)
                     or plan.questions()!=wire_questions(self.step)
@@ -1215,18 +1229,22 @@ class BuildJevDriver:
                 from application_state.agent_conversation.build_intentional_response import selected as requested_work, resolution_for, operation_id, MENU_DIGEST, RESOLVER_DIGEST
                 from generationengine.types import DecisionResult
                 from uuid import uuid4
-                from application_state.agent_conversation.build_intentional_response import source_need
+                from application_state.agent_conversation.build_intentional_response import paragraph_placement_for, source_need
+                from application_state.build_proposal.prose_decision import OPENING_QUESTION_PREFIX
 
                 expected_answers = {question.name for question in self._selection_intent.questions
-                                    if question.name in {"requested_work", "source_need"}}
+                                    if question.name in {"requested_work", "source_need"}
+                                    or question.name.startswith(OPENING_QUESTION_PREFIX)}
                 if (model != self._selection_intent.model or set(answers) != expected_answers
                     or not isinstance(actual_response, DecisionResult) or sdk_answers(actual_response).get('requested_work') != answers['requested_work']):
                     raise ValueError('Semantic selection requires its actual complete SDK response')
                 raw = canonical(actual_response.model_dump(mode='json'))
                 label = requested_work(json.loads(raw))
                 execution = a._broker_execution()
+                request = json.loads(prepared.body)
                 resolution = resolution_for(execution.policy, label,
-                    source_scope=source_need(json.loads(prepared.body), json.loads(raw)))
+                    source_scope=source_need(request, json.loads(raw)))
+                placement = paragraph_placement_for(execution.policy, request, actual_response, a.request.message, label)
                 selected = resolution['operation']
                 authorization = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3) and e.provider_attempt_id == a.last_provider_attempt_id)
                 event = ledger.BuildRequestedWorkResolutionV1(kind='build_requested_work_resolved_v1', event_id=uuid4(), sequence=len(execution.events),
@@ -1234,6 +1252,7 @@ class BuildJevDriver:
                     controller_response_sha256=hashlib.sha256(raw.encode()).hexdigest(), machine_request_id=plan.request_id,
                     requested_work=label, intent_family=resolution['intent_family'], menu_sha256=MENU_DIGEST, resolver_sha256=RESOLVER_DIGEST,
                     response_capabilities_sha256=(digest(asdict(execution.policy.action.capabilities)) if self._native else execution.policy.response_capabilities_sha256), resolution=resolution,
+                    paragraph_placement=placement,
                     operation=selected, broker_operation_id=operation_id(a.turn, plan.request_id, label),
                     capability_sha256=self._interaction['capability_sha256'],
                     arguments_sha256=digest({'instruction': a.request.message} if selected != 'answer_from_sources' else {}))
