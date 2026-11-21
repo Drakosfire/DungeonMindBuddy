@@ -94,6 +94,20 @@ The initial backend diagnostic had13 regressions from an unconditional broker
 lookup on legacy paths; the guard is restricted to an actual native fence.
 These failures remain retained, and all source/evidence requires renewed checks.
 
+The second paid DEV20 run at9b46 retained all20 raw provider exchanges, but an
+observer-only helper incorrectly called the clarification renderer for11
+writing or discussion outcomes before saving host observations. No provider
+retry was used to recover them: an offline replay compared each complete
+outbound JSON request with its captured original and supplied only captured
+response bytes, with provider sockets blocked. It reconstructed19 successful
+runtime outcomes and reproduced one genuine failure. That failure was the
+protected producer trace using aggregate commentary+final text while the SDK
+correctly selected a valid final answer. Current ActionV3 now captures that same
+SDK-selected final after its digest acknowledgment; historical aggregate debug
+capture is preserved. This is a host proof correction, not a rewritten SDK
+reply. Original paid-run effects and reconstructed fixture effects remain
+separate evidence; neither the observer defect nor runtime failure is erased.
+
 Alan's latest instruction grants full authority over this lane and directs no
 further routine approval requests. This supersedes the pending bounded #3307
 admission split and synthetic OpenAI/browser payload questions below. It covers

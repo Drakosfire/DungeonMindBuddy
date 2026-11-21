@@ -143,6 +143,28 @@ def two_native_locations(capture):
     return original, catalog.model_copy(update={'entries': (*catalog.entries, entry)})
 
 
+@pytest.mark.parametrize('routing', ['write', 'clarify', 'discuss'])
+def test_contextual_completion_binds_sdk_final_instead_of_aggregate_commentary(
+    plan_adapter, tmp_path, monkeypatch, application_state_dsn, routing,
+):
+    from tests.test_plan_jev_writer import WriterWire, phase_message
+    from tests.test_plan_jev_authoring import _shared_plan_authoring_case
+    from tests.application_state.test_plan_placement import native_paragraph_placement_fixture
+    original = WriterWire.handle_async_request
+
+    async def phased(writer, request):
+        writer.phase = 'final_answer'
+        writer.extra_output = (phase_message('commentary', '{"unvalidated":"commentary"}<fim_suffix>'),)
+        return await original(writer, request)
+
+    monkeypatch.setattr(WriterWire, 'handle_async_request', phased)
+    result = _shared_plan_authoring_case(plan_adapter, tmp_path, monkeypatch, 'place1', 'base',
+        routing=None if routing == 'write' else routing, dsn=application_state_dsn,
+        placement_factory=native_paragraph_placement_fixture)
+    if result is not None and result.plan_proposal is not None:
+        assert '<fim_suffix>' not in result.plan_proposal.replacement_markdown
+
+
 def test_actual_model_multiple_nominations_clarify_without_reservation_or_factual_answer(
     plan_adapter, tmp_path, monkeypatch, application_state_dsn,
 ):

@@ -596,9 +596,9 @@ class PlanJevWriter:
                 'Plan writer reply capture was not acknowledged')
         return reply
 
-    def capture_draft(self, response):
-        """Debug only: retain actual unvalidated text before receipt/answer checks."""
-        text = getattr(response, "output_text", None)
+    def capture_draft(self, response, *, selected_text=None):
+        """Retain actual output; contextual proof uses the SDK-selected final."""
+        text = selected_text if selected_text is not None else getattr(response, "output_text", None)
         if (not self._draft_capture_attempted and self.authorization is not None
                 and isinstance(text, str) and text):
             self._draft_capture_attempted = True
@@ -661,7 +661,9 @@ class PlanJevWriter:
             stage = self.failure_stage = 'capture'
             reply = self.capture(result,provider.actual_response,provider)
             if self.shared:
-                self.capture_draft(provider.actual_response)
+                from application_state.agent_conversation.native_execution import NativePlanActionV3
+                self.capture_draft(provider.actual_response, selected_text=(reply.text
+                    if type(self.adapter._broker_execution().policy.action) is NativePlanActionV3 else None))
             if self.call is not None:
                 self.call['duration_ms']=(perf_counter()-started)*1000
                 self.adapter.context_capture.provider_usage([self.call])
