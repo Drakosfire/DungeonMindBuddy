@@ -43,7 +43,7 @@ class Store:
 def collector(trace=None):
     store = Store()
     turn = SimpleNamespace(world_id="world", conversation_id=uuid4(), turn_id=uuid4(), revision=4, attempt=1, sequence=2)
-    fence = SimpleNamespace(service=store, turn=turn, trace=trace, renewer=SimpleNamespace(_lock=Lock(), _turn=turn))
+    fence = SimpleNamespace(service=store, turn=turn, trace=trace, renewer=SimpleNamespace(_lock=Lock(), _turn=turn, _claim=turn))
     return ContextTraceCollector(fence), store, turn
 
 
@@ -654,7 +654,11 @@ def test_execution_fence_timing_preserves_revision_and_failed_append():
     fence = _ClaimFence.__new__(_ClaimFence)
     fence.trace = host
     fence.service = SimpleNamespace(record=append)
-    fence.renewer = SimpleNamespace(_lock=RLock(), _turn=current, _error=None, _session=None)
+    from apps.live_control_server.services.agent_turn_service import _TurnClaimRenewer
+    fence.renewer = _TurnClaimRenewer.__new__(_TurnClaimRenewer)
+    fence.renewer._lock = RLock()
+    fence.renewer._session = fence.renewer._error = None
+    fence.renewer._turn = current
     event = object()
     assert fence.append("record", "event", event) == (updated, True)
     with pytest.raises(ConnectionError) as caught:
@@ -726,3 +730,45 @@ def test_native_prompt_observation_respects_authorization_publisher(tmp_path, mo
     grant=store.trace.observations[1]
     assert grant.provider_attempt_id==authorization.provider_attempt_id
     assert grant.input_upper_bound==(None if direct_native else 42)
+
+
+def test_deferred_body_grant_binds_trace_and_next_commit_without_copying():
+    from apps.live_control_server.services.agent_turn_service import _ClaimFence
+    from application_state.agent_conversation.native_plan_session import PlanSessionClaim, PlanSessionCommand
+
+    capture, store, initial = collector()
+    fence = _ClaimFence(store, initial)
+    capture.fence = fence
+    snapshots = []
+    updated = SimpleNamespace(**(vars(initial) | {"revision": 5}))
+    next_turn = SimpleNamespace(**(vars(initial) | {"revision": 6}))
+
+    def snapshot():
+        snapshots.append(True)
+        return updated
+
+    claim = PlanSessionClaim(initial.world_id, initial.conversation_id, initial.turn_id, 5, 1, snapshot)
+    grants = (object(),)
+
+    class Session:
+        def authorize_body_grants(self, *, expected_revision, expected_attempt, grants):
+            assert (expected_revision, expected_attempt) == (4, 1)
+            return claim, grants
+
+        def execute(self, command, *, expected_revision, expected_attempt, **fields):
+            assert command is PlanSessionCommand.BODY_OBSERVATIONS
+            assert (expected_revision, expected_attempt) == (5, 1)
+            return next_turn, True
+
+    fence.renewer._session = Session()
+    store.authorize_native_body_reads = object.__str__
+    store.observe_native_body_reads = object.__str__
+    try:
+        assert fence.authorize_session_body_grants(grants) == grants
+        assert capture._binding()["expected_revision"] == 5
+        assert fence.commit("observe_native_body_reads") == (next_turn, True)
+        assert fence.turn is next_turn
+        assert snapshots == []
+    finally:
+        fence.renewer._session = None
+        fence.stop()

@@ -74,7 +74,7 @@ class ContextTraceCollector:
         return (monotonic() - self.started) * 1000
 
     def _binding(self) -> dict[str, Any]:
-        turn = self.fence.renewer._turn
+        turn = self.fence.renewer._claim
         return dict(world_id=turn.world_id, conversation_id=turn.conversation_id,
                     turn_id=turn.turn_id, expected_revision=turn.revision,
                     attempt=turn.attempt, trace_id=self.trace.trace_id)
