@@ -80,6 +80,27 @@ class BuildPageEndOffer(StrictModel):
     end: int = Field(strict=True, ge=1)
 
 
+class BuildProseBoundaryTarget(StrictModel):
+    """An offered host boundary, independent of the actual author caret."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True, serialize_by_alias=True)
+    schema_version: Literal["dmb_build_prose_boundary_target_v1"] = Field(
+        default="dmb_build_prose_boundary_target_v1", alias="schema",
+    )
+    catalog_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    alias: str = Field(pattern=r"^passage[1-9][0-9]*:insert_(?:before|after)$", max_length=128)
+    operation: Literal["insert_before", "insert_after"]
+    from_: int = Field(alias="from", strict=True, ge=0)
+    to: int = Field(strict=True, ge=0)
+    before_text_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def exact_boundary(self):
+        if self.from_ != self.to or not self.alias.endswith(f":{self.operation}"):
+            raise ValueError("Build prose target requires one exact offered boundary")
+        return self
+
+
 class BuildProposalReservation(StrictModel):
     idempotency_key: UUID
     conversation_id: UUID
@@ -123,6 +144,18 @@ class BuildProposalReservation(StrictModel):
                 separators=(",", ":"),
             ).encode()
         ).hexdigest()
+
+
+class BuildProseBoundaryReservation(BuildProposalReservation):
+    prose_target: BuildProseBoundaryTarget
+
+    @model_validator(mode="after")
+    def exact_editor_without_other_authority(self):
+        if (not self.basis.editor_sha256 or self.basis.selection is not None
+                or self.page_body_offer is not None or self.page_end_offer is not None
+                or self.reference_image_id is not None):
+            raise ValueError("Build prose nomination requires its exact editor without a competing target")
+        return self
 
 
 class BuildWriteCapability(BuildProposalReservation):
@@ -190,13 +223,51 @@ def normalize_proposal_output(text, page_body_offer=None, page_end_offer=None):
     if wire.target == "page_end" and page_end_offer is None:
         raise BuildComposeTargetMismatch("build_compose_target_not_offered")
     output = BuildGeneratedProposal.model_validate(wire.model_dump(exclude={"destination"}))
-    markdown = output.replacement_markdown
+    _require_inert_markdown(output.replacement_markdown)
+    return output
+
+
+def _require_inert_markdown(markdown: str) -> None:
     if re.search(r"(?m)^ {0,3}(?:`{3,}|~{3,})dmb-work-plan-v1(?:[ \t]|$)", markdown):
         raise BuildComposeError("build_compose_unsupported_markdown")
     if (re.search(r"<[^>]*>|dmb-node:|graphNodeReference|dmb-playable-element:|\bnode:[a-z0-9_-]+", markdown, re.I)
             or re.search(r"\[[^\]]+\]\((?:file:|\.{1,2}/|/)", markdown, re.I)):
         raise BuildComposeError("build_compose_unsupported_markdown")
-    return output
+
+
+def admit_build_boundary_paragraph(markdown: str) -> None:
+    _require_inert_markdown(markdown)
+    text = markdown.strip()
+    if (not text or "\n" in text or "\r" in text or "![" in text
+            or re.match(r"^(?:#{1,6}\s|[-+*>]\s|[0-9]+[.)]\s|```|~~~|\|)", text)
+            or re.fullmatch(r"(?:[*_-]\s*){3,}", text)):
+        raise BuildComposeError("build_compose_boundary_requires_one_prose_paragraph")
+
+
+class BuildProseBoundaryProposal(BuildGeneratedProposal):
+    target: Literal["prose_target"]
+
+    @model_validator(mode="after")
+    def exact_paragraph(self):
+        admit_build_boundary_paragraph(self.replacement_markdown)
+        return self
+
+
+class BuildProseBoundaryOutput(BuildProseBoundaryProposal):
+    destination: Literal["current_page"]
+
+
+def normalize_boundary_proposal_output(text: str) -> BuildProseBoundaryProposal:
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise BuildComposeError("build_compose_duplicate_output_field")
+            value[key] = item
+        return value
+
+    wire = BuildProseBoundaryOutput.model_validate(json.loads(text, object_pairs_hook=unique))
+    return BuildProseBoundaryProposal.model_validate(wire.model_dump(exclude={"destination"}))
 
 
 class BuildProviderAuthorization(StrictModel):
@@ -267,6 +338,12 @@ class BuildProposalRecord(StrictModel):
                 "Only a reviewed proposal can be reported inserted in the draft"
             )
         return self
+
+
+class BuildProseBoundaryProposalRecord(BuildProposalRecord):
+    schema_version: Literal["dmb_build_document_proposal_v3"] = "dmb_build_document_proposal_v3"
+    reservation: BuildProseBoundaryReservation
+    proposal: BuildProseBoundaryProposal | None = None
 
 
 class BuildImageWriterProof(StrictModel):

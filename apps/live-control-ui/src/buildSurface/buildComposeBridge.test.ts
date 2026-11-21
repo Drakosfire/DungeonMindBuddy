@@ -5,8 +5,63 @@ import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../tiptap/MarkdownEditorCore
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
 import { captureBuildDraftSnapshot, createBuildComposeBridge,type BuildComposeEditorState } from './buildComposeBridge';
 import { mediaMarkdown } from '../media/mediaReferences';
+import { PAGE_COMPOSER_EXTENSIONS } from '../tiptap/pageComposer/PageRow';
+import { captureProseTargetCatalog, resolveProseTarget } from '../documentEditing/proseTargetCatalog';
+import { admittedPresentationBlocks, flattenPresentation, hydratePresentation, projectPresentation } from '../tiptap/pageComposer/presentation';
+import { markdownToTiptapDoc } from '../tiptap/markdown/markdownToTiptap';
+import type { BuildProseBoundaryTarget } from '../api/buildDocumentProposalApi';
 vi.stubGlobal('crypto',webcrypto);
 const id='ac6c15cc-8c68-4732-8ae2-d9f3f051393a';
+const testDigest=async (text:string)=>Array.from(
+ new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))),x=>x.toString(16).padStart(2,'0'),
+).join('');
+
+it.each(['plain','identity-only','composed'] as const)('places an exact Build prose boundary on a %s page without moving its authority',async mode=>{
+ const markdown='## Arrival\n\nThe gate is locked.\n\n## Rumours\n\nThe gate is locked.\n';
+ const original=markdownToTiptapDoc(markdown).doc;
+ original.content?.forEach((node,index)=>{node.attrs={...node.attrs,pageBlockId:`existing-${index}`};});
+ if (mode==='composed') {
+  original.content!.unshift({type:'pageRow',attrs:{id:'row',min_height:160,line_mode:'border'},content:[
+   {type:'pageSlot',attrs:{id:'slot-left',width:7},content:[{type:'paragraph',attrs:{pageBlockId:'row-left'},content:[{type:'text',text:'Keep the map.'}]}]},
+   {type:'pageSlot',attrs:{id:'slot-right',width:5},content:[]},
+  ]});
+ }
+ const source=mode==='composed'?'Keep the map.\n\n'+markdown:markdown;
+ const presentation=mode==='plain'?null:mode==='composed'
+  ?projectPresentation(original,source,original).presentation
+  :{schema_version:'dmb_page_presentation_v1' as const,markdown_sha256:await testDigest(source),
+    items:admittedPresentationBlocks(markdown).map(({node:_node,...binding},index)=>
+      ({...binding,kind:'block' as const,id:`existing-${index}`}))};
+ const editor=new Editor({extensions:mode==='plain'?DEFAULT_MARKDOWN_EDITOR_EXTENSIONS:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],
+  content:presentation?hydratePresentation(source,presentation):markdownToTiptapDoc(source).doc});
+ try {
+  const state:BuildComposeEditorState={editor,worldId:'fixture-world',documentId:'fixture-page',revision:1,contentSha256:await testDigest(source),
+   visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true,pagePresentation:presentation,savedMarkdown:source};
+  const changed=vi.fn(),bridge=createBuildComposeBridge(()=>state,changed);
+  const local=()=>({editor,scopeKey:'fixture-target',draftGeneration:0,canEdit:true});
+  const catalog=captureProseTargetCatalog(local);
+  const offered=catalog.choices.find(choice=>choice.section==='Rumours'&&choice.operation==='insert_after')!;
+  const location=resolveProseTarget(catalog,offered.selector,local);
+  const proof:BuildProseBoundaryTarget={schema:'dmb_build_prose_boundary_target_v1',catalog_sha256:await testDigest(JSON.stringify(catalog.choices)),
+   alias:offered.selector,operation:offered.operation,from:location.from,to:location.to,before_text_sha256:await testDigest(offered.passage)};
+  const originalDoc=editor.getJSON(),caret=editor.state.selection.from;
+  const basis={world_id:state.worldId,document_id:state.documentId,registry_revision:state.revision,content_sha256:state.contentSha256,
+   visibility:state.visibility,draft_sha256:await testDigest(tiptapJsonToSemanticMarkdown(flattenPresentation(originalDoc))),
+   editor_sha256:await testDigest(JSON.stringify(originalDoc)),caret,draft_generation:0,selection_generation:0};
+  await expect(bridge.restore(basis,undefined,undefined,{...proof,from:proof.from-1,to:proof.to-1})).rejects.toThrow('offered');
+  const captured=await bridge.restore(basis,undefined,undefined,proof);
+  const prepared=await bridge.prepareProposal(captured,'Bring a second lantern.');
+  expect(editor.getJSON()).toEqual(originalDoc);
+  expect(captured.basis.caret).toBe(caret);
+  expect(caret).not.toBe(proof.from);
+  bridge.applyPrepared(prepared);
+  expect(editor.getJSON().content?.slice(0,-1)).toEqual(originalDoc.content);
+  expect(editor.getJSON().content?.at(-1)).toMatchObject({type:'paragraph',content:[{text:'Bring a second lantern.'}]});
+  expect(changed).toHaveBeenCalledOnce();
+  editor.commands.undo();
+  expect(editor.getJSON()).toEqual(originalDoc);
+ } finally {editor.destroy();}
+});
 function setup(){
  const editor=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:'<p>Edge</p>'});
  const state:BuildComposeEditorState={editor,worldId:'elderwyld',documentId:'edge',revision:1,contentSha256:'a'.repeat(64),visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true};
