@@ -26,9 +26,11 @@ attribution and citation behavior outside this contextual capability.
 
 Branch: `codex/plan-contextual-paragraphs`.
 Checkout: `/home/drakosfire/Projects/.codex/bf5b/DungeonMindBuddy`.
-Pinned integration base: `9e8d0f14e1c82ca1255ef3622a4d4c80d918b488`.
-Locked Core: `0dd3073ecffd0613c5d6cae594170dd37419f10a`.
+Pinned integration base: `01e22a26a020ca7399458bba61cee6d817c8702c`.
+Locked Core: `a662998d4c16e80393686153af9f6cd83c95e906`.
 The integration preserves #4277 semantic-block writer guidance.
+It also preserves #4293/#4295 scoped source-read connection and locked-observation
+reuse. Historical Core0dd evidence does not qualify this integrated runtime.
 
 Save predecessors #4243 and #4248 merged as
 `08d23da86a079121b7b31812e93db1857df17864` and
@@ -161,8 +163,16 @@ The cumulative expected paths are:
   `native_plan_session.py`, `native_corpus.py`, `build_related_pages.py`,
   `connected_page_origins.py` under `src/application_state/agent_conversation/`.
 - The relocated172 migration; `tests/application_state/test_plan_placement.py`,
-  `test_plan_contextual_targets.py`; `tests/test_plan_jev_authoring.py`;
+  `test_plan_contextual_targets.py`, `test_native_corpus_sources.py`;
+  `tests/test_plan_jev_authoring.py`;
   `ci/contracts.json` and `ci/test-classification.json` only to register owning tests.
+
+Current-main integration adds only a test guard repair in
+`test_native_corpus_sources.py`: the classic-registry refusal test must patch the
+actual integration imports after main moved them into function scope. Both
+parameterizations fail on exact01e22a26 before this repair (retained
+`main-01e-native-navigation-baseline.log`). Preserve the assertions and all source
+access behavior; this is required boundary evidence, not a new runtime capability.
 
 Review in four coupled boundaries: (1) compiler/API/capture plus reader fence,
 (2) semantic inventory and exact SDK producer/retained proof, (3) question/prose
@@ -242,8 +252,15 @@ separately frozen and unchanged. Combined DEV32 producer SHA256
 `0714ad9f6bcb68f3b0489c4379b007368da49922510edbb340f00f98328867eb`;
 actual TS/Python export32 captures/454 entries/3 selections SHA256
 `56f8e923c76f2a7dfb99b532b2e1b262c5c9f5edb6f27e66adebb61187c120a6`
-in `plan-ordinary-dev/combined-dev32-offline/`. No model has consumed the new
-scope-factor contract yet. Private consumed22/24 oracles are not development data.
+in `plan-ordinary-dev/combined-dev32-offline/`.7cc7 and b8a6 consumed that frozen
+development set. b8a6 fixed the captured protocol failures but remains RED28/32:
+two unsafe scope nominations, two unnecessary clarifications, zero source writes.
+44 actual Jev calls,32 scripted writer calls, zero OpenAI calls. Report
+`targeting-diagnostic-b8a6/evaluator/final-judgment.json`, SHA256
+`4f107c58eb52db46bb21a883a2bbfe048af70040d3399e7a823df04c9a7ffff2`.
+The current follow-up consolidates V3 guidance and retains each source inventory
+once; legacy instruction projection and bytes remain unchanged. This is not
+acceptance evidence. Private consumed22/24 oracles are not development data.
 
 Prepared static bundle: `plan-browser/dist-integrated-7227`, frontend tree
 `b5314d578f6fb134485816ee2f83d21c8cc3456f`, manifest SHA256

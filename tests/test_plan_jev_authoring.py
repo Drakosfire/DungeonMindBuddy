@@ -100,10 +100,10 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             expected_state |= {"candidates", "examined_subjects", "relevance_guidance", "conditional_read_plan_policy"}
         contextual = 'placement_relation' in body['questions']
         if contextual:
-            expected_state.remove('offered_page_locations')
-            expected_state.update({'focused_edit_target', 'anchor_membership_policy',
+            expected_state.difference_update({'offered_page_locations', 'intent_policy', 'placement_policy'})
+            expected_state.update({'focused_edit_target', 'interpretation_policy',
                 'offered_page_anchors', 'placement_relations', 'paragraph_passages',
-                'paragraph_sections', 'paragraph_scope_modes', 'paragraph_factor_policy'})
+                'paragraph_sections', 'paragraph_scope_modes'})
         assert set(body["state"]) == expected_state
         assert body["state"]["user_request"] == self.adapter.request.message
         assert body["state"]["edit_target_available"] == (
@@ -112,9 +112,7 @@ class SemanticWire(httpx2.AsyncBaseTransport):
         from application_state.agent_conversation import types as t
         from application_state.agent_conversation.plan_authoring import QUESTION_FIRST_INTENT_POLICY,CONNECTED_PAGE_INTENT_POLICY
         expected=CONNECTED_PAGE_INTENT_POLICY if isinstance(self.adapter.request.plan_context_policy,t.PlanContextPolicyV2) else QUESTION_FIRST_INTENT_POLICY
-        if contextual:
-            assert body["state"]["intent_policy"].startswith(expected)
-        else:
+        if not contextual:
             assert body["state"]["intent_policy"] == expected
         expected_questions = {"requested_work"}
         if opening:
