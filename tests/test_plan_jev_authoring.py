@@ -2142,7 +2142,8 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
         assert response.plan_proposal.capture.slot_address.slot_id == "right"
         assert replay.plan_proposal == response.plan_proposal
         assert action is not None and action.target_kind == "insert_at_slot_boundary"
-        from application_state.agent_conversation.native_plan_opening import resolve_composed_opening
+        from types import SimpleNamespace
+        from application_state.agent_conversation.native_plan_opening import composed_author_column, resolve_composed_opening
         from application_state.agent_conversation.plan_author_location import LiteralScopeName, NamedScopePath
 
         binding = selection.author_scope_binding
@@ -2156,6 +2157,32 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
                 selection.author_operation,
             ) == dict(requested_work="clarify", target_resolution="unresolved",
                       placement_selector=None, target_capture_sha256=None)
+        column_scope = NamedScopePath(names=(LiteralScopeName(text="the right column"),))
+        composed_binding = binding.model_copy(update={
+            "observation": binding.observation.model_copy(update={"scope": column_scope}),
+        })
+        def column_in(question):
+            return composed_author_column(SimpleNamespace(
+                column_scope_version="v1", author_scope_binding=composed_binding, question=question, dialogue=(),
+            ))
+
+        assert column_in("Add a warning after the gate in the right column.") == "right column"
+        assert resolve_composed_opening(
+            capture, request.plan_placement_catalog, composed_binding, selection.composed_nomination,
+            selection.author_operation, author_column=column_in("Add a warning after the gate in the right column."),
+        )["placement_selector"] == selection.placement_selector
+        for question in (
+            'Add a warning after the gate in the heading "Right Column".',
+            'Add a warning after the gate in the Right Column heading.',
+            'Add a warning after the gate in the Right Column subsection.',
+            'Add a warning after the gate in the Right Column subheading.',
+            'Add a warning after the quoted line "in the right column".',
+        ):
+            assert column_in(question) is None
+            assert resolve_composed_opening(
+                capture, request.plan_placement_catalog, composed_binding, selection.composed_nomination,
+                selection.author_operation, author_column=column_in(question),
+            )["target_resolution"] == "unresolved"
     else:
         assert selection.target_resolution == ("ambiguous" if outcome == "ambiguous" else "unresolved")
         assert response.plan_proposal is None and action is None

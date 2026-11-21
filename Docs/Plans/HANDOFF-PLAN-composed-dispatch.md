@@ -1,6 +1,16 @@
 # Native Plan dispatch for a checked composed slot
 
-Status: ACTIVE under the contextual-layout lane authority. Serial branch
+Status: COMPLETE. #4349 merged at
+`20cecb525fb388f545f8dfb956964d91deb59ecb`. Independent review accepted
+`9f525caf45c95898fde4dc675910a28145dd943a` after exact-head verification.
+Five normal turn-service cases passed with scripted model responses, alongside
+1,465 frontend checks and the build. Both backend partitions reproduced the same
+seven failures on base and head. The disposable 0176 witness verified retention,
+old-reader and downgrade refusal, and cleanup. The
+[mounted editor assignment](HANDOFF-PLAN-composed-ordinary-editor.md) owns the
+normal browser workflow and frozen real-model acceptance.
+
+Original assignment: serial branch
 `codex/plan-composed-dispatch` from `f9e144d37a41f74e024267fd5a22fb2b8a1c47a4`
 (#4348). Existing isolated Plan checkout and disposable native action/Content
 fixtures. Mounted normal Send, editor application and the independent

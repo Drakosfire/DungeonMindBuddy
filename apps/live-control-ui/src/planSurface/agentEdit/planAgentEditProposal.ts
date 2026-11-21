@@ -2,8 +2,13 @@ import {exportPlanCardMarkdown, planCardScopeKey} from "../planCardEditing";
 import {planRootBoundaryPosition} from './planPlacementCatalog';
 import { isTableCaptionAt } from '../../tiptap/markdown/tableCaption';
 import type {PlanAuthoringCapture, PlanOriginalAuthoringCapture, PlanPlacementCatalog, PlanReviewApplication, PlanAuthoringReview} from "../../api/planAuthoringReviewApi";
+import type { PlanComposedSnapshot, PlanSlotBoundaryCapture, PlanSlotParagraph } from "../../api/planAuthoringReviewApi";
+import { presentationFingerprint, projectPresentation, type PagePresentation } from "../../tiptap/pageComposer/presentation";
+import { PAGE_COMPOSER_EXTENSIONS } from "../../tiptap/pageComposer/PageRow";
 import { Editor, type JSONContent } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
+import { Fragment } from "@tiptap/pm/model";
+import { closeHistory } from "@tiptap/pm/history";
 import type { MarkdownSourceLineTarget } from "../../markdownReader/MarkdownDocumentReader";
 
 import type {
@@ -16,7 +21,7 @@ import type {
 import { CALLOUT_KINDS, tiptapJsonToSemanticMarkdown } from "../../tiptap/markdown/calloutMarkdown";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { semanticMarkdownSerializationDiagnostics } from "../../tiptap/markdown/semanticMarkdownSafety";
-import { preserveLeadingYamlFrontmatter, stripLeadingYamlFrontmatter } from "../../tiptap/markdown/stripLeadingYamlFrontmatter";
+import { preserveLeadingYamlFrontmatter, splitLeadingYamlFrontmatter, stripLeadingYamlFrontmatter } from "../../tiptap/markdown/stripLeadingYamlFrontmatter";
 import {
   formatPlayableElementMarker,
   validatePlayableHeadingAttrs,
@@ -87,12 +92,13 @@ export interface WorldPlanEditEditorState {
   playableTargetLabel?: string;
   currentSceneTargetLabel?: string;
   canEdit: boolean;
+  composedAuthoring?: {saved: PagePresentation; draft: PagePresentation};
 }
 
 export interface CapturedWorldPlanEditTarget {
   editor: Editor;
   request: Omit<WorldPlanDocumentEditProposalRequest, "idempotency_key" | "instruction" | "conversation_history" | "target_kind"> & {
-    target_kind: WorldPlanDocumentEditProposalRequest['target_kind'] | 'insert_at_boundary';
+    target_kind: WorldPlanDocumentEditProposalRequest['target_kind'] | 'insert_at_boundary' | 'insert_at_slot_boundary';
   };
   from: number;
   to: number;
@@ -105,6 +111,7 @@ export interface CapturedWorldPlanEditTarget {
   playableTargetLabel?: string;
   playableBodyTarget?: CapturedPlayableBodyRange;
   rootBoundary?: number;
+  slotCapture?: PlanSlotBoundaryCapture;
   wholeBulletItem?: CapturedPlanEditTarget["wholeBulletItem"];
   sectionTarget?: CapturedWorldPlanSectionTarget;
 }
@@ -160,6 +167,8 @@ export interface ExpectedWorldPlanEditAgentBinding {
 export interface PlanAuthoringIdentity {idempotencyKey:string;conversationId:string;pointerRevision:number}
 export interface CapturedPlanAuthoringTarget {capture:PlanAuthoringCapture;target:CapturedWorldPlanEditTarget}
 export interface WorldPlanEditBridge {
+  freezeComposedAuthoring?: () => Promise<((identity: PlanAuthoringIdentity) => PlanComposedSnapshot) | null>;
+  inspectComposedAuthoring?: (capture: PlanSlotBoundaryCapture, applicationId?: string) => CapturedPlanAuthoringTarget;
   captureAuthoring?: (identity:PlanAuthoringIdentity,applicationId?:string)=>Promise<CapturedPlanAuthoringTarget>;
   sealAuthoring?: (target:CapturedWorldPlanEditTarget,identity:PlanAuthoringIdentity)=>Promise<PlanAuthoringCapture>;
   capturePlacementCatalog?: (target:CapturedWorldPlanEditTarget,capture:PlanOriginalAuthoringCapture)=>Promise<PlanPlacementCatalog>;
@@ -688,6 +697,68 @@ export async function captureWorldPlanAuthoringTarget(
   return {capture,target};
 }
 
+export async function freezeComposedPlanAuthoring(
+  input: WorldPlanEditEditorState,
+  getCurrent: () => WorldPlanEditEditorState,
+): Promise<(identity: PlanAuthoringIdentity) => PlanComposedSnapshot> {
+  const editor = currentWorldEditor(input);
+  const layout = input.composedAuthoring;
+  if (!layout || !input.worldId || !input.documentId || input.baseRevision == null || !input.baseContentSha256)
+    throw new PlanEditGuardError("Open a saved composed Plan before capturing a slot.");
+  const document = editor.getJSON();
+  const editorJson = JSON.stringify(document);
+  const selection = editor.state.selection;
+  if (!(selection instanceof TextSelection))
+    throw new PlanEditGuardError("Place a text caret or select text in the Plan before sending.");
+  const selectionJson = JSON.stringify(selection.toJSON());
+  const draft = input.sourceMarkdown;
+  const committedLayoutHash = presentationFingerprint(layout.saved)!;
+  const draftLayoutHash = presentationFingerprint(layout.draft)!;
+  const projection = projectPresentation(document, draft, document);
+  if (projection.markdown !== draft || presentationFingerprint(projection.presentation) !== draftLayoutHash)
+    throw new PlanEditGuardError("The current editor differs from its composed Plan layout.");
+  let selectedParagraph: PlanSlotParagraph | null = null;
+  const witness = editor.state.doc.textBetween(selection.from, selection.to, '\n', '\n');
+  if (!selection.empty) {
+    if (!witness.trim())
+      throw new PlanEditGuardError("Choose nonempty text in a paragraph or place a caret before sending.");
+    const {$from, $to} = selection;
+    if ($from.sameParent($to) && $from.depth === 3 && $from.parent.type.name === 'paragraph') {
+      const [row, slot, paragraph] = [0, 1, 2].map(depth => $from.index(depth));
+      const layoutRow = layout.draft.items[row];
+      const layoutSlot = layoutRow?.kind === 'row' ? layoutRow.slots[slot] : undefined;
+      const block = layoutSlot?.blocks[paragraph];
+      if (layoutRow?.kind === 'row' && layoutSlot && block?.kind === 'block'
+        && editor.state.doc.child(row).type.name === 'pageRow' && $from.node(2).type.name === 'pageSlot'
+        && $from.parent.attrs.pageBlockId === block.id) {
+        selectedParagraph = {row_index: row, row_id: layoutRow.id, slot_index: slot,
+          slot_id: layoutSlot.id, child_index: paragraph, block_id: block.id};
+      }
+    }
+  }
+  const [editorHash, selectionHash, draftHash] = await Promise.all([sha256(editorJson), sha256(selectionJson), sha256(draft)]);
+  return identity => {
+    const current = getCurrent();
+    if (!sameWorldPlanEditorBinding(input, current) || JSON.stringify(editor.getJSON()) !== editorJson
+      || JSON.stringify(editor.state.selection.toJSON()) !== selectionJson
+      || presentationFingerprint(current.composedAuthoring?.saved) !== committedLayoutHash
+      || presentationFingerprint(current.composedAuthoring?.draft) !== draftLayoutHash)
+      throw new PlanEditGuardError("The Plan changed during capture. The request was not sent.");
+    return {
+      schema: 'dmb_plan_authoring_composed_snapshot_v1', target_kind: 'offer_slot_placement',
+      idempotency_key: identity.idempotencyKey, conversation_id: identity.conversationId,
+      expected_pointer_revision: identity.pointerRevision,
+      world_id: input.worldId!, document_id: input.documentId!, base_revision: input.baseRevision!,
+      base_content_sha256: input.baseContentSha256!, draft_markdown: draft, draft_sha256: draftHash,
+      editor_json: editorJson, editor_sha256: editorHash, selection_json: selectionJson, selection_sha256: selectionHash,
+      from: selection.from, to: selection.to, draft_generation: input.draftGeneration,
+      selection_generation: input.selectionGeneration, selected_text: '', playable_target: null,
+      base_page_presentation_sha256: committedLayoutHash, draft_page_presentation: layout.draft,
+      draft_page_presentation_sha256: draftLayoutHash, selected_paragraph: selectedParagraph, selection_witness_text: witness,
+    };
+  };
+}
+
 /** Add the real conversation identity to an already frozen Send-time target. */
 export async function sealWorldPlanAuthoringTarget(target:CapturedWorldPlanEditTarget,identity:PlanAuthoringIdentity):Promise<PlanAuthoringCapture>{
   if(!identity.conversationId||!identity.idempotencyKey||!Number.isSafeInteger(identity.pointerRevision)||identity.pointerRevision<1)
@@ -703,7 +774,8 @@ export async function sealWorldPlanAuthoringTarget(target:CapturedWorldPlanEditT
     draft_markdown:target.request.draft_markdown,draft_sha256:target.request.draft_sha256,
     editor_json:target.editorJson,editor_sha256:editorHash,selection_json:target.selectionJson,selection_sha256:selectionHash,
     from:target.rootBoundary!==undefined?originalSelection.anchor:target.from,to:target.rootBoundary!==undefined?originalSelection.head:target.to,draft_generation:target.draftGeneration,selection_generation:target.selectionGeneration,
-    target_kind:target.request.target_kind==='insert_at_boundary'?'insert_at_caret':target.request.target_kind,selected_text:target.request.selected_text,
+    target_kind:target.request.target_kind==='insert_at_boundary'||target.request.target_kind==='insert_at_slot_boundary'
+      ?'insert_at_caret':target.request.target_kind,selected_text:target.request.selected_text,
     playable_target:body?{...body.target,marker_grammar_version:body.markerGrammarVersion,
       body_scope:body.bodyScope,range_semantics_version:body.rangeSemanticsVersion,
       body_serialization_version:body.bodySerializationVersion,
@@ -716,12 +788,105 @@ export async function sealWorldPlanAuthoringTarget(target:CapturedWorldPlanEditT
 export interface PreparedPlanAuthoringApplication {
   admitted:AdmittedWorldPlanEditProposal<PlanEditApplicationIdentity>;afterEditorJson:string;afterEditorSha256:string;
   afterMarkdown:string;afterDraftSha256:string;
+  composed?: {layout: PagePresentation; fingerprint: string};
+}
+
+function slotInsertionPosition(editor: Editor, capture: PlanSlotBoundaryCapture): number {
+  const address = capture.slot_address;
+  const document = editor.state.doc;
+  const row = document.maybeChild(address.row_index);
+  const slot = row?.maybeChild(address.slot_index);
+  const paragraph = slot?.maybeChild(address.child_index);
+  if (row?.type.name !== 'pageRow' || row.attrs.id !== address.row_id
+    || slot?.type.name !== 'pageSlot' || slot.attrs.id !== address.slot_id
+    || paragraph?.type.name !== 'paragraph' || paragraph.attrs.pageBlockId !== address.block_id)
+    throw new PlanEditGuardError("The saved slot no longer identifies the captured paragraph.");
+  let position = 2;
+  document.forEach((_node, offset, index) => { if (index === address.row_index) position += offset; });
+  row.forEach((_node, offset, index) => { if (index === address.slot_index) position += offset; });
+  slot.forEach((_node, offset, index) => { if (index === address.child_index) position += offset; });
+  return address.relation === 'after' ? position + paragraph.nodeSize : position;
+}
+
+export function inspectComposedAuthoringTarget(
+  capture: PlanSlotBoundaryCapture,
+  input: WorldPlanEditEditorState,
+): CapturedPlanAuthoringTarget {
+  const editor = currentWorldEditor(input);
+  if (input.worldId !== capture.world_id || input.documentId !== capture.document_id
+    || input.baseRevision !== capture.base_revision || input.baseContentSha256 !== capture.base_content_sha256
+    || input.sourceMarkdown !== capture.draft_markdown || JSON.stringify(editor.getJSON()) !== capture.editor_json
+    || presentationFingerprint(input.composedAuthoring?.saved) !== capture.base_page_presentation_sha256
+    || presentationFingerprint(input.composedAuthoring?.draft) !== capture.draft_page_presentation_sha256)
+    throw new PlanEditGuardError("The Plan or its layout changed. Send a new request to choose a placement.");
+  const position = slotInsertionPosition(editor, capture);
+  return {
+    capture,
+    target: {
+      editor, editorJson: capture.editor_json, selectionJson: JSON.stringify(editor.state.selection.toJSON()),
+      draftGeneration: input.draftGeneration, selectionGeneration: input.selectionGeneration,
+      from: position, to: position, slotCapture: capture,
+      request: {
+        world_id: capture.world_id, document_id: capture.document_id, base_revision: capture.base_revision,
+        base_content_sha256: capture.base_content_sha256, draft_markdown: capture.draft_markdown,
+        draft_sha256: capture.draft_sha256, target_kind: 'insert_at_slot_boundary', selected_text: '',
+      },
+    },
+  };
+}
+
+function composedInsertion(editor: Editor, capture: PlanSlotBoundaryCapture, content: JSONContent[]) {
+  const position = slotInsertionPosition(editor, capture);
+  const nodes = Fragment.fromArray(content.map(node => editor.schema.nodeFromJSON(node)));
+  const parent = editor.state.doc.resolve(position).parent;
+  if (parent.type.name !== 'pageSlot')
+    throw new PlanEditGuardError("The proposed insertion is outside the captured slot.");
+  return editor.state.tr.insert(position, nodes);
+}
+
+function composedMarkup(capture: PlanSlotBoundaryCapture, fragment: string): string {
+  const {row_index, slot_index, child_index, relation} = capture.slot_address;
+  const row = capture.draft_page_presentation.items[row_index];
+  const block = row?.kind === 'row' ? row.slots[slot_index]?.blocks[child_index] : undefined;
+  if (block?.kind !== 'block')
+    throw new PlanEditGuardError("The captured paragraph no longer identifies an exact source block.");
+  const encoder = new TextEncoder();
+  const source = encoder.encode(capture.draft_markdown);
+  const decoder = new TextDecoder('utf-8', {fatal: true, ignoreBOM: true});
+  const offset = relation === 'before' ? block.byte_start : block.byte_end;
+  const prefix = decoder.decode(source.subarray(0, offset));
+  const suffix = decoder.decode(source.subarray(offset));
+  if (!suffix && !prefix.endsWith('\n'))
+    throw new PlanEditGuardError("The last paragraph needs a saved trailing newline before inserting after it.");
+  const frontmatter = splitLeadingYamlFrontmatter(capture.draft_markdown).frontmatter;
+  const separator = prefix === frontmatter || prefix.endsWith('\n\n') ? '' : '\n';
+  return prefix + separator + fragment.replace(/\n+$/, '') + (suffix ? '\n\n' : '\n') + suffix;
+}
+
+export function applyComposedPlanAuthoring(
+  target: CapturedWorldPlanEditTarget, prepared: PreparedPlanAuthoringApplication,
+  current: WorldPlanEditEditorState,
+  expected: ExpectedWorldPlanEditAgentBinding, binding: WorldPlanEditAgentBinding,
+): void {
+  if (!target.slotCapture || !prepared.composed)
+    throw new PlanEditGuardError("The prepared change has no composed slot.");
+  const live = inspectComposedAuthoringTarget(target.slotCapture, current).target;
+  if (live.editor !== target.editor || live.draftGeneration !== target.draftGeneration
+    || live.selectionGeneration !== target.selectionGeneration || live.selectionJson !== target.selectionJson)
+    throw new PlanEditGuardError("The editor or selection changed during suggestion review.");
+  assertWorldPlanAgentBinding(binding, expected);
+  const transaction = composedInsertion(live.editor, target.slotCapture, prepared.admitted.content);
+  if (JSON.stringify(transaction.doc.toJSON()) !== prepared.afterEditorJson)
+    throw new PlanEditGuardError("The insertion differs from the prepared composed Plan.");
+  live.editor.view.dispatch(closeHistory(transaction));
 }
 
 /** Selection restoration is deliberate; never restore document bytes to apply. */
 export async function restorePlanAuthoringTarget(capture:PlanAuthoringCapture,
   input:WorldPlanEditEditorState,getCurrent:()=>WorldPlanEditEditorState,identity:PlanAuthoringIdentity,
 ):Promise<CapturedPlanAuthoringTarget> {
+  if (capture.schema === 'dmb_plan_authoring_slot_boundary_capture_v1')
+    return inspectComposedAuthoringTarget(capture, getCurrent());
   const current=effectiveWorldPlanEditState(input),editor=currentWorldEditor(current);
   if(current.worldId!==capture.world_id||current.documentId!==capture.document_id
     ||current.baseRevision!==capture.base_revision||current.baseContentSha256!==capture.base_content_sha256
@@ -757,6 +922,33 @@ export async function preparePlanAuthoringApplication(target:CapturedWorldPlanEd
     :validateFragment(markdown,target.sectionTarget?.protectedInventory);
   const admitted:AdmittedWorldPlanEditProposal<PlanEditApplicationIdentity>={...fragment,response:{document_id:target.request.document_id,
     world_id:target.request.world_id,draft_sha256:target.request.draft_sha256,action_id:actionId}};
+  if (target.slotCapture) {
+    const capture = target.slotCapture;
+    const before = getCurrent();
+    inspectComposedAuthoringTarget(capture, before);
+    assertWorldPlanAgentBinding(binding(), expected);
+    if (!fragment.content.length || fragment.content.some(node => node.type !== 'paragraph' ||
+      node.content?.some(child => child.type !== 'text' && child.type !== 'hardBreak')))
+      throw new PlanEditGuardError("A composed Plan suggestion can add only prose paragraphs to its slot.");
+    admitted.content = fragment.content.map(node => ({...node, attrs: {...node.attrs, pageBlockId: crypto.randomUUID()}}));
+    const editor = new Editor({extensions: [...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, ...PAGE_COMPOSER_EXTENSIONS],
+      content: JSON.parse(capture.editor_json)});
+    try {
+      const after = composedInsertion(editor, capture, admitted.content).doc.toJSON();
+      const afterEditorJson = JSON.stringify(after);
+      const afterMarkdown = composedMarkup(capture, fragment.canonicalMarkdown);
+      const afterLayout = projectPresentation(after, afterMarkdown, after).presentation;
+      const fingerprint = presentationFingerprint(afterLayout);
+      if (!afterLayout || !fingerprint)
+        throw new PlanEditGuardError("The new source could not retain its composed layout.");
+      const [afterEditorSha256, afterDraftSha256] = await Promise.all([sha256(afterEditorJson), sha256(afterMarkdown)]);
+      if (!sameWorldPlanEditorBinding(before, getCurrent()))
+        throw new PlanEditGuardError("The Plan or selection changed during preparation.");
+      assertWorldPlanAgentBinding(binding(), expected);
+      return {admitted, afterEditorJson, afterEditorSha256, afterMarkdown, afterDraftSha256,
+        composed: {layout: afterLayout, fingerprint}};
+    } finally {editor.destroy();}
+  }
   const live=effectiveWorldPlanEditState(getCurrent());
   const initial={...live,playableTarget:live.playableTarget ? {...live.playableTarget} : live.playableTarget};
   const mounted=currentWorldEditor(initial);

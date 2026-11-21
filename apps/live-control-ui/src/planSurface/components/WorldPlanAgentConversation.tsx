@@ -15,7 +15,7 @@ import {isNativeStatementContext,nativeStatementDigestsBound,nativeAnswerText} f
 import {NativeStatementAnswer} from "./NativeStatementAnswer";
 import {useGuidedTour,type TourDispatchScope} from '../../guidedTour/GuidedTour';
 import {PlanPageProposal} from '../agentEdit/PlanPageProposal';
-import {isPlanAuthoringCapture,isPlanAuthoredProposal,planProposalDigestsBound} from '../../api/planAuthoringReviewApi';
+import {isPlanOpeningCapture,isPlanAuthoredProposal,matchesComposedPlanProposal,planProposalDigestsBound} from '../../api/planAuthoringReviewApi';
 import {SurfaceGraphReferenceInput} from '../../surface/SurfaceGraphReferenceInput';
 import {isAuthoredReferences,authoredReferences,readComposerReferences,writeComposerReferences,composerReferenceKey,recoverComposerReferences,readComposerReferenceRecoveries,type ComposerReferenceDraft} from '../../agentInteraction/authoredGraphReferences';
 import type {AuthoredReference} from '../../api/types';
@@ -628,7 +628,7 @@ function parsePendingAsk(
       || (Object.hasOwn(request,'authored_references')&&(!isAuthoredReferences(request.authored_references,worldId)
         ||request.authored_references.schema!=='dmb_authored_references_v2'||request.authored_references.references.length===0
         ||!isRecord(request.plan_context_policy)||request.plan_context_policy.schema!=='dmb_plan_context_policy_v2'))
-      || (Object.hasOwn(request,'plan_authoring_capture')&&(!isPlanAuthoringCapture(request.plan_authoring_capture)
+      || (Object.hasOwn(request,'plan_authoring_capture')&&(!isPlanOpeningCapture(request.plan_authoring_capture)
         ||request.plan_authoring_capture.world_id!==worldId||request.plan_authoring_capture.document_id!==documentId
         ||request.plan_authoring_capture.base_revision!==primary.expected_revision
         ||request.plan_authoring_capture.base_content_sha256!==primary.expected_content_sha256
@@ -2490,7 +2490,10 @@ async function validateWorldPlanResponse(
         to: entry.position,
       }),
     );
-    if((returnedCapture !== originalCapture && !offeredPlacement)
+    const composedPlacement = capture.schema === 'dmb_plan_authoring_composed_snapshot_v1'
+      && proposal.capture.schema === 'dmb_plan_authoring_slot_boundary_capture_v1'
+      && matchesComposedPlanProposal(capture, proposal.capture);
+    if((returnedCapture !== originalCapture && !offeredPlacement && !composedPlacement)
       ||proposal.capture.world_id!==request.owner_scope.world_id||proposal.capture.document_id!==request.primary_work.object_id
       ||proposal.capture.base_revision!==request.primary_work.expected_revision
       ||proposal.origin.basis.revision_n!==request.primary_work.expected_revision_n
@@ -4164,7 +4167,8 @@ export function WorldPlanAgentConversation({
     };
 
     try {
-      const frozenTarget=useWorldGraphForAsk&&editBridge?.sealAuthoring?await editBridge.capture():null;
+      const frozenComposed = useWorldGraphForAsk ? await editBridge?.freezeComposedAuthoring?.() : null;
+      const frozenTarget=useWorldGraphForAsk&&editBridge?.sealAuthoring&&!frozenComposed?await editBridge.capture():null;
       if(!stillPreparing())return;
       if(planOperation==='write_current_page'&&frozenTarget)assertDisplayedPlanTarget(frozenTarget);
       if(useWorldGraphForAsk&&editBridge?.sealAuthoring&&!pointerSnapshot.conversation_id){
@@ -4201,21 +4205,26 @@ export function WorldPlanAgentConversation({
           || contentBasis.content_sha256 !== targetBasisAtSubmit.contentSha256)) {
         throw new Error("The selected card belongs to a different committed Plan revision. Select it again before asking.");
       }
-      let authoringCapture:import('../../api/planAuthoringReviewApi').PlanOriginalAuthoringCapture|undefined;
+      let authoringCapture:import('../../api/planAuthoringReviewApi').PlanOpeningCapture|undefined;
       let placementCatalog:import('../../api/planAuthoringReviewApi').PlanPlacementCatalog|undefined;
-      if(frozenTarget&&editBridge?.sealAuthoring){
+      if(frozenComposed || (frozenTarget && editBridge?.sealAuthoring)){
         const key=await worldTurnIdempotencyKey(worldId,submittedTurnId);
         if(!key||!pointerSnapshot.conversation_id)
           throw new Error('This Plan cannot capture a recoverable page target. Open the saved Plan editor before sending.');
-        const capture=await editBridge.sealAuthoring(frozenTarget,{idempotencyKey:key,conversationId:pointerSnapshot.conversation_id,
-          pointerRevision:pointerSnapshot.pointer_revision});
+        const identity = {idempotencyKey:key,conversationId:pointerSnapshot.conversation_id,
+          pointerRevision:pointerSnapshot.pointer_revision};
+        if (frozenComposed) {
+          authoringCapture = frozenComposed(identity);
+        } else if (frozenTarget && editBridge?.sealAuthoring) {
+          const capture = await editBridge.sealAuthoring(frozenTarget, identity);
+          if(!stillPreparing())return;
+          if(capture.schema!=='dmb_plan_authoring_capture_v1'||!editBridge.capturePlacementCatalog)
+            throw new Error('This Plan cannot capture its page locations. Your request was not sent.');
+          authoringCapture=capture;
+          placementCatalog=await editBridge.capturePlacementCatalog(frozenTarget,capture);
+        }
         if(!stillPreparing())return;
-        if(capture.schema!=='dmb_plan_authoring_capture_v1'||!editBridge.capturePlacementCatalog)
-          throw new Error('This Plan cannot capture its page locations. Your request was not sent.');
-        authoringCapture=capture;
-        placementCatalog=await editBridge.capturePlacementCatalog(frozenTarget,capture);
-        if(!stillPreparing())return;
-        if(authoringCapture.base_revision!==revision||authoringCapture.base_content_sha256!==contentBasis.content_sha256)
+        if(authoringCapture?.base_revision!==revision||authoringCapture.base_content_sha256!==contentBasis.content_sha256)
           throw new Error('The captured draft no longer belongs to this committed Plan. Your request was not sent.');
       }
       const request: WorldPlanAgentTurnRequestV1 = {
@@ -4246,7 +4255,8 @@ export function WorldPlanAgentConversation({
         ...(targetAtSubmit ? {
           playable_target: { schema: "dmb_plan_playable_target_v1" as const, ...targetAtSubmit },
         } : {}),
-        ...(authoringCapture?{plan_authoring_capture:authoringCapture,plan_placement_catalog:placementCatalog}:{}),
+        ...(authoringCapture?{plan_authoring_capture:authoringCapture}:{}),
+        ...(placementCatalog?{plan_placement_catalog:placementCatalog}:{}),
         message,
       };
       const origin: WorldPlanPendingAskOrigin = {

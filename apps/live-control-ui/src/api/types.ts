@@ -792,7 +792,7 @@ export interface WorldPlanGraphContextFailureV1 {
 export interface WorldPlanAgentTurnRequestV1 {
   plan_requested_operation?: "discuss" | "write_current_page";
   authored_references?: AuthoredReferencesV2;
-  plan_authoring_capture?: import("./planAuthoringReviewApi").PlanOriginalAuthoringCapture | null;
+  plan_authoring_capture?: import("./planAuthoringReviewApi").PlanOpeningCapture | null;
   plan_placement_catalog?: import("./planAuthoringReviewApi").PlanPlacementCatalog | null;
   schema: "dmb_agent_turn_request_v1";
   client_thread_id: string;

@@ -20,6 +20,9 @@ from .plan_slot_layout import PlanSlotAddressV1, PlanSlotParagraphV1
 from application_state.content.page_presentation import BlockBinding, Row
 
 
+ComposedColumn = Literal["only column", "left column", "middle column", "right column"]
+
+
 class ComposedParagraphV1(Frozen):
     address: PlanSlotParagraphV1
     text: str = Field(min_length=1)
@@ -27,7 +30,7 @@ class ComposedParagraphV1(Frozen):
     page_heading_path: tuple[str, ...]
     row: int = Field(ge=1)
     row_in_section: int = Field(ge=1)
-    column: Literal["only column", "left column", "middle column", "right column"]
+    column: ComposedColumn
 
     @property
     def semantic_scope(self) -> tuple:
