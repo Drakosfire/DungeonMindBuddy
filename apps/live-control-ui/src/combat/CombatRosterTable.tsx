@@ -22,10 +22,10 @@ export function CombatRosterTable({draft, disabled, onToggleGroup, renderRow}: {
   const participating = draft.entities.filter(entity => !entity.defeated);
   const defeated = draft.entities.filter(entity => entity.defeated);
   return <div className="combat-roster-table-wrap" tabIndex={0} role="region" aria-label="Encounter roster">
-    <table className="combat-roster-table">
+    <table role="table" className="combat-roster-table">
       <caption className="combat-roster-caption">{participating.length} in action · {defeated.length} defeated</caption>
-      <thead><tr><th scope="col">Turn</th><th scope="col">Participant</th><th scope="col">Init</th><th scope="col">AC</th><th scope="col">HP</th><th scope="col">Damage / heal</th><th scope="col">Conditions / notes</th><th scope="col">Status</th></tr></thead>
-      <tbody>
+      <thead><tr><th scope="col">Init</th><th scope="col">Participant</th><th scope="col">AC</th><th scope="col">HP</th><th scope="col"><span className="sr-only">Adjust HP</span></th><th scope="col">Conditions</th><th scope="col">Notes</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
+      <tbody role="rowgroup">
       {[
       ...segments(participating, draft.groups).flatMap(segment => {
         const {group, entities} = segment;
@@ -33,7 +33,7 @@ export function CombatRosterTable({draft, disabled, onToggleGroup, renderRow}: {
         const active = entities.some(entity => entity.id === draft.active_turn_entity_id);
         const expanded = !group?.collapsed || active;
         return [
-          group && <tr key={`group:${group.group_key}:${entities[0].id}`} className="combat-roster-group"><th colSpan={8}>
+          group && <tr role="row" key={`group:${group.group_key}:${entities[0].id}`} className="combat-roster-group"><th role="cell" colSpan={8}>
             <button type="button" aria-expanded={expanded} disabled={disabled || active}
               onClick={() => onToggleGroup(group.group_key)}>
               {expanded ? '▾' : '▸'} {group.label} · {entities.length}{active ? ' · current actor' : ''}
@@ -42,7 +42,7 @@ export function CombatRosterTable({draft, disabled, onToggleGroup, renderRow}: {
           ...entities.map(entity => renderRow(entity, !expanded)),
         ];
       }),
-      defeated.length > 0 && <tr key="defeated-heading" className="combat-roster-group"><th colSpan={8}>Out of action · {defeated.length} defeated · clear Defeated to return a participant</th></tr>,
+      defeated.length > 0 && <tr role="row" key="defeated-heading" className="combat-roster-group"><th role="cell" colSpan={8}>Out of action · {defeated.length} defeated</th></tr>,
       ...defeated.map(entity => renderRow(entity, false)),
       ]}
       </tbody>
