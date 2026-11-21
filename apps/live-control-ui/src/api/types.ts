@@ -4,6 +4,7 @@ import type {
   StatblockRevisionResourceV1,
   ValidationReceiptV1,
 } from "../contracts/dungeonbuddy-statblocks-v1/client";
+import type { PagePresentation } from "../tiptap/pageComposer/presentation";
 
 export type SurfaceSlot = "main" | "sidebar" | "bottom" | "overlay";
 
@@ -2663,6 +2664,8 @@ export interface WorldOwnedPlanSnapshotV2 {
   file_fingerprint: string;
   file_exists: boolean;
   loaded_revision: number;
+  page_presentation?: PagePresentation;
+  page_presentation_sha256?: string;
 }
 
 export interface WorldContainerRecord {
