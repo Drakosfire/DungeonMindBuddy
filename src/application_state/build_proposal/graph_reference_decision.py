@@ -89,13 +89,26 @@ def _names(candidate: BuildGraphReferenceCandidate):
             if name != candidate.reference.node_id and (words := _words(name))}
 
 
+_QUOTED_AUTHOR_TEXT = re.compile(
+    r''' "[^"\n]*" | “[^”\n]*” | ‘[^’\n]*’ | (?<!\w)'[^'\n]*' ''',
+    flags=re.VERBOSE,
+)
+_AUTHOR_ACTION = r"(?P<action>add|insert|place|put|link|reference)"
+_AUTHOR_OBJECT = r"(?P<object>[^.,!?;:\n]+?)"
+_AUTHOR_ANCHOR = r"(?P<anchor>[^.,!?;:\n]+?)"
+_AUTHOR_RELATION = r"(?P<relation>before|after)"
+
+
 def _placement_clause(question: str):
-    request = re.sub(r''' "[^"\n]*" | “[^”\n]*” | ‘[^’\n]*’ | (?<!\w)'[^'\n]*' ''',
-                     " ", question, flags=re.VERBOSE)
+    # Keep offsets so a quoted object name can be read from the exact author text.
+    request = _QUOTED_AUTHOR_TEXT.sub(lambda match: "~" * len(match[0]), question)
     return re.fullmatch(
-        r"\s*(?:please\s+)?(?P<action>add|insert|place|put|link|reference)\s+"
-        r"(?P<object>[^.,!?;:\n]+?)\s+(?:(?:just|right|immediately)\s+)?"
-        r"(?P<relation>before|after)\s+(?P<anchor>[^.,!?;:\n]+?)\s*[.!]?\s*",
+        rf"\s*(?:please\s+)?{_AUTHOR_ACTION}\s+{_AUTHOR_OBJECT}\s+"
+        rf"(?:(?:just|right|immediately)\s+)?{_AUTHOR_RELATION}\s+{_AUTHOR_ANCHOR}\s*[.!]?\s*",
+        request, flags=re.IGNORECASE,
+    ) or re.fullmatch(
+        rf"\s*(?:(?:just|right|immediately)\s+)?{_AUTHOR_RELATION}\s+{_AUTHOR_ANCHOR},\s*"
+        rf"(?:please\s+)?{_AUTHOR_ACTION}\s+{_AUTHOR_OBJECT}\s*[.!]?\s*",
         request, flags=re.IGNORECASE,
     )
 
@@ -104,23 +117,35 @@ def _has_distinguishing_expression(question, chosen, candidates, kind):
     clause = _placement_clause(question)
     if clause is None:
         return False
-    expression = re.sub(
-        r"^(?:(?:a|an|the|typed|existing|graph)\s+)*(?:reference|link)\s+to\s+",
-        "", clause["object"], flags=re.IGNORECASE,
+    object_start, object_end = clause.span("object")
+    object_text = re.sub(
+        r"^(?:(?:a|an|the|typed|existing|graph|new)\s+)*(?:reference|link)\s+to\s+",
+        "", question[object_start:object_end], flags=re.IGNORECASE,
     )
-    expression = _words(expression)
-    while expression and expression[0] in {"a", "an", "the", "existing"}:
-        expression = expression[1:]
+    object_text = re.sub(r"^(?:(?:a|an|the|existing)\s+)+", "", object_text, flags=re.IGNORECASE)
+    quoted = _QUOTED_AUTHOR_TEXT.fullmatch(object_text)
+    if quoted is None and _QUOTED_AUTHOR_TEXT.search(object_text):
+        return False
+    expression = _words(quoted[0][1:-1] if quoted else object_text)
     if not expression or {"not", "except", "or", "and", "instead", "without"} & set(expression):
         return False
     eligible = set()
     for candidate in candidates:
         description = _words(candidate.summary or "")
         for name in _names(candidate):
+            kind_words = _words(candidate.entity_kind)
+            if quoted:
+                if expression == name:
+                    eligible.add(candidate.reference.node_id)
+                continue
+            if kind == candidate.entity_kind and expression == (*kind_words, "named", *name):
+                eligible.add(candidate.reference.node_id)
             if expression[:len(name)] != name:
                 continue
             qualifier = expression[len(name):]
-            literal_kind = kind == candidate.entity_kind and qualifier == _words(candidate.entity_kind)
+            literal_kind = kind == candidate.entity_kind and qualifier in {
+                kind_words, ("as", "a", *kind_words), ("as", "an", *kind_words),
+            }
             literal_description = len(qualifier) >= 3 and any(
                 description[index:index + len(qualifier)] == qualifier
                 for index in range(len(description) - len(qualifier) + 1)
@@ -264,6 +289,8 @@ class BuildGraphReferenceDecision:
                     "actually applied to the named object. A page or heading qualifier used only for paragraph placement "
                     "does not qualify the Graph object. If the author selected an object, the requested reference must "
                     "agree with it. The current request's object type and exclusions still apply to a selected object. "
+                    "Creating a new link to an existing object is placement. Creating a new Graph object "
+                    "is new-object work even if the user also asks to put a reference to that object on the page. "
                     "Read type constraints from the request independently of the available objects. Creation and discussion grant no placement."
                 ),
                 "graph_objects": {alias: {
