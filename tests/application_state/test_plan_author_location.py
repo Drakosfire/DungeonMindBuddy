@@ -33,6 +33,13 @@ def test_location_quote_uses_exact_admitted_author_turn_and_offsets():
         author_quote(current, 'Café North', 2).model_copy(update={'text': 'Cafe North'}).verify(current, dialogue)
 
 
+def test_location_quote_does_not_treat_plural_possessive_as_quote_opener():
+    request = "After the players' notes, use 'North Gate'."
+    assert author_quote(request, "'North Gate'").verify(request, ()) == "'North Gate'"
+    with pytest.raises(ValueError, match='within a quoted name'):
+        author_quote(request, 'North').verify(request, ())
+
+
 @pytest.mark.parametrize('text,quote,error', [
     ('Use Preparation. Leave it intact.', 'Preparation. Leave', 'sentence boundary'),
     ('Use “North. Gate”.', 'North.', 'within a quoted name'),

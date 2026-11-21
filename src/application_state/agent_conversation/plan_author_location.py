@@ -97,7 +97,7 @@ _QUOTES = {'"': '"', "'": "'", '“': '”', '‘': '’', '«': '»', '`': '`'}
 
 
 class AuthorLocationQuote(Strict):
-    """Host offsets into the exact admitted dialogue followed by the request."""
+    """Python string indices into the admitted dialogue followed by the request."""
 
     utterance_index: int = Field(strict=True, ge=0)
     start: int = Field(strict=True, ge=0)
@@ -131,13 +131,13 @@ def _require_quote_boundaries(utterance: str, start: int, end: int) -> None:
     for index, char in enumerate(utterance[:end]):
         if index == start and closing is not None:
             raise ValueError('Location evidence cannot start within a quoted name')
-        apostrophe = (char in {"'", '’'} and 0 < index < len(utterance) - 1
-            and _word_member(utterance[index - 1]) and _word_member(utterance[index + 1]))
+        follows_word = index > 0 and _word_member(utterance[index - 1])
+        joins_word = follows_word and index + 1 < len(utterance) and _word_member(utterance[index + 1])
         if closing is not None:
-            if not escaped and char == closing and not apostrophe:
+            if not escaped and char == closing and not (char in {"'", '’'} and joins_word):
                 closing = None
             escaped = not escaped and char == '\\'
-        elif char in _QUOTES and not apostrophe:
+        elif char in _QUOTES and not (char == "'" and follows_word):
             closing = _QUOTES[char]
             escaped = False
         elif start < index < end - 1 and char in '.!?;':
