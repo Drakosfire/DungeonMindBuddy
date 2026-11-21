@@ -18,7 +18,7 @@ from application_state.combat_encounters.types import CombatEncounterDraft, Comb
 from application_state.combat_encounters.manual_encounters import CreateManualEncounterRequest, ManualEncounterRecord, empty_manual_draft, decode_combat_record
 from application_state.combat_encounters.manual_profiles import manual_profile_digest
 from application_state.combat_encounters.scene_template_types import (
-    CreateSceneTemplateRequest, SceneTemplateBinding, SceneTemplateView, TemplateVersion,
+    CopySavedEncounterRequest, CreateSceneTemplateRequest, SceneTemplateBinding, SceneTemplateView, TemplateVersion,
 )
 from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError, ApplicationStateNotFoundError, ApplicationStateValidationError
 from apps.live_control_server.services.play_run_edition_structure import structure_signature
@@ -91,9 +91,43 @@ def _view(conn,binding):
     return SceneTemplateView(binding=binding,encounter=encounter,versions=versions,scene_present=_present(conn,binding))
 
 
+def _copy_saved_encounter(conn, *, world_id, request, now):
+    source_id = request.source_encounter_id
+    owned = _row(conn, """
+        SELECT source.encounter_id
+        FROM combat.encounter AS source
+        WHERE source.encounter_id = %s AND source.world_id = %s
+          AND NOT EXISTS (
+              SELECT 1 FROM combat.scene_template WHERE encounter_id = source.encounter_id
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM combat.run_scene_encounter WHERE encounter_id = source.encounter_id
+          )
+        FOR SHARE OF source
+        """, (source_id, world_id))
+    if owned is None:
+        raise ApplicationStateNotFoundError("Saved Combat encounter is unavailable")
+    source = repo.get_encounter(conn, world_id=world_id, encounter_id=source_id)
+    if source is None:
+        raise ApplicationStateIntegrityError("Locked Combat encounter is missing")
+    _require_integrity(source)
+    if source.revision != request.expected_revision:
+        raise ApplicationStateConflictError("The saved Combat encounter changed; review its current revision")
+    return type(source).model_validate({
+        **source.model_dump(mode="json", by_alias=True),
+        "encounter_id": uuid4(),
+        "campaign_id": None,
+        "session": None,
+        "revision": 1,
+        "created_at": now,
+        "updated_at": now,
+    })
+
+
 def create(*,world_id,request:CreateSceneTemplateRequest,authorize: Callable[[], None] | None = None):
     world_id=_world_id(world_id)
-    if request.encounter.campaign_id is not None or request.encounter.session is not None:
+    copying = isinstance(request.encounter, CopySavedEncounterRequest)
+    if not copying and (request.encounter.campaign_id is not None or request.encounter.session is not None):
         raise ApplicationStateValidationError("Plan encounter templates cannot claim campaign/session ownership")
     body=request.model_dump(mode="json");request_digest=digest({"world_id":world_id,"request":body})
     dsn=load_runtime_dsn();assert_at_head(dsn=dsn)
@@ -118,7 +152,9 @@ def create(*,world_id,request:CreateSceneTemplateRequest,authorize: Callable[[],
         if _row(conn,"SELECT encounter_id FROM combat.scene_template WHERE world_id=%s AND document_id=%s AND scene_id=%s",(world_id,pin.document_id,pin.scene_id)):
             raise ApplicationStateConflictError("This scene already has an encounter; reopen it instead of creating another")
         now=datetime.now(UTC)
-        if isinstance(request.encounter, CreateManualEncounterRequest):
+        if isinstance(request.encounter, CopySavedEncounterRequest):
+            record = _copy_saved_encounter(conn, world_id=world_id, request=request.encounter, now=now)
+        elif isinstance(request.encounter, CreateManualEncounterRequest):
             profile=request.encounter.profile
             record=ManualEncounterRecord(encounter_id=uuid4(),world_id=world_id,revision=1,ruleset=profile,ruleset_digest=manual_profile_digest(profile),draft=empty_manual_draft(profile,request.encounter.title),created_at=now,updated_at=now)
         else:
