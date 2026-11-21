@@ -138,6 +138,13 @@ Core repository and binding; it is not an ordinary first-World or real sign-in
 witness. A complete real first-World preparation, owner review,
 publication and withdrawal test remains required before activation.
 
+An independent security review identified an owner-transfer race in selection
+inventory and image reads. These routes capture the durable owner generation
+before the private read and recheck ownership and generation before returning;
+mounted tests cover transfer and transfer-away-and-back for all three routes.
+The final check is the authorization cutoff, not a promise to cancel a response
+after that check. Full production composition and real sign-in remain unproven.
+
 Projection version `explicit_native_assertions_v3` displays known `dnd5e`,
 `dungeonbuddy`, and `dungeonbuddy.custom` terms with an explicit namespace
 distinction for every supported namespace. Unknown namespaces or unsafe term

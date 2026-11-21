@@ -4,6 +4,8 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
+import psycopg
+import pytest
 from fastapi import FastAPI, HTTPException
 
 from apps.live_control_server.routes import guest_releases
@@ -21,6 +23,7 @@ def test_owner_routes_fail_closed_and_require_owner(monkeypatch):
             raise HTTPException(status_code=403)
         return SimpleNamespace(world_id=world_id)
     monkeypatch.setattr(guest_releases, "_owned_world", owned)
+    monkeypatch.setattr(guest_releases.guest_release, "owner_generation", lambda **_: 0)
     monkeypatch.setattr(guest_releases.guest_release, "pointer_status", lambda **_: (None, 0))
     monkeypatch.setattr(guest_releases.guest_release, "list_candidates", lambda **_: [{"release_id": "candidate", "created_at": "2026-11-20T00:00:00+00:00"}])
     monkeypatch.setattr(guest_releases.guest_release, "list_published", lambda **_: [{"release_id": "published", "current": True, "reviewable": True}])
@@ -119,3 +122,53 @@ def test_owner_routes_fail_closed_and_require_owner(monkeypatch):
     assert request("POST", "/api/live/worlds/world/guest-releases", json=body,
                        headers={"x-test-subject": "owner", "origin": "https://evil.example"}).status_code == 403
     assert request("GET", "/api/live/guest-releases/anything").status_code == 401
+
+
+@pytest.mark.parametrize("route", ["options", "media_list", "preview"])
+@pytest.mark.parametrize("transfer_back", [False, True])
+def test_inventory_denies_inflight_ownership_change(application_state_dsn, monkeypatch, route, transfer_back):
+    from application_state.world_catalog.service import create_world
+    from apps.live_control_server.main import HOSTED_WORLD_SCOPE_RESOLVERS
+
+    world = create_world(name="Ownership race", owner_subject="owner").record.world_id
+    monkeypatch.setenv(hosted_auth.DEPLOYMENT_ENVIRONMENT_ENV, "production")
+    monkeypatch.setenv(hosted_auth.AUTH_MODE_ENV, "hosted_dms")
+    monkeypatch.setenv(hosted_auth.TRUSTED_FRONTEND_ORIGINS_ENV, "https://buddy.example")
+    monkeypatch.setenv("DMB_GUEST_RELEASE_ENABLED", "1")
+    monkeypatch.setattr(hosted_auth, "hosted_world_access", lambda: {world: frozenset({"owner"})})
+    monkeypatch.setattr(guest_releases, "_owned_world", lambda subject, world_id: SimpleNamespace(world_id=world_id))
+
+    def read_after_transfer(**_):
+        # The read starts after the first owner check; simulate another owner's
+        # private content becoming visible before the slow read completes.
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute("UPDATE workspace.managed_world SET owner_subject='other' WHERE world_id=%s", (world,))
+            if transfer_back:
+                conn.execute("UPDATE workspace.managed_world SET owner_subject='owner' WHERE world_id=%s", (world,))
+        if route == "preview":
+            return "image/png", b"new owner's private image"
+        return {"private": "new owner's private data"}
+
+    monkeypatch.setattr(guest_releases, {"options": "selection_options", "media_list": "list_media", "preview": "preview_media"}[route], read_after_transfer)
+    app = FastAPI()
+    app.include_router(guest_releases.router)
+    routes = {key: value for key, value in HOSTED_WORLD_SCOPE_RESOLVERS.items()
+              if value is guest_releases.resolve_hosted_guest_release_world}
+    hosted_auth.install_hosted_request_boundary(app, world_scope_resolvers=routes)
+    async def principal(request):
+        return DmsPrincipal("owner")
+    app.state.dms_principal_resolver = principal
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            base = f"/api/live/worlds/{world}/guest-releases"
+            if route == "options":
+                return await client.get(base + "/selection-options")
+            if route == "preview":
+                return await client.get(base + f"/selection-media/{uuid4()}")
+            return await client.post(base + "/selection-media/list", json={}, headers={"origin": "https://buddy.example"})
+
+    response = asyncio.run(run())
+    assert response.status_code in (404, 409)
+    assert response.headers["cache-control"] == "no-store"
+    assert b"new owner's private" not in response.content

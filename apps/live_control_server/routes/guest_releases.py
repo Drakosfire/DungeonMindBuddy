@@ -71,6 +71,11 @@ def _invalid_selection() -> HTTPException:
                          headers={"Cache-Control": "no-store"})
 
 
+def _check_owner_generation(*, world_id: str, subject: str, generation: int) -> None:
+    if guest_release.owner_generation(world_id=world_id, subject=subject) != generation:
+        raise ApplicationStateError("World ownership changed", status_code=409)
+
+
 @router.post("")
 def prepare_release(world_id: str, body: ReleaseSelection, request: Request, response: Response):
     subject = _owner(request, world_id)
@@ -98,10 +103,13 @@ def release_status(world_id: str, request: Request, response: Response):
 
 @router.get("/selection-options")
 def release_selection_options(world_id: str, request: Request, response: Response):
-    _owner(request, world_id)
+    subject = _owner(request, world_id)
     response.headers["Cache-Control"] = "no-store"
     try:
-        return selection_options(world_id=world_id)
+        generation = guest_release.owner_generation(world_id=world_id, subject=subject)
+        options = selection_options(world_id=world_id)
+        _check_owner_generation(world_id=world_id, subject=subject, generation=generation)
+        return options
     except ApplicationStateError as exc:
         raise _error(exc) from exc
     except (GuestReleaseEvidenceError, GuestNativeGraphError, GuestReleaseAssertionError) as exc:
@@ -110,21 +118,26 @@ def release_selection_options(world_id: str, request: Request, response: Respons
 
 @router.post("/selection-media/list")
 def release_selection_media(world_id: str, body: MediaListRequest, request: Request, response: Response):
-    _owner(request, world_id)
+    subject = _owner(request, world_id)
     response.headers["Cache-Control"] = "no-store"
     if (body.before_time is None) != (body.before_id is None) or (body.before_time is not None and body.before_time.utcoffset() is None):
         raise HTTPException(status_code=422, detail={"code": "invalid_media_cursor"}, headers={"Cache-Control": "no-store"})
     try:
-        return list_media(world_id=world_id, before=(body.before_time, body.before_id) if body.before_time is not None else None)
+        generation = guest_release.owner_generation(world_id=world_id, subject=subject)
+        result = list_media(world_id=world_id, before=(body.before_time, body.before_id) if body.before_time is not None else None)
+        _check_owner_generation(world_id=world_id, subject=subject, generation=generation)
+        return result
     except ApplicationStateError as exc:
         raise _error(exc) from exc
 
 
 @router.get("/selection-media/{asset_id}")
 def release_selection_media_preview(world_id: str, asset_id: UUID, request: Request):
-    _owner(request, world_id)
+    subject = _owner(request, world_id)
     try:
+        generation = guest_release.owner_generation(world_id=world_id, subject=subject)
         mime, content = preview_media(world_id=world_id, asset_id=asset_id)
+        _check_owner_generation(world_id=world_id, subject=subject, generation=generation)
     except ApplicationStateError as exc:
         raise _error(exc) from exc
     except GuestReleaseMediaError as exc:
