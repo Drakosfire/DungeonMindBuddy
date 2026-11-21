@@ -252,7 +252,7 @@ class AuthorScopeHypothesis(Strict):
         if _scope_syntax(quote).rstrip().endswith(('.', '!', '?', ';')):
             raise ValueError('Unquoted closing punctuation is not part of a scope reference')
         utterance = self.evidence._utterance(request, dialogue)
-        for contrast in _SCOPE_DIRECTIVE_CONTRAST.finditer(_scope_syntax(utterance)):
+        for contrast in _scope_directives(utterance):
             start, end = _trimmed_span(utterance, contrast.span())
             if (self.evidence.start < end and self.evidence.end > start
                     and ((self.evidence.start, self.evidence.end) != (start, end) or self.grammar != 'exclusion')):
@@ -284,7 +284,7 @@ _EXCLUSION_BEFORE = re.compile(r'\b(?:rather than|except)(?:\s+the one inside)?$
 _EXCLUSION_AFTER = re.compile(r'^,?\s*(?:rather than|except)\b', re.IGNORECASE)
 _EXCLUSION_SEPARATOR = re.compile(r'\b(?:rather than|except)\b', re.IGNORECASE)
 _SCOPE_DIRECTIVE_CONTRAST = re.compile(
-    r'\buse\b(?P<positive>[^,.!?;:\n]+?)\bfor this (?:change|edit),\s*not\b'
+    r'\buse\b(?P<positive>[^,.!?;:\n]+?)(?:\s+for this (?:change|edit))?,\s*not\b'
     r'(?P<excluded>[^,.!?;:\n]+)(?=[,:.!?;\n]|$)', re.IGNORECASE)
 _INCLUDE_DESCENDANTS = re.compile(
     r',\s*including\s+(?:all\s+)?(?:its\s+)?(?:subsections|descendant sections)\b', re.IGNORECASE)
@@ -314,6 +314,25 @@ def _scope_syntax(text: str) -> str:
         else:
             result.append(char)
     return ''.join(result)
+
+
+def _scope_directives(text: str):
+    for match in _SCOPE_DIRECTIVE_CONTRAST.finditer(_scope_syntax(text)):
+        operands = (text[match.start(name):match.end(name)].strip() for name in ('positive', 'excluded'))
+        if all(value and (value[0].isupper() or value[0] in _QUOTES) for value in operands):
+            yield match
+
+
+def explicit_contrast_conflict(question: str, scope: ScopeExpression) -> bool:
+    for directive in _scope_directives(question):
+        start, end = _trimmed_span(question, directive.span())
+        try:
+            required = _compile_exclusion(question[start:end])
+        except ValueError:
+            return True
+        if scope != required:
+            return True
+    return False
 
 
 def _compile_scope_expression(text: str, grammar: str, depth: int = 1) -> NamedScopePath:
@@ -491,12 +510,17 @@ def explicit_paragraph_locator(question: str, relation: str) -> str | None:
     return question[start:end].strip() or None
 
 
-def explicit_direction_option(question: str) -> str | None:
-    """Offer a clear direction for adjudication without choosing a target."""
+def explicit_direction_options(question: str) -> tuple[str, ...]:
+    """Offer structural interpretations of one explicit editing direction."""
     syntax = _scope_syntax(question)
     directions = re.findall(r'\b(before|after)\b', syntax, re.IGNORECASE)
     adjacent = re.search(r'\b(?:just|directly|immediately|right)\s+(before|after)\b', syntax, re.IGNORECASE)
-    return f'{adjacent[1].casefold()}_paragraph' if len(directions) == 1 and adjacent else None
+    if (len(directions) != 1 or not adjacent
+            or not re.search(r'\b(?:add|insert|place|put|append)\b', syntax, re.IGNORECASE)):
+        return ()
+    if adjacent[1].casefold() == 'before':
+        return 'before_paragraph', 'before_heading'
+    return 'after_paragraph', 'after_heading', 'after_section'
 
 
 def _trimmed_span(text: str, span: tuple[int, int]) -> tuple[int, int]:
@@ -549,8 +573,9 @@ def author_scope_hypotheses(request: str, dialogue: tuple[RetrievalDialogue, ...
                         offer(start, token.end())
         for marker in _TITLE_REFERENCE.finditer(syntax):
             offer(marker.start(), marker.end())
-        for contrast in _SCOPE_DIRECTIVE_CONTRAST.finditer(syntax):
-            offer(*_trimmed_span(text, contrast.span()))
+        contrasts = {_trimmed_span(text, match.span()) for match in _scope_directives(text)}
+        for span in sorted(contrasts):
+            offer(*span)
 
         for start, end in sorted(spans):
             if label is not None and end == label.end('label') and start != label.start('label'):
@@ -558,7 +583,7 @@ def author_scope_hypotheses(request: str, dialogue: tuple[RetrievalDialogue, ...
             quote = text[start:end]
             fragment = syntax[start:end]
             grammar = ('exclusion' if _EXCLUSION_SEPARATOR.search(fragment)
-                or _SCOPE_DIRECTIVE_CONTRAST.fullmatch(fragment) else _path_grammar(quote, fragment))
+                or (start, end) in contrasts else _path_grammar(quote, fragment))
             evidence = AuthorLocationQuote(utterance_index=utterance_index, start=start, end=end, text=quote)
             hypothesis = AuthorScopeHypothesis(evidence=evidence, grammar=grammar)
             try:

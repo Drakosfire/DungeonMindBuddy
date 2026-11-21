@@ -193,13 +193,19 @@ def test_descendant_qualifier_is_not_in_the_offered_literal_heading():
     ('Lower Trail', 'Upper Trail'),
     ('“Lower Trail”', '“Upper Trail, ridge”'),
 ])
-def test_explicit_scope_contrast_retains_both_durable_names(positive, excluded):
-    directive = f'Use {positive} for this change, not {excluded}'
+@pytest.mark.parametrize('qualifier', ['', ' for this change'])
+def test_explicit_scope_contrast_retains_both_durable_names(positive, excluded, qualifier):
+    from application_state.agent_conversation.plan_author_location import explicit_contrast_conflict
+
+    directive = f'Use {positive}{qualifier}, not {excluded}'
     request = f'{directive}: immediately after the loose-ledge paragraph, insert a warning.'
     offers = author_scope_hypotheses(request, (), max_span_attempts=200)
     preserved = next(h for h in offers.values() if h.evidence.text == directive)
-    assert preserved.compile(request, ()) == ScopeWithExclusion(
+    scope = ScopeWithExclusion(
         positive=literal_reference(positive, path=False), excluded=literal_reference(excluded, path=False))
+    assert preserved.compile(request, ()) == scope
+    assert not explicit_contrast_conflict(request, scope)
+    assert explicit_contrast_conflict(request, UnscopedLocation())
     with pytest.raises(ValueError, match='both parts'):
         AuthorScopeHypothesis(evidence=author_quote(request, positive), grammar='literal_name').compile(request, ())
 
@@ -208,14 +214,18 @@ def test_direction_adjudication_preserves_unresolved_alternatives():
     from application_state.agent_conversation.native_plan_opening import (
         NativePlanAuthorScopeObservationV1, author_scope_review_required,
     )
-    from application_state.agent_conversation.plan_author_location import explicit_direction_option
+    from application_state.agent_conversation.plan_author_location import explicit_direction_options
 
     first = NativePlanAuthorScopeObservationV1(
         relation='unresolved', selected_alias='scope0', scope=literal_reference('Evening', path=False))
     request = 'In Evening, add a checklist just before the porter seals the blue crate.'
-    assert explicit_direction_option(request) == 'before_paragraph'
+    assert explicit_direction_options(request) == ('before_paragraph', 'before_heading')
     assert author_scope_review_required(request, first, first)
     assert not author_scope_review_required('Put it both immediately before and after the crate paragraph.', first, first)
+    assert not explicit_direction_options('Do the porters arrive right after sunset?')
+    assert not explicit_direction_options('Add the words “right after sunset” to the warning.')
+    assert explicit_direction_options('Put a note right after the Arrival heading.') == (
+        'after_paragraph', 'after_heading', 'after_section')
 
 
 def test_scope_offer_view_has_local_aliases_and_author_text_without_host_offsets():

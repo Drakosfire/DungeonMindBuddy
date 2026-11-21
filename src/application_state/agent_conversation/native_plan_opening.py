@@ -138,7 +138,7 @@ def _prepare_author_scope_review(request):
     from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
     from .jev_retrieval_contract import MODEL, PROVIDER
     from .plan_contextual_targets import AUTHOR_RELATIONS
-    from .plan_author_location import explicit_direction_option
+    from .plan_author_location import explicit_direction_options
 
     first, second = (row.observation for row in request.scope_review)
     view = author_scope_offer_view(request.question, request.dialogue, _author_scope_offers(request),
@@ -146,8 +146,8 @@ def _prepare_author_scope_review(request):
     options = view.pop('scope_hypotheses')
     pairs = {}
     relations = {first.relation, second.relation}
-    if 'unresolved' in relations and (direction := explicit_direction_option(request.question)) is not None:
-        relations.add(direction)
+    if 'unresolved' in relations:
+        relations.update(explicit_direction_options(request.question))
     for relation in sorted(relations):
         for prior in (first, second):
             interpretation = {'relation': AUTHOR_RELATIONS[relation],
@@ -262,10 +262,10 @@ def require_retained_author_scope(execution, observation_event_id: UUID,
 
 
 def author_scope_review_required(question, first, second):
-    from .plan_author_location import explicit_direction_option
+    from .plan_author_location import explicit_direction_options
 
     return (first.relation != second.relation or first.scope != second.scope
-        or (first.relation == 'unresolved' and explicit_direction_option(question) is not None)
+        or (first.relation == 'unresolved' and bool(explicit_direction_options(question)))
         or (first.relation != 'replace_explicit_selection' and _CAPTURE_REWRITE.match(question) is not None))
 
 
