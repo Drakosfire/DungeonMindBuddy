@@ -228,6 +228,37 @@ def test_direction_adjudication_preserves_unresolved_alternatives():
         'after_paragraph', 'after_heading', 'after_section')
 
 
+def test_unresolved_scope_adjudication_offers_whole_author_clauses_without_unscoped_fallback():
+    import json
+    from uuid import uuid4
+    from application_state.agent_conversation.native_plan_opening import (
+        NativePlanAuthorScopeObservationV1, NativePlanAuthorScopeParentV1, NativePlanOpeningScopeBindingV1,
+        author_scope_review_required, prepare_author_scope_decision,
+    )
+
+    unresolved = NativePlanAuthorScopeObservationV1(relation='after_paragraph', selected_alias='unresolved',
+        scope=UnresolvedLocation(reason='No complete scope was initially selected'))
+    scope_review = tuple(NativePlanOpeningScopeBindingV1(observation_event_id=uuid4(), observation=unresolved)
+        for _ in range(2))
+
+    def scopes(question):
+        parent = NativePlanAuthorScopeParentV1(question=question, dialogue=(), max_span_attempts=100,
+            quote_context=True, request_id=uuid4(), parent_attempt_id=uuid4(),
+            scope_sha256='0' * 64, request_manifest_sha256='0' * 64, scope_review=scope_review)
+        assert author_scope_review_required(question, unresolved, unresolved)
+        criteria = prepare_author_scope_decision(parent).questions[0].option_descriptions
+        return [json.loads(value)['scope'] for name, value in criteria.items() if name != 'unresolved']
+
+    supported = scopes('Put a warning after the token paragraph in West / Equipment.')
+    assert any(scope.get('components') == [{'kind': 'literal_name', 'text': 'West'},
+        {'kind': 'literal_name', 'text': 'Equipment'}] for scope in supported)
+    assert all(scope.get('kind') != 'unscoped' for scope in supported)
+    compound = scopes('Put a warning after the token paragraph in West or in East.')
+    assert all('components' not in scope for scope in compound)
+    unmarked_contrast = scopes('Put a warning after the token paragraph in Records, not Dispatch.')
+    assert all('components' not in scope for scope in unmarked_contrast)
+
+
 def test_scope_offer_view_has_local_aliases_and_author_text_without_host_offsets():
     request = 'Use the paragraph in Mill / Equipment.'
     options = author_scope_hypotheses(request, (), max_span_attempts=100)

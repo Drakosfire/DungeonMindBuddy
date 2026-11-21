@@ -620,6 +620,26 @@ def author_scope_offer_view(request: str, dialogue: tuple[RetrievalDialogue, ...
         {'role': row.role, 'content': row.content} for row in dialogue], 'scope_hypotheses': offers}
 
 
+def is_complete_scope_recovery(hypothesis: AuthorScopeHypothesis, request: str,
+                               dialogue: tuple[RetrievalDialogue, ...]) -> bool:
+    """Recover a whole verified scope clause without selecting one operand."""
+    if hypothesis.grammar == 'exclusion':
+        return True
+    evidence = hypothesis.evidence
+    utterance = _scope_syntax(evidence._utterance(request, dialogue))
+    prefix = re.split(r'[.!?;,:]', utterance[:evidence.start])[-1]
+    suffix = utterance[evidence.end:]
+    introducer = re.search(r'\b(?:in|within|inside|under)\s+(the\s+)?$', prefix, re.IGNORECASE)
+    label = evidence.text.strip()
+    return (introducer is not None
+        and (introducer[1] is None or label[0] in _QUOTES)
+        and not label.startswith('the ')
+        and _COMPOUND_REFERENCE.search(prefix) is None
+        and re.search(r'\bnot\b', prefix, re.IGNORECASE) is None
+        and not re.match(r'\s*[,;:]?\s*(?:not|either|and not)\b', suffix, re.IGNORECASE)
+        and re.match(r'\s*(?:(?:section|heading)\b\s*)?(?:[.!?;,:]|$)', suffix, re.IGNORECASE) is not None)
+
+
 def source_heading_inventory(capture, catalog):
     """Source-only names and occurrence paths; model views omit indices/ranges."""
     from .plan_contextual_targets import anchor_groups
