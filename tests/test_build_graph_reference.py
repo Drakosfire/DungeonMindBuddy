@@ -1,14 +1,23 @@
 from hashlib import sha256
+import json
+from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
 
 from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1
+from application_state.agent_conversation import AgentConversationService
 from application_state.build_proposal.graph_reference import BuildGraphReferencePlacement
+from application_state.build_proposal.graph_reference_review import (
+    BuildGraphReferenceApply, BuildGraphReferenceReviewService,
+)
 from application_state.build_proposal.prose_catalog import freeze_build_prose_catalog
 from application_state.build_proposal.types import BuildProposalBasis
-from application_state.errors import ApplicationStateConflictError
+from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError
 from apps.live_control_server.services import build_graph_reference
+from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+from tests.application_state.test_agent_conversation_postgres import _new
+from tests.page_fixtures import create_page_fixture, page_text, save_page
 
 
 @pytest.fixture
@@ -46,7 +55,7 @@ def test_build_reference_is_bound_to_exact_captured_boundary(placement_capture):
 
 def test_build_reference_joins_exact_id_and_classification_at_current_pin(placement_capture, monkeypatch):
     placement, _, _ = placement_capture
-    principal = object()
+    principal = NativeGraphPrincipal(subject="local_operator", role="gm", auth_method="local_operator")
     scope = {
         "managed_world_id": "observatory", "native_world_id": "native-observatory",
         "binding_version": 1, "revision_id": "rev:one", "scope_mode": "world", "campaign_id": None,
@@ -73,3 +82,160 @@ def test_build_reference_joins_exact_id_and_classification_at_current_pin(placem
     scope["revision_id"] = "rev:later"
     with pytest.raises(ApplicationStateConflictError, match="different or changed Graph"):
         build_graph_reference.require_current_build_graph_reference(placement, principal)
+
+
+def test_build_reference_accepts_only_the_exact_typed_editor_and_markdown(placement_capture):
+    placement, editor, draft = placement_capture
+    after = json.loads(editor)
+    atom = {"type": "runbookReference", "attrs": {
+        "kind": "ref", "refType": "graph-node", "refId": "threat:lurker", "label": "Lurker",
+    }}
+    after["content"].append({"type": "paragraph", "attrs": {"pageBlockId": None}, "content": [atom]})
+    index = placement.require_editor_insertion(editor, draft, json.dumps(after))
+    assert index == 1
+    after_draft = "The moon shines.\n\n[Lurker](dmb-node:threat:lurker)\n"
+    placement.require_draft_insertion(draft, after_draft, index)
+    with pytest.raises(ApplicationStateConflictError, match="authorized identity"):
+        placement.require_draft_insertion(draft, after_draft.replace("threat:", "location:"), index)
+    with pytest.raises(ApplicationStateConflictError, match="unrelated bytes"):
+        placement.require_draft_insertion(draft, after_draft.replace("shines.", "fades."), index)
+    atom["attrs"]["refId"] = "location:lurker"
+    with pytest.raises(ApplicationStateConflictError, match="one typed atom"):
+        placement.require_editor_insertion(editor, draft, json.dumps(after))
+
+
+def test_graph_reference_review_replays_exact_postimage_and_records_only_observed_save(
+    placement_capture, application_state_dsn,
+):
+    placement, editor, draft = placement_capture
+    world = placement.basis.world_id
+    conversation = _new(AgentConversationService(), world)
+    action_id = uuid4()
+    store = BuildGraphReferenceReviewService()
+    stage_count = 0
+
+    def admit(conn, review):
+        nonlocal stage_count
+        assert review.placement == placement and review.state == "editing"
+        stage_count += 1
+
+    review = store.stage(action_id, conversation.conversation_id, 1, placement, editor, draft, admit=admit)
+    assert store.stage(action_id, conversation.conversation_id, 1, placement, editor, draft, admit=admit) == review
+    assert stage_count == 1
+    with pytest.raises(ApplicationStateNotFoundError):
+        store.get("foreign", action_id)
+
+    after = json.loads(editor)
+    after["content"].append({"type": "paragraph", "content": [{
+        "type": "runbookReference", "attrs": {
+            "kind": "ref", "refType": "graph-node", "refId": placement.reference.node_id,
+            "label": placement.reference.label,
+        },
+    }]})
+    after_editor = json.dumps(after)
+    after_draft = "The moon shines.\n\n[Lurker](dmb-node:threat:lurker)\n"
+    after_digest = sha256(after_draft.encode()).hexdigest()
+    apply = BuildGraphReferenceApply(
+        apply_id=uuid4(), editor_sha256=sha256(after_editor.encode()).hexdigest(),
+        draft_sha256=after_digest, content_sha256=after_digest, presentation_sha256=None,
+    )
+
+    def prepare(receipt, authorize):
+        return store.prepare(
+            world, action_id, review.revision, receipt, editor, draft, after_editor, after_draft,
+            authorize_prepare=authorize,
+        )
+
+    def changed(*args):
+        raise ApplicationStateConflictError("The current page does not match the review")
+
+    with pytest.raises(ApplicationStateConflictError, match="current page"):
+        prepare(apply, changed)
+    assert store.get(world, action_id) == review
+    prepared = prepare(apply, lambda previous, receipt: None)
+    assert prepared.state == "applying" and prepared.apply == apply
+    with pytest.raises(ApplicationStateConflictError, match="current page"):
+        prepare(apply, changed)
+    assert prepare(apply, lambda previous, receipt: None) == prepared
+    with pytest.raises(ApplicationStateConflictError, match="different postimage"):
+        prepare(apply.model_copy(update={"content_sha256": "b" * 64}), changed)
+    with pytest.raises(ApplicationStateConflictError, match="current page"):
+        store.confirm(world, action_id, apply.apply_id, observe_save=changed)
+    assert store.get(world, action_id) == prepared
+    confirmed = store.confirm(world, action_id, apply.apply_id, observe_save=lambda checked: 2)
+    assert confirmed.state == "applied" and confirmed.saved_revision == 2
+    assert store.confirm(world, action_id, apply.apply_id, observe_save=changed) == confirmed
+
+
+def test_graph_reference_review_route_joins_current_graph_and_independent_content_save(
+    placement_capture, application_state_dsn, monkeypatch, tmp_path,
+):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.routes import agent, build_proposal_reviews
+
+    placement, editor, draft = placement_capture
+    world = placement.basis.world_id
+    page = create_page_fixture(
+        tmp_path, title="Moon Gallery", world_id=world, campaign_id=world, kind="worldbuilding_source",
+        source_domain="worldbuilding", document_class="lore", authority_state="draft", visibility_state="internal",
+    )
+    page = save_page(tmp_path, page.document_id, draft)
+    placement = placement.model_copy(update={"basis": placement.basis.model_copy(update={
+        "document_id": page.document_id, "registry_revision": page.revision,
+    })})
+    conversation = _new(AgentConversationService(), world)
+    action_id = uuid4()
+    BuildGraphReferenceReviewService().stage(
+        action_id, conversation.conversation_id, 1, placement, editor, draft, admit=lambda conn, review: None,
+    )
+    principal = NativeGraphPrincipal(subject="local_operator", role="gm", auth_method="local_operator")
+    graph_scope = {
+        "managed_world_id": world, "native_world_id": "native-observatory", "scope_mode": "world",
+        "campaign_id": None, "binding_version": 1, "revision_id": "rev:later",
+    }
+    monkeypatch.setattr(build_graph_reference, "authoring_identities", lambda scope, caller: {
+        "scope": graph_scope, "identities": [{
+            "node_id": "threat:lurker", "label": "Lurker", "kind": "threat", "selectable": True,
+        }],
+    })
+    monkeypatch.setattr(agent, "_verified_world_id", lambda value: value)
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", "synthetic-only-review-token-00000000000")
+    app = FastAPI()
+    app.include_router(agent.router, prefix="/api/live")
+    path = f"/api/live/agent/worlds/{world}/build-proposals/{action_id}/review"
+    after = json.loads(editor)
+    after["content"].append({"type": "paragraph", "content": [{"type": "runbookReference", "attrs": {
+        "kind": "ref", "refType": "graph-node", "refId": "threat:lurker", "label": "Lurker",
+    }}]})
+    after_editor = json.dumps(after)
+    after_draft = "The moon shines.\n\n[Lurker](dmb-node:threat:lurker)\n"
+    draft_digest = sha256(after_draft.encode()).hexdigest()
+    apply_id = str(uuid4())
+    command = {"schema": "dmb_build_graph_reference_command_v1", "operation": "prepare", "expected_revision": 1,
+               "editor_json": editor, "draft_markdown": draft,
+               "after_editor_json": after_editor, "after_draft_markdown": after_draft,
+               "apply": {"apply_id": apply_id, "editor_sha256": sha256(after_editor.encode()).hexdigest(),
+                         "draft_sha256": draft_digest, "content_sha256": draft_digest, "presentation_sha256": None}}
+    confirm = {"schema": command["schema"], "operation": "confirm", "apply_id": apply_id}
+    with TestClient(app) as client:
+        assert client.get(path).status_code == 403
+        monkeypatch.setattr(build_proposal_reviews, "enforce_native_graph_gm", lambda _: principal)
+        assert client.get(path).json()["state"] == "editing"
+        assert client.get(path.replace(f"/{world}/", "/foreign/")).status_code == 404
+        refused = client.post(path, json=command)
+        assert refused.status_code == 409, refused.text
+        assert client.get(path).json()["state"] == "editing"
+        graph_scope["revision_id"] = "rev:one"
+        prepared = client.post(path, json=command)
+        assert prepared.status_code == 200, prepared.text
+        assert prepared.json()["state"] == "applying"
+        assert client.post(path, json=confirm).status_code == 409
+        assert page_text(tmp_path, page.document_id) == draft
+        saved = save_page(tmp_path, page.document_id, after_draft)
+        observed = client.post(path, json=confirm)
+        assert observed.status_code == 200, observed.text
+        assert observed.json()["state"] == "applied" and observed.json()["saved_revision"] == saved.revision
+        assert client.post(path, json=confirm).json() == observed.json()

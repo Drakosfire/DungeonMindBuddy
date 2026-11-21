@@ -13,6 +13,7 @@ Build capture. Recheck World, native binding, revision, exact node ID, label,
 classification and current editable page basis. Apply a single paragraph with
 one typed `runbookReference` atom in the existing editor. Explicit Save owns
 persistence. A fresh open must restore the same chip and unrelated content.
+The Graph identity read is GM-scoped, so the receiver accepts internal pages.
 
 Ordinary Build Send joins this receiver in its serial successor. Keep Graph
 creation, statblock creation, related source retrieval and image movement out
@@ -34,7 +35,12 @@ their type boundaries. Graph verification and page compare-and-swap belong
 to separate storage owners. Apply attests one observed immutable Graph pin
 and uses the ordinary Content Save comparison for the page. There is no
 cross-store transaction. The migration is verified locally in disposable
-databases. Shared editor files still require a bounded write split.
+databases. The editor write split adds typed reference preparation and apply
+in `apps/live-control-ui/src/buildSurface/buildComposeBridge.ts`, alongside
+`BuildGraphReferenceReview.tsx` and its tests and
+`apps/live-control-ui/src/api/buildGraphReferenceReviewApi.ts`. It reuses the
+existing root-boundary transaction and Save owner. The older #3867 prose and
+the mounted Build shell authority stay in their owners.
 #3824 at `76c31187f3e9badecbc403f2d9c943994c5f5f9c`
 retains its hosted authorization. Reference draft #3867 at
 `a2c5d9115bf1347f2cd84a2808d3dec29ddc3242` carries earlier prose-only changes.
