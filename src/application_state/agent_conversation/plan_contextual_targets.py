@@ -99,6 +99,9 @@ def prepare_contextual_work(request):
             "Paragraph relations exclude direct anchors. Unscoped excludes section votes. "
             "Discussion without an edit excludes all location votes. "
             "The host resolves ambiguity and validates edit authority; these votes never Save."))
+    descriptions, headings = description_factors(request)
+    if descriptions:
+        state['section_description_evidence'] = {'qualified_descriptions': descriptions, 'heading_occurrences': headings}
     descriptions = {
         'discuss': 'Answer, explain, critique or discuss in conversation without a requested page edit.',
         'clarify': 'The intended work or content needs an author decision. Missing or ambiguous placement alone is not this intent.',
@@ -110,7 +113,8 @@ def prepare_contextual_work(request):
         ChoiceDecisionQuestion(name="requested_work", options=choices,
             option_descriptions={key: descriptions[key] for key in choices},
             question="What work does the current author request, independently of location availability?"),
-        *target_questions(request))})
+        *target_questions(request),
+        *description_questions(descriptions, headings))})
 
 
 def anchor_groups(capture, catalog):
@@ -297,11 +301,64 @@ def target_questions(request):
 
 def target_answer_keys(request):
     inventory = component_inventory(request.original_capture, request.placement_catalog)
+    descriptions, headings = description_factors(request)
     return {'placement_relation', 'paragraph_scope', 'scope_qualifier',
         *(f'anchor_{i}' for i in range(len(inventory['direct']))),
         *(f'passage_{i}' for i in range(len(inventory['passages']))),
         *(f'section_{i}' for i in range(len(inventory['sections']))),
-        *(f'ancestor_{i}' for i in range(len(inventory['ancestors'])))}
+        *(f'ancestor_{i}' for i in range(len(inventory['ancestors']))),
+        *(f'{key}_{heading["selector"]}' for key in descriptions for heading in headings)}
+
+
+def description_factors(request):
+    """Offer source description evidence for the exact retained author components."""
+    from .plan_author_location import DescribedScopeName, NamedScopePath, ScopeWithExclusion, source_heading_inventory
+
+    binding = getattr(request, 'author_scope_binding', None)
+    if binding is None:
+        return {}, ()
+    scope = binding.observation.scope
+    paths = (('positive', scope.positive), ('excluded', scope.excluded)) if isinstance(scope, ScopeWithExclusion) else (
+        ('positive', scope),) if isinstance(scope, NamedScopePath) else ()
+    descriptions = {f'description_{side}_{index}': component.text for side, path in paths
+        for index, component in enumerate(path.names) if isinstance(component, DescribedScopeName)}
+    if not descriptions:
+        return {}, ()
+    capture, catalog = request.original_capture, request.placement_catalog
+    passages = {row['selector']: row['text'] for row, _ in anchor_groups(capture, catalog) if row['kind'] == 'paragraph'}
+    headings = [{'selector': row['selector'], 'path': list(row['path']),
+        'passages': [passages[selector] for selector in row['anchors']]}
+        for row in source_heading_inventory(capture, catalog)['headings']]
+    return descriptions, headings
+
+
+def description_questions(descriptions, headings):
+    from generationengine.types import ChoiceDecisionQuestion
+
+    return tuple(ChoiceDecisionQuestion(name=f'{key}_{heading["selector"]}', options=('include', 'exclude'),
+        option_descriptions={'include': 'This exact heading occurrence matches the existing section description.',
+            'exclude': 'The heading occurrence differs or the captured section lacks evidence of the description.'},
+        question=f'Does heading occurrence {heading["selector"]} match {key} in section_description_evidence? '
+            'Use the title and captured passages of this occurrence. A shared title elsewhere or the intended '
+            'new material is not evidence. Include every matching occurrence independently.')
+        for key in descriptions for heading in headings)
+
+
+def _description_matches(request, answers):
+    descriptions, headings = description_factors(request)
+    matches_by_side = {'positive': {}, 'excluded': {}}
+    for key in descriptions:
+        _, side, component = key.split('_')
+        selected = []
+        for heading in headings:
+            alias = heading['selector']
+            vote = answers[f'{key}_{alias}']
+            if vote not in ('include', 'exclude'):
+                raise ValueError('Unknown described-section judgment')
+            if vote == 'include':
+                selected.append(alias)
+        matches_by_side[side][int(component)] = tuple(selected)
+    return matches_by_side['positive'] or None, matches_by_side['excluded'] or None
 
 
 def compatible_selectors(request, answers):
@@ -309,7 +366,8 @@ def compatible_selectors(request, answers):
 
 
 def contextual_work_choice(request, intent, answers):
-    keys = {key for key in answers if key.startswith(('anchor_', 'target_', 'passage_', 'section_', 'ancestor_'))
+    keys = {key for key in answers if key.startswith(
+        ('anchor_', 'target_', 'passage_', 'section_', 'ancestor_', 'description_'))
         or key in {'placement_relation', 'paragraph_scope', 'scope_qualifier'}}
     if keys != target_answer_keys(request):
         raise ValueError('Incomplete or foreign contextual-anchor judgments')
@@ -339,10 +397,14 @@ def contextual_work_choice(request, intent, answers):
         if (_CAPTURE_REWRITE.match(request.question)
                 and request.original_capture.target_kind != 'replace_selection'):
             relation = 'unresolved'
+        descriptions, excluded = _description_matches(request, answers)
         return dict(author_scope_binding=binding, scope_document_title=request.page_title or None,
             source_placement_relation=relation,
+            **({'scope_description_matches': descriptions} if descriptions is not None else {}),
+            **({'excluded_scope_description_matches': excluded} if excluded is not None else {}),
             **resolve_author_scope_targets(request.original_capture, request.placement_catalog,
-                intent, relation, binding.observation, direct, passages, document_title=request.page_title or None))
+                intent, relation, binding.observation, direct, passages, document_title=request.page_title or None,
+                description_matches=descriptions, excluded_description_matches=excluded))
     return resolve_component_targets(request.original_capture, request.placement_catalog, intent, relation,
         answers['paragraph_scope'], direct, passages, sections, answers['scope_qualifier'], ancestors)
 

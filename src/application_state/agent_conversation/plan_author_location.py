@@ -569,6 +569,8 @@ def bind_scope(capture, catalog, scope: ScopeExpression, *, document_title: str 
             description_matches=excluded_description_matches, allow_ordinal=allow_ordinal)
         if positive.status == 'unsupported' or excluded.status == 'unsupported':
             return BoundScope('unsupported', (), ())
+        if excluded_description_matches is not None and excluded.status != 'matched':
+            return BoundScope('unsupported', (), ())
         # A named section excludes its subtree, including descendant heading
         # addresses as well as paragraphs in that same range.
         excluded_headings = set(excluded.heading_indices)

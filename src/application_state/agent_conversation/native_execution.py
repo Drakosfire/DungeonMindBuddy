@@ -310,6 +310,10 @@ class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
         default=None, exclude_if=lambda value: value is None)
     scope_document_title: str | None = Field(default=None, exclude_if=lambda value: value is None)
     source_placement_relation: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    scope_description_matches: dict[int, tuple[str, ...]] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+    excluded_scope_description_matches: dict[int, tuple[str, ...]] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
     @field_validator('compatible_placement_selectors', 'compatible_anchor_selectors',
         'direct_anchor_selectors', 'compatible_passage_selectors', 'compatible_section_selectors',
@@ -342,10 +346,12 @@ class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
             fields = resolve_author_scope_targets(capture, catalog, self.requested_intent,
                 self.source_placement_relation, self.author_scope_binding.observation,
                 self.direct_anchor_selectors, self.compatible_passage_selectors,
-                document_title=self.scope_document_title)
+                document_title=self.scope_document_title, description_matches=self.scope_description_matches,
+                excluded_description_matches=self.excluded_scope_description_matches)
         else:
-            if self.source_placement_relation is not None or self.scope_document_title is not None:
-                raise ValueError('Source relation and title require their retained author scope')
+            if any(value is not None for value in (self.source_placement_relation, self.scope_document_title,
+                    self.scope_description_matches, self.excluded_scope_description_matches)):
+                raise ValueError('Source relation, title and description matches require retained author scope')
             fields = resolve_component_targets(capture, catalog, self.requested_intent,
                 self.requested_placement_relation, self.requested_paragraph_scope,
                 self.direct_anchor_selectors, self.compatible_passage_selectors, self.compatible_section_selectors,

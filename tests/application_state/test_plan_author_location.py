@@ -431,6 +431,8 @@ def test_description_binds_the_nominated_ancestor_occurrence_and_exclusion():
         excluded=NamedScopePath(names=(ceramics,)))
     assert bind_scope(capture, catalog, excluded, document_title=None,
         excluded_description_matches={0: ('heading1',)}).heading_indices == (8,)
+    assert bind_scope(capture, catalog, excluded, document_title=None,
+        excluded_description_matches={0: ()}).status == 'unsupported'
 
 
 def test_ordinal_never_enables_paragraph_scope_and_only_explicitly_selects_heading():

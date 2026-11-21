@@ -164,6 +164,41 @@ def test_author_scope_placement_joins_complete_path_and_agreed_relation(path, re
         assert catalog.resolve(capture, resolved['placement_selector']).root_boundary == boundary
 
 
+def test_described_scope_votes_join_only_the_nominated_heading_occurrence():
+    from types import SimpleNamespace
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservationV1
+    from application_state.agent_conversation.plan_author_location import DescribedScopeName, NamedScopePath
+    from application_state.agent_conversation.plan_contextual_targets import (
+        contextual_work_choice, description_factors, description_questions, target_questions,
+    )
+
+    capture, catalog = family_catalog([heading('Workshop'), prose('Clay is fired.'), prose('Pack the tile.'),
+        heading('Workshop'), prose('Wood is sawn.'), prose('Pack the tile.')])
+    observation = NativePlanAuthorScopeObservationV1(relation='after_paragraph', selected_alias='scope0',
+        scope=NamedScopePath(names=(DescribedScopeName(text='fired ceramics'),)))
+    request = SimpleNamespace(question='Add a warning after the tile step in the section about fired ceramics.',
+        original_capture=capture, placement_catalog=catalog, page_title='Workshop notes',
+        author_scope_binding=SimpleNamespace(observation=observation))
+    descriptions, headings = description_factors(request)
+    assert descriptions == {'description_positive_0': 'fired ceramics'}
+    assert headings == [
+        {'selector': 'heading0', 'path': ['Workshop'], 'passages': ['Clay is fired.', 'Pack the tile.']},
+        {'selector': 'heading1', 'path': ['Workshop'], 'passages': ['Wood is sawn.', 'Pack the tile.']},
+    ]
+    questions = (*target_questions(request), *description_questions(descriptions, headings))
+    answers = {question.name: question.options[-1] for question in questions}
+    answers.update(placement_relation='after_paragraph', paragraph_scope='named', scope_qualifier='none',
+        passage_1='include', description_positive_0_heading0='include')
+    result = contextual_work_choice(request, 'write_current_page', answers)
+    assert result['scope_description_matches'] == {0: ('heading0',)}
+    assert catalog.resolve(capture, result['placement_selector']).root_boundary == 3
+    answers['description_positive_0_heading1'] = 'include'
+    assert contextual_work_choice(request, 'write_current_page', answers)['target_resolution'] == 'ambiguous'
+    del answers['description_positive_0_heading0']
+    with pytest.raises(ValueError, match='Incomplete or foreign'):
+        contextual_work_choice(request, 'write_current_page', answers)
+
+
 def test_passage_families_expand_all_occurrences_before_named_scope_filters():
     capture, catalog = family_catalog([heading('Preparation'), prose('Shared.'), heading('Rumours'), prose('Shared.')])
     result = component_result(capture, catalog)
