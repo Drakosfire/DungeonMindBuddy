@@ -4,6 +4,52 @@ Run from the root of the reviewed Buddy checkout on the selected deployment host
 
 Record release-host and public validation outcomes using the [release rehearsal checklist](RELEASE-REHEARSAL-buddy-checklist.md). It summarizes pending evidence and does not replace the steps below.
 
+## Agent-assisted upgrades through SSH
+
+Use this workflow for an existing hosted installation. The operator owns the
+privileged Compose switch. The agent can inspect, stage, build, and verify
+through the operator's existing SSH account.
+
+1. **Establish temporary SSH access.** The operator loads the existing deploy
+   key on the workstation with `ssh-add -t 1h ~/.ssh/id_rsa` (substitute the
+   configured key path). Use the existing trusted host key. Check noninteractive
+   access with `ssh -o BatchMode=yes -o ConnectTimeout=6 <buddy-ssh-host> true`.
+   If the agent refuses signing, have the operator refresh the key. Host-key
+   errors require verifying the host identity through the established channel.
+2. **Pin and inspect the release.** Fetch the owning remote. Record the exact
+   reviewed source SHA and frontend verification result. Inspect the running
+   container's image, health, and Compose project labels with `docker inspect
+   --format`. Record the app and Graph migration revisions using the read-only
+   checks below. Compare the candidate against the serving SHA. For a bounded
+   hotfix, transplant the reviewed change onto the serving revision, verify
+   the resulting diff, and run the verifier against that exact release SHA.
+   For a migration-bearing release, use the backup, rehearsal, and separate
+   migration credentials in this runbook.
+3. **Stage and build.** Check host capacity first. Use a clean checkout and
+   `scripts/prepare_buddy_release_image.sh <release-sha>`. If the server has
+   no checkout, stream `git archive <release-sha>` over SSH into a fresh
+   release directory and run `docker build --target api -f Dockerfile.production
+   --label "org.opencontainers.image.revision=<release-sha>"
+   -t "dungeonmindbuddy:<release-sha>" .` there. Inspect the completed image
+   ID and revision label. Stage a Compose override that sets only
+   `services.buddy.image` to the exact tag. Verify the prior image is still
+   available and retain the previous Compose configuration for rollback.
+4. **Switch from the cloud terminal.** Recheck the serving image against
+   the recorded expected SHA. Reuse the running container's ordered
+   `com.docker.compose.project.config_files`, project name, and protected
+   environment file. On the current server that file is
+   `/srv/dungeonmindbuddy/secrets/buddy.env`. The operator runs the privileged
+   Compose command with those inputs and the new image override last.
+   Confirm `config --images buddy` resolves the exact staged tag before
+   running `up -d --no-deps --pull never --wait --wait-timeout 180 buddy`.
+   Keep the root-owned environment file in place and avoid printing rendered
+   Compose config, which can contain secrets.
+5. **Verify and settle.** Inspect the running revision and health again
+   over SSH, check the public route, and reproduce the release-specific
+   behavior in a signed-in browser. If health or the smoke test fails,
+   follow the rollback procedure below. Retire old Buddy images only after
+   the rollback window and the retention checks in this runbook.
+
 ## 1. Prepare the release record
 
 Record the host and SSH alias, release commit, image ID or registry digest, Compose project, host bind port, approved absolute persistent root, Nginx virtual host, DNS records, certificate owner, and rollback owner. Record the approved DMS test account and expected World, both database owners and migration heads, and the backup and restore evidence. Keep credentials and session cookies in their designated stores.
