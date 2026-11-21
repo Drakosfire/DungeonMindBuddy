@@ -553,6 +553,22 @@ def validate_decision_phases(execution):
             and event.provider_attempt_id == auth.provider_attempt_id
         ):
             outcome = event
+        elif event.kind == 'native_plan_author_scope_observed_v1':
+            from .native_plan_opening import NativePlanAuthorScopeObservedV1
+
+            if (type(event) is not NativePlanAuthorScopeObservedV1
+                    or type(auth) is not NativePlanAuthorScopeAuthorizedV1
+                    or intent is not None or writer is not None
+                    or outcome is None or outcome.outcome != 'response_received'
+                    or outcome.response_sha256 not in (None, event.controller_response_sha256)
+                    or event.controller_attempt_id != auth.provider_attempt_id
+                    or event.decision_request_id != auth.decision_request_id
+                    or event.parent_request_sha256 != auth.parent_request_sha256
+                    or event.controller_envelope_sha256 != auth.envelope_sha256
+                    or event.context_receipt_sha256 != execution.context_receipt_sha256
+                    or event.execution_policy_sha256 != execution.execution_policy_sha256):
+                raise ValueError('Author scope observation requires its unique settled SDK response')
+            auth, outcome = None, None
         elif isinstance(event, t.PlanRequestedWorkSelectedV1):
             if (
                 not semantic_policy

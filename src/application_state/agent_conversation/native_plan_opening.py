@@ -50,6 +50,22 @@ class NativePlanAuthorScopeObservationV1(Strict):
     scope: ScopeExpression
 
 
+class NativePlanAuthorScopeObservedV1(t.GraphExecutionEventBaseV1):
+    """Protected Jev observation with no work-selection fields."""
+
+    kind: Literal['native_plan_author_scope_observed_v1'] = 'native_plan_author_scope_observed_v1'
+    decision_request_id: UUID
+    controller_attempt_id: UUID
+    controller_envelope_sha256: Digest
+    controller_response_sha256: Digest
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    parent_request_sha256: Digest
+    scope_observation: NativePlanAuthorScopeObservationV1
+    actual_input_tokens: int | None = Field(default=None, strict=True, ge=0)
+    actual_output_tokens: int | None = Field(default=None, strict=True, ge=0)
+
+
 class NativePlanAuthorScopeParentV1(NativePlanAuthorScopeInputV1):
     """Host binding for the exact source-blind SDK request."""
 

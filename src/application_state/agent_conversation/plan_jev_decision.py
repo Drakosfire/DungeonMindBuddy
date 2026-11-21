@@ -258,10 +258,17 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
     if len(captures) != 1 or captures[0].get("text") != raw:
         raise ValueError("Plan decision result differs from exact protected SDK capture")
     result = DecisionResult.model_validate(strict_json(raw))
+    from .native_plan_opening import NativePlanAuthorScopeObservedV1, decode_author_scope_decision
+    from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
+    author_scope = type(event) is NativePlanAuthorScopeObservedV1
     semantic = isinstance(event, t.PlanRequestedWorkSelectedV1)
-    if semantic != isinstance(auth, t.PlanRequestedWorkAuthorizedV1):
+    if (author_scope != (type(auth) is NativePlanAuthorScopeAuthorizedV1)
+            or (not author_scope and semantic != isinstance(auth, t.PlanRequestedWorkAuthorizedV1))):
         raise ValueError('Plan decision kind differs from its actual producer')
-    if semantic:
+    if author_scope:
+        if event.scope_observation != decode_author_scope_decision(request, result):
+            raise ValueError('Author scope observation differs from its exact SDK result')
+    elif semantic:
         from .plan_authoring import decode_requested_work_decision
         from .native_plan_opening import NativePlanOpeningInputV1, NativePlanOpeningInputV2, NATIVE_PLAN_OPENING_INPUT_TYPES, decode_opening_decision
         from .native_execution import NativePlanOpeningSelectedV1, NativePlanOpeningSelectedV2, NATIVE_PLAN_OPENING_SELECTION_TYPES, NATIVE_PLAN_WORK_SELECTION_TYPES
@@ -322,7 +329,8 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
             or event.decision_request_id != request.request_id
             or event.controller_envelope_sha256 != auth.envelope_sha256
             or event.parent_request_sha256 != request.digest
-            or (not semantic and (event.operation != selected.operation or tuple(event.selected_handles) != selected.selected_handles))
+            or (not semantic and not author_scope
+                and (event.operation != selected.operation or tuple(event.selected_handles) != selected.selected_handles))
             or event.actual_input_tokens != observation.input_tokens
             or event.actual_output_tokens != observation.output_tokens):
         raise ValueError("Plan selection/usage differs from its exact typed producer result")

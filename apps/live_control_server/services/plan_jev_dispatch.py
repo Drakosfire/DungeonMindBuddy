@@ -183,6 +183,24 @@ class PlanJevDispatch:
         from application_state.agent_conversation.native_retrieval import controller_accounting
         return controller_accounting(self.adapter.fence.turn.graph_context_execution)
 
+    @classmethod
+    def author_scope(cls, adapter, *, dialogue=(), quote_context=False):
+        from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1
+        from application_state.agent_conversation.native_execution import NativePlanActionV3
+        from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeParentV1
+
+        turn = adapter.fence.turn
+        admission = turn.graph_context_receipt.assembled_input
+        if (type(admission) is not NativePlanRequestAdmissionV1
+                or type(turn.graph_context_execution.policy.action) is not NativePlanActionV3):
+            raise ValueError('Author scope requires an admitted contextual Plan turn')
+        dispatch = cls(adapter, (), dialogue=dialogue)
+        dispatch.parent = NativePlanAuthorScopeParentV1(
+            question=turn.user_text, dialogue=tuple(dialogue), quote_context=quote_context,
+            max_span_attempts=2048, request_id=uuid4(), parent_attempt_id=uuid4(),
+            scope_sha256=scope_digest(turn), request_manifest_sha256=admission.manifest_sha256)
+        return dispatch
+
     def _host_phase(self):
         from application_state.agent_conversation.jev_retrieval_contract import NativeBuildRetrievalDecisionInputV3
         return "navigate" if isinstance(self.parent, NativeBuildRetrievalDecisionInputV3) else None
@@ -200,7 +218,10 @@ class PlanJevDispatch:
         trace = getattr(self.adapter, "trace", None)
         with trace.measure_host_work('controller_authorization') if trace is not None else nullcontext():
             from .agent_turn_service import AgentTurnServiceError, _json_node_count, _require_fresh_execution_append
-            semantic = isinstance(self.parent, PlanRequestedWorkInputV1)
+            from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeParentV1
+
+            author_scope = type(self.parent) is NativePlanAuthorScopeParentV1
+            semantic = author_scope or isinstance(self.parent, PlanRequestedWorkInputV1)
             if semantic:
                 validate_prepared_requested_work(self.parent,prepared)
             else:
@@ -219,7 +240,7 @@ class PlanJevDispatch:
                 if a._build_jev_accounting.descriptor != self._native_accounting():
                     raise ValueError("Native Build decision counter differs from its actual policy")
                 view=prepared_view(prepared,json.loads(prepared.body)["state"],accounting=a._build_jev_accounting,host_phase=self._host_phase())
-            else:
+            elif not author_scope:
                 a._active_plan_jev_request = self.parent
                 try:
                     a._ensure_claimed(view)
@@ -247,12 +268,16 @@ class PlanJevDispatch:
             if not native_build and a.budget["contextLimitTokens"] is not None and estimate + a.budget["outputReserveTokens"] > a.budget["contextLimitTokens"]:
                 raise ValueError("Plan Jev actual request exceeds the existing provider context allowance")
             from application_state.agent_conversation.native_retrieval import NativeRetrievalAuthorizedV1, NativePlanOpeningAuthorizedV1
+            from application_state.agent_conversation.native_retrieval import NativePlanAuthorScopeAuthorizedV1
             from application_state.agent_conversation.native_plan_opening import NATIVE_PLAN_OPENING_INPUT_TYPES
             opening = type(self.parent) in NATIVE_PLAN_OPENING_INPUT_TYPES
             auth_type = NativePlanOpeningAuthorizedV1 if opening else t.PlanRequestedWorkAuthorizedV2 if isinstance(self.parent, PlanRequestedWorkInputV2) else t.PlanRequestedWorkAuthorizedV1 if semantic else NativeRetrievalAuthorizedV1 if native else t.PlanJevProviderAuthorizedV1
             build_context = dict(context_mode=view["contextMode"],context_phase=view["contextPhase"],
                 max_question_input_tokens=view["maxQuestionInputTokens"],dispatch_identity_sha256=view["dispatchIdentitySha256"]) if native_build else None
-            auth = auth_type(kind='native_plan_opening_authorized_v1' if opening else 'plan_requested_work_authorized_v2' if isinstance(self.parent, PlanRequestedWorkInputV2) else 'plan_requested_work_authorized_v1' if semantic else 'native_retrieval_authorized_v1' if native else 'plan_jev_provider_authorized_v1', event_id=uuid4(),
+            auth_kind = 'native_plan_opening_authorized_v1' if opening else 'plan_requested_work_authorized_v2' if isinstance(self.parent, PlanRequestedWorkInputV2) else 'plan_requested_work_authorized_v1' if semantic else 'native_retrieval_authorized_v1' if native else 'plan_jev_provider_authorized_v1'
+            if author_scope:
+                auth_type, auth_kind = NativePlanAuthorScopeAuthorizedV1, 'native_plan_author_scope_authorized_v1'
+            auth = auth_type(kind=auth_kind, event_id=uuid4(),
                 sequence=len(execution.events), provider_attempt_id=UUID(prepared.attempt_id),
                 decision_request_id=self.parent.request_id, parent_request_sha256=self.parent.digest,
                 envelope_sha256=prepared.body_sha256, serializer_version="typesafe-sdk-json-v1",
@@ -276,9 +301,12 @@ class PlanJevDispatch:
                 return False
             transition = {"sending": "sdk_entered", "known_not_sent": "known_not_sent",
                 "response_received": "response_received", "outcome_unknown": "outcome_unknown"}.get(event.outcome)
-            from application_state.agent_conversation.native_retrieval import NativePlanOpeningAuthorizedV1
+            from application_state.agent_conversation.native_retrieval import (
+                NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1,
+            )
             entry_binding = ({'opening_authorization': self.authorization}
-                if transition == 'sdk_entered' and type(self.authorization) is NativePlanOpeningAuthorizedV1 else {})
+                if transition == 'sdk_entered' and type(self.authorization) in (
+                    NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeAuthorizedV1) else {})
             acknowledged = transition is not None and self.adapter.record_lifecycle({"transition": transition, "statusCode": event.http_status,
                 "runtimeApiRequestId": f"generationengine:{self.prepared.attempt_id}"}, **entry_binding)
             if acknowledged and transition == "sdk_entered":
@@ -301,6 +329,9 @@ class PlanJevDispatch:
             a.context_capture.observe({"kind": "context_snapshot", "stage": "after", "materials": [{
                 "item_id": f"{capture_name}:{self.authorization.provider_attempt_id}",
                 "state": "model_context", "role": "assistant", "text": raw}]})
+            from application_state.agent_conversation.native_retrieval import NativePlanAuthorScopeAuthorizedV1
+            if type(self.authorization) is NativePlanAuthorScopeAuthorizedV1:
+                return self._acknowledge_author_scope(result, raw)
             semantic = isinstance(self.parent, PlanRequestedWorkInputV1)
             from application_state.agent_conversation.native_plan_opening import NATIVE_PLAN_OPENING_INPUT_TYPES, NativePlanOpeningInputV2, decode_opening_decision
             opening = type(self.parent) in NATIVE_PLAN_OPENING_INPUT_TYPES
@@ -356,6 +387,29 @@ class PlanJevDispatch:
             self.selection = selected_fields["requested_work"] if placement else selected
             return self.selection
 
+    def _acknowledge_author_scope(self, result, raw):
+        from .agent_turn_service import _require_fresh_execution_append
+        from application_state.agent_conversation.native_plan_opening import (
+            NativePlanAuthorScopeObservedV1, decode_author_scope_decision,
+        )
+
+        adapter = self.adapter
+        execution = adapter.fence.turn.graph_context_execution
+        observation = decode_author_scope_decision(self.parent, result)
+        event = NativePlanAuthorScopeObservedV1(event_id=uuid4(), sequence=len(execution.events),
+            decision_request_id=self.parent.request_id, controller_attempt_id=self.authorization.provider_attempt_id,
+            context_receipt_sha256=execution.context_receipt_sha256,
+            execution_policy_sha256=execution.execution_policy_sha256,
+            parent_request_sha256=self.parent.digest, controller_envelope_sha256=self.prepared.body_sha256,
+            controller_response_sha256=sha256(raw.encode()).hexdigest(), scope_observation=observation,
+            actual_input_tokens=result.observation.input_tokens, actual_output_tokens=result.observation.output_tokens)
+        adapter.turn = _require_fresh_execution_append(adapter.fence.append(
+            'record_plan_author_scope_observation', 'observation', event,
+            producer_proof={'parent_request_json': self.parent.model_dump_json(by_alias=True),
+                'request_json': self.prepared.body.decode(), 'response_json': raw}))
+        self.selection_event, self.selection = event, observation
+        return observation
+
     async def run(self, *, transport=None, api_key=None, client=None):
         trace = getattr(self.adapter, "trace", None)
         detailed = trace is not None and host_work_observer.get() is not None
@@ -370,9 +424,15 @@ class PlanJevDispatch:
             started = perf_counter()
             try:
                 with trace.measure_host_work("plan_jev_request_preparation") if detailed else nullcontext():
-                    request = (prepare_requested_work_decision(self.parent)
-                        if isinstance(self.parent, PlanRequestedWorkInputV1)
-                        else prepare_decision(self.parent, controller_accounting=self._native_accounting()))
+                    from application_state.agent_conversation.native_plan_opening import (
+                        NativePlanAuthorScopeParentV1, prepare_author_scope_decision,
+                    )
+                    if type(self.parent) is NativePlanAuthorScopeParentV1:
+                        request = prepare_author_scope_decision(self.parent)
+                    else:
+                        request = (prepare_requested_work_decision(self.parent)
+                            if isinstance(self.parent, PlanRequestedWorkInputV1)
+                            else prepare_decision(self.parent, controller_accounting=self._native_accounting()))
                 result = await client.decide(request)
                 observation = result.observation
                 if self.call is not None:

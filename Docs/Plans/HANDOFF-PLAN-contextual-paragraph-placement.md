@@ -271,6 +271,11 @@ The cumulative expected paths are:
   `native_retrieval.py`, `jev_retrieval_contract.py`, `native_writer.py`,
   `native_plan_session.py`, `native_corpus.py`, `build_related_pages.py`,
   `connected_page_origins.py` under `src/application_state/agent_conversation/`.
+- In that same owner, `service.py` is limited to the tracked native author-scope
+  observation append and exact protected-response verification. Other append,
+  retrieval, authoring, and runtime behavior follows its existing owner.
+- `context_trace_store.py` is limited to recognizing the actual native
+  author-scope authorization as a prompt-reference owner.
 - The relocated172 migration; `tests/application_state/test_plan_placement.py`,
   `test_plan_contextual_targets.py`, `test_native_corpus_sources.py`;
   `tests/test_plan_jev_authoring.py`;

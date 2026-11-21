@@ -405,21 +405,10 @@ def test_agent_reservation_marks_both_owners_before_commit_and_replays_exactly(
     )
 
 
-def test_author_scope_input_admission_joins_exact_native_turn_without_granting_work(plan_adapter):
-    from hashlib import sha256
-
-    from application_state.agent_conversation.native_plan_opening import (
-        NativePlanAuthorScopeParentV1, prepare_author_scope_decision,
-    )
+def _claim_contextual_scope_turn(plan_adapter):
     from application_state.agent_conversation.native_plan_statements import NativePlanQueryUnavailableV1
-    from application_state.agent_conversation.native_retrieval import NativePlanAuthorScopeAuthorizedV1
-    from application_state.agent_conversation.native_writer import json_container_count
-    from application_state.agent_conversation.plan_jev_decision import scope_digest
     from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2, PlanPlacementOptionV2
-    from application_state.agent_conversation.types import (
-        NativeCorpusUnavailableV1, PlanContextPolicyV2, ProviderOutcomeEventV1,
-    )
-    from application_state.errors import ApplicationStateValidationError
+    from application_state.agent_conversation.types import NativeCorpusUnavailableV1, PlanContextPolicyV2
 
     capture, _ = admitted_authoring(plan_adapter, admit=False)
     catalog = PlanPlacementCatalogV2(original_capture_sha256=capture.sha256,
@@ -434,7 +423,22 @@ def test_author_scope_input_admission_joins_exact_native_turn_without_granting_w
         managed_world_id='world:one', failure_code='native_source_head_unavailable')
     plan_adapter.native_query = NativePlanQueryUnavailableV1(
         managed_world_id='world:one', reason='native_graph_binding_unavailable')
-    turn = plan_adapter.claim_native_plan_request(dialogue=())
+    return capture, plan_adapter.claim_native_plan_request(dialogue=())
+
+
+def test_author_scope_input_admission_joins_exact_native_turn_without_granting_work(plan_adapter):
+    from hashlib import sha256
+
+    from application_state.agent_conversation.native_plan_opening import (
+        NativePlanAuthorScopeParentV1, prepare_author_scope_decision,
+    )
+    from application_state.agent_conversation.native_retrieval import NativePlanAuthorScopeAuthorizedV1
+    from application_state.agent_conversation.native_writer import json_container_count
+    from application_state.agent_conversation.plan_jev_decision import scope_digest
+    from application_state.agent_conversation.types import ProviderOutcomeEventV1
+    from application_state.errors import ApplicationStateValidationError
+
+    capture, turn = _claim_contextual_scope_turn(plan_adapter)
     admission = turn.graph_context_receipt.assembled_input
     parent = NativePlanAuthorScopeParentV1(question=turn.user_text, dialogue=(),
         max_span_attempts=2048, quote_context=False, request_id=uuid4(), parent_attempt_id=uuid4(),
@@ -476,6 +480,77 @@ def test_author_scope_input_admission_joins_exact_native_turn_without_granting_w
         plan_adapter.service.record_provider_outcome(
             stored.world_id, stored.conversation_id, stored.turn_id,
             expected_revision=stored.revision, expected_attempt=stored.attempt, outcome=entered)
+
+
+@pytest.mark.parametrize('provider_case', ['success', 'substituted_observation', 'unknown_outcome'])
+def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
+        plan_adapter, monkeypatch, provider_case):
+    import asyncio
+
+    from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+    from application_state.agent_conversation.plan_author_location import UnscopedLocation
+    from application_state.agent_conversation.plan_jev_decision import current_selection
+    from application_state.errors import ApplicationStateValidationError
+    from generationengine import GenerationEngineError
+
+    _, turn = _claim_contextual_scope_turn(plan_adapter)
+    dispatch = PlanJevDispatch.author_scope(plan_adapter)
+    requests = []
+    if provider_case == 'substituted_observation':
+        append = plan_adapter.fence.append
+
+        def substitute(method, label, event, **extras):
+            if type(event) is NativePlanAuthorScopeObservedV1:
+                changed = event.scope_observation.model_copy(update={'relation': 'after_heading'})
+                event = event.model_copy(update={'scope_observation': changed})
+            return append(method, label, event, **extras)
+
+        monkeypatch.setattr(plan_adapter.fence, 'append', substitute)
+
+    async def respond(request):
+        requests.append(request)
+        current = plan_adapter.service.list_turns(turn.world_id, turn.conversation_id)[0]
+        assert current.graph_context_execution.events[-1].outcome == 'sdk_entered'
+        wire = json.loads(request.content)
+        assert set(wire['state']) == {'current_request', 'dialogue', 'scope_hypotheses'}
+        assert turn.world_id not in request.content.decode()
+        if provider_case == 'unknown_outcome':
+            raise httpx2.ReadTimeout('synthetic unknown outcome', request=request)
+        selections = {'location_relation': 'captured', 'existing_scope': 'none'}
+        answers = {name: {'type': 'choice', 'choice': selected, 'confidence': 1.0,
+            'probabilities': {key: float(key == selected) for key in wire['questions'][name]['criteria']}}
+            for name, selected in selections.items()}
+        return httpx2.Response(200, request=request, json={'model': wire['model'], 'answers': answers,
+            'usage': {'input_tokens': 40, 'output_tokens': 9}})
+
+    def run():
+        return asyncio.run(dispatch.run(
+            transport=httpx2.MockTransport(respond), api_key='synthetic-not-secret'))
+
+    if provider_case == 'unknown_outcome':
+        with pytest.raises(GenerationEngineError):
+            run()
+    elif provider_case == 'substituted_observation':
+        with pytest.raises(ApplicationStateValidationError, match='differs from its exact SDK result'):
+            run()
+    else:
+        observation, result = run()
+    current = plan_adapter.service.list_turns(turn.world_id, turn.conversation_id)[0]
+    events = current.graph_context_execution.events
+    assert len(requests) == 1
+    if provider_case != 'success':
+        assert len(events) == 3
+        assert events[-1].outcome == ('outcome_unknown' if provider_case == 'unknown_outcome' else 'response_received')
+        return
+    assert [e.kind for e in events] == ['native_plan_author_scope_authorized_v1',
+        'provider_outcome', 'provider_outcome', 'native_plan_author_scope_observed_v1']
+    assert type(events[-1]) is NativePlanAuthorScopeObservedV1
+    assert events[-1].scope_observation == observation
+    assert observation.relation == 'captured' and observation.scope == UnscopedLocation()
+    assert events[-1].actual_output_tokens == result.observation.output_tokens == 9
+    with pytest.raises(ValueError, match='no longer current'):
+        current_selection(current)
 
 
 @pytest.mark.parametrize("mutation", ["content", "turn_revision", "capture", "pointer"])

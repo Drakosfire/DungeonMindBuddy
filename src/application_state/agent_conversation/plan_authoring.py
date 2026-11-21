@@ -564,9 +564,11 @@ def validate_prepared_requested_work(
 ) -> None:
     from generationengine.decision_dispatch import PreparedDecisionDispatch
     from .jev_retrieval_contract import MODEL, PROVIDER
+    from .native_plan_opening import NativePlanAuthorScopeParentV1, validate_author_scope_wire
 
     from .plan_placement import PlanRequestedWorkInputV3
-    if not isinstance(request, PlanRequestedWorkInputV3):
+    author_scope = type(request) is NativePlanAuthorScopeParentV1
+    if not author_scope and not isinstance(request, PlanRequestedWorkInputV3):
         raise ValueError("Current Plan dispatch requires the V3 current-request contract")
 
     if (
@@ -582,7 +584,10 @@ def validate_prepared_requested_work(
     ):
         raise ValueError("Plan requested-work prepared wire identity differs")
     UUID(prepared.attempt_id)
-    validate_requested_work_wire(request, prepared.body)
+    if author_scope:
+        validate_author_scope_wire(request, prepared.body)
+    else:
+        validate_requested_work_wire(request, prepared.body)
 
 
 def lock_plan_basis(conn, basis: PlanAuthoringBasisV1) -> None:
