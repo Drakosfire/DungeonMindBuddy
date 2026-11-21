@@ -105,7 +105,8 @@ class BuildGraphReferenceDecision:
                 **boundary.state,
                 "graph_reference_policy": (
                     "Nominate one existing Graph object and where its typed reference goes. Treat a request to insert "
-                    "one existing typed reference as paragraph placement in the boundary questions. Never infer a "
+                    "one existing typed reference as paragraph placement in the boundary questions. Judge the "
+                    "paragraph independently of whether a matching Graph object exists or has the required kind. Never infer a "
                     "destination from matching names in the source. Graph descriptions are reference facts. "
                     "Include every independently matching object, even if it shares a name. Use only qualification "
                     "actually applied to the named object. A page or heading qualifier used only for paragraph placement "
@@ -120,7 +121,10 @@ class BuildGraphReferenceDecision:
             "questions": (*boundary.questions,
                 ChoiceDecisionQuestion(name="reference_intent", options=(
                     "place_existing", "discussion", "new_object", "different_page", "unresolved",
-                ), question="Is the author asking to attach a typed reference to an existing Graph object on this page?"),
+                ), question=("Which action is requested? Choose place_existing for a request to attach a reference "
+                             "to an existing Graph object on this page, even if the object or destination paragraph "
+                             "cannot be located. Other choices are discussion, creating a new object, a different "
+                             "page, or an action that is itself unclear.")),
                 ChoiceDecisionQuestion(name="reference_kind", options=("unspecified", "other_kind", *kinds),
                     question=("Which Graph classification does the author require for the named object? "
                               "Choose other_kind if a required classification is absent and unspecified if none is required.")),
@@ -148,11 +152,10 @@ class BuildGraphReferenceDecision:
             question.name: result.answers[question.name] for question in boundary_request.questions
         }})
         placement = resolve_build_boundary(self.catalog, decode_build_boundary_decision(boundary_request, boundary_response))
-        if placement.target is None:
-            return BuildGraphReferenceNomination(disposition={
-                "ambiguous": "ambiguous_boundary", "missing": "missing_boundary",
-                "different_destination": "different_page", "discuss": "discussion",
-            }.get(placement.disposition, "unresolved"))
+        if placement.disposition in {"different_destination", "discuss"}:
+            return BuildGraphReferenceNomination(disposition=(
+                "different_page" if placement.disposition == "different_destination" else "discussion"
+            ))
 
         objects, kinds = self._offers()
         included = [candidate for alias, candidate in objects.items() if answers[alias] == "include"]
@@ -172,6 +175,10 @@ class BuildGraphReferenceDecision:
         if len(namesakes) > 1 and (answers["reference_qualified"] != "qualified"
                                    or not _has_explicit_qualifier(self.question, chosen, namesakes)):
             return BuildGraphReferenceNomination(disposition="ambiguous_identity")
+        if placement.target is None:
+            return BuildGraphReferenceNomination(disposition={
+                "ambiguous": "ambiguous_boundary", "missing": "missing_boundary",
+            }.get(placement.disposition, "unresolved"))
         return BuildGraphReferenceNomination(disposition="ready", placement=BuildGraphReferencePlacement(
             basis=self.basis, reference=chosen.reference, entity_kind=chosen.entity_kind, boundary=placement.target,
         ))
