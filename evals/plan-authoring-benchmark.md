@@ -103,6 +103,34 @@ confirmation, save receipts, and independent readbacks. Score the first
 failed boundary and any partial state. Markdown in conversation is sufficient
 for the review step.
 
+## AW10 — Maelthor from the conversation
+
+Extend the original [Maelthor conversation-to-page benchmark](https://github.com/Drakosfire/DungeonMindBuddy/pull/4017)
+with the explicit operator turn **“Create a page for Maelthor”** after the
+discussion has already collected sufficient evidence. Keep the original
+blank-to-populated and stale-review controls.
+
+Freeze the preceding conversation and the exact supports already admitted in
+its completed turns. Before execution, verify that the required prior claims
+and exact citations are present in that prefix. A fixture missing either
+support is unqualified for the grounded zero-retrieval case. Do not backfill
+its prior turns with facts recovered by the failing creation turn.
+
+| Boundary | Acceptance |
+| --- | --- |
+| Intent and acquisition | An ordinary Build turn recognizes the named standalone page. The draft uses the prior discussion and its admitted evidence. The trace shows zero new Graph, corpus, or related-page discovery and reads. Loading the exact retained conversation and citation records is allowed. |
+| Draft and provenance | Offer one reviewable Maelthor draft. Retain Ethel’s Session 3 dream and the Session 6 use of “Maelthor” as a password where supported by the pinned prior turns. Carry their exact citations into the draft. Keep Maelthor’s identity and motives, Dust Walker’s connection, and the Meat Mind’s relationship open where the discussion left them open. Keep the author’s ideas visibly proposed. |
+| Confirm and reopen | Before confirmation, there are zero page, revision, or Graph mutations. Confirm the displayed review digest in the isolated evaluator, then reopen the page and inspect the exact citation targets. Repeating the confirmation returns the same receipt and leaves one page. |
+| Controls | A foreign conversation, wrong citation owner, or stale review cannot create a page. A separate explicit research request can use normal retrieval. An uncited prior assertion never gains a citation merely by appearing in dialogue. |
+
+The hosted capture of turn `9e60e894-dcb2-4e52-b84e-06481be35cf0`
+(SHA-256 `dff451e679e7cef5726e3bb22b0b247072902e48bdc1d96c8bb0981de569667e`)
+selected `review_lore_page` and produced a Maelthor proposal after about 75
+seconds, including related-page and corpus retrieval. A read-only check found
+zero save-review or confirmation receipts for that turn. Record the observed
+routing and proposal separately from the acquisition failure and unexercised
+save boundary. This capture does not qualify the candidate.
+
 ## Checkpoint storage
 
 Use the benchmark artifact owner's `action_checkpoint` for serial capture and
