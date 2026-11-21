@@ -11,13 +11,14 @@ import './combatAssembly.css';
 /** A Surface-owned draft editor. Loading identity never invents or loads mechanics. */
 type AssemblyProps = {
   worldId: string; disabled: boolean; remainingSlots: number; variant?: SavedConversationVariantTarget;
+  disclosureGroup?: string;
   onAdd: (entities: CombatEntity[], group: CombatGroup | null) => string | void;
 };
 export function CombatEncounterAssembly(props:AssemblyProps) {
   const targetKey = props.variant ? [props.variant.conversationId, props.variant.turnId, props.variant.reviewId] : [];
   return <Assembly key={JSON.stringify([props.worldId, ...targetKey])} {...props}/>;
 }
-function Assembly({worldId,disabled,remainingSlots,onAdd,variant}:AssemblyProps) {
+function Assembly({worldId,disabled,remainingSlots,onAdd,variant,disclosureGroup}:AssemblyProps) {
   const [world, setWorld] = useState<WorldCreatureCatalog | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,7 +142,8 @@ function Assembly({worldId,disabled,remainingSlots,onAdd,variant}:AssemblyProps)
     if (refusal) {setError(refusal); return;}
     setError(null); setName(''); setSelected(null); discardPreview();
   }
-  return <details className="combat-assembly"><summary>Add combatants</summary>
+  return <details className="combat-assembly" name={disclosureGroup}><summary>Add combatants</summary>
+    <div className="combat-assembly-content">
     <p>Choose a World creature, load saved mechanics, or enter a name. Enter the stats you want to track; World identity alone supplies no mechanics.</p>
     {variant && <button type="button" disabled={disabled || previewing} onClick={() => void loadVariant()}>
       Load saved statblock variant
@@ -195,5 +197,6 @@ function Assembly({worldId,disabled,remainingSlots,onAdd,variant}:AssemblyProps)
     </div>
     {validationError && <p role="status">{validationError}</p>}
     <p className="module-muted">Save the encounter to keep these combatants.</p>
+    </div>
   </details>;
 }
