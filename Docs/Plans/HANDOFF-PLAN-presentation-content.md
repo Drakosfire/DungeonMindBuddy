@@ -1,8 +1,10 @@
 # Plan presentation persistence in Content
 
-Status: ACTIVE for the Content-owner prerequisite. This serial slice starts from
-`774aa06344eb0a9411855eccdc7e33e7fead89c4` on
-`codex/plan-presentation-content`, in the existing isolated Plan lane.
+Status: MERGED in PR #4344 as `c68d9a2417b7cae8798f80da17c747c6dfe3e6c7`.
+Exact reviewed head `8ebe575cf272852f969be1587cffccd406c2b247` exercised all five
+new Content cases and twenty focused review/ownership controls. The named suite
+had 474 passes, two skips and the identical inherited Build Image HTTP error.
+The serial successor is [Plan presentation over HTTP](HANDOFF-PLAN-presentation-http.md).
 
 The ordinary plain-Plan feature merged in #4264. Its composed-page successor
 needs a durable basis before normal Send can target a row slot. Current Plan

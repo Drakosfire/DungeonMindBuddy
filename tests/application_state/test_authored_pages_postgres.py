@@ -20,6 +20,7 @@ from application_state.errors import (
     ApplicationStateValidationError,
 )
 from application_state.world_catalog.service import create_world
+from tests.test_hosted_native_graph_access import hosted, recap_lane  # noqa: F401
 
 
 @pytest.fixture
@@ -758,3 +759,130 @@ def test_plan_presentation_cold_read_refuses_divergent_markdown_only_draft(plain
         )
     with pytest.raises(ApplicationStateConflictError, match="divergent Markdown-only working copy"):
         service.snapshot_plan(str(composed.work_object_id))
+
+
+PLAN_MARKDOWN_WRITE = "/api/live/tiptap/markdown-write"
+
+
+def _plan_presentation_http_body(world_id):
+    plan = service.create_world_plan(title="Arrival", world_id=world_id)
+    markdown = PLAN_PRESENTATION_MARKDOWN + "\n"
+    plan, _ = service.commit_plan(
+        str(plan.work_object_id), markdown, expected_world_id=world_id,
+        expected_revision=plan.object_revision,
+    )
+    return {
+        "schema_version": "dmb_tiptap_markdown_write_prepare_v2",
+        "scope_mode": "world",
+        "world_id": world_id,
+        "document_id": str(plan.work_object_id),
+        "title": plan.title,
+        "markdown": markdown,
+        "expected_revision": plan.object_revision,
+        "page_presentation": _presentation(markdown).model_dump(mode="json"),
+    }
+
+
+def _plan_presentation_http_commit(body, prepared):
+    return {
+        **body,
+        "schema_version": "dmb_tiptap_markdown_write_commit_v2",
+        "writer_confirm_token": prepared["writer_confirm_token"],
+    }
+
+
+def test_plan_presentation_http_prepare_commit_replay_and_cold_load(monkeypatch, application_state_dsn):
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.main import create_app
+
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    body = _plan_presentation_http_body(PLAN_PRESENTATION_WORLD)
+    url = f"/api/live/workspace-documents/{body['document_id']}/snapshot"
+    layout = _presentation(body["markdown"])
+    competing = {**body, "page_presentation": _presentation(
+        body["markdown"], first_width=8).model_dump(mode="json")}
+    with TestClient(create_app(), base_url="http://127.0.0.1", client=("127.0.0.1", 50000)) as client:
+        original = client.get(url)
+        assert original.status_code == 200, original.text
+        assert "page_presentation" not in original.json()
+        prepared = client.post(f"{PLAN_MARKDOWN_WRITE}/prepare", json=body)
+        other = client.post(f"{PLAN_MARKDOWN_WRITE}/prepare", json=competing)
+        assert prepared.status_code == other.status_code == 200, (prepared.text, other.text)
+        assert prepared.json()["registry_revision"] == body["expected_revision"]
+        assert prepared.json()["page_presentation_sha256"] == layout.fingerprint()
+        assert client.get(url).json() == original.json()
+
+        commit = _plan_presentation_http_commit(body, prepared.json())
+        wrong_revision = {**commit, "expected_revision": body["expected_revision"] + 1}
+        assert client.post(f"{PLAN_MARKDOWN_WRITE}/commit", json=wrong_revision).status_code == 409
+        changed = {**commit, "page_presentation": competing["page_presentation"]}
+        assert client.post(f"{PLAN_MARKDOWN_WRITE}/commit", json=changed).status_code == 409
+        saved = client.post(f"{PLAN_MARKDOWN_WRITE}/commit", json=commit)
+        assert saved.status_code == 200, saved.text
+        assert saved.json()["committed_revision"] == body["expected_revision"] + 1
+        assert saved.json()["page_presentation_sha256"] == layout.fingerprint()
+        assert saved.json()["normalized_content_sha256"] == original.json()["content_sha256"]
+        repeated = client.post(f"{PLAN_MARKDOWN_WRITE}/commit", json=commit)
+        assert repeated.status_code == 200 and repeated.json() == saved.json()
+        stale = _plan_presentation_http_commit(competing, other.json())
+        assert client.post(f"{PLAN_MARKDOWN_WRITE}/commit", json=stale).status_code == 409
+        newer = {**body, "expected_revision": saved.json()["committed_revision"]}
+        old_writer = {k: v for k, v in newer.items() if k != "page_presentation"}
+        assert client.post(f"{PLAN_MARKDOWN_WRITE}/prepare", json=old_writer).status_code == 422
+        assert client.post(f"{PLAN_MARKDOWN_WRITE}/prepare",
+                           json={**newer, "page_presentation": None}).status_code == 422
+
+    with TestClient(create_app(), base_url="http://127.0.0.1", client=("127.0.0.1", 50000)) as client:
+        read = client.get(url)
+        assert read.status_code == 200, read.text
+        assert read.json()["loaded_revision"] == saved.json()["committed_revision"]
+        assert read.json()["markdown"] == body["markdown"]
+        assert read.json()["page_presentation"] == layout.model_dump(mode="json")
+        assert read.json()["page_presentation_sha256"] == layout.fingerprint()
+
+
+def test_plan_presentation_http_preserves_hosted_world_authorization(hosted, monkeypatch, application_state_dsn):
+    from fastapi import HTTPException
+    from apps.live_control_server.services import hosted_native_graph_access, tiptap_markdown_write
+
+    body = _plan_presentation_http_body("managed")
+    document = body["document_id"]
+    url = f"/api/live/workspace-documents/{document}/snapshot"
+    client = hosted.client
+    original = client.request("GET", url).json()
+    changed = body["markdown"].replace("A lantern", "A blue lantern")
+    layout = _presentation(changed)
+    body.update(markdown=changed, page_presentation=layout.model_dump(mode="json"))
+
+    assert client.request("POST", f"{PLAN_MARKDOWN_WRITE}/prepare",
+                          json=body, session="other-session").status_code == 403
+    assert client.request("POST", f"{PLAN_MARKDOWN_WRITE}/prepare",
+                          json={**body, "world_id": "foreign"}).status_code == 403
+    prepared = client.request("POST", f"{PLAN_MARKDOWN_WRITE}/prepare", json=body)
+    assert prepared.status_code == 200, prepared.text
+    commit = _plan_presentation_http_commit(body, prepared.json())
+    assert client.request("POST", f"{PLAN_MARKDOWN_WRITE}/commit",
+                          json=commit, session="other-session").status_code == 403
+    validate_media = tiptap_markdown_write.validate_saved_media_references
+    with monkeypatch.context() as patch:
+        def changed_owner(*_):
+            raise HTTPException(403, detail="World ownership changed")
+
+        def transfer_during_validation(markdown, owner):
+            validate_media(markdown, owner)
+            patch.setattr(hosted_native_graph_access, "_owned_world", changed_owner)
+
+        patch.setattr(tiptap_markdown_write, "validate_saved_media_references", transfer_during_validation)
+        denied = client.request("POST", f"{PLAN_MARKDOWN_WRITE}/commit", json=commit)
+        assert denied.status_code == 403, denied.text
+    assert client.request("GET", url).json() == original
+
+    saved = client.request("POST", f"{PLAN_MARKDOWN_WRITE}/commit", json=commit)
+    assert saved.status_code == 200, saved.text
+    read = client.request("GET", url)
+    assert read.status_code == 200, read.text
+    assert read.json()["markdown"] == changed
+    assert read.json()["page_presentation"] == layout.model_dump(mode="json")
+    assert read.json()["page_presentation_sha256"] == saved.json()["page_presentation_sha256"] == layout.fingerprint()
+    assert client.request("GET", url, session="other-session").status_code == 403
