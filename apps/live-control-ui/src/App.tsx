@@ -14,7 +14,7 @@ const GuestReleasePage = deferredComponent(
 );
 
 function guestReleaseId(locationSnapshot: string): string | null {
-  const match = /^\/visit\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/.exec(locationSnapshot);
+  const match = /^\/visit\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:#.*)?$/.exec(locationSnapshot);
   return match?.[1] ?? null;
 }
 
