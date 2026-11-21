@@ -102,6 +102,9 @@ def prepare_contextual_work(request):
     descriptions, headings = description_factors(request)
     if descriptions:
         state['section_description_evidence'] = {'qualified_descriptions': descriptions, 'heading_occurrences': headings}
+    locator = paragraph_locator(request)
+    if locator is not None:
+        state['existing_paragraph_locator'] = locator
     work_descriptions = {
         'discuss': 'Answer, explain, critique or discuss in conversation without a requested page edit.',
         'clarify': 'The intended work or content needs an author decision. Missing or ambiguous placement alone is not this intent.',
@@ -249,6 +252,7 @@ def target_questions(request):
         'captured': 'Only for the captured relation: does the request use this captured selection or caret? For other relations, exclude.',
         'page_end': 'Only for the end_page relation: does the request choose the current page end? For other relations, exclude.',
     }
+    locator = paragraph_locator(request)
     return (ChoiceDecisionQuestion(name='placement_relation', options=offered_relations(request),
         question='What single relation to an existing page anchor does the requested fragment use? '
             'Ignore ordering inside the new fragment. Multiple page relations must be unresolved.',
@@ -296,18 +300,34 @@ def target_questions(request):
             option_descriptions={
                 'include': 'All stated ancestor qualifications match this path, including order and any direct-parent requirement.',
                 'exclude': 'A stated ancestor differs or is missing, the hierarchy differs, or no ancestor qualification is requested.'})
-            for i, entry in enumerate(inventory['ancestors'])))
+            for i, entry in enumerate(inventory['ancestors'])),
+        *(ChoiceDecisionQuestion(name=f'locator_passage_{i}', options=('include', 'exclude'),
+            option_descriptions={'include': 'This passage states or directly describes the existing locator.',
+                'exclude': 'This passage is about something else.'},
+            question=f'Does paragraph_passages passage{i} state or directly describe existing_paragraph_locator? '
+                'Compare these two texts on their meaning. Judge every passage independently. '
+                'An instruction beside the described passage is a different passage.')
+            for i in range(len(inventory['passages'])) if locator is not None))
 
 
 def target_answer_keys(request):
     inventory = component_inventory(request.original_capture, request.placement_catalog)
     descriptions, headings = description_factors(request)
+    locator = paragraph_locator(request)
     return {'placement_relation', 'paragraph_scope', 'scope_qualifier',
         *(f'anchor_{i}' for i in range(len(inventory['direct']))),
         *(f'passage_{i}' for i in range(len(inventory['passages']))),
         *(f'section_{i}' for i in range(len(inventory['sections']))),
         *(f'ancestor_{i}' for i in range(len(inventory['ancestors']))),
+        *(f'locator_passage_{i}' for i in range(len(inventory['passages'])) if locator is not None),
         *(f'{key}_{heading["selector"]}' for key in descriptions for heading in headings)}
+
+
+def paragraph_locator(request):
+    from .plan_author_location import explicit_paragraph_locator
+
+    binding = getattr(request, 'author_scope_binding', None)
+    return explicit_paragraph_locator(request.question, binding.observation.relation) if binding is not None else None
 
 
 def description_factors(request):
@@ -367,7 +387,7 @@ def compatible_selectors(request, answers):
 
 def contextual_work_choice(request, intent, answers):
     keys = {key for key in answers if key.startswith(
-        ('anchor_', 'target_', 'passage_', 'section_', 'ancestor_', 'description_'))
+        ('anchor_', 'target_', 'passage_', 'section_', 'ancestor_', 'description_', 'locator_passage_'))
         or key in {'placement_relation', 'paragraph_scope', 'scope_qualifier'}}
     if keys != target_answer_keys(request):
         raise ValueError('Incomplete or foreign contextual-anchor judgments')
@@ -402,13 +422,14 @@ def contextual_work_choice(request, intent, answers):
                 and request.original_capture.target_kind != 'replace_selection'):
             relation = 'unresolved'
         descriptions, excluded = _description_matches(request, answers)
+        locator = votes('locator_passage', inventory['passages']) if paragraph_locator(request) is not None else None
         return dict(author_scope_binding=binding, scope_document_title=request.page_title or None,
             source_placement_relation=relation,
             **({'scope_description_matches': descriptions} if descriptions is not None else {}),
             **({'excluded_scope_description_matches': excluded} if excluded is not None else {}),
             **resolve_author_scope_targets(request.original_capture, request.placement_catalog,
                 intent, relation, binding.observation, direct, passages, document_title=request.page_title or None,
-                description_matches=descriptions, excluded_description_matches=excluded))
+                description_matches=descriptions, excluded_description_matches=excluded, locator_passages=locator))
     return resolve_component_targets(request.original_capture, request.placement_catalog, intent, relation,
         answers['paragraph_scope'], direct, passages, sections, answers['scope_qualifier'], ancestors)
 
@@ -459,7 +480,7 @@ def resolve_component_targets(capture, catalog, intent, relation, scope, direct,
 
 
 def resolve_author_scope_targets(capture, catalog, intent, relation, observation, direct, passages, *,
-        document_title, description_matches=None, excluded_description_matches=None):
+        document_title, description_matches=None, excluded_description_matches=None, locator_passages=None):
     """Join independent author scope to source nominations at their exact editor geometry."""
     from .native_plan_opening import NativePlanAuthorScopeObservationV1
     from .plan_author_location import (
@@ -481,6 +502,9 @@ def resolve_author_scope_targets(capture, catalog, intent, relation, observation
         'compatible_section_selectors': (), 'compatible_ancestor_selectors': (),
         'requested_paragraph_scope': scope_mode,
         'requested_scope_qualifier': ('named' if scope_mode == 'named' and len(positive.names) > 1 else 'none')}
+    if locator_passages is not None:
+        locator_ids, passage_rows = _component_selection(inventory['passages'], locator_passages)
+        evidence['locator_passage_selectors'] = locator_ids
     author_relation = observation.relation
     capture_kind = AUTHOR_CAPTURE_KINDS.get(author_relation)
     if capture_kind is not None:

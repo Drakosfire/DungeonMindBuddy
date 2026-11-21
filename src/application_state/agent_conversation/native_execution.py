@@ -314,10 +314,12 @@ class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
         default=None, exclude_if=lambda value: value is None)
     excluded_scope_description_matches: dict[int, tuple[str, ...]] | None = Field(
         default=None, exclude_if=lambda value: value is None)
+    locator_passage_selectors: tuple[str, ...] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
     @field_validator('compatible_placement_selectors', 'compatible_anchor_selectors',
         'direct_anchor_selectors', 'compatible_passage_selectors', 'compatible_section_selectors',
-        'compatible_ancestor_selectors', mode='before')
+        'compatible_ancestor_selectors', 'locator_passage_selectors', mode='before')
     @classmethod
     def selectors_tuple(cls, value):
         return tuple(value) if isinstance(value, list) else value
@@ -347,10 +349,12 @@ class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
                 self.source_placement_relation, self.author_scope_binding.observation,
                 self.direct_anchor_selectors, self.compatible_passage_selectors,
                 document_title=self.scope_document_title, description_matches=self.scope_description_matches,
-                excluded_description_matches=self.excluded_scope_description_matches)
+                excluded_description_matches=self.excluded_scope_description_matches,
+                locator_passages=self.locator_passage_selectors)
         else:
             if any(value is not None for value in (self.source_placement_relation, self.scope_document_title,
-                    self.scope_description_matches, self.excluded_scope_description_matches)):
+                    self.scope_description_matches, self.excluded_scope_description_matches,
+                    self.locator_passage_selectors)):
                 raise ValueError('Source relation, title and description matches require retained author scope')
             fields = resolve_component_targets(capture, catalog, self.requested_intent,
                 self.requested_placement_relation, self.requested_paragraph_scope,

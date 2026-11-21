@@ -429,6 +429,20 @@ def unsupported_paragraph_scope(question: str) -> bool:
         for clause in _QUALIFIED_PROSE_LOCATION.findall(_scope_syntax(question)))
 
 
+def explicit_paragraph_locator(question: str, relation: str) -> str | None:
+    """Keep the author's exact locator when one before/after clause supplies it."""
+    if relation not in {'before_paragraph', 'after_paragraph'}:
+        return None
+    side = relation.removesuffix('_paragraph')
+    matches = list(re.finditer(rf'\b{side}\s+[^,.!?;\n]*?\b'
+        r'(?:paragraph|passage|instruction|step|note)\s+about\b([^,.!?;\n]+)',
+        _scope_syntax(question), re.IGNORECASE))
+    if len(matches) != 1:
+        return None
+    start, end = matches[0].span(1)
+    return question[start:end].strip() or None
+
+
 def author_scope_hypotheses(request: str, dialogue: tuple[RetrievalDialogue, ...], *,
                             max_span_attempts: int) -> dict[str, AuthorScopeHypothesis]:
     """Offer checked author-only hypotheses. Capacity exhaustion grants no partial offer."""

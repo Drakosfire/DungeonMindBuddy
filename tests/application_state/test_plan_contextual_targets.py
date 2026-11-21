@@ -230,6 +230,33 @@ def test_explicit_unsupported_scope_cannot_be_dropped_by_agreeing_models(scope):
     assert resolved['target_capture_sha256'] is None
 
 
+def test_explicit_paragraph_locator_requires_direct_passage_nomination():
+    from types import SimpleNamespace
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservationV1
+    from application_state.agent_conversation.plan_author_location import literal_reference
+    from application_state.agent_conversation.plan_contextual_targets import (
+        contextual_work_choice, paragraph_locator, target_questions,
+    )
+
+    capture, catalog = family_catalog([heading('Preparation'), prose('The gate is locked.'),
+        prose('Pack two lanterns.')])
+    observation = NativePlanAuthorScopeObservationV1(relation='before_paragraph', selected_alias='scope0',
+        scope=literal_reference('Preparation', path=False))
+    request = SimpleNamespace(question='Add a warning before the Preparation paragraph about the locked gate.',
+        original_capture=capture, placement_catalog=catalog, page_title='Notes',
+        author_scope_binding=SimpleNamespace(observation=observation))
+    assert paragraph_locator(request) == 'the locked gate'
+    answers = {question.name: question.options[-1] for question in target_questions(request)}
+    answers.update(placement_relation='before_paragraph', paragraph_scope='named',
+        scope_qualifier='none', passage_1='include')
+    missing = contextual_work_choice(request, 'write_current_page', answers)
+    assert missing['requested_work'] == 'clarify'
+    assert not missing['locator_passage_selectors']
+    matched = contextual_work_choice(request, 'write_current_page', answers | {'locator_passage_0': 'include'})
+    assert matched['locator_passage_selectors'] != matched['compatible_passage_selectors']
+    assert catalog.resolve(capture, matched['placement_selector']).root_boundary == 1
+
+
 def test_passage_families_expand_all_occurrences_before_named_scope_filters():
     capture, catalog = family_catalog([heading('Preparation'), prose('Shared.'), heading('Rumours'), prose('Shared.')])
     result = component_result(capture, catalog)
