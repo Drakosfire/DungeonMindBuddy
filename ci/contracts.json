@@ -283,6 +283,7 @@
             "test",
             "--",
             "src/localWorld",
+            "src/App.guestHome.test.tsx",
             "src/App.guestRelease.test.tsx",
             "src/guestRelease",
             "src/media/MediaImageWizard.test.tsx",

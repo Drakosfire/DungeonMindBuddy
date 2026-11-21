@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
+import { dungeonMindLoginHref } from "../auth/HostedAuthGate";
 import "./guestReleasePage.css";
 
 type Node = { id: string; label: string; kind: string; name_citations: string[]; kind_citations: string[]; name_basis: string; kind_basis: string };
@@ -34,7 +35,7 @@ function selectionFromFragment(hash: string, snapshot: Snapshot): { node: string
 }
 
 /** Public release copies only: this component never loads a managed World. */
-export function GuestReleasePage({ publicId }: { publicId: string }) {
+export function GuestReleasePage({ publicId, home = false }: { publicId: string; home?: boolean }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
@@ -78,8 +79,8 @@ export function GuestReleasePage({ publicId }: { publicId: string }) {
   }]));
   const citationButton = (id: string, index: number) => <button type="button" key={`${id}-${index}`} onClick={() => navigate(selectedNode, id)}>Read {sources.find(item => item.id === id)?.evidence_role === "context" ? "context" : "source"} {sources.findIndex(item => item.id === id) + 1}</button>;
   return <main className="guest-world">
-    <header className="guest-world__header"><a href="/">DungeonMind · Buddy</a><nav aria-label="Guest navigation"><a href="https://www.dungeonmind.net/">DungeonMind.net ↗</a><a href="/">Start your own World →</a></nav></header>
-    {unavailable ? <section role="alert"><h1>This guest World is unavailable</h1><p>The owner may have withdrawn it, or the link may have changed.</p><a href="/">Return to Buddy</a></section>
+    <header className="guest-world__header"><a href="/">DungeonMind · Buddy</a><nav aria-label="Guest navigation"><a href="https://www.dungeonmind.net/">DungeonMind.net ↗</a><a href={dungeonMindLoginHref("/")}>Sign in to create your World →</a></nav></header>
+    {unavailable ? <section role="alert"><h1>This guest World is unavailable</h1><p>The owner may have withdrawn it, or the link may have changed.</p><a href={home ? dungeonMindLoginHref("/") : "/"}>{home ? "Sign in to Buddy" : "Return to Buddy"}</a></section>
       : !snapshot ? <p role="status">Opening this guest World…</p>
       : <><section className="guest-world__intro"><p className="guest-world__eyebrow">A SHARED WORLD · GUEST VIEW</p><h1>Follow the threads.</h1><p>Explore an owner-selected copy of a World. Choose a point to see its connections and the source behind each one.</p></section>
         <div className="guest-world__layout"><section className="guest-world__graph" aria-labelledby="guest-graph-heading"><div className="guest-world__section-head"><div><p className="guest-world__eyebrow">THE STORY MAP</p><h2 id="guest-graph-heading">A web of connections</h2></div><span>{nodes.length} {nodes.length === 1 ? "point" : "points"} · {edges.length} {edges.length === 1 ? "connection" : "connections"}</span></div>
@@ -93,7 +94,7 @@ export function GuestReleasePage({ publicId }: { publicId: string }) {
               : <><h2>Every story has a trail.</h2><p>Select a point to follow it through the owner’s shared notes.</p></>}
         </aside></div>
         {snapshot.manifest.assets.length > 0 && <section className="guest-world__gallery"><h2>From the World</h2>{snapshot.manifest.assets.map((asset, index) => <img key={asset.id} src={`/api/live/guest-releases/${encodeURIComponent(publicId)}/releases/${encodeURIComponent(snapshot.release_id)}/assets/${encodeURIComponent(asset.id)}`} alt={`Shared World image ${index + 1}`} />)}</section>}
-        <section className="guest-world__next"><h2>Make room for your own story.</h2><p>This is a read-only snapshot. Guest editing and creation are not available here yet.</p><a href="/">Explore Buddy →</a></section></>}
+        <section className="guest-world__next"><h2>Make room for your own story.</h2><p>This is a read-only snapshot. Guest editing and creation are not available here yet.</p><a href={dungeonMindLoginHref("/")}>Sign in to Buddy →</a></section></>}
     <footer className="guest-world__footer">A shared copy · Your private Worlds stay separate</footer>
   </main>;
 }
