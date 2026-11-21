@@ -417,6 +417,16 @@ def _has_excluded_restatement(path: NamedScopePath, after: str) -> bool:
 _SCOPE_TOKEN = re.compile(r"\w+(?:['’]\w+)*|[^\w\s]", re.UNICODE)
 _SCOPE_START = re.compile(r'\b(?:in|within|under|inside)\b', re.IGNORECASE)
 _SCOPE_END = re.compile(r'\b(?:paragraph|heading|section)\b', re.IGNORECASE)
+_QUALIFIED_PROSE_LOCATION = re.compile(
+    r'\b(?:before|after)\s+[^,.!?;]+?\b(?:paragraph|passage|instruction|step|note)\s+'
+    r'(?:in|inside|under|within)\s+([^,.!?;]+)', re.IGNORECASE)
+
+
+def unsupported_paragraph_scope(question: str) -> bool:
+    """Recognize explicit location constraints outside the supported path grammar."""
+    return any(clause.count('/') > 5
+        or re.search(r'\b(?:either\b.+\bor|both\b.+\band)\b', clause, re.IGNORECASE)
+        for clause in _QUALIFIED_PROSE_LOCATION.findall(_scope_syntax(question)))
 
 
 def author_scope_hypotheses(request: str, dialogue: tuple[RetrievalDialogue, ...], *,

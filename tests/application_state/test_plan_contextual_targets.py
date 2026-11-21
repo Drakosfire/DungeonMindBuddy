@@ -199,11 +199,35 @@ def test_described_scope_votes_join_only_the_nominated_heading_occurrence():
     result = contextual_work_choice(request, 'write_current_page', answers)
     assert result['scope_description_matches'] == {0: ('heading0',)}
     assert catalog.resolve(capture, result['placement_selector']).root_boundary == 3
+    unresolved_scope = contextual_work_choice(request, 'write_current_page', answers | {'paragraph_scope': 'unresolved'})
+    assert unresolved_scope['requested_work'] == 'clarify'
+    assert unresolved_scope['target_capture_sha256'] is None
     answers['description_positive_0_heading1'] = 'include'
     assert contextual_work_choice(request, 'write_current_page', answers)['target_resolution'] == 'ambiguous'
     del answers['description_positive_0_heading0']
     with pytest.raises(ValueError, match='Incomplete or foreign'):
         contextual_work_choice(request, 'write_current_page', answers)
+
+
+@pytest.mark.parametrize('scope', ['either Records or Dispatch', 'both Records and Dispatch', 'A / B / C / D / E / F / G'])
+def test_explicit_unsupported_scope_cannot_be_dropped_by_agreeing_models(scope):
+    from types import SimpleNamespace
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservationV1
+    from application_state.agent_conversation.plan_author_location import UnscopedLocation
+    from application_state.agent_conversation.plan_contextual_targets import contextual_work_choice, target_questions
+
+    capture, catalog = captured_catalog()
+    observation = NativePlanAuthorScopeObservationV1(
+        relation='after_paragraph', selected_alias='none', scope=UnscopedLocation())
+    request = SimpleNamespace(question=f'Add a warning after the Alpha paragraph in {scope}.',
+        original_capture=capture, placement_catalog=catalog, page_title='Notes',
+        author_scope_binding=SimpleNamespace(observation=observation))
+    answers = {question.name: question.options[-1] for question in target_questions(request)}
+    answers.update(placement_relation='after_paragraph', paragraph_scope='unscoped',
+        scope_qualifier='none', passage_0='include')
+    resolved = contextual_work_choice(request, 'write_current_page', answers)
+    assert resolved['requested_work'] == 'clarify'
+    assert resolved['target_capture_sha256'] is None
 
 
 def test_passage_families_expand_all_occurrences_before_named_scope_filters():
