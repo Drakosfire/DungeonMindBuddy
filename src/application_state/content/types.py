@@ -8,6 +8,7 @@ from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
+from application_state.content.page_presentation import PagePresentation
 
 AdmittedKind = Literal["plan", "runbook"]
 ObjectStatus = Literal["active", "discarded"]
@@ -102,6 +103,7 @@ class ContentSnapshot(BaseModel):
     content_sha256: str
     loaded_revision: int
     from_working_copy: bool = False
+    page_presentation: PagePresentation | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class CommittedPlayableRevision(BaseModel):

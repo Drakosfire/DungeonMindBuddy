@@ -25,7 +25,8 @@ Expected write set:
 - `src/application_state/content/service.py`
 - `src/application_state/content/types.py`
 - `src/application_state/content/page_presentation.py`
-- `tests/application_state/test_plan_presentation.py`
+- `tests/application_state/test_authored_pages_postgres.py` for shared revision
+  presentation storage coverage
 - This handoff and the finished plain-Plan handoff
 
 Use the lane's locked Python environment and an owned disposable PostgreSQL
