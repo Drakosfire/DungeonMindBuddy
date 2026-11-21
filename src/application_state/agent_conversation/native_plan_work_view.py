@@ -69,6 +69,19 @@ def semantic_frame(host, execution):
     return view
 
 
+def compact_editor_prose(view):
+    """Omit editor metadata when the saved Plan already supplies the whole draft."""
+    draft = view.get("current_page_draft", {})
+    if (view["requested_work"] in {"discuss", "clarify"}
+            and draft.get("state") == "same_as_committed"
+            and draft.get("uses_committed_plan") is True
+            and "markdown" not in draft
+            and view.get("focused_edit_target") == {"kind": "insert_at_caret"}):
+        return {key: value for key, value in view.items()
+                if key not in {"current_page_draft", "focused_edit_target"}}
+    return view
+
+
 def frame_in_request(body):
     """Choose the disjoint current codec; never parse nested source/user text."""
     from .source_writer_output import strict_json

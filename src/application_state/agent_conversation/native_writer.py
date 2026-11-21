@@ -361,11 +361,18 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         if prose:
             prose_host = model_frame(receipt, prefix, passages_only=True)
             prose_frame = semantic_frame(prose_host)
-            from .native_plan_work_view import semantic_frame as plan_work_view
+            from .native_plan_work_view import compact_editor_prose, semantic_frame as plan_work_view
             prose_work = plan_work_view(expected_work, prefix)
+            if authorization.compact_plan_editor_prose:
+                compact = compact_editor_prose(prose_work)
+                if compact is prose_work:
+                    raise ValueError('Plan compact editor prose requires a redundant editor view')
+                prose_work = compact
             expected_message = {'role': 'user', 'content': render_plan_evidence(prose_frame, prose_work)}
             if len(prose) != 1 or messages[-1] != expected_message:
                 raise ValueError('Plan writer prose differs from its exact admitted evidence')
+    if authorization.compact_plan_editor_prose and prose_work is None:
+        raise ValueError('Plan compact editor marker requires native Plan prose')
     frame,work_frame = _input_frames(raw,prefix,expected_work['schema'],prose_frame=prose_frame, prose_work=prose_work)
     has_image = isinstance(body.get("input"), list) and proposal_packet_text(body) is not None
     from .native_execution import NativeBuildActionV1
@@ -410,6 +417,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         variant_edits=variant_edits, variant_passage_review=variant_passage_review,
         bind_lore_page="lore_page_destination" in work_frame["build_work"]) if build_local
         else play_work_view(expected_work) if play_local
+        else prose_work if prose_work is not None
         else plan_work_view(expected_work,prefix) if authored_local else expected_work)
     if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_wire_work):
         raise ValueError('Native writer changed or omitted its exact surface work')
