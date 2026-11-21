@@ -169,7 +169,9 @@ path has focused coverage but requires an updated browser witness.
 
 CatalogV2 offers opaque local placement selectors with explicit paragraph kinds.
 The host verifies every label, root, boundary, position and derived capture against
-the original editor snapshot. Composed roots are excluded. An explicit replacement
+the original editor snapshot. Normal Send admission also checks that the catalog
+includes every eligible captured location exactly once, so omission cannot make
+a repeated paragraph appear unique. Composed roots are excluded. An explicit replacement
 catalog contains only its captured span and cannot broaden into insertion.
 V1 wire values, default decoder behavior and historical proof branches remain
 unchanged. Native ActionV3 pairs only with combined opening InputV2 and selection

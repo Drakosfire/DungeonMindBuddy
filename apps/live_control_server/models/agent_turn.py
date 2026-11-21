@@ -247,7 +247,7 @@ class AgentTurnGraphSelection(BaseModel):
 
 from application_state.agent_conversation.authored_graph_references import AuthoredReferenceInput, AuthoredReferencesV2
 
-from application_state.agent_conversation.plan_placement import PlanPlacementCatalog
+from application_state.agent_conversation.plan_placement import PlanPlacementCatalog, PlanPlacementCatalogV2
 
 class AgentTurnRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -340,7 +340,12 @@ class AgentTurnRequest(BaseModel):
         if self.plan_placement_catalog is not None:
             if self.plan_authoring_capture is None:
                 raise ValueError("Plan placement catalog requires its original capture")
-            self.plan_placement_catalog.require_original(self.plan_authoring_capture)
+            if type(self.plan_placement_catalog) is PlanPlacementCatalogV2:
+                # The browser proposes offsets, but the frozen editor determines
+                # which occurrences exist and therefore which can be ambiguous.
+                self.plan_placement_catalog.require_original(self.plan_authoring_capture, complete=True)
+            else:
+                self.plan_placement_catalog.require_original(self.plan_authoring_capture)
         if self.plan_authoring_capture is not None:
             capture = self.plan_authoring_capture
             work = self.primary_work

@@ -53,6 +53,30 @@ def paragraph_catalog_for(original, kind="after_paragraph", index=1):
         editor_sha256=original.editor_sha256, entries=(captured, option))
 
 
+def complete_paragraph_only_catalog(original):
+    content = json.loads(original.editor_json)["content"]
+    captured = PlanPlacementOptionV2(selector="captured", kind="captured_target",
+        label="At the captured text caret", source_root_index=None, root_boundary=None,
+        position=None, target_capture_sha256=original.sha256)
+    offsets = [0]
+    for node in content:
+        text = "".join(child["text"] for child in node["content"])
+        offsets.append(offsets[-1] + len(text.encode("utf-16-le")) // 2 + 2)
+    options = [captured]
+    for index in range(len(content)):
+        for kind in ("after_paragraph", "before_paragraph"):
+            boundary = index + int(kind == "after_paragraph")
+            options.append(PlanPlacementOptionV2(selector=f"place{len(options)}", kind=kind,
+                label=paragraph_placement_label(content, index, kind), source_root_index=index,
+                root_boundary=boundary, position=offsets[boundary], target_capture_sha256="0" * 64))
+    options.append(PlanPlacementOptionV2(selector=f"place{len(options)}", kind="end_page",
+        label="At the end of the page", source_root_index=None, root_boundary=len(content),
+        position=offsets[-1], target_capture_sha256="0" * 64))
+    return PlanPlacementCatalogV2(original_capture_sha256=original.sha256,
+        editor_sha256=original.editor_sha256, entries=tuple(option.model_copy(
+            update={"target_capture_sha256": option.derived_target(original).sha256}) for option in options))
+
+
 def test_explicit_catalog_decoder_retains_v1_hash_and_rejects_unknown_versions():
     from pydantic import TypeAdapter
     from application_state.agent_conversation.plan_placement import PlanPlacementCatalog
@@ -89,16 +113,7 @@ def test_v2_catalog_survives_dispatch_decision_sql_and_cold_read_without_implici
     from tests.test_plan_jev_authoring import admitted_authoring, SemanticWire
 
     original, _ = admitted_authoring(plan_adapter, admit=False)
-    captured = PlanPlacementOptionV2(selector="captured", kind="captured_target",
-        label="At the captured text caret", source_root_index=None, root_boundary=None,
-        position=None, target_capture_sha256=original.sha256)
-    content = json.loads(original.editor_json)["content"]
-    option = PlanPlacementOptionV2(selector="place1", kind="after_paragraph",
-        label=paragraph_placement_label(content, 0, "after_paragraph"), source_root_index=0,
-        root_boundary=1, position=15, target_capture_sha256="0" * 64)
-    option = option.model_copy(update={"target_capture_sha256": option.derived_target(original).sha256})
-    catalog = PlanPlacementCatalogV2(original_capture_sha256=original.sha256,
-        editor_sha256=original.editor_sha256, entries=(captured, option))
+    catalog = complete_paragraph_only_catalog(original)
     wire = plan_adapter.request.model_dump(mode="json", by_alias=True)
     wire["plan_placement_catalog"] = catalog.model_dump(mode="json", by_alias=True)
     plan_adapter.request = AgentTurnRequest.model_validate(wire)
@@ -129,6 +144,30 @@ def test_v2_catalog_survives_dispatch_decision_sql_and_cold_read_without_implici
         assert fresh and action.authoring_origin.capture_sha256 == target.sha256
     else:
         assert selected == decision
+
+
+def test_send_rejects_a_catalog_omitting_a_duplicate_paragraph(plan_adapter):
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+    from tests.test_plan_jev_authoring import admitted_authoring
+
+    original, _ = admitted_authoring(plan_adapter, admit=False)
+    payload = original.model_dump(mode="json", by_alias=True)
+    editor = json.loads(original.editor_json)
+    editor["content"].append(editor["content"][0])
+    editor_json = json.dumps(editor, separators=(",", ":"))
+    draft = f"{original.draft_markdown}\n\n{original.draft_markdown}"
+    payload.update(editor_json=editor_json, editor_sha256=text_digest(editor_json),
+        draft_markdown=draft, draft_sha256=text_digest(draft))
+    capture = PlanAuthoringCaptureV1.model_validate(payload)
+    catalog = complete_paragraph_only_catalog(capture)
+    wire = plan_adapter.request.model_dump(mode="json", by_alias=True)
+    wire["plan_authoring_capture"] = payload
+    wire["plan_placement_catalog"] = catalog.model_dump(mode="json", by_alias=True)
+    AgentTurnRequest.model_validate(wire)
+    wire["plan_placement_catalog"]["entries"] = [
+        entry for entry in wire["plan_placement_catalog"]["entries"] if entry["source_root_index"] != 1]
+    with pytest.raises(ValidationError, match="must offer every eligible captured location exactly once"):
+        AgentTurnRequest.model_validate(wire)
 
 
 def native_paragraph_placement_fixture(original):

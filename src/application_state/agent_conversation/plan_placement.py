@@ -173,19 +173,22 @@ def _placement_headings(content: list[dict]) -> list[dict]:
     return headings
 
 
-def paragraph_placement_label(content: list[dict], index: int, kind: str, *,
-                              headings: list[dict] | None = None) -> str:
-    """Semantic source context only; no host identity or root index in labels."""
-    node = content[index]
+def _paragraph_prose(node: dict) -> str:
     inline = node.get("content", [])
     if (node.get("type") != "paragraph" or not isinstance(inline, list)
             or any(not isinstance(child, dict) or child.get("type") not in {"text", "hardBreak"}
                    or child.get("type") == "text" and not isinstance(child.get("text"), str)
                    for child in inline)):
-        raise ValueError("Paragraph placement requires plain root prose")
-    passage = "".join("\n" if child["type"] == "hardBreak" else child["text"] for child in inline).strip()
+        return ""
+    return "".join("\n" if child["type"] == "hardBreak" else child["text"] for child in inline).strip()
+
+
+def paragraph_placement_label(content: list[dict], index: int, kind: str, *,
+                              headings: list[dict] | None = None) -> str:
+    """Semantic source context only; no host identity or root index in labels."""
+    passage = _paragraph_prose(content[index])
     if not passage:
-        raise ValueError("Paragraph placement requires nonempty prose")
+        raise ValueError("Paragraph placement requires nonempty plain root prose")
     section = next((heading["path"] for heading in reversed(
         _placement_headings(content) if headings is None else headings)
                     if heading["index"] < index), "this page")
@@ -200,7 +203,7 @@ class PlanPlacementCatalogV2(PlanPlacementCatalogV1):
         default="dmb_plan_placement_catalog_v2", alias="schema")
     entries: tuple[PlanPlacementOptionV2, ...] = Field(min_length=1)
 
-    def require_original(self, original: PlanAuthoringCaptureV1):
+    def require_original(self, original: PlanAuthoringCaptureV1, *, complete: bool = False):
         if (isinstance(original, PlanAuthoringBoundaryCaptureV1)
                 or self.original_capture_sha256 != original.sha256
                 or self.editor_sha256 != original.editor_sha256):
@@ -214,6 +217,15 @@ class PlanPlacementCatalogV2(PlanPlacementCatalogV1):
             raise ValueError("Replacement authority has only its exact captured target")
         heading_rows = _placement_headings(content)
         headings = {row["index"]: row for row in heading_rows}
+        if complete and original.target_kind == "insert_at_caret":
+            expected = {("captured_target", None), ("end_page", None)}
+            expected.update((kind, index) for index in headings
+                            for kind in ("before_heading", "after_heading", "after_section"))
+            expected.update((kind, index) for index, node in enumerate(content) if _paragraph_prose(node)
+                            for kind in ("before_paragraph", "after_paragraph"))
+            offered = {(entry.kind, entry.source_root_index) for entry in self.entries}
+            if offered != expected or len(offered) != len(self.entries):
+                raise ValueError("Plan placement catalog must offer every eligible captured location exactly once")
         for entry in self.entries:
             if entry.derived_target(original).sha256 != entry.target_capture_sha256:
                 raise ValueError("Placement target differs from its frozen offered digest")
