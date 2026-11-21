@@ -358,7 +358,10 @@ def test_variant_writer_visible_reply_preserves_retained_edits_schema(monkeypatc
         assert witnessed["schema"] == native_output_format(evidence, rules(), witness_work, build_local=True, format_version=5)["schema"]
 
     work_with_draft = work | {
-        "working_draft_context": {"draft_markdown": "Repeated.\n\nRepeated."},
+        "working_draft_context": {
+            "draft_markdown": "Repeated.\n\nRepeated.",
+            "record_id": "4c63e929-fcec-4d8a-b787-4f908b3ce857",
+        },
     }
     current_version = native_build_work_view.variant_output_version(work_with_draft)
     assert current_version == 11

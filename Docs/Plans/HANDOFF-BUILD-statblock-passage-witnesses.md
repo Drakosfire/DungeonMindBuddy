@@ -27,7 +27,7 @@ full Old Bath House goal. The signed-in Play audit must exercise both parley
 without materialization and explicit engagement using the same prepared basis.
 
 ACTIVE. Alan authorized the narrow transfer on this thread. Base
-3a98406ea1a3e1cbb58c40bba09e1f6e2cdad998, branch
+524609cb63a7e235224c2674dfa7dc6f2bd6de0f, branch
 codex/buddy-statblock-passage-witnesses, existing isolated fc67 checkout.
 Scope is the statblock variant hunks of the files above and their paired
 Build writer assembly, replay reconstruction and tests. No changes to
