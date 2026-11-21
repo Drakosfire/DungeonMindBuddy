@@ -133,6 +133,9 @@ class NativePlanActionV2(NativePlanActionV1):
 class NativePlanActionV3(NativePlanActionV2):
     """Current plain Plan resolves a complete semantic target set before writing."""
     action_version: Literal['plan_contextual_targets_v3'] = 'plan_contextual_targets_v3'
+    # Frozen Content metadata at plan_basis, never an inferred editor heading.
+    # None supports source-only fixtures; it cannot bind a document-title ref.
+    document_title: str | None = None
 
     @model_validator(mode="after")
     def contextual_catalog(self):

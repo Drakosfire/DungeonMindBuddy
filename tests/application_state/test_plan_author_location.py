@@ -1,0 +1,225 @@
+"""Literal reference binding exercises names and occurrences, not editor offsets."""
+import json
+
+import pytest
+
+from application_state.agent_conversation.plan_author_location import (
+    DescribedScopeName, DocumentTitleScopeName, LiteralScopeName, NamedScopePath,
+    UnresolvedLocation, UnscopedLocation, bind_scope, literal_reference,
+    source_heading_inventory,
+)
+from tests.application_state.test_plan_contextual_targets import family_catalog, heading, prose
+
+
+def bind(nodes, scope, **kwargs):
+    capture, catalog = family_catalog(nodes)
+    original = capture.editor_json
+    result = bind_scope(capture, catalog, scope, document_title=kwargs.pop('document_title', None), **kwargs)
+    assert capture.editor_json == original
+    return result
+
+
+def test_missing_literal_parent_cannot_be_replaced_by_document_title_or_existing_parent():
+    nodes = [heading('Greenhouse', 1), heading('Equipment'), prose('Return the misting wand.')]
+    result = bind(nodes, literal_reference('Mill / Equipment', path=True), document_title='Greenhouse')
+    assert result.status == 'missing' and result.heading_indices == result.paragraph_anchors == ()
+    # This remains a refusal with only ONE viable paragraph. Ambiguity cannot
+    # accidentally mask erasure of the missing parent.
+    partial = bind(nodes, literal_reference('Mill / Greenhouse / Equipment', path=True),
+        document_title='Greenhouse')
+    assert partial.status == 'missing' and partial.paragraph_anchors == ()
+
+
+def test_primary_title_expands_every_parent_and_repeated_complete_path():
+    nodes = [heading('North', 1), heading('Supplies'), prose('Shared.'),
+        heading('South', 1), heading('Supplies'), prose('Shared.'), heading('Supplies'), prose('Shared.')]
+    all_matches = bind(nodes, literal_reference('Supplies', path=False))
+    assert all_matches.heading_indices == (1, 4, 6)
+    assert len(all_matches.paragraph_anchors) == 3
+    north = bind(nodes, literal_reference('North / Supplies', path=True))
+    assert north.heading_indices == (1,) and len(north.paragraph_anchors) == 1
+    south = bind(nodes, literal_reference('South / Supplies', path=True))
+    assert south.heading_indices == (4, 6) and len(south.paragraph_anchors) == 2
+
+
+def test_join_uses_primary_heading_occurrence_before_expanding_ranges():
+    trap = [heading('Archive', 1), heading('Other'), prose('Shared.')]
+    assert bind(trap, literal_reference('Archive / Archive', path=True)).status == 'missing'
+    repeated = [heading('Archive', 1), heading('Archive'), prose('Shared.')]
+    actual = bind(repeated, literal_reference('Archive / Archive', path=True))
+    assert actual.heading_indices == (1,) and len(actual.paragraph_anchors) == 1
+
+
+def test_ancestor_scope_includes_descendants_but_named_child_cannot_fall_back():
+    nodes = [heading('Workshop', 1), heading('North'), prose('Shared.'), heading('South'), prose('Shared.')]
+    parent = bind(nodes, literal_reference('Workshop', path=False))
+    assert parent.heading_indices == (0,) and len(parent.paragraph_anchors) == 2
+    missing_child = bind(nodes, literal_reference('Workshop / Missing', path=True))
+    assert missing_child.status == 'missing' and missing_child.paragraph_anchors == ()
+
+
+def test_direct_parent_and_ordered_ancestor_are_distinct_source_constraints():
+    nodes = [heading('Conservatory', 1), heading('Supplies'), prose('Shared.'),
+        heading('Loft'), heading('Supplies', 3), prose('Shared.')]
+    direct = bind(nodes, literal_reference('Conservatory / Supplies', path=True))
+    assert direct.heading_indices == (1,)
+    ancestor = bind(nodes, NamedScopePath(names=(LiteralScopeName(text='Conservatory'),
+        LiteralScopeName(text='Supplies')), edges=('any_ancestor',)))
+    assert ancestor.heading_indices == (1, 4)
+    # Root binding is explicit, not inferred by dropping a source prefix.
+    nested = [heading('Outer', 1), heading('Conservatory', 2), heading('Supplies', 3), prose('Shared.')]
+    assert bind(nested, literal_reference('Conservatory / Supplies', path=True)).status == 'matched'
+    assert bind(nested, literal_reference('Conservatory / Supplies', path=True, rooted=True)).status == 'missing'
+
+
+def test_symbolic_document_title_is_typed_and_has_no_h1_fallback():
+    nodes = [heading('Harbor watch', 1), prose('Shared.'),
+        heading('document_title', 1), prose('Shared.')]
+    symbolic = NamedScopePath(names=(DocumentTitleScopeName(),))
+    assert bind(nodes, symbolic, document_title='Harbor watch').heading_indices == (0,)
+    assert bind(nodes, symbolic).status == 'missing'
+    literal = literal_reference('document_title', path=False)
+    assert bind(nodes, literal, document_title='Harbor watch').heading_indices == (2,)
+    # A changed binding would select another occurrence, so native admission
+    # must retain and compare the original frozen Content title, not reread it.
+    assert bind(nodes, symbolic, document_title='document_title').heading_indices == (2,)
+
+
+def test_symbolic_parent_and_literal_child_bind_to_the_same_source_occurrence():
+    nodes = [heading('Harbor watch', 1), heading('Records'), prose('Shared.'),
+        heading('Night patrol', 1), heading('Records'), prose('Shared.')]
+    scope = NamedScopePath(names=(DocumentTitleScopeName(), LiteralScopeName(text='Records')),
+        edges=('direct_parent',))
+    assert bind(nodes, scope, document_title='Harbor watch').heading_indices == (1,)
+    assert bind(nodes, scope, document_title='Absent').status == 'missing'
+
+
+def test_normalized_name_collisions_expand_all_exact_source_occurrences():
+    nodes = [heading('CAFÉ  NORD', 1), prose('Shared.'),
+        heading('cafe\u0301 nord', 1), prose('Shared.'), heading('Café Nord', 1), prose('Shared.')]
+    result = bind(nodes, literal_reference('café nord', path=False))
+    assert result.heading_indices == (0, 2, 4) and len(result.paragraph_anchors) == 3
+    capture, catalog = family_catalog(nodes)
+    inventory = source_heading_inventory(capture, catalog)
+    assert len(inventory['titles']) == 3  # No normalization of source families/bytes.
+
+
+def test_literal_slash_title_and_structured_path_are_distinct():
+    nodes = [heading('North / South', 1), prose('Shared.'),
+        heading('North', 1), heading('South'), prose('Shared.')]
+    label = literal_reference('“North / South”', path=False)
+    path = literal_reference('North / South', path=True)
+    assert bind(nodes, label).heading_indices == (0,)
+    assert bind(nodes, path).heading_indices == (3,)
+    with pytest.raises(ValueError, match='unquoted slash'):
+        literal_reference('North / South', path=False)
+    assert literal_reference('North / South', path=False, quoted=True) == label
+
+
+def test_quotes_in_source_titles_are_data_not_author_quote_syntax():
+    nodes = [heading('North', 1), prose('Shared.'), heading('"North"', 1), prose('Shared.')]
+    assert bind(nodes, literal_reference('"North"', path=False)).heading_indices == (0,)
+    assert bind(nodes, literal_reference('`"North"`', path=False)).heading_indices == (2,)
+    quoted_parts = literal_reference('"North" / "South"', path=True)
+    assert [component.text for component in quoted_parts.names] == ['North', 'South']
+    escaped = literal_reference('"North\\" gate" / South', path=True)
+    assert escaped.names[0].text == 'North" gate'
+
+
+@pytest.mark.parametrize('text', ['North /', '/ South', 'North // South', 'North / "South',
+    'A / B / C / D / E / F / G', '"North"extra / South', 'North / "South"extra',
+    '"North / South"'])
+def test_malformed_or_overflow_paths_cannot_truncate_to_available_names(text):
+    with pytest.raises(ValueError):
+        literal_reference(text, path=True)
+
+
+def test_description_matches_cannot_override_a_literal_name_or_missing_component():
+    nodes = [heading('Greenhouse', 1), heading('Equipment'), prose('Shared.')]
+    capture, catalog = family_catalog(nodes)
+    scope = literal_reference('Mill / Equipment', path=True)
+    with pytest.raises(ValueError, match='declared description'):
+        bind_scope(capture, catalog, scope, document_title='Greenhouse', description_matches={0: ('title0',)})
+    described = NamedScopePath(names=(DescribedScopeName(text='the equipment area'),))
+    with pytest.raises(ValueError, match='declared description'):
+        bind_scope(capture, catalog, described, document_title=None)
+    assert bind_scope(capture, catalog, described, document_title=None,
+        description_matches={0: ('title1',)}).heading_indices == (1,)
+    assert bind_scope(capture, catalog, described, document_title=None,
+        description_matches={0: ()}).status == 'missing'
+    for matches in [('foreign',), ('title1', 'title1')]:
+        with pytest.raises(ValueError, match='Foreign or duplicate'):
+            bind_scope(capture, catalog, described, document_title=None, description_matches={0: matches})
+
+
+def test_ordinal_never_enables_paragraph_scope_and_only_explicitly_selects_heading():
+    nodes = [heading('Preparation'), prose('First.'), heading('Preparation'), prose('Second.')]
+    scope = NamedScopePath(names=(LiteralScopeName(text='Preparation'),), occurrence=2)
+    assert bind(nodes, scope).status == 'unsupported'
+    assert bind(nodes, scope, allow_ordinal=True).heading_indices == (2,)
+    absent = scope.model_copy(update={'occurrence': 3})
+    assert bind(nodes, absent, allow_ordinal=True).status == 'missing'
+
+
+def test_unscoped_and_unresolved_have_different_authority_and_no_named_root_fallback():
+    nodes = [prose('Root.'), heading('Later'), prose('Body.')]
+    assert len(bind(nodes, UnscopedLocation()).paragraph_anchors) == 2
+    rejected = bind(nodes, UnresolvedLocation(reason='independent section constraints'))
+    assert rejected.status == 'unsupported' and rejected.paragraph_anchors == ()
+    missing = bind(nodes, literal_reference('Absent', path=False))
+    assert missing.status == 'missing' and missing.paragraph_anchors == ()
+
+
+def test_name_binding_never_invents_a_table_caption_section():
+    table = dict(type='table', content=[dict(type='tableRow', content=[dict(type='tableCell',
+        attrs=dict(colspan=1, rowspan=1), content=[prose('Loot.')])])])
+    nodes = [heading('Treasure'), table, prose('Shared.')]
+    assert bind(nodes, literal_reference('Treasure', path=False)).status == 'missing'
+
+
+def test_typed_paths_require_every_relationship_and_roundtrip_without_source_changes():
+    path = literal_reference('North / Supplies', path=True)
+    assert NamedScopePath.model_validate(json.loads(path.model_dump_json())) == path
+    with pytest.raises(ValueError, match='Every adjacent'):
+        NamedScopePath(names=(LiteralScopeName(text='North'), LiteralScopeName(text='Supplies')))
+    with pytest.raises(ValueError):
+        LiteralScopeName(text=' ')
+
+
+@pytest.mark.parametrize('changed', ['work_object_id', 'world_id', 'status',
+    'object_revision', 'current_revision_id'])
+def test_title_metadata_rejects_a_different_or_changed_content_basis(monkeypatch, changed):
+    from types import SimpleNamespace
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services.plan_source_turn import _contextual_document_title
+    basis = SimpleNamespace(document_id='doc', world_id='world', object_revision=3,
+        work_revision_id='revision')
+    values = dict(work_object_id='doc', world_id='world', status='active',
+        object_revision=3, current_revision_id='revision', title='Actual Content title')
+    monkeypatch.setattr('application_state.content.service.get_plan', lambda _: SimpleNamespace(**values))
+    assert _contextual_document_title(basis) == 'Actual Content title'
+    values[changed] = 4 if changed == 'object_revision' else 'different'
+    with pytest.raises(ApplicationStateConflictError, match='metadata changed'):
+        _contextual_document_title(basis)
+
+
+def test_actual_content_metadata_title_rename_invalidates_old_basis(application_state_dsn):
+    from types import SimpleNamespace
+    from application_state.content.service import create_world_plan, commit_plan, update_plan_metadata
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services.plan_source_turn import _contextual_document_title
+    obj = create_world_plan(title='Harbor watch', world_id='world:title-binding')
+    obj, revision = commit_plan(str(obj.work_object_id), '# Different editor H1\n\nA note.\n',
+        expected_world_id=obj.world_id, expected_revision=obj.object_revision)
+    basis = SimpleNamespace(document_id=str(obj.work_object_id), world_id=obj.world_id,
+        object_revision=obj.object_revision, work_revision_id=str(revision.work_revision_id))
+    frozen = _contextual_document_title(basis)
+    assert frozen == 'Harbor watch'
+    renamed = update_plan_metadata(str(obj.work_object_id), title='Night patrol',
+        expected_revision=obj.object_revision)
+    assert renamed.current_revision_id == obj.current_revision_id
+    with pytest.raises(ApplicationStateConflictError, match='metadata changed'):
+        _contextual_document_title(basis)
+    basis.object_revision = renamed.object_revision
+    assert _contextual_document_title(basis) == 'Night patrol'
+    assert frozen == 'Harbor watch'

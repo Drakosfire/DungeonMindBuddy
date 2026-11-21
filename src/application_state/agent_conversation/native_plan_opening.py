@@ -104,6 +104,9 @@ def validate_opening_parent(context, execution, parent, authorization):
     from .native_execution import NativePlanActionV3
     if (type(execution.policy.action) is NativePlanActionV3) != (type(parent) is NativePlanOpeningInputV2):
         raise ValueError('Opening input differs from the actual target-resolution contract')
+    if (type(parent) is NativePlanOpeningInputV2
+            and parent.page_title != (execution.policy.action.document_title or '')):
+        raise ValueError('Opening title differs from its frozen Content metadata')
     if (type(parent) not in NATIVE_PLAN_OPENING_INPUT_TYPES
             or type(authorization) is not NativePlanOpeningAuthorizedV1
             or type(context.assembled_input) is not NativePlanRequestAdmissionV1
@@ -146,12 +149,14 @@ def validate_opening_sdk_entry(execution, outcome, expected_authorization):
 
 def request_manifest(*, action, work_context, source_authority_sha256, native_query_sha256,
         provenance_sha256, provider_roles, provider_input_accounting, admission):
+    from .native_execution import NativePlanActionV3
     return dict(schema='dmb_native_plan_request_manifest_v1',
         intent=action.intent.model_dump(mode='json', by_alias=True),
         work_capabilities=dict(authoring_capture_sha256=action.authoring_capture.sha256 if action.authoring_capture is not None else None,
             placement_catalog_sha256=action.placement_catalog.sha256 if action.placement_catalog is not None else None,
             related_page_catalog_sha256=t.canonical_sha256([p.model_dump(mode='json', by_alias=True)
-                for p in action.related_page_catalog])),
+                for p in action.related_page_catalog]),
+            **({'document_title': action.document_title} if type(action) is NativePlanActionV3 else {})),
         work_context=work_context.model_dump(mode='json', by_alias=True),
         provenance_sha256=provenance_sha256,
         source_authority_sha256=source_authority_sha256,

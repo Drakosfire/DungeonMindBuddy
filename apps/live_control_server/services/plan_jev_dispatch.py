@@ -163,6 +163,8 @@ class PlanJevDispatch:
             parent_type = (NativePlanOpeningInputV2
                 if type(adapter.fence.turn.graph_context_execution.policy.action) is NativePlanActionV3
                 else NativePlanOpeningInputV1)
+            if parent_type is NativePlanOpeningInputV2:
+                page_title = adapter.fence.turn.graph_context_execution.policy.action.document_title or ''
         navigation = dict(candidates=tuple(candidates), examined_candidates=tuple(examined_candidates),
             allowed_operations=tuple(allowed_operations), **source_pins(adapter.fence.turn.graph_context_receipt)) if opening else {}
         dispatch.parent = parent_type(

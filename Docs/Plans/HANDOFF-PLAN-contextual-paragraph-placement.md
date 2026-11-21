@@ -47,10 +47,13 @@ independent review and merge after gates are authorized. Preserve other lanes'
 hosted authorization, rollout, welcome behavior, retrieval ordering, source
 attribution and citation behavior outside this contextual capability.
 
-Branch: `codex/plan-contextual-paragraphs`.
-Checkout: `/home/drakosfire/Projects/.codex/bf5b/DungeonMindBuddy`.
-Pinned integration base: `01e22a26a020ca7399458bba61cee6d817c8702c`.
-Locked Core: `a662998d4c16e80393686153af9f6cd83c95e906`.
+Implementation continuation branch: `codex/plan-contextual-author-constraints`.
+Checkout: `/home/drakosfire/Projects/.codex/plan-contextual-verification/DungeonMindBuddy`.
+Same assigned draft PR #4264; no additional PR or stacked lane is dispatched.
+The original checkout/branch remains pinned at dcd603a for immutable development
+probes until the new interpretation/proof contract is qualified.
+Pinned integration base: `b84831800c7d00e549bb73ea496633e1bd46d370`.
+Locked Core: `34032dc83a873b77e07eac0a397b9fe7ae682086`.
 The integration preserves #4277 semantic-block writer guidance.
 It also preserves #4293/#4295 scoped source-read connection and locked-observation
 reuse. Historical Core0dd evidence does not qualify this integrated runtime.
@@ -83,6 +86,57 @@ JSON, stable identities, Undo/Redo, real Save and empty-storage cold reopen.
 Composed Plan, Build, typed existing Graph references, independent new-statblock
 proof and bounded adjacent image movement are later separately qualified slices
 of the full goal. Plan Cards and Play receive no inferred acceptance from this PR.
+
+## Author-constraint interpretation checkpoint
+
+Current runtime and all prototypes remain unqualified. dcd6 DEV40 is RED35/40,
+including two unsafe ancestor substitutions. Scope-only prototypes improve the
+reconstruction but still erase an unavailable ancestor when its primary section
+is unique. The56-case multi-field author AST prototype collapses positive
+coverage through cross-field/span coordination. These are development findings,
+not authority to activate another route or relabel earlier results.
+
+The same serial capability now requires a source-blind author reference before
+source matching. Jev selects the reference/relation; the host compiles declared
+literal references and binds EVERY named component to all matching source
+occurrences. Unknown literal names cannot be retried as descriptions or replaced
+by the current document title. Descriptions keep separate actual Jev matching;
+explicit document-title references bind the actual frozen Content title from
+the same Plan basis. An editor H1 is not that title.
+
+The deterministic compiler is implemented and tested independently while the
+compact source-blind interpreter is evaluated. No new runtime route is activated
+until actual SDK admission/replay joins the non-authorizing interpretation to
+its final work/placement decision. That observation grants no reads, reservation,
+proposal, Save or completed work. Preserve relation/reference kinds across both
+stages, source identity, user quote fidelity, old Action1/2 branches and the one
+already allocated172 reader fence. Same-PR boundaries are interpretation/grammar,
+source name/occurrence binding, actual native proof, then ordinary editor/Save.
+
+Expected added paths are `plan_author_location.py` under agent conversation and
+its owning `tests/application_state/test_plan_author_location.py`, plus bounded
+contextual phase/title-binding changes in `plan_jev_harness.py` and the existing
+native dispatch/admission/session/decision files already in this lease. Register
+the owning tests with existing CI classification/contracts. Preserve current
+main's conversation recovery, Guest UI, Combat, shared Warning/Rules guidance and
+Core cache budget behavior. Independent model and exact-head proof remain gates.
+
+Compiler/title checkpoint: 64 focused checks pass in the working tree against
+Core34032 (`author-location-title-focused-retry.log` in the retained A0jV7T
+evidence root). This includes actual disposable Content title-only rename CAS,
+manifest title substitution refusal, complete ancestry joins, literal slash and
+quote distinctions, duplicate/normalization occurrence expansion, and no missing
+literal-name fallback. The first broader diagnostic also ran the older
+`test_plan_jev_harness.py`: 63 passed, nine failed at the retired V1 contract
+guard; retain `author-location-title-focused.log` as red evidence, not a passing
+boundary claim. These are working-tree diagnostics, not exact-head qualification.
+
+ActionV3 now freezes actual Content title only after matching document, World,
+active status, object revision and immutable revision ID. Its request manifest
+and actual SDK parent retain that title. Action1/2 wire branches are unchanged.
+This intentionally revises the unreleased ActionV3 behind172: earlier V3 DEV
+records remain evidence for their pinned source only, with no cross-revision
+resume compatibility claim. No deployed reader or production data is migrated.
 
 ## Current semantic and native contract
 

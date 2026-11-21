@@ -61,6 +61,10 @@ class PlanJevHarness:
                 if type(adapter.request.plan_context_policy) is not t.PlanContextPolicyV2:
                     raise ValueError('Current Plan orchestration requires the governed native request protocol')
                 adapter.claim_native_plan_request(dialogue=dialogue)
+                from application_state.agent_conversation.native_execution import NativePlanActionV3
+                action = adapter.fence.turn.graph_context_execution.policy.action
+                if type(action) is NativePlanActionV3:
+                    page_title = action.document_title or ''
                 from .native_authored_references import acquire
                 acquire(adapter)
                 driver = PlanJevDriver(adapter, dialogue=dialogue, rules=rules, retained_navigation=retained_navigation)

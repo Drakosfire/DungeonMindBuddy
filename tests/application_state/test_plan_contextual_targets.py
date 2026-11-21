@@ -496,6 +496,15 @@ def test_actual_model_multiple_nominations_clarify_without_reservation_or_factua
     service = AgentConversationService()
     pointer = service.get_world_pointer('world:one')
     turn = service.list_turns('world:one', pointer.active_conversation_id)[-1]
+    from application_state.agent_conversation.native_plan_opening import validate_request_admission
+    execution = turn.graph_context_execution
+    assert execution.policy.action.document_title == 'Synthetic park Plan'
+    assert validate_request_admission(turn.graph_context_receipt, execution)
+    changed_action = execution.policy.action.model_copy(update={'document_title': 'Foreign title'})
+    changed_policy = execution.policy.model_copy(update={'action': changed_action})
+    with pytest.raises(ValueError, match='manifest differs'):
+        validate_request_admission(turn.graph_context_receipt,
+            execution.model_copy(update={'policy': changed_policy}))
     selection = next(e for e in turn.graph_context_execution.events if type(e) is NativePlanOpeningSelectedV2)
     assert selection.requested_intent == 'write_current_page'
     assert selection.requested_work == 'clarify' and selection.target_resolution == 'ambiguous'

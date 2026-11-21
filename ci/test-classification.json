@@ -627,6 +627,7 @@
       "tests/application_state/test_native_source_catalog_postgres.py",
       "tests/application_state/test_native_storage_owner_migration.py",
       "tests/application_state/test_plan_placement.py",
+      "tests/application_state/test_plan_author_location.py",
       "tests/application_state/test_plan_contextual_targets.py",
       "tests/application_state/test_plan_work_object_postgres.py",
       "tests/application_state/test_runbook_work_object_postgres.py",

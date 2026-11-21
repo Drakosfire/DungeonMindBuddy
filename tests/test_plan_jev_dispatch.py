@@ -21,6 +21,10 @@ from tests.test_agent_turn_service import _pinned_plan_request, _pinned_plan_wor
 
 @pytest.fixture
 def plan_adapter(application_state_dsn, monkeypatch):
+    # This adapter deliberately uses a synthetic pinned basis, not a stored
+    # Content object. Metadata CAS itself is covered by its owner tests.
+    monkeypatch.setattr('apps.live_control_server.services.plan_source_turn._contextual_document_title',
+        lambda basis: 'Synthetic park Plan')
     monkeypatch.setattr('apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference',
         lambda **_: ('openai-api', 'gpt-6-luna', 'https://api.openai.com/v1'))
     request = _pinned_plan_request()
