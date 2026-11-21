@@ -50,7 +50,7 @@ def main() -> None:
                 ["git", "show", f"{args.sha if name == FILES[0] else args.runtime_sha}:{name}"], check=True, stdout=subprocess.PIPE
             ).stdout)
         subprocess.run([
-            "docker", "build", "--build-arg", f"BUDDY_RUNTIME_IMAGE={image_id}",
+            "docker", "build", "--file", str(root / FILES[0]), "--build-arg", f"BUDDY_RUNTIME_IMAGE={image_id}",
             "--label", f"org.opencontainers.image.revision={args.sha}",
             "--label", f"org.dungeonmind.runtime.revision={args.runtime_sha}",
             "--tag", tag, str(root),
