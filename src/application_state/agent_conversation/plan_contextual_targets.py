@@ -71,12 +71,17 @@ def prepare_contextual_work(request):
             "Identify the EXISTING page anchor named by the request, separately from the relation "
             "and the content to create. Include every equally valid matching anchor; never rank "
             "duplicates or choose a winner. Match the existing passage and any named section. "
+            "A section-qualified paragraph is prose under that heading, identified by its words "
+            "or topic; the paragraph itself need not repeat the heading name. "
             "Match the anchor kind to the requested relation: a section named only to qualify "
             "a paragraph is context, not a second heading anchor. "
             "Content to repeat or invent is not another existing insertion anchor. "
             "A captured replacement is the one explicitly selected span; duplicate words elsewhere "
             "do not compete when the request refers to that selection. An incidental caret is "
             "not a substitute for a named anchor. Judge compatibility with the entire request. "
+            "Votes apply only to anchors of the kind required by placement_relation; other kinds "
+            "must exclude. Directly below a heading before its existing body is one after_heading "
+            "relation, even when both descriptions are stated. "
             "One fragment supports ONE page-placement relation. If the request imposes multiple "
             "relations, choose unresolved, even if their boundaries might coincide; do not drop "
             "a constraint. Ordering inside the new fragment is content, not another page relation. "
@@ -111,6 +116,7 @@ def anchor_groups(capture, catalog):
                     for part in nodes[entry.source_root_index].get('content', []))
                 row['section'] = next((heading['label'] for heading in reversed(headings)
                     if heading['index'] < entry.source_root_index), 'this page')
+                row['label'] = f"Paragraph in {row['section']}: {row['text']}"
             elif kind == 'heading':
                 row['heading_path'] = next(heading['label'] for heading in headings
                     if heading['index'] == entry.source_root_index)
@@ -150,17 +156,21 @@ def focused_target(request):
 def target_questions(request):
     from generationengine.types import ChoiceDecisionQuestion
     questions = {
-        'paragraph': 'Does the user mean this existing paragraph when saying where to add or change text? Match its passage and any named section.',
-        'heading': 'Does the user want text at this heading or around its whole section, rather than beside a paragraph within it?',
-        'captured': 'Does the request use this captured selection or caret, rather than another named anchor?',
-        'page_end': 'Does the request choose the current page end as its destination?',
+        'paragraph': 'Only for a before_paragraph or after_paragraph relation: does this existing paragraph match the requested passage and section? '
+            'If the request and dialogue do not distinguish a section, an equal passage in ANY section is a match. Do not choose just one occurrence. '
+            'For heading, captured or page-end relations, exclude this paragraph.',
+        'heading': 'Only for a before_heading, after_heading or after_section relation: does the request choose this heading or section itself? '
+            'A paragraph mentioned as the start of its body does not change an after_heading relation. For other relation kinds, exclude this heading.',
+        'captured': 'Only for the captured relation: does the request use this captured selection or caret? For other relations, exclude.',
+        'page_end': 'Only for the end_page relation: does the request choose the current page end? For other relations, exclude.',
     }
     return (ChoiceDecisionQuestion(name='placement_relation', options=offered_relations(request),
         question='What single relation to an existing page anchor does the requested fragment use? '
             'Ignore ordering inside the new fragment. Multiple page relations must be unresolved.'),
         *(ChoiceDecisionQuestion(name=f'anchor_{i}', options=('include', 'exclude'),
             question=questions[anchor['kind']] + ' Reference data: '
-                + json.dumps(anchor, ensure_ascii=False)
+                + json.dumps(({key: anchor[key] for key in ('selector', 'kind', 'label')}
+                    if anchor['kind'] == 'paragraph' else anchor), ensure_ascii=False)
                 + ' Judge the anchor, not what the new fragment will contain. Include every equally valid match.')
             for i, anchor in enumerate(contextual_anchors(request))))
 

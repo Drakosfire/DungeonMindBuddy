@@ -190,6 +190,23 @@ Eighteen target/clarification controls then passed;28 guidance/native-empty-outp
 controls passed. Fresh actual DEV22 remains required; these source diagnostics
 do not erase the four observed acceptance failures.
 
+DEV4ca is retained RED:17/22 work/target; three false missing-target questions,
+one unsafe ambiguous-duplicate reservation/proposal and one fail-closed rejection
+of the supported below-heading/before-body boundary. Six correct deliveries were
+core/clean; content-question routing and replacement duplication were corrected;
+9/10 required questions and2/2 discussions useful. No source mutation.
+
+The next decision-view amendment gives paragraphs a human-readable semantic
+section+passage label and states the section-qualified paragraph meaning.
+Each anchor question explicitly applies only to its relation kinds and retains
+every equal passage when request/dialogue does not distinguish its section.
+Directly below a heading and before its existing body is one canonical
+after_heading relation, even when described redundantly. This does not enable
+independent after-A/before-B constraints across anchors. Host strict kind checks,
+capture intersection, raw proof fields and confidence handling are unchanged.
+Eighteen host/native controls passed with the conditional question preparation;
+new actual DEV evidence remains required before acceptance.
+
 Alan's latest instruction grants full authority over this lane and directs no
 further routine approval requests. This supersedes the pending bounded #3307
 admission split and synthetic OpenAI/browser payload questions below. It covers
