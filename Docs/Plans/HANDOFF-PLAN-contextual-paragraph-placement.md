@@ -3,8 +3,8 @@
 Status: ACTIVE. The initial inert preparation gate on #4240 is resolved: that PR
 merged, and the first integration used main6f8af81e6dd47ec92b5ef9a0180e2e34ffd104c4
 containing its actual 0170 migration. This lane now consumes main
-7d94acd0f265d98d82b557b4edd747c64f26fe82, preserving the merged tracing changes,
-DungeonMind046791d verified-row pin/opt-in, and #4277's released semantic-block
+fa1536c28ea900f6f01a0772f657e1510806f081, preserving the merged tracing changes,
+DungeonMind1c8f9d7ce755cd45f2ff8a8c0b36b68f514bd245 pin, and #4277's released semantic-block
 authoring guidance. Alan explicitly chose #4240 first, then
 0171 after0170. The authorized fence is now allocated as
 `20261120_0171_plan_paragraph_placement_reader_fence.py`, down_revision0170.
