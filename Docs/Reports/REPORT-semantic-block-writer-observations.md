@@ -287,3 +287,11 @@ Buddy's pinned DungeonMind Core source and an isolated pgvector database.
 It exercises hosted ownership, publication, and signed recovery. The cloud
 release still uses classic first-World publication. The local test does not
 supply the disposable native Graph or exercise the hosted G01 chat case.
+
+A later read-only capability check used the existing hosted Elderwyld native
+Graph on release `096312313`. The explorer loaded 3,012 objects. Selecting an
+object through Find opened its details, and its action menu offered no chat
+composer. The Graph workspace had no conversation launcher. G01 was therefore
+ineligible for submission on that hosted surface. No prompt was sent and no
+Graph update was attempted. This provides capability evidence on a loaded
+native Graph independently of the Pilot Graph availability failure.
