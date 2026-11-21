@@ -611,10 +611,16 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
     work, _ = asyncio.run(opening.run(
         transport=SemanticWire(plan_adapter, 'write:captured', expect_examined=False),
         api_key='synthetic-not-secret'))
-    assert work == 'write_current_page'
     confirmed = plan_adapter.service.list_turns(turn.world_id, turn.conversation_id)[0]
     selection = confirmed.graph_context_execution.events[-1]
     assert selection.author_scope_binding.observation_event_id == opening_scope.event_id
+    if provider_case == 'capture_rewrite_recheck':
+        assert confirmed.graph_context_execution.policy.action.authoring_capture.target_kind == 'insert_at_caret'
+        assert work == 'clarify'
+        assert selection.placement_selector is None
+        assert selection.target_capture_sha256 is None
+        return
+    assert work == 'write_current_page'
     assert selection.placement_selector == 'captured'
     assert selection.target_capture_sha256 == current.graph_context_execution.policy.action.authoring_capture.sha256
 
