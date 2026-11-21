@@ -17,7 +17,7 @@ from application_state.content.page_presentation import (
 )
 
 
-class PlanSlotAddressV1(BaseModel):
+class PlanSlotParagraphV1(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     row_index: int = Field(ge=0)
@@ -26,6 +26,9 @@ class PlanSlotAddressV1(BaseModel):
     slot_id: Identifier
     child_index: int = Field(ge=0)
     block_id: Identifier
+
+
+class PlanSlotAddressV1(PlanSlotParagraphV1):
     relation: Literal["before", "after"]
 
     @property
@@ -100,7 +103,7 @@ def require_editor_layout(
 
 
 def require_slot_paragraph(
-    editor: dict, markdown: str, layout: PagePresentation, address: PlanSlotAddressV1
+    editor: dict, markdown: str, layout: PagePresentation, address: PlanSlotParagraphV1
 ) -> list[BlockBinding]:
     bindings = require_editor_layout(editor, markdown, layout)
     try:
@@ -122,8 +125,50 @@ def require_slot_paragraph(
     return bindings
 
 
-def _editor_slot(editor: dict, address: PlanSlotAddressV1) -> dict:
+def _editor_slot(editor: dict, address: PlanSlotParagraphV1) -> dict:
     return editor["content"][address.row_index]["content"][address.slot_index]
+
+
+def _editor_node_size(node: dict) -> int:
+    # Only the editor types admitted by require_editor_layout occur here.
+    kind = node["type"]
+    if kind == "text":
+        return len(node["text"].encode("utf-16-le")) // 2
+    if kind in {"horizontalRule", "hardBreak"}:
+        return 1
+    return 2 + sum(_editor_node_size(child) for child in node.get("content", []))
+
+
+def require_slot_selection(
+    editor: dict,
+    address: PlanSlotParagraphV1,
+    start: int,
+    end: int,
+    selected_text: str,
+) -> None:
+    """Prove a deliberate selection belongs to its addressed paragraph."""
+    rows = editor["content"]
+    slots = rows[address.row_index]["content"]
+    children = slots[address.slot_index]["content"]
+    text_start = (
+        sum(_editor_node_size(node) for node in rows[: address.row_index])
+        + sum(_editor_node_size(node) for node in slots[: address.slot_index])
+        + sum(_editor_node_size(node) for node in children[: address.child_index])
+        + 3
+    )
+    inline = children[address.child_index].get("content", [])
+    text = "".join(
+        "\n" if node["type"] == "hardBreak" else node["text"] for node in inline
+    )
+    utf16 = text.encode("utf-16-le")
+    lower = start - text_start
+    upper = end - text_start
+    if (
+        lower < 0
+        or not lower < upper <= len(utf16) // 2
+        or (utf16[2 * lower : 2 * upper].decode("utf-16-le") != selected_text)
+    ):
+        raise ValueError("Plan selected text does not match its addressed paragraph")
 
 
 _MARKS = {"strong": "bold", "em": "italic", "s": "strike", "link": "link"}

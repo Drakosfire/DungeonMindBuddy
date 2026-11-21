@@ -16,7 +16,10 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from application_state.agent_conversation.plan_slot_layout import (
     PlanSlotAddressV1,
+    PlanSlotParagraphV1,
+    require_editor_layout,
     require_slot_paragraph,
+    require_slot_selection,
 )
 from application_state.content.page_presentation import Digest, PagePresentation
 from application_state.errors import ApplicationStateValidationError
@@ -226,14 +229,7 @@ class PlanAuthoringBoundaryCaptureV1(PlanAuthoringCaptureV1):
         return self
 
 
-class PlanAuthoringSlotBoundaryCaptureV1(PlanAuthoringCaptureV1):
-    """A slot address authorizes the insertion. Range fields only witness selection."""
-
-    schema_: Literal["dmb_plan_authoring_slot_boundary_capture_v1"] = Field(
-        default="dmb_plan_authoring_slot_boundary_capture_v1", alias="schema"
-    )
-    target_kind: Literal["insert_at_slot_boundary"]
-    slot_address: PlanSlotAddressV1
+class _PlanComposedCapture(PlanAuthoringCaptureV1):
     base_page_presentation_sha256: Digest
     draft_page_presentation: PagePresentation
     draft_page_presentation_sha256: Digest
@@ -247,13 +243,9 @@ class PlanAuthoringSlotBoundaryCaptureV1(PlanAuthoringCaptureV1):
         anchor, head = selection.get("anchor"), selection.get("head")
         if type(anchor) is not int or type(head) is not int:
             raise ValueError("Plan slot insertion requires integer selection positions")
-        original = self.model_dump(mode="python", by_alias=True, exclude={
-            "slot_address",
-            "base_page_presentation_sha256",
-            "draft_page_presentation",
-            "draft_page_presentation_sha256",
-            "selection_witness_text",
-        })
+        original = self.model_dump(
+            mode="python", by_alias=True, include=set(PlanAuthoringCaptureV1.model_fields),
+        )
         original.update(
             schema="dmb_plan_authoring_capture_v1",
             target_kind="insert_at_caret" if anchor == head else "replace_selection",
@@ -271,6 +263,46 @@ class PlanAuthoringSlotBoundaryCaptureV1(PlanAuthoringCaptureV1):
             self.draft_page_presentation.checked(self.draft_markdown)
         except ApplicationStateValidationError as exc:
             raise ValueError(str(exc)) from exc
+        return self
+
+
+class PlanAuthoringComposedSnapshotV1(_PlanComposedCapture):
+    """Freeze the composed editor before any insertion authority exists."""
+
+    schema_: Literal["dmb_plan_authoring_composed_snapshot_v1"] = Field(
+        default="dmb_plan_authoring_composed_snapshot_v1", alias="schema",
+    )
+    target_kind: Literal["offer_slot_placement"]
+    selected_paragraph: PlanSlotParagraphV1 | None = None
+
+    @model_validator(mode="after")
+    def exact_selection(self):
+        editor = strict_json(self.editor_json)
+        if self.selected_paragraph is None:
+            require_editor_layout(editor, self.draft_markdown, self.draft_page_presentation)
+            return self
+        if self.from_ == self.to or not self.selection_witness_text.strip():
+            raise ValueError("A selected paragraph requires a deliberate text selection")
+        require_slot_paragraph(
+            editor, self.draft_markdown, self.draft_page_presentation, self.selected_paragraph,
+        )
+        require_slot_selection(
+            editor, self.selected_paragraph, self.from_, self.to, self.selection_witness_text,
+        )
+        return self
+
+
+class PlanAuthoringSlotBoundaryCaptureV1(_PlanComposedCapture):
+    """A slot address authorizes the insertion. Range fields only witness selection."""
+
+    schema_: Literal["dmb_plan_authoring_slot_boundary_capture_v1"] = Field(
+        default="dmb_plan_authoring_slot_boundary_capture_v1", alias="schema"
+    )
+    target_kind: Literal["insert_at_slot_boundary"]
+    slot_address: PlanSlotAddressV1
+
+    @model_validator(mode="after")
+    def exact_slot(self):
         require_slot_paragraph(
             strict_json(self.editor_json), self.draft_markdown,
             self.draft_page_presentation, self.slot_address,

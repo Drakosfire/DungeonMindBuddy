@@ -55,6 +55,109 @@ def request_for(capture, catalog):
         plan_requested_operation=None)
 
 
+def composed_snapshot(*, selected=False, wrong_slot=False):
+    from application_state.agent_conversation.plan_authoring import PlanAuthoringComposedSnapshotV1
+    from tests.application_state.test_plan_authoring_review import ENDING, LEFT, RIGHT, composed_plan
+
+    markdown, layout, editor = composed_plan([LEFT], [RIGHT], ENDING)
+    start = len(LEFT[1]) + 7 if selected else 1
+    end = start + len(RIGHT[1]) if selected else start
+    selection = json.dumps({"type": "text", "anchor": start, "head": end})
+    slot = None if not selected else {
+        "row_index": 0, "row_id": "row", "slot_index": 0 if wrong_slot else 1,
+        "slot_id": "left" if wrong_slot else "right", "child_index": 0,
+        "block_id": "left-block" if wrong_slot else "right-block",
+    }
+    return PlanAuthoringComposedSnapshotV1.model_validate(capture_payload() | {
+        "schema": "dmb_plan_authoring_composed_snapshot_v1",
+        "target_kind": "offer_slot_placement", "editor_json": editor, "editor_sha256": text_digest(editor),
+        "draft_markdown": markdown, "draft_sha256": text_digest(markdown),
+        "base_page_presentation_sha256": layout.fingerprint(),
+        "draft_page_presentation": layout, "draft_page_presentation_sha256": layout.fingerprint(),
+        "selection_json": selection, "selection_sha256": text_digest(selection),
+        "from": start, "to": end, "selection_witness_text": RIGHT[1] if selected else "",
+        "selected_paragraph": slot,
+    })
+
+
+def test_composed_catalog_keeps_identical_paragraph_occurrences_separate():
+    from application_state.agent_conversation.plan_composed_targeting import (
+        ComposedPlanNominationV1, ComposedPlanPlacementCatalogV1, resolve_composed_plan_nomination,
+    )
+
+    snapshot = composed_snapshot()
+    catalog = ComposedPlanPlacementCatalogV1.freeze(snapshot)
+    assert len(catalog.paragraphs) == 2
+    assert catalog.paragraphs[0].text == catalog.paragraphs[1].text
+    assert [row.column for row in catalog.paragraphs] == ["left column", "right column"]
+    unscoped = ComposedPlanNominationV1(relation="after", scope="unscoped", passages=("passage0",))
+    baseline = resolve_composed_plan_nomination(snapshot, catalog, "write_current_page", unscoped)
+    assert (baseline.work, baseline.resolution, baseline.capture) == ("clarify", "ambiguous", None)
+    qualified = ComposedPlanNominationV1(relation="before", scope="qualified",
+        passages=("passage0",), scopes=("location1",))
+    outcome = resolve_composed_plan_nomination(snapshot, catalog, "write_current_page", qualified)
+    assert outcome.capture.slot_address.model_dump() == {
+        "row_index": 0, "row_id": "row", "slot_index": 1, "slot_id": "right",
+        "child_index": 0, "block_id": "right-block", "relation": "before",
+    }
+    assert outcome.capture.draft_page_presentation == snapshot.draft_page_presentation
+    assert outcome.capture.selection_json == snapshot.selection_json
+    for author_intent in ("discuss", "clarify", "different_destination"):
+        safe = resolve_composed_plan_nomination(snapshot, catalog, author_intent, qualified)
+        assert (safe.work, safe.capture) == (author_intent, None)
+    with pytest.raises(ValueError, match="complete frozen editor"):
+        resolve_composed_plan_nomination(snapshot, catalog.model_copy(update={"paragraphs": catalog.paragraphs[1:]}),
+            "write_current_page", qualified)
+
+
+def test_composed_explicit_selection_requires_exact_text_in_the_addressed_slot():
+    from application_state.agent_conversation.plan_composed_targeting import (
+        ComposedPlanNominationV1, ComposedPlanPlacementCatalogV1, resolve_composed_plan_nomination,
+    )
+
+    nomination = ComposedPlanNominationV1(relation="after", scope="selected_paragraph")
+    plain = composed_snapshot()
+    missing = resolve_composed_plan_nomination(plain, ComposedPlanPlacementCatalogV1.freeze(plain),
+        "write_current_page", nomination)
+    assert (missing.work, missing.resolution, missing.capture) == ("clarify", "missing", None)
+    snapshot = composed_snapshot(selected=True)
+    selected = resolve_composed_plan_nomination(snapshot, ComposedPlanPlacementCatalogV1.freeze(snapshot),
+        "write_current_page", nomination)
+    assert selected.capture.slot_address.slot_id == "right"
+    assert selected.capture.slot_address.relation == "after"
+    assert selected.capture.from_ == snapshot.from_
+    with pytest.raises(ValueError, match="selected text does not match"):
+        composed_snapshot(selected=True, wrong_slot=True)
+
+
+def test_composed_nomination_offers_semantics_and_never_host_metadata():
+    from application_state.agent_conversation.plan_authoring import PlanRequestedWorkInputV1
+    from application_state.agent_conversation.plan_composed_targeting import (
+        ComposedPlanPlacementCatalogV1, prepare_composed_plan_nomination,
+    )
+
+    snapshot = composed_snapshot(selected=True)
+    catalog = ComposedPlanPlacementCatalogV1.freeze(snapshot)
+    author = PlanRequestedWorkInputV1(
+        request_id=uuid4(), parent_attempt_id=uuid4(), scope_sha256="f" * 64,
+        question="Add a short warning after the gate in the right column.",
+        page_title="Preparation notes", target_available=False,
+    )
+    prepared = prepare_composed_plan_nomination(author, snapshot, catalog)
+    assert [location["description"] for location in prepared.state["locations"]] == [
+        "left column in row 1 on the page, row 1 within its section",
+        "right column in row 1 on the page, row 1 within its section",
+    ]
+    assert prepared.state["explicitly_selected_text"] == "The gate is locked."
+    rendered = json.dumps(prepared.state) + "\n" + "\n".join(q.question for q in prepared.questions)
+    for protected in (
+        snapshot.world_id, snapshot.document_id, str(snapshot.conversation_id), str(snapshot.idempotency_key),
+        snapshot.sha256, snapshot.editor_sha256, snapshot.draft_page_presentation_sha256, "left-block",
+        "right-block", "row_index", "slot_index", "child_index", "selection_json", "byte_start",
+    ):
+        assert protected not in rendered
+
+
 @pytest.mark.parametrize("selected", [False, True])
 def test_bound_selected_rewrite_requires_an_actual_selection(selected):
     from types import SimpleNamespace

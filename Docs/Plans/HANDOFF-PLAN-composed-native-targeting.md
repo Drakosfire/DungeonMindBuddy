@@ -31,8 +31,8 @@ actual proposal/review/Save and the independent held-out run.
 ## Ownership and proof
 
 Write set is the composed snapshot/capture helper in
-`src/application_state/agent_conversation/plan_authoring.py`, a narrow
-composed catalog/decision module, existing Plan targeting tests, this
+`src/application_state/agent_conversation/plan_authoring.py`, its shared
+slot address helper, a narrow composed catalog/decision module, existing Plan targeting tests, this
 handoff and the completed Review predecessor. Build, writer, retrieval and
 conversation owner files stay with their current lanes. The decision is
 verified in the exact joined host compiler and real Jev decision input
