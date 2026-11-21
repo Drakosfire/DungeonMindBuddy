@@ -202,8 +202,19 @@ A read-only comparison of all three stored run editions verified that each
 pinned immutable parent Plan revision 5 with its matching content digest and
 saved the edit as session-copy revision 1. The new Pause for response note
 appeared only in the edited copies, and no parent Plan revision matched any
-edited session digest. Hosted table and image preservation remain pending.
+edited session digest. The later hosted table pass is recorded below. Hosted
+image preservation remains pending.
 The separate adoption diagnostic below covers reviewed agent-authored blocks.
+
+A fresh hosted Play run in Buddy Cloud Pilot
+(`2918d339-782b-470e-9df5-51e51f50cb1f`) started from Plan version 9. A two-column
+table was saved to session-copy revision 1. The exact PL01 prompt in
+**Propose scene edit** mode produced **Read Aloud · Arrival** and **GM Note ·
+Pause**, with the table visible in review. After Apply and reload, both
+callouts and the original table rendered. Removing only the two additions
+from the reopened revision 2 Markdown reproduced revision 1 exactly,
+including the table, original scene text, choice and Departure scene. This
+check exercised a table and did not include an image.
 
 Hosted Home showed no conversation composer in Buddy Cloud Pilot, so H01 had
 no eligible writer. Hosted Graph still reported unavailable native readback
