@@ -23,7 +23,7 @@ from .native_context import (
 from .native_statement_input import Strict
 from .native_corpus import prior_conversation_work
 from .plan_authoring import PlanAuthoringComposedSnapshotV1, PlanAuthoringOpeningCapture
-from .plan_composed_targeting import ComposedPlanNominationV1, ComposedPlanPlacementCatalogV1
+from .plan_composed_targeting import ComposedColumn, ComposedPlanNominationV1, ComposedPlanPlacementCatalogV1
 from .plan_placement import PlanPlacementCatalog
 
 from .native_retrieval import (
@@ -386,6 +386,8 @@ class NativePlanOpeningSelectedV3(NativePlanOpeningSelectedV1):
     composed_nomination: ComposedPlanNominationV1
     target_resolution: Literal['not_applicable', 'missing', 'unique', 'ambiguous', 'unresolved']
     column_scope_version: Literal['v1'] | None = Field(default=None, exclude_if=lambda value: value is None)
+    author_column: ComposedColumn | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode='after')
     def applicable_read_plan(self):
@@ -404,8 +406,10 @@ class NativePlanOpeningSelectedV3(NativePlanOpeningSelectedV1):
         catalog = decode_plan_placement_catalog(self.placement_catalog)
         if type(capture) is not PlanAuthoringComposedSnapshotV1 or type(catalog) is not ComposedPlanPlacementCatalogV1:
             raise ValueError('Composed opening requires its exact snapshot and catalog')
+        if self.author_column is not None and self.column_scope_version != 'v1':
+            raise ValueError('Composed column scope requires its retained interpretation version')
         expected = resolve_composed_opening(capture, catalog, self.author_scope_binding,
-            self.composed_nomination, self.author_operation, column_scope_version=self.column_scope_version)
+            self.composed_nomination, self.author_operation, author_column=self.author_column)
         if any(getattr(self, key) != value for key, value in expected.items()):
             raise ValueError('Composed opening differs from its complete target resolution')
         return self

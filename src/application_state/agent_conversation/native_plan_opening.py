@@ -12,15 +12,14 @@ from pydantic import Field
 from . import types as t
 from .native_statement_input import Strict
 from .plan_author_location import (
-    LiteralScopeName, NamedScopePath, ScopeExpression, ScopeWithExclusion,
+    AuthorLocationQuote, LiteralScopeName, NamedScopePath, ScopeExpression, ScopeWithExclusion,
     UnresolvedLocation, UnscopedLocation, author_scope_hypotheses,
-    author_scope_offer_view, matches_literal_scope_path,
+    author_scope_offer_view, matches_literal_scope_path, name_key,
 )
 from .plan_placement import PlanRequestedWorkInputV8, PlanRequestedWorkInputV9
 from .plan_authoring import PlanAuthoringComposedSnapshotV1, PlanRequestedWorkInputV1
 from .plan_composed_targeting import (
-    ComposedPlanPlacementCatalogV1,
-    composed_literal_scope_matches,
+    ComposedColumn, ComposedPlanPlacementCatalogV1,
     composed_nomination_from_answers,
     prepare_composed_plan_nomination,
     resolve_composed_plan_nomination,
@@ -122,7 +121,44 @@ def _composed_work_request(request):
     return prepare_composed_plan_nomination(author, request.original_capture, request.placement_catalog)
 
 
-def resolve_composed_opening(snapshot, catalog, binding, nomination, operation, *, column_scope_version=None):
+def _observed_column(scope) -> str | None:
+    if (isinstance(scope, NamedScopePath) and not scope.rooted and scope.occurrence is None
+            and len(scope.names) == 1 and isinstance(scope.names[0], LiteralScopeName)):
+        return name_key(scope.names[0].text).removeprefix("the ")
+    return None
+
+
+_COLUMN_MENTION = re.compile(r'\b(?:only|left|middle|right)\s+column\b', re.IGNORECASE)
+_COLUMN_PREFIX = re.compile(r'\b(?:in|within|inside|from|of)\s+(?:the\s+)?$', re.IGNORECASE)
+_COLUMN_NAME_SUFFIX = re.compile(r'^\s+(?:heading|section|title|called|named|label(?:l)?ed)\b', re.IGNORECASE)
+
+
+def composed_author_column(request) -> ComposedColumn | None:
+    """Type a source-blind literal only when the author actually uses column syntax."""
+    if request.column_scope_version != 'v1':
+        return None
+    observed = _observed_column(request.author_scope_binding.observation.scope)
+    mentions = [row for row in _COLUMN_MENTION.finditer(request.question)
+                if name_key(row.group()) == observed]
+    if len(mentions) != 1:
+        return None
+    mention = mentions[0]
+    prefix = _COLUMN_PREFIX.search(request.question[:mention.start()])
+    if prefix is None or _COLUMN_NAME_SUFFIX.match(request.question[mention.end():]):
+        return None
+    try:
+        AuthorLocationQuote(utterance_index=len(request.dialogue), start=prefix.start(),
+            end=mention.end(), text=request.question[prefix.start():mention.end()]).verify(
+                request.question, request.dialogue,
+            )
+    except ValueError:
+        return None
+    return observed
+
+
+def resolve_composed_opening(snapshot, catalog, binding, nomination, operation, *, author_column=None):
+    if author_column is not None and _observed_column(binding.observation.scope) != author_column:
+        raise ValueError('Composed column differs from the retained author scope')
     if operation == 'discuss' or binding.page_edit_intent == 'discussion':
         intent = 'discuss'
     elif nomination.confirmed_work == 'different_destination':
@@ -148,13 +184,12 @@ def resolve_composed_opening(snapshot, catalog, binding, nomination, operation, 
                 for path in paths
             )
             paragraph = catalog.paragraph_for(capture.slot_address)
-            def matches(path, *, exclusion=False):
-                if column_scope_version == 'v1':
-                    return composed_literal_scope_matches(catalog, paragraph, path, exclusion=exclusion)
-                return matches_literal_scope_path(paragraph.heading_path, path)
-
-            if (not supports_literal_scope or not matches(positive)
-                    or excluded is not None and matches(excluded, exclusion=True)):
+            positive_matches = supports_literal_scope and (
+                paragraph.column == author_column if author_column is not None
+                else matches_literal_scope_path(paragraph.heading_path, positive)
+            )
+            if (not positive_matches or excluded is not None
+                    and matches_literal_scope_path(paragraph.heading_path, excluded)):
                 return {'requested_work': 'clarify', 'target_resolution': 'unresolved',
                         'placement_selector': None, 'target_capture_sha256': None}
     return {
@@ -520,11 +555,13 @@ def prepare_opening_decision(request):
 def _composed_opening_fields(request, answers):
     work = _composed_work_request(request)
     nomination = composed_nomination_from_answers(work, {q.name: answers[q.name] for q in work.questions})
+    author_column = composed_author_column(request)
     return resolve_composed_opening(
         request.original_capture, request.placement_catalog,
         request.author_scope_binding, nomination, request.plan_requested_operation,
-        column_scope_version=request.column_scope_version,
-    ) | {"composed_nomination": nomination, "column_scope_version": request.column_scope_version}
+        author_column=author_column,
+    ) | {"composed_nomination": nomination, "column_scope_version": request.column_scope_version,
+           "author_column": author_column}
 
 
 def composed_opening_fields(request, result):
