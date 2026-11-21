@@ -488,7 +488,9 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
     import asyncio
 
     from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
-    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+    from application_state.agent_conversation.native_plan_opening import (
+        NativePlanAuthorScopeObservedV1, require_retained_author_scope,
+    )
     from application_state.agent_conversation.plan_author_location import UnscopedLocation
     from application_state.agent_conversation.plan_jev_decision import current_selection
     from application_state.errors import ApplicationStateValidationError
@@ -549,6 +551,12 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
     assert events[-1].scope_observation == observation
     assert observation.relation == 'captured' and observation.scope == UnscopedLocation()
     assert events[-1].actual_output_tokens == result.observation.output_tokens == 9
+    assert require_retained_author_scope(current.graph_context_execution, events[-1].event_id, observation) == events[-1]
+    with pytest.raises(ValueError, match='exact retained author observation'):
+        require_retained_author_scope(current.graph_context_execution, uuid4(), observation)
+    with pytest.raises(ValueError, match='exact retained author observation'):
+        require_retained_author_scope(current.graph_context_execution, events[-1].event_id,
+            observation.model_copy(update={'relation': 'after_heading'}))
     with pytest.raises(ValueError, match='no longer current'):
         current_selection(current)
 

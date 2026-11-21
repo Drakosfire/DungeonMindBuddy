@@ -323,23 +323,25 @@ def contextual_work_choice(request, intent, answers):
         answers['scope_qualifier'], votes('ancestor', inventory['ancestors']))
 
 
+def _component_selection(entries, selectors):
+    selectors = tuple(selectors)
+    if len(set(selectors)) != len(selectors) or set(selectors) - {entry['view']['selector'] for entry in entries}:
+        raise ValueError('Foreign or duplicate contextual component')
+    chosen = [entry for entry in entries if entry['view']['selector'] in selectors]
+    return tuple(entry['view']['selector'] for entry in chosen), chosen
+
+
 def resolve_component_targets(capture, catalog, intent, relation, scope, direct, passages, sections,
                               qualifier='none', ancestors=()):
     inventory = component_inventory(capture, catalog)
     if scope not in PARAGRAPH_SCOPES or qualifier not in SCOPE_QUALIFIERS:
         raise ValueError('Unknown paragraph scope mode or ancestor qualifier')
-    def selected(entries, selectors):
-        selectors = tuple(selectors)
-        if len(set(selectors)) != len(selectors) or set(selectors) - {entry['view']['selector'] for entry in entries}:
-            raise ValueError('Foreign or duplicate contextual component')
-        chosen = [entry for entry in entries if entry['view']['selector'] in selectors]
-        return tuple(entry['view']['selector'] for entry in chosen), chosen
     def anchors(entries):
         return {anchor for entry in entries for anchor in entry['anchors']}
-    direct_ids, direct_rows = selected(inventory['direct'], direct)
-    passage_ids, passage_rows = selected(inventory['passages'], passages)
-    section_ids, section_rows = selected(inventory['sections'], sections)
-    ancestor_ids, ancestor_rows = selected(inventory['ancestors'], ancestors)
+    direct_ids, direct_rows = _component_selection(inventory['direct'], direct)
+    passage_ids, passage_rows = _component_selection(inventory['passages'], passages)
+    section_ids, section_rows = _component_selection(inventory['sections'], sections)
+    ancestor_ids, ancestor_rows = _component_selection(inventory['ancestors'], ancestors)
     # Join heading occurrences FIRST. Intersecting paragraph ranges can borrow an
     # unrelated descendant's ancestry and authorize the wrong primary section.
     qualified_occurrences = {index for entry in ancestor_rows for index in entry['occurrences']}
@@ -364,6 +366,41 @@ def resolve_component_targets(capture, catalog, intent, relation, scope, direct,
         compatible_section_selectors=section_ids, requested_paragraph_scope=scope,
         requested_scope_qualifier=qualifier, compatible_ancestor_selectors=ancestor_ids,
         **resolve_anchor_targets(capture, catalog, intent, relation, active_anchors))
+
+
+def resolve_author_scope_targets(capture, catalog, intent, relation, observation, direct, passages, *,
+        document_title, description_matches=None, excluded_description_matches=None):
+    """Join independent author scope to source nominations at their exact editor geometry."""
+    from .native_plan_opening import NativePlanAuthorScopeObservationV1
+    from .plan_author_location import bind_scope
+
+    if type(observation) is not NativePlanAuthorScopeObservationV1 or relation not in RELATIONS:
+        raise ValueError('Observed placement requires its exact author interpretation and source relation')
+    inventory = component_inventory(capture, catalog)
+    direct_ids, direct_rows = _component_selection(inventory['direct'], direct)
+    passage_ids, passage_rows = _component_selection(inventory['passages'], passages)
+    evidence = {'direct_anchor_selectors': direct_ids, 'compatible_passage_selectors': passage_ids}
+    if relation != observation.relation or relation == 'unresolved':
+        return evidence | resolve_anchor_targets(capture, catalog, intent, 'unresolved', ())
+
+    offered = {('captured' if entry.kind == 'captured_target' else entry.kind) for entry in catalog.entries}
+    if relation not in offered:
+        return evidence | resolve_anchor_targets(capture, catalog, intent, 'unresolved', ())
+    bound = bind_scope(capture, catalog, observation.scope, document_title=document_title,
+        description_matches=description_matches, excluded_description_matches=excluded_description_matches)
+    active = set()
+    if bound.status in {'matched', 'unscoped'}:
+        if relation in {'before_paragraph', 'after_paragraph'}:
+            if not direct_ids:
+                active = {a for row in passage_rows for a in row['anchors']} & set(bound.paragraph_anchors)
+        else:
+            nominated = {a for row in direct_rows for a in row['anchors']}
+            active = {row['selector'] for row, entries in inventory['all']
+                if row['selector'] in nominated and any(
+                    ('captured' if entry.kind == 'captured_target' else entry.kind) == relation
+                    and (bound.status == 'unscoped' or entry.source_root_index in bound.heading_indices)
+                    for entry in entries)}
+    return evidence | resolve_anchor_targets(capture, catalog, intent, relation, active)
 
 
 def resolve_anchor_targets(capture, catalog, intent, relation, anchors):

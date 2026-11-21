@@ -161,6 +161,19 @@ def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
     return NativePlanAuthorScopeObservationV1(relation=relation, selected_alias=alias, scope=scope)
 
 
+def require_retained_author_scope(execution, observation_event_id: UUID,
+                                  observation: NativePlanAuthorScopeObservationV1):
+    """Join an opening's host-only parent to one actual earlier observation."""
+    matches = [event for event in execution.events
+        if type(event) is NativePlanAuthorScopeObservedV1 and event.event_id == observation_event_id]
+    if (len(matches) != 1
+            or matches[0].context_receipt_sha256 != execution.context_receipt_sha256
+            or matches[0].execution_policy_sha256 != execution.execution_policy_sha256
+            or matches[0].scope_observation != observation):
+        raise ValueError('Opening scope differs from its exact retained author observation')
+    return matches[0]
+
+
 def opening_dialogue_sha256(dialogue):
     from .jev_retrieval_contract import RetrievalDialogue
     return t.canonical_sha256([RetrievalDialogue.model_validate(

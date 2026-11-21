@@ -116,6 +116,35 @@ def component_result(capture, catalog, *, scope='unscoped', path=None, relation=
         'named' if parents else 'none', ancestors)
 
 
+@pytest.mark.parametrize('path, relation, result, boundary', [
+    ('Mill / Equipment', 'after_paragraph', 'missing', None),
+    ('Atrium / Equipment', 'after_paragraph', 'unique', 3),
+    ('Equipment', 'after_paragraph', 'ambiguous', None),
+    ('Atrium / Equipment', 'before_paragraph', 'missing', None),
+])
+def test_author_scope_placement_joins_complete_path_and_agreed_relation(path, relation, result, boundary):
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservationV1
+    from application_state.agent_conversation.plan_author_location import literal_reference
+    from application_state.agent_conversation.plan_contextual_targets import (
+        component_inventory, resolve_author_scope_targets,
+    )
+
+    capture, catalog = family_catalog([heading('Atrium', 1), heading('Equipment'), prose('Shared.'),
+        heading('Loft', 1), heading('Equipment'), prose('Shared.')])
+    inventory = component_inventory(capture, catalog)
+    observation = NativePlanAuthorScopeObservationV1(relation='after_paragraph', selected_alias='scope0',
+        scope=literal_reference(path, path='/' in path))
+    resolved = resolve_author_scope_targets(capture, catalog, 'write_current_page', relation,
+        observation, (), (inventory['passages'][0]['view']['selector'],), document_title='Atrium')
+    assert resolved['target_resolution'] == result
+    if boundary is None:
+        assert resolved['requested_work'] == 'clarify'
+        assert resolved['target_capture_sha256'] is None
+    else:
+        assert resolved['requested_work'] == 'write_current_page'
+        assert catalog.resolve(capture, resolved['placement_selector']).root_boundary == boundary
+
+
 def test_passage_families_expand_all_occurrences_before_named_scope_filters():
     capture, catalog = family_catalog([heading('Preparation'), prose('Shared.'), heading('Rumours'), prose('Shared.')])
     result = component_result(capture, catalog)
