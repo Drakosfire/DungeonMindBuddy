@@ -2487,9 +2487,24 @@ class AgentConversationService:
                     if extent not in supports or rank < supports[extent][0]:
                         supports[extent] = (rank, PriorBodyCitationSupportV1(
                             reference=reference, original_citation=citation, claim_text=claim, passage=passage))
+            def redundant(rank, support):
+                citation = support.original_citation
+                for other_rank, other in supports.values():
+                    alternative = other.original_citation
+                    if (other_rank[0] < rank[0]
+                            and (alternative.source_artifact_id, alternative.native_source_revision_id,
+                                 alternative.content_sha256) == (
+                                 citation.source_artifact_id, citation.native_source_revision_id,
+                                 citation.content_sha256)
+                            and alternative.line_start <= citation.line_start
+                            and alternative.line_end >= citation.line_end
+                            and support.passage in other.passage):
+                        return True
+                return False
+
             return BuildPriorBodyEvidenceAdmittedV1(event_id=event_id,
                 sequence=len(execution.events), work_event_id=work.event_id,
-                supports=tuple(support for _, support in supports.values()))
+                supports=tuple(support for rank, support in supports.values() if not redundant(rank, support)))
 
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
