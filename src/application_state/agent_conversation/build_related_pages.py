@@ -139,9 +139,9 @@ def project(execution):
         return None
     from .build_intentional_response import is_variant_approval
 
-    from .native_corpus import prior_conversation_work
+    from .types import BuildPriorBodyEvidenceAdmittedV1
 
-    if prior_conversation_work(execution.events) is not None:
+    if any(isinstance(event, BuildPriorBodyEvidenceAdmittedV1) for event in execution.events):
         if choices or records(execution):
             raise ValueError("Conversation-only drafting cannot acquire related pages")
         return None

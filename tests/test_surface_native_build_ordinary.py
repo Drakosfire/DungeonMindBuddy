@@ -489,7 +489,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert list(passages) == list(review["properties"]) == review["required"]
                     assert "markdown" not in work["current_draft"]
                     candidate["statblock_variant"]["passage_review"] = dict.fromkeys(passages, "omit")
-            if (native_body or authored_source) and current_work != "review_lore_page_from_conversation":
+            from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
+
+            using_prior_citations = native_conversation_terminal(self.adapter.turn) is not None
+            if (native_body or authored_source) and not using_prior_citations:
                 from application_state.agent_conversation import native_corpus as corpus
                 acquired = corpus.acquired_body_reads(self.adapter._broker_execution())
                 assert acquired
@@ -501,7 +504,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                         excerpt_handles=[r['excerpt_handle'] for r in exposed]))
                 else:
                     assert all(r.excerpt.text not in json.dumps(frame) for r in acquired)
-            if current_work == "review_lore_page_from_conversation":
+            if using_prior_citations:
                 exposed = frame["native_body_evidence"]["excerpts"]
                 assert exposed and all(row["prior_claim"] == "The source describes a source-local episode."
                     for row in exposed)
@@ -1206,7 +1209,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert context['completion']['answer_context_status'] == expected_status
         assert context['completion']['native_assertion_citations'] == []
         return SimpleNamespace(client=client, world=world, turn=turn, decisions=decisions)
-    if (requested_work(message) if callable(requested_work) else requested_work) == "review_lore_page":
+    if (requested_work(message) if callable(requested_work) else requested_work) in {
+            "review_lore_page", "review_lore_page_from_conversation"}:
         assert context["completion"]["collaboration"]["kind"] == "lore_page"
         assert not context["completion"]["native_assertion_citations"]
         history = client.get(
@@ -2469,6 +2473,22 @@ def test_standalone_page_intent_preserves_the_page_owner_boundary(lane, tmp_path
     assert draft.destination.title == "Glass Regent"
     assert not case.turn.completion.answer_segments
 
+
+
+def test_anchored_lore_label_on_eager_graph_route_preserves_related_context(lane, tmp_path, monkeypatch):
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, True, False, False,
+        message="Create a page for Glass Regent.",
+        requested_work="review_lore_page_from_conversation",
+        source_need="anchored",
+        read_optional_page=True,
+    )
+    assert case.turn.completion.collaboration.kind == "lore_page"
+    from application_state.agent_conversation import build_related_pages
+
+    execution = case.turn.graph_context_execution
+    assert build_related_pages.project(execution) is not None
+    assert not any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1) for event in execution.events)
 
 
 @pytest.mark.parametrize("carry", [False, True])
