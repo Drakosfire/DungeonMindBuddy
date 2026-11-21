@@ -1,6 +1,7 @@
 import {planRootBoundaryPosition} from './planPlacementCatalog';
 import {useEffect,useRef,useState} from 'react';
 import {SurfacePageProposal,SurfaceProposalReview} from '../../surface/SurfacePageProposal';
+import {canonical} from '../../shared/sourcePassageProtocol';
 import {commandPlanAuthoringReview,readPlanAuthoringReview,PlanReviewRequestError,
   type PlanAuthoredProposal,type PlanAuthoringReview,type PlanReviewCommand,type PlanReviewOperation} from '../../api/planAuthoringReviewApi';
 import type {CapturedPlanAuthoringTarget,ExpectedWorldPlanEditAgentBinding,PlanAuthoringIdentity,
@@ -66,7 +67,9 @@ export function PlanPageProposal({proposal,bridge,identity,expectedBinding,getBi
   }
   async function show(saved:PlanAuthoringReview,epoch:number){
     if(saved.state!=='editing'||current.current.disabled)return;
-    const capture=await current.current.bridge.captureAuthoring?.(current.current.identity);
+    const capture = saved.capture.schema === 'dmb_plan_authoring_slot_boundary_capture_v1'
+      ? current.current.bridge.inspectComposedAuthoring?.(saved.capture)
+      : await current.current.bridge.captureAuthoring?.(current.current.identity);
     if(!alive(epoch))return;
     if(!capture||capture.capture.editor_json!==saved.capture.editor_json
       ||capture.capture.draft_sha256!==saved.capture.draft_sha256
@@ -90,6 +93,9 @@ export function PlanPageProposal({proposal,bridge,identity,expectedBinding,getBi
     if(!saved&&!retained&&!current.current.disabled)saved=await command(null,{operation:'open'},snapshot.origin_sha256,epoch);
     if(!alive(epoch)||!saved)return;
     if(saved.capture.document_id!==proposal.capture.document_id)throw new Error('The saved suggestion belongs to a different Plan.');
+    if (proposal.capture.schema === 'dmb_plan_authoring_slot_boundary_capture_v1'
+      && canonical(saved.capture) !== canonical(proposal.capture))
+      throw new Error('The saved suggestion refers to a different composed slot. Send a new request.');
     setReview(saved);setPlacement(null);
     const raw=sessionStorage.getItem(key),local=raw?JSON.parse(raw):null;
     if(local&&(local.action!==action||JSON.stringify(local.origin)!==JSON.stringify(proposal.origin)||typeof local.markdown!=='string'))
@@ -125,15 +131,20 @@ export function PlanPageProposal({proposal,bridge,identity,expectedBinding,getBi
     const restored=await host.bridge.restoreAuthoring(saved.capture,host.identity);if(!alive(epoch))return;
     const prepared=await host.bridge.prepareAuthoring(restored.target,textRef.current,action,host.expectedBinding,host.getBinding);
     if(!alive(epoch))return;
-    saved=await command(saved,{operation:'move',capture:restored.capture},saved.origin_sha256,epoch);
-    if(!alive(epoch))return;
+    if (!prepared.composed) {
+      saved=await command(saved,{operation:'move',capture:restored.capture},saved.origin_sha256,epoch);
+      if(!alive(epoch))return;
+    }
     if(saved.markdown!==prepared.admitted.canonicalMarkdown)
       saved=await command(saved,{operation:'save',markdown:prepared.admitted.canonicalMarkdown},saved.origin_sha256,epoch);
     if(!alive(epoch))return;
     setText(saved.markdown);textRef.current=saved.markdown;cache(saved.markdown,saved.revision);
-    saved=await command(saved,{operation:'prepare',application_id:crypto.randomUUID(),after_editor_json:prepared.afterEditorJson,
+    const preparation = {application_id:crypto.randomUUID(),after_editor_json:prepared.afterEditorJson,
       after_editor_sha256:prepared.afterEditorSha256,after_markdown:prepared.afterMarkdown,after_draft_sha256:prepared.afterDraftSha256,
-      after_title:host.bridge.authoringTitle()},saved.origin_sha256,epoch);
+      after_title:host.bridge.authoringTitle()};
+    saved=await command(saved, prepared.composed ? {...preparation, operation:'prepare_slot',
+      after_page_presentation:prepared.composed.layout, after_page_presentation_sha256:prepared.composed.fingerprint}
+      : {...preparation, operation:'prepare'}, saved.origin_sha256,epoch);
     if(!alive(epoch))return;
     const application=saved.applications.at(-1)!;setPlacement(null);
     const result=await host.bridge.saveAuthoring(restored.target,prepared,application,host.expectedBinding,host.getBinding,
@@ -144,10 +155,14 @@ export function PlanPageProposal({proposal,bridge,identity,expectedBinding,getBi
     if(pending||conflict)throw new Error('Check the saved review and retained command before choosing placement.');
     const application=saved.applications.at(-1);
     if(saved.state==='applying'&&!inspected)throw new Error('Inspect the current draft before retiring its pending placement.');
-    const captured=await current.current.bridge.captureAuthoring?.(current.current.identity,saved.state==='applying'?application?.application_id:undefined);
+    const savedCapture = saved.capture;
+    const composed = savedCapture.schema === 'dmb_plan_authoring_slot_boundary_capture_v1';
+    const captured = composed ? current.current.bridge.inspectComposedAuthoring?.(savedCapture, application?.application_id)
+      : await current.current.bridge.captureAuthoring?.(current.current.identity,saved.state==='applying'?application?.application_id:undefined);
     if(!alive(epoch))return;if(!captured)throw new Error('Choose a saved Plan target before continuing.');
     if(saved.state==='applying'){
-      saved=await command(saved,{operation:'recover_placement',application_id:application!.application_id,capture:captured.capture},saved.origin_sha256,epoch);
+      saved=await command(saved,{operation:composed?'resolve_before':'recover_placement',
+        application_id:application!.application_id,capture:captured.capture},saved.origin_sha256,epoch);
       await current.current.bridge.reconcileAuthoring?.(action,application!.application_id);
     }else if(saved.state==='editing')saved=await command(saved,{operation:'move',capture:captured.capture},saved.origin_sha256,epoch);
     else throw new Error('This suggestion already has a terminal outcome.');
@@ -171,10 +186,11 @@ export function PlanPageProposal({proposal,bridge,identity,expectedBinding,getBi
     if(alive(epoch)){setReview(saved);setPlacement(null);sessionStorage.removeItem(key);}
   });}
   const locked=busy||disabled;
+  const composed = review?.capture.schema === 'dmb_plan_authoring_slot_boundary_capture_v1';
   return <>
-    {placement&&review?.state==='editing'&&!conflict?<SurfacePageProposal editor={placement.target.editor} position={review.capture.from}
+    {placement&&review?.state==='editing'&&!conflict?<SurfacePageProposal editor={placement.target.editor} position={composed?placement.target.from:review.capture.from}
       editorJson={review.capture.editor_json} placementId={`plan-proposal:${action}`} revealKey={1} busy={locked}
-      onMove={bridge.captureAuthoringAt?move:undefined}
+      onMove={!composed&&bridge.captureAuthoringAt?move:undefined}
       onStale={()=>{if(running.current)return;setPlacement(null);setError('The page changed. Inspect it and choose a new placement for this retained suggestion.');}}>
       <SurfaceProposalReview markdown={text} busy={locked||Boolean(pending)} error={error}
         onChange={next=>{try{cache(next,review.revision);setText(next);textRef.current=next;}catch(reason){setError(String(reason));}}}
@@ -189,9 +205,11 @@ export function PlanPageProposal({proposal,bridge,identity,expectedBinding,getBi
         <button type="button" disabled={locked||Boolean(pending)} onClick={()=>{if(review){cache(review.markdown,review.revision);setText(review.markdown);textRef.current=review.markdown;setConflict(false);void show(review,generation.current).catch(reason=>setError(String(reason)));}}}>Use saved review</button></>:null}
       {pending?<button type="button" disabled={locked} onClick={()=>{const epoch=generation.current;setBusy(true);void dispatch(pending,epoch)
         .then(()=>check(epoch)).catch(reason=>{if(alive(epoch))setError(String(reason));}).finally(()=>{if(alive(epoch))setBusy(false);});}}>Retry exact {pending.operation} operation</button>:null}
-      {!placement&&review?.state==='editing'?<button type="button" disabled={locked||conflict||Boolean(pending)} onClick={choosePlacement}>Use current page placement</button>:null}
+      {!composed&&!placement&&review?.state==='editing'?<button type="button" disabled={locked||conflict||Boolean(pending)} onClick={choosePlacement}>Use current page placement</button>:null}
       {review?.state==='applying'?<><label><input type="checkbox" checked={inspected} disabled={locked} onChange={event=>setInspected(event.target.checked)}/>I inspected the current draft and retained suggestion.</label>
-        <button type="button" disabled={locked||!inspected||Boolean(pending)} onClick={choosePlacement}>Retire pending placement</button>
+        <button type="button" disabled={locked||!inspected||Boolean(pending)} onClick={choosePlacement}>
+          {composed?'Retire pending Save from original draft':'Retire pending placement'}
+        </button>
         <button type="button" disabled={locked||Boolean(pending)} onClick={finish}>Finish pending Save</button></>:null}
       {review?.state==='applied'?<button type="button" disabled={locked||Boolean(pending)} onClick={finish}>Acknowledge saved result</button>:null}
       {!placement&&error?<p role="alert">{error}</p>:null}
