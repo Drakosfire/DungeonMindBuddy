@@ -118,3 +118,23 @@ def append_group(conn, *, world_id, root_revision, checkpoint, events):
         """, (world_id, checkpoint.turn_id, checkpoint.attempt, root_revision, checkpoint.revision,
               first, after, first, after, Jsonb(payload), t.canonical_sha256(payload))).fetchone()
     return None if row is None else row[0]
+
+
+def load_checkpoint(conn, turn_id):
+    """Read a checkpoint and its ordered groups while the caller holds the root lock."""
+    rows = conn.execute("""
+        SELECT head.turn_id, head.attempt, head.base_revision, head.revision,
+               head.first_sequence, head.next_sequence, head.prefix_sha256,
+               grouped.append_revision, grouped.first_sequence, grouped.after_sequence,
+               grouped.events, grouped.events_sha256
+        FROM agent.plan_execution_checkpoint AS head
+        LEFT JOIN agent.plan_execution_checkpoint_group AS grouped
+            ON grouped.turn_id=head.turn_id AND grouped.attempt=head.attempt
+        WHERE head.turn_id=%s
+        ORDER BY grouped.first_sequence
+        """, (turn_id,)).fetchall()
+    if not rows:
+        return None
+    return EventCheckpoint(*rows[0][:7]), [
+        EventCheckpointGroup(*row[7:]) for row in rows if row[7] is not None
+    ]

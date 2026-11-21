@@ -133,7 +133,9 @@ def test_plan_checkpoint_recovery_preserves_exact_typed_execution(application_st
 def test_plan_checkpoint_append_fences_root_and_rolls_back(application_state_dsn):
     import psycopg
     from application_state.agent_conversation import repository as repo
-    from application_state.agent_conversation.plan_execution_checkpoints import append_group, start_checkpoint
+    from application_state.agent_conversation.plan_execution_checkpoints import (
+        append_group, load_checkpoint, recover_execution, start_checkpoint,
+    )
 
     turn = sdk_case(application_state_dsn, native="current").turn
     full = turn.graph_context_execution
@@ -158,6 +160,22 @@ def test_plan_checkpoint_append_fences_root_and_rolls_back(application_state_dsn
         assert repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id) == before
         assert conn.execute("SELECT count(*) FROM agent.plan_execution_checkpoint_group "
             "WHERE turn_id=%s", (turn.turn_id,)).fetchone() == (0,)
+
+    with psycopg.connect(application_state_dsn) as writer:
+        image = repo._update_plan_session_execution(writer, world_id=turn.world_id,
+            turn_id=turn.turn_id, before=repo._lock_plan_session_image(
+                writer, turn.world_id, turn.turn_id), execution=prefix)
+        revision = dict(image[0])["revision"]
+        checkpoint = start_checkpoint(writer, world_id=turn.world_id, turn_id=turn.turn_id,
+            attempt=turn.attempt, revision=revision, prefix=prefix)
+        assert append_group(writer, world_id=turn.world_id, root_revision=revision,
+            checkpoint=checkpoint, events=full.events[-1:]) == revision+1
+    with psycopg.connect(application_state_dsn) as reader:
+        persisted = repo.lock_turn(reader, turn.world_id, turn.turn_id)
+        checkpoint, groups = load_checkpoint(reader, turn.turn_id)
+        assert recover_execution(turn_id=persisted.turn_id, attempt=persisted.attempt,
+            revision=persisted.revision, prefix=persisted.graph_context_execution,
+            checkpoint=checkpoint, groups=groups) == full
 
 
 def test_readonly_session_commits_detached_views_and_finishes_through_real_codec(application_state_dsn):
