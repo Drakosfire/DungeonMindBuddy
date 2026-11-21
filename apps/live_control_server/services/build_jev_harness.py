@@ -570,12 +570,24 @@ class BuildJevHarness:
 
         prepare_deferred_query = getattr(adapter, "prepare_deferred_build_query", None)
         pending_query = None
+        opening_dispatched = False
+        wait_for_work = False
+        if prepare_deferred_query is not None:
+            from application_state.agent_conversation.lore_page_review import explicit_lore_page_witness
+
+            try:
+                explicit_lore_page_witness(adapter.request.message)
+            except ValueError:
+                pass
+            else:
+                wait_for_work = any(q.name == "requested_work" for q in intent.questions)
 
         def dispatch_started():
-            nonlocal pending_query
+            nonlocal pending_query, opening_dispatched
+            opening_dispatched = True
             if trace is not None:
                 trace.mark_first_jev_dispatch()
-            if prepare_deferred_query is not None and pending_query is None:
+            if prepare_deferred_query is not None and not wait_for_work and pending_query is None:
                 pending_query = asyncio.get_running_loop().run_in_executor(
                     _BUILD_GRAPH_PREPARATION, prepare_deferred_query,
                 )
@@ -614,10 +626,22 @@ class BuildJevHarness:
                     producing_provider_attempt_id=adapter.last_provider_attempt_id,
                 )
             if prepare_deferred_query is not None:
-                if pending_query is None:
+                if not opening_dispatched:
                     raise ValueError("Deferred Build query requires witnessed opening transport")
-                with measure("build_deferred_graph_settlement"):
-                    adapter.settle_deferred_build_query(*await pending_query)
+                conversation_only = False
+                if wait_for_work:
+                    from application_state.agent_conversation.build_intentional_response import selected
+
+                    conversation_only = selected(result.model_dump(mode="json")) == "review_lore_page_from_conversation"
+                if not conversation_only:
+                    if pending_query is None:
+                        pending_query = asyncio.get_running_loop().run_in_executor(
+                            _BUILD_GRAPH_PREPARATION, prepare_deferred_query,
+                        )
+                    with measure("build_deferred_graph_settlement"):
+                        adapter.settle_deferred_build_query(*await pending_query)
+                else:
+                    adapter.prepare_deferred_build_query = None
             from .build_jev_writer_selection import WriterSelectionDriver
             self.failure_stage = "controller_validation"
             try:

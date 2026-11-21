@@ -2508,15 +2508,27 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
 
     producing = populated
     if carry:
-        response = workflow.capture_case(
-            case.client, case.world, template, {"question": synthesis},
-            tmp_path / "lore-synthesis", build_thread_id=thread_id,
-            expected_conversation_id=str(blank.conversation_id),
-        )
+        from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
+        from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+
+        from apps.live_control_server.services import native_graph_reads
+
+        def unexpected_graph_preparation(*args, **kwargs):
+            pytest.fail("Conversation-only draft started Graph preparation")
+
+        with monkeypatch.context() as patch:
+            patch.setattr(native_graph_reads, "prepare_query", unexpected_graph_preparation)
+            response = workflow.capture_case(
+                case.client, case.world, template, {"question": synthesis},
+                tmp_path / "lore-synthesis", build_thread_id=thread_id,
+                expected_conversation_id=str(blank.conversation_id),
+            )
         assert response.status_code == 200, response.text
         history = case.client.get(f"/api/live/agent/worlds/{case.world}/conversation")
         row = max(history.json()["turns"], key=lambda turn: turn["sequence"])
         populated = AgentConversationService().inspect_turn(world_id=case.world, turn_id=UUID(row["turn_id"]))
+        assert isinstance(populated.graph_context_receipt.native_query, NativeBuildQueryPendingV1)
+        assert not any(isinstance(e, NativeBuildQuerySettledV1) for e in populated.graph_context_execution.events)
         assert not acquired_body_reads(populated.graph_context_execution)
         assert all(c.prior_reference.turn_id == producing.turn_id for c in populated.completion.native_body_citations)
     completion = populated.completion

@@ -300,7 +300,17 @@ def effective_native_query(context, execution):
     if len(settlements) > 1:
         raise ValueError("Build can settle its pending Graph query only once")
     settlement = settlements[0] if settlements else None
-    events = execution.events if settlement is None else execution.events[:settlement.sequence]
+    conversation_work = prior_conversation_work(execution.events)
+    if settlement is None and conversation_work is not None:
+        from .native_retrieval import NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2
+
+        if any(isinstance(event, (*t.NATIVE_BODY_EVENTS, NativeRetrievalAuthorizedV1,
+                                 NativeRetrievalSelectedV1, NativeRetrievalSelectedV2, t.RelatedPageRead))
+               for event in execution.events):
+            raise ValueError("Conversation draft without Graph settlement cannot acquire new evidence")
+        events = execution.events[:conversation_work.sequence]
+    else:
+        events = execution.events if settlement is None else execution.events[:settlement.sequence]
     authorization = None
     responded = False
     for event in events:
