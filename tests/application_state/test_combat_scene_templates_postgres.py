@@ -219,5 +219,5 @@ def test_copy_refuses_run_instance(scene_case):
         "work_revision_id": saved.work_revision_id, "content_sha256": saved.content_sha256,
     })
     with pytest.raises(ApplicationStateNotFoundError, match="unavailable"):
-        service.create(world_id=world_id, request=request.model_copy(update={"pin": target}))
+        service.create(world_id=world_id, request=request.model_copy(update={"pin": target, "operation_id": uuid4()}))
     assert service.read(world_id=world_id, document_id=plan.work_object_id, scene_id="scene:gate") is None
