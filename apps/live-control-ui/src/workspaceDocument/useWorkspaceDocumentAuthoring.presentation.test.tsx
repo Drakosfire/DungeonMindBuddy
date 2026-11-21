@@ -6,8 +6,9 @@ import type { WorkspaceDocumentSnapshot } from '../api/types';
 import { fixtureWorkspaceDocumentRecord } from '../planSurface/config/planSessionDescriptor';
 import { markdownToTiptapDoc } from '../tiptap/markdown/markdownToTiptap';
 import { admittedPresentationBlocks, hydratePresentation, projectPresentation, presentationFingerprint, presentationSha256, type PagePresentation } from '../tiptap/pageComposer/presentation';
-import { readWorkspaceDocumentLocalState, workspaceDocumentStorageKey } from '../tiptap/state/tiptapLocalState';
+import { protectedLayoutDraftKey, readWorkspaceDocumentLocalState, workspaceDocumentStorageKey } from '../tiptap/state/tiptapLocalState';
 import { useWorkspaceDocumentAuthoring } from './useWorkspaceDocumentAuthoring';
+import { requireManualSave, requiresManualSave } from './draftSavePolicy';
 vi.mock('../api/liveApi', () => ({
  NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT:'dmb:native-graph-access-token-changed', getNativeGraphAccessGeneration:vi.fn(()=>0),
  getWorkspaceDocumentSnapshot:vi.fn(), prepareTiptapMarkdownWrite:vi.fn(), commitTiptapMarkdownWrite:vi.fn(),
@@ -23,6 +24,58 @@ function snap(width=6,revision=1):WorkspaceDocumentSnapshot {
 function mount(){return renderHook(()=>useWorkspaceDocumentAuthoring({documentId:id,kind:'worldbuilding_source',surface:'build'}));}
 beforeEach(()=>{vi.clearAllMocks();localStorage.clear();});
 describe('Page layout authoring boundary',()=>{
+ it('retains a held layout across an old writer and explicitly commits its profile',async()=>{
+  const initial=snap();
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(initial);
+  const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const legacyKey=workspaceDocumentStorageKey(id);
+  const heldKey=protectedLayoutDraftKey(id);
+  const moved=composed(8);
+  const editor={getJSON:()=>moved} as Editor;
+  requireManualSave(editor);
+  act(()=>{h.result.current.setEditor(editor);h.result.current.handleEditorUpdate(moved,editor,{programmatic:false});});
+  await waitFor(()=>expect(localStorage.getItem(heldKey)).toContain('"manual_save_required":true'));
+  const held=localStorage.getItem(heldKey);
+  localStorage.setItem(legacyKey,JSON.stringify({...JSON.parse(localStorage.getItem(legacyKey)!),title:'Old client draft'}));
+  expect(localStorage.getItem(heldKey)).toBe(held);
+  h.unmount();
+  const r=mount();await waitFor(()=>expect(r.result.current.manualSaveRequired).toBe(true));
+  expect(r.result.current.dirty).toBe(true);
+  const layout=JSON.parse(held!).page_presentation as PagePresentation;
+  const saved:WorkspaceDocumentSnapshot={...initial,layout_writer_profile:'dmb_page_layout_writer_v1',
+   loaded_revision:2,record:{...initial.record,revision:2},page_presentation:layout,page_presentation_sha256:presentationFingerprint(layout)};
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(saved);
+  vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({writer_ok:true,writer_confirm_token:'token'} as never);
+  vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue({document_id:id,committed_revision:2,committed_record:saved.record,
+   normalized_content_sha256:saved.content_sha256,file_fingerprint:'postgres',writer_ok:true,page_presentation_sha256:saved.page_presentation_sha256,
+   layout_writer_profile:'dmb_page_layout_writer_v1'} as never);
+  act(()=>r.result.current.setEditor(editor));
+  await act(()=>r.result.current.saveMarkdown());
+  for(const write of [prepareTiptapMarkdownWrite,commitTiptapMarkdownWrite])
+   expect(write).toHaveBeenCalledWith(expect.objectContaining({layout_writer_profile:'dmb_page_layout_writer_v1'}));
+  await waitFor(()=>expect(r.result.current.manualSaveRequired).toBe(false));
+  expect(localStorage.getItem(legacyKey)).toContain('Old client draft');
+  expect(localStorage.getItem(heldKey)).toContain('dmb_page_layout_writer_v1');
+  expect(localStorage.getItem(heldKey)).not.toContain('manual_save_required');
+  r.unmount();
+ });
+ it('preserves a clean Undo hold across reopen and releases it on discard',async()=>{
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snap());
+  const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const editor={getJSON:()=>composed()} as Editor;
+  requireManualSave(editor);
+  act(()=>{h.result.current.setEditor(editor);h.result.current.handleEditorUpdate(composed(),editor,{programmatic:false});});
+  await waitFor(()=>expect(localStorage.getItem(protectedLayoutDraftKey(id))).toContain('"manual_save_required":true'));
+  expect(h.result.current.dirty).toBe(false);
+  h.unmount();
+  const reopened=mount();await waitFor(()=>expect(reopened.result.current.manualSaveRequired).toBe(true));
+  expect(reopened.result.current.dirty).toBe(false);
+  act(()=>reopened.result.current.setEditor(editor));
+  await act(()=>reopened.result.current.discardLocalDraft());
+  expect(reopened.result.current.manualSaveRequired).toBe(false);
+  expect(requiresManualSave(editor)).toBe(false);
+  reopened.unmount();
+ });
  it('does not enroll a legacy plain page during ordinary Save',async()=>{
   vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue({...snap(),page_presentation:null,page_presentation_sha256:null});
   vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({writer_ok:false,warnings:[],diagnostics:[]} as never);

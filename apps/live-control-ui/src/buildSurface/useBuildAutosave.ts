@@ -1,3 +1,4 @@
+import { requiresManualSave } from "../workspaceDocument/draftSavePolicy";
 import { useEffect, useRef, useState } from "react";
 
 import type { DurableSaveState } from "../components/DurableSaveStatus";
@@ -36,7 +37,9 @@ function hasMatchingCommittedSnapshot(session: MarkdownCanvasSessionValue): bool
 
 function hasVerifiedBuildBasis(session: MarkdownCanvasSessionValue): boolean {
   return Boolean(
-    session.record
+    !session.manualSaveRequired
+    && !requiresManualSave(session.editor)
+    && session.record
     && session.snapshot
     && session.record.kind === "worldbuilding_source"
     && session.record.document_id === session.documentId
@@ -87,6 +90,7 @@ export function useBuildAutosave(session: MarkdownCanvasSessionValue): DurableSa
     return () => window.clearTimeout(timer);
   }, [
     session.activeCommand,
+    session.manualSaveRequired,
     session.documentId,
     session.documentKey,
     session.dirty,

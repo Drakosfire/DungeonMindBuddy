@@ -405,6 +405,9 @@ class TiptapMarkdownWriteCommitResponse(BaseModel):
     durable commit succeeded.
     """
 
+    layout_writer_profile: PageLayoutWriterProfile | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     page_presentation_sha256: str | None = None
     schema_version: str = "dmb_tiptap_markdown_write_commit_v1"
     scope_mode: Literal["world"] | None = None
@@ -1047,6 +1050,7 @@ def _commit_page(request, mode, state, *, authorize_world=None):
     record = _record_from_page(committed)
     locator = _content_receipt_locator(committed.page)
     return TiptapMarkdownWriteCommitResponse(
+        layout_writer_profile=committed.layout_writer_profile,
         page_presentation_sha256=layout.fingerprint() if layout else None,
         document_id=record.document_id,
         title=record.title,

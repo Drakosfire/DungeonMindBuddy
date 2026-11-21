@@ -331,6 +331,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
         return authoring.restoreDraftRecovery(review, copyId);
       },
       tourSaveScope,
+      manualSaveRequired: authoring.manualSaveRequired,
       lastCommitReceipt: authoring.lastCommitReceipt,
       activeCommand,
       editor: authoring.editor,
