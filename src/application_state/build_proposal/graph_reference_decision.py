@@ -95,7 +95,14 @@ class BuildGraphReferenceDecision:
         )
 
     def _boundary_request(self):
-        return prepare_build_boundary_decision(self.question, self.title, self.dialogue, self.catalog)
+        request = prepare_build_boundary_decision(self.question, self.title, self.dialogue, self.catalog)
+        return request.model_copy(update={"questions": tuple(
+            question.model_copy(update={"question": (
+                "Should the typed reference go immediately before or after its existing anchor paragraph? "
+                "A named line can be that anchor. Choose unresolved only when the author did not specify either side."
+            )}) if question.name == "relation" else question
+            for question in request.questions
+        )})
 
     def request(self) -> DecisionRequest:
         boundary = self._boundary_request()
