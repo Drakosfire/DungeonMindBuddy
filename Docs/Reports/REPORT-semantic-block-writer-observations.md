@@ -202,8 +202,8 @@ A read-only comparison of all three stored run editions verified that each
 pinned immutable parent Plan revision 5 with its matching content digest and
 saved the edit as session-copy revision 1. The new Pause for response note
 appeared only in the edited copies, and no parent Plan revision matched any
-edited session digest. The later hosted table pass is recorded below. Hosted
-image preservation remains pending.
+edited session digest. The later hosted table pass is recorded below. The hosted
+artwork check is recorded below.
 The separate adoption diagnostic below covers reviewed agent-authored blocks.
 
 A fresh hosted Play run in Buddy Cloud Pilot
@@ -215,6 +215,16 @@ callouts and the original table rendered. Removing only the two additions
 from the reopened revision 2 Markdown reproduced revision 1 exactly,
 including the table, original scene text, choice and Departure scene. This
 check exercised a table and did not include an image.
+
+The same synthetic run then saved a privately retained boardwalk illustration
+to session-copy revision 3. Image Studio reported a fetch error after
+generation, but the image was available in its library and could be placed
+without regeneration or public CDN upload. A reviewed scene-edit request
+added **Read Aloud · Lantern reflection** and **GM Note · Wait at the rail**.
+After Apply and reload, both blocks, the table, and the 1,024-pixel image
+rendered in revision 4. Removing only the two new blocks from reopened
+Markdown reproduced revision 3 exactly, including the artwork reference,
+scene text, choice, and Departure scene.
 
 Hosted Home showed no conversation composer in Buddy Cloud Pilot, so H01 had
 no eligible writer. Hosted Graph still reported unavailable native readback
