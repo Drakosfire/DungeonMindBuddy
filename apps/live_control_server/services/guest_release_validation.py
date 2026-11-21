@@ -4,6 +4,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from application_state import guest_release
+from application_state.guest_release_example import validate_example
 from apps.live_control_server.services.guest_release_evidence import verify_source_citation
 from apps.live_control_server.services.guest_release_native_graph import read_owner_graph
 from apps.live_control_server.services.guest_release_assertions import select_node, select_relationship
@@ -31,6 +32,7 @@ def validate_candidate(*, world_id: str, subject: str, release_id: UUID, digest:
     public_edges = {edge["id"]: edge for edge in graph.get("edges", [])}
     sources = {source["id"]: source for source in material["manifest"].get("sources", [])}
     source_bindings = {str(item[0]): item for item in material["source_bindings"]}
+    validate_example(material["manifest"], material["source_bindings"])
     node_bindings = {str(item[0]): item for item in material["node_bindings"]}
     evidence_bindings = {str(local): (native, evidence, str(excerpt))
                          for local, native, evidence, excerpt in material["evidence_bindings"]}

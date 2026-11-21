@@ -23,7 +23,7 @@ it("follows a released relationship to its excerpt without loading private World
   const citations = screen.getAllByRole("button", { name: "Read context 1" });
   await user.click(citations[citations.length - 1]);
   expect(screen.getByText("A saved excerpt.")).toBeInTheDocument();
-  expect(screen.getByText("Context for this claim; not direct support.")).toBeInTheDocument();
+  expect(screen.getByText("Evidence role: context, not direct support.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Link to this excerpt" })).toHaveAttribute("href", "#copy/copy/point/a/source/s");
   expect(screen.getByText(/shared World stays unchanged/i)).toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -40,7 +40,7 @@ it("opens only release-local deep links and ignores stale or invalid fragments",
   window.history.replaceState({}, "", "/visit/public#copy/copy/point/a/source/s");
   render(<GuestReleasePage publicId="public" />);
   expect(await screen.findByText("Safe excerpt")).toBeInTheDocument();
-  expect(screen.getByText("Supporting excerpt.")).toBeInTheDocument();
+  expect(screen.getByText("Evidence role: support.")).toBeInTheDocument();
   act(() => { window.history.pushState({}, "", "#copy/older-copy/point/a/source/s"); window.dispatchEvent(new PopStateEvent("popstate")); });
   expect(await screen.findByText("Every story has a trail.")).toBeInTheDocument();
   act(() => { window.history.pushState({}, "", "#copy/copy/point/a/source/s"); window.dispatchEvent(new PopStateEvent("popstate")); });
@@ -57,4 +57,27 @@ it("shows an unavailable state when a release is withdrawn", async () => {
   render(<GuestReleasePage publicId="public" />);
   expect(await screen.findByRole("alert")).toHaveTextContent("This guest World is unavailable");
   expect(screen.getByRole("link", { name: "Return to Buddy" })).toHaveAttribute("href", "/");
+});
+
+it("shows an unchanged saved example with release-only references and inline image", async () => {
+  const copy = { release_id: "copy", manifest: { graph: { nodes: [{ id: "a", label: "Shared", kind: "place", name_citations: [], kind_citations: [], name_basis: "asserted", kind_basis: "asserted" }], edges: [] },
+    sources: [{ id: "s1", text: "First clue", evidence_role: "support" }, { id: "s2", text: "Second clue", evidence_role: "context" }],
+    assets: [{ id: "image" }], saved_example: { version: "owner_saved_scene_v1", title: "A saved scene", body: "A line\nAnother line", references: ["s1", "s2"], image: { id: "image", description: "A red tent" } } } };
+  const fetchMock = vi.fn(async () => new Response(JSON.stringify(copy), { status: 200 }));
+  vi.stubGlobal("fetch", fetchMock);
+  const user = userEvent.setup();
+  render(<GuestReleasePage publicId="public" home />);
+  expect(await screen.findByRole("heading", { name: "A saved scene" })).toBeInTheDocument();
+  expect(screen.getByText(/Your temporary additions were not used/)).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: "A red tent" })).toHaveAttribute("src", "/api/live/guest-releases/public/releases/copy/assets/image");
+  await user.type(screen.getByLabelText("Point name"), "A visitor point");
+  await user.selectOptions(screen.getByLabelText("Connect to a shared point"), "a");
+  await user.click(screen.getByRole("button", { name: "Add temporary point" }));
+  expect(screen.getByText("A line Another line")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Reset my additions" }));
+  expect(screen.getByRole("heading", { name: "A saved scene" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Read context 2" }));
+  expect(screen.getByText("Second clue")).toBeInTheDocument();
+  expect(screen.getByText("Second clue").closest("aside")).toHaveFocus();
+  expect(fetchMock).toHaveBeenCalledTimes(1);
 });

@@ -1,9 +1,11 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 from types import SimpleNamespace
 
 import pytest
 
 from application_state.errors import ApplicationStateUnavailableError
+from application_state.errors import ApplicationStateValidationError
+from application_state.guest_release_example import validate_example
 from apps.live_control_server.services.guest_release_preparation import ReleaseSelection, prepare
 from apps.live_control_server.services import guest_release_preparation as assembly
 
@@ -39,3 +41,55 @@ def test_experimental_assembly_passes_sanitized_bytes_and_verified_bindings(monk
     assert str(asset_id) not in str(seen["staged"]["manifest"])
     assert seen["staged"]["expected_owner_generation"] == 4
     assert seen["staged"]["source_bindings"][0][-1] == "evidence"
+
+
+def test_saved_example_closes_references_and_preserves_old_copies():
+    first, second, asset, page = uuid4(), uuid4(), uuid4(), uuid4()
+    bindings = [(first, page, 0, 0, 1, "a" * 64, 0, 4),
+                (second, page, 0, 0, 1, "a" * 64, 5, 9)]
+    manifest = {"sources": [{"id": str(first)}, {"id": str(second)}],
+                "assets": [{"id": str(asset)}]}
+    validate_example(manifest, bindings)  # Existing snapshots need no new field.
+    example = {"version": "owner_saved_scene_v1", "title": "A scene", "body": "First line\nSecond line",
+               "references": [str(first), str(second)], "image": {"id": str(asset), "description": "A red tent"}}
+    manifest["saved_example"] = example
+    validate_example(manifest, bindings)
+    for changes in ({"references": [str(first), str(first)]}, {"references": [str(first), str(uuid4())]},
+                    {"body": "Look at https://example.com"}, {"title": "\u202eevil"},
+                    {"image": {"id": str(uuid4()), "description": "tent"}}, {"extra": "hidden"}):
+        manifest["saved_example"] = {**example, **changes}
+        with pytest.raises(ApplicationStateValidationError):
+            validate_example(manifest, bindings)
+    manifest["saved_example"] = example
+    repeated_span = [bindings[0], (second, page, 0, 0, 1, "a" * 64, 0, 4)]
+    with pytest.raises(ApplicationStateValidationError, match="distinct spans"):
+        validate_example(manifest, repeated_span)
+
+
+def test_preparation_localizes_saved_example_references_and_image(monkeypatch):
+    monkeypatch.setattr(assembly.guest_release, "owner_generation", lambda **_: 1)
+    access = SimpleNamespace(parsed=SimpleNamespace(get_evidence=lambda _: SimpleNamespace(evidence_role="context")))
+    monkeypatch.setattr(assembly, "read_owner_graph", lambda **_: (SimpleNamespace(native_world_id="native", binding_version=1), None, SimpleNamespace(listing=SimpleNamespace(admitted_assertion_ids=[])), access))
+    documents, image = [uuid4(), uuid4()], uuid4()
+    local_excerpts = [uuid4(), uuid4()]
+    def excerpt(**kwargs):
+        index = documents.index(UUID(kwargs["document_id"]))
+        return {"id": str(local_excerpts[index]), "text": "safe"}, (local_excerpts[index], documents[index], 0, 0, 1, "a" * 64, 0, 4, 1, "internal")
+    monkeypatch.setattr(assembly, "selected_page_excerpt", excerpt)
+    monkeypatch.setattr(assembly, "verify_source_citation", lambda **_: None)
+    monkeypatch.setattr(assembly.media, "read_staged_bytes", lambda *args: b"raw")
+    monkeypatch.setattr(assembly, "sanitize_release_image", lambda _: ("image/png", b"clean"))
+    staged = {}
+    monkeypatch.setattr(assembly.guest_release, "stage", lambda **kwargs: staged.update(kwargs) or (uuid4(), "digest"))
+    sources = [assembly.SourceSelection(document_id=doc, revision_n=1, sha256="a" * 64, start=0, end=4, excerpt="safe", evidence_id=f"e{i}") for i, doc in enumerate(documents)]
+    selection = assembly.ReleaseSelection(graph_revision="revision", nodes=[], relationships=[], sources=sources, asset_ids=[image],
+        saved_example=assembly.SavedExampleSelection(title="Scene", body="A saved scene", source_indexes=[1, 0], asset_id=image, image_description="A tent"))
+    assembly._prepare_candidate(world_id="world", subject="owner", selection=selection)
+    example = staged["manifest"]["saved_example"]
+    assert example["references"] == [str(local_excerpts[1]), str(local_excerpts[0])]
+    assert example["image"]["id"] == staged["manifest"]["assets"][0]["id"] != str(image)
+    assert all(str(doc) not in str(example) for doc in documents)
+    validate_example(staged["manifest"], staged["source_bindings"])
+    bad = selection.model_copy(update={"saved_example": selection.saved_example.model_copy(update={"asset_id": uuid4()})})
+    with pytest.raises(assembly.GuestReleasePreparationError):
+        assembly._prepare_candidate(world_id="world", subject="owner", selection=bad)

@@ -17,9 +17,16 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
   const [nextAssets, setNextAssets] = useState<Cursor | null>(null);
   const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
   const [loadedAssets, setLoadedAssets] = useState<Set<string>>(new Set());
+  const [exampleEnabled, setExampleEnabled] = useState(false);
+  const [exampleTitle, setExampleTitle] = useState("");
+  const [exampleBody, setExampleBody] = useState("");
+  const [exampleReferences, setExampleReferences] = useState<Set<string>>(new Set());
+  const [exampleImage, setExampleImage] = useState("");
+  const [exampleImageDescription, setExampleImageDescription] = useState("");
   const base = `/api/live/worlds/${encodeURIComponent(worldId)}/guest-releases`;
   async function load() {
     setBusy(true); setError(null); setOptions(null); setChosen({}); setPrepared(false);
+    setExampleEnabled(false); setExampleTitle(""); setExampleBody(""); setExampleReferences(new Set()); setExampleImage(""); setExampleImageDescription("");
     try {
       const response = await fetch(`${base}/selection-options`, { credentials: "same-origin", cache: "no-store" });
       if (!response.ok) throw new Error("unavailable");
@@ -29,7 +36,7 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
   }
   async function loadImages(cursor?: Cursor) {
     setBusy(true); setError(null);
-    if (!cursor) { setAssets(null); setSelectedAssets(new Set()); setLoadedAssets(new Set()); }
+    if (!cursor) { setAssets(null); setSelectedAssets(new Set()); setLoadedAssets(new Set()); setExampleImage(""); setExampleImageDescription(""); }
     try {
       const response = await fetch(`${base}/selection-media/list`, { method: "POST", credentials: "same-origin", cache: "no-store",
         headers: { "Content-Type": "application/json" }, body: JSON.stringify(cursor ?? {}) });
@@ -50,12 +57,21 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
     nodes.set(field.entity_id, item);
   }
   const sources = new Map(options?.sources.map(source => [source.option_id, source]) ?? []);
+  const evidenceIds = [...new Set(selected.map(field => chosen[field.assertion_id]).filter(Boolean))];
+  const referenceSpans = [...exampleReferences].map(id => {
+    const source = sources.get(id);
+    return source && JSON.stringify([source.document_id, source.revision_n, source.start, source.end]);
+  });
+  const exampleReady = !exampleEnabled || (exampleTitle.trim().length > 0 && exampleBody.trim().length > 0
+    && exampleReferences.size >= 2 && exampleReferences.size <= 10
+    && [...exampleReferences].every(id => evidenceIds.includes(id))
+    && referenceSpans.every(Boolean) && new Set(referenceSpans).size === referenceSpans.length
+    && (!exampleImage || (selectedAssets.has(exampleImage) && loadedAssets.has(exampleImage) && exampleImageDescription.trim().length > 0)));
   const ready = nodes.size > 0 && [...nodes.values()].every(node => node.name && node.classification && !node.duplicate)
     && selected.every(field => field.source_option_ids.includes(chosen[field.assertion_id]) && sources.has(chosen[field.assertion_id]))
     && selected.filter(field => field.kind === "relationship").every(field => nodes.has(field.entity_id) && field.target_id !== null && nodes.has(field.target_id));
   async function prepare() {
-    if (!options || !ready) return;
-    const evidenceIds = [...new Set(selected.map(field => chosen[field.assertion_id]))];
+    if (!options || !ready || !exampleReady) return;
     const body = {
       graph_revision: options.graph_revision,
       nodes: [...nodes].map(([entity_id, item]) => ({ entity_id, name_assertion_id: item.name!.assertion_id,
@@ -67,6 +83,9 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
       sources: evidenceIds.map(id => { const source = sources.get(id)!; return { document_id: source.document_id,
         revision_n: source.revision_n, sha256: source.sha256, start: source.start, end: source.end,
         excerpt: source.excerpt, evidence_id: source.evidence_id }; }), asset_ids: [...selectedAssets],
+      ...(exampleEnabled ? { saved_example: { title: exampleTitle, body: exampleBody,
+        source_indexes: [...exampleReferences].map(id => evidenceIds.indexOf(id)),
+        asset_id: exampleImage || null, image_description: exampleImage ? exampleImageDescription : null } } : {}),
     };
     setBusy(true); setError(null);
     try {
@@ -106,13 +125,26 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
       {assets && assets.length === 0 && <p>No images found.</p>}
       {assets && <div className="guest-release-image-choices">{assets.map((asset, index) => <label key={asset.id}>
         <img src={`${base}/selection-media/${encodeURIComponent(asset.id)}`} alt={`World image ${index + 1}`} onLoad={() => setLoadedAssets(previous => new Set(previous).add(asset.id))}
-          onError={() => { setLoadedAssets(previous => { const next = new Set(previous); next.delete(asset.id); return next; }); setSelectedAssets(previous => { const next = new Set(previous); next.delete(asset.id); return next; }); setError("An image preview could not be loaded, so it cannot be selected."); }} />
-        <span><input type="checkbox" disabled={busy || !loadedAssets.has(asset.id) || (selectedAssets.size >= 100 && !selectedAssets.has(asset.id))} checked={selectedAssets.has(asset.id)} onChange={event => { const checked = event.target.checked; setSelectedAssets(previous => { const next = new Set(previous); if (checked) next.add(asset.id); else next.delete(asset.id); return next; }); }} /> Include image {index + 1}</span>
+          onError={() => { setLoadedAssets(previous => { const next = new Set(previous); next.delete(asset.id); return next; }); setSelectedAssets(previous => { const next = new Set(previous); next.delete(asset.id); return next; }); setExampleImage(previous => previous === asset.id ? "" : previous); setError("An image preview could not be loaded, so it cannot be selected."); }} />
+        <span><input type="checkbox" disabled={busy || !loadedAssets.has(asset.id) || (selectedAssets.size >= 100 && !selectedAssets.has(asset.id))} checked={selectedAssets.has(asset.id)} onChange={event => { const checked = event.target.checked; setSelectedAssets(previous => { const next = new Set(previous); if (checked) next.add(asset.id); else next.delete(asset.id); return next; }); if (!checked) setExampleImage(previous => previous === asset.id ? "" : previous); }} /> Include image {index + 1}</span>
       </label>)}</div>}
       {nextAssets && <button type="button" disabled={busy} onClick={() => loadImages(nextAssets)}>Load more images</button>}
       {assets && <p>{selectedAssets.size} of 100 images selected.</p>}
+      <h4>Optional saved scene example</h4>
+      <label><input type="checkbox" checked={exampleEnabled} disabled={busy} onChange={event => setExampleEnabled(event.target.checked)} /> Include an owner-authored saved example</label>
+      {exampleEnabled && <div>
+        <p>This is a saved example, not a live generation. Choose related excerpts; they do not automatically prove the scene. The entire example will be reviewed before publication.</p>
+        <label>Example title <input value={exampleTitle} maxLength={120} onChange={event => setExampleTitle(event.target.value)} /></label>
+        <label>Scene text <textarea value={exampleBody} maxLength={10000} onChange={event => setExampleBody(event.target.value)} /></label>
+        <fieldset><legend>Choose at least two distinct related excerpts</legend>
+          {[...new Set([...evidenceIds, ...exampleReferences])].map(id => { const source = sources.get(id); return source && <label key={id}><input type="checkbox" checked={exampleReferences.has(id)} onChange={event => { const checked = event.target.checked; setExampleReferences(previous => { const next = new Set(previous); if (checked) next.add(id); else next.delete(id); return next; }); }} /> {source.document_title} · {source.evidence_role === "context" ? "context, not direct support" : "support"} · {source.excerpt.slice(0, 80)}{!evidenceIds.includes(id) && " · no longer included; remove this reference or include its excerpt again"}</label>; })}
+        </fieldset>
+        <label>Inline image <select value={exampleImage} onChange={event => setExampleImage(event.target.value)}><option value="">No image</option>{(assets ?? []).map((asset, index) => selectedAssets.has(asset.id) && loadedAssets.has(asset.id) ? <option key={asset.id} value={asset.id}>Selected image {index + 1}</option> : null)}</select></label>
+        {exampleImage && <label>Describe the image for guests <input value={exampleImageDescription} maxLength={240} onChange={event => setExampleImageDescription(event.target.value)} /></label>}
+        {!exampleReady && <p>Complete the scene and select at least two different included excerpts. An inline image must remain selected and have a description.</p>}
+      </div>}
       <p>For each object, select exactly one name and classification. Relationships require both objects and an excerpt.</p>
-      <button type="button" disabled={!ready || busy} onClick={prepare}>Prepare copy for review</button>
+      <button type="button" disabled={!ready || !exampleReady || busy} onClick={prepare}>Prepare copy for review</button>
     </div>}
   </section>;
 }

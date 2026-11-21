@@ -287,6 +287,8 @@ def stage(*, world_id: str, subject: str, expected_owner_generation: int,
         or {item.get("id") for item in sources} != {str(item[0]) for item in bindings}
         or len(sources) != len(bindings)):
         raise ApplicationStateValidationError("Manifest source bindings do not match excerpts")
+    from application_state.guest_release_example import validate_example
+    validate_example(manifest, bindings)
     graph = manifest.get("graph")
     evidence = evidence_bindings or []
     nodes = node_bindings or []
