@@ -86,6 +86,8 @@ class NativePlanOpeningInputV2(PlanRequestedWorkInputV9, NativePlanOpeningInputV
         default='dmb_native_plan_opening_input_v2', alias='schema')
     author_scope_binding: NativePlanOpeningScopeBindingV1 | None = Field(
         default=None, exclude_if=lambda value: value is None)
+    evidence_relevance_version: Literal['v1'] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
 
 class NativePlanOpeningInputV3(NativePlanOpeningInputV1):
@@ -548,8 +550,27 @@ def prepare_opening_decision(request):
     questions = tuple(q.model_copy(update={'question': q.question.replace(
         'all independent candidate relevance votes exclude', 'all applicable candidate relevance votes exclude')})
         if q.name == 'operation' else q for q in navigation.questions)
+    work_questions = work.questions
+    if type(request) is NativePlanOpeningInputV2 and request.evidence_relevance_version == 'v1':
+        guidance = (
+            " A factual question about a place, person, event, object, or source belongs in discussion, "
+            "even when its answer is a location or requires reading evidence. "
+            "Choose clarification only if the requested action or an intended editing destination is ambiguous."
+        )
+        work_questions = tuple(q.model_copy(update={'question': q.question + guidance})
+            if q.name == 'requested_work' else q for q in work_questions)
+        saved_page_guidance = (
+            " Include this page only if it provides evidence needed for the current request, "
+            "such as an explicitly named or referenced page or an authored fact. "
+            "A topic match alone does not warrant reading it."
+        )
+        state['candidates'] = [
+            candidate | {'kind': candidate['kind'] + saved_page_guidance}
+            if candidate['kind'].startswith('Saved authored Worldbuilding page;') else candidate
+            for candidate in state['candidates']
+        ]
     return DecisionRequest(provider=work.provider, model=work.model,
-        state=state, questions=(*work.questions, *questions), max_transport_retries=0)
+        state=state, questions=(*work_questions, *questions), max_transport_retries=0)
 
 
 def _composed_opening_fields(request, answers):
