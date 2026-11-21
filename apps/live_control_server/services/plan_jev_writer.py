@@ -1,8 +1,9 @@
 """One exact Plan writer dispatch; no retrieval tools, retries or repair loop."""
+from contextlib import nullcontext
 from dataclasses import dataclass
 from hashlib import sha256
 import json
-from time import perf_counter
+from time import monotonic, perf_counter
 from uuid import UUID, uuid4
 
 from generationengine.providers.openai_text import OpenAITextProvider
@@ -11,8 +12,10 @@ from application_state.agent_conversation.plan_jev_graph_packet import project
 from application_state.agent_conversation.rules_authority_types import canonical_bytes, canonical_sha256
 from application_state.agent_conversation.source_writer_output import strict_json
 from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
+from .semantic_block_writing import SEMANTIC_BLOCK_WRITING
 from .hermes_product_prompt import BUDDY_SYSTEM_PROMPT, IMAGE_DIRECTION_INSTRUCTIONS
 from .native_rules_capture import NativeProviderReply
+from .agent_turn_trace import host_work_observer
 from .build_jev_writer import WriterCapacityError, WriterAccountingError
 
 from application_state.agent_conversation.surface_evidence_answer import INSTRUCTIONS as EVIDENCE_INSTRUCTIONS
@@ -43,7 +46,7 @@ the page. Do not add a chat acknowledgment, surrounding explanation, save claim 
 Do not mint object IDs, dmb-node references, playable markers or unknown component markers.
 Headings, prose, lists and ordinary editable tables are supported; preserve existing protected
 tokens exactly when their captured selected content must be included. No page was saved.
-"""
+""" + SEMANTIC_BLOCK_WRITING
 RULES_INSTRUCTIONS = """A Rules lookup was performed. Use only supplied Rules supports for Rules claims,
 preserving their applicability. Keep interpretation and gaps distinct from supported
 Rules claims; campaign prose does not establish Rules. Ignore irrelevant Rules material.
@@ -343,7 +346,7 @@ class PlanJevWriter:
                     format_version = 7
                 self.provider_work=build_work_view(
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
-                    variant_passage_review=format_version in {9, 10}, bind_lore_page=True,
+                    variant_passage_review=format_version in {9, 10, 11}, bind_lore_page=True,
                 )
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work,
@@ -379,7 +382,10 @@ class PlanJevWriter:
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)
         single_variant_base = self.shared and variant_format and len(variant_sources(self.work_frame)) == 1
-        self.reasoning_effort = "medium" if single_variant_base else "low"
+        from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
+
+        conversation_draft = self.shared and native_conversation_terminal(turn) is not None
+        self.reasoning_effort = "medium" if single_variant_base or conversation_draft else "low"
         if task is not None:
             from application_state.agent_conversation.response_prompt import compose_response_prompt
             prompt = compose_response_prompt(
@@ -443,6 +449,19 @@ class PlanJevWriter:
 
                 if not explicit_blank_lore_page(destination["instruction"]):
                     instructions += "\n" + LORE_PROPOSAL_GUIDANCE
+                work = self.provider_work["build_work"]["requested_work"]
+                if work["requested_work"] == "review_lore_page_from_conversation":
+                    instructions += (
+                        "\nBuild the review from the preceding discussion in three parts. "
+                        "For cited facts, retain the handle paired with the specific prior claim and verify "
+                        "the exact passage supports your wording. For relevant creative directions already "
+                        "discussed by the author or described as existing draft material, use separate "
+                        "invented_idea proposals. Preserve their tentative status and introduce no new ideas. "
+                        "In open_questions, retain material unresolved identities, motives, and relationships, "
+                        "including open relationships named in a proposal. Retain the alternatives already discussed. "
+                        "If there is too little material to draft accurately, leave the proposal empty and "
+                        "surface the specific gap for the author."
+                    )
             self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
                 RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if self.shared or getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
             if single_variant_base:
@@ -602,19 +621,32 @@ class PlanJevWriter:
             request_summary={'reasoning_effort': self.reasoning_effort})
 
     async def run(self, *, transport=None, api_key=None):
-        from generationengine import GenerationClient, TextRequest
-        from generationengine.text_dispatch import TextDispatchGate
-        from application_state.agent_conversation.native_build_work_view import VARIANT_PASSAGE_FORMATS
+        trace = getattr(self.adapter, "trace", None)
+        observer = host_work_observer.get()
+        detailed = trace is not None and observer is not None
+        with trace.measure_host_work("plan_writer_client_setup") if detailed else nullcontext():
+            from generationengine import GenerationClient, TextRequest
+            from generationengine.text_dispatch import TextDispatchGate
+            from application_state.agent_conversation.native_build_work_view import VARIANT_PASSAGE_FORMATS
 
-        async def authorize(prepared): return self.authorize(prepared)
-        async def record(event): return self.record(event)
-        options = {'dispatch_gate':TextDispatchGate(authorize,record),'transport':transport}
-        if api_key is not None: options['api_key'] = api_key
-        provider = PlanWriterProvider(**options)
-        client = GenerationClient(text_providers={'openai':provider})
+            preparation_started = None
+
+            async def authorize(prepared):
+                nonlocal preparation_started
+                if preparation_started is not None:
+                    observer(trace.trace_id, "writer_sdk_preparation", preparation_started, monotonic(), False)
+                    preparation_started = None
+                return self.authorize(prepared)
+            async def record(event): return self.record(event)
+            options = {'dispatch_gate':TextDispatchGate(authorize,record),'transport':transport}
+            if api_key is not None: options['api_key'] = api_key
+            provider = PlanWriterProvider(**options)
+            client = GenerationClient(text_providers={'openai':provider})
         started = perf_counter()
         stage = self.failure_stage = "generation"
         try:
+            if observer is not None and trace is not None:
+                preparation_started = monotonic()
             result = await client.generate_structured(TextRequest(provider='openai',model=self.model,
                 user_prompt=json.dumps(self.messages,ensure_ascii=False),system_prompt=self.instructions,
                 temperature=None,reasoning_effort=self.reasoning_effort,max_output_tokens=self.output_reserve or None,

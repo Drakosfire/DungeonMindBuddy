@@ -116,6 +116,10 @@ const entityInspectionBody = {
   selection: { kind: "entity", entity_id: "entity-a" },
 };
 const hostedRoutes = [
+  ["first-Graph preparation", "/api/live/extract-promote/worldbuilding/first-world/prepare",
+    { schema: "dmb_first_world_graph_prepare_request_v1", runId: "reviewed-run", decisions: [{ assertionId: "tower", decision: "keep" }] }],
+  ["first-Graph confirmation", "/api/live/extract-promote/worldbuilding/first-world/confirm",
+    { schema: "dmb_first_world_graph_confirm_request_v1", plan: { runId: "reviewed-run" } }],
   ["published Plan recap", "/api/live/native-source-inspection/published-recap", { managed_world_id: "managed-a", campaign_id: "campaign-a", session_id: "session-a" }],
   ["connected-page prepare", "/api/live/connected-pages/prepare", { world_id: "managed-a", operation_id: "11111111-1111-4111-8111-111111111111" }],
   ["connected-page confirm", "/api/live/connected-pages/confirm", { world_id: "managed-a", operation_id: "11111111-1111-4111-8111-111111111111", confirm_token: "fixture" }],
@@ -161,6 +165,43 @@ it.each(hostedRoutes)("uses only secure same-origin cookies for hosted %s, never
   expect(JSON.parse(String(init?.body))).toEqual(body);
 });
 
+it("sends native first-Graph preparation and retained signed confirmation through the hosted client", async () => {
+  await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const { prepareNativeFirstWorld, confirmNativeFirstWorld } = await import("./nativeFirstWorldPublicationApi");
+  const decisions = [{ assertionId: "tower", decision: "keep" as const }];
+  await prepareNativeFirstWorld({ runId: "reviewed-run", decisions });
+  const signed = {
+    schema: "dmb_native_first_world_confirm_request_v1",
+    plan: { schema: "dmb_native_first_world_plan_v1", runId: "reviewed-run", token: "signed-plan-fixture" },
+  } as Parameters<typeof confirmNativeFirstWorld>[0];
+  await confirmNativeFirstWorld(signed);
+
+  const replies = fetch.mock.calls.map(([path, init]) => [path, JSON.parse(String(init?.body))]);
+  expect(replies).toEqual([
+    ["/api/live/extract-promote/worldbuilding/first-world/prepare",
+      { schema: "dmb_native_first_world_prepare_request_v1", runId: "reviewed-run", decisions }],
+    ["/api/live/extract-promote/worldbuilding/first-world/confirm", signed],
+  ]);
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+  }
+});
+
+it("rejects first-Graph requests with the wrong method, scope, or envelope", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch");
+  const path = "/api/live/extract-promote/worldbuilding/first-world/prepare";
+  const body = { schema: "dmb_first_world_graph_prepare_request_v1", runId: "reviewed-run", decisions: [{ assertionId: "tower", decision: "keep" }] };
+  const post = { method: "POST", body: JSON.stringify(body) };
+  await expect(api.authenticatedApiFetch(path)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(path + "?world_id=foreign", post)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(path, { ...post, body: JSON.stringify({ ...body, runId: "" }) })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).not.toHaveBeenCalled();
+});
+
 it("uses only cookies for the exact hosted World list and blocks creation", async () => {
   const api = await setup();
   hostedOrigin();
@@ -173,6 +214,21 @@ it("uses only cookies for the exact hosted World list and blocks creation", asyn
   expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
   await expect(api.createWorldContainer({ name: "Not allowed" })).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("uses same-origin cookies for an exact hosted World creation request", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ world_id: "created" }));
+  const body = { name: "Carnival", request_key: "request_key_0001" };
+  await api.createWorldContainer(body);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  const [path, init] = fetch.mock.calls[0];
+  expect(path).toBe("/api/live/world-containers");
+  expect(init).toMatchObject({ method: "POST", credentials: "same-origin", redirect: "error", cache: "no-store" });
+  expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  expect(JSON.parse(String(init?.body))).toEqual(body);
 });
 
 it.each([
@@ -1626,4 +1682,47 @@ it.each(nativeManualRoutes.filter(([path])=>!path.endsWith('/context')))('never 
 });
 it('rejects remote API bases for native manual transport before any credential dispatch',async()=>{
  const api=await setup('https://outside.invalid');api.setNativeGraphAccessToken('must-not-leak');const fetch=vi.spyOn(globalThis,'fetch');await expect(api.authenticatedApiFetch(nativeManualRoutes[0][0],{method:'POST',body:JSON.stringify(nativeManualRoutes[0][1])})).rejects.toThrow(/loopback/);expect(fetch).not.toHaveBeenCalled();
+});
+
+
+it.each(["local", "hosted"])("opens saved related recap pages through claim-bound GET on %s", async (destination) => {
+  const api = await setup();
+  if (destination === "hosted") hostedOrigin();
+  api.setNativeGraphAccessToken("synthetic-managed-graph-token");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ content: "Exact saved bytes." }));
+  const request = {
+    schema: "dmb_recap_context_read_request_v2" as const,
+    worldId: "native", campaignId: "", scopeMode: "world" as const, revisionPin: "original-revision",
+    contextAnchorId: "dm-context-anchor:v2:exact", maxChars: 12000, focus: { kind: "none" as const, sessionId: null, campaignId: null }, admissibility: "gm" as const,
+    continuation: "recap-page:v2:second",
+  };
+  await expect(api.postWorldGraphRecapContextReadV2(request, {
+    worldId: "managed", turnId: "11111111-1111-4111-8111-111111111111", claimId: "claim / original",
+  })).resolves.toEqual({ content: "Exact saved bytes." });
+  expect(fetch).toHaveBeenCalledTimes(1);
+  const [url, init] = fetch.mock.calls[0]!;
+  const parsed = new URL(String(url), "http://localhost");
+  expect(parsed.pathname).toBe("/api/live/agent/worlds/managed/conversation/turns/11111111-1111-4111-8111-111111111111/graph-evidence");
+  expect([...parsed.searchParams]).toEqual([
+    ["claim_id", "claim / original"], ["anchor_id", request.contextAnchorId], ["continuation", request.continuation],
+  ]);
+  expect(init?.method ?? "GET").toBe("GET");
+  expect(init?.body).toBeUndefined();
+  expect(new Headers(init?.headers).get("Authorization")).toBe(destination === "hosted" ? null : "Bearer synthetic-managed-graph-token");
+});
+
+it.each([403, 404, 409, 500, "network"])("never falls back to public recap POST after saved GET %s", async (failure) => {
+  const api = await setup();
+  api.setNativeGraphAccessToken("synthetic-managed-graph-token");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+    if (failure === "network") throw new TypeError("Offline");
+    return Response.json({ detail: { code: "source_passage_not_found" } }, { status: failure });
+  });
+  await expect(api.postWorldGraphRecapContextReadV2({
+    schema: "dmb_recap_context_read_request_v2", worldId: "native", campaignId: "", scopeMode: "world",
+    revisionPin: "saved-revision", contextAnchorId: "dm-context-anchor:v2:exact", maxChars: 12000, focus: { kind: "none" as const, sessionId: null, campaignId: null }, admissibility: "gm" as const,
+  }, { worldId: "managed", turnId: "11111111-1111-4111-8111-111111111111", claimId: "claim" })).rejects.toThrow();
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(String(fetch.mock.calls[0]![0])).toContain("/graph-evidence?");
+  expect(fetch.mock.calls[0]![1]?.method ?? "GET").toBe("GET");
 });

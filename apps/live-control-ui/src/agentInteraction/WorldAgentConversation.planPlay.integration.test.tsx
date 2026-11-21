@@ -2011,7 +2011,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
   });
 
-  it.each(["correct", "wrong_hash", "wrong_key", "removed", "removed_wrong_hash", "replaced"] as const)("recovers Build using the durable correlation and exact source basis: %s", async scenario => {
+  it.each(["correct", "wrong_hash", "wrong_key", "same_id", "same_id_wrong_hash", "removed", "removed_wrong_hash", "replaced"] as const)("recovers Build using the durable correlation and exact source basis: %s", async scenario => {
     let current: WorldAgentConversationHistoryResponse = history();
     let submitted!: WorldBuildAgentTurnRequestV1;
     vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => current);
@@ -2033,17 +2033,17 @@ describe("one App-level World conversation host across Plan and Play", () => {
     if (scenario === "replaced") localStorage.setItem(storedKey, replacement);
     current = { ...history(), schema: "dmb_agent_conversation_history_v3", turns: [{
       ...turn("plan", 1, "Frank and Sara operate the Rocky Talkie."),
-      turn_id: "00000000-0000-4000-8000-000000000055", user_text: submitted.message,
-      idempotency_key: scenario === "wrong_key" ? "00000000-0000-4000-8000-000000000099" : await expectedHistoryCorrelationKey(WORLD, submitted.turn_id),
+      turn_id: scenario.startsWith("same_id") ? submitted.turn_id : "00000000-0000-4000-8000-000000000055", user_text: submitted.message,
+      idempotency_key: (scenario === "wrong_key" || scenario.startsWith("same_id")) ? "00000000-0000-4000-8000-000000000099" : await expectedHistoryCorrelationKey(WORLD, submitted.turn_id),
       provenance: { ...turn("plan", 1, "").provenance, surface_id: "build", surface_instance_id: "build-instance",
         primary_work: { resolution: "resolved", kind: "build", object_id: "source-one", revision: "2",
-          content_sha256: (scenario === "wrong_hash" || scenario === "removed_wrong_hash") ? "b".repeat(64) : SHA,
+          content_sha256: (scenario === "wrong_hash" || scenario === "removed_wrong_hash" || scenario === "same_id_wrong_hash") ? "b".repeat(64) : SHA,
           object_revision: null, work_revision_id: null, revision_n: null } },
     }] };
     const proposalReads = vi.mocked(listBuildProposals).mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "Refresh shared history fixture" }));
     await screen.findByText("Frank and Sara operate the Rocky Talkie.");
-    if (scenario === "correct" || scenario === "removed") {
+    if (scenario === "correct" || scenario === "removed" || scenario === "same_id") {
       await waitFor(() => expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled());
       await waitFor(() => expect(vi.mocked(listBuildProposals).mock.calls.length).toBeGreaterThan(proposalReads));
       expect(localStorage.getItem(storedKey)).toBeNull();

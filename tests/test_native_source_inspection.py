@@ -36,7 +36,7 @@ def inspection(request, monkeypatch):
         return copy.deepcopy(lane.bound)
 
     monkeypatch.setattr(owner, "resolve_managed_source_identity", resolve)
-    monkeypatch.setattr(service.native, "read_repository", lambda: lane.repo)
+    monkeypatch.setattr(service.native, "read_repository", lambda **_kwargs: lane.repo)
 
     def graph_forbidden(*args, **kwargs):
         pytest.fail("Source inspection depended on active object Graph authority")
@@ -88,6 +88,39 @@ def test_metadata_http_uses_source_only_owner_without_body_reads(
     assert len(catalog["sources"][0]["evidence_ref_ids"]) == 2
     assert "body_text" not in response.text and BODY not in response.text
     assert inspection.lane.repo.get_head("world:test") == head
+
+
+def test_catalog_reuses_parse_but_opens_fresh_source_authority(inspection, monkeypatch):
+    from dungeonmind.application.vnext import native_source_access
+
+    admit(inspection.lane)
+    calls = {"parse": 0, "view": 0}
+    parse = native_source_access._parse_verified_revision
+    open_view = inspection.lane.repo.open_native_source_view
+
+    def count_parse(*args):
+        calls["parse"] += 1
+        return parse(*args)
+
+    def count_view(*args):
+        calls["view"] += 1
+        return open_view(*args)
+
+    monkeypatch.setattr(service, "turn_parsed_revision_cache", native_source_access.NativeParsedRevisionCache())
+    monkeypatch.setattr(native_source_access, "_parse_verified_revision", count_parse)
+    monkeypatch.setattr(inspection.lane.repo, "open_native_source_view", count_view)
+
+    first = inspection.client.post(PATH + "/catalog", json=SCOPE)
+    second = inspection.client.post(PATH + "/catalog", json=SCOPE)
+    assert first.status_code == second.status_code == 200
+    assert first.json() == second.json()
+    assert calls == {"parse": 1, "view": 2}
+
+    admit(inspection.lane, "later", body="A different source.\n")
+    later = inspection.client.post(PATH + "/catalog", json=SCOPE)
+    assert later.status_code == 200
+    assert later.json()["scope"]["revision_id"] != first.json()["scope"]["revision_id"]
+    assert calls["parse"] == 2
 
 
 def test_exact_selected_source_http_preserves_native_body_and_span_proof(inspection):

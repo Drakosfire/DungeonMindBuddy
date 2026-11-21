@@ -7,12 +7,10 @@ import {
   getRecapArtifacts,
   getNativeGraphCatalog,
   inspectNativeGraph,
-  postWorldGraphRecapProjection,
   readPublishedNativeRecap,
   readPublishedRecapObjects,
 } from "../../api/liveApi";
-import type { RecapArtifactRecord, WorldGraphObjectProjectionResult, WorldGraphRecapProjection } from "../../api/types";
-import { buildWorldGraphRecapProjectionRequest } from "../../worldGraph/worldGraphSurfaceContext";
+import type { RecapArtifactRecord, WorldGraphObjectProjectionResult } from "../../api/types";
 import { ReviewCampaignPicker } from "../ReviewCampaignPicker";
 import type { PlanContextDescriptor } from "../types";
 import {
@@ -25,7 +23,6 @@ import {
   filterNumericRecapArtifactRecords,
   sortRecapArtifactRecords,
 } from "./recapSessionLabels";
-import { WorldGraphRecapProjectionView } from "./WorldGraphRecapProjection";
 
 import { sameInspectionPin, type InspectionPin, type NativeGraphEntity } from "../../api/nativeGraphInspection";
 import { loadCompleteWorldObject, completeWorldObjectRequest } from "../../graphReference/fullWorldObjectProjection";
@@ -35,14 +32,7 @@ import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
 
 type LoadStatus = "loading" | "ready" | "error";
 
-interface LoadedRecapState {
-  payload: WorldGraphRecapProjection;
-  scope: {
-    campaignId: string;
-    sessionId: string;
-  };
-  record: RecapArtifactRecord | null;
-}
+
 
 interface RecapGraphModuleProps {
   context: PlanContextDescriptor;
@@ -239,7 +229,6 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
   // is a draft-selection aid and may change when the operator edits Campaign;
   // it must not invalidate the source authority for the recap currently on
   // screen before a replacement Load succeeds.
-  const [loadedRecap, setLoadedRecap] = useState<LoadedRecapState | null>(null);
 
   const campaignSessionRecords = useMemo(
     () => sessionRecords.filter((record) => record.campaign_id === draftCampaignId),
@@ -286,46 +275,10 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
       }
       return;
     }
-    if (selectedWorld.kind !== "legacy") {
-      setStatus("error");
-      setError("The selected World is unavailable.");
-      return;
-    }
-    const request = buildWorldGraphRecapProjectionRequest({
-      campaignId: resolvedCampaignId,
-      sessionId,
-    });
-    if (!request) {
-      if (generation !== loadGenerationRef.current) {
-        return;
-      }
-      setError(`World Graph mapping is unavailable for campaign ${resolvedCampaignId}.`);
-      setStatus("error");
-      return;
-    }
-
-    try {
-      const projection = await postWorldGraphRecapProjection(request);
-      if (generation !== loadGenerationRef.current) {
-        return;
-      }
-      setLoadedRecap({
-        payload: projection,
-        scope: { campaignId: resolvedCampaignId, sessionId },
-        record: sessionRecords.find(
-          (record) =>
-            record.campaign_id === resolvedCampaignId
-            && record.session_id === sessionId,
-        ) ?? null,
-      });
-      setStatus("ready");
-    } catch (loadError) {
-      if (generation !== loadGenerationRef.current) {
-        return;
-      }
-      setError(recapUnavailableMessage(loadError, sessionId, resolvedCampaignId));
-      setStatus("error");
-    }
+    setStatus("error");
+    setError(selectedWorld.kind === "legacy"
+      ? "Recap graph visualization requires a managed World."
+      : "The selected World is unavailable.");
   }, [managedWorldId, selectedWorld.kind, sessionRecords]);
 
   useEffect(() => {
@@ -418,12 +371,6 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
     syncRecapSurfaceUrl(draftCampaignId, draftSessionId);
   };
 
-  const authorableRecap =
-    status === "ready" &&
-    loadedRecap
-      ? loadedRecap.payload
-      : null;
-
   const reviewToolbar = (
     <div className="recap-reader-toolbar">
       <ReviewCampaignPicker selectedCampaignId={draftCampaignId} onSelect={handleCampaignSelect} />
@@ -464,9 +411,6 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
         <p className="graph-preview-error" role="alert">
           {error ?? `Published World Graph recap is unavailable for ${selectedSessionId}.`}
         </p>
-        <button type="button" onClick={handleLoad}>
-          Load
-        </button>
       </div>
     );
   }
@@ -482,24 +426,6 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
     );
   }
 
-  if (selectedWorld.kind === "legacy" && authorableRecap) {
-    return (
-      <WorldGraphRecapProjectionView
-        payload={authorableRecap}
-        selectedSessionId={selectedSessionId}
-        onSelectSession={handleSessionSelect}
-        sessionOptions={sessionOptions}
-        selectedCampaignId={selectedCampaignId}
-        onSelectCampaign={handleCampaignSelect}
-        draftCampaignId={draftCampaignId}
-        draftSessionId={draftSessionId}
-        onLoad={handleLoad}
-        canLoad={!catalogLoading}
-        recapRecord={loadedRecap?.record ?? null}
-        onRefreshProjection={() => loadRecapProjection(selectedCampaignId, selectedSessionId)}
-      />
-    );
-  }
 
   return (
     <div className="recap-reader-root">

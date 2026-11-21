@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {TourRunScopeProvider,type TourRunScope} from '../guidedTour/RunScope';
 import {validPin} from '../guidedTour/protocol';
+import {CombatMechanicsInspection} from './CombatMechanicsInspection';
 import {CombatRosterModule} from '../surface/modules/CombatRosterModule';
 import {exactIntent,withIntentLock} from './exactIntent';
 import {materializeRunEncounter,previewRunEncounter,readRunEncounter,type EncounterApplied,type EncounterOutcome,type EncounterPreview,type MaterializeRequest,type RunEncounterScope} from './runEncountersApi';
@@ -59,6 +60,10 @@ export function RunSceneEncounter({context}:{context:RunEncounterContext}){
  <h4>{preview.title}</h4><p>This starts a separate encounter from the preparation captured when this session began.</p>
  {preview.initialization_policy==='dmb_preserve_manual_preparation_v2'?<><ul>{preview.actors.map(actor=><li key={actor.actor_id}>{actor.name} · {actor.participation==='in_action'?'In action':'Out of action'} · {actor.statuses.join(', ')||'No statuses'}</li>)}</ul><p>Prepared stats, resource values and bounds, notes, statuses and participation are kept. Turn selection resets, and rounds restart only when this profile counts them.</p></>:<><ul>{preview.actors.map(actor=><li key={actor.actor_id}><strong>{actor.name}</strong> · HP {String(actor.hp_before??'unset')} → {String(actor.hp_after??'unset')}{!actor.typed_maximum?' (no numeric maximum; current HP kept)':''} · temporary HP {actor.temp_hp_before} → 0 · conditions {actor.conditions_before.join(', ') || 'none'} → none · undefeated</li>)}</ul>
  <p>Start at round 1 with no active turn. Names, initiative, notes, groups and saved mechanics are kept.</p></>}
+ {!!preview.saved_mechanics?.length && <section aria-label="Captured statblocks">
+  <h5>Captured statblocks</h5>
+  {preview.saved_mechanics.map(snapshot => <CombatMechanicsInspection key={snapshot.snapshot_digest} snapshot={snapshot} presentation="dialog"/>)}
+ </section>}
  <button disabled={busy||fatal||context.readOnly} onClick={start}>Start this encounter</button>{context.readOnly&&<p>Reopen the session to start its encounter.</p>}</>}
  </section>;
 }

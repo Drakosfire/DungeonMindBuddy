@@ -1242,6 +1242,7 @@ export interface SurfaceNativeContextReceiptV1 {
 export interface ConversationLorePageDraft {
   kind: 'lore_page';
   destination: {instruction: string; title: string};
+  open_questions?: string[];
 }
 export interface SurfaceNativeCompletionV1 {
   schema:'dmb_surface_native_completion_v1';surface_id:'build'|'plan'|'play';context_receipt_sha256:string;
@@ -1423,6 +1424,7 @@ export interface AgentNativeSourceSectionReadResponseV1 {
 }
 export interface NativeBodyExcerptCitationV1 extends Omit<NativeSourceSectionCitationV1,'catalog_event_id'|'app_source_revision_id'|'selector_policy'> {
   catalog_sha256:string;selector_policy:'markdown_sections_v1'|'native_full_document_v1';
+  prior_reference?: {turn_id: string; completion_sha256: string; citation_index: number};
 }
 export interface SurfaceEvidenceCompletionV5 extends Omit<SurfaceEvidenceCompletionV4,'schema'|'surface_id'> {
   schema:'dmb_surface_evidence_completion_v5';surface_id:'plan'|'play';native_body_citations:NativeBodyExcerptCitationV1[];
@@ -2669,15 +2671,21 @@ export interface WorldContainerRecord {
   name: string;
   source_root_relpath: string;
   created_at: string;
+  native_graph_binding?: {
+    status: "unbound" | "active" | "inactive" | "provisioning";
+    binding_version: number;
+  };
 }
 
 export interface WorldContainersListResponse {
   schema_version: "dmb_world_container_registry_v1";
   records: WorldContainerRecord[];
+  creation_available?: boolean;
 }
 
 export interface CreateWorldContainerRequest {
   name: string;
+  request_key?: string;
 }
 
 export interface CreateWorkspaceDocumentRequest {
@@ -5265,6 +5273,8 @@ export interface ThreatQueryHydrationRequestV1 {
   campaignId: string | null;
   scopeMode: "campaign" | "world";
   revisionPin: string;
+  expectedNativeWorldId?: string;
+  expectedBindingVersion?: number;
   queryText: string;
   focusNodeIds?: string[];
   relationshipPredicates?: string[];

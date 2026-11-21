@@ -11,7 +11,6 @@ from fastapi.routing import APIRoute
 
 from apps.live_control_server.services.world_graph_projection import (
     WorldGraphProjectionServiceError,
-    project_world_graph,
 )
 from apps.live_control_server.services.managed_world_graph_projection import (
     ManagedWorldGraphProjectionRequest,
@@ -22,9 +21,6 @@ from apps.live_control_server.services.hosted_native_graph_access import native_
 from apps.live_control_server.services.agent_graph_auth import (
     NativeGraphPrincipal,
     native_graph_gm_dependency,
-)
-from apps.live_control_server.services.world_graph_recap_projection import (
-    build_world_graph_recap_projection_payload,
 )
 from graph_memory.projection.world_projection import (
     WorldGraphProjection,
@@ -106,7 +102,10 @@ def post_world_graph_projection(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_query_params(request_context)
-        response = project_world_graph(request)
+        raise WorldGraphProjectionServiceError(
+            "Select a managed World to inspect its native graph.",
+            code="legacy_projection_retired", status_code=410,
+        )
     except WorldGraphProjectionServiceError as exc:
         return _error_response(exc)
     except Exception:
@@ -117,7 +116,6 @@ def post_world_graph_projection(
                 status_code=500,
             )
         )
-    return response.model_dump(mode="json", by_alias=True)
 
 
 @router.post(
@@ -157,7 +155,10 @@ def post_world_graph_recap_projection(
     """Exact World Graph snapshot + canonical recap → versioned recap projection."""
     try:
         _reject_query_params(request_context)
-        return build_world_graph_recap_projection_payload(request)
+        raise WorldGraphProjectionServiceError(
+            "Select a managed World to inspect its native graph.",
+            code="legacy_projection_retired", status_code=410,
+        )
     except WorldGraphProjectionServiceError as exc:
         return _error_response(exc)
     except Exception:

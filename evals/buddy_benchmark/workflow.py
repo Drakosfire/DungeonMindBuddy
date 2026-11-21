@@ -117,11 +117,19 @@ def report_case(case, base):
     directory = Path(case["capture_dir"])
     directory = directory if directory.is_absolute() else base / directory
     boundary = case.get("capture_boundary", "response")
-    if boundary not in {"response", "context_ready"}:
+    if boundary not in {"response", "context_ready", "writer_transport"}:
         raise ValueError("Unknown capture boundary")
-    context_only = boundary == "context_ready"
+    context_only = boundary != "response"
+    detailed_trace = case.get("detailed_trace", False)
+    if type(detailed_trace) is not bool or (detailed_trace and not context_only):
+        raise ValueError("Invalid detailed trace mode")
     names = ("request", "history-after", "context-trace") + (
         ("context-ready", "context-request", "context-stop") if context_only else ("answer-http",))
+    detail_path = directory / "detailed-host-trace.json"
+    if not detailed_trace and detail_path.exists():
+        raise ValueError("Detailed host trace differs from the requested mode")
+    if detailed_trace:
+        names += ("detailed-host-trace",)
     paths = {name: directory / (name + ".json") for name in names}
     if context_only and (directory / "answer-http.json").exists():
         paths["answer-http"] = directory / "answer-http.json"
@@ -201,8 +209,12 @@ def report_case(case, base):
                 prompt_witnesses.append(event)
     context_packet = None
     if context_only:
-        from .context_capture import validate_context_packet
-        context_packet = validate_context_packet(documents["context-ready"], documents["context-request"], documents["context-stop"])
+        from .context_capture import summarize_host_trace, validate_context_packet
+        context_packet = validate_context_packet(
+            documents["context-ready"], documents["context-request"], documents["context-stop"],
+            writer_transport=boundary == "writer_transport")
+        detail = (summarize_host_trace(documents["detailed-host-trace"],
+                   documents["context-ready"], documents["context-stop"]) if detailed_trace else None)
         captured = context_packet["turn"]
         authorization = context_packet["authorization"]
         if ((str(captured.turn_id), str(captured.conversation_id), captured.world_id, captured.user_text)
@@ -257,9 +269,11 @@ def report_case(case, base):
             return sum(c[key] for c in controller_calls.values()) if controller_calls and all(
                 c[key] is not None for c in controller_calls.values()) else None
         return {"case_id": case["id"], "question": case["question"], "capture_status": "complete",
-            "capture_boundary": "context_ready", "durable_turn_id": turn["turn_id"], "boundaries": boundaries,
+            "capture_boundary": boundary, "durable_turn_id": turn["turn_id"], "boundaries": boundaries,
             "context": {"status": "captured", "accepted_to_ready_ms": context_packet["elapsed_ms"],
                 "request_to_ready_ms": context_packet["request_to_ready_ms"],
+                "request_to_transport_ms": context_packet["request_to_transport_ms"],
+                "detailed_host_trace": detail,
                 "request_timing_basis": ("Same-process monotonic clock from ordinary request dispatch to post-authorization context-ready; includes bootstrap, excludes capture installation, artifact IO and cleanup"
                     if context_packet["request_to_ready_ms"] is not None else "Unknown: historical request-start tick was not retained"),
                 "prepared_request_bytes": context_packet["prepared_bytes"],
@@ -309,7 +323,7 @@ def report(manifest_path, *, oracle=None, citation_readback=None):
             "Billing and missing measurements remain unknown; no estimated price is billed cost."]}
 
 
-def capture_case(client, world, template, case, directory, *, context_only=False,
+def capture_case(client, world, template, case, directory, *, context_only=False, writer_transport=False, detailed_trace=False,
                  build_thread_id=None, expected_conversation_id=None, build_editor_snapshot=None):
     """The single ordinary route sequence, shared by all question fixtures."""
     build_sequence = build_thread_id is not None
@@ -374,7 +388,7 @@ def capture_case(client, world, template, case, directory, *, context_only=False
     error, known_response = None, False
     from contextlib import nullcontext
     from .context_capture import ContextCapture
-    context_stop = ContextCapture(directory) if context_only else None
+    context_stop = ContextCapture(directory, writer_transport=writer_transport, detailed_trace=detailed_trace) if context_only else None
     try:
         with context_stop.install() if context_stop is not None else nullcontext():
             if context_stop is not None:
@@ -456,7 +470,8 @@ def verify_capture_environment(expected):
         raise ValueError("Runtime qualification changed; no question dispatched")
 
 
-def capture(manifest_path, output, *, context_only=False, cohort_manifest_sha256=None):
+def capture(manifest_path, output, *, context_only=False, writer_transport=False, detailed_trace=False,
+            browser_case=None, cohort_manifest_sha256=None):
     """Explicit live entry point; never invoked by offline reporting."""
     manifest, base = load_manifest(manifest_path, expected_sha256=cohort_manifest_sha256)
     cohort_member = cohort_manifest_sha256 is not None
@@ -471,6 +486,17 @@ def capture(manifest_path, output, *, context_only=False, cohort_manifest_sha256
         raise ValueError("Unknown benchmark conversation mode")
     build_sequence = mode == "build_sequence"
     validate_template(template, manifest["world"], context_only=context_only, build_sequence=build_sequence)
+    browser = None
+    if browser_case is not None:
+        if not (context_only and writer_transport and not build_sequence
+                and template["surface"]["surface_id"] == "plan"):
+            raise ValueError("Browser capture requires ordinary Plan and the writer transport sink")
+        selected = next((case for case in manifest["cases"] if case["id"] == browser_case), None)
+        if selected is None:
+            raise ValueError("Browser case is absent from the manifest")
+        manifest["cases"] = [selected]
+        from . import browser_capture as browser
+        browser_inputs = browser.browser_inputs(manifest, base)
     editor_snapshot = None
     if "build_editor_snapshot" in manifest:
         if not build_sequence:
@@ -530,9 +556,10 @@ def capture(manifest_path, output, *, context_only=False, cohort_manifest_sha256
     retained["cases"] = []
     for case in manifest["cases"]:
         # A new capture never inherits an old semantic assessment.
-        current = {key: value for key, value in case.items() if key not in {"assessment", "assessments"}}
+        current = {key: value for key, value in case.items() if key not in {"assessment", "assessments", "detailed_trace"}}
         if context_only:
-            current["capture_boundary"] = "context_ready"
+            current["capture_boundary"] = "writer_transport" if writer_transport else "context_ready"
+            current["detailed_trace"] = detailed_trace
         elif current.get("capture_boundary", "response") != "response":
             raise ValueError("Context capture requires the explicit capture-context mode")
         retained["cases"].append(dict(current, capture_dir=str((output / case["id"]).resolve()),
@@ -555,6 +582,10 @@ def capture(manifest_path, output, *, context_only=False, cohort_manifest_sha256
     if Path(application.__file__).resolve() != Path(__file__).resolve().parents[2] / "apps/live_control_server/main.py":
         raise ValueError("Application import differs from qualified source")
     try:
+        if browser is not None:
+            browser.browser_capture(application.create_app(), manifest, selected, output, token,
+                                    browser_inputs, owned_env, detail=detailed_trace)
+            return
         with TestClient(application.create_app(), client=("127.0.0.1", 43021),
             headers={"Authorization": "Bearer " + token}, raise_server_exceptions=False) as client:
             if client.get("/health/ready").status_code != 200:
@@ -569,7 +600,7 @@ def capture(manifest_path, output, *, context_only=False, cohort_manifest_sha256
                 verify_capture_environment(owned_env)
                 directory = output / case["id"]
                 response = capture_case(client, manifest["world"], template, case, directory,
-                    context_only=context_only, build_thread_id=build_thread_id,
+                    context_only=context_only, writer_transport=writer_transport, detailed_trace=detailed_trace, build_thread_id=build_thread_id,
                     expected_conversation_id=conversation_id, build_editor_snapshot=editor_snapshot)
                 if build_sequence:
                     if response.status_code != 200:
@@ -1214,15 +1245,39 @@ def action_report(manifest_path):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("report", "action-report", "capture", "capture-context", "capture-context-cohort", "writer-prepare", "writer-capture", "context-tasting"))
+    parser.add_argument("mode", choices=("report", "action-report", "capture", "capture-context",
+        "capture-context-cohort", "writer-prepare", "writer-capture", "context-tasting", "trace-report"))
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--workers", type=int, default=2)
     parser.add_argument("--oracle", help="Private Gold JSON for offline report mode")
     parser.add_argument("--citation-readback", help="Retained excerpt citation readback JSONL")
+    parser.add_argument("--writer-transport", action="store_true",
+                        help="Capture the serialized writer request at a local transport sink")
+    parser.add_argument("--detailed-trace", action="store_true", help="Retain individual host timing intervals")
+    parser.add_argument("--trace-input", type=Path, help="Retained detailed capture directory")
+    parser.add_argument("--case", help="Manifest case ID for trace-report or isolated browser capture")
     args = parser.parse_args(argv)
+    if args.detailed_trace and args.mode != "capture-context":
+        parser.error("--detailed-trace requires capture-context")
+    if args.writer_transport and args.mode != "capture-context":
+        parser.error("--writer-transport requires capture-context")
     if args.mode != "report" and (args.oracle or args.citation_readback):
         parser.error("Oracle and citation readback are available only in report mode")
+    if args.mode == "trace-report":
+        if args.trace_input is None or args.case is None:
+            parser.error("trace-report requires --trace-input and --case")
+        manifest, _ = load_manifest(args.manifest)
+        case = next((case for case in manifest["cases"] if case["id"] == args.case), None)
+        if case is None:
+            parser.error("trace-report case is absent from the manifest")
+        from .trace_report import write_report
+        write_report(args.trace_input, args.case, Path(args.output), world=manifest["world"], question=case["question"])
+        return
+    if args.trace_input is not None:
+        parser.error("--trace-input requires trace-report")
+    if args.case is not None and not (args.mode == "capture-context" and args.writer_transport):
+        parser.error("--case requires trace-report or capture-context --writer-transport")
     if args.mode == "report":
         immutable_save(Path(args.output), "report", report(args.manifest, oracle=args.oracle, citation_readback=args.citation_readback))
     elif args.mode == "action-report":
@@ -1230,7 +1285,9 @@ def main(argv=None):
     elif args.mode == "capture":
         capture(args.manifest, args.output)
     elif args.mode == "capture-context":
-        capture(args.manifest, args.output, context_only=True)
+        options = {"browser_case": args.case} if args.case is not None else {}
+        capture(args.manifest, args.output, context_only=True, writer_transport=args.writer_transport,
+                detailed_trace=args.detailed_trace, **options)
     elif args.mode == "capture-context-cohort":
         from .cohort_capture import capture_cohort
         capture_cohort(args.manifest, args.output, workers=args.workers)

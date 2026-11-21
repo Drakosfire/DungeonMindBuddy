@@ -212,20 +212,63 @@ def test_downgrade_refuses_retained_navigation(nav_case, application_state_dsn):
         engine.dispose()
 
 
-def test_migration_roundtrip_preserves_historical_play(application_state_dsn):
-    import psycopg
-    from alembic import command
-    from application_state.cli import alembic_config
+def test_0053_constraint_roundtrip_preserves_historical_play(application_state_dsn):
+    from importlib import import_module
+
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    from sqlalchemy import create_engine
+
     service, sub, turn, provider, raw = prepared_native(application_state_dsn, moment=False)
     turn, _ = append(service, sub, turn, provider, raw)
-    def snapshot():
-        with psycopg.connect(application_state_dsn) as conn:
-            return conn.execute("SELECT graph_context_receipt,graph_context_execution FROM agent.turn WHERE turn_id=%s", (turn.turn_id,)).fetchone()
-    before = snapshot()
-    command.downgrade(alembic_config(), "20261022_0052")
-    assert snapshot() == before
-    command.upgrade(alembic_config(), "head")
-    assert snapshot() == before
+    migration = import_module(
+        "application_state.migrations.versions.20261022_0053_native_source_navigation"
+    )
+    engine = create_engine(application_state_dsn.replace("postgresql://", "postgresql+psycopg://"))
+
+    def snapshot(conn):
+        return conn.exec_driver_sql(
+            "SELECT graph_context_receipt::text,graph_context_execution::text "
+            "FROM agent.turn WHERE turn_id=%s", (turn.turn_id,),
+        ).one()
+
+    def constraint(conn):
+        return conn.exec_driver_sql(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+            "WHERE conrelid='agent.turn'::regclass "
+            "AND conname='agent_turn_graph_context_execution_check'"
+        ).scalar_one()
+
+    def version(conn):
+        return tuple(conn.exec_driver_sql(
+            "SELECT version_num FROM application_state.schema_migrations"
+        ).scalars())
+
+    try:
+        with engine.connect() as conn:
+            transaction = conn.begin()
+            before = snapshot(conn)
+            original_constraint, original_version = constraint(conn), version(conn)
+            try:
+                # Exercise only this migration's owning constraint. A whole-head
+                # downgrade is intentionally forbidden by later migration0169.
+                with Operations.context(MigrationContext.configure(conn)):
+                    migration.downgrade()
+                    downgraded = constraint(conn)
+                    assert snapshot(conn) == before and version(conn) == original_version
+                    migration.upgrade()
+                    assert constraint(conn) != downgraded
+                    assert snapshot(conn) == before and version(conn) == original_version
+            finally:
+                # Restore the current-head constraint, not just the 0053 shape.
+                # Never edit Alembic's version table or disable forward guards.
+                transaction.rollback()
+        with engine.connect() as conn:
+            assert snapshot(conn) == before
+            assert constraint(conn) == original_constraint
+            assert version(conn) == original_version
+    finally:
+        engine.dispose()
     assert service.list_turns(turn.world_id, turn.conversation_id)[-1].graph_context_execution == turn.graph_context_execution
 
 

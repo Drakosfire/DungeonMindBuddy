@@ -150,6 +150,44 @@ def _validated_head_and_revision(
     return head_revision_id
 
 
+def _open_native_binding_repository(_native_world_id: str) -> Any:
+    from apps.live_control_server.integrations.dungeonmind.native_registry_source import (
+        read_repository,
+    )
+
+    return read_repository()
+
+
+def _validate_native_binding_head(
+    world_id: str, repository_factory: NativeGraphAuthorityValidator,
+) -> str:
+    from dungeonmind.application.vnext.materialization import NATIVE_VNEXT_GRAPH_SCHEMA
+
+    try:
+        repository = repository_factory(world_id)
+        head = repository.get_head(world_id)
+        if head is None:
+            raise WorldGraphBindingError("Native Graph head is unavailable.", status_code=404)
+        revision_id = head.head_revision_id
+        if head.space_id != world_id or not isinstance(revision_id, str) or not revision_id.strip():
+            raise WorldGraphBindingError("Native Graph head identity is invalid.", status_code=502)
+        stored = repository.get_revision(world_id, revision_id)
+    except WorldGraphBindingError:
+        raise
+    except Exception as exc:
+        raise WorldGraphBindingError(
+            "Native Graph authority could not be verified.", status_code=503,
+        ) from exc
+
+    if stored is None or (
+        stored.revision.space_id != world_id
+        or stored.revision.revision_id != revision_id
+        or stored.revision.graph_schema != NATIVE_VNEXT_GRAPH_SCHEMA
+    ):
+        raise WorldGraphBindingError("Native Graph head revision is invalid.", status_code=502)
+    return revision_id
+
+
 def bind_native_graph(
     managed_world_id: str,
     *,
@@ -182,9 +220,9 @@ def bind_native_graph(
         )
 
     # Native calls must never run inside a Buddy metadata transaction.
-    validator = authority_validator or _validate_with_mind
-    services = validator(cleaned_native_id)
-    validated_head_revision_id = _validated_head_and_revision(services, cleaned_native_id)
+    validated_head_revision_id = _validate_native_binding_head(
+        cleaned_native_id, authority_validator or _open_native_binding_repository,
+    )
 
     binding = NativeGraphBindingRecord(
         native_world_id=cleaned_native_id, status="active",

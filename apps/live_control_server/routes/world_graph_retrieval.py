@@ -34,8 +34,6 @@ from apps.live_control_server.models.world_graph_object_projection import (
 )
 from apps.live_control_server.services.world_graph_retrieval import (
     WorldGraphRetrievalServiceError,
-    list_recap_context_v2,
-    read_recap_context_v2,
 )
 from graph_memory.retrieval.models import (
     WorldGraphEvidenceRequest,
@@ -286,14 +284,17 @@ def post_recap_context_index_v2(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_query_params(request_context)
-        response = list_recap_context_v2(request)
+        raise WorldGraphRetrievalServiceError(
+            "Open related recap context from a saved answer.",
+            code="recap_context_retired", status_code=410,
+        )
     except WorldGraphRetrievalServiceError as exc:
         return _error_response(exc)
     except Exception:
         return _error_response(WorldGraphRetrievalServiceError(
             "Recap context index failed unexpectedly.", code="retrieval_internal_error", status_code=500,
         ))
-    return response.model_dump(mode="json", by_alias=True)
+
 
 
 @router.post("/recap-context/v2/read", response_model=RecapContextReadResultV2)
@@ -303,14 +304,17 @@ def post_recap_context_read_v2(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_query_params(request_context)
-        response = read_recap_context_v2(request)
+        raise WorldGraphRetrievalServiceError(
+            "Open related recap context from a saved answer.",
+            code="recap_context_retired", status_code=410,
+        )
     except WorldGraphRetrievalServiceError as exc:
         return _error_response(exc)
     except Exception:
         return _error_response(WorldGraphRetrievalServiceError(
             "Recap context read failed unexpectedly.", code="retrieval_internal_error", status_code=500,
         ))
-    return response.model_dump(mode="json", by_alias=True)
+
 
 
 __all__ = ["router"]

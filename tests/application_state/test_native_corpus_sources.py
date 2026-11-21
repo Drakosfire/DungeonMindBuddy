@@ -900,6 +900,25 @@ def test_same_member_group_has_one_real_capture_and_atomic_exact_observations(
     assert len(calls) == 1
 
 
+def test_native_body_observation_rejects_stale_claim_before_capture(application_state_dsn, lane):
+    from application_state.errors import ApplicationStateConflictError
+
+    fixture, search, specifications = selected_body_group(lane, application_state_dsn)
+    specs = specifications(search.catalogs[0])
+    append_native(fixture, 'authorize_native_body_reads', grants=specs)
+    granted = fixture.current
+    reads = tuple(dict(event_id=uuid4(), authorization_event_id=spec['event_id']) for spec in specs)
+
+    def unexpected_source_read(*args):
+        pytest.fail('A stale claim reached source materialization')
+
+    with pytest.raises(ApplicationStateConflictError):
+        fixture.service.observe_native_body_reads(granted.world_id, granted.conversation_id, granted.turn_id,
+            expected_revision=granted.revision - 1, expected_attempt=granted.attempt,
+            reads=reads, read=unexpected_source_read)
+    assert fixture.service.inspect_turn(world_id=granted.world_id, turn_id=granted.turn_id) == granted
+
+
 @pytest.mark.parametrize('mutation', ['reordered', 'duplicate', 'foreign_catalog', 'nonconsecutive', 'full_document_dependency'])
 def test_same_member_group_refuses_invalid_grants_before_any_capture(application_state_dsn, lane, mutation):
     from application_state.errors import ApplicationStateValidationError

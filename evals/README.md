@@ -80,6 +80,30 @@ That is a diagnostic checkpoint, with no automatic cancellation or retry. A
 run that never dispatched a question is a setup failure and contributes no
 retrieval latency sample.
 
+### Latency waterfall
+
+Retain individual intervals with the opt-in `capture-context --detailed-trace`
+switch. Render an existing capture without an evaluator or provider call.
+
+```bash
+python -m evals.buddy_benchmark.workflow trace-report \
+  --manifest MANIFEST.json --trace-input CAPTURE_DIRECTORY \
+  --case Q01 --output REPORT_DIRECTORY
+```
+
+The command validates the retained writer packet and case identity, then emits
+`trace-report.json` and `trace-report.html`. Use the run root for a browser
+capture that stores transport clocks next to its capture directory. Browser
+timing is attributed only when the retained browser request and clock bounds
+match the captured case. Host-only captures use request start. The report
+labels writer-ready and writer transport sink separately. Outer wrapper spans
+are excluded from attributed wall time, and simultaneous independent spans
+share one interval. The operation table shows timed call counts, zero-duration
+markers, inclusive time, maximum observed call and exclusive wall time. Shared
+intervals remain in the waterfall and are not assigned to an individual
+operation. Packet content, Gold and citations are kept in the
+original evidence artifacts.
+
 ### Graph completeness and missing-evidence attribution
 
 For each Gold witness expected to have a Graph path, record the first proven
@@ -139,6 +163,30 @@ citation reopening.
 
 For authoring actions, conversation-only boundaries, and Build and Ingest
 workflows, see the [Buddy actions and authoring benchmark](plan-authoring-benchmark.md).
+
+For an ordinary Plan browser replay, select a case in the context capture
+command as well as choosing the writer sink.
+
+```bash
+python -m evals.buddy_benchmark.workflow capture-context \\
+  --manifest MANIFEST.json --output CAPTURE_DIRECTORY \\
+  --case Q01 --writer-transport --detailed-trace
+```
+
+The manifest's browser_capture object supplies a bundle directory, a
+bundle_inventory file pin containing each relative asset path and SHA-256,
+and a jev_wire file pin containing the exact successful wire exchange.
+Set DMB_BENCHMARK_NODE, DMB_BENCHMARK_PLAYWRIGHT and DMB_BENCHMARK_CHROMIUM
+to the local Node executable, Playwright package directory and browser
+executable. Use explicit local operator auth and launch without provider credentials.
+Use a disposable local App clone and a pinned Core database. The driver
+starts one loopback instance and submits from Buddy's ordinary Plan composer.
+The exact retained Jev request must match. The GenerationEngine writer
+request is captured at the local transport sink. Neither provider is called.
+
+The optional manifest field browser_capture.settled_pane waits for a quiet
+pane before timing Send. Leave it false for immediate Send after the
+controls are ready. Leave off --detailed-trace for the coarse comparison arm.
 
 ### Parallel retrieval captures
 

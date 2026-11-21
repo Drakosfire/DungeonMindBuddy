@@ -44,29 +44,24 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     return TestClient(create_app(), base_url="http://127.0.0.1:8000", client=("127.0.0.1", 50000))
 
 
-def test_prepare_route_maps_graph_review_error(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        graph_authoring_route,
-        "prepare_graph_object_authoring_write",
-        lambda _request: (_ for _ in ()).throw(
-            GraphObjectAuthoringError(
-                "source must be resolved before publication",
-                code="source_unresolved",
-                status_code=409,
-            )
-        ),
-    )
+def test_prepare_route_is_retired_without_dispatch(client, monkeypatch):
+    from apps.live_control_server.services import graph_object_authoring_prepare
 
+    calls = []
+    def forbidden(*args, **kwargs):
+        calls.append((args, kwargs))
+        raise AssertionError("Retired prepare must not dispatch")
+    monkeypatch.setattr(graph_object_authoring_prepare, "prepare_graph_object_authoring_write", forbidden)
     response = client.post("/api/live/graph-authoring/prepare", json=_request_body())
+    assert response.status_code == 410
+    assert response.json()["detail"]["code"] == "classic_manual_prepare_retired"
+    assert calls == []
+    assert client.app.openapi()["paths"]["/api/live/graph-authoring/prepare"]["post"]["deprecated"]
 
-    assert response.status_code == 409
-    assert response.json()["detail"] == {
-        "code": "source_unresolved",
-        "message": "source must be resolved before publication",
-    }
+
+def test_retired_prepare_keeps_malformed_request_validation(client):
+    response = client.post("/api/live/graph-authoring/prepare", json={"proposals": "invalid"})
+    assert response.status_code == 422
 
 
 def test_commit_route_maps_inexpressible_confirmation_error(
@@ -76,7 +71,7 @@ def test_commit_route_maps_inexpressible_confirmation_error(
     monkeypatch.setattr(
         graph_authoring_route,
         "commit_graph_object_authoring_write",
-        lambda _request: (_ for _ in ()).throw(
+        lambda _request, **_kwargs: (_ for _ in ()).throw(
             GraphObjectAuthoringError(
                 "merge_objects is not publishable through DungeonMind",
                 code="governed_write_inexpressible",
@@ -94,3 +89,13 @@ def test_commit_route_maps_inexpressible_confirmation_error(
         "code": "governed_write_inexpressible",
         "message": "merge_objects is not publishable through DungeonMind",
     }
+
+
+def test_local_commit_dispatch_is_recovery_only(client, monkeypatch):
+    def dispatch(_request, *, recovery_only):
+        assert recovery_only is True
+        raise GraphObjectAuthoringError("No original receipt", code="publication_receipt_unavailable", status_code=409)
+    monkeypatch.setattr(graph_authoring_route, "commit_graph_object_authoring_write", dispatch)
+    response = client.post("/api/live/graph-authoring/commit", json={**_request_body(), "confirmToken": "original-token"})
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "publication_receipt_unavailable"

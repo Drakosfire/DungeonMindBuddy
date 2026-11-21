@@ -10,7 +10,6 @@ import httpx
 import pytest
 
 from apps.live_control_server.models.extract_promote import (
-    ExtractPromoteConfirmRequest,
     ExtractPromotePrepareRequest,
 )
 from apps.live_control_server.services import extract_promote
@@ -94,192 +93,99 @@ def test_foreign_declared_source_world_rejects_before_admission(
 
 
 
-def test_confirm_rejects_remapped_binding_before_candidate_or_writer(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        extract_promote, "_resolve_publication_target", lambda _id: _binding(native="other-world")
-    )
-    monkeypatch.setattr(
-        extract_promote, "world_graph_root", lambda: pytest.fail("opened graph root")
-    )
-    request = ExtractPromoteConfirmRequest(review_package=_package(), assertion_ids=["a"])
-    with pytest.raises(extract_promote.ExtractPromoteError) as exc:
-        extract_promote.confirm(request)
-    assert exc.value.code == "publication_target_changed"
-
-
-def test_confirm_rechecks_binding_at_governed_write_boundary(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def _historical_case(tmp_path, monkeypatch):
+    from tests.test_cutover_native_governed_write import _original_extract_reader_case
+    from apps.live_control_server.integrations.dungeonmind import historical_extract_recovery as recovery
     from apps.live_control_server import config
-    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
-    from apps.live_control_server.services import candidate_graph_admission
+    real_binding = recovery.authorize_current_target
+    request, original, history, calls = _original_extract_reader_case(tmp_path, monkeypatch)
+    monkeypatch.setattr(recovery, "authorize_current_target", real_binding)
+    monkeypatch.setattr(config, "world_graph_authority_mode", lambda: config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND)
+    def forbidden(*args, **kwargs):
+        pytest.fail("historical confirm entered mutable source/head or writer")
+    for name in ("world_graph_root", "load_bound_extraction_run", "_assert_recap_semantics_at_confirm", "_assert_current_recap_ingest_context"):
+        monkeypatch.setattr(extract_promote, name, forbidden)
+    monkeypatch.setattr("apps.live_control_server.integrations.dungeonmind.world_graph_writes.confirm_extract_promote_via_dungeonmind", forbidden)
+    return request, original, history, calls
 
-    candidate = tmp_path / "candidate.json"
-    candidate.write_text("{}", encoding="utf-8")
-    request = ExtractPromoteConfirmRequest(
-        review_package=_package(candidate=candidate), assertion_ids=["a"]
-    )
+
+def _historical_binding(*, native="eldyrwild", version=1):
+    return VerifiedManagedWorldBinding(managed_world_id="managed-history", native_world_id=native,
+        binding_version=version, source_root_relpath="retained-unused")
+
+
+def test_confirm_rejects_remapped_binding_before_candidate_or_writer(monkeypatch, tmp_path):
+    from apps.live_control_server.integrations.dungeonmind import historical_extract_recovery as recovery
+    request, _, _, calls = _historical_case(tmp_path, monkeypatch)
+    monkeypatch.setattr(extract_promote, "_resolve_publication_target", lambda _: _historical_binding(native="other-world"))
+    monkeypatch.setattr(recovery, "_bare_readers", lambda: pytest.fail("remapped target read private history"))
+    with pytest.raises(extract_promote.ExtractPromoteError) as error:
+        extract_promote.confirm(request)
+    assert error.value.code == "publication_target_changed"
+    assert calls == []
+
+
+def test_confirm_rechecks_binding_at_original_receipt_disclosure(monkeypatch, tmp_path):
+    request, _, _, calls = _historical_case(tmp_path, monkeypatch)
     seen = 0
-
-    def resolve(_id: str) -> VerifiedManagedWorldBinding:
+    def resolve(_):
         nonlocal seen
         seen += 1
-        return _binding(version=1 if seen == 1 else 2)
-
+        return _historical_binding(version=1 if seen == 1 else 2)
     monkeypatch.setattr(extract_promote, "_resolve_publication_target", resolve)
-    monkeypatch.setattr(extract_promote, "world_graph_root", lambda: tmp_path)
-    data = SimpleNamespace(run=SimpleNamespace(source_domain="recap", campaign_id="campaign-a", session_id="session-22", source_artifact_id="artifact:a"),
-        candidate_bytes=b"{}", source_bytes=b"source", span_index=object())
-    monkeypatch.setattr(extract_promote, "load_bound_extraction_run", lambda *a, **k: data)
-    monkeypatch.setattr(extract_promote, "_assert_candidate_scope_matches_run", lambda *a, **k: None)
-    monkeypatch.setattr(extract_promote, "_assert_and_project_candidate_evidence", lambda *a, **k: None)
-    monkeypatch.setattr(extract_promote, "_assert_recap_semantics_at_confirm", lambda *_a: None)
-    monkeypatch.setattr(
-        config, "world_graph_authority_mode", lambda: config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
-    )
-    monkeypatch.setattr(
-        candidate_graph_admission, "confirm_candidate_graph_admission",
-        lambda **kwargs: kwargs["governed_confirm"](),
-    )
-    monkeypatch.setattr(
-        world_graph_writes, "confirm_extract_promote_via_dungeonmind",
-        lambda *_a, **_k: pytest.fail("binding drift reached governed writer"),
-    )
-    with pytest.raises(extract_promote.ExtractPromoteError) as exc:
+    with pytest.raises(extract_promote.ExtractPromoteError) as error:
         extract_promote.confirm(request)
-    assert exc.value.code == "publication_target_changed"
-    assert seen == 2
+    assert error.value.code == "publication_target_changed" and seen == 2
+    assert calls == ["terminal", "parent", "source_revision"]
 
 
-def test_confirm_receipt_uses_sealed_native_world(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    from apps.live_control_server import config
-    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
-    from apps.live_control_server.services import candidate_graph_admission
-
-    candidate = tmp_path / "candidate.json"
-    candidate.write_text("{}", encoding="utf-8")
-    request = ExtractPromoteConfirmRequest(
-        review_package=_package(candidate=candidate), assertion_ids=["a"]
-    )
-    monkeypatch.setattr(extract_promote, "_resolve_publication_target", lambda _id: _binding())
-    monkeypatch.setattr(extract_promote, "world_graph_root", lambda: tmp_path)
-    data = SimpleNamespace(run=SimpleNamespace(source_domain="recap", campaign_id="campaign-a", session_id="session-22", source_artifact_id="artifact:a"),
-        candidate_bytes=b"{}", source_bytes=b"source", span_index=object())
-    monkeypatch.setattr(extract_promote, "load_bound_extraction_run", lambda *a, **k: data)
-    monkeypatch.setattr(extract_promote, "_assert_candidate_scope_matches_run", lambda *a, **k: None)
-    monkeypatch.setattr(extract_promote, "_assert_and_project_candidate_evidence", lambda *a, **k: None)
-    monkeypatch.setattr(extract_promote, "_assert_recap_semantics_at_confirm", lambda *_a: None)
-    monkeypatch.setattr(
-        config, "world_graph_authority_mode", lambda: config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
-    )
-    monkeypatch.setattr(
-        candidate_graph_admission, "confirm_candidate_graph_admission",
-        lambda **kwargs: kwargs["governed_confirm"](),
-    )
-    seen: list[str] = []
-
-    def publish(request, **_kwargs):
-        seen.append(request.review_package["effect"]["world_id"])
-        return {
-            "world_id": "native-world",
-            "outcome": "committed",
-            "published": True,
-            "post_publication_verification": "passed",
-            "committed_revision_id": "revision:committed",
-            "accepted_assertion_ids": ["a"],
-            "affected_object_ids": ["node:a"],
-        }
-
-    monkeypatch.setattr(world_graph_writes, "confirm_extract_promote_via_dungeonmind", publish)
+def test_confirm_receipt_uses_original_sealed_native_world(monkeypatch, tmp_path):
+    request, original, history, calls = _historical_case(tmp_path, monkeypatch)
+    monkeypatch.setattr(extract_promote, "_resolve_publication_target", lambda _: _historical_binding())
     receipt = extract_promote.confirm(request)
-    assert seen == ["native-world"]
-    assert receipt.world_id == "native-world"
-    assert receipt.committed_revision_id == "revision:committed"
+    assert receipt.world_id == request.review_package["effect"]["world_id"] == "eldyrwild"
+    assert receipt.committed_revision_id == history.publication.published_revision_id
+    assert receipt.accepted_assertion_ids == [item.assertion_id for item in original.accepted_assertions]
+    assert receipt.outcome == "already_applied" and receipt.head_advanced is False
+    assert calls == ["terminal", "parent", "source_revision"]
 
 
-def test_recap_confirm_replay_survives_head_advance_without_second_write(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    from apps.live_control_server import config
-    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
-    from apps.live_control_server.services import candidate_graph_admission, recap_ingest_context
-
-    candidate = tmp_path / "candidate.json"
-    candidate.write_text("{}", encoding="utf-8")
-    context = {
-        "schema": "dm_world_campaign_ingest_context_v1",
-        "managed_world_id": "managed-world",
-        "native_world_id": "native-world",
-        "binding_version": 1,
-        "campaign_id": "campaign-a",
-        "head_revision_id": "revision:parent",
-        "graph_schema": "dm_graph_v1",
-        "graph_payload_sha256": "a" * 64,
-    }
-    package = extract_promote._seal_recap_ingest_context(
-        _package(candidate=candidate), context
-    )
-    request = ExtractPromoteConfirmRequest(review_package=package, assertion_ids=["a"])
-    monkeypatch.setattr(extract_promote, "_resolve_publication_target", lambda _id: _binding())
-    monkeypatch.setattr(extract_promote, "world_graph_root", lambda: tmp_path)
-    data = SimpleNamespace(run=SimpleNamespace(source_domain="recap", campaign_id="campaign-a", session_id="session-22", source_artifact_id="artifact:a"),
-        candidate_bytes=b"{}", source_bytes=b"source", span_index=object())
-    monkeypatch.setattr(extract_promote, "load_bound_extraction_run", lambda *a, **k: data)
-    monkeypatch.setattr(extract_promote, "_assert_candidate_scope_matches_run", lambda *a, **k: None)
-    monkeypatch.setattr(extract_promote, "_assert_and_project_candidate_evidence", lambda *a, **k: None)
-    monkeypatch.setattr(extract_promote, "_assert_recap_semantics_at_confirm", lambda *_a: None)
-    monkeypatch.setattr(
-        config, "world_graph_authority_mode", lambda: config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
-    )
-    monkeypatch.setattr(
-        candidate_graph_admission, "confirm_candidate_graph_admission",
-        lambda **kwargs: kwargs["governed_confirm"](),
-    )
-
-    class Snapshot:
-        def __init__(self, head: str) -> None:
-            self.head = head
-
-        def as_lineage(self) -> dict[str, object]:
-            return {**context, "head_revision_id": self.head}
-
-    heads = iter(("revision:committed", "revision:committed"))
-    monkeypatch.setattr(
-        recap_ingest_context,
-        "read_recap_ingest_context",
-        lambda **_kwargs: Snapshot(next(heads)),
-    )
-    writes = 0
-
-    def publish(_request, **_kwargs):
-        nonlocal writes
-        if writes:
-            return {
-                "world_id": "native-world",
-                "outcome": "already_applied",
-                "published": False,
-                "committed_revision_id": "revision:committed",
-                "accepted_assertion_ids": ["a"],
-                "affected_object_ids": ["node:a"],
-            }
-        writes += 1
-        return {
-            "world_id": "native-world",
-            "outcome": "committed",
-            "published": True,
-            "post_publication_verification": "passed",
-            "committed_revision_id": "revision:committed",
-            "accepted_assertion_ids": ["a"],
-            "affected_object_ids": ["node:a"],
-        }
-
-    monkeypatch.setattr(world_graph_writes, "confirm_extract_promote_via_dungeonmind", publish)
+def test_recap_confirm_replay_never_reopens_current_head_or_writes(monkeypatch, tmp_path):
+    request, _, history, calls = _historical_case(tmp_path, monkeypatch)
+    monkeypatch.setattr(extract_promote, "_resolve_publication_target", lambda _: _historical_binding())
     first = extract_promote.confirm(request)
     second = extract_promote.confirm(request)
-    assert first.outcome == "committed"
-    assert second.outcome == "already_applied"
-    assert writes == 1
+    assert first.model_dump(mode="json") == second.model_dump(mode="json")
+    assert first.outcome == second.outcome == "already_applied"
+    assert first.committed_revision_id == history.publication.published_revision_id
+    assert calls == ["terminal", "parent", "source_revision"] * 2
+
+
+def test_http_classic_prepare_retired_after_target_admission(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.routes.extract_promote import router
+    monkeypatch.setattr(extract_promote, "_resolve_publication_target", lambda _: _historical_binding())
+    monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", lambda *a, **k: pytest.fail("retired prepare opened run"))
+    app = FastAPI()
+    app.include_router(router)
+    with TestClient(app) as client:
+        response = client.post("/api/live/extract-promote/prepare", json={"runId": "retained-run", "managedWorldId": "managed-history"})
+    assert response.status_code == 410
+    assert response.json()["code"] == "classic_extract_prepare_retired"
+
+
+
+@pytest.mark.parametrize("path", ["/api/live/extract-promote/prepare", "/api/live/extract-promote/confirm"])
+def test_classic_extract_preserves_hosted_policy_denial(monkeypatch, path):
+    from apps.live_control_server.main import create_app
+    from apps.live_control_server.services.hosted_auth import HOSTED_WORLD_ROUTE_POLICY_ERROR
+    from tests.test_hosted_auth import _AsyncASGITestClient, _resolver, DmsPrincipal
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "production")
+    monkeypatch.setenv("DMB_AUTH_MODE", "hosted_dms")
+    monkeypatch.setenv("AUTH_TRUSTED_FRONTEND_ORIGINS", "https://buddy.dungeonmind.net")
+    app = create_app()
+    app.state.dms_principal_resolver = _resolver(DmsPrincipal(subject="synthetic-owner"))
+    response = _AsyncASGITestClient(app).post(path, json={}, headers={"Origin": "https://buddy.dungeonmind.net"})
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == HOSTED_WORLD_ROUTE_POLICY_ERROR

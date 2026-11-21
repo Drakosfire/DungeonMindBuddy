@@ -72,8 +72,6 @@ from apps.live_control_server.services.extract_promote import (
     confirm_worldbuilding,
     decide_recap_semantic_disposition,
     get_exact_run_review_package,
-    prepare,
-    prepare_worldbuilding,
 )
 from apps.live_control_server.services.exact_run_evidence_correction import (
     correct_exact_run_evidence,
@@ -484,7 +482,13 @@ def post_extract_promote_prepare(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_selector_query(request_context)
-        response = prepare(request)
+        if not request.managed_world_id:
+            raise ExtractPromoteError("An explicit managed World publication target is required.",
+                code="publication_target_required", status_code=422)
+        from apps.live_control_server.services.extract_promote import _resolve_publication_target
+        _resolve_publication_target(request.managed_world_id)
+        raise ExtractPromoteError("Classic extract preparation is retired; use current native review.",
+            code="classic_extract_prepare_retired", status_code=410)
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except Exception:
@@ -508,7 +512,6 @@ def post_extract_promote_prepare(
                 ],
             )
         )
-    return response.model_dump(mode="json", by_alias=True)
 
 
 @router.get(
@@ -557,39 +560,18 @@ def post_worldbuilding_write_plan_prepare(
     request_context: Request,
     request: WorldbuildingWritePlanPrepareRequest,
 ) -> dict[str, Any] | JSONResponse:
-    try:
-        _reject_selector_query(request_context)
-        response = prepare_worldbuilding(request)
-    except ExtractPromoteError as exc:
-        return _error_response(exc)
-    except Exception:
-        correlation_id = uuid.uuid4().hex[:12]
-        logger.exception(
-            "worldbuilding write-plan prepare failed unexpectedly correlation_id=%s",
-            correlation_id,
-        )
-        return _error_response(
-            ExtractPromoteError(
-                "The worldbuilding write-plan prepare operation failed unexpectedly.",
-                code="extract_promote_internal_error",
-                status_code=500,
-                diagnostics=[
-                    ExtractPromoteDiagnostic(
-                        code="internal_error",
-                        message=f"Internal error. Reference: {correlation_id}",
-                        severity="error",
-                    )
-                ],
-            )
-        )
-    result = response.model_dump(mode="json", by_alias=True)
-    binding = response.publication_binding
+    _reject_selector_query(request_context)
     authorize = worldbuilding_evidence_authorizer(
-        request_context, binding.managed_world_id if binding is not None else "",
+        request_context, getattr(request_context.state, "hosted_build_page_world", ""),
     )
     if authorize is not None:
         authorize()
-    return result
+    return _error_response(ExtractPromoteError(
+        "Classic preparation is retired. Use the current World review flow for new changes; retain existing confirmation requests.",
+        code="classic_worldbuilding_prepare_retired", status_code=410,
+        diagnostics=[ExtractPromoteDiagnostic(code="classic_worldbuilding_prepare_retired",
+            message="Use the current World review flow for new changes.", severity="error")],
+    ))
 
 
 @router.post(

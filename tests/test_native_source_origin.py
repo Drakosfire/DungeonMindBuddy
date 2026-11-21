@@ -18,8 +18,33 @@ from tests.test_world_graph_retrieval_contract import _selected_native_fixture
 
 @pytest.fixture
 def origin():
+    from copy import deepcopy
+    from hashlib import sha256
+
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from tests._cutover_direct_dungeonmind_read_helpers import ANCHOR_CONTENT, NOW
+
     services, request, revision = _selected_native_fixture(unrelated=0)
+    stored = services.bundle.world_graph.get_revision(request.world_id, revision)
+    payload = deepcopy(stored.graph_payload)
+    # Keep the shared unsupported-heading fixture intact. This origin proof needs
+    # an explicit V2 span; neither artifact admission nor locator policy changes.
+    assert len(payload["evidence_refs"]) == 1
+    evidence = payload["evidence_refs"][0]
+    source_revision = services.bundle.sources.get_revision(evidence["source_revision_id"])
+    assert source_revision.content_sha256 == sha256(ANCHOR_CONTENT.encode("utf-8")).hexdigest()
+    evidence["source_span_ref_id"] = (
+        f"{evidence['source_artifact_id']}:span:{source_revision.content_sha256[:12]}:3-3"
+    )
+    published = services.bundle.world_graph.publish_revision(PublishRevisionCommand(
+        world_id=request.world_id, parent_revision_id=revision,
+        expected_parent_revision_id=revision, operation_ids=["op:origin-fixture-span"],
+        graph_schema=stored.revision.graph_schema, graph_payload=payload, created_at=NOW,
+    ))
+    revision = published.revision_id
+    request = request.model_copy(update={"revision_pin": revision})
     found = direct.search_world_graph_direct_v3(services, request)
+    assert len(found.source_pins) == 1
     pin = t.GraphSourceScopeAnchorV2(**{
         key: value for key, value in vars(found.source_pins[0]).items()
         if key != "graph_revision"})

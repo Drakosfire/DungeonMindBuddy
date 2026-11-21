@@ -1,4 +1,4 @@
-"""Tests for Graph Review confirmation through DungeonMind authority."""
+"""Historical proposal/signature unit composition with synthetic source/authority seams."""
 
 from __future__ import annotations
 
@@ -43,6 +43,13 @@ def graph_review_unit_seams(monkeypatch: pytest.MonkeyPatch) -> FakeSourceAdmiss
     monkeypatch.setattr(
         "apps.live_control_server.services.graph_object_authoring_binding.resolve_publication_context",
         lambda request, resolved, **_: GraphReviewPublicationContext(request.world_id or request.campaign_id, request.campaign_id),
+    )
+    # Match the existing prepare-unit seam: these fixtures carry an object://
+    # source, synthetic verified spans and fake admission, not a real APP body.
+    # Mounted receipt recovery and real native APP admission have separate owners.
+    monkeypatch.setattr(
+        "apps.live_control_server.services.source_artifact_registry.load_source_input_bytes",
+        lambda _artifact: b"Synthetic proposal unit-test body",
     )
     fake = FakeSourceAdmission()
     monkeypatch.setattr(
@@ -663,3 +670,481 @@ def test_commit_token_survives_stable_binding_key_reread(corpus_root: Path, monk
     assert response.audit_status == "skipped"
     assert response.overlay_path is None
     assert response.event_log_path is None
+
+
+# Immutable manual recovery: these are reconstruction diagnostics, not mounted
+# recovery/SQL acceptance. Those witnesses must additionally exercise the reader.
+def _historical_manual_recipe(*, relationship: bool = False, alias: bool = False):
+    from dataclasses import asdict
+    from types import SimpleNamespace
+    from apps.live_control_server.services.graph_object_authoring_prepare import (
+        build_assertions_from_proposals,
+        contribution_binding_digest,
+        translate_assertions_to_contribution,
+    )
+    from apps.live_control_server.integrations.dungeonmind.contribution_mapping import (
+        map_graph_review_contribution_v3,
+    )
+
+    proposal = (expressible_relationship_proposal(relationshipType="belongs_to", sourceObjectRef={
+        "refKind": "existing_graph_node", "nodeId": "local-object-1", "label": "A sword", "kind": "item",
+    })
+                if relationship else expressible_link_proposal() if alias else object_proposal())
+    assertions, diagnostics = build_assertions_from_proposals(prepare_request(proposals=[proposal]))
+    assert not [item for item in diagnostics if item.severity == "error"]
+    spans = {
+        assertion.assertion_id: VerifiedGraphReviewSpan(
+            assertion_id=assertion.assertion_id,
+            evidence_ref_id=f"grauth-ev:art:original:{assertion.assertion_id}",
+            source_artifact_id="art:original", source_revision_id="buddy:original",
+            source_domain="worldbuilding", source_span_ref_id="paragraph:original",
+            source_content_sha256="ab" * 32, span_content_sha256="cd" * 32,
+            span_index_sha256="ef" * 32, visibility_state="internal",
+        ) for assertion in assertions
+    }
+    original = translate_assertions_to_contribution(
+        world_id=CAMPAIGN_ID, campaign_id=CAMPAIGN_ID, actor="original-actor",
+        source_artifact_id="art:original", source_revision_id="buddy:original",
+        assertions=assertions, verified_spans=spans,
+    )
+    mapped = map_graph_review_contribution_v3(
+        SimpleNamespace(evidence={}), original,
+        {("art:original", "buddy:original"): "rev:admitted"},
+    )
+    kwargs = dict(candidate=mapped, assertions=assertions, world_id=CAMPAIGN_ID,
+                  campaign_scope=CAMPAIGN_ID, actor="original-actor",
+                  sealed_artifact_id="art:original",
+                  sealed_contribution_digest=contribution_binding_digest(original))
+    assert json.loads(mapped.assertions[0].value)["evidence"] == [asdict(next(iter(spans.values())))]
+    return original, mapped, kwargs
+
+
+def test_historical_manual_reconstruction_uses_original_buddy_source_pair(monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind.historical_manual_recovery import (
+        reconstruct_original_contribution,
+    )
+    original, mapped, kwargs = _historical_manual_recipe()
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_object_authoring_prepare.resolve_graph_review_source",
+        lambda *a, **k: pytest.fail("historical reconstruction read a mutable source"),
+    )
+    recovered = reconstruct_original_contribution(**kwargs)
+    assert recovered.model_dump(mode="json") == original.model_dump(mode="json")
+    assert recovered.source_revision_id == "buddy:original"
+    assert mapped.source_revision_id == "rev:admitted"
+
+
+@pytest.mark.parametrize("mutation", [
+    "span_digest", "buddy_revision", "foreign_artifact", "duplicate_assertion",
+    "missing_assertion", "missing_metadata", "unknown_metadata", "wrong_actor",
+    "changed_request",
+])
+def test_historical_manual_reconstruction_rejects_substituted_original(mutation):
+    from apps.live_control_server.integrations.dungeonmind.historical_manual_recovery import (
+        reconstruct_original_contribution,
+    )
+    _, mapped, kwargs = _historical_manual_recipe()
+    assertion = mapped.assertions[0].model_copy(deep=True)
+    value = json.loads(assertion.value)
+    row = value["evidence"][0]
+    if mutation == "span_digest":
+        row["span_content_sha256"] = "12" * 32
+    elif mutation == "buddy_revision":
+        row["source_revision_id"] = "rev:admitted"
+    elif mutation == "foreign_artifact":
+        row["source_artifact_id"] = "art:foreign"
+    elif mutation == "missing_metadata":
+        del row["span_index_sha256"]
+    elif mutation == "unknown_metadata":
+        row["invented"] = "value"
+    elif mutation == "wrong_actor":
+        kwargs["actor"] = "other-actor"
+    elif mutation == "changed_request":
+        kwargs["assertions"] = [kwargs["assertions"][0].model_copy(update={"summary": "changed"})]
+    assertion = assertion.model_copy(update={"value": json.dumps(value)})
+    assertions = [assertion]
+    if mutation == "duplicate_assertion":
+        assertions.append(assertion)
+    elif mutation == "missing_assertion":
+        assertions = []
+    kwargs["candidate"] = mapped.model_copy(update={"assertions": assertions})
+    with pytest.raises(GraphObjectAuthoringError) as error:
+        reconstruct_original_contribution(**kwargs)
+    assert error.value.code == "authority_integrity"
+
+
+def test_historical_manual_candidate_reconstructs_reverse_edge_without_endpoint_admission(monkeypatch):
+    from dungeonmind.contracts.contribution import AcceptanceState
+    from apps.live_control_server.integrations.dungeonmind.historical_manual_recovery import (
+        reconstruct_candidate,
+    )
+    original, mapped, _ = _historical_manual_recipe(relationship=True)
+    monkeypatch.setattr(
+        "apps.live_control_server.integrations.dungeonmind.world_graph_writes._assert_edge_endpoint_admission",
+        lambda *a, **k: pytest.fail("historical reconstruction reran fresh endpoint admission"),
+    )
+    stamp = datetime(2025, 1, 1, tzinfo=UTC)
+    reconstructed = reconstruct_candidate(original, admitted_revision_id="rev:admitted", reviewed_at=stamp)
+    actual, prior = reconstructed.assertions[0], mapped.assertions[0]
+    assert actual.subject_object_id == prior.object_object_id
+    assert actual.object_object_id == prior.subject_object_id
+    assert actual.predicate == "belongs_to"
+    assert json.loads(actual.value) == {**json.loads(prior.value), "dm_predicate": "dnd5e:owns"}
+    assert actual.acceptance_state is AcceptanceState.CANDIDATE
+    assert actual.evidence_refs == prior.evidence_refs
+    assert reconstructed.produced_at == stamp
+
+
+def test_historical_manual_candidate_preserves_complete_node_value():
+    from apps.live_control_server.integrations.dungeonmind.historical_manual_recovery import reconstruct_candidate
+    original, mapped, _ = _historical_manual_recipe()
+    reconstructed = reconstruct_candidate(
+        original, admitted_revision_id="rev:admitted", reviewed_at=datetime(2025, 1, 1, tzinfo=UTC),
+    )
+    prior_value = json.loads(mapped.assertions[0].value)
+    actual_value = json.loads(reconstructed.assertions[0].value)
+    assert actual_value == {**prior_value, "dm_kind": "dnd5e:party"}
+    assert prior_value["aliases"] and prior_value["summary"] and prior_value["role"]
+
+
+
+def _coherent_historical_manual_review(*, mutation: str | None = None, recipe: str = "object", generation: str = "v3"):
+    """Use the historical producer and Core's real state builder, including forgeries."""
+    from types import SimpleNamespace
+    from dungeonmind.application.contribution_review_v3 import _build_review_state
+    from dungeonmind.contracts.contribution import AcceptanceState
+    from dungeonmind.contracts.contribution_review import (
+        ContributionAssertionVerdict, ContributionPlanRef, derive_confirmation_id,
+    )
+    from dungeonmind.contracts.contribution_review_v3 import (
+        CommitConfirmationReceiptV3, ContributionReviewIntentV3,
+        ContributionReviewSubmissionV3, contribution_v3_payload_sha256,
+        derive_review_intent_sha256_v3,
+    )
+    if generation == "v2":
+        # Build an actually valid older Core review, not an object masquerading
+        # as one. Local aliases keep the common producer fixture below shared.
+        from dungeonmind.application.contribution_review_v2 import _build_review_state
+        from dungeonmind.contracts.contribution_review_v2 import (
+            CommitConfirmationReceiptV2 as CommitConfirmationReceiptV3,
+            ContributionReviewIntentV2 as ContributionReviewIntentV3,
+            ContributionReviewSubmissionV2 as ContributionReviewSubmissionV3,
+            contribution_v2_payload_sha256 as contribution_v3_payload_sha256,
+            derive_review_intent_sha256_v2 as derive_review_intent_sha256_v3,
+        )
+    elif generation == "guarded_v3":
+        from dungeonmind.contracts.contribution_review_v3 import (
+            GuardedContributionReviewIntentV3 as ContributionReviewIntentV3,
+        )
+    from dungeonmind.domain.canonical import canonical_sha256
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        _build_v2_candidate, _build_identity_dispositions,
+        WORLDBUILDING_SOURCE_PLAN_SCHEMA,
+    )
+    original, _, _ = _historical_manual_recipe(relationship=recipe == "edge", alias=recipe == "alias")
+    stamp = datetime(2025, 1, 1, tzinfo=UTC)
+    parent_id = "rev:sealed-parent"
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        derive_authority_review_operation_id, graph_review_authority_operation_id,
+    )
+    from apps.live_control_server.services.graph_object_authoring_prepare import (
+        build_assertions_from_proposals, proposed_assertions_digest,
+    )
+    proposal = (expressible_relationship_proposal(relationshipType="belongs_to", sourceObjectRef={
+        "refKind": "existing_graph_node", "nodeId": "local-object-1", "label": "A sword", "kind": "item",
+    }) if recipe == "edge"
+                else expressible_link_proposal() if recipe == "alias" else object_proposal())
+    original_assertions, _ = build_assertions_from_proposals(prepare_request(proposals=[proposal]))
+    buddy_operation = graph_review_authority_operation_id(
+        world_id=CAMPAIGN_ID, campaign_id=CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL,
+        source_artifact_id="art:original", source_revision_id="rev:admitted",
+        sealed_proposal_digest=proposed_assertions_digest(original_assertions),
+        expected_parent_revision_id=parent_id,
+    )
+    operation_id = derive_authority_review_operation_id(
+        world_id=CAMPAIGN_ID, authority_operation_id=buddy_operation, operation_namespace="worldbuilding",
+    )
+    profile = {"schema_version": "dm_semantic_profile_ref_v1", "profile_id": "dnd5e.default",
+               "profile_revision": "1", "descriptor_sha256": "12" * 32}
+    payload = {"semantic_profile": profile}
+    parent = SimpleNamespace(revision=SimpleNamespace(
+        world_id=CAMPAIGN_ID, revision_id=parent_id, status="published",
+        graph_schema="dm_union_graph_v6", graph_payload_sha256=canonical_sha256(payload),
+        created_at=stamp,
+    ), graph_payload=payload)
+    review_time = stamp + timedelta(seconds=1) if mutation == "timestamp" else stamp
+    candidate, verdict_states = _build_v2_candidate(
+        original, context=SimpleNamespace(objects={
+            "local-object-1": SimpleNamespace(kind="item"),
+            "pc_bonogo": SimpleNamespace(kind="pc"),
+        }),
+        pair_to_dm={("art:original", "buddy:original"): "rev:admitted"},
+        produced_at=review_time,
+    )
+    if generation == "v2":
+        from dungeonmind.contracts.contribution import GraphContributionV2
+        from dungeonmind.contracts.evidence import EvidenceRef
+        converted = candidate.model_dump(mode="json")
+        converted["schema_version"] = "dm_graph_contribution_v2"
+        for assertion in converted["assertions"]:
+            assertion["evidence_refs"] = [
+                {**{key: value for key, value in ref.items() if key in EvidenceRef.model_fields},
+                 "schema_version": EvidenceRef.model_fields["schema_version"].default}
+                for ref in assertion["evidence_refs"]
+            ]
+        candidate = GraphContributionV2.model_validate(converted)
+    if mutation in {"role", "alias", "summary", "qualification", "scope", "identity"}:
+        assertion = candidate.assertions[0]
+        value = json.loads(assertion.value)
+        if mutation == "role":
+            value["role"] = "forged-role"
+        elif mutation == "alias":
+            value["aliases"] = ["forged-alias"]
+        elif mutation == "summary":
+            value["summary"] = "forged-summary"
+        elif mutation == "qualification":
+            value["dm_kind"] = "dnd5e:npc"
+        update = {"value": json.dumps(value, sort_keys=True, separators=(",", ":"))}
+        if mutation == "scope":
+            update["campaign_scope"] = "other-campaign"
+        elif mutation == "identity":
+            from dungeonmind.contracts.identity import IdentityOutcome
+            update["identity_resolution_outcome"] = IdentityOutcome.RESOLVED_EXISTING
+        candidate = candidate.model_copy(update={"assertions": [assertion.model_copy(update=update)]})
+    if mutation in {"endpoint", "reversal"}:
+        edge = candidate.assertions[0]
+        update = ({"object_object_id": "node:forged-target"} if mutation == "endpoint" else
+                  {"subject_object_id": edge.object_object_id, "object_object_id": edge.subject_object_id})
+        candidate = candidate.model_copy(update={"assertions": [edge.model_copy(update=update)]})
+    if mutation == "scope":
+        candidate = candidate.model_copy(update={"campaign_scope": "other-campaign"})
+    review_campaign = "other-campaign" if mutation == "scope" else CAMPAIGN_ID
+    proposals, verdicts = _build_identity_dispositions(candidate, verdict_states)
+    assertion_verdicts = [ContributionAssertionVerdict(
+        assertion_id=item.assertion_id, acceptance_state=AcceptanceState.ACCEPTED,
+    ) for item in sorted(candidate.assertions, key=lambda item: item.assertion_id)]
+    plan = ContributionPlanRef(
+        source_plan_schema=WORLDBUILDING_SOURCE_PLAN_SCHEMA, source_plan_id=operation_id,
+        source_plan_sha256=canonical_sha256({"operation_id": operation_id,
+                                           "contribution_id": original.contribution_id}),
+        source_input_sha256=canonical_sha256({"contribution_id": original.contribution_id}),
+        preview_content_sha256=canonical_sha256({}),
+        candidate_contribution_sha256=contribution_v3_payload_sha256(candidate),
+        expected_parent_revision_id=parent_id, base_graph_schema="dm_union_graph_v6",
+        base_graph_payload_sha256=parent.revision.graph_payload_sha256,
+        semantic_profile=profile,
+    )
+    if mutation == "plan":
+        plan = plan.model_copy(update={"source_input_sha256": "34" * 32})
+    intent_fields = dict(
+        operation_id=operation_id, world_id=CAMPAIGN_ID, campaign_id=review_campaign,
+        plan_ref=plan, candidate_contribution=candidate, identity_proposals=proposals,
+        identity_verdicts=verdicts, assertion_verdicts=assertion_verdicts,
+        reviewer_id="original-actor", reviewed_at=review_time,
+    )
+    if generation == "guarded_v3":
+        from dungeonmind.contracts.contribution_review_v3 import ReviewedIdentityPublicationPreconditionsV1
+        intent_fields["reviewed_identity_preconditions"] = ReviewedIdentityPublicationPreconditionsV1(
+            world_id=CAMPAIGN_ID, campaign_id=review_campaign,
+            expected_parent_revision_id=parent_id, decision_id="decision:retained",
+            decision_sha256="12" * 32, target_object_id=candidate.assertions[0].subject_object_id,
+            target_object_sha256="34" * 32, existence_evidence_sha256="56" * 32,
+            sources=[dict(source_artifact_id="art:original", source_revision_id="rev:admitted",
+                          source_artifact_sha256="78" * 32, source_revision_sha256="90" * 32)],
+        )
+    digest = derive_review_intent_sha256_v3(**intent_fields)
+    intent = ContributionReviewIntentV3(**intent_fields, review_intent_sha256=digest)
+    confirmation = CommitConfirmationReceiptV3(
+        confirmation_id=derive_confirmation_id(operation_id=operation_id,
+            review_intent_sha256=digest, actor="original-actor", confirmed_at=review_time),
+        operation_id=operation_id, review_intent_sha256=digest, actor="original-actor",
+        world_id=CAMPAIGN_ID, campaign_id=review_campaign,
+        expected_parent_revision_id=parent_id, confirmed_at=review_time,
+    )
+    state = _build_review_state(ContributionReviewSubmissionV3(intent=intent, confirmation=confirmation))
+    # Revalidate complete Core contracts: the negative cases are internally
+    # consistent alternate histories, rather than broken payload hashes.
+    state = type(state).model_validate(state.model_dump(mode="json"))
+    history = SimpleNamespace(review=state, publication=SimpleNamespace(
+        graph_schema="dm_union_graph_v6", expected_parent_revision_id=parent_id,
+        parent_graph_payload_sha256=parent.revision.graph_payload_sha256,
+        published_at=review_time, published_revision_id="rev:original-child",
+        reviewed_contribution_id=state.reviewed_contribution.contribution_id,
+        reviewed_contribution_sha256=state.record.reviewed_contribution_sha256,
+    ), revision=SimpleNamespace(created_at=review_time))
+    return dict(original=original, history=history, parent=parent,
+                operation_id=operation_id, expected_parent_id=parent_id,
+                admitted_revision_id="rev:admitted", actor="original-actor")
+
+
+@pytest.mark.parametrize("recipe", ["object", "edge", "alias"])
+def test_historical_manual_complete_correspondence_matches_real_producer(recipe):
+    from apps.live_control_server.integrations.dungeonmind.historical_manual_recovery import verify_review_correspondence
+    verify_review_correspondence(**_coherent_historical_manual_review(recipe=recipe))
+
+
+@pytest.mark.parametrize("mutation", ["role", "alias", "summary", "qualification", "scope", "identity", "plan", "timestamp"])
+def test_historical_manual_complete_correspondence_rejects_valid_alternate_core_history(mutation):
+    from apps.live_control_server.integrations.dungeonmind.historical_manual_recovery import verify_review_correspondence
+    with pytest.raises(GraphObjectAuthoringError) as error:
+        verify_review_correspondence(**_coherent_historical_manual_review(mutation=mutation))
+    assert error.value.code == "authority_integrity"
+
+
+@pytest.mark.parametrize("mutation", ["missing", "foreign", "changed_hash", "changed_time", "admitted_revision"])
+def test_historical_manual_complete_correspondence_rejects_parent_or_admission_drift(mutation):
+    from apps.live_control_server.integrations.dungeonmind.historical_manual_recovery import verify_review_correspondence
+    kwargs = _coherent_historical_manual_review()
+    if mutation == "missing":
+        kwargs["parent"] = None
+    elif mutation == "foreign":
+        kwargs["parent"].revision.world_id = "foreign-world"
+    elif mutation == "changed_hash":
+        kwargs["parent"].graph_payload["extra"] = "changed"
+    elif mutation == "changed_time":
+        kwargs["parent"].revision.created_at += timedelta(seconds=1)
+    else:
+        kwargs["admitted_revision_id"] = "rev:foreign"
+    with pytest.raises(GraphObjectAuthoringError) as error:
+        verify_review_correspondence(**kwargs)
+    assert error.value.code == "authority_integrity"
+
+
+
+def _signed_historical_manual_request(monkeypatch):
+    from types import SimpleNamespace
+    from apps.live_control_server.services.graph_object_authoring_prepare import (
+        build_assertions_from_proposals, contribution_binding_digest, proposed_assertions_digest,
+    )
+    from apps.live_control_server.integrations.dungeonmind import historical_manual_recovery as recovery
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import graph_review_authority_operation_id
+
+    fixture = _coherent_historical_manual_review()
+    original = fixture["original"]
+    assertions, _ = build_assertions_from_proposals(prepare_request())
+    operation = graph_review_authority_operation_id(
+        world_id=CAMPAIGN_ID, campaign_id=CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL,
+        source_artifact_id="art:original", source_revision_id="rev:admitted",
+        sealed_proposal_digest=proposed_assertions_digest(assertions),
+        expected_parent_revision_id=fixture["expected_parent_id"],
+    )
+    intent = dict(
+        campaign_id=CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL, source_run_id="run-c1s2",
+        document_source=None, recap_artifact_id=None, world_id=CAMPAIGN_ID,
+        actor="original-actor", assertions_digest=proposed_assertions_digest(assertions),
+        expected_parent_revision_id=fixture["expected_parent_id"], authority_operation_id=operation,
+        source_artifact_id="art:original", source_revision_id="rev:admitted",
+        contribution_digest=contribution_binding_digest(original), publication_binding=None,
+        expires_at="2000-01-01T00:00:00+00:00",
+    )
+    request = _commit_request_from_prepare(SimpleNamespace(
+        confirm_token=sign_publication_intent(intent), current_overlay_token=None,
+    ))
+    calls = []
+    def read(world, operation, *, reader):
+        calls.append(("terminal", world, operation))
+        assert operation == fixture["operation_id"]
+        return fixture["history"]
+    def parent(world, revision):
+        calls.append(("parent", world, revision))
+        assert revision == fixture["expected_parent_id"]
+        return fixture["parent"]
+    monkeypatch.setattr(recovery, "_bare_readers", lambda: (object(), SimpleNamespace(get_revision=parent)))
+    monkeypatch.setattr("dungeonmind.application.compatibility.read_historical_finalized_publication", read)
+    return request, fixture, calls
+
+
+def test_historical_manual_service_recovers_expired_packet_before_mutable_preflight(monkeypatch):
+    request, fixture, calls = _signed_historical_manual_request(monkeypatch)
+    for name in ("resolve_graph_review_source", "verify_graph_review_assertion_spans", "prove_graph_review_source"):
+        monkeypatch.setattr(
+            f"apps.live_control_server.services.graph_object_authoring_commit.{name}",
+            lambda *a, **k: pytest.fail("recovery entered mutable source preflight"),
+        )
+    monkeypatch.setattr(
+        "apps.live_control_server.ports.world_graph_authority_access.get_world_graph_authority",
+        lambda: pytest.fail("recovery bootstrapped current graph services"),
+    )
+    authorization = []
+    response = commit_graph_object_authoring_write(
+        request, authenticated_actor="original-actor", recovery_only=True,
+        authorize_world=lambda: authorization.append("owner"),
+    )
+    assert response.result == response.idempotency_status == "already_applied"
+    assert response.published_revision_id == "rev:original-child"
+    assert response.parent_revision_id == fixture["expected_parent_id"]
+    assert len(response.created_node_ids) == 1
+    assert [item[0] for item in calls] == ["terminal", "parent"]
+    assert authorization == ["owner", "owner"]
+
+
+@pytest.mark.parametrize("outcome,code,status", [
+    ("absent", "publication_receipt_unavailable", 409),
+    ("integrity", "authority_integrity", 500),
+    ("unavailable", "authority_unavailable", 503),
+])
+def test_historical_manual_service_preserves_terminal_failure_classes(monkeypatch, outcome, code, status):
+    from dungeonmind.domain.errors import PersistenceIntegrityError, PersistenceUnavailableError
+    request, _, calls = _signed_historical_manual_request(monkeypatch)
+    def terminal(*args, **kwargs):
+        if outcome == "absent":
+            return None
+        if outcome == "integrity":
+            raise PersistenceIntegrityError("corrupt terminal")
+        raise PersistenceUnavailableError("offline terminal")
+    monkeypatch.setattr("dungeonmind.application.compatibility.read_historical_finalized_publication", terminal)
+    with pytest.raises(GraphObjectAuthoringError) as error:
+        commit_graph_object_authoring_write(request, authenticated_actor="original-actor", recovery_only=True)
+    assert (error.value.code, error.value.status_code) == (code, status)
+    assert calls == []
+
+
+@pytest.mark.parametrize("mutation", ["endpoint", "reversal"])
+def test_historical_manual_complete_correspondence_rejects_valid_alternate_edge(mutation):
+    from apps.live_control_server.integrations.dungeonmind.historical_manual_recovery import verify_review_correspondence
+    with pytest.raises(GraphObjectAuthoringError) as error:
+        verify_review_correspondence(**_coherent_historical_manual_review(recipe="edge", mutation=mutation))
+    assert error.value.code == "authority_integrity"
+
+
+
+@pytest.mark.parametrize("failure,code,status", [
+    ("missing", "authority_integrity", 500),
+    ("malformed", "authority_integrity", 500),
+    ("invalid", "authority_integrity", 500),
+    ("unavailable", "authority_unavailable", 503),
+])
+def test_historical_manual_service_parent_read_failure_is_typed(monkeypatch, failure, code, status):
+    from types import SimpleNamespace
+    from dungeonmind.domain.errors import PersistenceUnavailableError
+    from apps.live_control_server.integrations.dungeonmind import historical_manual_recovery as recovery
+    request, _, calls = _signed_historical_manual_request(monkeypatch)
+    def parent(*args):
+        if failure == "missing":
+            return None
+        if failure == "malformed":
+            raise TypeError("stored JSON is null")
+        if failure == "invalid":
+            raise ValueError("invalid parent envelope")
+        raise PersistenceUnavailableError("parent store offline")
+    monkeypatch.setattr(recovery, "_bare_readers", lambda: (object(), SimpleNamespace(get_revision=parent)))
+    with pytest.raises(GraphObjectAuthoringError) as error:
+        commit_graph_object_authoring_write(request, authenticated_actor="original-actor", recovery_only=True)
+    assert (error.value.code, error.value.status_code) == (code, status)
+    assert [item[0] for item in calls] == ["terminal"]
+
+
+
+@pytest.mark.parametrize("generation", ["v2", "guarded_v3"])
+def test_historical_manual_unsupported_real_review_generation_retains_original_packet(monkeypatch, generation):
+    request, _, calls = _signed_historical_manual_request(monkeypatch)
+    history = _coherent_historical_manual_review(generation=generation)["history"]
+    # Each fixture is revalidated by Core's real versioned state contracts.
+    assert type(history.review).model_validate(history.review.model_dump(mode="json")) == history.review
+    monkeypatch.setattr("dungeonmind.application.compatibility.read_historical_finalized_publication",
+                        lambda *args, **kwargs: history)
+    with pytest.raises(GraphObjectAuthoringError) as error:
+        commit_graph_object_authoring_write(request, authenticated_actor="original-actor", recovery_only=True)
+    assert (error.value.code, error.value.status_code) == ("publication_history_unsupported", 409)
+    assert calls == []  # No parent lookup, mutable fallback, or fresh publication.
+    assert request.confirm_token  # Retained packet remains available to the caller.

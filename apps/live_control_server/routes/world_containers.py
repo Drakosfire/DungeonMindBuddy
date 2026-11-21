@@ -57,7 +57,31 @@ def lookup_hosted_world_container(
 
 
 @router.post("/world-containers", response_model=WorldContainerPublicRecord)
-def post_world_container(body: CreateWorldContainerRequest) -> WorldContainerPublicRecord:
+def post_world_container(
+    body: CreateWorldContainerRequest, request: Request = None, response: Response = None,
+) -> WorldContainerPublicRecord:
+    from apps.live_control_server.services import hosted_auth
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        from application_state.errors import ApplicationStateError
+        from application_state.world_catalog.hosted_creation import create_owned_world
+        from apps.live_control_server.services.hosted_native_graph_access import _hosted_subject
+
+        if request is None or getattr(request.state, "hosted_world_collection", None) != {"owner_creation": True}:
+            raise HTTPException(status_code=403, detail={"code": "owned_world_access_required"})
+        subject = _hosted_subject(request)
+        hosted_auth.require_hosted_write_origin(request)
+        if body.request_key is None:
+            raise HTTPException(status_code=422, detail={"code": "creation_key_required"})
+        try:
+            record = create_owned_world(subject=subject, name=body.name, request_key=body.request_key).record
+        except ApplicationStateError as exc:
+            raise HTTPException(status_code=exc.status_code, detail={"code": "world_creation_unavailable"}) from exc
+        if response is not None:
+            response.headers["Cache-Control"] = "no-store"
+        return WorldContainerPublicRecord.from_record(record)
+    if body.request_key is not None:
+        raise HTTPException(status_code=422, detail={"code": "unexpected_creation_key"})
     try:
         record = create_world_container(name=body.name)
     except WorldContainerRegistryError as exc:

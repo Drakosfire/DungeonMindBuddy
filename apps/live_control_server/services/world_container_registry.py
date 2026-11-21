@@ -90,6 +90,7 @@ class WorldContainersListResponse(BaseModel):
 
     schema_version: Literal["dmb_world_container_registry_v1"] = PUBLIC_REGISTRY_SCHEMA
     records: list[WorldContainerPublicRecord] = Field(default_factory=list)
+    creation_available: bool = False
 
 
 class CreateWorldContainerRequest(BaseModel):
@@ -98,6 +99,7 @@ class CreateWorldContainerRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str
+    request_key: str | None = None
 
 
 def _validate_world_id(world_id: str) -> str:

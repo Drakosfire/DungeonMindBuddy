@@ -66,6 +66,10 @@ export function ConversationLorePageConfirmation({
   }
 
   return <div>
+    {draft.open_questions && <section aria-label="Open questions">
+      <h4>Open questions</h4>
+      <ul>{draft.open_questions.map((question, index) => <li key={index}>{question}</li>)}</ul>
+    </section>}
     {savedId
       ? <a href={'/build?' + new URLSearchParams({world: worldId, documentId: savedId})}>Open saved page</a>
       : <button type="button" disabled={disabled || saving} onClick={() => void confirm()}>

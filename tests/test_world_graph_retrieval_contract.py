@@ -29,77 +29,123 @@ def test_recap_context_wire_requires_exact_gm_pin_and_distinct_context_id() -> N
             "contextAnchorId":"source-anchor:v1:old-evidence"})
 
 
-def test_recap_context_routes_use_separate_service_operations(monkeypatch) -> None:
-    from starlette.requests import Request
-    from apps.live_control_server.routes import world_graph_retrieval as route
-    from graph_memory.retrieval.models import RecapContextDescriptorV2, RecapContextIndexResultV2, RecapContextReadResultV2, WorldGraphRetrievalSnapshot
-    snapshot = WorldGraphRetrievalSnapshot(world_id="eldyrwild", campaign_id="longmont-c2", revision_id="rev:fixed",
-        head_revision_id="rev:fixed", is_head=True, focus={"kind":"none"}, admissibility="gm", scope_mode="campaign")
-    descriptor = RecapContextDescriptorV2(context_anchor_id="dm-context-anchor:v2:exact", world_id="eldyrwild",
-        campaign_id="longmont-c2", graph_revision_id="rev:fixed", source_artifact_id="artifact:s22",
-        source_revision_id="sha256:"+"a"*64, source_uri="repo://s22.md", content_sha256="a"*64,
-        expected_session_id="session-22", canonical_heading="# Session 22 Recap", legacy_session_heading="## Session 22:", legacy_recap_marker="**Recap**:")
-    listed=[]
-    opened=[]
-    monkeypatch.setattr(route,"list_recap_context_v2",lambda request: listed.append(request) or RecapContextIndexResultV2(
-        snapshot=snapshot,status="complete",eligible_count=1,max_entries=512,entries=[descriptor]))
-    monkeypatch.setattr(route,"read_recap_context_v2",lambda request: opened.append(request) or RecapContextReadResultV2(
-        outcome="enough",snapshot=snapshot,context_anchor_id=descriptor.context_anchor_id,context=descriptor,
-        content="one line",media_type="text/markdown",heading_line=3, selected_form="canonical_h1", session_heading_line=3, recap_marker_line=None,line_start=4,line_end=4,
-        section_sha256="b"*64))
-    empty=Request({"type":"http","query_string":b""})
-    common={"worldId":"eldyrwild","campaignId":"longmont-c2","scopeMode":"campaign","revisionPin":"rev:fixed"}
-    index=RecapContextIndexRequestV2.model_validate({"schema":"dmb_recap_context_index_request_v2",**common})
-    read=RecapContextReadRequestV2.model_validate({"schema":"dmb_recap_context_read_request_v2",**common,
-        "contextAnchorId":descriptor.context_anchor_id})
-    assert route.post_recap_context_index_v2(empty,index)["entries"][0]["contextAnchorId"]==descriptor.context_anchor_id
-    assert route.post_recap_context_read_v2(empty,read)["content"]=="one line"
-    assert len(listed)==len(opened)==1
+def _retired_recap_payload(operation):
+    payload = {
+        "schema": f"dmb_recap_context_{operation}_request_v2",
+        "worldId": "eldyrwild", "campaignId": "", "scopeMode": "world",
+        "revisionPin": "rev:fixed",
+    }
+    if operation == "read":
+        payload["contextAnchorId"] = "dm-context-anchor:v2:exact"
+    return payload
 
 
-def test_mounted_recap_context_route_authenticates_before_service_and_preserves_error(monkeypatch) -> None:
-    import json
+@pytest.fixture
+def retired_recap_routes(monkeypatch):
     from fastapi import FastAPI
-    from fastapi import HTTPException
     from fastapi.routing import APIRoute
-    from starlette.requests import Request
+    from fastapi.testclient import TestClient
     from apps.live_control_server.routes import world_graph_retrieval as route
-    from apps.live_control_server.services.agent_graph_auth import (
-        enforce_native_graph_gm, native_graph_gm_dependency,
-    )
-    from apps.live_control_server.services.world_graph_retrieval import WorldGraphRetrievalServiceError
+    from apps.live_control_server.services import world_graph_retrieval as service
+    from apps.live_control_server.services import agent_graph_auth as auth
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from application_state.source import service as sources
+    from dungeonmind.infrastructure.postgres import PostgresDatabase
+    import psycopg
 
-    token = 'synthetic-recap-context-operator-token-32-chars'
-    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
-    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'development')
-    monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN', token)
+    token = "synthetic-retired-recap-context-token-32-chars"
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", token)
     calls = []
 
-    def unavailable(request):
-        calls.append(request)
-        raise WorldGraphRetrievalServiceError('Source unavailable.', code='source_unavailable', status_code=409)
+    def forbidden(*args, **kwargs):
+        calls.append((args, kwargs))
+        pytest.fail("Retired public recap context reached service/Core/source IO")
 
-    monkeypatch.setattr(route, 'read_recap_context_v2', unavailable)
+    monkeypatch.setattr(service, "list_recap_context_v2", forbidden)
+    monkeypatch.setattr(service, "read_recap_context_v2", forbidden)
+    monkeypatch.setattr(direct, "direct_services_from_config", forbidden)
+    monkeypatch.setattr(direct, "list_recap_context_direct_v2", forbidden)
+    monkeypatch.setattr(direct, "read_recap_context_direct_v2", forbidden)
+    monkeypatch.setattr(sources, "get_source_markdown", forbidden)
+    monkeypatch.setattr(PostgresDatabase, "__init__", forbidden)
+    monkeypatch.setattr(psycopg, "connect", forbidden)
     app = FastAPI()
     app.include_router(route.router)
-    path = '/api/live/world-graph/retrieval/recap-context/v2/read'
-    mounted = next(row for row in app.routes if isinstance(row, APIRoute) and row.path == path)
-    assert any(dependency.call is native_graph_gm_dependency for dependency in mounted.dependant.dependencies)
-    empty = Request({'type': 'http', 'method': 'POST', 'path': path, 'query_string': b'',
-                     'headers': [], 'client': ('127.0.0.1', 50000)})
-    with pytest.raises(HTTPException) as denied:
-        enforce_native_graph_gm(empty)
-    assert denied.value.status_code == 401 and denied.value.detail['code'] == 'graph_auth_required'
+    for operation in ("index", "read"):
+        path = "/api/live/world-graph/retrieval/recap-context/v2/" + operation
+        mounted = next(row for row in app.routes if isinstance(row, APIRoute) and row.path == path)
+        assert any(d.call is auth.native_graph_gm_dependency for d in mounted.dependant.dependencies)
+    with TestClient(app, client=("127.0.0.1", 42000)) as client:
+        yield client, app, {"Authorization": "Bearer " + token}, calls
     assert calls == []
-    payload = {
-        'schema': 'dmb_recap_context_read_request_v2', 'worldId': 'eldyrwild',
-        'campaignId': '', 'scopeMode': 'world', 'revisionPin': 'rev:fixed',
-        'contextAnchorId': 'dm-context-anchor:v2:exact',
+
+
+@pytest.mark.parametrize("operation", ["index", "read"])
+def test_recap_context_retired_routes_return_typed_410_without_io(retired_recap_routes, operation):
+    from graph_memory.retrieval.models import RETRIEVAL_ERROR_SCHEMA
+
+    client, _, headers, calls = retired_recap_routes
+    response = client.post("/api/live/world-graph/retrieval/recap-context/v2/" + operation,
+                           headers=headers, json=_retired_recap_payload(operation))
+    assert response.status_code == 410
+    assert response.json() == {
+        "schema": RETRIEVAL_ERROR_SCHEMA, "code": "recap_context_retired",
+        "message": "Open related recap context from a saved answer.",
+        "statusCode": 410, "diagnostics": [],
     }
-    request = RecapContextReadRequestV2.model_validate(payload)
-    failed = mounted.endpoint(empty, request)
-    assert failed.status_code == 409 and json.loads(failed.body)['code'] == 'source_unavailable'
-    assert len(calls) == 1 and calls[0].scope_mode == 'world'
+    assert calls == []
+
+
+@pytest.mark.parametrize("operation", ["index", "read"])
+def test_recap_context_retired_routes_keep_mounted_authentication(retired_recap_routes, operation):
+    from apps.live_control_server.services import agent_graph_auth as auth
+
+    client, app, _, calls = retired_recap_routes
+    path = "/api/live/world-graph/retrieval/recap-context/v2/" + operation
+    for payload in (_retired_recap_payload(operation), {}):
+        denied = client.post(path, json=payload)
+        assert denied.status_code == 401 and denied.json()["detail"]["code"] == "graph_auth_required"
+    app.dependency_overrides[auth.authenticate_native_graph_principal] = lambda: auth.NativeGraphPrincipal(
+        subject="synthetic-player", role="player", auth_method="local_operator"
+    )
+    for payload in (_retired_recap_payload(operation), {}):
+        denied = client.post(path, json=payload)
+        assert denied.status_code == 403 and denied.json()["detail"]["code"] == "graph_gm_required"
+    assert calls == []
+
+
+@pytest.mark.parametrize("operation", ["index", "read"])
+@pytest.mark.parametrize("change", [{"revisionPin": None}, {"admissibility": "player"},
+                                    {"sourceUri": "repo://forged.md"}, {"worldId": ""}])
+def test_recap_context_retired_routes_keep_model_validation(retired_recap_routes, operation, change):
+    client, _, headers, calls = retired_recap_routes
+    response = client.post("/api/live/world-graph/retrieval/recap-context/v2/" + operation,
+                           headers=headers, json=_retired_recap_payload(operation) | change)
+    assert response.status_code == 422 and response.json()["code"] == "invalid_request"
+    assert calls == []
+
+
+@pytest.mark.parametrize("operation", ["index", "read"])
+def test_recap_context_retired_routes_keep_query_rejection(retired_recap_routes, operation):
+    client, _, headers, calls = retired_recap_routes
+    response = client.post("/api/live/world-graph/retrieval/recap-context/v2/" + operation + "?source=foreign",
+                           headers=headers, json=_retired_recap_payload(operation))
+    assert response.status_code == 422 and response.json()["code"] == "invalid_request"
+    assert calls == []
+
+
+@pytest.mark.parametrize("operation", ["index", "read"])
+@pytest.mark.parametrize("authenticated", [False, True])
+def test_recap_context_retirement_preserves_malformed_json_precedence(
+    retired_recap_routes, operation, authenticated
+):
+    client, _, headers, calls = retired_recap_routes
+    response = client.post("/api/live/world-graph/retrieval/recap-context/v2/" + operation,
+        headers={"Content-Type": "application/json", **(headers if authenticated else {})}, content="{")
+    assert response.status_code == 422 and response.json()["code"] == "invalid_request"
+    assert calls == []
 
 
 def _projection(**overrides: object) -> WorldGraphProjectionRequest:
@@ -261,60 +307,26 @@ def test_selected_own_overflow_and_unavailable_preserve_truthful_coverage():
             assert search.result.nodes[0].evidence_ref_ids
 
 
-def test_mounted_recap_context_v2_only_routes_and_auth(monkeypatch,tmp_path,application_state_dsn):
-    import asyncio
-    import httpx
-    from fastapi import FastAPI
-    import fastapi.routing as routing
-    import fastapi.dependencies.utils as dependencies
-    from apps.live_control_server.routes import world_graph_retrieval as route
-    from apps.live_control_server.services import world_graph_retrieval as product
-    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
-    from tests.test_recap_source_read_continuity import _context_fixture_v2
-    from graph_memory.retrieval.models import RecapContextReadRequestV2
-    token="synthetic-v2-reader-token-"+"x"*32
-    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE","local_operator")
-    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT","development")
-    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN",token)
-    async def inline(function,*args,**kwargs):
-        return function(*args,**kwargs)
-    monkeypatch.setattr(routing,"run_in_threadpool",inline)
-    monkeypatch.setattr(dependencies,"run_in_threadpool",inline)
-    raw=b"# Session 16 Recap\nCanonical body.\n"
-    services,index_request,read_request,source,_=_context_fixture_v2(tmp_path,raw)
-    monkeypatch.setattr(product,"_require_mounted_native_read",lambda _root:None)
-    monkeypatch.setattr(product,"_resolved_repo_root",lambda **_kwargs:tmp_path)
-    calls=[]
-    monkeypatch.setattr(direct,"direct_services_from_config",lambda world:calls.append(world) or services)
-    app=FastAPI()
-    app.include_router(route.router)
-    base="/api/live/world-graph/retrieval/recap-context"
-    async def exercise():
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url="http://test") as client:
-            denied=await client.post(base+"/v2/index",json=index_request.model_dump(mode="json",by_alias=True))
-            assert denied.status_code==401 and calls==[]
-            headers={"Authorization":"Bearer "+token}
-            listed=await client.post(base+"/v2/index",headers=headers,json=index_request.model_dump(mode="json",by_alias=True))
-            assert listed.status_code==200 and listed.json()["schema"]=="dmb_recap_context_index_v2"
-            assert listed.json()["entries"][0]["selectorPolicy"]=="markdown-session-recap-v2"
-            for retired in ("/read", "/index"):
-                assert (await client.post(base+retired,headers=headers,json=read_request.model_dump(mode="json",by_alias=True))).status_code == 404
-            old_body = {**read_request.model_dump(mode="json",by_alias=True), "contextAnchorId":"dm-context-anchor:v1:synthetic"}
-            assert (await client.post(base+"/v2/read",headers=headers,json=old_body)).status_code == 422
-            new=await client.post(base+"/v2/read",headers=headers,json=read_request.model_dump(mode="json",by_alias=True))
-            assert new.status_code==200 and new.json()["schema"]=="dmb_recap_context_read_v2"
-            assert new.json()["selectedForm"]=="canonical_h1"
-            crossing={**read_request.model_dump(mode="json",by_alias=True),"continuation":"recap-page:v1:"+"a"*64+":5"}
-            rejected=await client.post(base+"/v2/read",headers=headers,json=crossing)
-            assert rejected.status_code==409 and rejected.json()["code"]=="source_unavailable"
-            wrong={**read_request.model_dump(mode="json",by_alias=True),"contextAnchorId":"dm-context-anchor:v3:unknown"}
-            assert (await client.post(base+"/v2/read",headers=headers,json=wrong)).status_code==422
-            oversized={**read_request.model_dump(mode="json",by_alias=True),"maxChars":12001}
-            assert (await client.post(base+"/v2/read",headers=headers,json=oversized)).status_code==422
-            no_pin={**read_request.model_dump(mode="json",by_alias=True),"revisionPin":None}
-            assert (await client.post(base+"/v2/read",headers=headers,json=no_pin)).status_code==422
-            assert (await client.post(base+"/read",headers=headers,json=read_request.model_dump(mode="json",by_alias=True))).status_code==404
-    asyncio.run(exercise())
-    assert source.read_bytes()==raw
-    with pytest.raises(ValidationError):
-        RecapContextReadRequestV2.model_validate({**read_request.model_dump(mode="json",by_alias=True),"admissibility":"player"})
+@pytest.mark.parametrize("change", [
+    {"contextAnchorId": "dm-context-anchor:v1:synthetic"},
+    {"contextAnchorId": "dm-context-anchor:v3:unknown"},
+    {"maxChars": 12001},
+])
+def test_retired_recap_read_preserves_closed_selector_validation(retired_recap_routes, change):
+    client, _, headers, calls = retired_recap_routes
+    response = client.post("/api/live/world-graph/retrieval/recap-context/v2/read",
+                           headers=headers, json=_retired_recap_payload("read") | change)
+    assert response.status_code == 422 and response.json()["code"] == "invalid_request"
+    assert calls == []
+
+
+def test_retired_recap_read_does_not_resolve_continuation_or_register_old_routes(retired_recap_routes):
+    client, _, headers, calls = retired_recap_routes
+    payload = _retired_recap_payload("read") | {"continuation": "recap-page:v1:" + "a" * 64 + ":5"}
+    response = client.post("/api/live/world-graph/retrieval/recap-context/v2/read",
+                           headers=headers, json=payload)
+    assert response.status_code == 410 and response.json()["code"] == "recap_context_retired"
+    for suffix in ("index", "read"):
+        assert client.post("/api/live/world-graph/retrieval/recap-context/" + suffix,
+                           headers=headers, json=payload).status_code == 404
+    assert calls == []

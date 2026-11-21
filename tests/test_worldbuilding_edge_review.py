@@ -61,6 +61,22 @@ class Client(BoundedRecapPassClient):
         return result
 
 
+@pytest.fixture(autouse=True)
+def model_alias_fixture(monkeypatch):
+    from tests.worldbuilding_alias_fixture import install_alias_fixture
+    adapt = install_alias_fixture(monkeypatch)
+    original = Client.run_pass
+
+    def run(self, name, **kwargs):
+        result = original(self, name, **kwargs)
+        if name == "edge_review_pass":
+            result["parsed"] = adapt(result["parsed"])
+        return result
+
+    monkeypatch.setattr(Client, "run_pass", run)
+    return adapt
+
+
 def options(profile=PROFILE, model=DEEPSEEK_MODEL):
     return CategoryGraphExtractionOptions(campaign_id="synthetic", session_id=None, session_number=None,
         source_text=BODY, source_artifact_id="artifact:test", model_id=model,
@@ -313,9 +329,30 @@ def test_success_storage_failure_is_not_reviewable_or_replayed(tmp_path, applica
     assert "raw_model_response" not in run.components and "candidate_graph" not in run.components
 
 
+def test_alias_mapping_retention_failure_prevents_provider_dispatch(tmp_path, application_state_dsn, monkeypatch):
+    from application_state.ingest import components
+    from graph_memory.extraction import graph_preview_runner as runner
+    from tests.test_worldbuilding_profile_pipeline import _admit_fixture_source, _load_fixture, _pass_outputs_for_span
+
+    source, span = _admit_fixture_source(tmp_path)
+    client = Client(_pass_outputs_for_span(_load_fixture(), span), retained=[])
+
+    def unavailable(**kwargs):
+        raise OSError("private execution store unavailable")
+
+    monkeypatch.setattr(components, "persist_execution_event", unavailable)
+    result = runner.run_production_extraction(runner.ProductionExtractionRequest(
+        repo_root=tmp_path, source=source, profile_id=PROFILE.profile_id,
+        profile_version=PROFILE.profile_version, model_id=DEEPSEEK_MODEL,
+        allow_llm=True, category_client=client))
+    assert result.failure_kind == "evidence_retention"
+    assert client.calls == []
+    assert result.candidate_graph is None
+
+
 @pytest.mark.parametrize("fail_review", [False, True])
 def test_real_bounded_attempt_accounting_survives_registered_bundle(
-    tmp_path, application_state_dsn, monkeypatch, fail_review,
+    tmp_path, application_state_dsn, monkeypatch, fail_review, model_alias_fixture,
 ):
     from graph_memory.extraction import bounded_recap_execution as bounded
     from graph_memory.extraction._recap_inference_worker import _WorkerOutcome
@@ -333,7 +370,7 @@ def test_real_bounded_attempt_accounting_survives_registered_bundle(
     def worker(factory, request, *, deadline, attempt_evidence=None):
         name = names[len(invoked)]
         invoked.append(name)
-        parsed = fixture.get(name, {"observation_nodes": []})
+        parsed = model_alias_fixture(fixture.get(name, {"observation_nodes": []}))
         if name == "edge_review_pass":
             parsed = {"retained_edge_ids": []}
         # These are actual worker-seam receipts, not run_pass overrides.
@@ -462,7 +499,7 @@ def test_version15_changes_only_review_request_and_keeps_application_guard():
     b = run_category_pipeline(new, options(profile=profile))
     assert old.prompts[:-1] == new.prompts[:-1]
     assert a.candidate_graph == b.candidate_graph
-    assert json.loads(new.prompts[-1])['allowed_edge_ids'] == ['edge:leads']
+    assert json.loads(new.prompts[-1])['allowed_edge_ids'] == ['Rfixture_1']
     with pytest.raises(CategoryGraphExtractionError):
         run_category_pipeline(Client(retained=['unknown']), options(profile=profile))
     empty = Client(payload={'edge_pass': {'observation_edges': []}})
@@ -472,7 +509,7 @@ def test_version15_changes_only_review_request_and_keeps_application_guard():
 
 @pytest.mark.parametrize('returned', ['e035', 'e034'])
 def test_real_bounded_catalog_excludes_role_removed_id_and_retains_registered_failure(
-    tmp_path, application_state_dsn, monkeypatch, returned,
+    tmp_path, application_state_dsn, monkeypatch, returned, model_alias_fixture,
 ):
     from graph_memory.extraction import bounded_recap_execution as bounded
     from graph_memory.extraction._recap_inference_worker import _WorkerOutcome
@@ -508,15 +545,21 @@ def test_real_bounded_catalog_excludes_role_removed_id_and_retains_registered_fa
     def worker(factory, request_value, *, deadline, attempt_evidence=None):
         name = names[len(seen)]
         seen.append(name)
+        serialized = json.dumps(request_value)
+        for host_id in (source.source_artifact_id, source.source_sha256,
+                        *(row['source_span_ref_id'] for row in rows),
+                        'a:barin', 'a:elara', 'l:copper', 'l:ledger', 'e034', 'e035'):
+            assert host_id not in serialized
+        assert 'Mayor Elara' in serialized
         if name == 'edge_review_pass':
             selection = request_value['json_schema']['properties']['retained_edge_ids']
-            assert selection == {'type': 'array', 'items': {'type': 'string', 'enum': ['e035']}, 'uniqueItems': True}
+            assert selection == {'type': 'array', 'items': {'type': 'string', 'enum': ['Rfixture_1']}, 'uniqueItems': True}
             prompt = json.loads(request_value['user_prompt'])
-            assert prompt['allowed_edge_ids'] == ['e035']
-            assert [edge['edge_id'] for edge in prompt['edge_proposals']] == ['e035']
-            parsed = {'retained_edge_ids': [returned]}
+            assert prompt['allowed_edge_ids'] == ['Rfixture_1']
+            assert [edge['edge_id'] for edge in prompt['edge_proposals']] == ['Rfixture_1']
+            parsed = {'retained_edge_ids': ['Rfixture_1' if returned == 'e035' else returned]}
         else:
-            parsed = payloads[name]
+            parsed = model_alias_fixture(payloads[name])
         return _WorkerOutcome({'kind': 'result', 'result': TextResult(text=json.dumps(parsed), parsed=parsed,
             observation=deepseek_observation()).model_dump(mode='json')}, False)
     monkeypatch.setattr(bounded, '_execute_in_owned_process', worker)
@@ -535,6 +578,14 @@ def test_real_bounded_catalog_excludes_role_removed_id_and_retains_registered_fa
     data = get_component_bytes(run_id=result.run.run_id, kind=ref.kind, content_sha256=ref.sha256)
     assert hashlib.sha256(data).hexdigest() == ref.sha256
     bundle = json.loads(data)
+    maps = {record['envelope']['capture_id']: record['envelope']['context']
+            for record in bundle['execution_evidence']['records']
+            if record['envelope'].get('schema') == 'dmb_private_worldbuilding_aliases_v1'}
+    assert set(maps) == {'worldbuilding-aliases:source', 'worldbuilding-aliases:edge',
+                         'worldbuilding-aliases:review'}
+    assert set(maps['worldbuilding-aliases:source']['source_handles'].values()) == {
+        row['source_span_ref_id'] for row in rows}
+    assert maps['worldbuilding-aliases:review']['edge_handles'] == {'Rfixture_1': 'e035'}
     assert len(bundle['completed_passes']) == (6 if returned == 'e035' else 5)
     assert bundle['execution_observations'][-1]['observation']['provider_attempt_count'] == 1
     assert bundle['execution_observations'][-1]['observation']['cost_usd'] is None

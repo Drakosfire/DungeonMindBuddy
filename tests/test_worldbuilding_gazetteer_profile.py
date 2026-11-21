@@ -1,4 +1,10 @@
 import pytest
+from tests.worldbuilding_alias_fixture import install_alias_fixture
+
+
+@pytest.fixture(autouse=True)
+def model_alias_fixture(monkeypatch):
+    return install_alias_fixture(monkeypatch)
 from graph_memory.extraction.worldbuilding_gazetteer_profile import (
     GAZETTEER_PROFILE, GAZETTEER_LIVESTOCK_HYGIENE_PROFILE,
     compile_gazetteer_livestock_hygiene,
@@ -131,7 +137,7 @@ def test_v16_defers_only_exact_livestock_events_and_incident_edges():
     }
 
 
-def test_v16_real_pipeline_retains_livestock_and_keeps_recurring_festival():
+def test_v16_real_pipeline_retains_livestock_and_keeps_recurring_festival(model_alias_fixture):
     from types import SimpleNamespace
     from graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionOptions, FixtureCategoryGraphPassClient, run_category_pipeline,
@@ -184,7 +190,7 @@ def test_v16_real_pipeline_retains_livestock_and_keeps_recurring_festival():
             self.calls.append({"pass_name": pass_name, "observation": None})
             self.prompts.append(kwargs["user_content"])
             if pass_name == "edge_review_pass":
-                return {"parsed": outputs[pass_name], "raw_text": "fixture review",
+                return {"parsed": model_alias_fixture(outputs[pass_name]), "raw_text": "fixture review",
                         "usage": {"input_tokens": 0, "output_tokens": 0},
                         "cost_usd": 0.0, "cost_info": {}, "elapsed_ms": 0,
                         "response_id": "fixture-review"}
@@ -559,7 +565,7 @@ def test_actual_pipeline_preserves_named_definition_and_source_qualification():
 
 
 @pytest.mark.parametrize("version", ["1.0", "1.1", "1.2", "1.3", "1.8", "1.9", "1.10"])
-def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tmp_path, application_state_dsn, version):
+def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tmp_path, application_state_dsn, version, model_alias_fixture):
     from tests.test_graph_preview_runner import _admit_worldbuilding, FixtureClient, _first_paragraph_span_id
     from graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
     from apps.live_control_server.services.graph_run_registry import get_reviewable_extraction_run
@@ -569,12 +575,13 @@ def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tm
 
     class RegisteredBoundedFixture(BoundedRecapPassClient):
         def __init__(self, fixture):
+            from graph_memory.extraction.bounded_recap_execution import RecapExecutionLimits
+            super().__init__(RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL, max_calls=8))
             self.fixture = fixture
-            self.limits = SimpleNamespace(provider="openrouter", model=DEEPSEEK_MODEL, max_calls=8)
-            self.calls = []
 
         def run_pass(self, pass_name, **kwargs):
             result = self.fixture.run_pass(pass_name, **kwargs)
+            result["parsed"] = model_alias_fixture(result["parsed"])
             self.calls.append({"pass_name": pass_name, "external_outcome": "not_started",
                                "observation": None, "attempt_evidence": []})
             return result
@@ -585,7 +592,7 @@ def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tm
         profile_version=version, allow_llm=True, model_id=DEEPSEEK_MODEL,
         category_client=RegisteredBoundedFixture(FixtureClient(span_ref=_first_paragraph_span_id(source)))))
     assert result.failure_kind is None
-    assert ("raw_model_response" in result.run.components) is (version in {"1.8", "1.9", "1.10"})
+    assert "raw_model_response" in result.run.components
     run = get_reviewable_extraction_run(tmp_path, result.run.run_id)
     assert run.profile_id == "worldbuilding_gazetteer_v1@" + version
     assert run.session_id is None
@@ -777,7 +784,7 @@ def test_role_support_versions_differ_only_in_owned_pipeline_disposition():
 
 
 def test_registered_role_support_run_preserves_source_and_deferred_evidence(
-    tmp_path, application_state_dsn
+    tmp_path, application_state_dsn, model_alias_fixture
 ):
     from tests.test_graph_preview_runner import (
         _admit_worldbuilding,
@@ -835,9 +842,9 @@ def test_registered_role_support_run_preserves_source_and_deferred_evidence(
                     }
                 ]
             return {
-                "parsed": {"observation_edges": edges}
+                "parsed": model_alias_fixture({"observation_edges": edges}
                 if pass_name == "edge_pass"
-                else {"observation_nodes": nodes},
+                else {"observation_nodes": nodes}),
                 "usage": {},
                 "cost_usd": 0.0,
                 "elapsed_ms": 1,

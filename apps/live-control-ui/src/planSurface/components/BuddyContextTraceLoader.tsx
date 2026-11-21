@@ -18,15 +18,16 @@ export function BuddyContextTraceLoader({ enabled, worldId, turnId, conversation
   if (error && !data) return error
   if (!data) return <p role="status">Loading execution trace…</p>
   const attempts = data.attempts
-  const captureControls = <>{error}{!running && attempts.some(trace => trace.closed_at == null || trace.capture_status === 'incomplete')
-    ? <p role="note">The turn has ended, but the saved trace is incomplete. Refresh to check for a later capture.</p> : null}
-    <button type="button" onClick={refresh}>Refresh trace</button></>
-  return <div>{!replyDetails && captureControls}
+  const incomplete = !running && (attempts.length === 0 || attempts.some(trace => trace.closed_at == null || trace.capture_status === 'incomplete'))
+  const captureControls = error ?? ((!replyDetails || incomplete) && <>
+    {incomplete && <p role="note">The turn has ended, but the saved trace is incomplete.</p>}
+    <button type="button" onClick={refresh}>Refresh trace</button>
+  </>)
+  return <div>{captureControls}
     {!attempts.length ? running ? <p role="status">Trace capture has not started yet.</p> : <DebugAttempt trace={null} running={running} replyDetails={replyDetails} />
       : attempts.map((trace, index) => index === attempts.length - 1
         ? <DebugAttempt key={trace.trace_id} trace={trace} running={running} replyDetails={replyDetails} />
         : <details key={trace.trace_id}><summary>Earlier attempt {trace.attempt} · {trace.terminal_status ?? 'recording'}</summary><DebugAttempt trace={trace} running={running} replyDetails={replyDetails} /></details>)}
-    {replyDetails && <details><summary>Trace status</summary>{captureControls}</details>}
   </div>
 }
 

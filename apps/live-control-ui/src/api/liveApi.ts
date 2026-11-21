@@ -542,6 +542,23 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "POST" && isRecord(review) && typeof review.managed_world_id === "string"
       && Boolean(review.managed_world_id) && typeof review.run_id === "string" && Boolean(review.run_id);
   }
+  if (path === "/api/live/extract-promote/worldbuilding/first-world/prepare") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && (body?.schema === "dmb_first_world_graph_prepare_request_v1"
+      || body?.schema === "dmb_native_first_world_prepare_request_v1")
+      && typeof body.runId === "string" && Boolean(body.runId.trim())
+      && Array.isArray(body.decisions) && body.decisions.length > 0;
+  }
+  if (path === "/api/live/extract-promote/worldbuilding/first-world/confirm") {
+    const body = requestBodyRecord(init?.body);
+    if (method !== "POST" || !isRecord(body?.plan)) return false;
+    if (body.schema === "dmb_native_first_world_confirm_request_v1") {
+      return body.plan.schema === "dmb_native_first_world_plan_v1"
+        && typeof body.plan.token === "string" && Boolean(body.plan.token.trim());
+    }
+    return body.schema === "dmb_first_world_graph_confirm_request_v1"
+      && typeof body.plan.runId === "string" && Boolean(body.plan.runId.trim());
+  }
   if (path === "/api/live/extract-promote/worldbuilding/prepare"
     || path === "/api/live/extract-promote/worldbuilding/confirm") {
     const body = requestBodyRecord(init?.body);
@@ -1079,6 +1096,8 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "POST" && (!suffix || suffix === ":cancel") && !!requestBodyRecord(init?.body)
       && path === combatAdoption[0] + exact;
   }
+  const corpusSheet = /^\/api\/live\/combat\/encounters\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/participants\/[^/?#]+\/corpus-sheet\?world_id=[a-z][a-z0-9_-]{0,62}$/.test(path);
+  if (corpusSheet) return method === "GET" && init?.body == null;
   const combatEncounter = /^\/api\/live\/combat\/encounters(\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?/.exec(path);
   if (combatEncounter) {
     const worldId = new URLSearchParams(path.slice(combatEncounter[0].length)).get("world_id");
@@ -1221,7 +1240,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     if (entryScene) expected.set("entry_scene_id", entryScene);
     return path === `${preparationPath}?${expected}`;
   }
-  if (path === "/api/live/world-containers") return method === "GET" && init?.body == null;
+  if (path === "/api/live/world-containers") {
+    if (method === "GET") return init?.body == null;
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && !!body && Object.keys(body).sort().join(",") === "name,request_key"
+      && typeof body.name === "string" && typeof body.request_key === "string";
+  }
   if (path.startsWith(HOSTED_WORLD_LOOKUP_PATH + "?")) {
     const query = new URLSearchParams(path.slice(HOSTED_WORLD_LOOKUP_PATH.length + 1));
     const worldId = query.get("managed_world_id");
@@ -1717,7 +1741,7 @@ export async function authenticatedApiFetch(path: string, init?: RequestInit): P
   const localCatalogRead = isLoopbackApiDestination(target.url) && path === "/api/live/world-containers"
     && (init?.method ?? "GET").toUpperCase() === "GET" && init?.body == null;
   const hostedCatalogRead = target.hostedGraphRequest && hostedGraphSubject !== null
-    && path === "/api/live/world-containers";
+    && path === "/api/live/world-containers" && (init?.method ?? "GET").toUpperCase() === "GET";
   if (!localCatalogRead && !hostedCatalogRead && !isShareableRead(path, init)) {
     if (["GET", "HEAD"].includes((init?.method ?? "GET").toUpperCase())) return authenticatedApiFetchOnce(path, init);
     startReadWave();
@@ -2722,17 +2746,16 @@ export async function postWorldGraphRecapContextReadV2(
   request: WorldGraphRecapContextReadRequestV2,
   saved?: { worldId: string; turnId: string; claimId: string },
 ): Promise<WorldGraphRecapContextReadResponseV2> {
-  if (saved && !isLoopbackApiDestination(`${baseUrl}/api/live`)) {
+  if (saved) {
     const query = new URLSearchParams({ claim_id: saved.claimId, anchor_id: request.contextAnchorId });
     if (request.continuation) query.set("continuation", request.continuation);
     return apiFetch<WorldGraphRecapContextReadResponseV2>(
       `/api/live/agent/worlds/${encodeURIComponent(saved.worldId)}/conversation/turns/${encodeURIComponent(saved.turnId)}/graph-evidence?${query}`,
     );
   }
-  return apiFetch<WorldGraphRecapContextReadResponseV2>(
-    "/api/live/world-graph/retrieval/recap-context/v2/read",
-    { method: "POST", body: JSON.stringify(request) },
-  );
+  throw new LiveApiError("Open related recap context from a saved answer.", 410, {
+    code: "recap_context_retired",
+  });
 }
 
 export async function postIndexAgentTurn(

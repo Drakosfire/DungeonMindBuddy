@@ -13,6 +13,7 @@ import copy
 import json
 from io import BytesIO
 from pathlib import Path
+from threading import get_ident
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -20,7 +21,7 @@ import httpx
 from tests.test_native_manual_knowledge import manual_case as manual_case
 import pytest
 from pypdf import PdfWriter
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from application_state import pdf_statblock_review
 from apps.live_control_server.routes.agent import (
@@ -2427,6 +2428,38 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
     assert snapshot["record"]["target_relpath"] is None
     assert hosted.client.request("POST", launch, json=extraction, session="other-session").status_code == 403
     assert not runs
+
+    from apps.live_control_server.services import source_artifact_registry
+
+    original_world = hosted.records["managed"]
+    committed_page_input = source_artifact_registry._committed_page_input
+
+    def transfer_after_snapshot(*args, **kwargs):
+        saved = committed_page_input(*args, **kwargs)
+        hosted.records["managed"] = original_world.model_copy(update={"owner_subject": OTHER_OWNER})
+        return saved
+
+    def transfer_after_registration(_root, candidate, _content, *, authorize):
+        authorize()
+        hosted.records["managed"] = original_world.model_copy(update={"owner_subject": OTHER_OWNER})
+        return candidate
+
+    with monkeypatch.context() as transfer:
+        transfer.setattr(source_artifact_registry, "_committed_page_input", transfer_after_snapshot)
+        transfer.setattr(source_artifact_registry, "_register_source_input",
+                         lambda **_: pytest.fail("Source registered after ownership changed"))
+        blocked = hosted.client.request("POST", launch, json=extraction)
+        assert blocked.status_code == 403, blocked.text
+        assert not runs
+    hosted.records["managed"] = original_world
+
+    with monkeypatch.context() as transfer:
+        transfer.setattr(source_artifact_registry, "_register_page_source", transfer_after_registration)
+        blocked = hosted.client.request("POST", launch, json=extraction)
+        assert blocked.status_code == 403, blocked.text
+        assert not runs
+    hosted.records["managed"] = original_world
+
     started = hosted.client.request("POST", launch, json=extraction)
     assert started.status_code == 200, started.text
     exact_run = f"{launch}/{started.json()['run']['run_id']}"
@@ -3337,6 +3370,16 @@ def test_hosted_ingest_candidate_projection_is_owned_and_exact(hosted, monkeypat
     assert result.headers["cache-control"] == "no-store"
     assert result.json() == {"runId": "recap-run", "managedWorldId": "managed"}
     assert calls == [("recap-run", "managed")]
+
+    def transfer_while_serializing(self, *, mode, by_alias):
+        world = hosted.records["managed"]
+        hosted.records["managed"] = world.model_copy(update={"owner_subject": OTHER_OWNER})
+        return {"sourceProse": "Synthetic text withheld after transfer."}
+
+    monkeypatch.setattr(SavedCandidate, "model_dump", transfer_while_serializing)
+    revoked = hosted.client.request("GET", path)
+    assert revoked.status_code == 403, revoked.text
+    assert "sourceProse" not in revoked.json()
 
 
 def test_hosted_combat_lists_and_reopens_only_owned_encounters(hosted, application_state_dsn, monkeypatch):
@@ -4482,8 +4525,9 @@ def test_saved_turn_evidence_withholds_mismatched_native_readback(monkeypatch):
     read = Mock(return_value=opened)
     monkeypatch.setattr(agent_turn_service, "_evidence_anchor_open_targets", lambda _: [target])
     monkeypatch.setattr(managed_world_graph_projection, "resolve_managed_world_binding", lambda _: binding)
-    monkeypatch.setattr(passages.direct, "direct_services_from_config", lambda _: object())
-    monkeypatch.setattr(passages.direct, "read_source_anchor_direct_v2", read)
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as retained_reads
+    monkeypatch.setattr(retained_reads, "direct_services_from_config", lambda _: object())
+    monkeypatch.setattr(retained_reads, "read_source_anchor_direct_v2", read)
 
     selectors = dict(world_id="managed", turn_id=turn_id, claim_id="claim", anchor_id="anchor", service=service)
     assert passages.open_saved_turn_graph_evidence(**selectors) is result
@@ -4547,7 +4591,8 @@ def test_saved_action_evidence_resolves_target_from_exact_plan_action(monkeypatc
     open_anchor.assert_called_once_with(target)
 
 
-def test_saved_turn_related_recap_binds_continuation_to_saved_revision(monkeypatch):
+@pytest.mark.parametrize("mutation", ["revision", "native_world", "artifact", "source_revision", "hash", "anchor", "binding", "binding_during_read", "unavailable"])
+def test_saved_turn_related_recap_binds_continuation_to_saved_revision(monkeypatch, mutation):
     from unittest.mock import Mock
 
     from apps.live_control_server.services import agent_source_passages as passages
@@ -4571,8 +4616,9 @@ def test_saved_turn_related_recap_binds_continuation_to_saved_revision(monkeypat
     read = Mock(return_value=result)
     monkeypatch.setattr(agent_turn_service, "project_plan_turn_context", lambda *args, **kwargs: SimpleNamespace(source_open_targets=[target]))
     monkeypatch.setattr(managed_world_graph_projection, "resolve_managed_world_binding", lambda _: binding)
-    monkeypatch.setattr(passages.direct, "direct_services_from_config", lambda _: object())
-    monkeypatch.setattr(passages.direct, "read_recap_context_direct_v2", read)
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as retained_reads
+    monkeypatch.setattr(retained_reads, "direct_services_from_config", lambda _: object())
+    monkeypatch.setattr(retained_reads, "read_recap_context_direct_v2", read)
     continuation = "recap-page:v2:" + "b" * 64 + ":26"
     selectors = dict(
         world_id="managed", turn_id=turn_id, claim_id="claim", anchor_id=target.context_anchor_id,
@@ -4582,9 +4628,30 @@ def test_saved_turn_related_recap_binds_continuation_to_saved_revision(monkeypat
     assert passages.open_saved_turn_related_recap(**selectors) is result
     request = read.call_args.args[1]
     assert (request.revision_pin, request.continuation) == (target.graph_revision, continuation)
-    snapshot.revision_id = "different-revision"
-    with pytest.raises(passages.SourcePassageOpenError, match="source_passage_binding_invalid"):
+    assert (request.world_id, request.context_anchor_id, request.max_chars) == (target.native_world_id, target.context_anchor_id, 12000)
+    if mutation == "revision":
+        snapshot.revision_id = "different-revision"
+    elif mutation == "native_world":
+        snapshot.world_id = "different-world"
+    elif mutation == "artifact":
+        descriptor.source_artifact_id = "different-artifact"
+    elif mutation == "source_revision":
+        descriptor.source_revision_id = "different-source-revision"
+    elif mutation == "hash":
+        descriptor.content_sha256 = "f" * 64
+    elif mutation == "anchor":
+        descriptor.context_anchor_id = "dm-context-anchor:v2:foreign"
+    elif mutation == "binding":
+        binding.binding_version += 1
+    elif mutation == "binding_during_read":
+        changed = SimpleNamespace(native_world_id=binding.native_world_id, binding_version=binding.binding_version + 1)
+        monkeypatch.setattr(managed_world_graph_projection, "resolve_managed_world_binding", Mock(side_effect=[binding, changed]))
+    else:
+        read.side_effect = RuntimeError("Authority unavailable")
+    expected = "source_passage_unavailable" if mutation == "unavailable" else "source_passage_binding_invalid"
+    with pytest.raises(passages.SourcePassageOpenError, match=expected):
         passages.open_saved_turn_related_recap(**selectors)
+    assert read.call_count == (1 if mutation == "binding" else 2)
 
 
 def test_hosted_plan_terminal_diagnostic_reads_owned_action(hosted, monkeypatch):
@@ -4737,17 +4804,30 @@ def test_hosted_relationship_request_uses_owned_world(hosted, monkeypatch):
 
 def test_hosted_manual_knowledge_checks_build_source_and_actor(hosted, monkeypatch):
     from apps.live_control_server.routes import graph_authoring
-    from apps.live_control_server.services import graph_run_registry, source_artifact_registry
+    from apps.live_control_server.services import graph_run_registry, source_artifact_registry, graph_object_authoring_prepare
     from tests.test_graph_object_authoring_prepare import object_proposal
 
     async def owned_page(subject, document_id):
         assert (subject, document_id) == (OWNER, "build-doc")
         return "managed"
 
-    def dispatch(body, *, authenticated_actor, authorize_world=None):
+    def dispatch(body, *, authenticated_actor, authorize_world=None, recovery_only):
+        assert recovery_only is True
+        assert callable(authorize_world)
         calls.append((body.source_run_id, authenticated_actor))
         raise graph_authoring.GraphObjectAuthoringError("Reached authoring.", code="probe", status_code=409)
 
+    monkeypatch.setenv("DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY", "hosted-manual-history-test-key")
+    from apps.live_control_server.services import managed_world_graph_projection
+    monkeypatch.setattr(managed_world_graph_projection, "resolve_managed_world_binding", lambda world: SimpleNamespace(
+        managed_world_id=world, native_world_id="native-managed", binding_version=1,
+    ))
+    token = graph_object_authoring_prepare.sign_publication_intent({
+        "campaign_id": "managed", "source_run_id": "owned", "world_id": "native-managed",
+        "actor": f"hosted_dms:{OWNER}", "publication_binding": {
+            "managed_world_id": "managed", "native_world_id": "native-managed", "binding_version": 1,
+        },
+    })
     calls = []
     monkeypatch.setattr(access, "_owned_build_page", owned_page)
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda run: SimpleNamespace(
@@ -4757,17 +4837,35 @@ def test_hosted_manual_knowledge_checks_build_source_and_actor(hosted, monkeypat
         source_domain="worldbuilding", workspace_document_id="build-doc",
         world_id="managed" if artifact == "owned" else "foreign",
     ))
-    monkeypatch.setattr(graph_authoring, "prepare_graph_object_authoring_write", dispatch)
+    monkeypatch.setattr(graph_object_authoring_prepare, "prepare_graph_object_authoring_write",
+                        lambda *_a, **_k: pytest.fail("Retired prepare dispatched"))
     monkeypatch.setattr(graph_authoring, "commit_graph_object_authoring_write", dispatch)
     payload = {"worldId": "managed", "campaignId": "managed", "sourceRunId": "owned", "proposals": [object_proposal()]}
     for phase in ("prepare", "commit"):
         path = f"/api/live/graph-authoring/{phase}"
-        body = {**payload, "confirmToken": "token", "currentOverlayToken": "overlay"} if phase == "commit" else payload
+        body = {**payload, "confirmToken": token, "currentOverlayToken": "overlay"} if phase == "commit" else payload
         assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
         assert hosted.client.request("POST", path, json={**body, "sourceRunId": "foreign"}).status_code == 403
         response = hosted.client.request("POST", path, json=body)
-        assert response.status_code == 409, response.text
-    assert calls == [("owned", f"hosted_dms:{OWNER}")] * 2
+        assert response.status_code == (410 if phase == "prepare" else 409), response.text
+        if phase == "prepare":
+            assert response.json()["detail"]["code"] == "classic_manual_prepare_retired"
+    assert calls == [("owned", f"hosted_dms:{OWNER}")]
+
+    malformed = {**payload, "proposals": "invalid"}
+    # The existing hosted resolver validates the packet before route dispatch
+    # and maps malformed authority scope to denial, not local FastAPI422.
+    assert hosted.client.request("POST", "/api/live/graph-authoring/prepare", json=malformed).status_code == 403
+    assert hosted.client.request("POST", "/api/live/graph-authoring/prepare", json=malformed, session="other-session").status_code == 403
+
+    def transfer_before_receipt(_body, *, authenticated_actor, authorize_world, recovery_only):
+        assert authenticated_actor == f"hosted_dms:{OWNER}" and recovery_only is True
+        hosted.records["managed"] = hosted.records["managed"].model_copy(update={"owner_subject": OTHER_OWNER})
+        return graph_authoring.GraphObjectAuthoringCommitResponse(committed=True, campaign_id="managed", published_revision_id="private-receipt")
+    monkeypatch.setattr(graph_authoring, "commit_graph_object_authoring_write", transfer_before_receipt)
+    response = hosted.client.request("POST", "/api/live/graph-authoring/commit", json={**payload, "confirmToken": token, "currentOverlayToken": "overlay"})
+    assert response.status_code == 403
+    assert "private-receipt" not in response.text
 
 
 def test_hosted_build_review_binds_world_and_action(hosted, monkeypatch):
@@ -5214,95 +5312,110 @@ def test_hosted_extraction_coverage_requires_owned_document_and_matching_result(
 
 
 def test_hosted_worldbuilding_plan_prepare_checks_exact_run(hosted, monkeypatch):
-    from apps.live_control_server.routes import extract_promote
+    """Retirement keeps both the original owner gate and a late transfer fence."""
+    from apps.live_control_server.services import worldbuilding_graph_publication as service
 
     async def owned_extraction(subject, run_id):
         world = "managed" if run_id == "owned" else "foreign"
         access._owned_world(subject, world)
         return world, SimpleNamespace(source_artifact_id="saved-source")
-
-    calls = []
-
-    def prepare(body):
-        calls.append(body.run_id)
-        raise extract_promote.ExtractPromoteError("fixture reached", code="fixture", status_code=409)
-
     monkeypatch.setattr(access, "_owned_worldbuilding_extraction", owned_extraction)
-    monkeypatch.setattr(extract_promote, "prepare_worldbuilding", prepare)
+    monkeypatch.setattr(service, "prepare_worldbuilding",
+                        lambda *a, **k: pytest.fail("Retired classic preparation dispatched"))
     path = "/api/live/extract-promote/worldbuilding/prepare"
     body = {"runId": "owned", "expectedParentRevisionId": "rev:head",
             "dispositions": [{"assertionId": "candidate", "decision": "defer"}]}
     assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
     assert hosted.client.request("POST", path, json={**body, "runId": "foreign"}).status_code == 403
-    assert calls == []
     response = hosted.client.request("POST", path, json=body)
-    assert response.status_code == 409, response.text
-    assert calls == ["owned"]
+    assert response.status_code == 410, response.text
+    assert response.json()["code"] == "classic_worldbuilding_prepare_retired"
 
-    def prepare_after_transfer(_request):
-        hosted.records["managed"] = hosted.records["managed"].model_copy(
-            update={"owner_subject": OTHER_OWNER},
-        )
-        return SimpleNamespace(
-            publication_binding=SimpleNamespace(managed_world_id="managed"),
-            model_dump=lambda **_kwargs: {"private": "Sealed plan contents"},
-        )
-
-    monkeypatch.setattr(extract_promote, "prepare_worldbuilding", prepare_after_transfer)
+    async def transfer_after_gate(subject, run_id):
+        access._owned_world(subject, "managed")
+        hosted.records["managed"] = hosted.records["managed"].model_copy(update={"owner_subject": OTHER_OWNER})
+        return "managed", SimpleNamespace(source_artifact_id="saved-source")
+    monkeypatch.setattr(access, "_owned_worldbuilding_extraction", transfer_after_gate)
     denied = hosted.client.request("POST", path, json=body)
     assert denied.status_code == 403, denied.text
-    assert "Sealed plan contents" not in denied.text
+
+
+def _hosted_original_worldbuilding_plan(hosted, monkeypatch):
+    from tests.test_cutover_worldbuilding_authority_port import (
+        _immutable_worldbuilding_plan, _reseal_immutable_worldbuilding_plan,
+    )
+    from apps.live_control_server.services import managed_world_graph_projection
+    record = access._owned_world(OWNER, "managed")
+    current = record.native_graph_binding
+    plan = _immutable_worldbuilding_plan(monkeypatch)
+    plan.world_id = current.native_world_id
+    plan.publication_binding.managed_world_id = "managed"
+    plan.publication_binding.native_world_id = current.native_world_id
+    plan.publication_binding.binding_version = current.binding_version
+    plan = _reseal_immutable_worldbuilding_plan(plan)
+    def binding(world):
+        record = hosted.records[world]
+        current = record.native_graph_binding
+        return SimpleNamespace(managed_world_id=record.world_id, native_world_id=current.native_world_id,
+                               binding_version=current.binding_version)
+    monkeypatch.setattr(managed_world_graph_projection, "resolve_managed_world_binding", binding)
+    return plan
 
 
 def test_hosted_worldbuilding_plan_confirm_checks_native_and_managed_ids(hosted, monkeypatch):
-    from apps.live_control_server.models.extract_promote import WorldbuildingWritePlanResponse
     from apps.live_control_server.routes import extract_promote
-
-    native_id = access._owned_world("synthetic-owner-alpha", "managed").native_graph_binding.native_world_id
-    publication_binding = {
-        "managed_world_id": "managed", "native_world_id": native_id, "binding_version": 3,
-        "document_id": "document", "document_revision": 1, "source_artifact_id": "source", "source_sha256": "a" * 64,
-    }
-    plan = WorldbuildingWritePlanResponse(
-        plan_id="plan", plan_digest="digest", decision_digest="decisions", world_id=native_id,
-        parent_revision_id="parent", run_id="run", source_artifact_id="source", source_revision_id="revision",
-        candidate_preview_id="preview", candidate_schema="schema", candidate_version="1", summary={},
-        effect={"contribution_meta": {"source_artifact_id": "source", "source_revision_id": "revision",
-                                      "extraction_profile": "fixture"}},
-        publication_binding=publication_binding,
-    ).model_dump(mode="json", by_alias=True)
+    plan = _hosted_original_worldbuilding_plan(hosted, monkeypatch)
+    payload = plan.model_dump(mode="json", by_alias=True)
     calls = []
-
-    async def owned_extraction(subject, run_id):
-        access._owned_world(subject, "managed")
-        return "managed", SimpleNamespace(source_artifact_id="source")
-
+    def forbidden(*args, **kwargs):
+        pytest.fail("historical Worldbuilding confirm opened run/artifact/Page")
+    monkeypatch.setattr(access, "_owned_worldbuilding_extraction", forbidden)
     def confirm(body, *, authorize_write):
         authorize_write()
         calls.append(body.plan.world_id)
         raise extract_promote.ExtractPromoteError("fixture reached", code="fixture", status_code=409)
-
-    monkeypatch.setattr(access, "_owned_worldbuilding_extraction", owned_extraction)
     monkeypatch.setattr(extract_promote, "confirm_worldbuilding", confirm)
     path = "/api/live/extract-promote/worldbuilding/confirm"
-    assert hosted.client.request("POST", path, json={"plan": plan}, session="other-session").status_code == 403
-    assert hosted.client.request("POST", path, json={"plan": {**plan, "worldId": "another-native"}}).status_code == 403
+    assert hosted.client.request("POST", path, json={"plan": payload}, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={"plan": {**payload, "worldId": "another-native"}}).status_code == 403
     assert calls == []
-    result = hosted.client.request("POST", path, json={"plan": plan})
+    result = hosted.client.request("POST", path, json={"plan": payload})
     assert result.status_code == 409, result.text
-    assert calls == [native_id]
-
+    assert calls == [plan.world_id]
     def confirm_after_transfer(body, *, authorize_write):
-        hosted.records["managed"] = hosted.records["managed"].model_copy(
-            update={"owner_subject": OTHER_OWNER},
-        )
+        hosted.records["managed"] = hosted.records["managed"].model_copy(update={"owner_subject": OTHER_OWNER})
         authorize_write()
-        calls.append(body.plan.world_id)
-
+        pytest.fail("private receipt disclosed after transfer")
     monkeypatch.setattr(extract_promote, "confirm_worldbuilding", confirm_after_transfer)
-    denied = hosted.client.request("POST", path, json={"plan": plan})
+    denied = hosted.client.request("POST", path, json={"plan": payload})
     assert denied.status_code == 403, denied.text
-    assert calls == [native_id]
+    assert calls == [plan.world_id]
+
+
+@pytest.mark.parametrize("late", [False, True])
+def test_hosted_worldbuilding_current_binding_version_fences_receipt(hosted, monkeypatch, late):
+    from apps.live_control_server.routes import extract_promote
+    plan = _hosted_original_worldbuilding_plan(hosted, monkeypatch)
+    def change_version():
+        record = hosted.records["managed"]
+        hosted.records["managed"] = record.model_copy(update={"native_graph_binding":
+            record.native_graph_binding.model_copy(update={"binding_version": plan.publication_binding.binding_version + 1})})
+    calls = []
+    def confirm(body, *, authorize_write):
+        authorize_write()
+        calls.append("receipt")
+        change_version()
+        return SimpleNamespace(model_dump=lambda **_: {"private": "original-receipt"})
+    monkeypatch.setattr(extract_promote, "confirm_worldbuilding", confirm)
+    monkeypatch.setattr(access, "_owned_worldbuilding_extraction",
+                        lambda *a, **k: pytest.fail("historical confirm opened mutable source"))
+    if not late:
+        change_version()
+    response = hosted.client.request("POST", "/api/live/extract-promote/worldbuilding/confirm",
+                                     json={"plan": plan.model_dump(mode="json", by_alias=True)})
+    assert response.status_code == 403, response.text
+    assert "original-receipt" not in response.text
+    assert calls == (["receipt"] if late else [])
 
 
 def test_hosted_native_publication_uses_world_owner_for_both_steps(hosted, monkeypatch):
@@ -5434,34 +5547,37 @@ def test_hosted_recap_semantic_decision_uses_world_owner(hosted, monkeypatch):
     assert calls == [("saved", "accepted", "hosted_dms:synthetic-owner-alpha")]
 
 
-def test_hosted_historical_recap_projection_rejects_foreign_result(hosted, monkeypatch):
+def test_hosted_historical_recap_projection_retirement_preserves_owner_and_validation(hosted, monkeypatch):
+    from application_state.source import service as source
     from apps.live_control_server.services import historical_recap_world_projection as historical
+    from apps.live_control_server.services import graph_run_registry
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads
 
-    calls = []
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("Retired projection must not load run/source/Core authority")
 
-    def project(_root, run_id, *, managed_world_id):
-        calls.append((run_id, managed_world_id))
-        return SimpleNamespace(managed_world_id="foreign", model_dump=lambda **_: {})
-
-    monkeypatch.setattr(historical, "build_historical_recap_world_projection", project)
+    monkeypatch.setattr(historical, "build_historical_recap_world_projection", forbidden)
+    monkeypatch.setattr(historical, "get_extraction_run", forbidden)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", forbidden)
+    monkeypatch.setattr(source, "get_source_markdown", forbidden)
+    monkeypatch.setattr(historical, "direct_services_from_config", forbidden)
+    monkeypatch.setattr(historical, "project_world_graph", forbidden)
+    monkeypatch.setattr(world_graph_reads, "direct_services_from_config", forbidden)
     path = "/api/live/graph-preview/extraction-runs/saved/recap-projection"
+    assert hosted.client.request("GET", path, session=None).status_code == 401
     assert hosted.client.request("GET", path).status_code == 403
     assert hosted.client.request("GET", path + "?managed_world_id=managed", session="other-session").status_code == 403
-    assert calls == []
+    assert hosted.client.request("GET", path + "?managed_world_id=foreign").status_code == 403
+    # Hosted middleware rejects malformed selectors before handler validation (local 422).
+    assert hosted.client.request("GET", path + "?managed_world_id=managed&session_id=session-99").status_code == 403
+    assert hosted.client.request("GET", path + "?managed_world_id=managed&managed_world_id=managed").status_code == 403
+    response = hosted.client.request("GET", path + "?managed_world_id=managed")
+    assert response.status_code == 410, response.text
+    assert response.json()["detail"]["code"] == "exact_run_graph_retired"
+    hosted.records["managed"] = hosted.records["managed"].model_copy(update={"owner_subject": OTHER_OWNER})
     assert hosted.client.request("GET", path + "?managed_world_id=managed").status_code == 403
-    assert calls == [("saved", "managed")]
 
-    def transfer_during_serialization(**_kwargs):
-        hosted.records["managed"] = hosted.records["managed"].model_copy(
-            update={"owner_subject": OTHER_OWNER},
-        )
-        return {"private": "Historical recap text"}
 
-    monkeypatch.setattr(historical, "build_historical_recap_world_projection", lambda *_args, **_kwargs:
-        SimpleNamespace(managed_world_id="managed", model_dump=transfer_during_serialization))
-    denied = hosted.client.request("GET", path + "?managed_world_id=managed")
-    assert denied.status_code == 403, denied.text
-    assert "Historical recap text" not in denied.text
 def test_hosted_connected_page_origin_reads_exact_saved_turn(hosted, monkeypatch):
     from unittest.mock import Mock
 
@@ -6818,3 +6934,132 @@ def test_hosted_native_manual_owner_and_receipt_fences(manual_case, monkeypatch,
         denied = client.request("POST", PATH + "/confirm", json=packet)
     assert denied.status_code == 403, denied.text
     assert snapshot(c) == after
+
+
+def test_hosted_catalog_authorizers_run_blocking_reads_off_event_loop(monkeypatch):
+    async def run():
+        event_loop_thread = get_ident()
+        catalog_threads = []
+
+        def owner_collection(_request):
+            catalog_threads.append(get_ident())
+            return {"records": []}
+
+        def owned_world(_subject, world_id):
+            catalog_threads.append(get_ident())
+            return SimpleNamespace(world_id=world_id)
+
+        def get_request(path, query=b""):
+            async def receive():
+                return {"type": "http.request", "body": b"", "more_body": False}
+
+            return Request(
+                {"type": "http", "path": path, "method": "GET", "query_string": query, "headers": []},
+                receive,
+            )
+
+        monkeypatch.setattr(access, "_hosted_subject", lambda _request: "test-subject")
+        monkeypatch.setattr(access, "revalidate_hosted_owner_collection", owner_collection)
+        monkeypatch.setattr(access, "_owned_world", owned_world)
+
+        collection = await access.hosted_owner_collection(get_request(access.WORLD_COLLECTION_PATH))
+        inventory = get_request(access.BUILD_PAGE_INVENTORY_PATH, b"world_id=elderwyld")
+        assert await access.resolve_hosted_build_page_inventory(inventory) == "elderwyld"
+        assert inventory.state.hosted_build_page_inventory_world == "elderwyld"
+        assert collection == {"records": []}
+        assert len(catalog_threads) == 2
+        assert all(thread != event_loop_thread for thread in catalog_threads)
+
+    asyncio.run(run())
+
+
+
+@pytest.mark.parametrize("change", [None, "actor", "native", "version", "selector", "late_version"])
+def test_hosted_historical_manual_commit_binding_without_run_or_page(hosted, monkeypatch, change):
+    from apps.live_control_server.routes import graph_authoring
+    from apps.live_control_server.services import (
+        graph_object_authoring_prepare as owner, managed_world_graph_projection,
+        graph_run_registry, source_artifact_registry,
+    )
+    from tests.test_graph_object_authoring_prepare import object_proposal
+
+    monkeypatch.setenv(owner.GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, "hosted-history-binding-tests")
+    current = SimpleNamespace(managed_world_id="managed", native_world_id="native-managed", binding_version=1)
+    monkeypatch.setattr(managed_world_graph_projection, "resolve_managed_world_binding", lambda world: current)
+    def forbidden(*args, **kwargs):
+        pytest.fail("historical commit opened withdrawn run/artifact/Page")
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", forbidden)
+    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", forbidden)
+    monkeypatch.setattr(access, "_owned_build_page", forbidden)
+    intent = dict(campaign_id="managed", source_run_id="deleted-run", world_id="native-managed",
+                  actor=f"hosted_dms:{OWNER}", publication_binding=dict(
+                      managed_world_id="managed", native_world_id="native-managed", binding_version=1),
+                  expires_at="2000-01-01T00:00:00+00:00")
+    if change == "actor":
+        intent["actor"] = f"hosted_dms:{OTHER_OWNER}"
+    elif change == "native":
+        intent["publication_binding"]["native_world_id"] = "foreign-native"
+    elif change == "version":
+        intent["publication_binding"]["binding_version"] = 2
+    elif change == "selector":
+        intent["source_run_id"] = "other-run"
+    calls = []
+    def recover(body, *, authenticated_actor, authorize_world, recovery_only):
+        assert recovery_only and authenticated_actor == f"hosted_dms:{OWNER}"
+        authorize_world()
+        calls.append("receipt")
+        if change == "late_version":
+            current.binding_version = 2
+        return graph_authoring.GraphObjectAuthoringCommitResponse(
+            committed=True, campaign_id="managed", published_revision_id="private-receipt",
+        )
+    monkeypatch.setattr(graph_authoring, "commit_graph_object_authoring_write", recover)
+    payload = dict(worldId="managed", campaignId="managed", sourceRunId="deleted-run",
+                   proposals=[object_proposal()], confirmToken=owner.sign_publication_intent(intent))
+    response = hosted.client.request("POST", "/api/live/graph-authoring/commit", json=payload)
+    if change is None:
+        assert response.status_code == 200, response.text
+        assert calls == ["receipt"]
+    else:
+        assert response.status_code == 403, response.text
+        assert "private-receipt" not in response.text
+        assert calls == (["receipt"] if change == "late_version" else [])
+
+
+def test_saved_related_recap_withholds_body_after_midread_owner_transfer(hosted, monkeypatch):
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import agent_source_passages as passages
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    calls = []
+    def read(**selectors):
+        calls.append(selectors)
+        hosted.records["managed"] = hosted.records["managed"].model_copy(update={"owner_subject": OTHER_OWNER})
+        return SimpleNamespace(model_dump=lambda **_: pytest.fail("Revoked saved recap body serialized"))
+    monkeypatch.setattr(passages, "open_saved_turn_related_recap", read)
+    turn_id = uuid4()
+    path = f"/api/live/agent/worlds/managed/conversation/turns/{turn_id}/graph-evidence"
+    response = hosted.client.request("GET", path + "?claim_id=claim&anchor_id=dm-context-anchor%3Av2%3Arecap")
+    assert response.status_code == 403, response.text
+    assert len(calls) == 1
+    assert (calls[0]["world_id"], calls[0]["turn_id"], calls[0]["claim_id"], calls[0]["continuation"]) == ("managed", turn_id, "claim", None)
+
+
+def test_production_app_mounts_build_extraction_without_developer_routes(monkeypatch):
+    from apps.live_control_server.main import create_app
+
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "production")
+    monkeypatch.setenv("DMB_AUTH_MODE", "hosted_dms")
+    methods_by_path = {
+        (method, route.path)
+        for route in create_app().routes
+        for method in getattr(route, "methods", ())
+    }
+
+    prefix = "/api/live/graph-preview"
+    assert ("POST", prefix + "/extraction-runs") in methods_by_path
+    assert ("GET", prefix + "/extraction-runs/{run_id}") in methods_by_path
+    assert ("GET", prefix + "/extraction-runs/{run_id}/build-context") in methods_by_path
+    assert ("GET", prefix + "/extraction-runs/{run_id}/candidate-projection") in methods_by_path
+    assert ("GET", prefix + "/gold-review/sessions") not in methods_by_path
+    assert ("GET", prefix + "/manual-review/beds") not in methods_by_path

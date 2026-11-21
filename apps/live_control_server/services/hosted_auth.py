@@ -17,6 +17,7 @@ from pathlib import Path
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 from urllib.parse import unquote, urlsplit
+from starlette.concurrency import run_in_threadpool
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -65,6 +66,10 @@ HOSTED_WORLD_ROUTE_POLICY_ERROR = "hosted_world_route_policy_unverified"
 LOGIN_PATH = "/api/auth/login"
 AUTH_SESSION_PATH = "/api/auth/session"
 _RETURN_PATH_CONTROL = re.compile(r"[\x00-\x1f\x7f]")
+_GUEST_UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+_GUEST_READ_PATH = re.compile(
+    rf"/api/live/guest-releases/{_GUEST_UUID}(?:/releases/{_GUEST_UUID}/assets/{_GUEST_UUID})?"
+)
 
 
 def deployment_environment(environ: Mapping[str, str] | None = None) -> str:
@@ -331,7 +336,7 @@ def _strict_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
-async def _read_bounded_request_body(request: Request) -> bytes:
+async def _read_bounded_request_body(request: Request, *, max_bytes: int = MAX_WORLD_SCOPE_BODY_BYTES) -> bytes:
     content_lengths = request.headers.getlist("content-length")
     if len(content_lengths) > 1:
         raise _invalid_world_request_body()
@@ -341,7 +346,7 @@ async def _read_bounded_request_body(request: Request) -> bytes:
         if not raw_length.isascii() or not raw_length.isdecimal():
             raise _invalid_world_request_body()
         declared_length = int(raw_length)
-        if declared_length > MAX_WORLD_SCOPE_BODY_BYTES:
+        if declared_length > max_bytes:
             raise _invalid_world_request_body()
 
     transfer_encodings = request.headers.getlist("transfer-encoding")
@@ -353,7 +358,7 @@ async def _read_bounded_request_body(request: Request) -> bytes:
     body = bytearray()
     try:
         async for chunk in request.stream():
-            if len(body) + len(chunk) > MAX_WORLD_SCOPE_BODY_BYTES:
+            if len(body) + len(chunk) > max_bytes:
                 raise _invalid_world_request_body()
             body.extend(chunk)
     except HTTPException:
@@ -380,9 +385,9 @@ def _query_world_ids(request: Request) -> frozenset[str]:
     )
 
 
-async def request_world_ids(request: Request, *, collect_body_worlds: bool = True) -> frozenset[str]:
+async def request_world_ids(request: Request, *, collect_body_worlds: bool = True, max_bytes: int = MAX_WORLD_SCOPE_BODY_BYTES) -> frozenset[str]:
     found = set(_query_world_ids(request))
-    body = await _read_bounded_request_body(request)
+    body = await _read_bounded_request_body(request, max_bytes=max_bytes)
     if not body:
         return frozenset(found)
 
@@ -432,7 +437,25 @@ def authorize_world_access(
             status_code=403,
             detail={"code": "hosted_world_context_required"},
         )
-    if any(subject not in access.get(world_id, frozenset()) for world_id in world_ids):
+    missing = {world_id for world_id in world_ids if subject not in access.get(world_id, frozenset())}
+    if not missing:
+        return
+    # An explicit deployment capability gate protects existing installations;
+    # shared DB policy remains the authoritative multiworker enable/revoke gate.
+    if os.environ.get("DMB_HOSTED_OWNER_CREATION_CAPABILITY", "") != "1":
+        raise HTTPException(status_code=403, detail={"code": "hosted_world_forbidden"})
+    # The legacy static path does not depend on dynamic policy availability.
+    # Dynamic admission is a separate, current, creator-and-owner-bound grant.
+    from application_state.errors import ApplicationStateError
+    from application_state.world_catalog.hosted_creation import active_admitted_world_ids
+
+    try:
+        admitted = active_admitted_world_ids(subject)
+    except ApplicationStateError as exc:
+        raise HTTPException(
+            status_code=503, detail={"code": "world_authorization_unavailable"}
+        ) from exc
+    if not missing.issubset(admitted):
         raise HTTPException(
             status_code=403,
             detail={"code": "hosted_world_forbidden"},
@@ -501,10 +524,10 @@ def install_hosted_request_boundary(
         if any(marker in path for marker in ("{world_id}", "{document_id}", "{run_id}", "{asset_id}", "{draft_id}", "{encounter_id}", "{operation_id}", "{action_id}", "{request_id}", "{citation_id}"))
     ]
     collections = dict(collection_authorizers or {})
-    # Collection authorization is an explicit, code-owned read capability. It
-    # is never a prefix exemption or permission for a mutation/list of all data.
+    # These exact collection capabilities are code-owned; neither is a prefix
+    # exemption or permission to list arbitrary World data.
     if any(
-        key != ("GET", "/api/live/world-containers") or not callable(authorizer)
+        key not in {("GET", "/api/live/world-containers"), ("POST", "/api/live/world-containers")} or not callable(authorizer)
         for key, authorizer in collections.items()
     ) or set(collections) & set(route_resolvers):
         raise ValueError("hosted_collection_policy_invalid")
@@ -528,6 +551,23 @@ def install_hosted_request_boundary(
                 status_code=503,
                 content={"detail": {"code": "hosted_auth_unavailable"}},
             )
+
+        # Public release reads are exact, read-only capabilities. They never
+        # authorize a World route, accept selectors, or bypass the local-mode
+        # loopback boundary above. Both switches are deliberately default-off.
+        if (request.method == "GET" and _GUEST_READ_PATH.fullmatch(request.url.path)
+            and os.environ.get("DMB_GUEST_RELEASE_ENABLED") == "1"
+            and os.environ.get("DMB_GUEST_RELEASE_PUBLIC_ENABLED") == "1"):
+            try:
+                if request.query_params or await _read_bounded_request_body(request, max_bytes=0):
+                    raise HTTPException(status_code=400)
+            except HTTPException:
+                return JSONResponse(status_code=400, content={"detail": {"code": "invalid_guest_request"}},
+                                    headers={"Cache-Control": "no-store"})
+            response = await call_next(request)
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            return response
 
         # Logout is intentionally allowed to clear an expired session. Its
         # route still enforces DMS's exact Origin contract before proxying.
@@ -578,7 +618,7 @@ def install_hosted_request_boundary(
             try:
                 # Reuse the bounded/strict body parser even for this GET. The
                 # collection policy itself rejects every selector/body/query.
-                await request_world_ids(request)
+                await request_world_ids(request, max_bytes=4096 if request.method.upper() == "POST" else MAX_WORLD_SCOPE_BODY_BYTES)
                 result = collection(request)
                 if inspect.isawaitable(result):
                     result = await result
@@ -638,7 +678,8 @@ def install_hosted_request_boundary(
                     detail={"code": "hosted_world_context_mismatch"},
                 )
             principal = getattr(request.state, "dms_principal", None)
-            authorize_world_access(
+            await run_in_threadpool(
+                authorize_world_access,
                 principal.subject if principal is not None else "",
                 frozenset({resolved_world_id}),
                 access=hosted_world_access(),

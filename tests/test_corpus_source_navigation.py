@@ -11,9 +11,12 @@ from application_state.agent_conversation.rules_authority_policy import rules_ca
 from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
 from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
 from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRuntime
-from apps.live_control_server.services import corpus_source_navigation, agent_native_source_sections
+from apps.live_control_server.services import agent_native_source_sections
 from tests.test_plan_jev_dispatch import plan_adapter  # noqa:F401
 from tests.test_plan_jev_writer import WriterWire
+from apps.live_control_server.integrations.dungeonmind import (
+    world_graph_reads as retained_reads, corpus_source_inventory as retained_inventory,
+)
 from tests.test_corpus_source_inventory import registry, TEXT
 
 
@@ -43,8 +46,7 @@ def corpus(plan_adapter, monkeypatch):
     services, artifact, revision=registry()
     sources.persist_source_markdown(source_artifact_id=artifact.source_artifact_id,source_domain='worldbuilding',
         world_id='native-park',campaign_id=None,session_id=None,markdown=TEXT,lineage={})
-    monkeypatch.setattr(corpus_source_navigation,'direct_services_from_config',lambda _:services)
-    monkeypatch.setattr(agent_native_source_sections,'direct_services_from_config',lambda _:services)
+    monkeypatch.setattr(retained_reads, 'direct_services_from_config',lambda _:services)
     monkeypatch.setattr(agent_native_source_sections,'resolve_managed_world_binding',lambda _:SimpleNamespace(
         managed_world_id='world:one',native_world_id='native-park',binding_version=1))
     return plan_adapter, services
@@ -147,7 +149,7 @@ def test_unselected_or_repeated_search_never_dispatches_native_reads(corpus, mon
     adapter,_=corpus
     driver=PlanJevDriver(adapter)
     asyncio.run(driver.run(transport=Decisions(),api_key='synthetic-not-secret'))
-    monkeypatch.setattr(corpus_source_navigation,'collect_source_view',lambda *a,**kw:pytest.fail('repeated scan'))
+    monkeypatch.setattr(retained_inventory, 'collect_source_view',lambda *a,**kw:pytest.fail('repeated scan'))
     with pytest.raises(ValueError,match='not_selected'):driver.native_sources.corpus.search(plan=True)
 
 
@@ -177,7 +179,7 @@ def test_declined_corpus_offer_does_not_authorize_scan(corpus, monkeypatch):
     adapter,_=corpus
     driver=PlanJevDriver(adapter)
     asyncio.run(driver.run(transport=Decisions(decline=True),api_key='synthetic-not-secret'))
-    monkeypatch.setattr(corpus_source_navigation,'collect_source_view',lambda *a,**kw:pytest.fail('unselected scan'))
+    monkeypatch.setattr(retained_inventory, 'collect_source_view',lambda *a,**kw:pytest.fail('unselected scan'))
     with pytest.raises(ValueError,match='not_selected'):driver.native_sources.corpus.search(plan=True)
 
 
@@ -211,7 +213,7 @@ def test_current_native_play_captured_search_reads_registry_section(application_
     services,artifact,_=registry(world=authority.native_world_id,text=text)
     sources.persist_source_markdown(source_artifact_id=artifact.source_artifact_id,source_domain='worldbuilding',
         world_id=authority.native_world_id,campaign_id=None,session_id=None,markdown=text,lineage={})
-    monkeypatch.setattr(corpus_source_navigation,'direct_services_from_config',lambda _:services)
+    monkeypatch.setattr(retained_reads, 'direct_services_from_config',lambda _:services)
     monkeypatch.setattr(native_source_navigation,'resolve_managed_world_binding',lambda _:SimpleNamespace(
         managed_world_id=turn.world_id,native_world_id=authority.native_world_id,binding_version=authority.binding_version))
     adapter=SimpleNamespace(service=service,fence=_ClaimFence(service,turn),turn=turn,context_capture=None)
@@ -222,7 +224,7 @@ def test_current_native_play_captured_search_reads_registry_section(application_
         assert result['coverage']=='enumerated_membership_scanned' and len(result['sections'])==1
         # A fresh Play worker receives the next captured call without a prior offer/collect.
         owner=native_source_navigation.NativeSourceNavigator(adapter)
-        monkeypatch.setattr(corpus_source_navigation,'collect_source_view',lambda *a,**kw:pytest.fail('repeated query scanned native sources'))
+        monkeypatch.setattr(retained_inventory, 'collect_source_view',lambda *a,**kw:pytest.fail('repeated query scanned native sources'))
         captured(owner,native_source_navigation.SEARCH,{},call_id='repeat-search')
         reused=owner.tool(native_source_navigation.SEARCH,{},call_id='repeat-search')
         assert reused['reused_search'] and not reused['sections']
@@ -240,7 +242,7 @@ def test_fresh_navigator_recovers_matched_section_without_rescanning(corpus, mon
     adapter, _ = corpus
     driver = PlanJevDriver(adapter)
     def restart():
-        monkeypatch.setattr(corpus_source_navigation, 'collect_source_view',
+        monkeypatch.setattr(retained_inventory, 'collect_source_view',
                             lambda *a, **kw: pytest.fail('recovery repeated native scan'))
         replacement = NativeSourceNavigator(adapter)
         adapter._native_source_navigator = replacement
@@ -300,7 +302,7 @@ def test_unequal_term_frequencies_commit_canonical_matches_and_keep_rank(corpus,
     services, artifact, _ = registry(text=text)
     sources.persist_source_markdown(source_artifact_id=artifact.source_artifact_id, source_domain='worldbuilding',
         world_id='native-park', campaign_id=None, session_id=None, markdown=text, lineage={})
-    monkeypatch.setattr(corpus_source_navigation, 'direct_services_from_config', lambda _: services)
+    monkeypatch.setattr(retained_reads, 'direct_services_from_config', lambda _: services)
     driver = PlanJevDriver(adapter)
     original_search = driver.native_sources.corpus.search
     def observed_search(**kwargs):
@@ -312,7 +314,7 @@ def test_unequal_term_frequencies_commit_canonical_matches_and_keep_rank(corpus,
         before = dict(driver.native_sources.query_matches)
         assert ['beneath', 'black', 'arch'] in before.values()
         if recover:
-            monkeypatch.setattr(corpus_source_navigation, 'collect_source_view',
+            monkeypatch.setattr(retained_inventory, 'collect_source_view',
                                 lambda *a, **kw: pytest.fail('recovery repeated scan'))
             replacement = NativeSourceNavigator(adapter)
             driver.native_sources = adapter._native_source_navigator = replacement

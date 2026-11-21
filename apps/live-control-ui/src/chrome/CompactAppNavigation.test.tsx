@@ -15,23 +15,45 @@ vi.mock("../selectedWorld/WorldSelector", () => ({ WorldSelector: () => <button>
 vi.mock("./AppChromeWorldGraphStatus", () => ({ AppChromeWorldGraphStatus: (props: { activeRoute?: string }) => <button data-active-route={props.activeRoute}>World graph: Elderwyld · Ready</button> }));
 
 describe("compact command-board navigation", () => {
-  it("starts collapsed with World selection and graph health always reachable", () => {
+  it("starts expanded and lets the compass collapse and reopen the route links", () => {
     render(<CompactAppNavigation activeRoute="plan" />);
+    expect(screen.getByRole("button", { name: "Close navigation" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "Build" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Close navigation" }));
     expect(screen.getByRole("button", { name: "Open navigation" })).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("link", { name: "Build" })).not.toBeInTheDocument();
     expect(document.querySelector(".app-nav-current")).toHaveTextContent("Plan");
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    expect(screen.getByRole("link", { name: "Build" })).toBeVisible();
     expect(within(screen.getByRole("navigation",{name:"Command board navigation"})).getByRole("button",{name:"Trash",exact:true})).toBeVisible();
     expect(screen.getByRole("button", { name: "Switch World: Elderwyld" })).toBeVisible();
     expect(screen.getByRole("button", { name: "World graph: Elderwyld · Ready" })).toBeVisible();
     expect(screen.getByRole("button", { name: "World graph: Elderwyld · Ready" })).toHaveAttribute("data-active-route", "plan");
   });
+  it("scrolls only the route strip to reveal an offscreen active route", () => {
+    const geometry = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains("app-site-nav__routes")) return new DOMRect(0, 0, 180, 32);
+      return new DOMRect(this.textContent === "Combat Tracker" ? 280 : 0, 0, 100, 32);
+    });
+    try {
+      const view = render(<CompactAppNavigation activeRoute="combat" />);
+      const strip = screen.getByRole("link", { name: "Combat Tracker" }).parentElement!;
+      expect(strip.scrollLeft).toBe(200);
+      const toggle = screen.getByRole("button", { name: "Close navigation" });
+      toggle.focus();
+      view.rerender(<CompactAppNavigation activeRoute="plan" />);
+      expect(screen.getByRole("link", { name: "Plan" })).toHaveAttribute("aria-current", "page");
+      expect(toggle).toHaveFocus();
+    } finally {
+      geometry.mockRestore();
+    }
+  });
   it("passes the graph route so the graph control targets its loaded canvas", () => {
     render(<CompactAppNavigation activeRoute="graph" />);
     expect(screen.getByRole("button", { name: "World graph: Elderwyld · Ready" })).toHaveAttribute("data-active-route", "graph");
   });
-  it("reveals World-scoped routes and dismisses them with Escape without navigation", () => {
+  it("shows World-scoped routes and dismisses them with Escape without navigation", () => {
     render(<CompactAppNavigation activeRoute="plan" />);
-    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
     const nav = screen.getByRole("navigation", { name: "Command board navigation" });
     expect(within(nav).getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan?world=elderwyld");
     expect(within(nav).getByRole("link", { name: "Plan" })).toHaveAttribute("aria-current", "page");
@@ -40,15 +62,14 @@ describe("compact command-board navigation", () => {
     expect(screen.getByRole("button", { name: "Open navigation" })).toHaveFocus();
     expect(screen.queryByRole("link", { name: "Build" })).not.toBeInTheDocument();
   });
-  it("preserves same-document World navigation and collapses after a normal click", () => {
+  it("preserves same-document World navigation and retains the links after a normal click", () => {
     window.history.replaceState({}, "", "/plan?world=elderwyld");
     const history = vi.spyOn(window.history, "pushState");
     render(<CompactAppNavigation activeRoute="plan" />);
-    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
     fireEvent.click(screen.getByRole("link", { name: "Build" }));
     expect(history).toHaveBeenCalledTimes(1);
     expect(window.location.pathname + window.location.search).toBe("/build?world=elderwyld");
-    expect(screen.getByRole("button", { name: "Open navigation" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "Close navigation" })).toHaveAttribute("aria-expanded", "true");
     history.mockRestore();
   });
   it("retains the primary nav and shared control order when the surface shell is replaced", () => {
@@ -76,9 +97,9 @@ describe("compact command-board navigation", () => {
     expect(nav).toHaveTextContent("Plan");
   });
 
-  it("collapses on a surface change without remounting the workspace", () => {
+  it("retains manual collapse on a surface change", () => {
     const view = render(<CompactAppNavigation activeRoute="plan" />);
-    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close navigation" }));
     view.rerender(<CompactAppNavigation activeRoute="build" />);
     expect(screen.getByRole("button", { name: "Open navigation" })).toHaveAttribute("aria-expanded", "false");
     expect(document.querySelector(".app-nav-current")).toHaveTextContent("Build");
@@ -94,7 +115,7 @@ describe('visible tour entry',()=>{
     writeWalkthrough(localStorage,record,null);return record;
   }
   function Workspace({worldId='elderwyld'}:{worldId?:string|null}){return <GuidedTourProvider worldId={worldId}><CompactAppNavigation activeRoute="build"/></GuidedTourProvider>;}
-  it('offers Start without opening navigation; keyboard opening creates no guidance or domain request',async()=>{
+  it('offers Start with navigation visible; keyboard opening creates no guidance or domain request',async()=>{
     const write=vi.spyOn(Storage.prototype,'setItem'),fetch=vi.spyOn(globalThis,'fetch');
     render(<Workspace/>);
     const entry=screen.getByRole('button',{name:'Start tour'});expect(entry).toBeVisible();
@@ -103,7 +124,7 @@ describe('visible tour entry',()=>{
     expect(screen.getByRole('button',{name:'Close tour panel'})).toHaveFocus();
     fireEvent.click(screen.getByRole('button',{name:'Close tour panel'}));expect(entry).toHaveFocus();
     expect(write).not.toHaveBeenCalled();expect(fetch).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button',{name:'Open navigation'}));
+    fireEvent.click(screen.getByRole('button',{name:'Close navigation'}));
     expect(screen.getAllByRole('button',{name:'Start tour'})).toHaveLength(1);
     expect(screen.queryByRole('button',{name:'Guided journey'})).not.toBeInTheDocument();
   });

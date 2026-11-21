@@ -70,7 +70,7 @@ def test_query_hydration_route_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     with patch(
         "apps.live_control_server.routes.threat_query_hydration.query_threats_with_hydration",
         return_value=fake,
-    ):
+    ) as hydrate:
         response = client.post(
             "/api/live/threats/query-hydration",
             json={
@@ -81,6 +81,8 @@ def test_query_hydration_route_ok(monkeypatch: pytest.MonkeyPatch) -> None:
                 "queryText": "Float Goat",
             },
         )
+    assert hydrate.call_args.kwargs["managed_world"] is True
+    assert hydrate.call_args.args[0].scope_mode == "campaign"
     assert response.status_code == 200
     body = response.json()
     assert body["resultLabel"] == "threat_query_hydration_empty"

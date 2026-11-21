@@ -249,6 +249,83 @@ def test_support_materialization_is_once_per_exact_ref_and_never_crosses_invocat
     assert opens == Counter({ref: 3 for ref in refs})
 
 
+def test_exact_text_batch_opens_one_ordered_unique_set_per_grant(lane, monkeypatch):
+    from apps.live_control_server.services import native_graph_reads as native
+
+    publish(lane, qualified=True)
+    context, _ = query(lane)
+    authorization = grant(context)
+    expected, unavailable = read_selected(context, authorization, GM)
+    assert expected and not unavailable
+    view_type = type(context.pinned[1].source_view)
+    requested = []
+
+    def batch(view, keys):
+        requested.append(keys)
+        return tuple(
+            view.get_native_text_source(
+                source_artifact_id=artifact, source_revision_id=revision, span_id=span
+            )
+            for artifact, revision, span in keys
+        )
+
+    def unexpected_single(*args):
+        raise AssertionError('available spans must come from the batch')
+
+    monkeypatch.setattr(view_type, 'get_native_text_sources', batch, raising=False)
+    monkeypatch.setattr(native, 'open_admitted_native_text', unexpected_single)
+    assert read_selected(context, authorization, GM) == (expected, unavailable)
+    assert len(requested) == 1
+    assert [key[2] for key in requested[0]] == list(dict.fromkeys(
+        context.pinned[1].parsed.get_evidence(span.evidence_ref_id).source_span_ref_id
+        for row in expected for span in row.spans
+    ))
+
+
+def test_exact_batch_failure_preserves_the_ordered_unavailable_support(lane, monkeypatch):
+    from apps.live_control_server.services import native_graph_reads as native
+    from dungeonmind.contracts.vnext.native_source import NativeTextSourceAccessV1
+    from dungeonmind.domain.errors import PersistenceUnavailableError
+
+    original_ref = lane.meta.evidence_ref_ids[0]
+    select_extension_support(lane)
+    lane.meta = replace(lane.meta, evidence_ref_ids=(original_ref, lane.meta.evidence_ref_ids[0]))
+    publish(lane, qualified=True)
+    context, _ = query(lane)
+    reads, _ = read_selected(context, grant(context), GM)
+    account = next(row for row in reads if row.assertion.predicate == 'dnd5e:summary')
+    authorization = grant(context, ids=(account.assertion.assertion_id,))
+    first, later = (item.evidence_ref_id for item in account.spans)
+    original = native.open_admitted_native_text
+    singles = []
+
+    def ordered_open(access, identity):
+        singles.append(identity)
+        if identity == first:
+            return NativeTextSourceAccessV1(status='unavailable')
+        if identity == later:
+            raise PersistenceUnavailableError('later span source failed')
+        return original(access, identity)
+
+    monkeypatch.setattr(native, 'open_admitted_native_text', ordered_open)
+    expected = read_selected(context, authorization, GM)
+    assert account.assertion.assertion_id in expected[1] and later not in singles
+    previous_singles = tuple(singles)
+    singles.clear()
+    attempts = []
+
+    def failed_batch(access, identities):
+        assert identities.index(first) < identities.index(later)
+        attempts.append(identities)
+        raise PersistenceUnavailableError('later span source failed')
+
+    monkeypatch.setattr(type(context.pinned[1].source_view), 'get_native_text_sources',
+                        lambda *_: None, raising=False)
+    monkeypatch.setattr(native, 'open_admitted_native_text_batch', failed_batch)
+    assert read_selected(context, authorization, GM) == expected
+    assert len(attempts) == 1 and tuple(singles) == previous_singles
+
+
 def test_support_materialization_keeps_distinct_spans_from_the_same_source(lane, monkeypatch):
     from collections import Counter
     from apps.live_control_server.services import native_graph_reads as native
@@ -280,7 +357,7 @@ def test_support_materialization_retries_unavailable_without_skipping_assertion_
     context, _ = query(lane)
     target = lane.meta.evidence_ref_ids[0]
     original = native.open_admitted_native_text
-    check = native.EvidenceReadService.get_assertion_evidence
+    check = native.EvidenceReadService.get_assertions_evidence
     opens = Counter()
     checked = []
     def unavailable_once(access, ref):
@@ -288,14 +365,14 @@ def test_support_materialization_retries_unavailable_without_skipping_assertion_
         if ref == target and opens[ref] == 1:
             return NativeTextSourceAccessV1(status='unavailable')
         return original(access, ref)
-    def checked_assertion(service, read_context, identity):
-        checked.append(identity)
-        return check(service, read_context, identity)
+    def checked_assertions(service, read_context, identities):
+        checked.append(tuple(identities))
+        return check(service, read_context, identities)
     monkeypatch.setattr(native, 'open_admitted_native_text', unavailable_once)
-    monkeypatch.setattr(native.EvidenceReadService, 'get_assertion_evidence', checked_assertion)
+    monkeypatch.setattr(native.EvidenceReadService, 'get_assertions_evidence', checked_assertions)
     authorization = grant(context)
     reads, missing = read_selected(context, authorization, GM)
-    assert checked == list(authorization.assertion_ids)
+    assert checked == [tuple(authorization.assertion_ids)]
     assert len(missing) == 1 and reads and opens[target] == 2
     assert tuple(row.assertion.assertion_id for row in reads) == tuple(
         identity for identity in authorization.assertion_ids if identity not in missing)
@@ -1368,10 +1445,45 @@ def test_benchmark_context_boundary_uses_actual_sdk_admission_without_writer_io(
         'graph_request', 'graph_selection', 'plan_context_policy'}
     second = directory / 'next-case'
     workflow.capture_case(client, observed['world'], {k:v for k,v in observed['request'].items() if k in fields},
-        {'id':'next-context', 'question':'Which details are established about B?'}, second, context_only=True)
+        {'id':'next-context', 'question':'Which details are established about B?'}, second,
+        context_only=True, writer_transport=True, detailed_trace=True)
     fresh = json.loads((second / 'history-after.json').read_text())['body']['turns']
     assert len(fresh) == 1 and fresh[0]['turn_id'] != str(turn.turn_id)
     assert fresh[0]['lifecycle_status'] == 'interrupted' and not fresh[0]['assistant_text']
+    transport_ready = json.loads((second / 'context-ready.json').read_text())
+    transport_request = json.loads((second / 'context-request.json').read_text())
+    transport_stop = json.loads((second / 'context-stop.json').read_text())
+    transport_case = dict(case, question='Which details are established about B?',
+        capture_dir=str(second), capture_boundary='writer_transport', detailed_trace=True)
+    transport_report = workflow.report_case(transport_case, Path('.'))
+    assert transport_report['capture_boundary'] == 'writer_transport'
+    assert transport_report['context']['detailed_host_trace']['interval_count'] > 0
+    missing_detail = workflow.report_case(dict(case, detailed_trace=True), Path('.'))
+    assert 'detailed-host-trace' in missing_detail['missing_artifacts']
+    with pytest.raises(ValueError, match='requested mode'):
+        workflow.report_case(dict(transport_case, detailed_trace=False), Path('.'))
+    with pytest.raises(ValueError, match='requested boundary'):
+        workflow.report_case(dict(case, capture_boundary='writer_transport'), Path('.'))
+    with pytest.raises(ValueError, match='requested boundary'):
+        workflow.report_case(dict(transport_case, capture_boundary='context_ready'), Path('.'))
+    packet = validate_context_packet(transport_ready, transport_request, transport_stop)
+    assert packet['request_to_transport_ms'] >= packet['request_to_ready_ms'] >= 0
+    assert not (directory / 'detailed-host-trace.json').exists()
+    detail = json.loads((second / 'detailed-host-trace.json').read_text())
+    assert not detail['truncated']
+    assert detail['end_monotonic_ns'] == transport_stop['transport_sink']['monotonic_ns']
+    intervals = detail['intervals']
+    assert intervals and len({span['trace_id'] for span in intervals}) == 1
+    assert all(detail['start_monotonic_ns'] <= span['start_monotonic_ns']
+               <= span['end_monotonic_ns'] <= detail['end_monotonic_ns'] for span in intervals)
+    assert {'execution_append', 'native_source_append', 'plan_session_finish_before_writer',
+            'native_writer_authorization_persistence', 'route_auth', 'first_jev_transport_entry',
+            'plan_retrieval_complete', 'plan_writer_composition', 'writer_sdk_preparation',
+            'plan_opening_candidate_preparation', 'plan_opening_selection_apply'} <= {span['name'] for span in intervals}
+    tampered = deepcopy(transport_stop)
+    tampered['transport_sink']['body_hex'] += '20'
+    with pytest.raises(ValueError, match='Writer transport bytes'):
+        validate_context_packet(transport_ready, transport_request, tampered)
 
     ready = json.loads((directory / 'context-ready.json').read_text())
     request = json.loads((directory / 'context-request.json').read_text())

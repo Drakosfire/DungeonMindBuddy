@@ -24,6 +24,12 @@ from graph_memory.source_span import build_stable_source_span_id
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
 
 
+@pytest.fixture(autouse=True)
+def worldbuilding_model_aliases(monkeypatch):
+    from tests.worldbuilding_alias_fixture import install_alias_fixture
+    install_alias_fixture(monkeypatch)
+
+
 def _parent(monkeypatch, root):
     fixture = _load_fixture()
     world = create_world_container(name="Eldyrwild")

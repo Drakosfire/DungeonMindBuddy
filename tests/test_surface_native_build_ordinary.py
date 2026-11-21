@@ -295,7 +295,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if self.deny_routing and name=='requested_work':
                     raise AssertionError('The reviewed operation must not be reselected by a model')
                 choices = question['criteria']
-                chosen = ((current_work or ('review_connected_page' if connected_review else 'prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss')) if name=='requested_work' else source_need if name=='source_need'
+                chosen = ((current_work or ('review_connected_page' if connected_review else 'prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss')) if name=='requested_work' else (source_need(writer.adapter.request.message) if callable(source_need) else source_need) if name=='source_need'
                     else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
                     else ('include' if int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
                     else "read" if read_optional_page and name.startswith("related_page_")
@@ -340,7 +340,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             body = json.loads(req.content)
             assert body['model'] == self.adapter._broker_execution().policy.provider_roles.writer.model
             current_work = requested_work(self.adapter.request.message) if callable(requested_work) else requested_work
-            expected_effort = 'medium' if current_work == 'draft_in_conversation' and saved_statblock == 'associated' else 'low'
+            from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
+
+            using_prior_citations = native_conversation_terminal(self.adapter.turn) is not None
+            expected_effort = 'medium' if (using_prior_citations
+                or current_work == 'draft_in_conversation' and saved_statblock == 'associated') else 'low'
             if body.get('reasoning', {}).get('effort') != expected_effort:
                 return httpx.Response(400, request=req, json={'error': {
                     'message': 'Unsupported reasoning effort for configured writer',
@@ -418,7 +422,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert sum(draft.snapshot.draft_markdown in row['content'] for row in body['input'])==1
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
             assert (handles or saved_statblock in {"associated", "by-name"}
-                    or authored_source == 'source_only' or current_work == "review_lore_page")
+                    or authored_source == 'source_only'
+                    or current_work in {"review_lore_page", "review_lore_page_from_conversation"})
             assert 'DISPLAY ONLY' not in str(frame)
             if saved_statblock:
                 from application_state.agent_conversation.response_prompt import VARIANT_BASE
@@ -475,6 +480,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 rule_fields = fields["add_rules"]["items"]["properties"]
                 if "authored_quotes" in rule_fields:
                     new_rule = {"rule": new_rule, "authored_quotes": []}
+                if "authored_passages" in rule_fields:
+                    new_rule = {"rule": new_rule, "authored_passages": []}
                 if "carried_condition" in rule_fields:
                     new_rule["carried_condition"] = None
                 candidate["statblock_variant"] = {
@@ -488,7 +495,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert list(passages) == list(review["properties"]) == review["required"]
                     assert "markdown" not in work["current_draft"]
                     candidate["statblock_variant"]["passage_review"] = dict.fromkeys(passages, "omit")
-            if native_body or authored_source:
+                    if "authored_passages" in rule_fields:
+                        offered = rule_fields["authored_passages"]["items"]["enum"]
+                        assert offered == list(passages)
+                        handle = offered[0]
+                        candidate["statblock_variant"]["passage_review"][handle] = "retain"
+                        new_rule["authored_passages"] = [handle]
+            if (native_body or authored_source) and not using_prior_citations:
                 from application_state.agent_conversation import native_corpus as corpus
                 acquired = corpus.acquired_body_reads(self.adapter._broker_execution())
                 assert acquired
@@ -500,7 +513,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                         excerpt_handles=[r['excerpt_handle'] for r in exposed]))
                 else:
                     assert all(r.excerpt.text not in json.dumps(frame) for r in acquired)
-            if requested_work == "review_lore_page":
+            if using_prior_citations:
+                exposed = frame["native_body_evidence"]["excerpts"]
+                assert exposed and all(row["prior_claim"] == "The source describes a source-local episode."
+                    for row in exposed)
+                candidate["answer_segments"] = [dict(kind="native_body_claim",
+                    text="The source describes a source-local episode.",
+                    excerpt_handles=[row["excerpt_handle"] for row in exposed])]
+            if current_work in {"review_lore_page", "review_lore_page_from_conversation"}:
                 from apps.live_control_server.services.plan_jev_writer import LORE_PROPOSAL_GUIDANCE
 
                 author_text = self.adapter.turn.user_text
@@ -517,6 +537,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     "kind": "lore_page",
                     "destination": {"instruction": author_text, "title": "Glass Regent"},
                 }
+                if current_work == "review_lore_page_from_conversation":
+                    candidate["collaboration"]["open_questions"] = ["Why did the Regent leave?"]
             if connected_review:
                 section=next(row for row in sections if 'A proposed conversation.' in source_text(row))
                 candidate['answer_segments']=([dict(kind='proposal',label='invented_idea',
@@ -1196,7 +1218,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert context['completion']['answer_context_status'] == expected_status
         assert context['completion']['native_assertion_citations'] == []
         return SimpleNamespace(client=client, world=world, turn=turn, decisions=decisions)
-    if requested_work == "review_lore_page":
+    if (requested_work(message) if callable(requested_work) else requested_work) in {
+            "review_lore_page", "review_lore_page_from_conversation"}:
         assert context["completion"]["collaboration"]["kind"] == "lore_page"
         assert not context["completion"]["native_assertion_citations"]
         history = client.get(
@@ -2461,12 +2484,30 @@ def test_standalone_page_intent_preserves_the_page_owner_boundary(lane, tmp_path
 
 
 
-def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path, monkeypatch):
+def test_anchored_lore_label_on_eager_graph_route_preserves_related_context(lane, tmp_path, monkeypatch):
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, True, False, False,
+        message="Create a page for Glass Regent.",
+        requested_work="review_lore_page_from_conversation",
+        source_need="anchored",
+        read_optional_page=True,
+    )
+    assert case.turn.completion.collaboration.kind == "lore_page"
+    from application_state.agent_conversation import build_related_pages
+
+    execution = case.turn.graph_context_execution
+    assert build_related_pages.project(execution) is not None
+    assert not any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1) for event in execution.events)
+
+
+@pytest.mark.parametrize("carry", [None, "anchored", "uncertain"])
+def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path, monkeypatch, carry):
     from application_state.agent_conversation.native_corpus import acquired_body_reads
 
     from evals.buddy_benchmark import workflow
 
     thread_id, template = str(uuid4()), {}
+    synthesis = "Create a page for Glass Regent."
 
     def first(client, world, body):
         body["client_thread_id"] = thread_id
@@ -2476,7 +2517,9 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, False, False, False,
         message="Create a blank page for Glass Regent.",
-        requested_work="review_lore_page", native_body="direct_support", dispatch=first, lore_limitation=True,
+        requested_work=lambda message: "review_lore_page_from_conversation" if message == synthesis else "review_lore_page",
+        native_body="direct_support", dispatch=first, lore_limitation=True,
+        source_need=lambda message: carry if message == synthesis else "source_lookup",
     )
     blank = case.turn
     assert not blank.completion.answer_segments
@@ -2495,6 +2538,53 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
     from application_state.agent_conversation.lore_page_confirmation import LorePageConfirmation
     from application_state.agent_conversation.rules_authority_types import canonical_sha256
     from application_state.content import pages
+
+    producing = populated
+    if carry:
+        from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
+        from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+
+        from apps.live_control_server.services import native_graph_reads
+
+        def unexpected_graph_preparation(*args, **kwargs):
+            pytest.fail("Conversation-only draft started Graph preparation")
+
+        with monkeypatch.context() as patch:
+            patch.setattr(native_graph_reads, "prepare_query", unexpected_graph_preparation)
+            response = workflow.capture_case(
+                case.client, case.world, template, {"question": synthesis},
+                tmp_path / "lore-synthesis", build_thread_id=thread_id,
+                expected_conversation_id=str(blank.conversation_id),
+            )
+        assert response.status_code == 200, response.text
+        history = case.client.get(f"/api/live/agent/worlds/{case.world}/conversation")
+        row = max(history.json()["turns"], key=lambda turn: turn["sequence"])
+        populated = AgentConversationService().inspect_turn(world_id=case.world, turn_id=UUID(row["turn_id"]))
+        assert isinstance(populated.graph_context_receipt.native_query, NativeBuildQueryPendingV1)
+        assert not any(isinstance(e, NativeBuildQuerySettledV1) for e in populated.graph_context_execution.events)
+        from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
+        assert native_conversation_terminal(populated)["reason"] == (
+            "native_lore_page_from_conversation_with_open_questions" if carry == "uncertain"
+            else "native_lore_page_from_conversation"
+        )
+        assert not acquired_body_reads(populated.graph_context_execution)
+        assert all(c.prior_reference.turn_id == producing.turn_id for c in populated.completion.native_body_citations)
+        for number in range(6 if carry == "anchored" else 0):
+            response = workflow.capture_case(
+                case.client, case.world, template, {"question": synthesis},
+                tmp_path / f"lore-revision-{number}", build_thread_id=thread_id,
+                expected_conversation_id=str(blank.conversation_id),
+            )
+            assert response.status_code == 200, response.text
+        history = case.client.get(f"/api/live/agent/worlds/{case.world}/conversation")
+        row = max(history.json()["turns"], key=lambda turn: turn["sequence"])
+        populated = AgentConversationService().inspect_turn(world_id=case.world, turn_id=UUID(row["turn_id"]))
+        if carry == "anchored":
+            assert producing.turn_id not in {
+                pin.turn_id for pin in populated.graph_context_receipt.assembled_input.included_history
+            }
+        assert populated.completion.native_body_citations
+        assert all(c.prior_reference.turn_id == producing.turn_id for c in populated.completion.native_body_citations)
 
     completion = populated.completion
     assert completion.collaboration.destination.title == "Glass Regent"
@@ -2553,12 +2643,15 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
     assert reopened.page.title == "Glass Regent"
     assert str(reopened.revision.work_revision_id) == receipt["revision_id"]
     assert completion.answer_segments[0].text in reopened.revision.markdown
+    if carry:
+        assert completion.collaboration.open_questions == ("Why did the Regent leave?",)
+        assert "## Open questions\n\n- Why did the Regent leave?" in reopened.revision.markdown
     assert f"/conversation/turns/{populated.turn_id}/native-body-excerpts/0" in reopened.revision.markdown
     assert {segment.kind for segment in completion.answer_segments} == {"source_passage_claim", "limitation"}
     assert all(segment.text not in reopened.revision.markdown for segment in completion.answer_segments
                if segment.kind == "limitation")
     reads = {
-        read.event_id: read.excerpt.text for read in acquired_body_reads(populated.graph_context_execution)
+        read.event_id: read.excerpt.text for read in acquired_body_reads(producing.graph_context_execution)
     }
     assert completion.native_body_citations
     import re

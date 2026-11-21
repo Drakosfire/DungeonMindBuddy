@@ -216,6 +216,7 @@ def create_source_artifact_from_workspace_document(
     document_id: str,
     expected_revision: int | None = None,
     expected_content_sha256: str | None = None,
+    authorize_world: Callable[[str | None], None] | None = None,
 ) -> GraphMemorySourceArtifact:
     """Capture coherent saved Page bytes in APP; Core owns source admission."""
     snapshot = _committed_page_input(root, document_id)
@@ -266,7 +267,8 @@ def create_source_artifact_from_workspace_document(
         created_at=now,
         updated_at=now,
     )
-    return _register_page_source(root, candidate, content)
+    authorize = None if authorize_world is None else lambda: authorize_world(record.world_id)
+    return _register_page_source(root, candidate, content, authorize=authorize)
 
 
 def create_recap_source_artifact_from_workspace_document(

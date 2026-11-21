@@ -104,15 +104,20 @@ def _model_frame_from_validated_prefix(receipt, execution, *, schema=SCHEMA, pas
     query = effective_native_query(receipt, execution)
     from .native_context import NativeBuildQueryPendingV1
     if isinstance(query, NativeBuildQueryPendingV1):
-        raise ValueError("Native writer requires the settled Build Graph query")
+        if not any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1) for event in execution.events):
+            raise ValueError("Native writer requires its Build query or conversation evidence admission")
+        query = None
     partial = (isinstance(receipt.source_authority, t.NativeCorpusUnavailableV1)
         or isinstance(query, statements.NativePlanQueryUnavailableV1)
         or bodies.body_input_partial(execution)
         or statements.input_partial_records(query, execution)
         or assertions.input_partial_records(query, execution))
+    body_frame = bodies.model_body_frame_records(receipt.source_authority, execution, body_handle,
+        passages_only=passages_only)
+    body_frame["excerpts"].extend(support.frame() for support in bodies.prior_body_writer_supports(execution))
     return dict(schema=schema, answer_policy=assertions.POLICY, input_status='partial' if partial else 'complete',
         user_question=execution.policy.action.intent.message,
-        native_body_evidence=bodies.model_body_frame_records(receipt.source_authority, execution, body_handle, passages_only=passages_only),
+        native_body_evidence=body_frame,
         native_statements=statements.model_frame_records(query, execution),
         native_assertions=assertions.model_frame_records(query, execution,
             schema='dmb_plan_native_assertion_frame_v1' if schema == LEGACY_SCHEMA else 'dmb_native_assertion_frame_v2',
@@ -148,6 +153,7 @@ class NativeWriterEvidence:
     variant_carried_condition: bool = False
     variant_passage_review: bool = False
     variant_trigger_retention: bool = False
+    variant_passage_witnesses: bool = False
 
 
 def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_proof,
@@ -315,13 +321,14 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     from .native_execution import NativePlanActionV2
     body = strict_json(raw)
     messages = body.get('input')
-    prose_frame = prose_work = None
+    prose_host = prose_frame = prose_work = None
     if type(prefix.policy.action) is NativePlanActionV2 and isinstance(messages, list):
         prose = [message.get('content') for message in messages
                  if isinstance(message, dict) and isinstance(message.get('content'), str)
                  and message['content'].startswith(PLAN_EVIDENCE_HEADING)]
         if prose:
-            prose_frame = semantic_frame(model_frame(receipt, prefix, passages_only=True))
+            prose_host = model_frame(receipt, prefix, passages_only=True)
+            prose_frame = semantic_frame(prose_host)
             from .native_plan_work_view import semantic_frame as plan_work_view
             prose_work = plan_work_view(expected_work, prefix)
             expected_message = {'role': 'user', 'content': render_plan_evidence(prose_frame, prose_work)}
@@ -348,7 +355,12 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     if not isinstance(frame,dict):
         raise ValueError('Native writer requires its exact evidence presentation')
     from .native_evidence_view import is_semantic_frame,expected_semantic_frame,output_frame
-    host = model_frame(receipt,prefix,passages_only=prose_frame is not None) if is_semantic_frame(frame) else model_frame(receipt,prefix,schema=frame.get('schema'))
+    if prose_host is not None:
+        host = prose_host
+    elif is_semantic_frame(frame):
+        host = model_frame(receipt, prefix)
+    else:
+        host = model_frame(receipt, prefix, schema=frame.get('schema'))
     expected = expected_semantic_frame(host, frame) if is_semantic_frame(frame) else host
     schema_frame = output_frame(host,expected)
     from .native_plan_work_view import is_semantic_frame as semantic_work, semantic_frame as plan_work_view
@@ -356,7 +368,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     play_local = semantic_play(work_frame)
     authored_local = semantic_work(work_frame) or play_local
     from .native_build_work_view import is_semantic_frame as semantic_build, semantic_frame as build_work_view
-    from .native_build_work_view import VARIANT_CARRIED_CONDITION_FORMAT, VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_WRITER_FORMAT, VARIANT_PASSAGE_FORMATS, VARIANT_TRIGGER_RETENTION_FORMAT
+    from .native_build_work_view import VARIANT_CARRIED_CONDITION_FORMAT, VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_WRITER_FORMAT, VARIANT_PASSAGE_FORMATS, VARIANT_TRIGGER_RETENTION_FORMAT, VARIANT_PASSAGE_WITNESS_FORMAT
     build_local = semantic_build(work_frame)
     format_name = body.get("text", {}).get("format", {}).get("name")
     variant_passage_review = format_name in VARIANT_PASSAGE_FORMATS
@@ -414,7 +426,8 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         variant_witnesses=format_name in {VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS},
         variant_carried_condition=format_name in {VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS},
         variant_passage_review=variant_passage_review,
-        variant_trigger_retention=format_name == VARIANT_TRIGGER_RETENTION_FORMAT,
+        variant_trigger_retention=format_name in {VARIANT_TRIGGER_RETENTION_FORMAT, VARIANT_PASSAGE_WITNESS_FORMAT},
+        variant_passage_witnesses=format_name == VARIANT_PASSAGE_WITNESS_FORMAT,
         saved_sections=saved_sections,related_pages=related_pages,draft_record=draft_record,
         **read_evidence_records(prefix,expected,passages_only=prose_frame is not None))
 
@@ -426,6 +439,7 @@ def read_evidence_records(prefix, frame, *, passages_only=False):
     supports = (bodies.writer_passage_supports(prefix, body_handle) if passages_only else tuple(
         bodies.NativeBodySupport(body_handle(read), read, catalogs[read.excerpt.catalog_sha256])
         for read in bodies.selected_body_reads(prefix)))
+    supports += bodies.prior_body_writer_supports(prefix)
     statement_reads = statements.selected_read_records(prefix)
     assertion_reads = _writer_assertion_reads(prefix, passages_only=passages_only)
     return dict(body_excerpts=tuple(replace(support, handle=row['excerpt_handle']) for row, support in

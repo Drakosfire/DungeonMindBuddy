@@ -533,7 +533,6 @@ describe("canonical local guest entry", () => {
       "/api/live/index-graph/graph",
     ]);
 
-    await user.click(screen.getByRole("button", { name: "Open navigation" }));
     await user.click(screen.getByRole("link", { name: "Plan" }));
     await waitFor(() => expect(window.location.pathname).toBe("/plan"));
     expect(screen.queryByRole("link", { name: "Sign in with DungeonMind" })).not.toBeInTheDocument();
@@ -555,7 +554,7 @@ describe("canonical local guest entry", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "Buddy graph playground" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Plan" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan");
     expect(screen.getByRole("link", { name: "Sign in with DungeonMind" })).toHaveAttribute(
       "href", "/api/auth/login?return_to=%2Fgraph",
     );
@@ -626,6 +625,46 @@ describe("canonical local guest entry", () => {
     expect(screen.getByRole("link", { name: "DungeonMind Buddy" })).toHaveAttribute("href", "/?world=world-a");
     expect(screen.queryByRole("link", { name: "Sign in with DungeonMind" })).not.toBeInTheDocument();
     expect(screen.getByText("Continue in World A.")).toBeInTheDocument();
+  });
+
+  it("offers Build while a new World's graph is provisioning", async () => {
+    vi.stubEnv("PROD", true);
+    window.history.replaceState({}, "", "/?world=world-a");
+    const fallback = managedServerFetch({ authStatus: "authenticated" });
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+      String(input) === "/api/live/world-containers/lookup?managed_world_id=world-a"
+        ? Promise.resolve(Response.json({ ...managedWorldRecord("world-a", "World A"),
+          native_graph_binding: { status: "provisioning", binding_version: 1 } }))
+        : fallback(input, init)));
+    render(<App />);
+    expect(await screen.findByRole("link", { name: "Open in Build" })).toHaveAttribute("href", "/build?world=world-a");
+    expect(screen.getByText("Start with a source in World A. Your graph isn’t ready yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open your World" })).not.toBeInTheDocument();
+  });
+
+  it("refreshes graph readiness when returning Home after publication", async () => {
+    vi.stubEnv("PROD", true);
+    window.history.replaceState({}, "", "/?world=world-a");
+    const fallback = managedServerFetch({ authStatus: "authenticated" });
+    let status: "provisioning" | "active" = "provisioning";
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+      String(input) === "/api/live/world-containers/lookup?managed_world_id=world-a"
+        ? Promise.resolve(Response.json({ ...managedWorldRecord("world-a", "World A"),
+          native_graph_binding: { status, binding_version: 1 } }))
+        : fallback(input, init)));
+    render(<App />);
+    expect(await screen.findByRole("link", { name: "Open in Build" })).toBeInTheDocument();
+    act(() => {
+      window.history.pushState({}, "", "/build?world=world-a");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    status = "active";
+    act(() => {
+      window.history.pushState({}, "", "/?world=world-a");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(await screen.findByRole("link", { name: "Open your World" })).toHaveAttribute("href", "/graph?world=world-a");
+    expect(screen.queryByText(/Your graph isn’t ready yet/)).not.toBeInTheDocument();
   });
 
   it("offers the existing World chooser on authenticated Home without a selection", async () => {
@@ -821,7 +860,7 @@ describe("canonical local guest entry", () => {
       expect(screen.getByLabelText(/^Account:/)).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Add object" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Plan" })).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan?world=world-a");
       expect(fetchMock.mock.calls.every(([path]) => [
         "/api/auth/session", "/api/live/world-containers/lookup?managed_world_id=world-a", "/api/live/native-graph-explorer/graph",
       ].includes(String(path)))).toBe(true);

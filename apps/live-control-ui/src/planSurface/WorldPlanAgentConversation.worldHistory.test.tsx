@@ -2938,6 +2938,27 @@ describe("World Plan conversation consumer", () => {
     expect(ask).not.toHaveBeenCalled();
   });
 
+  it.each([403, 404, 409, 410, 500])("keeps saved recap unavailable after read refusal %s without provider repost", async (status) => {
+    const context = await planGraphContext("graph_grounded");
+    context.source_open_targets = [sourceOpenTargets()[1]!];
+    setupApi(await historyV2("conversation-a", 5, [policyHistoryTurn(
+      1, "unavailable-recap-turn", "What happened?", "The gate is watched.", context,
+    )]));
+    const ask = vi.spyOn(liveApi, "postWorldPlanAgentTurn");
+    const read = vi.spyOn(liveApi, "postWorldGraphRecapContextReadV2")
+      .mockRejectedValue(new liveApi.LiveApiError("Saved context unavailable.", status));
+    render(conversationElement());
+    await expandAnswerEvidence();
+    fireEvent.click(await screen.findByRole("button", { name: "Open related recap context" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/could not open this pinned passage/);
+    expect(screen.queryByLabelText("Related recap context passage")).not.toBeInTheDocument();
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(read).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      worldId, turnId: "unavailable-recap-turn", claimId: "claim-internal-test",
+    }));
+    expect(ask).not.toHaveBeenCalled();
+  });
+
   it.each(["offset", "section", "form", "marker", "selector", "extra", "old_cursor"])("rejects changed V2 continuation %s", async (fault) => {
     const context = await planGraphContext("graph_grounded");
     context.source_open_targets = [sourceOpenTargets()[1]!];

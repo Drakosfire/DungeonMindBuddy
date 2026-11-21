@@ -14,6 +14,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
   return {
     ...actual,
     getCommittedPageSnapshot: vi.fn(),
+    getWorkspaceDocumentSnapshot: vi.fn(),
     admitNativeWorldSource: vi.fn(),
     listWorkspacePageInventory: vi.fn(),
     listWorldContainers: vi.fn(),
@@ -92,6 +93,7 @@ async function waitForWorldDocumentUrl(worldId: string, documentId: string) {
 describe("useBuildWorkspaceDocumentController", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(id => liveApi.getCommittedPageSnapshot(id));
     vi.mocked(liveApi.admitNativeWorldSource).mockResolvedValue(
       {} as NativeWorldSourceAdmissionStatus,
     );
@@ -157,6 +159,49 @@ describe("useBuildWorkspaceDocumentController", () => {
     });
     expect(liveApi.listWorkspacePageInventory).toHaveBeenCalledWith({worldId: undefined}, undefined);
     expect(result.current.documents).toHaveLength(2);
+    expect(liveApi.listWorkspacePageInventory).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([true, false])("opens a saved document before starting lists (found: %s)", async (found) => {
+    let resolve!: (value: ReturnType<typeof mockSnapshot>) => void;
+    let reject!: (reason: Error) => void;
+    const snapshot = new Promise<ReturnType<typeof mockSnapshot>>((accept, fail) => {
+      resolve = accept;
+      reject = fail;
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockReturnValueOnce(snapshot);
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    expect(liveApi.getWorkspaceDocumentSnapshot).toHaveBeenCalledWith(DOC_A);
+    expect(liveApi.listWorkspacePageInventory).not.toHaveBeenCalled();
+    expect(liveApi.listWorldContainers).not.toHaveBeenCalled();
+
+    await act(async () => {
+      if (found) resolve(mockSnapshot(DOC_A));
+      else reject(new Error("Unavailable"));
+    });
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+    expect(result.current.loadStatus).toBe(found ? "ready" : "error");
+    expect(liveApi.listWorkspacePageInventory).toHaveBeenCalledTimes(1);
+    expect(liveApi.listWorldContainers).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts lists when history leaves a pending deep link for blank Build", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockReturnValueOnce(new Promise(() => {}));
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    expect(liveApi.listWorkspacePageInventory).not.toHaveBeenCalled();
+
+    act(() => {
+      window.history.replaceState({}, "", "/build");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+    expect(result.current.loadStatus).toBe("empty");
+    expect(liveApi.listWorkspacePageInventory).toHaveBeenCalledTimes(1);
+    expect(liveApi.listWorldContainers).toHaveBeenCalledTimes(1);
   });
 
   it("admits document from URL and canonicalizes campaign", async () => {
@@ -172,6 +217,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     });
     expect(result.current.activeRecord?.document_id).toBe(DOC_A);
     expect(new URLSearchParams(window.location.search).get("campaign")).toBe("longmont-c1");
+    expect(liveApi.listWorkspacePageInventory).toHaveBeenCalledTimes(1);
   });
 
   it("selectDocument switches after successful resolve", async () => {

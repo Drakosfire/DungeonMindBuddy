@@ -1061,7 +1061,9 @@ def test_context_capture_cli_is_explicit_and_does_not_select_a_response_mode(mon
     calls = []
     monkeypatch.setattr(w, 'capture', lambda *a, **kw: calls.append((a, kw)))
     w.main(['capture-context', '--manifest', 'pinned.json', '--output', 'isolated'])
-    assert calls == [(('pinned.json', 'isolated'), {'context_only': True})]
+    assert calls == [(('pinned.json', 'isolated'), {'context_only': True, 'writer_transport': False, 'detailed_trace': False})]
+    w.main(['capture-context', '--manifest', 'pinned.json', '--output', 'isolated', '--writer-transport'])
+    assert calls[-1] == (('pinned.json', 'isolated'), {'context_only': True, 'writer_transport': True, 'detailed_trace': False})
 
 
 @pytest.mark.parametrize('policy', ['absent', None, {}, {'policy': 'auto_plan_world'}, {
@@ -1108,6 +1110,30 @@ def test_context_network_guard_is_below_sdk_preparation_and_restored(tmp_path, m
     assert PlanJevWriter.run is direct_run and PlanJevWriter.authorize is original
 
 
+def test_transport_capture_intercepts_exact_bytes_and_never_delegates(tmp_path, monkeypatch):
+    import asyncio
+    import httpx
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from evals.buddy_benchmark.context_capture import ContextCapture, ContextReadyStop
+
+    url = 'https://api.openai.com/v1/responses'
+    body = b'{"input":"exact bytes"}'
+    async def direct_run(writer, *, transport=None, api_key=None):
+        await transport.handle_async_request(httpx.Request('POST', url, content=body))
+
+    monkeypatch.setattr(PlanJevWriter, 'run', direct_run)
+    stop = ContextCapture(tmp_path, writer_transport=True)
+    stop.request = {'body_hex': body.hex()}
+    delegated = []
+    supplied = httpx.MockTransport(lambda request: delegated.append(request))
+    with stop.install(), pytest.raises(ContextReadyStop):
+        asyncio.run(PlanJevWriter.run(SimpleNamespace(), transport=supplied))
+    assert stop.guard_hits == 1 and stop.stop_issued and not delegated
+    assert stop.transport_sink['url'] == url
+    assert stop.transport_sink['body_hex'] == body.hex()
+    assert not list(tmp_path.iterdir())
+
+
 @pytest.mark.parametrize('failure', [False, ValueError('rejected input')])
 def test_failed_context_authorization_cannot_emit_a_ready_packet(tmp_path, monkeypatch, failure):
     from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
@@ -1127,11 +1153,13 @@ def test_failed_context_authorization_cannot_emit_a_ready_packet(tmp_path, monke
     assert not stop.stop_issued and not list(tmp_path.iterdir())
 
 
-def test_context_artifact_failure_cannot_be_reported_as_an_issued_stop(tmp_path, monkeypatch):
+def test_context_artifact_failure_cannot_be_reported_as_a_success(tmp_path, monkeypatch):
     from datetime import datetime, timezone
     from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
     from evals.buddy_benchmark import context_capture as cc
-    prepared = object()
+    prepared = SimpleNamespace(provider='openai', model='test', api_mode='responses',
+        method='POST', url='https://api.openai.com/v1/responses', body=b'{}',
+        body_size=2, body_sha256=sha256(b'{}').hexdigest())
     turn = SimpleNamespace(world_id='world', conversation_id=uuid4(), turn_id=uuid4(), attempt=1,
         accepted_at=datetime.now(timezone.utc), graph_context_receipt=SimpleNamespace(
             context_receipt_sha256='a'*64, work_context=SimpleNamespace(surface_id='plan')))
@@ -1142,9 +1170,13 @@ def test_context_artifact_failure_cannot_be_reported_as_an_issued_stop(tmp_path,
         raise OSError('capture storage unavailable')
     monkeypatch.setattr(cc, 'immutable_save', fail_write)
     stop = cc.ContextCapture(tmp_path)
-    with stop.install(), pytest.raises(OSError, match='storage unavailable'):
+    with stop.install(), pytest.raises(cc.ContextReadyStop):
         PlanJevWriter.authorize(writer, prepared)
-    assert stop.authorization_calls == 1 and not stop.stop_issued and not list(tmp_path.iterdir())
+    assert stop.authorization_calls == 1 and stop.stop_issued and not list(tmp_path.iterdir())
+    turn.model_dump = lambda **kwargs: {}
+    with pytest.raises(OSError, match='storage unavailable'):
+        stop.finalize(turn)
+    assert not list(tmp_path.iterdir())
 
 
 def _native_order_schema():
@@ -1209,6 +1241,109 @@ def test_context_tasting_checks_actual_wire_before_http(tmp_path, monkeypatch, l
             {'role': 'user', 'content': 'Frozen evidence'}]
         assert (target/'A/result.json').exists()
 
+
+def test_trace_report_counts_overlapping_spans_once(tmp_path, monkeypatch):
+    from evals.buddy_benchmark import trace_report
+
+    case = tmp_path / "example"
+    case.mkdir()
+    for name in ("context-ready", "context-request", "context-stop"):
+        immutable_save(case, name, {})
+    immutable_save(case, "detailed-host-trace", {
+        "trace_id": "trace", "start_monotonic_ns": 1_000_000, "end_monotonic_ns": 31_000_000,
+        "truncated": False, "intervals": [
+            {"name": name, "start_monotonic_ns": start * 1_000_000,
+             "end_monotonic_ns": end * 1_000_000}
+            for name, start, end in (("runtime_dispatch", 1, 31),
+                                     ("read", 1, 11), ("bind <evidence>", 6, 21), ("dispatch_point", 16, 16))
+        ],
+    })
+    monkeypatch.setattr(trace_report, "validate_context_packet", lambda *args: {
+        "turn": SimpleNamespace(world_id="world", user_text="Question"),
+        "request_to_ready_ms": 30,
+    })
+    monkeypatch.setattr(trace_report, "summarize_host_trace", lambda *args: None)
+    report = trace_report.build(tmp_path, "example", world="world", question="Question")
+    assert report["allocated_ms"] == {
+        "read": 5, "bind <evidence> / read": 5, "bind <evidence>": 10, "Unattributed": 10,
+    }
+    assert report["observed_duration_percent"] == pytest.approx(200 / 3)
+    operations = {row["name"]: row for row in report["operations"]}
+    assert operations["read"] == {"name": "read", "calls": 1, "markers": 0, "inclusive_ms": 10,
+                                  "max_call_ms": 10, "exclusive_ms": 5, "wrapper_excluded": False}
+    assert operations["dispatch_point"]["calls"] == 0
+    assert operations["dispatch_point"]["markers"] == 1
+    assert operations["runtime_dispatch"]["wrapper_excluded"] is True
+    assert operations["runtime_dispatch"]["exclusive_ms"] == 0
+    assert report["start_boundary"] == "request_start"
+    assert report["end_boundary"] == "writer_ready"
+    rendered = trace_report.render(report)
+    assert "&lt;evidence&gt;" in rendered
+    assert "Question" not in rendered
+    with pytest.raises(ValueError, match="differs from the manifest case"):
+        trace_report.build(tmp_path, "example", world="elsewhere", question="Question")
+
+
+def test_trace_report_binds_browser_clock_to_durable_turn(tmp_path, monkeypatch):
+    from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
+    from evals.buddy_benchmark import trace_report
+
+    case = tmp_path / "example"
+    case.mkdir()
+    request = {"owner_scope": {"world_id": "world"}, "message": "Question", "turn_id": "browser-turn"}
+    for name in ("context-ready", "context-request", "context-stop"):
+        immutable_save(case, name, {})
+    immutable_save(case, "request", request)
+    immutable_save(case, "detailed-host-trace", {"trace_id": "trace", "truncated": False,
+        "start_monotonic_ns": 3_000_000, "end_monotonic_ns": 5_000_000, "intervals": []})
+    turn = SimpleNamespace(world_id="world", user_text="Question",
+                           idempotency_key=_turn_idempotency_key("world", "other-turn"))
+    monkeypatch.setattr(trace_report, "validate_context_packet", lambda *args: {
+        "turn": turn, "request_to_ready_ms": 2,
+    })
+    monkeypatch.setattr(trace_report, "summarize_host_trace", lambda *args: None)
+    immutable_save(tmp_path, "browser-timing", {"request": request, "before": [[0, 0]], "after": [[0, 0]],
+        "browserMarks": {"click": 1, "request": 2, "preflight": [{"start": 0, "end": 2, "phase": "invalid"}]}})
+    with pytest.raises(ValueError, match="different durable case request"):
+        trace_report.build(tmp_path, "example", world="world", question="Question")
+    turn.idempotency_key = _turn_idempotency_key("world", "browser-turn")
+    with pytest.raises(ValueError, match="outside Send preparation"):
+        trace_report.build(tmp_path, "example", world="world", question="Question")
+
+
+def test_context_capture_selects_browser_case_only_at_writer_sink(monkeypatch):
+    calls = []
+    monkeypatch.setattr(w, "capture", lambda *args, **kwargs: calls.append((args, kwargs)))
+    argv = ["capture-context", "--manifest", "pinned.json", "--output", "isolated", "--case", "D05"]
+    with pytest.raises(SystemExit):
+        w.main(argv)
+    assert not calls
+    w.main(argv + ["--writer-transport"])
+    assert calls == [(("pinned.json", "isolated"), {
+        "context_only": True, "writer_transport": True, "detailed_trace": False, "browser_case": "D05",
+    })]
+
+
+def test_browser_inputs_rejects_bundle_drift_before_replay(tmp_path):
+    from evals.buddy_benchmark.browser_capture import browser_inputs
+
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    index = bundle / "index.html"
+    index.write_text("Pinned UI")
+    inventory = tmp_path / "bundle.json"
+    inventory.write_text(json.dumps({"index.html": sha256(index.read_bytes()).hexdigest()}))
+    tape = tmp_path / "wire.json"
+    tape.write_text(json.dumps([{"method": "POST", "response_status": 200,
+                                "request_hex": "7b7d", "response_hex": "7b7d"}]))
+    def pin(path):
+        return {"path": path.name, "sha256": sha256(path.read_bytes()).hexdigest()}
+    manifest = {"browser_capture": {"bundle": bundle.name, "bundle_inventory": pin(inventory),
+                                    "jev_wire": pin(tape)}}
+    assert browser_inputs(manifest, tmp_path)[0] == bundle
+    index.write_text("Changed UI")
+    with pytest.raises(ValueError, match="bundle differs"):
+        browser_inputs(manifest, tmp_path)
 
 @pytest.mark.parametrize("changed", [False, True])
 def test_cohort_inventory_brackets_parallel_members(tmp_path, monkeypatch, changed):

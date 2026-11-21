@@ -37,9 +37,9 @@ def test_populated_corpus_downgrade_refuses_authority_loss(corpus, application_s
 
 
 def test_exact_search_receipts_replay_without_another_scan(corpus, monkeypatch):
-    from apps.live_control_server.services import corpus_source_navigation
+    from apps.live_control_server.integrations.dungeonmind import corpus_source_inventory
     adapter,turn=stage(corpus)
-    monkeypatch.setattr(corpus_source_navigation,'collect_source_view',lambda *a,**kw:pytest.fail('receipt replay scanned sources'))
+    monkeypatch.setattr(corpus_source_inventory,'collect_source_view',lambda *a,**kw:pytest.fail('receipt replay scanned sources'))
     grant=next(e for e in turn.graph_context_execution.events if isinstance(e,t.CorpusSourceSearchAuthorizedV1))
     replay,fresh=adapter.service.authorize_corpus_source_search(turn.world_id,turn.conversation_id,turn.turn_id,
         expected_revision=turn.revision,expected_attempt=turn.attempt,authorization=grant)

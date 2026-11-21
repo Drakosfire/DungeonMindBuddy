@@ -27,6 +27,7 @@ def client(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn: str
 ) -> TestClient:
     monkeypatch.setattr("apps.live_control_server.routes.graph_preview.repo_root", lambda: tmp_path)
+    monkeypatch.setattr("apps.live_control_server.routes.build_extraction.repo_root", lambda: tmp_path)
     monkeypatch.setattr(
         "apps.live_control_server.services.workspace_document_registry.repo_root",
         lambda: tmp_path,
@@ -59,6 +60,35 @@ def test_historical_recap_projection_rejects_duplicate_managed_world_selector(
 
     assert response.status_code == 422
     assert "accepts one managed_world_id selector" in str(response.json()["detail"])
+
+
+@pytest.mark.parametrize("selector", ["", "?managed_world_id=elderwyld"])
+def test_historical_recap_projection_is_retired_without_authority_io(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, selector: str,
+) -> None:
+    from application_state.source import service as source
+    from apps.live_control_server.services import historical_recap_world_projection as historical
+    from apps.live_control_server.services import graph_run_registry
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("Retired projection must not load run/source/Core authority")
+
+    monkeypatch.setattr(historical, "build_historical_recap_world_projection", forbidden)
+    monkeypatch.setattr(historical, "get_extraction_run", forbidden)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", forbidden)
+    monkeypatch.setattr(source, "get_source_markdown", forbidden)
+    monkeypatch.setattr(historical, "direct_services_from_config", forbidden)
+    monkeypatch.setattr(historical, "project_world_graph", forbidden)
+    monkeypatch.setattr(world_graph_reads, "direct_services_from_config", forbidden)
+    response = client.get(
+        "/api/live/graph-preview/extraction-runs/exact-run/recap-projection" + selector,
+    )
+    assert response.status_code == 410, response.text
+    assert response.json()["detail"] == {
+        "code": "exact_run_graph_retired",
+        "message": "Historical graph visualization is retired. Open the saved source or extracted candidates.",
+    }
 
 
 class _FixtureCategoryClient:

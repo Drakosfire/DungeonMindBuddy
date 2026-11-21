@@ -170,6 +170,25 @@ def _node(node_id: str, *, label: str, kind: str = "Threat") -> WorldGraphProjec
     )
 
 
+def _seed_historical_identity(root, path, *, json):
+    """Test-owned historical fixture producer; never invokes retired HTTP."""
+    from types import SimpleNamespace
+    from apps.live_control_server.models.threat_publication_identity import (
+        CreateThreatIdentityResolutionRequestV1, PrepareThreatIdentityCandidatesRequestV1,
+    )
+    parts = path.split("/")
+    draft, operation = parts[4], parts[6]
+    if path.endswith("/identity-candidates/prepare"):
+        outcome = identity_svc.prepare_identity_candidates(
+            root, draft, operation, PrepareThreatIdentityCandidatesRequestV1.model_validate(json))
+    else:
+        assert path.endswith("/identity-resolutions")
+        outcome = identity_svc.decide_identity_resolution(
+            root, draft, operation, CreateThreatIdentityResolutionRequestV1.model_validate(json))
+    payload = outcome.response.model_dump(mode="json", by_alias=True)
+    return SimpleNamespace(status_code=201 if outcome.created else 200, json=lambda: payload)
+
+
 def test_identity_routes_preserve_exact_restart_reload(tmp_path: Path, monkeypatch) -> None:
     draft = _mechanics_saved_draft(tmp_path, monkeypatch)
     op_id = _begin(tmp_path, draft)
@@ -177,14 +196,13 @@ def test_identity_routes_preserve_exact_restart_reload(tmp_path: Path, monkeypat
     resolution_id = str(uuid.uuid4())
 
     with patch.object(identity_svc, "project_world_graph", return_value=projection):
-        client = _client(tmp_path, monkeypatch)
-        prepare = client.post(
+        prepare = _seed_historical_identity(tmp_path,
             f"/api/live/threat-drafts/{draft.draft_id}/publication-operations/{op_id}/identity-candidates/prepare",
             json={"query_text": "One"},
         )
         assert prepare.status_code == 200
         cs = prepare.json()["candidate_set"]
-        decide = client.post(
+        decide = _seed_historical_identity(tmp_path,
             f"/api/live/threat-drafts/{draft.draft_id}/publication-operations/{op_id}/identity-resolutions",
             json={
                 "resolution_id": resolution_id,
@@ -199,7 +217,15 @@ def test_identity_routes_preserve_exact_restart_reload(tmp_path: Path, monkeypat
         )
         assert decide.status_code == 201
 
-    reloaded = TestClient(create_app())
+    identity_path = identity_svc._ledger_path(tmp_path, draft.draft_id, op_id)
+    operation_path = pub_svc._ledger_path(tmp_path, draft.draft_id)
+    identity_before, operation_before = identity_path.read_bytes(), operation_path.read_bytes()
+    def forbidden(*args, **kwargs):
+        pytest.fail("Historical identity GET consulted current draft/head/source projection")
+    monkeypatch.setattr(identity_svc, "project_world_graph", forbidden)
+    monkeypatch.setattr(pub_svc, "get_threat_draft", forbidden)
+    monkeypatch.setattr(pub_svc, "_read_graph_head", forbidden)
+    reloaded = _client(tmp_path, monkeypatch)
     monkeypatch.setattr(identity_routes, "repo_root", lambda: tmp_path)
     read = reloaded.get(
         f"/api/live/threat-drafts/{draft.draft_id}/publication-operations/{op_id}/identity-resolutions/{resolution_id}"
@@ -210,6 +236,9 @@ def test_identity_routes_preserve_exact_restart_reload(tmp_path: Path, monkeypat
     assert body["resolution"]["resolution_id"] == resolution_id
     assert body["resolution"]["request_digest"] == decide.json()["resolution"]["request_digest"]
     assert body["predecessor_usable"] is None
+
+    assert identity_path.read_bytes() == identity_before
+    assert operation_path.read_bytes() == operation_before
 
 
 def test_identity_flow_leaves_graph_draft_mechanics_and_dms_unchanged(
@@ -222,13 +251,12 @@ def test_identity_flow_leaves_graph_draft_mechanics_and_dms_unchanged(
     projection = _projection(_node("threat:1", label="One"))
 
     with patch.object(identity_svc, "project_world_graph", return_value=projection):
-        client = _client(tmp_path, monkeypatch)
-        prepare = client.post(
+        prepare = _seed_historical_identity(tmp_path,
             f"/api/live/threat-drafts/{draft.draft_id}/publication-operations/{op_id}/identity-candidates/prepare",
             json={"query_text": "One"},
         )
         cs = prepare.json()["candidate_set"]
-        client.post(
+        _seed_historical_identity(tmp_path,
             f"/api/live/threat-drafts/{draft.draft_id}/publication-operations/{op_id}/identity-resolutions",
             json={
                 "resolution_id": str(uuid.uuid4()),
@@ -256,12 +284,12 @@ def test_read_route_returns_not_found_when_predecessor_missing(
 
     with patch.object(identity_svc, "project_world_graph", return_value=projection):
         client = _client(tmp_path, monkeypatch)
-        prepare = client.post(
+        prepare = _seed_historical_identity(tmp_path,
             f"/api/live/threat-drafts/{draft.draft_id}/publication-operations/{op_id}/identity-candidates/prepare",
             json={"query_text": "One"},
         )
         cs = prepare.json()["candidate_set"]
-        decide = client.post(
+        decide = _seed_historical_identity(tmp_path,
             f"/api/live/threat-drafts/{draft.draft_id}/publication-operations/{op_id}/identity-resolutions",
             json={
                 "resolution_id": resolution_id,
@@ -284,7 +312,7 @@ def test_read_route_returns_not_found_when_predecessor_missing(
     assert read.json()["result_label"] == "publication_identity_not_found"
 
 
-def test_routes_pass_repo_and_world_roots_independently(
+def test_retired_route_never_opens_repo_or_world_roots(
     tmp_path: Path, monkeypatch
 ) -> None:
     repo = tmp_path / "repo"
@@ -292,7 +320,7 @@ def test_routes_pass_repo_and_world_roots_independently(
     repo.mkdir()
     world.mkdir()
     monkeypatch.setattr(identity_routes, "repo_root", lambda: repo)
-    monkeypatch.setattr(identity_routes, "world_graph_root", lambda: world)
+    monkeypatch.setattr(identity_routes, "statblock_data_root", lambda *_a: pytest.fail("Retired route opened storage"))
 
     captured: dict[str, object] = {}
 
@@ -310,7 +338,7 @@ def test_routes_pass_repo_and_world_roots_independently(
     draft_id = str(uuid.uuid4())
     operation_id = str(uuid.uuid4())
     with patch.object(
-        identity_routes, "prepare_identity_candidates", side_effect=capture_prepare
+        identity_svc, "prepare_identity_candidates", side_effect=capture_prepare
     ):
         client = _authorized_client(monkeypatch)
         response = client.post(
@@ -318,9 +346,8 @@ def test_routes_pass_repo_and_world_roots_independently(
             json={},
         )
 
-    assert response.status_code == 200
-    assert captured["repo_root"] == repo
-    assert captured["world_root"] == world
+    assert response.status_code == 410
+    assert captured == {}  # Retirement precedes both repository/world access.
 
 
 def test_identity_candidate_route_denies_before_native_read(
@@ -342,10 +369,10 @@ def test_identity_candidate_route_denies_before_native_read(
     calls: list[str] = []
     monkeypatch.setattr(identity_routes, "repo_root", lambda: calls.append("repo"))
     monkeypatch.setattr(
-        identity_routes, "world_graph_root", lambda: calls.append("world")
+        identity_routes, "statblock_data_root", lambda *_a: calls.append("storage")
     )
     monkeypatch.setattr(
-        identity_routes,
+        identity_svc,
         "prepare_identity_candidates",
         lambda *_args, **_kwargs: calls.append("prepare"),
     )
@@ -387,11 +414,9 @@ def test_identity_candidate_route_denies_before_native_read(
     assert calls == []
 
 
-def test_identity_candidate_route_returns_authorized_candidate_data(
+def test_retired_identity_candidate_route_never_discloses_candidate_data(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import json
-
     from apps.live_control_server.models.threat_publication_identity import (
         PrepareThreatIdentityCandidatesRequestV1,
         ThreatIdentityCandidateSetV1,
@@ -402,7 +427,7 @@ def test_identity_candidate_route_returns_authorized_candidate_data(
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", LOCAL_OPERATOR_TOKEN)
     monkeypatch.setattr(identity_routes, "repo_root", lambda: tmp_path)
-    monkeypatch.setattr(identity_routes, "world_graph_root", lambda: tmp_path)
+    monkeypatch.setattr(identity_routes, "statblock_data_root", lambda *_a: pytest.fail("Retired route opened storage"))
 
     draft_id = str(uuid.uuid4())
     operation_id = str(uuid.uuid4())
@@ -457,19 +482,15 @@ def test_identity_candidate_route_returns_authorized_candidate_data(
         )
     )
     monkeypatch.setattr(
-        identity_routes, "prepare_identity_candidates", lambda *_a, **_k: outcome
+        identity_svc, "prepare_identity_candidates", lambda *_a, **_k: outcome
     )
 
-    response = identity_routes.post_prepare_identity_candidates(
-        draft_id,
-        operation_id,
-        body,
-        _request_context(f"Bearer {LOCAL_OPERATOR_TOKEN}"),
-    )
-    assert response.status_code == 200
-    payload = json.loads(response.body)
-    assert payload["candidate_set"]["candidates"][0]["node_id"] == "threat:one"
-    assert (
-        payload["candidate_set"]["candidates"][0]["summary"]
-        == "A graph-backed candidate."
-    )
+    with pytest.raises(HTTPException) as retired:
+        identity_routes.post_prepare_identity_candidates(
+            draft_id, operation_id, body,
+            _request_context(f"Bearer {LOCAL_OPERATOR_TOKEN}"),
+        )
+    assert retired.value.status_code == 410
+    assert retired.value.detail == "Classic Threat publication is retired; retained history is read-only."
+    assert "threat:one" not in retired.value.detail
+    assert "A graph-backed candidate." not in retired.value.detail

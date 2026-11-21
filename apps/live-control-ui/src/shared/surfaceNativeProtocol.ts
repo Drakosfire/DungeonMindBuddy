@@ -57,7 +57,10 @@ export function isSurfaceNativeReceipt(v:unknown,validateWork:(work:unknown)=>wo
     ||v.work_context.surface_id==='build'&&exact(v.assembled_input,['assembler_version','submitted_intent_sha256','assembled_input_sha256'])&&v.assembled_input.assembler_version==='reviewed_author_admission_v1'&&hash(v.assembled_input.submitted_intent_sha256)&&hash(v.assembled_input.assembled_input_sha256);
 }
 function isLorePageDraft(value: unknown): boolean {
-  return exact(value, ['kind', 'destination'])
+  const questions=typeof value==='object'&&value!==null&&'open_questions' in value;
+  return exact(value, ['kind', 'destination', ...(questions?['open_questions']:[])])
+    && (!questions || Array.isArray(value.open_questions) && value.open_questions.length>0
+      && value.open_questions.length<=24 && value.open_questions.every(q=>text(q)&&[...q].length<=1000&&!/[\r\n]/.test(q)))
     && value.kind === 'lore_page'
     && exact(value.destination, ['instruction', 'title'])
     && text(value.destination.instruction) && [...value.destination.instruction].length <= 2000
@@ -133,7 +136,8 @@ export function isSurfaceNativeCompletion(
       if(c.provider_attempt_id!==v.producing_provider_attempt_id)return false;
       const index=c.segment_index,key=canonical(family==='native_body_citations'?['body',index,c.read_event_id]:family==='native_clause_citations'?['statement',index,c.statement_id]:['assertion',index,c.read_event_id,c.assertion_id,c.evidence_ref_id]);
       if(seen.has(key))return false;seen.add(key);
-      if(family==='native_body_citations'){if(!sources.has(index)||c.line_end<c.line_start)return false;cited.add(index);continue;}
+      if(family==='native_body_citations'){if(!sources.has(index)||c.line_end<c.line_start
+        ||('prior_reference' in c && (work.surface_id!=='build'||!isLorePageDraft(v.collaboration))))return false;cited.add(index);continue;}
       const q=r.native_query;
       if(q.schema==='dmb_native_plan_query_unavailable_v1'||c.managed_world_id!==q.authority.managed_world_id||c.native_world_id!==q.authority.native_world_id||c.read_revision_id!==q.authority.revision_id)return false;
       if(family==='native_clause_citations') {

@@ -1,3 +1,5 @@
+import { AppearanceControl } from "../../ui/AppearanceControl";
+import { appearanceAccentRequest, type AppearanceAccent } from "../../ui/appearanceSettings";
 import { dungeonMindLoginHref, useHostedAuthStatus } from "../../auth/HostedAuthGate";
 import { ConversationDraftEditor, ConversationVariantApproval } from "../../agentInteraction/ConversationDraftEditor";
 import { downloadBlob } from "../../shared/downloadBlob";
@@ -2812,6 +2814,7 @@ export function WorldPlanAgentConversation({
   const setComposerDrafts = sharedConversation?.worldId === worldId ? sharedConversation.setComposerDrafts : setLocalComposerDrafts;
   const composerDraftKey = isBuild ? `build:${buildMode?.savedSource?.documentId ?? "unavailable"}` : isReadOnly ? `play:${playMode?.admittedRun?.runId ?? "unadmitted"}` : `plan:${documentId ?? "unsaved"}`;
   const composerMessage = composerDrafts[composerDraftKey] ?? "";
+  const [appearanceProposal, setAppearanceProposal] = useState<AppearanceAccent | null>(null);
   const setComposerMessage = (action: string | ((current: string) => string)) => {
     setComposerDrafts((drafts) => {
       const current = drafts[composerDraftKey] ?? "";
@@ -3418,7 +3421,9 @@ export function WorldPlanAgentConversation({
         if (submittedMessage?.scopeKey === scopeKey) { const key = submittedMessage.idempotencyKey ?? await worldTurnIdempotencyKey(verifiedWorldId, submittedMessage.id); if (key) keys.add(key); }
         if (documentId && !isReadOnly) for (const stored of pendingAtRead) { if (stored.envelope) { const key = await pendingPlanAskIdempotencyKey(stored); if (key) keys.add(key); } }
         for (const row of metadata.turns) {
-          if (!keys.has(row.idempotency_key) || page.turns.some(turn => sameSavedMessage(turn, row))) continue;
+          const exactPendingTurn = row.turn_id === pendingPlayTurn?.request.turn_id;
+          if ((!exactPendingTurn && !keys.has(row.idempotency_key))
+            || page.turns.some(turn => sameSavedMessage(turn, row))) continue;
           const full = await readExactMessageTurn(metadata, row, controller.signal);
           if (!active || generation !== historyGenerationRef.current) return null;
           page = { ...page, turns: mergeHistoryTurns(page.turns, [full]) };
@@ -4681,7 +4686,7 @@ export function WorldPlanAgentConversation({
   }
 
   async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false, questionOverride?: string, explicitRequest?: SurfaceConversationRequest,
-    freshBuildRetry?:{context:TurnRetryContext;references:WorldBuildAgentTurnRequestV1['build_authored_references']}, useImageAbove=false) {
+    freshBuildRetry?:{context:TurnRetryContext;references:WorldBuildAgentTurnRequestV1['build_authored_references']}) {
     event?.preventDefault();
     const tourDispatch=guidance?.captureScope()??null;
     if(surfacePreparationRef.current&&!explicitRequest)return;
@@ -4737,7 +4742,7 @@ export function WorldPlanAgentConversation({
         setSending(true);
         try {
           const prepared=await buildCompose.prepareHarnessTurn(request.turn_id,discussionOnly||explicitRequest?.reviewedKind==='discuss',
-            freshBuildRetry?.context.author_interaction==='select_passage',useImageAbove||!!freshBuildRetry?.context.reference_image_id,
+            freshBuildRetry?.context.author_interaction==='select_passage',!!freshBuildRetry?.context.reference_image_id,
             freshBuildRetry?.context.reference_image_id);
           if(prepared.placementError){
             if(latestRef.current.mounted&&latestRef.current.buildPlacementFenceKey===placementFence
@@ -4851,6 +4856,20 @@ export function WorldPlanAgentConversation({
       setComposerMessage((current) => current.trim() === message ? "" : current);
     }
     await dispatchSavedPlayTurn(stored,false,tourDispatch);
+  }
+
+  function submitReadOnlyComposer(event: FormEvent<HTMLFormElement>) {
+    const accent = isBuild && composerReferencesReady && composerReferences.length === 0
+      ? appearanceAccentRequest(composerMessage)
+      : null;
+    if (accent === null) {
+      void submitPlay(event);
+      return;
+    }
+    event.preventDefault();
+    if (!visible || composerBusy) return;
+    setAppearanceProposal(accent);
+    setComposerMessage("");
   }
 
   function submitComposer(event: FormEvent<HTMLFormElement>) {
@@ -7424,7 +7443,12 @@ export function WorldPlanAgentConversation({
             || (!isBuild&&composerReferences.length>0&&!useWorldGraphForAsk)}
           onClick={() => { void submitPlay(undefined, true); }}>Send as discussion</button>
       </section> : null}
-      <form onSubmit={isReadOnly ? (event) => { void submitPlay(event); } : submitComposer}>
+      {isBuild && appearanceProposal !== null && <section aria-label="Appearance proposal">
+        <p>Buddy proposes changing the app accent to {appearanceProposal === "sky" ? "Sky blue" : "the theme default"}.</p>
+        <AppearanceControl proposedAccent={appearanceProposal} onApplied={() => setAppearanceProposal(null)} />
+        <button type="button" onClick={() => setAppearanceProposal(null)}>Dismiss</button>
+      </section>}
+      <form onSubmit={isReadOnly ? submitReadOnlyComposer : submitComposer}>
 
 
         {!isReadOnly ? <p className="world-plan-agent-conversation__context" aria-label="Actual Plan change target">{displayedEditScope}</p> : null}
@@ -7520,11 +7544,6 @@ export function WorldPlanAgentConversation({
               </div>
             </details>
           ) : null}
-          {isBuild && useWorldGraphForAsk && buildMode?.composeBridge && composerMessage.trim() &&
-            <button type="button" disabled={composerBusy}
-              onClick={() => { void submitPlay(undefined,false,undefined,undefined,undefined,true); }}>
-              Revise with image above
-            </button>}
           <button
             type="submit"
             aria-label={!isReadOnly && detectedComposerIntent === "propose" ? "Propose edit" : "Send message"}

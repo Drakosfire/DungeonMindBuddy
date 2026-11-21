@@ -11,11 +11,13 @@ from collections.abc import Callable
 
 from dataclasses import dataclass
 import logging
+import os
 from threading import Lock
 from time import monotonic
 from uuid import UUID
 
 from fastapi import BackgroundTasks, HTTPException, Request
+from application_state.errors import ApplicationStateError
 from pydantic import TypeAdapter
 from starlette.concurrency import run_in_threadpool
 
@@ -104,6 +106,27 @@ def _hosted_subject(request: Request) -> str:
     if not isinstance(principal, DmsPrincipal) or not principal.subject.strip():
         raise HTTPException(status_code=401, detail={"code": "authentication_required"})
     return principal.subject
+
+
+def _owner_world_candidates(subject: str) -> frozenset[str]:
+    """Combine existing static candidates with current owner-created grants."""
+    static_ids = frozenset(
+        world_id for world_id, subjects in hosted_auth.hosted_world_access().items()
+        if subject in subjects
+    )
+    if os.environ.get("DMB_HOSTED_OWNER_CREATION_CAPABILITY", "") != "1":
+        return static_ids
+    from application_state.world_catalog.hosted_creation import active_admitted_world_ids
+
+    try:
+        return static_ids | active_admitted_world_ids(subject)
+    except ApplicationStateError:
+        # Existing statically admitted Worlds remain available if the dynamic
+        # policy store is unavailable. A user with no static fallback sees an
+        # unavailable response rather than a falsely empty list.
+        if static_ids:
+            return static_ids
+        raise _unavailable() from None
 
 
 def _owned_world(subject: str, managed_world_id: str):
@@ -803,6 +826,26 @@ async def resolve_hosted_manual_knowledge(request: Request) -> str:
         raise _denied()
     subject = _hosted_subject(request)
     _owned_world(subject, body.world_id)
+    if isinstance(body, GraphObjectAuthoringCommitRequest):
+        from apps.live_control_server.services.graph_object_authoring_prepare import (
+            GraphObjectAuthoringError, decode_publication_intent,
+        )
+        from apps.live_control_server.integrations.dungeonmind.historical_manual_recovery import authorize_original_binding
+
+        try:
+            intent = decode_publication_intent(body.confirm_token, allow_expired_recovery=True)
+            if (intent.get("campaign_id") != body.campaign_id
+                    or intent.get("source_run_id") != body.source_run_id):
+                raise _denied()
+            await run_in_threadpool(authorize_original_binding, body, intent,
+                                    actor=f"hosted_dms:{subject}")
+        except GraphObjectAuthoringError as exc:
+            if exc.status_code >= 500:
+                raise _unavailable() from None
+            raise _denied() from None
+        request.state.hosted_manual_knowledge_binding = (body, intent)
+        request.state.hosted_manual_knowledge_scope = (body.world_id, body.source_run_id)
+        return body.world_id
     try:
         run = await run_in_threadpool(get_extraction_run, body.source_run_id)
         artifact = await run_in_threadpool(get_source_artifact, run.source_artifact_id)
@@ -827,6 +870,17 @@ def manual_knowledge_actor(request: Request, *, world_id: str | None, run_id: st
         raise _denied()
     subject = _hosted_subject(request)
     _owned_world(subject, world_id)
+    binding = getattr(request.state, "hosted_manual_knowledge_binding", None)
+    if binding is not None:
+        from apps.live_control_server.integrations.dungeonmind.historical_manual_recovery import authorize_original_binding
+        from apps.live_control_server.services.graph_object_authoring_prepare import GraphObjectAuthoringError
+
+        try:
+            authorize_original_binding(binding[0], binding[1], actor=f"hosted_dms:{subject}")
+        except GraphObjectAuthoringError as exc:
+            if exc.status_code >= 500:
+                raise _unavailable() from None
+            raise _denied() from None
     return f"hosted_dms:{subject}"
 
 
@@ -1016,9 +1070,7 @@ async def resolve_hosted_saved_artwork(request: Request) -> str:
     except ValueError:
         raise _denied() from None
 
-    for world_id, subjects in hosted_auth.hosted_world_access().items():
-        if subject not in subjects:
-            continue
+    for world_id in sorted(_owner_world_candidates(subject)):
         try:
             await run_in_threadpool(media.get_asset, asset_id, hosted_world_media_owner(world_id))
         except ApplicationStateNotFoundError:
@@ -1166,7 +1218,7 @@ async def resolve_hosted_build_page_inventory(request: Request) -> str:
     selectors = request.query_params.getlist("world_id")
     if len(selectors) != 1 or not selectors[0] or await request.body():
         raise _denied()
-    world = _owned_world(subject, selectors[0])
+    world = await run_in_threadpool(_owned_world, subject, selectors[0])
     request.state.hosted_build_page_inventory_world = world.world_id
     return world.world_id
 
@@ -1254,15 +1306,27 @@ async def hosted_owner_collection(request: Request) -> dict:
         or await request.body()
     ):
         raise _denied()
-    return revalidate_hosted_owner_collection(request)
+    return await run_in_threadpool(revalidate_hosted_owner_collection, request)
+
+
+async def hosted_owner_creation(request: Request) -> dict:
+    """Authorize only the exact owner-create entry point, not a World selector."""
+    _hosted_subject(request)
+    if (
+        os.environ.get("DMB_HOSTED_OWNER_CREATION_CAPABILITY", "") != "1"
+        or request.method != "POST"
+        or request.url.path != WORLD_COLLECTION_PATH
+        or request.query_params
+    ):
+        raise _denied()
+    return {"owner_creation": True}
 
 
 def revalidate_hosted_owner_collection(request: Request) -> dict:
     """Read current owner-filtered metadata after collection request admission."""
     subject = _hosted_subject(request)
-    access = hosted_auth.hosted_world_access()
     try:
-        allowed_ids = [world_id for world_id, subjects in access.items() if subject in subjects]
+        allowed_ids = list(_owner_world_candidates(subject))
         records = sorted(
             (stored.record for stored in catalog.list_owned_worlds(subject, allowed_ids)),
             key=lambda record: (record.name.casefold(), record.world_id),
@@ -1271,11 +1335,18 @@ def revalidate_hosted_owner_collection(request: Request) -> dict:
             WorldContainerPublicRecord.from_record(world)
             for world in records
             if world.owner_subject == subject
-            and subject in access.get(world.world_id, ())
         ]
     except Exception:
         raise _unavailable() from None
-    return WorldContainersListResponse(records=permitted).model_dump(mode="json")
+    available = False
+    if os.environ.get("DMB_HOSTED_OWNER_CREATION_CAPABILITY", "") == "1":
+        from application_state.world_catalog.hosted_creation import creation_enabled
+        try:
+            available = creation_enabled()
+        except ApplicationStateError:
+            # Do not block existing static Worlds when creation policy is down.
+            available = False
+    return WorldContainersListResponse(records=permitted, creation_available=available).model_dump(mode="json")
 
 
 async def resolve_hosted_worldbuilding_review_context(request: Request) -> str:
@@ -1318,6 +1389,22 @@ def worldbuilding_evidence_authorizer(request: Request, world_id: str) -> Callab
         if getattr(request.state, "hosted_build_page_world", None) != world_id:
             raise _denied()
         _owned_world(_hosted_subject(request), world_id)
+        plan = getattr(request.state, "hosted_worldbuilding_confirmation", None)
+        if plan is not None:
+            from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import (
+                authenticate_original_plan, authorize_current_binding,
+            )
+            from apps.live_control_server.services.extract_promote import ExtractPromoteError
+
+            try:
+                if plan.publication_binding is None or plan.publication_binding.managed_world_id != world_id:
+                    raise _denied()
+                authenticate_original_plan(plan)
+                authorize_current_binding(plan)
+            except ExtractPromoteError as exc:
+                if exc.status_code >= 500:
+                    raise _unavailable() from None
+                raise _denied() from None
 
     return authorize
 
@@ -1371,15 +1458,21 @@ async def resolve_hosted_worldbuilding_write_plan(request: Request) -> str:
         binding = plan.publication_binding
         if binding is None:
             raise _denied()
-        world_id, artifact = await _owned_worldbuilding_extraction(subject, plan.run_id)
-        world = await run_in_threadpool(_owned_world, subject, world_id)
-        if world.native_graph_binding is None:
-            raise _denied()
-        native_id = world.native_graph_binding.native_world_id
-        if (binding.managed_world_id != world_id or binding.native_world_id != native_id
-                or plan.world_id != native_id or plan.source_artifact_id != artifact.source_artifact_id
-                or binding.source_artifact_id != artifact.source_artifact_id):
-            raise _denied()
+        from apps.live_control_server.integrations.dungeonmind.historical_worldbuilding_recovery import (
+            authenticate_original_plan, authorize_current_binding,
+        )
+        from apps.live_control_server.services.extract_promote import ExtractPromoteError
+
+        try:
+            authenticate_original_plan(plan)
+            world_id = binding.managed_world_id
+            await run_in_threadpool(_owned_world, subject, world_id)
+            await run_in_threadpool(authorize_current_binding, plan)
+        except ExtractPromoteError as exc:
+            if exc.status_code >= 500:
+                raise _unavailable() from None
+            raise _denied() from None
+        request.state.hosted_worldbuilding_confirmation = plan
     else:
         body = WorldbuildingWritePlanPrepareRequest.model_validate(payload)
         world_id, _ = await _owned_worldbuilding_extraction(subject, body.run_id)

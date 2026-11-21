@@ -69,6 +69,23 @@ def test_two_objects_through_real_broker_share_native_context_and_keep_events(pl
     from graph_memory.interaction.session import GraphReferent
     from tests.test_world_graph_retrieval_contract import _selected_native_fixture
     services, request, revision = _selected_native_fixture(unrelated=1)
+    from copy import deepcopy
+    from hashlib import sha256
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from tests._cutover_direct_dungeonmind_read_helpers import ANCHOR_CONTENT, NOW
+    stored = services.bundle.world_graph.get_revision(request.world_id, revision)
+    payload = deepcopy(stored.graph_payload)
+    for evidence in payload['evidence_refs']:
+        source = services.bundle.sources.get_revision(evidence['source_revision_id'])
+        assert source.content_sha256 == sha256(ANCHOR_CONTENT.encode()).hexdigest()
+        evidence['source_span_ref_id'] = (
+            f"{evidence['source_artifact_id']}:span:{source.content_sha256[:12]}:3-3")
+    published = services.bundle.world_graph.publish_revision(PublishRevisionCommand(
+        world_id=request.world_id, parent_revision_id=revision, expected_parent_revision_id=revision,
+        operation_ids=['op:broker-fixture-span'], graph_schema=stored.revision.graph_schema,
+        graph_payload=payload, created_at=NOW))
+    revision = published.revision_id
+    request = request.model_copy(update={'revision_pin': revision})
     a = plan_adapter
     scope = replace(a.bootstrap.world_scope, world_id=request.world_id, revision_id=revision)
     a.bootstrap.retrieval_session.snapshot = a.bootstrap.retrieval_session.snapshot.model_copy(update={

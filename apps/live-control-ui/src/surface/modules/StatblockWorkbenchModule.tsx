@@ -15,7 +15,6 @@ import {
   getStatblockCandidate,
   getThreatDraft,
   LiveApiError,
-  postWorldGraphProjection,
   postManagedWorldGraphProjection,
   reconcileAcceptanceOperation,
   reviseThreatDraftCandidate,
@@ -124,13 +123,6 @@ type ValidationFailure = {
   editorEpoch: number;
   stateRevision: number;
   message: string;
-};
-
-type PublicationHeadResolution = {
-  draftId: string | null;
-  head: string | null;
-  error: string | null;
-  loading: boolean;
 };
 
 function previewIsCurrent(
@@ -406,26 +398,7 @@ async function resolveNativeWorldGraphHead(scope: StatblockDraftScope): Promise<
       throw new ProjectionScopeMismatch("Managed World Graph returned malformed provenance.");
     }
   }
-  const projection = await postWorldGraphProjection({
-    schema: "dmb_world_graph_projection_request_v1",
-    worldId: scope.worldId,
-    campaignId: scope.campaignId ?? "",
-    focus: { kind: "none", sessionId: null },
-    admissibility: "gm",
-    scopeMode: scope.mode,
-  });
-  if (projection.snapshot.worldId !== scope.worldId
-      || projection.snapshot.campaignId !== (scope.campaignId ?? "")
-      || projection.snapshot.scopeMode !== scope.mode) {
-    throw new ProjectionScopeMismatch("Projection identity does not match the selected scope.");
-  }
-  const head =
-    projection.snapshot.headRevisionId?.trim()
-    || projection.snapshot.revisionId?.trim()
-    || null;
-  return {
-    head,
-  };
+  return { head: null };
 }
 
 async function resolveCreateScope(
@@ -441,6 +414,14 @@ async function resolveCreateScope(
         graph_revision_id: override,
       },
     };
+  }
+
+  if (scope.mode === "campaign") {
+    return requireFreestandingOptIn(
+      fields,
+      scope,
+      "Choose an explicit graph revision or opt in to standalone creation.",
+    );
   }
 
   try {
@@ -1975,6 +1956,16 @@ function AcceptMechanicsFlow({
               </button>
             </>
           )}
+          {publicationDock && mechanicsSavedDraft ? (
+            <button
+              type="button"
+              data-testid="accept-mechanics-save"
+              disabled
+              title="These mechanics are already saved."
+            >
+              Accept/Save mechanics
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
@@ -2065,15 +2056,15 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
   const [reviseStatusMessage, setReviseStatusMessage] = useState<string | null>(null);
   const [reviseError, setReviseError] = useState<string | null>(null);
   const [revisePending, setRevisePending] = useState(false);
-  const [publicationHeadResolution, setPublicationHeadResolution] =
-    useState<PublicationHeadResolution>({
-      draftId: null,
-      head: null,
-      error: null,
-      loading: false,
-    });
-  const [publicationDock, setPublicationDock] =
-    useState<ThreatPublicationDockModel | null>(null);
+  const publicationScope = threatDraft ? JSON.stringify([threatDraft.draft_id, threatDraft.world_id, threatDraft.campaign_id]) : "";
+  const [publicationDockState, setPublicationDockState] = useState<{
+    scope: string; model: ThreatPublicationDockModel;
+  } | null>(null);
+  const onPublicationDockChange = useCallback((model: ThreatPublicationDockModel | null) => {
+    setPublicationDockState(model ? { scope: publicationScope, model } : null);
+  }, [publicationScope]);
+  const publicationDock = threatDraft?.schema === "dmb_threat_draft_v1"
+    && publicationDockState?.scope === publicationScope ? publicationDockState.model : null;
 
   const validateRequestIdRef = useRef(0);
   const editorEpochRef = useRef(0);
@@ -2454,72 +2445,6 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only session restore
   }, []);
-
-  useEffect(() => {
-    const draftId = threatDraft?.draft_id ?? null;
-    const mechanicsSaved = threatDraft?.workflow_state === "mechanics_saved";
-    if (!draftId || !mechanicsSaved || threatDraft?.schema !== "dmb_threat_draft_v1") {
-      setPublicationHeadResolution({ draftId: null, head: null, error: null, loading: false });
-      return;
-    }
-
-    let cancelled = false;
-    setPublicationHeadResolution({ draftId, head: null, error: null, loading: true });
-
-    void (async () => {
-      try {
-        const native = await resolveNativeWorldGraphHead(scope);
-        if (cancelled) return;
-        // Exact Advanced override remains an explicit pin when native head is unavailable.
-        const overrideHead = createForm.graphRevisionId.trim() || null;
-        const head = native.head ?? overrideHead;
-        if (head) {
-          setPublicationHeadResolution({ draftId, head, error: null, loading: false });
-          return;
-        }
-        setPublicationHeadResolution({
-          draftId,
-          head: null,
-          error:
-            "Publication is disabled until the current World Graph head is readable. "
-            + "Set Advanced → Graph revision override to an exact rev:… when bootstrap cannot surface a head.",
-          loading: false,
-        });
-      } catch (error) {
-        if (cancelled) return;
-        const overrideHead = createForm.graphRevisionId.trim() || null;
-        if (overrideHead) {
-          setPublicationHeadResolution({
-            draftId,
-            head: overrideHead,
-            error: null,
-            loading: false,
-          });
-          return;
-        }
-        setPublicationHeadResolution({
-          draftId,
-          head: null,
-          error:
-            error instanceof Error
-              ? error.message
-              : "World Graph bootstrap status unavailable.",
-          loading: false,
-        });
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    threatDraft?.draft_id,
-    threatDraft?.workflow_state,
-    threatDraft?.version,
-    threatDraft?.accepted_mechanics_ref?.revision_id,
-    threatDraft?.accepted_mechanics_ref?.definition_digest,
-    createForm.graphRevisionId,
-  ]);
 
   const onSubmitCandidate = (event: FormEvent) => {
     event.preventDefault();
@@ -3573,6 +3498,12 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
         </>
       )}
 
+      {threatDraft?.schema === "dmb_threat_draft_v1" ? (
+        <section className="statblock-section" aria-label="Classic Threat publication history" data-testid="workbench-publication-entry">
+          <ThreatPublicationPanel key={publicationScope} draft={threatDraft} onDockModelChange={mechanicsSavedDraft ? onPublicationDockChange : undefined} />
+        </section>
+      ) : null}
+
       {activeCandidate ? (
         <section className="statblock-section" data-testid="candidate-view-modes">
           <h3>Candidate {activeCandidate.candidate_id}</h3>
@@ -3676,7 +3607,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
               onMechanicsSaved={(id) => {
                 void refreshThreatDraftSnapshot(id);
               }}
-              publicationDock={publicationDock}
+              publicationDock={mechanicsSavedDraft ? publicationDock : null}
             />
           ) : null}
 
@@ -3684,61 +3615,6 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
             <p role="status" data-testid="world-publication-unavailable">
               World-only drafts can save mechanics. Campaign graph publication is unavailable for this scope.
             </p>
-          ) : null}
-          {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v1" ? (
-            <section
-              className="statblock-section"
-              aria-label="Publish to World Graph"
-              data-testid="workbench-publication-entry"
-            >
-              <h3>Identity & proposal review</h3>
-              {publicationHeadResolution.draftId === threatDraft.draft_id &&
-              publicationHeadResolution.loading ? (
-                <p className="module-muted" role="status" data-testid="publication-head-loading">
-                  Resolving World Graph head…
-                </p>
-              ) : publicationHeadResolution.draftId === threatDraft.draft_id &&
-                publicationHeadResolution.head ? (
-                <ThreatPublicationPanel
-                  key={[
-                    threatDraft.draft_id,
-                    String(threatDraft.version),
-                    threatDraft.accepted_mechanics_ref?.statblock_id ?? "",
-                    threatDraft.accepted_mechanics_ref?.revision_id ?? "",
-                    threatDraft.accepted_mechanics_ref?.definition_digest ?? "",
-                  ].join(":")}
-                  draft={threatDraft}
-                  expectedParentRevisionId={publicationHeadResolution.head}
-                  onDockModelChange={setPublicationDock}
-                  resolveExpectedParentRevisionId={async () => {
-                    const native = await resolveNativeWorldGraphHead(scope);
-                    const head = native.head || createForm.graphRevisionId.trim() || null;
-                    if (!head) {
-                      throw new Error(
-                        "Publication retry requires a readable World Graph head "
-                        + "(bootstrap head or exact Advanced graph revision override).",
-                      );
-                    }
-                    setPublicationHeadResolution({
-                      draftId: threatDraft.draft_id,
-                      head,
-                      error: null,
-                      loading: false,
-                    });
-                    return head;
-                  }}
-                />
-              ) : publicationHeadResolution.draftId === threatDraft.draft_id &&
-                publicationHeadResolution.error ? (
-                <p
-                  className="statblock-command-error"
-                  role="status"
-                  data-testid="publication-head-unavailable"
-                >
-                  {publicationHeadResolution.error}
-                </p>
-              ) : null}
-            </section>
           ) : null}
         </section>
       ) : null}

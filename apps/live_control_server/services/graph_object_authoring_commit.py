@@ -198,6 +198,18 @@ def commit_graph_object_authoring_write(
             status_code=409,
         )
 
+    if recovery_only:
+        from apps.live_control_server.integrations.dungeonmind.historical_manual_recovery import recover_original_receipt
+
+        receipt = recover_original_receipt(
+            request, intent=intent, assertions=assertions, actor=actor,
+            authorize_world=authorize_world,
+        )
+        return _commit_response(
+            request, assertions=assertions, receipt=receipt,
+            world_id=receipt.world_id, operation_id=sealed_operation,
+        )
+
     resolved = resolve_graph_review_source(
         request,
         authored_world=world_id,
@@ -338,6 +350,16 @@ def commit_graph_object_authoring_write(
             receipt = recovered
 
     assert receipt is not None
+    return _commit_response(
+        request, assertions=assertions, receipt=receipt,
+        world_id=world_id, operation_id=operation_id,
+    )
+
+
+def _commit_response(
+    request: GraphObjectAuthoringCommitRequest, *, assertions: list, receipt: Any,
+    world_id: str, operation_id: str,
+) -> GraphObjectAuthoringCommitResponse:
     local_proposal_ids = {
         assertion.assertion_id: proposal.local_proposal_id
         for assertion, proposal in zip(assertions, request.proposals, strict=False)

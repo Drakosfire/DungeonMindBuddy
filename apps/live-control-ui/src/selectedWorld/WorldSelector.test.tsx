@@ -123,7 +123,7 @@ describe("World selector", () => {
     render(<SelectedWorldProvider locationSnapshot="/"><WorldSelector compact creationPath="/" /></SelectedWorldProvider>);
     await user.click(screen.getByRole("button", { name: "Switch World: Choose" }));
     await user.type(screen.getByLabelText("New World name"), "Graph Orchard");
-    await user.click(screen.getByRole("button", { name: "Create World and open graph" }));
+    await user.click(screen.getByRole("button", { name: "Create World" }));
 
     await waitFor(() => expect(window.location.pathname + window.location.search).toBe("/?world=graph-orchard"));
     expect(window.location.pathname).not.toBe("/plan");
@@ -138,7 +138,7 @@ describe("World selector", () => {
     render(<SelectedWorldProvider locationSnapshot="/"><WorldSelector compact creationPath="/" /></SelectedWorldProvider>);
     await user.click(screen.getByRole("button", { name: "Switch World: Choose" }));
     await user.type(screen.getByLabelText("New World name"), "New World");
-    await user.click(screen.getByRole("button", { name: "Create World and open graph" }));
+    await user.click(screen.getByRole("button", { name: "Create World" }));
 
     window.history.pushState({}, "", "/?world=another-world");
     window.dispatchEvent(new PopStateEvent("popstate"));
@@ -173,7 +173,7 @@ describe("World selector", () => {
     const view = render(<SelectedWorldProvider locationSnapshot="/"><WorldSelector compact creationPath="/" /></SelectedWorldProvider>);
     await user.click(screen.getByRole("button", { name: "Switch World: Choose" }));
     await user.type(screen.getByLabelText("New World name"), world.name);
-    await user.click(screen.getByRole("button", { name: "Create World and open graph" }));
+    await user.click(screen.getByRole("button", { name: "Create World" }));
     view.unmount();
 
     created = true;
@@ -200,6 +200,48 @@ it("offers only already-owned existing Worlds in hosted mode, with no creation s
   expect(screen.queryByLabelText("New World name")).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "New World in Build" })).not.toBeInTheDocument();
   expect(createWorldContainer).not.toHaveBeenCalled();
+});
+
+it("offers hosted creation only when advertised and reuses the retry key", async () => {
+  window.sessionStorage.clear();
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ status: "authenticated", subject: "owner-a" })));
+  vi.mocked(listWorldContainers).mockResolvedValue({ schema_version: "dmb_world_container_registry_v1", records: [], creation_available: true });
+  vi.mocked(createWorldContainer).mockRejectedValueOnce(new Error("Connection lost"))
+    .mockResolvedValueOnce({ schema_version: "dmb_world_container_record_v1", world_id: "carnival", name: "Carnival", source_root_relpath: "corpus/carnival", created_at: "2026-01-01T00:00:00Z" });
+  const user = userEvent.setup();
+  render(<HostedAuthGate enabled><SelectedWorldProvider locationSnapshot="/"><WorldSelector /></SelectedWorldProvider></HostedAuthGate>);
+  await user.click(await screen.findByRole("button", { name: "World: Choose" }));
+  await user.type(await screen.findByLabelText("New World name"), "Carnival");
+  await user.click(screen.getByRole("button", { name: /Create World/ }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Connection lost");
+  const first = vi.mocked(createWorldContainer).mock.calls[0][0];
+  expect(first.name).toBe("Carnival");
+  expect(first.request_key).toMatch(/^[A-Za-z0-9_-]{16,128}$/);
+  await user.click(screen.getByRole("button", { name: /Create World/ }));
+  await waitFor(() => expect(createWorldContainer).toHaveBeenCalledTimes(2));
+  expect(vi.mocked(createWorldContainer).mock.calls[1][0]).toEqual(first);
+});
+
+it("does not navigate or expose an old account's creation after account switch", async () => {
+  window.sessionStorage.clear();
+  window.history.replaceState({}, "", "/");
+  const fetchSession = vi.fn()
+    .mockResolvedValueOnce(Response.json({ status: "authenticated", subject: "owner-a" }))
+    .mockResolvedValue(Response.json({ status: "authenticated", subject: "owner-b" }));
+  vi.stubGlobal("fetch", fetchSession);
+  vi.mocked(listWorldContainers).mockResolvedValue({ schema_version: "dmb_world_container_registry_v1", records: [], creation_available: true });
+  let resolveCreate!: (value: Awaited<ReturnType<typeof createWorldContainer>>) => void;
+  vi.mocked(createWorldContainer).mockReturnValue(new Promise((resolve) => { resolveCreate = resolve; }));
+  const user = userEvent.setup();
+  render(<HostedAuthGate enabled><SelectedWorldProvider locationSnapshot="/"><WorldSelector /></SelectedWorldProvider></HostedAuthGate>);
+  await user.click(await screen.findByRole("button", { name: "World: Choose" }));
+  await user.type(await screen.findByLabelText("New World name"), "Private Carnival");
+  await user.click(screen.getByRole("button", { name: /Create World/ }));
+  await act(async () => { fireEvent(window, new Event("focus")); });
+  await waitFor(() => expect(fetchSession).toHaveBeenCalledTimes(2));
+  await act(async () => resolveCreate({ schema_version: "dmb_world_container_record_v1", world_id: "private-carnival", name: "Private Carnival", source_root_relpath: "corpus/private", created_at: "2026-01-01T00:00:00Z" }));
+  expect(window.location.pathname + window.location.search).toBe("/");
+  expect(screen.queryByText("Private Carnival")).not.toBeInTheDocument();
 });
 
 it("discards an old owner's pending World list after the account changes", async () => {

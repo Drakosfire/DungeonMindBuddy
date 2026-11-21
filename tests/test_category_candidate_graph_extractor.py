@@ -114,14 +114,29 @@ def _span_index(*, session_id: str | None) -> dict[str, Any]:
     }
 
 
-def test_extractor_uses_profile_selected_passes() -> None:
-    client = RecordingClient()
+def _worldbuilding_fixture_client(client, monkeypatch):
+    from tests.worldbuilding_alias_fixture import install_alias_fixture
+    adapt = install_alias_fixture(monkeypatch)
+    run = client.run_pass
+
+    def aliased(name, **kwargs):
+        response = run(name, **kwargs)
+        response["parsed"] = adapt(response["parsed"])
+        return response
+
+    monkeypatch.setattr(client, "run_pass", aliased)
+    return client
+
+
+def test_extractor_uses_profile_selected_passes(monkeypatch) -> None:
+    client = _worldbuilding_fixture_client(RecordingClient(), monkeypatch)
     result = extract_category_candidate_graph(
         CategoryGraphExtractionOptions(
             campaign_id="eldyrwild",
             session_id=None,
             session_number=None,
             source_span_index=_span_index(session_id=None),
+            source_text="Mirathorn is a river city.",
             profile=WORLDBUILDING_PLUMBING_PROFILE,
         ),
         client=client,
@@ -355,7 +370,7 @@ def test_canonical_injected_clients_keep_source_evidence_contract():
     assert result.pass_outputs['actor_pass']['observation_nodes'][0]['evidence_refs'][0]['source_span_ref_id'] == 'span-1'
 
 
-def test_extraction_retains_distinct_predicates_with_same_endpoints():
+def test_extraction_retains_distinct_predicates_with_same_endpoints(monkeypatch):
     class DistinctEdgesClient(RecordingClient):
         def run_pass(self, pass_name, **kwargs):
             result = super().run_pass(pass_name, **kwargs)
@@ -368,11 +383,22 @@ def test_extraction_retains_distinct_predicates_with_same_endpoints():
                 ]
             return result
 
+    from tests.worldbuilding_alias_fixture import install_alias_fixture
+    adapt = install_alias_fixture(monkeypatch)
     for predicates in (('attacks', 'threatens'), ('threatens', 'attacks')):
+        client = DistinctEdgesClient()
+        run = client.run_pass
+        def aliased(name, **kwargs):
+            response = run(name, **kwargs)
+            response['parsed'] = adapt(response['parsed'])
+            return response
+        monkeypatch.setattr(client, 'run_pass', aliased)
         result = extract_category_candidate_graph(
             CategoryGraphExtractionOptions(campaign_id='eldyrwild', session_id=None,
                 session_number=None, source_span_index=_span_index(session_id=None),
-                profile=WORLDBUILDING_PLUMBING_PROFILE), client=DistinctEdgesClient())
+                source_text='Mirathorn is a river city.',
+                profile=WORLDBUILDING_PLUMBING_PROFILE),
+            client=client)
         edges = {e['relationship_type']: e for e in result.candidate_graph['edges']}
         assert set(edges) == {'attacks', 'threatens'}
         assert all(edge['evidence_refs'] for edge in edges.values())

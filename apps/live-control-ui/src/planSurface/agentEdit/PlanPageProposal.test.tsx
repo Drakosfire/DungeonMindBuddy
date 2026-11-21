@@ -34,7 +34,7 @@ async function setup(){
   });
   const bridge={capture:vi.fn(async()=>target),apply:vi.fn(),captureAuthoring:vi.fn(async()=>({capture,target})),
     restoreAuthoring:vi.fn(async()=>({capture,target})),authoringTitle:()=> 'Plan',
-    prepareAuthoring:vi.fn(async()=>({admitted:{canonicalMarkdown:'A proposed cue.'},afterEditorJson:JSON.stringify(editor.getJSON()),afterEditorSha256:'e'.repeat(64),afterMarkdown:markdown,afterDraftSha256:'f'.repeat(64)})),
+    prepareAuthoring:vi.fn(async(_target:unknown,_markdown:string)=>({admitted:{canonicalMarkdown:'A proposed cue.'},afterEditorJson:JSON.stringify(editor.getJSON()),afterEditorSha256:'e'.repeat(64),afterMarkdown:markdown,afterDraftSha256:'f'.repeat(64)})),
     saveAuthoring:vi.fn(async(...args:any[])=>args.at(-1)())};
   const props={proposal,bridge:bridge as any,identity,expectedBinding:{worldId:world,documentId,threadId:identity.conversationId,namespace:'test'},getBinding:()=>({} as any),disabled:false,onVisible:vi.fn()};
   return {editor,props,bridge,command,read,world,action,proposal,getSaved:()=>saved,setSaved:(value:api.PlanAuthoringReview)=>{saved=value;}};
@@ -49,6 +49,31 @@ it('shows a retained native suggestion and calls the Save owner only after expli
   expect(h.bridge.prepareAuthoring).toHaveBeenCalledTimes(1);expect(h.bridge.saveAuthoring).toHaveBeenCalledTimes(1);
   expect(h.command.mock.calls.map(call=>call[2].operation)).toEqual(['move','prepare','confirm']);
   expect(h.bridge.apply).not.toHaveBeenCalled();
+});
+
+it('saves the edited suggestion when its trailing paragraph is removed immediately before Save',async()=>{
+  const h=await setup();
+  const edited='> [!GM-NOTE] Gate\n> The guide waits at the gate.\n';
+  const initial=edited+'\nThis answer uses partial retrieval and does not establish corpus completeness.';
+  h.setSaved({...h.getSaved(),markdown:initial});
+  h.bridge.prepareAuthoring.mockImplementation(async()=>({
+    admitted:{canonicalMarkdown:edited},
+    afterEditorJson:JSON.stringify(h.editor.getJSON()),
+    afterEditorSha256:'e'.repeat(64),afterMarkdown:edited,afterDraftSha256:'f'.repeat(64),
+  }));
+  render(<PlanPageProposal {...h.props}/>);
+  const textbox=await screen.findByRole('textbox',{name:'Suggestion text'}) as HTMLElement & {editor:Editor};
+  const suggestion=textbox.editor;
+  expect(suggestion.getText()).toContain('does not establish corpus completeness');
+  act(()=>{
+    const doc=suggestion.state.doc;
+    suggestion.view.dispatch(suggestion.state.tr.delete(doc.content.size-doc.lastChild!.nodeSize,doc.content.size));
+    fireEvent.click(screen.getByRole('button',{name:'Save'}));
+  });
+  await screen.findByText('Suggestion saved on the Plan.');
+  expect(h.bridge.prepareAuthoring.mock.calls[0]?.[1]).toBe(edited);
+  expect(h.command.mock.calls.map(call=>call[2].operation)).toEqual(['move','save','prepare','confirm']);
+  expect(h.getSaved().markdown).toBe(edited);
 });
 
 it('retires the visual placement when the page changes and preserves the suggestion for recovery',async()=>{

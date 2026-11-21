@@ -5,9 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script>
       try {
-        if (localStorage.getItem("buddy.appearance.preset") === "deep-teal") {
-          document.documentElement.dataset.buddyTheme = "deep-teal";
+        const raw = localStorage.getItem("buddy.appearance.settings");
+        const settings = raw === null
+          ? { preset: localStorage.getItem("buddy.appearance.preset") }
+          : JSON.parse(raw);
+        const root = document.documentElement;
+        if (settings?.preset === "deep-teal" || settings?.preset === "wayfinder") {
+          root.dataset.buddyTheme = settings.preset;
         }
+        if (settings?.pageStyle === "dossier") root.dataset.buddyPageStyle = "dossier";
+        if (settings?.accent === "sky") root.dataset.buddyAccent = "sky";
       } catch {
         // Storage is optional. The default palette is defined in CSS.
       }

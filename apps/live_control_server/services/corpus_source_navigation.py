@@ -10,8 +10,6 @@ from application_state.agent_conversation.jev_retrieval_contract import Retrieva
 from application_state.source.naming import registered_source_name
 from .native_source_display import source_display_name
 from dungeonmind.domain.canonical import canonical_json
-from ..integrations.dungeonmind.world_graph_reads import direct_services_from_config
-from ..integrations.dungeonmind.corpus_source_inventory import collect_source_view, verify_registry_source_origin
 
 
 class CorpusSourceNavigation:
@@ -124,6 +122,9 @@ class CorpusSourceNavigation:
         proof = {'schema': 'dmb_registry_source_origin_v1', 'search_event_id': str(grant.event_id),
             'source_view_sha256': grant.source_view_sha256,
             'artifact': member['artifact'], 'revision': member['revision']}
+        from ..integrations.dungeonmind.corpus_source_inventory import verify_registry_source_origin
+        from ..integrations.dungeonmind.world_graph_reads import direct_services_from_config
+
         return verify_registry_source_origin(direct_services_from_config(authority.native_world_id),
             native_world_id=authority.native_world_id, proof=proof)
 
@@ -145,6 +146,9 @@ class CorpusSourceNavigation:
                 'reused_section_handles': ['native-section:' + hit.section_id for hit in self.observation.matches]}
         self.attempted = True  # consume before any IO; no automatic retry
         authority = owner._bound_authority()
+        from ..integrations.dungeonmind.corpus_source_inventory import collect_source_view
+        from ..integrations.dungeonmind.world_graph_reads import direct_services_from_config
+
         source_view = collect_source_view(direct_services_from_config(authority.native_world_id),
             native_world_id=authority.native_world_id)
         with a.fence.renewer._lock:
@@ -733,6 +737,10 @@ class NativeBodyNavigation:
                             return _materialize(*args, **kwargs)
                     fields[name] = measured
         with trace.measure_host_work("native_source_append") if trace is not None else nullcontext():
+            if method == 'authorize_native_body_reads':
+                grants = a.fence.authorize_session_body_grants(fields['grants'])
+                if grants is not None:
+                    return grants
             result = a.fence.commit(method, **fields)
         a.turn = result[0]
         if method in {'authorize_native_direct_sources', 'authorize_native_body_reads', 'observe_native_body_reads'}:
@@ -754,7 +762,7 @@ class NativeBodyNavigation:
         execution = turn.graph_context_execution
         return bool(selected_batch_covering_reads(
             execution, current_selection(turn), handle,
-            require_passage=type(execution.policy.action) is NativePlanActionV2,
+            require_passage=type(getattr(execution.policy, "action", None)) is NativePlanActionV2,
         ))
 
     def select(self, handles):

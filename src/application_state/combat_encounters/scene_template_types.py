@@ -14,18 +14,25 @@ class PlanScenePin(BaseModel):
     work_revision_id: UUID
     content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
+class CopySavedEncounterRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    schema_version: Literal["dmb_scene_template_copy_saved_v1"]
+    source_encounter_id: UUID
+    expected_revision: int = Field(gt=0)
+
+
 class CreateSceneTemplateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     schema_version: Literal["dmb_scene_template_create_v1"] = "dmb_scene_template_create_v1"
     operation_id: UUID
     pin: PlanScenePin
-    encounter: AnyCreateEncounterRequest
+    encounter: AnyCreateEncounterRequest | CopySavedEncounterRequest
 
     @model_validator(mode="after")
     def valid_title(self):
         if isinstance(self.encounter, CreateManualEncounterRequest):
             empty_manual_draft(self.encounter.profile, self.encounter.title)
-        else:
+        elif not isinstance(self.encounter, CopySavedEncounterRequest):
             CombatEncounterDraft(title=self.encounter.title)
         return self
 

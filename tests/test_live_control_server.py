@@ -13,6 +13,9 @@ from jsonschema import Draft202012Validator
 from apps.live_control_server import session_store
 from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
+from apps.live_control_server.services.agent_world_graph_query_context import (
+    AgentWorldGraphQueryContextRequest,
+)
 from apps.live_control_server.schema_validation import LiveRowValidationError, validate_before_append
 from apps.live_control_server.services.citation_source_reader import (
     CitationSourceRequest,
@@ -205,7 +208,6 @@ def test_live_context_lookup_response_includes_source_line_evidence_snapshots(
     assert "source text must not persist" not in json.dumps(body["evidence_snapshots"])
 
 def test_query_can_route_through_hermes_backend(
-    client: TestClient,
     isolated_session: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -218,7 +220,7 @@ def test_query_can_route_through_hermes_backend(
     )
 
     class _Host:
-        def execute(self, request, *, timeout_s=None):  # type: ignore[no-untyped-def]
+        def execute(self, request, *, timeout_s=None, on_host_phase=None):  # type: ignore[no-untyped-def]
             assert request.conversation_history is None
             assert request.session_id is None
             assert request.capability_policy is not None
@@ -276,19 +278,13 @@ def test_query_can_route_through_hermes_backend(
     monkeypatch.setattr(hermes_agent_runtime_mod, "get_hermes_graph_agent_host", lambda: _Host())
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
-    response = client.post(
-        "/api/live/query",
-        json={
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "mode": "live",
-            "query_backend": "hermes",
-            "text": "What happened at the end of session 22?",
-            "world_graph_context": _GRAPH_NESTED,
-        },
+    body = live_agent_loop.process_live_query(
+        'What happened at the end of session 22?',
+        base=isolated_session,
+        outer_campaign_id='longmont-c2',
+        world_graph_context=AgentWorldGraphQueryContextRequest.model_validate(_GRAPH_NESTED),
+        query_backend='hermes',
     )
-    assert response.status_code == 200
-    body = response.json()
     assert body["mode"] == "hermes_graph_agent"
     assert body["classification"]["intent"] == "hermes_graph_agent"
     assert body["status"] == "ok"
@@ -318,7 +314,6 @@ def test_query_can_route_through_hermes_backend(
 
 
 def test_query_hermes_cli_env_does_not_invoke_subprocess(
-    client: TestClient,
     isolated_session: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -362,7 +357,7 @@ def test_query_hermes_cli_env_does_not_invoke_subprocess(
     )
 
     class _Host:
-        def execute(self, request, *, timeout_s=None):  # type: ignore[no-untyped-def]
+        def execute(self, request, *, timeout_s=None, on_host_phase=None):  # type: ignore[no-untyped-def]
             return HermesGraphAgentTurnResult(
                 status="ok",
                 final_response="host answer",
@@ -387,19 +382,13 @@ def test_query_hermes_cli_env_does_not_invoke_subprocess(
     monkeypatch.setattr(hermes_agent_runtime_mod, "get_hermes_graph_agent_host", lambda: _Host())
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
-    response = client.post(
-        "/api/live/query",
-        json={
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "mode": "live",
-            "query_backend": "hermes",
-            "text": "What happened at the end of session 22?",
-            "world_graph_context": _GRAPH_NESTED,
-        },
+    body = live_agent_loop.process_live_query(
+        'What happened at the end of session 22?',
+        base=isolated_session,
+        outer_campaign_id='longmont-c2',
+        world_graph_context=AgentWorldGraphQueryContextRequest.model_validate(_GRAPH_NESTED),
+        query_backend='hermes',
     )
-    assert response.status_code == 200
-    body = response.json()
     assert body["mode"] == "hermes_graph_agent"
     assert body["answer"] == "host answer"
     assert body["agent_trace"]["runtime"] == "process_isolated"
@@ -409,7 +398,16 @@ def test_query_hermes_cli_env_does_not_invoke_subprocess(
     assert (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8") == ""
 
 
-def test_invalid_campaign_returns_400(client: TestClient) -> None:
+def test_invalid_campaign_returns_400(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from apps.live_control_server.routes import live as live_route
+
+    def unknown_world(world_id: str) -> None:
+        assert world_id == "wrong-campaign"
+        raise live_route.WorldContainerRegistryError("World not found")
+
+    monkeypatch.setattr(live_route, "get_world_container", unknown_world)
     response = client.post(
         "/api/live/query",
         json={
@@ -939,7 +937,6 @@ _GRAPH_NESTED = {
 
 
 def test_live_query_world_graph_preflight_once_before_backend(
-    client: TestClient,
     isolated_session: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1019,19 +1016,13 @@ def test_live_query_world_graph_preflight_once_before_backend(
     monkeypatch.setattr(live_agent_loop, "resolve_agent_world_graph_query_context", spy_resolve)
     monkeypatch.setattr(live_agent_loop, "run_context_lookup_turn", fake_context_lookup_turn)
 
-    response = client.post(
-        "/api/live/query",
-        json={
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "mode": "live",
-            "query_backend": "live",
-            "text": "What should I remember about the Tripod Null-Calf?",
-            "world_graph_context": _GRAPH_NESTED,
-        },
+    body = live_agent_loop.process_live_query(
+        'What should I remember about the Tripod Null-Calf?',
+        base=isolated_session,
+        outer_campaign_id='longmont-c2',
+        world_graph_context=AgentWorldGraphQueryContextRequest.model_validate(_GRAPH_NESTED),
+        query_backend='live',
     )
-    assert response.status_code == 200
-    body = response.json()
     assert len(calls) == 1
     assert body["world_graph_context"]["status"] == "ready"
     assert body["world_graph_context"]["matched_node_ids"] == ["threat:tripod-null-calf"]
@@ -1039,7 +1030,6 @@ def test_live_query_world_graph_preflight_once_before_backend(
 
 
 def test_live_and_hermes_receive_equivalent_graph_context(
-    client: TestClient,
     isolated_session: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1120,7 +1110,7 @@ def test_live_and_hermes_receive_equivalent_graph_context(
         )
 
     class _Host:
-        def execute(self, request, *, timeout_s=None):  # type: ignore[no-untyped-def]
+        def execute(self, request, *, timeout_s=None, on_host_phase=None):  # type: ignore[no-untyped-def]
             return HermesGraphAgentTurnResult(
                 status="ok",
                 final_response="hermes answer",
@@ -1146,29 +1136,21 @@ def test_live_and_hermes_receive_equivalent_graph_context(
     monkeypatch.setattr(hermes_agent_runtime_mod, "get_hermes_graph_agent_host", lambda: _Host())
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
-    live_body = client.post(
-        "/api/live/query",
-        json={
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "mode": "live",
-            "query_backend": "live",
-            "text": "Tripod Null-Calf",
-            "world_graph_context": _GRAPH_NESTED,
-        },
-    ).json()
+    live_body = live_agent_loop.process_live_query(
+        'Tripod Null-Calf',
+        base=isolated_session,
+        outer_campaign_id='longmont-c2',
+        world_graph_context=AgentWorldGraphQueryContextRequest.model_validate(_GRAPH_NESTED),
+        query_backend='live',
+    )
 
-    hermes_body = client.post(
-        "/api/live/query",
-        json={
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "mode": "live",
-            "query_backend": "hermes",
-            "text": "Tripod Null-Calf",
-            "world_graph_context": _GRAPH_NESTED,
-        },
-    ).json()
+    hermes_body = live_agent_loop.process_live_query(
+        'Tripod Null-Calf',
+        base=isolated_session,
+        outer_campaign_id='longmont-c2',
+        world_graph_context=AgentWorldGraphQueryContextRequest.model_validate(_GRAPH_NESTED),
+        query_backend='hermes',
+    )
 
     assert live_body["world_graph_context"] == hermes_body["world_graph_context"]
     assert live_body["world_graph_context"]["revision_id"] == "rev:parity"
@@ -1176,7 +1158,6 @@ def test_live_and_hermes_receive_equivalent_graph_context(
 
 
 def test_hermes_graph_host_path_ignores_legacy_lookup(
-    client: TestClient,
     isolated_session: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1226,7 +1207,7 @@ def test_hermes_graph_host_path_ignores_legacy_lookup(
     monkeypatch.setattr(dungeonbuddy, "handle_dungeon_context_lookup", boom_lookup)
 
     class _Host:
-        def execute(self, request, *, timeout_s=None):  # type: ignore[no-untyped-def]
+        def execute(self, request, *, timeout_s=None, on_host_phase=None):  # type: ignore[no-untyped-def]
             assert request.revision_pin == "rev:honest"
             return HermesGraphAgentTurnResult(
                 status="ok",
@@ -1252,19 +1233,13 @@ def test_hermes_graph_host_path_ignores_legacy_lookup(
     monkeypatch.setattr(hermes_agent_runtime_mod, "get_hermes_graph_agent_host", lambda: _Host())
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
-    response = client.post(
-        "/api/live/query",
-        json={
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "mode": "live",
-            "query_backend": "hermes",
-            "text": "Tripod Null-Calf",
-            "world_graph_context": _GRAPH_NESTED,
-        },
+    body = live_agent_loop.process_live_query(
+        'Tripod Null-Calf',
+        base=isolated_session,
+        outer_campaign_id='longmont-c2',
+        world_graph_context=AgentWorldGraphQueryContextRequest.model_validate(_GRAPH_NESTED),
+        query_backend='hermes',
     )
-    assert response.status_code == 200
-    body = response.json()
     assert body["world_graph_context"]["revision_id"] == "rev:honest"
     assert body["mode"] == "hermes_graph_agent"
     assert body["grounding"]["state"] == "grounded"
@@ -1294,7 +1269,6 @@ def test_hermes_graph_host_path_ignores_legacy_lookup(
 
 
 def test_world_graph_unavailable_allows_corpus_path(
-    client: TestClient,
     isolated_session: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1314,7 +1288,7 @@ def test_world_graph_unavailable_allows_corpus_path(
             "is_head": None,
             "focus": {"kind": "session", "session_id": "session-21", "campaign_id": None},
             "admissibility": "gm",
-            "query_text": "Tripod?",
+            "query_text": "What should I remember about the Tripod Null-Calf?",
             "matched_node_ids": [],
             "nodes": [],
             "relationships": [],
@@ -1361,25 +1335,18 @@ def test_world_graph_unavailable_allows_corpus_path(
         )
 
     monkeypatch.setattr(live_agent_loop, "run_context_lookup_turn", fake_context_lookup_turn)
-    response = client.post(
-        "/api/live/query",
-        json={
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "mode": "live",
-            "text": "Tripod?",
-            "world_graph_context": _GRAPH_NESTED,
-        },
+    body = live_agent_loop.process_live_query(
+        "What should I remember about the Tripod Null-Calf?",
+        base=isolated_session,
+        outer_campaign_id='longmont-c2',
+        world_graph_context=AgentWorldGraphQueryContextRequest.model_validate(_GRAPH_NESTED),
     )
-    assert response.status_code == 200
-    body = response.json()
     assert backend_called["live"] is True
     assert body["world_graph_context"]["status"] == "unavailable"
     assert "world_graph_unavailable" in body["warnings"]
 
 
 def test_invalid_revision_pin_fails_without_backend(
-    client: TestClient,
     isolated_session: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1414,24 +1381,19 @@ def test_invalid_revision_pin_fails_without_backend(
 
     nested = dict(_GRAPH_NESTED)
     nested["revision_pin"] = "not a safe pin!!!"
-    response = client.post(
-        "/api/live/query",
-        json={
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "mode": "live",
-            "text": "Tripod?",
-            "world_graph_context": nested,
-        },
-    )
-    assert response.status_code == 422
-    body = response.json()
-    assert body["code"] == "invalid_request"
+    with pytest.raises(AgentWorldGraphQueryContextError) as exc:
+        live_agent_loop.process_live_query(
+            "Tripod?",
+            base=isolated_session,
+            outer_campaign_id="longmont-c2",
+            world_graph_context=AgentWorldGraphQueryContextRequest.model_validate(nested),
+        )
+    assert exc.value.status_code == 422
+    assert exc.value.response_body()["code"] == "invalid_request"
     assert backend_called["live"] is False
 
 
 def test_revision_not_found_fails_without_backend(
-    client: TestClient,
     isolated_session: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1466,23 +1428,19 @@ def test_revision_not_found_fails_without_backend(
 
     nested = dict(_GRAPH_NESTED)
     nested["revision_pin"] = "rev:" + ("a" * 32)
-    response = client.post(
-        "/api/live/query",
-        json={
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "mode": "live",
-            "text": "Tripod?",
-            "world_graph_context": nested,
-        },
-    )
-    assert response.status_code == 404
-    assert response.json()["code"] == "revision_not_found"
+    with pytest.raises(AgentWorldGraphQueryContextError) as exc:
+        live_agent_loop.process_live_query(
+            "Tripod?",
+            base=isolated_session,
+            outer_campaign_id="longmont-c2",
+            world_graph_context=AgentWorldGraphQueryContextRequest.model_validate(nested),
+        )
+    assert exc.value.status_code == 404
+    assert exc.value.response_body()["code"] == "revision_not_found"
     assert backend_called["live"] is False
 
 
 def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
-    client: TestClient,
     isolated_session: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1526,7 +1484,7 @@ def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
     )
 
     class _Host:
-        def execute(self, request, *, timeout_s=None):  # type: ignore[no-untyped-def]
+        def execute(self, request, *, timeout_s=None, on_host_phase=None):  # type: ignore[no-untyped-def]
             return HermesGraphAgentTurnResult(
                 status="ok",
                 final_response="host not cli",
@@ -1551,19 +1509,13 @@ def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
     monkeypatch.setattr(hermes_agent_runtime_mod, "get_hermes_graph_agent_host", lambda: _Host())
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
-    response = client.post(
-        "/api/live/query",
-        json={
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "mode": "live",
-            "query_backend": "hermes",
-            "text": "Tripod",
-            "world_graph_context": _GRAPH_NESTED,
-        },
+    body = live_agent_loop.process_live_query(
+        'Tripod',
+        base=isolated_session,
+        outer_campaign_id='longmont-c2',
+        world_graph_context=AgentWorldGraphQueryContextRequest.model_validate(_GRAPH_NESTED),
+        query_backend='hermes',
     )
-    assert response.status_code == 200
-    body = response.json()
     assert body["mode"] == "hermes_graph_agent"
     assert body["answer"] == "host not cli"
     assert body["world_graph_context"]["revision_id"] == "rev:cli"
@@ -1571,7 +1523,6 @@ def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
 
 
 def test_hermes_history_accepts_valid_wire_shape(
-    client: TestClient,
     isolated_session: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1586,7 +1537,7 @@ def test_hermes_history_accepts_valid_wire_shape(
     captured: dict[str, Any] = {}
 
     class _Host:
-        def execute(self, request, *, timeout_s=None):  # type: ignore[no-untyped-def]
+        def execute(self, request, *, timeout_s=None, on_host_phase=None):  # type: ignore[no-untyped-def]
             captured["history"] = request.conversation_history
             return HermesGraphAgentTurnResult(
                 status="ok",
@@ -1640,28 +1591,20 @@ def test_hermes_history_accepts_valid_wire_shape(
     monkeypatch.setattr(hermes_agent_runtime_mod, "get_hermes_graph_agent_host", lambda: _Host())
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
-    response = client.post(
-        "/api/live/query",
-        json={
-            "campaign_id": "longmont-c2",
-            "session": 22,
-            "mode": "live",
-            "query_backend": "hermes",
-            "text": "What is it connected to?",
-            "world_graph_context": _GRAPH_NESTED,
-            "conversation_history": [
-                {
-                    "role": "user",
-                    "content": "What do we know about Tripod Null-Calf at the North Gate?",
-                },
-                {
-                    "role": "assistant",
-                    "content": "Tripod Null-Calf is a siege scout.",
-                },
-            ],
-        },
+    live_agent_loop.process_live_query(
+        "What is it connected to?",
+        base=isolated_session,
+        outer_campaign_id="longmont-c2",
+        query_backend="hermes",
+        world_graph_context=AgentWorldGraphQueryContextRequest.model_validate(_GRAPH_NESTED),
+        conversation_history=[
+            {
+                "role": "user",
+                "content": "What do we know about Tripod Null-Calf at the North Gate?",
+            },
+            {"role": "assistant", "content": "Tripod Null-Calf is a siege scout."},
+        ],
     )
-    assert response.status_code == 200
     assert captured["history"] == [
         {
             "role": "user",
@@ -1773,7 +1716,6 @@ def test_hermes_history_invalid_returns_422_without_execution(
             "mode": "live",
             "query_backend": "hermes",
             "text": "follow-up",
-            "world_graph_context": _GRAPH_NESTED,
             "conversation_history": history,
         },
     )
@@ -1824,7 +1766,6 @@ def test_hermes_null_or_empty_history_does_not_422_as_invalid(
         "mode": "live",
         "query_backend": "hermes",
         "text": "follow-up",
-        "world_graph_context": _GRAPH_NESTED,
     }
     if history is not None:
         payload["conversation_history"] = history
@@ -2149,7 +2090,6 @@ def test_live_query_http_passes_surface_context_to_process_live_query(
             "mode": "live",
             "query_backend": "hermes",
             "text": question,
-            "world_graph_context": _GRAPH_NESTED,
             "surface_context": surface,
         },
     )
@@ -2173,7 +2113,6 @@ def test_live_query_http_passes_surface_context_to_process_live_query(
             "mode": "live",
             "query_backend": "hermes",
             "text": question,
-            "world_graph_context": _GRAPH_NESTED,
         },
     )
     assert response.status_code == 200

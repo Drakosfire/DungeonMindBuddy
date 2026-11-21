@@ -11,6 +11,7 @@ export interface VerifiedManagedWorld {
   worldId: string;
   name: string;
   documentId: string | null;
+  graphStatus?: NonNullable<WorldContainerRecord["native_graph_binding"]>["status"];
 }
 
 export type SelectedWorldState =
@@ -89,6 +90,7 @@ export function verifyManagedWorldSelection(input: {
     worldId: world.world_id,
     name: world.name,
     documentId: input.document?.document_id ?? null,
+    ...(world.native_graph_binding ? { graphStatus: world.native_graph_binding.status } : {}),
   };
 }
 
@@ -103,9 +105,10 @@ export function SelectedWorldProvider({
   const hosted = auth.status === "authenticated";
   const selection = requestedWorldSelection(locationSnapshot);
   const selectionKey = selectionIdentity(selection);
+  const isHome = new URL(locationSnapshot, "http://localhost").pathname === "/";
   const [retryGeneration, setRetryGeneration] = useState(0);
   // Each selector transition owns fresh page admission, including A→B→A.
-  const selectionScope = useMemo(() => ({ key: selectionKey }), [selectionKey, retryGeneration]);
+  const selectionScope = useMemo(() => ({ key: selectionKey }), [selectionKey, retryGeneration, isHome]);
   const [loaded, setLoaded] = useState<{ scope: typeof selectionScope; value: SelectedWorldState } | null>(null);
   const retry = useCallback(() => {
     setLoaded(null);
@@ -113,7 +116,8 @@ export function SelectedWorldProvider({
   }, []);
   const continuedWorldOnly = selection.explicit && Boolean(selection.worldId)
     && !selection.documentId && !selection.runId && !selection.extractionRunId
-    && loaded?.value.kind === "managed" && loaded.value.worldId === selection.worldId;
+    && loaded?.value.kind === "managed" && loaded.value.worldId === selection.worldId
+    && (!isHome || loaded.scope === selectionScope);
   const admission = useMemo<SelectedWorldState>(() => continuedWorldOnly && loaded?.value.kind === "managed"
     ? { ...loaded.value, documentId: null }
     : !selection.explicit && !selection.documentId && !selection.runId && !selection.extractionRunId

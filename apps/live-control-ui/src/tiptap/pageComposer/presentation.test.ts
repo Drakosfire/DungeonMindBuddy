@@ -12,6 +12,25 @@ function row(markdown=text): JSONContent {
 }
 function payload(markdown=text):PagePresentation {return projectPresentation(row(markdown),markdown,markdownToTiptapDoc(markdown).doc).presentation!;}
 describe('Page presentation exact-source mapper',()=>{
+  it('retains enrolled plain identities and reserves them before allocating an inserted block',()=>{
+    const source='First paragraph.\n\nSecond paragraph.\n';
+    const existing:PagePresentation={schema_version:'dmb_page_presentation_v1',markdown_sha256:presentationSha256(source),
+      items:admittedPresentationBlocks(source).map((b,i)=>({kind:'block',id:`block-${i}`,byte_start:b.byte_start,byte_end:b.byte_end,sha256:b.sha256}))};
+    const original=hydratePresentation(source,existing);
+    expect(hasPresentation(original)).toBe(false);
+    expect(projectPresentation(original,source,original,existing)).toEqual({markdown:source,presentation:existing});
+    const edited=structuredClone(original);
+    edited.content!.unshift({type:'paragraph',content:[{type:'text',text:'New warning.'}]});
+    const saved=projectPresentation(edited,source,original,existing);
+    expect(saved.presentation!.items.map(item=>item.id)).toEqual(['block-2','block-0','block-1']);
+    const reopened=hydratePresentation(saved.markdown,saved.presentation);
+    expect(hasPresentation(reopened)).toBe(false);
+    expect(reopened.content!.slice(1)).toEqual(original.content);
+    expect(projectPresentation(original,source,original).presentation).toBeNull();
+    const duplicate=structuredClone(original);duplicate.content![1].attrs!.pageBlockId='block-0';
+    expect(()=>projectPresentation(duplicate,source,original,existing)).toThrow(/duplicate/);
+    expect(()=>projectPresentation(original,source+'changed',original,existing)).toThrow(/different source bytes/);
+  });
   it.each(['','abc','Café 🌲','a'.repeat(1000)])('hashes exact UTF8 bytes %s',s=>expect(presentationSha256(s)).toBe(createHash('sha256').update(s).digest('hex')));
   it.each([text,'---\ntitle: Café\n---\n\n'+text,text.replaceAll('\n','\r\n')])('reconstructs real mixed blocks with exact whitespace and YAML',source=>{
     const p=payload(source),doc=hydratePresentation(source,p);

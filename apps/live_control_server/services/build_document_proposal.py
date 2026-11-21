@@ -21,6 +21,7 @@ from application_state.build_proposal.types import (
     BuildProviderAuthorization, BuildComposeError, BuildComposeTargetMismatch,
     BuildComposeOutput,
 )
+from apps.live_control_server.services.semantic_block_writing import SEMANTIC_BLOCK_WRITING
 from apps.live_control_server.models.build_document_proposal import BuildDocumentProposalRequest
 from apps.live_control_server.services.workspace_document_registry import get_committed_page_snapshot
 from apps.live_control_server.services.world_container_registry import get_world_container
@@ -47,6 +48,11 @@ choose unavailable with empty replacement_markdown. For unclear placement ask in
 Otherwise choose target=captured. When a captured selection is present, revise only that selected passage: its text
 is reference data and its end/start are host-owned. Return the complete replacement
 for that passage, preserving its relevant names, facts and requested formatting.
+If the selection contains only text inside an existing callout paragraph, the
+editor retains the surrounding callout and its title. Return one paragraph
+with any requested inline formatting. Do not add a blockquote, callout marker
+or title around that replacement. Use the callout marker and title when the
+entire callout is the replacement.
 Otherwise compose an addition at the captured caret. Only the offered target enum may be chosen.
 Report destination as current_page only when the current instruction requests writing
 at this captured page, including development of a newly created page that is now
@@ -102,7 +108,7 @@ each row should offer something usable, while keeping conditional outcomes unpla
 Do not claim anything was inserted, saved or published.
 Use ordinary Markdown, including headings, lists and standard pipe tables. Do not
 return HTML, paths, executable code, graph identities, dmb-node links, hidden markers
-or document metadata. You have no tools and cannot request more reads.'''
+or document metadata. You have no tools and cannot request more reads.''' + "\n" + SEMANTIC_BLOCK_WRITING
 
 
 def _model():

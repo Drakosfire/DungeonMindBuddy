@@ -100,7 +100,6 @@ describe("GraphReviewCommittedProjectionPanel", () => {
           selectedObjectId="object-1"
           affectedObjectIds={["object-1"]}
           error={null}
-          onRetry={async () => undefined}
           onSelectObjectId={() => undefined}
         />
       ),
@@ -115,8 +114,7 @@ describe("GraphReviewCommittedProjectionPanel", () => {
     ).toHaveAttribute("data-phase", "ready");
   });
 
-  it("renders receipt metadata and retry on error", () => {
-    const onRetry = vi.fn().mockResolvedValue(undefined);
+  it("renders the receipt without offering a retired graph retry", () => {
     renderGraphReviewLiveHarness({
       children: (
         <GraphReviewCommittedProjectionPanel
@@ -126,7 +124,6 @@ describe("GraphReviewCommittedProjectionPanel", () => {
           selectedObjectId={null}
           affectedObjectIds={["object-1"]}
           error="Pinned revision unavailable"
-          onRetry={onRetry}
           onSelectObjectId={() => undefined}
         />
       ),
@@ -138,8 +135,7 @@ describe("GraphReviewCommittedProjectionPanel", () => {
     expect(screen.getByTestId("graph-review-committed-projection-error")).toHaveTextContent(
       "Pinned revision unavailable",
     );
-    screen.getByTestId("graph-review-committed-projection-retry").click();
-    expect(onRetry).toHaveBeenCalled();
+    expect(screen.queryByTestId("graph-review-committed-projection-retry")).not.toBeInTheDocument();
   });
 
   it("shows headRevisionId and isHead as metadata even when isHead is false", () => {
@@ -155,7 +151,6 @@ describe("GraphReviewCommittedProjectionPanel", () => {
           selectedObjectId="object-1"
           affectedObjectIds={["object-1"]}
           error={null}
-          onRetry={async () => undefined}
           onSelectObjectId={() => undefined}
         />
       ),
@@ -197,7 +192,6 @@ describe("GraphReviewCommittedProjectionPanel", () => {
           selectedObjectId="object-1"
           affectedObjectIds={["object-1"]}
           error={null}
-          onRetry={async () => undefined}
           onSelectObjectId={onSelectObjectId}
         />
       ),

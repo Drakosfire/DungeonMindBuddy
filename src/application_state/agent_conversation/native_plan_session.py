@@ -9,7 +9,10 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from copy import deepcopy
+from dataclasses import dataclass, field
 from datetime import timedelta
+from typing import Callable
+from uuid import UUID
 from enum import Enum
 from threading import RLock
 
@@ -49,6 +52,7 @@ class PlanSessionCommand(str, Enum):
 
 
 _EVENT = TypeAdapter(SurfaceNativeEvent)
+_EVENT_ID = TypeAdapter(UUID)
 
 
 def _owned_event(event):
@@ -138,6 +142,16 @@ class _SessionAdmission(AgentConversationService):
         return candidate
 
 
+@dataclass(frozen=True)
+class PlanSessionClaim:
+    world_id: str
+    conversation_id: UUID
+    turn_id: UUID
+    revision: int
+    attempt: int
+    snapshot: Callable[[], object] = field(repr=False, compare=False)
+
+
 class NativePlanSession:
     """One nonescaping materialization, serialized with the runtime claim fence."""
 
@@ -188,6 +202,14 @@ class NativePlanSession:
             self._seal()
 
     def execute(self, command: PlanSessionCommand, *, expected_revision, expected_attempt, **fields):
+        return self._execute(command, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, fields=fields)
+
+    def authorize_body_grants(self, *, expected_revision, expected_attempt, grants):
+        return self._execute(PlanSessionCommand.BODY_GRANTS, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, fields={'grants': grants}, export_grants=True)
+
+    def _execute(self, command, *, expected_revision, expected_attempt, fields, export_grants=False):
         with self._lock:
             try:
                 self._enter()
@@ -200,6 +222,10 @@ class NativePlanSession:
                 for name in ('authorization', 'outcome', 'selection', 'event'):
                     if name in owned:
                         owned[name] = _owned_event(owned[name])
+                grant_ids = ()
+                if export_grants:
+                    grant_ids = tuple(_EVENT_ID.validate_python(grant['event_id'])
+                        for grant in owned['grants'])
                 self._pending = None
                 # This dispatch is closed over APP methods, not an arbitrary
                 # caller-supplied method name or a new admission implementation.
@@ -217,6 +243,17 @@ class NativePlanSession:
                 elif updated is not self._committed or self._pending is not None:
                     raise ApplicationStateIntegrityError('Session replay changed its committed generation')
                 self._pending = None
+                if export_grants:
+                    committed = self._committed
+                    matches = {}
+                    for event in reversed(committed.graph_context_execution.events):
+                        if event.event_id in grant_ids:
+                            matches[event.event_id] = event
+                            if len(matches) == len(grant_ids):
+                                break
+                    return (PlanSessionClaim(committed.world_id, committed.conversation_id,
+                        committed.turn_id, committed.revision, committed.attempt, lambda: deepcopy(committed)),
+                        deepcopy(tuple(matches[event_id] for event_id in grant_ids)))
                 return deepcopy(self._committed), fresh
             except BaseException:
                 self._seal()

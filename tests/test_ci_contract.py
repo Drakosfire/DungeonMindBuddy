@@ -21,6 +21,16 @@ def test_workflows_consume_the_live_named_contracts():
     assert '--env GITHUB_SHA="${GITHUB_SHA}"' in hosted
 
 
+def test_guest_release_contract_covers_release_tests_and_hosted_entry():
+    catalog = ci.contracts(ci.ROOT)
+    backend = set(catalog["guest-release"]["argv"])
+    expected_backend = {str(path.relative_to(ci.ROOT)) for path in (ci.ROOT / "tests").glob("test_guest_release_*.py")}
+    assert expected_backend and expected_backend <= backend
+    hosted = catalog["hosted-frontend"]["steps"]
+    selectors = {argument for step in hosted for argument in step["argv"]}
+    assert {"src/App.guestHome.test.tsx", "src/App.guestRelease.test.tsx", "src/guestRelease"} <= selectors
+
+
 def assert_live_contracts(catalog, root):
     python_suites = {"world-and-content", "ingestion-and-review", "query-and-answer", "saved-page-readers", "auth-app"}
     assert python_suites | {"hosted-frontend"} <= catalog.keys()

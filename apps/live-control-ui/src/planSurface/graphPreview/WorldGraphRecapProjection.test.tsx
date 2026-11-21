@@ -324,50 +324,10 @@ describe("WorldGraphRecapProjectionView", () => {
     );
   }, 15000);
 
-  it("reads a durable object through the shared World lens, not the recap focus", async () => {
+  it("opens the historical recap object at its original pin when the legacy lens is unavailable", async () => {
     window.history.replaceState({}, "", "/ingest?campaign=longmont-c1&session=session-1");
     vi.spyOn(liveApi, "getSourceSessions").mockResolvedValue([]);
-    const worldProjection: WorldGraphProjection = {
-      schema: "dmb_world_graph_projection_v1",
-      snapshot: {
-        worldId: "eldyrwild",
-        campaignId: "longmont-c2",
-        revisionId: "rev-world-union",
-        headRevisionId: "rev-world-union",
-        isHead: true,
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-        scopeMode: "world",
-      },
-      summary: {
-        nodeCount: 1,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [{
-        nodeId: "pc_caelynn",
-        label: "Caelynn",
-        kind: "pc",
-        role: "pc",
-        aliases: ["Caelynn"],
-        sourceDomains: ["party_pc"],
-        anchoredToFocusSession: false,
-        evidenceBadges: [],
-        adjacency: [],
-        suggestedExpansions: [],
-        evidenceRefIds: [],
-        sourceArtifactIds: [],
-      }],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
-    };
-    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(worldProjection);
+    const classicProjection = vi.spyOn(liveApi, "postWorldGraphProjection");
 
     render(
       <WorldGraphLensProvider planCampaignId="longmont-c2">
@@ -399,11 +359,12 @@ describe("WorldGraphRecapProjectionView", () => {
         expect.objectContaining({
           worldId: "eldyrwild",
           campaignId: "longmont-c2",
-          revisionPin: "rev-world-union",
-          focus: { kind: "none", sessionId: null },
+          revisionPin: session23WorldGraphRecapFixture.snapshot.revisionId,
+          focus: session23WorldGraphRecapFixture.snapshot.focus,
         }),
       );
     });
+    expect(classicProjection).not.toHaveBeenCalled();
   }, 15000);
   it.each(["ready", "unavailable", "mismatched"])("uses verified native read identity under a %s managed lens", async (state) => {
     window.history.replaceState({}, "", "/ingest?world=elderwyld");

@@ -79,6 +79,27 @@ def test_chunk_document_outputs_schema_valid_units_for_docx(tmp_path: Path) -> N
     assert all(unit["schema_version"] == "0.1.0" for unit in units)
 
 
+def test_chunk_document_retains_docx_table_text(tmp_path: Path) -> None:
+    path = tmp_path / "source.docx"
+    doc = Document()
+    doc.add_heading("Carnival attractions", level=1)
+    table = doc.add_table(rows=1, cols=2)
+    table.cell(0, 0).text = "Moonlit carousel"
+    table.cell(0, 1).text = "Operates after dusk"
+    doc.save(path)
+
+    units = chunk_document(
+        docx_path=path,
+        document_id="table_source",
+        document_title="Attractions",
+        canon_layer="world",
+        campaign_id=None,
+        source_class="seed_reference",
+    )
+
+    assert any("Moonlit carousel" in str(unit) and "Operates after dusk" in str(unit) for unit in units)
+
+
 def test_infer_session_from_section_path() -> None:
     assert _infer_session_from_section_path(["Campaign 1", "Session 11 Recap"]) == 11
     assert _infer_session_from_section_path(["Longmont", "Session 12 - Aftermath"]) == 12

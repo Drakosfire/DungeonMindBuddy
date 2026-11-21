@@ -19,3 +19,9 @@ Verify the two snapshot calls, early refusal for writable Core, drift
 rejection, and unchanged row fingerprints without paid calls. Obtain
 independent review of the exact head before delivery. No schema or port
 changes and no writes to the serving system.
+
+Reconciled with Buddy main 20a5270920c07ffac1a032df77db75307d4be4ef
+after #4341. Keep browser Send, exact writer transport capture and retained
+trace reporting as merged. Cohort inventory remains scoped to standalone
+pinned writer-off members with distinct APP databases. Exact-head workflow
+tests and independent review are required before adopting this update.

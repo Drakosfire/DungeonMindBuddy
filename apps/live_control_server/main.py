@@ -64,6 +64,11 @@ from apps.live_control_server.routes.workspace_lifecycle import (
 from apps.live_control_server.routes.world_containers import (
     router as world_containers_router,
 )
+from apps.live_control_server.routes.guest_releases import (
+    router as guest_releases_router,
+    resolve_hosted_guest_release_world,
+)
+from apps.live_control_server.routes.guest_release_public import router as guest_release_public_router
 from apps.live_control_server.routes.statblock_integration import (
     router as statblock_integration_router,
 )
@@ -130,6 +135,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     WORLD_COLLECTION_PATH,
     WORLD_LOOKUP_PATH,
     hosted_owner_collection,
+    hosted_owner_creation,
     resolve_hosted_build_pdf_world,
     resolve_hosted_saved_artwork,
     resolve_hosted_build_extraction,
@@ -195,6 +201,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_play_table_receipts,
     resolve_hosted_world_lookup,
 )
+from apps.live_control_server.routes.build_extraction import router as build_extraction_router
 from bootstrap_env import load_dungeonmindbuddy_dotenv
 
 load_dungeonmindbuddy_dotenv()
@@ -220,12 +227,25 @@ def _load_graph_preview_router():
 
 HOSTED_WORLD_COLLECTION_AUTHORIZERS = {
     ("GET", WORLD_COLLECTION_PATH): hosted_owner_collection,
+    ("POST", WORLD_COLLECTION_PATH): hosted_owner_creation,
 }
 
 PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
 PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("POST", "/api/live/worlds/{world_id}/guest-releases"): resolve_hosted_guest_release_world,
+    ("GET", "/api/live/worlds/{world_id}/guest-releases/status"): resolve_hosted_guest_release_world,
+    ("GET", "/api/live/worlds/{world_id}/guest-releases/selection-options"): resolve_hosted_guest_release_world,
+    ("POST", "/api/live/worlds/{world_id}/guest-releases/selection-media/list"): resolve_hosted_guest_release_world,
+    ("GET", "/api/live/worlds/{world_id}/guest-releases/selection-media/{asset_id}"): resolve_hosted_guest_release_world,
+    ("GET", "/api/live/worlds/{world_id}/guest-releases/candidates"): resolve_hosted_guest_release_world,
+    ("GET", "/api/live/worlds/{world_id}/guest-releases/published"): resolve_hosted_guest_release_world,
+    ("GET", "/api/live/worlds/{world_id}/guest-releases/candidates/{release_id}"): resolve_hosted_guest_release_world,
+    ("GET", "/api/live/worlds/{world_id}/guest-releases/candidates/{release_id}/assets/{asset_id}"): resolve_hosted_guest_release_world,
+    ("POST", "/api/live/worlds/{world_id}/guest-releases/candidates/{release_id}/publish"): resolve_hosted_guest_release_world,
+    ("POST", "/api/live/worlds/{world_id}/guest-releases/candidates/{release_id}/revoke"): resolve_hosted_guest_release_world,
+    ("POST", "/api/live/worlds/{world_id}/guest-releases/candidates/{release_id}/restore"): resolve_hosted_guest_release_world,
     ("POST", "/api/live/graph-authoring/native-manual/context"): resolve_hosted_native_manual,
     ("POST", "/api/live/graph-authoring/native-manual/prepare"): resolve_hosted_native_manual,
     ("POST", "/api/live/graph-authoring/native-manual/confirm"): resolve_hosted_native_manual,
@@ -428,6 +448,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/combat/encounters/conversation-variant/preview"): resolve_hosted_combat_encounter,
     ("POST", "/api/live/combat/encounters/world-mechanics/preview"): resolve_hosted_combat_encounter,
     ("GET", "/api/live/combat/encounters/{encounter_id}"): resolve_hosted_combat_encounter,
+    ("GET", "/api/live/combat/encounters/{encounter_id}/participants/{participant_id}/corpus-sheet"): resolve_hosted_combat_encounter,
     ("POST", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions"): resolve_hosted_combat_encounter,
     ("POST", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions:cancel"): resolve_hosted_combat_encounter,
     ("GET", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions/{operation_id}"): resolve_hosted_combat_encounter,
@@ -563,6 +584,8 @@ def create_app() -> FastAPI:
     application.include_router(agent_graph_local_session_router)
     if graph_preview_router is not None:
         application.include_router(graph_preview_router)
+    else:
+        application.include_router(build_extraction_router, prefix="/api/live/graph-preview")
     application.include_router(graph_authoring_router)
     application.include_router(recap_ingest_router)
     application.include_router(party_registry_router)
@@ -581,6 +604,8 @@ def create_app() -> FastAPI:
     application.include_router(workspace_documents_router)
     application.include_router(workspace_lifecycle_router)
     application.include_router(world_containers_router)
+    application.include_router(guest_releases_router)
+    application.include_router(guest_release_public_router)
     application.include_router(statblock_integration_router)
     application.include_router(threat_drafts_router)
     application.include_router(threat_publication_router)

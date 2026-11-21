@@ -6,6 +6,7 @@ import type { SavedRecapRun, SavedRecapRuns, SavedRecapSource } from "../api/sav
 import * as rawApi from "../api/recapIngestApi";
 import * as admissionApi from "../api/nativeRecapSourceApi";
 import * as liveApi from "../api/liveApi";
+import * as candidateApi from "../api/exactRunCandidateProjectionApi";
 import { IngestionModule } from "./IngestionModule";
 import type { RecapIngestStatus } from "../api/types";
 vi.mock("../chrome/NativeGraphAccessControl", () => ({ NativeGraphAccessControl: ({ onChanged }: {
@@ -47,6 +48,21 @@ it("reloads an exact route from the catalog without inspecting files", async () 
     expect(await screen.findByText("Source for run-a.")).toBeInTheDocument();
     expect(rawApi.postRecapIngest).not.toHaveBeenCalled();
     expect(liveApi.getRecapArtifacts).not.toHaveBeenCalled();
+});
+it("restores a retired admitted view and lets the user open the same saved source", async () => {
+    const projection = vi.spyOn(liveApi, "getHistoricalRecapWorldProjection");
+    const candidate = vi.spyOn(candidateApi, "getExactRunCandidateProjection");
+    mount("&view=recap&recapReviewRunId=run-a&recapProjection=admitted");
+    expect(await screen.findByText(/Admitted graph visualization for this saved run is unavailable/)).toBeInTheDocument();
+    expect(projection).not.toHaveBeenCalled();
+    expect(candidate).not.toHaveBeenCalled();
+    expect(savedApi.getSavedRecapSource).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "View admitted memory" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "View saved source" }));
+    expect(await screen.findByText("Source for run-a.")).toBeInTheDocument();
+    expect(savedApi.getSavedRecapSource).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ runId: "run-a" }));
+    expect(rawApi.postRecapIngest).not.toHaveBeenCalled();
+    expect(projection).not.toHaveBeenCalled();
 });
 it("does not replace a missing exact run with another run for its session", async () => {
     mount("&view=recap&recapReviewRunId=missing");

@@ -143,7 +143,7 @@ def test_list_ignores_legacy_registry_without_migration_or_mind_call(
     ).encode("utf-8")
     path.write_bytes(original)
     monkeypatch.setattr(
-        "apps.live_control_server.services.world_graph_binding._validate_with_mind",
+        "apps.live_control_server.services.world_graph_binding._open_native_binding_repository",
         lambda _world_id: pytest.fail("WorldContainer list must not contact MIND"),
     )
 

@@ -46,6 +46,8 @@ import {
 export type WorkspaceDocumentAuthoringStatus = WorkspaceDocumentAuthoringPhase;
 
 export interface UseWorkspaceDocumentAuthoringArgs {
+  /** Authorized editor snapshot for the first open of this document. */
+  initialSnapshot?: WorkspaceDocumentSnapshot;
   documentId: string;
   surface: WorkspaceDocumentLocalSurface;
   kind: WorkspaceDocumentLocalKind;
@@ -252,7 +254,8 @@ export function useWorkspaceDocumentAuthoring(
     void draftWriter.write(next,()=>localStateRef.current===next).catch(()=>{});
   },[draftWriter]);
 
-  const openFromSnapshot = useCallback(async (options?: { clearLocalFirst?: boolean }) => {
+  const initialSnapshot = useRef(args.initialSnapshot);
+  const openFromSnapshot = useCallback(async (options?: { clearLocalFirst?: boolean; useInitialSnapshot?: boolean }) => {
     dispatch({ type: options?.clearLocalFirst ? "DISCARD_STARTED" : "OPEN_STARTED" });
     saveGenerationRef.current += 1;
     verificationGenerationRef.current += 1;
@@ -264,7 +267,12 @@ export function useWorkspaceDocumentAuthoring(
         const generation=editorMutationGenerationRef.current;
         await draftWriter.clear(()=>openGeneration===openGenerationRef.current && generation===editorMutationGenerationRef.current && requestedDocument.current===args.documentId);
       }
-      const nextSnapshot = await getWorkspaceDocumentSnapshot(args.documentId);
+      if (openGeneration !== openGenerationRef.current || requestedDocument.current !== args.documentId || !recoveryMounted.current) return;
+      const provided = options?.useInitialSnapshot ? initialSnapshot.current : undefined;
+      initialSnapshot.current = undefined;
+      const nextSnapshot = provided?.record.document_id === args.documentId
+        ? provided
+        : await getWorkspaceDocumentSnapshot(args.documentId);
       if (openGeneration !== openGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
       const admittedRaw = storage.getItem(workspaceDocumentStorageKey(args.documentId));
       if(options?.clearLocalFirst && admittedRaw!==null)throw new Error("Another tab wrote a draft during discard. Its copy was kept; reopen the page.");
@@ -333,7 +341,7 @@ export function useWorkspaceDocumentAuthoring(
   }, [args.documentId, args.kind, args.surface, dispatch, emptyMarkdownFallback, storage,draftWriter]);
 
   useEffect(() => {
-    void openFromSnapshot();
+    void openFromSnapshot({ useInitialSnapshot: true });
   }, [openFromSnapshot]);
 
   const markDirty = useCallback(() => {
@@ -349,15 +357,16 @@ export function useWorkspaceDocumentAuthoring(
   const persistEditorState = useCallback((tiptapJson: JSONContent) => {
     const current = localStateRef.current;
     if (!current) return;
+    const snap = snapshotRef.current;
+    const retainedPlainBase = snap?.page_presentation != null && snap.page_presentation.items.every(item => item.kind === "block");
     const composing = args.kind === "worldbuilding_source" && args.surface === "build"
-      && (current.page_presentation !== undefined || hasPresentation(tiptapJson));
+      && (retainedPlainBase || current.page_presentation !== undefined || hasPresentation(tiptapJson));
     let projected: {markdown: string; presentation: PagePresentation | null} | undefined;
     let projectionError: unknown;
-    try { if (composing) projected = projectPresentation(tiptapJson, current.exported_markdown, current.page_presentation_pending ? markdownToTiptapDoc(current.exported_markdown).doc : current.tiptap_json as JSONContent); }
+    try { if (composing) projected = projectPresentation(tiptapJson, current.exported_markdown, current.page_presentation_pending ? markdownToTiptapDoc(current.exported_markdown).doc : current.tiptap_json as JSONContent, current.page_presentation, retainedPlainBase); }
     catch (error) { projectionError = error; }
     const serializationUnsafe = semanticMarkdownSerializationDiagnostics(flattenPresentation(tiptapJson)).length > 0;
     const projectionPending = Boolean(projectionError) && !serializationUnsafe;
-    const snap = snapshotRef.current;
     const sourceHasBlockingImport = snap != null && hasBlockingMarkdownImportDiagnostics(snap.markdown);
     // When editor JSON is outside the supported Markdown grammar, or the loaded
     // source already has blocking import diagnostics, preserve authoritative
@@ -697,6 +706,7 @@ export function useWorkspaceDocumentAuthoring(
       return;
     }
 
+    const retainedPlainBase = snapshot.page_presentation != null && snapshot.page_presentation.items.every(item => item.kind === "block");
     const tiptapJson = editor.getJSON();
     const serializationDiagnostics = semanticMarkdownSerializationDiagnostics(flattenPresentation(tiptapJson));
     if (serializationDiagnostics.length > 0) {
@@ -710,8 +720,8 @@ export function useWorkspaceDocumentAuthoring(
     let projected: {markdown: string; presentation: PagePresentation | null} | undefined;
     try {
       if (args.kind === "worldbuilding_source" && args.surface === "build"
-        && (localState.page_presentation !== undefined || hasPresentation(tiptapJson))) {
-        projected = projectPresentation(tiptapJson, localState.exported_markdown, localState.page_presentation_pending ? markdownToTiptapDoc(localState.exported_markdown).doc : localState.tiptap_json as JSONContent);
+        && (retainedPlainBase || localState.page_presentation !== undefined || hasPresentation(tiptapJson))) {
+        projected = projectPresentation(tiptapJson, localState.exported_markdown, localState.page_presentation_pending ? markdownToTiptapDoc(localState.exported_markdown).doc : localState.tiptap_json as JSONContent, localState.page_presentation, retainedPlainBase);
       }
     } catch (error) {
       dispatch({type: "SAVE_FAILED", message: error instanceof Error ? error.message : "Layout cannot be saved safely. Your draft was kept."});
@@ -755,6 +765,11 @@ export function useWorkspaceDocumentAuthoring(
       });
       if (saveGeneration !== saveGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
       setLastCommitReceipt(committed);
+      if (projected && (retainedPlainBase || localState.page_presentation?.items.every(item => item.kind === 'block'))
+        && presentationFingerprint(projected.presentation) !== (committed.page_presentation_sha256 ?? null)) {
+        dispatch({type: "VERIFICATION_MISMATCH", reason: "The Save receipt does not retain the submitted page presentation. Your local draft was kept."});
+        return;
+      }
       const receiptForThisSave = committed;
       const verificationGeneration = ++verificationGenerationRef.current;
       let editedDuringSave = editorMutationGenerationRef.current !== mutationGenerationAtSaveStart;

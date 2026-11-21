@@ -1,7 +1,8 @@
 """Evaluation-only stop at the real admitted Plan writer-input boundary.
 
 No replacement input producer or response is supplied. The ordinary SDK prepares
-its request, APP/Rules authorize it, and GE records known_not_sent on our stop.
+its request and APP/Rules authorize it. The default stops before dispatch.
+The opt-in mode instead terminates in a local sink below the dispatch gate.
 """
 from contextlib import contextmanager
 from copy import deepcopy
@@ -10,6 +11,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 from time import monotonic_ns
+from threading import Lock
 from unittest.mock import patch
 
 import httpx
@@ -25,17 +27,21 @@ class WriterIODenied(BaseException):
     """The intended boundary was missed; context capture must fail closed."""
 
 
-def validate_context_packet(ready, request, terminal):
+def validate_context_packet(ready, request, terminal, *, writer_transport=None):
     """Join exact prepared bytes to the final, normally interrupted APP turn."""
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_execution import NativeWriterAuthorizedV1
 
+    sink = terminal.get("transport_sink")
+    if writer_transport is not None and writer_transport != (sink is not None):
+        raise ValueError("Capture receipt differs from the requested boundary")
+    expected_hits = 1 if sink is not None else 0
     if (ready.get("schema") != "dmb_benchmark_context_ready_v1"
             or terminal.get("status") != "captured"
             or type(terminal.get("authorization_calls")) is not int
             or type(terminal.get("writer_io_guard_hits")) is not int
             or terminal.get("authorization_calls") != 1
-            or terminal.get("writer_io_guard_hits") != 0
+            or terminal.get("writer_io_guard_hits") != expected_hits
             or terminal.get("stop_issued") is not True):
         raise ValueError("Context stop or zero-writer-IO proof is incomplete")
     body = bytes.fromhex(request["body_hex"])
@@ -62,8 +68,9 @@ def validate_context_packet(ready, request, terminal):
     outcomes = [event.outcome for event in execution.events
                 if isinstance(event, t.ProviderOutcomeEventV1)
                 and event.provider_attempt_id == authorization.provider_attempt_id]
-    if outcomes != ["known_not_sent"]:
-        raise ValueError("Writer lifecycle does not prove known_not_sent")
+    expected_outcomes = ["sdk_entered", "outcome_unknown"] if sink is not None else ["known_not_sent"]
+    if outcomes != expected_outcomes:
+        raise ValueError("Writer lifecycle differs from the captured boundary")
     accepted = turn.accepted_at
     observed_accepted = datetime.fromisoformat(ready["accepted_at"])
     observed_ready = datetime.fromisoformat(ready["ready_at"])
@@ -80,21 +87,78 @@ def validate_context_packet(ready, request, terminal):
     if (request["provider"], request["model"], request["api_mode"], request["method"], request["url"]) != (
             "openai", authorization.model, "responses", "POST", "https://api.openai.com/v1/responses"):
         raise ValueError("Context request provider identity differs")
+    request_to_transport_ms = None
+    if sink is not None:
+        if not isinstance(sink, dict):
+            raise ValueError("Writer transport receipt must be an object")
+        sink_tick = sink.get("monotonic_ns")
+        if (type(sink_tick) is not int or sink_tick < ready["ready_monotonic_ns"]
+                or (sink.get("method"), sink.get("url"), sink.get("body_hex"))
+                != (request["method"], request["url"], request["body_hex"])):
+            raise ValueError("Writer transport bytes or clock differs from authorization")
+        if request_started is not None:
+            request_to_transport_ms = (sink_tick - request_started) / 1_000_000
     return {"turn": turn, "authorization": authorization, "payload": payload,
             "elapsed_ms": elapsed_ms, "request_to_ready_ms": request_to_ready_ms,
-            "prepared_bytes": len(body)}
+            "request_to_transport_ms": request_to_transport_ms, "prepared_bytes": len(body)}
+
+
+def summarize_host_trace(detail, ready, terminal):
+    start = ready["request_started_monotonic_ns"]
+    end = terminal.get("transport_sink", {}).get("monotonic_ns", ready["ready_monotonic_ns"])
+    if not isinstance(detail, dict):
+        raise ValueError("Invalid detailed host trace")
+    trace_id = ready.get("host_trace_id")
+    intervals = detail.get("intervals")
+    if (detail.get("schema") != "dmb_benchmark_host_intervals_v1"
+            or type(start) is not int or type(end) is not int
+            or (detail.get("start_monotonic_ns"), detail.get("end_monotonic_ns")) != (start, end)
+            or type(detail.get("truncated")) is not bool
+            or not isinstance(trace_id, str) or detail.get("trace_id") != trace_id
+            or not isinstance(intervals, list) or len(intervals) > 4096
+            or any(not isinstance(span, dict)
+                   or type(span.get("start_monotonic_ns")) is not int
+                   or type(span.get("end_monotonic_ns")) is not int
+                   or not start <= span["start_monotonic_ns"] <= span["end_monotonic_ns"] <= end
+                   or type(span.get("partial")) is not bool
+                   or span.get("trace_id") != trace_id
+                   or type(span.get("failed")) is not bool
+                   or not isinstance(span.get("name"), str) for span in intervals)):
+        raise ValueError("Invalid detailed host trace")
+    return {"interval_count": len(intervals), "truncated": detail["truncated"],
+            "partial_intervals": sum(span["partial"] for span in intervals)}
 
 
 class ContextCapture:
-    def __init__(self, directory):
+    def __init__(self, directory, *, writer_transport=False, detailed_trace=False):
         self.directory = Path(directory)
+        self.writer_transport = writer_transport
+        self.detailed_trace = detailed_trace
+        self.host_intervals = []
+        self.host_intervals_lock = Lock()
+        self.trace_truncated = False
+        self.transport_sink = None
+        self.ready = self.request = None
         self.authorization_calls = self.guard_hits = 0
         self.stop_issued = False
         self.request_started_monotonic_ns = None
 
+    def record_host_interval(self, trace_id, name, start, end, failed):
+        with self.host_intervals_lock:
+            if len(self.host_intervals) >= 4096:
+                self.trace_truncated = True
+                return
+            self.host_intervals.append({
+                "trace_id": trace_id, "name": name,
+                "start_monotonic_ns": round(start * 1_000_000_000),
+                "end_monotonic_ns": round(end * 1_000_000_000),
+                "failed": failed,
+            })
+
     @contextmanager
     def install(self):
         from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+        from apps.live_control_server.services.agent_turn_trace import host_work_observer
 
         owner = self
         original_authorize, original_run = PlanJevWriter.authorize, PlanJevWriter.run
@@ -102,6 +166,12 @@ class ContextCapture:
         class DenyWriterIO(httpx.AsyncBaseTransport):
             async def handle_async_request(self, request):
                 owner.guard_hits += 1
+                if owner.writer_transport and owner.guard_hits == 1 and owner.request is not None:
+                    tick = monotonic_ns()
+                    owner.transport_sink = {"monotonic_ns": tick, "method": request.method,
+                                            "url": str(request.url), "body_hex": request.content.hex()}
+                    owner.stop_issued = True
+                    raise ContextReadyStop("Writer captured at the local transport sink")
                 raise WriterIODenied("Writing-provider IO is disabled in context capture")
 
         guard = DenyWriterIO()
@@ -121,7 +191,7 @@ class ContextCapture:
             if turn.graph_context_receipt.work_context.surface_id != "plan":
                 raise ContextReadyStop("Context capture requires the ordinary Plan owner")
             trace = getattr(writer.adapter, "trace", None)
-            immutable_save(owner.directory, "context-ready", {
+            owner.ready = {
                 "schema": "dmb_benchmark_context_ready_v1", "world_id": turn.world_id,
                 "conversation_id": str(turn.conversation_id), "turn_id": str(turn.turn_id),
                 "attempt": turn.attempt, "authorization_event_id": str(event.event_id),
@@ -131,12 +201,15 @@ class ContextCapture:
                 "ready_at": now.isoformat(), "ready_monotonic_ns": tick,
                 "request_started_monotonic_ns": owner.request_started_monotonic_ns,
                 "host_spans": deepcopy(trace.spans) if trace is not None else None,
-            })
-            immutable_save(owner.directory, "context-request", {
+                "host_trace_id": trace.trace_id if trace is not None else None,
+            }
+            owner.request = {
                 "provider": prepared.provider, "model": prepared.model, "api_mode": prepared.api_mode,
                 "method": prepared.method, "url": prepared.url, "body_hex": prepared.body.hex(),
                 "body_size": prepared.body_size, "body_sha256": prepared.body_sha256,
-            })
+            }
+            if owner.writer_transport:
+                return True
             owner.stop_issued = True
             raise ContextReadyStop("Admitted context captured; no response requested")
 
@@ -146,19 +219,49 @@ class ContextCapture:
             return await original_run(writer, transport=guard, api_key=api_key)
 
         with patch.object(PlanJevWriter, "authorize", authorize), patch.object(PlanJevWriter, "run", run):
-            yield self
+            token = host_work_observer.set(self.record_host_interval) if self.detailed_trace else None
+            try:
+                yield self
+            finally:
+                if token is not None:
+                    host_work_observer.reset(token)
 
     def finalize(self, turn):
         terminal = {"status": "captured", "authorization_calls": self.authorization_calls,
                     "writer_io_guard_hits": self.guard_hits, "stop_issued": self.stop_issued,
                     "turn": turn.model_dump(mode="json", by_alias=True)}
         try:
+            if self.writer_transport:
+                if self.transport_sink is None:
+                    raise ValueError("Writer transport sink was not reached")
+                terminal["transport_sink"] = self.transport_sink
+            for name, value in (("context-ready", self.ready), ("context-request", self.request)):
+                if value is not None:
+                    immutable_save(self.directory, name, value)
             ready = json.loads((self.directory / "context-ready.json").read_text())
             request = json.loads((self.directory / "context-request.json").read_text())
-            validate_context_packet(ready, request, terminal)
+            validate_context_packet(ready, request, terminal, writer_transport=self.writer_transport)
         except Exception as exc:
             terminal.update(status="incomplete", error_type=type(exc).__name__)
             immutable_save(self.directory, "context-stop", terminal)
             raise
+        if self.detailed_trace:
+            end = (self.transport_sink["monotonic_ns"] if self.transport_sink is not None
+                   else ready["ready_monotonic_ns"])
+            start = ready["request_started_monotonic_ns"]
+            with self.host_intervals_lock:
+                intervals = [dict(span, start_monotonic_ns=max(start, span["start_monotonic_ns"]),
+                                  end_monotonic_ns=min(end, span["end_monotonic_ns"]),
+                                  partial=span["start_monotonic_ns"] < start or span["end_monotonic_ns"] > end)
+                             for span in self.host_intervals
+                             if span["start_monotonic_ns"] < end and span["end_monotonic_ns"] > start]
+                detail = {
+                    "schema": "dmb_benchmark_host_intervals_v1",
+                    "start_monotonic_ns": start, "end_monotonic_ns": end,
+                    "truncated": self.trace_truncated, "intervals": intervals,
+                    "trace_id": ready["host_trace_id"],
+                }
+            summarize_host_trace(detail, ready, terminal)
+            immutable_save(self.directory, "detailed-host-trace", detail)
         immutable_save(self.directory, "context-stop", terminal)
 
