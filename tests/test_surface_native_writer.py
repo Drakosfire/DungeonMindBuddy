@@ -1022,3 +1022,43 @@ def test_writer_section_vote_recovers_bounded_passage_from_covering_read():
     assert (extent.byte_start, extent.byte_end) == (section.byte_start, section.byte_end)
 
     assert bodies.writer_passage_supports(SimpleNamespace(events=(search, full_read)), lambda _: "unused") == ()
+
+
+def test_compact_plan_graph_prose_keeps_facts_and_nonempty_qualifications():
+    from application_state.agent_conversation.native_evidence_view import render_plan_evidence
+
+    qualifications = {
+        'q0': dict(claim_mode='dungeonbuddy.claim:observed_event', domain_metadata=[],
+                   epistemic_basis='asserted', standing='provisional'),
+        'q1': dict(claim_mode='other:report', domain_metadata=[{'source': 'a narrated plan'}],
+                   standing='asserted'),
+    }
+    frame = dict(
+        input_status='complete', user_question='What happened?',
+        native_body_evidence={'source_access': 'available', 'excerpts': []},
+        native_statements={'statements': []},
+        native_assertions={
+            'qualifications': qualifications,
+            'assertions': [
+                {'assertion_handle': 'assertion0', 'assertion': {
+                    'qualification': 'q0', 'subject': 'party', 'predicate': 'graph:visited',
+                    'value': {'kind': 'entity_ref', 'entity': 'Forest'},
+                }},
+                {'assertion_handle': 'assertion1', 'assertion': {
+                    'qualification': 'q1', 'subject': 'party', 'predicate': 'graph:planned',
+                    'value': {'kind': 'entity_ref', 'entity': 'Village'},
+                }},
+            ],
+        },
+    )
+    work = dict(committed_plan_blocks=[], session_evidence=[], dialogue_reference=[])
+    retained = render_plan_evidence(frame, work)
+    compact = render_plan_evidence(frame, work, compact_graph_qualifications=True)
+    assert compact == retained.replace(
+        'claim mode: dungeonbuddy.claim:observed_event; domain metadata: ; ',
+        'claim mode: observed_event; ',
+    )
+    assert '[assertion0] party · visited · Forest' in compact
+    assert 'other:report; domain metadata: source: a narrated plan' in compact
+    assert qualifications['q0']['domain_metadata'] == []
+    assert render_plan_evidence(frame, work) == retained
