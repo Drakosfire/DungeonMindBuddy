@@ -1726,3 +1726,36 @@ it.each([403, 404, 409, 500, "network"])("never falls back to public recap POST 
   expect(String(fetch.mock.calls[0]![0])).toContain("/graph-evidence?");
   expect(fetch.mock.calls[0]![1]?.method ?? "GET").toBe("GET");
 });
+
+it("treats Plan source prewarm as passive and accepts its empty success", async () => {
+  const api = await setup();
+  const signal = new AbortController().signal;
+  const fetch = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(new Response(null, {status: 403}))
+    .mockResolvedValueOnce(new Response(null, {status: 204}));
+
+  await api.prewarmPlanSource("managed", signal);
+  expect(fetch).not.toHaveBeenCalled();
+  api.setNativeGraphAccessToken("synthetic-local-credential");
+  const generation = api.getNativeGraphAccessGeneration();
+  await expect(api.prewarmPlanSource("managed", signal)).rejects.toMatchObject({status: 403});
+  expect(api.getNativeGraphAccessGeneration()).toBe(generation);
+  await expect(api.prewarmPlanSource("managed", signal)).resolves.toBeUndefined();
+  expect(fetch).toHaveBeenCalledTimes(2);
+  for (const [url, init] of fetch.mock.calls) {
+    expect(url).toBe("/api/live/native-source-inspection/prewarm");
+    expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer synthetic-local-credential");
+  }
+});
+
+it("uses only hosted cookies for Plan source prewarm", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("synthetic-local-credential");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, {status: 204}));
+  await api.prewarmPlanSource("managed", new AbortController().signal);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  const [, init] = fetch.mock.calls[0]!;
+  expect(init).toMatchObject({credentials: "same-origin", redirect: "error", cache: "no-store"});
+  expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+});

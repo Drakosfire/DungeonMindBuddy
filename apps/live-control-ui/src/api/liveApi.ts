@@ -4317,11 +4317,23 @@ export function readNativeRecapPage(
   );
 }
 
-export function prewarmPlanSource(worldId: string, signal: AbortSignal): Promise<void> {
-  return apiFetch("/api/live/native-source-inspection/prewarm", {
-    method: "POST", cache: "no-store", signal,
-    body: JSON.stringify({managed_world_id: worldId, scope_mode: "world", campaign_id: null}),
+export async function prewarmPlanSource(worldId: string, signal: AbortSignal): Promise<void> {
+  const path = "/api/live/native-source-inspection/prewarm";
+  const body = JSON.stringify({managed_world_id: worldId, scope_mode: "world", campaign_id: null});
+  const init = {method: "POST", body, signal};
+  const target = apiRequestTarget(path, init);
+  const headers: Record<string, string> = {"Content-Type": "application/json"};
+  // A speculative request can borrow a current credential, but must never
+  // bootstrap, recover, revoke, or rotate the session shared with Send.
+  if (!target.hostedGraphRequest) {
+    if (nativeGraphSessionRevoked || (!nativeGraphAccessToken && !nativeGraphCsrf)) return;
+    if (!nativeGraphAccessToken && nativeGraphCsrf) headers["X-DMB-Graph-CSRF"] = nativeGraphCsrf;
+  }
+  const response = await fetch(target.url, {
+    ...init, cache: "no-store", redirect: "error", credentials: "same-origin", mode: "same-origin",
+    headers: target.hostedGraphRequest ? hostedGraphHeaders(path, headers) : nativeGraphHeaders(path, body, headers),
   });
+  if (response.status !== 204) throw new LiveApiError("Plan source prewarm was unavailable.", response.status);
 }
 
 export function getNativeSourceCatalog(scope:InspectionScope,signal?:AbortSignal):Promise<NativeSourceCatalog> {
