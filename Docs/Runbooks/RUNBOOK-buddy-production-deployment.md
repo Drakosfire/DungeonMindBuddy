@@ -66,7 +66,7 @@ The current Buddy production host is `srv586875` and the SSH target is
    `up -d --no-deps --pull never --wait --wait-timeout 180 buddy`. Afterward,
    verify the running service container against the same image ID and release
    SHA:
-   `running_buddy=$("${buddy_compose[@]}" ps -q buddy); test -n "$running_buddy" && test "$(docker inspect --format '{{.Image}}' "$running_buddy")" = "$buddy_image_id" && test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$running_buddy")" = "$buddy_release"`.
+   `running_buddy=$("${buddy_compose[@]}" ps -q buddy) && test -n "$running_buddy" && test "$(docker inspect --format '{{.Image}}' "$running_buddy")" = "$buddy_image_id" && test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$running_buddy")" = "$buddy_release"`.
    If either identity differs, stop and follow the rollback procedure. Keep the
    root-owned environment file in place and avoid printing rendered Compose
    config, which can contain secrets. Use narrowly formatted
