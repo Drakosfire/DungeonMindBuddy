@@ -273,3 +273,12 @@
 }
 .combat-roster-active-toolbar .combat-toolbar-turn :is(strong,span) { display:inline; }
 .combat-roster-active-toolbar .combat-toolbar-next:not(:disabled) { border-color:var(--ui-accent-action, #d4a444); }
+@media (max-width: 48rem) {
+  .combat-roster-active-toolbar {
+    column-gap:.3rem;
+    font-size:.875rem;
+  }
+  .combat-roster-active-toolbar > label { flex:1 1 9rem; }
+  .combat-roster-active-toolbar > .combat-roster-turn-rail { flex:1 1 100%; }
+  .combat-roster-active-toolbar > details > summary { padding-inline:.35rem; }
+}
