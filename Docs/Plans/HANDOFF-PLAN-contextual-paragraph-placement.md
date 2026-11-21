@@ -193,6 +193,10 @@ Jev retains all semantic targeting authority in one actual combined SDK batch:
   entire-section placement, page end and the real capture. Independent multiple
   relations must clarify. Directly under a heading/before its existing body is
   one canonical after_heading relation, not a new compound capability.
+  A single before/after direction naming an existing prose block can be offered
+  during actual source-blind adjudication when both observations confirm an
+  edit but leave the relation unresolved. Adjudication still needs a later
+  independently nominated source match and exact captured geometry.
 - Paragraph content votes select exact projected-visible-text families, separately
   from section scope. Equality preserves case, whitespace and hard breaks.
   Grouping is a semantic predicate, never a shared edit identity. Expand every

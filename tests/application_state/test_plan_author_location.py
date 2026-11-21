@@ -296,6 +296,17 @@ def test_direction_adjudication_preserves_unresolved_alternatives():
     assert not author_scope_review_required('Put it both immediately before and after the crate paragraph.', first, first)
     assert not explicit_direction_options('Do the porters arrive right after sunset?')
     assert not explicit_direction_options('Add the words “right after sunset” to the warning.')
+    assert not explicit_direction_options('Add the words “after the paragraph” to the warning.',
+        allow_plain_prose=True)
+    assert not explicit_direction_options('Add the warning before the note or after the passage.',
+        allow_plain_prose=True)
+    request = 'After the existing instruction about latching the upper hatch, add a reminder.'
+    assert not explicit_direction_options(request)
+    assert explicit_direction_options(request, allow_plain_prose=True) == ('after_paragraph',)
+    edit = first.model_copy(update={'page_edit_intent': 'page_edit'})
+    discussion = first.model_copy(update={'page_edit_intent': 'discussion'})
+    assert author_scope_review_required(request, edit, edit)
+    assert not author_scope_review_required(request, edit, discussion)
     assert explicit_direction_options('Put a note right after the Arrival heading.') == (
         'after_paragraph', 'after_heading', 'after_section')
 

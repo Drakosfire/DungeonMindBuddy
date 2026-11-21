@@ -196,7 +196,8 @@ def _prepare_author_scope_review(request):
     explicit_conflict = any(explicit_scope_conflict(request.question, prior.scope) for prior in (first, second))
     nominal_review = any(nominal_scope_needs_review(request.question, prior.scope) for prior in (first, second))
     if 'unresolved' in relations:
-        relations.update(explicit_direction_options(request.question))
+        relations.update(explicit_direction_options(request.question,
+            allow_plain_prose=first.page_edit_intent == second.page_edit_intent == 'page_edit'))
     for relation in sorted(relations):
         for prior in (first, second):
             interpretation = {'relation': AUTHOR_RELATIONS[relation],
@@ -376,7 +377,8 @@ def author_scope_review_required(question, first, second):
         or _unresolved_author_scope(first, second)
         or explicit_scope_conflict(question, first.scope)
         or nominal_scope_needs_review(question, first.scope)
-        or (first.relation == 'unresolved' and bool(explicit_direction_options(question)))
+        or (first.relation == 'unresolved' and bool(explicit_direction_options(question,
+            allow_plain_prose=first.page_edit_intent == second.page_edit_intent == 'page_edit')))
         or (first.relation != 'replace_explicit_selection' and explicit_capture_rewrite(
             question, assessed_edit_intent=bool(first.page_edit_intent or second.page_edit_intent))))
 

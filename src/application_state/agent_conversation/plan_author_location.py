@@ -639,14 +639,18 @@ def contains_exact_paragraph_excerpt(paragraph: str, excerpt: str) -> bool:
     return False
 
 
-def explicit_direction_options(question: str) -> tuple[str, ...]:
+def explicit_direction_options(question: str, *, allow_plain_prose: bool = False) -> tuple[str, ...]:
     """Offer structural interpretations of one explicit editing direction."""
     syntax = _scope_syntax(question)
     directions = re.findall(r'\b(before|after)\b', syntax, re.IGNORECASE)
     adjacent = re.search(r'\b(?:just|directly|immediately|right)\s+(before|after)\b', syntax, re.IGNORECASE)
-    if (len(directions) != 1 or not adjacent
+    if (len(directions) != 1
             or not re.search(r'\b(?:add|insert|place|put|append)\b', syntax, re.IGNORECASE)):
         return ()
+    if not adjacent:
+        prose = re.search(rf'\b(?:before|after)\s+(?:(?:the|that|this)\s+)?'
+            rf'(?:(?:existing|current)\s+)?{_PROSE_LOCATION}\b', syntax, re.IGNORECASE)
+        return (f'{directions[0].casefold()}_paragraph',) if allow_plain_prose and prose else ()
     if adjacent[1].casefold() == 'before':
         return 'before_paragraph', 'before_heading'
     return 'after_paragraph', 'after_heading', 'after_section'
