@@ -1,7 +1,7 @@
 """Fence older readers before recording V2 Plan paragraph placement catalogs."""
 
-revision = "20261120_0171"
-down_revision = "20261120_0170"
+revision = "20261120_0172"
+down_revision = "20261120_0171"
 branch_labels = None
 depends_on = None
 

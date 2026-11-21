@@ -480,8 +480,9 @@ def test_v2_captured_caret_cannot_be_labeled_as_a_different_semantic_destination
         changed.require_original(original)
 
 
+@pytest.mark.parametrize('older_head', ['20261120_0170', '20261120_0171'])
 def test_v2_reader_fence_refuses_older_application_and_downgrade_without_schema_mutation(
-    application_state_dsn, monkeypatch,
+    application_state_dsn, monkeypatch, older_head,
 ):
     import psycopg
     from alembic import command
@@ -492,15 +493,15 @@ def test_v2_reader_fence_refuses_older_application_and_downgrade_without_schema_
         with psycopg.connect(application_state_dsn) as conn:
             return conn.execute("SELECT version_num FROM application_state.schema_migrations").fetchone()[0]
 
-    assert version() == "20261120_0171"
+    assert version() == "20261120_0172"
     with monkeypatch.context() as patch:
-        patch.setattr(cli, "_alembic_head", lambda: "20261120_0170")
+        patch.setattr(cli, "_alembic_head", lambda: older_head)
         with pytest.raises(ApplicationStateMigrationError):
             cli.assert_at_head(dsn=application_state_dsn)
-    assert version() == "20261120_0171"
+    assert version() == "20261120_0172"
     with pytest.raises(RuntimeError, match="forward recovery"):
-        command.downgrade(cli.alembic_config(), "20261120_0170")
-    assert version() == "20261120_0171"
+        command.downgrade(cli.alembic_config(), "20261120_0171")
+    assert version() == "20261120_0172"
     cli.assert_at_head(dsn=application_state_dsn)
 
 

@@ -15,16 +15,18 @@ attribution and citation behavior outside this contextual capability.
 
 Branch: `codex/plan-contextual-paragraphs`.
 Checkout: `/home/drakosfire/Projects/.codex/bf5b/DungeonMindBuddy`.
-Pinned integration base: `fa1536c28ea900f6f01a0772f657e1510806f081`.
-Locked Core: `1c8f9d7ce755cd45f2ff8a8c0b36b68f514bd245`.
+Pinned integration base: `9e8d0f14e1c82ca1255ef3622a4d4c80d918b488`.
+Locked Core: `0dd3073ecffd0613c5d6cae594170dd37419f10a`.
 The integration preserves #4277 semantic-block writer guidance.
 
 Save predecessors #4243 and #4248 merged as
 `08d23da86a079121b7b31812e93db1857df17864` and
 `97c89e93c13a79c1c5e319bf28409b1c78f62b53`. Their persistence evidence does not
 qualify ordinary authoring. #4240's actual0170 migration is merged. Alan chose
-#4240 first, then0171. The one allocated forward-only reader fence is
-`20261120_0171_plan_paragraph_placement_reader_fence.py`, down_revision0170.
+#4240 first, then the paragraph reader fence. Current main has since consumed0171
+for Guest Releases. The same single unmerged fence is relocated to0172, after
+the actual171, rather than creating another head or reverting Guest Releases:
+`20261120_0172_plan_paragraph_placement_reader_fence.py`, down_revision0171.
 No additional migration is allocated here and none is run against operator data.
 
 Previously audited overlaps include #3824/#1014/#1188 targeting/frontend paths
@@ -97,7 +99,7 @@ additional authority. Question keys and enum values are closed and complete.
 Declared semantic option descriptions are checked by the exact-wire validator;
 historical null-description wires retain their bytes.
 
-This is an unreleased V3 proof revision under the same unreleased171 capability.
+This is an unreleased V3 proof revision under the same unreleased paragraph capability behind172.
 Earlier synthetic V3 draft rows/proofs remain pinned to their producing SHA and
 are not claimed compatible with this revision. Producer, decoder, retained record
 validation and negative controls are indivisible parts of this one capability.
@@ -147,7 +149,7 @@ The cumulative expected paths are:
   `native_retrieval.py`, `jev_retrieval_contract.py`, `native_writer.py`,
   `native_plan_session.py`, `native_corpus.py`, `build_related_pages.py`,
   `connected_page_origins.py` under `src/application_state/agent_conversation/`.
-- The allocated171 migration; `tests/application_state/test_plan_placement.py`,
+- The relocated172 migration; `tests/application_state/test_plan_placement.py`,
   `test_plan_contextual_targets.py`; `tests/test_plan_jev_authoring.py`;
   `ci/contracts.json` and `ci/test-classification.json` only to register owning tests.
 
@@ -162,7 +164,10 @@ External evidence root: `/home/drakosfire/Projects/.codex/buddy-check.A0jV7T`,
 verified Projects UUID `48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8`.
 Owned synthetic PostgreSQL container: `buddy-layout-save-a0jv7t`, loopback33133,
 uniquely owned session templates/per-test clones. Never operator54329 or live data.
-Locked Python environment: `venv-fa153` under that root. Retain predecessor
+Locked Python environment: `venv-9e8` under that root, installed from the locked
+Core0dd source. Integrated working-tree owner controls passed160, including old170/
+171 reader refusal and failed-downgrade schema preservation. Preserve
+`venv-fa153`/Core1c8f9d7 evidence separately. Retain predecessor
 `venv-cf89` for its exact-source evidence; it uses Core046791d.
 Verification checkout: `/home/drakosfire/Projects/.codex/plan-contextual-verification/DungeonMindBuddy`.
 Browser services bind owned loopback ephemeral ports and shut down before DB cleanup.
