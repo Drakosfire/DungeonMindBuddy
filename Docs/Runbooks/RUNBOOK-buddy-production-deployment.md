@@ -6,19 +6,30 @@ Record release-host and public validation outcomes using the [release rehearsal 
 
 ## Agent-assisted upgrades through SSH
 
-Use this workflow for an existing hosted installation. The operator owns the
-privileged Compose switch. The agent can inspect, stage, build, and verify
-through the operator's existing SSH account.
+Use the assigned active [deployment handoff](../Plans/HANDOFF-DEPLOY-agent-assisted-ssh-upgrade.md)
+for the current release identity, authorization, and unresolved gates.
+
+Use this workflow for an existing hosted installation. The operator owns
+production changes. SSH access is temporary and release-scoped. On this host,
+the `alan` account can access Docker; Docker access is effectively host-root
+access. Treat it as privileged, not as a general agent credential. An agent
+may run only the exact read-only probes or exact reviewed-release preparation
+command authorized by the active handoff. The agent must not read environment
+values, run arbitrary Docker or Compose commands, access database credentials,
+or perform production backup, restore, migration, or cutover operations.
 
 The current Buddy production host is `srv586875` and the SSH target is
 `alan@191.101.14.169`. Use this target from the deployment workstation.
 
 1. **Establish temporary SSH access.** The operator loads the existing deploy
    key on the workstation with `ssh-add -t 1h ~/.ssh/id_rsa` (substitute the
-   configured key path). Use the existing trusted host key. Check noninteractive
-   access with `ssh -F /dev/null -o BatchMode=yes -o ConnectTimeout=6 alan@191.101.14.169 true`.
+   configured key path). Never copy the private key into a checkout, chat, or
+   server. Use the existing trusted host key. Check noninteractive access with
+   `ssh -F /dev/null -o BatchMode=yes -o ConnectTimeout=6 alan@191.101.14.169 true`.
    If the agent refuses signing, have the operator refresh the key. Host-key
    errors require verifying the host identity through the established channel.
+   The temporary identity is for the explicitly assigned release only; do not
+   leave it loaded or reuse it for another task.
 2. **Pin and inspect the release.** Fetch the owning remote. Record the exact
    reviewed source SHA and frontend verification result. Inspect the running
    container's image, health, and Compose project labels with `docker inspect
@@ -37,7 +48,12 @@ The current Buddy production host is `srv586875` and the SSH target is
    ID and revision label. Stage a Compose override that sets only
    `services.buddy.image` to the exact tag. Verify the prior image is still
    available and retain the previous Compose configuration for rollback.
-4. **Switch from the cloud terminal.** Recheck the serving image against
+4. **Hand off production commands to the operator.** Send one exact command
+   with its expected output, wait for the operator to run it in the cloud
+   terminal, and verify that output before giving the next command. Do not
+   automate `sudo`, pass a password through SSH, or combine backup, migration,
+   and cutover into one opaque command. The operator runs the privileged
+   Compose switch in the cloud terminal. Recheck the serving image against
    the recorded expected SHA. Reuse the running container's ordered
    `com.docker.compose.project.config_files`, project name, and protected
    environment file. On the current server that file is
@@ -46,7 +62,9 @@ The current Buddy production host is `srv586875` and the SSH target is
    Confirm `config --images buddy` resolves the exact staged tag before
    running `up -d --no-deps --pull never --wait --wait-timeout 180 buddy`.
    Keep the root-owned environment file in place and avoid printing rendered
-   Compose config, which can contain secrets.
+   Compose config, which can contain secrets. Use narrowly formatted
+   `docker inspect --format` queries; never print the container's full
+   inspection document or environment.
 5. **Verify and settle.** Inspect the running revision and health again
    over SSH, check the public route, and reproduce the release-specific
    behavior in a signed-in browser. If health or the smoke test fails,
