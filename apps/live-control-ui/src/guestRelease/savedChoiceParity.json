@@ -1,0 +1,9 @@
+[
+  {"name":"ASCII case and spaces","labels":[" Enter ","enter"],"valid":false},
+  {"name":"accented distinction","labels":["Resume","Résumé"],"valid":true},
+  {"name":"Unicode fold expansion remains distinct","labels":["Straße","STRASSE"],"valid":true},
+  {"name":"ECMAScript whitespace","labels":["\ufeffEnter\ufeff","enter"],"valid":false},
+  {"name":"supplementary label at limit","labels":["🐉","Other"],"repeat":80,"valid":true},
+  {"name":"supplementary label over limit","labels":["🐉","Other"],"repeat":81,"valid":false},
+  {"name":"only Unicode whitespace","labels":["\ufeff","Other"],"valid":false}
+]

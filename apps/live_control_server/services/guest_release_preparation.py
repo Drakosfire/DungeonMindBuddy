@@ -63,6 +63,18 @@ class SavedExampleSelection(BaseModel):
     image_description: str | None = Field(default=None, max_length=240)
 
 
+class SavedChoiceOption(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    label: str = Field(min_length=1, max_length=80)
+    outcome: str = Field(min_length=1, max_length=2000)
+
+
+class SavedChoiceSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    prompt: str = Field(min_length=1, max_length=240)
+    options: list[SavedChoiceOption] = Field(min_length=2, max_length=2)
+
+
 class ReleaseSelection(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     graph_revision: str = Field(min_length=1, max_length=255)
@@ -71,6 +83,7 @@ class ReleaseSelection(BaseModel):
     sources: list[SourceSelection] = Field(max_length=500)
     asset_ids: list[UUID] = Field(max_length=100)
     saved_example: SavedExampleSelection | None = None
+    saved_choice: SavedChoiceSelection | None = None
 
 
 def prepare(*, world_id: str, subject: str, selection: ReleaseSelection) -> tuple[UUID, str]:
@@ -157,6 +170,10 @@ def _prepare_candidate(*, world_id: str, subject: str, selection: ReleaseSelecti
             "image": None if example.asset_id is None else {
                 "id": str(local_assets[example.asset_id]), "description": example.image_description},
         }
+    if selection.saved_choice is not None:
+        if selection.saved_example is None:
+            raise GuestReleasePreparationError("Saved choice requires a saved example")
+        manifest["saved_choice"] = {"version": "owner_saved_choice_v1", **selection.saved_choice.model_dump()}
     return guest_release.stage(world_id=world_id, subject=subject, expected_owner_generation=generation,
         native_world_id=binding.native_world_id, native_binding_version=binding.binding_version,
         graph_revision=selection.graph_revision, manifest=manifest, assets=assets, source_bindings=bindings,

@@ -54,6 +54,14 @@ it("requires explicit fields and evidence before staging the exact selection", a
   await user.selectOptions(screen.getAllByRole("combobox", { name: "Source excerpt" })[1], "option2");
   await user.selectOptions(screen.getByLabelText("Inline image"), "image");
   await user.type(screen.getByLabelText("Describe the image for guests"), "A red tent");
+  await user.click(screen.getByRole("checkbox", { name: "Include a prewritten guest choice" }));
+  expect(button).toBeDisabled();
+  expect(screen.getByText(/Both outcomes will be public/)).toBeInTheDocument();
+  await user.type(screen.getByLabelText("Choice prompt"), "What next");
+  await user.type(screen.getByLabelText("Option 1 label"), "Enter");
+  await user.type(screen.getByLabelText("Option 1 outcome"), "A bell rings");
+  await user.type(screen.getByLabelText("Option 2 label"), "Wait");
+  await user.type(screen.getByLabelText("Option 2 outcome"), "A lantern flickers");
   await user.click(button);
   expect(await screen.findByRole("status")).toHaveTextContent("Copy prepared");
   expect(prepared).toHaveBeenCalledOnce();
@@ -61,5 +69,6 @@ it("requires explicit fields and evidence before staging the exact selection", a
   expect(JSON.parse(String(posted?.[1]?.body))).toMatchObject({ graph_revision: "rev", nodes: [{ entity_id: "entity",
     name_assertion_id: "name", kind_assertion_id: "kind", name_source_index: 0, kind_source_index: 1 }],
     sources: [{ document_id: "doc", excerpt: "clue", evidence_id: "evidence" }, { document_id: "doc2" }], relationships: [], asset_ids: ["image"],
-    saved_example: { title: "Saved scene", body: "A scene", source_indexes: [0, 1], asset_id: "image", image_description: "A red tent" } });
+    saved_example: { title: "Saved scene", body: "A scene", source_indexes: [0, 1], asset_id: "image", image_description: "A red tent" },
+    saved_choice: { prompt: "What next", options: [{ label: "Enter", outcome: "A bell rings" }, { label: "Wait", outcome: "A lantern flickers" }] } });
 });

@@ -174,7 +174,10 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
         relationships=[preparation.RelationshipSelection(assertion_id=edge.assertion_id, subject_id=edge.subject_entity_id,
             predicate=edge.predicate, evidence_id=edge.metadata.evidence_ref_ids[0], source_index=index(edge))], asset_ids=[asset_id],
         saved_example=preparation.SavedExampleSelection(title="An owner scene", body="A saved scene",
-            source_indexes=[0, len(sources) - 1], asset_id=asset_id, image_description="A small red image"))
+            source_indexes=[0, len(sources) - 1], asset_id=asset_id, image_description="A small red image"),
+        saved_choice=preparation.SavedChoiceSelection(prompt="What next", options=[
+            preparation.SavedChoiceOption(label="Enter", outcome="A bell rings"),
+            preparation.SavedChoiceOption(label="Wait", outcome="A lantern flickers")]))
     monkeypatch.setenv(hosted_auth.DEPLOYMENT_ENVIRONMENT_ENV, "production")
     monkeypatch.setenv(hosted_auth.AUTH_MODE_ENV, "hosted_dms")
     monkeypatch.setenv(hosted_auth.TRUSTED_FRONTEND_ORIGINS_ENV, "https://buddy.example")
@@ -221,6 +224,8 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
     assert example["title"] == "An owner scene" and example["body"] == "A saved scene"
     assert example["references"] == [manifest["sources"][0]["id"], manifest["sources"][-1]["id"]]
     assert example["image"] == {"id": manifest["assets"][0]["id"], "description": "A small red image"}
+    assert manifest["saved_choice"] == {"version": "owner_saved_choice_v1", "prompt": "What next", "options": [
+        {"label": "Enter", "outcome": "A bell rings"}, {"label": "Wait", "outcome": "A lantern flickers"}]}
     assert str(document_id) not in str(example) and str(asset_id) not in str(example)
     released_asset = UUID(manifest["assets"][0]["id"])
     assert released_asset != asset_id

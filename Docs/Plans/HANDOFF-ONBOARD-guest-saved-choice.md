@@ -23,8 +23,11 @@ the outcome. Resetting the graph additions also resets the choice. The saved
 scene and immutable published copy never change.
 
 The prompt is at most 240 characters; each label at most 80 and each outcome at
-most 2,000. Compare labels after trimming and Unicode case-folding; equivalent
-labels are rejected. Treat option positions zero and one as copy-local stable
+most 2,000 Unicode code points. Compare labels after ECMAScript-compatible
+whitespace trimming and ASCII-only case folding; matching labels are rejected.
+Non-ASCII characters are compared as written, so this deterministic shared
+contract neither collapses accents nor relies on runtime-specific Unicode
+case-fold tables. Treat option positions zero and one as copy-local stable
 identities, never labels or external IDs. Visitors may switch freely between
 the two prewritten outcomes; reset clears the selection, not an actual play
 record. Show both full outcomes together, uncollapsed, during owner review.

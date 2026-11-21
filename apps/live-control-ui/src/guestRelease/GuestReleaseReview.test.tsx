@@ -59,15 +59,17 @@ it("does not permit approval until the selected image has loaded", async () => {
   expect(approval).toBeDisabled();
 });
 
-it("shows the exact saved example and blocks a malformed example", async () => {
-  let malformed = false;
+it("shows the saved choice and both outcomes and blocks malformed copies", async () => {
+  let malformed: "example" | "choice" | null = null;
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     const body = url.endsWith("/candidates") ? { candidates: [{ release_id: "copy", created_at: "2026-11-20T00:00:00Z" }] }
       : url.endsWith("/published") ? { releases: [] } : url.endsWith("/status") ? { version: 0 }
       : { digest: "a".repeat(64), source_visibility: { first: "internal", second: "player_safe" }, manifest: {
         graph: { nodes: [], edges: [] }, sources: [{ id: "first", text: "First", evidence_role: "support" }, { id: "second", text: "Second", evidence_role: "context" }], assets: [],
-        saved_example: { version: "owner_saved_scene_v1", title: "Scene title", body: "Owner text", references: ["first", malformed ? "foreign" : "second"], image: null } } };
+        saved_example: { version: "owner_saved_scene_v1", title: "Scene title", body: "Owner text", references: ["first", malformed === "example" ? "foreign" : "second"], image: null },
+        saved_choice: { version: malformed === "choice" ? "unknown" : "owner_saved_choice_v1", prompt: "What next", options: [
+          { label: "Enter", outcome: "A bell rings" }, { label: "Wait", outcome: "A lantern flickers" }] } } };
     return new Response(JSON.stringify(body), { status: 200 });
   }));
   const user = userEvent.setup();
@@ -76,10 +78,17 @@ it("shows the exact saved example and blocks a malformed example", async () => {
   await user.click(await screen.findByRole("button", { name: /Review copy from/ }));
   expect(await screen.findByText("Owner text")).toBeInTheDocument();
   expect(screen.getByText(/excerpt 1 \(support\), excerpt 2 \(context, not direct support\)/)).toBeInTheDocument();
+  expect(screen.getByText("A bell rings")).toBeInTheDocument();
+  expect(screen.getByText("A lantern flickers")).toBeInTheDocument();
+  expect(screen.getByText(/Both outcomes are public/)).toBeInTheDocument();
   expect(screen.getByRole("checkbox", { name: /I reviewed this copy/ })).toBeEnabled();
-  malformed = true;
+  malformed = "choice";
   await user.click(screen.getByRole("button", { name: /Review copy from/ }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("malformed");
+  expect(await screen.findByRole("alert")).toHaveTextContent("saved choice is malformed");
+  expect(screen.getByRole("checkbox", { name: /I reviewed this copy/ })).toBeDisabled();
+  malformed = "example";
+  await user.click(screen.getByRole("button", { name: /Review copy from/ }));
+  expect((await screen.findAllByRole("alert")).some(node => node.textContent?.includes("saved example is malformed"))).toBe(true);
   expect(screen.getByRole("checkbox", { name: /I reviewed this copy/ })).toBeDisabled();
 });
 
