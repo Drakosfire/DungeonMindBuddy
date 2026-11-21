@@ -102,7 +102,7 @@ def prepare_contextual_work(request):
     descriptions, headings = description_factors(request)
     if descriptions:
         state['section_description_evidence'] = {'qualified_descriptions': descriptions, 'heading_occurrences': headings}
-    descriptions = {
+    work_descriptions = {
         'discuss': 'Answer, explain, critique or discuss in conversation without a requested page edit.',
         'clarify': 'The intended work or content needs an author decision. Missing or ambiguous placement alone is not this intent.',
         'write_current_page': 'Draft, revise or place usable writing on this Plan, even when its destination is missing or ambiguous.',
@@ -111,7 +111,7 @@ def prepare_contextual_work(request):
     }
     return base.model_copy(update={"state": state, "questions": (
         ChoiceDecisionQuestion(name="requested_work", options=choices,
-            option_descriptions={key: descriptions[key] for key in choices},
+            option_descriptions={key: work_descriptions[key] for key in choices},
             question="What work does the current author request, independently of location availability?"),
         *target_questions(request),
         *description_questions(descriptions, headings))})
