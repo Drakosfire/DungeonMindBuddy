@@ -14,6 +14,8 @@ IMAGE_ID = "sha256:" + "b" * 64
 
 def invoke(label, tags=""):
     def fake_run(*args):
+        if args[1] == "context":
+            return json.dumps("unix:///var/run/docker.sock")
         if args[0] == "git":
             return SHA + "\n"
         if args[2] == "inspect":
@@ -38,6 +40,8 @@ def test_builds_with_distinct_tool_and_runtime_revisions():
     calls = []
 
     def fake_run(*args):
+        if args[1] == "context":
+            return json.dumps("unix:///var/run/docker.sock")
         if args[0] == "git":
             return args[3].removesuffix("^{commit}") + "\n"
         if args[2] == "inspect":
@@ -60,3 +64,23 @@ def test_builds_with_distinct_tool_and_runtime_revisions():
     assert f"org.dungeonmind.runtime.revision={runtime_sha}" in build
     assert f"buddy-app-recovery:{tool_sha}-{runtime_sha}" in build
     assert build[build.index("--file") + 1].endswith("/Dockerfile.app-recovery")
+
+
+def test_rejects_remote_docker_endpoint_before_image_inspection():
+    def fake_run(*args):
+        if args[0] == "git":
+            return SHA + "\n"
+        assert args[1] == "context"
+        return json.dumps("ssh://remote-host")
+    with patch.object(sys, "argv", ["builder", SHA, SHA, "runtime"]), patch.object(builder, "run", fake_run), patch.object(subprocess, "run") as execution:
+        with pytest.raises(SystemExit):
+            builder.main()
+        assert not execution.called
+
+
+def test_rejects_docker_host_override_before_inspection():
+    with patch.object(sys, "argv", ["builder", SHA, SHA, "runtime"]), patch.dict(builder.os.environ, {"DOCKER_HOST": "ssh://remote-host"}), patch.object(builder, "run", return_value=SHA + "\n") as call, patch.object(subprocess, "run") as execution:
+        with pytest.raises(SystemExit):
+            builder.main()
+        assert call.call_count == 2
+        assert not execution.called

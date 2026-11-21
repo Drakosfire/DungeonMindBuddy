@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import tempfile
@@ -30,6 +31,12 @@ def main() -> None:
     runtime_resolved = run("git", "rev-parse", "--verify", f"{args.runtime_sha}^{{commit}}").strip()
     if runtime_resolved != args.runtime_sha:
         parser.error("runtime SHA does not resolve exactly")
+    for key in ("DOCKER_HOST", "DOCKER_CONTEXT", "BUILDX_BUILDER", "BUILDKIT_HOST", "DOCKER_BUILDKIT"):
+        if os.environ.get(key):
+            parser.error(f"refusing Docker endpoint or builder override: {key}")
+    endpoint = json.loads(run("docker", "context", "inspect", "--format", "{{json .Endpoints.docker.Host}}"))
+    if endpoint != "unix:///var/run/docker.sock":
+        parser.error("Docker context must use the local default Unix socket")
     image = json.loads(run("docker", "image", "inspect", args.runtime))[0]
     labels = image.get("Config", {}).get("Labels") or {}
     if labels.get("org.opencontainers.image.revision") != args.runtime_sha:
@@ -54,7 +61,7 @@ def main() -> None:
             "--label", f"org.opencontainers.image.revision={args.sha}",
             "--label", f"org.dungeonmind.runtime.revision={args.runtime_sha}",
             "--tag", tag, str(root),
-        ], check=True)
+        ], check=True, env={**os.environ, "DOCKER_BUILDKIT": "0"})
     print(f"Built {tag} from runtime {image_id}")
 
 
