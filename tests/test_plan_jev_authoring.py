@@ -486,7 +486,7 @@ def test_author_scope_input_admission_joins_exact_native_turn_without_granting_w
 
 
 @pytest.mark.parametrize('provider_case', [
-    'success', 'disagreeing_recheck', 'substituted_observation', 'unknown_outcome',
+    'success', 'disagreeing_recheck', 'capture_rewrite_recheck', 'substituted_observation', 'unknown_outcome',
 ])
 def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
         plan_adapter, monkeypatch, provider_case):
@@ -501,8 +501,10 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
     from application_state.errors import ApplicationStateValidationError
     from generationengine import GenerationEngineError
 
-    plan_adapter.request = plan_adapter.request.model_copy(update={
-        'message': 'Add a note at the caret and mention the Equipment section.'})
+    message = ('Rewrite the selected paragraph to keep its text and add a warning.'
+        if provider_case == 'capture_rewrite_recheck'
+        else 'Add a note at the caret and mention the Equipment section.')
+    plan_adapter.request = plan_adapter.request.model_copy(update={'message': message})
     _, turn = _claim_contextual_scope_turn(plan_adapter)
     dispatch = PlanJevDispatch.author_scope(plan_adapter)
     requests = []
@@ -528,7 +530,8 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
             raise httpx2.ReadTimeout('synthetic unknown outcome', request=request)
         assert all(('text_before' in row['author_quote']) == (len(requests) == 2)
             for row in wire['state']['scope_hypotheses'].values())
-        relation = 'after_heading' if len(requests) == 2 and provider_case == 'disagreeing_recheck' else 'captured'
+        relation = ('after_paragraph' if provider_case == 'capture_rewrite_recheck' else
+            'after_heading' if len(requests) == 2 and provider_case == 'disagreeing_recheck' else 'captured')
         selections = {'location_relation': relation, 'existing_scope': 'none'}
         answers = {name: {'type': 'choice', 'choice': selected, 'confidence': 1.0,
             'probabilities': {key: float(key == selected) for key in wire['questions'][name]['criteria']}}
@@ -559,7 +562,8 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
         'provider_outcome', 'provider_outcome', 'native_plan_author_scope_observed_v1']
     assert type(events[-1]) is NativePlanAuthorScopeObservedV1
     assert events[-1].scope_observation == observation
-    assert observation.relation == 'captured' and observation.scope == UnscopedLocation()
+    assert observation.relation == ('after_paragraph' if provider_case == 'capture_rewrite_recheck' else 'captured')
+    assert observation.scope == UnscopedLocation()
     assert events[-1].actual_output_tokens == result.observation.output_tokens == 9
     assert require_retained_author_scope(current.graph_context_execution, events[-1].event_id, observation) == events[-1]
     with pytest.raises(ValueError, match='exact retained author observation'):
@@ -576,7 +580,7 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
     opening_scope = second.selection_event
     opening = PlanJevDispatch.requested_work(plan_adapter, page_title='Preparation',
         author_scope=opening_scope)
-    if provider_case == 'disagreeing_recheck':
+    if provider_case in {'disagreeing_recheck', 'capture_rewrite_recheck'}:
         async def no_opening(_):
             pytest.fail('Disagreeing author observations cannot enter the opening transport')
 

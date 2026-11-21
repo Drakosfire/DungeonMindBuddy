@@ -34,7 +34,7 @@ class PlanJevHarness:
         raise ValueError('Plan Jev requires its trusted parent orchestration')
 
     def _interpret_author_scope(self, adapter, dialogue, calls):
-        from application_state.agent_conversation.native_plan_opening import author_scope_observations_agree
+        from application_state.agent_conversation.native_plan_opening import author_scope_review_required
 
         def observe(**options):
             dispatch = PlanJevDispatch.author_scope(adapter, dialogue=dialogue, **options)
@@ -47,9 +47,9 @@ class PlanJevHarness:
 
         first = observe()
         second = observe(prior_scope=first)
-        if author_scope_observations_agree(first.scope_observation, second.scope_observation):
-            return second
-        return observe(review_scope=(first, second))
+        if author_scope_review_required(adapter.request.message, first.scope_observation, second.scope_observation):
+            return observe(review_scope=(first, second))
+        return second
 
     def execute(self, adapter, *, dialogue=(), retained_navigation=()):
         from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
