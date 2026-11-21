@@ -112,7 +112,7 @@ git -C "$workspace/core" archive "$core" alembic.ini migrations | tar -x -C "$wo
   --tmpfs /var/lib/postgresql/data:rw,size=256m --memory 768m \
   -e POSTGRES_HOST_AUTH_METHOD=trust "$pg_image" >/dev/null
 [[ "$("${docker_cmd[@]}" container inspect -f '{{.HostConfig.NetworkMode}} {{json .HostConfig.PortBindings}}' "$db")" == 'none {}' ]]
-for i in $(seq 1 30); do
+for ((attempt=1;attempt<=30;attempt++)); do
   "${docker_cmd[@]}" exec "$db" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 && break
   sleep 1
 done
@@ -162,7 +162,7 @@ start() {
 }
 probe() {
   local observed
-  for i in $(seq 1 30); do
+  for ((attempt=1;attempt<=30;attempt++)); do
     if observed=$("${docker_cmd[@]}" exec -i "$service" python - "$1" "$2" 2>"$workspace/last-probe-error" <<'PY'
 import json
 import re
