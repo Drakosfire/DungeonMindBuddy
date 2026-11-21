@@ -166,7 +166,8 @@ def test_composed_nomination_offers_semantics_and_never_host_metadata():
 def test_composed_later_row_keeps_page_and_slot_headings_distinct():
     from application_state.agent_conversation.plan_authoring import PlanRequestedWorkInputV1
     from application_state.agent_conversation.plan_composed_targeting import (
-        ComposedPlanPlacementCatalogV1, prepare_composed_plan_nomination,
+        ComposedPlanNominationV1, ComposedPlanPlacementCatalogV1,
+        prepare_composed_plan_nomination, resolve_composed_plan_nomination,
     )
     from application_state.content.markdown_source_blocks import source_block_spans
     from application_state.content.page_presentation import PagePresentation
@@ -174,7 +175,7 @@ def test_composed_later_row_keeps_page_and_slot_headings_distinct():
 
     heading = ("page-heading", "## Arrival")
     slot_heading = ("slot-heading", "## Local desk")
-    passage = ("later-note", "Keep the shutters closed.")
+    passage = ("later-note", LEFT[1])
     other = ("later-right-note", "Keep one lantern ready.")
     ending = ("later-ending", "Unrelated ending.")
     _, first, first_editor = composed_plan([LEFT], [RIGHT], heading)
@@ -213,6 +214,14 @@ def test_composed_later_row_keeps_page_and_slot_headings_distinct():
     assert desk["page_headings"] == ["Arrival"]
     assert desk["description"] == "left column of the second row on the page"
     assert desk["row_under_page_heading"] == "second row"
+    nomination = ComposedPlanNominationV1(confirmed_work="write_current_page", relation="before",
+        scope="unscoped", row_choice="page_row1", passages=("passage0",))
+    chosen = resolve_composed_plan_nomination(snapshot, catalog, "write_current_page", nomination)
+    assert chosen.capture.slot_address.block_id == "later-note"
+    relative_without_heading = nomination.model_copy(update={"row_choice": "section_row1"})
+    assert resolve_composed_plan_nomination(
+        snapshot, catalog, "write_current_page", relative_without_heading,
+    ).capture is None
 
 
 @pytest.mark.parametrize("selected", [False, True])

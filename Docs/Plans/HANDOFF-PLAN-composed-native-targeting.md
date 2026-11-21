@@ -57,3 +57,11 @@ writer calls or product mutations occurred. The follow-up separates page
 headings from slot-local headings, presents page-wide and section-relative
 ordinals explicitly, asks for independent edit confirmation, and keeps
 unqualified scope votes inert. The held-out pack remains sealed.
+
+At `edace20b2fea1176443567104c2e8af25f38cd89`, all 16 development calls
+completed their host protocol. The result was 14 of 16 correct, including
+all eight controls and six feasible placements, with zero unsafe
+nominations. An ordinal constraint was dropped in one raw vote and an
+existing passage was missed in the other. The next candidate represents row
+ordinals as an independent nomination and clarifies how passage and
+heading/column judgments remain independent.
