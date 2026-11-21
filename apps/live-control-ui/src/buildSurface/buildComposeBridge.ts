@@ -15,7 +15,7 @@ import { admitMarkdownInsertion, insertReviewedMarkdown, insertReviewedMarkdownA
 import {captureProseTargetCatalog,resolveProseTarget} from '../documentEditing/proseTargetCatalog';
 import {flattenPresentation,hasPresentation,hydratePresentation,presentationFingerprint,projectPresentation,type PagePresentation} from '../tiptap/pageComposer/presentation';
 import {preserveLeadingYamlFrontmatter,stripLeadingYamlFrontmatter} from '../tiptap/markdown/stripLeadingYamlFrontmatter';
-import {preservePlainReviewBlockIdentities} from '../tiptap/pageComposer/PageRow';
+import {applyAgentImageMove, captureAgentImageMoves, preservePlainReviewBlockIdentities, type CapturedAgentImageMoves} from '../tiptap/pageComposer/PageRow';
 import {isValidGraphNodeId,normalizeRunbookReferenceAttrs} from '../tiptap/references/runbookReferences';
 
 export interface BuildComposeEditorState {
@@ -54,6 +54,8 @@ export interface ProposalInspection {
   savedProjection?:SavedProposalProjection;
 }
 export interface BuildComposeBridge {
+  captureImageMoves?: () => CapturedAgentImageMoves;
+  applyImageMove?: (capture: CapturedAgentImageMoves, alias: string) => void;
   canReviewGraphReference?: (worldId: string, documentId: string) => boolean;
   prepareGraphReference?: (placement: BuildGraphReferencePlacement) => Promise<PreparedBuildGraphReference>;
   applyGraphReference?: (prepared: PreparedBuildGraphReference) => void;
@@ -227,7 +229,16 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
     return basis.selection ? {from:basis.caret,to:basis.selection.end} : basis.caret;
   }
   const applied = new WeakSet<CapturedBuildInsertion>();
+  function imageMoveScope() {
+    const current = getCurrent();
+    if (!current || current.visibility !== "internal" || !current.pagePresentation?.items.some(item => item.kind === "row")) {
+      throw new Error("Image movement requires an existing saved internal layout.");
+    }
+    return current;
+  }
   const bridge: BuildComposeBridge = {
+    captureImageMoves: () => captureAgentImageMoves(imageMoveScope()),
+    applyImageMove: (capture, alias) => applyAgentImageMove(imageMoveScope(), capture, alias),
     canReviewGraphReference(worldId, documentId) {
       const current = getCurrent();
       return Boolean(current?.canEdit && !current.editor.isDestroyed && current.visibility === 'internal'
